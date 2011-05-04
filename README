@@ -1,0 +1,42 @@
+*********************************
+*theHarvester 2.0 REBORN        *
+*Coded by Christian Martorella  *
+*cmartorella@edge-security.com  *
+*********************************
+
+What is this?
+-------------
+
+theHarvester is a tool for gathering e-mail accounts, subdomain names and employee names from different public sources (search engines, pgp key servers). Is a really simple tool, but very effective for the early stages of a penetration test.
+
+The actual sources are:
+
+google: google search engine  - www.google.com
+google-profiles: google search engine, specific search for Google profiles
+bing: microsoft search engine  - www.bing.com
+bingapi: microsoft search engine, through the API (you need to add your Key in the discovery/bingsearch.py file)
+pgp: pgp key server - pgp.rediris.es 
+exalead: Exalead search engine  - www.exalead.com
+linkedin: google search engine, specific search for Linkedin users
+
+Dependencies:
+------------
+none
+
+Changelog in 2.0:
+----------------
+-Complete rewrite, more modular and easy to maintain
+-New sources (Exalead, Google-Profiles, Bing-Api)
+-Time delay between request, to prevent search engines from blocking our IP´s
+-You can start the search from the results page that you want, hence you can *resume* a search 
+-Export to xml
+-All search engines harvesting
+
+
+TODO:
+----
+See TODO file.
+
+Comments? Bugs? requests?
+------------------------
+cmartorella@edge-security.com
