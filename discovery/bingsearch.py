@@ -69,7 +69,8 @@ class search_bing:
 		if api=="yes":
 				if self.bingApi=="":
 					print "Please insert your API key in the discovery/bingsearch.py"
-					sys.exit()
+					#sys.exit()
+					return
 		while (self.counter < self.limit):
 			if api=="yes":
 				self.do_search_api()
