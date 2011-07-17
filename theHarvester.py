@@ -160,6 +160,13 @@ def start(argv):
 	else:
 		for emails in all_emails:
 			print emails 
+	print "\n[+] Possible hosts found"
+	print " -----------"
+	if all_hosts == []:
+		print "No hosts found"
+	else:
+		for h in all_hosts:
+			print h
 	print "\n[+] Hosts found"
 	print " -----------"
 	if all_hosts == []:
