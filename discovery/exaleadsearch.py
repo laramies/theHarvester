@@ -35,7 +35,6 @@ class search_exalead:
         returncode, returnmsg, headers = h.getreply()
         self.results = h.getfile().read()
         self.totalresults += self.results
-        print self.results
 
     def do_search_files(self, files):
         h = httplib.HTTP(self.server)
