@@ -1,34 +1,108 @@
 *********************************
-*theHarvester 2.0 REBORN        *
+*theHarvester 2.5               *
 *Coded by Christian Martorella  *
 *cmartorella@edge-security.com  *
+*Blackhat Arsenal 2011 edition  *
 *********************************
 
 What is this?
 -------------
 
-theHarvester is a tool for gathering e-mail accounts, subdomain names and employee names from different public sources (search engines, pgp key servers). Is a really simple tool, but very effective for the early stages of a penetration test.
+theHarvester is a tool for gathering e-mail accounts, subdomain names, virtual
+hosts, open ports/ banners, and employee names from different public sources
+(search engines, pgp key servers).
+
+Is a really simple tool, but very effective for the early stages of a penetration
+test or just to know the visibility of your company in the Internet.
 
 The actual sources are:
 
-google: google search engine  - www.google.com
-google-profiles: google search engine, specific search for Google profiles
-bing: microsoft search engine  - www.bing.com
-bingapi: microsoft search engine, through the API (you need to add your Key in the discovery/bingsearch.py file)
-pgp: pgp key server - pgp.rediris.es 
-exalead: Exalead search engine  - www.exalead.com
-linkedin: google search engine, specific search for Linkedin users
+Passive:
+--------
+-google: google search engine  - www.google.com
+
+-google-profiles: google search engine, specific search for Google profiles
+
+-bing: microsoft search engine  - www.bing.com
+
+-bingapi: microsoft search engine, through the API (you need to add your Key in
+          the discovery/bingsearch.py file)
+
+-pgp: pgp key server - pgp.rediris.es
+
+-linkedin: google search engine, specific search for Linkedin users
+
+-shodan: Shodan Computer search engine, will search for ports and banner of the
+         discovered hosts  (http://www.shodanhq.com/)
+
+-vhost: Bing virtual hosts search
+
+Active:
+-------
+-DNS brute force: this plugin will run a dictionary brute force enumeration
+-DNS reverse lookup: reverse lookup of ip´s discovered in order to find hostnames
+-DNS TDL expansion: TLD dictionary brute force enumeration
+
+
+Modules that need API keys to work:
+----------------------------------
+-googleCSE: You need to create a Google Custom Search engine(CSE), and add your
+ Google API key and CSE ID in the plugin (discovery/googleCSE.py)
+-shodan: You need to provide your API key in discovery/shodansearch.py
+
 
 Dependencies:
 ------------
 none
+
+Changelog in 2.5:
+-----------------
+-Replaced httplib by Requests http library (for Google related)
+-Fixed Google searches
+
+
+Changelog in 2.4:
+------------------
+-Fixed Linkedin Parser
+-Fixed 123people
+-Added Dogpile Search engine (Marcus)
+-PEP8 compliant (Mario)
+-Fixed XML export (Marcus)
+-Expanded TLD list from http://data.iana.org/TLD/tlds-alpha-by-domain.txt (Marcus)
+-DNS Bruteforce fixed (Tomas)
+-Added Google Custom Search Support - Need API Key to use it.
+
+
+
+Changelog in 2.3:
+--------------
+-Fixed duplicates
+
+Changelog in 2.2:
+----------------
+-Added Jigsaw (www.jigsaw.com)
+-Added 123People (www.123people.com)
+-Added limit to google searches as the maximum results we can obtain is 1000
+-Removed SET, as service was discontinued by Google
+-Fixed parser to remove wrong results like emails starting with @
+
+
+Changelog in 2.1:
+----------------
+-DNS Bruteforcer
+-DNS Reverse lookups
+-DNS TDL Expansion
+-SHODAN DB integration
+-HTML report
+-DNS server selection
+
 
 Changelog in 2.0:
 ----------------
 -Complete rewrite, more modular and easy to maintain
 -New sources (Exalead, Google-Profiles, Bing-Api)
 -Time delay between request, to prevent search engines from blocking our IP´s
--You can start the search from the results page that you want, hence you can *resume* a search 
+-You can start the search from the results page that you want, hence you can *resume* a search
 -Export to xml
 -All search engines harvesting
 
@@ -40,3 +114,12 @@ See TODO file.
 Comments? Bugs? requests?
 ------------------------
 cmartorella@edge-security.com
+
+Updates:
+--------
+http://code.google.com/p/theharvester/
+
+Thanks:
+-------
+John Matherly -  SHODAN project
+Lee Baird for suggestions and bugs reporting
