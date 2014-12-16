@@ -1,0 +1,44 @@
+Changelog in 2.4:
+------------------
+-Fixed Linkedin Parser
+-Fixed 123people
+-Added Dogpile Search engine (Marcus)
+-PEP8 compliant (Mario)
+-Fixed XML export (Marcus)
+-Expanded TLD list from http://data.iana.org/TLD/tlds-alpha-by-domain.txt (Marcus)
+-DNS Bruteforce fixed (Tomas)
+-Added Google Custom Search Support - Need API Key to use it.
+
+
+
+Changelog in 2.3:
+--------------
+-Fixed duplicates
+
+Changelog in 2.2:
+----------------
+-Added Jigsaw (www.jigsaw.com)
+-Added 123People (www.123people.com)
+-Added limit to google searches as the maximum results we can obtain is 1000
+-Removed SET, as service was discontinued by Google
+-Fixed parser to remove wrong results like emails starting with @
+
+
+Changelog in 2.1:
+----------------
+-DNS Bruteforcer
+-DNS Reverse lookups
+-DNS TDL Expansion
+-SHODAN DB integration
+-HTML report
+-DNS server selection
+
+
+Changelog in 2.0:
+----------------
+-Complete rewrite, more modular and easy to maintain
+-New sources (Exalead, Google-Profiles, Bing-Api)
+-Time delay between request, to prevent search engines from blocking our IP´s
+-You can start the search from the results page that you want, hence you can *resume* a search
+-Export to xml
+-All search engines harvesting
