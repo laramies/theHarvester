@@ -68,7 +68,7 @@ Modules that need API keys to work:
 
 Dependencies:
 ------------
-none
+-Requests library (http://docs.python-requests.org/en/latest/)
 
 Changelog in 2.5:
 -----------------
