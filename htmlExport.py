@@ -1,12 +1,11 @@
-from lib import markup
 from lib import graphs
+from lib import markup
 import re
 
 
 class htmlExport():
 
-    def __init__(self, users, hosts, vhosts, dnsres,
-                 dnsrev, file, domain, shodan, tldres):
+    def __init__(self, users, hosts, vhosts, dnsres, dnsrev, file, domain, shodan, tldres):
         self.users = users
         self.hosts = hosts
         self.vhost = vhosts
@@ -33,6 +32,17 @@ class htmlExport():
 			font-weight: bold;
 		}
 
+		h2 { font-family: arial, Times New Roman, times-roman, georgia, serif;
+			font-size: 48px;
+			line-height: 40px;
+			letter-spacing: -1px;
+			color: #680000;
+			margin: 0 0 0 0;
+			padding: 0 0 0 0;
+			font-weight: 100;
+
+		}
+
 		h3 { font-family: arial, Times New Roman, times-roman, georgia, serif;
 			color: #444;
 			margin: 0;
@@ -53,30 +63,18 @@ class htmlExport():
 
 		}
 
-		h2{
-		font-family: arial, Times New Roman, times-roman, georgia, serif;
-				font-size: 48px;
-				line-height: 40px;
-				letter-spacing: -1px;
-				color: #680000 ;
-				margin: 0 0 0 0;
-				padding: 0 0 0 0;
-				font-weight: 100;
-
-		}
-
 		pre {
-		overflow: auto;
-		padding-left: 15px;
-		padding-right: 15px;
-		font-size: 11px;
-		line-height: 15px;
-		margin-top: 10px;
-		width: 93%;
-		display: block;
-		background-color: #eeeeee;
-		color: #000000;
-		max-height: 300px;
+		     overflow: auto;
+		     padding-left: 15px;
+		     padding-right: 15px;
+		     font-size: 11px;
+		     line-height: 15px;
+		     margin-top: 10px;
+		     width: 93%;
+		     display: block;
+		     background-color: #eeeeee;
+		     color: #000000;
+		     max-height: 300px;
 		}
 		</style>
 		"""
@@ -103,7 +101,7 @@ class htmlExport():
         graph.labels = ['Emails', 'hosts', 'Vhost', 'TLD', 'Shodan']
         graph.showValues = 1
         page.body(graph.create())
-        page.h3("E-mails names found:")
+        page.h3("Emails found:")
         if self.users != []:
             page.ul(class_="userslist")
             page.li(self.users, class_="useritem")
@@ -123,12 +121,12 @@ class htmlExport():
             page.li(self.tldres, class_="tlditem")
             page.ul.close()
         if self.dnsres != []:
-            page.h3("Hosts found in DNS brute force:")
+            page.h3("Hosts found in DNS bruteforce:")
             page.ul(class_="dnslist")
             page.li(self.dnsres, class_="dnsitem")
             page.ul.close()
         if self.dnsrev != []:
-            page.h3("Hosts found with reverse lookup :")
+            page.h3("Hosts found with reverse DNS lookup :")
             page.ul(class_="dnsrevlist")
             page.li(self.dnsrev, class_="dnsrevitem")
             page.ul.close()
@@ -170,3 +168,4 @@ class htmlExport():
                 pass
         file.close
         return "ok"
+

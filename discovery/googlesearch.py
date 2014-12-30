@@ -1,9 +1,9 @@
-import string
-import sys
 import myparser
 import re
-import time
 import requests
+import string
+import sys
+import time
 
 
 class search_google:
@@ -29,7 +29,6 @@ class search_google:
             print e
         self.results = r.content 
         self.totalresults += self.results
-
 
     def do_search_profiles(self):
         try:
@@ -66,13 +65,13 @@ class search_google:
             self.do_search()
             #more = self.check_next()
             time.sleep(1)
-            print "\tSearching " + str(self.counter) + " results..."
+            print "\tSearching " + str(self.counter) + " results."
             self.counter += 100
-
             
     def process_profiles(self):
         while self.counter < self.limit:
             self.do_search_profiles()
             time.sleep(0.3)
             self.counter += 100
-            print "\tSearching " + str(self.counter) + " results..."
+            print "\tSearching " + str(self.counter) + " results."
+

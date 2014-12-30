@@ -1,7 +1,7 @@
-import string
 import httplib
-import sys
 import myparser
+import string
+import sys
 
 
 class search_pgp:
@@ -29,3 +29,4 @@ class search_pgp:
     def get_hostnames(self):
         rawres = myparser.parser(self.results, self.word)
         return rawres.hostnames()
+

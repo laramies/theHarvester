@@ -11,59 +11,53 @@
 * cmartorella@edge-security.com                                   *
 *******************************************************************
 
-What is this?
--------------
 
-theHarvester is a tool for gathering e-mail accounts, subdomain names, virtual
-hosts, open ports/ banners, and employee names from different public sources
-(search engines, pgp key servers).
+theHarvester is a tool for gathering e-mail accounts, subdomain names, virtual hosts,
+open ports/banners and employee names from different public sources (search engines, 
+pgp key servers).
 
-Is a really simple tool, but very effective for the early stages of a penetration
-test or just to know the visibility of your company in the Internet.
+It is a really simple tool, but very effective for the early stages of a penetration
+test or to determine the visibility of a company in the Internet.
 
-The sources are:
 
 Passive:
 --------
--google: google search engine  - www.google.com
+-google: Google search engine - www.google.com
 
--googleCSE: google custom search engine
+-googleCSE: Google Custom Search Engine
 
--google-profiles: google search engine, specific search for Google profiles
+-google-profiles: Google search engine, search for specific Google profiles
 
--bing: microsoft search engine  - www.bing.com
+-bing: Microsoft search engine - www.bing.com
 
--bingapi: microsoft search engine, through the API (you need to add your Key in
-          the discovery/bingsearch.py file)
+-bingapi: Microsoft search engine, through the API (add your key to discovery/bingsearch.py)
 
--pgp: pgp key server - pgp.rediris.es
+-pgp: PGP public key server - pgp.rediris.es
 
--linkedin: google search engine, specific search for Linkedin users
+-linkedin: Google search engine, search for specific Linkedin users
 
+-vhost: Bing virtual host search
 
--vhost: Bing virtual hosts search
+-twitter: Google search engine, Twitter accounts related to an specific domain
 
--twitter: twitter accounts related to an specific domain (uses google search)
+-googleplus: Google search engine, users that works in target company
 
--googleplus: users that works in target company (uses google search)
-
-
--shodan: Shodan Computer search engine, will search for ports and banner of the
-         discovered hosts  (http://www.shodanhq.com/)
+-shodan: SHODAN Computer Search Engine, search for ports/banners of the discovered
+         hosts - www.shodanhq.com
 
 
 Active:
 -------
--DNS brute force: this plugin will run a dictionary brute force enumeration
--DNS reverse lookup: reverse lookup of ip´s discovered in order to find hostnames
--DNS TDL expansion: TLD dictionary brute force enumeration
+-DNS brute force: run a dictionary bruteforce enumeration
+-DNS reverse lookup: reverse lookup of IPs discovered in order to find hostnames
+-DNS TDL expansion: TLD dictionary bruteforce enumeration
 
 
 Modules that need API keys to work:
 ----------------------------------
--googleCSE: You need to create a Google Custom Search engine(CSE), and add your
+-googleCSE: create a Google Custom Search engine(CSE), and add your
  Google API key and CSE ID in the plugin (discovery/googleCSE.py)
--shodan: You need to provide your API key in discovery/shodansearch.py
+-shodan: provide your API key in discovery/shodansearch.py
 
 
 Dependencies:
@@ -76,15 +70,18 @@ Changelog in 2.5:
 -Fixed Google searches
 
 
-Comments? Bugs? requests?
-------------------------
+Bugs, comments or requests:
+--------------------------
 cmartorella@edge-security.com
+
 
 Updates:
 --------
 https://github.com/laramies/theHarvester
 
-Thanks:
--------
-John Matherly -  SHODAN project
-Lee Baird for suggestions and bugs reporting
+
+Thanks to:
+---------
+John Matherly - SHODAN project
+Lee Baird - suggestions and bugs reports
+

@@ -1,8 +1,8 @@
-import string
-import requests
-import sys
 import myparser
 import re
+import requests
+import string
+import sys
 
 
 class search_twitter:
@@ -40,4 +40,5 @@ class search_twitter:
         while (self.counter < self.limit):
             self.do_search()
             self.counter += 100
-            print "\tSearching " + str(self.counter) + " results.."
+            print "\tSearching " + str(self.counter) + " results."
+

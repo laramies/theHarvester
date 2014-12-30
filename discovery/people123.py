@@ -1,8 +1,8 @@
-import string
 import httplib
-import sys
 import myparser
 import re
+import string
+import sys
 import time
 
 
@@ -40,7 +40,8 @@ class search_123people:
     def process(self):
         while self.counter <= self.limit and self.counter <= 1000:
             self.do_search()
-            #more = self.check_next()
+            # more = self.check_next()
             time.sleep(1)
-            print "\tSearching " + str(self.counter) + " results..."
+            print "\tSearching " + str(self.counter) + " results."
             self.counter += 100
+

@@ -1,8 +1,8 @@
-import string
-import httplib
-import sys
 import myparser
+import httplib
 import re
+import string
+import sys
 import time
 
 
@@ -46,7 +46,6 @@ class search_googleCSE:
         self.results = h.getfile().read()
         self.totalresults += self.results
 
-
     def check_next(self):
         renext = re.compile('>  Next  <')
         nextres = renext.findall(self.results)
@@ -67,18 +66,17 @@ class search_googleCSE:
     def get_files(self):
         rawres = myparser.parser(self.totalresults, self.word)
         return rawres.fileurls(self.files)
-
    
     def process(self):
         tracker=self.counter + self.lowRange
         while tracker <= self.limit:
             self.do_search()
-            #time.sleep(1)
+            # time.sleep(1)
             ESC=chr(27)
             sys.stdout.write(ESC + '[2K' + ESC+'[G')
-            sys.stdout.write("\r\t" + "Searching  " + str(self.counter+self.lowRange) + " results ..." )
+            sys.stdout.write("\r\t" + "Searching  " + str(self.counter+self.lowRange) + " results." )
             sys.stdout.flush()
-            #print "\tSearching " + str(self.counter+self.lowRange) + " results...\t\t\t\t\t\r"
+            # print "\tSearching " + str(self.counter+self.lowRange) + " results.\t\t\t\t\t\r"
             if self.counter == 101:
                 self.counter = 1
                 self.lowRange +=100
@@ -92,10 +90,10 @@ class search_googleCSE:
              file = open(filename, 'w')
              file.write(self.totalresults)
 
-
     def process_files(self, files):
         while self.counter <= self.limit:
             self.do_search_files(files)
             time.sleep(1)
             self.counter += 100
-            print "\tSearching " + str(self.counter) + " results..."
+            print "\tSearching " + str(self.counter) + " results."
+

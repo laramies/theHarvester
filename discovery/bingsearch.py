@@ -1,8 +1,8 @@
-import string
 import httplib
-import sys
 import myparser
 import re
+import string
+import sys
 import time
 
 
@@ -18,7 +18,7 @@ class search_bing:
         self.userAgent = "(Mozilla/5.0 (Windows; U; Windows NT 6.0;en-US; rv:1.9.2) Gecko/20100115 Firefox/3.6"
         self.quantity = "50"
         self.limit = int(limit)
-        self.bingApi = ""
+        self.bingApi = ""             # Add your Bing API key here
         self.counter = start
 
     def do_search(self):
@@ -74,7 +74,7 @@ class search_bing:
     def process(self, api):
         if api == "yes":
             if self.bingApi == "":
-                print "Please insert your API key in the discovery/bingsearch.py"
+                print "\n\n[!] No API key found. Add your key here: discovery/bingsearch.py.\n\n"
                 sys.exit()
         while (self.counter < self.limit):
             if api == "yes":
@@ -84,10 +84,11 @@ class search_bing:
                 self.do_search()
                 time.sleep(1)
             self.counter += 50
-            print "\tSearching " + str(self.counter) + " results..."
+            print "\tSearching " + str(self.counter) + " results."
 
     def process_vhost(self):
         # Maybe it is good to use other limit for this.
         while (self.counter < self.limit):
             self.do_search_vhost()
             self.counter += 50
+
