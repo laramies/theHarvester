@@ -13,20 +13,21 @@
 *******************************************************************
 
 
-theHarvester is a tool for gathering e-mail accounts, subdomain names, virtual hosts, open
-ports/banners and employee names from different public sources (search engines, pgp key servers).
+theHarvester is a tool for gathering e-mail accounts, subdomain names, virtual hosts, 
+open ports/banners and employee names from different public sources (search engines, 
+pgp key servers).
 
-It is a really simple tool, but very effective for the early stages of a penetration test or to 
-determine the visibility of a company in the Internet.
+It is a really simple tool, but very effective for the early stages of a penetration 
+test or to determine the visibility of a company in the Internet.
 
 
 Passive:
 --------
--bing: Microsoft search engine - www.bing.com
+-bing: Microsoft search engine
 
--bingapi: Microsoft search engine, through the API (add your key to discovery/bingsearch.py)
+-bingapi: Microsoft search engine through the API
 
--google: Google search engine - www.google.com
+-google: Google search engine
 
 -google-cse: Google Custom Search Engine
 
@@ -38,8 +39,7 @@ Passive:
 
 -pgp: PGP public key server - pgp.rediris.es
 
--shodan: SHODAN Computer Search Engine, search for ports/banners of the discovered
-         hosts - www.shodanhq.com
+-shodan: SHODAN Computer Search Engine, search for ports/banners of the discovered hosts
 
 -twitter: Google search engine, Twitter accounts related to an specific domain
 
@@ -54,14 +54,15 @@ Active:
 
 
 Modules that need API keys to work:
-----------------------------------
+-----------------------------------
+-bingapi: add your API key to discovery/bingsearch.py
 -google-cse: create a Google Custom Search engine(CSE), and add your Google API key 
              and CSE ID in the plugin (discovery/googleCSE.py)
--shodan: provide your API key in discovery/shodansearch.py
+-shodan: add your API key to discovery/shodansearch.py
 
 
 Dependencies:
-------------
+-------------
 -Requests library (http://docs.python-requests.org/en/latest/)
 
 
@@ -72,7 +73,7 @@ Changelog in 2.5:
 
 
 Bugs, comments or requests:
---------------------------
+---------------------------
 cmartorella@edge-security.com
 
 
@@ -82,7 +83,7 @@ https://github.com/laramies/theHarvester
 
 
 Thanks to:
----------
+----------
 John Matherly - SHODAN project
 Lee Baird - suggestions and bugs reports
 
