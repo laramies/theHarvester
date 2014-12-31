@@ -5,45 +5,45 @@
 * | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
 *  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
 *                                                                 *
-* TheHarvester Ver. 2.5                                           *
-* Coded by Christian Martorella                                   *
+* theHarvester Ver. 2.5                                           *
+* by Christian Martorella                                         *
 * Edge-Security Research                                          *
 * cmartorella@edge-security.com                                   *
+*                                                                 *
 *******************************************************************
 
 
-theHarvester is a tool for gathering e-mail accounts, subdomain names, virtual hosts,
-open ports/banners and employee names from different public sources (search engines, 
-pgp key servers).
+theHarvester is a tool for gathering e-mail accounts, subdomain names, virtual hosts, open
+ports/banners and employee names from different public sources (search engines, pgp key servers).
 
-It is a really simple tool, but very effective for the early stages of a penetration
-test or to determine the visibility of a company in the Internet.
+It is a really simple tool, but very effective for the early stages of a penetration test or to 
+determine the visibility of a company in the Internet.
 
 
 Passive:
 --------
--google: Google search engine - www.google.com
-
--googleCSE: Google Custom Search Engine
-
--google-profiles: Google search engine, search for specific Google profiles
-
 -bing: Microsoft search engine - www.bing.com
 
 -bingapi: Microsoft search engine, through the API (add your key to discovery/bingsearch.py)
 
--pgp: PGP public key server - pgp.rediris.es
+-google: Google search engine - www.google.com
+
+-google-cse: Google Custom Search Engine
+
+-google-plus: Google search engine, users that works in target company
+
+-google-profiles: Google search engine, search for specific Google profiles
 
 -linkedin: Google search engine, search for specific Linkedin users
 
--vhost: Bing virtual host search
-
--twitter: Google search engine, Twitter accounts related to an specific domain
-
--googleplus: Google search engine, users that works in target company
+-pgp: PGP public key server - pgp.rediris.es
 
 -shodan: SHODAN Computer Search Engine, search for ports/banners of the discovered
          hosts - www.shodanhq.com
+
+-twitter: Google search engine, Twitter accounts related to an specific domain
+
+-vhost: Bing virtual host search
 
 
 Active:
@@ -55,14 +55,15 @@ Active:
 
 Modules that need API keys to work:
 ----------------------------------
--googleCSE: create a Google Custom Search engine(CSE), and add your
- Google API key and CSE ID in the plugin (discovery/googleCSE.py)
+-google-cse: create a Google Custom Search engine(CSE), and add your Google API key 
+             and CSE ID in the plugin (discovery/googleCSE.py)
 -shodan: provide your API key in discovery/shodansearch.py
 
 
 Dependencies:
 ------------
 -Requests library (http://docs.python-requests.org/en/latest/)
+
 
 Changelog in 2.5:
 -----------------
