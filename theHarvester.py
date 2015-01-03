@@ -39,7 +39,7 @@ def usage():
                         people123
                         jigsaw
                         twitter
-                        GooglePlus
+                        googleplus
                         all\n"""
     print "       -s: Start in result number X (default 0)"
     print "       -v: Verify host name via dns resolution and search for virtual hosts"
@@ -49,7 +49,7 @@ def usage():
     print "       -t: Perform a DNS TLD expansion discovery"
     print "       -e: Use this DNS server"
     print "       -l: Limit the number of results to work with(bing goes from 50 to 50 results,"
-    print "	   -h: use SHODAN database to query discovered hosts"
+    print "       -h: use SHODAN database to query discovered hosts"
     print "            google 100 to 100, and pgp doesn't use this option)"
     print "\nExamples:"
     print "         ./theharvester.py -d microsoft.com -l 500 -b google"
