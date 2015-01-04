@@ -5,70 +5,66 @@
 * | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
 *  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
 *                                                                 *
-* TheHarvester Ver. 2.5                                           *
-* Coded by Christian Martorella                                   *
+* theHarvester Ver. 2.5                                           *
+* by Christian Martorella                                         *
 * Edge-Security Research                                          *
 * cmartorella@edge-security.com                                   *
+*                                                                 *
 *******************************************************************
 
-What is this?
--------------
 
-theHarvester is a tool for gathering e-mail accounts, subdomain names, virtual
-hosts, open ports/ banners, and employee names from different public sources
-(search engines, pgp key servers).
+theHarvester is a tool for gathering e-mail accounts, subdomain names, virtual hosts, 
+open ports/banners and employee names from different public sources (search engines, 
+pgp key servers).
 
-Is a really simple tool, but very effective for the early stages of a penetration
-test or just to know the visibility of your company in the Internet.
+It is a really simple tool, but very effective for the early stages of a penetration 
+test or to determine the visibility of a company in the Internet.
 
-The sources are:
 
 Passive:
 --------
--google: google search engine  - www.google.com
+-bing: Microsoft search engine
 
--googleCSE: google custom search engine
+-bingapi: Microsoft search engine through the API
 
--google-profiles: google search engine, specific search for Google profiles
+-google: Google search engine
 
--bing: microsoft search engine  - www.bing.com
+-google-cse: Google Custom Search Engine
 
--bingapi: microsoft search engine, through the API (you need to add your Key in
-          the discovery/bingsearch.py file)
+-google-plus: Google search engine, users that works in target company
 
--pgp: pgp key server - pgp.rediris.es
+-google-profiles: Google search engine, search for specific Google profiles
 
--linkedin: google search engine, specific search for Linkedin users
+-linkedin: Google search engine, search for specific Linkedin users
 
+-pgp: PGP public key server - pgp.rediris.es
 
--vhost: Bing virtual hosts search
+-shodan: SHODAN Computer Search Engine, search for ports/banners of the discovered hosts
 
--twitter: twitter accounts related to an specific domain (uses google search)
+-twitter: Google search engine, Twitter accounts related to an specific domain
 
--googleplus: users that works in target company (uses google search)
-
-
--shodan: Shodan Computer search engine, will search for ports and banner of the
-         discovered hosts  (http://www.shodanhq.com/)
+-vhost: Bing virtual host search
 
 
 Active:
 -------
--DNS brute force: this plugin will run a dictionary brute force enumeration
--DNS reverse lookup: reverse lookup of ip´s discovered in order to find hostnames
--DNS TDL expansion: TLD dictionary brute force enumeration
+-DNS brute force: run a dictionary bruteforce enumeration
+-DNS reverse lookup: reverse lookup of IPs discovered in order to find hostnames
+-DNS TDL expansion: TLD dictionary bruteforce enumeration
 
 
 Modules that need API keys to work:
-----------------------------------
--googleCSE: You need to create a Google Custom Search engine(CSE), and add your
- Google API key and CSE ID in the plugin (discovery/googleCSE.py)
--shodan: You need to provide your API key in discovery/shodansearch.py
+-----------------------------------
+-bingapi: add your API key to discovery/bingsearch.py
+-google-cse: create a Google Custom Search engine(CSE), and add your Google API key 
+             and CSE ID in the plugin (discovery/googleCSE.py)
+-shodan: add your API key to discovery/shodansearch.py
 
 
 Dependencies:
-------------
+-------------
 -Requests library (http://docs.python-requests.org/en/latest/)
+
 
 Changelog in 2.5:
 -----------------
@@ -76,15 +72,18 @@ Changelog in 2.5:
 -Fixed Google searches
 
 
-Comments? Bugs? requests?
-------------------------
+Bugs, comments or requests:
+---------------------------
 cmartorella@edge-security.com
+
 
 Updates:
 --------
 https://github.com/laramies/theHarvester
 
-Thanks:
--------
-John Matherly -  SHODAN project
-Lee Baird for suggestions and bugs reporting
+
+Thanks to:
+----------
+John Matherly - SHODAN project
+Lee Baird - suggestions and bugs reports
+

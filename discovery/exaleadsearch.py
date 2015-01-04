@@ -1,8 +1,8 @@
-import string
 import httplib
-import sys
 import myparser
 import re
+import string
+import sys
 import time
 
 
@@ -79,7 +79,7 @@ class search_exalead:
         while self.counter <= self.limit:
             self.do_search()
             self.counter += 50
-            print "\tSearching " + str(self.counter) + " results..."
+            print "\tSearching " + str(self.counter) + " results."
 
     def process_files(self, files):
         while self.counter < self.limit:
@@ -90,3 +90,4 @@ class search_exalead:
                 self.counter += 50
             else:
                 break
+

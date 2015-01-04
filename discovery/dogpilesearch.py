@@ -33,7 +33,7 @@ class search_dogpile:
             self.do_search()
             time.sleep(1)
 
-            print "\tSearching " + str(self.counter) + " results..."
+            print "\tSearching " + str(self.counter) + " results."
             self.counter += 10
 
     def get_emails(self):
@@ -43,3 +43,4 @@ class search_dogpile:
     def get_hostnames(self):
         rawres = myparser.parser(self.total_results, self.word)
         return rawres.hostnames()
+

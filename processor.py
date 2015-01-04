@@ -9,3 +9,4 @@ for x in list:
     a = x.split(" ")
     if len(a) == 2:
         print a[0] + "." + a[1] + "@vasco.com"
+
