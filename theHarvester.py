@@ -278,7 +278,7 @@ def start(argv):
     else:
         for emails in all_emails:
             if emails[0] != "@":
-                print emails          # Sort results
+                print emails               # Sort results
 
     print "\n[+] Hosts found:"
     print "------------------"
@@ -289,7 +289,7 @@ def start(argv):
         full = full_host.check()
         for host in full:
             ip = host.split(':')[0]
-            print host                # Sort retults
+            print host                     # Sort retults
 
             if host_ip.count(ip.lower()):
                 pass

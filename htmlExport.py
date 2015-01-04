@@ -40,7 +40,6 @@ class htmlExport():
 			margin: 0 0 0 0;
 			padding: 0 0 0 0;
 			font-weight: 100;
-
 		}
 
 		h3 { font-family: arial, Times New Roman, times-roman, georgia, serif;
@@ -60,7 +59,6 @@ class htmlExport():
 			font-size: 15px;
 			line-height: 15px;
 			letter-spacing: 0.4px;
-
 		}
 
 		pre {
