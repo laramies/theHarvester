@@ -13,19 +13,19 @@ import sys
 
 os.system('clear')
 
-print "\n*******************************************************************"
-print "*                                                                 *"
-print "* | |_| |__   ___    /\  /\__ _ _ ____   _____  ___| |_ ___ _ __  *"
-print "* | __| '_ \ / _ \  / /_/ / _` | '__\ \ / / _ \/ __| __/ _ \ '__| *"
-print "* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *"
-print "*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *"
-print "*                                                                 *"
-print "* theHarvester v2.5                                               *"
-print "* by Christian Martorella                                         *"
-print "* Edge-Security Research                                          *"
-print "* cmartorella@edge-security.com                                   *"
-print "*                                                                 *"
-print "*******************************************************************\n"
+print """\n*******************************************************************
+*                                                                 *
+* | |_| |__   ___    /\  /\__ _ _ ____   _____  ___| |_ ___ _ __  *
+* | __| '_ \ / _ \  / /_/ / _` | '__\ \ / / _ \/ __| __/ _ \ '__| *
+* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
+*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
+*                                                                 *
+* theHarvester v2.5                                               *
+* by Christian Martorella                                         *
+* Edge-Security Research                                          *
+* cmartorella@edge-security.com                                   *
+*                                                                 *
+*******************************************************************\n"""
 
 def usage():
     print """Usage: theHarvester.py <options>
@@ -71,18 +71,18 @@ def start(argv):
     except getopt.GetoptError:
         usage()
         sys.exit()
-    start = 0
-    host_ip = []
-    filename = ""
     bingapi = "yes"
-    dnslookup = False
     dnsbrute = False
+    dnslookup = False
+    dnsserver = ""
     dnstld = False
+    filename = ""
+    host_ip = []
+    limit = 100
     shodan = False
+    start = 0
     vhost = []
     virtual = False
-    limit = 100
-    dnsserver = ""
 
     for opt, arg in opts:
         if opt == '-l':
@@ -110,7 +110,7 @@ def start(argv):
             if engine not in ("all", "bing", "bingapi", "dogpile", "exalead", "google", "google-cse", "google-plus", "google-profiles", 
                               "jigsaw", "linkedin", "people123", "pgp", "twitter", "yandex"):
                 usage()
-                print "Invalid search engine.\n\n"
+                print "[!] Invalid search engine.\n\n"
                 sys.exit()
             else:
                 pass
@@ -182,7 +182,7 @@ def start(argv):
         all_hosts = search.get_hostnames()
 
     elif engine == "google-cse":
-        print "[-] Searching Google Custom Search."
+        print "[-] Searching Google Custom Search Engine."
         search = googleCSE.search_googleCSE(word, limit, start)
         search.process()
         search.store_results()
@@ -194,9 +194,9 @@ def start(argv):
         search = googleplussearch.search_googleplus(word, limit)
         search.process()
         people = search.get_people()
-        print "Users from Google+:"
-       	print "===================="
-       	for user in people:
+        print "\nUsers found:"
+        print "------------------"
+        for user in people:
             print user
         sys.exit()
 
@@ -205,8 +205,8 @@ def start(argv):
         search = googlesearch.search_google(word, limit, start)
         search.process_profiles()
         people = search.get_profiles()
-        print "\nUsers from Google profiles:"
-        print "---------------------------"
+        print "\nUsers found:"
+        print "------------------"
         for users in people:
             print users
         sys.exit()
@@ -216,8 +216,8 @@ def start(argv):
         search = jigsaw.search_jigsaw(word, limit)
         search.process()
         people = search.get_people()
-        print "\nUsers from Jigsaw:"
-        print "====================="
+        print "\nUsers found:"
+        print "------------------"
         for user in people:
             print user
         sys.exit()
@@ -227,9 +227,9 @@ def start(argv):
         search = linkedinsearch.search_linkedin(word, limit)
         search.process()
         people = search.get_people()
-        print "\nUsers from Linkedin:"
-       	print "===================="
-       	for user in people:
+        print "\nUsers found:"
+        print "------------------"
+        for user in people:
             print user
         sys.exit()
 
@@ -239,8 +239,8 @@ def start(argv):
         search.process()
         people = search.get_people()
         all_emails = search.get_emails()
-        print "\nUsers from 123People:"
-        print "====================="
+        print "\nUsers found:"
+        print "------------------"
         for user in people:
             print user
 
@@ -256,9 +256,9 @@ def start(argv):
         search = twittersearch.search_twitter(word, limit)
         search.process()
         people = search.get_people()
-        print "\nUsers from Twitter:"
-       	print "===================="
-       	for user in people:
+        print "\nUsers found:"
+        print "------------------"
+        for user in people:
             print user                     # Clean up and fix handle (@name remove everything after space)
         sys.exit()
 
@@ -308,7 +308,7 @@ def start(argv):
             range[3] = "0/24"
             range = string.join(range, '.')
             if not analyzed_ranges.count(range):
-                print "[-] Performing reverse lookup in :" + range
+                print "[-] Performing reverse lookup in:" + range
                 a = dnssearch.dns_reverse(range, True)
                 a.list()
                 res = a.process()
@@ -347,7 +347,7 @@ def start(argv):
         a = dnssearch.dns_tld(word, dnsserver, verbose=True)
         res = a.process()
         print "\n[+] Hosts found after DNS TLD expansion:"
-        print "=========================================="
+        print "----------------------------------------"
         for y in res:
             print y
             dnstldres.append(y)
@@ -358,7 +358,7 @@ def start(argv):
 
     if virtual == "basic":
         print "[+] Virtual hosts:"
-        print "=================="
+        print "------------------"
         for l in host_ip:
             search = bingsearch.search_bing(l, limit, start)
             search.process_vhost()
@@ -388,7 +388,7 @@ def start(argv):
             except:
                 pass
         print "[+] SHODAN results:"
-        print "==================="
+        print "------------------"
         for x in shodanres:
             print x.split("SAPO")[0] + ":" + x.split("SAPO")[1]
     else:

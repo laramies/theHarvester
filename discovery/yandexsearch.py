@@ -1,8 +1,8 @@
-import string
 import httplib
-import sys
 import myparser
 import re
+import string
+import sys
 import time
 
 
@@ -67,10 +67,11 @@ class search_yandex:
         while self.counter <= self.limit:
             self.do_search()
             self.counter += 50
-            print "Searching " + str(self.counter) + " results..."
+            print "Searching " + str(self.counter) + " results."
 
     def process_files(self, files):
         while self.counter < self.limit:
             self.do_search_files(files)
             time.sleep(0.3)
             self.counter += 50
+
