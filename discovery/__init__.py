@@ -1,5 +1,8 @@
 __all__ = ["bingsearch",
            "googlesearch",
+           "disconnectsearch",
+           "duckducksearch",
+           "ixquicksearch",
            "googleplussearch",
            "pgpsearch",
            "linkedinsearch",

@@ -33,6 +33,9 @@ def usage():
                         googleCSE
                         bing
                         bingapi
+                        disconnect
+                        duckduck-go
+                        ixquick
                         pgp
                         linkedin
                         google-profiles
@@ -41,6 +44,7 @@ def usage():
                         twitter
                         googleplus
                         all\n"""
+    print "       -g: Search engine for Disconnect.me (google [default], yahoo, bing, duckduckgo)"
     print "       -s: Start in result number X (default 0)"
     print "       -v: Verify host name via dns resolution and search for virtual hosts"
     print "       -f: Save the results into an HTML and XML file"
@@ -56,13 +60,14 @@ def usage():
     print "         ./theharvester.py -d microsoft.com -b pgp"
     print "         ./theharvester.py -d microsoft -l 200 -b linkedin"
     print "         ./theHarvester.py -d apple.com -b googleCSE -l 500 -s 300\n"
+    print "         ./theharvester.py -d microsoft.com -b disconnect -g yahoo"
 
 def start(argv):
     if len(sys.argv) < 4:
         usage()
         sys.exit()
     try:
-        opts, args = getopt.getopt(argv, "l:d:b:s:vf:nhcte:")
+        opts, args = getopt.getopt(argv, "l:d:b:s:vf:nhcte:g:")
     except getopt.GetoptError:
         usage()
         sys.exit()
@@ -78,6 +83,7 @@ def start(argv):
     virtual = False
     limit = 100
     dnsserver = ""
+    disconnect_engine = "google"
     for opt, arg in opts:
         if opt == '-l':
             limit = int(arg)
@@ -101,13 +107,40 @@ def start(argv):
             dnstld = True
         elif opt == '-b':
             engine = arg
-            if engine not in ("google","googleCSE" , "linkedin", "pgp", "all", "google-profiles", "bing", "bing_api", 
+            if engine not in ("disconnect", "duckduck-go", "ixquick", "google","googleCSE" , "linkedin", "pgp", "all", "google-profiles", "bing", "bing_api", 
                               "yandex", "people123", "jigsaw", "dogpilesearch","twitter","googleplus"):
                 usage()
                 print "Invalid search engine, try with: bing, google, linkedin, pgp, jigsaw, bing_api, people123, google-profiles,dogpilesearch,twitter,googleplus"
                 sys.exit()
             else:
                 pass
+        elif opt == '-g':
+            disconnect_engine = arg
+            if disconnect_engine not in ("google","duckduckgo","bing","yahoo"):
+                usage()
+                print "Invalid search engine for Disconnect.me, try with: bing, google, yahoo, duckduckgo"
+                sys.exit()
+            else:
+                pass
+    if engine == "disconnect":
+        print "[-] Searching in Disconnect (" + disconnect_engine + "):"
+        search=disconnectsearch.search_disconnect(word,limit,start,disconnect_engine)
+        search.process()
+        all_emails=search.get_emails()
+        all_hosts=search.get_hostnames()
+    if engine == "duckduck-go":
+        print "[-] Searching in DuckDuck-Go:"
+        search=duckducksearch.search_duckduck(word,limit,start)
+        search.process()
+        all_emails=search.get_emails()
+        all_hosts=search.get_hostnames()
+    if engine == "ixquick":
+        print "[-] Searching in Ixquick:"
+        search=ixquicksearch.search_ixquick(word,limit,start)
+        search.process()
+        all_emails=search.get_emails()
+        all_hosts=search.get_hostnames()
+
     if engine == "google":
         print "[-] Searching in Google:"
         search = googlesearch.search_google(word, limit, start)
@@ -190,8 +223,8 @@ def start(argv):
         search.process()
         people = search.get_people()
         print "Users from Google+:"
-       	print "===================="
-       	for user in people:
+        print "===================="
+        for user in people:
             print user
         sys.exit()
  
@@ -201,8 +234,8 @@ def start(argv):
         search.process()
         people = search.get_people()
         print "Users from Twitter:"
-       	print "===================="
-       	for user in people:
+        print "===================="
+        for user in people:
             print user
         sys.exit()
     
@@ -212,8 +245,8 @@ def start(argv):
         search.process()
         people = search.get_people()
         print "Users from Linkedin:"
-       	print "===================="
-       	for user in people:
+        print "===================="
+        for user in people:
             print user
         sys.exit()
     elif engine == "google-profiles":
@@ -231,6 +264,27 @@ def start(argv):
         all_emails = []
         all_hosts = []
         virtual = "basic"
+        print "[-] Searching in Disconnect:"
+        search=disconnectsearch.search_disconnect(word,limit,start)
+        search.process()
+        emails=search.get_emails()
+        hosts=search.get_hostnames()
+        all_emails=search.get_emails()
+        all_hosts=search.get_hostnames()
+        print "[-] Searching in DuckDuck-go:"
+        search=duckducksearch.search_duckduck(word,limit,start)
+        search.process()
+        emails=search.get_emails()
+        hosts=search.get_hostnames()
+        all_emails=search.get_emails()
+        all_hosts=search.get_hostnames()
+        print "[-] Searching in Ixquick:"
+        search=ixquicksearch.search_ixquick(word,limit,start)
+        search.process()
+        emails=search.get_emails()
+        hosts=search.get_hostnames()
+        all_emails=search.get_emails()
+        all_hosts=search.get_hostnames()
         print "[-] Searching in Google.."
         search = googlesearch.search_google(word, limit, start)
         search.process()
