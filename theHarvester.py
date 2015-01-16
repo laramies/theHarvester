@@ -3,6 +3,7 @@
 import string
 import httplib
 import sys
+import os
 from socket import *
 import re
 import getopt
@@ -25,6 +26,11 @@ print "*******************************************************************\n\n"
 
 
 def usage():
+
+    comm = os.path.basename(sys.argv[0])
+
+    if os.path.dirname(sys.argv[0]) == os.getcwd():
+        comm = "./" + comm
 
     print "Usage: theharvester options \n"
     print "       -d: Domain to search or company name"
@@ -52,10 +58,10 @@ def usage():
     print "       -h: use SHODAN database to query discovered hosts"
     print "            google 100 to 100, and pgp doesn't use this option)"
     print "\nExamples:"
-    print "         ./theharvester.py -d microsoft.com -l 500 -b google"
-    print "         ./theharvester.py -d microsoft.com -b pgp"
-    print "         ./theharvester.py -d microsoft -l 200 -b linkedin"
-    print "         ./theHarvester.py -d apple.com -b googleCSE -l 500 -s 300\n"
+    print "        " + comm + " -d microsoft.com -l 500 -b google"
+    print "        " + comm + " -d microsoft.com -b pgp"
+    print "        " + comm + " -d microsoft -l 200 -b linkedin"
+    print "        " + comm + " -d apple.com -b googleCSE -l 500 -s 300\n"
 
 def start(argv):
     if len(sys.argv) < 4:
