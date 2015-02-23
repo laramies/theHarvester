@@ -28,7 +28,6 @@ class search_googleplus:
             r=requests.get(urly,headers=headers)
         except Exception,e:
             print e
-        print r.content
         self.results = r.content 
         self.totalresults += self.results
 
