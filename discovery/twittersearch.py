@@ -30,7 +30,6 @@ class search_twitter:
             print e
         self.results = r.content
         self.totalresults += self.results
-        print self.results
 
     def get_people(self):
         rawres = myparser.parser(self.totalresults, self.word)
