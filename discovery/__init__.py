@@ -12,4 +12,6 @@ __all__ = ["bingsearch",
            "jigsaw",
            "twittersearch",
            "dogpilesearch",
+           "baidusearch",
+           "yahoosearch",
            "googleCSE"]

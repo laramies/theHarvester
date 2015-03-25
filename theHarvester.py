@@ -46,6 +46,9 @@ def usage():
                         jigsaw
                         twitter
                         googleplus
+                        dogpilesearch
+                        yahoo
+                        baidu
                         all\n"""
     print "       -s: Start in result number X (default 0)"
     print "       -v: Verify host name via dns resolution and search for virtual hosts"
@@ -107,10 +110,10 @@ def start(argv):
             dnstld = True
         elif opt == '-b':
             engine = arg
-            if engine not in ("google","googleCSE" , "linkedin", "pgp", "all", "google-profiles", "bing", "bing_api", 
-                              "yandex", "people123", "jigsaw", "dogpilesearch","twitter","googleplus"):
+            if engine not in ("google","googleCSE" , "linkedin", "pgp", "all", "google-profiles", "bing", "bingapi", 
+                              "yandex", "people123", "jigsaw", "dogpilesearch", "twitter", "googleplus", "yahoo", "baidu"):
                 usage()
-                print "Invalid search engine, try with: bing, google, linkedin, pgp, jigsaw, bing_api, people123, google-profiles,dogpilesearch,twitter,googleplus"
+                print "Invalid search engine, try with: bing, google, linkedin, pgp, jigsaw, bingapi, people123, google-profiles, dogpilesearch, twitter, googleplus, yahoo, baidu"
                 sys.exit()
             else:
                 pass
@@ -183,9 +186,24 @@ def start(argv):
         for user in people:
             print user
         sys.exit()
+
     elif engine == "dogpilesearch":
         print "[-] Searching in Dogpilesearch.."
         search = dogpilesearch.search_dogpile(word, limit)
+        search.process()
+        all_emails = search.get_emails()
+        all_hosts = search.get_hostnames()
+
+    elif engine == "yahoo":
+        print "[-] Searching in Yahoo.."
+        search = yahoosearch.search_yahoo(word, limit)
+        search.process()
+        all_emails = search.get_emails()
+        all_hosts = search.get_hostnames()
+
+    elif engine == "baidu":
+        print "[-] Searching in Baidu.."
+        search = baidusearch.search_baidu(word, limit)
         search.process()
         all_emails = search.get_emails()
         all_hosts = search.get_hostnames()
