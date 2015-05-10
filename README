@@ -70,6 +70,12 @@ Dependencies:
 ------------
 -Requests library (http://docs.python-requests.org/en/latest/)
 
+Changelog in 2.5a:
+------------------
+-Added Yahoo and Baidu search engines. Thanks Tatanus!
+-Added check for the existence of Requests library.
+-Fixed email regex to provide cleaner results. Thanks Peter McAlpine
+
 Changelog in 2.5:
 -----------------
 -Replaced httplib by Requests http library (for Google related)

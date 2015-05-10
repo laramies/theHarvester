@@ -39,30 +39,10 @@ def usage():
 
     print "Usage: theharvester options \n"
     print "       -d: Domain to search or company name"
-<<<<<<< Updated upstream
-    print """       -b: data source:
-                        google
-                        googleCSE
-                        bing
-                        bingapi
-                        pgp
-                        linkedin
-                        google-profiles
-                        people123
-                        jigsaw
-                        twitter
-                        googleplus
-                        dogpilesearch
-                        yahoo
-                        baidu
-                        all\n"""
+    print """       -b: data source: google, googleCSE, bing, bingapi, pgp
+                        linkedin, google-profiles, people123, jigsaw, 
+                        twitter, googleplus, all\n"""
     print "       -s: Start in result number X (default: 0)"
-=======
-    print """       -b: data source: google, googleCSE, bing, bingapi, pgp, linkedin,
-                        google-profiles, people123, jigsaw, twitter,
-                        googleplus, dogpilesearch, yahoo, baidu, all\n"""
-    print "       -s: Start in result number X (default 0)"
->>>>>>> Stashed changes
     print "       -v: Verify host name via dns resolution and search for virtual hosts"
     print "       -f: Save the results into an HTML and XML file"
     print "       -n: Perform a DNS reverse query on all ranges discovered"
