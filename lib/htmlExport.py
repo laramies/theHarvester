@@ -20,10 +20,10 @@ class htmlExport():
 
     def styler(self):
         a = """<style type='text/css'>body {
-			 background: #e1e5e4  top no-repeat;
+			 background: #FFFFFF  top no-repeat;
 		 }
 
-		h1 { font-family: times, Times New Roman, times-roman, georgia, serif;
+		h1 { font-family: arial, Times New Roman, times-roman, georgia, serif;
 			color: #680000;
 			margin: 0;
 			padding: 0px 0px 6px 0px;
@@ -33,7 +33,7 @@ class htmlExport():
 			font-weight: bold;
 		}
 
-		h3 { font-family: times, Times New Roman, times-roman, georgia, serif;
+		h3 { font-family: arial, Times New Roman, times-roman, georgia, serif;
 			color: #444;
 			margin: 0;
 			padding: 0px 0px 6px 0px;
@@ -43,7 +43,7 @@ class htmlExport():
 			font-weight: bold;
 		}
 
-		li { font-family: times, Times New Roman, times-roman, georgia, serif;
+		li { font-family: arial, Times New Roman, times-roman, georgia, serif;
 			color: #444;
 			margin: 0;
 			padding: 0px 0px 6px 0px;
@@ -54,7 +54,7 @@ class htmlExport():
 		}
 
 		h2{
-		font-family: times, Times New Roman, times-roman, georgia, serif;
+		font-family: arial, Times New Roman, times-roman, georgia, serif;
 				font-size: 48px;
 				line-height: 40px;
 				letter-spacing: -1px;
