@@ -50,7 +50,7 @@ def usage():
                         yahoo
                         baidu
                         all\n"""
-    print "       -s: Start in result number X (default 0)"
+    print "       -s: Start in result number X (default: 0)"
     print "       -v: Verify host name via dns resolution and search for virtual hosts"
     print "       -f: Save the results into an HTML and XML file"
     print "       -n: Perform a DNS reverse query on all ranges discovered"
