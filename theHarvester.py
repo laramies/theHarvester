@@ -18,12 +18,17 @@ print "* | __| '_ \ / _ \  / /_/ / _` | '__\ \ / / _ \/ __| __/ _ \ '__| *"
 print "* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *"
 print "*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *"
 print "*                                                                 *"
-print "* TheHarvester Ver. 2.5                                           *"
+print "* TheHarvester Ver. 2.6                                           *"
 print "* Coded by Christian Martorella                                   *"
 print "* Edge-Security Research                                          *"
 print "* cmartorella@edge-security.com                                   *"
 print "*******************************************************************\n\n"
 
+try:
+    import requests
+except:
+    print "Request library not found, please install it before proceeding\n"
+    sys.exit()
 
 def usage():
 
@@ -34,6 +39,7 @@ def usage():
 
     print "Usage: theharvester options \n"
     print "       -d: Domain to search or company name"
+<<<<<<< Updated upstream
     print """       -b: data source:
                         google
                         googleCSE
@@ -51,6 +57,12 @@ def usage():
                         baidu
                         all\n"""
     print "       -s: Start in result number X (default: 0)"
+=======
+    print """       -b: data source: google, googleCSE, bing, bingapi, pgp, linkedin,
+                        google-profiles, people123, jigsaw, twitter,
+                        googleplus, dogpilesearch, yahoo, baidu, all\n"""
+    print "       -s: Start in result number X (default 0)"
+>>>>>>> Stashed changes
     print "       -v: Verify host name via dns resolution and search for virtual hosts"
     print "       -f: Save the results into an HTML and XML file"
     print "       -n: Perform a DNS reverse query on all ranges discovered"
