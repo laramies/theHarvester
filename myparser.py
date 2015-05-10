@@ -35,7 +35,7 @@ class parser:
         reg_emails = re.compile(
             '[a-zA-Z0-9.-_]*' +
             '@' +
-            '[a-zA-Z0-9.-]*' +
+            '(?:[a-zA-Z0-9.-]*\.)?' +
             self.word)
         self.temp = reg_emails.findall(self.results)
         emails = self.unique()
