@@ -5,7 +5,7 @@
 * | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
 *  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
 *                                                                 *
-* TheHarvester Ver. 2.5                                           *
+* TheHarvester Ver. 2.6                                          *
 * Coded by Christian Martorella                                   *
 * Edge-Security Research                                          *
 * cmartorella@edge-security.com                                   *
@@ -47,6 +47,9 @@ Passive:
 
 -googleplus: users that works in target company (uses google search)
 
+-yahoo: Yahoo search engine
+
+-baidu: Baidu search engine
 
 -shodan: Shodan Computer search engine, will search for ports and banner of the
          discovered hosts  (http://www.shodanhq.com/)
@@ -70,11 +73,11 @@ Dependencies:
 ------------
 -Requests library (http://docs.python-requests.org/en/latest/)
 
-Changelog in 2.5a:
+Changelog in 2.6:
 ------------------
--Added Yahoo and Baidu search engines. Thanks Tatanus!
+-Added Yahoo and Baidu search engines. Thanks to Tatanus
 -Added check for the existence of Requests library.
--Fixed email regex to provide cleaner results. Thanks Peter McAlpine
+-Fixed email regex to provide cleaner results. Thanks to Peter McAlpine
 
 Changelog in 2.5:
 -----------------
