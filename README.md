@@ -1,15 +1,7 @@
-*******************************************************************
-*                                                                 *
-* | |_| |__   ___    /\  /\__ _ _ ____   _____  ___| |_ ___ _ __  *
-* | __| '_ \ / _ \  / /_/ / _` | '__\ \ / / _ \/ __| __/ _ \ '__| *
-* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
-*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
-*                                                                 *
-* TheHarvester Ver. 2.6                                          *
-* Coded by Christian Martorella                                   *
-* Edge-Security Research                                          *
-* cmartorella@edge-security.com                                   *
-*******************************************************************
+## TheHarvester Ver. 2.6                                           
+Coded by Christian Martorella                                   
+Edge-Security Research                                          
+cmartorella@edge-security.com                                   
 
 What is this?
 -------------
@@ -23,8 +15,8 @@ test or just to know the visibility of your company in the Internet.
 
 The sources are:
 
-Passive:
---------
+### Passive:
+
 -google: google search engine  - www.google.com
 
 -googleCSE: google custom search engine
@@ -55,8 +47,7 @@ Passive:
          discovered hosts  (http://www.shodanhq.com/)
 
 
-Active:
--------
+### Active:
 -DNS brute force: this plugin will run a dictionary brute force enumeration
 -DNS reverse lookup: reverse lookup of ip´s discovered in order to find hostnames
 -DNS TDL expansion: TLD dictionary brute force enumeration
