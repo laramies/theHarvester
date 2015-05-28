@@ -363,6 +363,9 @@ def start(argv):
             search.process_vhost()
             res = search.get_allhostnames()
             for x in res:
+                x = re.sub(r'[[\<\/?]*[\w]*>]*','',x)
+                x = re.sub('<','',x)
+                x = re.sub('>','',x)
                 print l + "\t" + x
                 vhost.append(l + ":" + x)
                 full.append(l + ":" + x)
