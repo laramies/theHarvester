@@ -8,6 +8,7 @@ from socket import *
 import re
 import getopt
 from discovery import *
+from discovery import htmlscrape
 from lib import htmlExport
 from lib import hostchecker
 
@@ -41,7 +42,7 @@ def usage():
     print "       -d: Domain to search or company name"
     print """       -b: data source: google, googleCSE, bing, bingapi, pgp
                         linkedin, google-profiles, people123, jigsaw, 
-                        twitter, googleplus, all\n"""
+                        twitter, googleplus, html-source, all\n"""
     print "       -s: Start in result number X (default: 0)"
     print "       -v: Verify host name via dns resolution and search for virtual hosts"
     print "       -f: Save the results into an HTML and XML file"
@@ -52,18 +53,30 @@ def usage():
     print "       -l: Limit the number of results to work with(bing goes from 50 to 50 results,"
     print "       -h: use SHODAN database to query discovered hosts"
     print "            google 100 to 100, and pgp doesn't use this option)"
+    print "\nHTML-source Scraping options:"
+    print "       -j: Sets depth of wget"
+    print "               Default value: 150"
+    print "       -w: Sets the wait time in-between each download"
+    print "               Default value: 0"
+    print "       -r: Limits the bandwidth rate"
+    print "               Default value: 1000K"
+    print "       -i: Sets timeout value for download attempt on file"
+    print "               Default value: 5 Secs"
+    print "       -o: Sets the output dir using full path"
+    print "               Default value: /root/Desktop/"
     print "\nExamples:"
     print "        " + comm + " -d microsoft.com -l 500 -b google"
     print "        " + comm + " -d microsoft.com -b pgp"
     print "        " + comm + " -d microsoft -l 200 -b linkedin"
-    print "        " + comm + " -d apple.com -b googleCSE -l 500 -s 300\n"
+    print "        " + comm + " -d apple.com -b googleCSE -l 500 -s 300"
+    print "        " + comm + " -d apple.com -b html-source -j 20 -o /root/Desktop/\n"
 
 def start(argv):
     if len(sys.argv) < 4:
         usage()
         sys.exit()
     try:
-        opts, args = getopt.getopt(argv, "l:d:b:s:vf:nhcte:")
+        opts, args = getopt.getopt(argv, "l:d:b:s:j:w:r:i:o:vf:nhcte:")
     except getopt.GetoptError:
         usage()
         sys.exit()
@@ -71,6 +84,11 @@ def start(argv):
     host_ip = []
     filename = ""
     bingapi = "yes"
+    depth = ""
+    wait = ""
+    limit_rate = ""
+    timeout = ""
+    save = ""
     dnslookup = False
     dnsbrute = False
     dnstld = False
@@ -84,6 +102,16 @@ def start(argv):
             limit = int(arg)
         elif opt == '-d':
             word = arg
+        elif opt == '-j':
+            depth = int(arg)
+        elif opt == '-w':
+            wait = int(arg)
+        elif opt == '-r':
+            limit_rate = arg
+        elif opt == '-i':
+            timeout = int(arg)
+        elif opt == '-o':
+            save = arg
         elif opt == '-s':
             start = int(arg)
         elif opt == '-v':
@@ -103,7 +131,7 @@ def start(argv):
         elif opt == '-b':
             engine = arg
             if engine not in ("google","googleCSE" , "linkedin", "pgp", "all", "google-profiles", "bing", "bingapi", 
-                              "yandex", "people123", "jigsaw", "dogpilesearch", "twitter", "googleplus", "yahoo", "baidu"):
+                              "yandex", "people123", "jigsaw", "dogpilesearch", "twitter", "googleplus", "yahoo", "baidu", "html-source"):
                 usage()
                 print "Invalid search engine, try with: bing, google, linkedin, pgp, jigsaw, bingapi, people123, google-profiles, dogpilesearch, twitter, googleplus, yahoo, baidu"
                 sys.exit()
@@ -242,6 +270,31 @@ def start(argv):
         for users in people:
             print users
         sys.exit()
+        #Used for closed or public networks to search HTML source code
+    elif engine == "html-source":
+        print "[-] Scraping HTML source code.."
+        #Since we are not using argparse we kinda have to use
+        #This giant hack to ensure we have Default values
+        print depth
+        if depth == "":
+            depth = int(150)
+        if wait == "":
+            wait = int(0)
+        if limit_rate == "":
+            limit_rate = str("1000k")
+        if timeout == "":
+            timeout = int(5)
+        if save == "":
+            save = str("/root/Desktop/")
+        search = htmlscrape.html_scrape(word, depth, wait, limit_rate, timeout, save)
+        #word = Target domain
+        #Depth = depth of wget
+        #wait = time between dowloads
+        #limit_rate = limit bandwidth  rate
+        #timeout = timeout 
+        #save = The loction where the site will be started ex /root/Desktop/
+        search.do_search()
+        all_emails = search.get_emails()
     elif engine == "all":
         print "Full harvest.."
         all_emails = []
