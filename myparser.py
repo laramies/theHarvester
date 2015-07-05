@@ -27,6 +27,7 @@ class parser:
         self.results = re.sub('</em>', '', self.results)
         self.results = re.sub('%2f', ' ', self.results)
         self.results = re.sub('%3a', ' ', self.results)
+
         for e in ('<', '>', ':', '=', ';', '&', '%3A', '%3D', '%3C'):
             self.results = string.replace(self.results, e, ' ')
 
