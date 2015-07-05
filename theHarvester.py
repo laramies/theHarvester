@@ -7,6 +7,13 @@ import os
 from socket import *
 import re
 import getopt
+
+try:
+    import requests
+except:
+    print "Request library not found, please install it before proceeding\n"
+    sys.exit()
+
 from discovery import *
 from lib import htmlExport
 from lib import hostchecker
@@ -24,11 +31,6 @@ print "* Edge-Security Research                                          *"
 print "* cmartorella@edge-security.com                                   *"
 print "*******************************************************************\n\n"
 
-try:
-    import requests
-except:
-    print "Request library not found, please install it before proceeding\n"
-    sys.exit()
 
 def usage():
 
