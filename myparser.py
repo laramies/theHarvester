@@ -115,20 +115,6 @@ class parser:
                 resul.append(y)
         return resul
 
-    def people_123people(self):
-        #reg_people = re.compile('www\.123people\.com/s/[a-zA-Z0-9.-_]*\+[a-zA-Z0-9.-_]*\+?[a-zA-Z0-9.-_]*\"')
-        reg_people = re.compile('www.123people.com/e/[a-zA-Z0-9.-_+]*</cite>')
-        self.temp = reg_people.findall(self.results)
-        self.temp2 = []
-        for x in self.temp:
-            y = x.replace("www.123people.com/e/", "")
-            y = y.replace('"', '')
-            y = y.replace('+', ' ')
-            y = y.replace('</cite>', '')
-
-            self.temp2.append(y)
-        return self.temp2
-
     def people_jigsaw(self):
         res = []
         #reg_people = re.compile("'tblrow' title='[a-zA-Z0-9.-]*'><span class='nowrap'/>")

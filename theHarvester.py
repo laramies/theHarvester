@@ -39,9 +39,8 @@ def usage():
 
     print "Usage: theharvester options \n"
     print "       -d: Domain to search or company name"
-    print """       -b: data source: google, googleCSE, bing, bingapi, pgp
-                        linkedin, google-profiles, people123, jigsaw, 
-                        twitter, googleplus, all\n"""
+    print """       -b: data source: google, googleCSE, bing, bingapi, pgp, linkedin,
+                        google-profiles, jigsaw, twitter, googleplus, all\n"""
     print "       -s: Start in result number X (default: 0)"
     print "       -v: Verify host name via dns resolution and search for virtual hosts"
     print "       -f: Save the results into an HTML and XML file"
@@ -102,10 +101,10 @@ def start(argv):
             dnstld = True
         elif opt == '-b':
             engine = arg
-            if engine not in ("google","googleCSE" , "linkedin", "pgp", "all", "google-profiles", "bing", "bingapi", 
-                              "yandex", "people123", "jigsaw", "dogpilesearch", "twitter", "googleplus", "yahoo", "baidu"):
+            if engine not in ("google","googleCSE" , "linkedin", "pgp", "all", "google-profiles", "bing", "bingapi",
+                              "yandex", "jigsaw", "dogpilesearch", "twitter", "googleplus", "yahoo", "baidu"):
                 usage()
-                print "Invalid search engine, try with: bing, google, linkedin, pgp, jigsaw, bingapi, people123, google-profiles, dogpilesearch, twitter, googleplus, yahoo, baidu"
+                print "Invalid search engine, try with: bing, google, linkedin, pgp, jigsaw, bingapi, google-profiles, dogpilesearch, twitter, googleplus, yahoo, baidu"
                 sys.exit()
             else:
                 pass
@@ -157,17 +156,6 @@ def start(argv):
         all_emails = search.get_emails()
         all_hosts = search.get_hostnames()
 
-    elif engine == "people123":
-        print "[-] Searching in 123People.."
-        search = people123.search_123people(word, limit)
-        search.process()
-        people = search.get_people()
-        all_emails = search.get_emails()
-        print "Users from 123People:"
-        print "====================="
-        for user in people:
-            print user
-
     elif engine == "jigsaw":
         print "[-] Searching in Jigsaw.."
         search = jigsaw.search_jigsaw(word, limit)
@@ -210,7 +198,7 @@ def start(argv):
        	for user in people:
             print user
         sys.exit()
- 
+
     elif engine == "twitter":
         print "[-] Searching in Twitter .."
         search = twittersearch.search_twitter(word, limit)
@@ -221,7 +209,7 @@ def start(argv):
        	for user in people:
             print user
         sys.exit()
-    
+
     elif engine == "linkedin":
         print "[-] Searching in Linkedin.."
         search = linkedinsearch.search_linkedin(word, limit)
