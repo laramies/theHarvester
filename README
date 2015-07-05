@@ -72,6 +72,8 @@ Modules that need API keys to work:
 Dependencies:
 ------------
 -Requests library (http://docs.python-requests.org/en/latest/)
+`pip install requests`
+
 
 Changelog in 2.6:
 ------------------
