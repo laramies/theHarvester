@@ -441,5 +441,5 @@ if __name__ == "__main__":
         start(sys.argv[1:])
     except KeyboardInterrupt:
         print "Search interrupted by user.."
-    except:
+    finally:
         sys.exit()
