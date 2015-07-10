@@ -18,19 +18,20 @@ from discovery import *
 from lib import htmlExport
 from lib import hostchecker
 
-print "\n*******************************************************************"
-print "*                                                                 *"
-print "* | |_| |__   ___    /\  /\__ _ _ ____   _____  ___| |_ ___ _ __  *"
-print "* | __| '_ \ / _ \  / /_/ / _` | '__\ \ / / _ \/ __| __/ _ \ '__| *"
-print "* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *"
-print "*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *"
-print "*                                                                 *"
-print "* TheHarvester Ver. 2.6                                           *"
-print "* Coded by Christian Martorella                                   *"
-print "* Edge-Security Research                                          *"
-print "* cmartorella@edge-security.com                                   *"
-print "*******************************************************************\n\n"
-
+print '''
+*******************************************************************
+*                                                                 *
+* | |_| |__   ___    /\  /\__ _ _ ____   _____  ___| |_ ___ _ __  *
+* | __| '_ \ / _ \  / /_/ / _` | '__\ \ / / _ \/ __| __/ _ \ '__| *
+* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
+*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
+*                                                                 *
+* TheHarvester Ver. 2.6                                           *
+* Coded by Christian Martorella                                   *
+* Edge-Security Research                                          *
+* cmartorella@edge-security.com                                   *
+*******************************************************************
+'''
 
 def usage():
 
@@ -116,7 +117,6 @@ def start(argv):
         search.process()
         all_emails = search.get_emails()
         all_hosts = search.get_hostnames()
-
 
     if engine == "googleCSE":
         print "[-] Searching in Google Custom Search:"
@@ -222,6 +222,7 @@ def start(argv):
        	for user in people:
             print user
         sys.exit()
+
     elif engine == "google-profiles":
         print "[-] Searching in Google profiles.."
         search = googlesearch.search_google(word, limit, start)
@@ -232,6 +233,7 @@ def start(argv):
         for users in people:
             print users
         sys.exit()
+
     elif engine == "all":
         print "Full harvest.."
         all_emails = []
@@ -266,10 +268,11 @@ def start(argv):
         hosts = search.get_hostnames()
         all_hosts.extend(hosts)
         all_emails.extend(emails)
+
     #Results############################################################
     print "\n\n[+] Emails found:"
     print "------------------"
-    if all_emails == []:
+    if not all_emails:
         print "No emails found"
     else:
         for emails in all_emails:
@@ -277,7 +280,7 @@ def start(argv):
 
     print "\n[+] Hosts found in search engines:"
     print "------------------------------------"
-    if all_hosts == []:
+    if not all_hosts:
         print "No hosts found"
     else:
         print "[-] Resolving hostnames IPs... "
@@ -293,7 +296,7 @@ def start(argv):
 
     #DNS reverse lookup#################################################
     dnsrev = []
-    if dnslookup == True:
+    if dnslookup:
         print "\n[+] Starting active queries:"
         analyzed_ranges = []
         for x in full:
@@ -318,9 +321,10 @@ def start(argv):
         print "---------------------------------"
         for xh in dnsrev:
             print xh
+
     #DNS Brute force####################################################
     dnsres = []
-    if dnsbrute == True:
+    if dnsbrute:
         print "\n[-] Starting DNS brute force:"
         a = dnssearch.dns_force(word, dnsserver, verbose=True)
         res = a.process()
@@ -330,9 +334,10 @@ def start(argv):
             dnsres.append(y)
             if y not in full:
                 full.append(y)
+
     #DNS TLD expansion###################################################
     dnstldres = []
-    if dnstld == True:
+    if dnstld:
         print "[-] Starting DNS TLD expansion:"
         a = dnssearch.dns_tld(word, dnsserver, verbose=True)
         res = a.process()
@@ -363,7 +368,7 @@ def start(argv):
         pass
     shodanres = []
     shodanvisited = []
-    if shodan == True:
+    if shodan:
         print "[+] Shodan Database search:"
         for x in full:
             print x
@@ -441,5 +446,5 @@ if __name__ == "__main__":
         start(sys.argv[1:])
     except KeyboardInterrupt:
         print "Search interrupted by user.."
-    except:
+    finally:
         sys.exit()
