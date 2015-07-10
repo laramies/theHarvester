@@ -272,7 +272,7 @@ def start(argv):
     #Results############################################################
     print "\n\n[+] Emails found:"
     print "------------------"
-    if all_emails == []:
+    if not all_emails:
         print "No emails found"
     else:
         for emails in all_emails:
@@ -280,7 +280,7 @@ def start(argv):
 
     print "\n[+] Hosts found in search engines:"
     print "------------------------------------"
-    if all_hosts == []:
+    if not all_hosts:
         print "No hosts found"
     else:
         print "[-] Resolving hostnames IPs... "
@@ -296,7 +296,7 @@ def start(argv):
 
     #DNS reverse lookup#################################################
     dnsrev = []
-    if dnslookup == True:
+    if dnslookup:
         print "\n[+] Starting active queries:"
         analyzed_ranges = []
         for x in full:
@@ -324,7 +324,7 @@ def start(argv):
 
     #DNS Brute force####################################################
     dnsres = []
-    if dnsbrute == True:
+    if dnsbrute:
         print "\n[-] Starting DNS brute force:"
         a = dnssearch.dns_force(word, dnsserver, verbose=True)
         res = a.process()
@@ -337,7 +337,7 @@ def start(argv):
 
     #DNS TLD expansion###################################################
     dnstldres = []
-    if dnstld == True:
+    if dnstld:
         print "[-] Starting DNS TLD expansion:"
         a = dnssearch.dns_tld(word, dnsserver, verbose=True)
         res = a.process()
@@ -368,7 +368,7 @@ def start(argv):
         pass
     shodanres = []
     shodanvisited = []
-    if shodan == True:
+    if shodan:
         print "[+] Shodan Database search:"
         for x in full:
             print x
