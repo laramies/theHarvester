@@ -35,7 +35,7 @@ class parser:
         self.genericClean()
         reg_emails = re.compile(
             '[a-zA-Z0-9.-_]*' +
-            '@' +
+            ('@'|'\[@\]'|'\[at\]' +
             '(?:[a-zA-Z0-9.-]*\.)?' +
             self.word)
         self.temp = reg_emails.findall(self.results)
