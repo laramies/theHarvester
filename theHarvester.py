@@ -51,6 +51,7 @@ def usage():
     print "       -t: Perform a DNS TLD expansion discovery"
     print "       -e: Use this DNS server"
     print "       -l: Limit the number of results to work with(bing goes from 50 to 50 results,"
+    print "       -m: Only retrieve emails"
     print "       -h: use SHODAN database to query discovered hosts"
     print "            google 100 to 100, and pgp doesn't use this option)"
     print "\nExamples:"
@@ -64,7 +65,7 @@ def start(argv):
         usage()
         sys.exit()
     try:
-        opts, args = getopt.getopt(argv, "l:d:b:s:vf:nhcte:")
+        opts, args = getopt.getopt(argv, "l:d:b:s:vf:mnhcte:")
     except getopt.GetoptError:
         usage()
         sys.exit()
@@ -78,6 +79,7 @@ def start(argv):
     shodan = False
     vhost = []
     virtual = False
+    onlymail = False
     limit = 100
     dnsserver = ""
     for opt, arg in opts:
@@ -99,14 +101,20 @@ def start(argv):
             shodan = True
         elif opt == '-e':
             dnsserver = arg
+        elif opt == '-m':  # Activate mail only, disable all other
+            onlymail = True
+            dnsbrute = False
+            dnslookup = False
+            dnsserver = False
+            shodan = False
         elif opt == '-t':
             dnstld = True
         elif opt == '-b':
             engine = arg
-            if engine not in ("google","googleCSE" , "linkedin", "pgp", "all", "google-profiles", "bing", "bingapi",
-                              "yandex", "jigsaw", "dogpilesearch", "twitter", "googleplus", "yahoo", "baidu"):
+            if engine not in ("google","googleCSE" , "linkedin", "pgp", "all", "google-profiles", "bing", "bing_api", 
+                              "yandex", "people123", "jigsaw", "dogpilesearch","twitter","googleplus", "yahoo", "baidu"):
                 usage()
-                print "Invalid search engine, try with: bing, google, linkedin, pgp, jigsaw, bingapi, google-profiles, dogpilesearch, twitter, googleplus, yahoo, baidu"
+                print "Invalid search engine, try with: bing, google, linkedin, pgp, jigsaw, bing_api, people123, google-profiles, dogpilesearch, twitter, googleplus, yahoo, baidu"
                 sys.exit()
             else:
                 pass
@@ -115,7 +123,8 @@ def start(argv):
         search = googlesearch.search_google(word, limit, start)
         search.process()
         all_emails = search.get_emails()
-        all_hosts = search.get_hostnames()
+        if not onlymail:
+          all_hosts = search.get_hostnames()
 
 
     if engine == "googleCSE":
@@ -124,14 +133,16 @@ def start(argv):
         search.process()
         search.store_results()
         all_emails = search.get_emails()
-        all_hosts = search.get_hostnames()
+        if not onlymail:
+          all_hosts = search.get_hostnames()
 
     if engine == "exalead":
         print "[-] Searching in Exalead:"
         search = exaleadsearch.search_exalead(word, limit, start)
         search.process()
         all_emails = search.get_emails()
-        all_hosts = search.get_hostnames()
+        if not onlymail:
+          all_hosts = search.get_hostnames()
 
     elif engine == "bing" or engine == "bingapi":
         print "[-] Searching in Bing:"
@@ -142,21 +153,35 @@ def start(argv):
             bingapi = "no"
         search.process(bingapi)
         all_emails = search.get_emails()
-        all_hosts = search.get_hostnames()
+        if not onlymail:
+          all_hosts = search.get_hostnames()
 
     elif engine == "yandex":  # Not working yet
         print "[-] Searching in Yandex:"
         search = yandexsearch.search_yandex(word, limit, start)
         search.process()
         all_emails = search.get_emails()
-        all_hosts = search.get_hostnames()
+        if not onlymail:
+          all_hosts = search.get_hostnames()
 
     elif engine == "pgp":
         print "[-] Searching in PGP key server.."
         search = pgpsearch.search_pgp(word)
         search.process()
         all_emails = search.get_emails()
-        all_hosts = search.get_hostnames()
+        if not onlymail:
+          all_hosts = search.get_hostnames()
+
+    elif engine == "people123":
+        print "[-] Searching in 123People.."
+        search = people123.search_123people(word, limit)
+        search.process()
+        people = search.get_people()
+        all_emails = search.get_emails()
+        print "Users from 123People:"
+        print "====================="
+        for user in people:
+            print user
 
     elif engine == "jigsaw":
         print "[-] Searching in Jigsaw.."
@@ -174,7 +199,8 @@ def start(argv):
         search = dogpilesearch.search_dogpile(word, limit)
         search.process()
         all_emails = search.get_emails()
-        all_hosts = search.get_hostnames()
+        if not onlymail:
+          all_hosts = search.get_hostnames()
 
     elif engine == "yahoo":
         print "[-] Searching in Yahoo.."
@@ -196,8 +222,8 @@ def start(argv):
         search.process()
         people = search.get_people()
         print "Users from Google+:"
-       	print "===================="
-       	for user in people:
+        print "===================="
+        for user in people:
             print user
         sys.exit()
 
@@ -207,8 +233,8 @@ def start(argv):
         search.process()
         people = search.get_people()
         print "Users from Twitter:"
-       	print "===================="
-       	for user in people:
+        print "===================="
+        for user in people:
             print user
         sys.exit()
 
@@ -232,6 +258,7 @@ def start(argv):
         for users in people:
             print users
         sys.exit()
+    
     elif engine == "all":
         print "Full harvest.."
         all_emails = []
@@ -266,30 +293,39 @@ def start(argv):
         hosts = search.get_hostnames()
         all_hosts.extend(hosts)
         all_emails.extend(emails)
+
+
+    # Clean up email list, sort and uniq
+    all_emails = sorted(set(all_emails)) 
+
+
     #Results############################################################
     print "\n\n[+] Emails found:"
     print "------------------"
     if all_emails == []:
         print "No emails found"
     else:
-        for emails in all_emails:
-            print emails
+        print "\n".join(all_emails)
 
-    print "\n[+] Hosts found in search engines:"
-    print "------------------------------------"
-    if all_hosts == []:
-        print "No hosts found"
-    else:
-        print "[-] Resolving hostnames IPs... "
-        full_host = hostchecker.Checker(all_hosts)
-        full = full_host.check()
-        for host in full:
-            ip = host.split(':')[0]
-            print host
-            if host_ip.count(ip.lower()):
-                pass
-            else:
-                host_ip.append(ip.lower())
+       # for emails in all_emails:
+        #    print emails
+
+    if not onlymail:
+        print "\n[+] Hosts found in search engines:"
+        print "------------------------------------"
+        if all_hosts == []:
+            print "No hosts found"
+        else:
+            print "[-] Resolving hostnames IPs... "
+            full_host = hostchecker.Checker(all_hosts)
+            full = full_host.check()
+            for host in full:
+                ip = host.split(':')[0]
+                print host
+                if host_ip.count(ip.lower()):
+                    pass
+                else:
+                    host_ip.append(ip.lower())
 
     #DNS reverse lookup#################################################
     dnsrev = []
