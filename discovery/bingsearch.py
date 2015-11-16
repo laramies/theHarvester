@@ -26,8 +26,8 @@ class search_bing:
         h.putrequest('GET', "/search?q=%40" + self.word +
                      "&count=50&first=" + str(self.counter))
         h.putheader('Host', self.hostname)
-        h.putheader('Cookie: SRCHHPGUSR=ADLT=DEMOTE&NRSLT=50')
-        h.putheader('Accept-Language: en-us,en')
+        h.putheader('Cookie', 'SRCHHPGUSR=ADLT=DEMOTE&NRSLT=50')
+        h.putheader('Accept-Language', 'en-us,en')
         h.putheader('User-agent', self.userAgent)
         h.endheaders()
         returncode, returnmsg, headers = h.getreply()
@@ -51,8 +51,8 @@ class search_bing:
                      "&go=&count=50&FORM=QBHL&qs=n&first=" + str(self.counter))
         h.putheader('Host', self.hostname)
         h.putheader(
-            'Cookie: mkt=en-US;ui=en-US;SRCHHPGUSR=NEWWND=0&ADLT=DEMOTE&NRSLT=50')
-        h.putheader('Accept-Language: en-us,en')
+            'Cookie', 'mkt=en-US;ui=en-US;SRCHHPGUSR=NEWWND=0&ADLT=DEMOTE&NRSLT=50')
+        h.putheader('Accept-Language', 'en-us,en')
         h.putheader('User-agent', self.userAgent)
         h.endheaders()
         returncode, returnmsg, headers = h.getreply()
