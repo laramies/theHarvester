@@ -51,13 +51,14 @@ def usage():
     print "       -t: Perform a DNS TLD expansion discovery"
     print "       -e: Use this DNS server"
     print "       -l: Limit the number of results to work with(bing goes from 50 to 50 results,"
-    print "       -h: use SHODAN database to query discovered hosts"
     print "            google 100 to 100, and pgp doesn't use this option)"
+    print "       -h: use SHODAN database to query discovered hosts"
     print "\nExamples:"
     print "        " + comm + " -d microsoft.com -l 500 -b google"
     print "        " + comm + " -d microsoft.com -b pgp"
     print "        " + comm + " -d microsoft -l 200 -b linkedin"
     print "        " + comm + " -d apple.com -b googleCSE -l 500 -s 300\n"
+
 
 def start(argv):
     if len(sys.argv) < 4:
@@ -116,7 +117,6 @@ def start(argv):
         search.process()
         all_emails = search.get_emails()
         all_hosts = search.get_hostnames()
-
 
     if engine == "googleCSE":
         print "[-] Searching in Google Custom Search:"
