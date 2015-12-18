@@ -111,6 +111,7 @@ def start(argv):
                 sys.exit()
             else:
                 pass
+
     if engine == "google":
         print "[-] Searching in Google:"
         search = googlesearch.search_google(word, limit, start)
@@ -222,6 +223,7 @@ def start(argv):
        	for user in people:
             print user
         sys.exit()
+
     elif engine == "google-profiles":
         print "[-] Searching in Google profiles.."
         search = googlesearch.search_google(word, limit, start)
@@ -232,6 +234,7 @@ def start(argv):
         for users in people:
             print users
         sys.exit()
+
     elif engine == "all":
         print "Full harvest.."
         all_emails = []
@@ -266,6 +269,7 @@ def start(argv):
         hosts = search.get_hostnames()
         all_hosts.extend(hosts)
         all_emails.extend(emails)
+
     #Results############################################################
     print "\n\n[+] Emails found:"
     print "------------------"
@@ -318,6 +322,7 @@ def start(argv):
         print "---------------------------------"
         for xh in dnsrev:
             print xh
+
     #DNS Brute force####################################################
     dnsres = []
     if dnsbrute == True:
@@ -330,6 +335,7 @@ def start(argv):
             dnsres.append(y)
             if y not in full:
                 full.append(y)
+
     #DNS TLD expansion###################################################
     dnstldres = []
     if dnstld == True:
@@ -441,5 +447,5 @@ if __name__ == "__main__":
         start(sys.argv[1:])
     except KeyboardInterrupt:
         print "Search interrupted by user.."
-    except:
+    finally:
         sys.exit()
