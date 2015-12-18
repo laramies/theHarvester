@@ -26,8 +26,8 @@ class search_bing:
         h.putrequest('GET', "/search?q=%40" + self.word +
                      "&count=50&first=" + str(self.counter))
         h.putheader('Host', self.hostname)
-        h.putheader('Cookie: SRCHHPGUSR=ADLT=DEMOTE&NRSLT=50')
-        h.putheader('Accept-Language: en-us,en')
+        h.putheader('Cookie', 'SRCHHPGUSR=ADLT=DEMOTE&NRSLT=50')
+        h.putheader('Accept-Language', 'en-us,en')
         h.putheader('User-agent', self.userAgent)
         h.endheaders()
         returncode, returnmsg, headers = h.getreply()
