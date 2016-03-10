@@ -430,7 +430,8 @@ def start(argv):
             for x in vhost:
                 file.write('<vhost>' + x + '</vhost>')
             file.write('</theHarvester>')
-            file.close
+            file.flush()
+            file.close()
             print "Files saved!"
         except Exception as er:
             print "Error saving XML file: " + er
