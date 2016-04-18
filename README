@@ -5,7 +5,7 @@
 * | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
 *  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
 *                                                                 *
-* TheHarvester Ver. 2.6                                          *
+* TheHarvester Ver. 2.7                                          *
 * Coded by Christian Martorella                                   *
 * Edge-Security Research                                          *
 * cmartorella@edge-security.com                                   *
@@ -74,10 +74,15 @@ Dependencies:
 -Requests library (http://docs.python-requests.org/en/latest/)
 `pip install requests`
 
+Changelog in 2.7:
+------------------
+-Fixed email parser for cleaner results. Thanks Th4nat0s
+-Improved XML exporting file format
+-Removed 123people
+-Fixed Bing cookies order
 
 Changelog in 2.6:
 ------------------
--Fixed email parser for cleaner results. Thanks Th4nat0s
 -Added Yahoo and Baidu search engines. Thanks to Tatanus
 -Added check for the existence of Requests library.
 -Fixed email regex to provide cleaner results. Thanks to Peter McAlpine
