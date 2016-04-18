@@ -18,6 +18,9 @@ class parser:
         self.results = re.sub('%3a', ' ', self.results)
         self.results = re.sub('<strong>', '', self.results)
         self.results = re.sub('</strong>', '', self.results)
+        self.results = re.sub('<wbr>','',self.results)
+        self.results = re.sub('</wbr>','',self.results)
+
 
         for e in ('>', ':', '=', '<', '/', '\\', ';', '&', '%3A', '%3D', '%3C'):
             self.results = string.replace(self.results, e, ' ')
