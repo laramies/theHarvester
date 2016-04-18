@@ -77,6 +77,7 @@ Dependencies:
 
 Changelog in 2.6:
 ------------------
+-Fixed email parser for cleaner results. Thanks Th4nat0s
 -Added Yahoo and Baidu search engines. Thanks to Tatanus
 -Added check for the existence of Requests library.
 -Fixed email regex to provide cleaner results. Thanks to Peter McAlpine

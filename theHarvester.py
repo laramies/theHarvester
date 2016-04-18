@@ -266,14 +266,16 @@ def start(argv):
         hosts = search.get_hostnames()
         all_hosts.extend(hosts)
         all_emails.extend(emails)
+
+        #Clean up email list, sort and uniq
+        all_emails=sorted(set(all_emails))
     #Results############################################################
     print "\n\n[+] Emails found:"
     print "------------------"
     if all_emails == []:
         print "No emails found"
     else:
-        for emails in all_emails:
-            print emails
+        print "\n".join(all_emails)
 
     print "\n[+] Hosts found in search engines:"
     print "------------------------------------"

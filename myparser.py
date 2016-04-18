@@ -34,9 +34,11 @@ class parser:
     def emails(self):
         self.genericClean()
         reg_emails = re.compile(
-            '[a-zA-Z0-9.-_]*' +
+            # Local part is required, charset is flexible
+           # https://tools.ietf.org/html/rfc6531 (removed * and () as they provide FP mostly)
+            '[a-zA-Z0-9.\-_+#~!$&\',;=:]+' +
             '@' +
-            '(?:[a-zA-Z0-9.-]*\.)?' +
+            '[a-zA-Z0-9.-]*' +
             self.word)
         self.temp = reg_emails.findall(self.results)
         emails = self.unique()
