@@ -282,6 +282,7 @@ def start(argv):
     if all_hosts == []:
         print "No hosts found"
     else:
+        all_hosts=sorted(set(all_hosts))
         print "[-] Resolving hostnames IPs... "
         full_host = hostchecker.Checker(all_hosts)
         full = full_host.check()
@@ -361,6 +362,7 @@ def start(argv):
                 print l + "\t" + x
                 vhost.append(l + ":" + x)
                 full.append(l + ":" + x)
+        vhost=sorted(set(vhost))
     else:
         pass
     shodanres = []
@@ -404,6 +406,7 @@ def start(argv):
     else:
         pass
 
+    #Reporting#######################################################
     if filename != "":
         try:
             print "[+] Saving files..."
@@ -427,10 +430,51 @@ def start(argv):
             file.write('<?xml version="1.0" encoding="UTF-8"?><theHarvester>')
             for x in all_emails:
                 file.write('<email>' + x + '</email>')
-            for x in all_hosts:
-                file.write('<host>' + x + '</host>')
+
+            for x in full:
+                x = x.split(":")
+                if len(x) == 2:
+                    file.write('<host>' + '<ip>' + x[0] + '</ip><hostname>' + x[1]  + '</hostname>' + '</host>')
+                else:
+                    file.write('<host>' + x + '</host>')
             for x in vhost:
-                file.write('<vhost>' + x + '</vhost>')
+                x = x.split(":")
+                if len(x) == 2:
+                    file.write('<vhost>' + '<ip>' + x[0] + '</ip><hostname>' + x[1]  + '</hostname>' + '</vhost>')
+                else:
+                    file.write('<vhost>' + x + '</vhost>')
+
+            if shodanres != []:
+                shodanalysis = []
+                for x in shodanres:
+                    res = x.split("SAPO")
+                    # print " res[0] " + res[0] # ip/host
+                    # print " res[1] " + res[1] # banner/info
+                    # print " res[2] " + res[2] # port
+                    file.write('<shodan>')
+                    #page.h3(res[0])
+                    file.write('<host>' + res[0] + '</host>')
+                    #page.a("Port :" + res[2])
+                    file.write('<port>' + res[2] + '</port>')
+                    #page.pre(res[1])
+                    file.write('<banner><!--' + res[1] + '--></banner>')
+                    
+                    
+                    reg_server = re.compile('Server:.*')
+                    temp = reg_server.findall(res[1])
+                    if temp != []:
+                        shodanalysis.append(res[0] + ":" + temp[0])
+                    
+                    file.write('</shodan>')
+                if shodanalysis != []:
+                    shodanalysis=sorted(set(shodanalysis))
+                    file.write('<servers>')
+                    for x in shodanalysis:
+                        #page.pre(x)
+                        file.write('<server>' + x + '</server>')
+                    file.write('</servers>')
+                    
+
             file.write('</theHarvester>')
             file.flush()
             file.close()
