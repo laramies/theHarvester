@@ -41,8 +41,9 @@ def usage():
 
     print "Usage: theharvester options \n"
     print "       -d: Domain to search or company name"
-    print """       -b: data source: google, googleCSE, bing, bingapi, pgp, linkedin,
-                        google-profiles, jigsaw, twitter, googleplus, all\n"""
+    print """       -b: data source: baidu, bing, bingapi, dogpile,google, googleCSE,
+                        googleplus, google-profiles, linkedin, pgp, twitter, vhost, 
+                        yahoo, all\n"""
     print "       -s: Start in result number X (default: 0)"
     print "       -v: Verify host name via dns resolution and search for virtual hosts"
     print "       -f: Save the results into an HTML and XML file (both)"
@@ -104,10 +105,9 @@ def start(argv):
             dnstld = True
         elif opt == '-b':
             engine = arg
-            if engine not in ("google","googleCSE" , "linkedin", "pgp", "all", "google-profiles", "bing", "bingapi",
-                              "yandex", "jigsaw", "dogpilesearch", "twitter", "googleplus", "yahoo", "baidu"):
+            if engine not in ("baidu", "bing", "bingapi","dogpile", "google", "googleCSE", "googleplus", "google-profiles","linkedin", "pgp", "twitter", "vhost", "yahoo", "all"):
                 usage()
-                print "Invalid search engine, try with: bing, google, linkedin, pgp, jigsaw, bingapi, google-profiles, dogpilesearch, twitter, googleplus, yahoo, baidu"
+                print "Invalid search engine, try with: baidu, bing, bingapi, dogpile, google, googleCSE, googleplus, google-profiles, linkedin, pgp, twitter, vhost, yahoo, all"
                 sys.exit()
             else:
                 pass
@@ -126,13 +126,6 @@ def start(argv):
         all_emails = search.get_emails()
         all_hosts = search.get_hostnames()
 
-    if engine == "exalead":
-        print "[-] Searching in Exalead:"
-        search = exaleadsearch.search_exalead(word, limit, start)
-        search.process()
-        all_emails = search.get_emails()
-        all_hosts = search.get_hostnames()
-
     elif engine == "bing" or engine == "bingapi":
         print "[-] Searching in Bing:"
         search = bingsearch.search_bing(word, limit, start)
@@ -144,9 +137,9 @@ def start(argv):
         all_emails = search.get_emails()
         all_hosts = search.get_hostnames()
 
-    elif engine == "yandex":  # Not working yet
-        print "[-] Searching in Yandex:"
-        search = yandexsearch.search_yandex(word, limit, start)
+    elif engine == "dogpile":
+        print "[-] Searching in Dogpilesearch.."
+        search = dogpilesearch.search_dogpile(word, limit)
         search.process()
         all_emails = search.get_emails()
         all_hosts = search.get_hostnames()
@@ -154,24 +147,6 @@ def start(argv):
     elif engine == "pgp":
         print "[-] Searching in PGP key server.."
         search = pgpsearch.search_pgp(word)
-        search.process()
-        all_emails = search.get_emails()
-        all_hosts = search.get_hostnames()
-
-    elif engine == "jigsaw":
-        print "[-] Searching in Jigsaw.."
-        search = jigsaw.search_jigsaw(word, limit)
-        search.process()
-        people = search.get_people()
-        print "Users from Jigsaw:"
-        print "====================="
-        for user in people:
-            print user
-        sys.exit()
-
-    elif engine == "dogpilesearch":
-        print "[-] Searching in Dogpilesearch.."
-        search = dogpilesearch.search_dogpile(word, limit)
         search.process()
         all_emails = search.get_emails()
         all_hosts = search.get_hostnames()

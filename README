@@ -36,6 +36,8 @@ Passive:
 -bingapi: microsoft search engine, through the API (you need to add your Key in
           the discovery/bingsearch.py file)
 
+-dogpile: Dogpile search engine - www.dogpile.com
+
 -pgp: pgp key server - mit.edu
 
 -linkedin: google search engine, specific search for Linkedin users
