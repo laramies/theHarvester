@@ -209,7 +209,7 @@ def start(argv):
         search.process()
         people = search.get_people()
         print "Users from Twitter:"
-       	print "===================="
+       	print "-------------------"
        	for user in people:
             print user
         sys.exit()
@@ -220,7 +220,7 @@ def start(argv):
         search.process()
         people = search.get_people()
         print "Users from Linkedin:"
-       	print "===================="
+       	print "-------------------"
        	for user in people:
             print user
         sys.exit()
@@ -349,6 +349,7 @@ def start(argv):
         a = dnssearch.dns_force(word, dnsserver, verbose=True)
         res = a.process()
         print "\n[+] Hosts found after DNS brute force:\n"
+        print "---------------------------------------"
         for y in res:
             print y
             dnsres.append(y)
@@ -361,7 +362,7 @@ def start(argv):
         a = dnssearch.dns_tld(word, dnsserver, verbose=True)
         res = a.process()
         print "\n[+] Hosts found after DNS TLD expansion:"
-        print "=========================================="
+        print "------------------------------------------"
         for y in res:
             print y
             dnstldres.append(y)
@@ -371,7 +372,7 @@ def start(argv):
     #Virtual hosts search###############################################
     if virtual == "basic":
         print "[+] Virtual hosts:"
-        print "=================="
+        print "-----------------"
         for l in host_ip:
             search = bingsearch.search_bing(l, limit, start)
             search.process_vhost()
@@ -405,7 +406,7 @@ def start(argv):
             except:
                 pass
         print "[+] Shodan results:"
-        print "==================="
+        print "------------------"
         for x in shodanres:
             print x.split("SAPO")[0] + ":" + x.split("SAPO")[1]
     else:
