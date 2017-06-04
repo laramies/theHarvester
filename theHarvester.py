@@ -42,7 +42,7 @@ def usage():
     print "Usage: theharvester options \n"
     print "       -d: Domain to search or company name"
     print """       -b: data source: baidu, bing, bingapi, dogpile,google, googleCSE,
-                        googleplus, google-profiles, linkedin, pgp, twitter, vhost, 
+                        googleplus, google-profiles, linkedin, pgp, twitter, vhost,
                         yahoo, all\n"""
     print "       -s: Start in result number X (default: 0)"
     print "       -v: Verify host name via dns resolution and search for virtual hosts"
@@ -343,25 +343,25 @@ def start(argv):
     shodanres = []
     shodanvisited = []
     if shodan == True:
-        print "[+] Shodan Database search:"
+        print "\n[+] Shodan Plugin Enabled"
+        print "-------------------------"
         for x in full:
-            print x
             try:
                 ip = x.split(":")[0]
                 if not shodanvisited.count(ip):
-                    print "\tSearching for: " + x
+                    print "\tSearching " + x + " on Shodan..."
                     a = shodansearch.search_shodan(ip)
                     shodanvisited.append(ip)
                     results = a.run()
                     for res in results:
                         shodanres.append(
-                            x + "SAPO" + str(res['banner']) + "SAPO" + str(res['port']))
+                            x + "SAPO" + str(res['port']) + "SAPO" + str(res['isp']) + "SAPO" + str(res['data']))
             except:
                 pass
-        print "[+] Shodan results:"
+        print "\n[+] Shodan results:"
         print "==================="
         for x in shodanres:
-            print x.split("SAPO")[0] + ":" + x.split("SAPO")[1]
+            print x.split("SAPO")[0] + ":" + x.split("SAPO")[1] + ":" + x.split("SAPO")[2] + ":" + x.split("SAPO")[3]
     else:
         pass
 
@@ -433,13 +433,13 @@ def start(argv):
                     file.write('<port>' + res[2] + '</port>')
                     #page.pre(res[1])
                     file.write('<banner><!--' + res[1] + '--></banner>')
-                    
-                    
+
+
                     reg_server = re.compile('Server:.*')
                     temp = reg_server.findall(res[1])
                     if temp != []:
                         shodanalysis.append(res[0] + ":" + temp[0])
-                    
+
                     file.write('</shodan>')
                 if shodanalysis != []:
                     shodanalysis=sorted(set(shodanalysis))
@@ -448,7 +448,7 @@ def start(argv):
                         #page.pre(x)
                         file.write('<server>' + x + '</server>')
                     file.write('</servers>')
-                    
+
 
             file.write('</theHarvester>')
             file.flush()
