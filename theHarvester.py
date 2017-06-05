@@ -430,13 +430,13 @@ def start(argv):
                     #page.h3(res[0])
                     file.write('<host>' + res[0] + '</host>')
                     #page.a("Port :" + res[2])
-                    file.write('<port>' + res[2] + '</port>')
+                    file.write('<port>' + res[1] + '</port>')
                     #page.pre(res[1])
-                    file.write('<banner><!--' + res[1] + '--></banner>')
+                    file.write('<banner><!--' + res[3] + '--></banner>')
 
 
                     reg_server = re.compile('Server:.*')
-                    temp = reg_server.findall(res[1])
+                    temp = reg_server.findall(res[3])
                     if temp != []:
                         shodanalysis.append(res[0] + ":" + temp[0])
 
