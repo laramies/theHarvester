@@ -13,4 +13,7 @@ __all__ = ["bingsearch",
            "dogpilesearch",
            "baidusearch",
            "yahoosearch",
+           "netcraft",
+           "crtsh",
+           "virustotal",
            "googleCSE"]

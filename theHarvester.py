@@ -25,7 +25,7 @@ print "* | __| '_ \ / _ \  / /_/ / _` | '__\ \ / / _ \/ __| __/ _ \ '__| *"
 print "* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *"
 print "*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *"
 print "*                                                                 *"
-print "* TheHarvester Ver. 2.7                                           *"
+print "* TheHarvester Ver. 2.7.1                                         *"
 print "* Coded by Christian Martorella                                   *"
 print "* Edge-Security Research                                          *"
 print "* cmartorella@edge-security.com                                   *"
@@ -105,9 +105,9 @@ def start(argv):
             dnstld = True
         elif opt == '-b':
             engine = arg
-            if engine not in ("baidu", "bing", "bingapi","dogpile", "google", "googleCSE", "googleplus", "google-profiles","linkedin", "pgp", "twitter", "vhost", "yahoo", "all"):
+            if engine not in ("baidu", "bing", "crtsh","bingapi","dogpile", "google", "googleCSE","virustotal", "googleplus", "google-profiles","linkedin", "pgp", "twitter", "vhost", "yahoo","netcraft","all"):
                 usage()
-                print "Invalid search engine, try with: baidu, bing, bingapi, dogpile, google, googleCSE, googleplus, google-profiles, linkedin, pgp, twitter, vhost, yahoo, all"
+                print "Invalid search engine, try with: baidu, bing, bingapi,crtsh, dogpile, google, googleCSE, virustotal, netcraft, googleplus, google-profiles, linkedin, pgp, twitter, vhost, yahoo, all"
                 sys.exit()
             else:
                 pass
@@ -117,6 +117,33 @@ def start(argv):
         search.process()
         all_emails = search.get_emails()
         all_hosts = search.get_hostnames()
+    
+    if engine == "netcraft":
+        print "[-] Searching in Netcraft:"
+        search = netcraft.search_netcraft(word)
+        search.process()
+        all_hosts = search.get_hostnames()
+        for x in all_hosts:
+                print x
+        sys.exit()
+        
+    if engine == "virustotal":
+        print "[-] Searching in Virustotal:"
+        search = virustotal.search_virustotal(word)
+        search.process()
+        all_hosts = search.get_hostnames()
+        for x in all_hosts:
+                print x
+        sys.exit()
+
+    if engine == "crtsh":
+        print "[-] Searching in CRT.sh:"
+        search = crtsh.search_crtsh(word)
+        search.process()
+        all_hosts = search.get_hostnames()
+        for x in all_hosts:
+                print x
+        sys.exit()
 
     if engine == "googleCSE":
         print "[-] Searching in Google Custom Search:"
@@ -226,6 +253,25 @@ def start(argv):
         hosts = search.get_hostnames()
         all_hosts.extend(hosts)
         all_emails.extend(emails)
+        
+        print "[-] Searching in Netcraft server.."
+        search = netcraft.search_netcraft(word)
+        search.process()
+        hosts = search.get_hostnames()
+        all_hosts.extend(hosts)
+       
+        print "[-] Searching in CRTSH server.."
+        search = crtsh.search_crtsh(word)
+        search.process()
+        hosts = search.get_hostnames()
+        all_hosts.extend(hosts)
+
+        print "[-] Searching in Virustotal server.."
+        search = virustotal.search_virustotal(word)
+        search.process()
+        hosts = search.get_hostnames()
+        all_hosts.extend(hosts)
+        
         print "[-] Searching in Bing.."
         bingapi = "no"
         search = bingsearch.search_bing(word, limit, start)

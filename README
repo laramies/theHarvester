@@ -5,7 +5,7 @@
 * | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
 *  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
 *                                                                 *
-* TheHarvester Ver. 2.7                                          *
+* TheHarvester Ver. 2.7.1                                         *
 * Coded by Christian Martorella                                   *
 * Edge-Security Research                                          *
 * cmartorella@edge-security.com                                   *
@@ -75,6 +75,10 @@ Dependencies:
 ------------
 -Requests library (http://docs.python-requests.org/en/latest/)
 `pip install requests`
+
+Changelog in 2.7.1:
+------------------
+-Added Virustotal, Netcraft, Crt.sh engines
 
 Changelog in 2.7:
 ------------------
