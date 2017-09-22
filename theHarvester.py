@@ -123,6 +123,7 @@ def start(argv):
         search = netcraft.search_netcraft(word)
         search.process()
         all_hosts = search.get_hostnames()
+        print "\n[+] Subdomains found:\n"
         for x in all_hosts:
                 print x
         sys.exit()
@@ -132,6 +133,7 @@ def start(argv):
         search = virustotal.search_virustotal(word)
         search.process()
         all_hosts = search.get_hostnames()
+        print "\n[+] Subdomains found:\n"
         for x in all_hosts:
                 print x
         sys.exit()
@@ -141,6 +143,7 @@ def start(argv):
         search = crtsh.search_crtsh(word)
         search.process()
         all_hosts = search.get_hostnames()
+        print "\n[+] Subdomains found:\n" 
         for x in all_hosts:
                 print x
         sys.exit()
@@ -239,6 +242,7 @@ def start(argv):
         all_emails = []
         all_hosts = []
         virtual = "basic"
+        
         print "[-] Searching in Google.."
         search = googlesearch.search_google(word, limit, start)
         search.process()
@@ -246,6 +250,7 @@ def start(argv):
         hosts = search.get_hostnames()
         all_emails.extend(emails)
         all_hosts.extend(hosts)
+        
         print "[-] Searching in PGP Key server.."
         search = pgpsearch.search_pgp(word)
         search.process()
@@ -280,6 +285,7 @@ def start(argv):
         hosts = search.get_hostnames()
         all_hosts.extend(hosts)
         all_emails.extend(emails)
+       
         print "[-] Searching in Exalead.."
         search = exaleadsearch.search_exalead(word, limit, start)
         search.process()
