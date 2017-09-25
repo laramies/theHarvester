@@ -308,6 +308,7 @@ def start(argv):
     print "------------------------------------"
     if all_hosts == []:
         print "No hosts found"
+        full = []
     else:
         all_hosts=sorted(set(all_hosts))
         print "[-] Resolving hostnames IPs... "
