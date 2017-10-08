@@ -42,8 +42,8 @@ def usage():
     print "Usage: theharvester options \n"
     print "       -d: Domain to search or company name"
     print """       -b: data source: baidu, bing, bingapi, dogpile,google, googleCSE,
-                        googleplus, google-profiles, linkedin, pgp, twitter, vhost, 
-                        yahoo, all\n"""
+                        googleplus, google-profiles, google-certificates, linkedin, pgp, twitter
+                        vhost, yahoo, all\n"""
     print "       -s: Start in result number X (default: 0)"
     print "       -v: Verify host name via dns resolution and search for virtual hosts"
     print "       -f: Save the results into an HTML and XML file (both)"
@@ -105,9 +105,9 @@ def start(argv):
             dnstld = True
         elif opt == '-b':
             engine = arg
-            if engine not in ("baidu", "bing", "crtsh","bingapi","dogpile", "google", "googleCSE","virustotal", "googleplus", "google-profiles","linkedin", "pgp", "twitter", "vhost", "yahoo","netcraft","all"):
+            if engine not in ("baidu", "bing", "crtsh","bingapi","dogpile", "google", "googleCSE","virustotal", "googleplus", "google-profiles", "google-certificates" ,"linkedin", "pgp", "twitter", "vhost", "yahoo","netcraft","all"):
                 usage()
-                print "Invalid search engine, try with: baidu, bing, bingapi,crtsh, dogpile, google, googleCSE, virustotal, netcraft, googleplus, google-profiles, linkedin, pgp, twitter, vhost, yahoo, all"
+                print "Invalid search engine, try with: baidu, bing, bingapi,crtsh, dogpile, google, googleCSE, virustotal, netcraft, googleplus, google-profiles, google-certificates, linkedin, pgp, twitter, vhost, yahoo, all"
                 sys.exit()
             else:
                 pass
@@ -117,7 +117,7 @@ def start(argv):
         search.process()
         all_emails = search.get_emails()
         all_hosts = search.get_hostnames()
-    
+
     if engine == "netcraft":
         print "[-] Searching in Netcraft:"
         search = netcraft.search_netcraft(word)
@@ -127,7 +127,7 @@ def start(argv):
         for x in all_hosts:
                 print x
         sys.exit()
-        
+
     if engine == "virustotal":
         print "[-] Searching in Virustotal:"
         search = virustotal.search_virustotal(word)
@@ -237,12 +237,22 @@ def start(argv):
         for users in people:
             print users
         sys.exit()
+    elif engine == "google-certificates":
+        print "[-] Searching in Google Certificate transparency report.."
+       	search = googlecertificates.search_googlecertificates(word, limit, start)
+        search.process()
+        domains = search.get_domains()
+        print "Domains from Google Certificate transparency:"
+        print "---------------------------"
+        for domain in domains:
+            print domain
+        sys.exit()
     elif engine == "all":
         print "Full harvest.."
         all_emails = []
         all_hosts = []
         virtual = "basic"
-        
+
         print "[-] Searching in Google.."
         search = googlesearch.search_google(word, limit, start)
         search.process()
@@ -250,7 +260,7 @@ def start(argv):
         hosts = search.get_hostnames()
         all_emails.extend(emails)
         all_hosts.extend(hosts)
-        
+
         print "[-] Searching in PGP Key server.."
         search = pgpsearch.search_pgp(word)
         search.process()
@@ -258,13 +268,13 @@ def start(argv):
         hosts = search.get_hostnames()
         all_hosts.extend(hosts)
         all_emails.extend(emails)
-        
+
         print "[-] Searching in Netcraft server.."
         search = netcraft.search_netcraft(word)
         search.process()
         hosts = search.get_hostnames()
         all_hosts.extend(hosts)
-       
+
         print "[-] Searching in CRTSH server.."
         search = crtsh.search_crtsh(word)
         search.process()
@@ -276,7 +286,7 @@ def start(argv):
         search.process()
         hosts = search.get_hostnames()
         all_hosts.extend(hosts)
-        
+
         print "[-] Searching in Bing.."
         bingapi = "no"
         search = bingsearch.search_bing(word, limit, start)
@@ -285,7 +295,7 @@ def start(argv):
         hosts = search.get_hostnames()
         all_hosts.extend(hosts)
         all_emails.extend(emails)
-       
+
         print "[-] Searching in Exalead.."
         search = exaleadsearch.search_exalead(word, limit, start)
         search.process()
@@ -293,6 +303,12 @@ def start(argv):
         hosts = search.get_hostnames()
         all_hosts.extend(hosts)
         all_emails.extend(emails)
+
+	print "[-] Searching in Google Certificate transparency report.."
+        search = googlecertificates.search_googlecertificates(word, limit, start)
+        search.process()
+        domains = search.get_domains()
+	all_hosts.extend(domains)
 
         #Clean up email list, sort and uniq
         all_emails=sorted(set(all_emails))
