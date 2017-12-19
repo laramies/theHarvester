@@ -42,7 +42,6 @@ Passive:
 
 -linkedin: google search engine, specific search for Linkedin users
 
-
 -vhost: Bing virtual hosts search
 
 -twitter: twitter accounts related to an specific domain (uses google search)
@@ -56,6 +55,8 @@ Passive:
 -shodan: Shodan Computer search engine, will search for ports and banner of the
          discovered hosts  (http://www.shodanhq.com/)
 
+-pastebin: Pastebin search - pastebin.com
+
 
 Active:
 -------
@@ -68,13 +69,21 @@ Modules that need API keys to work:
 ----------------------------------
 -googleCSE: You need to create a Google Custom Search engine(CSE), and add your
  Google API key and CSE ID in the plugin (discovery/googleCSE.py)
+
 -shodan: You need to provide your API key in discovery/shodansearch.py
+
+-pastebin: You need to create a Google Custom Search Engine (CSE) for pastebin.com, and add your
+ Google API key and CSE ID in the plugin (discovery/pastebin.py)
 
 
 Dependencies:
 ------------
 -Requests library (http://docs.python-requests.org/en/latest/)
 `pip install requests`
+
+Changelog in 2.7.2:
+------------------
+-Added Pastebin
 
 Changelog in 2.7.1:
 ------------------

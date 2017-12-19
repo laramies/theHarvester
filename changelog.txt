@@ -1,3 +1,17 @@
+Changelog in 2.7.2:
+------------------
+-Added Pastebin
+
+Changelog in 2.7.1:
+------------------
+-Added Virustotal, Netcraft, Crt.sh engines
+
+Changelog in 2.7:
+------------------
+-Fixed email parser for cleaner results. Thanks Th4nat0s
+-Improved XML exporting file format
+-Removed 123people
+-Fixed Bing cookies order
 
 Changelog in 2.6:
 -----------------
