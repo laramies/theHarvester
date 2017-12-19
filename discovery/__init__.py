@@ -16,4 +16,5 @@ __all__ = ["bingsearch",
            "netcraft",
            "crtsh",
            "virustotal",
-           "googleCSE"]
+           "googleCSE",
+           "pastebin"]

@@ -15,13 +15,13 @@ class search_googleCSE:
         self.totalresults = ""
         self.server = "www.googleapis.com"
         self.hostname = "www.googleapis.com"
-        self.userAgent = "(Mozilla/5.0 (Windows; U; Windows NT 6.0;en-US; rv:1.9.2) Gecko/20100115 Firefox/3.6"
+        self.userAgent = "Mozilla/5.0 (Windows; U; Windows NT 6.0;en-US; rv:1.9.2) Gecko/20100115 Firefox/3.6"
         self.quantity = "10"
         self.limit = limit
         self.counter = 1
         self.api_key = ""
         self.cse_id = ""
-        self.lowRange = start 
+        self.lowRange = start
         self.highRange = start+100
 
     def do_search(self):
@@ -68,7 +68,7 @@ class search_googleCSE:
         rawres = myparser.parser(self.totalresults, self.word)
         return rawres.fileurls(self.files)
 
-   
+
     def process(self):
         tracker=self.counter + self.lowRange
         while tracker <= self.limit:
@@ -86,7 +86,7 @@ class search_googleCSE:
             else:
                 self.counter += 10
             tracker=self.counter + self.lowRange
-        
+
     def store_results(self):
              filename = "debug_results.txt"
              file = open(filename, 'w')
