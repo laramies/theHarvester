@@ -42,7 +42,7 @@ def usage():
     print "Usage: theharvester options \n"
     print "       -d: Domain to search or company name"
     print """       -b: data source: baidu, bing, bingapi, dogpile,google, googleCSE,
-                        googleplus, google-profiles, linkedin, pgp, twitter, vhost, 
+                        googleplus, google-profiles, linkedin, pgp, twitter, vhost,
                         yahoo, all\n"""
     print "       -s: Start in result number X (default: 0)"
     print "       -v: Verify host name via dns resolution and search for virtual hosts"
@@ -117,7 +117,7 @@ def start(argv):
         search.process()
         all_emails = search.get_emails()
         all_hosts = search.get_hostnames()
-    
+
     if engine == "netcraft":
         print "[-] Searching in Netcraft:"
         search = netcraft.search_netcraft(word)
@@ -127,7 +127,7 @@ def start(argv):
         for x in all_hosts:
                 print x
         sys.exit()
-        
+
     if engine == "virustotal":
         print "[-] Searching in Virustotal:"
         search = virustotal.search_virustotal(word)
@@ -143,7 +143,7 @@ def start(argv):
         search = crtsh.search_crtsh(word)
         search.process()
         all_hosts = search.get_hostnames()
-        print "\n[+] Subdomains found:\n" 
+        print "\n[+] Subdomains found:\n"
         for x in all_hosts:
                 print x
         sys.exit()
@@ -242,7 +242,7 @@ def start(argv):
         all_emails = []
         all_hosts = []
         virtual = "basic"
-        
+
         print "[-] Searching in Google.."
         search = googlesearch.search_google(word, limit, start)
         search.process()
@@ -250,7 +250,7 @@ def start(argv):
         hosts = search.get_hostnames()
         all_emails.extend(emails)
         all_hosts.extend(hosts)
-        
+
         print "[-] Searching in PGP Key server.."
         search = pgpsearch.search_pgp(word)
         search.process()
@@ -258,13 +258,13 @@ def start(argv):
         hosts = search.get_hostnames()
         all_hosts.extend(hosts)
         all_emails.extend(emails)
-        
+
         print "[-] Searching in Netcraft server.."
         search = netcraft.search_netcraft(word)
         search.process()
         hosts = search.get_hostnames()
         all_hosts.extend(hosts)
-       
+
         print "[-] Searching in CRTSH server.."
         search = crtsh.search_crtsh(word)
         search.process()
@@ -276,7 +276,7 @@ def start(argv):
         search.process()
         hosts = search.get_hostnames()
         all_hosts.extend(hosts)
-        
+
         print "[-] Searching in Bing.."
         bingapi = "no"
         search = bingsearch.search_bing(word, limit, start)
@@ -285,7 +285,7 @@ def start(argv):
         hosts = search.get_hostnames()
         all_hosts.extend(hosts)
         all_emails.extend(emails)
-       
+
         print "[-] Searching in Exalead.."
         search = exaleadsearch.search_exalead(word, limit, start)
         search.process()
@@ -486,13 +486,13 @@ def start(argv):
                     file.write('<port>' + res[2] + '</port>')
                     #page.pre(res[1])
                     file.write('<banner><!--' + res[1] + '--></banner>')
-                    
-                    
+
+
                     reg_server = re.compile('Server:.*')
                     temp = reg_server.findall(res[1])
                     if temp != []:
                         shodanalysis.append(res[0] + ":" + temp[0])
-                    
+
                     file.write('</shodan>')
                 if shodanalysis != []:
                     shodanalysis=sorted(set(shodanalysis))
@@ -501,7 +501,7 @@ def start(argv):
                         #page.pre(x)
                         file.write('<server>' + x + '</server>')
                     file.write('</servers>')
-                    
+
 
             file.write('</theHarvester>')
             file.flush()
