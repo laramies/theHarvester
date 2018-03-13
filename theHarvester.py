@@ -406,15 +406,14 @@ def start(argv):
                     a = shodansearch.search_shodan(ip)
                     shodanvisited.append(ip)
                     results = a.run()
-                    for res in results:
-                        shodanres.append(
-                            x + "SAPO" + str(res['banner']) + "SAPO" + str(res['port']))
+                    for res in results['matches']:
+                        shodanres.append(str("%s:%s - %s, ver=%s @ time: %s" % (res['ip_str'], res['port'], res['product'], res['version'], res['timestamp'])))
             except:
                 pass
         print "[+] Shodan results:"
         print "------------------"
         for x in shodanres:
-            print x.split("SAPO")[0] + ":" + x.split("SAPO")[1]
+            print x
     else:
         pass
 
