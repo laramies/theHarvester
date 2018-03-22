@@ -99,17 +99,6 @@ Changelog in 2.7:
 -Removed 123people
 -Fixed Bing cookies order
 
-Changelog in 2.6:
-------------------
--Added Yahoo and Baidu search engines. Thanks to Tatanus
--Added check for the existence of Requests library.
--Fixed email regex to provide cleaner results. Thanks to Peter McAlpine
-
-Changelog in 2.5:
------------------
--Replaced httplib by Requests http library (for Google related)
--Fixed Google searches
-
 
 Comments? Bugs? Requests?
 ------------------------
