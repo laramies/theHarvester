@@ -7,6 +7,7 @@ import os
 from socket import *
 import re
 import getopt
+import stash
 
 try:
     import requests
@@ -18,18 +19,18 @@ from discovery import *
 from lib import htmlExport
 from lib import hostchecker
 
-print "\n*******************************************************************"
+print "\n \033[92m *******************************************************************"
 print "*                                                                 *"
 print "* | |_| |__   ___    /\  /\__ _ _ ____   _____  ___| |_ ___ _ __  *"
 print "* | __| '_ \ / _ \  / /_/ / _` | '__\ \ / / _ \/ __| __/ _ \ '__| *"
 print "* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *"
 print "*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *"
 print "*                                                                 *"
-print "* TheHarvester Ver. 2.7.1                                         *"
+print "* TheHarvester Ver. 2.7.2                                         *"
 print "* Coded by Christian Martorella                                   *"
 print "* Edge-Security Research                                          *"
 print "* cmartorella@edge-security.com                                   *"
-print "*******************************************************************\n\n"
+print "*******************************************************************\033[94m\n\n"
 
 
 def usage():
@@ -41,9 +42,9 @@ def usage():
 
     print "Usage: theharvester options \n"
     print "       -d: Domain to search or company name"
-    print """       -b: data source: baidu, bing, bingapi, dogpile,google, googleCSE,
+    print """       -b: data source: baidu, bing, bingapi, dogpile, google, googleCSE,
                         googleplus, google-profiles, linkedin, pgp, twitter, vhost, 
-                        yahoo, all\n"""
+                        virustotal, threatcrowd, crtsh, netcraft, yahoo, all\n"""
     print "       -s: Start in result number X (default: 0)"
     print "       -v: Verify host name via dns resolution and search for virtual hosts"
     print "       -f: Save the results into an HTML and XML file (both)"
@@ -70,6 +71,11 @@ def start(argv):
     except getopt.GetoptError:
         usage()
         sys.exit()
+    try:
+        db=stash.stash_manager()
+        db.do_init()
+    except Exception, e:
+        pass
     start = 0
     host_ip = []
     filename = ""
@@ -80,7 +86,7 @@ def start(argv):
     shodan = False
     vhost = []
     virtual = False
-    limit = 100
+    limit = 500
     dnsserver = ""
     for opt, arg in opts:
         if opt == '-l':
@@ -105,48 +111,64 @@ def start(argv):
             dnstld = True
         elif opt == '-b':
             engine = arg
-            if engine not in ("baidu", "bing", "crtsh","bingapi","dogpile", "google", "googleCSE","virustotal", "googleplus", "google-profiles","linkedin", "pgp", "twitter", "vhost", "yahoo","netcraft","all"):
+            if engine not in ("baidu", "bing", "crtsh","bingapi","dogpile","google", "googleCSE","virustotal","threatcrowd", "googleplus", "google-profiles","linkedin", "pgp", "twitter", "vhost", "yahoo","netcraft","all"):
                 usage()
-                print "Invalid search engine, try with: baidu, bing, bingapi,crtsh, dogpile, google, googleCSE, virustotal, netcraft, googleplus, google-profiles, linkedin, pgp, twitter, vhost, yahoo, all"
+                print "Invalid search engine, try with: baidu, bing, bingapi, crtsh, dogpile, google, googleCSE, virustotal, netcraft, googleplus, google-profiles, linkedin, pgp, twitter, vhost, yahoo, all"
                 sys.exit()
             else:
                 pass
+    print "[-] Starting harvesting process for domain: " + word +  "\n" 
     if engine == "google":
         print "[-] Searching in Google:"
         search = googlesearch.search_google(word, limit, start)
         search.process()
         all_emails = search.get_emails()
         all_hosts = search.get_hostnames()
+        for x in all_hosts:
+            try:
+                db=stash.stash_manager()
+                db.store(word,x,'host','google')
+            except Exception, e:
+                print e
     
     if engine == "netcraft":
         print "[-] Searching in Netcraft:"
         search = netcraft.search_netcraft(word)
         search.process()
         all_hosts = search.get_hostnames()
-        print "\n[+] Subdomains found:\n"
-        for x in all_hosts:
-                print x
-        sys.exit()
+        all_emails = []
+        db=stash.stash_manager()
+        db.store_all(word,all_hosts,'host','netcraft')
         
+          
+     
+    if engine == "threatcrowd":
+        print "[-] Searching in Threatcrowd:"
+        search = threatcrowd.search_threatcrowd(word)
+        search.process()
+        all_hosts = search.get_hostnames()
+        all_emails = []
+        db=stash.stash_manager()
+        db.store_all(word,all_hosts,'host','threatcrowd')
+  
     if engine == "virustotal":
         print "[-] Searching in Virustotal:"
         search = virustotal.search_virustotal(word)
         search.process()
         all_hosts = search.get_hostnames()
-        print "\n[+] Subdomains found:\n"
-        for x in all_hosts:
-                print x
-        sys.exit()
+        all_emails = []
+        db=stash.stash_manager()
+        db.store_all(word,all_hosts,'host','virustotal')
+  
 
     if engine == "crtsh":
         print "[-] Searching in CRT.sh:"
         search = crtsh.search_crtsh(word)
         search.process()
         all_hosts = search.get_hostnames()
-        print "\n[+] Subdomains found:\n" 
-        for x in all_hosts:
-                print x
-        sys.exit()
+        all_emails = []
+        db=stash.stash_manager()
+        db.store_all(word,all_hosts,'host','CRTsh')
 
     if engine == "googleCSE":
         print "[-] Searching in Google Custom Search:"
@@ -154,7 +176,11 @@ def start(argv):
         search.process()
         search.store_results()
         all_emails = search.get_emails()
+        db=stash.stash_manager()
+        db.store_all(word,all_hosts,'email','googleCSE')
         all_hosts = search.get_hostnames()
+        db=stash.stash_manager()
+        db.store_all(word,all_hosts,'host','googleCSE')
 
     elif engine == "bing" or engine == "bingapi":
         print "[-] Searching in Bing:"
@@ -180,6 +206,10 @@ def start(argv):
         search.process()
         all_emails = search.get_emails()
         all_hosts = search.get_hostnames()
+        db=stash.stash_manager()
+        db.store_all(word,all_hosts,'host','pgp')
+        db=stash.stash_manager()
+        db.store_all(word,all_emails,'emails','pgp')
 
     elif engine == "yahoo":
         print "[-] Searching in Yahoo.."
@@ -238,7 +268,7 @@ def start(argv):
             print users
         sys.exit()
     elif engine == "all":
-        print "Full harvest.."
+        print "Full harvest on " + word
         all_emails = []
         all_hosts = []
         virtual = "basic"
@@ -249,7 +279,11 @@ def start(argv):
         emails = search.get_emails()
         hosts = search.get_hostnames()
         all_emails.extend(emails)
+        db=stash.stash_manager()
+        db.store_all(word,all_hosts,'email','google')
         all_hosts.extend(hosts)
+        db=stash.stash_manager()
+        db.store_all(word,all_hosts,'host','google')
         
         print "[-] Searching in PGP Key server.."
         search = pgpsearch.search_pgp(word)
@@ -257,25 +291,52 @@ def start(argv):
         emails = search.get_emails()
         hosts = search.get_hostnames()
         all_hosts.extend(hosts)
+        db=stash.stash_manager()
+        db.store_all(word,all_hosts,'host','PGP')
         all_emails.extend(emails)
+        db=stash.stash_manager()
+        db.store_all(word,all_hosts,'email','PGP')
         
         print "[-] Searching in Netcraft server.."
         search = netcraft.search_netcraft(word)
         search.process()
         hosts = search.get_hostnames()
         all_hosts.extend(hosts)
+        db=stash.stash_manager()
+        db.store_all(word,all_hosts,'host','netcraft')
+
+        print "[-] Searching in ThreatCrowd server.."
+        search = threatcrowd.search_threatcrowd(word)
+        search.process()
+        hosts = search.get_hostnames()
+        all_hosts.extend(hosts)
+        all_emails = []
+        db=stash.stash_manager()
+        db.store_all(word,all_hosts,'host','threatcrowd')
        
+        search = netcraft.search_netcraft(word)
+        search.process()
+        hosts = search.get_hostnames()
+        all_hosts.extend(hosts)
+        db=stash.stash_manager()
+        db.store_all(word,all_hosts,'host','netcraft')
+       
+
         print "[-] Searching in CRTSH server.."
         search = crtsh.search_crtsh(word)
         search.process()
         hosts = search.get_hostnames()
         all_hosts.extend(hosts)
+        db=stash.stash_manager()
+        db.store_all(word,all_hosts,'host','CRTsh')
 
         print "[-] Searching in Virustotal server.."
         search = virustotal.search_virustotal(word)
         search.process()
         hosts = search.get_hostnames()
         all_hosts.extend(hosts)
+        db=stash.stash_manager()
+        db.store_all(word,all_hosts,'host','virustotal')
         
         print "[-] Searching in Bing.."
         bingapi = "no"
@@ -284,19 +345,14 @@ def start(argv):
         emails = search.get_emails()
         hosts = search.get_hostnames()
         all_hosts.extend(hosts)
+        db=stash.stash_manager()
+        db.store_all(word,all_hosts,'host','bing')
         all_emails.extend(emails)
-       
-        print "[-] Searching in Exalead.."
-        search = exaleadsearch.search_exalead(word, limit, start)
-        search.process()
-        emails = search.get_emails()
-        hosts = search.get_hostnames()
-        all_hosts.extend(hosts)
-        all_emails.extend(emails)
-
         #Clean up email list, sort and uniq
         all_emails=sorted(set(all_emails))
+    
     #Results############################################################
+    print("\n\033[1;32;40m Harvesting results")
     print "\n\n[+] Emails found:"
     print "------------------"
     if all_emails == []:
@@ -304,13 +360,15 @@ def start(argv):
     else:
         print "\n".join(all_emails)
 
-    print "\n[+] Hosts found in search engines:"
+    print("\033[1;33;40m \n[+] Hosts found in search engines:")
     print "------------------------------------"
     if all_hosts == []:
         print "No hosts found"
     else:
+        total = len(all_hosts)
+        print "\nTotal hosts: " + str(total) + "\n"
         all_hosts=sorted(set(all_hosts))
-        print "[-] Resolving hostnames IPs... "
+        print "\033[94m[-] Resolving hostnames IPs...\033[1;33;40m \n "
         full_host = hostchecker.Checker(all_hosts)
         full = full_host.check()
         for host in full:
@@ -377,8 +435,8 @@ def start(argv):
 
     #Virtual hosts search###############################################
     if virtual == "basic":
-        print "[+] Virtual hosts:"
-        print "-----------------"
+        print "\n[+] Virtual hosts:"
+        print "------------------"
         for l in host_ip:
             search = bingsearch.search_bing(l, limit, start)
             search.process_vhost()
@@ -400,7 +458,7 @@ def start(argv):
         for x in full:
             print x
             try:
-                ip = x.split(":")[0]
+                ip = x.split(":")[1]
                 if not shodanvisited.count(ip):
                     print "\tSearching for: " + x
                     a = shodansearch.search_shodan(ip)

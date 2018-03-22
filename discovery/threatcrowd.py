@@ -5,7 +5,7 @@ import myparser
 import re
 
 
-class search_virustotal:
+class search_threatcrowd:
 
     def __init__(self, word):
         self.word = word.replace(' ', '%20')
@@ -20,7 +20,7 @@ class search_virustotal:
 
     def do_search(self):
         try:
-            urly="https://www.virustotal.com/en/domain/" + self.word + "/information/"
+            urly="https://www.threatcrowd.org/searchApi/v2/domain/report/?domain=" + self.word
         except Exception, e:
             print e
         headers = {'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:34.0) Gecko/20100101 Firefox/34.0'}
@@ -37,4 +37,4 @@ class search_virustotal:
 
     def process(self):
         self.do_search()
-        print "\tSearching Virustotal results.."
+        print "\tSearching Threatcrowd results.."

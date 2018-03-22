@@ -21,8 +21,6 @@ class search_pgp:
         h.putheader('User-agent', self.userAgent)
         h.endheaders()
         returncode, returnmsg, headers = h.getreply()
-        print returncode
-        print returnmsg
         self.results = h.getfile().read()
 
     def get_emails(self):
