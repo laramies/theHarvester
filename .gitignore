@@ -1,3 +1,4 @@
 *.pyc
 *.idea
 tests/myparser.py
+*.sqlite
