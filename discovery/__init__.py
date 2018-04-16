@@ -18,4 +18,6 @@ __all__ = ["bingsearch",
            "virustotal",
            "threatcrowd",
            "wfuzz_search",
+           "port_scanner",
+           "takeover",
            "googleCSE"]
