@@ -6,7 +6,7 @@ import re
 try:
     import wfuzz
 except Exception, e: 
-    print e 
+    pass
 
 class search_wfuzz:
     def __init__(self, host):
