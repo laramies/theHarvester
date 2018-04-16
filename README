@@ -5,7 +5,7 @@
 * | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
 *  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
 *                                                                 *
-* TheHarvester Ver. 2.7.2                                         *
+* TheHarvester Ver. 3.0                                           *
 * Coded by Christian Martorella                                   *
 * Edge-Security Research                                          *
 * cmartorella@edge-security.com                                   *
@@ -64,6 +64,7 @@ Passive:
 
 Active:
 -------
+-Port scanning and takeover options: this option will create connection to the hosts discovererd
 -DNS brute force: this plugin will run a dictionary brute force enumeration
 -DNS reverse lookup: reverse lookup of ip´s discovered in order to find hostnames
 -DNS TDL expansion: TLD dictionary brute force enumeration
@@ -91,13 +92,6 @@ Changelog in 2.7.2:
 Changelog in 2.7.1:
 ------------------
 -Added Virustotal, Netcraft, Crt.sh engines
-
-Changelog in 2.7:
-------------------
--Fixed email parser for cleaner results. Thanks Th4nat0s
--Improved XML exporting file format
--Removed 123people
--Fixed Bing cookies order
 
 
 Comments? Bugs? Requests?
