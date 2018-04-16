@@ -372,7 +372,7 @@ def start(argv):
         full_host = hostchecker.Checker(all_hosts)
         full = full_host.check()
         for host in full:
-            ip = host.split(':')[0]
+            ip = host.split(':')[1]
             print host
             if host_ip.count(ip.lower()):
                 pass
@@ -384,7 +384,8 @@ def start(argv):
     if dnslookup == True:
         print "\n[+] Starting active queries:"
         analyzed_ranges = []
-        for x in full:
+        for x in host_ip:
+            print x
             ip = x.split(":")[0]
             range = ip.split(".")
             range[3] = "0/24"
@@ -409,7 +410,7 @@ def start(argv):
     #DNS Brute force####################################################
     dnsres = []
     if dnsbrute == True:
-        print "\n[-] Starting DNS brute force:"
+        print "\n\033[94m[-] Starting DNS brute force: \033[1;33;40m"
         a = dnssearch.dns_force(word, dnsserver, verbose=True)
         res = a.process()
         print "\n[+] Hosts found after DNS brute force:\n"
