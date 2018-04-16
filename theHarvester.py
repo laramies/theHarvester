@@ -26,7 +26,7 @@ print "* | __| '_ \ / _ \  / /_/ / _` | '__\ \ / / _ \/ __| __/ _ \ '__| *"
 print "* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *"
 print "*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *"
 print "*                                                                 *"
-print "* TheHarvester Ver. 2.7.2                                         *"
+print "* TheHarvester Ver. 3.0                                           *"
 print "* Coded by Christian Martorella                                   *"
 print "* Edge-Security Research                                          *"
 print "* cmartorella@edge-security.com                                   *"
@@ -52,6 +52,7 @@ def usage():
     print "       -c: Perform a DNS brute force for the domain name"
     print "       -t: Perform a DNS TLD expansion discovery"
     print "       -e: Use this DNS server"
+    print "       -p: port scan the detected hosts and check for Takeovers (80,443,22,21,8080)"
     print "       -l: Limit the number of results to work with(bing goes from 50 to 50 results,"
     print "            google 100 to 100, and pgp doesn't use this option)"
     print "       -h: use SHODAN database to query discovered hosts"
@@ -67,7 +68,7 @@ def start(argv):
         usage()
         sys.exit()
     try:
-        opts, args = getopt.getopt(argv, "l:d:b:s:vf:nhcte:")
+        opts, args = getopt.getopt(argv, "l:d:b:s:vf:nhcpte:")
     except getopt.GetoptError:
         usage()
         sys.exit()
@@ -86,6 +87,8 @@ def start(argv):
     shodan = False
     vhost = []
     virtual = False
+    ports_scanning = False
+    takeover_check = False
     limit = 500
     dnsserver = ""
     for opt, arg in opts:
@@ -107,6 +110,8 @@ def start(argv):
             shodan = True
         elif opt == '-e':
             dnsserver = arg
+        elif opt == '-p':
+            ports_scanning = True
         elif opt == '-t':
             dnstld = True
         elif opt == '-b':
@@ -139,8 +144,7 @@ def start(argv):
         all_emails = []
         db=stash.stash_manager()
         db.store_all(word,all_hosts,'host','netcraft')
-        
-          
+           
      
     if engine == "threatcrowd":
         print "[-] Searching in Threatcrowd:"
@@ -271,7 +275,7 @@ def start(argv):
         print "Full harvest on " + word
         all_emails = []
         all_hosts = []
-        virtual = "basic"
+       
         
         print "[-] Searching in Google.."
         search = googlesearch.search_google(word, limit, start)
@@ -378,6 +382,28 @@ def start(argv):
                 pass
             else:
                 host_ip.append(ip.lower())
+    #Port Scanning #################################################
+        if ports_scanning == True:
+            print("\n\n\033[1;32;40m[-] Scanning ports (Active):\n")
+            for x in full:
+                host = x.split(' : ')[1]
+                domain = x.split(' : ')[0]
+                if host != "empty" :
+                    print "- Scanning : " + host
+                    ports = [80,443,22,8080,21]
+                    try:
+                        scan = port_scanner.port_scan(host,ports)
+                        openports = scan.process()
+                        if len(openports) > 1:
+                                print "\t\033[91m Detected open ports: " + ','.join(str(e) for e in openports) +  "\033[1;32;40m"
+                        takeover_check = 'True'
+                        if takeover_check == 'True':
+                            if len(openports) > 0:   
+                                search_take = takeover.take_over(domain)
+                                search_take.process()
+                    except Exception, e:
+                        print e
+                    
 
     #DNS reverse lookup#################################################
     dnsrev = []
