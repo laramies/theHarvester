@@ -1,3 +1,9 @@
 *.pyc
 *.idea
 tests/myparser.py
+
+stash.
+
+stash.sqlite
+
+*.sqlite
