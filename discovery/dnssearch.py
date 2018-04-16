@@ -64,7 +64,7 @@ class dns_force():
     def __init__(self, domain, dnsserver, verbose=False):
         self.domain = domain
         self.nameserver = dnsserver
-        self.file = "dns-names.txt"
+        self.file = "wordlists/dns-names.txt"
         self.subdo = False
         self.verbose = verbose
         try:
@@ -123,7 +123,7 @@ class dns_force():
                 server=self.nameserver).req(
             )
             hostip = test.answers[0]['data']
-            return hostip + ":" + hostname
+            return hostip + " : " + hostname
         except Exception as e:
             pass
 
@@ -132,6 +132,7 @@ class dns_force():
         for x in self.list:
             host = self.run(x)
             if host is not None:
+                print host
                 results.append(host)
         return results
 
