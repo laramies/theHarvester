@@ -132,7 +132,6 @@ class dns_force():
         for x in self.list:
             host = self.run(x)
             if host is not None:
-                print host
                 results.append(host)
         return results
 
