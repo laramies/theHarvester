@@ -2,3 +2,4 @@
 *.idea
 tests/myparser.py
 *.sqlite
+.vscode
