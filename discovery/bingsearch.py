@@ -71,7 +71,7 @@ class search_bing:
         rawres = myparser.parser(self.totalresults, self.word)
         return rawres.hostnames_all()
 
-    def process(self, api):
+    def process(self, api = "no"):
         if api == "yes":
             if self.bingApi == "":
                 print "Please insert your API key in the discovery/bingsearch.py"
