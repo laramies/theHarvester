@@ -86,11 +86,11 @@ Dependencies:
 
 Changelog in 3.0.0:
 ------------------
-*Subdomain takeover checks
-*Port scanning (basic)
-*Improved DNS dictionary
-*Shodan DB search fixed
-*Result storage in Sqlite
+* Subdomain takeover checks
+* Port scanning (basic)
+* Improved DNS dictionary
+* Shodan DB search fixed
+* Result storage in Sqlite
 
 
 Comments? Bugs? Requests?
@@ -103,6 +103,6 @@ https://github.com/laramies/theHarvester
 
 Thanks:
 -------
-John Matherly -  SHODAN project
-Lee Baird for suggestions and bugs reporting
-Ahmed Aboul Ela - subdomain names dictionary (big and small)
+* John Matherly -  SHODAN project
+* Lee Baird for suggestions and bugs reporting
+* Ahmed Aboul Ela - subdomain names dictionary (big and small)
