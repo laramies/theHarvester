@@ -1,5 +1,3 @@
 from api import WebAPI
-
-__version__ = "0.5.0"
-
-__all__ = ['WebAPI']
+from client import Shodan
+from exception import APIError

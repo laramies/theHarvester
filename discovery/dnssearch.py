@@ -3,6 +3,8 @@ import DNS
 import string
 import socket
 import sys
+import os
+import random
 
 
 class dns_reverse():
@@ -64,9 +66,17 @@ class dns_force():
     def __init__(self, domain, dnsserver, verbose=False):
         self.domain = domain
         self.nameserver = dnsserver
-        self.file = "wordlists/dns-names.txt"
+        self.file = "wordlists/dns-big.txt"
+        #self.file = "wordlists/dns-names.txt"
         self.subdo = False
         self.verbose = verbose
+        try:
+            fileDir = os.path.dirname(os.path.realpath('__file__'))
+            res_path = os.path.join(fileDir,'lib/resolvers.txt')
+            with open(res_path) as f:
+                self.resolvers = f.read().splitlines()
+        except Exception, e:
+            print "Resolvers file can't be open"
         try:
             f = open(self.file, "r")
         except:
@@ -108,7 +118,9 @@ class dns_force():
     def run(self, host):
         if self.nameserver == "":
             self.nameserver = self.getdns(self.domain)
-            print "Using DNS server: " + self.nameserver
+            print "\n\033[94m[-] Using DNS server: " + self.nameserver + "\033[1;33;40m\n"
+        #secure_random = random.SystemRandom()
+        #self.nameserver = secure_random.choice(self.resolvers)
 
         hostname = str(host.split("\n")[0]) + "." + str(self.domain)
         if self.verbose:
@@ -123,7 +135,7 @@ class dns_force():
                 server=self.nameserver).req(
             )
             hostip = test.answers[0]['data']
-            return hostip + " : " + hostname
+            return  hostname + ":" + hostip
         except Exception as e:
             pass
 
@@ -132,7 +144,7 @@ class dns_force():
         for x in self.list:
             host = self.run(x)
             if host is not None:
-                print host
+                print " : " + host.split(":")[1]
                 results.append(host)
         return results
 

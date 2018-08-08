@@ -26,7 +26,7 @@ print "* | __| '_ \ / _ \  / /_/ / _` | '__\ \ / / _ \/ __| __/ _ \ '__| *"
 print "* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *"
 print "*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *"
 print "*                                                                 *"
-print "* TheHarvester Ver. 3.0                                           *"
+print "* TheHarvester Ver. 3.0.0                                         *"
 print "* Coded by Christian Martorella                                   *"
 print "* Edge-Security Research                                          *"
 print "* cmartorella@edge-security.com                                   *"
@@ -45,15 +45,15 @@ def usage():
     print """       -b: data source: baidu, bing, bingapi, dogpile, google, googleCSE,
                         googleplus, google-profiles, linkedin, pgp, twitter, vhost, 
                         virustotal, threatcrowd, crtsh, netcraft, yahoo, all\n"""
-    print "       -s: Start in result number X (default: 0)"
-    print "       -v: Verify host name via dns resolution and search for virtual hosts"
-    print "       -f: Save the results into an HTML and XML file (both)"
-    print "       -n: Perform a DNS reverse query on all ranges discovered"
-    print "       -c: Perform a DNS brute force for the domain name"
-    print "       -t: Perform a DNS TLD expansion discovery"
-    print "       -e: Use this DNS server"
+    print "       -s: start in result number X (default: 0)"
+    print "       -v: verify host name via dns resolution and search for virtual hosts"
+    print "       -f: save the results into an HTML and XML file (both)"
+    print "       -n: perform a DNS reverse query on all ranges discovered"
+    print "       -c: perform a DNS brute force for the domain name"
+    print "       -t: perform a DNS TLD expansion discovery"
+    print "       -e: use this DNS server"
     print "       -p: port scan the detected hosts and check for Takeovers (80,443,22,21,8080)"
-    print "       -l: Limit the number of results to work with(bing goes from 50 to 50 results,"
+    print "       -l: limit the number of results to work with(bing goes from 50 to 50 results,"
     print "            google 100 to 100, and pgp doesn't use this option)"
     print "       -h: use SHODAN database to query discovered hosts"
     print "\nExamples:"
@@ -261,6 +261,7 @@ def start(argv):
        	for user in people:
             print user
         sys.exit()
+
     elif engine == "google-profiles":
         print "[-] Searching in Google profiles.."
         search = googlesearch.search_google(word, limit, start)
@@ -271,12 +272,12 @@ def start(argv):
         for users in people:
             print users
         sys.exit()
+
     elif engine == "all":
         print "Full harvest on " + word
         all_emails = []
         all_hosts = []
        
-        
         print "[-] Searching in Google.."
         search = googlesearch.search_google(word, limit, start)
         search.process()
@@ -378,16 +379,34 @@ def start(argv):
         for host in full:
             ip = host.split(':')[1]
             print host
-            if host_ip.count(ip.lower()):
-                pass
-            else:
-                host_ip.append(ip.lower())
+            if ip != "empty":
+                if host_ip.count(ip.lower()):
+                    pass
+                else:
+                    host_ip.append(ip.lower())
+
+    #DNS Brute force####################################################
+    dnsres = []
+    if dnsbrute == True:
+        print "\n\033[94m[-] Starting DNS brute force: \033[1;33;40m"
+        a = dnssearch.dns_force(word, dnsserver, verbose=True)
+        res = a.process()
+        print "\n\033[94m[-] Hosts found after DNS brute force:"
+        print "---------------------------------------"
+        for y in res:
+            print y
+            dnsres.append(y.split(':')[0])
+            if y not in full:
+                full.append(y)
+        db=stash.stash_manager()
+        db.store_all(word,dnsres,'host','dns_bruteforce')
+
     #Port Scanning #################################################
-        if ports_scanning == True:
-            print("\n\n\033[1;32;40m[-] Scanning ports (Active):\n")
+    if ports_scanning == True:
+            print("\n\n\033[1;32;40m[-] Scanning ports (active):\n")
             for x in full:
-                host = x.split(' : ')[1]
-                domain = x.split(' : ')[0]
+                host = x.split(':')[1]
+                domain = x.split(':')[0]
                 if host != "empty" :
                     print "- Scanning : " + host
                     ports = [80,443,22,8080,21]
@@ -417,7 +436,7 @@ def start(argv):
             range[3] = "0/24"
             range = string.join(range, '.')
             if not analyzed_ranges.count(range):
-                print "[-]Performing reverse lookup in :" + range
+                print "\033[94m[-]Performing reverse lookup in : " + range + "\033[1;33;40m"
                 a = dnssearch.dns_reverse(range, True)
                 a.list()
                 res = a.process()
@@ -429,23 +448,11 @@ def start(argv):
                     dnsrev.append(x)
                     if x not in full:
                         full.append(x)
-        print "Hosts found after reverse lookup:"
+        print "Hosts found after reverse lookup (in target domain):"
         print "---------------------------------"
         for xh in dnsrev:
             print xh
-    #DNS Brute force####################################################
-    dnsres = []
-    if dnsbrute == True:
-        print "\n\033[94m[-] Starting DNS brute force: \033[1;33;40m"
-        a = dnssearch.dns_force(word, dnsserver, verbose=True)
-        res = a.process()
-        print "\n[+] Hosts found after DNS brute force:\n"
-        print "---------------------------------------"
-        for y in res:
-            print y
-            dnsres.append(y)
-            if y not in full:
-                full.append(y)
+        
     #DNS TLD expansion###################################################
     dnstldres = []
     if dnstld == True:
@@ -478,25 +485,27 @@ def start(argv):
         vhost=sorted(set(vhost))
     else:
         pass
+    #Shodan search####################################################
     shodanres = []
     shodanvisited = []
     if shodan == True:
-        print "[+] Shodan Database search:"
+        print("\n\n\033[1;32;40m[-] Shodan DB search (passive):\n")
         for x in full:
-            print x
             try:
                 ip = x.split(":")[1]
                 if not shodanvisited.count(ip):
-                    print "\tSearching for: " + x
+                    print "\tSearching for: " + ip
                     a = shodansearch.search_shodan(ip)
                     shodanvisited.append(ip)
                     results = a.run()
                     for res in results:
+                        if res['info'] == []:
+                            res['info'] = ''
                         shodanres.append(
-                            x + "SAPO" + str(res['banner']) + "SAPO" + str(res['port']))
+                            x + "SAPO" + str(res['info']) + "SAPO" + str(res['data']))
             except:
                 pass
-        print "[+] Shodan results:"
+        print "\n [+] Shodan results:"
         print "------------------"
         for x in shodanres:
             print x.split("SAPO")[0] + ":" + x.split("SAPO")[1]

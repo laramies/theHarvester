@@ -5,7 +5,7 @@
 * | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
 *  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
 *                                                                 *
-* TheHarvester Ver. 2.7.2                                         *
+* TheHarvester Ver. 3.0.0                                         *
 * Coded by Christian Martorella                                   *
 * Edge-Security Research                                          *
 * cmartorella@edge-security.com                                   *
@@ -23,10 +23,10 @@ test or just to know the visibility of your company in the Internet.
 
 The sources are:
 
-Passive:
---------
+**Passive**:
+---------
 
--Threatcrowd: Open source threat intelligence - https://www.threatcrowd.org/
+-threatcrowd: Open source threat intelligence - https://www.threatcrowd.org/
 
 -crtsh: Comodo Certificate search - www.crt.sh
 
@@ -81,23 +81,19 @@ Dependencies:
 -Requests library (http://docs.python-requests.org/en/latest/)
 `pip install requests`
 
+
+Changelog in 3.0.0:
+------------------
+-Subdomain takeover checks
+-Port scanning (basic)
+-Improved DNS dictionary
+
+
 Changelog in 2.7.2:
 ------------------
 -Added threatcrowd
 -Added IP resolution for all results
 -Basic local storage of results using Sqlite (WIP)
-
-
-Changelog in 2.7.1:
-------------------
--Added Virustotal, Netcraft, Crt.sh engines
-
-Changelog in 2.7:
-------------------
--Fixed email parser for cleaner results. Thanks Th4nat0s
--Improved XML exporting file format
--Removed 123people
--Fixed Bing cookies order
 
 
 Comments? Bugs? Requests?
@@ -112,3 +108,4 @@ Thanks:
 -------
 John Matherly -  SHODAN project
 Lee Baird for suggestions and bugs reporting
+Ahmed Aboul Ela - subdomain names dictionary (big and small)
