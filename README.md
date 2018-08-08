@@ -28,77 +28,69 @@ The sources are:
 **Passive**:
 ---------
 
--threatcrowd: Open source threat intelligence - https://www.threatcrowd.org/
+* threatcrowd: Open source threat intelligence - https://www.threatcrowd.org/
 
--crtsh: Comodo Certificate search - www.crt.sh
+* crtsh: Comodo Certificate search - www.crt.sh
 
--google: google search engine  - www.google.com
+* google: google search engine  - www.google.com
 
--googleCSE: google custom search engine
+* googleCSE: google custom search engine
 
--google-profiles: google search engine, specific search for Google profiles
+* google-profiles: google search engine, specific search for Google profiles
 
--bing: microsoft search engine  - www.bing.com
+* bing: microsoft search engine  - www.bing.com
 
--bingapi: microsoft search engine, through the API (you need to add your Key in
+* bingapi: microsoft search engine, through the API (you need to add your Key in
           the discovery/bingsearch.py file)
 
--dogpile: Dogpile search engine - www.dogpile.com
+* dogpile: Dogpile search engine - www.dogpile.com
 
--pgp: pgp key server - mit.edu
+* pgp: pgp key server - mit.edu
 
--linkedin: google search engine, specific search for Linkedin users
+* linkedin: google search engine, specific search for Linkedin users
 
 
--vhost: Bing virtual hosts search
+* vhost: Bing virtual hosts search
 
--twitter: twitter accounts related to an specific domain (uses google search)
+* twitter: twitter accounts related to an specific domain (uses google search)
 
--googleplus: users that works in target company (uses google search)
+* googleplus: users that works in target company (uses google search)
 
--yahoo: Yahoo search engine
+* yahoo: Yahoo search engine
 
--baidu: Baidu search engine
+* baidu: Baidu search engine
 
--shodan: Shodan Computer search engine, will search for ports and banner of the
+* shodan: Shodan Computer search engine, will search for ports and banner of the
          discovered hosts  (http://www.shodanhq.com/)
 
 
 Active:
 -------
--DNS brute force: this plugin will run a dictionary brute force enumeration
--DNS reverse lookup: reverse lookup of ip´s discovered in order to find hostnames
--DNS TDL expansion: TLD dictionary brute force enumeration
+* DNS brute force: this plugin will run a dictionary brute force enumeration
+* DNS reverse lookup: reverse lookup of ip´s discovered in order to find hostnames
+* DNS TDL expansion: TLD dictionary brute force enumeration
 
 
 Modules that need API keys to work:
 ----------------------------------
--googleCSE: You need to create a Google Custom Search engine(CSE), and add your
+* googleCSE: You need to create a Google Custom Search engine(CSE), and add your
  Google API key and CSE ID in the plugin (discovery/googleCSE.py)
--shodan: You need to provide your API key in discovery/shodansearch.py
+* shodan: You need to provide your API key in discovery/shodansearch.py (one provided at the moment)
 
 
 Dependencies:
 ------------
--Requests library (http://docs.python-requests.org/en/latest/)
+* Requests library (http://docs.python-requests.org/en/latest/)
 `pip install requests`
 
 
 Changelog in 3.0.0:
 ------------------
--Subdomain takeover checks
--Port scanning (basic)
--Improved DNS dictionary
--Shodan DB search fixed
--Result storage in Sqlite
-
-
-
-Changelog in 2.7.2:
-------------------
--Added threatcrowd
--Added IP resolution for all results
--Basic local storage of results using Sqlite (WIP)
+*Subdomain takeover checks
+*Port scanning (basic)
+*Improved DNS dictionary
+*Shodan DB search fixed
+*Result storage in Sqlite
 
 
 Comments? Bugs? Requests?
