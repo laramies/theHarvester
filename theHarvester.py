@@ -11,25 +11,25 @@ import stash
 try:
     import requests
 except:
-    print "Request library not found, please install it before proceeding\n"
+    print("Request library not found, please install it before proceeding\n")
     sys.exit()
 
 from discovery import *
 from lib import htmlExport
 from lib import hostchecker
 
-print "\n \033[92m *******************************************************************"
-print "*                                                                 *"
-print "* | |_| |__   ___    /\  /\__ _ _ ____   _____  ___| |_ ___ _ __  *"
-print "* | __| '_ \ / _ \  / /_/ / _` | '__\ \ / / _ \/ __| __/ _ \ '__| *"
-print "* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *"
-print "*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *"
-print "*                                                                 *"
-print "* TheHarvester Ver. 3.0.0                                         *"
-print "* Coded by Christian Martorella                                   *"
-print "* Edge-Security Research                                          *"
-print "* cmartorella@edge-security.com                                   *"
-print "*******************************************************************\033[94m\n\n"
+print("\n \033[92m*******************************************************************")
+print("*                                                                 *")
+print("* | |_| |__   ___    /\  /\__ _ _ ____   _____  ___| |_ ___ _ __  *")
+print("* | __| '_ \ / _ \  / /_/ / _` | '__\ \ / / _ \/ __| __/ _ \ '__| *")
+print("* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *")
+print("*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *")
+print("*                                                                 *")
+print("* TheHarvester Ver. 3.0.0                                         *")
+print("* Coded by Christian Martorella                                   *")
+print("* Edge-Security Research                                          *")
+print("* cmartorella@edge-security.com                                   *")
+print("*******************************************************************\033[94m\n\n")
 
 
 def usage():
