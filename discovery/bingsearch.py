@@ -2,12 +2,7 @@ import string
 import re
 import time
 import sys
-
-if sys.version_info <= (3,0):
-    import httplib
-else:
-    import http.client as httplib
-import myparser
+import requests
 
 class search_bing:
 
@@ -25,41 +20,29 @@ class search_bing:
         self.counter = start
 
     def do_search(self):
-        h = httplib.HTTP(self.server)
-        h.putrequest('GET', "/search?q=%40" + self.word +
-                     "&count=50&first=" + str(self.counter))
-        h.putheader('Host', self.hostname)
-        h.putheader('Cookie', 'SRCHHPGUSR=ADLT=DEMOTE&NRSLT=50')
-        h.putheader('Accept-Language', 'en-us,en')
-        h.putheader('User-agent', self.userAgent)
-        h.endheaders()
-        returncode, returnmsg, headers = h.getreply()
-        self.results = h.getfile().read()
+
+        headers = { 'Cookie' : 'SRCHHPGUSR=ADLT=DEMOTE&NRSLT=50',
+                    'Accept-Language' : 'en-us,en',
+                    'User-agent' : self.userAgent
+                    }
+        h = requests.get("http://{}/search?q=%40{}&count=50&first={}".format(self.server, self.word, self.counter), headers=headers)
+        self.results = h.text
         self.totalresults += self.results
 
     def do_search_api(self):
-        h = httplib.HTTP(self.apiserver)
-        h.putrequest('GET', "/xml.aspx?Appid=" + self.bingApi + "&query=%40" +
-                     self.word + "&sources=web&web.count=40&web.offset=" + str(self.counter))
-        h.putheader('Host', "api.search.live.net")
-        h.putheader('User-agent', self.userAgent)
-        h.endheaders()
-        returncode, returnmsg, headers = h.getreply()
-        self.results = h.getfile().read()
+        headers = {'User-agent' : self.userAgent }
+        h = requests.get("http://{}/xml.aspx?Appid={}&query=%40{}&sources=web&web.count=40&web.offset={}".format(self.apiserver, self.bingApi, self.word, self.counter), headers=headers)
+        self.results = h.text
         self.totalresults += self.results
 
     def do_search_vhost(self):
-        h = httplib.HTTP(self.server)
-        h.putrequest('GET', "/search?q=ip:" + self.word +
-                     "&go=&count=50&FORM=QBHL&qs=n&first=" + str(self.counter))
-        h.putheader('Host', self.hostname)
-        h.putheader(
-            'Cookie', 'mkt=en-US;ui=en-US;SRCHHPGUSR=NEWWND=0&ADLT=DEMOTE&NRSLT=50')
-        h.putheader('Accept-Language', 'en-us,en')
-        h.putheader('User-agent', self.userAgent)
-        h.endheaders()
-        returncode, returnmsg, headers = h.getreply()
-        self.results = h.getfile().read()
+        headers = {
+                'Accept-Language' : 'en-us,en',
+                'Cookie' : 'mkt=en-US;ui=en-US;SRCHHPGUSR=NEWWND=0&ADLT=DEMOTE&NRSLT=50',
+                'User-agent' : self.userAgent,
+                }
+        h = requests.get( "http://{}/search?q=ip:{}&go=&count=50&FORM=QBHL&qs=n&first={}".format(self.server, serlf.word, self.counter), headers=headers)
+        self.results = h.text
         self.totalresults += self.results
 
     def get_emails(self):

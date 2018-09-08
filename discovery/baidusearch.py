@@ -15,9 +15,7 @@ class search_baidu:
         self.counter = 0
 
     def do_search(self):
-        headers = { 
-            'User-agent': self.userAgent,
-        }
+        headers = { 'User-agent': self.userAgent }
         h = requests.get( "http://{}/s?wd=%40{}&pn={}&oq={}".format(self.server, self.word, self.counter, self.word), headers=headers)
         self.total_results += h.text
 
@@ -25,8 +23,7 @@ class search_baidu:
         while self.counter <= self.limit and self.counter <= 1000:
             self.do_search()
             time.sleep(1)
-
-            print("\tSearching " + str(self.counter) + " results...")
+            print("\tSearching {} results...".format(self.counter))
             self.counter += 10
 
     def get_emails(self):
