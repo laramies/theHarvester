@@ -1,7 +1,10 @@
-import httplib
 import myparser
 import time
 import sys
+if sys.version_info <= (3,0):
+    import httplib
+else:
+    import http.client as httplib
 
 
 class search_dogpile:
@@ -33,7 +36,7 @@ class search_dogpile:
             self.do_search()
             time.sleep(1)
 
-            print "\tSearching " + str(self.counter) + " results..."
+            print("\tSearching " + str(self.counter) + " results...")
             self.counter += 10
 
     def get_emails(self):

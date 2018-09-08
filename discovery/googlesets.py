@@ -1,9 +1,12 @@
 import string
-import httplib
 import sys
 import myparser
 import re
 import time
+if sys.version_info <= (3,0):
+    import httplib
+else:
+    import http.client as httplib
 
 
 class search_google_labs:
@@ -24,13 +27,8 @@ class search_google_labs:
                 self.set = self.set + "&q" + str(id) + "=" + str(x)
 
     def do_search(self):
-        h = httplib.HTTP(self.server)
-        h.putrequest('GET', "/sets?hl=en&" + self.set)
-        h.putheader('Host', self.hostname)
-        h.putheader('User-agent', self.userAgent)
-        h.endheaders()
-        returncode, returnmsg, headers = h.getreply()
-        self.results = h.getfile().read()
+        h = requests.get("http://"+self.server+ "/sets?hl=en&" + self.set, headers={'User-agent': self.userAgent})
+        self.results = h.text
         self.totalresults += self.results
 
     def get_set(self):

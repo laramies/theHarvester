@@ -1,9 +1,12 @@
 import string
-import httplib
 import sys
 import myparser
 import re
 import time
+if sys.version_info <= (3,0):
+    import httplib
+else:
+    import http.client as httplib
 
 
 class search_googleCSE:
@@ -98,4 +101,4 @@ class search_googleCSE:
             self.do_search_files(files)
             time.sleep(1)
             self.counter += 100
-            print "\tSearching " + str(self.counter) + " results..."
+            print("\tSearching " + str(self.counter) + " results...")

@@ -1,9 +1,12 @@
 import string
-import httplib
 import sys
 import myparser
 import re
 import time
+if sys.version_info <= (3,0):
+    import httplib
+else:
+    import http.client as httplib
 
 
 class search_exalead:
@@ -58,7 +61,7 @@ class search_exalead:
         nextres = renext.findall(self.results)
         if nextres != []:
             nexty = "1"
-            print str(self.counter)
+            print(str(self.counter))
         else:
             nexty = "0"
         return nexty
@@ -79,7 +82,7 @@ class search_exalead:
         while self.counter <= self.limit:
             self.do_search()
             self.counter += 50
-            print "\tSearching " + str(self.counter) + " results..."
+            print("\tSearching " + str(self.counter) + " results...")
 
     def process_files(self, files):
         while self.counter < self.limit:

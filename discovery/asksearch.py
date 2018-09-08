@@ -1,5 +1,5 @@
 import string
-import httplib
+import requests
 import sys
 import myparser
 import re
@@ -19,17 +19,12 @@ class search_ask:
         self.counter = 0
 
     def do_search(self):
-        h = httplib.HTTP(self.server)
-        h.putrequest(
-            'GET',
-            "/web?q=%40" +
+        headers = {'User-agent': self.userAgent}
+        h = requests.get('http://'+ self.server + "/web?q=%40" +
             self.word +
             "&pu=100&page=" +
-            self.counter)
-        h.putheader('User-agent', self.userAgent)
-        h.endheaders()
-        returncode, returnmsg, headers = h.getreply()
-        self.results = h.getfile().read()
+            self.counter headers=headers)
+        self.results = h.text
         self.totalresults += self.results
 
     def check_next(self):
