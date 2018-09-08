@@ -3,11 +3,7 @@ import sys
 import myparser
 import re
 import time
-if sys.version_info <= (3,0):
-    import httplib
-else:
-    import http.client as httplib
-
+import requests
 
 class search_googleCSE:
 
@@ -28,25 +24,18 @@ class search_googleCSE:
         self.highRange = start+100
 
     def do_search(self):
-        h = httplib.HTTPS(self.server)
-        h.putrequest('GET', "/customsearch/v1?key=" + self.api_key +"&highRange=" + str(self.highRange) + "&lowRange=" + str(self.lowRange) + "&cx=" +self.cse_id +
-                     "&start=" + str(self.counter) + "&q=%40\"" + self.word + "\"")
-        h.putheader('Host', self.server)
-        h.putheader('User-agent', self.userAgent)
-        h.endheaders()
-        returncode, returnmsg, headers = h.getreply()
-        self.results = h.getfile().read()
+
+        headers = { 'User-agent' : self.userAgent }
+        h = requests.get("https://{}/customsearch/v1?key=".format(self.server) + self.api_key +"&highRange=" + str(self.highRange) + "&lowRange=" + str(self.lowRange) + "&cx=" +self.cse_id +
+                     "&start=" + str(self.counter) + "&q=%40\"" + self.word + "\"", headers=headers)
+        self.results = h.text
         self.totalresults += self.results
 
     def do_search_files(self):
-        h = httplib.HTTPS(self.server)
-        h.putrequest('GET', "/customsearch/v1?key=" + self.api_key +"&highRange=" + str(self.highRange) + "&lowRange=" + str(self.lowRange) + "&cx=" +self.cse_id +
-                     "&start=" + str(self.counter) + "&q=filetype:" + files +"%20site:" + self.word)
-        h.putheader('Host', self.server)
-        h.putheader('User-agent', self.userAgent)
-        h.endheaders()
-        returncode, returnmsg, headers = h.getreply()
-        self.results = h.getfile().read()
+        headers = { 'User-agent' : self.userAgent }
+        h = requests.get("https://{}/customsearch/v1?key=".format(self.server)+ "/customsearch/v1?key=" + self.api_key +"&highRange=" + str(self.highRange) + "&lowRange=" + str(self.lowRange) + "&cx=" +self.cse_id +
+                     "&start=" + str(self.counter) + "&q=filetype:" + files +"%20site:" + self.word, headers=headers)
+        self.results = h.text
         self.totalresults += self.results
 
 

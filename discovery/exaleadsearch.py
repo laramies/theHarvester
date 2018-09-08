@@ -3,11 +3,7 @@ import sys
 import myparser
 import re
 import time
-if sys.version_info <= (3,0):
-    import httplib
-else:
-    import http.client as httplib
-
+import requests
 
 class search_exalead:
 
@@ -23,37 +19,23 @@ class search_exalead:
         self.counter = start
 
     def do_search(self):
-        h = httplib.HTTP(self.server)
-        h.putrequest('GET', "/search/web/results/?q=%40" + self.word +
-                     "&elements_per_page=50&start_index=" + str(self.counter))
-        h.putheader('Host', self.hostname)
-        h.putheader(
-            'Referer',
-            "http://" +
-            self.hostname +
-            "/search/web/results/?q=%40" +
-            self.word)
-        h.putheader('User-agent', self.userAgent)
-        h.endheaders()
-        returncode, returnmsg, headers = h.getreply()
-        self.results = h.getfile().read()
+        headers = {
+                'Referer' : "http://{}/search/web/results/?q=%40{}".format(self.hostname, self.word),
+                'User-agent': self.userAgent
+                }
+        h = requests.get("http://{}/search/web/results/?q=%40".format(self.server) + self.word + "&elements_per_page=50&start_index=" + str(self.counter), headers=headers)
+        self.results = h.text
         self.totalresults += self.results
 
     def do_search_files(self, files):
-        h = httplib.HTTP(self.server)
-        h.putrequest(
-            'GET',
-            "search/web/results/?q=" +
+        headers = {'User-agent': self.userAgent }
+        h = requests.get("http://{}".format(self.server) + "search/web/results/?q=" +
             self.word +
             "filetype:" +
             self.files +
             "&elements_per_page=50&start_index=" +
-            self.counter)
-        h.putheader('Host', self.hostname)
-        h.putheader('User-agent', self.userAgent)
-        h.endheaders()
-        returncode, returnmsg, headers = h.getreply()
-        self.results = h.getfile().read()
+            self.counter, headers=headers)
+        self.results = h.text
         self.totalresults += self.results
 
     def check_next(self):
