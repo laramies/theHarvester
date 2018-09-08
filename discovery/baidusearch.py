@@ -10,7 +10,6 @@ class search_baidu:
         self.word = word
         self.total_results = ""
         self.server = "www.baidu.com"
-        self.hostname = "www.baidu.com"
         self.userAgent = "(Mozilla/5.0 (Windows; U; Windows NT 6.0;en-US; rv:1.9.2) Gecko/20100115 Firefox/3.6"
         self.limit = limit
         self.counter = 0
@@ -19,7 +18,7 @@ class search_baidu:
         headers = { 
             'User-agent': self.userAgent,
         }
-        h = requests.get( "http://" + self.server + "/s?wd=%40" + self.word + "&pn=" + str(self.counter)+"&oq="+self.word, headers=headers)
+        h = requests.get( "http://{}/s?wd=%40{}&pn={}&oq={}".format(self.server, self.word, self.counter, self.word), headers=headers)
         self.total_results += h.text
 
     def process(self):

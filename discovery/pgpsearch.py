@@ -17,7 +17,7 @@ class search_pgp:
         headers = { 
             "User-agent" : self.userAgent,
         }
-        h = requests.get("http://"+self.server + "/pks/lookup?search=" + self.word + "&op=index", headers=headers)
+        h = requests.get("http://{}/pks/lookup?search={}&op=index".format(self.server, self.word), headers=headers)
         self.results = h.text
 
     def get_emails(self):
