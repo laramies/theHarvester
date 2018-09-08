@@ -1,11 +1,7 @@
 import myparser
 import time
 import sys
-if sys.version_info <= (3,0):
-    import httplib
-else:
-    import http.client as httplib
-
+import requests
 
 class search_dogpile:
 
@@ -19,17 +15,12 @@ class search_dogpile:
         self.counter = 0
 
     def do_search(self):
-        h = httplib.HTTP(self.server)
-
+        headers = { 'User-agent' : self.userAgent }
         # Dogpile is hardcoded to return 10 results
-        h.putrequest('GET', "/search/web?qsi=" + str(self.counter)
-                     + "&q=\"%40" + self.word + "\"")
-        h.putheader('Host', self.hostname)
-        h.putheader('User-agent', self.userAgent)
-        h.endheaders()
-        returncode, returnmsg, headers = h.getreply()
+        h = requests.get("http://{}".format(self.server) + "/search/web?qsi=" + str(self.counter)
+                     + "&q=\"%40" + self.word + "\"", headers=headers)
 
-        self.total_results += h.getfile().read()
+        self.total_results += h.text
 
     def process(self):
         while self.counter <= self.limit and self.counter <= 1000:
