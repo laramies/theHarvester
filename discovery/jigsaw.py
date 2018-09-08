@@ -2,10 +2,7 @@ import string
 import sys
 import myparser
 import re
-if sys.version_info <= (3,0):
-    import httplib
-else:
-    import http.client as httplib
+import requests
 
 # http://www.jigsaw.com/SearchAcrossCompanies.xhtml?opCode=refresh&rpage=4&mode=0&cnCountry=&order=0&orderby=0&cmName=accuvant&cnDead=false&cnExOwned=false&count=0&screenNameType=0&screenName=&omitScreenNameType=0&omitScreenName=&companyId=0&estimatedCount=277&rowsPerPage=50
 
@@ -24,15 +21,9 @@ class search_jigsaw:
         self.counter = 0
 
     def do_search(self):
-        h = httplib.HTTP(self.server)
-        h.putrequest(
-            'GET',
-            "/FreeTextSearch.xhtml?opCode=search&autoSuggested=True&freeText=" +
-            self.word)
-        h.putheader('User-agent', self.userAgent)
-        h.endheaders()
-        returncode, returnmsg, headers = h.getreply()
-        self.results = h.getfile().read()
+        headers = { 'User-agent' : self.userAgent }
+        h = requests.get("http://{}/FreeTextSearch.xhtml?opCode=search&autoSuggested=True&freeText={}".format(self.server, self.word), headers=headers)
+        self.results = h.text
         self.totalresults += self.results
 
     def check_next(self):
