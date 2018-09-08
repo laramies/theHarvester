@@ -33,7 +33,7 @@ def ParseResolvConf(resolv_path):
     try:
         lines = open(resolv_path).readlines()
     except:
-        print "error in path" + resolv_path
+        print("error in path" + resolv_path)
     for line in lines:
         line = string.strip(line)
         if not line or line[0] == ';' or line[0] == '#':

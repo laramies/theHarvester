@@ -39,15 +39,15 @@ class s3_scanner:
      
     def do_s3(self):
         try:
-            print "\t Searching takeovers for "  + self.host
+            print("\t Searching takeovers for "  + self.host)
             r = requests.get('https://' + self.host, verify=False)
             for x in self.fingerprints:
                 take_reg = re.compile(x)
                 self.temp = take_reg.findall(r.text)
                 if self.temp != []:
-                        print "\t\033[91m Takeover detected! - " + self.host + "\033[1;32;40m "
-        except Exception, e:
-                print e
+                        print("\t\033[91m Takeover detected! - " + self.host + "\033[1;32;40m ")
+        except Exception as e:
+                print(e)
 
       
     def process(self):

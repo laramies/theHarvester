@@ -21,13 +21,13 @@ class search_crtsh:
     def do_search(self):
         try:
             urly="https://crt.sh/?q=%25" + self.word
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
         headers = {'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:34.0) Gecko/20100101 Firefox/34.0'}
         try:
             r=requests.get(urly,headers=headers)
-        except Exception,e:
-            print e
+        except Exception as e:
+            print(e)
         self.results = r.content
         self.totalresults += self.results
 
@@ -37,4 +37,4 @@ class search_crtsh:
 
     def process(self):
         self.do_search()
-        print "\tSearching CRT.sh results.."
+        print("\tSearching CRT.sh results..")

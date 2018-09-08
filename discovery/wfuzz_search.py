@@ -5,7 +5,7 @@ import myparser
 import re
 try:
     import wfuzz
-except Exception, e: 
+except Exception as e: 
     pass
 
 class search_wfuzz:
@@ -15,13 +15,13 @@ class search_wfuzz:
         self.totalresults = ""
        
     def do_search(self):
-        print "elo"
+        print("elo")
         try:
             for r in wfuzz.fuzz(url="https://"+self.host+"/FUZZ", hc=[404], payloads=[("file",dict(fn="wordlist/general/common.txt"))]):
-                print r
+                print(r)
                 self.results += r
-        except Exception, e:
-                print e
+        except Exception as e:
+                print(e)
         self.totalresults += self.results
 
     def get_results(self):
@@ -32,4 +32,4 @@ class search_wfuzz:
 
     def process(self):
         self.do_search()
-        print "\tSearching Wfuzz.."
+        print("\tSearching Wfuzz..")

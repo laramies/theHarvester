@@ -21,12 +21,12 @@ class search_google:
     def do_search(self):
         try:
             urly="http://" + self.server + "/search?num=" + self.quantity + "&start=" + str(self.counter) + "&hl=en&meta=&q=%40\"" + self.word + "\""
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
         try:
             r=requests.get(urly)
-        except Exception,e:
-            print e
+        except Exception as e:
+            print(e)
         self.results = r.content 
         self.totalresults += self.results
 
@@ -34,12 +34,12 @@ class search_google:
     def do_search_profiles(self):
         try:
             urly="http://" + self.server + "/search?num=" + self.quantity + "&start=" + str(self.counter) + "&hl=en&meta=&q=site:www.google.com%20intitle:\"Google%20Profile\"%20\"Companies%20I%27ve%20worked%20for\"%20\"at%20" + self.word + "\""
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
         try:
             r=requests.get(urly)
-        except Exception,e:
-            print e
+        except Exception as e:
+            print(e)
         self.results = r.content 
 
         #'&hl=en&meta=&q=site:www.google.com%20intitle:"Google%20Profile"%20"Companies%20I%27ve%20worked%20for"%20"at%20' + self.word + '"')
@@ -66,7 +66,7 @@ class search_google:
             self.do_search()
             #more = self.check_next()
             time.sleep(1)
-            print "\tSearching " + str(self.counter) + " results..."
+            print("\tSearching " + str(self.counter) + " results...")
             self.counter += 100
 
             
@@ -75,4 +75,4 @@ class search_google:
             self.do_search_profiles()
             time.sleep(0.3)
             self.counter += 100
-            print "\tSearching " + str(self.counter) + " results..."
+            print("\tSearching " + str(self.counter) + " results...")

@@ -20,8 +20,8 @@ class port_scan():
                 if result == 0:
                     openports.append(port)
                 s.close()
-            except Exception,e:
-                print e
+            except Exception as e:
+                print(e)
                 pass
         self.lock.release()
         return openports
