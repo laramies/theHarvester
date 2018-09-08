@@ -74,7 +74,7 @@ def start(argv):
     try:
         db=stash.stash_manager()
         db.do_init()
-    except Exception, e:
+    except:
         pass
     start = 0
     host_ip = []
@@ -132,11 +132,11 @@ def start(argv):
             try:
                 db=stash.stash_manager()
                 db.store(word,x,'host','google')
-            except Exception, e:
-                print e
+            except Exception as e:
+                print(e)
     
     if engine == "netcraft":
-        print "[-] Searching in Netcraft:"
+        print("[-] Searching in Netcraft:")
         search = netcraft.search_netcraft(word)
         search.process()
         all_hosts = search.get_hostnames()
