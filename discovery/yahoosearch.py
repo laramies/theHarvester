@@ -1,10 +1,7 @@
 import myparser
 import time
 import sys
-if sys.version_info <= (3,0):
-    import httplib
-else:
-    import http.client as httplib
+import requests
 
 class search_yahoo:
 
@@ -18,16 +15,10 @@ class search_yahoo:
         self.counter = 0
 
     def do_search(self):
-        h = httplib.HTTP(self.server)
+        headers = { 'User-agent' : self.userAgent }
+        h = requests.get("http://{}/search?p=\"%40{}\"&b={}&pz=10".format(self.server, self.word, self.counter), headers=headers)
 
-        h.putrequest('GET', "/search?p=\"%40" + self.word
-                     + "\"&b=" + str(self.counter) + "&pz=10")
-        h.putheader('Host', self.hostname)
-        h.putheader('User-agent', self.userAgent)
-        h.endheaders()
-        returncode, returnmsg, headers = h.getreply()
-
-        self.total_results += h.getfile().read()
+        self.total_results += h.text
 
     def process(self):
         while self.counter <= self.limit and self.counter <= 1000:
