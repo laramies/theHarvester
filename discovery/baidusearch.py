@@ -17,10 +17,9 @@ class search_baidu:
 
     def do_search(self):
         headers = { 
-            'Host', self.hostname,
-            'User-agent', self.userAgent,
+            'User-agent': self.userAgent,
         }
-        h = requests.get( "http://" + self.server + "/s?wd=%40" + self.word + "&pn=" + str(self.counter)+"&oq="+self.word)
+        h = requests.get( "http://" + self.server + "/s?wd=%40" + self.word + "&pn=" + str(self.counter)+"&oq="+self.word, headers=headers)
         self.total_results += h.text
 
     def process(self):
