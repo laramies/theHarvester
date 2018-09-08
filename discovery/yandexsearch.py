@@ -3,11 +3,7 @@ import sys
 import myparser
 import re
 import time
-if sys.version_info <= (3,0):
-    import httplib
-else:
-    import http.client as httplib
-
+import requests
 
 class search_yandex:
 
@@ -22,26 +18,16 @@ class search_yandex:
         self.counter = start
 
     def do_search(self):
-        h = httplib.HTTP(self.server)
-        h.putrequest('GET', "/search?text=%40" + self.word +
-                     "&numdoc=50&lr=" + str(self.counter))
-        h.putheader('Host', self.hostname)
-        h.putheader('User-agent', self.userAgent)
-        h.endheaders()
-        returncode, returnmsg, headers = h.getreply()
-        self.results = h.getfile().read()
+        headers = { 'User-agent' : self.userAgent }
+        h = requests.get("http://{}/search?text=%40{}&numdoc=50&lr={}".format(self.server, self.word, self.counter), headers=headers)
+        self.results = h.text 
         self.totalresults += self.results
         print(self.results)
 
     def do_search_files(self, files):  # TODO
-        h = httplib.HTTP(self.server)
-        h.putrequest('GET', "/search?text=%40" + self.word +
-                     "&numdoc=50&lr=" + str(self.counter))
-        h.putheader('Host', self.hostname)
-        h.putheader('User-agent', self.userAgent)
-        h.endheaders()
-        returncode, returnmsg, headers = h.getreply()
-        self.results = h.getfile().read()
+        headers = { 'User-agent' : self.userAgent }
+        h = requests.get("http://{}/search?text=%40{}&numdoc=50&lr={}".format(self.server, self.word, self.counter), headers=headers)
+        self.results = h.text 
         self.totalresults += self.results
 
     def check_next(self):
