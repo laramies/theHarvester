@@ -75,7 +75,7 @@ def start(argv):
         db=stash.stash_manager()
         db.do_init()
     except:
-        pass
+        print("[ ] Error doing db init, ignoring")
     start = 0
     host_ip = []
     filename = ""
