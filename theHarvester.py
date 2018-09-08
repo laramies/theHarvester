@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import string
-import httplib
 import sys
 import os
 from socket import *
