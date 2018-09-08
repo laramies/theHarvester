@@ -8,10 +8,7 @@ try:
     import IPy
 except ImportError:
     sys.exit("You'll need to install the IPy module")
-if sys.version_info <= (3,0):
-    import DNS
-else:
-    from .DNS import *
+import DNS
 
 class dns_reverse():
 
