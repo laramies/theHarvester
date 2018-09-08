@@ -492,8 +492,8 @@ def start(argv):
         for x in full:
             try:
                 ip = x.split(":")[1]
-                if not shodanvisited.count(ip):
-                    print "\tSearching for: " + ip
+                if not ip=="empty" and not shodanvisited.count(ip):
+                    print("\tSearching for: " + ip)
                     a = shodansearch.search_shodan(ip)
                     shodanvisited.append(ip)
                     results = a.run()
