@@ -4,6 +4,7 @@ import sys
 import myparser
 import re
 
+TIMEOUT=30
 
 class search_crtsh:
 
@@ -19,16 +20,10 @@ class search_crtsh:
         
 
     def do_search(self):
-        try:
-            urly="https://crt.sh/?q=%25" + self.word
-        except Exception as e:
-            print(e)
         headers = {'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:34.0) Gecko/20100101 Firefox/34.0'}
-        try:
-            r=requests.get(urly,headers=headers)
-        except Exception as e:
-            print(e)
-        self.results = r.content
+        url = "https://crt.sh/?q=%25{}".format(self.word)
+        r=requests.get(url,headers=headers, timeout=TIMEOUT)
+        self.results = r.text
         self.totalresults += self.results
 
     def get_hostnames(self):
