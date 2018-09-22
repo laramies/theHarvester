@@ -40,8 +40,7 @@ The sources are:
 
 * bing: microsoft search engine  - www.bing.com
 
-* bingapi: microsoft search engine, through the API (you need to add your Key in
-          the discovery/bingsearch.py file)
+* bingapi: microsoft search engine, through the API
 
 * dogpile: Dogpile search engine - www.dogpile.com
 
@@ -73,6 +72,7 @@ Active:
 
 Modules that need API keys to work:
 ----------------------------------
+* bingapi: You need to provide your API key in discovery/bingsearch.py
 * googleCSE: You need to create a Google Custom Search engine(CSE), and add your
  Google API key and CSE ID in the plugin (discovery/googleCSE.py)
 * shodan: You need to provide your API key in discovery/shodansearch.py (one provided at the moment)
