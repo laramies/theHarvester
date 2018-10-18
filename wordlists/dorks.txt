@@ -1,0 +1,34 @@
+inurl:/careers-detail.asp?id=
+inurl:/*.php?id=
+inurl:/os_view_full.php?
+intext:"Powered By : SE Software Technologies" filetype:php
+inurl:/calendar.php?token=
+inurl:sql.php?id=
+inurl:download.php?id=
+inurl:main.php?id=
+inurl:Pageid=
+inurl:"id=" & intext:"Warning: pg_exec()
+inurl:"id=" & intext:"Warning: session_start()
+intext:"Fill out the form below completely to change your password and user name. If new username is left blank, your old one will be assumed." -edu
+intitle:"Content Management System" "user name"|"password"|"admin" "Microsoft IE 5.5" -mambo
+intitle:"EXTRANET login" -.edu -.mil -.gov
+intitle:"Login -
+intitle:"phpPgAdmin - Login" Language
+inurl:":10000" intext:webmin
+inurl:"usysinfo?login=true"
+index.php?body=
+main.php?x=
+index.php?loc=
+page.php?doc=
+administrator/components/com_webring/admin.webring.docs.php?component_dir=
+sub*.php?channel=
+press.php?*[*]*=
+admin/account.html
+admin/adminLogin.html
+login.html
+login.%XT%
+administrator/account.%XT%
+Database_Administration/
+phpSQLiteAdmin/
+0admin/
+super_login%XT%

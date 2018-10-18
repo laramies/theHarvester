@@ -45,6 +45,7 @@ def usage():
     print """       -b: data source: baidu, bing, bingapi, dogpile, google, googleCSE,
                         googleplus, google-profiles, linkedin, pgp, twitter, vhost, 
                         virustotal, threatcrowd, crtsh, netcraft, yahoo, all\n"""
+    print "       -g: perform google dorking"
     print "       -s: start in result number X (default: 0)"
     print "       -v: verify host name via dns resolution and search for virtual hosts"
     print "       -f: save the results into an HTML and XML file (both)"
@@ -68,7 +69,7 @@ def start(argv):
         usage()
         sys.exit()
     try:
-        opts, args = getopt.getopt(argv, "l:d:b:s:vf:nhcpte:")
+        opts, args = getopt.getopt(argv, "l:d:b:s:vf:nghcpte:")
     except getopt.GetoptError:
         usage()
         sys.exit()
@@ -85,6 +86,7 @@ def start(argv):
     dnsbrute = False
     dnstld = False
     shodan = False
+    google_dorking = False
     vhost = []
     virtual = False
     ports_scanning = False
@@ -96,6 +98,8 @@ def start(argv):
             limit = int(arg)
         elif opt == '-d':
             word = arg
+        elif opt == '-g':
+            google_dorking = True
         elif opt == '-s':
             start = int(arg)
         elif opt == '-v':
@@ -355,7 +359,7 @@ def start(argv):
         all_emails.extend(emails)
         #Clean up email list, sort and uniq
         all_emails=sorted(set(all_emails))
-    
+
     #Results############################################################
     print("\n\033[1;32;40m Harvesting results")
     print "\n\n[+] Emails found:"
@@ -509,8 +513,6 @@ def start(argv):
         print "------------------"
         for x in shodanres:
             print x.split("SAPO")[0] + ":" + x.split("SAPO")[1]
-    else:
-        pass
 
     ###################################################################
     # Here i need to add explosion mode.
@@ -525,6 +527,18 @@ def start(argv):
             hosts = search.get_hostnames()
             print emails
             print hosts
+    else:
+        pass
+
+    # Google Dorking####################################################
+    info_found = []
+    if google_dorking == True:
+        print "Starting Google Dorking: "
+        search = googledork(target='www.microsoft.com',
+                            limit=10, start=0)
+        search.append_dorks()
+        search.construct_dorks()
+        search.temp()
     else:
         pass
 
