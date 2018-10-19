@@ -8,6 +8,7 @@ from socket import *
 import re
 import getopt
 import stash
+from discovery import googledork
 
 try:
     import requests
@@ -99,6 +100,7 @@ def start(argv):
         elif opt == '-d':
             word = arg
         elif opt == '-g':
+            print 'google dorking is true'
             google_dorking = True
         elif opt == '-s':
             start = int(arg)
@@ -531,14 +533,15 @@ def start(argv):
         pass
 
     # Google Dorking####################################################
-    info_found = []
     if google_dorking == True:
         print "Starting Google Dorking: "
-        search = googledork(target='www.microsoft.com',
-                            limit=10, start=0)
+        search = googledork.google_dork(word,limit,start)
         search.append_dorks()
         search.construct_dorks()
-        search.temp()
+        emails = search.get_emails()
+        hosts = search.get_hostnames()
+        print emails
+        print hosts
     else:
         pass
 
@@ -618,6 +621,7 @@ def start(argv):
         except Exception as er:
             print "Error saving XML file: " + er
         sys.exit()
+
 
 if __name__ == "__main__":
     try:
