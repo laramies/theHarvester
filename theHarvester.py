@@ -8,7 +8,6 @@ from socket import *
 import re
 import getopt
 import stash
-from discovery import googledork
 
 try:
     import requests
@@ -46,7 +45,6 @@ def usage():
     print """       -b: data source: baidu, bing, bingapi, dogpile, google, googleCSE,
                         googleplus, google-profiles, linkedin, pgp, twitter, vhost, 
                         virustotal, threatcrowd, crtsh, netcraft, yahoo, all\n"""
-    print "       -g: perform google dorking"
     print "       -s: start in result number X (default: 0)"
     print "       -v: verify host name via dns resolution and search for virtual hosts"
     print "       -f: save the results into an HTML and XML file (both)"
@@ -58,6 +56,7 @@ def usage():
     print "       -l: limit the number of results to work with(bing goes from 50 to 50 results,"
     print "            google 100 to 100, and pgp doesn't use this option)"
     print "       -h: use SHODAN database to query discovered hosts"
+    print "       -g: perform google dorking"
     print "\nExamples:"
     print "        " + comm + " -d microsoft.com -l 500 -b google -h myresults.html"
     print "        " + comm + " -d microsoft.com -b pgp"
@@ -70,7 +69,7 @@ def start(argv):
         usage()
         sys.exit()
     try:
-        opts, args = getopt.getopt(argv, "l:d:b:s:vf:nghcpte:")
+        opts, args = getopt.getopt(argv, "l:d:b:s:vf:nhcgpte:")
     except getopt.GetoptError:
         usage()
         sys.exit()
@@ -100,7 +99,6 @@ def start(argv):
         elif opt == '-d':
             word = arg
         elif opt == '-g':
-            print 'google dorking is true'
             google_dorking = True
         elif opt == '-s':
             start = int(arg)
@@ -131,7 +129,7 @@ def start(argv):
     print "[-] Starting harvesting process for domain: " + word +  "\n" 
     if engine == "google":
         print "[-] Searching in Google:"
-        search = googlesearch.search_google(word, limit, start)
+        search = googlesearch.search_google(word, limit, start, google_dorking)
         search.process()
         all_emails = search.get_emails()
         all_hosts = search.get_hostnames()
@@ -529,19 +527,6 @@ def start(argv):
             hosts = search.get_hostnames()
             print emails
             print hosts
-    else:
-        pass
-
-    # Google Dorking####################################################
-    if google_dorking == True:
-        print "Starting Google Dorking: "
-        search = googledork.google_dork(word,limit,start)
-        search.append_dorks()
-        search.construct_dorks()
-        emails = search.get_emails()
-        hosts = search.get_hostnames()
-        print emails
-        print hosts
     else:
         pass
 
