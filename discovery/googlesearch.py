@@ -40,12 +40,14 @@ class search_google:
             self.results = r.content
             self.totalresults += self.results
         else: #google_dorking is true
+            self.append_dorks()
+            self.construct_dorks()
             for link in self.links:
                 try:
                     params = {'User-Agent': random.choice(self.userAgent)}
-                    #grab random User-Agent to avoid google blocking ip
+                    #grab random User-Agent to try to avoid google blocking ip
                     req = requests.get(link, params=params)
-                    time.sleep(0.2)
+                    time.sleep(0.2) #sleep for short time
                     self.results = req.content
                     self.totalresults += self.results
                 except Exception:  #if something happens just continue
@@ -60,8 +62,7 @@ class search_google:
             r=requests.get(urly)
         except Exception,e:
             print e
-        self.results = r.content 
-
+        self.results = r.content
         #'&hl=en&meta=&q=site:www.google.com%20intitle:"Google%20Profile"%20"Companies%20I%27ve%20worked%20for"%20"at%20' + self.word + '"')
         self.totalresults += self.results
 
@@ -89,7 +90,6 @@ class search_google:
             print "\tSearching " + str(self.counter) + " results..."
             self.counter += 100
 
-            
     def process_profiles(self):
         while self.counter < self.limit:
             self.do_search_profiles()
