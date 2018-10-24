@@ -28,22 +28,23 @@ class search_google:
         self.google_dorking = google_dorking
 
     def do_search(self):
-        if self.google_dorking == False:
-            try:
-                urly="http://" + self.server + "/search?num=" + self.quantity + "&start=" + str(self.counter) + "&hl=en&meta=&q=%40\"" + self.word + "\""
-            except Exception, e:
-                print e
-            try:
-                r=requests.get(urly)
-            except Exception,e:
-                print e
-            self.results = r.content
-            self.totalresults += self.results
-        else: #google_dorking is true
-            self.append_dorks()
+        try: #do normal scraping
+            urly="http://" + self.server + "/search?num=" + self.quantity + "&start=" + str(self.counter) + "&hl=en&meta=&q=%40\"" + self.word + "\""
+        except Exception, e:
+            print e
+        try:
+            r=requests.get(urly)
+        except Exception,e:
+            print e
+        self.results = r.content
+        self.totalresults += self.results
+        if self.google_dorking == True: #google_dorking is true so do custom google dorking scrape
+            self.counter = 0 #reset counter
+            self.append_dorks() #call functions to create list
             self.construct_dorks()
             for link in self.links:
                 try:
+                    print "inside for loop, self.counter is: ",self.counter
                     params = {'User-Agent': random.choice(self.userAgent)}
                     #grab random User-Agent to try to avoid google blocking ip
                     req = requests.get(link, params=params)
@@ -120,7 +121,7 @@ class search_google:
         ampersand = "%26"
         left_peren = "%28"
         right_peren = "%29"
-        #populate links list required that we need correct html encoding to work properly
+        #populate links list required that we need correct html encoding to work properly (might replace)
         self.links = [self.database + space + self.word + space +
                       str(dork).replace(':', colon).replace('+', plus).replace('.', period).replace('"', double_quote)
                       .replace("*", asterick).replace('[', left_bracket).replace(']', right_bracket)
