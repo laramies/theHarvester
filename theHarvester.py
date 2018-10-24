@@ -268,7 +268,7 @@ def start(argv):
 
     elif engine == "google-profiles":
         print "[-] Searching in Google profiles.."
-        search = googlesearch.search_google(word, limit, start)
+        search = googlesearch.search_google(word, limit, start, google_dorking)
         search.process_profiles()
         people = search.get_profiles()
         print "Users from Google profiles:"
@@ -283,7 +283,7 @@ def start(argv):
         all_hosts = []
        
         print "[-] Searching in Google.."
-        search = googlesearch.search_google(word, limit, start)
+        search = googlesearch.search_google(word, limit, start, google_dorking)
         search.process()
         emails = search.get_emails()
         hosts = search.get_hostnames()
@@ -521,7 +521,7 @@ def start(argv):
     if recursion:
         start = 0
         for word in vhost:
-            search = googlesearch.search_google(word, limit, start)
+            search = googlesearch.search_google(word, limit, start,google_dorking)
             search.process()
             emails = search.get_emails()
             hosts = search.get_hostnames()

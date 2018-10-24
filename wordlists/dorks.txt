@@ -1,50 +1,700 @@
-inurl:/careers-detail.asp?id=
-inurl:/*.php?id=
-inurl:/os_view_full.php?
-intext:"Powered By : SE Software Technologies" filetype:php
-inurl:/calendar.php?token=
-inurl:sql.php?id=
-inurl:download.php?id=
-inurl:main.php?id=
-inurl:Pageid=
-inurl:"id=" & intext:"Warning: pg_exec()
-inurl:"id=" & intext:"Warning: session_start()
-intext:"Fill out the form below completely to change your password and user name. If new username is left blank, your old one will be assumed." -edu
-intitle:"Content Management System" "user name"|"password"|"admin" "Microsoft IE 5.5" -mambo
-intitle:"EXTRANET login" -.edu -.mil -.gov
-intitle:"Login -
-intitle:"phpPgAdmin - Login" Language
-inurl:":10000" intext:webmin
-inurl:"usysinfo?login=true"
-index.php?body=
-main.php?x=
-index.php?loc=
-page.php?doc=
-administrator/components/com_webring/admin.webring.docs.php?component_dir=
-sub*.php?channel=
-press.php?*[*]*=
-admin/account.html
+inurl:Citrix/MetaFrame/default/default.aspx
+sysadm.%XT%
+inurl:/shared/help.php?page=
+wizmysqladmin/
 admin/adminLogin.html
-login.html
-login.%XT%
-administrator/account.%XT%
-Database_Administration/
-phpSQLiteAdmin/
-0admin/
-super_login%XT%
-/spid/lang/lang.php?lang_path=
+intitle:"SHOUTcast Administrator" inurl:admin.cgi
+0manager/
+admin.php?page=
+index.php?Language=
+inurl:/prodotti.php?id=
+/modules/xgallery/upgrade_album.php?GALLERY_BASEDIR=
+LiveUser_Admin/
+inurl:games.php?id=
+inurl:pop.php?id=
+index2.php?to=
+contenido.php?sec=
+intitle:"teamspeak server-administration
+index.php?body=
+superman/
 allinurl:.br/index.php?loc=
-PSUser/
-secrets/
-login_admin%XT%
-loginerror/
-superuser%XT%
-authenticate.%XT%
-authentication.%XT%
-auth.%XT%
-authuser.%XT%
-authadmin.%XT%
-cp.%XT%
-modelsearch/login.%XT%
+inurl:cgi-bin/ultimatebb.cgi?ubb=login
+htmltonuke.php?filnavn=
+/includes/functions_portal.php?phpbb_root_path=
+page.php?doc=
+inurl:viewphoto.php?id=
+admin/admin-login.%XT%
+blogindex/
+intitle:"web-cyradm"|"by Luc de Louw" "This is only for authorized users" -tar.gz -site:web-cyradm.org
+ur-admin/
+bb-admin/login.%XT%
+Database_Administration/
+intitle:"ListMail Login" admin -demo
+sys-admin/
+intitle:"TWIG Login"
+main.php?page=
+index.php?visualizar=
+inurl:historialeer.php?num=
+inurl:view_ad.php?id=
+inurl:/notizia.php?idArt=
+inurl:/dana-na/auth/welcome.html
+index2.php?x=
+index.php?x= index.php?mode=index.php?stranica=
+ezsqliteadmin/
+manuallogin/
+inurl:chappies.php?id=
+lib/gore.php?libpath=
+loginflat/
+admin/login.htm
+wp-login/
+index.php?lg=
+inurl:participant.php?id=
+inurl:clanek.php4?id=
+administrator/
+components/com_mtree/Savant2/Savant2_Plugin_stylesheet.php?mosConfig_absolute_path=
+includes/functions.php?phpbb_root_path=
+admincontrol.%XT%
+inurl:/recipe-view.php?id=
+panel/
+old_reports.php?file=
+show.php?path=
+intitle:ilohamail "
+inurl:view.php?id=
+inurl:index.php?load=
+/sources/functions.php?CONFIG[main_path]=
+processlogin.%XT%
 moderator.%XT%
+intitle:IMP inurl:imp/index.php3
+logout/
+inurl:/publications.asp?type=
+index.php?opcao=
+adminitems.%XT%
+inurl:"php121login.php"
+cp/
+sources/join.php?FORM[url]=owned&CONFIG[captcha]=1&CONFIG[path]=
+index.php?page=
+myadmin/
+help.php?css_path=
+forum.php?act=
+registration/
+/embed/day.php?path=
+index.php?oldal=
+/zipndownload.php?PP_PATH=
+inurl:news.php?id=
+inurl:product-item.php?id=
+auth.%XT%
+inurl:/filedown.php?file=
+/include/write.php?dir=
+administrator/components/com_cropimage/admin.cropcanvas.php?cropimagedir=modules/My_eGallery/index.php?basepath=
+phppgadmin/
+main.php?site=
+/modules/PNphpBB2/includes/functions_admin.php?phpbb_root_path=
+modelsearch/login.%XT%
+hall.php?file=
+blog/wp-login.%XT%
+inurl:humor.php?id=
+inurl:show_an.php?id=
+intitle:"Novell Web Services" "GroupWise" -inurl:"doc/11924" -.mil -.edu -.gov -filetype:pdf
+intitle:Login * Webmailer
+inurl:/os_view_full.php?
+inurl:/gmap.php?id=
+inurl:trainers.php?id=
+intitle:Login intext:"RT is ? Copyright"
+administrator/components/com_comprofiler/plugin.class.php?mosConfig_absolute_path= /tools/send_reminders.php?includedir= allinurl:day.php?date=
+/modules/coppermine/include/init.inc.php?CPG_M_DIR=
+super.%XT%
+intitle:ilohamail intext:"Version 0.8.10" "
+cpanel/
+inurl:item_id=
+inurl:product.php?mid=
+inurl:publications.php?id=
+adminLogin/
+inurl:pages.php?id=
+inurl:newsone.php?id=
+intitle:"Login to @Mail" (ext:pl | inurl:"index") -dwaffleman
+panel.%XT%
+webadmin/
+superuser/
+inurl:/mpfn=pdview&id=
+SQuery/lib/gore.php?libpath=
+admin/account.html
+autologin/
+intitle:phpnews.login
+homepage.php?sel=
+components/com_performs/performs.php?mosConfig_absolute_path=
+inurl:"/slxweb.dll/external?name=(custportal|webticketcust)"
+inurl:band_info.php?id=
+index2.php?p=
+controlpanel.%XT%
+login-redirect/
+/yabbse/Sources/Packages.php?sourcedir=
+inurl:view_product.php?id=
+index.php?p=
+media.php?page=
+index.php?inhalt=
+intitle:"WorldClient" intext:"? (2003|2004) Alt-N Technologies."
+index.php?var=
+enc/content.php?Home_Path=
+intitle:"xams 0.0.0..15 - Login"
+intitle:"OnLine Recruitment Program - Login"
+log_in.%XT%
+yonetim.%XT%
+inurl:show.php?id=
+inurl:showimg.php?id=
+inurl:/view/lang/index.php?page=?page=
+/functions.php?include_path=
+inurl:rub.php?idr=
+myevent.php?myevent_path=
+inurl:channel_id=
+intitle:"TOPdesk ApplicationServer"
+users.%XT%
+sql-admin/
+inurl:buy.php?category=
+inurl:webvpn.html "login" "Please enter your"
+administration/
+noticias.php?arq=
+inurl:news_display.php?getid=
+inurl:/WhatNew.asp?page=&id=
+/modules/4nAlbum/public/displayCategory.php?basepath=
+intitle:"XcAuctionLite" | "DRIVEN BY XCENT" Lite inurl:admin
+index.php?principal=
+intitle:Novell intitle:WebAccess "Copyright *-* Novell, Inc"
+index.php?incl=
+intitle:"SFXAdmin - sfx_global" | intitle:"SFXAdmin - sfx_local" | intitle:"SFXAdmin - sfx_test"
+index.phpmain.php?x=
+solpot.html?body=
+inurl:shopping.php?id=
+admin/controlpanel.htm
+authenticate.%XT%
+inurl:prod_info.php?id=
+show_news.php?cutepath=
+inurl:productdetail.php?id=
+index.php?arquivo=
+inurl:select_biblio.php?id=
+intitle:"Login to Cacti"
+admin1.%XT%
+/includes/dbal.php?eqdkp_root_path=
+sysadmin.%XT%
+inurl:index.php?=
+manager.%XT%
+intitle:"Novell Web Services" intext:"Select a service and a language."
+intitle:"vhost" intext:"vHost . 2000-2004"
+akocomments.php?mosConfig_absolute_path=
+components/com_mtree/Savant2/Savant2_Plugin_textarea.php?mosConfig_absolute_path=
+supermanager%XT%
+inurl:/admin/login.asp
+Lotus_Domino_Admin/
+inurl:/viewfaqs.php?cat=
+intitle:"phpPgAdmin - Login" Language
+interna/tiny_mce/plugins/ibrowser/ibrowser.php?tinyMCE_imglib_include=
+/modules/My_eGallery/public/displayCategory.php?basepath=
+intitle:"Merak Mail Server Web Administration" -ihackstuff.com
+index.php?pagina=
+admin/controlpanel.html
+/classes/adodbt/sql.php?classes_dir=
+user/
+inurl:index2.php?to=
+intitle:"MailMan Login"
+inurl:/careers-detail.asp?id=
+index.php?langc=
+principal.php?conteudo=
+wp-admin/
+sign_in.%XT%
+login/
+intitle:Node.List Win32.Version.3.11
+folder.php?id=
+hpwebjetadmin/
+inurl:profile_view.php?id=
+administrator/components/com_cropimage/admin.cropcanvas.php?cropimagedir=
+sysadm/
+inurl:clubpage.php?id=
+dir-login/
+home.php?pagina=
+check.%XT%
+checkadmin.%XT%
+inurl:/calendar.php?token=
+login1/
+inurl:ogl_inet.php?ogl_id=
+inurl:detail.php?ID=
+admin_area/
+admin/cp.%XT%
+xlogin/
+inurl:communique_detail.php?id=
+inurl:fellows.php?id=
+index.php?id=
+index.php?show=
+inurl:Stray-Questions-View.php?num=
+supervise/
+user/admin.%XT%
+secret/
+supervise/Login%XT%
+inurl:download.php?id=
+showlogin/
+inurl:newsDetail.php?id=
+intitle:"Kurant Corporation StoreSense" filetype:bok
+secrets/
+administrator/components/com_mgm/help.mgm.php?mosConfig_absolute_path=
+inurl:main.php?id=
+typo3/
+super1/
+inurl:"default/login.php" intitle:"kerio"
+sub-login/
+intitle:"Login -
+index_principal.php?pagina=
+inurl:"utilities/TreeView.asp"
+adminpro/
+admin_area.%XT%
+superman%XT%
+index.php?Load=
+index.php?pageurl=
+admin/adminLogin.htm
+inurl:news_view.php?id=
+administrator/components/com_remository/admin.remository.php?mosConfig_absolute_path= /tags.php?BBCodeFile=
+/components/com_zoom/includes/database.php?mosConfig_absolute_path=
+admin.%XT%
+adminitem.%XT%
+inurl:shredder-categories.php?id=
+default.php?page=
+fileadmin.%XT%
+index2.php?DoAction=
+inurl:game.php?id=
+usr/
+system-administration/
+/header.php?abspath=
+accounts/
+/jscript.php?my_ms[root]=
+/includes/orderSuccess.inc.php?glob=1&cart_order_id=1&glob[rootDir]=
+intitle:("TrackerCam Live Video")|("TrackerCam Application Login")|("Trackercam Remote") -trackercam.com
+inurl:post.php?id=
+inurl:announce.php?id= 155
+administrators/
+login_db/
+inurl:loadpsb.php?id=
+/sources/template.php?CONFIG[main_path]=
+members/
+inurl:irc filetype:cgi cgi:irc
+/administrator/components/com_serverstat/install.serverstat.php?mosConfig_absolute_path=
+staradmin/
+inurl:/list_blogs.php?sort_mode=
+loginsuper/
+irc-macadmin/
+administrator/account.%XT%
+index2.php?ID=
+inurl:"ViewerFrame?Mode="
+bb-admin/admin.%XT%
+intitle:"Philex 0.2*" -s?ri?t -site:freelists.org
+home.php?content=
+logout%XT%
+admin1/
+ccp14admin/
+root/
+inurl:material.php?id=
+phpwcms/include/inc_ext/spaw/dialogs/table.php?spaw_root=
+inurl:"1220/parse_xml.cgi?"
+intitle:"VNC viewer for Java"
+template.php?name=
+inurl:search/admin.php
+admin/admin.%XT%
+checklogin.%XT%
+index.php?l=
+login.htm
+inurl:forum_bds.php?num=
+inurl:declaration_more.php?decl_id=
+index.php?dept=
+sign-in/
+m2f/m2f_phpbb204.php?m2f_root_path=
+index.php?configFile=
+inurl:person.php?id=
+inurl:mewebmail
+manage.%XT%
+inurl:sql.php?id=
+adminitem/
+/class.mysql.php?path_to_bt_dir=
+vadmind/
+inurl:faq2.php?id=
+/sources/join.php?FORM[url]=owned&CONFIG[captcha]=1&CONFIG[path]=
+config.php?_CCFG[_PKG_PATH_DBSE]=
+inurl:releases.php?id=
+admin/login.html
+newsadmin/
+/login.php?dir=
+inurl:produit.php?id=
+index.php?file=
+manage/
+inurl:coranto.cgi intitle:Login (Authorized Users Only)
+inurl:login.asp
+index.php?url=
+super_login%XT%
+inurl:newsitem.php?num=
+intitle:"php icalendar administration" -site:sourceforge.net
+inurl:1810 "Oracle Enterprise Manager"
+intitle:"inc. vpn 3000 concentrator"
+inurl:preview.php?id=
+login1%XT%
+/administrator/components/com_uhp/uhp_config.php?mosConfig_absolute_path=
+intitle:asterisk.management.portal web-access
+/templates/headline_temp.php?nst_inc=
+checkuser.%XT%
+intitle:"MikroTik RouterOS Managing Webpage"
+/tags.php?BBCodeFile=
+aadmin/
+intitle:open-xchange inurl:login.pl
+admin2.%XT%
+bbadmin/
+inurl:/modcp/ intext:Moderator+vBulletin
+/addpost_newpoll.php?addpoll=preview&thispath=
+signin.%XT%
+inurl:artikelinfo.php?id=
+loginok/
+authuser.%XT%
+admin/
+yonetici.html
+index.php?menu=
+intitle:"Tomcat Server Administration"
+inurl:avd_start.php?avd=
+intitle:"MX Control Console" "If you can't remember"
+relogin.%XT%
+inurl:postfixadmin intitle:"postfix admin" ext:php
+admins/
+inurl:/reservations.php?id=
+components/com_artlinks/artlinks.dispnew.php?mosConfig_absolute_path=
+members.%XT%
+ihm.php?p=
+hall.php?page=
+member.%XT%
+view.php?page=
+inurl:prod_detail.php?id=
+intitle:"Member Login" "NOTE: Your browser must have cookies enabled in order to log into the site." ext:php OR ext:cgi
+inurl:gnatsweb.pl
+admin/controlpanel.%XT%
+inurl:/index.php?pgId=
+ServerAdministrator/
+pgadmin/
+intitle:"Welcome to Mailtraq WebMail"
+adminitems/
+log-in.%XT%
+inurl:/include/footer.inc.php?_AMLconfig[cfg_serverpath]=
+intitle:Ovislink inurl:private/login
+member/
+sign-in.%XT%
+intitle:"Supero Doctor III" -inurl:supermicro
+cpanel_file/
+pureadmin/
+/mcf.php?content=
+index.php?sub=index.php?id=index.php?t=
+inurl:/Details.asp?id=
+inurl:shop.php?do=part&id=
+inurl:confixx inurl:login|anmeldung
+ur-admin.%XT%
+bb-admin/admin.html
+bigadmin/
+admin/admin_login.%XT%
+index.php?lang=gr&file
+administr8/
+inurl::2082/frontend -demo
+intitle:"VisNetic WebMail" inurl:"/mail/"
+inurl:"suse/login.pl"
+index.php?pg=
+fileadmin/
+inurl:staff_id=
+admin2.html
+index.php?meio=
+letmein/
+admin_area/admin.%XT%
+/surveys/survey.inc.php?path=
+/skin/zero_vote/error.php?dir=
+inurl:tradeCategory.php?id=
+index1.php?menu=
+loginsave/
+inurl:"calendar.asp?action=login"
+inurl:website.php?id=
+main.php?id=
+db.php?path_local=
+management.%XT%
+index1.php?=
+wp-login.php
+inurl:sw_comment.php?id=
+cgi-bin/login%XT%
+home.php?action=
+/popup_window.php?site_isp_root=
+inurl:top10.php?cat=
+administrator.%XT%
+access.%XT%
+authentication.%XT%
+content.php?page=
+inurl:transcript.php?id=
+index1.php?dat=
+security/
+skins/advanced/advanced1.php?pluginpath[0]=
+0admin/
+banneradmin/
+administrator/components/com_webring/admin.webring.docs.php?component_dir=
+index.php?_REQUEST=&_REQUEST%5boption%5d=com_content&_REQUEST%5bItemid%5d=1&GLOBALS=&mosConfig_absolute_path=
+index.php?template=
+inurl:exchweb/bin/auth/owalogon.asp
+adm/
+yonetici.%XT%
+inurl:spr.php?id=
+intitle:"Zope Help System" inurl:HelpSys
+acct_login/
+admin1.html
+loginsuper%XT%
+inurl:"631/admin" (inurl:"op=*") | (intitle:CUPS)
+/main.php?sayfa=
+index2.php?url_page=
+management/
+index.php?sel=
+admins.%XT%
+index1.php?choix=
+login.%XT%
+login.php?dir=
+signin/
+inurl:section.php?id=
+platz_login/
+control/
+/tools/send_reminders.php?includedir= allinurl:day.php?date=
+inurl:article.php?ID=
+inurl:2000 intitle:RemotelyAnywhere -site:realvnc.com
+inurl:/Content.asp?id=
+inurl:event.php?id=
+inurl:memberInfo.php?id=
+index.php?screen=
+directadmin/
+/components/com_extended_registration/registration_detailed.inc.php?mosConfig_absolute_path=
+smblogin/
+template.php?goto=
+/coin_includes/constants.php?_CCFG[_PKG_PATH_INCL]=
+cp.%XT%
+SysAdmin/
+modules/My_eGallery/index.php?basepath=
+index.php?pag=
+main.php?pagina=
+memlogin/
+utility_login/
+inurl:shop_category.php?id=
+intitle:"Welcome Site/User Administrator" "Please select the language" -demos
+inurl:read.php?=
+login-us/
+index.php?c=
+adminpanel.%XT%
+inurl:administrator "welcome to mambo"
+sign_in/
+yonetim.html
+inurl:/webedit.* intext:WebEdit Professional -html
+login_admin/
+inurl:pageid=
+main.php?x=
+formslogin/
+log_in/
+inurl:/articles.php?id=
+inurl:opinions.php?id=
+loginerror/
+inurl:default.asp intitle:"WebCommander"
+simpleLogin/
+inurl:play_old.php?id=
+index.php?place=
+administration.%XT%
+intitle:"XMail Web Administration Interface" intext:Login intext:password
+index1.php?go=
+inurl:viewshowdetail.php?id=
+meta_login/
+index.php?openfile=
+pages.php?page=
+user.%XT%
+openvpnadmin/
+/tools/send_reminders.php?includedir=
+intitle:"SuSE Linux Openexchange Server" "Please activate Javas?ri?t!"
+/includes/kb_constants.php?module_root_path=
+index.php?u=administrator/components/com_linkdirectory/toolbar.linkdirectory.html.php?mosConfig_absolute_path=
+inurl:view_faq.php?id=
+inurl:bin.welcome.sh | inurl:bin.welcome.bat | intitle:eHealth.5.0
+inurl:"Activex/default.htm" "Demo"
+log-in/
+intitle:plesk inurl:login.php3
+intitle:"welcome to netware *" -site:novell.com
+super1%XT%
+uvpanel/
+index.php?open=
+administrator/login.%XT%
+customer_login/
+login_out/
+index.php?r=
+components/com_phpshop/toolbar.phpshop.html.php?mosConfig_absolute_path=
+administr8.%XT%
+inurl:theme.php?id=
+admin-login.%XT%
+inurl:announce.php?id=
+index.php?canal=
+sshadmin/
+Server.%XT%
+relogin.htm
+inurl:names.nsf?opendatabase
+index.php?a=
+index.php?content=
+intext:"Powered By : SE Software Technologies" filetype:php
+inurl:login filetype:swf swf
+radmind/
+administrator/components/com_linkdirectory/toolbar.linkdirectory.html.php?mosConfig_absolute_path=
+inurl:ocw_login_username
+inurl:/index.php?PID= "Powered By Dew-NewPHPLinks v.2.1b"
+cmsadmin.%XT%
+admin.htm
+inurl:/*.php?id=
+index2.php?content=
+inurl:product.php?id=
+control.%XT%
+inurl:productinfo.php?id=
+inurl:"vsadmin/login" | inurl:"vsadmin/admin" inurl:.php|.asp
+inurl:textpattern/index.php
+inurl:/eprise/
+inurl:ray.php?id=
+inurl:collectionitem.php?id=
+intitle:Group-Office "Enter your username and password to login"
+index.php?pilih=
+admin1.htm
+video.php?content=
+inurl:aboutbook.php?id=
+sysadmins/
+inurl:/dosearch.asp?
+inurl:metaframexp/default/login.asp | intitle:"Metaframe XP Login"
+inurl:webmail./index.pl "Interface"
+intitle:"please login" "your password is *"
+index.php?load=
+admin_area/login.%XT%
+superuser.%XT%
+inurl:/SUSAdmin intitle:"Microsoft Software upd?t? Services"
+inurl:ids5web
+index.php?inc=
+index.php?do=
+index.php?meio.php=
+inurl:/news.php?include=
+/squirrelcart/cart_content.php?cart_isp_root=
+/modules/vwar/admin/admin.php?vwar_root=index.php?loc=
+authadmin.%XT%
+intitle:phpMyAdmin "Welcome to phpMyAdmin ***" "running on * as root@*"
+/modules/Forums/admin/admin_styles.php?phpbb_root_path=
+/include/footer.inc.php?_AMLconfig[cfg_serverpath]=
+inurl:login.php "SquirrelMail version"
+/classified_right.php?language_dir=
+login.html
+intitle:"VMware Management Interface:" inurl:"vmware/en/"
+index1.php?site=
+index2.php?showpage=
+inurl:readnews.php?id=
+administer/
+controlpanel/
+administratie/
+search.php?cutepath=
+inurl:page.php?id=
+index.php?ort=
+intitle:"site administration: please log in" "site designed by emarketsouth"
+super_index%XT%
+manager/
+intitle:endymion.sak?.mail.login.page | inurl:sake.servlet
+inurl:"gs/adminlogin.aspx"
+intitle:"PHP Advanced Transfer" inurl:"login.php"
+intitle:"microsoft certificate services" inurl:certsrv
 moderator/
+inurl:index.cgi?aktion=shopview
+login_user%XT%
+rcLogin/
+components/com_galleria/galleria.html.php?mosConfig_absolute_path=
+big.php?pathtotemplate=
+allinurl:*.php?txtCodiInfo=
+inurl:/details.php?linkid=
+port.php?content=
+index.php?cont=
+news_detail.php?file=
+administrator/components/com_comprofiler/plugin.class.php?mosConfig_absolute_path=
+login_admin%XT%
+inurl:product_ranges_view.php?ID=
+inurl:category.php?id=
+includes/search.php?GlobalSettings[templatesDirectory]=
+webadmin.%XT%
+inurl:login.cfm
+inurl:/cgi-bin/sqwebmail?noframes=1
+admin.html
+index.php?nic=
+intitle:"VitalQIP IP Management System"
+inurl:downloads_info.php?id=
+index.php?cat=
+show.php?page=
+inurl:/default.php?portalID=
+relogin.html
+template.php?pagina=
+index.php?side=
+intitle:"TUTOS Login"
+inurl:/Citrix/Nfuse17/
+inurl:page.php?file=
+inurl:index2.php?option=
+intitle:"WebLogic Server" intitle:"Console Login" inurl:console
+print.php?page=
+index.php?include=
+intitle:"PHProjekt - login" login password
+vmailadmin/
+index.php?kobr=
+administrator/components/com_remository/admin.remository.php?mosConfig_absolute_path=
+inurl:news-full.php?id=
+intitle:"ZyXEL Prestige Router" "Enter password"
+index.php?topic=
+supervisor/
+isadmin.%XT%
+inurl:WCP_USER
+support_login/
+intitle:"oMail-admin Administration - Login" -inurl:omnis.ch
+inurl:orasso.wwsso_app_admin.ls_login
+accounts.%XT%
+intitle:"Login to the forums - @www.aimoo.com" inurl:login.cfm?id=
+inurl:/games.php?id= "Powered by PHPD Game Edition"
+project-admins/
+superuser%XT%
+inurl:csCreatePro.cgi
+inurl:hosting_info.php?id=
+inurl:newsid=
+inurl:"typo3/index.php?u=" -demo
+phpmyadmin/
+impex/ImpExData.php?systempath=
+/components/com_facileforms/facileforms.frame.php?ff_compath=
+index.php?go=
+inurl:article.php?id=
+useradmin/
+adminlogin.%XT%
+inurl:/CollectionContent.asp?id=
+index.php?dsp=
+index.php?action=
+inurl:review.php?id=
+inurl:/commodities.php?*id=
+index.php?conteudo=
+inurl:"/admin/configuration. php?" Mystore
+intitle:"Virtual Server Administration System"
+index.php?link=
+access/
+index.php?site=
+inurl:":10000" intext:webmin
+index0.php?show=
+services.php?page=
+inurl:home.php?pagina=
+inurl:/squirrelcart/cart_content.php?cart_isp_root=
+index.php?x=
+/modules/vwar/admin/admin.php?vwar_root=
+/include/main.php?config[search_disp]=true&include_dir=
+test.php?page=
+UserLogin/
+intitle:"Remote Desktop Web Connection" inurl:tsweb
+administrator/components/com_a6mambocredits/admin.a6mambocredits.php?mosConfig_live_site=
+inurl:/default.php?id=
+index.php?rage=
+Server/
+users/admin.%XT%
+login_out%XT%
+letmein.%XT%
+avatar.php?page=
+index.php?doc=
+admin/home.%XT%
+admin/account.%XT%
+inurl:fiche_spectacle.php?id=
+inurl:index.php?id=
+inurl:reagir.php?num=
+inurl:gallery.php?id=
+inurl:"usysinfo?login=true"
+inurl:/gallery.asp?cid=

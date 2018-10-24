@@ -8,7 +8,7 @@ import random
 
 class search_google:
 
-    def __init__(self, word, limit, start,google_dorking):
+    def __init__(self, word, limit, start, google_dorking):
         self.word = word
         self.results = ""
         self.totalresults = ""
@@ -18,10 +18,10 @@ class search_google:
         self.database = "https://www.google.com/search?q="
         self.userAgent = ["(Mozilla/5.0 (Windows; U; Windows NT 6.0;en-US; rv:1.9.2) Gecko/20100115 Firefox/3.6",
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36"
-            , ("Mozilla/5.0 (Linux; Android 7.0; SM-G892A Build/NRD90M; wv) " +
-            "AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/60.0.3112.107 Mobile Safari/537.36"),
-            ("Mozilla/5.0 (Windows Phone 10.0; Android 6.0.1; Microsoft; RM-1152) " +
-            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Mobile Safari/537.36 Edge/15.15254")]
+          ,("Mozilla/5.0 (Linux; Android 7.0; SM-G892A Build/NRD90M; wv) " +
+          "AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/60.0.3112.107 Mobile Safari/537.36"),
+          ("Mozilla/5.0 (Windows Phone 10.0; Android 6.0.1; Microsoft; RM-1152) " +
+          "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Mobile Safari/537.36 Edge/15.15254")]
         self.quantity = "100"
         self.limit = limit
         self.counter = start
@@ -38,21 +38,6 @@ class search_google:
             print e
         self.results = r.content
         self.totalresults += self.results
-        if self.google_dorking == True: #google_dorking is true so do custom google dorking scrape
-            self.counter = 0 #reset counter
-            self.append_dorks() #call functions to create list
-            self.construct_dorks()
-            for link in self.links:
-                try:
-                    print "inside for loop, self.counter is: ",self.counter
-                    params = {'User-Agent': random.choice(self.userAgent)}
-                    #grab random User-Agent to try to avoid google blocking ip
-                    req = requests.get(link, params=params)
-                    time.sleep(0.2) #sleep for short time
-                    self.results = req.content
-                    self.totalresults += self.results
-                except Exception:  #if something happens just continue
-                    continue
 
     def do_search_profiles(self):
         try:
@@ -90,6 +75,16 @@ class search_google:
             time.sleep(1)
             print "\tSearching " + str(self.counter) + " results..."
             self.counter += 100
+        if self.google_dorking == True: #check if boolean is true indicating user wanted google dorking
+            self.counter = 0 #reset counter
+            print '\n'
+            print "[-]Utilizing Google Dorks: "
+            while self.counter <= self.limit and self.counter <= 1000:
+                self.googledork() #call google dorking method if user wanted it!
+                # more = self.check_next()
+                time.sleep(.25)
+                print "\tSearching " + str(self.counter) + " results..."
+                self.counter += 100
 
     def process_profiles(self):
         while self.counter < self.limit:
@@ -128,3 +123,33 @@ class search_google:
                       .replace('?', question_mark).replace(' ', space).replace('/', slash).replace("'", single_quote)
                       .replace("&", ampersand).replace('(', left_peren).replace(')', right_peren)
                       for dork in self.dorks]
+
+    def googledork(self):
+        self.append_dorks()  # call functions to create list
+        self.construct_dorks()
+        if (self.counter >= 0 and self.counter <=100):
+            self.send_dork(start=0, end=100)
+        elif (self.counter >= 100 and self.counter <=200):
+            self.send_dork(start=101, end=200)
+        elif (self.counter >= 200 and self.counter <=300):
+            self.send_dork(start=201, end=300)
+        elif(self.counter >= 300 and self.counter <=400):
+            self.send_dork(start=301, end=400)
+        elif(self.counter >= 400 and self.counter <= 500):
+            self.send_dork(start=401, end=500)
+        elif(self.counter > 501): #greater than 500 but only 700 dorks
+            self.send_dork(start=501, end=700)
+
+    def send_dork(self, start, end): #helper function to minimize code reusability
+        params = {'User-Agent': random.choice(self.userAgent)}
+        #get random user agent to try and prevent google from blocking ip
+        for i in range(start, end):
+            try:
+                link = self.links[i] #get link from dork list
+                #print 'about to get request this link: ',link
+                req = requests.get(link, params=params)
+                time.sleep(.1)  # sleep for a short time
+                self.results = req.content
+                self.totalresults += self.results
+            except:
+                continue
