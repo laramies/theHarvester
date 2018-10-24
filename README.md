@@ -32,7 +32,7 @@ The sources are:
 
 * crtsh: Comodo Certificate search - www.crt.sh
 
-* google: google search engine  - www.google.com
+* google: google search engine  - www.google.com (With optional google dorking)
 
 * googleCSE: google custom search engine
 
