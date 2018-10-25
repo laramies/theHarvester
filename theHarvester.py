@@ -61,7 +61,7 @@ def usage():
     print "        " + comm + " -d microsoft.com -l 500 -b google -h myresults.html"
     print "        " + comm + " -d microsoft.com -b pgp"
     print "        " + comm + " -d microsoft -l 200 -b linkedin"
-    print "        " + comm + " -d microsoft.com -l 100 -b google -g"
+    print "        " + comm + " -d microsoft.com -l 200 -b google -g"
     print "        " + comm + " -d apple.com -b googleCSE -l 500 -s 300\n"
 
 
