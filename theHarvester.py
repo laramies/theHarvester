@@ -360,6 +360,13 @@ def start(argv):
         all_emails.extend(emails)
         #Clean up email list, sort and uniq
         all_emails=sorted(set(all_emails))
+    else:
+        # if engine not in ("baidu", "bing", "crtsh","bingapi","dogpile","google", "googleCSE","virustotal","threatcrowd", "googleplus", "google-profiles","linkedin", "pgp", "twitter", "vhost", "yahoo","netcraft","all"):
+        usage()
+        print "Invalid search engine, try with: baidu, bing, bingapi, crtsh, dogpile, google, googleCSE, virustotal, netcraft, googleplus, google-profiles, linkedin, pgp, twitter, vhost, yahoo, all"
+        sys.exit()
+    # else:
+    #    pass
 
     #Results############################################################
     print("\n\033[1;32;40m Harvesting results")
