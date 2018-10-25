@@ -8,6 +8,7 @@ from socket import *
 import re
 import getopt
 import stash
+import time
 
 try:
     import requests
@@ -506,6 +507,7 @@ def start(argv):
                     a = shodansearch.search_shodan(ip)
                     shodanvisited.append(ip)
                     results = a.run()
+                    time.sleep(2)
                     for res in results:
                         if res['info'] == []:
                             res['info'] = ''
