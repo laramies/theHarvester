@@ -128,8 +128,8 @@ def start(argv):
                 for engineitem in engines:
                     if engineitem == "google":
                         print "[-] Searching in Google:"
-                        search = googlesearch.search_google(word, limit, start,google_dorking)
-                        search.process()
+                        search = googlesearch.search_google(word, limit, start)
+                        search.process(google_dorking)
                         all_emails = search.get_emails()
                         all_hosts = search.get_hostnames()
                         for x in all_hosts:
@@ -267,7 +267,7 @@ def start(argv):
 
                     elif engineitem == "google-profiles":
                         print "[-] Searching in Google profiles.."
-                        search = googlesearch.search_google(word, limit, start, google_dorking)
+                        search = googlesearch.search_google(word, limit, start)
                         search.process_profiles()
                         people = search.get_profiles()
                         print "Users from Google profiles:"
@@ -282,8 +282,8 @@ def start(argv):
                         all_hosts = []
                     
                         print "[-] Searching in Google.."
-                        search = googlesearch.search_google(word, limit, start, google_dorking)
-                        search.process()
+                        search = googlesearch.search_google(word, limit, start)
+                        search.process(google_dorking)
                         emails = search.get_emails()
                         hosts = search.get_hostnames()
                         all_emails.extend(emails)
@@ -533,8 +533,8 @@ def start(argv):
     if recursion:
         start = 0
         for word in vhost:
-            search = googlesearch.search_google(word, limit, start, google_dorking)
-            search.process()
+            search = googlesearch.search_google(word, limit, start)
+            search.process(google_dorking)
             emails = search.get_emails()
             hosts = search.get_hostnames()
             print emails

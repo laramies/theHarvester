@@ -5,7 +5,7 @@ import random
 
 class search_google:
 
-    def __init__(self, word, limit, start, google_dorking):
+    def __init__(self, word, limit, start):
         self.word = word
         self.results = ""
         self.totalresults = ""
@@ -28,7 +28,6 @@ class search_google:
         self.quantity = "100"
         self.limit = limit
         self.counter = start
-        self.google_dorking = google_dorking
 
     def do_search(self):
         try: #do normal scraping
@@ -72,8 +71,8 @@ class search_google:
         rawres = myparser.parser(self.totalresults, self.word)
         return rawres.profiles()
 
-    def process(self):
-        if self.google_dorking == False:
+    def process(self,google_dorking):
+        if google_dorking == False:
             while self.counter <= self.limit and self.counter <= 1000:
                 self.do_search()
                 #more = self.check_next()
