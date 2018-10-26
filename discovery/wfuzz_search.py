@@ -17,7 +17,7 @@ class search_wfuzz:
     def do_search(self):
         print "elo"
         try:
-            for r in wfuzz.fuzz(url="https://"+self.host+"/FUZZ", hc=[404], payloads=[("file",dict(fn="wordlist/general/common.txt"))]):
+            for r in wfuzz.fuzz(url="https://"+self.host+"/FUZZ", hc=[404], payloads=[("file",dict(fn="wordlists/general/common.txt"))]):
                 print r
                 self.results += r
         except Exception, e:

@@ -2,7 +2,6 @@ import myparser
 import time
 import requests
 import random
-import os
 
 class search_google:
 
@@ -101,7 +100,7 @@ class search_google:
 
     def append_dorks(self):
         try:  # wrap in try-except incase filepaths are messed up
-            with open((os.getcwd() + '/wordlists/dorks.txt'), mode='r') as fp:
+            with open('wordlists/dorks.txt', mode='r') as fp:
                 self.dorks = [dork.strip() for dork in fp]
         except IOError as error:
             print(error)
