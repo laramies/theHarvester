@@ -26,6 +26,7 @@ class search_pgp:
             returncode, returnmsg, headers = h.getreply()
             self.results = h.getfile().read()
         except Exception, e:
+            print "Unable to connect to PGP server: ",str(e)
             pass
 
     def get_emails(self):
