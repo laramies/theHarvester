@@ -9,9 +9,9 @@ class search_pgp:
     def __init__(self, word):
         self.word = word
         self.results = ""
-        #self.server = "pgp.mit.edu"
-        self.server = "pgp.rediris.es"
-        self.hostname = "pgp.rediris.es"
+        self.server = "pgp.mit.edu"
+        #self.server = "pgp.rediris.es"
+        self.hostname = "pgp.mit.edu"
         self.userAgent = "(Mozilla/5.0 (Windows; U; Windows NT 6.0;en-US; rv:1.9.2) Gecko/20100115 Firefox/3.6"
         
     def process(self):
