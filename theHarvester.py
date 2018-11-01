@@ -8,6 +8,7 @@ from socket import *
 import re
 import getopt
 import stash
+import time
 
 try:
     import requests
@@ -45,6 +46,7 @@ def usage():
     print """       -b: data source: baidu, bing, bingapi, dogpile, google, googleCSE,
                         googleplus, google-profiles, linkedin, pgp, twitter, vhost, 
                         virustotal, threatcrowd, crtsh, netcraft, yahoo, all\n"""
+    print "       -g: use google dorking instead of normal google search"
     print "       -s: start in result number X (default: 0)"
     print "       -v: verify host name via dns resolution and search for virtual hosts"
     print "       -f: save the results into an HTML and XML file (both)"
@@ -60,6 +62,7 @@ def usage():
     print "        " + comm + " -d microsoft.com -l 500 -b google -h myresults.html"
     print "        " + comm + " -d microsoft.com -b pgp"
     print "        " + comm + " -d microsoft -l 200 -b linkedin"
+    print "        " + comm + " -d microsoft.com -l 200 -b google -g"
     print "        " + comm + " -d apple.com -b googleCSE -l 500 -s 300\n"
 
 
@@ -68,7 +71,7 @@ def start(argv):
         usage()
         sys.exit()
     try:
-        opts, args = getopt.getopt(argv, "l:d:b:s:vf:nhcpte:")
+        opts, args = getopt.getopt(argv, "l:d:b:s:vf:nhcgpte:")
     except getopt.GetoptError:
         usage()
         sys.exit()
@@ -89,6 +92,7 @@ def start(argv):
     virtual = False
     ports_scanning = False
     takeover_check = False
+    google_dorking = False
     limit = 500
     dnsserver = ""
     for opt, arg in opts:
@@ -96,6 +100,8 @@ def start(argv):
             limit = int(arg)
         elif opt == '-d':
             word = arg
+        elif opt == '-g':
+            google_dorking = True
         elif opt == '-s':
             start = int(arg)
         elif opt == '-v':
@@ -124,7 +130,7 @@ def start(argv):
                     if engineitem == "google":
                         print "[-] Searching in Google:"
                         search = googlesearch.search_google(word, limit, start)
-                        search.process()
+                        search.process(google_dorking)
                         all_emails = search.get_emails()
                         all_hosts = search.get_hostnames()
                         for x in all_hosts:
@@ -278,7 +284,7 @@ def start(argv):
                     
                         print "[-] Searching in Google.."
                         search = googlesearch.search_google(word, limit, start)
-                        search.process()
+                        search.process(google_dorking)
                         emails = search.get_emails()
                         hosts = search.get_hostnames()
                         all_emails.extend(emails)
@@ -506,6 +512,7 @@ def start(argv):
                     a = shodansearch.search_shodan(ip)
                     shodanvisited.append(ip)
                     results = a.run()
+                    time.sleep(2)
                     for res in results:
                         if res['info'] == []:
                             res['info'] = ''
@@ -528,7 +535,7 @@ def start(argv):
         start = 0
         for word in vhost:
             search = googlesearch.search_google(word, limit, start)
-            search.process()
+            search.process(google_dorking)
             emails = search.get_emails()
             hosts = search.get_hostnames()
             print emails
