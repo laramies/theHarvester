@@ -17,6 +17,7 @@ except:
     sys.exit()
 
 from discovery import *
+from discovery import censys
 from lib import htmlExport
 from lib import hostchecker
 
@@ -94,6 +95,8 @@ def start(argv):
     takeover_check = False
     google_dorking = False
     limit = 500
+    all_emails = []
+    all_hosts = []
     dnsserver = ""
     for opt, arg in opts:
         if opt == '-l':
@@ -122,7 +125,7 @@ def start(argv):
             dnstld = True
         elif opt == '-b':
             engines = set(arg.split(','))
-            supportedengines = set(["baidu","bing","crtsh","bingapi","dogpile","google","googleCSE","virustotal","threatcrowd","googleplus","google-profiles","linkedin","pgp","twitter","vhost","yahoo","netcraft","all"])
+            supportedengines = set(["baidu","bing","crtsh","bingapi","dogpile","google","googleCSE","virustotal","threatcrowd","googleplus","google-profiles","linkedin","pgp","twitter","vhost","yahoo","netcraft","censys","all"])
             if set(engines).issubset(supportedengines):
                 print "found supported engines"
                 print "[-] Starting harvesting process for domain: " + word +  "\n" 
@@ -148,7 +151,29 @@ def start(argv):
                         all_emails = []
                         db=stash.stash_manager()
                         db.store_all(word,all_hosts,'host','netcraft')
-                        
+
+                    if engineitem == "censys":
+                        db=stash.stash_manager()
+                        print "[-] Searching in Censys:"
+                        search = censys.search_censys(word)
+                        search.process()
+                        all_ip = search.get_ipaddresses()
+                        all_hosts = search.get_hostnames()
+                        db.store_all(word,all_ip,'ipaddress','censys')
+                        db.store_all(word,all_hosts,'hostname','censys')   
+                        totalnumberofpages = search.get_totalnumberofpages()                #as returned by censys at the initial search
+                        pagecounter = 1                                                     #pagecounter: variable to limit how many pages to query
+                        while pagecounter < totalnumberofpages and pagecounter < 5:         #pagecounter < 5: search 4 pages = 100 results 
+                            pagecounter += 1
+                            search.process(pagecounter)
+                            moreips = search.get_ipaddresses()
+                            for moreipitem in moreips:
+                                db.store(word,moreipitem,'ipaddress','censys')
+                                all_ip.append(moreipitem)
+                            morehostnames = search.get_hostnames()
+                            for morehostnameitem in morehostnames:
+                                db.store(word,morehostnameitem,'hostname','censys')
+                                all_hosts.append(morehostnameitem)
                     
                     if engineitem == "threatcrowd":
                         print "[-] Searching in Threatcrowd:"
@@ -359,11 +384,32 @@ def start(argv):
                         all_emails.extend(emails)
                         #Clean up email list, sort and uniq
                         all_emails=sorted(set(all_emails))
+
+                        print "[-] Searching in Censys:"
+                        search = censys.search_censys(word)
+                        search.process()
+                        all_ip = search.get_ipaddresses()
+                        all_hosts = search.get_hostnames()
+                        db.store_all(word,all_ip,'ipaddress','censys')
+                        db.store_all(word,all_hosts,'hostname','censys')   
+                        totalnumberofpages = search.get_totalnumberofpages()                #as returned by censys at the initial search
+                        pagecounter = 1                                                     #pagecounter: variable to limit how many pages to query
+                        while pagecounter < totalnumberofpages and pagecounter < 5:         #pagecounter < 5: search 4 pages = 100 results 
+                            pagecounter += 1
+                            search.process(pagecounter)
+                            moreips = search.get_ipaddresses()
+                            for moreipitem in moreips:
+                                db.store(word,moreipitem,'ipaddress','censys')
+                                all_ip.append(moreipitem)
+                            morehostnames = search.get_hostnames()
+                            for morehostnameitem in morehostnames:
+                                db.store(word,morehostnameitem,'hostname','censys')
+                                all_hosts.append(morehostnameitem)
             else:
 
             #if engine not in ("baidu", "bing", "crtsh","bingapi","dogpile","google", "googleCSE","virustotal","threatcrowd", "googleplus", "google-profiles","linkedin", "pgp", "twitter", "vhost", "yahoo","netcraft","all"):
                 usage()
-                print "Invalid search engine, try with: baidu, bing, bingapi, crtsh, dogpile, google, googleCSE, virustotal, netcraft, googleplus, google-profiles, linkedin, pgp, twitter, vhost, yahoo, all"
+                print "Invalid search engine, try with: baidu, bing, bingapi, crtsh, dogpile, google, googleCSE, virustotal, netcraft, googleplus, google-profiles, linkedin, pgp, twitter, vhost, yahoo, censys, all"
                 sys.exit()
             #else:
             #    pass
@@ -625,5 +671,7 @@ if __name__ == "__main__":
         start(sys.argv[1:])
     except KeyboardInterrupt:
         print "Search interrupted by user.."
+    except Exception, e:
+            print e
     except:
         sys.exit()
