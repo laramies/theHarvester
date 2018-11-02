@@ -45,7 +45,7 @@ def usage():
     print "       -d: Domain to search or company name"
     print """       -b: data source: baidu, bing, bingapi, dogpile, google, googleCSE,
                         googleplus, google-profiles, linkedin, pgp, twitter, vhost, 
-                        virustotal, threatcrowd, crtsh, netcraft, yahoo, all\n"""
+                        virustotal, threatcrowd, crtsh, netcraft, yahoo all\n"""
     print "       -g: use google dorking instead of normal google search"
     print "       -s: start in result number X (default: 0)"
     print "       -v: verify host name via dns resolution and search for virtual hosts"
@@ -57,12 +57,13 @@ def usage():
     print "       -p: port scan the detected hosts and check for Takeovers (80,443,22,21,8080)"
     print "       -l: limit the number of results to work with(bing goes from 50 to 50 results,"
     print "            google 100 to 100, and pgp doesn't use this option)"
+    print "       -u: use hunter database to query discovered hosts, requires api key"
     print "       -h: use SHODAN database to query discovered hosts"
     print "\nExamples:"
     print "        " + comm + " -d microsoft.com -l 500 -b google -h myresults.html"
     print "        " + comm + " -d microsoft.com -b pgp"
     print "        " + comm + " -d microsoft -l 200 -b linkedin"
-    print "        " + comm + " -d microsoft.com -l 200 -b google -g"
+    print "        " + comm + " -d microsoft.com -l 200 -g -b google"
     print "        " + comm + " -d apple.com -b googleCSE -l 500 -s 300\n"
 
 
@@ -71,7 +72,7 @@ def start(argv):
         usage()
         sys.exit()
     try:
-        opts, args = getopt.getopt(argv, "l:d:b:s:vf:nhcgpte:")
+        opts, args = getopt.getopt(argv, "l:d:b:s:u:vf:nhcgpte:")
     except getopt.GetoptError:
         usage()
         sys.exit()
@@ -87,7 +88,8 @@ def start(argv):
     dnslookup = False
     dnsbrute = False
     dnstld = False
-    shodan = False
+    shodan = []
+    hunter = []
     vhost = []
     virtual = False
     ports_scanning = False
@@ -114,6 +116,9 @@ def start(argv):
             dnsbrute = True
         elif opt == '-h':
             shodan = True
+        elif opt == '-u':
+            hunter.append(True)
+            hunter.append(arg)
         elif opt == '-e':
             dnsserver = arg
         elif opt == '-p':
@@ -368,8 +373,22 @@ def start(argv):
             #else:
             #    pass
     
-    
-    
+    #Hunter search######################################################
+    if hunter[0] == True and hunter[1] != '':
+        #making sure user entered a key
+        print "[-] Searching in Hunter..."
+        from discovery import huntersearch
+        search = huntersearch.search_hunter(word,limit,start,hunter[1])
+        search.process()
+        all_emails = search.get_emails()
+        all_hosts = search.get_hostnames()
+        for x in all_hosts:
+            try:
+                db = stash.stash_manager()
+                db.store(word, x, 'host', 'hunter')
+            except Exception, e:
+                print e
+
     #Results############################################################
     print("\n\033[1;32;40m Harvesting results")
     print "\n\n[+] Emails found:"
