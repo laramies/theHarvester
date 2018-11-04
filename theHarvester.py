@@ -118,7 +118,12 @@ def start(argv):
             shodan = True
         elif opt == '-u':
             hunter.append(True)
-            hunter.append(arg)
+            if len(arg) < 3:
+                #user did not enter key
+                usage()
+                sys.exit()
+            else:
+                hunter.append(arg)
         elif opt == '-e':
             dnsserver = arg
         elif opt == '-p':
@@ -194,6 +199,25 @@ def start(argv):
                         all_hosts = search.get_hostnames()
                         db=stash.stash_manager()
                         db.store_all(word,all_hosts,'host','googleCSE')
+
+                    if hunter[0] == True:
+                        print "[-] Searching in Hunter:"
+                        search = huntersearch.search_hunter(word, limit, start, hunter[1])
+                        search.process()
+                        all_emails = search.get_emails()
+                        all_hosts = search.get_hostnames()
+                        for x in all_hosts:
+                            try:
+                                db = stash.stash_manager()
+                                db.store(word, x, 'host', 'hunter')
+                            except Exception, e:
+                                print e
+                        for x in all_emails:
+                            try:
+                                db = stash.stash_manager()
+                                db.store(word, x, 'email', 'hunter')
+                            except Exception, e:
+                                print e
 
                     elif engineitem == "bing" or engineitem == "bingapi":
                         print "[-] Searching in Bing:"
@@ -351,7 +375,19 @@ def start(argv):
                         all_hosts.extend(hosts)
                         db=stash.stash_manager()
                         db.store_all(word,all_hosts,'host','virustotal')
-                        
+
+                        print "[-] Searching in Hunter.."
+                        search = huntersearch.search_hunter(word,limit,start,hunter[1])
+                        search.process()
+                        emails = search.get_emails()
+                        hosts = search.get_hostnames()
+                        all_hosts.extend(hosts)
+                        db = stash.stash_manager()
+                        db.store_all(word, all_hosts, 'host', 'hunter')
+                        all_emails.extend(emails)
+                        db = stash.stash_manager()
+                        db.store_all(word, all_hosts, 'email', 'hunter')
+
                         print "[-] Searching in Bing.."
                         bingapi = "no"
                         search = bingsearch.search_bing(word, limit, start)
@@ -365,29 +401,12 @@ def start(argv):
                         #Clean up email list, sort and uniq
                         all_emails=sorted(set(all_emails))
             else:
-
             #if engine not in ("baidu", "bing", "crtsh","bingapi","dogpile","google", "googleCSE","virustotal","threatcrowd", "googleplus", "google-profiles","linkedin", "pgp", "twitter", "vhost", "yahoo","netcraft","all"):
                 usage()
                 print "Invalid search engine, try with: baidu, bing, bingapi, crtsh, dogpile, google, googleCSE, virustotal, netcraft, googleplus, google-profiles, linkedin, pgp, twitter, vhost, yahoo, all"
                 sys.exit()
             #else:
             #    pass
-    
-    #Hunter search######################################################
-    if hunter[0] == True and hunter[1] != '':
-        #making sure user entered a key
-        print "[-] Searching in Hunter..."
-        from discovery import huntersearch
-        search = huntersearch.search_hunter(word,limit,start,hunter[1])
-        search.process()
-        all_emails = search.get_emails()
-        all_hosts = search.get_hostnames()
-        for x in all_hosts:
-            try:
-                db = stash.stash_manager()
-                db.store(word, x, 'host', 'hunter')
-            except Exception, e:
-                print e
 
     #Results############################################################
     print("\n\033[1;32;40m Harvesting results")

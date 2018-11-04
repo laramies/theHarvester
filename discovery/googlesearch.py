@@ -86,7 +86,7 @@ class search_google:
             while self.counter <= self.limit and self.counter <= 200: # only 200 dorks in list
                 self.googledork() #call google dorking method if user wanted it!
                 # more = self.check_next()
-                time.sleep(.25)
+                time.sleep(.1)
                 print "\tSearching " + str(self.counter) + " results..."
                 self.counter += 100
 
@@ -146,7 +146,7 @@ class search_google:
             try:
                 link = self.links[i] # get link from dork list
                 req = requests.get(link, params=params)
-                time.sleep(.3)  # sleep for a short time
+                time.sleep(.25)  # sleep for a short time
                 self.results = req.content
                 self.totalresults += self.results
             except:
