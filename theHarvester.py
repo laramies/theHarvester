@@ -335,21 +335,15 @@ def start(argv):
                         db.store_all(word,all_hosts,'host','netcraft')
 
                         print "[-] Searching in ThreatCrowd server.."
-                        search = threatcrowd.search_threatcrowd(word)
-                        search.process()
-                        hosts = search.get_hostnames()
-                        all_hosts.extend(hosts)
-                        all_emails = []
-                        db=stash.stash_manager()
-                        db.store_all(word,all_hosts,'host','threatcrowd')
-                    
-                        search = netcraft.search_netcraft(word)
-                        search.process()
-                        hosts = search.get_hostnames()
-                        all_hosts.extend(hosts)
-                        db=stash.stash_manager()
-                        db.store_all(word,all_hosts,'host','netcraft')
-                    
+                        try:
+                            search = threatcrowd.search_threatcrowd(word)
+                            search.process()
+                            hosts = search.get_hostnames()
+                            all_hosts.extend(hosts)
+                            all_emails = []
+                            db=stash.stash_manager()
+                            db.store_all(word,all_hosts,'host','threatcrowd')
+                        except Exception: pass
 
                         print "[-] Searching in CRTSH server.."
                         search = crtsh.search_crtsh(word)
