@@ -45,7 +45,7 @@ def usage():
     print "       -d: Domain to search or company name"
     print """       -b: data source: baidu, bing, bingapi, dogpile, google, googleCSE,
                         googleplus, google-profiles, linkedin, pgp, twitter, vhost, 
-                        virustotal, threatcrowd, crtsh, netcraft, yahoo, all\n"""
+                        virustotal, threatcrowd, crtsh, netcraft, yahoo all\n"""
     print "       -g: use google dorking instead of normal google search"
     print "       -s: start in result number X (default: 0)"
     print "       -v: verify host name via dns resolution and search for virtual hosts"
@@ -57,6 +57,7 @@ def usage():
     print "       -p: port scan the detected hosts and check for Takeovers (80,443,22,21,8080)"
     print "       -l: limit the number of results to work with(bing goes from 50 to 50 results,"
     print "            google 100 to 100, and pgp doesn't use this option)"
+    print "       -u: use hunter database to query discovered hosts, requires api key"
     print "       -h: use SHODAN database to query discovered hosts"
     print "       -u: use hunter database to query discovered hosts, requires api key"
     print "\nExamples:"
@@ -88,7 +89,11 @@ def start(argv):
     dnslookup = False
     dnsbrute = False
     dnstld = False
+<<<<<<< HEAD
     shodan = False
+=======
+    shodan = []
+>>>>>>> 918fd979d8f7050dc411e0bede35c4faf53db7f0
     hunter = []
     vhost = []
     virtual = False
@@ -199,6 +204,25 @@ def start(argv):
                         all_hosts = search.get_hostnames()
                         db=stash.stash_manager()
                         db.store_all(word,all_hosts,'host','googleCSE')
+
+                    if hunter[0] == True:
+                        print "[-] Searching in Hunter:"
+                        search = huntersearch.search_hunter(word, limit, start, hunter[1])
+                        search.process()
+                        all_emails = search.get_emails()
+                        all_hosts = search.get_hostnames()
+                        for x in all_hosts:
+                            try:
+                                db = stash.stash_manager()
+                                db.store(word, x, 'host', 'hunter')
+                            except Exception, e:
+                                print e
+                        for x in all_emails:
+                            try:
+                                db = stash.stash_manager()
+                                db.store(word, x, 'email', 'hunter')
+                            except Exception, e:
+                                print e
 
                     elif engineitem == "bing" or engineitem == "bingapi":
                         print "[-] Searching in Bing:"
@@ -356,7 +380,19 @@ def start(argv):
                         all_hosts.extend(hosts)
                         db=stash.stash_manager()
                         db.store_all(word,all_hosts,'host','virustotal')
-                        
+
+                        print "[-] Searching in Hunter.."
+                        search = huntersearch.search_hunter(word,limit,start,hunter[1])
+                        search.process()
+                        emails = search.get_emails()
+                        hosts = search.get_hostnames()
+                        all_hosts.extend(hosts)
+                        db = stash.stash_manager()
+                        db.store_all(word, all_hosts, 'host', 'hunter')
+                        all_emails.extend(emails)
+                        db = stash.stash_manager()
+                        db.store_all(word, all_hosts, 'email', 'hunter')
+
                         print "[-] Searching in Bing.."
                         bingapi = "no"
                         search = bingsearch.search_bing(word, limit, start)
@@ -370,16 +406,13 @@ def start(argv):
                         #Clean up email list, sort and uniq
                         all_emails=sorted(set(all_emails))
             else:
-
             #if engine not in ("baidu", "bing", "crtsh","bingapi","dogpile","google", "googleCSE","virustotal","threatcrowd", "googleplus", "google-profiles","linkedin", "pgp", "twitter", "vhost", "yahoo","netcraft","all"):
                 usage()
                 print "Invalid search engine, try with: baidu, bing, bingapi, crtsh, dogpile, google, googleCSE, virustotal, netcraft, googleplus, google-profiles, linkedin, pgp, twitter, vhost, yahoo, all"
                 sys.exit()
             #else:
             #    pass
-    
-    
-    
+
     #Results############################################################
     print("\n\033[1;32;40m Harvesting results")
     print "\n\n[+] Emails found:"

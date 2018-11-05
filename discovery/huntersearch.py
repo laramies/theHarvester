@@ -15,7 +15,10 @@ class search_hunter:
         self.database = "https://api.hunter.io/v2/domain-search?domain=" + word + "&api_key=" + key
 
     def do_search(self):
+<<<<<<< HEAD
         print 'conducting search'
+=======
+>>>>>>> 918fd979d8f7050dc411e0bede35c4faf53db7f0
         try:
             r = requests.get(self.database)
         except Exception,e:
