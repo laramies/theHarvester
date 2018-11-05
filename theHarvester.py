@@ -58,11 +58,12 @@ def usage():
     print "       -l: limit the number of results to work with(bing goes from 50 to 50 results,"
     print "            google 100 to 100, and pgp doesn't use this option)"
     print "       -h: use SHODAN database to query discovered hosts"
+    print "       -u: use hunter database to query discovered hosts, requires api key"
     print "\nExamples:"
     print "        " + comm + " -d microsoft.com -l 500 -b google -h myresults.html"
     print "        " + comm + " -d microsoft.com -b pgp"
     print "        " + comm + " -d microsoft -l 200 -b linkedin"
-    print "        " + comm + " -d microsoft.com -l 200 -b google -g"
+    print "        " + comm + " -d microsoft.com -l 200 -g -b google"
     print "        " + comm + " -d apple.com -b googleCSE -l 500 -s 300\n"
 
 
@@ -71,7 +72,7 @@ def start(argv):
         usage()
         sys.exit()
     try:
-        opts, args = getopt.getopt(argv, "l:d:b:s:vf:nhcgpte:")
+        opts, args = getopt.getopt(argv, "l:d:b:s:u:vf:nhcgpte:")
     except getopt.GetoptError:
         usage()
         sys.exit()
@@ -88,6 +89,7 @@ def start(argv):
     dnsbrute = False
     dnstld = False
     shodan = False
+    hunter = []
     vhost = []
     virtual = False
     ports_scanning = False
@@ -114,6 +116,14 @@ def start(argv):
             dnsbrute = True
         elif opt == '-h':
             shodan = True
+        elif opt == '-u':
+            hunter.append(True)
+            if len(arg) < 3:
+                #user did not enter key
+                usage()
+                sys.exit()
+            else:
+                hunter.append(arg)
         elif opt == '-e':
             dnsserver = arg
         elif opt == '-p':
@@ -122,7 +132,7 @@ def start(argv):
             dnstld = True
         elif opt == '-b':
             engines = set(arg.split(','))
-            supportedengines = set(["baidu","bing","crtsh","bingapi","dogpile","google","googleCSE","virustotal","threatcrowd","googleplus","google-profiles","linkedin","pgp","twitter","vhost","yahoo","netcraft","all"])
+            supportedengines = set(["baidu","bing","crtsh","bingapi","dogpile","google","googleCSE","virustotal","threatcrowd","googleplus","google-profiles","linkedin","pgp","twitter","vhost","yahoo","netcraft","hunter","all"])
             if set(engines).issubset(supportedengines):
                 print "found supported engines"
                 print "[-] Starting harvesting process for domain: " + word +  "\n" 

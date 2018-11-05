@@ -93,7 +93,7 @@ class search_google:
     def process_profiles(self):
         while self.counter < self.limit:
             self.do_search_profiles()
-            time.sleep(0.3)
+            time.sleep(0.2)
             self.counter += 100
             print "\tSearching " + str(self.counter) + " results..."
 
@@ -146,7 +146,7 @@ class search_google:
             try:
                 link = self.links[i] # get link from dork list
                 req = requests.get(link, params=params)
-                time.sleep(.3)  # sleep for a short time
+                time.sleep(.2)  # sleep for a short time
                 self.results = req.content
                 self.totalresults += self.results
             except:
