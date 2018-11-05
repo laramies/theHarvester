@@ -45,7 +45,7 @@ def usage():
     print "       -d: Domain to search or company name"
     print """       -b: data source: baidu, bing, bingapi, dogpile, google, googleCSE,
                         googleplus, google-profiles, linkedin, pgp, twitter, vhost, 
-                        virustotal, threatcrowd, crtsh, netcraft, yahoo all\n"""
+                        virustotal, threatcrowd, crtsh, netcraft, yahoo, hunter, all\n"""
     print "       -g: use google dorking instead of normal google search"
     print "       -s: start in result number X (default: 0)"
     print "       -v: verify host name via dns resolution and search for virtual hosts"
@@ -57,9 +57,7 @@ def usage():
     print "       -p: port scan the detected hosts and check for Takeovers (80,443,22,21,8080)"
     print "       -l: limit the number of results to work with(bing goes from 50 to 50 results,"
     print "            google 100 to 100, and pgp doesn't use this option)"
-    print "       -u: use hunter database to query discovered hosts, requires api key"
     print "       -h: use SHODAN database to query discovered hosts"
-    print "       -u: use hunter database to query discovered hosts, requires api key"
     print "\nExamples:"
     print "        " + comm + " -d microsoft.com -l 500 -b google -h myresults.html"
     print "        " + comm + " -d microsoft.com -b pgp"
@@ -90,7 +88,6 @@ def start(argv):
     dnsbrute = False
     dnstld = False
     shodan = False
-    hunter = []
     vhost = []
     virtual = False
     ports_scanning = False
@@ -117,14 +114,6 @@ def start(argv):
             dnsbrute = True
         elif opt == '-h':
             shodan = True
-        elif opt == '-u':
-            hunter.append(True)
-            if len(arg) < 3:
-                #user did not enter key
-                usage()
-                sys.exit()
-            else:
-                hunter.append(arg)
         elif opt == '-e':
             dnsserver = arg
         elif opt == '-p':
@@ -133,7 +122,7 @@ def start(argv):
             dnstld = True
         elif opt == '-b':
             engines = set(arg.split(','))
-            supportedengines = set(["baidu","bing","crtsh","bingapi","dogpile","google","googleCSE","virustotal","threatcrowd","googleplus","google-profiles","linkedin","pgp","twitter","vhost","yahoo","netcraft","all"])
+            supportedengines = set(["baidu","bing","crtsh","bingapi","dogpile","google","googleCSE","virustotal","threatcrowd","googleplus","google-profiles","linkedin","pgp","twitter","vhost","yahoo","netcraft","hunter","all"])
             if set(engines).issubset(supportedengines):
                 print "found supported engines"
                 print "[-] Starting harvesting process for domain: " + word +  "\n" 
@@ -288,6 +277,26 @@ def start(argv):
                             print users
                         sys.exit()
 
+                    elif engineitem == "hunter":
+                        print "[-] Searching in Hunter:"
+                        from discovery import huntersearch
+                        print 'passing in this arg: ',arg
+                        search = huntersearch.search_hunter(word, limit, start, arg)
+                        search.process()
+                        emails = search.get_emails()
+                        hosts = search.get_hostnames()
+                        if all_hosts != []:
+                            all_hosts.extend(hosts)
+                        if all_emails != []:
+                            all_emails.extend(emails)
+                            all_emails = sorted(set(all_emails))
+                        for x in all_hosts:
+                            try:
+                                db = stash.stash_manager()
+                                db.store(word, x, 'host', 'google')
+                            except Exception, e:
+                                print e
+
                     elif engineitem == "all":
                         print "Full harvest on " + word
                         all_emails = []
@@ -370,6 +379,25 @@ def start(argv):
                         all_emails.extend(emails)
                         #Clean up email list, sort and uniq
                         all_emails=sorted(set(all_emails))
+
+                        print "[-] Searching in Hunter:"
+                        from discovery import huntersearch
+                        print 'passing in this arg: ', arg
+                        search = huntersearch.search_hunter(word, limit, start, arg)
+                        search.process()
+                        emails = search.get_emails()
+                        hosts = search.get_hostnames()
+                        if all_hosts != []:
+                            all_hosts.extend(hosts)
+                        if all_emails != []:
+                            all_emails.extend(emails)
+                            all_emails = sorted(set(all_emails))
+                        for x in all_hosts:
+                            try:
+                                db = stash.stash_manager()
+                                db.store(word, x, 'host', 'google')
+                            except Exception, e:
+                                print e
             else:
             #if engine not in ("baidu", "bing", "crtsh","bingapi","dogpile","google", "googleCSE","virustotal","threatcrowd", "googleplus", "google-profiles","linkedin", "pgp", "twitter", "vhost", "yahoo","netcraft","all"):
                 usage()
@@ -377,7 +405,7 @@ def start(argv):
                 sys.exit()
             #else:
             #    pass
-    if hunter != []: #make sure not empty
+    """if hunter != []: #make sure not empty
         if hunter[0] == True:
             print "[-] Searching in Hunter:"
             from discovery import huntersearch
@@ -389,14 +417,14 @@ def start(argv):
                 all_hosts.extend(all_hosts)
             if all_emails != []:
                 all_emails.extend(emails)
-                all_emails=sorted(set(all_emails))
+                all_emails = sorted(set(all_emails))
             else:
                 for x in all_hosts:
                     try:
                         db = stash.stash_manager()
                         db.store(word, x, 'host', 'hunter')
                     except Exception, e:
-                        print e
+                        print e"""
 
     #Results############################################################
     print("\n\033[1;32;40m Harvesting results")
