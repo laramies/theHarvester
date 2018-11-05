@@ -24,7 +24,7 @@ class search_hunter:
 
     def process(self):
             self.do_search() #only need to do it once
-
+            print '\tDone Searching Results'
     def get_emails(self):
         rawres = myparser.parser(self.totalresults, self.word)
         return rawres.emails()
