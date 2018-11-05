@@ -15,10 +15,6 @@ class search_hunter:
         self.database = "https://api.hunter.io/v2/domain-search?domain=" + word + "&api_key=" + key
 
     def do_search(self):
-<<<<<<< HEAD
-        print 'conducting search'
-=======
->>>>>>> 918fd979d8f7050dc411e0bede35c4faf53db7f0
         try:
             r = requests.get(self.database)
         except Exception,e:
@@ -27,11 +23,7 @@ class search_hunter:
         self.totalresults += self.results
 
     def process(self):
-        while self.counter <= self.limit and self.counter <= 1000:
-            self.do_search()
-            time.sleep(1)
-            print "\tSearching " + str(self.counter) + " results..."
-            self.counter += 100
+            self.do_search() #only need to do it once
 
     def get_emails(self):
         rawres = myparser.parser(self.totalresults, self.word)

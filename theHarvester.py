@@ -89,11 +89,7 @@ def start(argv):
     dnslookup = False
     dnsbrute = False
     dnstld = False
-<<<<<<< HEAD
     shodan = False
-=======
-    shodan = []
->>>>>>> 918fd979d8f7050dc411e0bede35c4faf53db7f0
     hunter = []
     vhost = []
     virtual = False
@@ -137,7 +133,7 @@ def start(argv):
             dnstld = True
         elif opt == '-b':
             engines = set(arg.split(','))
-            supportedengines = set(["baidu","bing","crtsh","bingapi","dogpile","google","googleCSE","virustotal","threatcrowd","googleplus","google-profiles","linkedin","pgp","twitter","vhost","yahoo","netcraft","hunter","all"])
+            supportedengines = set(["baidu","bing","crtsh","bingapi","dogpile","google","googleCSE","virustotal","threatcrowd","googleplus","google-profiles","linkedin","pgp","twitter","vhost","yahoo","netcraft","all"])
             if set(engines).issubset(supportedengines):
                 print "found supported engines"
                 print "[-] Starting harvesting process for domain: " + word +  "\n" 
@@ -204,25 +200,6 @@ def start(argv):
                         all_hosts = search.get_hostnames()
                         db=stash.stash_manager()
                         db.store_all(word,all_hosts,'host','googleCSE')
-
-                    if hunter[0] == True:
-                        print "[-] Searching in Hunter:"
-                        search = huntersearch.search_hunter(word, limit, start, hunter[1])
-                        search.process()
-                        all_emails = search.get_emails()
-                        all_hosts = search.get_hostnames()
-                        for x in all_hosts:
-                            try:
-                                db = stash.stash_manager()
-                                db.store(word, x, 'host', 'hunter')
-                            except Exception, e:
-                                print e
-                        for x in all_emails:
-                            try:
-                                db = stash.stash_manager()
-                                db.store(word, x, 'email', 'hunter')
-                            except Exception, e:
-                                print e
 
                     elif engineitem == "bing" or engineitem == "bingapi":
                         print "[-] Searching in Bing:"
@@ -381,17 +358,18 @@ def start(argv):
                         db=stash.stash_manager()
                         db.store_all(word,all_hosts,'host','virustotal')
 
-                        print "[-] Searching in Hunter.."
-                        search = huntersearch.search_hunter(word,limit,start,hunter[1])
-                        search.process()
-                        emails = search.get_emails()
-                        hosts = search.get_hostnames()
-                        all_hosts.extend(hosts)
-                        db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'host', 'hunter')
-                        all_emails.extend(emails)
-                        db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'email', 'hunter')
+                        if hunter[0] == True:
+                            print "[-] Searching in Hunter.."
+                            search = huntersearch.search_hunter(word,limit,start,hunter[1])
+                            search.process()
+                            emails = search.get_emails()
+                            hosts = search.get_hostnames()
+                            all_hosts.extend(hosts)
+                            db = stash.stash_manager()
+                            db.store_all(word, all_hosts, 'host', 'hunter')
+                            all_emails.extend(emails)
+                            db = stash.stash_manager()
+                            db.store_all(word, all_hosts, 'email', 'hunter')
 
                         print "[-] Searching in Bing.."
                         bingapi = "no"
@@ -412,6 +390,25 @@ def start(argv):
                 sys.exit()
             #else:
             #    pass
+    if hunter[0] == True:
+        print "[-] Searching in Hunter:"
+        from discovery import huntersearch
+        search = huntersearch.search_hunter(word, limit, start, hunter[1])
+        search.process()
+        all_emails = search.get_emails()
+        all_hosts = search.get_hostnames()
+        for x in all_hosts:
+            try:
+                db = stash.stash_manager()
+                db.store(word, x, 'host', 'hunter')
+            except Exception, e:
+                print e
+        for x in all_emails:
+            try:
+                db = stash.stash_manager()
+                db.store(word, x, 'email', 'hunter')
+            except Exception, e:
+                print e
 
     #Results############################################################
     print("\n\033[1;32;40m Harvesting results")
