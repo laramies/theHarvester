@@ -1,18 +1,22 @@
 import myparser
 import time
 import requests
+import sys
 
 class search_hunter:
 
-    def __init__(self, word, limit, start,key):
+    def __init__(self, word, limit, start):
         self.word = word
         self.limit = limit
         self.start = start
-        self.key = key
+        self.key = ""
+        if self.key == "":
+            print "You need an API key in order to use the Hunter search engine. You can get one here: https://hunter.io"
+            sys.exit()
         self.results = ""
         self.totalresults = ""
         self.counter = start
-        self.database = "https://api.hunter.io/v2/domain-search?domain=" + word + "&api_key=" + key
+        self.database = "https://api.hunter.io/v2/domain-search?domain=" + word + "&api_key=" + self.key
 
     def do_search(self):
         try:

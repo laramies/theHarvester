@@ -280,22 +280,11 @@ def start(argv):
                     elif engineitem == "hunter":
                         print "[-] Searching in Hunter:"
                         from discovery import huntersearch
-                        print 'passing in this arg: ',arg
-                        search = huntersearch.search_hunter(word, limit, start, arg)
+                        #import locally or won't work
+                        search = huntersearch.search_hunter(word, limit, start)
                         search.process()
-                        emails = search.get_emails()
-                        hosts = search.get_hostnames()
-                        if all_hosts != []:
-                            all_hosts.extend(hosts)
-                        if all_emails != []:
-                            all_emails.extend(emails)
-                            all_emails = sorted(set(all_emails))
-                        for x in all_hosts:
-                            try:
-                                db = stash.stash_manager()
-                                db.store(word, x, 'host', 'google')
-                            except Exception, e:
-                                print e
+                        all_emails = search.get_emails()
+                        all_hosts = search.get_hostnames()
 
                     elif engineitem == "all":
                         print "Full harvest on " + word
@@ -376,49 +365,24 @@ def start(argv):
 
                         print "[-] Searching in Hunter:"
                         from discovery import huntersearch
-                        print 'passing in this arg: ', arg
-                        search = huntersearch.search_hunter(word, limit, start, arg)
+                        #import locally
+                        search = huntersearch.search_hunter(word, limit, start)
                         search.process()
                         emails = search.get_emails()
                         hosts = search.get_hostnames()
-                        if all_hosts != []:
-                            all_hosts.extend(hosts)
-                        if all_emails != []:
-                            all_emails.extend(emails)
-                            all_emails = sorted(set(all_emails))
-                        for x in all_hosts:
-                            try:
-                                db = stash.stash_manager()
-                                db.store(word, x, 'host', 'google')
-                            except Exception, e:
-                                print e
+                        all_hosts.extend(hosts)
+                        db = stash.stash_manager()
+                        db.store_all(word, all_hosts, 'host', 'hunter')
+                        all_emails.extend(emails)
+                        all_emails = sorted(set(all_emails))
+
             else:
             #if engine not in ("baidu", "bing", "crtsh","bingapi","dogpile","google", "googleCSE","virustotal","threatcrowd", "googleplus", "google-profiles","linkedin", "pgp", "twitter", "vhost", "yahoo","netcraft","all"):
                 usage()
-                print "Invalid search engine, try with: baidu, bing, bingapi, crtsh, dogpile, google, googleCSE, virustotal, netcraft, googleplus, google-profiles, linkedin, pgp, twitter, vhost, yahoo, all"
+                print "Invalid search engine, try with: baidu, bing, bingapi, crtsh, dogpile, google, googleCSE, virustotal, netcraft, googleplus, google-profiles, linkedin, pgp, twitter, vhost, yahoo, hunter, all"
                 sys.exit()
             #else:
             #    pass
-    """if hunter != []: #make sure not empty
-        if hunter[0] == True:
-            print "[-] Searching in Hunter:"
-            from discovery import huntersearch
-            search = huntersearch.search_hunter(word, limit, start, hunter[1])
-            search.process()
-            emails = search.get_emails()
-            hosts = search.get_hostnames()
-            if all_hosts != []:
-                all_hosts.extend(all_hosts)
-            if all_emails != []:
-                all_emails.extend(emails)
-                all_emails = sorted(set(all_emails))
-            else:
-                for x in all_hosts:
-                    try:
-                        db = stash.stash_manager()
-                        db.store(word, x, 'host', 'hunter')
-                    except Exception, e:
-                        print e"""
 
     #Results############################################################
     print("\n\033[1;32;40m Harvesting results")

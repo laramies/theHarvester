@@ -62,7 +62,8 @@ The sources are:
 
 * shodan: Shodan Computer search engine, will search for ports and banner of the
          discovered hosts  (http://www.shodanhq.com/)
-* hunter: Hunter search engine
+
+*hunter: Hunter search engine
 
 Active:
 -------
@@ -76,7 +77,7 @@ Modules that need API keys to work:
 * googleCSE: You need to create a Google Custom Search engine(CSE), and add your
  Google API key and CSE ID in the plugin (discovery/googleCSE.py)
 * shodan: You need to provide your API key in discovery/shodansearch.py (one provided at the moment)
-* hunter: You need to provide your API key and run it as -u APIkey 
+* hunter: You need to provide your API key  
 
 Dependencies:
 ------------
