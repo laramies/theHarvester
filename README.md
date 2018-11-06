@@ -77,7 +77,7 @@ Modules that need API keys to work:
 * googleCSE: You need to create a Google Custom Search engine(CSE), and add your
  Google API key and CSE ID in the plugin (discovery/googleCSE.py)
 * shodan: You need to provide your API key in discovery/shodansearch.py (one provided at the moment)
-* hunter: You need to provide your API key  
+* hunter: You need to provide your API key in discovery/huntersearch.py (none is provided at the moment)  
 
 Dependencies:
 ------------
