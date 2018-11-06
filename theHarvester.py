@@ -15,6 +15,12 @@ try:
 except:
     print "Request library not found, please install it before proceeding\n"
     sys.exit()
+    
+try:
+    import bs4
+except:
+    print "BeautifulSoup4 library not found, please install it before proceeding\n"
+    sys.exit()
 
 from discovery import *
 from discovery import censys
