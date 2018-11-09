@@ -86,7 +86,7 @@ class search_google:
             while self.counter <= self.limit and self.counter <= 200: # only 200 dorks in list
                 self.googledork() #call google dorking method if user wanted it!
                 # more = self.check_next()
-                time.sleep(.5)
+                time.sleep(.1)
                 print "\tSearching " + str(self.counter) + " results..."
                 self.counter += 100
 
