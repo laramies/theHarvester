@@ -63,7 +63,7 @@ The sources are:
 * shodan: Shodan Computer search engine, will search for ports and banner of the
          discovered hosts  (http://www.shodanhq.com/)
 
-*hunter: Hunter search engine
+* hunter: Hunter search engine
 
 Active:
 -------
