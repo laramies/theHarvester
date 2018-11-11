@@ -397,6 +397,7 @@ def start(argv):
     print "------------------------------------"
     if all_hosts == []:
         print "No hosts found"
+        full = ""
     else:
         total = len(all_hosts)
         print "\nTotal hosts: " + str(total) + "\n"
@@ -561,6 +562,7 @@ def start(argv):
     if filename != "":
         try:
             print "[+] Saving files..."
+            filename = filename.split(".")[0] + ".html"
             html = htmlExport.htmlExport(
                 all_emails,
                 full,
