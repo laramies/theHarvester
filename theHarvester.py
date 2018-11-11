@@ -15,15 +15,8 @@ try:
 except:
     print "Request library not found, please install it before proceeding\n"
     sys.exit()
-    
-try:
-    import bs4
-except:
-    print "BeautifulSoup4 library not found, please install it before proceeding\n"
-    sys.exit()
 
 from discovery import *
-from discovery import censys
 from lib import htmlExport
 from lib import hostchecker
 
@@ -52,7 +45,7 @@ def usage():
     print "       -d: Domain to search or company name"
     print """       -b: data source: baidu, bing, bingapi, dogpile, google, googleCSE,
                         googleplus, google-profiles, linkedin, pgp, twitter, vhost, 
-                        virustotal, threatcrowd, crtsh, netcraft, yahoo, all\n"""
+                        virustotal, threatcrowd, crtsh, netcraft, yahoo, hunter, all\n"""
     print "       -g: use google dorking instead of normal google search"
     print "       -s: start in result number X (default: 0)"
     print "       -v: verify host name via dns resolution and search for virtual hosts"
@@ -69,7 +62,7 @@ def usage():
     print "        " + comm + " -d microsoft.com -l 500 -b google -h myresults.html"
     print "        " + comm + " -d microsoft.com -b pgp"
     print "        " + comm + " -d microsoft -l 200 -b linkedin"
-    print "        " + comm + " -d microsoft.com -l 200 -b google -g"
+    print "        " + comm + " -d microsoft.com -l 200 -g -b google"
     print "        " + comm + " -d apple.com -b googleCSE -l 500 -s 300\n"
 
 
@@ -78,7 +71,7 @@ def start(argv):
         usage()
         sys.exit()
     try:
-        opts, args = getopt.getopt(argv, "l:d:b:s:vf:nhcgpte:")
+        opts, args = getopt.getopt(argv, "l:d:b:s:u:vf:nhcgpte:")
     except getopt.GetoptError:
         usage()
         sys.exit()
@@ -101,8 +94,6 @@ def start(argv):
     takeover_check = False
     google_dorking = False
     limit = 500
-    all_emails = []
-    all_hosts = []
     dnsserver = ""
     for opt, arg in opts:
         if opt == '-l':
@@ -131,7 +122,7 @@ def start(argv):
             dnstld = True
         elif opt == '-b':
             engines = set(arg.split(','))
-            supportedengines = set(["baidu","bing","crtsh","bingapi","dogpile","google","googleCSE","virustotal","threatcrowd","googleplus","google-profiles","linkedin","pgp","twitter","vhost","yahoo","netcraft","censys","all"])
+            supportedengines = set(["baidu","bing","crtsh","bingapi","dogpile","google","googleCSE","virustotal","threatcrowd","googleplus","google-profiles","linkedin","pgp","twitter","vhost","yahoo","netcraft","hunter","all"])
             if set(engines).issubset(supportedengines):
                 print "found supported engines"
                 print "[-] Starting harvesting process for domain: " + word +  "\n" 
@@ -157,29 +148,7 @@ def start(argv):
                         all_emails = []
                         db=stash.stash_manager()
                         db.store_all(word,all_hosts,'host','netcraft')
-
-                    if engineitem == "censys":
-                        db=stash.stash_manager()
-                        print "[-] Searching in Censys:"
-                        search = censys.search_censys(word)
-                        search.process()
-                        all_ip = search.get_ipaddresses()
-                        all_hosts = search.get_hostnames()
-                        db.store_all(word,all_ip,'ipaddress','censys')
-                        db.store_all(word,all_hosts,'hostname','censys')   
-                        totalnumberofpages = search.get_totalnumberofpages()                #as returned by censys at the initial search
-                        pagecounter = 1                                                     #pagecounter: variable to limit how many pages to query
-                        while pagecounter < totalnumberofpages and pagecounter < 5:         #pagecounter < 5: search 4 pages = 100 results 
-                            pagecounter += 1
-                            search.process(pagecounter)
-                            moreips = search.get_ipaddresses()
-                            for moreipitem in moreips:
-                                db.store(word,moreipitem,'ipaddress','censys')
-                                all_ip.append(moreipitem)
-                            morehostnames = search.get_hostnames()
-                            for morehostnameitem in morehostnames:
-                                db.store(word,morehostnameitem,'hostname','censys')
-                                all_hosts.append(morehostnameitem)
+                        
                     
                     if engineitem == "threatcrowd":
                         print "[-] Searching in Threatcrowd:"
@@ -308,6 +277,15 @@ def start(argv):
                             print users
                         sys.exit()
 
+                    elif engineitem == "hunter":
+                        print "[-] Searching in Hunter:"
+                        from discovery import huntersearch
+                        #import locally or won't work
+                        search = huntersearch.search_hunter(word, limit, start)
+                        search.process()
+                        all_emails = search.get_emails()
+                        all_hosts = search.get_hostnames()
+
                     elif engineitem == "all":
                         print "Full harvest on " + word
                         all_emails = []
@@ -346,21 +324,15 @@ def start(argv):
                         db.store_all(word,all_hosts,'host','netcraft')
 
                         print "[-] Searching in ThreatCrowd server.."
-                        search = threatcrowd.search_threatcrowd(word)
-                        search.process()
-                        hosts = search.get_hostnames()
-                        all_hosts.extend(hosts)
-                        all_emails = []
-                        db=stash.stash_manager()
-                        db.store_all(word,all_hosts,'host','threatcrowd')
-                    
-                        search = netcraft.search_netcraft(word)
-                        search.process()
-                        hosts = search.get_hostnames()
-                        all_hosts.extend(hosts)
-                        db=stash.stash_manager()
-                        db.store_all(word,all_hosts,'host','netcraft')
-                    
+                        try:
+                            search = threatcrowd.search_threatcrowd(word)
+                            search.process()
+                            hosts = search.get_hostnames()
+                            all_hosts.extend(hosts)
+                            all_emails = []
+                            db=stash.stash_manager()
+                            db.store_all(word,all_hosts,'host','threatcrowd')
+                        except Exception: pass
 
                         print "[-] Searching in CRTSH server.."
                         search = crtsh.search_crtsh(word)
@@ -377,7 +349,7 @@ def start(argv):
                         all_hosts.extend(hosts)
                         db=stash.stash_manager()
                         db.store_all(word,all_hosts,'host','virustotal')
-                        
+
                         print "[-] Searching in Bing.."
                         bingapi = "no"
                         search = bingsearch.search_bing(word, limit, start)
@@ -391,37 +363,27 @@ def start(argv):
                         #Clean up email list, sort and uniq
                         all_emails=sorted(set(all_emails))
 
-                        print "[-] Searching in Censys:"
-                        search = censys.search_censys(word)
+                        print "[-] Searching in Hunter:"
+                        from discovery import huntersearch
+                        #import locally
+                        search = huntersearch.search_hunter(word, limit, start)
                         search.process()
-                        all_ip = search.get_ipaddresses()
-                        all_hosts = search.get_hostnames()
-                        db.store_all(word,all_ip,'ipaddress','censys')
-                        db.store_all(word,all_hosts,'hostname','censys')   
-                        totalnumberofpages = search.get_totalnumberofpages()                #as returned by censys at the initial search
-                        pagecounter = 1                                                     #pagecounter: variable to limit how many pages to query
-                        while pagecounter < totalnumberofpages and pagecounter < 5:         #pagecounter < 5: search 4 pages = 100 results 
-                            pagecounter += 1
-                            search.process(pagecounter)
-                            moreips = search.get_ipaddresses()
-                            for moreipitem in moreips:
-                                db.store(word,moreipitem,'ipaddress','censys')
-                                all_ip.append(moreipitem)
-                            morehostnames = search.get_hostnames()
-                            for morehostnameitem in morehostnames:
-                                db.store(word,morehostnameitem,'hostname','censys')
-                                all_hosts.append(morehostnameitem)
-            else:
+                        emails = search.get_emails()
+                        hosts = search.get_hostnames()
+                        all_hosts.extend(hosts)
+                        db = stash.stash_manager()
+                        db.store_all(word, all_hosts, 'host', 'hunter')
+                        all_emails.extend(emails)
+                        all_emails = sorted(set(all_emails))
 
+            else:
             #if engine not in ("baidu", "bing", "crtsh","bingapi","dogpile","google", "googleCSE","virustotal","threatcrowd", "googleplus", "google-profiles","linkedin", "pgp", "twitter", "vhost", "yahoo","netcraft","all"):
                 usage()
-                print "Invalid search engine, try with: baidu, bing, bingapi, crtsh, dogpile, google, googleCSE, virustotal, netcraft, googleplus, google-profiles, linkedin, pgp, twitter, vhost, yahoo, censys, all"
+                print "Invalid search engine, try with: baidu, bing, bingapi, crtsh, dogpile, google, googleCSE, virustotal, netcraft, googleplus, google-profiles, linkedin, pgp, twitter, vhost, yahoo, hunter, all"
                 sys.exit()
             #else:
             #    pass
-    
-    
-    
+
     #Results############################################################
     print("\n\033[1;32;40m Harvesting results")
     print "\n\n[+] Emails found:"
@@ -677,7 +639,5 @@ if __name__ == "__main__":
         start(sys.argv[1:])
     except KeyboardInterrupt:
         print "Search interrupted by user.."
-    except Exception, e:
-            print e
     except:
         sys.exit()
