@@ -16,7 +16,7 @@ class search_hunter:
         self.results = ""
         self.totalresults = ""
         self.counter = start
-        self.database = "https://api.hunter.io/v2/domain-search?domain=" + word + "&api_key=" + self.key +"&limit="+self.limit
+        self.database = "https://api.hunter.io/v2/domain-search?domain=" + word + "&api_key=" + self.key +"&limit=" + str(self.limit)
 
     def do_search(self):
         try:
