@@ -7,7 +7,7 @@ class search_hunter:
 
     def __init__(self, word, limit, start):
         self.word = word
-        self.limit = limit
+        self.limit = 100
         self.start = start
         self.key = ""
         if self.key == "":
@@ -16,7 +16,7 @@ class search_hunter:
         self.results = ""
         self.totalresults = ""
         self.counter = start
-        self.database = "https://api.hunter.io/v2/domain-search?domain=" + word + "&api_key=" + self.key
+        self.database = "https://api.hunter.io/v2/domain-search?domain=" + word + "&api_key=" + self.key +"&limit="+self.limit
 
     def do_search(self):
         try:
