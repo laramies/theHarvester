@@ -1,5 +1,5 @@
 import string
-import httplib
+import http.client
 import sys
 import myparser
 import re
@@ -35,14 +35,14 @@ class search_googleCSE:
         self.results = h.getfile().read()
         self.totalresults += self.results
 
-    def do_search_files(self):
-        h = httplib.HTTPS(self.server)
+    def do_search_files(self,files):
+        h = http.client.HTTPConnection(self.server)
         h.putrequest('GET', "/customsearch/v1?key=" + self.api_key +"&highRange=" + str(self.highRange) + "&lowRange=" + str(self.lowRange) + "&cx=" +self.cse_id +
                      "&start=" + str(self.counter) + "&q=filetype:" + files +"%20site:" + self.word)
         h.putheader('Host', self.server)
         h.putheader('User-agent', self.userAgent)
         h.endheaders()
-        returncode, returnmsg, headers = h.getreply()
+        returncode, returnmsg, headers = h.getresponse()
         self.results = h.getfile().read()
         self.totalresults += self.results
 
@@ -98,4 +98,4 @@ class search_googleCSE:
             self.do_search_files(files)
             time.sleep(1)
             self.counter += 100
-            print "\tSearching " + str(self.counter) + " results..."
+            print("\tSearching " + str(self.counter) + " results...")

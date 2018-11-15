@@ -1,3 +1,3 @@
-from api import WebAPI
-from client import Shodan
-from exception import APIError
+from discovery.shodan.api import WebAPI
+from discovery.shodan.client import Shodan
+from discovery.shodan.exception import APIError

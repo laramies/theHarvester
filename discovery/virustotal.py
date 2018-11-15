@@ -21,13 +21,13 @@ class search_virustotal:
     def do_search(self):
         try:
             urly="https://www.virustotal.com/en/domain/" + self.word + "/information/"
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
         headers = {'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:34.0) Gecko/20100101 Firefox/34.0'}
         try:
             r=requests.get(urly,headers=headers)
-        except Exception,e:
-            print e
+        except Exception as e:
+            print(e)
         self.results = r.content
         self.totalresults += self.results
 
@@ -37,4 +37,4 @@ class search_virustotal:
 
     def process(self):
         self.do_search()
-        print "\tSearching Virustotal results.."
+        print("\tSearching Virustotal results..")

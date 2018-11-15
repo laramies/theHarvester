@@ -1,4 +1,4 @@
-import httplib
+import http.client
 import myparser
 import time
 import sys
@@ -16,7 +16,7 @@ class search_dogpile:
         self.counter = 0
 
     def do_search(self):
-        h = httplib.HTTP(self.server)
+        h = http.client.HTTPConnection(self.server)
 
         # Dogpile is hardcoded to return 10 results
         h.putrequest('GET', "/search/web?qsi=" + str(self.counter)
@@ -24,7 +24,7 @@ class search_dogpile:
         h.putheader('Host', self.hostname)
         h.putheader('User-agent', self.userAgent)
         h.endheaders()
-        returncode, returnmsg, headers = h.getreply()
+        returncode, returnmsg, headers = h.getresponse()
 
         self.total_results += h.getfile().read()
 
@@ -33,7 +33,7 @@ class search_dogpile:
             self.do_search()
             time.sleep(1)
 
-            print "\tSearching " + str(self.counter) + " results..."
+            print("\tSearching " + str(self.counter) + " results...")
             self.counter += 10
 
     def get_emails(self):

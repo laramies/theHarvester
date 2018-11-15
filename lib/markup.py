@@ -558,4 +558,4 @@ class CustomizationError(MarkupError):
         self.message = "If you customize the allowed elements, you must define both types 'onetags' and 'twotags'."
 
 if __name__ == '__main__':
-    print __doc__
+    print(__doc__)

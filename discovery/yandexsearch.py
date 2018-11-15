@@ -25,7 +25,7 @@ class search_yandex:
         h.putheader('Host', self.hostname)
         h.putheader('User-agent', self.userAgent)
         h.endheaders()
-        returncode, returnmsg, headers = h.getreply()
+        returncode, returnmsg, headers = h.getresponse()
         self.results = h.getfile().read()
         self.totalresults += self.results
         print(self.results)
@@ -37,7 +37,7 @@ class search_yandex:
         h.putheader('Host', self.hostname)
         h.putheader('User-agent', self.userAgent)
         h.endheaders()
-        returncode, returnmsg, headers = h.getreply()
+        returncode, returnmsg, headers = h.getresponse()
         self.results = h.getfile().read()
         self.totalresults += self.results
 
@@ -61,7 +61,7 @@ class search_yandex:
 
     def get_files(self):
         rawres = myparser.parser(self.totalresults, self.word)
-        return rawres.fileurls(self.files)
+        return rawres.fileurls(self.files) #self.files is not init?
 
     def process(self):
         while self.counter <= self.limit:

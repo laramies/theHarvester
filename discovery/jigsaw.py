@@ -1,5 +1,5 @@
 import string
-import httplib
+import http.client
 import sys
 import myparser
 import re
