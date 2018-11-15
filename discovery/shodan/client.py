@@ -30,7 +30,7 @@ except:
 
 # Define a basestring type if necessary for Python3 compatibility
 try:
-    basestring
+    str
 except NameError:
     basestring = str
 

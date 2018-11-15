@@ -13,11 +13,10 @@ import socket
 import string
 import types
 import time
-import Type
-import Class
-import Opcode
+import discovery.DNS.Type as Type
+import discovery.DNS.Class as Class
+import discovery.DNS.Opcode as Opcode
 import asyncore
-
 
 class DNSError(Exception):
     pass
@@ -33,7 +32,7 @@ def ParseResolvConf(resolv_path):
     try:
         lines = open(resolv_path).readlines()
     except:
-        print "error in path" + resolv_path
+        print("error in path" + resolv_path)
     for line in lines:
         line = string.strip(line)
         if not line or line[0] == ';' or line[0] == '#':
@@ -68,7 +67,9 @@ class DnsRequest:
 
     def __init__(self, *name, **args):
         self.donefunc = None
-        self.async = None
+        #fix maybe?
+        self.asyn= False
+        #self.async = None #TODO FIX async is a keyword
         self.defaults = {}
         self.argparse(name, args)
         self.defaults = self.args
@@ -172,11 +173,11 @@ class DnsRequest:
         else:
             qtype = self.args['qtype']
         if 'name' not in self.args:
-            print self.args
+            print(self.args)
             raise DNSError('nothing to lookup')
         qname = self.args['name']
         if qtype == Type.AXFR:
-            print 'Query type AXFR, protocol forced to TCP'
+            print('Query type AXFR, protocol forced to TCP')
             protocol = 'tcp'
         # print 'QTYPE %d(%s)' % (qtype, Type.typestr(qtype))
         m = Lib.Mpacker()
@@ -193,7 +194,7 @@ class DnsRequest:
                 self.sendTCPRequest(server)
         except socket.error as reason:
             raise DNSError(reason)
-        if self.async:
+        if self.asyn:
             return None
         else:
             return self.response
@@ -208,7 +209,7 @@ class DnsRequest:
                 #self.s.connect((self.ns, self.port))
                 self.conn()
                 self.time_start = time.time()
-                if not self.async:
+                if not self.asyn:
                     self.s.send(self.request)
                     self.response = self.processUDPReply()
             # except socket.error:
@@ -216,7 +217,7 @@ class DnsRequest:
                 continue
             break
         if not self.response:
-            if not self.async:
+            if not self.asyn:
                 raise DNSError('no working nameservers found')
 
     def sendTCPRequest(self, server):
@@ -253,7 +254,7 @@ class DnsAsyncRequest(DnsRequest, asyncore.dispatcher_with_send):
         else:
             self.donefunc = self.showResult
         # self.realinit(name,args) # XXX todo
-        self.async = 1
+        self.asyn = 1
 
     def conn(self):
         import time

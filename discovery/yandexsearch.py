@@ -1,5 +1,5 @@
 import string
-import httplib
+import http.client
 import sys
 import myparser
 import re
@@ -19,7 +19,7 @@ class search_yandex:
         self.counter = start
 
     def do_search(self):
-        h = httplib.HTTP(self.server)
+        h = http.client.HTTPConnection(self.server)
         h.putrequest('GET', "/search?text=%40" + self.word +
                      "&numdoc=50&lr=" + str(self.counter))
         h.putheader('Host', self.hostname)
@@ -28,10 +28,10 @@ class search_yandex:
         returncode, returnmsg, headers = h.getreply()
         self.results = h.getfile().read()
         self.totalresults += self.results
-        print self.results
+        print(self.results)
 
     def do_search_files(self, files):  # TODO
-        h = httplib.HTTP(self.server)
+        h = http.client.HTTPConnection(self.server)
         h.putrequest('GET', "/search?text=%40" + self.word +
                      "&numdoc=50&lr=" + str(self.counter))
         h.putheader('Host', self.hostname)
@@ -46,7 +46,7 @@ class search_yandex:
         nextres = renext.findall(self.results)
         if nextres != []:
             nexty = "1"
-            print str(self.counter)
+            print(str(self.counter))
         else:
             nexty = "0"
         return nexty
@@ -67,7 +67,7 @@ class search_yandex:
         while self.counter <= self.limit:
             self.do_search()
             self.counter += 50
-            print "Searching " + str(self.counter) + " results..."
+            print("Searching " + str(self.counter) + " results...")
 
     def process_files(self, files):
         while self.counter < self.limit:

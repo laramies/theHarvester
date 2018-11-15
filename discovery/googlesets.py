@@ -1,5 +1,5 @@
 import string
-import httplib
+import http.client
 import sys
 import myparser
 import re
@@ -24,7 +24,7 @@ class search_google_labs:
                 self.set = self.set + "&q" + str(id) + "=" + str(x)
 
     def do_search(self):
-        h = httplib.HTTP(self.server)
+        h = http.client.HTTPConnection(self.server)
         h.putrequest('GET', "/sets?hl=en&" + self.set)
         h.putheader('Host', self.hostname)
         h.putheader('User-agent', self.userAgent)

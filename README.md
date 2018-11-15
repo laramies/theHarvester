@@ -63,7 +63,7 @@ The sources are:
 * shodan: Shodan Computer search engine, will search for ports and banner of the
          discovered hosts  (http://www.shodanhq.com/)
 
-* hunter: Hunter search engine
+* hunter: Hunter search engine (you need to add your Key in the discovery/huntersearch.py file) 
 
 Active:
 -------
@@ -104,6 +104,8 @@ https://github.com/laramies/theHarvester
 
 Thanks:
 -------
+* Matthew Brown @NotoriousRebel
+* Janos Zold @Jzod 
 * John Matherly -  SHODAN project
 * Lee Baird for suggestions and bugs reporting
 * Ahmed Aboul Ela - subdomain names dictionary (big and small)

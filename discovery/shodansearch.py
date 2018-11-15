@@ -1,4 +1,4 @@
-from shodan import Shodan
+from discovery.shodan import Shodan
 import sys
 import json
 
@@ -9,7 +9,7 @@ class search_shodan():
         self.host = host
         self.key = "oCiMsgM6rQWqiTvPxFHYcExlZgg7wvTt"
         if self.key == "":
-            print "You need an API key in order to use SHODAN database. You can get one here: http://www.shodanhq.com/"
+            print("You need an API key in order to use SHODAN database. You can get one here: http://www.shodanhq.com/")
             sys.exit()
         self.api = Shodan(self.key)
         
@@ -17,7 +17,7 @@ class search_shodan():
         try:
             host = self.api.host(self.host)
             return host['data']
-        except Exception, e:
-            print "SHODAN empty reply or error in the call"
-            print e
+        except Exception as e:
+            print("SHODAN empty reply or error in the call")
+            print(e)
             return "error"

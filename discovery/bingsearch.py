@@ -1,5 +1,5 @@
 import string
-import httplib
+import http.client
 import sys
 import myparser
 import re
@@ -22,7 +22,7 @@ class search_bing:
         self.counter = start
 
     def do_search(self):
-        h = httplib.HTTP(self.server)
+        h = http.client.HTTP(self.server)
         h.putrequest('GET', "/search?q=%40" + self.word +
                      "&count=50&first=" + str(self.counter))
         h.putheader('Host', self.hostname)
@@ -35,7 +35,7 @@ class search_bing:
         self.totalresults += self.results
 
     def do_search_api(self):
-        h = httplib.HTTP(self.apiserver)
+        h = http.client.HTTP(self.apiserver)
         h.putrequest('GET', "/xml.aspx?Appid=" + self.bingApi + "&query=%40" +
                      self.word + "&sources=web&web.count=40&web.offset=" + str(self.counter))
         h.putheader('Host', "api.search.live.net")
@@ -74,7 +74,7 @@ class search_bing:
     def process(self, api):
         if api == "yes":
             if self.bingApi == "":
-                print "Please insert your API key in the discovery/bingsearch.py"
+                print("Please insert your API key in the discovery/bingsearch.py")
                 sys.exit()
         while (self.counter < self.limit):
             if api == "yes":
@@ -84,7 +84,7 @@ class search_bing:
                 self.do_search()
                 time.sleep(1)
             self.counter += 50
-            print "\tSearching " + str(self.counter) + " results..."
+            print("\tSearching " + str(self.counter) + " results...")
 
     def process_vhost(self):
         # Maybe it is good to use other limit for this.

@@ -7,7 +7,7 @@
 #
 
 # routines for lazy people.
-import Base
+import discovery.DNS.Base as Base
 import string
 
 

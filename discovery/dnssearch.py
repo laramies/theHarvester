@@ -1,5 +1,5 @@
-import IPy
-import DNS
+from discovery import IPy
+import discovery.DNS as DNS
 import string
 import socket
 import sys
@@ -18,7 +18,7 @@ class dns_reverse():
             DNS.ParseResolvConf("/etc/resolv.conf")
             nameserver = DNS.defaults['server'][0]
         except:
-            print "Error in DNS resolvers"
+            print("Error in DNS resolvers")
             sys.exit()
 
     def run(self, host):
@@ -42,7 +42,7 @@ class dns_reverse():
         try:
             list = IPy.IP(ips)
         except:
-            print "Error in IP format, check the input and try again. (Eg. 192.168.1.0/24)"
+            print("Error in IP format, check the input and try again. (Eg. 192.168.1.0/24)")
             sys.exit()
         name = []
         for x in list:
@@ -75,12 +75,12 @@ class dns_force():
             res_path = os.path.join(fileDir,'lib/resolvers.txt')
             with open(res_path) as f:
                 self.resolvers = f.read().splitlines()
-        except Exception, e:
-            print "Resolvers file can't be open"
+        except Exception as e:
+            print("Resolvers file can't be open")
         try:
             f = open(self.file, "r")
         except:
-            print "Error opening dns dictionary file"
+            print("Error opening dns dictionary file")
             sys.exit()
         self.list = f.readlines()
 
@@ -105,10 +105,10 @@ class dns_force():
                     server=primary,
                     aa=1).req()
             except Exception as e:
-                print e
+                print(e)
 
             if test.header['status'] != "NOERROR":
-                print "Error"
+                print("Error")
                 sys.exit()
             self.nameserver = test.answers[0]['data']
         elif self.nameserver == "local":
@@ -118,7 +118,7 @@ class dns_force():
     def run(self, host):
         if self.nameserver == "":
             self.nameserver = self.getdns(self.domain)
-            print "\n\033[94m[-] Using DNS server: " + self.nameserver + "\033[1;33;40m\n"
+            print("\n\033[94m[-] Using DNS server: " + self.nameserver + "\033[1;33;40m\n")
         #secure_random = random.SystemRandom()
         #self.nameserver = secure_random.choice(self.resolvers)
 
@@ -144,7 +144,7 @@ class dns_force():
         for x in self.list:
             host = self.run(x)
             if host is not None:
-                print " : " + host.split(":")[1]
+                print(" : " + host.split(":")[1])
                 results.append(host)
         return results
 
@@ -199,7 +199,7 @@ class dns_tld():
                 0]['data']
             test = DNS.Request(rootdom, qtype='NS', server=primary, aa=1).req()
             if test.header['status'] != "NOERROR":
-                print "Error"
+                print("Error")
                 sys.exit()
             self.nameserver = test.answers[0]['data']
         elif self.nameserver == "local":

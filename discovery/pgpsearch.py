@@ -1,5 +1,5 @@
 import string
-import httplib
+import http.client
 import sys
 import myparser
 
@@ -15,18 +15,18 @@ class search_pgp:
         self.userAgent = "(Mozilla/5.0 (Windows; U; Windows NT 6.0;en-US; rv:1.9.2) Gecko/20100115 Firefox/3.6"
         
     def process(self):
-        print "\tSearching PGP results..."
+        print("\tSearching PGP results...")
         try:
         
-            h = httplib.HTTP(self.server)
+            h = http.client.HTTP(self.server)
             h.putrequest('GET', "/pks/lookup?search=" + self.word + "&op=index")
             h.putheader('Host', self.hostname)
             h.putheader('User-agent', self.userAgent)
             h.endheaders()
             returncode, returnmsg, headers = h.getreply()
             self.results = h.getfile().read()
-        except Exception, e:
-            print "Unable to connect to PGP server: ",str(e)
+        except Exception as e:
+            print("Unable to connect to PGP server: ",str(e))
             pass
 
     def get_emails(self):

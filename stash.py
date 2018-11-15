@@ -29,8 +29,8 @@ class stash_manager:
          c.execute ('INSERT INTO results (domain,resource, type, find_date, source) VALUES (?,?,?,?,?)',(self.domain,self.resource,self.type,self.date,self.source))
          conn.commit()
          conn.close()
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
         return
 
     def store_all(self,domain,all,res_type,source):
@@ -46,6 +46,6 @@ class stash_manager:
                 c.execute ('INSERT INTO results (domain,resource, type, find_date, source) VALUES (?,?,?,?,?)',(self.domain,x,self.type,self.date,self.source))
                 conn.commit()
                 conn.close()
-            except Exception, e:
-                print e
+            except Exception as e:
+                print(e)
         return
