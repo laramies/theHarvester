@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import string
 import sys
 import os
 import re
@@ -65,6 +64,7 @@ def usage():
 
 
 def start(argv):
+    print('argv: ',argv)
     if len(sys.argv) < 4:
         usage()
         sys.exit()
@@ -78,6 +78,8 @@ def start(argv):
         db.do_init()
     except Exception as e:
         pass
+    print('opts are: ',opts)
+    print('args are: ',args)
     start = 0
     host_ip = []
     filename = ""
@@ -460,7 +462,8 @@ def start(argv):
             ip = x.split(":")[0]
             range = ip.split(".")
             range[3] = "0/24"
-            range = string.join(range, '.')
+            s = '.'
+            range = s.join(range)
             if not analyzed_ranges.count(range):
                 print(("\033[94m[-]Performing reverse lookup in : " + range + "\033[1;33;40m"))
                 a = dnssearch.dns_reverse(range, True)
@@ -629,7 +632,7 @@ def start(argv):
             file.close()
             print("Files saved!")
         except Exception as er:
-            print(("Error saving XML file: " + er))
+            print(("Error saving XML file: " + str(er)))
         sys.exit()
 
 if __name__ == "__main__":
