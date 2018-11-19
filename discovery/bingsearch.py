@@ -33,13 +33,14 @@ class search_bing:
         self.totalresults += self.results
 
     def do_search_api(self):
-        h = http.client.HTTPConnection(self.apiserver)
-        h.putrequest('GET', "/xml.aspx?Appid=" + self.bingApi + "&query=%40" +
-                     self.word + "&sources=web&web.count=40&web.offset=" + str(self.counter))
-        h.putheader('Host', "api.search.live.net")
-        h.putheader('User-agent', self.userAgent)
-        h.endheaders()
-        self.results = str(h.getresponse().read())
+        url = 'http://' + self.server + "/xml.aspx?Appid="+self.bingApi+"&query=%40" + \
+        self.word + "&sources=web&web.count=40&web.offset=" + str(self.counter)
+        headers = {
+            'Host': "api.search.live.net",
+            'User-agent': self.userAgent
+        }
+        h = requests.get(url=url, headers=headers)
+        self.results = str(h.content)
         self.totalresults += self.results
 
     def do_search_vhost(self):

@@ -36,10 +36,11 @@ class search_google:
             print(e)
         try:
             params = {'User-Agent': random.choice(self.userAgent)} #select random user agent
-            r=requests.get(urly,params= params)
+            r=requests.get(urly,params=params)
         except Exception as e:
             print(e)
-        self.results = str(r.content)
+        self.results = r.text
+        #print('self.results: ', self.results)
         self.totalresults += self.results
 
     def do_search_profiles(self):
@@ -51,7 +52,7 @@ class search_google:
             r=requests.get(urly)
         except Exception as e:
             print(e)
-        self.results = r.content
+        self.results = r.text
         #'&hl=en&meta=&q=site:www.google.com%20intitle:"Google%20Profile"%20"Companies%20I%27ve%20worked%20for"%20"at%20' + self.word + '"')
         self.totalresults += self.results
 

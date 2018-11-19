@@ -134,7 +134,6 @@ def start(argv):
                         search = googlesearch.search_google(word, limit, start)
                         search.process(google_dorking)
                         all_emails = search.get_emails()
-                        print('all_emails is: ',all_emails)
                         all_hosts = search.get_hostnames()
                         for x in all_hosts:
                             try:
