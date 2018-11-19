@@ -202,7 +202,6 @@ def start(argv):
                             bingapi = "no"
                         search.process(bingapi)
                         all_emails = search.get_emails()
-                        print(all_emails)
                         all_hosts = search.get_hostnames()
 
                     elif engineitem == "dogpile":

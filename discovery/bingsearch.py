@@ -4,7 +4,7 @@ import sys
 import myparser
 import re
 import time
-
+import requests
 
 class search_bing:
 
@@ -22,17 +22,14 @@ class search_bing:
         self.counter = start
 
     def do_search(self):
-        h = http.client.HTTPConnection(self.server)
-        h.putrequest('GET', "/search?q=%40" + self.word +
-                     "&count=50&first=" + str(self.counter))
-        h.putheader('Host', self.hostname)
-        h.putheader('Cookie', 'SRCHHPGUSR=ADLT=DEMOTE&NRSLT=50')
-        h.putheader('Accept-Language', 'en-us,en')
-        h.putheader('User-agent', self.userAgent)
-        h.endheaders()
-        self.results = str(h.getresponse())
-        print('self.results: ',self.results)
-        self.results = str(self.results)
+        headers = {
+            'Host': self.hostname,
+            'Cookie':'SRCHHPGUSR=ADLT=DEMOTE&NRSLT=50',
+            'Accept-Language': 'en-us,en',
+           'User-agent': self.userAgent
+        }
+        h = requests.get(url=('http://'+self.server + "/search?q=%40" + self.word + "&count=50&first=" + str(self.counter)),headers=headers)
+        self.results = str(h.content)
         self.totalresults += self.results
 
     def do_search_api(self):
@@ -42,22 +39,19 @@ class search_bing:
         h.putheader('Host', "api.search.live.net")
         h.putheader('User-agent', self.userAgent)
         h.endheaders()
-        returncode, returnmsg, headers = h.getresponse()
-        self.results = h.getresponse()
+        self.results = str(h.getresponse().read())
         self.totalresults += self.results
 
     def do_search_vhost(self):
-        h = http.client.HTTPConnection(self.server)
-        h.putrequest('GET', "/search?q=ip:" + self.word +
-                     "&go=&count=50&FORM=QBHL&qs=n&first=" + str(self.counter))
-        h.putheader('Host', self.hostname)
-        h.putheader(
-            'Cookie', 'mkt=en-US;ui=en-US;SRCHHPGUSR=NEWWND=0&ADLT=DEMOTE&NRSLT=50')
-        h.putheader('Accept-Language', 'en-us,en')
-        h.putheader('User-agent', self.userAgent)
-        h.endheaders()
-        returncode, returnmsg, headers = h.getresponse()
-        self.results = h.getresponse()
+        headers = {
+            'Host': self.hostname,
+            'Cookie':'mkt=en-US;ui=en-US;SRCHHPGUSR=NEWWND=0&ADLT=DEMOTE&NRSLT=50',
+            'Accept-Language': 'en-us,en',
+            'User-agent':self.userAgent
+        }
+        url = 'http://' + self.server + "/search?q=ip:" + self.word + "&go=&count=50&FORM=QBHL&qs=n&first=" + str(self.counter)
+        h = requests.get(url=url,headers=headers)
+        self.results = str(h.content)
         self.totalresults += self.results
 
     def get_emails(self):
