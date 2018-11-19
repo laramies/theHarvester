@@ -39,7 +39,7 @@ class search_google:
             r=requests.get(urly,params= params)
         except Exception as e:
             print(e)
-        self.results = r.content
+        self.results = str(r.content)
         self.totalresults += self.results
 
     def do_search_profiles(self):
@@ -50,7 +50,7 @@ class search_google:
         try:
             r=requests.get(urly)
         except Exception as e:
-            print (e)
+            print(e)
         self.results = r.content
         #'&hl=en&meta=&q=site:www.google.com%20intitle:"Google%20Profile"%20"Companies%20I%27ve%20worked%20for"%20"at%20' + self.word + '"')
         self.totalresults += self.results

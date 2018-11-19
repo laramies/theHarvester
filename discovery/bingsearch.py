@@ -30,8 +30,9 @@ class search_bing:
         h.putheader('Accept-Language', 'en-us,en')
         h.putheader('User-agent', self.userAgent)
         h.endheaders()
-        returncode, returnmsg, headers = h.getresponse()
-        self.results = h.getfile().read()
+        self.results = str(h.getresponse())
+        print('self.results: ',self.results)
+        self.results = str(self.results)
         self.totalresults += self.results
 
     def do_search_api(self):
@@ -42,7 +43,7 @@ class search_bing:
         h.putheader('User-agent', self.userAgent)
         h.endheaders()
         returncode, returnmsg, headers = h.getresponse()
-        self.results = h.getfile().read()
+        self.results = h.getresponse()
         self.totalresults += self.results
 
     def do_search_vhost(self):
@@ -56,7 +57,7 @@ class search_bing:
         h.putheader('User-agent', self.userAgent)
         h.endheaders()
         returncode, returnmsg, headers = h.getresponse()
-        self.results = h.getfile().read()
+        self.results = h.getresponse()
         self.totalresults += self.results
 
     def get_emails(self):

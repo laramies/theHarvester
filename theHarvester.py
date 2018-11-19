@@ -64,7 +64,7 @@ def usage():
 
 
 def start(argv):
-    print('argv: ',argv)
+
     if len(sys.argv) < 4:
         usage()
         sys.exit()
@@ -78,8 +78,6 @@ def start(argv):
         db.do_init()
     except Exception as e:
         pass
-    print('opts are: ',opts)
-    print('args are: ',args)
     start = 0
     host_ip = []
     filename = ""
@@ -95,7 +93,11 @@ def start(argv):
     google_dorking = False
     limit = 500
     dnsserver = ""
-    for opt, arg in opts:
+    for value in enumerate(opts):
+        opt = value[1][0]
+        arg = value[1][1]
+        opt = str(opt)
+        arg = str(arg)
         if opt == '-l':
             limit = int(arg)
         elif opt == '-d':
@@ -132,6 +134,7 @@ def start(argv):
                         search = googlesearch.search_google(word, limit, start)
                         search.process(google_dorking)
                         all_emails = search.get_emails()
+                        print('all_emails is: ',all_emails)
                         all_hosts = search.get_hostnames()
                         for x in all_hosts:
                             try:
@@ -199,6 +202,7 @@ def start(argv):
                             bingapi = "no"
                         search.process(bingapi)
                         all_emails = search.get_emails()
+                        print(all_emails)
                         all_hosts = search.get_hostnames()
 
                     elif engineitem == "dogpile":
@@ -640,5 +644,7 @@ if __name__ == "__main__":
         start(sys.argv[1:])
     except KeyboardInterrupt:
         print("Search interrupted by user..")
-    except:
+    except Exception:
+        import traceback
+        print(traceback.print_exc())
         sys.exit()
