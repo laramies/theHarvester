@@ -103,7 +103,11 @@ class dns_force():
                     aa=1).req()
             except Exception as e:
                 print(e)
-
+            try:
+                test
+            except NameError:
+                print("Error")
+                sys.exit()
             if test.header['status'] != "NOERROR":
                 print("Error")
                 sys.exit()
