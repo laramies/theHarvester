@@ -7,7 +7,7 @@
 #
 
 # routines for lazy people.
-import discovery.DNS.Base as Base
+from discovery.DNS import Base
 
 def revlookup(name):
     "convenience routine for doing a reverse lookup of an address"
