@@ -6,9 +6,7 @@ import re
 import getopt
 import stash
 import time
-print(sys.executable)
-print(os.getcwd)
-print(sys.path)
+
 try:
     import requests
 except:
