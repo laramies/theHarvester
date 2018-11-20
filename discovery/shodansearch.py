@@ -1,7 +1,5 @@
 from discovery.shodan import Shodan
 import sys
-import json
-
 
 class search_shodan():
 

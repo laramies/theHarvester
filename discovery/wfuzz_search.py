@@ -1,8 +1,3 @@
-import string
-import requests
-import sys
-import myparser
-import re
 try:
     import wfuzz
 except Exception as e:

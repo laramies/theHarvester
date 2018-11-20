@@ -1,9 +1,5 @@
-import string
 import requests
-import sys
 import myparser
-import re
-
 
 class search_netcraft:
 
@@ -28,7 +24,7 @@ class search_netcraft:
             r=requests.get(urly,headers=headers)
         except Exception as e:
             print(e)
-        self.results = r.content
+        self.results = r.text
         self.totalresults += self.results
 
     def get_hostnames(self):

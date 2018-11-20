@@ -1,9 +1,5 @@
-import string
 import requests
-import sys
 import myparser
-import re
-
 
 class search_linkedin:
 
@@ -26,7 +22,7 @@ class search_linkedin:
             r=requests.get(urly)
         except Exception as e:
             print(e)
-        self.results = r.content
+        self.results = r.text
         self.totalresults += self.results
 
     def get_people(self):

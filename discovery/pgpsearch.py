@@ -1,8 +1,5 @@
-import string
-import http.client
-import sys
 import myparser
-
+import requests
 
 class search_pgp:
 
@@ -17,16 +14,16 @@ class search_pgp:
     def process(self):
         print("\tSearching PGP results...")
         try:
-        
-            h = http.client.HTTP(self.server)
-            h.putrequest('GET', "/pks/lookup?search=" + self.word + "&op=index")
-            h.putheader('Host', self.hostname)
-            h.putheader('User-agent', self.userAgent)
-            h.endheaders()
-            returncode, returnmsg, headers = h.getreply()
-            self.results = h.getfile().read()
+            url = 'http://' + self.server + "/pks/lookup?search=" + self.word + "&op=index"
+            headers = {
+                'Host': self.hostname,
+                'User-agent': self.userAgent
+            }
+            h = requests.get(url=url, headers=headers)
+            self.results = h.text
+            self.results += self.results
         except Exception as e:
-            print("Unable to connect to PGP server: ",str(e))
+            print("Unable to connect to PGP server: ", str(e))
             pass
 
     def get_emails(self):

@@ -1,8 +1,5 @@
-import string
-import http.client
 import sys
 import myparser
-import re
 import time
 import requests
 
@@ -26,33 +23,33 @@ class search_bing:
             'Host': self.hostname,
             'Cookie':'SRCHHPGUSR=ADLT=DEMOTE&NRSLT=50',
             'Accept-Language': 'en-us,en',
-           'User-agent': self.userAgent
+            'User-agent': self.userAgent
         }
         h = requests.get(url=('http://'+self.server + "/search?q=%40" + self.word + "&count=50&first=" + str(self.counter)),headers=headers)
-        self.results = str(h.content)
+        self.results = h.text
         self.totalresults += self.results
 
     def do_search_api(self):
         url = 'http://' + self.server + "/xml.aspx?Appid="+self.bingApi+"&query=%40" + \
-        self.word + "&sources=web&web.count=40&web.offset=" + str(self.counter)
+               self.word + "&sources=web&web.count=40&web.offset=" + str(self.counter)
         headers = {
-            'Host': "api.search.live.net",
+            'Host': self.apiserver,
             'User-agent': self.userAgent
         }
         h = requests.get(url=url, headers=headers)
-        self.results = str(h.content)
+        self.results = h.text
         self.totalresults += self.results
 
     def do_search_vhost(self):
         headers = {
             'Host': self.hostname,
-            'Cookie':'mkt=en-US;ui=en-US;SRCHHPGUSR=NEWWND=0&ADLT=DEMOTE&NRSLT=50',
+            'Cookie': 'mkt=en-US;ui=en-US;SRCHHPGUSR=NEWWND=0&ADLT=DEMOTE&NRSLT=50',
             'Accept-Language': 'en-us,en',
-            'User-agent':self.userAgent
+            'User-agent': self.userAgent
         }
         url = 'http://' + self.server + "/search?q=ip:" + self.word + "&go=&count=50&FORM=QBHL&qs=n&first=" + str(self.counter)
-        h = requests.get(url=url,headers=headers)
-        self.results = str(h.content)
+        h = requests.get(url=url, headers=headers)
+        self.results = h.text
         self.totalresults += self.results
 
     def get_emails(self):

@@ -40,7 +40,6 @@ class search_google:
         except Exception as e:
             print(e)
         self.results = r.text
-        #print('self.results: ', self.results)
         self.totalresults += self.results
 
     def do_search_profiles(self):

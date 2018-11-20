@@ -1,11 +1,7 @@
-from discovery import IPy
+import discovery.IPy as IPy
 import discovery.DNS as DNS
-import string
-import socket
 import sys
 import os
-import random
-
 
 class dns_reverse():
 
@@ -22,9 +18,10 @@ class dns_reverse():
             sys.exit()
 
     def run(self, host):
-        a = string.split(host, '.')
+        a = host.split('.')
         a.reverse()
-        b = string.join(a, '.') + '.in-addr.arpa'
+        s = '.'
+        b = s.join(a) + '.in-addr.arpa'
         nameserver = DNS.defaults['server'][0]
         if self.verbose:
             ESC = chr(27)
@@ -135,7 +132,7 @@ class dns_force():
                 server=self.nameserver).req(
             )
             hostip = test.answers[0]['data']
-            return  hostname + ":" + hostip
+            return hostname + ":" + hostip
         except Exception as e:
             pass
 

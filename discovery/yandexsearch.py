@@ -1,10 +1,7 @@
-import string
-import http.client
-import sys
 import myparser
 import re
 import time
-
+import requests
 
 class search_yandex:
 
@@ -19,26 +16,24 @@ class search_yandex:
         self.counter = start
 
     def do_search(self):
-        h = http.client.HTTPConnection(self.server)
-        h.putrequest('GET', "/search?text=%40" + self.word +
-                     "&numdoc=50&lr=" + str(self.counter))
-        h.putheader('Host', self.hostname)
-        h.putheader('User-agent', self.userAgent)
-        h.endheaders()
-        returncode, returnmsg, headers = h.getresponse()
-        self.results = h.getfile().read()
+        url = 'http://' + self.server + "/search?text=%40" + self.word + "&numdoc=50&lr=" + str(self.counter)
+        headers = {
+            'Host': self.hostname,
+            'User-agent': self.userAgent
+        }
+        h = requests.get(url=url, headers=headers)
+        self.results = h.text
         self.totalresults += self.results
         print(self.results)
 
     def do_search_files(self, files):  # TODO
-        h = http.client.HTTPConnection(self.server)
-        h.putrequest('GET', "/search?text=%40" + self.word +
-                     "&numdoc=50&lr=" + str(self.counter))
-        h.putheader('Host', self.hostname)
-        h.putheader('User-agent', self.userAgent)
-        h.endheaders()
-        returncode, returnmsg, headers = h.getresponse()
-        self.results = h.getfile().read()
+        url = 'http://' + self.server + "/search?text=%40" + self.word + "&numdoc=50&lr=" + str(self.counter)
+        headers = {
+            'Host': self.hostname,
+            'User-agent': self.userAgent
+        }
+        h = requests.get(url=url, headers=headers)
+        self.results = h.text
         self.totalresults += self.results
 
     def check_next(self):

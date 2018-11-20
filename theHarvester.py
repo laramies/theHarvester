@@ -7,6 +7,7 @@ import getopt
 import stash
 import time
 
+
 try:
     import requests
 except:
@@ -336,13 +337,13 @@ def start(argv):
                             db.store_all(word,all_hosts,'host','threatcrowd')
                         except Exception: pass
 
-                        print("[-] Searching in CRTSH server..")
+                        """print("[-] Searching in CRTSH server..")
                         search = crtsh.search_crtsh(word)
                         search.process()
                         hosts = search.get_hostnames()
                         all_hosts.extend(hosts)
                         db=stash.stash_manager()
-                        db.store_all(word,all_hosts,'host','CRTsh')
+                        db.store_all(word,all_hosts,'host','CRTsh')"""
 
                         print("[-] Searching in Virustotal server..")
                         search = virustotal.search_virustotal(word)
@@ -377,6 +378,7 @@ def start(argv):
                         db.store_all(word, all_hosts, 'host', 'hunter')
                         all_emails.extend(emails)
                         all_emails = sorted(set(all_emails))
+
 
             else:
             #if engine not in ("baidu", "bing", "crtsh","bingapi","dogpile","google", "googleCSE","virustotal","threatcrowd", "googleplus", "google-profiles","linkedin", "pgp", "twitter", "vhost", "yahoo","netcraft","all"):

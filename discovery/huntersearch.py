@@ -1,5 +1,4 @@
 import myparser
-import time
 import requests
 import sys
 
@@ -23,7 +22,7 @@ class search_hunter:
             r = requests.get(self.database)
         except Exception as e:
             print(e)
-        self.results = r.content
+        self.results = r.text
         self.totalresults += self.results
 
     def process(self):
