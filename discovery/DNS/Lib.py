@@ -22,10 +22,6 @@
 #             DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION
 # ------------------------------------------------------------------------
 
-
-import string
-import types
-
 import discovery.DNS.Type as Type
 import discovery.DNS.Class as Class
 import discovery.DNS.Opcode as Opcode

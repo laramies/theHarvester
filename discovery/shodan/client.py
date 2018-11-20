@@ -230,7 +230,7 @@ class Shodan:
         :param minify: (optional) True to only return the list of ports and the general host information, no banners, False otherwise.
         :type minify: bool
         """
-        if isinstance(ips, basestring):
+        if isinstance(ips, str):
             ips = [ips]
         
         params = {}

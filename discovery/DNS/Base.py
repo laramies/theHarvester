@@ -10,12 +10,11 @@ This code is covered by the standard Python License.
 """
 
 import socket
-import string
-import types
 import time
-import discovery.DNS.Type as Type
-import discovery.DNS.Class as Class
-import discovery.DNS.Opcode as Opcode
+
+from discovery.DNS import Type
+from discovery.DNS import Class
+from discovery.DNS import Opcode
 import asyncore
 
 class DNSError(Exception):
@@ -34,10 +33,10 @@ def ParseResolvConf(resolv_path):
     except:
         print("error in path" + resolv_path)
     for line in lines:
-        line = string.strip(line)
+        line = line.strip()
         if not line or line[0] == ';' or line[0] == '#':
             continue
-        fields = string.split(line)
+        fields = line.split()
         if len(fields) < 2:
             continue
         if fields[0] == 'domain' and len(fields) > 1:
@@ -77,7 +76,7 @@ class DnsRequest:
     def argparse(self, name, args):
         if not name and 'name' in self.defaults:
             args['name'] = self.defaults['name']
-        if isinstance(name, types.StringType):
+        if isinstance(name, str):
             args['name'] = name
         else:
             if len(name) == 1:
@@ -89,7 +88,7 @@ class DnsRequest:
                     args[i] = self.defaults[i]
                 else:
                     args[i] = defaults[i]
-        if isinstance(args['server'], types.StringType):
+        if isinstance(args['server'], str):
             args['server'] = [args['server']]
         self.args = args
 
@@ -124,7 +123,7 @@ class DnsRequest:
         return self.processReply()
 
     def processReply(self):
-        import Lib
+        import discovery.DNS.Lib as Lib
         self.args['elapsed'] = (self.time_finish - self.time_start) * 1000
         u = Lib.Munpacker(self.reply)
         r = Lib.DnsResult(u, self.args)
@@ -156,7 +155,7 @@ class DnsRequest:
     def req(self, *name, **args):
         " needs a refactoring "
         import time
-        import Lib
+        import discovery.DNS.Lib as Lib
         self.argparse(name, args)
         # if not self.args:
         #    raise DNSError,'reinitialize request before reuse'
@@ -165,9 +164,9 @@ class DnsRequest:
         opcode = self.args['opcode']
         rd = self.args['rd']
         server = self.args['server']
-        if isinstance(self.args['qtype'], types.StringType):
+        if isinstance(self.args['qtype'], str):
             try:
-                qtype = getattr(Type, string.upper(self.args['qtype']))
+                qtype = getattr(Type, str.upper(self.args['qtype']))
             except AttributeError:
                 raise DNSError('unknown query type')
         else:
@@ -223,7 +222,7 @@ class DnsRequest:
     def sendTCPRequest(self, server):
         " do the work of sending a TCP request "
         import time
-        import Lib
+        import discovery.DNS.Lib as Lib
         self.response = None
         for self.ns in server:
             try:

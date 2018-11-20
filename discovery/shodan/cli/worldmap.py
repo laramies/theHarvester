@@ -18,7 +18,7 @@ import locale
 import random
 import time
 
-from shodan.helpers import get_ip
+from discovery.shodan.helpers import get_ip
 
 
 MAPS = {
@@ -169,7 +169,7 @@ class AsciiMap(object):
                     self.window.addstr(row, 1, det_show, attrs)
                     row += 1
                     items_to_show -= 1
-                except StandardError:
+                except Exception:
                     # FIXME: check window size before addstr()
                     break
         self.window.overwrite(target)
@@ -205,7 +205,7 @@ class MapApp(object):
                         break
                 self.data = banners
                 self.last_fetch = epoch_now
-            except StandardError:
+            except Exception:
                 raise
         return refresh
 
@@ -240,8 +240,8 @@ def launch_map(api):
 
 def main(argv=None):
     """ Main function / entry point """
-    from shodan import Shodan
-    from shodan.cli.helpers import get_api_key
+    from discovery.shodan import Shodan
+    from discovery.shodan.cli.helpers import get_api_key
 
     api = Shodan(get_api_key())
     return launch_map(api)

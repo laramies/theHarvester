@@ -6,8 +6,9 @@ import re
 import getopt
 import stash
 import time
-
-
+print(sys.executable)
+print(os.getcwd)
+print(sys.path)
 try:
     import requests
 except:
@@ -61,7 +62,8 @@ def usage():
     print(("        " + comm + " -d microsoft.com -b pgp"))
     print(("        " + comm + " -d microsoft -l 200 -b linkedin"))
     print(("        " + comm + " -d microsoft.com -l 200 -g -b google"))
-    print(("        " + comm + " -d apple.com -b googleCSE -l 500 -s 300\n"))
+    print(("        " + comm + " -d apple.com -b googleCSE -l 500 -s 300"))
+    print(("        " + comm + " -d cornell.edu -l 100 -b bing -h \n"))
 
 
 def start(argv):
@@ -399,7 +401,7 @@ def start(argv):
 
     print("\033[1;33;40m \n[+] Hosts found in search engines:")
     print("------------------------------------")
-    if all_hosts == []:
+    if all_hosts == [] or all_emails is None:
         print("No hosts found")
     else:
         total = len(all_hosts)
