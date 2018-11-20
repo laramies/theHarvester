@@ -22,13 +22,8 @@
 #             DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION
 # ------------------------------------------------------------------------
 
-import discovery.DNS.Type as Type
-import discovery.DNS.Class as Class
-import discovery.DNS.Opcode as Opcode
-import discovery.DNS.Status as Status
-
+from discovery.DNS import Type, Class, Opcode, Status
 from discovery.DNS.Base import DNSError
-
 
 class UnpackError(DNSError):
     pass
