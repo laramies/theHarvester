@@ -12,6 +12,7 @@ class dns_reverse():
         self.verbose = verbose
         try:
             DNS.ParseResolvConf("/etc/resolv.conf")
+            #DNS.ParseResolvConf("/etc/resolv.conf")
             nameserver = DNS.defaults['server'][0]
         except:
             print("Error in DNS resolvers")
@@ -83,6 +84,7 @@ class dns_force():
 
     def getdns(self, domain):
         DNS.ParseResolvConf("/etc/resolv.conf")
+        #DNS.ParseResolvConf("/etc/resolv.conf")
         # nameserver=DNS.defaults['server'][0]
         dom = domain
         if self.subdo == True:
@@ -107,7 +109,7 @@ class dns_force():
                 #check if variable is defined
                 test
             except NameError:
-                print("Error test is not defined")
+                print("Error, test is not defined")
                 sys.exit()
             if test.header['status'] != "NOERROR":
                 print("Error")

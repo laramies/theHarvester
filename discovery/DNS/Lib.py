@@ -70,7 +70,7 @@ class Packer:
     " packer base class. supports basic byte/16bit/32bit/addr/string/name "
 
     def __init__(self):
-        self.buf = ''
+        self.buf = b''
         self.index = {}
 
     def getbuf(self):
@@ -141,7 +141,7 @@ class Packer:
             buf = buf + pack16bit(pointer | 0xC000)
         else:
             buf = buf + '\0'
-        self.buf = self.buf + buf
+        self.buf = self.buf + bytes(buf, encoding='utf-8')
         for key, value in index:
             self.index[key] = value
 
@@ -207,10 +207,10 @@ class Unpacker:
     def getname(self):
         # Domain name unpacking (section 4.1.4)
         c = self.getbyte()
-        i = ord(c)
+        i = ord(chr(c))
         if i & 0xC0 == 0xC0:
             d = self.getbyte()
-            j = ord(d)
+            j = ord(chr(d))
             pointer = ((i << 8) | j) & ~0xC000
             save_offset = self.offset
             try:
@@ -226,7 +226,7 @@ class Unpacker:
         if not remains:
             return domain
         else:
-            return domain + '.' + remains
+            return domain + b'.' + remains
 
 
 # Test program for packin/unpacking (section 4.1.4)

@@ -55,7 +55,7 @@ def DiscoverNameServers():
         import win32dns
         defaults['server'] = win32dns.RegistryResolve()
     else:
-        return ParseResolvConf(resolv_path="/etc/resolv.conf")
+        return ParseResolvConf()
 
 
 class DnsRequest:
@@ -65,7 +65,7 @@ class DnsRequest:
     def __init__(self, *name, **args):
         self.donefunc = None
         #fix maybe?
-        self.asyn= False
+        self.asyn = False
         #self.async = None #TODO FIX async is a keyword
         self.defaults = {}
         self.argparse(name, args)
@@ -148,7 +148,18 @@ class DnsRequest:
 #                Lib.dumpM(u)
 
     def conn(self):
-        self.s.connect((self.ns, self.port))
+        """print('self.ns is: ',self.ns)
+        print('self.port is: ',self.port)
+        print('type of self.ns is: ',type(self.ns))
+        print('type of self.port is: ',self.port)"""
+        if not isinstance(self.ns,str):
+            self.ns = str(self.ns)
+        #print('self.ns is: ',self.ns)
+        #print('self.ns type is: ',type(self.ns))
+        try:
+            self.s.connect((self.ns, self.port))
+        except Exception:
+            pass
 
     def req(self, *name, **args):
         " needs a refactoring "
@@ -210,7 +221,9 @@ class DnsRequest:
                     self.s.send(self.request)
                     self.response = self.processUDPReply()
             # except socket.error:
-            except Exception:
+            except Exception as e:
+                print('getting exception: ', e)
+                import traceback; print(traceback.print_exc())
                 continue
             break
         if not self.response:
