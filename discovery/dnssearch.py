@@ -103,6 +103,7 @@ class dns_force():
                     qtype='NS',
                     server=primary,
                     aa=1).req()
+
             except Exception as e:
                 print(e)
             try:

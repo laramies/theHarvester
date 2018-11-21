@@ -20,7 +20,7 @@ so funky stuff lixe a netmask 0xffffff0f can't be done here.
     127.0.0.3
     >>> ip2 = IP('0x7f000000/30')
     >>> ip == ip2
-    1
+    False
     >>> ip.reverseNames()
     ['0.0.0.127.in-addr.arpa.', '1.0.0.127.in-addr.arpa.', '2.0.0.127.in-addr.arpa.', '3.0.0.127.in-addr.arpa.']
     >>> ip.reverseName()
@@ -231,7 +231,7 @@ class IPint:
         prefixlen = -1
 
         # handling of non string values in constructor
-        if type(data) == int:
+        if isinstance(data,int):
             self.ip = int(data)
             if ipversion == 0:
                 if self.ip < 0x100000000:
@@ -628,16 +628,16 @@ class IPint:
 
         >>> ip=IP('127.0.0.0/30')
         >>> for x in ip:
-        ...  print(hex(int(x)))
+        ...  print(bytes(x.strHex(),encoding='UTF-8'))
         ...
-        0x7F000000L
-        0x7F000001L
-        0x7F000002L
-        0x7F000003L
+        0x7F000000
+        0x7F000001
+        0x7F000002
+        0x7F000003
         >>> hex(ip[2].int())
-        '0x7F000002L'
+        '0x7F000002'
         >>> hex(ip[-1].int())
-        '0x7F000003L'
+        '0x7F000003'
         """
 
         if not isinstance(key,int):
@@ -892,7 +892,7 @@ class IP(IPint):
             s.reverse()
             first_byte_index = int(4 - (self._prefixlen / 8))
             if self._prefixlen % 8 != 0:
-                nibblepart = "%s-%s" % (s[3 - (self._prefixlen / 8)],
+                nibblepart = "%s-%s" % (s[3 - int(self._prefixlen / 8)],
                                         intToIp(self.ip + self.len() - 1, 4).split('.')[-1])
                 if nibblepart[-1] == 'l':
                     nibblepart = nibblepart[:-1]
