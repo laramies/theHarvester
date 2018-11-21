@@ -392,6 +392,20 @@ def start(argv):
     print("\n\033[1;32;40m Harvesting results")
     print("\n\n[+] Emails found:")
     print("------------------")
+
+    #Sanity check to see if all_emails and all_hosts is defined
+    try:
+        all_emails
+    except NameError:
+        print('No emails found as all_emails is not defined.')
+        sys.exit()
+    try:
+        all_hosts
+    except NameError:
+        print('No hosts found as all_hosts is not defined.')
+        sys.exit()
+
+
     if all_emails == []:
         print("No emails found")
     else:

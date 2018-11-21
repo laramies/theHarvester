@@ -104,9 +104,10 @@ class dns_force():
             except Exception as e:
                 print(e)
             try:
+                #check if variable is defined
                 test
             except NameError:
-                print("Error")
+                print("Error test is not defined")
                 sys.exit()
             if test.header['status'] != "NOERROR":
                 print("Error")
@@ -138,7 +139,7 @@ class dns_force():
             hostip = test.answers[0]['data']
             return hostname + ":" + hostip
         except Exception as e:
-            pass
+            print(e)
 
     def process(self):
         results = []

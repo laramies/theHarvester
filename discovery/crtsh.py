@@ -1,9 +1,5 @@
-import string
 import requests
-import sys
 import myparser
-import re
-
 
 class search_crtsh:
 
@@ -20,7 +16,7 @@ class search_crtsh:
 
     def do_search(self):
         try:
-            urly="https://crt.sh/?q=%25" + self.word
+            urly = "https://crt.sh/?q=%25" + self.word
         except Exception as e:
             print(e)
         headers = {'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:34.0) Gecko/20100101 Firefox/34.0'}

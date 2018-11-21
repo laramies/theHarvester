@@ -12,9 +12,7 @@ This code is covered by the standard Python License.
 import socket
 import time
 
-from discovery.DNS import Type
-from discovery.DNS import Class
-from discovery.DNS import Opcode
+from discovery.DNS import Type, Class, Opcode
 import asyncore
 
 class DNSError(Exception):
@@ -57,7 +55,7 @@ def DiscoverNameServers():
         import win32dns
         defaults['server'] = win32dns.RegistryResolve()
     else:
-        return ParseResolvConf()
+        return ParseResolvConf(resolv_path="/etc/resolv.conf")
 
 
 class DnsRequest:
@@ -109,7 +107,7 @@ class DnsRequest:
 
     def processTCPReply(self):
         import time
-        import Lib
+        from discovery.DNS import Lib
         self.f = self.s.makefile('r')
         header = self.f.read(2)
         if len(header) < 2:
@@ -212,7 +210,7 @@ class DnsRequest:
                     self.s.send(self.request)
                     self.response = self.processUDPReply()
             # except socket.error:
-            except None:
+            except Exception:
                 continue
             break
         if not self.response:
@@ -237,7 +235,6 @@ class DnsRequest:
             break
         if not self.response:
             raise DNSError('no working nameservers found')
-
 # class DnsAsyncRequest(DnsRequest):
 
 
@@ -253,7 +250,7 @@ class DnsAsyncRequest(DnsRequest, asyncore.dispatcher_with_send):
         else:
             self.donefunc = self.showResult
         # self.realinit(name,args) # XXX todo
-        self.asyn = 1
+        self.asyn = True
 
     def conn(self):
         import time
