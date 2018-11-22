@@ -166,7 +166,7 @@ class htmlExport():
             try:
                 file.write(x)
             except:
-                print "Exception" + x  # send to logs
+                print("Exception" + x) # send to logs
                 pass
-        file.close
+        file.close()
         return "ok"

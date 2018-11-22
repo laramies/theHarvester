@@ -12,7 +12,7 @@ class TestMyParser(unittest.TestCase):
     results = '@domain.com***a@domain***banotherdomain.com***c@domain.com***d@sub.domain.com***'
     p = myparser.parser(results, word)
     emails = sorted(p.emails())
-    self.assertEquals(emails, [ 'c@domain.com', 'd@sub.domain.com' ])
+    self.assertEqual(emails, [ 'c@domain.com', 'd@sub.domain.com' ])
 
 if __name__ == '__main__':
   unittest.main()

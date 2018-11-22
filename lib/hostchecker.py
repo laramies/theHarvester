@@ -4,9 +4,8 @@
 Created by laramies on 2008-08-21.
 """
 
-import sys
-import socket
 
+import socket
 
 class Checker():
 
@@ -16,9 +15,11 @@ class Checker():
 
     def check(self):
         for x in self.hosts:
+            x = str(x)
             try:
                 res = socket.gethostbyname(x)
-                self.realhosts.append(res + ":" + x)
+                res = str(res)
+                self.realhosts.append(x + ":" + res)
             except Exception as e:
-                pass
+                self.realhosts.append(x + ":" + "empty")
         return self.realhosts

@@ -1,10 +1,7 @@
-import string
-import httplib
-import sys
 import myparser
 import re
 import time
-
+import requests
 
 class search_yandex:
 
@@ -19,26 +16,24 @@ class search_yandex:
         self.counter = start
 
     def do_search(self):
-        h = httplib.HTTP(self.server)
-        h.putrequest('GET', "/search?text=%40" + self.word +
-                     "&numdoc=50&lr=" + str(self.counter))
-        h.putheader('Host', self.hostname)
-        h.putheader('User-agent', self.userAgent)
-        h.endheaders()
-        returncode, returnmsg, headers = h.getreply()
-        self.results = h.getfile().read()
+        url = 'http://' + self.server + "/search?text=%40" + self.word + "&numdoc=50&lr=" + str(self.counter)
+        headers = {
+            'Host': self.hostname,
+            'User-agent': self.userAgent
+        }
+        h = requests.get(url=url, headers=headers)
+        self.results = h.text
         self.totalresults += self.results
-        print self.results
+        print(self.results)
 
     def do_search_files(self, files):  # TODO
-        h = httplib.HTTP(self.server)
-        h.putrequest('GET', "/search?text=%40" + self.word +
-                     "&numdoc=50&lr=" + str(self.counter))
-        h.putheader('Host', self.hostname)
-        h.putheader('User-agent', self.userAgent)
-        h.endheaders()
-        returncode, returnmsg, headers = h.getreply()
-        self.results = h.getfile().read()
+        url = 'http://' + self.server + "/search?text=%40" + self.word + "&numdoc=50&lr=" + str(self.counter)
+        headers = {
+            'Host': self.hostname,
+            'User-agent': self.userAgent
+        }
+        h = requests.get(url=url, headers=headers)
+        self.results = h.text
         self.totalresults += self.results
 
     def check_next(self):
@@ -46,7 +41,7 @@ class search_yandex:
         nextres = renext.findall(self.results)
         if nextres != []:
             nexty = "1"
-            print str(self.counter)
+            print(str(self.counter))
         else:
             nexty = "0"
         return nexty
@@ -61,13 +56,13 @@ class search_yandex:
 
     def get_files(self):
         rawres = myparser.parser(self.totalresults, self.word)
-        return rawres.fileurls(self.files)
+        return rawres.fileurls(self.files) #self.files is not init?
 
     def process(self):
         while self.counter <= self.limit:
             self.do_search()
             self.counter += 50
-            print "Searching " + str(self.counter) + " results..."
+            print("Searching " + str(self.counter) + " results...")
 
     def process_files(self, files):
         while self.counter < self.limit:

@@ -23,7 +23,7 @@ class parser:
 
 
         for e in ('>', ':', '=', '<', '/', '\\', ';', '&', '%3A', '%3D', '%3C'):
-            self.results = string.replace(self.results, e, ' ')
+            self.results = self.results.replace(e, ' ')
 
     def urlClean(self):
         self.results = re.sub('<em>', '', self.results)
@@ -32,7 +32,7 @@ class parser:
         self.results = re.sub('%3a', ' ', self.results)
 
         for e in ('<', '>', ':', '=', ';', '&', '%3A', '%3D', '%3C'):
-            self.results = string.replace(self.results, e, ' ')
+            self.results = self.results.replace(e, ' ')
 
     def emails(self):
         self.genericClean()
@@ -67,11 +67,11 @@ class parser:
         self.temp = reg_people.findall(self.results)
         resul = []
         for x in self.temp:
-            y = string.replace(x, ' | LinkedIn', '')
-            y = string.replace(y, ' profiles ', '')
-            y = string.replace(y, 'LinkedIn', '')
-            y = string.replace(y, '"', '')
-            y = string.replace(y, '>', '')
+            y = x.replace(' | LinkedIn', '')
+            y = y.replace(' profiles ', '')
+            y = y.replace('LinkedIn', '')
+            y = y.replace('"', '')
+            y = y.replace('>', '')
             if y != " ":
                 resul.append(y)
         return resul
@@ -85,11 +85,11 @@ class parser:
         users = self.unique()
         resul = []
         for x in users:
-            y = string.replace(x, ' | LinkedIn', '')
-            y = string.replace(y, ' profiles ', '')
-            y = string.replace(y, 'LinkedIn', '')
-            y = string.replace(y, '"', '')
-            y = string.replace(y, '>', '')
+            y = x.replace(' | LinkedIn', '')
+            y = y.replace(' profiles ', '')
+            y = y.replace('LinkedIn', '')
+            y = y.replace('"', '')
+            y = y.replace('>', '')
             if y != " ":
                 resul.append(y)
         return resul
@@ -100,11 +100,11 @@ class parser:
         self.temp = reg_people.findall(self.results)
         resul = []
         for x in self.temp:
-            y = string.replace(x, ' | LinkedIn', '')
-            y = string.replace(y, ' profiles ', '')
-            y = string.replace(y, 'LinkedIn', '')
-            y = string.replace(y, '"', '')
-            y = string.replace(y, '>', '')
+            y = x.replace(' | LinkedIn', '')
+            y = y.replace(' profiles ', '')
+            y = y.replace('LinkedIn', '')
+            y = y.replace('"', '')
+            y = y.replace('>', '')
             if y != " ":
                 resul.append(y)
         return resul
@@ -114,9 +114,9 @@ class parser:
         self.temp = reg_people.findall(self.results)
         resul = []
         for x in self.temp:
-            y = string.replace(x, ' <em>Google Profile</em>', '')
-            y = string.replace(y, '-', '')
-            y = string.replace(y, '">', '')
+            y = x.replace(' <em>Google Profile</em>', '')
+            y = y.replace('-', '')
+            y = y.replace('">', '')
             if y != " ":
                 resul.append(y)
         return resul
@@ -144,8 +144,8 @@ class parser:
         self.temp = reg_sets.findall(self.results)
         sets = []
         for x in self.temp:
-            y = string.replace(x, '>', '')
-            y = string.replace(y, '</a</font', '')
+            y = x.replace('>', '')
+            y = y.replace('</a</font', '')
             sets.append(y)
         return sets
 
