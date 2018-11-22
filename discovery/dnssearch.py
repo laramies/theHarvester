@@ -137,12 +137,11 @@ class dns_force():
                 qtype='a',
                 server=self.nameserver).req(
             )
-            ##TODO TODO TODO FIX test is sometimes not getting answers and leads to an indexing error
+            ##TODO TODO TODO FIX test is sometimes not getting answers and leads to an indexing erro
             hostip = test.answers[0]['data']
             return hostname + ":" + hostip
         except Exception as e:
-            print(e)
-            import traceback as t;print(t.print_exc());import sys as s;s.exit(-2)
+            pass
 
     def process(self):
         results = []
