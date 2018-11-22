@@ -85,6 +85,7 @@ Dependencies:
 `pip install requests`
 * Beautiful Soup 4 (https://pypi.org/project/beautifulsoup4//)
 `pip install beautifulsoup4`
+
 Changelog in 3.0.0:
 ------------------
 * Subdomain takeover checks
