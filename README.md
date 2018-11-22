@@ -84,7 +84,7 @@ Dependencies:
 * Requests library (http://docs.python-requests.org/en/latest/)
 `pip install requests`
 * Beautiful Soup 4 (https://pypi.org/project/beautifulsoup4//)
-`pip install beautifulsoup4`
+` pip install beautifulsoup4`
 
 Changelog in 3.0.0:
 ------------------
