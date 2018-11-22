@@ -5,4 +5,3 @@ WORKDIR /app
 COPY . /app
 RUN chmod +x *.py
  ENTRYPOINT ["/app/theHarvester.py"]
-CMD ["--help"]
