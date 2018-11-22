@@ -147,7 +147,7 @@ class search_google:
                 link = self.links[i] # get link from dork list
                 req = requests.get(link, params=params)
                 time.sleep(.15)  # sleep for a short time
-                self.results = req.content
+                self.results = req.text
                 self.totalresults += self.results
             except:
                 continue
