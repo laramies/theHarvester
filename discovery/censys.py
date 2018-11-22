@@ -1,5 +1,3 @@
-import httplib
-import sys
 import random
 import requests
 import censysparser
@@ -32,8 +30,8 @@ class search_censys:
             response = requests.get(self.url, headers=headers)
             self.results = response.content
             self.total_results += self.results
-        except Exception,e:
-            print e
+        except Exception as e:
+            print(e)
 
     def process(self,morepage=None):
         try:
@@ -44,28 +42,28 @@ class search_censys:
             else:
                 self.url="https://" + self.server + "/ipv4/_search?q=" + self.word
             self.do_search()
-            print "\tSearching Censys results.."
-        except Exception,e:
-            print("Error occurred: " + e)
+            print("\tSearching Censys results..")
+        except Exception as e:
+            print("Error occurred: " + str(e))
 
     def get_hostnames(self):
         try:
             hostnames = censysparser.parser(self)
             return hostnames.search_hostnames()
-        except Exception,e:
-            print("Error occurred: " + e)   
+        except Exception as e:
+            print("Error occurred: " + str(e))
 
     def get_ipaddresses(self):
         try:
             ips = censysparser.parser(self)
             return ips.search_ipaddresses()
-        except Exception,e:
-            print("Error occurred: " + e) 
+        except Exception as e:
+            print("Error occurred: " + str(e))
     
     def get_totalnumberofpages(self):
         try:
             pages = censysparser.parser(self)
             return pages.search_numberofpages()
-        except Exception,e:
-            print("Error occurred: " + e) 
+        except Exception as e:
+            print("Error occurred: " + str(e))
 

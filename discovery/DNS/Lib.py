@@ -22,17 +22,8 @@
 #             DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION
 # ------------------------------------------------------------------------
 
-
-import string
-import types
-
-import Type
-import Class
-import Opcode
-import Status
-
-from Base import DNSError
-
+from discovery.DNS import Type, Class, Opcode, Status
+from discovery.DNS.Base import DNSError
 
 class UnpackError(DNSError):
     pass
@@ -79,7 +70,7 @@ class Packer:
     " packer base class. supports basic byte/16bit/32bit/addr/string/name "
 
     def __init__(self):
-        self.buf = ''
+        self.buf = b''
         self.index = {}
 
     def getbuf(self):
@@ -116,14 +107,15 @@ class Packer:
         # The case of the first occurrence of a name is preserved.
         # Redundant dots are ignored.
         list = []
-        for label in string.splitfields(name, '.'):
+        for label in name.split('.'):
             if label:
                 if len(label) > 63:
                     raise PackError('label too long')
                 list.append(label)
         keys = []
+        s = ''
         for i in range(len(list)):
-            key = string.upper(string.joinfields(list[i:], '.'))
+            key = str.upper((s.join(list[i:])))
             keys.append(key)
             if key in self.index:
                 pointer = self.index[key]
@@ -142,39 +134,39 @@ class Packer:
             if offset + len(buf) < 0x3FFF:
                 index.append((keys[j], offset + len(buf)))
             else:
-                print 'DNS.Lib.Packer.addname:',
-                print 'warning: pointer too big'
+                print('DNS.Lib.Packer.addname:',)
+                print('warning: pointer too big')
             buf = buf + (chr(n) + label)
         if pointer:
             buf = buf + pack16bit(pointer | 0xC000)
         else:
             buf = buf + '\0'
-        self.buf = self.buf + buf
+        self.buf = self.buf + bytes(buf, encoding='utf-8')
         for key, value in index:
             self.index[key] = value
 
     def dump(self):
         keys = sorted(self.index.keys())
-        print '-' * 40
+        print('-' * 40)
         for key in keys:
-            print '%20s %3d' % (key, self.index[key])
-        print '-' * 40
+            print('%20s %3d' % (key, self.index[key]))
+        print('-' * 40)
         space = 1
         for i in range(0, len(self.buf) + 1, 2):
             if self.buf[i:i + 2] == '**':
                 if not space:
-                    print
+                    print()
                 space = 1
                 continue
             space = 0
-            print '%4d' % i,
+            print('%4d' % i,)
             for c in self.buf[i:i + 2]:
                 if ' ' < c < '\177':
-                    print ' %c' % c,
+                    print(' %c' % c,)
                 else:
-                    print '%2d' % ord(c),
-            print
-        print '-' * 40
+                    print('%2d' % ord(c),)
+            print()
+        print('-' * 40)
 
 
 # Unpacking class
@@ -215,10 +207,10 @@ class Unpacker:
     def getname(self):
         # Domain name unpacking (section 4.1.4)
         c = self.getbyte()
-        i = ord(c)
+        i = ord(chr(c))
         if i & 0xC0 == 0xC0:
             d = self.getbyte()
-            j = ord(d)
+            j = ord(chr(d))
             pointer = ((i << 8) | j) & ~0xC000
             save_offset = self.offset
             try:
@@ -229,12 +221,12 @@ class Unpacker:
             return domain
         if i == 0:
             return ''
-        domain = self.getbytes(i)
+        domain = self.getbytes(i).decode('UTF-8')
         remains = self.getname()
         if not remains:
             return domain
         else:
-            return domain + '.' + remains
+           return domain + '.' + remains
 
 
 # Test program for packin/unpacking (section 4.1.4)
@@ -257,8 +249,8 @@ def testpacker():
         p.addbytes('*' * 26)
         p.addname('')
     timing.finish()
-    print timing.milli(), "ms total for packing"
-    print round(timing.milli() / i, 4), 'ms per packing'
+    print(timing.milli(), "ms total for packing")
+    print(round(timing.milli() / i, 4), 'ms per packing')
     # p.dump()
     u = Unpacker(p.buf)
     u.getaddr()
@@ -284,8 +276,8 @@ def testpacker():
                u.getbytes(26),
                u.getname())
     timing.finish()
-    print timing.milli(), "ms total for unpacking"
-    print round(timing.milli() / i, 4), 'ms per unpacking'
+    print(timing.milli(), "ms total for unpacking")
+    print(round(timing.milli() / i, 4), 'ms per unpacking')
     # for item in res: print item
 
 
@@ -379,7 +371,7 @@ class RRpacker(Packer):
 
     def addTXT(self, name, klass, ttl, list):
         self.addRRheader(name, Type.TXT, klass, ttl)
-        if isinstance(list, types.StringType):
+        if isinstance(list, str):
             list = [list]
         for txtdata in list:
             self.addstring(txtdata)
@@ -555,29 +547,29 @@ class Munpacker(RRunpacker, Qunpacker, Hunpacker):
 # These affect the unpacker's current position!
 
 def dumpM(u):
-    print 'HEADER:',
+    print('HEADER:',)
     (id, qr, opcode, aa, tc, rd, ra, z, rcode,
      qdcount, ancount, nscount, arcount) = u.getHeader()
-    print 'id=%d,' % id,
-    print 'qr=%d, opcode=%d, aa=%d, tc=%d, rd=%d, ra=%d, z=%d, rcode=%d,' \
-        % (qr, opcode, aa, tc, rd, ra, z, rcode)
+    print('id=%d,' % id,)
+    print('qr=%d, opcode=%d, aa=%d, tc=%d, rd=%d, ra=%d, z=%d, rcode=%d,' \
+        % (qr, opcode, aa, tc, rd, ra, z, rcode))
     if tc:
-        print '*** response truncated! ***'
+        print('*** response truncated! ***')
     if rcode:
-        print '*** nonzero error code! (%d) ***' % rcode
-    print '  qdcount=%d, ancount=%d, nscount=%d, arcount=%d' \
-        % (qdcount, ancount, nscount, arcount)
+        print('*** nonzero error code! (%d) ***' % rcode)
+    print('  qdcount=%d, ancount=%d, nscount=%d, arcount=%d' \
+        % (qdcount, ancount, nscount, arcount))
     for i in range(qdcount):
-        print 'QUESTION %d:' % i,
+        print('QUESTION %d:' % i,)
         dumpQ(u)
     for i in range(ancount):
-        print 'ANSWER %d:' % i,
+        print('ANSWER %d:' % i,)
         dumpRR(u)
     for i in range(nscount):
-        print 'AUTHORITY RECORD %d:' % i,
+        print('AUTHORITY RECORD %d:' % i,)
         dumpRR(u)
     for i in range(arcount):
-        print 'ADDITIONAL RECORD %d:' % i,
+        print('ADDITIONAL RECORD %d:' % i,)
         dumpRR(u)
 
 
@@ -594,44 +586,44 @@ class DnsResult:
 
     def show(self):
         import time
-        print '; <<>> PDG.py 1.0 <<>> %s %s' % (self.args['name'],
-                                                self.args['qtype'])
+        print('; <<>> PDG.py 1.0 <<>> %s %s' % (self.args['name'],
+                                                self.args['qtype']))
         opt = ""
         if self.args['rd']:
             opt = opt + 'recurs '
         h = self.header
-        print ';; options: ' + opt
-        print ';; got answer:'
-        print ';; ->>HEADER<<- opcode %s, status %s, id %d' % (
-            h['opcode'], h['status'], h['id'])
+        print(';; options: ' + opt)
+        print(';; got answer:')
+        print(';; ->>HEADER<<- opcode %s, status %s, id %d' % (
+            h['opcode'], h['status'], h['id']))
         flags = filter(lambda x, h=h: h[x], ('qr', 'aa', 'rd', 'ra', 'tc'))
-        print ';; flags: %s; Ques: %d, Ans: %d, Auth: %d, Addit: %d' % (
-            string.join(flags), h['qdcount'], h['ancount'], h['nscount'],
-            h['arcount'])
-        print ';; QUESTIONS:'
+        print(';; flags: %s; Ques: %d, Ans: %d, Auth: %d, Addit: %d' % (
+            ''.join(map(str,flags)), h['qdcount'], h['ancount'], h['nscount'],
+            h['arcount']))
+        print(';; QUESTIONS:')
         for q in self.questions:
-            print ';;      %s, type = %s, class = %s' % (q['qname'], q['qtypestr'],
-                                                         q['qclassstr'])
-        print
-        print ';; ANSWERS:'
+            print(';;      %s, type = %s, class = %s' % (q['qname'], q['qtypestr'],
+                                                         q['qclassstr']))
+        print()
+        print(';; ANSWERS:')
         for a in self.answers:
-            print '%-20s    %-6s  %-6s  %s' % (a['name'], repr(a['ttl']), a['typename'],
-                                               a['data'])
-        print
-        print ';; AUTHORITY RECORDS:'
+            print('%-20s    %-6s  %-6s  %s' % (a['name'], repr(a['ttl']), a['typename'],
+                                               a['data']))
+        print()
+        print(';; AUTHORITY RECORDS:')
         for a in self.authority:
-            print '%-20s    %-6s  %-6s  %s' % (a['name'], repr(a['ttl']), a['typename'],
-                                               a['data'])
-        print
-        print ';; ADDITIONAL RECORDS:'
+            print('%-20s    %-6s  %-6s  %s' % (a['name'], repr(a['ttl']), a['typename'],
+                                               a['data']))
+        print()
+        print(';; ADDITIONAL RECORDS:')
         for a in self.additional:
-            print '%-20s    %-6s  %-6s  %s' % (a['name'], repr(a['ttl']), a['typename'],
-                                               a['data'])
-        print
+            print('%-20s    %-6s  %-6s  %s' % (a['name'], repr(a['ttl']), a['typename'],
+                                               a['data']))
+        print()
         if 'elapsed' in self.args:
-            print ';; Total query time: %d msec' % self.args['elapsed']
-        print ';; To SERVER: %s' % (self.args['server'])
-        print ';; WHEN: %s' % time.ctime(time.time())
+            print(';; Total query time: %d msec' % self.args['elapsed'])
+        print(';; To SERVER: %s' % (self.args['server']))
+        print(';; WHEN: %s' % time.ctime(time.time()))
 
     def storeM(self, u):
         (self.header['id'], self.header['qr'], self.header['opcode'],
@@ -682,25 +674,25 @@ class DnsResult:
 
 def dumpQ(u):
     qname, qtype, qclass = u.getQuestion()
-    print 'qname=%s, qtype=%d(%s), qclass=%d(%s)' \
+    print('qname=%s, qtype=%d(%s), qclass=%d(%s)' \
         % (qname,
            qtype, Type.typestr(qtype),
-           qclass, Class.classstr(qclass))
+           qclass, Class.classstr(qclass)))
 
 
 def dumpRR(u):
     name, type, klass, ttl, rdlength = u.getRRheader()
     typename = Type.typestr(type)
-    print 'name=%s, type=%d(%s), class=%d(%s), ttl=%d' \
+    print('name=%s, type=%d(%s), class=%d(%s), ttl=%d' \
         % (name,
            type, typename,
            klass, Class.classstr(klass),
-           ttl)
+           ttl))
     mname = 'get%sdata' % typename
     if hasattr(u, mname):
-        print '  formatted rdata:', getattr(u, mname)()
+        print('  formatted rdata:', getattr(u, mname)())
     else:
-        print '  binary rdata:', u.getbytes(rdlength)
+        print('  binary rdata:', u.getbytes(rdlength))
 
 if __name__ == "__main__":
     testpacker()
@@ -753,10 +745,10 @@ if __name__ == "__main__":
 # added identifying header to top of each file
 #
 # Revision 1.7  2001/07/19 07:50:44  anthony
-# Added SRV (RFC 2782) support. Code from Michael Ströder.
+# Added SRV (RFC 2782) support. Code from Michael Strï¿½der.
 #
 # Revision 1.6  2001/07/19 07:39:18  anthony
-# 'type' -> 'rrtype' in getRRheader(). Fix from Michael Ströder.
+# 'type' -> 'rrtype' in getRRheader(). Fix from Michael Strï¿½der.
 #
 # Revision 1.5  2001/07/19 07:34:19  anthony
 # oops. glitch in storeRR (fixed now).

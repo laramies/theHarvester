@@ -1,5 +1,4 @@
 import myparser
-import time
 import requests
 import sys
 
@@ -11,7 +10,7 @@ class search_hunter:
         self.start = start
         self.key = ""
         if self.key == "":
-            print "You need an API key in order to use the Hunter search engine. You can get one here: https://hunter.io"
+            print("You need an API key in order to use the Hunter search engine. You can get one here: https://hunter.io")
             sys.exit()
         self.results = ""
         self.totalresults = ""
@@ -21,14 +20,14 @@ class search_hunter:
     def do_search(self):
         try:
             r = requests.get(self.database)
-        except Exception,e:
-            print e
-        self.results = r.content
+        except Exception as e:
+            print(e)
+        self.results = r.text
         self.totalresults += self.results
 
     def process(self):
             self.do_search() #only need to do it once
-            print '\tDone Searching Results'
+            print('\tDone Searching Results')
 
     def get_emails(self):
         rawres = myparser.parser(self.totalresults, self.word)

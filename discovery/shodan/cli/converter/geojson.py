@@ -1,5 +1,5 @@
 
-from .base import Converter
+from base import Converter
 from ...helpers import get_ip, iterate_files
 
 class GeoJsonConverter(Converter):

@@ -32,26 +32,26 @@ class search_google:
     def do_search(self):
         try: #do normal scraping
             urly="http://" + self.server + "/search?num=" + self.quantity + "&start=" + str(self.counter) + "&hl=en&meta=&q=%40\"" + self.word + "\""
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
         try:
             params = {'User-Agent': random.choice(self.userAgent)} #select random user agent
-            r=requests.get(urly,params= params)
-        except Exception,e:
-            print e
-        self.results = r.content
+            r=requests.get(urly,params=params)
+        except Exception as e:
+            print(e)
+        self.results = r.text
         self.totalresults += self.results
 
     def do_search_profiles(self):
         try:
             urly="http://" + self.server + "/search?num=" + self.quantity + "&start=" + str(self.counter) + "&hl=en&meta=&q=site:www.google.com%20intitle:\"Google%20Profile\"%20\"Companies%20I%27ve%20worked%20for\"%20\"at%20" + self.word + "\""
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
         try:
             r=requests.get(urly)
-        except Exception,e:
-            print e
-        self.results = r.content
+        except Exception as e:
+            print(e)
+        self.results = r.text
         #'&hl=en&meta=&q=site:www.google.com%20intitle:"Google%20Profile"%20"Companies%20I%27ve%20worked%20for"%20"at%20' + self.word + '"')
         self.totalresults += self.results
 
@@ -77,17 +77,17 @@ class search_google:
                 self.do_search()
                 #more = self.check_next()
                 time.sleep(1)
-                print "\tSearching " + str(self.counter) + " results..."
+                print("\tSearching " + str(self.counter) + " results...")
                 self.counter += 100
         else: #google dorking is true
             self.counter = 0 #reset counter
-            print '\n'
-            print "[-] Searching with Google Dorks: "
+            print('\n')
+            print("[-] Searching with Google Dorks: ")
             while self.counter <= self.limit and self.counter <= 200: # only 200 dorks in list
                 self.googledork() #call google dorking method if user wanted it!
                 # more = self.check_next()
-                time.sleep(.1)
-                print "\tSearching " + str(self.counter) + " results..."
+                time.sleep(.5)
+                print("\tSearching " + str(self.counter) + " results...")
                 self.counter += 100
 
     def process_profiles(self):
@@ -95,7 +95,7 @@ class search_google:
             self.do_search_profiles()
             time.sleep(0.15)
             self.counter += 100
-            print "\tSearching " + str(self.counter) + " results..."
+            print("\tSearching " + str(self.counter) + " results...")
 
     def append_dorks(self):
         try:  # wrap in try-except incase filepaths are messed up
@@ -147,7 +147,7 @@ class search_google:
                 link = self.links[i] # get link from dork list
                 req = requests.get(link, params=params)
                 time.sleep(.15)  # sleep for a short time
-                self.results = req.content
+                self.results = req.text
                 self.totalresults += self.results
             except:
                 continue

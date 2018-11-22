@@ -11,16 +11,16 @@
 
 __version__ = '2.3.1'
 
-import Type
-import Opcode
-import Status
-import Class
-from Base import DnsRequest, DNSError
-from Lib import DnsResult
-from Base import *
-from Lib import *
+from discovery.DNS import Type
+from discovery.DNS import Opcode
+from discovery.DNS import Status
+from discovery.DNS import Class
+from discovery.DNS.Base import DnsRequest, DNSError
+from discovery.DNS.Lib import DnsResult
+from discovery.DNS.Base import *
+from discovery.DNS.Lib import *
 Error = DNSError
-from lazy import *
+from discovery.DNS.lazy import *
 Request = DnsRequest
 Result = DnsResult
 
