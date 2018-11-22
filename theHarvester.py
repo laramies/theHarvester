@@ -93,6 +93,7 @@ def start(argv):
     takeover_check = False
     google_dorking = False
     limit = 500
+    full  = []
     dnsserver = ""
     for value in enumerate(opts):
         opt = value[1][0]
@@ -391,7 +392,7 @@ def start(argv):
                         search = googlecertificates.search_googlecertificates(word, limit, start)
                         search.process()
                         domains = search.get_domains()
-	                    all_hosts.extend(domains)
+                        all_hosts.extend(domains)
 
 
 
@@ -553,6 +554,10 @@ def start(argv):
     shodanvisited = []
     if shodan == True:
         print("\n\n\033[1;32;40m[-] Shodan DB search (passive):\n")
+        if full ==[]:
+            print ('No host to search, exiting.')
+            sys.exit()
+
         for x in full:
             try:
                 ip = x.split(":")[1]
@@ -561,18 +566,15 @@ def start(argv):
                     a = shodansearch.search_shodan(ip)
                     shodanvisited.append(ip)
                     results = a.run()
-                    time.sleep(2)
-                    for res in results:
-                        if res['info'] == []:
-                            res['info'] = ''
-                        shodanres.append(
-                            x + "SAPO" + str(res['info']) + "SAPO" + str(res['data']))
-            except Exception:
+                    #time.sleep(2)
+                    for res in results['data']:
+                        shodanres.append(str("%s:%s - %s - %s - %s," % (res['ip_str'], res['port'],res['os'],res['isp'])))
+            except Exception as e:
                 pass
         print("\n [+] Shodan results:")
         print("------------------")
         for x in shodanres:
-            print((x.split("SAPO")[0] + ":" + x.split("SAPO")[1]))
+            print (x)
     else:
         pass
 

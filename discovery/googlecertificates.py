@@ -20,21 +20,21 @@ class search_googlecertificates:
     def do_search(self):
         try:
             urly="https://" + self.server + "/transparencyreport/api/v3/httpsreport/ct/certsearch?include_expired=true&include_subdomains=true&domain=" + self.word
-        except Exception, e:
-            print e
+        except Exception as e:
+            print (e)
         try:
             r=requests.get(urly)
-        except Exception,e:
-            print e
-        self.results = r.content
+        except Exception as e:
+            print (e)
+        self.results = r.text
         self.totalresults += self.results
 
     def get_domains(self):
-	domains = []
-	rawres = json.loads(self.totalresults.split("\n", 2)[2])
-	for array in rawres[0][1]:
-		domains.append(array[1])
-	return list(set(domains))
+	    domains = []
+	    rawres = json.loads(self.totalresults.split("\n", 2)[2])
+	    for array in rawres[0][1]:
+	    	domains.append(array[1])
+	    return list(set(domains))
 
     def process(self):
         self.do_search()
