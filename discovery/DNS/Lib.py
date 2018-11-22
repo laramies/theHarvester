@@ -221,12 +221,12 @@ class Unpacker:
             return domain
         if i == 0:
             return ''
-        domain = self.getbytes(i)
+        domain = self.getbytes(i).decode('UTF-8')
         remains = self.getname()
         if not remains:
             return domain
         else:
-            return domain + b'.' + remains
+           return domain + '.' + remains
 
 
 # Test program for packin/unpacking (section 4.1.4)

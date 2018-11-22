@@ -12,7 +12,6 @@ class dns_reverse():
         self.verbose = verbose
         try:
             DNS.ParseResolvConf("/etc/resolv.conf")
-            #DNS.ParseResolvConf("/etc/resolv.conf")
             nameserver = DNS.defaults['server'][0]
         except:
             print("Error in DNS resolvers")
@@ -138,10 +137,12 @@ class dns_force():
                 qtype='a',
                 server=self.nameserver).req(
             )
+            ##TODO TODO TODO FIX test is sometimes not getting answers and leads to an indexing error
             hostip = test.answers[0]['data']
             return hostname + ":" + hostip
         except Exception as e:
             print(e)
+            import traceback as t;print(t.print_exc());import sys as s;s.exit(-2)
 
     def process(self):
         results = []

@@ -121,7 +121,7 @@ class DnsRequest:
         return self.processReply()
 
     def processReply(self):
-        import discovery.DNS.Lib as Lib
+        from discovery.DNS import Lib
         self.args['elapsed'] = (self.time_finish - self.time_start) * 1000
         u = Lib.Munpacker(self.reply)
         r = Lib.DnsResult(u, self.args)
@@ -148,23 +148,13 @@ class DnsRequest:
 #                Lib.dumpM(u)
 
     def conn(self):
-        """print('self.ns is: ',self.ns)
-        print('self.port is: ',self.port)
-        print('type of self.ns is: ',type(self.ns))
-        print('type of self.port is: ',self.port)"""
-        if not isinstance(self.ns,str):
-            self.ns = str(self.ns)
-        #print('self.ns is: ',self.ns)
-        #print('self.ns type is: ',type(self.ns))
-        try:
-            self.s.connect((self.ns, self.port))
-        except Exception:
-            pass
+        self.s.connect((str(self.ns), self.port))
+
 
     def req(self, *name, **args):
         " needs a refactoring "
         import time
-        import discovery.DNS.Lib as Lib
+        from discovery.DNS import Lib
         self.argparse(name, args)
         # if not self.args:
         #    raise DNSError,'reinitialize request before reuse'
@@ -222,8 +212,7 @@ class DnsRequest:
                     self.response = self.processUDPReply()
             # except socket.error:
             except Exception as e:
-                print('getting exception: ', e)
-                import traceback; print(traceback.print_exc())
+                print(e)
                 continue
             break
         if not self.response:
