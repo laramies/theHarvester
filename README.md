@@ -65,6 +65,8 @@ The sources are:
 
 * hunter: Hunter search engine (you need to add your Key in the discovery/huntersearch.py file) 
 
+* google-certificates: Google Certificate Transparency report 
+
 Active:
 -------
 * DNS brute force: this plugin will run a dictionary brute force enumeration
