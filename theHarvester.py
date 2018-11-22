@@ -40,8 +40,8 @@ def usage():
 
     print("Usage: theharvester options \n")
     print("       -d: Domain to search or company name")
-    print("""       -b: data source: baidu, bing, bingapi, dogpile, google, googleCSE,
-                        googleplus, google-profiles, linkedin, pgp, twitter, vhost, 
+    print("""       -b: data source: baidu, bing, bingapi, dogpile, google, google-certificates, 
+                        googleCSE, googleplus, google-profiles, linkedin, pgp, twitter, vhost, 
                         virustotal, threatcrowd, crtsh, netcraft, yahoo, hunter, all\n""")
     print("       -g: use google dorking instead of normal google search")
     print("       -s: start in result number X (default: 0)")
@@ -125,7 +125,7 @@ def start(argv):
             dnstld = True
         elif opt == '-b':
             engines = set(arg.split(','))
-            supportedengines = set(["baidu","bing","crtsh","bingapi","dogpile","google","googleCSE","virustotal","threatcrowd","googleplus","google-profiles","linkedin","pgp","twitter","vhost","yahoo","netcraft","hunter","all"])
+            supportedengines = set(["baidu","bing","crtsh","bingapi","dogpile","google","googleCSE","virustotal","threatcrowd","googleplus","google-profiles",'google-certificates',"linkedin","pgp","twitter","vhost","yahoo","netcraft","hunter","all"])
             if set(engines).issubset(supportedengines):
                 print("found supported engines")
                 print(("[-] Starting harvesting process for domain: " + word +  "\n"))
@@ -152,7 +152,15 @@ def start(argv):
                         db=stash.stash_manager()
                         db.store_all(word,all_hosts,'host','netcraft')
                         
-                    
+                    if engineitem == "google-certificates":
+                        print ("[-] Searching in Google Certificate transparency report..")
+       	                search = googlecertificates.search_googlecertificates(word, limit, start)
+                        search.process()
+                        all_hosts = search.get_domains()
+                        all_emails = []
+                        db=stash.stash_manager()
+                        db.store_all(word,all_hosts,'host','google-certificates')
+
                     if engineitem == "threatcrowd":
                         print("[-] Searching in Threatcrowd:")
                         search = threatcrowd.search_threatcrowd(word)
@@ -378,6 +386,14 @@ def start(argv):
                         db.store_all(word, all_hosts, 'host', 'hunter')
                         all_emails.extend(emails)
                         all_emails = sorted(set(all_emails))
+
+                        print ("[-] Searching in Google Certificate transparency report..")
+                        search = googlecertificates.search_googlecertificates(word, limit, start)
+                        search.process()
+                        domains = search.get_domains()
+	                    all_hosts.extend(domains)
+
+
 
 
             else:
