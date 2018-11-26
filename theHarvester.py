@@ -188,8 +188,8 @@ def start(argv):
                         search.store_results()
                         all_emails = search.get_emails()
                         db=stash.stash_manager()
-                        db.store_all(word,all_hosts,'email','googleCSE')
                         all_hosts = search.get_hostnames()
+                        db.store_all(word,all_hosts,'email','googleCSE')
                         db=stash.stash_manager()
                         db.store_all(word,all_hosts,'host','googleCSE')
 
@@ -389,7 +389,7 @@ def start(argv):
             #    pass
 
     #Results############################################################
-    print("\n\033[1;32;40m Harvesting results")
+    print("\n\033[1;32;40mHarvesting results")
     print("\n\n[+] Emails found:")
     print("------------------")
 
