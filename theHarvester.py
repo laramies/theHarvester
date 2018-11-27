@@ -126,7 +126,7 @@ def start(argv):
             dnstld = True
         elif opt == '-b':
             engines = set(arg.split(','))
-            supportedengines = set(["baidu","bing","crtsh","bingapi","dogpile","google","googleCSE","virustotal","threatcrowd","googleplus","google-profiles",'google-certificates',"linkedin","pgp","twitter","vhost","yahoo","netcraft","hunter","all"])
+            supportedengines = set(["baidu","bing","crtsh","censys","bingapi","dogpile","google","googleCSE","virustotal","threatcrowd","googleplus","google-profiles",'google-certificates',"linkedin","pgp","twitter","vhost","yahoo","netcraft","hunter","all"])
             if set(engines).issubset(supportedengines):
                 print("found supported engines")
                 print(("[-] Starting harvesting process for domain: " + word +  "\n"))
@@ -197,8 +197,8 @@ def start(argv):
                         search.store_results()
                         all_emails = search.get_emails()
                         db=stash.stash_manager()
-                        db.store_all(word,all_hosts,'email','googleCSE')
                         all_hosts = search.get_hostnames()
+                        db.store_all(word,all_hosts,'email','googleCSE')
                         db=stash.stash_manager()
                         db.store_all(word,all_hosts,'host','googleCSE')
 
@@ -298,6 +298,16 @@ def start(argv):
                         all_emails = search.get_emails()
                         all_hosts = search.get_hostnames()
 
+                    elif engineitem == "censys":
+                        print("[-] Searching in Censys:")
+                        from discovery import censys
+                        #import locally or won't work
+                        search = censys.search_censys(word)
+                        search.process(5)
+                        all_emails = []
+                        all_hosts = search.get_hostnames()
+                        
+                        
                     elif engineitem == "all":
                         print(("Full harvest on " + word))
                         all_emails = []
