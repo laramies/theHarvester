@@ -6,7 +6,7 @@
 * | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
 *  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
 *                                                                 *
-* TheHarvester Ver. 3.0.0                                         *
+* TheHarvester Ver. 3.0.2                                        *
 * Coded by Christian Martorella                                   *
 * Edge-Security Research                                          *
 * cmartorella@edge-security.com                                   *
@@ -64,6 +64,8 @@ The sources are:
          discovered hosts  (http://www.shodanhq.com/)
 
 * hunter: Hunter search engine (you need to add your Key in the discovery/huntersearch.py file) 
+
+* google-certificates: Google Certificate Transparency report 
 
 Active:
 -------

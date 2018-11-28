@@ -18,6 +18,9 @@ class search_googleCSE:
         self.limit = limit
         self.counter = 1
         self.api_key = ""
+        if self.api_key == "":
+            print("You need an API key in order to use the Hunter search engine. You can get one here: https://cse.google.com")
+            sys.exit()
         self.cse_id = ""
         self.lowRange = start 
         self.highRange = start+100

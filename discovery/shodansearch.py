@@ -13,9 +13,12 @@ class search_shodan():
         
     def run(self):
         try:
-            host = self.api.host(self.host)
-            return host['data']
+            result = self.api.host(self.host)
+            #for service in result['data']:
+            #    print ("%s:%s" % (service['ip_str'], service['port']))
+            #   print ("%s" % (service['product']))
+            #    print ("%s" % (service['hostnames']))
+            return result
         except Exception as e:
             print("SHODAN empty reply or error in the call")
-            print(e)
             return "error"

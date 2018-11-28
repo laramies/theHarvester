@@ -24,7 +24,7 @@ print("* | __| '_ \ / _ \  / /_/ / _` | '__\ \ / / _ \/ __| __/ _ \ '__| *")
 print("* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *")
 print("*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *")
 print("*                                                                 *")
-print("* theHarvester Ver. 3.0.1                                         *")
+print("* theHarvester Ver. 3.0.2                                         *")
 print("* Coded by Christian Martorella                                   *")
 print("* Edge-Security Research                                          *")
 print("* cmartorella@edge-security.com                                   *")
@@ -40,8 +40,8 @@ def usage():
 
     print("Usage: theharvester options \n")
     print("       -d: Domain to search or company name")
-    print("""       -b: data source: baidu, bing, bingapi, dogpile, google, googleCSE,
-                        googleplus, google-profiles, linkedin, pgp, twitter, vhost, 
+    print("""       -b: data source: baidu, bing, bingapi, dogpile, google, google-certificates, 
+                        googleCSE, googleplus, google-profiles, linkedin, pgp, twitter, vhost, 
                         virustotal, threatcrowd, crtsh, netcraft, yahoo, hunter, all\n""")
     print("       -g: use google dorking instead of normal google search")
     print("       -s: start in result number X (default: 0)")
@@ -93,6 +93,7 @@ def start(argv):
     takeover_check = False
     google_dorking = False
     limit = 500
+    full  = []
     dnsserver = ""
     for value in enumerate(opts):
         opt = value[1][0]
@@ -125,7 +126,7 @@ def start(argv):
             dnstld = True
         elif opt == '-b':
             engines = set(arg.split(','))
-            supportedengines = set(["baidu","bing","crtsh","bingapi","dogpile","google","googleCSE","virustotal","threatcrowd","googleplus","google-profiles","linkedin","pgp","twitter","vhost","yahoo","netcraft","hunter","all"])
+            supportedengines = set(["baidu","bing","crtsh","censys","bingapi","dogpile","google","googleCSE","virustotal","threatcrowd","googleplus","google-profiles",'google-certificates',"linkedin","pgp","twitter","vhost","yahoo","netcraft","hunter","all"])
             if set(engines).issubset(supportedengines):
                 print("found supported engines")
                 print(("[-] Starting harvesting process for domain: " + word +  "\n"))
@@ -152,7 +153,15 @@ def start(argv):
                         db=stash.stash_manager()
                         db.store_all(word,all_hosts,'host','netcraft')
                         
-                    
+                    if engineitem == "google-certificates":
+                        print ("[-] Searching in Google Certificate transparency report..")
+       	                search = googlecertificates.search_googlecertificates(word, limit, start)
+                        search.process()
+                        all_hosts = search.get_domains()
+                        all_emails = []
+                        db=stash.stash_manager()
+                        db.store_all(word,all_hosts,'host','google-certificates')
+
                     if engineitem == "threatcrowd":
                         print("[-] Searching in Threatcrowd:")
                         search = threatcrowd.search_threatcrowd(word)
@@ -289,6 +298,16 @@ def start(argv):
                         all_emails = search.get_emails()
                         all_hosts = search.get_hostnames()
 
+                    elif engineitem == "censys":
+                        print("[-] Searching in Censys:")
+                        from discovery import censys
+                        #import locally or won't work
+                        search = censys.search_censys(word)
+                        search.process(5)
+                        all_emails = []
+                        all_hosts = search.get_hostnames()
+                        
+                        
                     elif engineitem == "all":
                         print(("Full harvest on " + word))
                         all_emails = []
@@ -378,6 +397,14 @@ def start(argv):
                         db.store_all(word, all_hosts, 'host', 'hunter')
                         all_emails.extend(emails)
                         all_emails = sorted(set(all_emails))
+
+                        print ("[-] Searching in Google Certificate transparency report..")
+                        search = googlecertificates.search_googlecertificates(word, limit, start)
+                        search.process()
+                        domains = search.get_domains()
+                        all_hosts.extend(domains)
+
+
 
 
             else:
@@ -537,6 +564,10 @@ def start(argv):
     shodanvisited = []
     if shodan == True:
         print("\n\n\033[1;32;40m[-] Shodan DB search (passive):\n")
+        if full ==[]:
+            print ('No host to search, exiting.')
+            sys.exit()
+
         for x in full:
             try:
                 ip = x.split(":")[1]
@@ -545,18 +576,15 @@ def start(argv):
                     a = shodansearch.search_shodan(ip)
                     shodanvisited.append(ip)
                     results = a.run()
-                    time.sleep(2)
-                    for res in results:
-                        if res['info'] == []:
-                            res['info'] = ''
-                        shodanres.append(
-                            x + "SAPO" + str(res['info']) + "SAPO" + str(res['data']))
-            except Exception:
+                    #time.sleep(2)
+                    for res in results['data']:
+                        shodanres.append(str("%s:%s - %s - %s - %s," % (res['ip_str'], res['port'],res['os'],res['isp'])))
+            except Exception as e:
                 pass
         print("\n [+] Shodan results:")
         print("------------------")
         for x in shodanres:
-            print((x.split("SAPO")[0] + ":" + x.split("SAPO")[1]))
+            print (x)
     else:
         pass
 
