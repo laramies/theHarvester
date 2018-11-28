@@ -29,6 +29,11 @@ class search_crtsh:
             self.results = r.text
             self.totalresults += self.results
 
+    """
+    Function goes through text from base request and parses it for links
+    @param text requests text
+    @return list of links
+    """
     def get_info(self,text):
         lines = []
         for line in str(text).splitlines():
@@ -37,9 +42,9 @@ class search_crtsh:
                 lines.append(line)
         links = []
         for i in range(len(lines)):
-            if i % 2 == 0:
+            if i % 2 == 0: #way html is formatted only care about every other one
                 current = lines[i]
-                current = current[43:]
+                current = current[43:] #43 is not an arbitrary number, the id number always starts at 43rd index
                 link = ''
                 for ch in current:
                     if ch == '"':
@@ -48,7 +53,6 @@ class search_crtsh:
                         link += ch
                 links.append(('https://crt.sh?id=' + str(link)))
         return links
-
 
     def get_hostnames(self):
         rawres = myparser.parser(self.totalresults, self.word)
