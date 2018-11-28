@@ -26,8 +26,10 @@ class search_crtsh:
         links = self.get_info(r.text)
         for link in links:
             r = requests.get(link, headers=headers)
-            self.results = r.text
-            self.totalresults += self.results
+            for l in str(r.text).splitlines():
+                if self.word in l:
+                    print('concatting l to totalresults: ', l.replace('&nbsp','').replace(';',''))
+                    self.totalresults += l
 
     def get_info(self,text):
         lines = []
