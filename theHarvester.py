@@ -302,8 +302,8 @@ def start(argv):
                         print("[-] Searching in Censys:")
                         from discovery import censys
                         #import locally or won't work
-                        search = censys.search_censys(word)
-                        search.process(5)
+                        search = censys.search_censys(word, limit)
+                        search.do_search()
                         all_emails = []
                         all_hosts = search.get_hostnames()
                         
@@ -433,14 +433,14 @@ def start(argv):
         sys.exit()
 
 
-    if all_emails == []:
+    if all_emails == [] or all_emails is None:
         print("No emails found")
     else:
         print(("\n".join(all_emails)))
 
     print("\033[1;33;40m \n[+] Hosts found in search engines:")
     print("------------------------------------")
-    if all_hosts == [] or all_emails is None:
+    if all_hosts == [] or all_hosts is None:
         print("No hosts found")
     else:
         total = len(all_hosts)
