@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import sys
 import os
@@ -12,19 +12,25 @@ try:
 except:
     print("Request library not found, please install it before proceeding\n")
     sys.exit()
+    
+try:
+    import bs4
+except:
+    print("\nBeautifulSoup library not found, please install it before proceeding\n")
+    sys.exit()
 
 from discovery import *
 from lib import htmlExport
 from lib import hostchecker
 
-print("\n \033[92m *******************************************************************")
+print("\n\033[92m*******************************************************************")
 print("*                                                                 *")
 print("* | |_| |__   ___    /\  /\__ _ _ ____   _____  ___| |_ ___ _ __  *")
 print("* | __| '_ \ / _ \  / /_/ / _` | '__\ \ / / _ \/ __| __/ _ \ '__| *")
 print("* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *")
 print("*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *")
 print("*                                                                 *")
-print("* theHarvester Ver. 3.0.2                                         *")
+print("* theHarvester Ver. 3.0.3                                         *")
 print("* Coded by Christian Martorella                                   *")
 print("* Edge-Security Research                                          *")
 print("* cmartorella@edge-security.com                                   *")
@@ -40,9 +46,10 @@ def usage():
 
     print("Usage: theharvester options \n")
     print("       -d: Domain to search or company name")
-    print("""       -b: data source: baidu, bing, bingapi, dogpile, google, google-certificates, 
-                        googleCSE, googleplus, google-profiles, linkedin, pgp, twitter, vhost, 
-                        virustotal, threatcrowd, crtsh, netcraft, yahoo, hunter, all\n""")
+    print("""       -b: data source: baidu, bing, bingapi, crtsh, dogpile,
+                        google, google-certificates, googleCSE, googleplus, google-profiles,
+                        hunterio, linkedin, netcraft, pgp, threatcrowd,
+                        twitter, vhost, virustotal, yahoo, all""")
     print("       -g: use google dorking instead of normal google search")
     print("       -s: start in result number X (default: 0)")
     print("       -v: verify host name via dns resolution and search for virtual hosts")
@@ -57,7 +64,7 @@ def usage():
     print("       -h: use SHODAN database to query discovered hosts")
     print("\nExamples:")
     print(("        " + comm + " -d microsoft.com -l 500 -b google -h myresults.html"))
-    print(("        " + comm + " -d microsoft.com -b pgp"))
+    print(("        " + comm + " -d microsoft.com -b pgp, virustotal"))
     print(("        " + comm + " -d microsoft -l 200 -b linkedin"))
     print(("        " + comm + " -d microsoft.com -l 200 -g -b google"))
     print(("        " + comm + " -d apple.com -b googleCSE -l 500 -s 300"))
