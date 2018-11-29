@@ -356,13 +356,13 @@ def start(argv):
                             db.store_all(word,all_hosts,'host','threatcrowd')
                         except Exception: pass
 
-                        """print("[-] Searching in CRTSH server..")
+                        print("[-] Searching in CRTSH server..")
                         search = crtsh.search_crtsh(word)
                         search.process()
                         hosts = search.get_hostnames()
                         all_hosts.extend(hosts)
                         db=stash.stash_manager()
-                        db.store_all(word,all_hosts,'host','CRTsh')"""
+                        db.store_all(word,all_hosts,'host','CRTsh')
 
                         print("[-] Searching in Virustotal server..")
                         search = virustotal.search_virustotal(word)
@@ -416,7 +416,7 @@ def start(argv):
             #    pass
 
     #Results############################################################
-    print("\n\033[1;32;40m Harvesting results")
+    print("\n\033[1;32;40mHarvesting results")
     print("\n\n[+] Emails found:")
     print("------------------")
 
