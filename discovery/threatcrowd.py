@@ -1,9 +1,5 @@
-import string
 import requests
-import sys
 import myparser
-import re
-
 
 class search_threatcrowd:
 
@@ -21,14 +17,14 @@ class search_threatcrowd:
     def do_search(self):
         try:
             urly="https://www.threatcrowd.org/searchApi/v2/domain/report/?domain=" + self.word
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
         headers = {'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:34.0) Gecko/20100101 Firefox/34.0'}
         try:
             r=requests.get(urly,headers=headers)
-        except Exception,e:
-            print e
-        self.results = r.content
+        except Exception as e:
+            print(e)
+        self.results = r.text
         self.totalresults += self.results
 
     def get_hostnames(self):
@@ -37,4 +33,4 @@ class search_threatcrowd:
 
     def process(self):
         self.do_search()
-        print "\tSearching Threatcrowd results.."
+        print("\tSearching Threatcrowd results..")

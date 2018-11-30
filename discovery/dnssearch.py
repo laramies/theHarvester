@@ -1,11 +1,7 @@
-import IPy
-import DNS
-import string
-import socket
+import discovery.IPy as IPy
+import discovery.DNS as DNS
 import sys
 import os
-import random
-
 
 class dns_reverse():
 
@@ -18,13 +14,14 @@ class dns_reverse():
             DNS.ParseResolvConf("/etc/resolv.conf")
             nameserver = DNS.defaults['server'][0]
         except:
-            print "Error in DNS resolvers"
+            print("Error in DNS resolvers")
             sys.exit()
 
     def run(self, host):
-        a = string.split(host, '.')
+        a = host.split('.')
         a.reverse()
-        b = string.join(a, '.') + '.in-addr.arpa'
+        s = '.'
+        b = s.join(a) + '.in-addr.arpa'
         nameserver = DNS.defaults['server'][0]
         if self.verbose:
             ESC = chr(27)
@@ -42,7 +39,7 @@ class dns_reverse():
         try:
             list = IPy.IP(ips)
         except:
-            print "Error in IP format, check the input and try again. (Eg. 192.168.1.0/24)"
+            print("Error in IP format, check the input and try again. (Eg. 192.168.1.0/24)")
             sys.exit()
         name = []
         for x in list:
@@ -75,12 +72,12 @@ class dns_force():
             res_path = os.path.join(fileDir,'lib/resolvers.txt')
             with open(res_path) as f:
                 self.resolvers = f.read().splitlines()
-        except Exception, e:
-            print "Resolvers file can't be open"
+        except Exception as e:
+            print("Resolvers file can't be open")
         try:
             f = open(self.file, "r")
         except:
-            print "Error opening dns dictionary file"
+            print("Error opening dns dictionary file")
             sys.exit()
         self.list = f.readlines()
 
@@ -104,11 +101,17 @@ class dns_force():
                     qtype='NS',
                     server=primary,
                     aa=1).req()
-            except Exception as e:
-                print e
 
+            except Exception as e:
+                print(e)
+            try:
+                #check if variable is defined
+                test
+            except NameError:
+                print("Error, test is not defined")
+                sys.exit()
             if test.header['status'] != "NOERROR":
-                print "Error"
+                print("Error")
                 sys.exit()
             self.nameserver = test.answers[0]['data']
         elif self.nameserver == "local":
@@ -118,7 +121,7 @@ class dns_force():
     def run(self, host):
         if self.nameserver == "":
             self.nameserver = self.getdns(self.domain)
-            print "\n\033[94m[-] Using DNS server: " + self.nameserver + "\033[1;33;40m\n"
+            print("\n\033[94m[-] Using DNS server: " + self.nameserver + "\033[1;33;40m\n")
         #secure_random = random.SystemRandom()
         #self.nameserver = secure_random.choice(self.resolvers)
 
@@ -134,8 +137,9 @@ class dns_force():
                 qtype='a',
                 server=self.nameserver).req(
             )
+            ##TODO TODO TODO FIX test is sometimes not getting answers and leads to an indexing erro
             hostip = test.answers[0]['data']
-            return  hostname + ":" + hostip
+            return hostname + ":" + hostip
         except Exception as e:
             pass
 
@@ -144,7 +148,7 @@ class dns_force():
         for x in self.list:
             host = self.run(x)
             if host is not None:
-                print " : " + host.split(":")[1]
+                print(" : " + host.split(":")[1])
                 results.append(host)
         return results
 
@@ -199,7 +203,7 @@ class dns_tld():
                 0]['data']
             test = DNS.Request(rootdom, qtype='NS', server=primary, aa=1).req()
             if test.header['status'] != "NOERROR":
-                print "Error"
+                print("Error")
                 sys.exit()
             self.nameserver = test.answers[0]['data']
         elif self.nameserver == "local":
