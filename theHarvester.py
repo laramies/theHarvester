@@ -321,13 +321,18 @@ def start(argv):
                             search.process(pagecounter)
                             moreips = search.get_ipaddresses()
                             for moreipitem in moreips:
-                                db.store(word,moreipitem,'ipaddress','censys')
                                 all_ip.append(moreipitem)
                             morehostnames = search.get_hostnames()
                             for morehostnameitem in morehostnames:
-                                db.store(word,morehostnameitem,'hostname','censys')
                                 all_hosts.append(morehostnameitem)                    
-                        
+                        print('')
+                        ipset = set(all_ip)
+                        hostset = set(all_hosts)
+                        for ipitem in ipset:
+                            db.store(word,ipitem,'ipaddress','censys')
+                        for hostitem in hostset:
+                            db.store(word,hostitem,'hostname','censys')
+
                     elif engineitem == "all":
                         print(("Full harvest on " + word))
                         all_emails = []
