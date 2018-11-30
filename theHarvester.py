@@ -310,10 +310,23 @@ def start(argv):
                         from discovery import censys
                         #import locally or won't work
                         search = censys.search_censys(word)
-                        search.process(5)
+                        search.process()
+                        totalnumberofpages = search.get_totalnumberofpages()
                         all_emails = []
+                        all_ip = search.get_ipaddresses()
                         all_hosts = search.get_hostnames()
-                        
+                        pagecounter = 1
+                        while pagecounter < totalnumberofpages and pagecounter < 5: #pagecounter < 5: search 4 pages = 100 results 
+                            pagecounter += 1
+                            search.process(pagecounter)
+                            moreips = search.get_ipaddresses()
+                            for moreipitem in moreips:
+                                db.store(word,moreipitem,'ipaddress','censys')
+                                all_ip.append(moreipitem)
+                            morehostnames = search.get_hostnames()
+                            for morehostnameitem in morehostnames:
+                                db.store(word,morehostnameitem,'hostname','censys')
+                                all_hosts.append(morehostnameitem)                    
                         
                     elif engineitem == "all":
                         print(("Full harvest on " + word))
