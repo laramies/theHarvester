@@ -29,22 +29,23 @@ class search_censys:
             headers = {'user-agent': random.choice(self.userAgent),'Accept':'*/*','Referer':self.url}
             response = requests.get(self.url, headers=headers)
             self.results = response.content
+            print ('-')
             self.total_results += self.results
+            print ('-')
         except Exception as e:
             print(e)
 
-    def process(self,morepage=None):
-        try:
-            if (morepage is not None):
-                self.page =str(morepage) 
-                baseurl = self.url
-                self.url = baseurl + "&page=" + self.page
-            else:
-                self.url="https://" + self.server + "/ipv4/_search?q=" + self.word
-            self.do_search()
-            print("\tSearching Censys results..")
-        except Exception as e:
-            print("Error occurred: " + str(e))
+    def process(self,morepage):
+        self.counter=1
+        while self.counter <= morepage and self.counter <= 10:
+            try:
+                self.page =str(self.counter)
+                self.url="https://" + self.server + "/ipv4/_search?q=" + str(self.word) + "&page=" + str(self.page)                   
+                print("\tSearching Censys results..")
+                self.do_search()
+            except Exception as e:
+                print("Error occurred: " + str(e))
+            self.counter+=1
 
     def get_hostnames(self):
         try:
