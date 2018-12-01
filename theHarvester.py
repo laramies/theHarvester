@@ -310,8 +310,10 @@ def start(argv):
                         from discovery import censys
                         #import locally or won't work
                         search = censys.search_censys(word)
-                        search.process(5)
+                        search.process()
+                        totalnumberofpages = search.get_totalnumberofpages()
                         all_emails = []
+                        all_ip = search.get_ipaddresses()
                         all_hosts = search.get_hostnames()
                     
                     elif engineitem == "trello":
