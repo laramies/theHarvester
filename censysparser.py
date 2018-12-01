@@ -8,6 +8,7 @@ class parser:
         self.ipaddresses = []
         self.soup = BeautifulSoup(results.results,features="html.parser")
         self.hostnames = []
+        self.urls = []
         self.numberofpages = 0
 
     def search_hostnames(self):
@@ -37,3 +38,6 @@ class parser:
             return self.numberofpages
         except Exception as e:
             print("Error occurred: " + str(e))
+
+              
+   

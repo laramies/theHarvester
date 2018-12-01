@@ -133,7 +133,7 @@ def start(argv):
             dnstld = True
         elif opt == '-b':
             engines = set(arg.split(','))
-            supportedengines = set(["baidu","bing","crtsh","censys","bingapi","dogpile","google","googleCSE","virustotal","threatcrowd","googleplus","google-profiles",'google-certificates',"linkedin","pgp","twitter","vhost","yahoo","netcraft","hunter","all"])
+            supportedengines = set(["baidu","bing","crtsh","censys","bingapi","dogpile","google","googleCSE","virustotal","threatcrowd","googleplus","google-profiles",'google-certificates',"linkedin","pgp","twitter","trello","vhost","yahoo","netcraft","hunter","all"])
             if set(engines).issubset(supportedengines):
                 print("found supported engines")
                 print(("[-] Starting harvesting process for domain: " + word +  "\n"))
@@ -315,24 +315,19 @@ def start(argv):
                         all_emails = []
                         all_ip = search.get_ipaddresses()
                         all_hosts = search.get_hostnames()
-                        pagecounter = 1
-                        while pagecounter < totalnumberofpages and pagecounter < 5: #pagecounter < 5: search 4 pages = 100 results 
-                            pagecounter += 1
-                            search.process(pagecounter)
-                            moreips = search.get_ipaddresses()
-                            for moreipitem in moreips:
-                                all_ip.append(moreipitem)
-                            morehostnames = search.get_hostnames()
-                            for morehostnameitem in morehostnames:
-                                all_hosts.append(morehostnameitem)                    
-                        print('')
-                        ipset = set(all_ip)
-                        hostset = set(all_hosts)
-                        for ipitem in ipset:
-                            db.store(word,ipitem,'ipaddress','censys')
-                        for hostitem in hostset:
-                            db.store(word,hostitem,'hostname','censys')
-
+                    
+                    elif engineitem == "trello":
+                        print("[-] Searching in Trello:")
+                        from discovery import trello
+                        #import locally or won't work
+                        search = trello.search_trello(word,limit)
+                        search.process()
+                        all_emails = search.get_emails()
+                        all_hosts = search.get_urls()
+                        for x in all_hosts:
+                            print (x)
+                        sys.exit()
+                        
                     elif engineitem == "all":
                         print(("Full harvest on " + word))
                         all_emails = []

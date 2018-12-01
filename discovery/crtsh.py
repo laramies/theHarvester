@@ -40,6 +40,7 @@ class search_crtsh:
         links = self.get_info(r.text)
         for link in links:
             params = {'User-Agent': random.choice(self.userAgent)}
+            print ("\t\tSearching " + link)
             r = requests.get(link, headers=params)
             time.sleep(1)
             self.results = r.text
