@@ -10,7 +10,7 @@ import time
 try:
     import requests
 except:
-    print("Request library not found, please install it before proceeding\n")
+    print("Requests library not found, please install it before proceeding\n")
     sys.exit()
     
 try:
