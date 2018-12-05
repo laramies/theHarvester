@@ -7,7 +7,7 @@ except:
     from urllib.request     import urlopen
     from urllib.parse       import urlencode
 
-from json import dumps, loads
+#from json import loads #TODO FIX
 
 from .exception import WebAPIError
 

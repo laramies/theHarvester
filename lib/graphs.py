@@ -776,4 +776,4 @@ def _number_format(val, dec):
     return dec and ('%.' + str(dec) + 'f') % val or int(round(val))
 
 if __name__ == '__main__':
-    print __doc__
+    print(__doc__)
