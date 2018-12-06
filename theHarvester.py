@@ -311,10 +311,13 @@ def start(argv):
                         #import locally or won't work
                         search = censys.search_censys(word)
                         search.process()
-                        totalnumberofpages = search.get_totalnumberofpages()
                         all_emails = []
                         all_ip = search.get_ipaddresses()
                         all_hosts = search.get_hostnames()
+                        db=stash.stash_manager()
+                        db.store_all(word,all_hosts,'host','censys')
+                        db.store_all(word,all_ip,'ip','censys')
+
                     
                     elif engineitem == "trello":
                         print("[-] Searching in Trello:")
