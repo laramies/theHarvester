@@ -46,7 +46,7 @@ def usage():
 
     print("Usage: theharvester options \n")
     print("       -d: Domain to search or company name")
-    print("""       -b: data source: baidu, bing, bingapi, crtsh, dogpile,
+    print("""       -b: data source: baidu, bing, bingapi, cenysy, crtsh, dogpile,
                         google, google-certificates, googleCSE, googleplus, google-profiles,
                         hunterio, linkedin, netcraft, pgp, threatcrowd,
                         twitter, vhost, virustotal, yahoo, all""")
