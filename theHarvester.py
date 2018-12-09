@@ -325,6 +325,7 @@ def start(argv):
                         search = cymon.search_cymon(word)
                         search.process()
                         all_emails = []
+                        all_hosts = []
                         all_ip = search.get_ipaddresses()
                         db = stash.stash_manager()
                         db.store_all(word,all_ip,'ip','cymon')
@@ -464,6 +465,13 @@ def start(argv):
 
     #Results############################################################
     print("\n\033[1;32;40mHarvesting results")
+    if (len(all_ip) == 0):
+        print("No IP addresses found")
+    else:
+        print("\033[1;33;40m \n[+] IP addresses found in search engines:")
+        print("------------------------------------")
+        for i in all_ip:
+            print(i)
     print("\n\n[+] Emails found:")
     print("------------------")
 
@@ -478,7 +486,6 @@ def start(argv):
     except NameError:
         print('No hosts found as all_hosts is not defined.')
         sys.exit()
-
 
     if all_emails == []:
         print("No emails found")
@@ -504,7 +511,7 @@ def start(argv):
                     pass
                 else:
                     host_ip.append(ip.lower())
-
+        
     #DNS Brute force####################################################
     dnsres = []
     if dnsbrute == True:
