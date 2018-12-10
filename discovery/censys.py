@@ -35,13 +35,17 @@ class search_censys:
         except Exception as e:
             print(e)
 
-    def process(self,morepage):
-        self.counter=1
-        while self.counter <= morepage and self.counter <= 10:
+    def process(self):
+        self.url="https://" + self.server + "/ipv4/_search?q=" + str(self.word) + "&page=1"
+        self.do_search()
+        self.counter=2
+        pages = censysparser.parser(self)
+        totalpages = pages.search_numberofpages()
+        while self.counter <= totalpages:
             try:
                 self.page =str(self.counter)
                 self.url="https://" + self.server + "/ipv4/_search?q=" + str(self.word) + "&page=" + str(self.page)                   
-                print("\tSearching Censys results..")
+                print("\tSearching Censys results page " + self.page + "...")
                 self.do_search()
             except Exception as e:
                 print("Error occurred: " + str(e))
@@ -58,13 +62,6 @@ class search_censys:
         try:
             ips = censysparser.parser(self)
             return ips.search_ipaddresses()
-        except Exception as e:
-            print("Error occurred: " + str(e))
-    
-    def get_totalnumberofpages(self):
-        try:
-            pages = censysparser.parser(self)
-            return pages.search_numberofpages()
         except Exception as e:
             print("Error occurred: " + str(e))
 

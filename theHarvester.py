@@ -46,7 +46,7 @@ def usage():
 
     print("Usage: theharvester options \n")
     print("       -d: Domain to search or company name")
-    print("""       -b: data source: baidu, bing, bingapi, crtsh, dogpile,
+    print("""       -b: data source: baidu, bing, bingapi, cenysy, crtsh, dogpile,
                         google, google-certificates, googleCSE, googleplus, google-profiles,
                         hunterio, linkedin, netcraft, pgp, threatcrowd,
                         twitter, vhost, virustotal, yahoo, all""")
@@ -311,10 +311,13 @@ def start(argv):
                         #import locally or won't work
                         search = censys.search_censys(word)
                         search.process()
-                        totalnumberofpages = search.get_totalnumberofpages()
                         all_emails = []
                         all_ip = search.get_ipaddresses()
                         all_hosts = search.get_hostnames()
+                        db=stash.stash_manager()
+                        db.store_all(word,all_hosts,'host','censys')
+                        db.store_all(word,all_ip,'ip','censys')
+
                     
                     elif engineitem == "trello":
                         print("[-] Searching in Trello:")
