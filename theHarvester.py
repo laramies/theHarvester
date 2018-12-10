@@ -63,7 +63,7 @@ def usage():
     print("            google 100 to 100, and pgp doesn't use this option)")
     print("       -h: use SHODAN database to query discovered hosts")
     print("\nExamples:")
-    print(("        " + comm + " -d microsoft.com -l 500 -b google -h myresults.html"))
+    print(("        " + comm + " -d microsoft.com -l 500 -b google -f myresults.html"))
     print(("        " + comm + " -d microsoft.com -b pgp, virustotal"))
     print(("        " + comm + " -d microsoft -l 200 -b linkedin"))
     print(("        " + comm + " -d microsoft.com -l 200 -g -b google"))
