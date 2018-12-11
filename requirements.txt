@@ -1,2 +1,2 @@
 requests==2.18.4
-bs4==0.0.1
+beautifulsoup4==4.6.3
