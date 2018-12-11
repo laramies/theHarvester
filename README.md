@@ -108,7 +108,7 @@ https://github.com/laramies/theHarvester
 Thanks:
 -------
 * Matthew Brown @NotoriousRebel
-* Janos Zold @Jzod 
+* Janos Zold @Jzold 
 * John Matherly -  SHODAN project
 * Lee Baird for suggestions and bugs reporting
 * Ahmed Aboul Ela - subdomain names dictionary (big and small)

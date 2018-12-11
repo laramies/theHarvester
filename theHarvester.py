@@ -150,6 +150,7 @@ def start(argv):
                                 db.store(word,x,'host','google')
                             except Exception as e:
                                 print(e)
+
                     
                     if engineitem == "netcraft":
                         print("[-] Searching in Netcraft:")
@@ -244,6 +245,10 @@ def start(argv):
                         search.process()
                         all_emails = search.get_emails()
                         all_hosts = search.get_hostnames()
+                        db=stash.stash_manager()
+                        db.store_all(word,all_hosts,'host','yahoo')
+                        db.store_all(word,all_emails,'emails','yahoo')
+
 
                     elif engineitem == "baidu":
                         print("[-] Searching in Baidu..")
@@ -251,6 +256,9 @@ def start(argv):
                         search.process()
                         all_emails = search.get_emails()
                         all_hosts = search.get_hostnames()
+                        db=stash.stash_manager()
+                        db.store_all(word,all_hosts,'host','baidu')
+                        db.store_all(word,all_emails,'emails','baidu')
 
                     elif engineitem == "googleplus":
                         print("[-] Searching in Google+ ..")
@@ -652,13 +660,13 @@ def start(argv):
             for x in full:
                 x = x.split(":")
                 if len(x) == 2:
-                    file.write('<host>' + '<ip>' + x[0] + '</ip><hostname>' + x[1]  + '</hostname>' + '</host>')
+                    file.write('<host>' + '<ip>' + x[1] + '</ip><hostname>' + x[0]  + '</hostname>' + '</host>')
                 else:
                     file.write('<host>' + x + '</host>')
             for x in vhost:
                 x = x.split(":")
                 if len(x) == 2:
-                    file.write('<vhost>' + '<ip>' + x[0] + '</ip><hostname>' + x[1]  + '</hostname>' + '</vhost>')
+                    file.write('<vhost>' + '<ip>' + x[1] + '</ip><hostname>' + x[0]  + '</hostname>' + '</vhost>')
                 else:
                     file.write('<vhost>' + x + '</vhost>')
 
