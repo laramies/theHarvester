@@ -10,7 +10,7 @@ import time
 try:
     import requests
 except:
-    print("Request library not found, please install it before proceeding\n")
+    print("Requests library not found, please install it before proceeding\n")
     sys.exit()
     
 try:
@@ -46,7 +46,7 @@ def usage():
 
     print("Usage: theharvester options \n")
     print("       -d: Domain to search or company name")
-    print("""       -b: data source: baidu, bing, bingapi, crtsh, dogpile,
+    print("""       -b: data source: baidu, bing, bingapi, cenysy, crtsh, dogpile,
                         google, google-certificates, googleCSE, googleplus, google-profiles,
                         hunterio, linkedin, netcraft, pgp, threatcrowd,
                         twitter, vhost, virustotal, yahoo, all""")
@@ -63,7 +63,7 @@ def usage():
     print("            google 100 to 100, and pgp doesn't use this option)")
     print("       -h: use SHODAN database to query discovered hosts")
     print("\nExamples:")
-    print(("        " + comm + " -d microsoft.com -l 500 -b google -h myresults.html"))
+    print(("        " + comm + " -d microsoft.com -l 500 -b google -f myresults.html"))
     print(("        " + comm + " -d microsoft.com -b pgp, virustotal"))
     print(("        " + comm + " -d microsoft -l 200 -b linkedin"))
     print(("        " + comm + " -d microsoft.com -l 200 -g -b google"))
@@ -319,10 +319,13 @@ def start(argv):
                         #import locally or won't work
                         search = censys.search_censys(word)
                         search.process()
-                        totalnumberofpages = search.get_totalnumberofpages()
                         all_emails = []
                         all_ip = search.get_ipaddresses()
                         all_hosts = search.get_hostnames()
+                        db=stash.stash_manager()
+                        db.store_all(word,all_hosts,'host','censys')
+                        db.store_all(word,all_ip,'ip','censys')
+
                     
                     elif engineitem == "trello":
                         print("[-] Searching in Trello:")
