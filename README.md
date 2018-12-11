@@ -6,7 +6,7 @@
 * | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
 *  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
 *                                                                 *
-* TheHarvester Ver. 3.0.2                                        *
+* TheHarvester Ver. 3.0.4                                        *
 * Coded by Christian Martorella                                   *
 * Edge-Security Research                                          *
 * cmartorella@edge-security.com                                   *
@@ -108,7 +108,7 @@ https://github.com/laramies/theHarvester
 Thanks:
 -------
 * Matthew Brown @NotoriousRebel
-* Janos Zold @Jzod 
+* Janos Zold @Jzold 
 * John Matherly -  SHODAN project
 * Lee Baird for suggestions and bugs reporting
 * Ahmed Aboul Ela - subdomain names dictionary (big and small)

@@ -5,3 +5,5 @@ stash.sqlite
 *.sqlite
 .vscode
 venv
+.xml
+.html
