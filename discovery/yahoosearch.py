@@ -1,8 +1,6 @@
-import httplib
 import myparser
 import time
-import sys
-
+import requests
 
 class search_yahoo:
 
@@ -16,23 +14,20 @@ class search_yahoo:
         self.counter = 0
 
     def do_search(self):
-        h = httplib.HTTP(self.server)
-
-        h.putrequest('GET', "/search?p=\"%40" + self.word
-                     + "\"&b=" + str(self.counter) + "&pz=10")
-        h.putheader('Host', self.hostname)
-        h.putheader('User-agent', self.userAgent)
-        h.endheaders()
-        returncode, returnmsg, headers = h.getreply()
-
-        self.total_results += h.getfile().read()
+        url = 'http://' + self.server + "/search?p=\"%40" + self.word \
+               + "\"&b=" + str(self.counter) + "&pz=10"
+        headers = {
+            'Host': self.hostname,
+            'User-agent': self.userAgent
+        }
+        h = requests.get(url=url, headers=headers)
+        self.total_results += h.text
 
     def process(self):
         while self.counter <= self.limit and self.counter <= 1000:
             self.do_search()
             time.sleep(1)
-
-            print "\tSearching " + str(self.counter) + " results..."
+            print("\tSearching " + str(self.counter) + " results...")
             self.counter += 10
 
     def get_emails(self):

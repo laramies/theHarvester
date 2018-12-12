@@ -6,7 +6,7 @@
 * | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
 *  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
 *                                                                 *
-* TheHarvester Ver. 3.0.0                                         *
+* TheHarvester Ver. 3.0.4                                        *
 * Coded by Christian Martorella                                   *
 * Edge-Security Research                                          *
 * cmartorella@edge-security.com                                   *
@@ -63,6 +63,9 @@ The sources are:
 * shodan: Shodan Computer search engine, will search for ports and banner of the
          discovered hosts  (http://www.shodanhq.com/)
 
+* hunter: Hunter search engine (you need to add your Key in the discovery/huntersearch.py file) 
+
+* google-certificates: Google Certificate Transparency report 
 
 Active:
 -------
@@ -76,13 +79,14 @@ Modules that need API keys to work:
 * googleCSE: You need to create a Google Custom Search engine(CSE), and add your
  Google API key and CSE ID in the plugin (discovery/googleCSE.py)
 * shodan: You need to provide your API key in discovery/shodansearch.py (one provided at the moment)
-
+* hunter: You need to provide your API key in discovery/huntersearch.py (none is provided at the moment)  
 
 Dependencies:
 ------------
 * Requests library (http://docs.python-requests.org/en/latest/)
 `pip install requests`
-
+* Beautiful Soup 4 (https://pypi.org/project/beautifulsoup4//)
+`  pip install beautifulsoup4`
 
 Changelog in 3.0.0:
 ------------------
@@ -103,6 +107,8 @@ https://github.com/laramies/theHarvester
 
 Thanks:
 -------
+* Matthew Brown @NotoriousRebel
+* Janos Zold @Jzold 
 * John Matherly -  SHODAN project
 * Lee Baird for suggestions and bugs reporting
 * Ahmed Aboul Ela - subdomain names dictionary (big and small)

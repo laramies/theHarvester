@@ -8,6 +8,7 @@ class parser:
         self.ipaddresses = []
         self.soup = BeautifulSoup(results.results,features="html.parser")
         self.hostnames = []
+        self.urls = []
         self.numberofpages = 0
 
     def search_hostnames(self):
@@ -16,8 +17,8 @@ class parser:
             for hostnameitem in hostnamelist:
                 self.hostnames.append(hostnameitem.text)
             return self.hostnames
-        except Exception,e:
-            print("Error occurred: " + e) 
+        except Exception as e:
+            print("Error occurred: " + str(e))
 
     def search_ipaddresses(self):
         try:
@@ -25,8 +26,8 @@ class parser:
             for ipaddressitem in ipaddresslist:
                 self.ipaddresses.append(ipaddressitem.text.strip())
             return self.ipaddresses
-        except Exception,e:
-            print("Error occurred: " + e)
+        except Exception as e:
+            print("Error occurred: " + str(e))
 
     def search_numberofpages(self):
         try:
@@ -35,5 +36,8 @@ class parser:
                 if (item.text !='next'):            #to filter out pagination
                     self.numberofpages+=1
             return self.numberofpages
-        except Exception,e:
-            print("Error occurred: " + e)
+        except Exception as e:
+            print("Error occurred: " + str(e))
+
+              
+   

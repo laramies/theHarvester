@@ -1,5 +1,5 @@
 
-from .base import Converter
+from base import Converter
 from ...helpers import iterate_files, get_ip, get_screenshot
 
 # Needed for decoding base64-strings in Python3

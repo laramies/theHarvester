@@ -1,13 +1,9 @@
-import string
-import httplib
-import sys
 import myparser
 import re
 import time
-
+import requests
 
 class search_exalead:
-
     def __init__(self, word, limit, start):
         self.word = word
         self.files = "pdf"
@@ -20,37 +16,27 @@ class search_exalead:
         self.counter = start
 
     def do_search(self):
-        h = httplib.HTTP(self.server)
-        h.putrequest('GET', "/search/web/results/?q=%40" + self.word +
-                     "&elements_per_page=50&start_index=" + str(self.counter))
-        h.putheader('Host', self.hostname)
-        h.putheader(
-            'Referer',
-            "http://" +
-            self.hostname +
-            "/search/web/results/?q=%40" +
-            self.word)
-        h.putheader('User-agent', self.userAgent)
-        h.endheaders()
-        returncode, returnmsg, headers = h.getreply()
-        self.results = h.getfile().read()
+        url = 'http:// ' + self.server + '/search/web/results/?q=%40' + self.word \
+              + "&elements_per_page=50&start_index=" + str(self.counter)
+        headers = {
+            'Host': self.hostname,
+            'Referer': ("http://" +self.hostname +"/search/web/results/?q=%40" +self.word),
+            'User-agent': self.userAgent
+        }
+        h = requests.get(url=url, headers=headers)
+        self.results = h.text
         self.totalresults += self.results
 
     def do_search_files(self, files):
-        h = httplib.HTTP(self.server)
-        h.putrequest(
-            'GET',
-            "search/web/results/?q=" +
-            self.word +
-            "filetype:" +
-            self.files +
-            "&elements_per_page=50&start_index=" +
-            self.counter)
-        h.putheader('Host', self.hostname)
-        h.putheader('User-agent', self.userAgent)
-        h.endheaders()
-        returncode, returnmsg, headers = h.getreply()
-        self.results = h.getfile().read()
+        url = 'http:// ' + self.server + '/search/web/results/?q=%40' + self.word \
+              + "filetype:" + self.files + "&elements_per_page=50&start_index=" + str(self.counter)
+        headers = {
+            'Host': self.hostname,
+            'Referer': ("http://" + self.hostname + "/search/web/results/?q=%40" + self.word),
+            'User-agent': self.userAgent
+        }
+        h = requests.get(url=url, headers=headers)
+        self.results = h.text
         self.totalresults += self.results
 
     def check_next(self):
@@ -58,7 +44,7 @@ class search_exalead:
         nextres = renext.findall(self.results)
         if nextres != []:
             nexty = "1"
-            print str(self.counter)
+            print(str(self.counter))
         else:
             nexty = "0"
         return nexty
@@ -79,7 +65,7 @@ class search_exalead:
         while self.counter <= self.limit:
             self.do_search()
             self.counter += 50
-            print "\tSearching " + str(self.counter) + " results..."
+            print("\ tSearching " + str(self.counter) + " results...")
 
     def process_files(self, files):
         while self.counter < self.limit:

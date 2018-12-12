@@ -30,7 +30,7 @@ except:
 
 # Define a basestring type if necessary for Python3 compatibility
 try:
-    basestring
+    str
 except NameError:
     basestring = str
 
@@ -230,7 +230,7 @@ class Shodan:
         :param minify: (optional) True to only return the list of ports and the general host information, no banners, False otherwise.
         :type minify: bool
         """
-        if isinstance(ips, basestring):
+        if isinstance(ips, str):
             ips = [ips]
         
         params = {}

@@ -7,17 +7,16 @@
 #
 
 # routines for lazy people.
-import Base
-import string
-
+from discovery.DNS import Base
 
 def revlookup(name):
     "convenience routine for doing a reverse lookup of an address"
     if Base.defaults['server'] == []:
         Base.DiscoverNameServers()
-    a = string.split(name, '.')
+    a = name.split('.')
     a.reverse()
-    b = string.join(a, '.') + '.in-addr.arpa'
+    s = '.'
+    b = s.join(a) + '.in-addr.arpa'
     # this will only return one of any records returned.
     return Base.DnsRequest(b, qtype='ptr').req().answers[0]['data']
 

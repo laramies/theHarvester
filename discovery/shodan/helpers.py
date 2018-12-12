@@ -5,7 +5,7 @@ import json
 from .exception import APIError
 
 try:
-    basestring
+    str
 except NameError:
     basestring = str
 
@@ -16,7 +16,7 @@ def create_facet_string(facets):
     """
     facet_str = ''
     for facet in facets:
-        if isinstance(facet, basestring):
+        if isinstance(facet, str):
             facet_str += facet
         else:
             facet_str += '%s:%s'  % (facet[0], facet[1])
@@ -94,7 +94,7 @@ def iterate_files(files, fast=False):
         except:
             pass
     
-    if isinstance(files, basestring):
+    if isinstance(files, str):
         files = [files]
     
     for filename in files:
