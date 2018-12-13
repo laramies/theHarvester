@@ -16,6 +16,7 @@ try:
     date4=datetime.date(2018,12,8)
     date5=datetime.date(2018,12,10)
     HTML='''
+    <head><script src="https://cdn.plot.ly/plotly-latest.min.js"></script></head>
     <html>
     <body>
     <h1 style="text-align: center;"><span style="color: #ff0000;">theHarvester Scan Report</span></h1>
@@ -79,7 +80,7 @@ try:
     barchart=plotly.offline.plot({
     "data": [go.Bar(x=barcolumns,y=bardata)],
     "layout": layout,
-    }, auto_open=False,filename='report.html', output_type='div')
+    }, auto_open=False,include_plotlyjs=False,filename='report.html', output_type='div')
     HTML+=barchart
     
     
