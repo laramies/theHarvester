@@ -125,6 +125,56 @@ try:
     "data": data,
     "layout": layout}, auto_open=False,include_plotlyjs=False,filename='report.html', output_type='div')
     HTML+=scatterchart
+
+    trace1 = go.Bar(
+        x=[date1,date2,date3,date4,date5],
+        y=[20, 21, 23, 20, 17],
+        text=['domain1.com', 'domain2.com', 'domain3.com', 'domain4.com', 'domain5.com'],
+        name='hosts'
+    )
+    trace2 = go.Bar(
+        x=[date1,date2,date3,date4,date5],
+        y=[24, 23, 29, 30, 25],
+        text=['domain1.com', 'domain2.com', 'domain3.com', 'domain4.com', 'domain5.com'],
+        name='IP addresses'
+    )
+
+    trace3 = go.Bar(
+        x=[date1,date2,date3,date4,date5],
+        y=[3, 5, 2, 1, 3],
+        text=['domain1.com', 'domain2.com', 'domain3.com', 'domain4.com', 'domain5.com'],
+        name='vhosts'
+    )
+
+    trace4 = go.Bar(
+        x=[date1,date2,date3,date4,date5],
+        y=[13, 10, 12, 13, 12],
+        text=['domain1.com', 'domain2.com', 'domain3.com', 'domain4.com', 'domain5.com'],
+        name='shodan'
+    )
+
+    trace5 = go.Bar(
+        x=[date1,date2,date3,date4,date5],
+        y=[30, 34, 35, 41, 31],
+        text=['domain1.com', 'domain2.com', 'domain3.com', 'domain4.com', 'domain5.com'],
+        name='email'
+    )
+
+    data = [trace1, trace2, trace3, trace4, trace5]
+    layout = go.Layout(
+        barmode='stack'
+    )
+
+    layout = dict(title = "theHarvester scan history",
+              xaxis = dict(title = 'Date'),
+              yaxis = dict(title = 'Hits'),
+              )
+
+    barchart=plotly.offline.plot({
+    "data": data,
+    "layout": layout,
+    }, auto_open=False,include_plotlyjs=False,filename='report.html', output_type='div')
+    HTML+=barchart
     HTML+='<p><span style="color: #000000;">Report generated on '+ str(datetime.datetime.now())+'</span></p>'
     HTML+='''
     </body>
