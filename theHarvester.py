@@ -652,6 +652,31 @@ def start(argv):
     #Reporting#######################################################
     if filename != "":
         try:
+            #NEW REPORT BEGINS
+            print("NEW REPORTING BEGINS:")
+            db = stash.stash_manager()
+            scanboarddata = db.getscanboarddata()
+            latestscandomain = db.getlatestscandomain(word)
+            from lib import statichtmlgenerator
+            generator = statichtmlgenerator.htmlgenerator(word)
+            HTMLcode = generator.generatedashboardcode(scanboarddata)
+            HTMLcode += generator.generatescandetailsdomain(word, latestscandomain)
+            from lib import reportgraph
+            import datetime
+            graph = reportgraph.graphgenerator(word)
+            HTMLcode += graph.drawlatestscangraph(word, latestscandomain)
+            #HTMLcode += graph.drawscattergraph(word, latestscandata)
+            HTMLcode += '<p><span style="color: #000000;">Report generated on '+ str(datetime.datetime.now())+'</span></p>'
+            HTMLcode +='''
+            </body>
+            </html>
+            '''
+            Html_file= open("report.html","w")
+            Html_file.write(HTMLcode)
+            Html_file.close()
+            print("NEW REPORTING FINISHED:")
+            #NEW REPORT FINISHED
+
             print("[+] Saving files...")
             html = htmlExport.htmlExport(
                 all_emails,
