@@ -1,16 +1,16 @@
 import random
 import requests
+import time
 import censysparser
 
 class search_censys:
 
-    def __init__(self, word):
+    def __init__(self, word, limit):
         self.word = word
-        self.url = ""
-        self.page = ""
+        self.limit = int(limit)
         self.results = ""
         self.total_results = ""
-        self.server = "censys.io"
+        self.server = "https://censys.io/"
         self.userAgent = ["(Mozilla/5.0 (Windows; U; Windows NT 6.0;en-US; rv:1.9.2) Gecko/20100115 Firefox/3.6",
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36"
           ,("Mozilla/5.0 (Linux; Android 7.0; SM-G892A Build/NRD90M; wv) " +
@@ -26,8 +26,10 @@ class search_censys:
         
     def do_search(self):
         try:
-            headers = {'user-agent': random.choice(self.userAgent),'Accept':'*/*','Referer':self.url}
+            self.url = self.server + 'ipv4/_search?q=' + self.word
+            headers = {'user-agent': random.choice(self.userAgent),'Accept':'*/*','Referer': self.url}
             response = requests.get(self.url, headers=headers)
+<<<<<<< HEAD
             self.results = response.content
             print ('-')
             self.total_results += self.results
@@ -50,11 +52,38 @@ class search_censys:
             except Exception as e:
                 print("Error occurred: " + str(e))
             self.counter+=1
+=======
+            print("\tSearching Censys results..")
+            self.results = response.text
+            self.total_results += self.results
+            pageLimit = self.get_pageLimit(self.total_results)
+            if pageLimit != -1:
+                for i in range(2, pageLimit+1):
+                    try:
+                        url = self.server + 'ipv4?q=' + self.word + '&page=' + str(i)
+                        headers = {'user-agent': random.choice(self.userAgent), 'Accept': '*/*', 'Referer': url}
+                        time.sleep(.5)
+                        response = requests.get(url, headers=headers)
+                        self.results = response.text
+                        self.total_results += self.results
+                    except Exception:
+                        continue
+        except Exception as e:
+            print(e)
+
+    def get_pageLimit(self, first_page_text):
+        for line in str(first_page_text).strip().splitlines():
+            if 'Page:' in line:
+                line = line[18:] #where format is Page:1/# / is at index 18 and want everything after /
+                return int(line)
+        return -1
+
+>>>>>>> 8953b4d1006153c1c82cea52d4776c1f87cd42da
 
     def get_hostnames(self):
         try:
             hostnames = censysparser.parser(self)
-            return hostnames.search_hostnames()
+            return hostnames.search_hostnames(self.total_results)
         except Exception as e:
             print("Error occurred: " + str(e))
 

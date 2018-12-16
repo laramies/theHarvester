@@ -28,7 +28,7 @@ class search_threatcrowd:
         self.totalresults += self.results
 
     def get_hostnames(self):
-        rawres = myparser.parser(self.results, self.word)
+        rawres = myparser.parser(self.totalresults, self.word)
         return rawres.hostnames()
 
     def process(self):

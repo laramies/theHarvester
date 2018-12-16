@@ -317,8 +317,13 @@ def start(argv):
                         print("[-] Searching in Censys:")
                         from discovery import censys
                         #import locally or won't work
+<<<<<<< HEAD
                         search = censys.search_censys(word)
                         search.process()
+=======
+                        search = censys.search_censys(word, limit)
+                        search.do_search()
+>>>>>>> 8953b4d1006153c1c82cea52d4776c1f87cd42da
                         all_emails = []
                         all_ip = search.get_ipaddresses()
                         all_hosts = search.get_hostnames()
@@ -495,14 +500,19 @@ def start(argv):
         print('No hosts found as all_hosts is not defined.')
         sys.exit()
 
+<<<<<<< HEAD
     if all_emails == []:
+=======
+
+    if all_emails == [] or all_emails is None:
+>>>>>>> 8953b4d1006153c1c82cea52d4776c1f87cd42da
         print("No emails found")
     else:
         print(("\n".join(all_emails)))
 
     print("\033[1;33;40m \n[+] Hosts found in search engines:")
     print("------------------------------------")
-    if all_hosts == [] or all_emails is None:
+    if all_hosts == [] or all_hosts is None:
         print("No hosts found")
     else:
         total = len(all_hosts)

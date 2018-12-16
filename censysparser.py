@@ -6,14 +6,15 @@ class parser:
     def __init__(self, results):
         self.results = results
         self.ipaddresses = []
-        self.soup = BeautifulSoup(results.results,features="html.parser")
+        self.soup = BeautifulSoup(results.results, features="html.parser")
         self.hostnames = []
         self.urls = []
         self.numberofpages = 0
 
-    def search_hostnames(self):
+    def search_hostnames(self, totalresults):
         try:
-            hostnamelist = self.soup.findAll('tt')
+            hostnamelist = BeautifulSoup(totalresults, 'html.parser').findAll('tt')
+            #hostnamelist = self.soup.findAll('tt')
             for hostnameitem in hostnamelist:
                 self.hostnames.append(hostnameitem.text)
             return self.hostnames
