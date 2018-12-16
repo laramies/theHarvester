@@ -130,11 +130,8 @@ class stash_manager:
         try:
             conn = sqlite3.connect(self.db)
             c = conn.cursor()
-            #self.domainscanhistory[domain].append(domain)
-            
             c.execute('''SELECT DISTINCT(find_date) FROM results WHERE domain=?''',(domain,))
             dates = c.fetchall()
-            #id = 1      #this is an ID for the dict
             for date in dates:
                 c = conn.cursor()
                 c.execute('''SELECT COUNT(*) from results WHERE domain=? AND type="host" AND find_date=?''',(domain,date[0]))
@@ -151,7 +148,6 @@ class stash_manager:
                 c = conn.cursor()
                 c.execute('''SELECT COUNT(*) from results WHERE domain=? AND type="shodan" AND find_date=?''',(domain,date[0]))
                 countshodan = c.fetchone()
-                #self.domainscanhistory[str(date[0])] = date[0]
                 results = {
                 "date" : str(date[0]),
                 "hosts" : str(counthost[0]),
@@ -160,13 +156,7 @@ class stash_manager:
                 "vhost" : str(countvhost[0]),
                 "shodan" : str(countshodan[0])
                 }
-                #results = domain+";"+str(date[0])+";"+str(counthost[0])+";"+str(countemail[0])+";"+str(countip[0])+";"+str(countvhost[0])+";"+str(countshodan[0])
-                #self.domainscanhistory["result"+str(id)] = results
-                #self.domainscanhistory.append[domain,pdate,counthost,countemail,countip,countvhost,countshodan]
                 self.domainscanhistory.append(results)
-                #self.domainscanhistory[str(date[0])] = date[0]
-                #self.domainscanhistory["domain"] = domain
-                #id += 1
             return self.domainscanhistory
         except Exception as e:
             print(e)
