@@ -3,6 +3,7 @@ try:
     import plotly.plotly as py
     import plotly
     import stash
+    from datetime import datetime
     try:
         db=stash.stash_manager()
         db.do_init()
@@ -15,8 +16,13 @@ try:
             self.domain = domain
             self.bardata = []
             self.barcolumns = []
-            self.scatterxhosts = []
-            self.scatteryhosts = []
+            self.scatterxdata = []
+            self.scattercountemails = []
+            self.scattercounthosts = []
+            self.scattercountips = []
+            self.scattercountshodans = []
+            self.scattercountvhosts = []
+            
         
         def drawlatestscangraph(self,domain,latestscandata):
             self.barcolumns= ['email','host','ip','shodan','vhost']
@@ -25,8 +31,6 @@ try:
             self.bardata.append(latestscandata['ip'])
             self.bardata.append(latestscandata['shodan'])
             self.bardata.append(latestscandata['vhost'])
-            # for i in scandata:
-            #     self.bardata.append(scandata[i])
             layout = dict(title = "Last scan - number of targets identified for "+ domain +" on "+str(latestscandata["latestdate"]),
             xaxis = dict(title = 'Targets'),
             yaxis = dict(title = 'Hits'),)
@@ -36,42 +40,45 @@ try:
             }, auto_open=False,include_plotlyjs=False,filename='report.html', output_type='div')
             return barchartcode
 
-        def drawscattergraph(self,domain,latestscandata):
-            scandata = latestscandata
-            for i in scandata['scandetails']:
-                self.scatterxhosts.append(i)
-                self.scatteryhosts.append(scandata[i])
+        def drawscattergraphscanhistory(self,domain,scanhistorydomain):
+            scandata = scanhistorydomain
+            for i in scandata:
+                self.scatterxdata.append(datetime.date(datetime.strptime(i['date'],'%Y-%m-%d')))
+                self.scattercountemails.append(int(i['email']))
+                self.scattercounthosts.append(int(i['hosts']))
+                self.scattercountips.append(int(i['ip']))
+                self.scattercountshodans.append(int(i['shodan']))
+                self.scattercountvhosts.append(int(i['vhost']))
 
             trace0 = go.Scatter(
-            x=[date1,date2,date3,date4,date5],
-            y=[3, 10, 9, 17,10],
+            x=self.scatterxdata,
+            y=self.scattercounthosts,
             mode = 'lines+markers',
             name = 'hosts')
 
             trace1 = go.Scatter(
-            x=[date1,date2,date3,date4,date5],
-            y=[2, 6, 9, 10, 5],
+            x=self.scatterxdata,
+            y=self.scattercountips,
             mode = 'lines+markers',
             name = 'IP address')
 
             trace2 = go.Scatter(
-            x=[date1,date2,date3,date4,date5],
-            y=[1, 2, 4, 6, 2],
+            x=self.scatterxdata,
+            y=self.scattercountvhosts,
             mode = 'lines+markers',
             name = 'vhost')
 
             trace3 = go.Scatter(
-            x=[date1,date2,date3,date4,date5],
-            y=[2, 3, 2, 5, 7],
+            x=self.scatterxdata,
+            y=self.scattercountshodans,
             mode = 'lines+markers',
             name = 'shodan')
 
             trace4 = go.Scatter(
-            x=[date1,date2,date3,date4,date5],
-            y=[12, 14, 20, 24, 20],
+            x=self.scatterxdata,
+            y=self.scattercountemails,
             mode = 'lines+markers',
             name = 'email')
-
 
             data = [trace0, trace1, trace2, trace3, trace4]
             layout = dict(title = "Scanning history for " + domain,
