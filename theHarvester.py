@@ -476,18 +476,6 @@ def start(argv):
     # Results############################################################
     print("\n\033[1;32;40mHarvesting results")
 
-
-    if (len(all_ip) == 0):
-        print("No IP addresses found")
-    else:
-        print("\033[1;33;40m \n[+] IP addresses found in search engines:")
-        print("------------------------------------")
-        for i in all_ip:
-            print(i)
-
-    print("\n\n[+] Emails found:")
-    print("------------------")
-
     # Sanity check to see if all_emails and all_hosts is defined
     try:
         all_emails
@@ -500,6 +488,17 @@ def start(argv):
         print('No hosts found as all_hosts is not defined.')
         sys.exit()
 
+    if (len(all_ip) == 0):
+        if(len(all_hosts) == 0): #if all hosts is not 0 we have ips
+            print("No IP addresses found")
+    else:
+        print("\033[1;33;40m \n[+] IP addresses found in search engines:")
+        print("------------------------------------")
+        for i in all_ip:
+            print(i)
+
+    print("\n\n[+] Emails found:")
+    print("------------------")
     if all_emails == []:
         print("No emails found")
     else:
