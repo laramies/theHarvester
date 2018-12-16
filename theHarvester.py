@@ -100,6 +100,7 @@ def start(argv):
     takeover_check = False
     google_dorking = False
     limit = 500
+    all_ip=[]
     full  = []
     dnsserver = ""
     for value in enumerate(opts):
