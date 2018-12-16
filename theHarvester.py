@@ -144,14 +144,10 @@ def start(argv):
                         search.process(google_dorking)
                         all_emails = search.get_emails()
                         all_hosts = search.get_hostnames()
-                        for x in all_hosts:
-                            try:
-                                db=stash.stash_manager()
-                                db.store(word,x,'host','google')
-                            except Exception as e:
-                                print(e)
+                        db=stash.stash_manager()
+                        db.store_all(word,all_hosts,'host','google')
+                        db.store_all(word,all_emails,'email','google')
 
-                    
                     if engineitem == "netcraft":
                         print("[-] Searching in Netcraft:")
                         search = netcraft.search_netcraft(word)
@@ -188,7 +184,6 @@ def start(argv):
                         db=stash.stash_manager()
                         db.store_all(word,all_hosts,'host','virustotal')
                 
-
                     if engineitem == "crtsh":
                         print("[-] Searching in CRT.sh:")
                         search = crtsh.search_crtsh(word)
@@ -220,6 +215,9 @@ def start(argv):
                         search.process(bingapi)
                         all_emails = search.get_emails()
                         all_hosts = search.get_hostnames()
+                        db=stash.stash_manager()
+                        db.store_all(word,all_hosts,'email','bing')
+                        db.store_all(word,all_hosts,'host','bing')                   
 
                     elif engineitem == "dogpile":
                         print("[-] Searching in Dogpilesearch..")
@@ -227,6 +225,8 @@ def start(argv):
                         search.process()
                         all_emails = search.get_emails()
                         all_hosts = search.get_hostnames()
+                        db.store_all(word,all_hosts,'email','dogpile')
+                        db.store_all(word,all_hosts,'host','dogpile')   
 
                     elif engineitem == "pgp":
                         print("[-] Searching in PGP key server..")
@@ -236,8 +236,7 @@ def start(argv):
                         all_hosts = search.get_hostnames()
                         db=stash.stash_manager()
                         db.store_all(word,all_hosts,'host','pgp')
-                        db=stash.stash_manager()
-                        db.store_all(word,all_emails,'emails','pgp')
+                        db.store_all(word,all_emails,'email','pgp')
 
                     elif engineitem == "yahoo":
                         print("[-] Searching in Yahoo..")
@@ -247,8 +246,7 @@ def start(argv):
                         all_hosts = search.get_hostnames()
                         db=stash.stash_manager()
                         db.store_all(word,all_hosts,'host','yahoo')
-                        db.store_all(word,all_emails,'emails','yahoo')
-
+                        db.store_all(word,all_emails,'email','yahoo')
 
                     elif engineitem == "baidu":
                         print("[-] Searching in Baidu..")
@@ -258,7 +256,7 @@ def start(argv):
                         all_hosts = search.get_hostnames()
                         db=stash.stash_manager()
                         db.store_all(word,all_hosts,'host','baidu')
-                        db.store_all(word,all_emails,'emails','baidu')
+                        db.store_all(word,all_emails,'email','baidu')
 
                     elif engineitem == "googleplus":
                         print("[-] Searching in Google+ ..")
@@ -267,6 +265,8 @@ def start(argv):
                         people = search.get_people()
                         print("Users from Google+:")
                         print("====================")
+                        db=stash.stash_manager()
+                        db.store_all(word,people,'name','googleplus')
                         for user in people:
                             print(user)
                         sys.exit()
@@ -276,6 +276,8 @@ def start(argv):
                         search = twittersearch.search_twitter(word, limit)
                         search.process()
                         people = search.get_people()
+                        db=stash.stash_manager()
+                        db.store_all(word,people,'name','twitter')
                         print("Users from Twitter:")
                         print("-------------------")
                         for user in people:
@@ -287,6 +289,8 @@ def start(argv):
                         search = linkedinsearch.search_linkedin(word, limit)
                         search.process()
                         people = search.get_people()
+                        db=stash.stash_manager()
+                        db.store_all(word,people,'name','linkedin')
                         print("Users from Linkedin:")
                         print("-------------------")
                         for user in people:
@@ -298,6 +302,8 @@ def start(argv):
                         search = googlesearch.search_google(word, limit, start)
                         search.process_profiles()
                         people = search.get_profiles()
+                        db=stash.stash_manager()
+                        db.store_all(word,people,'name','google-profile')
                         print("Users from Google profiles:")
                         print("---------------------------")
                         for users in people:
@@ -312,6 +318,9 @@ def start(argv):
                         search.process()
                         all_emails = search.get_emails()
                         all_hosts = search.get_hostnames()
+                        db=stash.stash_manager()
+                        db.store_all(word,all_hosts,'host','hunter')
+                        db.store_all(word,all_emails,'email','hunter')
 
                     elif engineitem == "censys":
                         print("[-] Searching in Censys:")
@@ -337,6 +346,7 @@ def start(argv):
                         all_ip = search.get_ipaddresses()
                         db = stash.stash_manager()
                         db.store_all(word,all_ip,'ip','cymon')
+
                     
                     elif engineitem == "trello":
                         print("[-] Searching in Trello:")
@@ -346,6 +356,9 @@ def start(argv):
                         search.process()
                         all_emails = search.get_emails()
                         all_hosts = search.get_urls()
+                        db=stash.stash_manager()
+                        db.store_all(word,all_hosts,'host','trello')
+                        db.store_all(word,all_emails,'email','trello')
                         for x in all_hosts:
                             print (x)
                         sys.exit()
@@ -362,7 +375,7 @@ def start(argv):
                         hosts = search.get_hostnames()
                         all_emails.extend(emails)
                         db=stash.stash_manager()
-                        db.store_all(word,all_hosts,'email','google')
+                        db.store_all(word,all_emails,'email','google')
                         all_hosts.extend(hosts)
                         db=stash.stash_manager()
                         db.store_all(word,all_hosts,'host','google')
@@ -377,7 +390,7 @@ def start(argv):
                         db.store_all(word,all_hosts,'host','PGP')
                         all_emails.extend(emails)
                         db=stash.stash_manager()
-                        db.store_all(word,all_hosts,'email','PGP')
+                        db.store_all(word,all_emails,'email','PGP')
                         
                         print("[-] Searching in Netcraft server..")
                         search = netcraft.search_netcraft(word)
@@ -426,6 +439,7 @@ def start(argv):
                         all_emails.extend(emails)
                         #Clean up email list, sort and uniq
                         all_emails=sorted(set(all_emails))
+                        db.store_all(word,all_emails,'email','bing')
 
                         print("[-] Searching in Hunter:")
                         from discovery import huntersearch
@@ -439,22 +453,16 @@ def start(argv):
                         db.store_all(word, all_hosts, 'host', 'hunter')
                         all_emails.extend(emails)
                         all_emails = sorted(set(all_emails))
+                        db.store_all(word,all_emails,'email','hunter')
 
                         print ("[-] Searching in Google Certificate transparency report..")
                         search = googlecertificates.search_googlecertificates(word, limit, start)
                         search.process()
                         domains = search.get_domains()
                         all_hosts.extend(domains)
-                        
-                        print("[-] Searching in Cymon:")
-                        from discovery import cymon
-                        search = cymon.search_cymon(word)
-                        search.process()
-                        all_emails = []
-                        all_ip = search.get_ipaddresses()
                         db = stash.stash_manager()
-                        db.store_all(word,all_ip,'ip','cymon')
-
+                        db.store_all(word, all_hosts, 'host', 'google-certificates')
+                     
                         print("[-] Searching in Censys:")
                         from discovery import censys
                         search = censys.search_censys(word)
@@ -519,7 +527,10 @@ def start(argv):
                     pass
                 else:
                     host_ip.append(ip.lower())
-        
+
+        db=stash.stash_manager()
+        db.store_all(word,host_ip,'ip','DNS-resolver')
+    
     #DNS Brute force####################################################
     dnsres = []
     if dnsbrute == True:
@@ -669,6 +680,31 @@ def start(argv):
     #Reporting#######################################################
     if filename != "":
         try:
+            #NEW REPORT BEGINS
+            print("NEW REPORTING BEGINS:")
+            db = stash.stash_manager()
+            scanboarddata = db.getscanboarddata()
+            latestscandomain = db.getlatestscandomain(word)
+            from lib import statichtmlgenerator
+            generator = statichtmlgenerator.htmlgenerator(word)
+            HTMLcode = generator.generatedashboardcode(scanboarddata)
+            HTMLcode += generator.generatescandetailsdomain(word, latestscandomain)
+            from lib import reportgraph
+            import datetime
+            graph = reportgraph.graphgenerator(word)
+            HTMLcode += graph.drawlatestscangraph(word, latestscandomain)
+            #HTMLcode += graph.drawscattergraph(word, latestscandata)
+            HTMLcode += '<p><span style="color: #000000;">Report generated on '+ str(datetime.datetime.now())+'</span></p>'
+            HTMLcode +='''
+            </body>
+            </html>
+            '''
+            Html_file= open("report.html","w")
+            Html_file.write(HTMLcode)
+            Html_file.close()
+            print("NEW REPORTING FINISHED:")
+            #NEW REPORT FINISHED
+
             print("[+] Saving files...")
             html = htmlExport.htmlExport(
                 all_emails,
