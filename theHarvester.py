@@ -39,10 +39,8 @@ print("*******************************************************************\033[9
 
 def usage():
     comm = os.path.basename(sys.argv[0])
-
     if os.path.dirname(sys.argv[0]) == os.getcwd():
         comm = "./" + comm
-
     print("Usage: theharvester options \n")
     print("       -d: Domain to search or company name")
     print("""       -b: data source: baidu, bing, bingapi, cenysy, crtsh, dogpile,
@@ -68,7 +66,6 @@ def usage():
     print(("        " + comm + " -d microsoft.com -l 200 -g -b google"))
     print(("        " + comm + " -d apple.com -b googleCSE -l 500 -s 300"))
     print(("        " + comm + " -d cornell.edu -l 100 -b bing -h \n"))
-
 
 def start(argv):
     if len(sys.argv) < 4:
@@ -209,7 +206,6 @@ def start(argv):
                         db.store_all(word, all_hosts, 'email', 'googleCSE')
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'googleCSE')
-
                     elif engineitem == "bing" or engineitem == "bingapi":
                         print("[-] Searching in Bing:")
                         search = bingsearch.search_bing(word, limit, start)
@@ -248,7 +244,6 @@ def start(argv):
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'yahoo')
                         db.store_all(word, all_emails, 'emails', 'yahoo')
-
 
                     elif engineitem == "baidu":
                         print("[-] Searching in Baidu..")
@@ -466,7 +461,6 @@ def start(argv):
                         db = stash.stash_manager()
                         db.store_all(word, all_ip, 'ip', 'censys')
                         db.store_all(word, all_hosts, 'host', 'censys')
-
             else:
                 usage()
                 print(
