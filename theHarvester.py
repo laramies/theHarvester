@@ -133,7 +133,7 @@ def start(argv):
             dnstld = True
         elif opt == '-b':
             engines = set(arg.split(','))
-            supportedengines = set(["baidu","bing","crtsh","censys","bingapi","dogpile","google","googleCSE","virustotal","threatcrowd","googleplus","google-profiles",'google-certificates',"linkedin","pgp","twitter","trello","vhost","yahoo","netcraft","hunter","all"])
+            supportedengines = set(["baidu","bing","crtsh","censys","cymon","bingapi","dogpile","google","googleCSE","virustotal","threatcrowd","googleplus","google-profiles",'google-certificates',"linkedin","pgp","twitter","trello","vhost","yahoo","netcraft","hunter","all"])
             if set(engines).issubset(supportedengines):
                 print("found supported engines")
                 print(("[-] Starting harvesting process for domain: " + word +  "\n"))
@@ -343,6 +343,19 @@ def start(argv):
                         db=stash.stash_manager()
                         db.store_all(word,all_hosts,'host','censys')
                         db.store_all(word,all_ip,'ip','censys')
+                        
+                    elif engineitem == "cymon":
+                        print("[-] Searching in Cymon:")
+                        from discovery import cymon
+                        #import locally or won't work
+                        search = cymon.search_cymon(word)
+                        search.process()
+                        all_emails = []
+                        all_hosts = []
+                        all_ip = search.get_ipaddresses()
+                        db = stash.stash_manager()
+                        db.store_all(word,all_ip,'ip','cymon')
+
                     
                     elif engineitem == "trello":
                         print("[-] Searching in Trello:")
@@ -458,17 +471,32 @@ def start(argv):
                         all_hosts.extend(domains)
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'google-certificates')
+                     
+                        print("[-] Searching in Censys:")
+                        from discovery import censys
+                        search = censys.search_censys(word)
+                        search.process()
+                        all_emails = []
+                        all_ip = search.get_ipaddresses()
+                        all_hosts = search.get_hostnames()
+                        db = stash.stash_manager()
+                        db.store_all(word,all_ip,'ip','censys')
+                        db.store_all(word,all_hosts,'host','censys')
 
             else:
-            #if engine not in ("baidu", "bing", "crtsh","bingapi","dogpile","google", "googleCSE","virustotal","threatcrowd", "googleplus", "google-profiles","linkedin", "pgp", "twitter", "vhost", "yahoo","netcraft","all"):
                 usage()
-                print("Invalid search engine, try with: baidu, bing, bingapi, crtsh, dogpile, google, googleCSE, virustotal, netcraft, googleplus, google-profiles, linkedin, pgp, twitter, vhost, yahoo, hunter, all")
+                print("Invalid search engine, try with: baidu, bing, bingapi, crtsh, censys, cymon, dogpile, google, googleCSE, virustotal, netcraft, googleplus, google-profiles, linkedin, pgp, twitter, vhost, yahoo, hunter, all")
                 sys.exit()
-            #else:
-            #    pass
 
     #Results############################################################
     print("\n\033[1;32;40mHarvesting results")
+    if (len(all_ip) == 0):
+        print("No IP addresses found")
+    else:
+        print("\033[1;33;40m \n[+] IP addresses found in search engines:")
+        print("------------------------------------")
+        for i in all_ip:
+            print(i)
     print("\n\n[+] Emails found:")
     print("------------------")
 
@@ -483,7 +511,6 @@ def start(argv):
     except NameError:
         print('No hosts found as all_hosts is not defined.')
         sys.exit()
-
 
     if all_emails == []:
         print("No emails found")
@@ -509,9 +536,10 @@ def start(argv):
                     pass
                 else:
                     host_ip.append(ip.lower())
+
         db=stash.stash_manager()
         db.store_all(word,host_ip,'ip','DNS-resolver')
-
+    
     #DNS Brute force####################################################
     dnsres = []
     if dnsbrute == True:
