@@ -99,6 +99,7 @@ def start(argv):
     google_dorking = False
     limit = 500
     full = []
+    all_ip = []
     dnsserver = ""
     for value in enumerate(opts):
         opt = value[1][0]
@@ -474,6 +475,8 @@ def start(argv):
 
     # Results############################################################
     print("\n\033[1;32;40mHarvesting results")
+
+
     if (len(all_ip) == 0):
         print("No IP addresses found")
     else:
@@ -481,6 +484,7 @@ def start(argv):
         print("------------------------------------")
         for i in all_ip:
             print(i)
+
     print("\n\n[+] Emails found:")
     print("------------------")
 
