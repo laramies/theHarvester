@@ -12,7 +12,7 @@ try:
 except:
     print("Requests library not found, please install it before proceeding\n")
     sys.exit()
-    
+
 try:
     import bs4
 except:
@@ -157,7 +157,7 @@ def start(argv):
                         all_emails = []
                         db=stash.stash_manager()
                         db.store_all(word,all_hosts,'host','netcraft')
-                        
+
                     if engineitem == "google-certificates":
                         print ("[-] Searching in Google Certificate transparency report..")
        	                search = googlecertificates.search_googlecertificates(word, limit, start)
@@ -175,7 +175,7 @@ def start(argv):
                         all_emails = []
                         db=stash.stash_manager()
                         db.store_all(word,all_hosts,'host','threatcrowd')
-                
+
                     if engineitem == "virustotal":
                         print("[-] Searching in Virustotal:")
                         search = virustotal.search_virustotal(word)
@@ -184,7 +184,7 @@ def start(argv):
                         all_emails = []
                         db=stash.stash_manager()
                         db.store_all(word,all_hosts,'host','virustotal')
-                
+
                     if engineitem == "crtsh":
                         print("[-] Searching in CRT.sh:")
                         search = crtsh.search_crtsh(word)
