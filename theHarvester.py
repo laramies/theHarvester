@@ -690,12 +690,12 @@ def start(argv):
     #Reporting#######################################################
     if filename != "":
         try:
-            #NEW REPORT BEGINS
             print("NEW REPORTING BEGINS:")
             db = stash.stash_manager()
             scanboarddata = db.getscanboarddata()
             latestscandomain = db.getlatestscandomain(word)
             scanhistorydomain = db.getscanhistorydomain(word)
+            scanstatistics = db.getscanstatistics()
             from lib import statichtmlgenerator
             generator = statichtmlgenerator.htmlgenerator(word)
             HTMLcode = generator.generatedashboardcode(scanboarddata)
@@ -705,6 +705,7 @@ def start(argv):
             graph = reportgraph.graphgenerator(word)
             HTMLcode += graph.drawlatestscangraph(word, latestscandomain)
             HTMLcode += graph.drawscattergraphscanhistory(word, scanhistorydomain)
+            HTMLcode += generator.generatescanstatistics(scanstatistics)
             HTMLcode += '<p><span style="color: #000000;">Report generated on '+ str(datetime.datetime.now())+'</span></p>'
             HTMLcode +='''
             </body>
@@ -713,8 +714,7 @@ def start(argv):
             Html_file= open("report.html","w")
             Html_file.write(HTMLcode)
             Html_file.close()
-            print("NEW REPORTING FINISHED:")
-            #NEW REPORT FINISHED
+            print("NEW REPORTING FINISHED!")
 
             print("[+] Saving files...")
             html = htmlExport.htmlExport(

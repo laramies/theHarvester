@@ -11,6 +11,7 @@ class stash_manager:
         self.latestscandomain = {}
         self.domainscanhistory = []
         self.scanboarddata = {}
+        self.scanstats = []
           
     def do_init(self):
         conn = sqlite3.connect(self.db) 
@@ -99,32 +100,32 @@ class stash_manager:
             conn.close()
 
     def getscanboarddata(self):
-            try:
-                conn = sqlite3.connect(self.db)
-                c = conn.cursor()
-                c.execute('''SELECT COUNT(*) from results WHERE type="host"''')
-                data = c.fetchone()
-                self.scanboarddata["host"] = data[0]
-                c.execute('''SELECT COUNT(*) from results WHERE type="email"''')
-                data = c.fetchone()
-                self.scanboarddata["email"] = data[0]
-                c.execute('''SELECT COUNT(*) from results WHERE type="ip"''')
-                data = c.fetchone()
-                self.scanboarddata["ip"] = data[0]
-                c.execute('''SELECT COUNT(*) from results WHERE type="vhost"''')
-                data = c.fetchone()
-                self.scanboarddata["vhost"] = data[0]
-                c.execute('''SELECT COUNT(*) from results WHERE type="shodan"''')
-                data = c.fetchone()
-                self.scanboarddata["shodan"] = data[0]
-                c.execute('''SELECT COUNT(DISTINCT(domain)) FROM results ''')
-                data = c.fetchone()
-                self.scanboarddata["domains"] = data[0]
-                return self.scanboarddata
-            except Exception as e:
-                print(e)
-            finally:
-                conn.close()
+        try:
+            conn = sqlite3.connect(self.db)
+            c = conn.cursor()
+            c.execute('''SELECT COUNT(*) from results WHERE type="host"''')
+            data = c.fetchone()
+            self.scanboarddata["host"] = data[0]
+            c.execute('''SELECT COUNT(*) from results WHERE type="email"''')
+            data = c.fetchone()
+            self.scanboarddata["email"] = data[0]
+            c.execute('''SELECT COUNT(*) from results WHERE type="ip"''')
+            data = c.fetchone()
+            self.scanboarddata["ip"] = data[0]
+            c.execute('''SELECT COUNT(*) from results WHERE type="vhost"''')
+            data = c.fetchone()
+            self.scanboarddata["vhost"] = data[0]
+            c.execute('''SELECT COUNT(*) from results WHERE type="shodan"''')
+            data = c.fetchone()
+            self.scanboarddata["shodan"] = data[0]
+            c.execute('''SELECT COUNT(DISTINCT(domain)) FROM results ''')
+            data = c.fetchone()
+            self.scanboarddata["domains"] = data[0]
+            return self.scanboarddata
+        except Exception as e:
+            print(e)
+        finally:
+            conn.close()            
 
     def getscanhistorydomain(self,domain):
         try:
@@ -162,3 +163,23 @@ class stash_manager:
             print(e)
         finally:
             conn.close()
+
+    def getscanstatistics(self):
+        try:
+            conn = sqlite3.connect(self.db)
+            c = conn.cursor()       
+            c.execute('''
+            SELECT domain,find_date, type, source, count(*)
+            FROM results
+            GROUP BY domain,find_date, type, source
+            ''')
+            results = c.fetchall()
+            self.scanstats = results
+            return self.scanstats
+        except Exception as e:
+            print(e)
+        finally:
+            conn.close()
+        
+            
+        
