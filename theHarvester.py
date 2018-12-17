@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 import sys
 import os
@@ -12,7 +12,7 @@ try:
 except:
     print("Requests library not found, please install it before proceeding\n")
     sys.exit()
-    
+
 try:
     import bs4
 except:
@@ -48,7 +48,7 @@ def usage():
     print("       -d: Domain to search or company name")
     print("""       -b: data source: baidu, bing, bingapi, cenysy, crtsh, dogpile,
                         google, google-certificates, googleCSE, googleplus, google-profiles,
-                        hunterio, linkedin, netcraft, pgp, threatcrowd,
+                        hunter, linkedin, netcraft, pgp, threatcrowd,
                         twitter, vhost, virustotal, yahoo, all""")
     print("       -g: use google dorking instead of normal google search")
     print("       -s: start in result number X (default: 0)")
@@ -157,7 +157,7 @@ def start(argv):
                         all_emails = []
                         db=stash.stash_manager()
                         db.store_all(word,all_hosts,'host','netcraft')
-                        
+
                     if engineitem == "google-certificates":
                         print ("[-] Searching in Google Certificate transparency report..")
        	                search = googlecertificates.search_googlecertificates(word, limit, start)
@@ -175,7 +175,7 @@ def start(argv):
                         all_emails = []
                         db=stash.stash_manager()
                         db.store_all(word,all_hosts,'host','threatcrowd')
-                
+
                     if engineitem == "virustotal":
                         print("[-] Searching in Virustotal:")
                         search = virustotal.search_virustotal(word)
@@ -184,7 +184,7 @@ def start(argv):
                         all_emails = []
                         db=stash.stash_manager()
                         db.store_all(word,all_hosts,'host','virustotal')
-                
+
                     if engineitem == "crtsh":
                         print("[-] Searching in CRT.sh:")
                         search = crtsh.search_crtsh(word)
