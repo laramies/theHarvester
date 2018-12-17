@@ -218,7 +218,8 @@ def start(argv):
                         all_hosts = search.get_hostnames()
                         db=stash.stash_manager()
                         db.store_all(word,all_hosts,'email','bing')
-                        db.store_all(word,all_hosts,'host','bing')                   
+                        db.store_all(word,all_hosts,'host','bing')
+                        all_emails = []
 
                     elif engineitem == "dogpile":
                         print("[-] Searching in Dogpilesearch..")
@@ -268,6 +269,8 @@ def start(argv):
                         print("====================")
                         db=stash.stash_manager()
                         db.store_all(word,people,'name','googleplus')
+                        all_emails = []
+                        all_hosts = []
                         for user in people:
                             print(user)
                         sys.exit()
@@ -278,6 +281,8 @@ def start(argv):
                         search.process()
                         people = search.get_people()
                         db=stash.stash_manager()
+                        all_emails = []
+                        all_hosts = []
                         db.store_all(word,people,'name','twitter')
                         print("Users from Twitter:")
                         print("-------------------")
@@ -291,6 +296,8 @@ def start(argv):
                         search.process()
                         people = search.get_people()
                         db=stash.stash_manager()
+                        all_emails = []
+                        all_hosts = []
                         db.store_all(word,people,'name','linkedin')
                         print("Users from Linkedin:")
                         print("-------------------")
@@ -304,6 +311,8 @@ def start(argv):
                         search.process_profiles()
                         people = search.get_profiles()
                         db=stash.stash_manager()
+                        all_emails = []
+                        all_hosts = []
                         db.store_all(word,people,'name','google-profile')
                         print("Users from Google profiles:")
                         print("---------------------------")
@@ -681,11 +690,12 @@ def start(argv):
     #Reporting#######################################################
     if filename != "":
         try:
-            #NEW REPORT BEGINS
             print("NEW REPORTING BEGINS:")
             db = stash.stash_manager()
             scanboarddata = db.getscanboarddata()
             latestscandomain = db.getlatestscandomain(word)
+            scanhistorydomain = db.getscanhistorydomain(word)
+            scanstatistics = db.getscanstatistics()
             from lib import statichtmlgenerator
             generator = statichtmlgenerator.htmlgenerator(word)
             HTMLcode = generator.generatedashboardcode(scanboarddata)
@@ -694,7 +704,8 @@ def start(argv):
             import datetime
             graph = reportgraph.graphgenerator(word)
             HTMLcode += graph.drawlatestscangraph(word, latestscandomain)
-            #HTMLcode += graph.drawscattergraph(word, latestscandata)
+            HTMLcode += graph.drawscattergraphscanhistory(word, scanhistorydomain)
+            HTMLcode += generator.generatescanstatistics(scanstatistics)
             HTMLcode += '<p><span style="color: #000000;">Report generated on '+ str(datetime.datetime.now())+'</span></p>'
             HTMLcode +='''
             </body>
@@ -703,8 +714,7 @@ def start(argv):
             Html_file= open("report.html","w")
             Html_file.write(HTMLcode)
             Html_file.close()
-            print("NEW REPORTING FINISHED:")
-            #NEW REPORT FINISHED
+            print("NEW REPORTING FINISHED!")
 
             print("[+] Saving files...")
             html = htmlExport.htmlExport(
