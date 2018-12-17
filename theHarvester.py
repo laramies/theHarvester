@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 import sys
 import os
@@ -48,7 +48,7 @@ def usage():
     print("       -d: Domain to search or company name")
     print("""       -b: data source: baidu, bing, bingapi, cenysy, crtsh, dogpile,
                         google, google-certificates, googleCSE, googleplus, google-profiles,
-                        hunterio, linkedin, netcraft, pgp, threatcrowd,
+                        hunter, linkedin, netcraft, pgp, threatcrowd,
                         twitter, vhost, virustotal, yahoo, all""")
     print("       -g: use google dorking instead of normal google search")
     print("       -s: start in result number X (default: 0)")
