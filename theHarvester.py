@@ -207,7 +207,7 @@ def start(argv):
                         db=stash.stash_manager()
                         hosts = search.get_hostnames()
                         all_hosts.extend(hosts)
-                        db.store_all(word,all_hosts,'email','googleCSE')
+                        db.store_all(word,all_emails,'email','googleCSE')
                         db=stash.stash_manager()
                         db.store_all(word,all_hosts,'host','googleCSE')
 
@@ -223,7 +223,7 @@ def start(argv):
                         hosts = search.get_hostnames()
                         all_hosts.extend(hosts)
                         db=stash.stash_manager()
-                        db.store_all(word,all_hosts,'email','bing')
+                        db.store_all(word,all_emails,'email','bing')
                         db.store_all(word,all_hosts,'host','bing')
 
                     elif engineitem == "dogpile":
@@ -232,7 +232,7 @@ def start(argv):
                         search.process()
                         all_emails = search.get_emails()
                         all_hosts = search.get_hostnames()
-                        db.store_all(word,all_hosts,'email','dogpile')
+                        db.store_all(word,all_emails,'email','dogpile')
                         db.store_all(word,all_hosts,'host','dogpile')   
 
                     elif engineitem == "pgp":
@@ -299,7 +299,7 @@ def start(argv):
                         search = linkedinsearch.search_linkedin(word, limit)
                         search.process()
                         people = search.get_people()
-                        db=stash.stash_manager()
+                        db = stash.stash_manager()
                         db.store_all(word,people,'name','linkedin')
                         print("Users from Linkedin:")
                         print("-------------------")
