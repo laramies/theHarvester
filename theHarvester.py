@@ -10,13 +10,13 @@ import time
 try:
     import requests
 except:
-    print("Requests library not found, please install it before proceeding\n")
+    print("Requests library not found, please install it before proceeding.\n\n")
     sys.exit()
 
 try:
     import bs4
 except:
-    print("\nBeautifulSoup library not found, please install it before proceeding\n")
+    print("\nBeautifulSoup library not found, please install it before proceeding.\n\n")
     sys.exit()
 
 from discovery import *
@@ -149,7 +149,7 @@ def start(argv):
                         all_emails.extend(emails)
                         hosts = search.get_hostnames()
                         all_hosts.extend(hosts)
-                        db=stash.stash_manager()
+                        db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'google')
                         db.store_all(word, all_emails, 'email', 'google')
 
@@ -159,7 +159,7 @@ def start(argv):
                         search.process()
                         hosts = search.get_hostnames()
                         all_hosts.extend(hosts)
-                        db=stash.stash_manager()
+                        db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'netcraft')
 
                     if engineitem == "google-certificates":
@@ -168,7 +168,7 @@ def start(argv):
                         search.process()
                         hosts = search.get_domains()
                         all_hosts.extend(hosts)
-                        db=stash.stash_manager()
+                        db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'google-certificates')
 
                     if engineitem == "threatcrowd":
@@ -177,7 +177,7 @@ def start(argv):
                         search.process()
                         hosts = search.get_hostnames()
                         all_hosts.extend(hosts)
-                        db=stash.stash_manager()
+                        db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'threatcrowd')
 
                     if engineitem == "virustotal":
@@ -186,7 +186,7 @@ def start(argv):
                         search.process()
                         hosts = search.get_hostnames()
                         all_hosts.extend(hosts)
-                        db=stash.stash_manager()
+                        db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'virustotal')
 
                     if engineitem == "crtsh":
@@ -204,11 +204,11 @@ def start(argv):
                         search.process()
                         search.store_results()
                         all_emails = search.get_emails()
-                        db=stash.stash_manager()
+                        db = stash.stash_manager()
                         hosts = search.get_hostnames()
                         all_hosts.extend(hosts)
                         db.store_all(word, all_hosts, 'email', 'googleCSE')
-                        db=stash.stash_manager()
+                        db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'googleCSE')
 
                     elif engineitem == "bing" or engineitem == "bingapi":
