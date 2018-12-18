@@ -101,6 +101,6 @@ Thanks:
 -------
 * Matthew Brown @NotoriousRebel
 * Janos Zold @Jzold 
-* John Matherly - SHODAN project
+* John Matherly - Shodan project
 * Lee Baird @discoverscripts - suggestions and bugs reporting
 * Ahmed Aboul Ela - subdomain names dictionaries (big and small)
