@@ -1,6 +1,6 @@
 """
-Module that contains constant used across plugins
-Contains list of user agents and function to get random delay
+Module that contains constants used across plugins
+Contains list of user agents and function to get random delay and user agent.
 
 From https://github.com/tamimibrahim17/List-of-user-agents
 """
