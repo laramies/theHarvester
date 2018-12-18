@@ -164,7 +164,7 @@ def start(argv):
 
                     if engineitem == "google-certificates":
                         print ("[-] Searching in Google Certificate transparency report..")
-       	                search = googlecertificates.search_googlecertificates(word, limit, start)
+                        search = googlecertificates.search_googlecertificates(word, limit, start)
                         search.process()
                         hosts = search.get_domains()
                         all_hosts.extend(hosts)
@@ -323,7 +323,7 @@ def start(argv):
                     elif engineitem == "hunter":
                         print("[-] Searching in Hunter:")
                         from discovery import huntersearch
-                        #import locally or won't work
+                        # Import locally or won't work
                         search = huntersearch.search_hunter(word, limit, start)
                         search.process()
                         emails = search.get_emails()
@@ -337,7 +337,7 @@ def start(argv):
                     elif engineitem == "censys":
                         print("[-] Searching in Censys:")
                         from discovery import censys
-                        #import locally or won't work
+                        # Import locally or won't work
                         search = censys.search_censys(word)
                         search.process()
                         all_ip = search.get_ipaddresses()
@@ -350,7 +350,7 @@ def start(argv):
                     elif engineitem == "cymon":
                         print("[-] Searching in Cymon:")
                         from discovery import cymon
-                        #import locally or won't work
+                        # Import locally or won't work
                         search = cymon.search_cymon(word)
                         search.process()
                         all_ip = search.get_ipaddresses()
@@ -361,7 +361,7 @@ def start(argv):
                     elif engineitem == "trello":
                         print("[-] Searching in Trello:")
                         from discovery import trello
-                        #import locally or won't work
+                        # Import locally or won't work
                         search = trello.search_trello(word,limit)
                         search.process()
                         all_emails = search.get_emails()
@@ -446,13 +446,13 @@ def start(argv):
                         db=stash.stash_manager()
                         db.store_all(word,all_hosts,'host','bing')
                         all_emails.extend(emails)
-                        #Clean up email list, sort and uniq
+                        # Clean up email list and sort by unique
                         all_emails=sorted(set(all_emails))
                         db.store_all(word,all_emails,'email','bing')
 
                         print("[-] Searching in Hunter:")
                         from discovery import huntersearch
-                        #import locally
+                        # Import locally
                         search = huntersearch.search_hunter(word, limit, start)
                         search.process()
                         emails = search.get_emails()
@@ -487,7 +487,7 @@ def start(argv):
                 print("Invalid search engine, try with: baidu, bing, bingapi, censys, crtsh, cymon, dogpile, google, googleCSE, googleplus, google-certificates, google-profiles, hunter, linkedin, netcraft, pgp, threatcrowd, trello, twitter, vhost, virustotal, yahoo, all")
                 sys.exit()
 
-    #Results############################################################
+    # Results ############################################################
     print("\n\033[1;32;40mHarvesting results")
     if (len(all_ip) == 0):
         print("No IP addresses found")
@@ -499,7 +499,7 @@ def start(argv):
     print("\n\n[+] Emails found:")
     print("------------------")
 
-    #Sanity check to see if all_emails and all_hosts is defined
+    # Sanity check to see if all_emails and all_hosts are defined
     try:
         all_emails
     except NameError:
@@ -539,7 +539,7 @@ def start(argv):
         db=stash.stash_manager()
         db.store_all(word,host_ip,'ip','DNS-resolver')
     
-    #DNS Brute force####################################################
+    # DNS Brute force ################################################
     dnsres = []
     if dnsbrute == True:
         print("\n\033[94m[-] Starting DNS brute force: \033[1;33;40m")
@@ -555,7 +555,7 @@ def start(argv):
         db=stash.stash_manager()
         db.store_all(word,dnsres,'host','dns_bruteforce')
 
-    #Port Scanning #################################################
+    # Port Scanning #################################################
     if ports_scanning == True:
             print("\n\n\033[1;32;40m[-] Scanning ports (active):\n")
             for x in full:
@@ -578,7 +578,7 @@ def start(argv):
                         print(e)
                     
 
-    #DNS reverse lookup#################################################
+    # DNS reverse lookup ################################################
     dnsrev = []
     if dnslookup == True:
         print("\n[+] Starting active queries:")
@@ -608,7 +608,7 @@ def start(argv):
         for xh in dnsrev:
             print(xh)
         
-    #DNS TLD expansion###################################################
+    # DNS TLD expansion #################################################
     dnstldres = []
     if dnstld == True:
         print("[-] Starting DNS TLD expansion:")
@@ -622,7 +622,7 @@ def start(argv):
             if y not in full:
                 full.append(y)
 
-    #Virtual hosts search###############################################
+    # Virtual hosts search ##############################################
     if virtual == "basic":
         print("\n[+] Virtual hosts:")
         print("------------------")
@@ -640,7 +640,7 @@ def start(argv):
         vhost=sorted(set(vhost))
     else:
         pass
-    #Shodan search####################################################
+    # Shodan search ####################################################
     shodanres = []
     shodanvisited = []
     if shodan == True:
@@ -657,7 +657,7 @@ def start(argv):
                     a = shodansearch.search_shodan(ip)
                     shodanvisited.append(ip)
                     results = a.run()
-                    #time.sleep(2)
+                    # time.sleep(2)
                     for res in results['data']:
                         shodanres.append(str("%s:%s - %s - %s - %s," % (res['ip_str'], res['port'],res['os'],res['isp'])))
             except Exception as e:
@@ -670,7 +670,7 @@ def start(argv):
         pass
 
     ###################################################################
-    # Here i need to add explosion mode.
+    # Here we need to add explosion mode.
     # Tengo que sacar los TLD para hacer esto.
     recursion = None
     if recursion:
@@ -685,7 +685,7 @@ def start(argv):
     else:
         pass
 
-    #Reporting#######################################################
+    # Reporting #######################################################
     if filename != "":
         try:
             print("NEW REPORTING BEGINS:")
@@ -705,7 +705,7 @@ def start(argv):
             HTMLcode += graph.drawscattergraphscanhistory(word, scanhistorydomain)
             HTMLcode += generator.generatescanstatistics(scanstatistics)
             HTMLcode += '<p><span style="color: #000000;">Report generated on '+ str(datetime.datetime.now())+'</span></p>'
-            HTMLcode +='''
+            HTMLcode += '''
             </body>
             </html>
             '''
@@ -757,11 +757,11 @@ def start(argv):
                     # print " res[1] " + res[1] # banner/info
                     # print " res[2] " + res[2] # port
                     file.write('<shodan>')
-                    #page.h3(res[0])
+                    # page.h3(res[0])
                     file.write('<host>' + res[0] + '</host>')
-                    #page.a("Port :" + res[2])
+                    # page.a("Port :" + res[2])
                     file.write('<port>' + res[2] + '</port>')
-                    #page.pre(res[1])
+                    # page.pre(res[1])
                     file.write('<banner><!--' + res[1] + '--></banner>')
                     
                     
@@ -775,7 +775,7 @@ def start(argv):
                     shodanalysis=sorted(set(shodanalysis))
                     file.write('<servers>')
                     for x in shodanalysis:
-                        #page.pre(x)
+                        # page.pre(x)
                         file.write('<server>' + x + '</server>')
                     file.write('</servers>')
                     
