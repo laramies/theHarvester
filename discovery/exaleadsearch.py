@@ -2,6 +2,7 @@ import myparser
 import re
 import time
 import requests
+from discovery.constants import *
 
 class search_exalead:
     def __init__(self, word, limit, start):
@@ -11,7 +12,6 @@ class search_exalead:
         self.totalresults = ""
         self.server = "www.exalead.com"
         self.hostname = "www.exalead.com"
-        self.userAgent = "(Mozilla/5.0 (Windows; U; Windows NT 6.0;en-US; rv:1.9.2) Gecko/20100115 Firefox/4.0"
         self.limit = limit
         self.counter = start
 
@@ -21,7 +21,7 @@ class search_exalead:
         headers = {
             'Host': self.hostname,
             'Referer': ("http://" +self.hostname +"/search/web/results/?q=%40" +self.word),
-            'User-agent': self.userAgent
+            'User-agent': getUserAgent()
         }
         h = requests.get(url=url, headers=headers)
         self.results = h.text
@@ -33,7 +33,7 @@ class search_exalead:
         headers = {
             'Host': self.hostname,
             'Referer': ("http://" + self.hostname + "/search/web/results/?q=%40" + self.word),
-            'User-agent': self.userAgent
+            'User-agent': getUserAgent()
         }
         h = requests.get(url=url, headers=headers)
         self.results = h.text
@@ -70,7 +70,7 @@ class search_exalead:
     def process_files(self, files):
         while self.counter < self.limit:
             self.do_search_files(files)
-            time.sleep(1)
+            time.sleep(getDelay())
             more = self.check_next()
             if more == "1":
                 self.counter += 50

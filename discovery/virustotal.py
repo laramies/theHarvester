@@ -1,5 +1,6 @@
 import requests
 import myparser
+from discovery.constants import *
 
 class search_virustotal:
 
@@ -9,7 +10,6 @@ class search_virustotal:
         self.totalresults = ""
         self.server = "www.google.com"
         self.hostname = "www.google.com"
-        self.userAgent = "(Mozilla/5.0 (Windows; U; Windows NT 6.0;en-US; rv:1.9.2) Gecko/20100116 Firefox/3.7"
         self.quantity = "100"
         self.counter = 0
         
@@ -19,7 +19,7 @@ class search_virustotal:
             urly="https://www.virustotal.com/en/domain/" + self.word + "/information/"
         except Exception as e:
             print(e)
-        headers = {'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:34.0) Gecko/20100101 Firefox/34.0'}
+        headers = {'User-Agent': getUserAgent()}
         try:
             r=requests.get(urly,headers=headers)
         except Exception as e:

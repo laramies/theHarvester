@@ -9,7 +9,7 @@ class search_hunter:
         self.limit = 100
         self.start = start
         self.key = ""
-        if self.key == "":
+        if self.key == "10ae8b7dc5815aa241cecf3884be509aec2f0669":
             print("You need an API key in order to use the Hunter search engine. You can get one here: https://hunter.io")
             sys.exit()
         self.results = ""

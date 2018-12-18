@@ -5,7 +5,6 @@ import os
 import re
 import getopt
 import stash
-import time
 
 try:
     import requests
@@ -35,7 +34,6 @@ print("* Coded by Christian Martorella                                   *")
 print("* Edge-Security Research                                          *")
 print("* cmartorella@edge-security.com                                   *")
 print("*******************************************************************\033[94m\n\n")
-
 
 def usage():
     comm = os.path.basename(sys.argv[0])
@@ -457,7 +455,7 @@ def start(argv):
                         search.process()
                         all_emails = []
                         all_ip = search.get_ipaddresses()
-                        all_hosts = search.get_hostnames()
+                        all_hosts = search.get_hostnames() #TODO change to extend to not overwrite
                         db = stash.stash_manager()
                         db.store_all(word, all_ip, 'ip', 'censys')
                         db.store_all(word, all_hosts, 'host', 'censys')
@@ -627,7 +625,6 @@ def start(argv):
         if full == []:
             print('No host to search, exiting.')
             sys.exit()
-
         for x in full:
             try:
                 ip = x.split(":")[1]
@@ -689,7 +686,6 @@ def start(argv):
             file.write('<?xml version="1.0" encoding="UTF-8"?><theHarvester>')
             for x in all_emails:
                 file.write('<email>' + x + '</email>')
-
             for x in full:
                 x = x.split(":")
                 if len(x) == 2:
@@ -702,7 +698,6 @@ def start(argv):
                     file.write('<vhost>' + '<ip>' + x[1] + '</ip><hostname>' + x[0] + '</hostname>' + '</vhost>')
                 else:
                     file.write('<vhost>' + x + '</vhost>')
-
             if shodanres != []:
                 shodanalysis = []
                 for x in shodanres:
@@ -717,12 +712,10 @@ def start(argv):
                     file.write('<port>' + res[2] + '</port>')
                     # page.pre(res[1])
                     file.write('<banner><!--' + res[1] + '--></banner>')
-
                     reg_server = re.compile('Server:.*')
                     temp = reg_server.findall(res[1])
                     if temp != []:
                         shodanalysis.append(res[0] + ":" + temp[0])
-
                     file.write('</shodan>')
                 if shodanalysis != []:
                     shodanalysis = sorted(set(shodanalysis))
@@ -731,7 +724,6 @@ def start(argv):
                         # page.pre(x)
                         file.write('<server>' + x + '</server>')
                     file.write('</servers>')
-
             file.write('</theHarvester>')
             file.flush()
             file.close()
@@ -748,6 +740,5 @@ if __name__ == "__main__":
         print("Search interrupted by user..")
     except Exception:
         import traceback
-
         print(traceback.print_exc())
         sys.exit()

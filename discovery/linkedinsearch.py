@@ -1,5 +1,7 @@
 import requests
 import myparser
+from discovery.constants import *
+import time
 
 class search_linkedin:
 
@@ -19,7 +21,8 @@ class search_linkedin:
         except Exception as e:
             print(e)
         try:
-            r=requests.get(urly)
+            headers = {'User-Agent': getUserAgent()}
+            r=requests.get(urly,headers=headers)
         except Exception as e:
             print(e)
         self.results = r.text
@@ -32,5 +35,6 @@ class search_linkedin:
     def process(self):
         while (self.counter < self.limit):
             self.do_search()
+            time.sleep(getDelay())
             self.counter += 100
             print("\tSearching " + str(self.counter) + " results..")
