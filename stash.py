@@ -1,6 +1,5 @@
-import sqlite3
 import datetime
-
+import sqlite3
 
 class stash_manager:
 
@@ -180,6 +179,3 @@ class stash_manager:
             print(e)
         finally:
             conn.close()
-        
-            
-        

@@ -11,7 +11,7 @@ class parser:
     def search_ipaddresses(self):
         try:
             tags = self.soup.findAll('td')
-            allip = re.findall( r'[0-9]+(?:\.[0-9]+){3}',str(tags))
+            allip = re.findall(r'[0-9]+(?:\.[0-9]+){3}',str(tags))
             self.ipaddresses = set(allip)
             return self.ipaddresses
         except Exception as e:
