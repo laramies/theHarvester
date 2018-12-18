@@ -30,7 +30,7 @@ print("* | __| '_ \ / _ \  / /_/ / _` | '__\ \ / / _ \/ __| __/ _ \ '__| *")
 print("* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *")
 print("*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *")
 print("*                                                                 *")
-print("* theHarvester Ver. 3.0.5                                         *")
+print("* theHarvester Ver. 3.0.5-a                                       *")
 print("* Coded by Christian Martorella                                   *")
 print("* Edge-Security Research                                          *")
 print("* cmartorella@edge-security.com                                   *")
@@ -46,11 +46,11 @@ def usage():
 
     print("Usage: theharvester options \n")
     print("       -d: Domain to search or company name")
-    print("""       -b: data source: baidu, bing, bingapi, censys, crtsh, dogpile,
-                        google, google-certificates, googleCSE, googleplus, google-profiles,
-                        hunter, linkedin, netcraft, pgp, threatcrowd,
-                        twitter, vhost, virustotal, yahoo, all""")
-    print("       -g: use Google dorking instead of normal Google search")
+    print("""       -b: data source: baidu, bing, bingapi, censys, crtsh, cymon, dogpile,
+                        google, googleCSE, googleplus, google-certificates, google-profiles,
+                        hunter, linkedin, netcraft, pgp, threatcrowd, trello, twitter, vhost, 
+                        virustotal, yahoo, all""")
+    print("       -g: use Google Dorking instead of normal Google search")
     print("       -s: start in result number X (default: 0)")
     print("       -v: verify host name via DNS resolution and search for virtual hosts")
     print("       -f: save the results into an HTML and XML file (both)")
@@ -61,7 +61,7 @@ def usage():
     print("       -p: port scan the detected hosts and check for Takeovers (80,443,22,21,8080)")
     print("       -l: limit the number of results to work with(Bing goes from 50 to 50 results,")
     print("            Google 100 to 100, and PGP doesn't use this option)")
-    print("       -h: use SHODAN database to query discovered hosts")
+    print("       -h: use Shodan database to query discovered hosts")
     print("\nExamples:")
     print(("        " + comm + " -d microsoft.com -l 500 -b google -f myresults.html"))
     print(("        " + comm + " -d microsoft.com -b pgp, virustotal"))
@@ -136,7 +136,7 @@ def start(argv):
             dnstld = True
         elif opt == '-b':
             engines = set(arg.split(','))
-            supportedengines = set(["baidu","bing","crtsh","censys","cymon","bingapi","dogpile","google","googleCSE","virustotal","threatcrowd","googleplus","google-profiles",'google-certificates',"linkedin","pgp","twitter","trello","vhost","yahoo","netcraft","hunter","all"])
+            supportedengines = set(["baidu","bing","bingapi","censys","crtsh","cymon","dogpile","google","googleCSE","googleplus",'google-certificates',"google-profiles","hunter","linkedin","netcraft","pgp","threatcrowd","trello","twitter","vhost","virustotal","yahoo","all"])
             if set(engines).issubset(supportedengines):
                 print("found supported engines")
                 print(("[-] Starting harvesting process for domain: " + word +  "\n"))
@@ -484,7 +484,7 @@ def start(argv):
 
             else:
                 usage()
-                print("Invalid search engine, try with: baidu, bing, bingapi, crtsh, censys, cymon, dogpile, google, googleCSE, virustotal, netcraft, googleplus, google-profiles, linkedin, pgp, twitter, vhost, yahoo, hunter, all")
+                print("Invalid search engine, try with: baidu, bing, bingapi, censys, crtsh, cymon, dogpile, google, googleCSE, googleplus, google-certificates, google-profiles, hunter, linkedin, netcraft, pgp, threatcrowd, trello, twitter, vhost, virustotal, yahoo, all")
                 sys.exit()
 
     #Results############################################################

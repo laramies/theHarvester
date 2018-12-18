@@ -31,7 +31,11 @@ Passive:
 
 * bingapi: Microsoft search engine, through the API (Requires API key, see below.)
 
+* censys: 
+
 * crtsh: Comodo Certificate search - www.crt.sh
+
+* cymon:
 
 * dogpile: Dogpile search engine - www.dogpile.com
 
@@ -49,6 +53,8 @@ Passive:
 
 * linkedin: Google search engine, specific search for Linkedin users
 
+* netcraft:
+
 * pgp: PGP key server - mit.edu
 
 * shodan: Shodan search engine, will search for ports and banners from discovered
@@ -56,11 +62,17 @@ Passive:
 
 * threatcrowd: Open source threat intelligence - www.threatcrowd.org
 
+* trello:
+
 * twitter: Twitter accounts related to a specific domain (Uses Google search.)
 
 * vhost: Bing virtual hosts search
 
+* virustotal: 
+
 * yahoo: Yahoo search engine
+
+* all: 
 
 Active:
 -------
