@@ -1,6 +1,7 @@
 from bs4 import BeautifulSoup
 import re
 
+
 class parser:
 
     def __init__(self, results):
@@ -33,7 +34,7 @@ class parser:
         try:
             items = self.soup.findAll(href=re.compile("page"))
             for item in items:
-                if (item.text !='next'):   # to filter out pagination
+                if (item.text != 'next'):  # to filter out pagination
                     self.numberofpages += 1
             return self.numberofpages
         except Exception as e:
