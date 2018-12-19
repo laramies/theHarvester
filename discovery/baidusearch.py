@@ -1,6 +1,7 @@
 import myparser
 import time
 import requests
+from discovery.constants import *
 
 class search_baidu:
 
@@ -9,7 +10,6 @@ class search_baidu:
         self.total_results = ""
         self.server = "www.baidu.com"
         self.hostname = "www.baidu.com"
-        self.userAgent = "(Mozilla/5.0 (Windows; U; Windows NT 6.0;en-US; rv:1.9.2) Gecko/20100115 Firefox/3.6"
         self.limit = limit
         self.counter = 0
 
@@ -17,15 +17,15 @@ class search_baidu:
         url = 'http://' + self.server + "/s?wd=%40" + self.word + "&pn=" + str(self.counter) + "&oq=" + self.word
         headers = {
             'Host': self.hostname,
-            'User-agent': self.userAgent
+            'User-agent': getUserAgent()
         }
         h = requests.get(url=url, headers=headers)
+        time.sleep(getDelay())
         self.total_results += h.text
 
     def process(self):
         while self.counter <= self.limit and self.counter <= 1000:
             self.do_search()
-            time.sleep(1)
             print("\tSearching " + str(self.counter) + " results...")
             self.counter += 10
 
