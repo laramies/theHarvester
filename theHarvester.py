@@ -146,8 +146,8 @@ def start(argv):
                         search = googlesearch.search_google(word, limit, start)
                         search.process(google_dorking)
                         emails = search.get_emails()
-                        all_emails.extend(emails)
                         hosts = search.get_hostnames()
+                        all_emails.extend(emails)
                         all_hosts.extend(hosts)
                         db=stash.stash_manager()
                         db.store_all(word,all_hosts,'host','google')
@@ -691,24 +691,26 @@ def start(argv):
             print("NEW REPORTING BEGINS:")
             db = stash.stash_manager()
             scanboarddata = db.getscanboarddata()
-            latestscandomain = db.getlatestscandomain(word)
+            latestscanresults = db.getlatestscanresults(word)
+            latestscanchartdata = db.latestscanchartdata(word)
             scanhistorydomain = db.getscanhistorydomain(word)
-            scanstatistics = db.getscanstatistics()
+            pluginscanstatistics = db.getpluginscanstatistics()
             from lib import statichtmlgenerator
             generator = statichtmlgenerator.htmlgenerator(word)
-            HTMLcode = generator.generatedashboardcode(scanboarddata)
-            HTMLcode += generator.generatescandetailsdomain(word, latestscandomain)
+            HTMLcode = generator.beginhtml()
+            HTMLcode += generator.generatelatestscanresults(pluginscanstatistics)
             from lib import reportgraph
             import datetime
             graph = reportgraph.graphgenerator(word)
-            HTMLcode += graph.drawlatestscangraph(word, latestscandomain)
+            HTMLcode += graph.drawlatestscangraph(word, latestscanchartdata)
             HTMLcode += graph.drawscattergraphscanhistory(word, scanhistorydomain)
-            HTMLcode += generator.generatescanstatistics(scanstatistics)
+            HTMLcode += generator.generatepluginscanstatistics(pluginscanstatistics)
+            HTMLcode += generator.generatedashboardcode(scanboarddata)
             HTMLcode += '<p><span style="color: #000000;">Report generated on '+ str(datetime.datetime.now())+'</span></p>'
             HTMLcode +='''
-            </body>
-            </html>
-            '''
+</body>
+</html>
+'''
             Html_file= open("report.html","w")
             Html_file.write(HTMLcode)
             Html_file.close()

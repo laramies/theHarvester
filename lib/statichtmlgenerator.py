@@ -2,6 +2,50 @@ class htmlgenerator:
     def __init__(self,word):
         self.domain = word
 
+    def generatelatestscanresults(self, latestscanresults):
+        try:
+            html='''
+<h1 style="text-align: center;"><span style="color: #ff0000;">theHarvester Scan Report</span></h1>
+<h2><span style="color: #000000;"><strong>Latest scan report </strong></span></h2>
+<p>&nbsp;</p>
+<table style="height: 63px; border-color: #000000;" border="#000000" width="811">
+<tbody>
+<tr>
+<td style="width: 156.042px; text-align: center;"><strong>Date</strong></td>
+<td style="width: 156.042px; text-align: center;"><strong>Domain</strong></td>
+<td style="width: 157.153px; text-align: center;"><strong>Plugin</strong></td>
+<td style="width: 157.153px; text-align: center;"><strong>Record type</strong></td>
+<td style="width: 157.153px; text-align: center;"><strong>Result</strong></td>
+</tr>
+<tr>
+'''
+            for i in latestscanresults:
+                html += '<td style="width: 156.042px;">' + str(i[0]) + "</td>"
+                html += '<td style="width: 156.042px;">' + str(i[1]) + "</td>"
+                html += '<td style="width: 157.153px;">' + str(i[2]) + "</td>"
+                html += '<td style="width: 157.153px;">' + str(i[3]) + "</td>"
+                html += '<td style="width: 157.153px;">' + str(i[4]) + "</td>"
+                html +='</tr>'
+            html +='''
+</tbody>
+</table>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+'''
+            return html
+        except Exception as e:
+            print("Error generating the latest scan results HTML code: " + str(e))
+            
+    def beginhtml(self):
+        html ='''
+<head><script src="https://cdn.plot.ly/plotly-latest.min.js"></script></head>
+<html>
+<body>
+        '''
+        return html
+
     def generatedashboardcode(self, scanboarddata):
         try:
             totalnumberofdomains = scanboarddata['domains']
@@ -11,12 +55,8 @@ class htmlgenerator:
             totalnumberofemail= scanboarddata['email']
             totalnumberofshodan= scanboarddata['shodan']
             html='''
-<head><script src="https://cdn.plot.ly/plotly-latest.min.js"></script></head>
-<html>
-<body>
-<h1 style="text-align: center;"><span style="color: #ff0000;">theHarvester Scan Report</span></h1>
-<h2><span style="color: #000000;"><strong>TheHarvester scanning dashboard</strong></span></h2>
-<table align="left" style="height: 108px; border-color: #000000; margin-left: auto; margin-right: auto;" border=" #000000" width="713">
+<h2 style="text-align: center;"><span style="color: #ff0000;">Scan dashboard</span></h2>
+<table style="height: 108px; border-color: #000000; margin-left: auto; margin-right: auto;" border=" #000000" width="713">
 <tbody>
 <tr>
 <td style="width: 113px; text-align: center;background: #ffff38"><h2><strong>Domains</strong></h2></td>
@@ -40,15 +80,17 @@ class htmlgenerator:
 <p>&nbsp;</p>
 <p>&nbsp;</p>
 <p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
 '''
             return html
         except Exception as e:
             print("Error generating dashboard HTML code: " + str(e))
 
-    def generatescanstatistics(self, scanhistorystatistics):
+    def generatepluginscanstatistics(self, scanstatistics):
         try:
             html='''
-<h1 style="text-align: center;">theHarvester scan statistics</h1>
+<h2 style="text-align: center;"><span style="color: #ff0000;">theHarvester plugin statistics</span></h2>
 <p>&nbsp;</p>
 <table style="height: 63px; border-color: #000000; margin-left: auto; margin-right: auto;" border="#000000" width="811">
 <tbody>
@@ -61,7 +103,7 @@ class htmlgenerator:
 </tr>
 <tr>
 '''
-            for i in scanhistorystatistics:
+            for i in scanstatistics:
                 html += '<td style="width: 156.042px;">' + str(i[0]) + "</td>"
                 html += '<td style="width: 156.042px;">' + str(i[1]) + "</td>"
                 html += '<td style="width: 157.153px;">' + str(i[2]) + "</td>"
@@ -74,12 +116,11 @@ class htmlgenerator:
 <p>&nbsp;</p>
 <p>&nbsp;</p>
 '''
-            print("END")
             return html
         except Exception as e:
             print("Error generating scan statistics HTML code: " + str(e))
     
-    def generatescandetailsdomain(self, word, latestscandomain):
+    def generatescandetailsdomain(self, word, latestscandomain):        #This is the old scan details
         try:
             emails = latestscandomain['scandetailsemail']
             hosts = latestscandomain['scandetailshost']
