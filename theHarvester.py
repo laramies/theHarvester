@@ -210,7 +210,7 @@ def start(argv):
                         all_hosts.extend(hosts)
                         db.store_all(word,emails,'email','googleCSE')
                         db=stash.stash_manager()
-                        db.store_all(word,all_hosts,'host','googleCSE')
+                        db.store_all(word,hosts,'host','googleCSE')
 
                     elif engineitem == "bing" or engineitem == "bingapi":
                         print("[-] Searching in Bing:")
@@ -352,7 +352,7 @@ def start(argv):
                         all_hosts.extend(hosts)
                         all_ip.extend(ips)
                         db = stash.stash_manager()
-                        db.store_all(word,all_hosts,'host','censys')
+                        db.store_all(word,hosts,'host','censys')
                         db.store_all(word,ips,'ip','censys')
                         
                     elif engineitem == "cymon":
