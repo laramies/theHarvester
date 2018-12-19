@@ -30,7 +30,7 @@ class search_google:
             print(e)
         self.results = r.text
         if (self.search(self.results)):
-            time.sleep(getDelay() * 2)  # sleep for a longer time
+            time.sleep(getDelay() * 4)  # sleep for a longer time
         else:
             time.sleep(getDelay())
         self.totalresults += self.results
@@ -142,7 +142,7 @@ class search_google:
                 req = requests.get(link, params=params)
                 self.results = req.text
                 if (self.search(self.results)):
-                    time.sleep(getDelay() * 2)  # sleep for a longer time
+                    time.sleep(getDelay() * 4)  # sleep for a longer time
                 else:
                     time.sleep(getDelay())
                 self.totalresults += self.results
