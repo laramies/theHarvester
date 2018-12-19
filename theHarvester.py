@@ -44,31 +44,30 @@ def usage():
     if os.path.dirname(sys.argv[0]) == os.getcwd():
         comm = "./" + comm
 
-    print("Usage: theharvester options \n")
-    print("       -d: Domain to search or company name")
-    print("""       -b: data source: baidu, bing, bingapi, censys, crtsh, cymon, dogpile,
-                        google, googleCSE, googleplus, google-certificates, google-profiles,
-                        hunter, linkedin, netcraft, pgp, threatcrowd, trello, twitter, vhost, 
-                        virustotal, yahoo, all""")
-    print("       -g: use Google Dorking instead of normal Google search")
-    print("       -s: start in result number X (default: 0)")
-    print("       -v: verify host name via DNS resolution and search for virtual hosts")
-    print("       -f: save the results into an HTML and XML file (both)")
-    print("       -n: perform a DNS reverse query on all ranges discovered")
-    print("       -c: perform a DNS brute force for the domain name")
-    print("       -t: perform a DNS TLD expansion discovery")
-    print("       -e: use this DNS server")
-    print("       -p: port scan the detected hosts and check for Takeovers (80,443,22,21,8080)")
-    print("       -l: limit the number of results to work with(Bing goes from 50 to 50 results,")
-    print("            Google 100 to 100, and PGP doesn't use this option)")
-    print("       -h: use Shodan database to query discovered hosts")
+    print("Usage: theHarvester.py <options> \n")
+    print("   -d: company name or domain to search")
+    print("""   -b: source: baidu, bing, bingapi, censys, crtsh, cymon, dogpile, google,
+               googleCSE, googleplus, google-certificates, google-profiles,
+               hunter, linkedin, netcraft, pgp, threatcrowd, trello, twitter,
+               vhost, virustotal, yahoo, all""")
+    print("   -g: use Google Dorking instead of normal Google search")
+    print("   -s: start with result number X (default: 0)")
+    print("   -v: verify host name via DNS resolution and search for virtual hosts")
+    print("   -f: save the results into an HTML and/or XML file")
+    print("   -n: perform a DNS reverse query on all ranges discovered")
+    print("   -c: perform a DNS brute force for the domain name")
+    print("   -t: perform a DNS TLD expansion discovery")
+    print("   -e: use this DNS server")
+    print("   -p: port scan the detected hosts and check for Takeovers (80,443,22,21,8080)")
+    print("   -l: limit the number of results to work with (Bing goes from 50 to 50 results,")
+    print("       Google 100 to 100, and PGP doesn't use this option)")
+    print("   -h: use Shodan to query discovered hosts")
     print("\nExamples:")
-    print(("        " + comm + " -d microsoft.com -l 500 -b google -f myresults.html"))
-    print(("        " + comm + " -d microsoft.com -b pgp, virustotal"))
-    print(("        " + comm + " -d microsoft -l 200 -b linkedin"))
-    print(("        " + comm + " -d microsoft.com -l 200 -g -b google"))
-    print(("        " + comm + " -d apple.com -b googleCSE -l 500 -s 300"))
-    print(("        " + comm + " -d cornell.edu -l 100 -b bing -h \n"))
+    print(("       " + comm + " -d acme.com -b google -f myresults.html -l 500"))
+    print(("       " + comm + " -d acme.com -b pgp, virustotal"))
+    print(("       " + comm + " -d acme.com -b google -l 200 -g"))
+    print(("       " + comm + " -d acme.com -b googleCSE -l 500 -s 300"))
+    print(("       " + comm + " -d acme.edu -b bing -l 100 -h \n"))
 
 
 def start(argv):
@@ -371,12 +370,12 @@ def start(argv):
                         for x in all_hosts:
                             print (x)
                         sys.exit()
-                        
+
                     elif engineitem == "all":
                         print(("Full harvest on " + word))
                         all_emails = []
                         all_hosts = []
-                    
+
                         print("[-] Searching in Google..")
                         search = googlesearch.search_google(word, limit, start)
                         search.process(google_dorking)
@@ -445,7 +444,6 @@ def start(argv):
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'bing')
                         all_emails.extend(emails)
-                        # Clean up email list and sort by unique
                         all_emails = sorted(set(all_emails))
                         db.store_all(word, all_emails, 'email', 'bing')
 
@@ -536,7 +534,7 @@ def start(argv):
 
         db = stash.stash_manager()
         db.store_all(word, host_ip, 'ip', 'DNS-resolver')
-    
+
     # DNS Brute force ################################################
     dnsres = []
     if dnsbrute == True:
@@ -555,25 +553,25 @@ def start(argv):
 
     # Port Scanning #################################################
     if ports_scanning == True:
-            print("\n\n\033[1;32;40m[-] Scanning ports (active):\n")
-            for x in full:
-                host = x.split(':')[1]
-                domain = x.split(':')[0]
-                if host != "empty" :
-                    print(("- Scanning : " + host))
-                    ports = [80,443,22,8080,21]
-                    try:
-                        scan = port_scanner.port_scan(host,ports)
-                        openports = scan.process()
-                        if len(openports) > 1:
-                                print(("\t\033[91m Detected open ports: " + ','.join(str(e) for e in openports) + "\033[1;32;40m"))
-                        takeover_check = 'True'
-                        if takeover_check == 'True':
-                            if len(openports) > 0:   
-                                search_take = takeover.take_over(domain)
-                                search_take.process()
-                    except Exception as e:
-                        print(e)
+        print("\n\n\033[1;32;40m[-] Scanning ports (active):\n")
+        for x in full:
+            host = x.split(':')[1]
+            domain = x.split(':')[0]
+            if host != "empty" :
+                print(("- Scanning : " + host))
+                ports = [80,443,22,8080,21]
+                try:
+                    scan = port_scanner.port_scan(host,ports)
+                    openports = scan.process()
+                    if len(openports) > 1:
+                        print(("\t\033[91m Detected open ports: " + ','.join(str(e) for e in openports) + "\033[1;32;40m"))
+                    takeover_check = 'True'
+                    if takeover_check == 'True':
+                        if len(openports) > 0:
+                            search_take = takeover.take_over(domain)
+                            search_take.process()
+                except Exception as e:
+                    print(e)
 
     # DNS reverse lookup ################################################
     dnsrev = []
@@ -710,7 +708,6 @@ def start(argv):
             Html_file.write(HTMLcode)
             Html_file.close()
             print("NEW REPORTING FINISHED!")
-
             print("[+] Saving files...")
             html = htmlExport.htmlExport(
                 all_emails,
@@ -750,15 +747,9 @@ def start(argv):
                 shodanalysis = []
                 for x in shodanres:
                     res = x.split("SAPO")
-                    # print " res[0] " + res[0] # ip/host
-                    # print " res[1] " + res[1] # banner/info
-                    # print " res[2] " + res[2] # port
                     file.write('<shodan>')
-                    # page.h3(res[0])
                     file.write('<host>' + res[0] + '</host>')
-                    # page.a("Port :" + res[2])
                     file.write('<port>' + res[2] + '</port>')
-                    # page.pre(res[1])
                     file.write('<banner><!--' + res[1] + '--></banner>')
 
                     reg_server = re.compile('Server:.*')
@@ -771,7 +762,6 @@ def start(argv):
                     shodanalysis = sorted(set(shodanalysis))
                     file.write('<servers>')
                     for x in shodanalysis:
-                        # page.pre(x)
                         file.write('<server>' + x + '</server>')
                     file.write('</servers>')
 
