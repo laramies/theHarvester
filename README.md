@@ -6,7 +6,7 @@
 * | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
 *  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
 *                                                                 *
-* TheHarvester Ver. 3.0.4                                        *
+* TheHarvester Ver. 3.0.5                                         *
 * Coded by Christian Martorella                                   *
 * Edge-Security Research                                          *
 * cmartorella@edge-security.com                                   *
@@ -32,27 +32,27 @@ The sources are:
 
 * crtsh: Comodo Certificate search - www.crt.sh
 
-* google: google search engine  - www.google.com (With optional google dorking)
+* google: Google search engine  - www.google.com (With optional google dorking)
 
-* googleCSE: google custom search engine
+* googleCSE: Google custom search engine
 
-* google-profiles: google search engine, specific search for Google profiles
+* google-profiles: Google search engine, specific search for Google profiles
 
-* bing: microsoft search engine  - www.bing.com
+* bing: Microsoft search engine  - www.bing.com
 
 * bingapi: microsoft search engine, through the API (you need to add your Key in
           the discovery/bingsearch.py file)
 
 * dogpile: Dogpile search engine - www.dogpile.com
 
-* pgp: pgp key server - mit.edu
+* pgp: PGP key server - mit.edu
 
-* linkedin: google search engine, specific search for Linkedin users
+* linkedin: Google search engine, specific search for Linkedin users
 
 
 * vhost: Bing virtual hosts search
 
-* twitter: twitter accounts related to an specific domain (uses google search)
+* twitter: Twitter accounts related to an specific domain (uses google search)
 
 * googleplus: users that works in target company (uses google search)
 
