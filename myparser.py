@@ -16,8 +16,8 @@ class parser:
         self.results = re.sub('%3a', ' ', self.results)
         self.results = re.sub('<strong>', '', self.results)
         self.results = re.sub('</strong>', '', self.results)
-        self.results = re.sub('<wbr>','',self.results)
-        self.results = re.sub('</wbr>','',self.results)
+        self.results = re.sub('<wbr>', '', self.results)
+        self.results = re.sub('</wbr>', '', self.results)
 
         for e in ('<', '>', ':', '=', ';', '&', '%3A', '%3D', '%3C', '/', '\\'):
             self.results = self.results.replace(e, ' ')
@@ -35,7 +35,7 @@ class parser:
         self.genericClean()
         reg_emails = re.compile(
             # Local part is required, charset is flexible
-           # https://tools.ietf.org/html/rfc6531 (removed * and () as they provide FP mostly )
+            # https://tools.ietf.org/html/rfc6531 (removed * and () as they provide FP mostly )
             '[a-zA-Z0-9.\-_+#~!$&\',;=:]+' +
             '@' +
             '[a-zA-Z0-9.-]*' +
@@ -67,7 +67,6 @@ class parser:
         self.results = re.sub('</b>', '', self.results)
         self.results = re.sub('<b>', '', self.results)
         reg_people = re.compile('>[a-zA-Z0-9._ ]* - Google\+')
-        # reg_people = re.compile('">[a-zA-Z0-9._ -]* profiles | LinkedIn')
         self.temp = reg_people.findall(self.results)
         resul = []
         for x in self.temp:
@@ -94,7 +93,6 @@ class parser:
 
     def people_jigsaw(self):
         res = []
-        # reg_people = re.compile("'tblrow' title='[a-zA-Z0-9.-]*'><span class='nowrap'/>")
         reg_people = re.compile(
             "href=javascript:showContact\('[0-9]*'\)>[a-zA-Z0-9., ]*</a></span>")
         self.temp = reg_people.findall(self.results)
@@ -105,7 +103,6 @@ class parser:
 
     def people_linkedin(self):
         reg_people = re.compile('">[a-zA-Z0-9._ -]* \| LinkedIn')
-        # reg_people = re.compile('">[a-zA-Z0-9._ -]* profiles | LinkedIn')
         self.temp = reg_people.findall(self.results)
         resul = []
         for x in self.temp:
@@ -120,7 +117,6 @@ class parser:
 
     def people_twitter(self):
         reg_people = re.compile('(@[a-zA-Z0-9._ -]*)')
-        # reg_people = re.compile('">[a-zA-Z0-9._ -]* profiles | LinkedIn')
         self.temp = reg_people.findall(self.results)
         users = self.unique()
         resul = []
@@ -157,9 +153,6 @@ class parser:
         return sets
 
     def urls(self):
-        # self.genericClean()
-        # reg_hosts = re.compile("https://"+ self.word +'*[a-zA-Z0-9.-:/]')
-        # reg_urls = re.compile('https://trello.com'+'[a-zA-Z0-9]+')
         found = re.finditer('https://(www\.)?trello.com/([a-zA-Z0-9\-_\.]+/?)*', self.results)
         for x in found:
             self.temp.append(x.group())
