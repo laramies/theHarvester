@@ -2,7 +2,7 @@ from bs4 import BeautifulSoup
 import re
 
 class parser:
-    
+
     def __init__(self, results):
         self.results = results
         self.ipaddresses = []
