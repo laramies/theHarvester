@@ -3,6 +3,7 @@ import myparser
 import re
 import time
 import requests
+from discovery.constants import *
 
 class search_googleCSE:
 
@@ -13,7 +14,6 @@ class search_googleCSE:
         self.totalresults = ""
         self.server = "www.googleapis.com"
         self.hostname = "www.googleapis.com"
-        self.userAgent = "(Mozilla/5.0 (Windows; U; Windows NT 6.0;en-US; rv:1.9.2) Gecko/20100115 Firefox/3.6"
         self.quantity = "10"
         self.limit = limit
         self.counter = 1
@@ -31,7 +31,7 @@ class search_googleCSE:
               "&q=%40\"" + self.word + "\""
         headers = {
             'Host': self.server,
-            'User-agent': self.userAgent
+            'User-agent': getUserAgent()
         }
         h = requests.get(url=url, headers=headers)
         self.results = h.text
@@ -43,7 +43,7 @@ class search_googleCSE:
               "&q=filetype:" + files + "%20site:" + self.word
         headers = {
             'Host': self.server,
-            'User-agent': self.userAgent
+            'User-agent': getUserAgent()
         }
         h = requests.get(url=url, headers=headers)
         self.results = h.text
@@ -99,6 +99,6 @@ class search_googleCSE:
     def process_files(self, files):
         while self.counter <= self.limit:
             self.do_search_files(files)
-            time.sleep(1)
+            time.sleep(getDelay())
             self.counter += 100
             print("\tSearching " + str(self.counter) + " results...")

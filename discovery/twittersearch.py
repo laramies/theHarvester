@@ -1,5 +1,7 @@
 import requests
 import myparser
+from discovery.constants import *
+import time
 
 class search_twitter:
 
@@ -9,7 +11,6 @@ class search_twitter:
         self.totalresults = ""
         self.server = "www.google.com"
         self.hostname = "www.google.com"
-        self.userAgent = "(Mozilla/5.0 (Windows; U; Windows NT 6.0;en-US; rv:1.9.2) Gecko/20100116 Firefox/3.7"
         self.quantity = "100"
         self.limit = int(limit)
         self.counter = 0
@@ -19,7 +20,7 @@ class search_twitter:
             urly="https://"+ self.server + "/search?num=100&start=" + str(self.counter) + "&hl=en&meta=&q=site%3Atwitter.com%20intitle%3A%22on+Twitter%22%20" + self.word
         except Exception as e:
             print(e)
-        headers = {'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:34.0) Gecko/20100101 Firefox/34.0'}
+        headers = {'User-Agent':getUserAgent()}
         try:
             r=requests.get(urly,headers=headers)
         except Exception as e:
@@ -34,5 +35,6 @@ class search_twitter:
     def process(self):
         while (self.counter < self.limit):
             self.do_search()
+            time.sleep(getDelay())
             self.counter += 100
             print("\tSearching " + str(self.counter) + " results..")
