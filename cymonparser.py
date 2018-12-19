@@ -6,7 +6,7 @@ class parser:
     def __init__(self, results):
         self.results = results
         self.ipaddresses = []
-        self.soup = BeautifulSoup(results.results,features="html.parser")
+        self.soup = BeautifulSoup(results.results, features="html.parser")
 
     def search_ipaddresses(self):
         try:
