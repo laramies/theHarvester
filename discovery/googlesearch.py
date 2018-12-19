@@ -118,8 +118,7 @@ class search_google:
         self.links = [self.database + space + self.word + space +
                       str(dork).replace(':', colon).replace('+', plus).replace('.', period).replace('"', double_quote)
                           .replace("*", asterick).replace('[', left_bracket).replace(']', right_bracket)
-                          .replace('?', question_mark).replace(' ', space).replace('/', slash).replace("'",
-                                                                                                       single_quote)
+                          .replace('?', question_mark).replace(' ', space).replace('/', slash).replace("'",single_quote)
                           .replace("&", ampersand).replace('(', left_peren).replace(')', right_peren).replace('|', pipe)
                       for dork in self.dorks]
 
