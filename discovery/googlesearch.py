@@ -24,13 +24,13 @@ class search_google:
         except Exception as e:
             print(e)
         try:
-            params = {'User-Agent': getUserAgent()}  # select random user agent
-            r = requests.get(urly, params=params)
+            headers = {'User-Agent': googleUA}
+            r = requests.get(urly, headers=headers)
         except Exception as e:
             print(e)
         self.results = r.text
         if (self.search(self.results)):
-            time.sleep(getDelay() * 4)  # sleep for a longer time
+            time.sleep(getDelay() * 5)  # sleep for a longer time
         else:
             time.sleep(getDelay())
         self.totalresults += self.results
@@ -42,12 +42,13 @@ class search_google:
         except Exception as e:
             print(e)
         try:
-            r = requests.get(urly)
+            headers = {'User-Agent': googleUA}
+            r = requests.get(urly, headers=headers)
         except Exception as e:
             print(e)
         self.results = r.text
         if (self.search(self.results)):
-            time.sleep(getDelay() * 2)  # sleep for a longer time
+            time.sleep(getDelay() * 5)  # sleep for a longer time
         else:
             time.sleep(getDelay())
         self.totalresults += self.results
@@ -94,7 +95,7 @@ class search_google:
         try:  # wrap in try-except incase filepaths are messed up
             with open('wordlists/dorks.txt', mode='r') as fp:
                 self.dorks = [dork.strip() for dork in fp]
-        except IOError as error:
+        except FileNotFoundError as error:
             print(error)
 
     def construct_dorks(self):
@@ -133,15 +134,15 @@ class search_google:
             pass
 
     def send_dork(self, start, end):  # helper function to minimize code reusability
-        params = {'User-Agent': getUserAgent()}
+        headers = {'User-Agent': googleUA}
         # get random user agent to try and prevent google from blocking ip
         for i in range(start, end):
             try:
                 link = self.links[i]  # get link from dork list
-                req = requests.get(link, params=params)
+                req = requests.get(link, headers=headers)
                 self.results = req.text
                 if (self.search(self.results)):
-                    time.sleep(getDelay() * 4)  # sleep for a longer time
+                    time.sleep(getDelay() * 5)  # sleep for a longer time
                 else:
                     time.sleep(getDelay())
                 self.totalresults += self.results
