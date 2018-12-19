@@ -31,7 +31,7 @@ try:
                 self.bardata.append(latestscandata['ip'])
                 self.bardata.append(latestscandata['shodan'])
                 self.bardata.append(latestscandata['vhost'])
-                layout = dict(title = "Last scan - number of targets identified for "+ domain +" on "+str(latestscandata["latestdate"]),
+                layout = dict(title = "Latest scan - number of targets identified for "+ domain,
                 xaxis = dict(title = 'Targets'),
                 yaxis = dict(title = 'Hits'),)
                 barchartcode = plotly.offline.plot({

@@ -12,6 +12,7 @@ class stash_manager:
         self.scanboarddata = {}
         self.scanstats = []
         self.latestscanresults = []
+        self.previousscanresults = []
           
     def do_init(self):
         conn = sqlite3.connect(self.db) 
@@ -99,33 +100,40 @@ class stash_manager:
         finally:
             conn.close()
 
-    def getlatestscanresults(self,domain):
-        #CONTINUE WITH NEW FUNCTION FOR THE PREVIOUS DAY SQL 
-        '''
-        SELECT find_date
-        FROM results
-        WHERE find_date = ( SELECT MAX(find_date) 
-        FROM results
-        WHERE find_date < ( SELECT MAX(find_date) 
-        FROM results
-        )
-        )
-        '''
+    def getlatestscanresults(self,domain,previousday=False):
         try:
             conn = sqlite3.connect(self.db)
-            c = conn.cursor()
-            c.execute('''SELECT MAX(find_date) FROM results WHERE domain=?''',(domain,))
-            latestscandate = c.fetchone()
-            c = conn.cursor()
-            c.execute('''
-            SELECT find_date, domain, source,type,resource
-            FROM results
-            WHERE find_date =? and domain=?
-            ORDER BY source,type
-            ''',(latestscandate[0],domain,))
-            results = c.fetchall()
-            self.latestscanresults = results
-            return self.latestscanresults
+            if previousday:
+                c = conn.cursor()
+                c.execute('''
+                SELECT DISTINCT(find_date)
+                FROM results
+                WHERE find_date=date('now', '-1 day') and domain=?''',(domain,))
+                previousscandate = c.fetchone()
+                c = conn.cursor()
+                c.execute('''
+                SELECT find_date, domain, source,type,resource
+                FROM results
+                WHERE find_date=? and domain=?
+                ORDER BY source,type
+                ''',(previousscandate[0],domain,))
+                results = c.fetchall()
+                self.previousscanresults = results
+                return self.previousscanresults
+            else:
+                c = conn.cursor()
+                c.execute('''SELECT MAX(find_date) FROM results WHERE domain=?''',(domain,))
+                latestscandate = c.fetchone()
+                c = conn.cursor()
+                c.execute('''
+                SELECT find_date, domain, source,type,resource
+                FROM results
+                WHERE find_date=? and domain=?
+                ORDER BY source,type
+                ''',(latestscandate[0],domain,))
+                results = c.fetchall()
+                self.latestscanresults = results
+                return self.latestscanresults
         except Exception as e:
             print("Error in getting the latest scan results from the database: " + str(e))
         finally:

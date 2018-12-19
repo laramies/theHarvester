@@ -692,13 +692,15 @@ def start(argv):
             db = stash.stash_manager()
             scanboarddata = db.getscanboarddata()
             latestscanresults = db.getlatestscanresults(word)
+            previousscanresults = db.getlatestscanresults(word,previousday=True)
             latestscanchartdata = db.latestscanchartdata(word)
             scanhistorydomain = db.getscanhistorydomain(word)
             pluginscanstatistics = db.getpluginscanstatistics()
             from lib import statichtmlgenerator
             generator = statichtmlgenerator.htmlgenerator(word)
             HTMLcode = generator.beginhtml()
-            HTMLcode += generator.generatelatestscanresults(pluginscanstatistics)
+            HTMLcode += generator.generatelatestscanresults(latestscanresults)
+            HTMLcode += generator.generatepreviousscanresults(previousscanresults)
             from lib import reportgraph
             import datetime
             graph = reportgraph.graphgenerator(word)

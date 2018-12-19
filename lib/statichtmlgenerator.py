@@ -1,11 +1,45 @@
 class htmlgenerator:
     def __init__(self,word):
         self.domain = word
+    
+    def generatepreviousscanresults(self, previousscanresults):
+        try:
+            html='''
+<h2><span style="color: #000000;"><strong>Previous scan report </strong></span></h2>
+<p>&nbsp;</p>
+<table style="height: 63px; border-color: #000000;" border="#000000" width="811">
+<tbody>
+<tr>
+<td style="width: 156.042px; text-align: center;"><strong>Date</strong></td>
+<td style="width: 156.042px; text-align: center;"><strong>Domain</strong></td>
+<td style="width: 157.153px; text-align: center;"><strong>Plugin</strong></td>
+<td style="width: 157.153px; text-align: center;"><strong>Record type</strong></td>
+<td style="width: 157.153px; text-align: center;"><strong>Result</strong></td>
+</tr>
+<tr>
+'''
+            for i in previousscanresults:
+                html += '<td style="width: 156.042px;">' + str(i[0]) + "</td>"
+                html += '<td style="width: 156.042px;">' + str(i[1]) + "</td>"
+                html += '<td style="width: 157.153px;">' + str(i[2]) + "</td>"
+                html += '<td style="width: 157.153px;">' + str(i[3]) + "</td>"
+                html += '<td style="width: 157.153px;">' + str(i[4]) + "</td>"
+                html +='</tr>'
+            html +='''
+</tbody>
+</table>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+'''
+            return html
+        except Exception as e:
+            print("Error generating the previous scan results HTML code: " + str(e))
 
     def generatelatestscanresults(self, latestscanresults):
         try:
             html='''
-<h1 style="text-align: center;"><span style="color: #ff0000;">theHarvester Scan Report</span></h1>
 <h2><span style="color: #000000;"><strong>Latest scan report </strong></span></h2>
 <p>&nbsp;</p>
 <table style="height: 63px; border-color: #000000;" border="#000000" width="811">
@@ -43,6 +77,7 @@ class htmlgenerator:
 <head><script src="https://cdn.plot.ly/plotly-latest.min.js"></script></head>
 <html>
 <body>
+<h1 style="text-align: center;"><span style="color: #ff0000;">theHarvester Scan Report</span></h1>
         '''
         return html
 
@@ -76,10 +111,6 @@ class htmlgenerator:
 </tr>
 </tbody>
 </table>
-<p>&nbsp;</p>
-<p>&nbsp;</p>
-<p>&nbsp;</p>
-<p>&nbsp;</p>
 <p>&nbsp;</p>
 <p>&nbsp;</p>
 '''
@@ -119,54 +150,3 @@ class htmlgenerator:
             return html
         except Exception as e:
             print("Error generating scan statistics HTML code: " + str(e))
-    
-    def generatescandetailsdomain(self, word, latestscandomain):        #This is the old scan details
-        try:
-            emails = latestscandomain['scandetailsemail']
-            hosts = latestscandomain['scandetailshost']
-            ips = latestscandomain['scandetailsip']
-            vhosts = latestscandomain['scandetailsvhost']
-            shodans = latestscandomain['scandetailsshodan']
-            html='''
-<p>&nbsp;</p>
-<p>&nbsp;</p>
-<h2><span style="color: #000000;">Latest scan details for '''+ word + ''' on: '''+str(latestscandomain['latestdate'])+'''</span></h2>
-<h3><strong><span style="color: #0000ff;">Emails found:</span></strong></h3>
-<ul>
-            '''
-            for email in emails:
-                html += '<li><span style="color: #000000;">'+ str(email[1]) + "</span></li>"
-            html +='''
-</ul>
-<h3><span style="color: #0000ff;">Hosts found:</span></h3>
-<ul>
-            '''
-            for host in hosts:
-                html += '<li><span style="color: #000000;">'+ str(host[1]) + "</span></li>"
-            html +='''
-</ul>
-<h3><span style="color: #0000ff;">IP found:</span></h3>
-<ul>
-            '''
-            for ip in ips:
-                html += '<li><span style="color: #000000;">'+str(ip[1])+"</span></li>"
-            html +='''
-</ul>
-<h3><span style="color: #0000ff;">vhosts found:</span></h3>
-<ul>
-            '''
-            for vhost in vhosts:
-                html +='<li><span style="color: #000000;">'+str(vhost[1])+"</span></li>"
-            html +='''
-</ul>
-<h3><span style="color: #0000ff;">Shodan results:</span></h3>
-<ul>
-            '''
-            for shodan in shodans:
-                html +='<li><span style="color: #000000;">'+str(shodan[1])+"</span></li>"
-            html +='''
-</ul>       
-            '''
-            return html
-        except Exception as e:
-            print("Error generating scan details HTML code: " + str(e))
