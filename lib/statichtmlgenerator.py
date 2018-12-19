@@ -135,11 +135,7 @@ class htmlgenerator:
 <tr>
 '''
             for i in scanstatistics:
-                html += '<td style="width: 156.042px;">' + str(i[0]) + "</td>"
-                html += '<td style="width: 156.042px;">' + str(i[1]) + "</td>"
-                html += '<td style="width: 157.153px;">' + str(i[2]) + "</td>"
-                html += '<td style="width: 157.153px;">' + str(i[3]) + "</td>"
-                html += '<td style="width: 157.153px;">' + str(i[4]) + "</td>"
+                html += '<td style="width: 156.042px;">' + str(i) + "</td>"
                 html +='</tr>'
             html +='''
 </tbody>

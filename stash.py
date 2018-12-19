@@ -104,38 +104,47 @@ class stash_manager:
         try:
             conn = sqlite3.connect(self.db)
             if previousday:
-                c = conn.cursor()
-                c.execute('''
-                SELECT DISTINCT(find_date)
-                FROM results
-                WHERE find_date=date('now', '-1 day') and domain=?''',(domain,))
-                previousscandate = c.fetchone()
-                c = conn.cursor()
-                c.execute('''
-                SELECT find_date, domain, source,type,resource
-                FROM results
-                WHERE find_date=? and domain=?
-                ORDER BY source,type
-                ''',(previousscandate[0],domain,))
-                results = c.fetchall()
-                self.previousscanresults = results
-                return self.previousscanresults
+                try:
+                    c = conn.cursor()
+                    c.execute('''
+                    SELECT DISTINCT(find_date)
+                    FROM results
+                    WHERE find_date=date('now', '-1 day') and domain=?''',(domain,))
+                    previousscandate = c.fetchone()
+                    if not previousscandate:                #when theHarvester runs first time/day this query will return 
+                        self.previousscanresults = ["No results","No results","No results","No results","No results"]
+                    else:
+                        c = conn.cursor()
+                        c.execute('''
+                        SELECT find_date, domain, source,type,resource
+                        FROM results
+                        WHERE find_date=? and domain=?
+                        ORDER BY source,type
+                        ''',(previousscandate[0],domain,))
+                        results = c.fetchall()
+                        self.previousscanresults = results
+                    return self.previousscanresults
+                except Exception as e:
+                    print("Error in getting the previous scan results from the database: " + str(e))
             else:
-                c = conn.cursor()
-                c.execute('''SELECT MAX(find_date) FROM results WHERE domain=?''',(domain,))
-                latestscandate = c.fetchone()
-                c = conn.cursor()
-                c.execute('''
-                SELECT find_date, domain, source,type,resource
-                FROM results
-                WHERE find_date=? and domain=?
-                ORDER BY source,type
-                ''',(latestscandate[0],domain,))
-                results = c.fetchall()
-                self.latestscanresults = results
-                return self.latestscanresults
+                try:
+                    c = conn.cursor()
+                    c.execute('''SELECT MAX(find_date) FROM results WHERE domain=?''',(domain,))
+                    latestscandate = c.fetchone()
+                    c = conn.cursor()
+                    c.execute('''
+                    SELECT find_date, domain, source,type,resource
+                    FROM results
+                    WHERE find_date=? and domain=?
+                    ORDER BY source,type
+                    ''',(latestscandate[0],domain,))
+                    results = c.fetchall()
+                    self.latestscanresults = results
+                    return self.latestscanresults
+                except Exception as e:
+                    print("Error in getting the latest scan results from the database: " + str(e))
         except Exception as e:
-            print("Error in getting the latest scan results from the database: " + str(e))
+            print("Error connecting to theHarvester database: " + str(e))
         finally:
             conn.close()  
 
