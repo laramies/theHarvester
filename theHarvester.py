@@ -63,11 +63,12 @@ def usage():
     print("       Google 100 to 100, and PGP doesn't use this option)")
     print("   -h: use Shodan to query discovered hosts")
     print("\nExamples:")
-    print(("       " + comm + " -d acme.com -b google -f myresults.html -l 500"))
+    print(("       " + comm + " -d acme.com -l 500 -b google -f myresults.html"))
     print(("       " + comm + " -d acme.com -b pgp, virustotal"))
-    print(("       " + comm + " -d acme.com -b google -l 200 -g"))
+    print(("       " + comm + " -d acme -l 200 -b linkedin"))
+    print(("       " + comm + " -d acme.com -l 200 -g -b google"))
     print(("       " + comm + " -d acme.com -b googleCSE -l 500 -s 300"))
-    print(("       " + comm + " -d acme.edu -b bing -l 100 -h \n"))
+    print(("       " + comm + " -d acme.edu -l 100 -b bing -h \n"))
 
 
 def start(argv):
