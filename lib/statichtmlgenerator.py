@@ -4,7 +4,8 @@ class htmlgenerator:
     
     def generatepreviousscanresults(self, previousscanresults):
         try:
-            html='''
+            if previousscanresults[0]=='No results':
+                html='''
 <h2><span style="color: #000000;"><strong>Previous scan report </strong></span></h2>
 <p>&nbsp;</p>
 <table style="height: 63px; border-color: #000000;" border="#000000" width="811">
@@ -18,13 +19,35 @@ class htmlgenerator:
 </tr>
 <tr>
 '''
-            for i in previousscanresults:
-                html += '<td style="width: 156.042px;">' + str(i[0]) + "</td>"
-                html += '<td style="width: 156.042px;">' + str(i[1]) + "</td>"
-                html += '<td style="width: 157.153px;">' + str(i[2]) + "</td>"
-                html += '<td style="width: 157.153px;">' + str(i[3]) + "</td>"
-                html += '<td style="width: 157.153px;">' + str(i[4]) + "</td>"
-                html +='</tr>'
+                for i in previousscanresults:
+                    html += '<td style="width: 156.042px;">' + str(i) + "</td>"
+                    html += '<td style="width: 156.042px;">' + str(i) + "</td>"
+                    html += '<td style="width: 157.153px;">' + str(i) + "</td>"
+                    html += '<td style="width: 157.153px;">' + str(i) + "</td>"
+                    html += '<td style="width: 157.153px;">' + str(i) + "</td>"
+                    html +='</tr>'
+            else:
+                html='''
+<h2><span style="color: #000000;"><strong>Previous scan report </strong></span></h2>
+<p>&nbsp;</p>
+<table style="height: 63px; border-color: #000000;" border="#000000" width="811">
+<tbody>
+<tr>
+<td style="width: 156.042px; text-align: center;"><strong>Date</strong></td>
+<td style="width: 156.042px; text-align: center;"><strong>Domain</strong></td>
+<td style="width: 157.153px; text-align: center;"><strong>Plugin</strong></td>
+<td style="width: 157.153px; text-align: center;"><strong>Record type</strong></td>
+<td style="width: 157.153px; text-align: center;"><strong>Result</strong></td>
+</tr>
+<tr>
+'''
+                for i in previousscanresults:
+                    html += '<td style="width: 156.042px;">' + str(i[0]) + "</td>"
+                    html += '<td style="width: 156.042px;">' + str(i[1]) + "</td>"
+                    html += '<td style="width: 157.153px;">' + str(i[2]) + "</td>"
+                    html += '<td style="width: 157.153px;">' + str(i[3]) + "</td>"
+                    html += '<td style="width: 157.153px;">' + str(i[4]) + "</td>"
+                    html +='</tr>'
             html +='''
 </tbody>
 </table>
@@ -135,7 +158,11 @@ class htmlgenerator:
 <tr>
 '''
             for i in scanstatistics:
-                html += '<td style="width: 156.042px;">' + str(i) + "</td>"
+                html += '<td style="width: 156.042px;">' + str(i[0]) + "</td>"
+                html += '<td style="width: 156.042px;">' + str(i[1]) + "</td>"
+                html += '<td style="width: 157.153px;">' + str(i[2]) + "</td>"
+                html += '<td style="width: 157.153px;">' + str(i[3]) + "</td>"
+                html += '<td style="width: 157.153px;">' + str(i[4]) + "</td>"
                 html +='</tr>'
             html +='''
 </tbody>
