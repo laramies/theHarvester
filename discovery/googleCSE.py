@@ -26,7 +26,7 @@ class search_googleCSE:
         self.highRange = start+100
 
     def do_search(self):
-        url = 'http://' + self.server + "/customsearch/v1?key=" + self.api_key + "&highRange=" + str(self.highRange) \
+        url = 'https://' + self.server + "/customsearch/v1?key=" + self.api_key + "&highRange=" + str(self.highRange) \
               + '&lowRange=' + str(self.lowRange) + '&cx=' + self.cse_id + "&start=" + str(self.counter) + \
               "&q=%40\"" + self.word + "\""
         headers = {
@@ -38,7 +38,7 @@ class search_googleCSE:
         self.totalresults += self.results
 
     def do_search_files(self,files):
-        url = 'http://' + self.server + "/customsearch/v1?key=" + self.api_key + "&highRange=" + str(self.highRange) \
+        url = 'https://' + self.server + "/customsearch/v1?key=" + self.api_key + "&highRange=" + str(self.highRange) \
               + '&lowRange=' + str(self.lowRange) + '&cx=' + self.cse_id + "&start=" + str(self.counter) + \
               "&q=filetype:" + files + "%20site:" + self.word
         headers = {
