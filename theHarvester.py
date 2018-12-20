@@ -348,12 +348,16 @@ def start(argv):
                         search = censys.search_censys(word)
                         search.process()
                         ips = search.get_ipaddresses()
+                        all_ip.extend(ips)
                         hosts = search.get_hostnames()
                         all_hosts.extend(hosts)
-                        all_ip.extend(ips)
                         db = stash.stash_manager()
-                        db.store_all(word,hosts,'host','censys')
-                        db.store_all(word,ips,'ip','censys')
+                        setips = set(ips)               
+                        uniqueips = list(setips)            #remove duplicates
+                        sethosts = set(hosts)
+                        uniquehosts = list(sethosts)        #remove duplicates
+                        db.store_all(word,uniquehosts,'host','censys')
+                        db.store_all(word,uniqueips,'ip','censys')
                         
                     elif engineitem == "cymon":
                         print("[-] Searching in Cymon:")
@@ -535,7 +539,8 @@ def start(argv):
     else:
         total = len(all_hosts)
         print(("\nTotal hosts: " + str(total) + "\n"))
-        all_hosts=sorted(set(all_hosts))
+        all_hosts = sorted(set(all_hosts))
+        print(all_hosts)
         print("\033[94m[-] Resolving hostnames IPs...\033[1;33;40m \n ")
         full_host = hostchecker.Checker(all_hosts)
         full = full_host.check()
@@ -548,7 +553,7 @@ def start(argv):
                 else:
                     host_ip.append(ip.lower())
 
-        db=stash.stash_manager()
+        db = stash.stash_manager()
         db.store_all(word,host_ip,'ip','DNS-resolver')
     
     #DNS Brute force####################################################
@@ -564,7 +569,7 @@ def start(argv):
             dnsres.append(y.split(':')[0])
             if y not in full:
                 full.append(y)
-        db=stash.stash_manager()
+        db = stash.stash_manager()
         db.store_all(word,dnsres,'host','dns_bruteforce')
 
     #Port Scanning #################################################

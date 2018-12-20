@@ -6,10 +6,13 @@ class search_censys:
 
     def __init__(self, word):
         self.word = word
-        self.url = ""
+        self.urlhost = ""
+        self.urlcert = ""
         self.page = ""
-        self.results = ""
-        self.total_results = ""
+        self.resultshosts = ""
+        self.resultcerts = ""
+        self.total_resultshosts = ""
+        self.total_resultscerts = ""
         self.server = "censys.io"
         self.userAgent = ["(Mozilla/5.0 (Windows; U; Windows NT 6.0;en-US; rv:1.9.2) Gecko/20100115 Firefox/3.6",
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36"
@@ -24,44 +27,69 @@ class search_censys:
           ,"Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko"
           ,"Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.1; Trident/6.0)"]
         
-    def do_search(self):
+    def do_searchhosturl(self):
         try:
-            headers = {'user-agent': random.choice(self.userAgent),'Accept':'*/*','Referer':self.url}
-            response = requests.get(self.url, headers=headers)
-            self.results = response.content
-            print ('-')
-            self.total_results += self.results
-            print ('-')
+            headers = {'user-agent': random.choice(self.userAgent),'Accept':'*/*','Referer':self.urlhost}       
+            responsehost = requests.get(self.urlhost, headers=headers)
+            self.resultshosts = responsehost.text
+            self.total_resultshosts += self.resultshosts
         except Exception as e:
-            print(e)
+            print("Error occurred in the Censys module downloading pages from Censys - IP search: " + str(e))
+
+    def do_searchcertificateurl(self):
+        try:
+            headers = {'user-agent': random.choice(self.userAgent),'Accept':'*/*','Referer':self.urlcert}       
+            responsecert = requests.get(self.urlcert, headers=headers)
+            self.resultcerts = responsecert.text
+            self.total_resultscerts += self.resultcerts
+        except Exception as e:
+            print("Error occurred in the Censys module downloading pages from Censys - certificates search: " + str(e))
 
     def process(self):
-        self.url="https://" + self.server + "/ipv4/_search?q=" + str(self.word) + "&page=1"
-        self.do_search()
-        self.counter=2
-        pages = censysparser.parser(self)
-        totalpages = pages.search_numberofpages()
-        while self.counter <= totalpages:
-            try:
-                self.page =str(self.counter)
-                self.url="https://" + self.server + "/ipv4/_search?q=" + str(self.word) + "&page=" + str(self.page)                   
-                print("\tSearching Censys results page " + self.page + "...")
-                self.do_search()
-            except Exception as e:
-                print("Error occurred: " + str(e))
-            self.counter+=1
+        try:
+            self.urlhost = "https://" + self.server + "/ipv4/_search?q=" + str(self.word) + "&page=1"
+            self.urlcert = "https://"+ self.server + "/certificates/_search?q=" + str(self.word) + "&page=1"
+            self.do_searchhosturl()
+            self.do_searchcertificateurl()
+            counter = 2
+            pages = censysparser.parser(self)
+            totalpages = pages.search_numberofpageshosts()
+            while counter <= totalpages:
+                try:
+                    self.page =str(counter)
+                    self.urlhost = "https://" + self.server + "/ipv4/_search?q=" + str(self.word) + "&page=" + str(self.page)                   
+                    print("\tSearching Censys IP results page " + self.page + "...")
+                    self.do_searchhosturl()
+                    counter+= 1
+                except Exception as e:
+                    print("Error occurred in the Censys module requesting the pages: " + str(e))
+            counter = 2
+            totalpages = pages.search_numberofpagescerts()
+            while counter <= totalpages:
+                try:
+                    self.page =str(counter)
+                    self.urlhost = "https://" + self.server + "/certificates/_search?q=" + str(self.word) + "&page=" + str(self.page)                   
+                    print("\tSearching Censys certificates results page " + self.page + "...")
+                    self.do_searchcertificateurl()
+                    counter+= 1
+                except Exception as e:
+                    print("Error occurred in the Censys module requesting the pages: " + str(e))
+        except Exception as e:
+            print("Error occurred in the main Censys module: " + str(e))
 
     def get_hostnames(self):
         try:
             hostnames = censysparser.parser(self)
-            return hostnames.search_hostnames()
+            hostnames_all = hostnames.search_hostnames()
+            hostnames_all.extend(hostnames.search_hostnamesfromcerts())
+            return hostnames_all
         except Exception as e:
-            print("Error occurred: " + str(e))
+            print("Error occurred in the Censys module - hostname search: " + str(e))
 
     def get_ipaddresses(self):
         try:
             ips = censysparser.parser(self)
             return ips.search_ipaddresses()
         except Exception as e:
-            print("Error occurred: " + str(e))
+            print("Error occurred in the main Censys module - IP address search: " + str(e))
 
