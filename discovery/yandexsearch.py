@@ -2,6 +2,8 @@ import myparser
 import re
 import time
 import requests
+from discovery.constants import *
+
 
 class search_yandex:
 
@@ -11,7 +13,6 @@ class search_yandex:
         self.totalresults = ""
         self.server = "yandex.com"
         self.hostname = "yandex.com"
-        self.userAgent = "(Mozilla/5.0 (Windows; U; Windows NT 6.0;en-US; rv:1.9.2) Gecko/20100115 Firefox/3.6"
         self.limit = limit
         self.counter = start
 
@@ -19,7 +20,7 @@ class search_yandex:
         url = 'http://' + self.server + "/search?text=%40" + self.word + "&numdoc=50&lr=" + str(self.counter)
         headers = {
             'Host': self.hostname,
-            'User-agent': self.userAgent
+            'User-agent': getUserAgent()
         }
         h = requests.get(url=url, headers=headers)
         self.results = h.text
@@ -30,7 +31,7 @@ class search_yandex:
         url = 'http://' + self.server + "/search?text=%40" + self.word + "&numdoc=50&lr=" + str(self.counter)
         headers = {
             'Host': self.hostname,
-            'User-agent': self.userAgent
+            'User-agent': getUserAgent()
         }
         h = requests.get(url=url, headers=headers)
         self.results = h.text
@@ -67,5 +68,5 @@ class search_yandex:
     def process_files(self, files):
         while self.counter < self.limit:
             self.do_search_files(files)
-            time.sleep(0.3)
+            time.sleep(getDelay())
             self.counter += 50

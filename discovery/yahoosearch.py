@@ -1,6 +1,7 @@
 import myparser
 import time
 import requests
+from discovery.constants import *
 
 class search_yahoo:
 
@@ -9,7 +10,6 @@ class search_yahoo:
         self.total_results = ""
         self.server = "search.yahoo.com"
         self.hostname = "search.yahoo.com"
-        self.userAgent = "(Mozilla/5.0 (Windows; U; Windows NT 6.0;en-US; rv:1.9.2) Gecko/20100115 Firefox/3.6"
         self.limit = limit
         self.counter = 0
 
@@ -18,7 +18,7 @@ class search_yahoo:
                + "\"&b=" + str(self.counter) + "&pz=10"
         headers = {
             'Host': self.hostname,
-            'User-agent': self.userAgent
+            'User-agent': getUserAgent()
         }
         h = requests.get(url=url, headers=headers)
         self.total_results += h.text
@@ -26,7 +26,7 @@ class search_yahoo:
     def process(self):
         while self.counter <= self.limit and self.counter <= 1000:
             self.do_search()
-            time.sleep(1)
+            time.sleep(getDelay())
             print("\tSearching " + str(self.counter) + " results...")
             self.counter += 10
 
