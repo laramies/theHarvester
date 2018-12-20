@@ -1,5 +1,6 @@
 import myparser
 import requests
+from discovery.constants import *
 
 class search_google_labs:
 
@@ -8,7 +9,6 @@ class search_google_labs:
         self.totalresults = ""
         self.server = "labs.google.com"
         self.hostname = "labs.google.com"
-        self.userAgent = "(Mozilla/5.0 (Windows; U; Windows NT 6.0;en-US; rv:1.9.2) Gecko/20100115 Firefox/3.6"
         id = 0
         self.set = ""
         for x in list:
@@ -22,7 +22,7 @@ class search_google_labs:
         url = 'http://' + self.server + "/sets?hl-en&" + self.set
         headers = {
             'Host': self.server,
-            'User-agent': self.userAgent
+            'User-agent': getUserAgent()
         }
         h = requests.get(url=url, headers=headers)
         self.results = h.text

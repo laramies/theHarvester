@@ -2,6 +2,7 @@ import sys
 import myparser
 import time
 import requests
+from discovery.constants import *
 
 class search_bing:
 
@@ -12,7 +13,6 @@ class search_bing:
         self.server = "www.bing.com"
         self.apiserver = "api.search.live.net"
         self.hostname = "www.bing.com"
-        self.userAgent = "(Mozilla/5.0 (Windows; U; Windows NT 6.0;en-US; rv:1.9.2) Gecko/20100115 Firefox/3.6"
         self.quantity = "50"
         self.limit = int(limit)
         self.bingApi = ""
@@ -23,7 +23,7 @@ class search_bing:
             'Host': self.hostname,
             'Cookie':'SRCHHPGUSR=ADLT=DEMOTE&NRSLT=50',
             'Accept-Language': 'en-us,en',
-            'User-agent': self.userAgent
+            'User-agent': getUserAgent()
         }
         h = requests.get(url=('http://'+self.server + "/search?q=%40" + self.word + "&count=50&first=" + str(self.counter)),headers=headers)
         self.results = h.text
@@ -34,7 +34,7 @@ class search_bing:
                self.word + "&sources=web&web.count=40&web.offset=" + str(self.counter)
         headers = {
             'Host': self.apiserver,
-            'User-agent': self.userAgent
+            'User-agent': getUserAgent()
         }
         h = requests.get(url=url, headers=headers)
         self.results = h.text
@@ -45,7 +45,7 @@ class search_bing:
             'Host': self.hostname,
             'Cookie': 'mkt=en-US;ui=en-US;SRCHHPGUSR=NEWWND=0&ADLT=DEMOTE&NRSLT=50',
             'Accept-Language': 'en-us,en',
-            'User-agent': self.userAgent
+            'User-agent': getUserAgent()
         }
         url = 'http://' + self.server + "/search?q=ip:" + self.word + "&go=&count=50&FORM=QBHL&qs=n&first=" + str(self.counter)
         h = requests.get(url=url, headers=headers)
@@ -72,10 +72,10 @@ class search_bing:
         while (self.counter < self.limit):
             if api == "yes":
                 self.do_search_api()
-                time.sleep(0.3)
+                time.sleep(getDelay())
             else:
                 self.do_search()
-                time.sleep(1)
+                time.sleep(getDelay())
             self.counter += 50
             print("\tSearching " + str(self.counter) + " results...")
 

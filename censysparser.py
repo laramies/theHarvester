@@ -1,6 +1,7 @@
 from bs4 import BeautifulSoup
 import re
 
+
 class parser:
     
     def __init__(self, resultstoparse):
@@ -61,8 +62,8 @@ class parser:
         try:
             items = self.soupcerts.findAll(href=re.compile("page"))
             for item in items:
-                if (item.text !='next'):            #to filter out pagination
-                    self.numberofpagescerts+=1
+                if (item.text != 'next'):            #to filter out pagination
+                    self.numberofpagescerts += 1
             return self.numberofpagescerts
         except Exception as e:
             print("Error occurred in the Censys module certificate search: page parser: " + str(e))
