@@ -1,12 +1,13 @@
 from bs4 import BeautifulSoup
 import re
 
+
 class parser:
-    
+
     def __init__(self, results):
         self.results = results
         self.ipaddresses = []
-        self.soup = BeautifulSoup(results.results,features="html.parser")
+        self.soup = BeautifulSoup(results.results, features="html.parser")
         self.hostnames = []
         self.urls = []
         self.numberofpages = 0
@@ -22,7 +23,7 @@ class parser:
 
     def search_ipaddresses(self):
         try:
-            ipaddresslist = self.soup.findAll('a','SearchResult__title-text')
+            ipaddresslist = self.soup.findAll('a', 'SearchResult__title-text')
             for ipaddressitem in ipaddresslist:
                 self.ipaddresses.append(ipaddressitem.text.strip())
             return self.ipaddresses
@@ -33,11 +34,8 @@ class parser:
         try:
             items = self.soup.findAll(href=re.compile("page"))
             for item in items:
-                if (item.text !='next'):            #to filter out pagination
-                    self.numberofpages+=1
+                if (item.text != 'next'):  # to filter out pagination
+                    self.numberofpages += 1
             return self.numberofpages
         except Exception as e:
             print("Error occurred: " + str(e))
-
-              
-   
