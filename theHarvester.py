@@ -349,14 +349,14 @@ def start(argv):
                         search = censys.search_censys(word)
                         search.process()
                         ips = search.get_ipaddresses()
-                        all_ip.extend(ips)
-                        hosts = search.get_hostnames()
-                        all_hosts.extend(hosts)
-                        db = stash.stash_manager()
                         setips = set(ips)               
                         uniqueips = list(setips)            #remove duplicates
+                        all_ip.extend(uniqueips)
+                        hosts = search.get_hostnames()
                         sethosts = set(hosts)
                         uniquehosts = list(sethosts)        #remove duplicates
+                        all_hosts.extend(uniquehosts)
+                        db = stash.stash_manager()
                         db.store_all(word,uniquehosts,'host','censys')
                         db.store_all(word,uniqueips,'ip','censys')                       
 
@@ -493,12 +493,16 @@ def start(argv):
                         search = censys.search_censys(word)
                         search.process()
                         ips = search.get_ipaddresses()
-                        all_ip.extend(ips)
+                        setips = set(ips)               
+                        uniqueips = list(setips)            #remove duplicates
+                        all_ip.extend(uniqueips)
                         hosts = search.get_hostnames()
-                        all_hosts.extend(hosts)
+                        sethosts = set(hosts)
+                        uniquehosts = list(sethosts)        #remove duplicates
+                        all_hosts.extend(uniquehosts)
                         db = stash.stash_manager()
-                        db.store_all(word, ips, 'ip', 'censys')
-                        db.store_all(word, hosts, 'host', 'censys')
+                        db.store_all(word, uniqueips, 'ip', 'censys')
+                        db.store_all(word, uniquehosts, 'host', 'censys')
 
             else:
                 usage()
