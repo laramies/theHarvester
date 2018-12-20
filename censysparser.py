@@ -19,7 +19,6 @@ class parser:
             hostnamelist = self.souphosts.findAll('tt')
             for hostnameitem in hostnamelist:
                 self.hostnames.append(hostnameitem.text)
-            print ("FOUND HOSTNAMES:" + str(self.hostnames))
             return self.hostnames
         except Exception as e:
             print("Error occurred in the Censys module: hostname parser: " + str(e))
@@ -34,7 +33,6 @@ class parser:
                 hostnamesclean = re.sub(r'\.\.\.',r'',hostnamesclean)
                 self.hostnamesfromcerts.extend(hostnamesclean.split(","))
             self.hostnamesfromcerts = list(filter(None, self.hostnamesfromcerts))   #filter out duplicates
-            print ("FOUND HOSTNAMESFROMCERTS:" + str(self.hostnamesfromcerts))
             return self.hostnamesfromcerts
         except Exception as e:
             print("Error occurred in the Censys module: certificate hostname parser: " + str(e))
