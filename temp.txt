@@ -1,0 +1,12 @@
+ from discovery import securitytrailssearch
+    search = securitytrailssearch.search_securitytrail(word='www.cornell.edu',limit=500,start=50)
+    search.process()
+    hosts = search.get_hostnames()
+    print('hosts: ',hosts)
+    for host in hosts:
+        print('host: ',host)
+    emails = search.get_emails()
+    print('emails: ',emails)
+    for email in emails:
+        print('email: ',email)
+    import sys;sys.exit(-2)

@@ -1,0 +1,34 @@
+{
+  "hostname": "www.spotify.com",
+  "endpoint": "/v1/domain/www.spotify.com",
+  "current_dns": {
+    "txt": {},
+    "soa": {},
+    "ns": {},
+    "mx": {},
+    "aaaa": {},
+    "a": {
+      "values": [
+        {
+          "ip_organization": "Google Inc.",
+          "ip_count": 145,
+          "ip": "104.154.127.47",
+          "h": "weblb-wg.dual-gslb.spotify.com"
+        }
+      ],
+      "first_seen": "2018-12-21"
+    }
+  },
+  "alexa_rank": null
+}
+{
+  "subdomains": [
+    "00.video-ak.cdn",
+    "08.video-ak.cdn",
+    "ws",
+    "www",
+    "www.newsroom",
+    "yearinmusic"
+  ],
+  "endpoint": "/v1/domain/www.spotify.com/subdomains"
+}
