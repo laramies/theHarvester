@@ -32,7 +32,7 @@ class search_censys:
             try:
                 self.page = str(self.counter)
                 self.url = "https://" + self.server + "/ipv4/_search?q=" + str(self.word) + "&page=" + str(self.page)
-                print("\t - Searching Censys results page " + self.page + "...")
+                print("\t -Searching Censys results page " + self.page + "...")
                 self.do_search()
                 time.sleep(getDelay())
             except Exception as e:

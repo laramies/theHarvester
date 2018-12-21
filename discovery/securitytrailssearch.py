@@ -7,7 +7,6 @@ class search_securitytrail:
 
     def __init__(self, word):
         self.word = word
-        self.limit = 100
         self.key = ""
         if self.key == "":
             print("You need an API key in order to use the SecurityTrails search engine. You can get one here: https://securitytrails.com/")
@@ -35,7 +34,7 @@ class search_securitytrail:
             url = self.database + 'domain/' + self.word
             headers = {'APIKEY': self.key}
             r = requests.get(url, headers=headers)
-            time.sleep(2)
+            time.sleep(2) #not random delay because 2 seconds is required due to rate limit
         except Exception as e:
             print(e)
         self.results = r.text

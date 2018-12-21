@@ -489,6 +489,19 @@ def start(argv):
                         # all_emails = sorted(set(all_emails))
                         db.store_all(word, emails, 'email', 'hunter')
 
+                        print("[-] Searching in securityTrails:")
+                        from discovery import securitytrailssearch
+                        search = securitytrailssearch.search_securitytrail(word)
+                        search.process()
+                        hosts = search.get_hostnames()
+                        all_hosts.extend(hosts)
+                        db = stash.stash_manager()
+                        db.store_all(word, hosts, 'host', 'securityTrails')
+                        ips = search.get_ips()
+                        all_ip.extend(ips)
+                        db = stash.stash_manager()
+                        db.store_all(word, ips, 'ip', 'securityTrails')
+
                         print("[-] Searching in Google Certificate transparency report..")
                         search = googlecertificates.search_googlecertificates(word, limit, start)
                         search.process()
@@ -769,7 +782,6 @@ def start(argv):
             file.write('<?xml version="1.0" encoding="UTF-8"?><theHarvester>')
             for x in all_emails:
                 file.write('<email>' + x + '</email>')
-
             for x in full:
                 x = x.split(":")
                 if len(x) == 2:
@@ -796,13 +808,12 @@ def start(argv):
                     file.write('<port>' + res[2] + '</port>')
                     # page.pre(res[1])
                     file.write('<banner><!--' + res[1] + '--></banner>')
-
                     reg_server = re.compile('Server:.*')
                     temp = reg_server.findall(res[1])
                     if temp != []:
                         shodanalysis.append(res[0] + ":" + temp[0])
-
                     file.write('</shodan>')
+
                 if shodanalysis != []:
                     shodanalysis = sorted(set(shodanalysis))
                     file.write('<servers>')

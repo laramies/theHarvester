@@ -4,7 +4,6 @@ class parser:
         self.word = word
         self.text = text
         self.hostnames = set()
-        self.urls = []
         self.ips = set()
 
     def parse_text(self):
