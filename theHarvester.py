@@ -48,7 +48,7 @@ def usage():
     print("""       -b: data source: baidu, bing, bingapi, censys, crtsh, dogpile,
                         google, google-certificates, googleCSE, googleplus, google-profiles,
                         hunter, linkedin, netcraft, pgp, threatcrowd,
-                        twitter, vhost, virustotal, yahoo, all""")
+                        twitter, securityTrails, vhost, virustotal, yahoo,  all""")
     print("       -g: use Google dorking instead of normal Google search")
     print("       -s: start in result number X (default: 0)")
     print("       -v: verify host name via DNS resolution and search for virtual hosts")
@@ -137,7 +137,7 @@ def start(argv):
             supportedengines = set(
                 ["baidu", "bing", "crtsh", "censys", "cymon", "bingapi", "dogpile", "google", "googleCSE", "virustotal",
                  "threatcrowd", "googleplus", "google-profiles", 'google-certificates', "linkedin", "pgp", "twitter",
-                 "trello", "vhost", "yahoo", "netcraft", "hunter", "all"])
+                 "trello", "vhost", "yahoo", "netcraft", "hunter", "securityTrails", "all"])
             if set(engines).issubset(supportedengines):
                 print("found supported engines")
                 print(("[-] Starting harvesting process for domain: " + word + "\n"))
@@ -384,11 +384,24 @@ def start(argv):
                             print(x)
                         sys.exit()
 
+                    elif engineitem == 'securityTrails':
+                        print("[-] Searching in securityTrails:")
+                        from discovery import securitytrailssearch
+                        search = securitytrailssearch.search_securitytrail(word)
+                        search.process()
+                        hosts = search.get_hostnames()
+                        all_hosts.extend(hosts)
+                        db = stash.stash_manager()
+                        db.store_all(word, hosts, 'host', 'securityTrails')
+                        ips = search.get_ips()
+                        all_ip.extend(ips)
+                        db = stash.stash_manager()
+                        db.store_all(word, ips, 'ip', 'securityTrails')
+
                     elif engineitem == "all":
                         print(("Full harvest on " + word))
                         all_emails = []
                         all_hosts = []
-
                         print("[-] Searching in Google..")
                         search = googlesearch.search_google(word, limit, start)
                         search.process(google_dorking)
