@@ -102,6 +102,7 @@ def start(argv):
     limit = 500
     all_ip = []
     full = []
+    trello_info = ([], False)
     dnsserver = ""
     for value in enumerate(opts):
         opt = value[1][0]
@@ -134,7 +135,7 @@ def start(argv):
             dnstld = True
         elif opt == '-b':
             engines = set(arg.split(','))
-            supportedengines = set(["baidu","bing","bingapi","censys","crtsh","cymon","dogpile","google","googleCSE","googleplus",'google-certificates',"google-profiles","hunter","linkedin","netcraft","pgp","threatcrowd","trello","twitter","vhost","virustotal","yahoo","all"])
+            supportedengines = set(["baidu","bing","bingapi","censys","crtsh","cymon","dogpile","google","googleCSE","googleplus",'google-certificates',"google-profiles","hunter","linkedin","netcraft","pgp","securityTrails","threatcrowd","trello","twitter","vhost","virustotal","yahoo","all"])
             if set(engines).issubset(supportedengines):
                 print("found supported engines")
                 print(("[-] Starting harvesting process for domain: " + word + "\n"))
@@ -313,6 +314,20 @@ def start(argv):
                         db.store_all(word, all_hosts, 'host', 'pgp')
                         db.store_all(word, all_emails, 'email', 'pgp')
 
+                    elif engineitem == 'securityTrails':
+                        print("[-] Searching in securityTrails:")
+                        from discovery import securitytrailssearch
+                        search = securitytrailssearch.search_securitytrail(word)
+                        search.process()
+                        hosts = search.get_hostnames()
+                        all_hosts.extend(hosts)
+                        db = stash.stash_manager()
+                        db.store_all(word, hosts, 'host', 'securityTrails')
+                        ips = search.get_ips()
+                        all_ip.extend(ips)
+                        db = stash.stash_manager()
+                        db.store_all(word, ips, 'ip', 'securityTrails')
+
                     elif engineitem == "threatcrowd":
                         print("[-] Searching in Threatcrowd:")
                         search = threatcrowd.search_threatcrowd(word)
@@ -325,17 +340,18 @@ def start(argv):
                     elif engineitem == "trello":
                         print("[-] Searching in Trello:")
                         from discovery import trello
-                        # Import locally or won't work
-                        search = trello.search_trello(word,limit)
+                        # import locally or won't work
+                        search = trello.search_trello(word, limit)
                         search.process()
-                        all_emails = search.get_emails()
-                        all_hosts = search.get_urls()
+                        emails = search.get_emails()
+                        all_emails.extend(emails)
+                        info = search.get_urls()
+                        hosts = info[0]
+                        trello_info = (info[1], True)
+                        all_hosts.extend(hosts)
                         db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'host', 'trello')
-                        db.store_all(word, all_emails, 'email', 'trello')
-                        for x in all_hosts:
-                            print(x)
-                        sys.exit()
+                        db.store_all(word, hosts, 'host', 'trello')
+                        db.store_all(word, emails, 'email', 'trello')
 
                     elif engineitem == "twitter":
                         print("[-] Searching in Twitter ..")
@@ -488,6 +504,21 @@ def start(argv):
 
                         # trello
 
+                        print("[-] Searching in Trello:")
+                        from discovery import trello
+                        # import locally or won't work
+                        search = trello.search_trello(word, limit)
+                        search.process()
+                        emails = search.get_emails()
+                        all_emails.extend(emails)
+                        info = search.get_urls()
+                        hosts = info[0]
+                        trello_info = (info[1], True)
+                        all_hosts.extend(hosts)
+                        db = stash.stash_manager()
+                        db.store_all(word, hosts, 'host', 'trello')
+                        db.store_all(word, emails, 'email', 'trello')
+
                         # twitter
 
                         # vhost
@@ -558,6 +589,18 @@ def start(argv):
         db = stash.stash_manager()
         db.store_all(word, host_ip, 'ip', 'DNS-resolver')
 
+    if trello_info[1] == True: #indicates user selected Trello
+        print("\033[1;33;40m \n[+] Urls found from Trello:")
+        print("------------------------------------")
+        trello_urls = trello_info[0]
+        if trello_urls == []:
+            print('\nNo Trello Urls found')
+        else:
+            total = len(trello_urls)
+            print(("\nTotal Urls: " + str(total) + "\n"))
+            for url in sorted(list(set(trello_urls))):
+                print(url)
+                
     # DNS Brute force ################################################
     dnsres = []
     if dnsbrute == True:
