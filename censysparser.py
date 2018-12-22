@@ -14,15 +14,6 @@ class parser:
         self.numberofpageshosts = 0
         self.numberofpagescerts = 0
 
-    def search_hostnames(self):
-        try:
-            hostnamelist = self.souphosts.findAll('tt')
-            for hostnameitem in hostnamelist:
-                self.hostnames.append(hostnameitem.text)
-            return self.hostnames
-        except Exception as e:
-            print("Error occurred in the Censys module: hostname parser: " + str(e))
-
     def search_hostnamesfromcerts(self):
         try:
             hostnamelist = self.soupcerts.findAll("i", "fa fa-fw fa-home")
