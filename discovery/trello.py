@@ -17,12 +17,13 @@ class search_trello:
 
     def do_search(self):
         try:
-            urly= "https://" + self.server + "/search?num=100&start=" + str(self.counter) + "&hl=en&meta=&q=site%3Atrello.com%20" + self.word
+            urly = "https://" + self.server + "/search?num=100&start=" + str(
+                self.counter) + "&hl=en&meta=&q=site%3Atrello.com%20" + self.word
         except Exception as e:
             print(e)
         headers = {'User-Agent': googleUA}
         try:
-            r=requests.get(urly,headers=headers)
+            r = requests.get(urly, headers=headers)
             time.sleep(getDelay())
         except Exception as e:
             print(e)
@@ -34,17 +35,18 @@ class search_trello:
         return rawres.emails()
 
     def get_urls(self):
+        print('\tSearching Trello Urls..')
         try:
             rawres = myparser.parser(self.totalresults, "trello.com")
-            urls = rawres.urls()
+            trello_urls = rawres.urls()
             visited = set()
-            for url in urls:
-                #iterate through urls gathered and visit them
-                if url not in visited:
+            for url in trello_urls:
+                # iterate through trello urls gathered and visit them, append text to totalresults
+                if url not in visited:  # make sure visiting unique urls
                     visited.add(url)
                     self.totalresults += requests.get(url=url, headers={'User-Agent': googleUA}).text
             rawres = myparser.parser(self.totalresults, self.word)
-            return rawres.hostnames()
+            return rawres.hostnames(), trello_urls
         except Exception as e:
             print("Error occurred: " + str(e))
 

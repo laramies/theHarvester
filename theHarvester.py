@@ -102,6 +102,7 @@ def start(argv):
     limit = 500
     all_ip = []
     full = []
+    trello_info = ([], False)
     dnsserver = ""
     for value in enumerate(opts):
         opt = value[1][0]
@@ -375,7 +376,9 @@ def start(argv):
                         search.process()
                         emails = search.get_emails()
                         all_emails.extend(emails)
-                        hosts = search.get_urls()
+                        info = search.get_urls()
+                        hosts = info[0]
+                        trello_info = (info[1], True )
                         all_hosts.extend(hosts)
                         db = stash.stash_manager()
                         db.store_all(word, hosts, 'host', 'trello')
@@ -573,9 +576,20 @@ def start(argv):
                     pass
                 else:
                     host_ip.append(ip.lower())
-
         db = stash.stash_manager()
         db.store_all(word, host_ip, 'ip', 'DNS-resolver')
+
+    if trello_info[1] == True: #indicates user selected Trello
+        print("\033[1;33;40m \n[+] Urls found from Trello:")
+        print("------------------------------------")
+        trello_urls = trello_info[0]
+        if trello_urls == []:
+            print('\nNo trello urls found')
+        else:
+            total = len(trello_urls)
+            print(("\nTotal urls: " + str(total) + "\n"))
+            for url in sorted(list(set(trello_urls))):
+                print(url)
 
     # DNS Brute force####################################################
     dnsres = []
@@ -707,6 +721,8 @@ def start(argv):
             print(x)
     else:
         pass
+
+
 
     ###################################################################
     # Here i need to add explosion mode.
