@@ -375,14 +375,11 @@ def start(argv):
                         search.process()
                         emails = search.get_emails()
                         all_emails.extend(emails)
-                        hosts = search.get_hostnames()
+                        hosts = search.get_urls()
                         all_hosts.extend(hosts)
                         db = stash.stash_manager()
                         db.store_all(word, hosts, 'host', 'trello')
                         db.store_all(word, emails, 'email', 'trello')
-                        for x in all_hosts:
-                            print(x)
-                        sys.exit()
 
                     elif engineitem == 'securityTrails':
                         print("[-] Searching in securityTrails:")
