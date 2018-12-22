@@ -522,6 +522,20 @@ def start(argv):
                         db.store_all(word, ips, 'ip', 'censys')
                         db.store_all(word, hosts, 'host', 'censys')
 
+                        print("[-] Searching in Trello:")
+                        from discovery import trello
+                        # import locally or won't work
+                        search = trello.search_trello(word, limit)
+                        search.process()
+                        emails = search.get_emails()
+                        all_emails.extend(emails)
+                        info = search.get_urls()
+                        hosts = info[0]
+                        trello_info = (info[1], True)
+                        all_hosts.extend(hosts)
+                        db = stash.stash_manager()
+                        db.store_all(word, hosts, 'host', 'trello')
+                        db.store_all(word, emails, 'email', 'trello')
             else:
                 usage()
                 print(
@@ -584,10 +598,10 @@ def start(argv):
         print("------------------------------------")
         trello_urls = trello_info[0]
         if trello_urls == []:
-            print('\nNo trello urls found')
+            print('\nNo Trello Urls found')
         else:
             total = len(trello_urls)
-            print(("\nTotal urls: " + str(total) + "\n"))
+            print(("\nTotal Urls: " + str(total) + "\n"))
             for url in sorted(list(set(trello_urls))):
                 print(url)
 
