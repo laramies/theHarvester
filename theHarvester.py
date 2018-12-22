@@ -517,6 +517,7 @@ def start(argv):
     else:
         print("\033[1;33;40m \n[+] IP addresses found in search engines:")
         print("------------------------------------")
+        print("Total IP addresses: "+ str(len(all_ip)) + "\n")
         for i in all_ip:
             print(i)
     print("\n\n[+] Emails found:")
@@ -537,6 +538,7 @@ def start(argv):
     if all_emails == []:
         print("No emails found")
     else:
+        print("Total emails: "+ str(len(all_emails)) + "\n")
         print(("\n".join(all_emails)))
 
     print("\033[1;33;40m \n[+] Hosts found in search engines:")
@@ -547,7 +549,8 @@ def start(argv):
         total = len(all_hosts)
         print(("\nTotal hosts: " + str(total) + "\n"))
         all_hosts = sorted(set(all_hosts))
-        print(all_hosts)
+        for host in all_hosts:
+            print(host)
         print("\033[94m[-] Resolving hostnames IPs...\033[1;33;40m \n ")
         full_host = hostchecker.Checker(all_hosts)
         full = full_host.check()
