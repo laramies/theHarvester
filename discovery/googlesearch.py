@@ -73,6 +73,8 @@ class search_google:
         if google_dorking == False:
             while self.counter <= self.limit and self.counter <= 1000:
                 self.do_search()
+                #more = self.check_next()
+                time.sleep(1.5)
                 print("\tSearching " + str(self.counter) + " results...")
                 self.counter += 100
         else:  # google dorking is true
