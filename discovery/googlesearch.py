@@ -3,6 +3,7 @@ import time
 import requests
 from discovery.constants import *
 
+
 class search_google:
 
     def __init__(self, word, limit, start):
@@ -29,7 +30,7 @@ class search_google:
         except Exception as e:
             print(e)
         self.results = r.text
-        if (self.search(self.results)):
+        if (search(self.results)):
             time.sleep(getDelay() * 5)  # sleep for a longer time
         else:
             time.sleep(getDelay())
@@ -47,7 +48,7 @@ class search_google:
         except Exception as e:
             print(e)
         self.results = r.text
-        if (self.search(self.results)):
+        if (search(self.results)):
             time.sleep(getDelay() * 5)  # sleep for a longer time
         else:
             time.sleep(getDelay())
@@ -73,8 +74,6 @@ class search_google:
         if google_dorking == False:
             while self.counter <= self.limit and self.counter <= 1000:
                 self.do_search()
-                #more = self.check_next()
-                time.sleep(1.5)
                 print("\tSearching " + str(self.counter) + " results...")
                 self.counter += 100
         else:  # google dorking is true
@@ -143,17 +142,10 @@ class search_google:
                 link = self.links[i]  # get link from dork list
                 req = requests.get(link, headers=headers)
                 self.results = req.text
-                if (self.search(self.results)):
+                if (search(self.results)):
                     time.sleep(getDelay() * 5)  # sleep for a longer time
                 else:
                     time.sleep(getDelay())
                 self.totalresults += self.results
             except:
                 continue
-
-    def search(self, text):
-        # helper function to check if google has blocked traffic
-        for line in text.strip().splitlines():
-            if 'This page appears when Google automatically detects requests coming from your computer network' in line:
-                return True
-        return False

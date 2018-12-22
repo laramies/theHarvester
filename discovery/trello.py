@@ -53,6 +53,9 @@ class search_trello:
     def process(self):
         while (self.counter < self.limit):
             self.do_search()
-            time.sleep(getDelay())
+            if search(self.results):
+                time.sleep(getDelay() * 5)
+            else:
+                time.sleep(getDelay())
             self.counter += 100
             print("\tSearching " + str(self.counter) + " results..")

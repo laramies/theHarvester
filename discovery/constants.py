@@ -237,12 +237,23 @@ user_agents = [
     "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/536.6 (KHTML, like Gecko) Chrome/20.0.1090.0 Safari/536.6",
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/535.19 (KHTML, like Gecko) Ubuntu/11.10 Chromium/18.0.1025.142 Chrome/18.0.1025.142 Safari/535.19",
     "Mozilla/5.0 (Windows NT 5.1; U; de; rv:1.9.1.6) Gecko/20091201 Firefox/3.5.6 Opera 11.00"
-    ]
+]
 
 googleUA = "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1464.0 Safari/537.36"
+
 
 def getDelay():
     return random.randint(1, 3) - .5
 
+
 def getUserAgent():
     return random.choice(user_agents)
+
+
+def search(text):
+    # helper function to check if google has blocked traffic
+    for line in text.strip().splitlines():
+        if 'This page appears when Google automatically detects requests coming from your computer network' in line:
+            print('\tGoogle is blocking your iP due too many automated request, wait or change your IP')
+            return True
+    return False
