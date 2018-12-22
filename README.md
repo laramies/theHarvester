@@ -6,7 +6,7 @@
 * | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
 *  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
 *                                                                 *
-* TheHarvester Ver. 3.0.5                                         *
+* TheHarvester Ver. 3.0.6                                         *
 * Coded by Christian Martorella                                   *
 * Edge-Security Research                                          *
 * cmartorella@edge-security.com                                   *
@@ -15,78 +15,83 @@
 
 What is this?
 -------------
+theHarvester is a tool used for gathering names, emails, subdomains, virtual
+hosts, open ports/banners, and employee names from different public sources
+(search engines, PGP key servers). A really simple, but very effective tool for
+the early stages of a penetration test or just to know the visibility of your
+company on the internet.
 
-theHarvester is a tool for gathering subdomain names, e-mail addresses, virtual
-hosts, open ports/ banners, and employee names from different public sources
-(search engines, pgp key servers).
+The data sources include:
 
-Is a really simple tool, but very effective for the early stages of a penetration
-test or just to know the visibility of your company in the Internet.
+Passive:
+--------
+* baidu: Baidu search engine
 
-The sources are:
+* bing: Microsoft search engine - www.bing.com
 
-**Passive**:
----------
+* bingapi: Microsoft search engine, through the API (Requires API key, see below.)
 
-* threatcrowd: Open source threat intelligence - https://www.threatcrowd.org/
+* censys: 
 
 * crtsh: Comodo Certificate search - www.crt.sh
 
-* google: Google search engine  - www.google.com (With optional google dorking)
-
-* googleCSE: Google custom search engine
-
-* google-profiles: Google search engine, specific search for Google profiles
-
-* bing: Microsoft search engine  - www.bing.com
-
-* bingapi: microsoft search engine, through the API (you need to add your Key in
-          the discovery/bingsearch.py file)
+* cymon:
 
 * dogpile: Dogpile search engine - www.dogpile.com
 
-* pgp: PGP key server - mit.edu
+* google: Google search engine - www.google.com (Optional Google dorking.)
+
+* googleCSE: Google custom search engine
+
+* googleplus: Users that work in target company (Uses Google search.)
+
+* google-certificates: Google Certificate Transparency report
+
+* google-profiles: Google search engine, specific search for Google profiles
+
+* hunter: Hunter search engine (Requires API key, see below.)
 
 * linkedin: Google search engine, specific search for Linkedin users
 
+* netcraft:
+
+* pgp: PGP key server - mit.edu
+
+* shodan: Shodan search engine, will search for ports and banners from discovered
+          hosts - www.shodanhq.com
+
+* threatcrowd: Open source threat intelligence - www.threatcrowd.org
+
+* trello:
+
+* twitter: Twitter accounts related to a specific domain (Uses Google search.)
 
 * vhost: Bing virtual hosts search
 
-* twitter: Twitter accounts related to an specific domain (uses google search)
-
-* googleplus: users that works in target company (uses google search)
+* virustotal: 
 
 * yahoo: Yahoo search engine
 
-* baidu: Baidu search engine
-
-* shodan: Shodan Computer search engine, will search for ports and banner of the
-         discovered hosts  (http://www.shodanhq.com/)
-
-* hunter: Hunter search engine (you need to add your Key in the discovery/huntersearch.py file) 
-
-* google-certificates: Google Certificate Transparency report 
+* all: 
 
 Active:
 -------
-* DNS brute force: this plugin will run a dictionary brute force enumeration
-* DNS reverse lookup: reverse lookup of ip´s discovered in order to find hostnames
+* DNS brute force: dictionary brute force enumeration
+* DNS reverse lookup: reverse lookup of IP´s discovered in order to find hostnames
 * DNS TDL expansion: TLD dictionary brute force enumeration
 
-
-Modules that need API keys to work:
-----------------------------------
-* googleCSE: You need to create a Google Custom Search engine(CSE), and add your
- Google API key and CSE ID in the plugin (discovery/googleCSE.py)
-* shodan: You need to provide your API key in discovery/shodansearch.py (one provided at the moment)
-* hunter: You need to provide your API key in discovery/huntersearch.py (none is provided at the moment)  
+Modules that require an API key:
+--------------------------------
+* googleCSE: add your API key and CSE ID to discovery/googleCSE.py
+* hunter: add your API key to discovery/huntersearch.py 
+* shodan: add your API key to discovery/shodansearch.py
 
 Dependencies:
-------------
+-------------
 * Requests library (http://docs.python-requests.org/en/latest/)
 `pip install requests`
 * Beautiful Soup 4 (https://pypi.org/project/beautifulsoup4//)
-`  pip install beautifulsoup4`
+`pip install beautifulsoup4`
 
 Changelog in 3.0.0:
 ------------------
@@ -96,9 +101,8 @@ Changelog in 3.0.0:
 * Shodan DB search fixed
 * Result storage in Sqlite
 
-
-Comments? Bugs? Requests?
-------------------------
+Comments, bugs, or requests?
+----------------------------
 cmartorella@edge-security.com
 
 Updates:
@@ -109,6 +113,6 @@ Thanks:
 -------
 * Matthew Brown @NotoriousRebel
 * Janos Zold @Jzold 
-* John Matherly -  SHODAN project
-* Lee Baird for suggestions and bugs reporting
-* Ahmed Aboul Ela - subdomain names dictionary (big and small)
+* John Matherly - Shodan project
+* Lee Baird @discoverscripts - suggestions and bugs reporting
+* Ahmed Aboul Ela - subdomain names dictionaries (big and small)

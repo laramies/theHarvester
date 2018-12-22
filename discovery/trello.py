@@ -18,7 +18,7 @@ class search_trello:
     def do_search(self):
         try:
             urly = "https://" + self.server + "/search?num=100&start=" + str(
-                self.counter) + "&hl=en&meta=&q=site%3Atrello.com%20" + self.word
+                self.counter) + "&hl=en&q=site%3Atrello.com%20" + self.word
         except Exception as e:
             print(e)
         headers = {'User-Agent': googleUA}
@@ -28,6 +28,7 @@ class search_trello:
         except Exception as e:
             print(e)
         self.results = r.text
+        print(self.results)
         self.totalresults += self.results
 
     def get_emails(self):
