@@ -396,11 +396,18 @@ def start(argv):
                         from discovery import censys
                         search = censys.search_censys(word)
                         search.process()
-                        all_ip = search.get_ipaddresses()
-                        all_hosts = search.get_hostnames()
+                        ips = search.get_ipaddresses()
+                        setips = set(ips)               
+                        uniqueips = list(setips)            #remove duplicates
+                        all_ip.extend(uniqueips)
+                        hosts = search.get_hostnames()
+                        sethosts = set(hosts)
+                        uniquehosts = list(sethosts)        #remove duplicates
+                        all_hosts.extend(uniquehosts)
                         db = stash.stash_manager()
-                        db.store_all(word, all_ip, 'ip', 'censys')
-                        db.store_all(word, all_hosts, 'host', 'censys')
+                        db.store_all(word,uniquehosts,'host','censys')
+                        db.store_all(word,uniqueips,'ip','censys')           
+
 
                         print("[-] Searching in CRTSH server..")
                         search = crtsh.search_crtsh(word)
@@ -469,7 +476,9 @@ def start(argv):
                         search.process()
                         emails = search.get_emails()
                         hosts = search.get_hostnames()
-                        all_hosts.extend(hosts)
+                        sethosts = set(hosts)
+                        uniquehosts = list(sethosts)        #remove duplicates
+                        all_hosts.extend(uniquehosts)
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'PGP')
                         all_emails.extend(emails)
@@ -513,6 +522,7 @@ def start(argv):
     else:
         print("\033[1;33;40m \n[+] IP addresses found in search engines:")
         print("------------------------------------")
+        print("Total IP addresses: "+ str(len(all_ip)) + "\n")
         for i in all_ip:
             print(i)
     print("\n\n[+] Emails found:")
@@ -533,6 +543,7 @@ def start(argv):
     if all_emails == []:
         print("No emails found.")
     else:
+        print("Total emails: "+ str(len(all_emails)) + "\n")
         print(("\n".join(all_emails)))
 
     print("\033[1;33;40m \n[+] Hosts found in search engines:")
@@ -543,6 +554,8 @@ def start(argv):
         total = len(all_hosts)
         print(("\nTotal hosts: " + str(total) + "\n"))
         all_hosts = sorted(set(all_hosts))
+        for host in all_hosts:
+            print(host)
         print("\033[94m[-] Resolving hostnames IPs...\033[1;33;40m \n ")
         full_host = hostchecker.Checker(all_hosts)
         full = full_host.check()
