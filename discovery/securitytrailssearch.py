@@ -21,8 +21,8 @@ class search_securitytrail:
         headers = {'APIKEY': self.key}
         url = self.database + 'ping'
         r = requests.get(url, headers=headers).text
-        if 'False' in r:
-            print('\t Key could not be authenticated exiting program')
+        if 'False' in r or 'Invalid authentication' in r:
+            print('\tKey could not be authenticated exiting program.')
             sys.exit(-2)
         time.sleep(2)
 

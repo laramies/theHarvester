@@ -47,7 +47,7 @@ def usage():
     print("   -d: company name or domain to search")
     print("""   -b: source: baidu, bing, bingapi, censys, crtsh, cymon, dogpile, google,
                googleCSE, googleplus, google-certificates, google-profiles,
-               hunter, linkedin, netcraft, pgp, threatcrowd, trello, twitter,
+               hunter, linkedin, netcraft, pgp, securityTrails, threatcrowd, trello, twitter,
                vhost, virustotal, yahoo, all""")
     print("   -g: use Google Dorking instead of normal Google search")
     print("   -s: start with result number X (default: 0)")
