@@ -1,6 +1,7 @@
 import requests
 import myparser
-import censysparser
+from discovery.constants import *
+import time
 
 class search_trello:
 
@@ -10,19 +11,20 @@ class search_trello:
         self.totalresults = ""
         self.server = "www.google.com"
         self.hostname = "www.google.com"
-        self.userAgent = "(Mozilla/5.0 (Windows; U; Windows NT 6.0;en-US; rv:1.9.2) Gecko/20100116 Firefox/3.7"
         self.quantity = "100"
         self.limit = limit
         self.counter = 0
 
     def do_search(self):
         try:
-            urly="https://"+ self.server + "/search?num=100&start=" + str(self.counter) + "&hl=en&meta=&q=site%3Atrello.com%20" + self.word
+            urly = "https://" + self.server + "/search?num=100&start=" + str(
+                self.counter) + "&hl=en&q=site%3Atrello.com%20" + self.word
         except Exception as e:
             print(e)
-        headers = {'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:34.0) Gecko/20100101 Firefox/34.0'}
+        headers = {'User-Agent': googleUA}
         try:
-            r=requests.get(urly,headers=headers)
+            r = requests.get(urly, headers=headers)
+            time.sleep(getDelay())
         except Exception as e:
             print(e)
         self.results = r.text
@@ -32,16 +34,28 @@ class search_trello:
         rawres = myparser.parser(self.totalresults, self.word)
         return rawres.emails()
 
-        
     def get_urls(self):
+        print('\tSearching Trello Urls..')
         try:
-            urls = myparser.parser(self.totalresults,"trello.com")
-            return urls.urls()
+            rawres = myparser.parser(self.totalresults, "trello.com")
+            trello_urls = rawres.urls()
+            visited = set()
+            for url in trello_urls:
+                # iterate through trello urls gathered and visit them, append text to totalresults
+                if url not in visited:  # make sure visiting unique urls
+                    visited.add(url)
+                    self.totalresults += requests.get(url=url, headers={'User-Agent': googleUA}).text
+            rawres = myparser.parser(self.totalresults, self.word)
+            return rawres.hostnames(), trello_urls
         except Exception as e:
             print("Error occurred: " + str(e))
 
     def process(self):
         while (self.counter < self.limit):
             self.do_search()
+            if search(self.results):
+                time.sleep(getDelay() * 5)
+            else:
+                time.sleep(getDelay())
             self.counter += 100
             print("\tSearching " + str(self.counter) + " results..")

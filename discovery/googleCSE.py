@@ -22,23 +22,25 @@ class search_googleCSE:
             print("You need an API key in order to use the Hunter search engine. You can get one here: https://cse.google.com")
             sys.exit()
         self.cse_id = ""
+
         self.lowRange = start 
         self.highRange = start+100
 
     def do_search(self):
-        url = 'http://' + self.server + "/customsearch/v1?key=" + self.api_key + "&highRange=" + str(self.highRange) \
-              + '&lowRange=' + str(self.lowRange) + '&cx=' + self.cse_id + "&start=" + str(self.counter) + \
-              "&q=%40\"" + self.word + "\""
+        url = 'https://' + self.server + "/customsearch/v1?key=" + self.api_key + "&highrange=" + str(self.highRange) \
+              + '&lowrange=' + str(self.lowRange) + '&cx=' + self.cse_id + "&start=" + str(self.counter) + \
+              "&q="+ self.word
         headers = {
             'Host': self.server,
             'User-agent': self.userAgent
         }
+        
         h = requests.get(url=url, headers=headers)
         self.results = h.text
         self.totalresults += self.results
 
     def do_search_files(self,files):
-        url = 'http://' + self.server + "/customsearch/v1?key=" + self.api_key + "&highRange=" + str(self.highRange) \
+        url = 'https://' + self.server + "/customsearch/v1?key=" + self.api_key + "&highRange=" + str(self.highRange) \
               + '&lowRange=' + str(self.lowRange) + '&cx=' + self.cse_id + "&start=" + str(self.counter) + \
               "&q=filetype:" + files + "%20site:" + self.word
         headers = {
