@@ -27,7 +27,6 @@ class parser:
             self.hostnamesfromcerts = list(filter(None, self.hostnamesfromcerts))
             matchingdomains = [s for s in self.hostnamesfromcerts if str(self.domain) in s]  #filter out domains issued to other sites
             self.hostnamesfromcerts = matchingdomains
-            print("STOP")
             return self.hostnamesfromcerts
         except Exception as e:
             print("Error occurred in the Censys module: certificate hostname parser: " + str(e))
@@ -46,7 +45,7 @@ class parser:
             items = self.souphosts.findAll(href=re.compile("page"))
             for item in items:
                 if (item.text !='next'):            #to filter out pagination
-                    self.numberofpageshosts+=1
+                    self.numberofpageshosts+= 1
             return self.numberofpageshosts
         except Exception as e:
             print("Error occurred in the Censys module IP search: page parser: " + str(e))
@@ -60,6 +59,3 @@ class parser:
             return self.numberofpagescerts
         except Exception as e:
             print("Error occurred in the Censys module certificate search: page parser: " + str(e))
-
-              
-   
