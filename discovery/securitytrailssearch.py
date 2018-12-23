@@ -2,15 +2,15 @@ import securitytrailsparser
 import requests
 import sys
 import time
+from discovery.constants import *
 
 class search_securitytrail:
 
     def __init__(self, word):
         self.word = word
-        self.key = ""
+        self.key = securityTrailsAPI_key
         if self.key == "":
-            print("You need an API key in order to use the SecurityTrails search engine. You can get one here: https://securitytrails.com/")
-            sys.exit()
+            raise MissingKey(True)
         self.results = ""
         self.totalresults = ""
         self.database = "https://api.securitytrails.com/v1/"
