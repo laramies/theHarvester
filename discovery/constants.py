@@ -1,8 +1,8 @@
 """
 Module that contains constants used across plugins
 Contains list of user agents and function to get random delay and user agent.
-
-From https://github.com/tamimibrahim17/List-of-user-agents
+As well as a defined User Agent for Google Search
+User-Agents from: https://github.com/tamimibrahim17/List-of-user-agents
 """
 
 import random
@@ -24,7 +24,6 @@ user_agents = [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/32.0.1664.3 Safari/537.36",
     "Opera/9.80 (X11; Linux i686; U; ja) Presto/2.7.62 Version/11.01",
     "Mozilla/5.0 (Windows NT 4.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/37.0.2049.0 Safari/537.36",
-    "More Internet Explorer 9.0 user agents strings -->>",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/37.0.2062.124 Safari/537.36",
     "Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.1; Trident/6.0)",
     "Mozilla/5.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0; SLCC1; .NET CLR 3.0.4506.2152; .NET CLR 3.5.30729; .NET CLR 1.1.4322)",
@@ -238,10 +237,23 @@ user_agents = [
     "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/536.6 (KHTML, like Gecko) Chrome/20.0.1090.0 Safari/536.6",
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/535.19 (KHTML, like Gecko) Ubuntu/11.10 Chromium/18.0.1025.142 Chrome/18.0.1025.142 Safari/535.19",
     "Mozilla/5.0 (Windows NT 5.1; U; de; rv:1.9.1.6) Gecko/20091201 Firefox/3.5.6 Opera 11.00"
-    ]
+]
+
+googleUA = "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1464.0 Safari/537.36"
+
 
 def getDelay():
     return random.randint(1, 3) - .5
 
+
 def getUserAgent():
     return random.choice(user_agents)
+
+
+def search(text):
+    # helper function to check if google has blocked traffic
+    for line in text.strip().splitlines():
+        if 'This page appears when Google automatically detects requests coming from your computer network' in line:
+            print('\tGoogle is blocking your iP due too many automated request, wait or change your IP')
+            return True
+    return False
