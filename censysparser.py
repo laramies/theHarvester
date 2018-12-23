@@ -3,16 +3,17 @@ import re
 
 
 class parser:
-    
+
     def __init__(self, resultstoparse):
         self.ipaddresses = []
-        self.souphosts = BeautifulSoup(resultstoparse.total_resultshosts,features="html.parser")
-        self.soupcerts = BeautifulSoup(resultstoparse.total_resultscerts,features="html.parser")
+        self.souphosts = BeautifulSoup(resultstoparse.total_resultshosts, features = "html.parser")
+        self.soupcerts = BeautifulSoup(resultstoparse.total_resultscerts, features = "html.parser")
         self.hostnames = []
         self.hostnamesfromcerts = []
         self.urls = []
         self.numberofpageshosts = 0
         self.numberofpagescerts = 0
+        self.domain = resultstoparse.word
 
     def search_hostnamesfromcerts(self):
         try:
@@ -20,10 +21,13 @@ class parser:
             for hostnameitem in hostnamelist:
                 hostitems = hostnameitem.next_sibling
                 hostnames = str(hostitems)
-                hostnamesclean = re.sub('[ \'\[\]]','', hostnames)
+                hostnamesclean = re.sub('[ \'\[\]]','',hostnames)
                 hostnamesclean = re.sub(r'\.\.\.',r'',hostnamesclean)
                 self.hostnamesfromcerts.extend(hostnamesclean.split(","))
-            self.hostnamesfromcerts = list(filter(None, self.hostnamesfromcerts))   #filter out duplicates
+            self.hostnamesfromcerts = list(filter(None, self.hostnamesfromcerts))
+            matchingdomains = [s for s in self.hostnamesfromcerts if str(self.domain) in s]  #filter out domains issued to other sites
+            self.hostnamesfromcerts = matchingdomains
+            print("STOP")
             return self.hostnamesfromcerts
         except Exception as e:
             print("Error occurred in the Censys module: certificate hostname parser: " + str(e))
