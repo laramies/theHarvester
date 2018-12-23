@@ -28,7 +28,6 @@ class search_trello:
         except Exception as e:
             print(e)
         self.results = r.text
-        print(self.results)
         self.totalresults += self.results
 
     def get_emails(self):
