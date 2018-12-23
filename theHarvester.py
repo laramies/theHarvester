@@ -609,7 +609,7 @@ def start(argv):
         print("No emails found.")
     else:
         print("Total emails: " + str(len(all_emails)) + "\n")
-        print(("\n".join(all_emails)))
+        print(("\n".join(sorted(list(set(all_emails))))))
 
     print("\033[1;33;40m \n[+] Hosts found in search engines:")
     print("------------------------------------")
