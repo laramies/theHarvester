@@ -136,10 +136,7 @@ def start(argv):
             dnstld = True
         elif opt == '-b':
             engines = set(arg.split(','))
-            supportedengines = set(
-                ["baidu", "bing", "bingapi", "censys", "crtsh", "cymon", "dogpile", "google", "googleCSE", "googleplus",
-                 'google-certificates', "google-profiles", "hunter", "linkedin", "netcraft", "pgp", "securityTrails",
-                 "threatcrowd", "trello", "twitter", "vhost", "virustotal", "yahoo", "all"])
+            supportedengines = set(["baidu", "bing", "bingapi", "censys", "crtsh", "cymon", "dogpile", "google", "googleCSE", "googleplus",'google-certificates', "google-profiles", "hunter", "linkedin", "netcraft", "pgp", "securityTrails", "threatcrowd", "trello", "twitter", "vhost", "virustotal", "yahoo", "all"])
             if set(engines).issubset(supportedengines):
                 print("found supported engines")
                 print(("[-] Starting harvesting process for domain: " + word + "\n"))
@@ -902,6 +899,5 @@ if __name__ == "__main__":
         print("Search interrupted by user..")
     except Exception:
         import traceback
-
         print(traceback.print_exc())
         sys.exit()
