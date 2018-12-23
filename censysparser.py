@@ -45,7 +45,7 @@ class parser:
             items = self.souphosts.findAll(href=re.compile("page"))
             for item in items:
                 if (item.text !='next'):            #to filter out pagination
-                    self.numberofpageshosts+= 1
+                    self.numberofpageshosts += 1
             return self.numberofpageshosts
         except Exception as e:
             print("Error occurred in the Censys module IP search: page parser: " + str(e))
