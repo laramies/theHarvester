@@ -579,8 +579,7 @@ def start(argv):
                         # yahoo
             else:
                 usage()
-                print(
-                    "Invalid search engine, try with: baidu, bing, bingapi, censys, crtsh, cymon, dogpile, google, googleCSE, googleplus, google-certificates, google-profiles, hunter, linkedin, netcraft, pgp, threatcrowd, trello, twitter, vhost, virustotal, yahoo, all")
+                print("Invalid search engine, try with: baidu, bing, bingapi, censys, crtsh, cymon, dogpile, google, googleCSE, googleplus, google-certificates, google-profiles, hunter, linkedin, netcraft, pgp, securityTrails, threatcrowd, trello, twitter, vhost, virustotal, yahoo, all")
                 sys.exit()
 
     # Results ############################################################
