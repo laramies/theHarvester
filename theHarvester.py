@@ -536,7 +536,9 @@ def start(argv):
                         search = virustotal.search_virustotal(word)
                         search.process()
                         hosts = search.get_hostnames()
-                        all_hosts.extend(hosts)
+                        sethosts = set(hosts)
+                        uniquehosts = list(sethosts)        #remove duplicates
+                        all_hosts.extend(uniquehosts)
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'virustotal')
 
