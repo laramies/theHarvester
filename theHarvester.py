@@ -327,14 +327,17 @@ def start(argv):
 
                     elif engineitem == "pgp":
                         print("[-] Searching in PGP key server..")
-                        search = pgpsearch.search_pgp(word)
-                        search.process()
-                        all_emails = search.get_emails()
-                        hosts = search.get_hostnames()
-                        all_hosts.extend(hosts)
-                        db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'host', 'pgp')
-                        db.store_all(word, all_emails, 'email', 'pgp')
+                        try:
+                            search = pgpsearch.search_pgp(word)
+                            search.process()
+                            all_emails = search.get_emails()
+                            hosts = search.get_hostnames()
+                            all_hosts.extend(hosts)
+                            db = stash.stash_manager()
+                            db.store_all(word, all_hosts, 'host', 'pgp')
+                            db.store_all(word, all_emails, 'email', 'pgp')
+                        except Exception:
+                            pass
 
                     elif engineitem == 'securityTrails':
                         print("[-] Searching in securityTrails:")
@@ -523,18 +526,21 @@ def start(argv):
                         db.store_all(word, all_hosts, 'host', 'netcraft')
 
                         print("[-] Searching in PGP Key server..")
-                        search = pgpsearch.search_pgp(word)
-                        search.process()
-                        emails = search.get_emails()
-                        hosts = search.get_hostnames()
-                        sethosts = set(hosts)
-                        uniquehosts = list(sethosts)  # remove duplicates
-                        all_hosts.extend(uniquehosts)
-                        db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'host', 'PGP')
-                        all_emails.extend(emails)
-                        db = stash.stash_manager()
-                        db.store_all(word, all_emails, 'email', 'PGP')
+                        try:
+                            search = pgpsearch.search_pgp(word)
+                            search.process()
+                            emails = search.get_emails()
+                            hosts = search.get_hostnames()
+                            sethosts = set(hosts)
+                            uniquehosts = list(sethosts)  # remove duplicates
+                            all_hosts.extend(uniquehosts)
+                            db = stash.stash_manager()
+                            db.store_all(word, all_hosts, 'host', 'PGP')
+                            all_emails.extend(emails)
+                            db = stash.stash_manager()
+                            db.store_all(word, all_emails, 'email', 'PGP')
+                        except Exception:
+                            pass
 
                         print("[-] Searching in ThreatCrowd server..")
                         try:
