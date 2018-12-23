@@ -254,6 +254,6 @@ def search(text):
     # helper function to check if google has blocked traffic
     for line in text.strip().splitlines():
         if 'This page appears when Google automatically detects requests coming from your computer network' in line:
-            print('\tGoogle is blocking your iP due too many automated request, wait or change your IP')
+            print('\tGoogle is blocking your IP due to too many automated requests, wait or change your IP')
             return True
     return False
