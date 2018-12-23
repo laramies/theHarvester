@@ -143,14 +143,17 @@ def start(argv):
                 for engineitem in engines:
                     if engineitem == "baidu":
                         print("[-] Searching in Baidu..")
-                        search = baidusearch.search_baidu(word, limit)
-                        search.process()
-                        all_emails = search.get_emails()
-                        hosts = search.get_hostnames()
-                        all_hosts.extend(hosts)
-                        db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'host', 'baidu')
-                        db.store_all(word, all_emails, 'email', 'baidu')
+                        try:
+                            search = baidusearch.search_baidu(word, limit)
+                            search.process()
+                            all_emails = search.get_emails()
+                            hosts = search.get_hostnames()
+                            all_hosts.extend(hosts)
+                            db = stash.stash_manager()
+                            db.store_all(word, all_hosts, 'host', 'baidu')
+                            db.store_all(word, all_emails, 'email', 'baidu')
+                        except Exception:
+                            pass
 
                     elif engineitem == "bing" or engineitem == "bingapi":
                         print("[-] Searching in Bing:")
