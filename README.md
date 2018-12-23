@@ -57,7 +57,7 @@ Passive:
 
 * pgp: PGP key server - mit.edu
 
-* securitytrails: Security Trails search engine, the world's largest repository of historical DNS data 
+* securitytrails: Security Trails search engine, the world's largest repository <br /> of historical DNS data 
                   (Requires API key, see below.) - www.securitytrails.com/
 
 * shodan: Shodan search engine, will search for ports and banners from discovered
