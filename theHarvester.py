@@ -783,7 +783,8 @@ def start(argv):
             graph = reportgraph.graphgenerator(word)
             HTMLcode += graph.drawlatestscangraph(word, latestscanchartdata)
             HTMLcode += graph.drawscattergraphscanhistory(word, scanhistorydomain)
-            HTMLcode += generator.generatescanstatistics(scanstatistics)
+            HTMLcode += generator.generatepluginscanstatistics(pluginscanstatistics)
+            HTMLcode += generator.generatedashboardcode(scanboarddata)
             HTMLcode += '<p><span style="color: #000000;">Report generated on ' + str(datetime.datetime.now())+'</span></p>'
             HTMLcode += '''
             </body>
