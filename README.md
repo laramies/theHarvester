@@ -85,7 +85,7 @@ Active:
 
 Modules that require an API key:
 --------------------------------
-* googleCSE: add your API key and CSE ID to discovery/googleCSE.py
+* googleCSE: add your API key and CSE ID to discovery/constants.py
 * hunter: add your API key to discovery/constants.py 
 * securitytrails: add your API key to discovery/constants.py
 * shodan: add your API key to discovery/constants.py 
