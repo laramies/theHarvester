@@ -253,7 +253,7 @@ def start(argv):
                         search = googleplussearch.search_googleplus(word, limit)
                         search.process()
                         people = search.get_people()
-                        print("Users from Google+:")
+                        print("\nUsers from Google+:")
                         print("====================")
                         db = stash.stash_manager()
                         db.store_all(word, people, 'name', 'googleplus')
@@ -277,7 +277,7 @@ def start(argv):
                         people = search.get_profiles()
                         db = stash.stash_manager()
                         db.store_all(word, people, 'name', 'google-profile')
-                        print("Users from Google profiles:")
+                        print("\nUsers from Google profiles:")
                         print("---------------------------")
                         for users in people:
                             print(users)
@@ -310,7 +310,7 @@ def start(argv):
                         people = search.get_people()
                         db = stash.stash_manager()
                         db.store_all(word, people, 'name', 'linkedin')
-                        print("Users from Linkedin:")
+                        print("\nUsers from Linkedin:")
                         print("-------------------")
                         for user in people:
                             print(user)
@@ -394,7 +394,7 @@ def start(argv):
                         people = search.get_people()
                         db = stash.stash_manager()
                         db.store_all(word, people, 'name', 'twitter')
-                        print("Users from Twitter:")
+                        print("\nUsers from Twitter:")
                         print("-------------------")
                         for user in people:
                             print(user)
