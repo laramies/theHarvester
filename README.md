@@ -49,7 +49,7 @@ Passive:
 
 * google-profiles: Google search engine, specific search for Google profiles
 
-* hunter: Hunter search engine (Requires API key, see below.)
+* hunter: Hunter search engine (Requires API key, see below.) www.hunter.io
 
 * linkedin: Google search engine, specific search for Linkedin users
 
@@ -57,12 +57,15 @@ Passive:
 
 * pgp: PGP key server - mit.edu
 
+* securitytrails: Security Trails search engine, the world's largest repository <br /> of historical DNS data 
+                  (Requires API key, see below.) - www.securitytrails.com/
+
 * shodan: Shodan search engine, will search for ports and banners from discovered
           hosts - www.shodanhq.com
 
 * threatcrowd: Open source threat intelligence - www.threatcrowd.org
 
-* trello:
+* trello: Search trello boards (Uses Google search.)
 
 * twitter: Twitter accounts related to a specific domain (Uses Google search.)
 
@@ -83,8 +86,9 @@ Active:
 Modules that require an API key:
 --------------------------------
 * googleCSE: add your API key and CSE ID to discovery/googleCSE.py
-* hunter: add your API key to discovery/huntersearch.py 
-* shodan: add your API key to discovery/shodansearch.py
+* hunter: add your API key to discovery/constants.py 
+* securitytrails: add your API key to discovery/constants.py
+* shodan: add your API key to discovery/constants.py 
 
 Dependencies:
 -------------

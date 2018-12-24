@@ -1,6 +1,7 @@
 import myparser
 import requests
 import sys
+from discovery.constants import *
 
 class search_hunter:
 
@@ -8,10 +9,9 @@ class search_hunter:
         self.word = word
         self.limit = 100
         self.start = start
-        self.key = ""
+        self.key = hunterAPI_key
         if self.key == "":
-            print("You need an API key in order to use the Hunter search engine. You can get one here: https://hunter.io")
-            sys.exit()
+            raise MissingKey(True)
         self.results = ""
         self.totalresults = ""
         self.counter = start

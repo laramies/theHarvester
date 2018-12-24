@@ -1,11 +1,25 @@
 """
 Module that contains constants used across plugins
-Contains list of user agents and function to get random delay and user agent.
+Contains list of user agents, api_keys, and a function to get random delay and user agent.
 As well as a defined User Agent for Google Search
 User-Agents from: https://github.com/tamimibrahim17/List-of-user-agents
 """
 
 import random
+
+googleUA = "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1464.0 Safari/537.36"
+
+bingAPI_key = ''
+
+googleCSEAPI_key = ''
+
+googleCSE_id = ''
+
+hunterAPI_key = ''
+
+securityTrailsAPI_key = ''
+
+shodanAPI_key = 'oCiMsgM6rQWqiTvPxFHYcExlZgg7wvTt'  # this is the default key
 
 user_agents = [
     "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1464.0 Safari/537.36",
@@ -239,7 +253,19 @@ user_agents = [
     "Mozilla/5.0 (Windows NT 5.1; U; de; rv:1.9.1.6) Gecko/20091201 Firefox/3.5.6 Opera 11.00"
 ]
 
-googleUA = "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1464.0 Safari/537.36"
+
+def filter(lst):
+    """
+    Method that filters list
+    :param lst: list to be filtered
+    :return: new filtered list
+    """
+    lst = set(lst)  # remove duplicates
+    new_lst = []
+    for item in lst:
+        if (item[0].isalpha() or item[0].isdigit()) and not ('xxx' in item):
+                new_lst.append(item.lower())
+    return new_lst
 
 
 def getDelay():
@@ -257,3 +283,16 @@ def search(text):
             print('\tGoogle is blocking your IP due to too many automated requests, wait or change your IP')
             return True
     return False
+
+
+class MissingKey(Exception):
+    """This class is for when a user is missing their api key or cse id"""
+
+    def __init__(self, identity_flag):
+        if identity_flag:  # flag that checks what kind of error was raised
+            self.message = '\tMissing API key!'
+        else:
+            self.message = '\tMissing CSE id!'
+
+    def __str__(self):
+        return self.message

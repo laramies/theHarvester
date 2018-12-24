@@ -15,7 +15,7 @@ class search_bing:
         self.hostname = "www.bing.com"
         self.quantity = "50"
         self.limit = int(limit)
-        self.bingApi = ""
+        self.bingApi = bingAPI_key
         self.counter = start
 
     def do_search(self):
@@ -67,8 +67,7 @@ class search_bing:
     def process(self, api):
         if api == "yes":
             if self.bingApi == "":
-                print("Please insert your API key in the discovery/bingsearch.py")
-                sys.exit()
+                raise MissingKey(True)
         while (self.counter < self.limit):
             if api == "yes":
                 self.do_search_api()
