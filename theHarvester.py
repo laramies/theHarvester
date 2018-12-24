@@ -596,8 +596,8 @@ def start(argv):
         print("\033[1;33;40m \n[+] IP addresses found in search engines:")
         print("------------------------------------")
         print("Total IP addresses: " + str(len(all_ip)) + "\n")
-        for i in all_ip:
-            print(i)
+        for ip in sorted(list(set(all_ip))):
+            print(ip)
     print("\n\n[+] Emails found:")
     print("------------------")
 
@@ -626,7 +626,7 @@ def start(argv):
     else:
         total = len(all_hosts)
         print(("\nTotal hosts: " + str(total) + "\n"))
-        all_hosts = sorted(set(all_hosts))
+        all_hosts = sorted(list(set(all_hosts)))
         for host in all_hosts:
             print(host)
         print("\033[94m[-] Resolving hostnames IPs...\033[1;33;40m \n ")
