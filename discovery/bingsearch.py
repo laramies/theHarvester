@@ -38,7 +38,7 @@ class search_bing:
             'mkt': 'en-us',
             'safesearch': 'Off'
         }
-        headers = {'User-Agent' : getUserAgent(), 'Ocp-Apim-Subscription-Key': self.bingApi}
+        headers = {'User-Agent': getUserAgent(), 'Ocp-Apim-Subscription-Key': self.bingApi}
         h = requests.get(url=url, headers=headers, params=params)
         self.results = h.text
         self.totalresults += self.results
