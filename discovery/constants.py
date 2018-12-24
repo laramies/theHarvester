@@ -263,7 +263,7 @@ def filter(lst):
     lst = set(lst)  # remove duplicates
     new_lst = []
     for item in lst:
-        if (item[0].isalpha() or item[0].isdigit()) and not ('xxx' in item):
+        if (item[0].isalpha() or item[0].isdigit()) and ('xxx' not in item) and ('..' not in item):
                 new_lst.append(item.lower())
     return new_lst
 
