@@ -254,6 +254,20 @@ user_agents = [
 ]
 
 
+def filter(lst):
+    """
+    Method that filters list
+    :param lst: list to be filtered
+    :return: new filtered list
+    """
+    lst = set(lst)  # remove duplicates
+    new_lst = []
+    for item in lst:
+        if item[0].isalpha() or item[0].isdigit():
+            new_lst.append(item)
+    return new_lst
+
+
 def getDelay():
     return random.randint(1, 3) - .5
 
