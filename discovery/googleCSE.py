@@ -3,6 +3,7 @@ import myparser
 import re
 import time
 import requests
+from discovery.constants import *
 
 class search_googleCSE:
 
@@ -17,12 +18,12 @@ class search_googleCSE:
         self.quantity = "10"
         self.limit = limit
         self.counter = 1
-        self.api_key = ""
+        self.api_key = googleCSEAPI_key
         if self.api_key == "":
-            print("You need an API key in order to use the Hunter search engine. You can get one here: https://cse.google.com")
-            sys.exit()
-        self.cse_id = ""
-
+            raise MissingKey(True)
+        self.cse_id = googleCSE_id
+        if self.cse_id == "":
+            raise MissingKey(False)
         self.lowRange = start 
         self.highRange = start+100
 
