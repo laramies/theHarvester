@@ -577,8 +577,10 @@ def start(argv):
                         print("[-] Searching in Virustotal server..")
                         search = virustotal.search_virustotal(word)
                         search.process()
-                        hosts = filter(search.get_hostnames())
-                        all_hosts.extend(hosts)
+                        hosts = search.get_hostnames()
+                        sethosts = set(hosts)
+                        uniquehosts = list(sethosts)        #remove duplicates
+                        all_hosts.extend(uniquehosts)
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'virustotal')
 
