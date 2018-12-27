@@ -37,7 +37,6 @@ print("* Edge-Security Research                                          *")
 print("* cmartorella@edge-security.com                                   *")
 print("*******************************************************************\033[94m\n\n")
 
-
 def usage():
     comm = os.path.basename(sys.argv[0])
 
@@ -55,7 +54,6 @@ def usage():
     print("   -v: verify host name via DNS resolution and search for virtual hosts")
     print("   -f: save the results into an HTML and/or XML file")
     print("   -n: perform a DNS reverse query on all ranges discovered")
-<<<<<<< HEAD
     print("   -c: perform a DNS brute force on the domain")
     print("   -t: perform a DNS TLD expansion discovery")
     print("   -e: specify DNS server")
@@ -70,7 +68,6 @@ def usage():
     print(("       " + comm + " -d acme.com -l 200 -g -b google"))
     print(("       " + comm + " -d acme.com -b googleCSE -l 500 -s 300"))
     print(("       " + comm + " -d acme.edu -l 100 -b bing -h \n"))
-
 
 def start(argv):
     if len(sys.argv) < 4:
