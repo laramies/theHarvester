@@ -35,3 +35,4 @@ class parser:
             else:
                 continue
         return list(self.ips), list(self.hostnames)
+
