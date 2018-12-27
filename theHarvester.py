@@ -31,7 +31,7 @@ print("* | __| '_ \ / _ \  / /_/ / _` | '__\ \ / / _ \/ __| __/ _ \ '__| *")
 print("* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *")
 print("*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *")
 print("*                                                                 *")
-print("* theHarvester Ver. 3.0.6 v65                                     *")
+print("* theHarvester 3.0.6 v65                                          *")
 print("* Coded by Christian Martorella                                   *")
 print("* Edge-Security Research                                          *")
 print("* cmartorella@edge-security.com                                   *")
@@ -47,8 +47,8 @@ def usage():
     print("   -d: company name or domain to search")
     print("""   -b: source: baidu, bing, bingapi, censys, crtsh, cymon, dogpile, google,
                googleCSE, googleplus, google-certificates, google-profiles,
-               hunter, linkedin, netcraft, pgp, securityTrails, threatcrowd, trello, twitter,
-               vhost, virustotal, yahoo, all""")
+               hunter, linkedin, netcraft, pgp, securityTrails, threatcrowd,
+               trello, twitter, vhost, virustotal, yahoo, all""")
     print("   -g: use Google Dorking instead of normal Google search")
     print("   -s: start with result number X (default: 0)")
     print("   -v: verify host name via DNS resolution and search for virtual hosts")
@@ -136,8 +136,7 @@ def start(argv):
             engines = set(arg.split(','))
             supportedengines = set(["baidu", "bing", "bingapi", "censys", "crtsh", "cymon", "dogpile", "google", "googleCSE", "googleplus",'google-certificates', "google-profiles", "hunter", "linkedin", "netcraft", "pgp", "securityTrails", "threatcrowd", "trello", "twitter", "vhost", "virustotal", "yahoo", "all"])
             if set(engines).issubset(supportedengines):
-                print("found supported engines")
-                print(("[-] Starting harvesting process for domain: " + word + "\n"))
+                print(("[-] Target domain: " + word + "\n"))
                 for engineitem in engines:
                     if engineitem == "baidu":
                         print("[-] Searching in Baidu.")
@@ -579,8 +578,7 @@ def start(argv):
 
                         # yahoo
             else:
-                usage()
-                print("Invalid search engine, try using: baidu, bing, bingapi, censys, crtsh, cymon, dogpile, google, googleCSE, googleplus, google-certificates, google-profiles, hunter, linkedin, netcraft, pgp, securityTrails, threatcrowd, trello, twitter, vhost, virustotal, yahoo, all")
+                print("[!] Invalid source.\n\n")
                 sys.exit(1)
 
     # Results ############################################################
@@ -588,13 +586,13 @@ def start(argv):
     if len(all_ip) == 0:
         print("No IP addresses found.")
     else:
-        print("\033[1;33;40m \n[+] IP addresses found in search engines:")
-        print("----------------------------------------")
+        print("\033[1;33;40m \n[+] IP addresses found:")
+        print("-----------------------")
         print("Total IP addresses: " + str(len(all_ip)) + "\n")
         for ip in sorted(list(set(all_ip))):
             print(ip)
-    print("\n\n[+] Emails found:")
-    print("----------------")
+    print("\n[+] Emails found:")
+    print("-----------------")
 
     # Sanity check to see if all_emails and all_hosts are defined.
     try:
@@ -614,17 +612,18 @@ def start(argv):
         print("Total emails: " + str(len(all_emails)) + "\n")
         print(("\n".join(sorted(list(set(all_emails))))))
 
-    print("\033[1;33;40m \n[+] Hosts found in search engines:")
-    print("----------------------------------")
+    print("\033[1;33;40m \n[+] Hosts found:")
+    print("----------------")
     if all_hosts == [] or all_emails is None:
         print("No hosts found.")
     else:
         total = len(all_hosts)
-        print(("\nTotal hosts: " + str(total) + "\n"))
+        print(("Total hosts: " + str(total) + "\n"))
         all_hosts = sorted(list(set(all_hosts)))
         for host in all_hosts:
             print(host)
-        print("\033[94m[-] Resolving hostnames to IPs.\033[1;33;40m \n ")
+        print("\033[94m \n[-] Resolving hostnames to IPs.\033[1;33;40m")
+        print("------------------------------")
         full_host = hostchecker.Checker(all_hosts)
         full = full_host.check()
         for host in full:
@@ -896,7 +895,7 @@ if __name__ == "__main__":
     try:
         start(sys.argv[1:])
     except KeyboardInterrupt:
-        print("[*] Search interrupted by user.")
+        print("\n[!] Search interrupted by user.\n\n")
     except Exception:
         import traceback
         print(traceback.print_exc())
