@@ -6,7 +6,7 @@
 * | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
 *  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
 *                                                                 *
-* TheHarvester Ver. 3.0.6                                         *
+* theHarvester 3.0.6 v65                                          *
 * Coded by Christian Martorella                                   *
 * Edge-Security Research                                          *
 * cmartorella@edge-security.com                                   *
@@ -15,13 +15,10 @@
 
 What is this?
 -------------
-theHarvester is a tool used for gathering names, emails, subdomains, virtual
-hosts, open ports/banners, and employee names from different public sources
-(search engines, PGP key servers). A really simple, but very effective tool for
-the early stages of a penetration test or just to know the visibility of your
-company on the internet.
-
-The data sources include:
+theHarvester is a very simple, yet effective tool designed to be used in the early stages<br>
+of a penetration test. Use it for open source intelligence gathering and helping to determine<br>
+a company's external threat landscape on the internet. It gathers names, emails, subdomains,<br>
+and virtual hosts using multiple public data sources that include:
 
 Passive:
 --------
@@ -31,7 +28,7 @@ Passive:
 
 * bingapi: Microsoft search engine, through the API (Requires API key, see below.)
 
-* censys: 
+* censys:
 
 * crtsh: Comodo Certificate search - www.crt.sh
 
@@ -39,7 +36,7 @@ Passive:
 
 * dogpile: Dogpile search engine - www.dogpile.com
 
-* google: Google search engine - www.google.com (Optional Google dorking.)
+* google: Google search engine (Optional Google dorking.) - www.google.com
 
 * googleCSE: Google custom search engine
 
@@ -49,7 +46,7 @@ Passive:
 
 * google-profiles: Google search engine, specific search for Google profiles
 
-* hunter: Hunter search engine (Requires API key, see below.) www.hunter.io
+* hunter: Hunter search engine (Requires API key, see below.) - www.hunter.io
 
 * linkedin: Google search engine, specific search for Linkedin users
 
@@ -57,11 +54,11 @@ Passive:
 
 * pgp: PGP key server - mit.edu
 
-* securitytrails: Security Trails search engine, the world's largest repository <br /> of historical DNS data 
-                  (Requires API key, see below.) - www.securitytrails.com
+* securitytrails: Security Trails search engine, the world's largest repository<br>
+  of historical DNS data (Requires API key, see below.) - www.securitytrails.com
 
-* shodan: Shodan search engine, will search for ports and banners from discovered
-          hosts - www.shodanhq.com
+* shodan: Shodan search engine, will search for ports and banners from discovered<br>
+  hosts - www.shodanhq.com
 
 * threatcrowd: Open source threat intelligence - www.threatcrowd.org
 
@@ -71,11 +68,11 @@ Passive:
 
 * vhost: Bing virtual hosts search
 
-* virustotal: 
+* virustotal:
 
 * yahoo: Yahoo search engine
 
-* all: 
+* all:
 
 Active:
 -------
@@ -85,38 +82,36 @@ Active:
 
 Modules that require an API key:
 --------------------------------
-* googleCSE: add your API key and CSE ID to discovery/constants.py
-* hunter: add your API key to discovery/constants.py 
-* securitytrails: add your API key to discovery/constants.py
-* shodan: add your API key to discovery/constants.py 
+Add your keys to discovery/constants.py
+
+* googleCSE: API key and CSE ID
+* hunter: API key
+* securitytrails: API key
+* shodan: API key
 
 Dependencies:
 -------------
-* Requests library (http://docs.python-requests.org/en/latest/)
-`pip install requests`
-* Beautiful Soup 4 (https://pypi.org/project/beautifulsoup4//)
+* Beautiful Soup 4 (https://pypi.org/project/beautifulsoup4//)<br>
 `pip install beautifulsoup4`
+* Requests library (http://docs.python-requests.org/en/latest/)<br>
+`pip install requests`
 
-Changelog in 3.0.0:
-------------------
-* Subdomain takeover checks
-* Port scanning (basic)
-* Improved DNS dictionary
-* Shodan DB search fixed
-* Result storage in Sqlite
+Changelog in 3.0:
+-----------------
+* Subdomain takeover checks.
+* Port scanning (basic).
+* Improved DNS dictionary.
+* Shodan DB search fixed.
+* Result storage in Sqlite.
 
 Comments, bugs, or requests?
 ----------------------------
 cmartorella@edge-security.com
 
-Updates:
---------
-https://github.com/laramies/theHarvester
-
 Thanks:
 -------
 * Matthew Brown @NotoriousRebel
-* Janos Zold @Jzold 
+* Janos Zold @Jzold
 * John Matherly - Shodan project
 * Lee Baird @discoverscripts - suggestions and bugs reporting
 * Ahmed Aboul Ela - subdomain names dictionaries (big and small)
