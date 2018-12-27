@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
-import sys
+import getopt
 import os
 import re
-import getopt
 import stash
+import sys
 import time
 
 try:
