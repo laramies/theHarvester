@@ -1,12 +1,14 @@
-from lib import markup
-from lib import graphs
+
 import re
+
+from lib import graphs
+from lib import markup
 
 
 class htmlExport():
 
-    def __init__(self, users, hosts, vhosts, dnsres,
-                 dnsrev, file, domain, shodan, tldres):
+
+    def __init__(self, users, hosts, vhosts, dnsres, dnsrev, file, domain, shodan, tldres):
         self.users = users
         self.hosts = hosts
         self.vhost = vhosts
@@ -50,7 +52,6 @@ class htmlExport():
 			font-size: 15px;
 			line-height: 15px;
 			letter-spacing: 0.4px;
-
 		}
 
 		h2{
@@ -62,7 +63,6 @@ class htmlExport():
 				margin: 0 0 0 0;
 				padding: 0 0 0 0;
 				font-weight: 100;
-
 		}
 
 		pre {
@@ -84,8 +84,6 @@ class htmlExport():
 
     def writehtml(self):
         page = markup.page()
-        # page.init (title="theHarvester
-        # Results",css=('edge.css'),footer="Edge-security 2011")A
         page.html()
         self.styler()
         page.head(self.style)
@@ -103,20 +101,20 @@ class htmlExport():
         graph.labels = ['Emails', 'hosts', 'Vhost', 'TLD', 'Shodan']
         graph.showValues = 1
         page.body(graph.create())
-        page.h3("E-mails names found:")
+        page.h3("Emails found:")
         if self.users != []:
             page.ul(class_="userslist")
             page.li(self.users, class_="useritem")
             page.ul.close()
         else:
-            page.h2("No emails found")
+            page.h2("No emails found.")
         page.h3("Hosts found:")
         if self.hosts != []:
             page.ul(class_="softlist")
             page.li(self.hosts, class_="softitem")
             page.ul.close()
         else:
-            page.h2("No hosts found")
+            page.h2("No hosts found.")
         if self.tldres != []:
             page.h3("TLD domains found in TLD expansion:")
             page.ul(class_="tldlist")
@@ -128,7 +126,7 @@ class htmlExport():
             page.li(self.dnsres, class_="dnsitem")
             page.ul.close()
         if self.dnsrev != []:
-            page.h3("Hosts found with reverse lookup :")
+            page.h3("Hosts found with reverse lookup:")
             page.ul(class_="dnsrevlist")
             page.li(self.dnsrev, class_="dnsrevitem")
             page.ul.close()
@@ -143,7 +141,7 @@ class htmlExport():
             for x in self.shodan:
                 res = x.split("SAPO")
                 page.h3(res[0])
-                page.a("Port :" + res[2])
+                page.a("Port:" + res[2])
                 page.pre(res[1])
                 page.pre.close()
                 ban = res[1]
@@ -166,7 +164,7 @@ class htmlExport():
             try:
                 file.write(x)
             except:
-                print("Exception" + x) # send to logs
+                print("Exception" + x)   # Send to logs.
                 pass
         file.close()
         return "ok"
