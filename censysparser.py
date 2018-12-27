@@ -40,22 +40,22 @@ class parser:
         except Exception as e:
             print("Error occurred in the Censys module: IP address parser: " + str(e))
 
-    def search_numberofpageshosts(self):
+    def search_totalpageshosts(self):
         try:
-            items = self.souphosts.findAll(href=re.compile("page"))
-            for item in items:
-                if (item.text !='next'):            #to filter out pagination
-                    self.numberofpageshosts += 1
+            items = self.souphosts.findAll('span','SearchResultSectionHeader__statistic')
+            numbers = re.findall(r"/\d*",items[0].text)
+            pagenumber = numbers[0].replace('/','')
+            self.numberofpageshosts = int(pagenumber)
             return self.numberofpageshosts
         except Exception as e:
             print("Error occurred in the Censys module IP search: page parser: " + str(e))
 
-    def search_numberofpagescerts(self):
+    def search_totalpagescerts(self):
         try:
-            items = self.soupcerts.findAll(href=re.compile("page"))
-            for item in items:
-                if (item.text != 'next'):            #to filter out pagination
-                    self.numberofpagescerts += 1
+            items = self.soupcerts.findAll('span','SearchResultSectionHeader__statistic')
+            numbers = re.findall(r"/\d*",items[0].text)
+            pagenumber = numbers[0].replace('/','')
+            self.numberofpagescerts = int(pagenumber)
             return self.numberofpagescerts
         except Exception as e:
-            print("Error occurred in the Censys module certificate search: page parser: " + str(e))
+            print("Error occurred in the Censys module IP search: page parser: " + str(e))
