@@ -116,7 +116,7 @@ class stash_manager:
                     FROM results
                     WHERE find_date=date('now', '-1 day') and domain=?''', (domain,))
                     previousscandate = c.fetchone()
-                    if not previousscandate:  # When theHarvester runs first time/day this query will return
+                    if not previousscandate:   # When theHarvester runs first time/day this query will return.
                         self.previousscanresults = ["No results", "No results", "No results", "No results", "No results"]
                     else:
                         c = conn.cursor()
@@ -287,4 +287,3 @@ class stash_manager:
             print(e)
         finally:
             conn.close()
-

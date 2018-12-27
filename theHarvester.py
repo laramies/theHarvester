@@ -11,13 +11,13 @@ try:
     import bs4
 except:
     print("\nBeautifulSoup library not found, please install before proceeding.\n\n")
-    sys.exit()
+    sys.exit(1)
 
 try:
     import requests
 except:
     print("Requests library not found, please install before proceeding.\n\n")
-    sys.exit()
+    sys.exit(1)
 
 from discovery import *
 from discovery.constants import *
@@ -287,7 +287,7 @@ def start(argv):
                     elif engineitem == "hunter":
                         print("[-] Searching in Hunter.")
                         from discovery import huntersearch
-                        # Import locally or won't work
+                        # Import locally or won't work.
                         try:
                             search = huntersearch.search_hunter(word, limit, start)
                             search.process()
@@ -693,7 +693,7 @@ def start(argv):
                 except Exception as e:
                     print(e)
 
-    # DNS reverse lookup ################################################
+    # DNS reverse lookup #############################################
     dnsrev = []
     if dnslookup == True:
         print("\n[+] Starting active queries.")
@@ -723,7 +723,7 @@ def start(argv):
         for xh in dnsrev:
             print(xh)
 
-    # DNS TLD expansion #################################################
+    # DNS TLD expansion ##############################################
     dnstldres = []
     if dnstld == True:
         print("[-] Starting DNS TLD expansion.")
@@ -737,7 +737,7 @@ def start(argv):
             if y not in full:
                 full.append(y)
 
-    # Virtual hosts search ##############################################
+    # Virtual hosts search ###########################################
     if virtual == "basic":
         print("\n[+] Virtual hosts:")
         print("------------------")
@@ -756,7 +756,7 @@ def start(argv):
     else:
         pass
 
-    # Shodan search ####################################################
+    # Shodan search ##################################################
     shodanres = []
     shodanvisited = []
     if shodan == True:
@@ -784,7 +784,7 @@ def start(argv):
     else:
         pass
 
-    ###################################################################
+    ##################################################################
     # Here we need to add explosion mode.
     # Tengo que sacar los TLD para hacer esto.
     recursion = None
@@ -800,7 +800,7 @@ def start(argv):
     else:
         pass
 
-    # Reporting #######################################################
+    # Reporting ######################################################
     if filename != "":
         try:
             print("NEW REPORTING BEGINS.")
@@ -854,7 +854,6 @@ def start(argv):
             file.write('<?xml version="1.0" encoding="UTF-8"?><theHarvester>')
             for x in all_emails:
                 file.write('<email>' + x + '</email>')
-
             for x in full:
                 x = x.split(":")
                 if len(x) == 2:
@@ -875,12 +874,10 @@ def start(argv):
                     file.write('<host>' + res[0] + '</host>')
                     file.write('<port>' + res[2] + '</port>')
                     file.write('<banner><!--' + res[1] + '--></banner>')
-
                     reg_server = re.compile('Server:.*')
                     temp = reg_server.findall(res[1])
                     if temp != []:
                         shodanalysis.append(res[0] + ":" + temp[0])
-
                     file.write('</shodan>')
                 if shodanalysis != []:
                     shodanalysis = sorted(set(shodanalysis))
@@ -907,4 +904,3 @@ if __name__ == "__main__":
         import traceback
         print(traceback.print_exc())
         sys.exit()
-

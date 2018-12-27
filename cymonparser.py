@@ -17,4 +17,3 @@ class parser:
             return self.ipaddresses
         except Exception as e:
             print("Error occurred: " + str(e))
-

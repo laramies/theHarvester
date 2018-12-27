@@ -9,11 +9,11 @@ class parser:
     def parse_text(self):
         subDomain_flag = 0
         self.text = str(self.text).splitlines()
-        # splitlines to get a list of lines
+        # Split lines to get a list of lines.
         for index in range(0, len(self.text)):
             line = self.text[index].strip()
             if '"ip":' in line:
-                # extract ip
+                # Extract IP.
                 ip = ''
                 for ch in line[7:]:
                     if ch == '"':
@@ -22,7 +22,7 @@ class parser:
                         ip += ch
                 self.ips.add(ip)
             elif '"subdomains":' in line:
-                # subdomains start here so set flag to 1
+                # subdomains start here so set flag to 1.
                 subDomain_flag = 1
                 continue
             elif subDomain_flag > 0:
@@ -30,9 +30,8 @@ class parser:
                     subDomain_flag = 0
                 else:
                     if 'www' in self.word: self.word = str(self.word).replace('www.', '').replace('www', '')
-                    # remove www from word if entered
+                    # Remove www from word if entered.
                     self.hostnames.add(str(line).replace('"', '').replace(',', '') + '.' + self.word)
             else:
                 continue
         return list(self.ips), list(self.hostnames)
-

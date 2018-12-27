@@ -155,4 +155,3 @@ class parser:
             if x not in self.new:
                 self.new.append(x)
         return self.new
-

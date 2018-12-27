@@ -59,4 +59,3 @@ class parser:
             return self.numberofpagescerts
         except Exception as e:
             print("An error occurred in the Censys module certificate search: page parser: " + str(e))
-

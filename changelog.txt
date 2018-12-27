@@ -50,4 +50,3 @@ Changelog in 2.0:
 - You can start the search from the results page that you want, hence you can *resume* a search.
 - Export to XML.
 - All search engines harvesting.
-

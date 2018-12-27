@@ -115,4 +115,3 @@ Thanks:
 * John Matherly - Shodan project
 * Lee Baird @discoverscripts - suggestions and bugs reporting
 * Ahmed Aboul Ela - subdomain names dictionaries (big and small)
-
