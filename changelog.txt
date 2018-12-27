@@ -1,56 +1,53 @@
 
 Changelog in 2.6:
 -----------------
-usage() improvement, CameronNemo.
-Added Yahoo and Baidu search engines. Thanks to Tatanus
-Added check for the existence of Requests library.
-Fixed email regex to provide cleaner results. Thanks to Peter McAlpine
+- usage() improvement, CameronNemo.
+- Added Yahoo and Baidu search engines. Thanks to Tatanus.
+- Added check for the existence of Requests library.
+- Fixed email regex to provide cleaner results. Thanks to Peter McAlpine.
 
 Changelog in 2.5:
 -----------------
-
+???
 
 Changelog in 2.4:
-------------------
--Fixed Linkedin Parser
--Fixed 123people
--Added Dogpile Search engine (Marcus)
--PEP8 compliant (Mario)
--Fixed XML export (Marcus)
--Expanded TLD list from http://data.iana.org/TLD/tlds-alpha-by-domain.txt (Marcus)
--DNS Bruteforce fixed (Tomas)
--Added Google Custom Search Support - Need API Key to use it.
-
-
+-----------------
+- Fixed Linkedin parser.
+- Fixed 123people.
+- Added Dogpile search engine (Marcus).
+- PEP8 code compliant (Mario).
+- Fixed XML export (Marcus).
+- Expanded TLD list from http://data.iana.org/TLD/tlds-alpha-by-domain.txt (Marcus).
+- Fixed DNS brute force (Tomas).
+- Added Google Custom Search Support. Requires API.
 
 Changelog in 2.3:
---------------
--Fixed duplicates
+-----------------
+- Fixed duplicates.
 
 Changelog in 2.2:
-----------------
--Added Jigsaw (www.jigsaw.com)
--Added 123People (www.123people.com)
--Added limit to google searches as the maximum results we can obtain is 1000
--Removed SET, as service was discontinued by Google
--Fixed parser to remove wrong results like emails starting with @
-
+-----------------
+- Added Jigsaw (www.jigsaw.com).
+- Added 123People (www.123people.com).
+- Added limit to Google searches as the maximum results we can obtain is 1000.
+- Removed SET, service was discontinued by Google.
+- Fixed parser to remove wrong results like emails starting with @.
 
 Changelog in 2.1:
-----------------
--DNS Bruteforcer
--DNS Reverse lookups
--DNS TDL Expansion
--SHODAN DB integration
--HTML report
--DNS server selection
-
+-----------------
+- DNS brute forcer.
+- DNS reverse lookups.
+- DNS TDL expansion.
+- Shodan DB integration.
+- HTML report.
+- Specify DNS server.
 
 Changelog in 2.0:
-----------------
--Complete rewrite, more modular and easy to maintain
--New sources (Exalead, Google-Profiles, Bing-Api)
--Time delay between request, to prevent search engines from blocking our IP´s
--You can start the search from the results page that you want, hence you can *resume* a search
--Export to xml
--All search engines harvesting
+-----------------
+- Complete rewrite. More modular and easy to maintain.
+- New sources (Exalead, Google-Profiles, Bing-API).
+- Time delay between request to prevent search engines from blocking a user's IP.
+- You can start the search from the results page that you want, hence you can *resume* a search.
+- Export to XML.
+- All search engines harvesting.
+
