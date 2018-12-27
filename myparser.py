@@ -35,7 +35,7 @@ class parser:
         self.genericClean()
         reg_emails = re.compile(
             # Local part is required, charset is flexible
-            # https://tools.ietf.org/html/rfc6531 (removed * and () as they provide FP mostly )
+            # https://tools.ietf.org/html/rfc6531 (removed * and () as they provide FP mostly)
             '[a-zA-Z0-9.\-_+#~!$&\',;=:]+' +
             '@' +
             '[a-zA-Z0-9.-]*' +
@@ -90,16 +90,6 @@ class parser:
             self.temp.append(res)
         hostnames = self.unique()
         return hostnames
-
-    def people_jigsaw(self):
-        res = []
-        reg_people = re.compile(
-            "href=javascript:showContact\('[0-9]*'\)>[a-zA-Z0-9., ]*</a></span>")
-        self.temp = reg_people.findall(self.results)
-        for x in self.temp:
-            a = x.split('>')[1].replace("</a", "")
-            res.append(a)
-        return res
 
     def people_linkedin(self):
         reg_people = re.compile('">[a-zA-Z0-9._ -]* \| LinkedIn')
@@ -165,3 +155,4 @@ class parser:
             if x not in self.new:
                 self.new.append(x)
         return self.new
+
