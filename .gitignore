@@ -1,9 +1,9 @@
-*.pyc
 *.idea
-tests/myparser.py
-stash.sqlite
+*.pyc
 *.sqlite
-.vscode
-venv
-.xml
 .html
+.vscode
+.xml
+stash.sqlite
+tests/myparser.py
+venv

@@ -1,5 +1,5 @@
-import sqlite3
 import datetime
+import sqlite3
 
 class stash_manager:
 
@@ -9,10 +9,11 @@ class stash_manager:
         self.totalresults = ""
         self.latestscandomain = {}
         self.domainscanhistory = []
-        self.scanboarddata = {}
+        self.scanboarddata = []
         self.scanstats = []
         self.latestscanresults = []
         self.previousscanresults = []
+
     def do_init(self):
         conn = sqlite3.connect(self.db)
         c = conn.cursor()
@@ -115,13 +116,12 @@ class stash_manager:
                     FROM results
                     WHERE find_date=date('now', '-1 day') and domain=?''', (domain,))
                     previousscandate = c.fetchone()
-                    if not previousscandate:  # when theHarvester runs first time/day this query will return
-                        self.previousscanresults = ["No results", "No results", "No results", "No results",
-                                                    "No results"]
+                    if not previousscandate:   # When theHarvester runs first time/day this query will return.
+                        self.previousscanresults = ["No results", "No results", "No results", "No results", "No results"]
                     else:
                         c = conn.cursor()
                         c.execute('''
-                        SELECT find_date, domain, source,type,resource
+                        SELECT find_date, domain, source, type, resource
                         FROM results
                         WHERE find_date=? and domain=?
                         ORDER BY source,type
@@ -138,7 +138,7 @@ class stash_manager:
                     latestscandate = c.fetchone()
                     c = conn.cursor()
                     c.execute('''
-                    SELECT find_date, domain, source,type,resource
+                    SELECT find_date, domain, source, type, resource
                     FROM results
                     WHERE find_date=? and domain=?
                     ORDER BY source,type
@@ -230,7 +230,7 @@ class stash_manager:
             c.execute('''
             SELECT domain,find_date, type, source, count(*)
             FROM results
-            GROUP BY domain,find_date, type, source
+            GROUP BY domain, find_date, type, source
             ''')
             results = c.fetchall()
             self.scanstats = results
