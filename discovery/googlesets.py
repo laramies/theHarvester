@@ -1,6 +1,7 @@
-import myparser
+from parsers import myparser
 import requests
 from discovery.constants import *
+
 
 class search_google_labs:
 

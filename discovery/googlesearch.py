@@ -1,4 +1,4 @@
-import myparser
+from parsers import myparser
 import time
 import requests
 from discovery.constants import *
@@ -30,7 +30,7 @@ class search_google:
         except Exception as e:
             print(e)
         self.results = r.text
-        if (search(self.results)):
+        if search(self.results):
             time.sleep(getDelay() * 5)  # sleep for a longer time
         else:
             time.sleep(getDelay())
@@ -48,7 +48,7 @@ class search_google:
         except Exception as e:
             print(e)
         self.results = r.text
-        if (search(self.results)):
+        if search(self.results):
             time.sleep(getDelay() * 5)  # sleep for a longer time
         else:
             time.sleep(getDelay())
@@ -71,7 +71,7 @@ class search_google:
         return rawres.profiles()
 
     def process(self, google_dorking):
-        if google_dorking == False:
+        if google_dorking is False:
             while self.counter <= self.limit and self.counter <= 1000:
                 self.do_search()
                 print("\tSearching " + str(self.counter) + " results...")
@@ -127,9 +127,9 @@ class search_google:
     def googledork(self):
         self.append_dorks()  # call functions to create list
         self.construct_dorks()
-        if (self.counter >= 0 and self.counter <= 100):
+        if self.counter >= 0 and self.counter <= 100:
             self.send_dork(start=0, end=100)
-        elif (self.counter >= 100 and self.counter <= 200):
+        elif self.counter >= 100 and self.counter <= 200:
             self.send_dork(start=101, end=200)
         else:  # only 200 dorks to prevent google from blocking ip
             pass
@@ -142,7 +142,7 @@ class search_google:
                 link = self.links[i]  # get link from dork list
                 req = requests.get(link, headers=headers)
                 self.results = req.text
-                if (search(self.results)):
+                if search(self.results):
                     time.sleep(getDelay() * 5)  # sleep for a longer time
                 else:
                     time.sleep(getDelay())

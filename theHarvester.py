@@ -5,17 +5,19 @@ import os
 import re
 import stash
 import sys
-import time
+import datetime
+from lib import reportgraph
+from lib import statichtmlgenerator
 
 try:
     import bs4
-except:
+except ImportError:
     print("\nBeautifulSoup library not found, please install before proceeding.\n\n")
     sys.exit(1)
 
 try:
     import requests
-except:
+except ImportError:
     print("Requests library not found, please install before proceeding.\n\n")
     sys.exit(1)
 
@@ -36,6 +38,7 @@ print("* Coded by Christian Martorella                                   *")
 print("* Edge-Security Research                                          *")
 print("* cmartorella@edge-security.com                                   *")
 print("*******************************************************************\033[94m\n\n")
+
 
 def usage():
     comm = os.path.basename(sys.argv[0])
@@ -68,6 +71,7 @@ def usage():
     print(("       " + comm + " -d acme.com -l 200 -g -b google"))
     print(("       " + comm + " -d acme.com -b googleCSE -l 500 -s 300"))
     print(("       " + comm + " -d acme.edu -l 100 -b bing -h \n"))
+
 
 def start(argv):
     if len(sys.argv) < 4:
@@ -134,7 +138,13 @@ def start(argv):
             dnstld = True
         elif opt == '-b':
             engines = set(arg.split(','))
-            supportedengines = set(["baidu", "bing", "bingapi", "censys", "crtsh", "cymon", "dogpile", "google", "googleCSE", "googleplus",'google-certificates', "google-profiles", "hunter", "linkedin", "netcraft", "pgp", "securityTrails", "threatcrowd", "trello", "twitter", "vhost", "virustotal", "yahoo", "all"])
+            supportedengines = set(['baidu', 'bing', 'bingapi', 'censys', 'crtsh', 'cymon', 'dogpile',
+                                    'google', 'googleCSE', 'googleplus',
+                                    'google-certificates',
+                                    'google-profiles', 'hunter', 'linkedin',
+                                    'netcraft', 'pgp', 'securityTrails', 'threatcrowd',
+                                    'trello', 'twitter', 'vhost', 'virustotal', 'yahoo',
+                                    'all'])
             if set(engines).issubset(supportedengines):
                 print(("[-] Target domain: " + word + "\n"))
                 for engineitem in engines:
@@ -807,13 +817,10 @@ def start(argv):
             latestscanchartdata = db.latestscanchartdata(word)
             scanhistorydomain = db.getscanhistorydomain(word)
             pluginscanstatistics = db.getpluginscanstatistics()
-            from lib import statichtmlgenerator
             generator = statichtmlgenerator.htmlgenerator(word)
             HTMLcode = generator.beginhtml()
             HTMLcode += generator.generatelatestscanresults(latestscanresults)
             HTMLcode += generator.generatepreviousscanresults(previousscanresults)
-            from lib import reportgraph
-            import datetime
             graph = reportgraph.graphgenerator(word)
             HTMLcode += graph.drawlatestscangraph(word, latestscanchartdata)
             HTMLcode += graph.drawscattergraphscanhistory(word, scanhistorydomain)

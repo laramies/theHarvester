@@ -1,6 +1,6 @@
 from discovery.shodan import Shodan
-import sys
 from discovery.constants import *
+
 
 class search_shodan():
 

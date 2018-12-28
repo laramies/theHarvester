@@ -1,6 +1,7 @@
 import requests
-import myparser
+from parsers import myparser
 from discovery.constants import *
+
 
 class search_threatcrowd:
 

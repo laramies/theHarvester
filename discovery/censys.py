@@ -1,7 +1,7 @@
 import requests
-import censysparser
-import time
+from parsers import censysparser
 from discovery.constants import *
+
 
 class search_censys:
 
@@ -47,11 +47,11 @@ class search_censys:
             totalpages = pages.search_numberofpageshosts()
             while counter <= totalpages:
                 try:
-                    self.page =str(counter)
+                    self.page = str(counter)
                     self.urlhost = "https://" + self.server + "/ipv4/_search?q=" + str(self.word) + "&page=" + str(self.page)                   
                     print("\tSearching Censys IP results page " + self.page + "...")
                     self.do_searchhosturl()
-                    counter+= 1
+                    counter += 1
                 except Exception as e:
                     print("Error occurred in the Censys module requesting the pages: " + str(e))
             counter = 2
