@@ -176,8 +176,8 @@ def start(argv):
                     elif engineitem == "censys":
                         print("[-] Searching in Censys.")
                         from discovery import censys
-                        # Import locally or won't work.
-                        search = censys.search_censys(word)
+                        # Import locally or won't work
+                        search = censys.search_censys(word,limit)
                         search.process()
                         all_ip = search.get_ipaddresses()
                         hosts = filter(search.get_hostnames())
@@ -439,7 +439,7 @@ def start(argv):
 
                         print("[-] Searching in Censys.")
                         from discovery import censys
-                        search = censys.search_censys(word)
+                        search = censys.search_censys(word,limit)
                         search.process()
                         ips = search.get_ipaddresses()
                         setips = set(ips)
