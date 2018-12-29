@@ -1,5 +1,5 @@
 class htmlgenerator:
-    def __init__(self,word):
+    def __init__(self, word):
         self.domain = word
     
     def generatepreviousscanresults(self, previousscanresults):
@@ -25,9 +25,9 @@ class htmlgenerator:
                     html += '<td style="width: 157.153px;">' + str(i) + "</td>"
                     html += '<td style="width: 157.153px;">' + str(i) + "</td>"
                     html += '<td style="width: 157.153px;">' + str(i) + "</td>"
-                    html +='</tr>'
+                    html += '</tr>'
             else:
-                html='''
+                html = '''
 <h2><span style="color: #000000;"><strong>Previous scan report </strong></span></h2>
 <p>&nbsp;</p>
 <table style="height: 63px; border-color: #000000;" border="#000000" width="811">
@@ -47,8 +47,8 @@ class htmlgenerator:
                     html += '<td style="width: 157.153px;">' + str(i[2]) + "</td>"
                     html += '<td style="width: 157.153px;">' + str(i[3]) + "</td>"
                     html += '<td style="width: 157.153px;">' + str(i[4]) + "</td>"
-                    html +='</tr>'
-            html +='''
+                    html += '</tr>'
+            html += '''
 </tbody>
 </table>
 <p>&nbsp;</p>
@@ -82,8 +82,8 @@ class htmlgenerator:
                 html += '<td style="width: 157.153px;">' + str(i[2]) + "</td>"
                 html += '<td style="width: 157.153px;">' + str(i[3]) + "</td>"
                 html += '<td style="width: 157.153px;">' + str(i[4]) + "</td>"
-                html +='</tr>'
-            html +='''
+                html += '</tr>'
+            html += '''
 </tbody>
 </table>
 <p>&nbsp;</p>
@@ -96,7 +96,7 @@ class htmlgenerator:
             print("Error generating the latest scan results HTML code: " + str(e))
             
     def beginhtml(self):
-        html ='''
+        html = '''
 <head><script src="https://cdn.plot.ly/plotly-latest.min.js"></script></head>
 <html>
 <body>
@@ -143,7 +143,7 @@ class htmlgenerator:
 
     def generatepluginscanstatistics(self, scanstatistics):
         try:
-            html='''
+            html = '''
 <h2 style="text-align: center;"><span style="color: #ff0000;">theHarvester plugin statistics</span></h2>
 <p>&nbsp;</p>
 <table style="height: 63px; border-color: #000000; margin-left: auto; margin-right: auto;" border="#000000" width="811">
@@ -163,8 +163,8 @@ class htmlgenerator:
                 html += '<td style="width: 157.153px;">' + str(i[2]) + "</td>"
                 html += '<td style="width: 157.153px;">' + str(i[3]) + "</td>"
                 html += '<td style="width: 157.153px;">' + str(i[4]) + "</td>"
-                html +='</tr>'
-            html +='''
+                html += '</tr>'
+            html += '''
 </tbody>
 </table>
 <p>&nbsp;</p>

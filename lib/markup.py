@@ -1,6 +1,5 @@
-# This code is in the public domain, it comes
-# with absolutely no warranty and you can do
-# absolutely whatever you want with it.
+# This code is in the public domain, it comes with absolutely no
+# warranty and you can do absolutely whatever you want with it.
 
 __date__ = '17 May 2007'
 __version__ = '1.7'
@@ -21,6 +20,7 @@ ideas or questions to nogradi at gmail dot com.
 Installation: drop markup.py somewhere into your Python path.
 """ % ( __version__, __date__ )
 
+
 class element:
 
     """This class handles the addition of a new element."""
@@ -37,7 +37,7 @@ class element:
         if len(args) > 1:
             raise ArgumentError(self.tag)
 
-        # if class_ was defined in parent it should be added to every element
+        # If class_ was defined in parent, it should be added to every element.
         if self.parent is not None and self.parent.class_ is not None:
             if 'class_' not in kwargs:
                 kwargs['class_'] = self.parent.class_
@@ -57,7 +57,7 @@ class element:
         elif self.tag in self.parent.onetags:
             if len(args) == 0:
                 for myarg, mydict in _argsdicts(args, kwargs):
-                    # here myarg is always None, because len( args ) = 0
+                    # Here myarg is always None, because len( args ) = 0.
                     self.render(self.tag, True, myarg, mydict)
             else:
                 raise ClosingError(self.tag)
@@ -71,11 +71,11 @@ class element:
 
         out = "<%s" % tag
         for key, value in kwargs.items():
-            # when value is None that means stuff like <... checked>
+            # When value is None, that means stuff like <... checked>.
             if value is not None:
-                # strip this so class_ will mean class, etc.
+                # Strip this so class_ will mean class, etc.
                 key = key.strip('_')
-                # special cases, maybe change _ to - overall?
+                # Special cases, maybe change _ to - overall?
                 if key == 'http_equiv':
                     key = 'http-equiv'
                 elif key == 'accept_charset':
@@ -116,8 +116,8 @@ class element:
 
 class page:
 
-    """This is our main class representing a document. Elements are added
-    as attributes of an instance of this class."""
+    """This is our main class representing a document. Elements are added as
+    attributes of an instance of this class."""
 
     def __init__(self, mode='strict_html', case='lower',
                  onetags=None, twotags=None, separator='\n', class_=None):
@@ -178,8 +178,7 @@ class page:
         self.case = case
         self.separator = separator
 
-        # init( ) sets it to True so we know that </body></html> has to be
-        # printed at the end
+        # init( ) sets it to True so we know that </body></html> has to be printed at the end.
         self._full = False
         self.class_ = class_
 
@@ -341,8 +340,8 @@ class page:
             self.header.append(doctype)
 
     def css(self, filelist):
-        """This convenience function is only useful for html.
-        It adds css stylesheet(s) to the document via the <link> element."""
+        """This convenience function is only useful for html. It adds CSS
+        stylesheet(s) to the document via the <link> element."""
 
         if isinstance(filelist, str):
             self.link(
@@ -359,9 +358,9 @@ class page:
                     media='all')
 
     def metainfo(self, mydict):
-        """This convenience function is only useful for html.
-        It adds meta information via the <meta> element, the argument is
-        a dictionary of the form { 'name':'content' }."""
+        """This convenience function is only useful for html. It adds meta
+        information via the <meta> element, the argument is a dictionary of
+        the form { 'name':'content' }."""
 
         if isinstance(mydict, dict):
             for name, content in mydict.items():
@@ -401,7 +400,8 @@ upper_oneliner = _oneliner(case='upper')
 
 
 def _argsdicts(args, mydict):
-    """A utility generator that pads argument list and dictionary values, will only be called with len( args ) = 0, 1."""
+    """A utility generator that pads argument list and dictionary values, will
+    only be called with len( args ) = 0, 1."""
 
     if len(args) == 0:
         args = None,
