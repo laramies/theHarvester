@@ -1,28 +1,28 @@
 #!/usr/bin/env python
 
-import sys
+import getopt
 import os
 import re
-import getopt
 import stash
+import sys
 import time
-
-try:
-    import requests
-except:
-    print("Requests library not found, please install it before proceeding.\n\n")
-    sys.exit()
 
 try:
     import bs4
 except:
-    print("\nBeautifulSoup library not found, please install it before proceeding.\n\n")
-    sys.exit()
+    print("\nBeautifulSoup library not found, please install before proceeding.\n\n")
+    sys.exit(1)
+
+try:
+    import requests
+except:
+    print("Requests library not found, please install before proceeding.\n\n")
+    sys.exit(1)
 
 from discovery import *
 from discovery.constants import *
-from lib import htmlExport
 from lib import hostchecker
+from lib import htmlExport
 
 print("\n\033[92m*******************************************************************")
 print("*                                                                 *")
@@ -31,12 +31,11 @@ print("* | __| '_ \ / _ \  / /_/ / _` | '__\ \ / / _ \/ __| __/ _ \ '__| *")
 print("* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *")
 print("*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *")
 print("*                                                                 *")
-print("* theHarvester Ver. 3.0.6                                         *")
+print("* theHarvester 3.0.6 v65                                          *")
 print("* Coded by Christian Martorella                                   *")
 print("* Edge-Security Research                                          *")
 print("* cmartorella@edge-security.com                                   *")
 print("*******************************************************************\033[94m\n\n")
-
 
 def usage():
     comm = os.path.basename(sys.argv[0])
@@ -48,18 +47,18 @@ def usage():
     print("   -d: company name or domain to search")
     print("""   -b: source: baidu, bing, bingapi, censys, crtsh, cymon, dogpile, google,
                googleCSE, googleplus, google-certificates, google-profiles,
-               hunter, linkedin, netcraft, pgp, securityTrails, threatcrowd, trello, twitter,
-               vhost, virustotal, yahoo, all""")
+               hunter, linkedin, netcraft, pgp, securityTrails, threatcrowd,
+               trello, twitter, vhost, virustotal, yahoo, all""")
     print("   -g: use Google Dorking instead of normal Google search")
     print("   -s: start with result number X (default: 0)")
     print("   -v: verify host name via DNS resolution and search for virtual hosts")
     print("   -f: save the results into an HTML and/or XML file")
     print("   -n: perform a DNS reverse query on all ranges discovered")
-    print("   -c: perform a DNS brute force for the domain name")
+    print("   -c: perform a DNS brute force on the domain")
     print("   -t: perform a DNS TLD expansion discovery")
-    print("   -e: use this DNS server")
-    print("   -p: port scan the detected hosts and check for Takeovers (80,443,22,21,8080)")
-    print("   -l: limit the number of results to work with (Bing goes from 50 to 50 results,")
+    print("   -e: specify DNS server")
+    print("   -p: port scan the detected hosts and check for Takeovers (21,22,80,443,8080)")
+    print("   -l: limit the number of results (Bing goes from 50 to 50 results,")
     print("       Google 100 to 100, and PGP doesn't use this option)")
     print("   -h: use Shodan to query discovered hosts")
     print("\nExamples:")
@@ -70,16 +69,15 @@ def usage():
     print(("       " + comm + " -d acme.com -b googleCSE -l 500 -s 300"))
     print(("       " + comm + " -d acme.edu -l 100 -b bing -h \n"))
 
-
 def start(argv):
     if len(sys.argv) < 4:
         usage()
-        sys.exit()
+        sys.exit(1)
     try:
         opts, args = getopt.getopt(argv, "l:d:b:s:u:vf:nhcgpte:")
     except getopt.GetoptError:
         usage()
-        sys.exit()
+        sys.exit(1)
     try:
         db = stash.stash_manager()
         db.do_init()
@@ -138,11 +136,10 @@ def start(argv):
             engines = set(arg.split(','))
             supportedengines = set(["baidu", "bing", "bingapi", "censys", "crtsh", "cymon", "dogpile", "google", "googleCSE", "googleplus",'google-certificates', "google-profiles", "hunter", "linkedin", "netcraft", "pgp", "securityTrails", "threatcrowd", "trello", "twitter", "vhost", "virustotal", "yahoo", "all"])
             if set(engines).issubset(supportedengines):
-                print("found supported engines")
-                print(("[-] Starting harvesting process for domain: " + word + "\n"))
+                print(("[-] Target domain: " + word + "\n"))
                 for engineitem in engines:
                     if engineitem == "baidu":
-                        print("[-] Searching in Baidu..")
+                        print("[-] Searching in Baidu.")
                         try:
                             search = baidusearch.search_baidu(word, limit)
                             search.process()
@@ -156,7 +153,7 @@ def start(argv):
                             pass
 
                     elif engineitem == "bing" or engineitem == "bingapi":
-                        print("[-] Searching in Bing:")
+                        print("[-] Searching in Bing.")
                         try:
                             search = bingsearch.search_bing(word, limit, start)
                             if engineitem == "bingapi":
@@ -171,13 +168,13 @@ def start(argv):
                             db.store_all(word, all_hosts, 'email', 'bing')
                             db.store_all(word, all_hosts, 'host', 'bing')
                         except Exception as e:
-                            if isinstance(e, MissingKey):  # sanity check
+                            if isinstance(e, MissingKey):   # Sanity check.
                                 print(e)
                             else:
                                 pass
 
                     elif engineitem == "censys":
-                        print("[-] Searching in Censys:")
+                        print("[-] Searching in Censys.")
                         from discovery import censys
                         # Import locally or won't work
                         search = censys.search_censys(word,limit)
@@ -190,7 +187,7 @@ def start(argv):
                         db.store_all(word, all_ip, 'ip', 'censys')
 
                     elif engineitem == "crtsh":
-                        print("[-] Searching in CRT.sh:")
+                        print("[-] Searching in CRT.sh.")
                         search = crtsh.search_crtsh(word)
                         search.process()
                         hosts = filter(search.get_hostnames())
@@ -199,9 +196,9 @@ def start(argv):
                         db.store_all(word, all_hosts, 'host', 'CRTsh')
 
                     elif engineitem == "cymon":
-                        print("[-] Searching in Cymon:")
+                        print("[-] Searching in Cymon.")
                         from discovery import cymon
-                        # Import locally or won't work
+                        # Import locally or won't work.
                         search = cymon.search_cymon(word)
                         search.process()
                         all_ip = search.get_ipaddresses()
@@ -209,7 +206,7 @@ def start(argv):
                         db.store_all(word, all_ip, 'ip', 'cymon')
 
                     elif engineitem == "dogpile":
-                        print("[-] Searching in Dogpilesearch..")
+                        print("[-] Searching in Dogpilesearch.")
                         search = dogpilesearch.search_dogpile(word, limit)
                         search.process()
                         all_emails = filter(search.get_emails())
@@ -218,7 +215,7 @@ def start(argv):
                         db.store_all(word, all_hosts, 'host', 'dogpile')
 
                     elif engineitem == "google":
-                        print("[-] Searching in Google:")
+                        print("[-] Searching in Google.")
                         search = googlesearch.search_google(word, limit, start)
                         search.process(google_dorking)
                         emails = filter(search.get_emails())
@@ -230,7 +227,7 @@ def start(argv):
                         db.store_all(word, all_emails, 'email', 'google')
 
                     elif engineitem == "googleCSE":
-                        print("[-] Searching in Google Custom Search:")
+                        print("[-] Searching in Google Custom Search.")
                         try:
                             search = googleCSE.search_googleCSE(word, limit, start)
                             search.process()
@@ -243,18 +240,18 @@ def start(argv):
                             db = stash.stash_manager()
                             db.store_all(word, all_hosts, 'host', 'googleCSE')
                         except Exception as e:
-                            if isinstance(e, MissingKey):  # sanity check
+                            if isinstance(e, MissingKey):   # Sanity check.
                                 print(e)
                             else:
                                 pass
 
                     elif engineitem == "googleplus":
-                        print("[-] Searching in Google+ ..")
+                        print("[-] Searching in Google+.")
                         search = googleplussearch.search_googleplus(word, limit)
                         search.process()
                         people = search.get_people()
                         print("\nUsers from Google+:")
-                        print("====================")
+                        print("===================")
                         db = stash.stash_manager()
                         db.store_all(word, people, 'name', 'googleplus')
                         for user in people:
@@ -262,7 +259,7 @@ def start(argv):
                         sys.exit()
 
                     elif engineitem == "google-certificates":
-                        print("[-] Searching in Google Certificate transparency report..")
+                        print("[-] Searching in Google Certificate transparency report.")
                         search = googlecertificates.search_googlecertificates(word, limit, start)
                         search.process()
                         hosts = filter(search.get_domains())
@@ -271,7 +268,7 @@ def start(argv):
                         db.store_all(word, all_hosts, 'host', 'google-certificates')
 
                     elif engineitem == "google-profiles":
-                        print("[-] Searching in Google profiles..")
+                        print("[-] Searching in Google profiles.")
                         search = googlesearch.search_google(word, limit, start)
                         search.process_profiles()
                         people = search.get_profiles()
@@ -284,9 +281,9 @@ def start(argv):
                         sys.exit()
 
                     elif engineitem == "hunter":
-                        print("[-] Searching in Hunter:")
+                        print("[-] Searching in Hunter.")
                         from discovery import huntersearch
-                        # Import locally or won't work
+                        # Import locally or won't work.
                         try:
                             search = huntersearch.search_hunter(word, limit, start)
                             search.process()
@@ -298,13 +295,13 @@ def start(argv):
                             db.store_all(word, all_hosts, 'host', 'hunter')
                             db.store_all(word, all_emails, 'email', 'hunter')
                         except Exception as e:
-                            if isinstance(e, MissingKey):  # sanity check
+                            if isinstance(e, MissingKey):   # Sanity check.
                                 print(e)
                             else:
                                 pass
 
                     elif engineitem == "linkedin":
-                        print("[-] Searching in Linkedin..")
+                        print("[-] Searching in Linkedin.")
                         search = linkedinsearch.search_linkedin(word, limit)
                         search.process()
                         people = search.get_people()
@@ -317,7 +314,7 @@ def start(argv):
                         sys.exit()
 
                     elif engineitem == "netcraft":
-                        print("[-] Searching in Netcraft:")
+                        print("[-] Searching in Netcraft.")
                         search = netcraft.search_netcraft(word)
                         search.process()
                         hosts = filter(search.get_hostnames())
@@ -326,7 +323,7 @@ def start(argv):
                         db.store_all(word, all_hosts, 'host', 'netcraft')
 
                     elif engineitem == "pgp":
-                        print("[-] Searching in PGP key server..")
+                        print("[-] Searching in PGP key server.")
                         try:
                             search = pgpsearch.search_pgp(word)
                             search.process()
@@ -340,7 +337,7 @@ def start(argv):
                             pass
 
                     elif engineitem == 'securityTrails':
-                        print("[-] Searching in securityTrails:")
+                        print("[-] Searching in SecurityTrails.")
                         from discovery import securitytrailssearch
                         try:
                             search = securitytrailssearch.search_securitytrail(word)
@@ -354,13 +351,13 @@ def start(argv):
                             db = stash.stash_manager()
                             db.store_all(word, ips, 'ip', 'securityTrails')
                         except Exception as e:
-                            if isinstance(e, MissingKey):  # sanity check
+                            if isinstance(e, MissingKey):   # Sanity check.
                                 print(e)
                             else:
                                 pass
 
                     elif engineitem == "threatcrowd":
-                        print("[-] Searching in Threatcrowd:")
+                        print("[-] Searching in Threatcrowd.")
                         try:
                             search = threatcrowd.search_threatcrowd(word)
                             search.process()
@@ -372,9 +369,9 @@ def start(argv):
                             pass
 
                     elif engineitem == "trello":
-                        print("[-] Searching in Trello:")
+                        print("[-] Searching in Trello.")
                         from discovery import trello
-                        # import locally or won't work
+                        # Import locally or won't work.
                         search = trello.search_trello(word, limit)
                         search.process()
                         emails = filter(search.get_emails())
@@ -388,7 +385,7 @@ def start(argv):
                         db.store_all(word, emails, 'email', 'trello')
 
                     elif engineitem == "twitter":
-                        print("[-] Searching in Twitter ..")
+                        print("[-] Searching in Twitter.")
                         search = twittersearch.search_twitter(word, limit)
                         search.process()
                         people = search.get_people()
@@ -403,7 +400,7 @@ def start(argv):
                     # vhost
 
                     elif engineitem == "virustotal":
-                        print("[-] Searching in Virustotal:")
+                        print("[-] Searching in VirusTotal.")
                         search = virustotal.search_virustotal(word)
                         search.process()
                         hosts = filter(search.get_hostnames())
@@ -412,11 +409,9 @@ def start(argv):
                         db.store_all(word, all_hosts, 'host', 'virustotal')
 
                     elif engineitem == "yahoo":
-                        print("[-] Searching in Yahoo..")
+                        print("[-] Searching in Yahoo.")
                         search = yahoosearch.search_yahoo(word, limit)
                         search.process()
-                        all_emails = filter(search.get_emails())
-                        hosts = filter(search.get_hostnames())
                         all_hosts.extend(hosts)
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'yahoo')
@@ -429,7 +424,7 @@ def start(argv):
 
                         # baidu
 
-                        print("[-] Searching in Bing..")
+                        print("[-] Searching in Bing.")
                         bingapi = "no"
                         search = bingsearch.search_bing(word, limit, start)
                         search.process(bingapi)
@@ -442,23 +437,23 @@ def start(argv):
                         all_emails = sorted(set(all_emails))
                         db.store_all(word, all_emails, 'email', 'bing')
 
-                        print("[-] Searching in Censys:")
+                        print("[-] Searching in Censys.")
                         from discovery import censys
                         search = censys.search_censys(word,limit)
                         search.process()
                         ips = search.get_ipaddresses()
                         setips = set(ips)
-                        uniqueips = list(setips)  # remove duplicates
+                        uniqueips = list(setips)   # Remove duplicates.
                         all_ip.extend(uniqueips)
                         hosts = filter(search.get_hostnames())
                         sethosts = set(hosts)
-                        uniquehosts = list(sethosts)  # remove duplicates
+                        uniquehosts = list(sethosts)   # Remove duplicates.
                         all_hosts.extend(uniquehosts)
                         db = stash.stash_manager()
                         db.store_all(word, uniquehosts, 'host', 'censys')
                         db.store_all(word, uniqueips, 'ip', 'censys')
 
-                        print("[-] Searching in CRTSH server..")
+                        print("[-] Searching in CRTSH server.")
                         search = crtsh.search_crtsh(word)
                         search.process()
                         hosts = filter(search.get_hostnames())
@@ -470,7 +465,7 @@ def start(argv):
 
                         # dogpile
 
-                        print("[-] Searching in Google..")
+                        print("[-] Searching in Google.")
                         search = googlesearch.search_google(word, limit, start)
                         search.process(google_dorking)
                         emails = filter(search.get_emails())
@@ -482,7 +477,7 @@ def start(argv):
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'google')
 
-                        print("[-] Searching in Google Certificate transparency report..")
+                        print("[-] Searching in Google Certificate transparency report.")
                         search = googlecertificates.search_googlecertificates(word, limit, start)
                         search.process()
                         domains = filter(search.get_domains())
@@ -496,9 +491,9 @@ def start(argv):
 
                         # google-profiles
 
-                        print("[-] Searching in Hunter:")
+                        print("[-] Searching in Hunter.")
                         from discovery import huntersearch
-                        # Import locally
+                        # Import locally.
                         try:
                             search = huntersearch.search_hunter(word, limit, start)
                             search.process()
@@ -511,13 +506,14 @@ def start(argv):
                             all_emails = sorted(set(all_emails))
                             db.store_all(word, all_emails, 'email', 'hunter')
                         except Exception as e:
-                            if isinstance(e, MissingKey):  # sanity check
+                            if isinstance(e, MissingKey):   # Sanity check.
                                 print(e)
                             else:
                                 pass
+
                         # linkedin
 
-                        print("[-] Searching in Netcraft server..")
+                        print("[-] Searching in Netcraft server.")
                         search = netcraft.search_netcraft(word)
                         search.process()
                         hosts = filter(search.get_hostnames())
@@ -525,14 +521,14 @@ def start(argv):
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'netcraft')
 
-                        print("[-] Searching in PGP Key server..")
+                        print("[-] Searching in PGP key server.")
                         try:
                             search = pgpsearch.search_pgp(word)
                             search.process()
                             emails = filter(search.get_emails())
                             hosts = filter(search.get_hostnames())
                             sethosts = set(hosts)
-                            uniquehosts = list(sethosts)  # remove duplicates
+                            uniquehosts = list(sethosts)   # Remove duplicates.
                             all_hosts.extend(uniquehosts)
                             db = stash.stash_manager()
                             db.store_all(word, all_hosts, 'host', 'PGP')
@@ -542,7 +538,7 @@ def start(argv):
                         except Exception:
                             pass
 
-                        print("[-] Searching in ThreatCrowd server..")
+                        print("[-] Searching in ThreatCrowd server.")
                         try:
                             search = threatcrowd.search_threatcrowd(word)
                             search.process()
@@ -553,11 +549,9 @@ def start(argv):
                         except Exception:
                             pass
 
-                        # trello
-
-                        print("[-] Searching in Trello:")
+                        print("[-] Searching in Trello.")
                         from discovery import trello
-                        # import locally or won't work
+                        # Import locally or won't work.
                         search = trello.search_trello(word, limit)
                         search.process()
                         emails = filter(search.get_emails())
@@ -574,46 +568,43 @@ def start(argv):
 
                         # vhost
 
-                        print("[-] Searching in Virustotal server..")
+                        print("[-] Searching in VirusTotal server.")
                         search = virustotal.search_virustotal(word)
                         search.process()
-                        hosts = search.get_hostnames()
-                        sethosts = set(hosts)
-                        uniquehosts = list(sethosts)        #remove duplicates
-                        all_hosts.extend(uniquehosts)
+                        hosts = filter(search.get_hostnames())
+                        all_hosts.extend(hosts)
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'virustotal')
 
                         # yahoo
             else:
-                usage()
-                print("Invalid search engine, try with: baidu, bing, bingapi, censys, crtsh, cymon, dogpile, google, googleCSE, googleplus, google-certificates, google-profiles, hunter, linkedin, netcraft, pgp, securityTrails, threatcrowd, trello, twitter, vhost, virustotal, yahoo, all")
-                sys.exit()
+                print("[!] Invalid source.\n\n")
+                sys.exit(1)
 
     # Results ############################################################
     print("\n\033[1;32;40mHarvesting results")
-    if (len(all_ip) == 0):
+    if len(all_ip) == 0:
         print("No IP addresses found.")
     else:
-        print("\033[1;33;40m \n[+] IP addresses found in search engines:")
-        print("------------------------------------")
+        print("\033[1;33;40m \n[+] IP addresses found:")
+        print("-----------------------")
         print("Total IP addresses: " + str(len(all_ip)) + "\n")
         for ip in sorted(list(set(all_ip))):
             print(ip)
-    print("\n\n[+] Emails found:")
-    print("------------------")
+    print("\n[+] Emails found:")
+    print("-----------------")
 
-    # Sanity check to see if all_emails and all_hosts are defined
+    # Sanity check to see if all_emails and all_hosts are defined.
     try:
         all_emails
     except NameError:
         print('No emails found as all_emails is not defined.')
-        sys.exit()
+        sys.exit(1)
     try:
         all_hosts
     except NameError:
         print('No hosts found as all_hosts is not defined.')
-        sys.exit()
+        sys.exit(1)
 
     if all_emails == []:
         print("No emails found.")
@@ -621,17 +612,18 @@ def start(argv):
         print("Total emails: " + str(len(all_emails)) + "\n")
         print(("\n".join(sorted(list(set(all_emails))))))
 
-    print("\033[1;33;40m \n[+] Hosts found in search engines:")
-    print("------------------------------------")
+    print("\033[1;33;40m \n[+] Hosts found:")
+    print("----------------")
     if all_hosts == [] or all_emails is None:
         print("No hosts found.")
     else:
         total = len(all_hosts)
-        print(("\nTotal hosts: " + str(total) + "\n"))
+        print(("Total hosts: " + str(total) + "\n"))
         all_hosts = sorted(list(set(all_hosts)))
         for host in all_hosts:
             print(host)
-        print("\033[94m[-] Resolving hostnames IPs...\033[1;33;40m \n ")
+        print("\033[94m \n[-] Resolving hostnames to IPs.\033[1;33;40m")
+        print("------------------------------")
         full_host = hostchecker.Checker(all_hosts)
         full = full_host.check()
         for host in full:
@@ -646,26 +638,26 @@ def start(argv):
         db = stash.stash_manager()
         db.store_all(word, host_ip, 'ip', 'DNS-resolver')
 
-    if trello_info[1] == True:  # indicates user selected Trello
-        print("\033[1;33;40m \n[+] Urls found from Trello:")
-        print("------------------------------------")
+    if trello_info[1] == True:   # Indicates user selected Trello.
+        print("\033[1;33;40m \n[+] URLs found from Trello:")
+        print("--------------------------")
         trello_urls = trello_info[0]
         if trello_urls == []:
-            print('\nNo Trello Urls found')
+            print('\nNo Trello URLs found.')
         else:
             total = len(trello_urls)
-            print(("\nTotal Urls: " + str(total) + "\n"))
+            print(("\nTotal URLs: " + str(total) + "\n"))
             for url in sorted(list(set(trello_urls))):
                 print(url)
 
     # DNS Brute force ################################################
     dnsres = []
     if dnsbrute == True:
-        print("\n\033[94m[-] Starting DNS brute force: \033[1;33;40m")
+        print("\n\033[94m[-] Starting DNS brute force. \033[1;33;40m")
         a = dnssearch.dns_force(word, dnsserver, verbose=True)
         res = a.process()
         print("\n\033[94m[-] Hosts found after DNS brute force:")
-        print("---------------------------------------")
+        print("-------------------------------------")
         for y in res:
             print(y)
             dnsres.append(y.split(':')[0])
@@ -676,13 +668,13 @@ def start(argv):
 
     # Port Scanning #################################################
     if ports_scanning == True:
-        print("\n\n\033[1;32;40m[-] Scanning ports (active):\n")
+        print("\n\n\033[1;32;40m[-] Scanning ports (active).\n")
         for x in full:
             host = x.split(':')[1]
             domain = x.split(':')[0]
             if host != "empty":
-                print(("- Scanning : " + host))
-                ports = [80, 443, 22, 8080, 21]
+                print(("- Scanning " + host))
+                ports = [21, 22, 80, 443, 8080]
                 try:
                     scan = port_scanner.port_scan(host, ports)
                     openports = scan.process()
@@ -697,10 +689,10 @@ def start(argv):
                 except Exception as e:
                     print(e)
 
-    # DNS reverse lookup ################################################
+    # DNS reverse lookup #############################################
     dnsrev = []
     if dnslookup == True:
-        print("\n[+] Starting active queries:")
+        print("\n[+] Starting active queries.")
         analyzed_ranges = []
         for x in host_ip:
             print(x)
@@ -710,7 +702,7 @@ def start(argv):
             s = '.'
             range = s.join(range)
             if not analyzed_ranges.count(range):
-                print(("\033[94m[-]Performing reverse lookup in : " + range + "\033[1;33;40m"))
+                print(("\033[94m[-] Performing reverse lookup in " + range + "\033[1;33;40m"))
                 a = dnssearch.dns_reverse(range, True)
                 a.list()
                 res = a.process()
@@ -723,25 +715,25 @@ def start(argv):
                     if x not in full:
                         full.append(x)
         print("Hosts found after reverse lookup (in target domain):")
-        print("---------------------------------")
+        print("----------------------------------------------------")
         for xh in dnsrev:
             print(xh)
 
-    # DNS TLD expansion #################################################
+    # DNS TLD expansion ##############################################
     dnstldres = []
     if dnstld == True:
-        print("[-] Starting DNS TLD expansion:")
+        print("[-] Starting DNS TLD expansion.")
         a = dnssearch.dns_tld(word, dnsserver, verbose=True)
         res = a.process()
         print("\n[+] Hosts found after DNS TLD expansion:")
-        print("------------------------------------------")
+        print("----------------------------------------")
         for y in res:
             print(y)
             dnstldres.append(y)
             if y not in full:
                 full.append(y)
 
-    # Virtual hosts search ##############################################
+    # Virtual hosts search ###########################################
     if virtual == "basic":
         print("\n[+] Virtual hosts:")
         print("------------------")
@@ -805,10 +797,10 @@ def start(argv):
     else:
         pass
 
-    # Reporting #######################################################
+    # Reporting ######################################################
     if filename != "":
         try:
-            print("NEW REPORTING BEGINS:")
+            print("NEW REPORTING BEGINS.")
             db = stash.stash_manager()
             scanboarddata = db.getscanboarddata()
             latestscanresults = db.getlatestscanresults(word)
@@ -838,7 +830,7 @@ def start(argv):
             Html_file.write(HTMLcode)
             Html_file.close()
             print("NEW REPORTING FINISHED!")
-            print("[+] Saving files...")
+            print("[+] Saving files.")
             html = htmlExport.htmlExport(
                 all_emails,
                 full,
@@ -859,7 +851,6 @@ def start(argv):
             file.write('<?xml version="1.0" encoding="UTF-8"?><theHarvester>')
             for x in all_emails:
                 file.write('<email>' + x + '</email>')
-
             for x in full:
                 x = x.split(":")
                 if len(x) == 2:
@@ -880,12 +871,10 @@ def start(argv):
                     file.write('<host>' + res[0] + '</host>')
                     file.write('<port>' + res[2] + '</port>')
                     file.write('<banner><!--' + res[1] + '--></banner>')
-
                     reg_server = re.compile('Server:.*')
                     temp = reg_server.findall(res[1])
                     if temp != []:
                         shodanalysis.append(res[0] + ":" + temp[0])
-
                     file.write('</shodan>')
                 if shodanalysis != []:
                     shodanalysis = sorted(set(shodanalysis))
@@ -907,7 +896,7 @@ if __name__ == "__main__":
     try:
         start(sys.argv[1:])
     except KeyboardInterrupt:
-        print("Search interrupted by user..")
+        print("\n[!] Search interrupted by user.\n\n")
     except Exception:
         import traceback
         print(traceback.print_exc())
