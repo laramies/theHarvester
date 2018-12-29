@@ -760,35 +760,35 @@ def start(argv):
     else:
         pass
     # Shodan search ####################################################
-    shodanres = []
-    shodanvisited = []
-    if shodan == True:
-        print("\n\n\033[1;32;40m[-] Shodan DB search (passive):\n")
-        if full == []:
-            print('No host to search, exiting.')
-            sys.exit()
-
-        for x in full:
-            try:
-                ip = x.split(":")[1]
-                if not shodanvisited.count(ip):
-                    print(("\tSearching for: " + ip))
-                    a = shodansearch.search_shodan(ip)
-                    shodanvisited.append(ip)
-                    results = a.run()
-                    # time.sleep(2)
-                    for res in results['data']:
-                        shodanres.append(
-                            str("%s:%s - %s - %s - %s," % (res['ip_str'], res['port'], res['os'], res['isp'])))
-            except Exception as e:
-                pass
-        print("\n [+] Shodan results:")
-        print("------------------")
-        for x in shodanres:
-            print(x)
-    else:
-        pass
-
+    try:
+        shodanres = []
+        import texttable
+        tab = texttable.Texttable()
+        header = ["IP address", "HostShodan", "Country", "City", "Org", "ISP", "ASN", "Port", "OS", "Product", "Stack", "Tags"]
+        tab.header(header)
+        tab.set_cols_align(["c", "c", "c", "c", "c", "c", "c", "c", "c", "c", "c", "c"])
+        tab.set_cols_valign(["m", "m", "m", "m", "m", "m", "m", "m", "m", "m", "m", "m"])
+        tab.set_chars(['-', '|', '+', '#'])
+        tab.set_cols_width([15, 15, 8, 8, 10, 15, 7, 5, 8, 15, 10, 10])
+        host_ip = list(set(host_ip))
+        shodan = True
+        if shodan:
+            print("\n\n\033[1;32;40m[-] Shodan DB search (passive):\n")
+            for ip in host_ip:
+                try:
+                    print("\tSearching for: " + ip)
+                    shodanhostquery = shodansearch.search_shodan(ip)
+                    rowdata = shodanhostquery.search_host()
+                    time.sleep(2)
+                    tab.add_row(rowdata)
+                except Exception as e:
+                    print("No information available in Shodan for: " + str(ip))
+            print("\n [+] Shodan results:")
+            print("------------------")
+            printedtable = tab.draw()
+            print(printedtable)
+    except Exception as e:
+        print("Error occurred in the Shodan main module: " + str(e))
     ###################################################################
     # Here we need to add explosion mode.
     # Tengo que sacar los TLD para hacer esto.
