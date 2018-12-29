@@ -8,7 +8,7 @@ class search_securitytrail:
 
     def __init__(self, word):
         self.word = word
-        self.key = securityTrailsAPI_key
+        self.key = se
         if self.key == "":
             raise MissingKey(True)
         self.results = ""

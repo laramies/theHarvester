@@ -9,17 +9,17 @@ import random
 
 googleUA = "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1464.0 Safari/537.36"
 
-bingAPI_key = ''
+b = ''  # define bing api key here
 
-googleCSEAPI_key = ''
+gk = ''  # define googleCSE api key here
 
-googleCSE_id = ''
+gi = ''  # define googleCSEid here
 
-hunterAPI_key = ''
+h = ''  # define hunter api key here
 
-securityTrailsAPI_key = ''
+se = ''  # define securityTrails api key here
 
-shodanAPI_key = 'oCiMsgM6rQWqiTvPxFHYcExlZgg7wvTt'  # this is the default key
+sh = ''  # define shodan api key here
 
 user_agents = [
     "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1464.0 Safari/537.36",
@@ -264,7 +264,7 @@ def filter(lst):
     new_lst = []
     for item in lst:
         if (item[0].isalpha() or item[0].isdigit()) and ('xxx' not in item) and ('..' not in item):
-                new_lst.append(item.lower())
+            new_lst.append(item.lower())
     return new_lst
 
 

@@ -211,6 +211,7 @@ def start(argv):
                         search.process()
                         all_emails = filter(search.get_emails())
                         all_hosts = filter(search.get_hostnames())
+                        db = stash.stash_manager
                         db.store_all(word, all_hosts, 'email', 'dogpile')
                         db.store_all(word, all_hosts, 'host', 'dogpile')
 
@@ -412,7 +413,10 @@ def start(argv):
                         print("[-] Searching in Yahoo.")
                         search = yahoosearch.search_yahoo(word, limit)
                         search.process()
-                        all_hosts.extend(hosts)
+                        hosts = search.get_hostnames()
+                        emails = search.get_emails()
+                        all_hosts.extend(filter(hosts))
+                        all_emails.extend(filter(emails))
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'yahoo')
                         db.store_all(word, all_emails, 'email', 'yahoo')
@@ -614,7 +618,7 @@ def start(argv):
 
     print("\033[1;33;40m \n[+] Hosts found:")
     print("----------------")
-    if all_hosts == [] or all_emails is None:
+    if all_hosts == []:
         print("No hosts found.")
     else:
         total = len(all_hosts)

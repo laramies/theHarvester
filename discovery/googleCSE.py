@@ -18,10 +18,10 @@ class search_googleCSE:
         self.quantity = "10"
         self.limit = limit
         self.counter = 1
-        self.api_key = googleCSEAPI_key
+        self.api_key = gk
         if self.api_key == "":
             raise MissingKey(True)
-        self.cse_id = googleCSE_id
+        self.cse_id = gi
         if self.cse_id == "":
             raise MissingKey(False)
         self.lowRange = start 

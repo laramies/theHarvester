@@ -15,7 +15,7 @@ class search_bing:
         self.hostname = "www.bing.com"
         self.quantity = "50"
         self.limit = int(limit)
-        self.bingApi = bingAPI_key
+        self.bingApi = b
         self.counter = start
 
     def do_search(self):

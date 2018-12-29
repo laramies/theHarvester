@@ -9,7 +9,7 @@ class search_hunter:
         self.word = word
         self.limit = 100
         self.start = start
-        self.key = hunterAPI_key
+        self.key = h
         if self.key == "":
             raise MissingKey(True)
         self.results = ""
