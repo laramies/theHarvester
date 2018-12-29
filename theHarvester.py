@@ -763,7 +763,6 @@ def start(argv):
         tab.set_chars(['-', '|', '+', '#'])
         tab.set_cols_width([15, 15, 8, 8, 10, 15, 7, 5, 8, 15, 10, 10])
         host_ip = list(set(host_ip))
-        shodan = True
         if shodan:
             print("\n\n\033[1;32;40m[-] Shodan DB search (passive):\n")
             for ip in host_ip:
