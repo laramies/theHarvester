@@ -10,7 +10,8 @@ class stash_manager:
         self.totalresults = ""
         self.latestscandomain = {}
         self.domainscanhistory = []
-        self.scanboarddata = []
+        #self.scanboarddata = []
+        self.scanboarddata = {}
         self.scanstats = []
         self.latestscanresults = []
         self.previousscanresults = []
