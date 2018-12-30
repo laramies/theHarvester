@@ -10,11 +10,11 @@ class search_shodan():
         if self.key == "":
             raise MissingKey(True)
         self.api = Shodan(self.key)
-        
+
     def run(self):
         try:
             result = self.api.host(self.host)
-            #for service in result['data']:
+            # for service in result['data']:
             #    print ("%s:%s" % (service['ip_str'], service['port']))
             #   print ("%s" % (service['product']))
             #    print ("%s" % (service['hostnames']))
