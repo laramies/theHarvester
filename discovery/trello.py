@@ -1,7 +1,8 @@
 import requests
-import myparser
+from parsers import myparser
 from discovery.constants import *
 import time
+
 
 class search_trello:
 
@@ -51,7 +52,7 @@ class search_trello:
             print("Error occurred: " + str(e))
 
     def process(self):
-        while (self.counter < self.limit):
+        while self.counter < self.limit:
             self.do_search()
             if search(self.results):
                 time.sleep(getDelay() * 5)

@@ -1,4 +1,4 @@
-import myparser
+from parsers import myparser
 import re
 import time
 import requests

@@ -1,7 +1,7 @@
 #
 # Unit tests for myparser.py
 #
-import myparser
+from parsers import myparser
 
 import unittest
 

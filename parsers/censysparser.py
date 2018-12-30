@@ -1,13 +1,13 @@
-import re
 from bs4 import BeautifulSoup
+import re
 
 
 class parser:
 
     def __init__(self, resultstoparse):
         self.ipaddresses = []
-        self.souphosts = BeautifulSoup(resultstoparse.total_resultshosts, features="html.parser")
-        self.soupcerts = BeautifulSoup(resultstoparse.total_resultscerts, features="html.parser")
+        self.souphosts = BeautifulSoup(resultstoparse.total_resultshosts, features = "html.parser")
+        self.soupcerts = BeautifulSoup(resultstoparse.total_resultscerts, features = "html.parser")
         self.hostnames = []
         self.hostnamesfromcerts = []
         self.urls = []
@@ -25,11 +25,11 @@ class parser:
                 hostnamesclean = re.sub(r'\.\.\.', r'', hostnamesclean)
                 self.hostnamesfromcerts.extend(hostnamesclean.split(","))
             self.hostnamesfromcerts = list(filter(None, self.hostnamesfromcerts))
-            matchingdomains = [s for s in self.hostnamesfromcerts if str(self.domain) in s]   # filter out domains issued to other sites
+            matchingdomains = [s for s in self.hostnamesfromcerts if str(self.domain) in s]  # filter out domains issued to other sites
             self.hostnamesfromcerts = matchingdomains
             return self.hostnamesfromcerts
         except Exception as e:
-            print("An error occurred in the Censys module: certificate hostname parser: " + str(e))
+            print("Error occurred in the Censys module: certificate hostname parser: " + str(e))
 
     def search_ipaddresses(self):
         try:
@@ -38,24 +38,23 @@ class parser:
                 self.ipaddresses.append(ipaddressitem.text.strip())
             return self.ipaddresses
         except Exception as e:
-            print("An error occurred in the Censys module: IP address parser: " + str(e))
+            print("Error occurred in the Censys module: IP address parser: " + str(e))
 
     def search_totalpageshosts(self):
         try:
-
-            items = self.souphosts.findAll('span','SearchResultSectionHeader__statistic')
-            numbers = re.findall(r"/\d*",items[0].text)
-            pagenumber = numbers[0].replace('/','')
+            items = self.souphosts.findAll('span', 'SearchResultSectionHeader__statistic')
+            numbers = re.findall(r"/\d*", items[0].text)
+            pagenumber = numbers[0].replace('/', '')
             self.numberofpageshosts = int(pagenumber)
             return self.numberofpageshosts
         except Exception as e:
-            print("An error occurred in the Censys module IP search: page parser: " + str(e))
+            print("Error occurred in the Censys module IP search: page parser: " + str(e))
 
     def search_totalpagescerts(self):
         try:
-            items = self.soupcerts.findAll('span','SearchResultSectionHeader__statistic')
-            numbers = re.findall(r"/\d*",items[0].text)
-            pagenumber = numbers[0].replace('/','')
+            items = self.soupcerts.findAll('span', 'SearchResultSectionHeader__statistic')
+            numbers = re.findall(r"/\d*", items[0].text)
+            pagenumber = numbers[0].replace('/', '')
             self.numberofpagescerts = int(pagenumber)
             return self.numberofpagescerts
         except Exception as e:

@@ -1,7 +1,8 @@
 import requests
-import myparser
+from parsers import myparser
 import time
 from discovery.constants import *
+
 
 class search_crtsh:
 
@@ -26,7 +27,6 @@ class search_crtsh:
         links = self.get_info(r.text)
         for link in links:
             params = {'User-Agent': getUserAgent()}
-            #print("\tSearching " + link)
             r = requests.get(link, headers=params)
             time.sleep(getDelay())
             self.results = r.text
@@ -45,9 +45,9 @@ class search_crtsh:
                 lines.append(line)
         links = []
         for i in range(len(lines)):
-            if i % 2 == 0: #way html is formatted only care about every other one
+            if i % 2 == 0:  # way html is formatted only care about every other one
                 current = lines[i]
-                current = current[43:] #43 is not an arbitrary number, the id number always starts at 43rd index
+                current = current[43:]  # 43 is not an arbitrary number, the id number always starts at 43rd index
                 link = ''
                 for ch in current:
                     if ch == '"':

@@ -91,10 +91,7 @@ Add your keys to discovery/constants.py
 
 Dependencies:
 -------------
-* Beautiful Soup 4 (https://pypi.org/project/beautifulsoup4//)<br>
-`pip install beautifulsoup4`
-* Requests library (http://docs.python-requests.org/en/latest/)<br>
-`pip install requests`
+* Do ```pip3 install -r requirements.txt```
 
 Changelog in 3.0:
 -----------------

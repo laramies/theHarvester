@@ -1,9 +1,10 @@
 import sys
-import myparser
+from parsers import myparser
 import re
 import time
 import requests
 from discovery.constants import *
+
 
 class search_googleCSE:
 
@@ -52,7 +53,6 @@ class search_googleCSE:
         self.results = h.text
         self.totalresults += self.results
 
-
     def check_next(self):
         renext = re.compile('>  Next  <')
         nextres = renext.findall(self.results)
@@ -73,31 +73,27 @@ class search_googleCSE:
     def get_files(self):
         rawres = myparser.parser(self.totalresults, self.word)
         return rawres.fileurls(self.files)
-
    
     def process(self):
-        tracker=self.counter + self.lowRange
+        tracker = self.counter + self.lowRange
         while tracker <= self.limit:
             self.do_search()
-            #time.sleep(1)
-            ESC=chr(27)
+            ESC = chr(27)
             sys.stdout.write(ESC + '[2K' + ESC+'[G')
             sys.stdout.write("\r\t" + "Searching  " + str(self.counter+self.lowRange) + " results ..." )
             sys.stdout.flush()
-            #print "\tSearching " + str(self.counter+self.lowRange) + " results...\t\t\t\t\t\r"
             if self.counter == 101:
                 self.counter = 1
-                self.lowRange +=100
-                self.highRange +=100
+                self.lowRange += 100
+                self.highRange += 100
             else:
                 self.counter += 10
-            tracker=self.counter + self.lowRange
+            tracker = self.counter + self.lowRange
         
     def store_results(self):
-             filename = "debug_results.txt"
-             file = open(filename, 'w')
-             file.write(self.totalresults)
-
+            filename = "debug_results.txt"
+            file = open(filename, 'w')
+            file.write(self.totalresults)
 
     def process_files(self, files):
         while self.counter <= self.limit:
