@@ -91,7 +91,7 @@ Add your keys to discovery/constants.py
 
 Dependencies:
 -------------
-* Do ```pip3 install -r requirements```
+* Do ```pip3 install -r requirements.txt```
 
 Changelog in 3.0:
 -----------------
