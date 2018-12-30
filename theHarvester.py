@@ -139,12 +139,10 @@ def start(argv):
         elif opt == '-b':
             engines = set(arg.split(','))
             supportedengines = set(['baidu', 'bing', 'bingapi', 'censys', 'crtsh', 'cymon', 'dogpile',
-                                    'google', 'googleCSE', 'googleplus',
-                                    'google-certificates',
+                                    'google', 'googleCSE', 'googleplus', 'google-certificates',
                                     'google-profiles', 'hunter', 'linkedin',
                                     'netcraft', 'pgp', 'securityTrails', 'threatcrowd',
-                                    'trello', 'twitter', 'vhost', 'virustotal', 'yahoo',
-                                    'all'])
+                                    'trello', 'twitter', 'vhost', 'virustotal', 'yahoo', 'all'])
             if set(engines).issubset(supportedengines):
                 print(("[-] Target domain: " + word + "\n"))
                 for engineitem in engines:
