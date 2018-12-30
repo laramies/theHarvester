@@ -217,9 +217,11 @@ def start(argv):
                         print("[-] Searching in Dogpilesearch.")
                         search = dogpilesearch.search_dogpile(word, limit)
                         search.process()
-                        all_emails = filter(search.get_emails())
-                        all_hosts = filter(search.get_hostnames())
-                        db = stash.stash_manager
+                        emails = filter(search.get_emails())
+                        hosts = filter(search.get_hostnames())
+                        all_hosts.extend(hosts)
+                        all_emails.extend(emails)
+                        db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'email', 'dogpile')
                         db.store_all(word, all_hosts, 'host', 'dogpile')
 
