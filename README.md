@@ -6,7 +6,7 @@
 * | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
 *  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
 *                                                                 *
-* theHarvester 3.0.6 v65                                          *
+* theHarvester 3.0.6 v110                                          *
 * Coded by Christian Martorella                                   *
 * Edge-Security Research                                          *
 * cmartorella@edge-security.com                                   *
@@ -91,7 +91,7 @@ Add your keys to discovery/constants.py
 
 Dependencies:
 -------------
-* Do ```pip3 install -r requirements.txt```
+* Do ```pip3 install -r requirements.txt``` (Requires Python3)
 
 Changelog in 3.0:
 -----------------
