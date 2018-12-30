@@ -1,4 +1,4 @@
-import myparser
+from parsers import myparser
 import time
 import requests
 from discovery.constants import *

@@ -1,6 +1,7 @@
 import datetime
 import sqlite3
 
+
 class stash_manager:
 
     def __init__(self):

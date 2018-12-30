@@ -1,6 +1,7 @@
 import requests
-import myparser
+from parsers import myparser
 from discovery.constants import *
+
 
 class search_netcraft:
 
@@ -12,16 +13,15 @@ class search_netcraft:
         self.hostname = "www.google.com"
         self.quantity = "100"
         self.counter = 0
-        
 
     def do_search(self):
         try:
-            urly="https://searchdns.netcraft.com/?restriction=site+ends+with&host=" + self.word
+            urly = "https://searchdns.netcraft.com/?restriction=site+ends+with&host=" + self.word
         except Exception as e:
             print(e)
-        headers = {'User-Agent':getUserAgent()}
+        headers = {'User-Agent': getUserAgent()}
         try:
-            r=requests.get(urly,headers=headers)
+            r=requests.get(urly, headers=headers)
         except Exception as e:
             print(e)
         self.results = r.text

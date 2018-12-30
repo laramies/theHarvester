@@ -20,13 +20,13 @@ IPv4ranges = {
     '0':                'PUBLIC',   # fall back
     '00000000':         'PRIVATE',  # 0/8
     '00001010':         'PRIVATE',  # 10/8
-    '0110010001':       'CARRIER_GRADE_NAT', #100.64/10
-    '01111111':         'LOOPBACK', # 127.0/8
+    '0110010001':       'CARRIER_GRADE_NAT',  # 100.64/10
+    '01111111':         'LOOPBACK',  # 127.0/8
     '1':                'PUBLIC',   # fall back
     '1010100111111110': 'PRIVATE',  # 169.254/16
     '101011000001':     'PRIVATE',  # 172.16/12
     '1100000010101000': 'PRIVATE',  # 192.168/16
-    '111':              'RESERVED', # 224/3
+    '111':              'RESERVED',  # 224/3
     }
 
 # Definition of the Ranges for IPv6 IPs
@@ -112,7 +112,7 @@ IPv6ranges = {
     '1111111100001000'                              : 'ORG-LOCAL MULTICAST',    # ff08::/16
     '1111111100001110'                              : 'GLOBAL MULTICAST',       # ff0e::/16
     '1111111100001111'                              : 'RESERVED MULTICAST',     # ff0f::/16
-    '111111110011'                                  : 'PREFIX-BASED MULTICAST', # ff30::/12 [RFC3306]
+    '111111110011'                                  : 'PREFIX-BASED MULTICAST',  # ff30::/12 [RFC3306]
     '111111110111'                                  : 'RP-EMBEDDED MULTICAST',  # ff70::/12 [RFC3956]
     }
 

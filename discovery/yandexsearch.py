@@ -1,4 +1,4 @@
-import myparser
+from parsers import myparser
 import re
 import time
 import requests
@@ -57,7 +57,7 @@ class search_yandex:
 
     def get_files(self):
         rawres = myparser.parser(self.totalresults, self.word)
-        return rawres.fileurls(self.files) #self.files is not init?
+        return rawres.fileurls(self.files)  # self.files is not init?
 
     def process(self):
         while self.counter <= self.limit:

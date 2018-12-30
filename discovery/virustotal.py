@@ -1,6 +1,7 @@
 import requests
-import myparser
+from parsers import myparser
 from discovery.constants import *
+
 
 class search_virustotal:
 
@@ -12,16 +13,15 @@ class search_virustotal:
         self.hostname = "www.google.com"
         self.quantity = "100"
         self.counter = 0
-        
 
     def do_search(self):
         try:
-            urly="https://www.virustotal.com/en/domain/" + self.word + "/information/"
+            urly = "https://www.virustotal.com/en/domain/" + self.word + "/information/"
         except Exception as e:
             print(e)
         headers = {'User-Agent': getUserAgent()}
         try:
-            r=requests.get(urly,headers=headers)
+            r=requests.get(urly, headers=headers)
         except Exception as e:
             print(e)
         self.results = r.text
