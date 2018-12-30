@@ -7,7 +7,7 @@ class search_shodan():
     def __init__(self, host):
         self.host = host
         self.key = shodanAPI_key
-        if self.key == "":
+        if self.key == "oCiMsgM6rQWqiTvPxFHYcExlZgg7wvTt":
             raise MissingKey(True)
         self.api = Shodan(self.key)
         
