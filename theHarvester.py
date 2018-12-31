@@ -1,11 +1,14 @@
 #!/usr/bin/env python
 
 import getopt
-import os
 import re
 import stash
-import sys
 import datetime
+from discovery import *
+from discovery.constants import *
+from lib.core import *
+from lib import hostchecker
+from lib import htmlExport
 from lib import reportgraph
 from lib import statichtmlgenerator
 
@@ -21,66 +24,17 @@ except ImportError:
     print("Requests library not found, please install before proceeding.\n\n")
     sys.exit(1)
 
-from discovery import *
-from discovery.constants import *
-from lib import hostchecker
-from lib import htmlExport
-
-print("\n\033[92m*******************************************************************")
-print("*                                                                 *")
-print("* | |_| |__   ___    /\  /\__ _ _ ____   _____  ___| |_ ___ _ __  *")
-print("* | __| '_ \ / _ \  / /_/ / _` | '__\ \ / / _ \/ __| __/ _ \ '__| *")
-print("* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *")
-print("*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *")
-print("*                                                                 *")
-print("* theHarvester 3.0.6 v110                                         *")
-print("* Coded by Christian Martorella                                   *")
-print("* Edge-Security Research                                          *")
-print("* cmartorella@edge-security.com                                   *")
-print("*******************************************************************\033[94m\n\n")
-
-
-def usage():
-    comm = os.path.basename(sys.argv[0])
-
-    if os.path.dirname(sys.argv[0]) == os.getcwd():
-        comm = "./" + comm
-
-    print("Usage: theHarvester.py <options> \n")
-    print("   -d: company name or domain to search")
-    print("""   -b: source: baidu, bing, bingapi, censys, crtsh, cymon, dogpile, google,
-               googleCSE, googleplus, google-certificates, google-profiles,
-               hunter, linkedin, netcraft, pgp, securityTrails, threatcrowd,
-               trello, twitter, vhost, virustotal, yahoo, all""")
-    print("   -g: use Google Dorking instead of normal Google search")
-    print("   -s: start with result number X (default: 0)")
-    print("   -v: verify host name via DNS resolution and search for virtual hosts")
-    print("   -f: save the results into an HTML and/or XML file")
-    print("   -n: perform a DNS reverse query on all ranges discovered")
-    print("   -c: perform a DNS brute force on the domain")
-    print("   -t: perform a DNS TLD expansion discovery")
-    print("   -e: specify DNS server")
-    print("   -p: port scan the detected hosts and check for Takeovers (21,22,80,443,8080)")
-    print("   -l: limit the number of results (Bing goes from 50 to 50 results,")
-    print("       Google 100 to 100, and PGP doesn't use this option)")
-    print("   -h: use Shodan to query discovered hosts")
-    print("\nExamples:")
-    print(("       " + comm + " -d acme.com -l 500 -b google -f myresults.html"))
-    print(("       " + comm + " -d acme.com -b pgp, virustotal"))
-    print(("       " + comm + " -d acme -l 200 -b linkedin"))
-    print(("       " + comm + " -d acme.com -l 200 -g -b google"))
-    print(("       " + comm + " -d acme.com -b googleCSE -l 500 -s 300"))
-    print(("       " + comm + " -d acme.edu -l 100 -b bing -h \n"))
+Core.banner()
 
 
 def start(argv):
     if len(sys.argv) < 4:
-        usage()
+        Core.usage()
         sys.exit(1)
     try:
         opts, args = getopt.getopt(argv, "l:d:b:s:u:vf:nhcgpte:")
     except getopt.GetoptError:
-        usage()
+        Core.usage()
         sys.exit(1)
     try:
         db = stash.stash_manager()
@@ -595,7 +549,7 @@ def start(argv):
                 print("[!] Invalid source.\n\n")
                 sys.exit(1)
 
-    # Results ############################################################
+    # Results
     print("\n\033[1;32;40mHarvesting results")
     if len(all_ip) == 0:
         print("No IP addresses found.")
@@ -652,7 +606,7 @@ def start(argv):
         db = stash.stash_manager()
         db.store_all(word, host_ip, 'ip', 'DNS-resolver')
 
-    if trello_info[1] == True:   # Indicates user selected Trello.
+    if trello_info[1] is True:   # Indicates user selected Trello.
         print("\033[1;33;40m \n[+] URLs found from Trello:")
         print("--------------------------")
         trello_urls = trello_info[0]
@@ -664,9 +618,9 @@ def start(argv):
             for url in sorted(list(set(trello_urls))):
                 print(url)
 
-    # DNS Brute force ################################################
+    # DNS Brute force
     dnsres = []
-    if dnsbrute == True:
+    if dnsbrute is True:
         print("\n\033[94m[-] Starting DNS brute force. \033[1;33;40m")
         a = dnssearch.dns_force(word, dnsserver, verbose=True)
         res = a.process()
@@ -680,8 +634,8 @@ def start(argv):
         db = stash.stash_manager()
         db.store_all(word, dnsres, 'host', 'dns_bruteforce')
 
-    # Port Scanning #################################################
-    if ports_scanning == True:
+    # Port Scanning
+    if ports_scanning is True:
         print("\n\n\033[1;32;40m[-] Scanning ports (active).\n")
         for x in full:
             host = x.split(':')[1]
@@ -703,9 +657,9 @@ def start(argv):
                 except Exception as e:
                     print(e)
 
-    # DNS reverse lookup #############################################
+    # DNS reverse lookup
     dnsrev = []
-    if dnslookup == True:
+    if dnslookup is True:
         print("\n[+] Starting active queries.")
         analyzed_ranges = []
         for x in host_ip:
@@ -733,7 +687,7 @@ def start(argv):
         for xh in dnsrev:
             print(xh)
 
-    # DNS TLD expansion ##############################################
+    # DNS TLD expansion
     dnstldres = []
     if dnstld == True:
         print("[-] Starting DNS TLD expansion.")
@@ -747,7 +701,7 @@ def start(argv):
             if y not in full:
                 full.append(y)
 
-    # Virtual hosts search ###########################################
+    # Virtual hosts search
     if virtual == "basic":
         print("\n[+] Virtual hosts:")
         print("------------------")
@@ -766,7 +720,7 @@ def start(argv):
     else:
         pass
 
-    # Shodan search ##################################################
+    # Shodan search
     shodanres = []
     shodanvisited = []
     if shodan == True:
@@ -794,7 +748,6 @@ def start(argv):
     else:
         pass
 
-    ##################################################################
     # Here we need to add explosion mode.
     # Tengo que sacar los TLD para hacer esto.
     recursion = None
@@ -810,7 +763,7 @@ def start(argv):
     else:
         pass
 
-    # Reporting ######################################################
+    # Reporting
     if filename != "":
         try:
             print("NEW REPORTING BEGINS.")
@@ -906,8 +859,8 @@ if __name__ == "__main__":
     try:
         start(sys.argv[1:])
     except KeyboardInterrupt:
-        print("\n[!] Search interrupted by user.\n\n")
+        print("\n[!] ctrl+c detected, quitting.....\n\n")
     except Exception:
         import traceback
         print(traceback.print_exc())
-        sys.exit()
+        sys.exit(1)
