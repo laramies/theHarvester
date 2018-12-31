@@ -92,8 +92,8 @@ def start(argv):
             dnstld = True
         elif opt == '-b':
             engines = set(arg.split(','))
-            supportedengines = set(['baidu', 'bing', 'bingapi', 'censys', 'crtsh', 'cymon', 'dogpile',
-                                    'google', 'googleCSE', 'googleplus', 'google-certificates',
+            supportedengines = set(['baidu', 'bing', 'bingapi', 'censys', 'crtsh',
+                                    'cymon', 'dogpile', 'google', 'googleCSE', 'google-certificates',
                                     'google-profiles', 'hunter', 'linkedin',
                                     'netcraft', 'pgp', 'securityTrails', 'threatcrowd',
                                     'trello', 'twitter', 'vhost', 'virustotal', 'yahoo', 'all'])
@@ -209,19 +209,6 @@ def start(argv):
                                 print(e)
                             else:
                                 pass
-
-                    elif engineitem == "googleplus":
-                        print("[-] Searching in Google+.")
-                        search = googleplussearch.search_googleplus(word, limit)
-                        search.process()
-                        people = search.get_people()
-                        print("\nUsers from Google+:")
-                        print("===================")
-                        db = stash.stash_manager()
-                        db.store_all(word, people, 'name', 'googleplus')
-                        for user in people:
-                            print(user)
-                        sys.exit()
 
                     elif engineitem == "google-certificates":
                         print("[-] Searching in Google Certificate transparency report.")
