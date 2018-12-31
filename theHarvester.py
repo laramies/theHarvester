@@ -710,7 +710,7 @@ def start(argv):
     # Shodan search
     shodanres = []
     shodanvisited = []
-    if shodan == True:
+    if shodan is True:
         print("\n\n\033[1;32;40m[-] Shodan DB search (passive):\n")
         if full == []:
             print('No host to search, exiting.')
