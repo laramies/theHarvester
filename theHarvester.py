@@ -631,7 +631,7 @@ def start(argv):
                 print(("- Scanning " + host))
                 ports = [21, 22, 80, 443, 8080]
                 try:
-                    scan = port_scanner.port_scan(host, ports)
+                    scan = port_scanner.PortScan(host, ports)
                     openports = scan.process()
                     if len(openports) > 1:
                         print(("\t\033[91m Detected open ports: " + ','.join(
