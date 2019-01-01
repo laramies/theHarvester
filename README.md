@@ -6,7 +6,7 @@
 * | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
 *  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
 *                                                                 *
-* theHarvester 3.0.6 v110                                          *
+* theHarvester 3.0.6 v111                                          *
 * Coded by Christian Martorella                                   *
 * Edge-Security Research                                          *
 * cmartorella@edge-security.com                                   *
@@ -39,8 +39,6 @@ Passive:
 * google: Google search engine (Optional Google dorking.) - www.google.com
 
 * googleCSE: Google custom search engine
-
-* googleplus: Users that work in target company (Uses Google search.)
 
 * google-certificates: Google Certificate Transparency report
 

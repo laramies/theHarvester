@@ -2,7 +2,7 @@ import threading
 import socket
 
 
-class port_scan():
+class PortScan:
     def __init__(self, host, ports):
         self.threads = 25      
         self.host = host
@@ -14,12 +14,12 @@ class port_scan():
         self.lock.acquire()
         for port in ports:
             try:
-                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                s.settimeout(2)
-                result = s.connect_ex((host, int(port)))
+                connect = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                connect.settimeout(2)
+                result = connect.connect_ex((host, int(port)))
                 if result == 0:
                     openports.append(port)
-                s.close()
+                connect.close()
             except Exception as e:
                 print(e)
                 pass
@@ -27,5 +27,5 @@ class port_scan():
         return openports
 
     def process(self):
-            ports = self.port_scanner (self.host, self.ports)
+            ports = self.port_scanner(self.host, self.ports)
             return ports
