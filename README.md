@@ -28,11 +28,11 @@ Passive:
 
 * bingapi: Microsoft search engine, through the API (Requires API key, see below.)
 
-* censys:
+* censys: Censys.io search engine
 
 * crtsh: Comodo Certificate search - www.crt.sh
 
-* cymon:
+* cymon: Cymon.io search engine
 
 * dogpile: Dogpile search engine - www.dogpile.com
 
@@ -50,7 +50,7 @@ Passive:
 
 * linkedin: Google search engine, specific search for Linkedin users
 
-* netcraft:
+* netcraft: Netcraft Data Mining
 
 * pgp: PGP key server - mit.edu
 
@@ -72,7 +72,7 @@ Passive:
 
 * yahoo: Yahoo search engine
 
-* all:
+* all: currently a subset of all the most effective plugins
 
 Active:
 -------
@@ -110,6 +110,6 @@ Thanks:
 -------
 * Matthew Brown @NotoriousRebel
 * Janos Zold @Jzold
-* John Matherly - Shodan project
 * Lee Baird @discoverscripts - suggestions and bugs reporting
+* John Matherly - Shodan project
 * Ahmed Aboul Ela - subdomain names dictionaries (big and small)
