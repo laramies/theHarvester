@@ -6,7 +6,7 @@
 * | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
 *  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
 *                                                                 *
-* theHarvester 3.0.6 v110                                          *
+* theHarvester 3.0.6 v111                                          *
 * Coded by Christian Martorella                                   *
 * Edge-Security Research                                          *
 * cmartorella@edge-security.com                                   *
@@ -28,19 +28,17 @@ Passive:
 
 * bingapi: Microsoft search engine, through the API (Requires API key, see below.)
 
-* censys:
+* censys: Censys.io search engine
 
 * crtsh: Comodo Certificate search - www.crt.sh
 
-* cymon:
+* cymon: Cymon.io search engine
 
 * dogpile: Dogpile search engine - www.dogpile.com
 
 * google: Google search engine (Optional Google dorking.) - www.google.com
 
 * googleCSE: Google custom search engine
-
-* googleplus: Users that work in target company (Uses Google search.)
 
 * google-certificates: Google Certificate Transparency report
 
@@ -50,7 +48,7 @@ Passive:
 
 * linkedin: Google search engine, specific search for Linkedin users
 
-* netcraft:
+* netcraft: Netcraft Data Mining
 
 * pgp: PGP key server - mit.edu
 
@@ -72,7 +70,7 @@ Passive:
 
 * yahoo: Yahoo search engine
 
-* all:
+* all: currently a subset of all the most effective plugins
 
 Active:
 -------
@@ -110,6 +108,6 @@ Thanks:
 -------
 * Matthew Brown @NotoriousRebel
 * Janos Zold @Jzold
-* John Matherly - Shodan project
 * Lee Baird @discoverscripts - suggestions and bugs reporting
+* John Matherly - Shodan project
 * Ahmed Aboul Ela - subdomain names dictionaries (big and small)

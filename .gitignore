@@ -7,3 +7,5 @@
 stash.sqlite
 tests/myparser.py
 venv
+debug_results.txt
+discovery/constants.py
