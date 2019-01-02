@@ -21,7 +21,7 @@ class search_duckduckgo:
     def do_search(self):
         try:  # do normal scraping
             url = self.api.replace('x', self.word)
-            headers = {'User-Agent': getUserAgent()}
+            headers = {'User-Agent': googleUA}
             r = requests.get(url, headers=headers)
         except Exception as e:
             print(e)
@@ -74,6 +74,8 @@ class search_duckduckgo:
             return tmp
         except Exception as e:
             print('Exception occurred: ' + str(e))
+            import traceback as t
+            print(t.print_exc())
             return []
 
     def get_emails(self):
@@ -85,4 +87,4 @@ class search_duckduckgo:
         return rawres.hostnames()
 
     def process(self):
-        self.do_search() # only need to search once since using API
+        self.do_search()  # only need to search once since using API
