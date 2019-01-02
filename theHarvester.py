@@ -93,7 +93,7 @@ def start(argv):
         elif opt == '-b':
             engines = set(arg.split(','))
             supportedengines = set(['baidu', 'bing', 'bingapi', 'censys', 'crtsh',
-                                    'cymon', 'dogpile', 'google', 'googleCSE', 'google-certificates',
+                                    'cymon', 'dogpile', 'duckduckgo', 'google', 'googleCSE', 'google-certificates',
                                     'google-profiles', 'hunter', 'linkedin',
                                     'netcraft', 'pgp', 'securityTrails', 'threatcrowd',
                                     'trello', 'twitter', 'vhost', 'virustotal', 'yahoo', 'all'])
@@ -178,6 +178,19 @@ def start(argv):
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'email', 'dogpile')
                         db.store_all(word, all_hosts, 'host', 'dogpile')
+
+                    elif engineitem == "duckduckgo":
+                        print("[-] Searching in DuckDuckGo.")
+                        from discovery import duckduckgosearch
+                        search = duckduckgosearch.search_duckduckgo(word, limit)
+                        search.process()
+                        emails = filter(search.get_emails())
+                        hosts = filter(search.get_hostnames())
+                        all_hosts.extend(hosts)
+                        all_emails.extend(emails)
+                        db = stash.stash_manager()
+                        db.store_all(word, all_hosts, 'email', 'duckduckgo')
+                        db.store_all(word, all_hosts, 'host', 'duckduckgo')
 
                     elif engineitem == "google":
                         print("[-] Searching in Google.")
