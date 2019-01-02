@@ -18,7 +18,7 @@ What is this?
 theHarvester is a very simple, yet effective tool designed to be used in the early<br>
 stages of a penetration test. Use it for open source intelligence gathering and helping<br>
 to determine a company's external threat landscape on the internet. The tool gathers<br>
-emails, subdomains, IPs, and URLs using multiple public data sources that include:
+emails, names, subdomains, IPs, and URLs using multiple public data sources that include:
 
 Passive:
 --------
