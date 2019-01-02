@@ -36,6 +36,8 @@ Passive:
 
 * dogpile: Dogpile search engine - www.dogpile.com
 
+* duckduckgo:
+
 * google: Google search engine (Optional Google dorking.) - www.google.com
 
 * googleCSE: Google custom search engine
