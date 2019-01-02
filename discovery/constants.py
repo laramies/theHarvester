@@ -264,7 +264,6 @@ def filter(lst):
     for item in lst:
         item = str(item)
         if (item[0].isalpha() or item[0].isdigit()) and ('xxx' not in item) and ('..' not in item):
-            print('item: ', item)
             if '252f' in item:
                 item = item.replace('252f', '')
             if '2F' in item:
