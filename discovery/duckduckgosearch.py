@@ -69,7 +69,7 @@ class search_duckduckgo:
                         tmp.add(url)
             return tmp
         except Exception as e:
-            print(e)
+            print('Exception occurred: ' + str(e))
             return []
 
     def get_emails(self):
