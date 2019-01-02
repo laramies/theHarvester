@@ -14,7 +14,7 @@ class search_duckduckgo:
         self.dorks = []
         self.links = []
         self.database = "https://duckduckgo.com/?q="
-        self.api = "https://api.duckduckgo.com/?q=x&format=json&pretty=1"
+        self.api = "https://api.duckduckgo.com/?q=x&format=json&pretty=1"  # currently using api
         self.quantity = "100"
         self.limit = limit
 
@@ -37,17 +37,21 @@ class search_duckduckgo:
                 continue
 
     def crawl(self, text):
-        # function parses json and returns urls
+        """
+        function parses json and returns urls
+        :param text: formatted json
+        :return: set of urls
+        """
         urls = set()
         try:
             load = json.loads(text)
-            for key in load.keys():
+            for key in load.keys():  # iterate through keys of dict
                 val = load.get(key)
                 if isinstance(val, int) or isinstance(val, dict):
                     continue
                 if isinstance(val, list):
-                    val = val[0]
-                    if isinstance(val, dict):
+                    val = val[0]  # first value should be dict
+                    if isinstance(val, dict):  # sanity check
                         for key in val.keys():
                             value = val.get(key)
                             if isinstance(value, str) and value != '' and 'https://' in value or 'http://' in value:
@@ -56,7 +60,7 @@ class search_duckduckgo:
                     urls.add(val)
             tmp = set()
             for url in urls:
-                if '<' in url and 'href=' in url:
+                if '<' in url and 'href=' in url:  # format is <fref="https://www.website.com"/>
                     equal_index = url.index('=')
                     true_url = ''
                     for ch in url[equal_index + 1:]:
@@ -81,8 +85,4 @@ class search_duckduckgo:
         return rawres.hostnames()
 
     def process(self):
-        #while self.counter <= self.limit and self.counter <= 1000:
-            self.do_search()
-            #print("\tSearching " + str(self.counter) + " results...")
-            #self.counter += 100
-
+        self.do_search() # only need to search once since using API
