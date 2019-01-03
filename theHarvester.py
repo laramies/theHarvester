@@ -1,82 +1,40 @@
 #!/usr/bin/env python
 
 import getopt
-import os
 import re
 import stash
-import sys
-import time
+import datetime
+from discovery import *
+from discovery.constants import *
+from lib.core import *
+from lib import hostchecker
+from lib import htmlExport
+from lib import reportgraph
+from lib import statichtmlgenerator
 
 try:
     import bs4
-except:
+except ImportError:
     print("\nBeautifulSoup library not found, please install before proceeding.\n\n")
     sys.exit(1)
 
 try:
     import requests
-except:
+except ImportError:
     print("Requests library not found, please install before proceeding.\n\n")
     sys.exit(1)
 
-from discovery import *
-from discovery.constants import *
-from lib import hostchecker
-from lib import htmlExport
+Core.banner()
 
-print("\n\033[92m*******************************************************************")
-print("*                                                                 *")
-print("* | |_| |__   ___    /\  /\__ _ _ ____   _____  ___| |_ ___ _ __  *")
-print("* | __| '_ \ / _ \  / /_/ / _` | '__\ \ / / _ \/ __| __/ _ \ '__| *")
-print("* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *")
-print("*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *")
-print("*                                                                 *")
-print("* theHarvester 3.0.6 v65                                          *")
-print("* Coded by Christian Martorella                                   *")
-print("* Edge-Security Research                                          *")
-print("* cmartorella@edge-security.com                                   *")
-print("*******************************************************************\033[94m\n\n")
-
-def usage():
-    comm = os.path.basename(sys.argv[0])
-
-    if os.path.dirname(sys.argv[0]) == os.getcwd():
-        comm = "./" + comm
-
-    print("Usage: theHarvester.py <options> \n")
-    print("   -d: company name or domain to search")
-    print("""   -b: source: baidu, bing, bingapi, censys, crtsh, cymon, dogpile, google,
-               googleCSE, googleplus, google-certificates, google-profiles,
-               hunter, linkedin, netcraft, pgp, securityTrails, threatcrowd,
-               trello, twitter, vhost, virustotal, yahoo, all""")
-    print("   -g: use Google Dorking instead of normal Google search")
-    print("   -s: start with result number X (default: 0)")
-    print("   -v: verify host name via DNS resolution and search for virtual hosts")
-    print("   -f: save the results into an HTML and/or XML file")
-    print("   -n: perform a DNS reverse query on all ranges discovered")
-    print("   -c: perform a DNS brute force on the domain")
-    print("   -t: perform a DNS TLD expansion discovery")
-    print("   -e: specify DNS server")
-    print("   -p: port scan the detected hosts and check for Takeovers (21,22,80,443,8080)")
-    print("   -l: limit the number of results (Bing goes from 50 to 50 results,")
-    print("       Google 100 to 100, and PGP doesn't use this option)")
-    print("   -h: use Shodan to query discovered hosts")
-    print("\nExamples:")
-    print(("       " + comm + " -d acme.com -l 500 -b google -f myresults.html"))
-    print(("       " + comm + " -d acme.com -b pgp, virustotal"))
-    print(("       " + comm + " -d acme -l 200 -b linkedin"))
-    print(("       " + comm + " -d acme.com -l 200 -g -b google"))
-    print(("       " + comm + " -d acme.com -b googleCSE -l 500 -s 300"))
-    print(("       " + comm + " -d acme.edu -l 100 -b bing -h \n"))
 
 def start(argv):
     if len(sys.argv) < 4:
-        usage()
+        Core.usage()
         sys.exit(1)
     try:
         opts, args = getopt.getopt(argv, "l:d:b:s:u:vf:nhcgpte:")
     except getopt.GetoptError:
-        usage()
+        Core.usage()
         sys.exit(1)
     try:
         db = stash.stash_manager()
@@ -134,7 +92,11 @@ def start(argv):
             dnstld = True
         elif opt == '-b':
             engines = set(arg.split(','))
-            supportedengines = set(["baidu", "bing", "bingapi", "censys", "crtsh", "cymon", "dogpile", "google", "googleCSE", "googleplus",'google-certificates', "google-profiles", "hunter", "linkedin", "netcraft", "pgp", "securityTrails", "threatcrowd", "trello", "twitter", "vhost", "virustotal", "yahoo", "all"])
+            supportedengines = set(['baidu', 'bing', 'bingapi', 'censys', 'crtsh',
+                                    'cymon', 'dogpile', 'google', 'googleCSE', 'google-certificates',
+                                    'google-profiles', 'hunter', 'linkedin',
+                                    'netcraft', 'pgp', 'securityTrails', 'threatcrowd',
+                                    'trello', 'twitter', 'vhost', 'virustotal', 'yahoo', 'all'])
             if set(engines).issubset(supportedengines):
                 print(("[-] Target domain: " + word + "\n"))
                 for engineitem in engines:
@@ -209,8 +171,11 @@ def start(argv):
                         print("[-] Searching in Dogpilesearch.")
                         search = dogpilesearch.search_dogpile(word, limit)
                         search.process()
-                        all_emails = filter(search.get_emails())
-                        all_hosts = filter(search.get_hostnames())
+                        emails = filter(search.get_emails())
+                        hosts = filter(search.get_hostnames())
+                        all_hosts.extend(hosts)
+                        all_emails.extend(emails)
+                        db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'email', 'dogpile')
                         db.store_all(word, all_hosts, 'host', 'dogpile')
 
@@ -244,19 +209,6 @@ def start(argv):
                                 print(e)
                             else:
                                 pass
-
-                    elif engineitem == "googleplus":
-                        print("[-] Searching in Google+.")
-                        search = googleplussearch.search_googleplus(word, limit)
-                        search.process()
-                        people = search.get_people()
-                        print("\nUsers from Google+:")
-                        print("===================")
-                        db = stash.stash_manager()
-                        db.store_all(word, people, 'name', 'googleplus')
-                        for user in people:
-                            print(user)
-                        sys.exit()
 
                     elif engineitem == "google-certificates":
                         print("[-] Searching in Google Certificate transparency report.")
@@ -378,7 +330,7 @@ def start(argv):
                         all_emails.extend(emails)
                         info = search.get_urls()
                         hosts = filter(info[0])
-                        trello_info = (filter(info[1]), True)
+                        trello_info = (info[1], True)
                         all_hosts.extend(hosts)
                         db = stash.stash_manager()
                         db.store_all(word, hosts, 'host', 'trello')
@@ -412,7 +364,10 @@ def start(argv):
                         print("[-] Searching in Yahoo.")
                         search = yahoosearch.search_yahoo(word, limit)
                         search.process()
-                        all_hosts.extend(hosts)
+                        hosts = search.get_hostnames()
+                        emails = search.get_emails()
+                        all_hosts.extend(filter(hosts))
+                        all_emails.extend(filter(emails))
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'yahoo')
                         db.store_all(word, all_emails, 'email', 'yahoo')
@@ -558,7 +513,7 @@ def start(argv):
                         all_emails.extend(emails)
                         info = search.get_urls()
                         hosts = filter(info[0])
-                        trello_info = (filter(info[1]), True)
+                        trello_info = (info[1], True)
                         all_hosts.extend(hosts)
                         db = stash.stash_manager()
                         db.store_all(word, hosts, 'host', 'trello')
@@ -581,7 +536,7 @@ def start(argv):
                 print("[!] Invalid source.\n\n")
                 sys.exit(1)
 
-    # Results ############################################################
+    # Results
     print("\n\033[1;32;40mHarvesting results")
     if len(all_ip) == 0:
         print("No IP addresses found.")
@@ -614,7 +569,7 @@ def start(argv):
 
     print("\033[1;33;40m \n[+] Hosts found:")
     print("----------------")
-    if all_hosts == [] or all_emails is None:
+    if all_hosts == []:
         print("No hosts found.")
     else:
         total = len(all_hosts)
@@ -638,7 +593,7 @@ def start(argv):
         db = stash.stash_manager()
         db.store_all(word, host_ip, 'ip', 'DNS-resolver')
 
-    if trello_info[1] == True:   # Indicates user selected Trello.
+    if trello_info[1] is True:   # Indicates user selected Trello.
         print("\033[1;33;40m \n[+] URLs found from Trello:")
         print("--------------------------")
         trello_urls = trello_info[0]
@@ -650,9 +605,9 @@ def start(argv):
             for url in sorted(list(set(trello_urls))):
                 print(url)
 
-    # DNS Brute force ################################################
+    # DNS Brute force
     dnsres = []
-    if dnsbrute == True:
+    if dnsbrute is True:
         print("\n\033[94m[-] Starting DNS brute force. \033[1;33;40m")
         a = dnssearch.dns_force(word, dnsserver, verbose=True)
         res = a.process()
@@ -666,8 +621,8 @@ def start(argv):
         db = stash.stash_manager()
         db.store_all(word, dnsres, 'host', 'dns_bruteforce')
 
-    # Port Scanning #################################################
-    if ports_scanning == True:
+    # Port Scanning
+    if ports_scanning is True:
         print("\n\n\033[1;32;40m[-] Scanning ports (active).\n")
         for x in full:
             host = x.split(':')[1]
@@ -676,7 +631,7 @@ def start(argv):
                 print(("- Scanning " + host))
                 ports = [21, 22, 80, 443, 8080]
                 try:
-                    scan = port_scanner.port_scan(host, ports)
+                    scan = port_scanner.PortScan(host, ports)
                     openports = scan.process()
                     if len(openports) > 1:
                         print(("\t\033[91m Detected open ports: " + ','.join(
@@ -689,9 +644,9 @@ def start(argv):
                 except Exception as e:
                     print(e)
 
-    # DNS reverse lookup #############################################
+    # DNS reverse lookup
     dnsrev = []
-    if dnslookup == True:
+    if dnslookup is True:
         print("\n[+] Starting active queries.")
         analyzed_ranges = []
         for x in host_ip:
@@ -719,7 +674,7 @@ def start(argv):
         for xh in dnsrev:
             print(xh)
 
-    # DNS TLD expansion ##############################################
+    # DNS TLD expansion
     dnstldres = []
     if dnstld == True:
         print("[-] Starting DNS TLD expansion.")
@@ -733,7 +688,7 @@ def start(argv):
             if y not in full:
                 full.append(y)
 
-    # Virtual hosts search ###########################################
+    # Virtual hosts search
     if virtual == "basic":
         print("\n[+] Virtual hosts:")
         print("------------------")
@@ -751,36 +706,35 @@ def start(argv):
         vhost = sorted(set(vhost))
     else:
         pass
-    # Shodan search ####################################################
-    try:
-        shodanres = []
-        import texttable
-        tab = texttable.Texttable()
-        header = ["IP address", "HostShodan", "Country", "City", "Org", "ISP", "ASN", "Port", "OS", "Product", "Stack", "Tags"]
-        tab.header(header)
-        tab.set_cols_align(["c", "c", "c", "c", "c", "c", "c", "c", "c", "c", "c", "c"])
-        tab.set_cols_valign(["m", "m", "m", "m", "m", "m", "m", "m", "m", "m", "m", "m"])
-        tab.set_chars(['-', '|', '+', '#'])
-        tab.set_cols_width([15, 15, 8, 8, 10, 15, 7, 5, 8, 15, 10, 10])
-        host_ip = list(set(host_ip))
-        if shodan:
-            print("\n\n\033[1;32;40m[-] Shodan DB search (passive):\n")
-            for ip in host_ip:
-                try:
-                    print("\tSearching for: " + ip)
-                    shodanhostquery = shodansearch.search_shodan(ip)
-                    rowdata = shodanhostquery.search_host()
-                    time.sleep(2)
-                    tab.add_row(rowdata)
-                except Exception as e:
-                    print("No information available in Shodan for: " + str(ip))
-            print("\n [+] Shodan results:")
-            print("------------------")
-            printedtable = tab.draw()
-            print(printedtable)
-    except Exception as e:
-        print("Error occurred in the Shodan main module: " + str(e))
-    ###################################################################
+
+    # Shodan search
+    shodanres = []
+    shodanvisited = []
+    if shodan is True:
+        print("\n\n\033[1;32;40m[-] Shodan DB search (passive):\n")
+        if full == []:
+            print('No host to search, exiting.')
+            sys.exit(1)
+        for x in full:
+            try:
+                ip = x.split(":")[1]
+                if not shodanvisited.count(ip):
+                    print(("\tSearching for: " + ip))
+                    a = shodansearch.search_shodan(ip)
+                    shodanvisited.append(ip)
+                    results = a.run()
+                    for res in results['data']:
+                        shodanres.append(
+                            str("%s:%s - %s - %s - %s," % (res['ip_str'], res['port'], res['os'], res['isp'])))
+            except Exception as e:
+                pass
+        print("\n [+] Shodan results:")
+        print("-------------------")
+        for x in shodanres:
+            print(x)
+    else:
+        pass
+
     # Here we need to add explosion mode.
     # Tengo que sacar los TLD para hacer esto.
     recursion = None
@@ -796,7 +750,7 @@ def start(argv):
     else:
         pass
 
-    # Reporting ######################################################
+    # Reporting
     if filename != "":
         try:
             print("NEW REPORTING BEGINS.")
@@ -807,13 +761,10 @@ def start(argv):
             latestscanchartdata = db.latestscanchartdata(word)
             scanhistorydomain = db.getscanhistorydomain(word)
             pluginscanstatistics = db.getpluginscanstatistics()
-            from lib import statichtmlgenerator
             generator = statichtmlgenerator.htmlgenerator(word)
             HTMLcode = generator.beginhtml()
             HTMLcode += generator.generatelatestscanresults(latestscanresults)
             HTMLcode += generator.generatepreviousscanresults(previousscanresults)
-            from lib import reportgraph
-            import datetime
             graph = reportgraph.graphgenerator(word)
             HTMLcode += graph.drawlatestscangraph(word, latestscanchartdata)
             HTMLcode += graph.drawscattergraphscanhistory(word, scanhistorydomain)
@@ -895,8 +846,8 @@ if __name__ == "__main__":
     try:
         start(sys.argv[1:])
     except KeyboardInterrupt:
-        print("\n[!] Search interrupted by user.\n\n")
+        print("\n[!] ctrl+c detected, quitting.....\n\n")
     except Exception:
         import traceback
         print(traceback.print_exc())
-        sys.exit()
+        sys.exit(1)

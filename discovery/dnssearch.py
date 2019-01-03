@@ -3,6 +3,7 @@ import discovery.DNS as DNS
 import sys
 import os
 
+
 class dns_reverse():
 
     def __init__(self, range, verbose=True):
@@ -105,7 +106,7 @@ class dns_force():
             except Exception as e:
                 print(e)
             try:
-                #check if variable is defined
+                # check if variable is defined
                 test
             except NameError:
                 print("Error, test is not defined")
@@ -122,8 +123,6 @@ class dns_force():
         if self.nameserver == "":
             self.nameserver = self.getdns(self.domain)
             print("\n\033[94m[-] Using DNS server: " + self.nameserver + "\033[1;33;40m\n")
-        #secure_random = random.SystemRandom()
-        #self.nameserver = secure_random.choice(self.resolvers)
 
         hostname = str(host.split("\n")[0]) + "." + str(self.domain)
         if self.verbose:
@@ -137,7 +136,7 @@ class dns_force():
                 qtype='a',
                 server=self.nameserver).req(
             )
-            ##TODO TODO TODO FIX test is sometimes not getting answers and leads to an indexing erro
+            # TODO FIX test is sometimes not getting answers and leads to an indexing erro
             hostip = test.answers[0]['data']
             return hostname + ":" + hostip
         except Exception as e:

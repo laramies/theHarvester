@@ -1,10 +1,11 @@
-import myparser
+from parsers import myparser
 import re
 import requests
 import time
 from discovery.constants import *
 
 # http://www.jigsaw.com/SearchAcrossCompanies.xhtml?opCode=refresh&rpage=4&mode=0&cnCountry=&order=0&orderby=0&cmName=accuvant&cnDead=false&cnExOwned=false&count=0&screenNameType=0&screenName=&omitScreenNameType=0&omitScreenName=&companyId=0&estimatedCount=277&rowsPerPage=50
+
 
 class search_jigsaw:
 
@@ -41,7 +42,7 @@ class search_jigsaw:
         return rawres.people_jigsaw()
 
     def process(self):
-        while (self.counter < self.limit):
+        while self.counter < self.limit:
             self.do_search()
             time.sleep(getDelay())
             more = self.check_next()

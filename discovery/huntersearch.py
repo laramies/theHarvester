@@ -1,7 +1,7 @@
-import myparser
+from parsers import myparser
 import requests
-import sys
 from discovery.constants import *
+
 
 class search_hunter:
 
@@ -26,7 +26,7 @@ class search_hunter:
         self.totalresults += self.results
 
     def process(self):
-            self.do_search() #only need to do it once
+            self.do_search()  # only need to do it once
             print('\tDone Searching Results')
 
     def get_emails(self):

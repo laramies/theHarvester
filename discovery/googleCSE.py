@@ -1,9 +1,10 @@
 import sys
-import myparser
+from parsers import myparser
 import re
 import time
 import requests
 from discovery.constants import *
+
 
 class search_googleCSE:
 
@@ -24,23 +25,23 @@ class search_googleCSE:
         self.cse_id = googleCSE_id
         if self.cse_id == "":
             raise MissingKey(False)
-        self.lowRange = start 
-        self.highRange = start+100
+        self.lowRange = start
+        self.highRange = start + 100
 
     def do_search(self):
         url = 'https://' + self.server + "/customsearch/v1?key=" + self.api_key + "&highrange=" + str(self.highRange) \
               + '&lowrange=' + str(self.lowRange) + '&cx=' + self.cse_id + "&start=" + str(self.counter) + \
-              "&q="+ self.word
+              "&q=" + self.word
         headers = {
             'Host': self.server,
             'User-agent': self.userAgent
         }
-        
+
         h = requests.get(url=url, headers=headers)
         self.results = h.text
         self.totalresults += self.results
 
-    def do_search_files(self,files):
+    def do_search_files(self, files):
         url = 'https://' + self.server + "/customsearch/v1?key=" + self.api_key + "&highRange=" + str(self.highRange) \
               + '&lowRange=' + str(self.lowRange) + '&cx=' + self.cse_id + "&start=" + str(self.counter) + \
               "&q=filetype:" + files + "%20site:" + self.word
@@ -51,7 +52,6 @@ class search_googleCSE:
         h = requests.get(url=url, headers=headers)
         self.results = h.text
         self.totalresults += self.results
-
 
     def check_next(self):
         renext = re.compile('>  Next  <')
@@ -74,30 +74,26 @@ class search_googleCSE:
         rawres = myparser.parser(self.totalresults, self.word)
         return rawres.fileurls(self.files)
 
-   
     def process(self):
-        tracker=self.counter + self.lowRange
+        tracker = self.counter + self.lowRange
         while tracker <= self.limit:
             self.do_search()
-            #time.sleep(1)
-            ESC=chr(27)
-            sys.stdout.write(ESC + '[2K' + ESC+'[G')
-            sys.stdout.write("\r\t" + "Searching  " + str(self.counter+self.lowRange) + " results ..." )
+            ESC = chr(27)
+            sys.stdout.write(ESC + '[2K' + ESC + '[G')
+            sys.stdout.write("\r\t" + "Searching  " + str(self.counter + self.lowRange) + " results ...")
             sys.stdout.flush()
-            #print "\tSearching " + str(self.counter+self.lowRange) + " results...\t\t\t\t\t\r"
             if self.counter == 101:
                 self.counter = 1
-                self.lowRange +=100
-                self.highRange +=100
+                self.lowRange += 100
+                self.highRange += 100
             else:
                 self.counter += 10
-            tracker=self.counter + self.lowRange
-        
-    def store_results(self):
-             filename = "debug_results.txt"
-             file = open(filename, 'w')
-             file.write(self.totalresults)
+            tracker = self.counter + self.lowRange
 
+    def store_results(self):
+        filename = "debug_results.txt"
+        file = open(filename, 'w')
+        file.write(self.totalresults)
 
     def process_files(self, files):
         while self.counter <= self.limit:

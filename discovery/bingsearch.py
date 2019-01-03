@@ -1,8 +1,8 @@
-import sys
-import myparser
+from parsers import myparser
 import time
 import requests
 from discovery.constants import *
+
 
 class search_bing:
 
@@ -71,7 +71,7 @@ class search_bing:
         if api == "yes":
             if self.bingApi == "":
                 raise MissingKey(True)
-        while (self.counter < self.limit):
+        while self.counter < self.limit:
             if api == "yes":
                 self.do_search_api()
                 time.sleep(getDelay())
@@ -83,6 +83,6 @@ class search_bing:
 
     def process_vhost(self):
         # Maybe it is good to use other limit for this.
-        while (self.counter < self.limit):
+        while self.counter < self.limit:
             self.do_search_vhost()
             self.counter += 50

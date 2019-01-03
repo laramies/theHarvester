@@ -1,8 +1,9 @@
-import securitytrailsparser
+from parsers import securitytrailsparser
 import requests
 import sys
 import time
 from discovery.constants import *
+
 
 class search_securitytrail:
 
@@ -34,7 +35,7 @@ class search_securitytrail:
             url = self.database + 'domain/' + self.word
             headers = {'APIKEY': self.key}
             r = requests.get(url, headers=headers)
-            time.sleep(2) #not random delay because 2 seconds is required due to rate limit
+            time.sleep(2)  # not random delay because 2 seconds is required due to rate limit
         except Exception as e:
             print(e)
         self.results = r.text
@@ -50,7 +51,7 @@ class search_securitytrail:
         self.do_search()
         parser = securitytrailsparser.parser(word=self.word, text=self.totalresults)
         self.info = parser.parse_text()
-        #create parser and set self.info to tuple returned from parsing text
+        # create parser and set self.info to tuple returned from parsing text
         print('\tDone Searching Results')
 
     def get_ips(self):

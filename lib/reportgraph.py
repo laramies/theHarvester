@@ -25,17 +25,17 @@ try:
         
         def drawlatestscangraph(self,domain,latestscandata):
             try:
-                self.barcolumns= ['email','host','ip','shodan','vhost']
+                self.barcolumns= ['email', 'host', 'ip', 'shodan', 'vhost']
                 self.bardata.append(latestscandata['email'])
                 self.bardata.append(latestscandata['host'])
                 self.bardata.append(latestscandata['ip'])
                 self.bardata.append(latestscandata['shodan'])
                 self.bardata.append(latestscandata['vhost'])
-                layout = dict(title = "Latest scan - number of targets identified for "+ domain,
+                layout = dict(title = "Latest scan - number of targets identified for " + domain,
                 xaxis = dict(title = 'Targets'),
                 yaxis = dict(title = 'Hits'),)
                 barchartcode = plotly.offline.plot({
-                "data": [go.Bar(x=self.barcolumns,y=self.bardata)],
+                "data": [go.Bar(x=self.barcolumns, y=self.bardata)],
                 "layout": layout,
                 }, auto_open=False,include_plotlyjs=False,filename='report.html', output_type='div')
                 return barchartcode
@@ -46,7 +46,7 @@ try:
             try:
                 scandata = scanhistorydomain
                 for i in scandata:
-                    self.scatterxdata.append(datetime.date(datetime.strptime(i['date'],'%Y-%m-%d')))
+                    self.scatterxdata.append(datetime.date(datetime.strptime(i['date'], '%Y-%m-%d')))
                     self.scattercountemails.append(int(i['email']))
                     self.scattercounthosts.append(int(i['hosts']))
                     self.scattercountips.append(int(i['ip']))
@@ -90,11 +90,10 @@ try:
                         )
                 scatterchartcode = plotly.offline.plot({
                 "data": data,
-                "layout": layout}, auto_open=False,include_plotlyjs=False,filename='report.html', output_type='div')
+                "layout": layout}, auto_open=False, include_plotlyjs=False, filename='report.html', output_type='div')
                 return scatterchartcode
             except Exception as e:
                 print("Error generating HTML for the historical graph for domain: " + str(e))    
 
 except Exception as e:
     print("Error in the reportgraph module: " + str(e))
-            

@@ -1,8 +1,9 @@
-import myparser
+from parsers import myparser
 import re
 import requests
 import time
 from discovery.constants import *
+
 
 class search_ask:
 
@@ -41,7 +42,7 @@ class search_ask:
         return rawres.people_jigsaw()
 
     def process(self):
-        while (self.counter < self.limit):
+        while self.counter < self.limit:
             self.do_search()
             more = self.check_next()
             if more == "1":

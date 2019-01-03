@@ -1,6 +1,7 @@
-import myparser
+from parsers import myparser
 import requests
 from discovery.constants import *
+
 
 class search_pgp:
 
@@ -8,7 +9,6 @@ class search_pgp:
         self.word = word
         self.results = ""
         self.server = "pgp.mit.edu"
-        #self.server = "pgp.rediris.es"
         self.hostname = "pgp.mit.edu"
 
     def process(self):

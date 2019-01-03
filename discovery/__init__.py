@@ -1,6 +1,5 @@
 __all__ = ["bingsearch",
            "googlesearch",
-           "googleplussearch",
            "pgpsearch",
            "linkedinsearch",
            "exaleadsearch",

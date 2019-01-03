@@ -1,7 +1,6 @@
 import requests
 import re
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning) 
+
 
 class take_over:
     def __init__(self, host):
@@ -28,7 +27,6 @@ class take_over:
         "Do you want to register *.wordpress.com?",
         "Help Center Closed"]
 
-     
     def do_take(self):
         try:
             print("\t Searching takeovers for " + self.host)
@@ -41,7 +39,5 @@ class take_over:
         except Exception as e:
                 print(e)
 
-      
     def process(self):
         self.do_take()
-        
