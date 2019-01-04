@@ -31,8 +31,8 @@ class search_shodan:
             technologies = list(set(technologies))
             self.hostdatarow = [
                     str(results.get('ip_str')), str(results.get('hostnames')).strip('[]\''),
-                    str(results.get('org')), str(servicesports).strip('[]\''),
-                    str(technologies).strip('[]\'')]
+                    str(results.get('org')), str(servicesports).replace('\'', '').strip('[]'),
+                    str(technologies).replace('\'', '').strip('[]')]
         except exception.APIError:
             print(ipaddress+": Not in Shodan")
             self.hostdatarow = [ipaddress, "Not in Shodan", "Not in Shodan", "Not in Shodan", "Not in Shodan"]
