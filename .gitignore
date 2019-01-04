@@ -4,8 +4,8 @@
 .html
 .vscode
 .xml
+debug_results.txt
+discovery/constants.py
 stash.sqlite
 tests/myparser.py
 venv
-debug_results.txt
-discovery/constants.py
