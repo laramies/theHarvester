@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
+import datetime
 import getopt
 import re
 import stash
-import datetime
 from discovery import *
 from discovery.constants import *
 from lib.core import *

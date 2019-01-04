@@ -6,7 +6,7 @@
 * | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
 *  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
 *                                                                 *
-* theHarvester 3.0.6 v111                                          *
+* theHarvester 3.0.6 v137                                         *
 * Coded by Christian Martorella                                   *
 * Edge-Security Research                                          *
 * cmartorella@edge-security.com                                   *
@@ -15,10 +15,10 @@
 
 What is this?
 -------------
-theHarvester is a very simple, yet effective tool designed to be used in the early stages<br>
-of a penetration test. Use it for open source intelligence gathering and helping to determine<br>
-a company's external threat landscape on the internet. It gathers names, emails, subdomains,<br>
-and virtual hosts using multiple public data sources that include:
+theHarvester is a very simple, yet effective tool designed to be used in the early<br>
+stages of a penetration test. Use it for open source intelligence gathering and helping<br>
+to determine a company's external threat landscape on the internet. The tool gathers<br>
+emails, names, subdomains, IPs, and URLs using multiple public data sources that include:
 
 Passive:
 --------
@@ -35,6 +35,8 @@ Passive:
 * cymon: Cymon.io search engine
 
 * dogpile: Dogpile search engine - www.dogpile.com
+
+* duckduckgo:
 
 * google: Google search engine (Optional Google dorking.) - www.google.com
 
@@ -89,8 +91,8 @@ Add your keys to discovery/constants.py
 
 Dependencies:
 -------------
-* Do ```pip3 install -r requirements.txt``` 
-* Pip3 requires Python3 
+* Python 3.6
+* pip3 install -r requirements.txt
 
 Changelog in 3.0:
 -----------------
