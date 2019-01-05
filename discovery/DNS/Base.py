@@ -242,7 +242,7 @@ class DnsRequest:
 
 class DnsAsyncRequest(DnsRequest, asyncore.dispatcher_with_send):
 
-    " an asynchronous request object. out  of date, probably broken "
+    " an asynchronous request object. out of date, probably broken "
 
     def __init__(self, *name, **args):
         DnsRequest.__init__(self, *name, **args)
