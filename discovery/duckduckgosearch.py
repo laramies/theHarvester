@@ -60,7 +60,7 @@ class search_duckduckgo:
                     urls.add(val)
             tmp = set()
             for url in urls:
-                if '<' in url and 'href=' in url:  # format is <fref="https://www.website.com"/>
+                if '<' in url and 'href=' in url:  # format is <href="https://www.website.com"/>
                     equal_index = url.index('=')
                     true_url = ''
                     for ch in url[equal_index + 1:]:

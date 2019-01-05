@@ -13,7 +13,7 @@ class Core:
         print("* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *")
         print("*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *")
         print("*                                                                 *")
-        print("* theHarvester 3.0.6 v111                                         *")
+        print("* theHarvester 3.0.6 v137                                         *")
         print("* Coded by Christian Martorella                                   *")
         print("* Edge-Security Research                                          *")
         print("* cmartorella@edge-security.com                                   *")
@@ -28,10 +28,11 @@ class Core:
 
         print("Usage: theHarvester.py <options> \n")
         print("   -d: company name or domain to search")
-        print("""   -b: source: baidu, bing, bingapi, censys, crtsh, cymon, dogpile, google,
-                   googleCSE, google-certificates, google-profiles,
-                   hunter, linkedin, netcraft, pgp, securityTrails, threatcrowd,
-                   trello, twitter, vhost, virustotal, yahoo, all""")
+        print("""   -b: source: baidu, bing, bingapi, censys, crtsh, cymon, dogpile,
+               google, googleCSE, google-certificates, google-profiles,
+               hunter, linkedin, netcraft, pgp, securityTrails, threatcrowd,
+               trello, twitter, vhost, virustotal, yahoo, all""")
+        print("   -l: limit the number of search results")
         print("   -g: use Google Dorking instead of normal Google search")
         print("   -s: start with result number X (default: 0)")
         print("   -v: verify host name via DNS resolution and search for virtual hosts")
@@ -41,8 +42,6 @@ class Core:
         print("   -t: perform a DNS TLD expansion discovery")
         print("   -e: specify DNS server")
         print("   -p: port scan the detected hosts and check for Takeovers (21,22,80,443,8080)")
-        print("   -l: limit the number of results (Bing goes from 50 to 50 results,")
-        print("       Google 100 to 100, and PGP doesn't use this option)")
         print("   -h: use Shodan to query discovered hosts")
         print("\nExamples:")
         print(("       " + comm + " -d acme.com -l 500 -b google -f myresults.html"))

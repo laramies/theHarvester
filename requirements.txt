@@ -1,3 +1,8 @@
 beautifulsoup4>=4.7.0
 plotly>=3.4.2
 requests>=2.21.0
+<<<<<<< HEAD
+=======
+texttable>=1.4.0
+shodan>=1.10.0
+>>>>>>> 25b922d700ff5ecdaaa8a82e77c5e3ef8377cbda

@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 
+import datetime
 import getopt
 import re
 import stash
 import datetime
+import time
 from discovery import *
 from discovery.constants import *
 from lib.core import *
@@ -139,7 +141,7 @@ def start(argv):
                         print("[-] Searching in Censys.")
                         from discovery import censys
                         # Import locally or won't work
-                        search = censys.search_censys(word,limit)
+                        search = censys.search_censys(word, limit)
                         search.process()
                         all_ip = search.get_ipaddresses()
                         hosts = filter(search.get_hostnames())
@@ -207,7 +209,8 @@ def start(argv):
                     elif engineitem == "googleCSE":
                         print("[-] Searching in Google Custom Search.")
                         try:
-                            search = googleCSE.search_googleCSE(word, limit, start)
+                            search = googleCSE.search_googleCSE(
+                                word, limit, start)
                             search.process()
                             search.store_results()
                             all_emails = filter(search.get_emails())
@@ -224,13 +227,16 @@ def start(argv):
                                 pass
 
                     elif engineitem == "google-certificates":
-                        print("[-] Searching in Google Certificate transparency report.")
-                        search = googlecertificates.search_googlecertificates(word, limit, start)
+                        print(
+                            "[-] Searching in Google Certificate transparency report.")
+                        search = googlecertificates.search_googlecertificates(
+                            word, limit, start)
                         search.process()
                         hosts = filter(search.get_domains())
                         all_hosts.extend(hosts)
                         db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'host', 'google-certificates')
+                        db.store_all(word, all_hosts, 'host',
+                                     'google-certificates')
 
                     elif engineitem == "google-profiles":
                         print("[-] Searching in Google profiles.")
@@ -250,7 +256,8 @@ def start(argv):
                         from discovery import huntersearch
                         # Import locally or won't work.
                         try:
-                            search = huntersearch.search_hunter(word, limit, start)
+                            search = huntersearch.search_hunter(
+                                word, limit, start)
                             search.process()
                             emails = filter(search.get_emails())
                             all_emails.extend(emails)
@@ -305,7 +312,8 @@ def start(argv):
                         print("[-] Searching in SecurityTrails.")
                         from discovery import securitytrailssearch
                         try:
-                            search = securitytrailssearch.search_securitytrail(word)
+                            search = securitytrailssearch.search_securitytrail(
+                                word)
                             search.process()
                             hosts = filter(search.get_hostnames())
                             all_hosts.extend(hosts)
@@ -329,7 +337,8 @@ def start(argv):
                             hosts = filter(search.get_hostnames())
                             all_hosts.extend(hosts)
                             db = stash.stash_manager()
-                            db.store_all(word, all_hosts, 'host', 'threatcrowd')
+                            db.store_all(word, all_hosts,
+                                         'host', 'threatcrowd')
                         except Exception:
                             pass
 
@@ -407,7 +416,7 @@ def start(argv):
 
                         print("[-] Searching in Censys.")
                         from discovery import censys
-                        search = censys.search_censys(word,limit)
+                        search = censys.search_censys(word, limit)
                         search.process()
                         ips = search.get_ipaddresses()
                         setips = set(ips)
@@ -445,13 +454,16 @@ def start(argv):
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'google')
 
-                        print("[-] Searching in Google Certificate transparency report.")
-                        search = googlecertificates.search_googlecertificates(word, limit, start)
+                        print(
+                            "[-] Searching in Google Certificate transparency report.")
+                        search = googlecertificates.search_googlecertificates(
+                            word, limit, start)
                         search.process()
                         domains = filter(search.get_domains())
                         all_hosts.extend(domains)
                         db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'host', 'google-certificates')
+                        db.store_all(word, all_hosts, 'host',
+                                     'google-certificates')
 
                         # googleplus
 
@@ -463,7 +475,8 @@ def start(argv):
                         from discovery import huntersearch
                         # Import locally.
                         try:
-                            search = huntersearch.search_hunter(word, limit, start)
+                            search = huntersearch.search_hunter(
+                                word, limit, start)
                             search.process()
                             emails = filter(search.get_emails())
                             hosts = filter(search.get_hostnames())
@@ -513,7 +526,8 @@ def start(argv):
                             hosts = filter(search.get_hostnames())
                             all_hosts.extend(hosts)
                             db = stash.stash_manager()
-                            db.store_all(word, all_hosts, 'host', 'threatcrowd')
+                            db.store_all(word, all_hosts,
+                                         'host', 'threatcrowd')
                         except Exception:
                             pass
 
@@ -670,7 +684,8 @@ def start(argv):
             s = '.'
             range = s.join(range)
             if not analyzed_ranges.count(range):
-                print(("\033[94m[-] Performing reverse lookup in " + range + "\033[1;33;40m"))
+                print(
+                    ("\033[94m[-] Performing reverse lookup in " + range + "\033[1;33;40m"))
                 a = dnssearch.dns_reverse(range, True)
                 a.list()
                 res = a.process()
@@ -722,29 +737,31 @@ def start(argv):
 
     # Shodan search
     shodanres = []
-    shodanvisited = []
+    import texttable
+    tab = texttable.Texttable()
+    header = ["IP address", "Hostname", "Org",
+              "Services:Ports", "Technologies"]
+    tab.header(header)
+    tab.set_cols_align(["c", "c", "c", "c", "c"])
+    tab.set_cols_valign(["m", "m", "m", "m", "m"])
+    tab.set_chars(['-', '|', '+', '#'])
+    tab.set_cols_width([15, 20, 15, 15, 18])
+    host_ip = list(set(host_ip))
     if shodan is True:
         print("\n\n\033[1;32;40m[-] Shodan DB search (passive):\n")
-        if full == []:
-            print('No host to search, exiting.')
-            sys.exit(1)
-        for x in full:
-            try:
-                ip = x.split(":")[1]
-                if not shodanvisited.count(ip):
-                    print(("\tSearching for: " + ip))
-                    a = shodansearch.search_shodan(ip)
-                    shodanvisited.append(ip)
-                    results = a.run()
-                    for res in results['data']:
-                        shodanres.append(
-                            str("%s:%s - %s - %s - %s," % (res['ip_str'], res['port'], res['os'], res['isp'])))
-            except Exception as e:
-                pass
-        print("\n [+] Shodan results:")
-        print("-------------------")
-        for x in shodanres:
-            print(x)
+        try:
+            for ip in host_ip:
+                print(("\tSearching for: " + ip))
+                shodan = shodansearch.search_shodan()
+                rowdata = shodan.search_ip(ip)
+                time.sleep(2)
+                tab.add_row(rowdata)
+            printedtable = tab.draw()
+            print("\n [+] Shodan results:")
+            print("-------------------")
+            print(printedtable)
+        except Exception as e:
+            print("Error occurred in theHarvester - Shodan search module: " + str(e))
     else:
         pass
 
@@ -770,18 +787,22 @@ def start(argv):
             db = stash.stash_manager()
             scanboarddata = db.getscanboarddata()
             latestscanresults = db.getlatestscanresults(word)
-            previousscanresults = db.getlatestscanresults(word, previousday=True)
+            previousscanresults = db.getlatestscanresults(
+                word, previousday=True)
             latestscanchartdata = db.latestscanchartdata(word)
             scanhistorydomain = db.getscanhistorydomain(word)
             pluginscanstatistics = db.getpluginscanstatistics()
             generator = statichtmlgenerator.htmlgenerator(word)
             HTMLcode = generator.beginhtml()
             HTMLcode += generator.generatelatestscanresults(latestscanresults)
-            HTMLcode += generator.generatepreviousscanresults(previousscanresults)
+            HTMLcode += generator.generatepreviousscanresults(
+                previousscanresults)
             graph = reportgraph.graphgenerator(word)
             HTMLcode += graph.drawlatestscangraph(word, latestscanchartdata)
-            HTMLcode += graph.drawscattergraphscanhistory(word, scanhistorydomain)
-            HTMLcode += generator.generatepluginscanstatistics(pluginscanstatistics)
+            HTMLcode += graph.drawscattergraphscanhistory(
+                word, scanhistorydomain)
+            HTMLcode += generator.generatepluginscanstatistics(
+                pluginscanstatistics)
             HTMLcode += generator.generatedashboardcode(scanboarddata)
             HTMLcode += '<p><span style="color: #000000;">Report generated on ' + str(
                 datetime.datetime.now()) + '</span></p>'
@@ -817,13 +838,15 @@ def start(argv):
             for x in full:
                 x = x.split(":")
                 if len(x) == 2:
-                    file.write('<host>' + '<ip>' + x[1] + '</ip><hostname>' + x[0] + '</hostname>' + '</host>')
+                    file.write(
+                        '<host>' + '<ip>' + x[1] + '</ip><hostname>' + x[0] + '</hostname>' + '</host>')
                 else:
                     file.write('<host>' + x + '</host>')
             for x in vhost:
                 x = x.split(":")
                 if len(x) == 2:
-                    file.write('<vhost>' + '<ip>' + x[1] + '</ip><hostname>' + x[0] + '</hostname>' + '</vhost>')
+                    file.write(
+                        '<vhost>' + '<ip>' + x[1] + '</ip><hostname>' + x[0] + '</hostname>' + '</vhost>')
                 else:
                     file.write('<vhost>' + x + '</vhost>')
             if shodanres != []:
