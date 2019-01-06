@@ -1,10 +1,11 @@
 import requests
 from parsers import myparser
 from discovery.constants import *
+from lib.core import *
 import time
 
 
-class search_linkedin:
+class SearchLinkedin:
 
     def __init__(self, word, limit):
         self.word = word.replace(' ', '%20')
@@ -18,19 +19,19 @@ class search_linkedin:
 
     def do_search(self):
         try:
-            urly = "http://"+ self.server + "/search?num=100&start=" + str(self.counter) + "&hl=en&meta=&q=site%3Alinkedin.com/in%20" + self.word
+            urly = "http://" + self.server + "/search?num=100&start=" + str(self.counter) + "&hl=en&meta=&q=site%3Alinkedin.com/in%20" + self.word
         except Exception as e:
             print(e)
         try:
-            headers = {'User-Agent': getUserAgent()}
-            r = requests.get(urly,headers=headers)
+            headers = {'User-Agent': Core.get_user_agent()}
+            r = requests.get(urly, headers=headers)
         except Exception as e:
             print(e)
         self.results = r.text
         self.totalresults += self.results
 
     def get_people(self):
-        rawres = myparser.parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.people_linkedin()
 
     def process(self):
@@ -38,4 +39,4 @@ class search_linkedin:
             self.do_search()
             time.sleep(getDelay())
             self.counter += 100
-            print("\tSearching " + str(self.counter) + " results..")
+            print(f'\tSearching  {self.counter} results..')

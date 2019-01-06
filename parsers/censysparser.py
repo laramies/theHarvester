@@ -2,12 +2,12 @@ from bs4 import BeautifulSoup
 import re
 
 
-class parser:
+class Parser:
 
     def __init__(self, resultstoparse):
         self.ipaddresses = []
-        self.souphosts = BeautifulSoup(resultstoparse.total_resultshosts, features = "html.parser")
-        self.soupcerts = BeautifulSoup(resultstoparse.total_resultscerts, features = "html.parser")
+        self.souphosts = BeautifulSoup(resultstoparse.total_resultshosts, features="html.parser")
+        self.soupcerts = BeautifulSoup(resultstoparse.total_resultscerts, features="html.parser")
         self.hostnames = []
         self.hostnamesfromcerts = []
         self.urls = []

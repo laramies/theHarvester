@@ -3,9 +3,10 @@ import re
 import requests
 import time
 from discovery.constants import *
+from lib.core import *
 
 
-class search_ask:
+class SearchAsk:
 
     def __init__(self, word, limit):
         self.word = word.replace(' ', '%20')
@@ -19,9 +20,9 @@ class search_ask:
 
     def do_search(self):
         headers = {
-            'User-agent': getUserAgent()
+            'User-agent': Core.get_user_agent()
         }
-        url = 'http://' + self.server + '/web?q=%40' + self.word \
+        url = 'https://' + self.server + '/web?q=%40' + self.word \
               + "&pu=100&page=" + str(self.counter)
         h = requests.get(url=url, headers=headers)
         time.sleep(getDelay())
@@ -38,7 +39,7 @@ class search_ask:
         return nexty
 
     def get_people(self):
-        rawres = myparser.parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.people_jigsaw()
 
     def process(self):

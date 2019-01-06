@@ -26,7 +26,7 @@ class s3_scanner:
             if bucket_response.status_code == 200\
                     and (not ARGS.only_interesting or
                              (ARGS.only_interesting and any(keyword in bucket_response.text for keyword in KEYWORDS))):
-                cprint("Found bucket '{}'".format(new_bucket_url), "green", attrs=["bold"])
+                print(f"Found bucket '{new_bucket_url}'")
                 self.__log(new_bucket_url)
      
     def do_s3(self):

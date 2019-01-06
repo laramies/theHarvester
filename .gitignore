@@ -5,7 +5,5 @@
 .vscode
 .xml
 debug_results.txt
-discovery/constants.py
-stash.sqlite
 tests/myparser.py
 venv

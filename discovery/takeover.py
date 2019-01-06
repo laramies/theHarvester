@@ -35,7 +35,7 @@ class take_over:
                 take_reg = re.compile(x)
                 self.temp = take_reg.findall(r.text)
                 if self.temp != []:
-                        print("\t\033[91m Takeover detected! - " + self.host + "\033[1;32;40m ")
+                        print(f"\t\033[91m Takeover detected! - {self.host} \033[1;32;40m")
         except Exception as e:
                 print(e)
 

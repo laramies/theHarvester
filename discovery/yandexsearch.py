@@ -3,6 +3,7 @@ import re
 import time
 import requests
 from discovery.constants import *
+from lib.core import *
 
 
 class search_yandex:
@@ -20,7 +21,7 @@ class search_yandex:
         url = 'http://' + self.server + "/search?text=%40" + self.word + "&numdoc=50&lr=" + str(self.counter)
         headers = {
             'Host': self.hostname,
-            'User-agent': getUserAgent()
+            'User-agent': Core.get_user_agent()
         }
         h = requests.get(url=url, headers=headers)
         self.results = h.text
@@ -31,7 +32,7 @@ class search_yandex:
         url = 'http://' + self.server + "/search?text=%40" + self.word + "&numdoc=50&lr=" + str(self.counter)
         headers = {
             'Host': self.hostname,
-            'User-agent': getUserAgent()
+            'User-agent': Core.get_user_agent()
         }
         h = requests.get(url=url, headers=headers)
         self.results = h.text
@@ -48,22 +49,22 @@ class search_yandex:
         return nexty
 
     def get_emails(self):
-        rawres = myparser.parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.emails()
 
     def get_hostnames(self):
-        rawres = myparser.parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.hostnames()
 
     def get_files(self):
-        rawres = myparser.parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.fileurls(self.files)  # self.files is not init?
 
     def process(self):
         while self.counter <= self.limit:
             self.do_search()
             self.counter += 50
-            print("Searching " + str(self.counter) + " results...")
+            print(f'Searching  {self.counter} results...')
 
     def process_files(self, files):
         while self.counter < self.limit:

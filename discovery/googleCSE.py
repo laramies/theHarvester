@@ -6,7 +6,7 @@ import requests
 from discovery.constants import *
 
 
-class search_googleCSE:
+class SearchGoogleCSE:
 
     def __init__(self, word, limit, start):
         self.word = word
@@ -63,15 +63,15 @@ class search_googleCSE:
         return nexty
 
     def get_emails(self):
-        rawres = myparser.parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.emails()
 
     def get_hostnames(self):
-        rawres = myparser.parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.hostnames()
 
     def get_files(self):
-        rawres = myparser.parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.fileurls(self.files)
 
     def process(self):

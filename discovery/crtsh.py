@@ -2,6 +2,7 @@ import requests
 from parsers import myparser
 import time
 from discovery.constants import *
+from lib.core import *
 
 
 class search_crtsh:
@@ -20,13 +21,13 @@ class search_crtsh:
         except Exception as e:
             print(e)
         try:
-            params = {'User-Agent': getUserAgent()}
-            r=requests.get(urly,headers=params)
+            params = {'User-Agent': Core.get_user_agent()}
+            r=requests.get(urly, headers=params)
         except Exception as e:
             print(e)
         links = self.get_info(r.text)
         for link in links:
-            params = {'User-Agent': getUserAgent()}
+            params = {'User-Agent': Core.get_user_agent()}
             r = requests.get(link, headers=params)
             time.sleep(getDelay())
             self.results = r.text
@@ -37,7 +38,7 @@ class search_crtsh:
     @param text requests text
     @return list of links
     """
-    def get_info(self,text):
+    def get_info(self, text):
         lines = []
         for line in str(text).splitlines():
             line = line.strip()
@@ -58,7 +59,7 @@ class search_crtsh:
         return links
 
     def get_hostnames(self):
-        rawres = myparser.parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.hostnames()
 
     def process(self):

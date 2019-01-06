@@ -1,9 +1,9 @@
 import requests
 from parsers import myparser
-from discovery.constants import *
+from lib.core import *
 
 
-class search_netcraft:
+class SearchNetcraft:
 
     def __init__(self, word):
         self.word = word.replace(' ', '%20')
@@ -19,7 +19,7 @@ class search_netcraft:
             urly = "https://searchdns.netcraft.com/?restriction=site+ends+with&host=" + self.word
         except Exception as e:
             print(e)
-        headers = {'User-Agent': getUserAgent()}
+        headers = {'User-Agent': Core.get_user_agent()}
         try:
             r=requests.get(urly, headers=headers)
         except Exception as e:
@@ -28,7 +28,7 @@ class search_netcraft:
         self.totalresults += self.results
 
     def get_hostnames(self):
-        rawres = myparser.parser(self.results, self.word)
+        rawres = myparser.Parser(self.results, self.word)
         return rawres.hostnames()
 
     def process(self):

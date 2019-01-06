@@ -1,6 +1,5 @@
 from shodan import Shodan
 from shodan import exception
-#from discovery.shodan import Shodan
 from discovery.constants import *
 
 
@@ -8,7 +7,7 @@ class search_shodan:
 
     def __init__(self):
         self.key = shodanAPI_key
-        if self.key == "":
+        if self.key == '':
             raise MissingKey(True)
         self.api = Shodan(self.key)
         self.hostdatarow = []
@@ -23,7 +22,7 @@ class search_shodan:
                 try:
                     for key in result['http']['components'].keys():
                         technologies.append(key)
-                except KeyError as e:
+                except KeyError:
                     pass
                 port = str(result.get('port'))
                 product = str(result.get('product'))
@@ -34,10 +33,10 @@ class search_shodan:
                     str(results.get('org')), str(servicesports).replace('\'', '').strip('[]'),
                     str(technologies).replace('\'', '').strip('[]')]
         except exception.APIError:
-            print(ipaddress+": Not in Shodan")
+            print(f'{ipaddress}: Not in Shodan')
             self.hostdatarow = [ipaddress, "Not in Shodan", "Not in Shodan", "Not in Shodan", "Not in Shodan"]
 
         except Exception as e:
-            print("Error occurred in the Shodan IP search module: " + str(e))
+            print(f'Error occurred in the Shodan IP search module: {e}')
         finally:
             return self.hostdatarow

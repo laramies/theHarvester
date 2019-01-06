@@ -1,8 +1,9 @@
 import requests
 import json
-from discovery.constants import *
+from lib.core import *
 
-class search_googlecertificates:
+
+class SearchGoogleCertificates:
     # https://www.google.com/transparencyreport/api/v3/httpsreport/ct/certsearch?include_expired=true&include_subdomains=true&domain=
     def __init__(self, word, limit, start):
         self.word = word
@@ -19,7 +20,7 @@ class search_googlecertificates:
         except Exception as e:
             print(e)
         try:
-            headers = {'User-Agent': getUserAgent()}
+            headers = {'User-Agent': Core.get_user_agent()}
             r = requests.get(urly, headers=headers)
         except Exception as e:
             print(e)

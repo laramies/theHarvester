@@ -2,9 +2,10 @@ from parsers import myparser
 import time
 import requests
 from discovery.constants import *
+from lib.core import *
 
 
-class search_bing:
+class SearchBing:
 
     def __init__(self, word, limit, start):
         self.word = word.replace(' ', '%20')
@@ -21,11 +22,11 @@ class search_bing:
     def do_search(self):
         headers = {
             'Host': self.hostname,
-            'Cookie':'SRCHHPGUSR=ADLT=DEMOTE&NRSLT=50',
+            'Cookie': 'SRCHHPGUSR=ADLT=DEMOTE&NRSLT=50',
             'Accept-Language': 'en-us,en',
-            'User-agent': getUserAgent()
+            'User-agent': Core.get_user_agent()
         }
-        h = requests.get(url=('http://'+self.server + "/search?q=%40" + self.word + "&count=50&first=" + str(self.counter)),headers=headers)
+        h = requests.get(url=('http://'+self.server + "/search?q=%40" + self.word + "&count=50&first=" + str(self.counter)), headers=headers)
         self.results = h.text
         self.totalresults += self.results
 
@@ -38,7 +39,7 @@ class search_bing:
             'mkt': 'en-us',
             'safesearch': 'Off'
         }
-        headers = {'User-Agent': getUserAgent(), 'Ocp-Apim-Subscription-Key': self.bingApi}
+        headers = {'User-Agent': Core.get_user_agent(), 'Ocp-Apim-Subscription-Key': self.bingApi}
         h = requests.get(url=url, headers=headers, params=params)
         self.results = h.text
         self.totalresults += self.results
@@ -48,7 +49,7 @@ class search_bing:
             'Host': self.hostname,
             'Cookie': 'mkt=en-US;ui=en-US;SRCHHPGUSR=NEWWND=0&ADLT=DEMOTE&NRSLT=50',
             'Accept-Language': 'en-us,en',
-            'User-agent': getUserAgent()
+            'User-agent': Core.get_user_agent()
         }
         url = 'http://' + self.server + "/search?q=ip:" + self.word + "&go=&count=50&FORM=QBHL&qs=n&first=" + str(self.counter)
         h = requests.get(url=url, headers=headers)
@@ -56,15 +57,15 @@ class search_bing:
         self.totalresults += self.results
 
     def get_emails(self):
-        rawres = myparser.parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.emails()
 
     def get_hostnames(self):
-        rawres = myparser.parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.hostnames()
 
     def get_allhostnames(self):
-        rawres = myparser.parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.hostnames_all()
 
     def process(self, api):
@@ -79,7 +80,7 @@ class search_bing:
                 self.do_search()
                 time.sleep(getDelay())
             self.counter += 50
-            print("\tSearching " + str(self.counter) + " results...")
+            print(f'\tSearching {self.counter} results...')
 
     def process_vhost(self):
         # Maybe it is good to use other limit for this.

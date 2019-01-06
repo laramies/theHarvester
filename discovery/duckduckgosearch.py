@@ -3,9 +3,10 @@ import time
 import requests
 import json
 from discovery.constants import *
+from lib.core import *
 
 
-class search_duckduckgo:
+class SearchDuckDuckGo:
 
     def __init__(self, word, limit):
         self.word = word
@@ -31,7 +32,7 @@ class search_duckduckgo:
         urls = self.crawl(self.results)
         for url in urls:
             try:
-                self.totalresults += requests.get(url, headers={'User-Agent': getUserAgent()}).text
+                self.totalresults += requests.get(url, headers={'User-Agent': Core.get_user_agent()}).text
                 time.sleep(getDelay())
             except Exception:
                 continue
@@ -73,17 +74,17 @@ class search_duckduckgo:
                         tmp.add(url)
             return tmp
         except Exception as e:
-            print('Exception occurred: ' + str(e))
+            print(f'Exception occurred: {e}')
             import traceback as t
             print(t.print_exc())
             return []
 
     def get_emails(self):
-        rawres = myparser.parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.emails()
 
     def get_hostnames(self):
-        rawres = myparser.parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.hostnames()
 
     def process(self):

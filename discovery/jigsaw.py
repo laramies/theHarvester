@@ -3,6 +3,7 @@ import re
 import requests
 import time
 from discovery.constants import *
+from lib.core import *
 
 # http://www.jigsaw.com/SearchAcrossCompanies.xhtml?opCode=refresh&rpage=4&mode=0&cnCountry=&order=0&orderby=0&cmName=accuvant&cnDead=false&cnExOwned=false&count=0&screenNameType=0&screenName=&omitScreenNameType=0&omitScreenName=&companyId=0&estimatedCount=277&rowsPerPage=50
 
@@ -22,7 +23,7 @@ class search_jigsaw:
     def do_search(self):
         url = 'http://' + self.server + "/FreeTextSearch.xhtml?opCode=search&autoSuggested=True&freeText=" + self.word
         headers = {
-            'User-agent': getUserAgent()
+            'User-agent': Core.get_user_agent()
         }
         h = requests.get(url=url, headers=headers)
         self.results = h.text
@@ -38,7 +39,7 @@ class search_jigsaw:
         return nexty
 
     def get_people(self):
-        rawres = myparser.parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.people_jigsaw()
 
     def process(self):
