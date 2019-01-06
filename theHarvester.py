@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import datetime
 import getopt
@@ -337,8 +337,7 @@ def start(argv):
                             hosts = filter(search.get_hostnames())
                             all_hosts.extend(hosts)
                             db = stash.stash_manager()
-                            db.store_all(word, all_hosts,
-                                         'host', 'threatcrowd')
+                            db.store_all(word, all_hosts, 'host', 'threatcrowd')
                         except Exception:
                             pass
 
@@ -475,8 +474,7 @@ def start(argv):
                         from discovery import huntersearch
                         # Import locally.
                         try:
-                            search = huntersearch.search_hunter(
-                                word, limit, start)
+                            search = huntersearch.search_hunter(word, limit, start)
                             search.process()
                             emails = filter(search.get_emails())
                             hosts = filter(search.get_hostnames())
@@ -526,8 +524,7 @@ def start(argv):
                             hosts = filter(search.get_hostnames())
                             all_hosts.extend(hosts)
                             db = stash.stash_manager()
-                            db.store_all(word, all_hosts,
-                                         'host', 'threatcrowd')
+                            db.store_all(word, all_hosts, 'host', 'threatcrowd')
                         except Exception:
                             pass
 
