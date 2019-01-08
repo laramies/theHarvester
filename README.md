@@ -106,10 +106,14 @@ Comments, bugs, or requests?
 ----------------------------
 cmartorella@edge-security.com
 
-Thanks:
+Main contributors:
 -------
 * Matthew Brown @NotoriousRebel
 * Janos Zold @Jzold
-* Lee Baird @discoverscripts - suggestions and bugs reporting
+* Lee Baird @discoverscripts
+* Jay Townsend @L1ghtn1ng
+
+Thanks:
+-------
 * John Matherly - Shodan project
 * Ahmed Aboul Ela - subdomain names dictionaries (big and small)
