@@ -3,7 +3,7 @@ import requests
 from discovery.constants import *
 
 
-class search_hunter:
+class SearchHunter:
 
     def __init__(self, word, limit, start):
         self.word = word
@@ -15,7 +15,7 @@ class search_hunter:
         self.results = ""
         self.totalresults = ""
         self.counter = start
-        self.database = "https://api.hunter.io/v2/domain-search?domain=" + word + "&api_key=" + self.key +"&limit=" + str(self.limit)
+        self.database = "https://api.hunter.io/v2/domain-search?domain=" + word + "&api_key=" + self.key + "&limit=" + str(self.limit)
 
     def do_search(self):
         try:
@@ -30,13 +30,13 @@ class search_hunter:
             print('\tDone Searching Results')
 
     def get_emails(self):
-        rawres = myparser.parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.emails()
 
     def get_hostnames(self):
-        rawres = myparser.parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.hostnames()
 
     def get_profiles(self):
-        rawres = myparser.parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.profiles()

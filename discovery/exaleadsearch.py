@@ -3,6 +3,8 @@ import re
 import time
 import requests
 from discovery.constants import *
+from lib.core import *
+
 
 class search_exalead:
     def __init__(self, word, limit, start):
@@ -20,8 +22,8 @@ class search_exalead:
               + "&elements_per_page=50&start_index=" + str(self.counter)
         headers = {
             'Host': self.hostname,
-            'Referer': ("http://" +self.hostname +"/search/web/results/?q=%40" +self.word),
-            'User-agent': getUserAgent()
+            'Referer': ("http://" + self.hostname + "/search/web/results/?q=%40" + self.word),
+            'User-agent': Core.get_user_agent()
         }
         h = requests.get(url=url, headers=headers)
         self.results = h.text
@@ -33,7 +35,7 @@ class search_exalead:
         headers = {
             'Host': self.hostname,
             'Referer': ("http://" + self.hostname + "/search/web/results/?q=%40" + self.word),
-            'User-agent': getUserAgent()
+            'User-agent': Core.get_user_agent()
         }
         h = requests.get(url=url, headers=headers)
         self.results = h.text
@@ -50,22 +52,22 @@ class search_exalead:
         return nexty
 
     def get_emails(self):
-        rawres = myparser.parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.emails()
 
     def get_hostnames(self):
-        rawres = myparser.parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.hostnames()
 
     def get_files(self):
-        rawres = myparser.parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.fileurls(self.files)
 
     def process(self):
         while self.counter <= self.limit:
             self.do_search()
             self.counter += 50
-            print("\ tSearching " + str(self.counter) + " results...")
+            print(f'\tSearching {self.counter} results...')
 
     def process_files(self, files):
         while self.counter < self.limit:

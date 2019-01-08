@@ -1,6 +1,6 @@
 import requests
 from parsers import myparser
-from discovery.constants import *
+from lib.core import *
 
 
 class search_threatcrowd:
@@ -19,7 +19,7 @@ class search_threatcrowd:
             urly = "https://www.threatcrowd.org/searchApi/v2/domain/report/?domain=" + self.word
         except Exception as e:
             print(e)
-        headers = {'User-Agent': getUserAgent()}
+        headers = {'User-Agent': Core.get_user_agent()}
         try:
             r = requests.get(urly, headers=headers)
         except Exception as e:
@@ -28,7 +28,7 @@ class search_threatcrowd:
         self.totalresults += self.results
 
     def get_hostnames(self):
-        rawres = myparser.parser(self.results, self.word)
+        rawres = myparser.Parser(self.results, self.word)
         return rawres.hostnames()
 
     def process(self):

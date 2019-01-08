@@ -1,6 +1,6 @@
 from parsers import myparser
 import requests
-from discovery.constants import *
+from lib.core import *
 
 
 class search_google_labs:
@@ -23,14 +23,14 @@ class search_google_labs:
         url = 'http://' + self.server + "/sets?hl-en&" + self.set
         headers = {
             'Host': self.server,
-            'User-agent': getUserAgent()
+            'User-agent': Core.get_user_agent()
         }
         h = requests.get(url=url, headers=headers)
         self.results = h.text
         self.totalresults += self.results
 
     def get_set(self):
-        rawres = myparser.parser(self.totalresults, list)
+        rawres = myparser.Parser(self.totalresults, list)
         return rawres.set()
 
     def process(self):

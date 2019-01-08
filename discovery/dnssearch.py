@@ -73,7 +73,7 @@ class dns_force():
             res_path = os.path.join(fileDir,'lib/resolvers.txt')
             with open(res_path) as f:
                 self.resolvers = f.read().splitlines()
-        except Exception as e:
+        except Exception:
             print("Resolvers file can't be open")
         try:
             f = open(self.file, "r")
@@ -86,7 +86,7 @@ class dns_force():
         DNS.ParseResolvConf("/etc/resolv.conf")
         # nameserver=DNS.defaults['server'][0]
         dom = domain
-        if self.subdo == True:
+        if self.subdo is True:
             dom = domain.split(".")
             dom.pop(0)
             rootdom = ".".join(dom)
@@ -139,7 +139,7 @@ class dns_force():
             # TODO FIX test is sometimes not getting answers and leads to an indexing erro
             hostip = test.answers[0]['data']
             return hostname + ":" + hostip
-        except Exception as e:
+        except Exception:
             pass
 
     def process(self):
@@ -190,13 +190,13 @@ class dns_tld():
         # DNS.ParseResolvConf("/etc/resolv.conf")
         # nameserver=DNS.defaults['server'][0]
         dom = domain
-        if self.subdo == True:
+        if self.subdo is True:
             dom = domain.split(".")
             dom.pop(0)
             rootdom = ".".join(dom)
         else:
             rootdom = dom
-        if self.nameserver == False:
+        if self.nameserver is False:
             r = DNS.Request(rootdom, qtype='SOA').req()
             primary, email, serial, refresh, retry, expire, minimum = r.answers[
                 0]['data']
@@ -225,7 +225,7 @@ class dns_tld():
             )
             hostip = test.answers[0]['data']
             return hostip + ":" + hostname
-        except Exception as e:
+        except Exception:
             pass
 
     def process(self):

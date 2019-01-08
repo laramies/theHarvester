@@ -1,7 +1,7 @@
 import re
 
 
-class parser:
+class Parser:
 
     def __init__(self, results, word):
         self.results = results

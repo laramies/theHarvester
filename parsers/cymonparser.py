@@ -2,7 +2,7 @@ import re
 from bs4 import BeautifulSoup
 
 
-class parser:
+class Parser:
 
     def __init__(self, results):
         self.results = results

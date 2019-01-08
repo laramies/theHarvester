@@ -1,6 +1,7 @@
 import requests
 from parsers import myparser
 from discovery.constants import *
+from lib.core import *
 import time
 
 
@@ -18,10 +19,10 @@ class search_twitter:
 
     def do_search(self):
         try:
-            urly = "https://"+ self.server + "/search?num=100&start=" + str(self.counter) + "&hl=en&meta=&q=site%3Atwitter.com%20intitle%3A%22on+Twitter%22%20" + self.word
+            urly = "https://" + self.server + "/search?num=100&start=" + str(self.counter) + "&hl=en&meta=&q=site%3Atwitter.com%20intitle%3A%22on+Twitter%22%20" + self.word
         except Exception as e:
             print(e)
-        headers = {'User-Agent':getUserAgent()}
+        headers = {'User-Agent': Core.get_user_agent()}
         try:
             r=requests.get(urly, headers=headers)
         except Exception as e:
@@ -30,7 +31,7 @@ class search_twitter:
         self.totalresults += self.results
 
     def get_people(self):
-        rawres = myparser.parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.people_twitter()
 
     def process(self):
@@ -38,4 +39,4 @@ class search_twitter:
             self.do_search()
             time.sleep(getDelay())
             self.counter += 100
-            print("\tSearching " + str(self.counter) + " results..")
+            print(f'\tSearching {self.counter} results..')

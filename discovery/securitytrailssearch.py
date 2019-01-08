@@ -49,7 +49,7 @@ class search_securitytrail:
     def process(self):
         self.authenticate()
         self.do_search()
-        parser = securitytrailsparser.parser(word=self.word, text=self.totalresults)
+        parser = securitytrailsparser.Parser(word=self.word, text=self.totalresults)
         self.info = parser.parse_text()
         # create parser and set self.info to tuple returned from parsing text
         print('\tDone Searching Results')

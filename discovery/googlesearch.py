@@ -55,26 +55,26 @@ class search_google:
         self.totalresults += self.results
 
     def get_emails(self):
-        rawres = myparser.parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.emails()
 
     def get_hostnames(self):
-        rawres = myparser.parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.hostnames()
 
     def get_files(self):
-        rawres = myparser.parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.fileurls(self.files)
 
     def get_profiles(self):
-        rawres = myparser.parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.profiles()
 
     def process(self, google_dorking):
         if google_dorking is False:
             while self.counter <= self.limit and self.counter <= 1000:
                 self.do_search()
-                print("\tSearching " + str(self.counter) + " results...")
+                print(f'\tSearching {self.counter} results...')
                 self.counter += 100
         else:  # google dorking is true
             self.counter = 0  # reset counter
@@ -82,7 +82,7 @@ class search_google:
             print("[-] Searching with Google Dorks: ")
             while self.counter <= self.limit and self.counter <= 200:  # only 200 dorks in list
                 self.googledork()  # call google dorking method if user wanted it!
-                print("\tSearching " + str(self.counter) + " results...")
+                print(f'\tSearching {self.counter} results...')
                 self.counter += 100
 
     def process_profiles(self):
@@ -90,7 +90,7 @@ class search_google:
             self.do_search_profiles()
             time.sleep(getDelay())
             self.counter += 100
-            print("\tSearching " + str(self.counter) + " results...")
+            print(f'\tSearching {self.counter} results...')
 
     def append_dorks(self):
         try:  # wrap in try-except incase filepaths are messed up

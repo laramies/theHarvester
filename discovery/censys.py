@@ -1,9 +1,9 @@
 import requests
 from parsers import censysparser
-from discovery.constants import *
+from lib.core import *
 
 
-class search_censys:
+class SearchCensys:
 
     def __init__(self, word, limit):
         self.word = word
@@ -21,21 +21,21 @@ class search_censys:
 
     def do_searchhosturl(self):
         try:
-            headers = {'user-agent': getUserAgent(), 'Accept': '*/*', 'Referer': self.urlhost}
+            headers = {'user-agent': Core.get_user_agent(), 'Accept': '*/*', 'Referer': self.urlhost}
             responsehost = requests.get(self.urlhost, headers=headers)
             self.resultshosts = responsehost.text
             self.total_resultshosts += self.resultshosts
         except Exception as e:
-            print("Error occurred in the Censys module downloading pages from Censys - IP search: " + str(e))
+            print(f'Error occurred in the Censys module downloading pages from Censys - IP search: + {e}')
 
     def do_searchcertificateurl(self):
         try:
-            headers = {'user-agent': getUserAgent(), 'Accept': '*/*', 'Referer': self.urlcert}
+            headers = {'user-agent': Core.get_user_agent(), 'Accept': '*/*', 'Referer': self.urlcert}
             responsecert = requests.get(self.urlcert, headers=headers)
             self.resultcerts = responsecert.text
             self.total_resultscerts += self.resultcerts
         except Exception as e:
-            print("Error occurred in the Censys module downloading pages from Censys - certificates search: " + str(e))
+            print(f'Error occurred in the Censys module downloading pages from Censys - certificates search: {e}')
 
     def process(self):
         try:
@@ -44,7 +44,7 @@ class search_censys:
             self.do_searchhosturl()
             self.do_searchcertificateurl()
             counter = 2
-            pages = censysparser.parser(self)
+            pages = censysparser.Parser(self)
             totalpages = pages.search_totalpageshosts()
             pagestosearch = int(self.limit / 25)  # 25 results/page
             if totalpages <= pagestosearch:
@@ -57,18 +57,18 @@ class search_censys:
                         self.do_searchhosturl()
                         counter += 1
                     except Exception as e:
-                        print("Error occurred in the Censys module requesting the pages: " + str(e))
+                        print(f'Error occurred in the Censys module requesting the pages: {e}')
             else:
                 while counter <= pagestosearch:
                     try:
                         self.page = str(counter)
                         self.urlhost = "https://" + self.server + "/ipv4/_search?q=" + str(self.word) + "&page=" + str(
                             self.page)
-                        print("\tSearching Censys IP results page " + self.page + "...")
+                        print(f'\tSearching Censys IP results page {self.page} ...')
                         self.do_searchhosturl()
                         counter += 1
                     except Exception as e:
-                        print("Error occurred in the Censys module requesting the pages: " + str(e))
+                        print(f'Error occurred in the Censys module requesting the pages: {e}')
             counter = 2
             totalpages = pages.search_totalpagescerts()
             if totalpages <= pagestosearch:
@@ -77,11 +77,11 @@ class search_censys:
                         self.page = str(counter)
                         self.urlhost = "https://" + self.server + "/certificates/_search?q=" + str(
                             self.word) + "&page=" + str(self.page)
-                        print("\tSearching Censys certificates results page " + self.page + "...")
+                        print(f'\tSearching Censys certificates results page {self.page} ...')
                         self.do_searchcertificateurl()
                         counter += 1
                     except Exception as e:
-                        print("Error occurred in the Censys module requesting the pages: " + str(e))
+                        print(f'Error occurred in the Censys module requesting the pages: {e}')
             else:
                 while counter <= pagestosearch:
                     try:
@@ -92,15 +92,15 @@ class search_censys:
                         self.do_searchhosturl()
                         counter += 1
                     except Exception as e:
-                        print("Error occurred in the Censys module requesting the pages: " + str(e))
+                        print(f'Error occurred in the Censys module requesting the pages: {e}')
 
         except Exception as e:
-            print("Error occurred in the main Censys module: " + str(e))
+            print(f'Error occurred in the main Censys module: {e}')
 
     def get_hostnames(self):
         try:
             ips = self.get_ipaddresses()
-            headers = {'user-agent': getUserAgent(), 'Accept': '*/*', 'Referer': self.urlcert}
+            headers = {'user-agent': Core.get_user_agent(), 'Accept': '*/*', 'Referer': self.urlcert}
             response = requests.post("https://censys.io/ipv4/getdns", json={"ips": ips}, headers=headers)
             responsejson = response.json()
             domainsfromcensys = []
@@ -111,16 +111,16 @@ class search_censys:
                     pass
             matchingdomains = [s for s in domainsfromcensys if str(self.word) in s]
             self.hostnamesall.extend(matchingdomains)
-            hostnamesfromcerts = censysparser.parser(self)
+            hostnamesfromcerts = censysparser.Parser(self)
             self.hostnamesall.extend(hostnamesfromcerts.search_hostnamesfromcerts())
             return self.hostnamesall
         except Exception as e:
-            print("Error occurred in the Censys module - hostname search: " + str(e))
+            print(f'Error occurred in the Censys module - hostname search: {e}')
 
     def get_ipaddresses(self):
         try:
-            ips = censysparser.parser(self)
+            ips = censysparser.Parser(self)
             self.ips = ips.search_ipaddresses()
             return self.ips
         except Exception as e:
-            print("Error occurred in the main Censys module - IP address search: " + str(e))
+            print(f'Error occurred in the main Censys module - IP address search: {e}')

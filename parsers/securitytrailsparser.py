@@ -1,4 +1,4 @@
-class parser:
+class Parser:
 
     def __init__(self, word, text):
         self.word = word
@@ -7,7 +7,7 @@ class parser:
         self.ips = set()
 
     def parse_text(self):
-        subDomain_flag = 0
+        sub_domain_flag = 0
         self.text = str(self.text).splitlines()
         # Split lines to get a list of lines.
         for index in range(0, len(self.text)):
@@ -22,15 +22,16 @@ class parser:
                         ip += ch
                 self.ips.add(ip)
             elif '"subdomains":' in line:
-                # subdomains start here so set flag to 1.
-                subDomain_flag = 1
+                # subdomains start here so set flag to 1
+                sub_domain_flag = 1
                 continue
-            elif subDomain_flag > 0:
+            elif sub_domain_flag > 0:
                 if ']' in line:
-                    subDomain_flag = 0
+                    sub_domain_flag = 0
                 else:
-                    if 'www' in self.word: self.word = str(self.word).replace('www.', '').replace('www', '')
-                    # Remove www from word if entered.
+                    if 'www' in self.word:
+                        self.word = str(self.word).replace('www.', '').replace('www', '')
+                    # Remove www from word if entered
                     self.hostnames.add(str(line).replace('"', '').replace(',', '') + '.' + self.word)
             else:
                 continue

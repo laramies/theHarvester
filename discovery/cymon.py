@@ -1,6 +1,7 @@
 import requests
 from parsers import cymonparser
 from discovery.constants import *
+from lib.core import *
 import time
 
 
@@ -14,7 +15,7 @@ class search_cymon:
 
     def do_search(self):
         try:
-            headers = {'user-agent': getUserAgent(), 'Accept':'*/*', 'Referer': self.url}
+            headers = {'user-agent': Core.get_user_agent(), 'Accept': '*/*', 'Referer': self.url}
             response = requests.get(self.url, headers=headers)
             time.sleep(getDelay())
             self.results = response.content
@@ -24,14 +25,14 @@ class search_cymon:
     def process(self):
         try:
             self.url = "https://" + self.server + "/domain/" + str(self.word)
-            print("\tSearching Cymon results...")
+            print('\tSearching Cymon results...')
             self.do_search()
         except Exception as e:
-            print("Error occurred: " + str(e))
+            print(f'Error occurred:  {e}')
 
     def get_ipaddresses(self):
         try:
-            ips = cymonparser.parser(self)
+            ips = cymonparser.Parser(self)
             return ips.search_ipaddresses()
         except Exception as e:
-            print("Error occurred: " + str(e))
+            print(f'Error occurred:  {e}')

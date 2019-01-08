@@ -1,9 +1,9 @@
 from parsers import myparser
 import requests
-from discovery.constants import *
+from lib.core import *
 
 
-class search_pgp:
+class SearchPgp:
 
     def __init__(self, word):
         self.word = word
@@ -17,7 +17,7 @@ class search_pgp:
             url = 'http://' + self.server + "/pks/lookup?search=" + self.word + "&op=index"
             headers = {
                 'Host': self.hostname,
-                'User-agent': getUserAgent()
+                'User-agent': Core.get_user_agent()
             }
             h = requests.get(url=url, headers=headers)
             self.results = h.text
@@ -26,9 +26,9 @@ class search_pgp:
             print("Unable to connect to PGP server: ", str(e))
 
     def get_emails(self):
-        rawres = myparser.parser(self.results, self.word)
+        rawres = myparser.Parser(self.results, self.word)
         return rawres.emails()
 
     def get_hostnames(self):
-        rawres = myparser.parser(self.results, self.word)
+        rawres = myparser.Parser(self.results, self.word)
         return rawres.hostnames()

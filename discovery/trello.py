@@ -32,13 +32,13 @@ class search_trello:
         self.totalresults += self.results
 
     def get_emails(self):
-        rawres = myparser.parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.emails()
 
     def get_urls(self):
         print('\tSearching Trello Urls..')
         try:
-            rawres = myparser.parser(self.totalresults, "trello.com")
+            rawres = myparser.Parser(self.totalresults, "trello.com")
             trello_urls = rawres.urls()
             visited = set()
             for url in trello_urls:
@@ -46,10 +46,10 @@ class search_trello:
                 if url not in visited:  # make sure visiting unique urls
                     visited.add(url)
                     self.totalresults += requests.get(url=url, headers={'User-Agent': googleUA}).text
-            rawres = myparser.parser(self.totalresults, self.word)
+            rawres = myparser.Parser(self.totalresults, self.word)
             return rawres.hostnames(), trello_urls
         except Exception as e:
-            print("Error occurred: " + str(e))
+            print(f'Error occurred: {e}')
 
     def process(self):
         while self.counter < self.limit:
@@ -59,4 +59,4 @@ class search_trello:
             else:
                 time.sleep(getDelay())
             self.counter += 100
-            print("\tSearching " + str(self.counter) + " results..")
+            print(f'\tSearching {self.counter}  results..')
