@@ -132,7 +132,6 @@ def start(argv):
                         except Exception as e:
                             if isinstance(e, MissingKey):
                                 print(e)
-                                sys.exit(1)
                             else:
                                 pass
 
@@ -221,7 +220,6 @@ def start(argv):
                         except Exception as e:
                             if isinstance(e, MissingKey):
                                 print(e)
-                                sys.exit(1)
                             else:
                                 pass
 
@@ -268,7 +266,6 @@ def start(argv):
                         except Exception as e:
                             if isinstance(e, MissingKey):
                                 print(e)
-                                sys.exit(1)
                             else:
                                 pass
 
@@ -329,7 +326,6 @@ def start(argv):
                         except Exception as e:
                             if isinstance(e, MissingKey):
                                 print(e)
-                                sys.exit(1)
                             else:
                                 pass
 
