@@ -40,7 +40,7 @@ try:
                 }, auto_open=False,include_plotlyjs=False,filename='report.html', output_type='div')
                 return barchartcode
             except Exception as e:
-                print("Error generating HTML bar graph code for domain: " + str(e))
+                print('Error generating HTML bar graph code for domain: ' + str(e))
 
         def drawscattergraphscanhistory(self,domain,scanhistorydomain):
             try:
@@ -93,7 +93,7 @@ try:
                 "layout": layout}, auto_open=False, include_plotlyjs=False, filename='report.html', output_type='div')
                 return scatterchartcode
             except Exception as e:
-                print("Error generating HTML for the historical graph for domain: " + str(e))    
+                print('Error generating HTML for the historical graph for domain: ' + str(e))
 
 except Exception as e:
-    print("Error in the reportgraph module: " + str(e))
+    print('Error in the reportgraph module: ' + str(e))

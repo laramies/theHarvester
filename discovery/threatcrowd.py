@@ -33,4 +33,4 @@ class search_threatcrowd:
 
     def process(self):
         self.do_search()
-        print("\tSearching Threatcrowd results.")
+        print('\tSearching Threatcrowd results.')

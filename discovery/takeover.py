@@ -30,7 +30,7 @@ class take_over:
 
     def do_take(self):
         try:
-            print("\t Searching takeovers for " + self.host)
+            print('\t Searching takeovers for ' + self.host)
             r = requests.get('https://' + self.host, verify=False)
             for x in self.fingerprints:
                 take_reg = re.compile(x)

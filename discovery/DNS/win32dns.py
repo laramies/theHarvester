@@ -108,16 +108,16 @@ def RegistryResolve():
                 break
         winreg.CloseKey(y)
     except EnvironmentError:
-        # print "Key Interfaces not found, just do nothing"
+        # print "Key Interfaces not found, just do nothing."
         pass
 #
     winreg.CloseKey(x)
     return nameservers
 
-if __name__ == "__main__":
-    print("Name servers:", RegistryResolve())
 
-#
+if __name__ == "__main__":
+    print('Name servers:', RegistryResolve())
+
 # $Log: win32dns.py,v $
 # Revision 1.3.2.1  2007/05/22 20:26:49  customdesigned
 # Fix win32 nameserver discovery.
@@ -128,8 +128,7 @@ if __name__ == "__main__":
 # *sigh*
 #
 # Revision 1.2  2002/03/19 12:41:33  anthonybaxter
-# tabnannied and reindented everything. 4 space indent, no tabs.
-# yay.
+# tabnannied and reindented everything. 4 space indent, no tabs. yay.
 #
 # Revision 1.1  2001/08/09 09:22:28  anthonybaxter
 # added what I hope is win32 resolver lookup support. I'll need to try
@@ -141,7 +140,4 @@ if __name__ == "__main__":
 # win32dns.py from
 # http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/66260
 #
-# Really, ParseResolvConf() should be renamed "FindNameServers" or
-# some such.
-#
-#
+# Really, ParseResolvConf() should be renamed "FindNameServers" or some such.

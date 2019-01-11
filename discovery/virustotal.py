@@ -33,4 +33,4 @@ class search_virustotal:
 
     def process(self):
         self.do_search()
-        print("\tSearching Virustotal results.")
+        print('\tSearching Virustotal results.')

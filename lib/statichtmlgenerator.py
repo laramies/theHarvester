@@ -59,7 +59,7 @@ class htmlgenerator:
 '''
             return html
         except Exception as e:
-            print("Error generating the previous scan results HTML code: " + str(e))
+            print('Error generating the previous scan results HTML code: ' + str(e))
 
     def generatelatestscanresults(self, latestscanresults):
         try:
@@ -94,7 +94,7 @@ class htmlgenerator:
 '''
             return html
         except Exception as e:
-            print("Error generating the latest scan results HTML code: " + str(e))
+            print('Error generating the latest scan results HTML code: ' + str(e))
             
     def beginhtml(self):
         html = '''
@@ -140,7 +140,7 @@ class htmlgenerator:
 '''
             return html
         except Exception as e:
-            print("Error generating dashboard HTML code: " + str(e))
+            print('Error generating dashboard HTML code: ' + str(e))
 
     def generatepluginscanstatistics(self, scanstatistics):
         try:
@@ -173,4 +173,4 @@ class htmlgenerator:
 '''
             return html
         except Exception as e:
-            print("Error generating scan statistics HTML code: " + str(e))
+            print('Error generating scan statistics HTML code: ' + str(e))
