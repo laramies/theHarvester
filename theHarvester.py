@@ -101,7 +101,7 @@ def start(argv):
                 print(f"\033[94m[*] Target domain: {word} \n \033[0m")
                 for engineitem in engines:
                     if engineitem == "baidu":
-                        print("[*] Searching Baidu.")
+                        print("\033[94m[*] Searching Baidu. \033[0m")
                         try:
                             search = baidusearch.SearchBaidu(word, limit)
                             search.process()
@@ -130,7 +130,7 @@ def start(argv):
                             db.store_all(word, all_hosts, 'email', 'bing')
                             db.store_all(word, all_hosts, 'host', 'bing')
                         except Exception as e:
-                            if isinstance(e, MissingKey):   # Sanity check.
+                            if isinstance(e, MissingKey):
                                 print(e)
                             else:
                                 pass
@@ -262,7 +262,7 @@ def start(argv):
                             db.store_all(word, all_hosts, 'host', 'hunter')
                             db.store_all(word, all_emails, 'email', 'hunter')
                         except Exception as e:
-                            if isinstance(e, MissingKey):   # Sanity check.
+                            if isinstance(e, MissingKey):
                                 print(e)
                             else:
                                 pass
@@ -319,7 +319,7 @@ def start(argv):
                             db = stash.stash_manager()
                             db.store_all(word, ips, 'ip', 'securityTrails')
                         except Exception as e:
-                            if isinstance(e, MissingKey):   # Sanity check.
+                            if isinstance(e, MissingKey):
                                 print(e)
                             else:
                                 pass
@@ -509,7 +509,7 @@ def start(argv):
                             all_emails = sorted(set(all_emails))
                             db.store_all(word, all_emails, 'email', 'hunter')
                         except Exception as e:
-                            if isinstance(e, MissingKey):   # Sanity check.
+                            if isinstance(e, MissingKey):
                                 print(e)
                             else:
                                 pass

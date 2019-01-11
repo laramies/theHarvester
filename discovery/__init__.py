@@ -19,7 +19,7 @@ __all__ = ["baidusearch",
            "shodansearch",
            "takeover",
            "threatcrowd",
-           "trello"
+           "trello",
            "twittersearch",
            "virustotal",
            "wfuzz_search",
