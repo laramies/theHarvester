@@ -132,6 +132,7 @@ def start(argv):
                         except Exception as e:
                             if isinstance(e, MissingKey):
                                 print(e)
+                                sys.exit(1)
                             else:
                                 pass
 
@@ -425,11 +426,11 @@ def start(argv):
                         search.process()
                         ips = search.get_ipaddresses()
                         setips = set(ips)
-                        uniqueips = list(setips)   # Remove duplicates.
+                        uniqueips = list(setips)  # Remove duplicates.
                         all_ip.extend(uniqueips)
                         hosts = filter(search.get_hostnames())
                         sethosts = set(hosts)
-                        uniquehosts = list(sethosts)   # Remove duplicates.
+                        uniquehosts = list(sethosts)  # Remove duplicates.
                         all_hosts.extend(uniquehosts)
                         db = stash.stash_manager()
                         db.store_all(word, uniquehosts, 'host', 'censys')
@@ -531,7 +532,7 @@ def start(argv):
                             emails = filter(search.get_emails())
                             hosts = filter(search.get_hostnames())
                             sethosts = set(hosts)
-                            uniquehosts = list(sethosts)   # Remove duplicates.
+                            uniquehosts = list(sethosts)  # Remove duplicates.
                             all_hosts.extend(uniquehosts)
                             db = stash.stash_manager()
                             db.store_all(word, all_hosts, 'host', 'PGP')
@@ -828,22 +829,18 @@ def start(argv):
             db = stash.stash_manager()
             scanboarddata = db.getscanboarddata()
             latestscanresults = db.getlatestscanresults(word)
-            previousscanresults = db.getlatestscanresults(
-                word, previousday=True)
+            previousscanresults = db.getlatestscanresults(word, previousday=True)
             latestscanchartdata = db.latestscanchartdata(word)
             scanhistorydomain = db.getscanhistorydomain(word)
             pluginscanstatistics = db.getpluginscanstatistics()
             generator = statichtmlgenerator.htmlgenerator(word)
             HTMLcode = generator.beginhtml()
             HTMLcode += generator.generatelatestscanresults(latestscanresults)
-            HTMLcode += generator.generatepreviousscanresults(
-                previousscanresults)
+            HTMLcode += generator.generatepreviousscanresults(previousscanresults)
             graph = reportgraph.graphgenerator(word)
             HTMLcode += graph.drawlatestscangraph(word, latestscanchartdata)
-            HTMLcode += graph.drawscattergraphscanhistory(
-                word, scanhistorydomain)
-            HTMLcode += generator.generatepluginscanstatistics(
-                pluginscanstatistics)
+            HTMLcode += graph.drawscattergraphscanhistory(word, scanhistorydomain)
+            HTMLcode += generator.generatepluginscanstatistics(pluginscanstatistics)
             HTMLcode += generator.generatedashboardcode(scanboarddata)
             HTMLcode += '<p><span style="color: #000000;">Report generated on ' + str(
                 datetime.datetime.now()) + '</span></p>'

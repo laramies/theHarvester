@@ -1,11 +1,12 @@
 """
-Module that contains constants used across plugins
-Contains list of user agents, api_keys, and a function to get random delay and user agent.
-As well as a defined User Agent for Google Search
+Module that contains constants used across plugins.
+Contains list of API keys, user agents, and a function to get random delay and user agent.
+As well as a defined User Agent for Google Search.
 User-Agents from: https://github.com/tamimibrahim17/List-of-user-agents
 """
 
 import random
+
 
 googleUA = "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1464.0 Safari/537.36"
 
@@ -57,13 +58,12 @@ def search(text):
 
 
 class MissingKey(Exception):
-    """This class is for when a user is missing their api key or cse id"""
 
     def __init__(self, identity_flag):
-        if identity_flag:  # Flag that checks what kind of error was raised.
-            self.message = '\tMissing API key!\n\n'
+        if identity_flag:
+            self.message = '\n\n\033[93m[!] Missing API key.\n\n \033[0m'
         else:
-            self.message = '\tMissing CSE id!\n\n'
+            self.message = '\n\n\033[93m[!] Missing CSE id.\n\n \033[0m'
 
     def __str__(self):
         return self.message
