@@ -316,8 +316,7 @@ def start(argv):
                         print('\033[94m[*] Searching SecurityTrails. \033[0m')
                         from discovery import securitytrailssearch
                         try:
-                            search = securitytrailssearch.search_securitytrail(
-                                word)
+                            search = securitytrailssearch.search_securitytrail(word)
                             search.process()
                             hosts = filter(search.get_hostnames())
                             all_hosts.extend(hosts)
@@ -362,18 +361,22 @@ def start(argv):
                         db.store_all(word, hosts, 'host', 'trello')
                         db.store_all(word, emails, 'email', 'trello')
 
-                    elif engineitem == "twitter":  # Need to sort and count users.
+                    elif engineitem == "twitter":
                         print('\033[94m[*] Searching Twitter. \033[0m')
                         search = twittersearch.search_twitter(word, limit)
                         search.process()
                         people = search.get_people()
                         db = stash.stash_manager()
                         db.store_all(word, people, 'name', 'twitter')
-                        print('\n[*] Users found:')
-                        print('----------------')
-                        for user in people:
-                            print(user)
-                        sys.exit()
+
+                        if len(people) == 0:
+                            print('\n[*] No users found.\n\n')
+                        else:
+                            print('\n[*] Users found: ' + str(len(people)))
+                            print('---------------------')
+                            for user in sorted(list(set(people))):
+                                print(user)
+                        sys.exit(0)
 
                     # vhost
 
@@ -481,8 +484,7 @@ def start(argv):
                         db.store_all(word, all_hosts, 'host', 'google')
 
                         print('[*] Searching Google Certificate transparency report.')
-                        search = googlecertificates.SearchGoogleCertificates(
-                            word, limit, start)
+                        search = googlecertificates.SearchGoogleCertificates(word, limit, start)
                         search.process()
                         domains = filter(search.get_domains())
                         all_hosts.extend(domains)
