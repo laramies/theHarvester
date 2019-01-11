@@ -235,20 +235,24 @@ def start(argv):
                         db.store_all(word, all_hosts, 'host', 'google-certificates')
 
                     elif engineitem == "google-profiles":
-                        print('[*] Searching Google profiles.')
+                        print('\033[94m[*] Searching Google profiles. \033[0m')
                         search = googlesearch.search_google(word, limit, start)
                         search.process_profiles()
                         people = search.get_profiles()
                         db = stash.stash_manager()
                         db.store_all(word, people, 'name', 'google-profile')
-                        print('\nUsers from Google profiles:')
-                        print('---------------------------')
-                        for users in people:
-                            print(users)
-                        sys.exit()
+
+                        if len(people) == 0:
+                            print('\n[*] No users found.\n\n')
+                        else:
+                            print('\n[*] Users found: ' + str(len(people)))
+                            print('---------------------')
+                            for user in sorted(list(set(people))):
+                                print(user)
+                        sys.exit(0)
 
                     elif engineitem == "hunter":
-                        print('[*] Searching Hunter.')
+                        print('\033[94m[*] Searching Hunter. \033[0m')
                         from discovery import huntersearch
                         # Import locally or won't work.
                         try:
@@ -264,24 +268,29 @@ def start(argv):
                         except Exception as e:
                             if isinstance(e, MissingKey):
                                 print(e)
+                                sys.exit(1)
                             else:
                                 pass
 
                     elif engineitem == "linkedin":
-                        print('[*] Searching Linkedin.')
+                        print('\033[94m[*] Searching Linkedin. \033[0m')
                         search = linkedinsearch.SearchLinkedin(word, limit)
                         search.process()
                         people = search.get_people()
                         db = stash.stash_manager()
                         db.store_all(word, people, 'name', 'linkedin')
-                        print('\nUsers from Linkedin:')
-                        print('-------------------')
-                        for user in people:
-                            print(user)
-                        sys.exit()
+
+                        if len(people) == 0:
+                            print('\n[*] No users found.\n\n')
+                        else:
+                            print('\n[*] Users found: ' + str(len(people)))
+                            print('---------------------')
+                            for user in sorted(list(set(people))):
+                                print(user)
+                        sys.exit(0)
 
                     elif engineitem == "netcraft":
-                        print('[*] Searching Netcraft.')
+                        print('\033[94m[*] Searching Netcraft. \033[0m')
                         search = netcraft.SearchNetcraft(word)
                         search.process()
                         hosts = filter(search.get_hostnames())
@@ -290,7 +299,7 @@ def start(argv):
                         db.store_all(word, all_hosts, 'host', 'netcraft')
 
                     elif engineitem == "pgp":
-                        print('[*] Searching PGP key server.')
+                        print('\033[94m[*] Searching PGP key server. \033[0m')
                         try:
                             search = pgpsearch.SearchPgp(word)
                             search.process()
@@ -304,7 +313,7 @@ def start(argv):
                             pass
 
                     elif engineitem == 'securityTrails':
-                        print('[*] Searching SecurityTrails.')
+                        print('\033[94m[*] Searching SecurityTrails. \033[0m')
                         from discovery import securitytrailssearch
                         try:
                             search = securitytrailssearch.search_securitytrail(
@@ -321,11 +330,12 @@ def start(argv):
                         except Exception as e:
                             if isinstance(e, MissingKey):
                                 print(e)
+                                sys.exit(1)
                             else:
                                 pass
 
                     elif engineitem == "threatcrowd":
-                        print('[*] Searching Threatcrowd.')
+                        print('\033[94m[*] Searching Threatcrowd. \033[0m')
                         try:
                             search = threatcrowd.search_threatcrowd(word)
                             search.process()
@@ -337,7 +347,7 @@ def start(argv):
                             pass
 
                     elif engineitem == "trello":
-                        print('[*] Searching Trello.')
+                        print('\033[94m[*] Searching Trello. \033[0m')
                         from discovery import trello
                         # Import locally or won't work.
                         search = trello.search_trello(word, limit)
@@ -352,15 +362,15 @@ def start(argv):
                         db.store_all(word, hosts, 'host', 'trello')
                         db.store_all(word, emails, 'email', 'trello')
 
-                    elif engineitem == "twitter":
-                        print('[*] Searching Twitter.')
+                    elif engineitem == "twitter":  # Need to sort and count users.
+                        print('\033[94m[*] Searching Twitter. \033[0m')
                         search = twittersearch.search_twitter(word, limit)
                         search.process()
                         people = search.get_people()
                         db = stash.stash_manager()
                         db.store_all(word, people, 'name', 'twitter')
-                        print('\nUsers from Twitter:')
-                        print('-------------------')
+                        print('\n[*] Users found:')
+                        print('----------------')
                         for user in people:
                             print(user)
                         sys.exit()
@@ -368,7 +378,7 @@ def start(argv):
                     # vhost
 
                     elif engineitem == "virustotal":
-                        print('[*] Searching VirusTotal.')
+                        print('\033[94m[*] Searching VirusTotal. \033[0m')
                         search = virustotal.search_virustotal(word)
                         search.process()
                         hosts = filter(search.get_hostnames())
@@ -377,7 +387,7 @@ def start(argv):
                         db.store_all(word, all_hosts, 'host', 'virustotal')
 
                     elif engineitem == "yahoo":
-                        print('[*] Searching Yahoo.')
+                        print('\033[94m[*] Searching Yahoo. \033[0m')
                         search = yahoosearch.search_yahoo(word, limit)
                         search.process()
                         hosts = search.get_hostnames()
@@ -392,7 +402,6 @@ def start(argv):
                         print(('Full harvest on ' + word))
                         all_emails = []
                         all_hosts = []
-
                         try:
                             print('[*] Searching Baidu.')
                             search = baidusearch.SearchBaidu(word, limit)
@@ -619,39 +628,31 @@ def start(argv):
 
     # Results
     if len(all_ip) == 0:
-        print('\n[*] No IP addresses found.')
+        print('\n[*] No IPs found.')
     else:
-        print('\n[*] IP addresses: ' + str(len(all_ip)) + '\n')
-        print('----------------------------')
+        print('\n[*] IPs found: ' + str(len(all_ip)))
+        print('-------------------')
         for ip in sorted(list(set(all_ip))):
             print(ip)
 
-    if all_emails == []:
+    if len(all_emails) == 0:
         print('\n[*] No emails found.')
     else:
-        print('\n[*] Emails found:')
-        print('-----------------')
-        print('Total emails: ' + str(len(all_emails)) + '\n')
+        print('\n[*] Emails found: ' + str(len(all_emails)))
+        print('----------------------')
         print(("\n".join(sorted(list(set(all_emails))))))
 
-    print('\n[*] Hosts found:')
-    print('----------------')
-    if all_hosts == []:
-        print('[*] No hosts found.')
+    if len(all_hosts) == 0:
+        print('\n[*] No hosts found.\n\n')
     else:
-        total = len(all_hosts)
-        print(('Total hosts: ' + str(total) + '\n'))
+        print('\n[*] Hosts found: ' + str(len(all_hosts)))
+        print('---------------------')
         all_hosts = sorted(list(set(all_hosts)))
-        for host in all_hosts:
-            print(host)
-        print('\n[*] Resolving hostnames to IPs.')
-        print('-------------------------------')
         full_host = hostchecker.Checker(all_hosts)
         full = full_host.check()
         for host in full:
             ip = host.split(':')[1]
             print(host)
-            print('\n\n')
             if ip != "empty":
                 if host_ip.count(ip.lower()):
                     pass
@@ -662,14 +663,13 @@ def start(argv):
         db.store_all(word, host_ip, 'ip', 'DNS-resolver')
 
     if trello_info[1] is True:
-        print('\n[*] URLs found from Trello:')
-        print('--------------------------')
         trello_urls = trello_info[0]
         if trello_urls == []:
-            print('\n[*] No Trello URLs found.')
+            print('\n[*] No URLs found.')
         else:
             total = len(trello_urls)
-            print(('\nTotal URLs: ' + str(total) + '\n'))
+            print('\n[*] URLs found: ' + str(total))
+            print('--------------------')
             for url in sorted(list(set(trello_urls))):
                 print(url)
 
@@ -909,7 +909,8 @@ def start(argv):
             print('Files saved!')
         except Exception as er:
             print(f'Error saving XML file: {er}')
-        sys.exit()
+        print('\n\n')
+        sys.exit(0)
 
 
 if __name__ == "__main__":

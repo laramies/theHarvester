@@ -36,7 +36,7 @@ class search_trello:
         return rawres.emails()
 
     def get_urls(self):
-        print('\tSearching Trello Urls.')
+        print('\tSearching Trello URLs.')
         try:
             rawres = myparser.Parser(self.totalresults, "trello.com")
             trello_urls = rawres.urls()
@@ -59,4 +59,4 @@ class search_trello:
             else:
                 time.sleep(getDelay())
             self.counter += 100
-            print(f'\tSearching {self.counter}  results.')
+            print(f'\tSearching {self.counter} results.')
