@@ -1,8 +1,6 @@
-
-import re
-
 from lib import graphs
 from lib import markup
+import re
 
 
 class htmlExport():
@@ -164,7 +162,7 @@ class htmlExport():
             try:
                 file.write(x)
             except:
-                print("Exception" + x)   # Send to logs.
+                print("Exception" + x)  # Send to logs.
                 pass
         file.close()
         return "ok"

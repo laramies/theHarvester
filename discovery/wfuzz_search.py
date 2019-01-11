@@ -5,6 +5,7 @@ except ImportError as e:
 
 
 class search_wfuzz:
+
     def __init__(self, host):
         self.host = host
         self.results = ""
@@ -28,4 +29,4 @@ class search_wfuzz:
 
     def process(self):
         self.do_search()
-        print("\tSearching Wfuzz..")
+        print("\tSearching Wfuzz")

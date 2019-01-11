@@ -1,6 +1,6 @@
+from discovery.constants import *
 from parsers import myparser
 import requests
-from discovery.constants import *
 
 
 class SearchHunter:
@@ -26,7 +26,7 @@ class SearchHunter:
         self.totalresults += self.results
 
     def process(self):
-            self.do_search()  # only need to do it once
+            self.do_search()  # Only need to do it once.
             print('\tDone Searching Results')
 
     def get_emails(self):

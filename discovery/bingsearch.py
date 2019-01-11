@@ -1,8 +1,8 @@
-from parsers import myparser
-import time
-import requests
 from discovery.constants import *
 from lib.core import *
+from parsers import myparser
+import requests
+import time
 
 
 class SearchBing:
@@ -80,7 +80,7 @@ class SearchBing:
                 self.do_search()
                 time.sleep(getDelay())
             self.counter += 50
-            print(f'\tSearching {self.counter} results...')
+            print(f'\tSearching {self.counter} results.')
 
     def process_vhost(self):
         # Maybe it is good to use other limit for this.

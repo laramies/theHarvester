@@ -1,7 +1,7 @@
-from parsers import myparser
-import time
-import requests
 from discovery.constants import *
+from parsers import myparser
+import requests
+import time
 
 
 class search_google:
@@ -19,7 +19,7 @@ class search_google:
         self.counter = start
 
     def do_search(self):
-        try:  # do normal scraping
+        try:  # Do normal scraping.
             urly = "http://" + self.server + "/search?num=" + self.quantity + "&start=" + str(
                 self.counter) + "&hl=en&meta=&q=%40\"" + self.word + "\""
         except Exception as e:
@@ -31,7 +31,7 @@ class search_google:
             print(e)
         self.results = r.text
         if search(self.results):
-            time.sleep(getDelay() * 5)  # sleep for a longer time
+            time.sleep(getDelay() * 5)  # Sleep for a longer time.
         else:
             time.sleep(getDelay())
         self.totalresults += self.results
@@ -49,7 +49,7 @@ class search_google:
             print(e)
         self.results = r.text
         if search(self.results):
-            time.sleep(getDelay() * 5)  # sleep for a longer time
+            time.sleep(getDelay() * 5)  # Sleep for a longer time.
         else:
             time.sleep(getDelay())
         self.totalresults += self.results
@@ -74,15 +74,15 @@ class search_google:
         if google_dorking is False:
             while self.counter <= self.limit and self.counter <= 1000:
                 self.do_search()
-                print(f'\tSearching {self.counter} results...')
+                print(f'\tSearching {self.counter} results.')
                 self.counter += 100
-        else:  # google dorking is true
-            self.counter = 0  # reset counter
+        else:  # Google dorking is true.
+            self.counter = 0  # Reset counter.
             print('\n')
             print("[-] Searching with Google Dorks: ")
-            while self.counter <= self.limit and self.counter <= 200:  # only 200 dorks in list
-                self.googledork()  # call google dorking method if user wanted it!
-                print(f'\tSearching {self.counter} results...')
+            while self.counter <= self.limit and self.counter <= 200:  # Only 200 dorks in list.
+                self.googledork()  # Call Google dorking method if user wanted it!
+                print(f'\tSearching {self.counter} results.')
                 self.counter += 100
 
     def process_profiles(self):
@@ -90,17 +90,18 @@ class search_google:
             self.do_search_profiles()
             time.sleep(getDelay())
             self.counter += 100
-            print(f'\tSearching {self.counter} results...')
+            print(f'\tSearching {self.counter} results.')
 
     def append_dorks(self):
-        try:  # wrap in try-except incase filepaths are messed up
+        # Wrap in try-except incase filepaths are messed up.
+        try:
             with open('wordlists/dorks.txt', mode='r') as fp:
                 self.dorks = [dork.strip() for dork in fp]
         except FileNotFoundError as error:
             print(error)
 
     def construct_dorks(self):
-        # format is: site:targetwebsite.com + space + inurl:admindork
+        # Format is: site:targetwebsite.com + space + inurl:admindork
         colon = "%3A"
         plus = "%2B"
         space = '+'
@@ -116,7 +117,7 @@ class search_google:
         left_peren = "%28"
         right_peren = "%29"
         pipe = '%7C'
-        # replace links with html encoding
+        # Replace links with html encoding.
         self.links = [self.database + space + self.word + space +
                       str(dork).replace(':', colon).replace('+', plus).replace('.', period).replace('"', double_quote)
                           .replace("*", asterick).replace('[', left_bracket).replace(']', right_bracket)
@@ -125,25 +126,25 @@ class search_google:
                       for dork in self.dorks]
 
     def googledork(self):
-        self.append_dorks()  # call functions to create list
+        self.append_dorks()  # Call functions to create list.
         self.construct_dorks()
         if self.counter >= 0 and self.counter <= 100:
             self.send_dork(start=0, end=100)
         elif self.counter >= 100 and self.counter <= 200:
             self.send_dork(start=101, end=200)
-        else:  # only 200 dorks to prevent google from blocking ip
+        else:  # Only 200 dorks to prevent Google from blocking IP.
             pass
 
-    def send_dork(self, start, end):  # helper function to minimize code reusability
+    def send_dork(self, start, end):  # Helper function to minimize code reusability.
         headers = {'User-Agent': googleUA}
-        # get random user agent to try and prevent google from blocking ip
+        # Get random user agent to try and prevent google from blocking IP.
         for i in range(start, end):
             try:
-                link = self.links[i]  # get link from dork list
+                link = self.links[i]  # Get link from dork list.
                 req = requests.get(link, headers=headers)
                 self.results = req.text
                 if search(self.results):
-                    time.sleep(getDelay() * 5)  # sleep for a longer time
+                    time.sleep(getDelay() * 5)  # Sleep for a longer time.
                 else:
                     time.sleep(getDelay())
                 self.totalresults += self.results

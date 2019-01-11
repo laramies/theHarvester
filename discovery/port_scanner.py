@@ -1,8 +1,9 @@
-import threading
 import socket
+import threading
 
 
 class PortScan:
+
     def __init__(self, host, ports):
         self.threads = 25      
         self.host = host

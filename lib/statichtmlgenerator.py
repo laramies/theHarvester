@@ -1,4 +1,5 @@
 class htmlgenerator:
+
     def __init__(self, word):
         self.domain = word
     

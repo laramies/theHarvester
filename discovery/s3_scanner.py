@@ -1,8 +1,9 @@
-import requests
 import re
+import requests
 
 
 class s3_scanner:
+
     def __init__(self, host):
         self.host = host
         self.results = ""

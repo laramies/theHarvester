@@ -1,12 +1,13 @@
-from parsers import myparser
-import re
-import time
-import requests
 from discovery.constants import *
 from lib.core import *
+from parsers import myparser
+import re
+import requests
+import time
 
 
 class search_exalead:
+
     def __init__(self, word, limit, start):
         self.word = word
         self.files = "pdf"
@@ -67,7 +68,7 @@ class search_exalead:
         while self.counter <= self.limit:
             self.do_search()
             self.counter += 50
-            print(f'\tSearching {self.counter} results...')
+            print(f'\tSearching {self.counter} results.')
 
     def process_files(self, files):
         while self.counter < self.limit:

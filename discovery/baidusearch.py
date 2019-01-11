@@ -1,8 +1,8 @@
-from parsers import myparser
-import time
-import requests
 from discovery.constants import *
 from lib.core import *
+from parsers import myparser
+import requests
+import time
 
 
 class SearchBaidu:
@@ -28,7 +28,7 @@ class SearchBaidu:
     def process(self):
         while self.counter <= self.limit and self.counter <= 1000:
             self.do_search()
-            print(f'\tSearching {self.counter} results...')
+            print(f'\tSearching {self.counter} results.')
             self.counter += 10
 
     def get_emails(self):

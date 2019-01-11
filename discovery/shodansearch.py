@@ -1,6 +1,6 @@
+from discovery.constants import *
 from shodan import Shodan
 from shodan import exception
-from discovery.constants import *
 
 
 class search_shodan:

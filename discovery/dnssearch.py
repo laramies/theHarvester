@@ -1,7 +1,7 @@
-import discovery.IPy as IPy
 import discovery.DNS as DNS
-import sys
+import discovery.IPy as IPy
 import os
+import sys
 
 
 class dns_reverse():
@@ -65,7 +65,6 @@ class dns_force():
         self.domain = domain
         self.nameserver = dnsserver
         self.file = "wordlists/dns-big.txt"
-        #self.file = "wordlists/dns-names.txt"
         self.subdo = False
         self.verbose = verbose
         try:
@@ -84,7 +83,6 @@ class dns_force():
 
     def getdns(self, domain):
         DNS.ParseResolvConf("/etc/resolv.conf")
-        # nameserver=DNS.defaults['server'][0]
         dom = domain
         if self.subdo is True:
             dom = domain.split(".")
@@ -106,7 +104,7 @@ class dns_force():
             except Exception as e:
                 print(e)
             try:
-                # check if variable is defined
+                # Check if variable is defined.
                 test
             except NameError:
                 print("Error, test is not defined")
@@ -136,7 +134,7 @@ class dns_force():
                 qtype='a',
                 server=self.nameserver).req(
             )
-            # TODO FIX test is sometimes not getting answers and leads to an indexing erro
+            # TODO FIX test is sometimes not getting answers and leads to an indexing error.
             hostip = test.answers[0]['data']
             return hostname + ":" + hostip
         except Exception:
@@ -187,8 +185,6 @@ class dns_tld():
             "yt", "za", "zm", "zw"]
 
     def getdns(self, domain):
-        # DNS.ParseResolvConf("/etc/resolv.conf")
-        # nameserver=DNS.defaults['server'][0]
         dom = domain
         if self.subdo is True:
             dom = domain.split(".")

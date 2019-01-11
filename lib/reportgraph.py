@@ -1,11 +1,11 @@
 try:
+    from datetime import datetime
     import plotly.graph_objs as go
     import plotly.plotly as py
     import plotly
     import stash
-    from datetime import datetime
     try:
-        db=stash.stash_manager()
+        db = stash.stash_manager()
         db.do_init()
     except Exception as e:
         pass
@@ -74,14 +74,14 @@ try:
                 trace3 = go.Scatter(
                 x=self.scatterxdata,
                 y=self.scattercountshodans,
-                mode = 'lines+markers',
-                name = 'shodan')
+                mode='lines+markers',
+                name='shodan')
 
                 trace4 = go.Scatter(
                 x=self.scatterxdata,
                 y=self.scattercountemails,
-                mode = 'lines+markers',
-                name = 'email')
+                mode='lines+markers',
+                name='email')
 
                 data = [trace0, trace1, trace2, trace3, trace4]
                 layout = dict(title = "Scanning history for " + domain,

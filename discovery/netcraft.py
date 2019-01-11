@@ -1,6 +1,6 @@
-import requests
-from parsers import myparser
 from lib.core import *
+from parsers import myparser
+import requests
 
 
 class SearchNetcraft:
@@ -33,4 +33,4 @@ class SearchNetcraft:
 
     def process(self):
         self.do_search()
-        print("\tSearching Netcraft results..")
+        print("\tSearching Netcraft results.")

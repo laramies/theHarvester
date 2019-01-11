@@ -395,6 +395,7 @@ class _oneliner:
             raise AttributeError(attr)
         return element(attr, case=self.case, parent=None)
 
+
 oneliner = _oneliner(case='lower')
 upper_oneliner = _oneliner(case='upper')
 
@@ -462,6 +463,7 @@ def escape(text, newline=False):
                 text = text.replace('\n', '<br>')
 
     return text
+
 
 _escape = escape
 
@@ -551,6 +553,7 @@ class CustomizationError(MarkupError):
 
     def __init__(self):
         self.message = "If you customize the allowed elements, you must define both types 'onetags' and 'twotags'."
+
 
 if __name__ == '__main__':
     print(__doc__)

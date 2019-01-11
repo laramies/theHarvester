@@ -144,7 +144,7 @@ class BarGraph:
         self.debug = 0
     #-------------------------------------------------------------------------
 
-    # default bar colors; only used if barColors isn't set
+    # Default bar colors; only used if barColors isn't set.
     __colors = (
         '#0000FF',
         '#FF0000',
@@ -738,6 +738,7 @@ class BarGraph:
 def _number_format(val, dec):
     """return float with dec decimals; if dec is 0, return integer"""
     return dec and ('%.' + str(dec) + 'f') % val or int(round(val))
+
 
 if __name__ == '__main__':
     print(__doc__)
