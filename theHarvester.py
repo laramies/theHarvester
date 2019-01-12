@@ -9,6 +9,7 @@ from lib import reportgraph
 from lib import statichtmlgenerator
 import datetime
 import getopt
+import ipaddress
 import re
 import stash
 import time
@@ -630,8 +631,8 @@ def start(argv):
     else:
         print('\n[*] IPs found: ' + str(len(all_ip)))
         print('-------------------')
-        for ip in sorted(list(set(all_ip))):
-            print(ip)
+        ips = sorted(ipaddress.ip_address(line.strip()) for line in all_ip)
+        print('\n'.join(map(str, ips)))
 
     if len(all_emails) == 0:
         print('\n[*] No emails found.')
