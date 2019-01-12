@@ -1,9 +1,9 @@
-import sys
+from discovery.constants import *
 from parsers import myparser
 import re
-import time
 import requests
-from discovery.constants import *
+import sys
+import time
 
 
 class SearchGoogleCSE:
@@ -80,7 +80,7 @@ class SearchGoogleCSE:
             self.do_search()
             ESC = chr(27)
             sys.stdout.write(ESC + '[2K' + ESC + '[G')
-            sys.stdout.write("\r\t" + "Searching  " + str(self.counter + self.lowRange) + " results ...")
+            sys.stdout.write("\r\t" + "Searching  " + str(self.counter + self.lowRange) + " results.")
             sys.stdout.flush()
             if self.counter == 101:
                 self.counter = 1
@@ -100,4 +100,4 @@ class SearchGoogleCSE:
             self.do_search_files(files)
             time.sleep(1)
             self.counter += 100
-            print("\tSearching " + str(self.counter) + " results...")
+            print("\tSearching " + str(self.counter) + " results.")

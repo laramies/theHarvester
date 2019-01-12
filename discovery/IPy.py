@@ -13,23 +13,23 @@ import collections
 import sys
 import types
 
-# Definition of the Ranges for IPv4 IPs
-# this should include www.iana.org/assignments/ipv4-address-space
+# Definition of the ranges for IPv4 IPs should include
+# www.iana.org/assignments/ipv4-address-space
 # and www.iana.org/assignments/multicast-addresses
 IPv4ranges = {
-    '0':                'PUBLIC',   # fall back
-    '00000000':         'PRIVATE',  # 0/8
-    '00001010':         'PRIVATE',  # 10/8
+    '0':                'PUBLIC',             # fall back
+    '00000000':         'PRIVATE',            # 0/8
+    '00001010':         'PRIVATE',            # 10/8
     '0110010001':       'CARRIER_GRADE_NAT',  # 100.64/10
-    '01111111':         'LOOPBACK',  # 127.0/8
-    '1':                'PUBLIC',   # fall back
-    '1010100111111110': 'PRIVATE',  # 169.254/16
-    '101011000001':     'PRIVATE',  # 172.16/12
-    '1100000010101000': 'PRIVATE',  # 192.168/16
-    '111':              'RESERVED',  # 224/3
+    '01111111':         'LOOPBACK',           # 127.0/8
+    '1':                'PUBLIC',             # fall back
+    '1010100111111110': 'PRIVATE',            # 169.254/16
+    '101011000001':     'PRIVATE',            # 172.16/12
+    '1100000010101000': 'PRIVATE',            # 192.168/16
+    '111':              'RESERVED',           # 224/3
     }
 
-# Definition of the Ranges for IPv6 IPs
+# Definition of the ranges for IPv6 IPs
 # http://www.iana.org/assignments/ipv6-address-space/
 # http://www.iana.org/assignments/ipv6-unicast-address-assignments/
 # http://www.iana.org/assignments/ipv6-multicast-addresses/
@@ -112,7 +112,7 @@ IPv6ranges = {
     '1111111100001000'                              : 'ORG-LOCAL MULTICAST',    # ff08::/16
     '1111111100001110'                              : 'GLOBAL MULTICAST',       # ff0e::/16
     '1111111100001111'                              : 'RESERVED MULTICAST',     # ff0f::/16
-    '111111110011'                                  : 'PREFIX-BASED MULTICAST',  # ff30::/12 [RFC3306]
+    '111111110011'                                  : 'PREFIX-BASED MULTICAST', # ff30::/12 [RFC3306]
     '111111110111'                                  : 'RP-EMBEDDED MULTICAST',  # ff70::/12 [RFC3956]
     }
 
@@ -133,8 +133,7 @@ else:
 class IPint(object):
     """Handling of IP addresses returning integers.
 
-    Use class IP instead because some features are not implemented for
-    IPint."""
+    Use class IP instead because some features are not implemented for IPint."""
 
     def __init__(self, data, ipversion=0, make_net=0):
         """Create an instance of an IP object.
@@ -165,7 +164,7 @@ class IPint(object):
         See module documentation for more examples.
         """
 
-        # Print no Prefixlen for /32 and /128
+        # Print no Prefixlen for /32 and /128.
         self.NoPrefixForSingleIp = 1
 
         # Do we want prefix printed by default? see _printPrefix()
@@ -174,7 +173,7 @@ class IPint(object):
         netbits = 0
         prefixlen = -1
 
-        # handling of non string values in constructor
+        # Handling of non string values in constructor.
         if isinstance(data, INT_TYPES):
             self.ip = int(data)
             if ipversion == 0:
@@ -194,14 +193,14 @@ class IPint(object):
                 raise ValueError("only IPv4 and IPv6 supported")
             self._ipversion = ipversion
             self._prefixlen = prefixlen
-        # handle IP instance as an parameter
+        # Handle IP instance as an parameter.
         elif isinstance(data, IPint):
             self._ipversion = data._ipversion
             self._prefixlen = data._prefixlen
             self.ip = data.ip
         elif isinstance(data, STR_TYPES):
             # TODO: refactor me!
-            # splitting of a string into IP and prefixlen et. al.
+            # Splitting of a string into IP and prefixlen et. al.
             x = data.split('-')
             if len(x) == 2:
                 # a.b.c.0-a.b.c.255 specification ?
@@ -216,14 +215,13 @@ class IPint(object):
                     raise ValueError("last address should be larger than first")
                 size = last - self.ip
                 netbits = _count1Bits(size)
-                # make sure the broadcast is the same as the last ip
-                # otherwise it will return /16 for something like:
-                # 192.168.0.0-192.168.191.255
+                # Make sure the broadcast is the same as the last IP, otherwise it
+                # will return /16 for something like: 192.168.0.0-192.168.191.255
                 if IP('%s/%s' % (ip, 32-netbits)).broadcast().int() != last:
                     raise ValueError("the range %s is not on a network boundary." % data)
             elif len(x) == 1:
                 x = data.split('/')
-                # if no prefix is given use defaults
+                # If no prefix is given use defaults.
                 if len(x) == 1:
                     ip = x[0]
                     prefixlen = -1
@@ -232,8 +230,7 @@ class IPint(object):
                 else:
                     (ip, prefixlen) = x
                     if prefixlen.find('.') != -1:
-                        # check if the user might have used a netmask like
-                        # a.b.c.d/255.255.255.0
+                        # Check if the user might have used a netmask like a.b.c.d/255.255.255.0
                         (netmask, vers) = parseAddress(prefixlen)
                         if vers != 4:
                             raise ValueError("netmask must be IPv4")
@@ -324,7 +321,7 @@ class IPint(object):
                 want = 1
         if want:
             if want == 2:
-                # this should work with IP and IPint
+                # This should work with IP and IPint.
                 netmask = self.netmask()
                 if not isinstance(netmask, INT_TYPES):
                     netmask = netmask.int()
@@ -380,18 +377,18 @@ class IPint(object):
                 ipv4 = intToIp(self.ip & MAX_IPV4_ADDRESS, 4)
                 text = "::ffff:" + ipv4 + self._printPrefix(wantprefixlen)
                 return text
-            # find the longest sequence of '0'
+            # Find the longest sequence of '0'.
             hextets = [int(x, 16) for x in self.strFullsize(0).split(':')]
-            # every element of followingzeros will contain the number of zeros
-            # following the corresponding element of hextets
+            # Every element of followingzeros will contain the number of zeros
+            # following the corresponding element of hextets.
             followingzeros = [0] * 8
             for i in xrange(len(hextets)):
                 followingzeros[i] = _countFollowingZeros(hextets[i:])
-            # compressionpos is the position where we can start removing zeros
+            # compressionpos is the position where we can start removing zeros.
             compressionpos = followingzeros.index(max(followingzeros))
             if max(followingzeros) > 1:
-                # genererate string with the longest number of zeros cut out
-                # now we need hextets as strings
+                # Generate string with the longest number of zeros cut out.
+                # Now we need hextets as strings.
                 hextets = [x for x in self.strNormal(0).split(':')]
                 while compressionpos < len(hextets) and hextets[compressionpos] == '0':
                     del(hextets[compressionpos])
@@ -488,8 +485,7 @@ class IPint(object):
         The type information for IPv6 is out of sync with reality.
         """
 
-        # this could be greatly improved
-
+        # This could be greatly improved.
         if self._ipversion == 4:
             iprange = IPv4ranges
         elif self._ipversion == 6:
@@ -528,7 +524,7 @@ class IPint(object):
         """
 
         # TODO: unify with prefixlenToNetmask?
-        # Note: call to _ipVersionToLen() also validates version is 4 or 6
+        # Note: call to _ipVersionToLen() also validates version is 4 or 6.
         bits = _ipVersionToLen(self._ipversion)
         if self._ipversion == 4:
             locallen = bits - self._prefixlen
@@ -580,7 +576,7 @@ class IPint(object):
         if self._prefixlen < 1:
             raise ValueError("Networks with a prefixlen longer than /1 can't be added.")
         if self > other:
-            # fixed by Skinny Puppy <skin_pup-IPy@happypoo.com>
+            # Fixed by Skinny Puppy <skin_pup-IPy@happypoo.com>.
             return other.__add__(self)
         if other.int() - self[-1].int() != 1:
             raise ValueError("Only adjacent networks can be added together.")
@@ -745,19 +741,19 @@ class IPint(object):
         if not isinstance(other, IPint):
             raise TypeError
         
-        # Lower version -> lower result
+        # Lower version -> lower result.
         if self._ipversion != other._ipversion:
             return self._ipversion < other._ipversion and -1 or 1
         
-        # Lower start address -> lower result
+        # Lower start address -> lower result.
         if self.ip != other.ip:
             return self.ip < other.ip and -1 or 1
         
-        # Shorter prefix length -> lower result
+        # Shorter prefix length -> lower result.
         if self._prefixlen != other._prefixlen:
             return self._prefixlen < other._prefixlen and -1 or 1
             
-        # No differences found
+        # No differences found.
         return 0
 
     def __eq__(self, other):
@@ -860,7 +856,7 @@ class IP(IPint):
 
         if self._ipversion == 4:
             ret = []
-            # TODO: Refactor. Add support for IPint objects
+            # TODO: Refactor. Add support for IPint objects.
             if self.len() < 2**8:
                 for x in self:
                     ret.append(x.reverseName())
@@ -1024,23 +1020,23 @@ class IP(IPint):
 
 class IPSet(collections.MutableSet):
     def __init__(self, iterable=[]):
-        # Make sure it's iterable, otherwise wrap
+        # Make sure it's iterable, otherwise wrap.
         if not isinstance(iterable, collections.Iterable):
             raise TypeError("'%s' object is not iterable" % type(iterable).__name__)
         
-        # Make sure we only accept IP objects
+        # Make sure we only accept IP objects.
         for prefix in iterable:
             if not isinstance(prefix, IP):
                 raise ValueError('Only IP objects can be added to an IPSet')
             
-        # Store and optimize
+        # Store and optimize.
         self.prefixes = iterable[:]
         self.optimize()
             
     def __contains__(self, ip):
         valid_masks = self.prefixtable.keys()
         if isinstance(ip, IP):
-            #Don't dig through more-specific ranges
+            # Don't dig through more-specific ranges.
             ip_mask = ip._prefixlen
             valid_masks = [x for x in valid_masks if x <= ip_mask]
         for mask in sorted(valid_masks):
@@ -1074,8 +1070,7 @@ class IPSet(collections.MutableSet):
             l = next(left)
             r = next(right)
             while True:
-                # iterate over prefixes in order, keeping the smaller of the
-                # two if they overlap
+                # Iterate over prefixes in order, keeping the smaller of the two if they overlap.
                 if l in r:
                     result.append(l)
                     l = next(left)
@@ -1098,25 +1093,25 @@ class IPSet(collections.MutableSet):
         return sum(prefix.len() for prefix in self.prefixes)
 
     def add(self, value):
-        # Make sure it's iterable, otherwise wrap
+        # Make sure it's iterable, otherwise wrap.
         if not isinstance(value, collections.Iterable):
             value = [value]
         
-        # Check type
+        # Check type.
         for prefix in value:
             if not isinstance(prefix, IP):
                 raise ValueError('Only IP objects can be added to an IPSet')
         
-        # Append and optimize
+        # Append and optimize.
         self.prefixes.extend(value)
         self.optimize()
     
     def discard(self, value):
-        # Make sure it's iterable, otherwise wrap
+        # Make sure it's iterable, otherwise wrap.
         if not isinstance(value, collections.Iterable):
             value = [value]
             
-        # This is much faster than iterating over the addresses
+        # This is much faster than iterating over the addresses.
         if isinstance(value, IPSet):
             value = value.prefixes
 
@@ -1125,7 +1120,7 @@ class IPSet(collections.MutableSet):
             if not isinstance(del_prefix, IP):
                 raise ValueError('Only IP objects can be removed from an IPSet')
             
-            # First check if this prefix contains anything in our list
+            # First check if this prefix contains anything in our list.
             found = False
             d = 0
             for i in range(len(self.prefixes)):
@@ -1136,10 +1131,10 @@ class IPSet(collections.MutableSet):
                 
             if found:
                 # If the prefix was bigger than an existing prefix, then it's
-                # certainly not a subset of one, so skip the rest
+                # certainly not a subset of one, so skip the rest.
                 continue
             
-            # Maybe one of our prefixes contains this prefix
+            # Maybe one of our prefixes contains this prefix.
             found = False
             for i in range(len(self.prefixes)):
                 if del_prefix in self.prefixes[i]:
@@ -1165,55 +1160,53 @@ class IPSet(collections.MutableSet):
             return True
 
     def optimize(self):
-        # The algorithm below *depends* on the sort order
+        # The algorithm below *depends* on the sort order.
         self.prefixes.sort()
 
-        # First eliminate all values that are a subset of other values
+        # First eliminate all values that are a subset of other values.
         addrlen = len(self.prefixes)
         i = 0
         while i < addrlen:
-            # Everything that might be inside this prefix follows
-            # directly behind it
+            # Everything that might be inside this prefix follows directly behind it.
             j = i+1
             while j < addrlen and self.prefixes[j] in self.prefixes[i]:
-                # Mark for deletion by overwriting with None
+                # Mark for deletion by overwriting with None.
                 self.prefixes[j] = None
                 j += 1
             
-            # Continue where we left off
+            # Continue where we left off.
             i = j
             
-        # Try to merge as many prefixes as possible
+        # Try to merge as many prefixes as possible.
         run_again = True
         while run_again:
             # Filter None values. This happens when a subset is eliminated
-            # above, or when two prefixes are merged below
+            # above, or when two prefixes are merged below.
             self.prefixes = [a for a in self.prefixes if a is not None]
         
             # We'll set run_again to True when we make changes that require
-            # re-evaluation of the whole list
+            # re-evaluation of the whole list.
             run_again = False
 
             # We can merge two prefixes that have the same version, same
-            # prefix length and differ only on the last bit of the prefix
+            # prefix length and differ only on the last bit of the prefix.
             addrlen = len(self.prefixes)
             i = 0
             while i < addrlen-1:
                 j = i + 1
                 
                 try:
-                    # The next line will throw an exception when merging
-                    # is not possible
+                    # The next line will throw an exception when merging is not possible.
                     self.prefixes[i] += self.prefixes[j]
                     self.prefixes[j] = None
                     i = j + 1
                     run_again = True
                 except ValueError:
-                    # Can't be merged, see if position j can be merged
+                    # Can't be merged, see if position j can be merged.
                     i = j
 
         # O(n) insertion now by prefix means faster searching on __contains__
-        # when lots of ranges with the same length exist
+        # when lots of ranges with the same length exist.
         self.prefixtable = {}
         for address in self.prefixes:
             try:
@@ -1274,7 +1267,7 @@ def _parseAddressIPv6(ipstr):
 
     # Split string into a list, example:
     #   '1080:200C::417A' => ['1080', '200C', '417A'] and fill_pos=2
-    # and fill_pos is the position of '::' in the list
+    # and fill_pos is the position of '::' in the list.
     items = []
     index = 0
     fill_pos = None
@@ -1321,12 +1314,12 @@ def _parseAddressIPv6(ipstr):
             raise ValueError("%r: Invalid IPv6 address: '::' is not needed" % ipstr)
         items = items[:fill_pos] + ['0']*diff + items[fill_pos:]
 
-    # Here we have a list of 8 strings
+    # Here we have a list of 8 strings.
     if len(items) != 8:
         # Invalid IPv6, eg. '1:2:3'
         raise ValueError("%r: Invalid IPv6 address: should have 8 hextets" % ipstr)
 
-    # Convert strings to long integer
+    # Convert strings to long integer.
     value = 0
     index = 0
     for item in items:
@@ -1407,11 +1400,11 @@ def parseAddress(ipstr):
         return (_parseAddressIPv6(ipstr), 6)
 
     elif len(ipstr) == 32 and hexval is not None:
-        # assume IPv6 in pure hexadecimal notation
+        # Assume IPv6 in pure hexadecimal notation.
         return (hexval, 6)
 
     elif ipstr.find('.') != -1 or (intval is not None and intval < 256):
-        # assume IPv4  ('127' gets interpreted as '127.0.0.0')
+        # Assume IPv4 ('127' gets interpreted as '127.0.0.0').
         bytes = ipstr.split('.')
         if len(bytes) > 4:
             raise ValueError("IPv4 Address with more than 4 bytes")
@@ -1423,9 +1416,9 @@ def parseAddress(ipstr):
         return ((bytes[0] << 24) + (bytes[1] << 16) + (bytes[2] << 8) + bytes[3], 4)
 
     elif intval is not None:
-        # we try to interprete it as a decimal digit -
+        # We try to interprete it as a decimal digit -
         # this ony works for numbers > 255 ... others
-        # will be interpreted as IPv4 first byte
+        # will be interpreted as IPv4 first byte.
         if intval > MAX_IPV6_ADDRESS:
             raise ValueError("IP Address can't be larger than %x: %x" % (MAX_IPV6_ADDRESS, intval))
         if intval <= MAX_IPV4_ADDRESS:
@@ -1439,7 +1432,7 @@ def parseAddress(ipstr):
 def intToIp(ip, version):
     """Transform an integer string into an IP address."""
 
-    # just to be sure and hoping for Python 2.2
+    # Just to be sure and hoping for Python 2.2.
     ip = int(ip)
 
     if ip < 0:
@@ -1530,7 +1523,7 @@ def _count1Bits(num):
 def _count0Bits(num):
     """Find the highest bit set to 0 in an integer."""
 
-    # this could be so easy if _count1Bits(~int(num)) would work as excepted
+    # This could be so easy if _count1Bits(~int(num)) would work as excepted.
     num = int(num)
     if num < 0:
         raise ValueError("Only positive Numbers please: %s" % (num))
@@ -1581,13 +1574,13 @@ def _checkNetmask(netmask, masklen):
     num = int(netmask)
     bits = masklen
 
-    # remove zero bits at the end
+    # Remove zero bits at the end.
     while (num & 1) == 0 and bits != 0:
         num = num >> 1
         bits -= 1
         if bits == 0:
             break
-    # now check if the rest consists only of ones
+    # Now check if the rest consists only of ones.
     while bits > 0:
         if (num & 1) == 0:
             raise ValueError("Netmask 0x%x can't be expressed as an prefix." % netmask)
@@ -1631,14 +1624,14 @@ def _prefixlenToNetmask(prefixlen, version):
 
 def _remove_subprefix(prefix, subprefix):
     if prefix in subprefix:
-        # Nothing left
+        # Nothing left.
         return IPSet()
     
     if subprefix not in prefix:
-        # That prefix isn't even in here
+        # That prefix isn't even in here.
         return IPSet([IP(prefix)])
     
-    # Start cutting in half, recursively
+    # Start cutting in half, recursively.
     prefixes = [
         IP('%s/%d' % (prefix[0], prefix._prefixlen + 1)),
         IP('%s/%d' % (prefix[int(prefix.len() / 2)], prefix._prefixlen + 1)),

@@ -1,9 +1,9 @@
-from parsers import myparser
-import time
-import requests
-import json
 from discovery.constants import *
 from lib.core import *
+from parsers import myparser
+import json
+import requests
+import time
 
 
 class SearchDuckDuckGo:
@@ -15,12 +15,12 @@ class SearchDuckDuckGo:
         self.dorks = []
         self.links = []
         self.database = "https://duckduckgo.com/?q="
-        self.api = "https://api.duckduckgo.com/?q=x&format=json&pretty=1"  # currently using api
+        self.api = "https://api.duckduckgo.com/?q=x&format=json&pretty=1"  # Currently using API.
         self.quantity = "100"
         self.limit = limit
 
     def do_search(self):
-        try:  # do normal scraping
+        try:  # Do normal scraping.
             url = self.api.replace('x', self.word)
             headers = {'User-Agent': googleUA}
             r = requests.get(url, headers=headers)
@@ -46,13 +46,13 @@ class SearchDuckDuckGo:
         urls = set()
         try:
             load = json.loads(text)
-            for key in load.keys():  # iterate through keys of dict
+            for key in load.keys():  # Iterate through keys of dict.
                 val = load.get(key)
                 if isinstance(val, int) or isinstance(val, dict):
                     continue
                 if isinstance(val, list):
-                    val = val[0]  # first value should be dict
-                    if isinstance(val, dict):  # sanity check
+                    val = val[0]  # First value should be dict.
+                    if isinstance(val, dict):  # Sanity check.
                         for key in val.keys():
                             value = val.get(key)
                             if isinstance(value, str) and value != '' and 'https://' in value or 'http://' in value:
@@ -61,7 +61,7 @@ class SearchDuckDuckGo:
                     urls.add(val)
             tmp = set()
             for url in urls:
-                if '<' in url and 'href=' in url:  # format is <href="https://www.website.com"/>
+                if '<' in url and 'href=' in url:  # Format is <href="https://www.website.com"/>
                     equal_index = url.index('=')
                     true_url = ''
                     for ch in url[equal_index + 1:]:
@@ -88,4 +88,4 @@ class SearchDuckDuckGo:
         return rawres.hostnames()
 
     def process(self):
-        self.do_search()  # only need to search once since using API
+        self.do_search()  # Only need to search once since using API.

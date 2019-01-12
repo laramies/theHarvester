@@ -1,7 +1,7 @@
-import requests
-from parsers import cymonparser
 from discovery.constants import *
 from lib.core import *
+from parsers import cymonparser
+import requests
 import time
 
 
@@ -25,7 +25,7 @@ class search_cymon:
     def process(self):
         try:
             self.url = "https://" + self.server + "/domain/" + str(self.word)
-            print('\tSearching Cymon results...')
+            print('\tSearching Cymon results.')
             self.do_search()
         except Exception as e:
             print(f'Error occurred:  {e}')

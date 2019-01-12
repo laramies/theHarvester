@@ -16,4 +16,4 @@ class Parser:
             self.ipaddresses = set(allip)
             return self.ipaddresses
         except Exception as e:
-            print("Error occurred: " + str(e))
+            print('Error occurred: ' + str(e))

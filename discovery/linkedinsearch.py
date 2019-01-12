@@ -1,7 +1,7 @@
-import requests
-from parsers import myparser
 from discovery.constants import *
 from lib.core import *
+from parsers import myparser
+import requests
 import time
 
 
@@ -39,4 +39,4 @@ class SearchLinkedin:
             self.do_search()
             time.sleep(getDelay())
             self.counter += 100
-            print(f'\tSearching  {self.counter} results..')
+            print(f'\tSearching  {self.counter} results.')

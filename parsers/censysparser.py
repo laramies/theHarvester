@@ -29,7 +29,7 @@ class Parser:
             self.hostnamesfromcerts = matchingdomains
             return self.hostnamesfromcerts
         except Exception as e:
-            print("Error occurred in the Censys module: certificate hostname parser: " + str(e))
+            print('Error occurred in the Censys module: certificate hostname parser: ' + str(e))
 
     def search_ipaddresses(self):
         try:
@@ -38,7 +38,7 @@ class Parser:
                 self.ipaddresses.append(ipaddressitem.text.strip())
             return self.ipaddresses
         except Exception as e:
-            print("Error occurred in the Censys module: IP address parser: " + str(e))
+            print('Error occurred in the Censys module: IP address parser: ' + str(e))
 
     def search_totalpageshosts(self):
         try:
@@ -48,7 +48,7 @@ class Parser:
             self.numberofpageshosts = int(pagenumber)
             return self.numberofpageshosts
         except Exception as e:
-            print("Error occurred in the Censys module IP search: page parser: " + str(e))
+            print('Error occurred in the Censys module IP search: page parser: ' + str(e))
 
     def search_totalpagescerts(self):
         try:
@@ -58,4 +58,4 @@ class Parser:
             self.numberofpagescerts = int(pagenumber)
             return self.numberofpagescerts
         except Exception as e:
-            print("Error occurred in the Censys module IP search: page parser: " + str(e))
+            print('Error occurred in the Censys module IP search: page parser: ' + str(e))

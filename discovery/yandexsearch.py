@@ -1,9 +1,9 @@
-from parsers import myparser
-import re
-import time
-import requests
 from discovery.constants import *
 from lib.core import *
+from parsers import myparser
+import re
+import requests
+import time
 
 
 class search_yandex:
@@ -64,7 +64,7 @@ class search_yandex:
         while self.counter <= self.limit:
             self.do_search()
             self.counter += 50
-            print(f'Searching  {self.counter} results...')
+            print(f'Searching  {self.counter} results.')
 
     def process_files(self, files):
         while self.counter < self.limit:

@@ -1,6 +1,6 @@
+from lib.core import *
 from parsers import myparser
 import requests
-from lib.core import *
 
 
 class SearchPgp:
@@ -12,7 +12,7 @@ class SearchPgp:
         self.hostname = "pgp.mit.edu"
 
     def process(self):
-        print("\tSearching PGP results...")
+        print("\tSearching PGP results.")
         try:
             url = 'http://' + self.server + "/pks/lookup?search=" + self.word + "&op=index"
             headers = {

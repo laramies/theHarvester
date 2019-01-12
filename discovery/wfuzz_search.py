@@ -5,13 +5,14 @@ except ImportError as e:
 
 
 class search_wfuzz:
+
     def __init__(self, host):
         self.host = host
         self.results = ""
         self.totalresults = ""
        
     def do_search(self):
-        print("elo")
+        print('elo')
         try:
             for r in wfuzz.fuzz(url="https://"+self.host+"/FUZZ", hc=[404], payloads=[("file", dict(fn="wordlists/general/common.txt"))]):
                 print(r)
@@ -28,4 +29,4 @@ class search_wfuzz:
 
     def process(self):
         self.do_search()
-        print("\tSearching Wfuzz..")
+        print('\tSearching Wfuzz')

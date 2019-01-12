@@ -1,6 +1,6 @@
-import requests
-from parsers import censysparser
 from lib.core import *
+from parsers import censysparser
+import requests
 
 
 class SearchCensys:
@@ -53,7 +53,7 @@ class SearchCensys:
                         self.page = str(counter)
                         self.urlhost = "https://" + self.server + "/ipv4/_search?q=" + str(self.word) + "&page=" + str(
                             self.page)
-                        print("\tSearching Censys IP results page " + self.page + "...")
+                        print("\tSearching Censys IP results page " + self.page + ".")
                         self.do_searchhosturl()
                         counter += 1
                     except Exception as e:
@@ -88,7 +88,7 @@ class SearchCensys:
                         self.page = str(counter)
                         self.urlhost = "https://" + self.server + "/ipv4/_search?q=" + str(self.word) + "&page=" + str(
                             self.page)
-                        print("\tSearching Censys IP results page " + self.page + "...")
+                        print("\tSearching Censys IP results page " + self.page + ".")
                         self.do_searchhosturl()
                         counter += 1
                     except Exception as e:

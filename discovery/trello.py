@@ -1,6 +1,6 @@
-import requests
-from parsers import myparser
 from discovery.constants import *
+from parsers import myparser
+import requests
 import time
 
 
@@ -36,14 +36,14 @@ class search_trello:
         return rawres.emails()
 
     def get_urls(self):
-        print('\tSearching Trello Urls..')
+        print('\tSearching Trello URLs.')
         try:
             rawres = myparser.Parser(self.totalresults, "trello.com")
             trello_urls = rawres.urls()
             visited = set()
             for url in trello_urls:
-                # iterate through trello urls gathered and visit them, append text to totalresults
-                if url not in visited:  # make sure visiting unique urls
+                # Iterate through Trello URLs gathered and visit them, append text to totalresults.
+                if url not in visited:  # Make sure visiting unique URLs.
                     visited.add(url)
                     self.totalresults += requests.get(url=url, headers={'User-Agent': googleUA}).text
             rawres = myparser.Parser(self.totalresults, self.word)
@@ -59,4 +59,4 @@ class search_trello:
             else:
                 time.sleep(getDelay())
             self.counter += 100
-            print(f'\tSearching {self.counter}  results..')
+            print(f'\tSearching {self.counter} results.')

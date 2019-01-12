@@ -1,6 +1,6 @@
-import requests
-from parsers import myparser
 from lib.core import *
+from parsers import myparser
+import requests
 
 
 class search_threatcrowd:
@@ -33,4 +33,4 @@ class search_threatcrowd:
 
     def process(self):
         self.do_search()
-        print("\tSearching Threatcrowd results..")
+        print('\tSearching Threatcrowd results.')
