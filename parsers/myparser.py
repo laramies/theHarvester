@@ -87,7 +87,7 @@ class Parser:
             if x.count(':'):
                 res = x.split(':')[1].split('/')[2]
             else:
-                res = x.split("/")[0]
+                res = x.split('/')[0]
             self.temp.append(res)
         hostnames = self.unique()
         return hostnames

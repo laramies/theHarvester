@@ -10,13 +10,13 @@ class SearchBaidu:
     def __init__(self, word, limit):
         self.word = word
         self.total_results = ""
-        self.server = "www.baidu.com"
-        self.hostname = "www.baidu.com"
+        self.server = 'www.baidu.com'
+        self.hostname = 'www.baidu.com'
         self.limit = limit
         self.counter = 0
 
     def do_search(self):
-        url = 'http://' + self.server + "/s?wd=%40" + self.word + "&pn=" + str(self.counter) + "&oq=" + self.word
+        url = 'http://' + self.server + '/s?wd=%40' + self.word + '&pn=' + str(self.counter) + '&oq=' + self.word
         headers = {
             'Host': self.hostname,
             'User-agent': Core.get_user_agent()

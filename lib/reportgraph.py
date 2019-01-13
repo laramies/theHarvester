@@ -31,13 +31,13 @@ try:
                 self.bardata.append(latestscandata['ip'])
                 self.bardata.append(latestscandata['shodan'])
                 self.bardata.append(latestscandata['vhost'])
-                layout = dict(title = "Latest scan - number of targets identified for " + domain,
+                layout = dict(title = 'Latest scan - number of targets identified for ' + domain,
                 xaxis = dict(title = 'Targets'),
                 yaxis = dict(title = 'Hits'),)
                 barchartcode = plotly.offline.plot({
-                "data": [go.Bar(x=self.barcolumns, y=self.bardata)],
-                "layout": layout,
-                }, auto_open=False,include_plotlyjs=False,filename='report.html', output_type='div')
+                'data': [go.Bar(x=self.barcolumns, y=self.bardata)],
+                'layout': layout,
+                }, auto_open=False, include_plotlyjs=False, filename='report.html', output_type='div')
                 return barchartcode
             except Exception as e:
                 print('Error generating HTML bar graph code for domain: ' + str(e))
@@ -84,13 +84,13 @@ try:
                 name='email')
 
                 data = [trace0, trace1, trace2, trace3, trace4]
-                layout = dict(title = "Scanning history for " + domain,
+                layout = dict(title = 'Scanning history for ' + domain,
                         xaxis = dict(title = 'Date'),
                         yaxis = dict(title = 'Results'),
                         )
                 scatterchartcode = plotly.offline.plot({
-                "data": data,
-                "layout": layout}, auto_open=False, include_plotlyjs=False, filename='report.html', output_type='div')
+                'data': data,
+                'layout': layout}, auto_open=False, include_plotlyjs=False, filename='report.html', output_type='div')
                 return scatterchartcode
             except Exception as e:
                 print('Error generating HTML for the historical graph for domain: ' + str(e))
