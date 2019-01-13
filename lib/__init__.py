@@ -1,1 +1,1 @@
-__all__ = ["markup", "graphs", "hostchecker"]
+__all__ = ['markup', 'graphs', 'hostchecker']
