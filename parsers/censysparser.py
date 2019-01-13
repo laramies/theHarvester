@@ -6,8 +6,8 @@ class Parser:
 
     def __init__(self, resultstoparse):
         self.ipaddresses = []
-        self.souphosts = BeautifulSoup(resultstoparse.total_resultshosts, features="html.parser")
-        self.soupcerts = BeautifulSoup(resultstoparse.total_resultscerts, features="html.parser")
+        self.souphosts = BeautifulSoup(resultstoparse.total_resultshosts, features='html.parser')
+        self.soupcerts = BeautifulSoup(resultstoparse.total_resultscerts, features='html.parser')
         self.hostnames = []
         self.hostnamesfromcerts = []
         self.urls = []
@@ -17,13 +17,13 @@ class Parser:
 
     def search_hostnamesfromcerts(self):
         try:
-            hostnamelist = self.soupcerts.findAll("i", "fa fa-fw fa-home")
+            hostnamelist = self.soupcerts.findAll('i', 'fa fa-fw fa-home')
             for hostnameitem in hostnamelist:
                 hostitems = hostnameitem.next_sibling
                 hostnames = str(hostitems)
                 hostnamesclean = re.sub('[ \'\[\]]', '', hostnames)
                 hostnamesclean = re.sub(r'\.\.\.', r'', hostnamesclean)
-                self.hostnamesfromcerts.extend(hostnamesclean.split(","))
+                self.hostnamesfromcerts.extend(hostnamesclean.split(','))
             self.hostnamesfromcerts = list(filter(None, self.hostnamesfromcerts))
             matchingdomains = [s for s in self.hostnamesfromcerts if str(self.domain) in s]  # filter out domains issued to other sites
             self.hostnamesfromcerts = matchingdomains

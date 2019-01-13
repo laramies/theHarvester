@@ -61,9 +61,9 @@ class MissingKey(Exception):
 
     def __init__(self, identity_flag):
         if identity_flag:
-            self.message = '\n\n\033[93m[!] Missing API key.\n\n \033[0m'
+            self.message = '\n\033[93m[!] Missing API key.\n \033[0m'
         else:
-            self.message = '\n\n\033[93m[!] Missing CSE id.\n\n \033[0m'
+            self.message = '\n\033[93m[!] Missing CSE id.\n \033[0m'
 
     def __str__(self):
         return self.message
