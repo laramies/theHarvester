@@ -389,7 +389,7 @@ def start(argv):
                         db.store_all(word, all_emails, 'email', 'yahoo')
 
                     elif engineitem == "all":
-                        print(("Full harvest on " + word))
+                        print(f'Full harvest on {word}')
                         all_emails = []
                         all_hosts = []
 
@@ -612,7 +612,7 @@ def start(argv):
     else:
         print("\033[1;33;40m \n[+] IP addresses found:")
         print("-----------------------")
-        print("Total IP addresses: " + str(len(all_ip)) + "\n")
+        print(f"Total IP addresses: {str(len(all_ip))} \n")
         for ip in sorted(list(set(all_ip))):
             print(ip)
     print("\n[+] Emails found:")
@@ -633,7 +633,7 @@ def start(argv):
     if all_emails == []:
         print("No emails found.")
     else:
-        print("Total emails: " + str(len(all_emails)) + "\n")
+        print(f"Total emails: {str(len(all_emails))} \n")
         print(("\n".join(sorted(list(set(all_emails))))))
 
     print("\033[1;33;40m \n[+] Hosts found:")
@@ -642,7 +642,7 @@ def start(argv):
         print("No hosts found.")
     else:
         total = len(all_hosts)
-        print(("Total hosts: " + str(total) + "\n"))
+        print(f"Total hosts: {str(total)} \n")
         all_hosts = sorted(list(set(all_hosts)))
         for host in all_hosts:
             print(host)
@@ -670,7 +670,7 @@ def start(argv):
             print('\nNo Trello URLs found.')
         else:
             total = len(trello_urls)
-            print(("\nTotal URLs: " + str(total) + "\n"))
+            print(f"\nTotal URLs: f{str(total)} \n")
             for url in sorted(list(set(trello_urls))):
                 print(url)
 
