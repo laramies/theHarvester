@@ -1,11 +1,11 @@
 try:
+    from datetime import datetime
     import plotly.graph_objs as go
     import plotly.plotly as py
     import plotly
     import stash
-    from datetime import datetime
     try:
-        db=stash.stash_manager()
+        db = stash.stash_manager()
         db.do_init()
     except Exception as e:
         pass
@@ -31,16 +31,16 @@ try:
                 self.bardata.append(latestscandata['ip'])
                 self.bardata.append(latestscandata['shodan'])
                 self.bardata.append(latestscandata['vhost'])
-                layout = dict(title = "Latest scan - number of targets identified for " + domain,
+                layout = dict(title = 'Latest scan - number of targets identified for ' + domain,
                 xaxis = dict(title = 'Targets'),
                 yaxis = dict(title = 'Hits'),)
                 barchartcode = plotly.offline.plot({
-                "data": [go.Bar(x=self.barcolumns, y=self.bardata)],
-                "layout": layout,
-                }, auto_open=False,include_plotlyjs=False,filename='report.html', output_type='div')
+                'data': [go.Bar(x=self.barcolumns, y=self.bardata)],
+                'layout': layout,
+                }, auto_open=False, include_plotlyjs=False, filename='report.html', output_type='div')
                 return barchartcode
             except Exception as e:
-                print("Error generating HTML bar graph code for domain: " + str(e))
+                print('Error generating HTML bar graph code for domain: ' + str(e))
 
         def drawscattergraphscanhistory(self,domain,scanhistorydomain):
             try:
@@ -74,26 +74,26 @@ try:
                 trace3 = go.Scatter(
                 x=self.scatterxdata,
                 y=self.scattercountshodans,
-                mode = 'lines+markers',
-                name = 'shodan')
+                mode='lines+markers',
+                name='shodan')
 
                 trace4 = go.Scatter(
                 x=self.scatterxdata,
                 y=self.scattercountemails,
-                mode = 'lines+markers',
-                name = 'email')
+                mode='lines+markers',
+                name='email')
 
                 data = [trace0, trace1, trace2, trace3, trace4]
-                layout = dict(title = "Scanning history for " + domain,
+                layout = dict(title = 'Scanning history for ' + domain,
                         xaxis = dict(title = 'Date'),
                         yaxis = dict(title = 'Results'),
                         )
                 scatterchartcode = plotly.offline.plot({
-                "data": data,
-                "layout": layout}, auto_open=False, include_plotlyjs=False, filename='report.html', output_type='div')
+                'data': data,
+                'layout': layout}, auto_open=False, include_plotlyjs=False, filename='report.html', output_type='div')
                 return scatterchartcode
             except Exception as e:
-                print("Error generating HTML for the historical graph for domain: " + str(e))    
+                print('Error generating HTML for the historical graph for domain: ' + str(e))
 
 except Exception as e:
-    print("Error in the reportgraph module: " + str(e))
+    print('Error in the reportgraph module: ' + str(e))

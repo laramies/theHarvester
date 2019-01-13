@@ -1,6 +1,6 @@
-import requests
-from parsers import myparser
 from lib.core import *
+from parsers import myparser
+import requests
 
 
 class search_virustotal:
@@ -33,4 +33,4 @@ class search_virustotal:
 
     def process(self):
         self.do_search()
-        print("\tSearching Virustotal results..")
+        print('\tSearching Virustotal results.')

@@ -1,6 +1,6 @@
 beautifulsoup4>=4.7.0
 plotly>=3.4.2
+pytest>=4.0.2
 requests>=2.21.0
 texttable>=1.4.0
 shodan>=1.10.0
-pytest>=4.0.2

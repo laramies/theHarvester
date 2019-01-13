@@ -1,8 +1,8 @@
-from parsers import myparser
-import time
-import requests
 from discovery.constants import *
 from lib.core import *
+from parsers import myparser
+import requests
+import time
 
 
 class SearchBaidu:
@@ -10,13 +10,13 @@ class SearchBaidu:
     def __init__(self, word, limit):
         self.word = word
         self.total_results = ""
-        self.server = "www.baidu.com"
-        self.hostname = "www.baidu.com"
+        self.server = 'www.baidu.com'
+        self.hostname = 'www.baidu.com'
         self.limit = limit
         self.counter = 0
 
     def do_search(self):
-        url = 'http://' + self.server + "/s?wd=%40" + self.word + "&pn=" + str(self.counter) + "&oq=" + self.word
+        url = 'http://' + self.server + '/s?wd=%40' + self.word + '&pn=' + str(self.counter) + '&oq=' + self.word
         headers = {
             'Host': self.hostname,
             'User-agent': Core.get_user_agent()
@@ -28,7 +28,7 @@ class SearchBaidu:
     def process(self):
         while self.counter <= self.limit and self.counter <= 1000:
             self.do_search()
-            print(f'\tSearching {self.counter} results...')
+            print(f'\tSearching {self.counter} results.')
             self.counter += 10
 
     def get_emails(self):

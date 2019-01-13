@@ -7,7 +7,7 @@ class Parser:
     def __init__(self, results):
         self.results = results
         self.ipaddresses = []
-        self.soup = BeautifulSoup(results.results, features="html.parser")
+        self.soup = BeautifulSoup(results.results, features='html.parser')
 
     def search_ipaddresses(self):
         try:
@@ -16,4 +16,4 @@ class Parser:
             self.ipaddresses = set(allip)
             return self.ipaddresses
         except Exception as e:
-            print("Error occurred: " + str(e))
+            print('Error occurred: ' + str(e))

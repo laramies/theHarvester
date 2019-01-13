@@ -1,8 +1,8 @@
-from parsers import myparser
-import time
-import requests
 from discovery.constants import *
 from lib.core import *
+from parsers import myparser
+import requests
+import time
 
 
 class SearchBing:
@@ -11,10 +11,10 @@ class SearchBing:
         self.word = word.replace(' ', '%20')
         self.results = ""
         self.totalresults = ""
-        self.server = "www.bing.com"
-        self.apiserver = "api.search.live.net"
-        self.hostname = "www.bing.com"
-        self.quantity = "50"
+        self.server = 'www.bing.com'
+        self.apiserver = 'api.search.live.net'
+        self.hostname = 'www.bing.com'
+        self.quantity = '50'
         self.limit = int(limit)
         self.bingApi = bingAPI_key
         self.counter = start
@@ -26,7 +26,7 @@ class SearchBing:
             'Accept-Language': 'en-us,en',
             'User-agent': Core.get_user_agent()
         }
-        h = requests.get(url=('http://'+self.server + "/search?q=%40" + self.word + "&count=50&first=" + str(self.counter)), headers=headers)
+        h = requests.get(url=('http://'+self.server + '/search?q=%40' + self.word + '&count=50&first=' + str(self.counter)), headers=headers)
         self.results = h.text
         self.totalresults += self.results
 
@@ -51,7 +51,7 @@ class SearchBing:
             'Accept-Language': 'en-us,en',
             'User-agent': Core.get_user_agent()
         }
-        url = 'http://' + self.server + "/search?q=ip:" + self.word + "&go=&count=50&FORM=QBHL&qs=n&first=" + str(self.counter)
+        url = 'http://' + self.server + '/search?q=ip:' + self.word + '&go=&count=50&FORM=QBHL&qs=n&first=' + str(self.counter)
         h = requests.get(url=url, headers=headers)
         self.results = h.text
         self.totalresults += self.results
@@ -69,18 +69,18 @@ class SearchBing:
         return rawres.hostnames_all()
 
     def process(self, api):
-        if api == "yes":
+        if api == 'yes':
             if self.bingApi == "":
                 raise MissingKey(True)
         while self.counter < self.limit:
-            if api == "yes":
+            if api == 'yes':
                 self.do_search_api()
                 time.sleep(getDelay())
             else:
                 self.do_search()
                 time.sleep(getDelay())
             self.counter += 50
-            print(f'\tSearching {self.counter} results...')
+            print(f'\tSearching {self.counter} results.')
 
     def process_vhost(self):
         # Maybe it is good to use other limit for this.

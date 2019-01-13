@@ -1,8 +1,8 @@
-from parsers import myparser
-import time
-import requests
 from discovery.constants import *
 from lib.core import *
+from parsers import myparser
+import requests
+import time
 
 
 class SearchDogpile:
@@ -16,7 +16,7 @@ class SearchDogpile:
         self.counter = 0
 
     def do_search(self):
-        # Dogpile is hardcoded to return 10 results
+        # Dogpile is hardcoded to return 10 results.
         url = 'http://' + self.server + "/search/web?qsi=" + str(self.counter) \
               + "&q=\"%40" + self.word + "\""
         headers = {
@@ -30,7 +30,7 @@ class SearchDogpile:
         while self.counter <= self.limit and self.counter <= 1000:
             self.do_search()
             time.sleep(getDelay())
-            print(f'\tSearching {self.counter} results...')
+            print(f'\tSearching {self.counter} results.')
             self.counter += 10
 
     def get_emails(self):

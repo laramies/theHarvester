@@ -1,11 +1,12 @@
 """
-Module that contains constants used across plugins
-Contains list of user agents, api_keys, and a function to get random delay and user agent.
-As well as a defined User Agent for Google Search
+Module that contains constants used across plugins.
+Contains list of API keys, user agents, and a function to get random delay and user agent.
+As well as a defined User Agent for Google Search.
 User-Agents from: https://github.com/tamimibrahim17/List-of-user-agents
 """
 
 import random
+
 
 googleUA = "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1464.0 Safari/537.36"
 
@@ -19,7 +20,7 @@ hunterAPI_key = ''
 
 securityTrailsAPI_key = ''
 
-shodanAPI_key = 'oCiMsgM6rQWqiTvPxFHYcExlZgg7wvTt'  # this is the default key
+shodanAPI_key = 'oCiMsgM6rQWqiTvPxFHYcExlZgg7wvTt'  # This is the default key.
 
 
 def filter(lst):
@@ -28,7 +29,7 @@ def filter(lst):
     :param lst: list to be filtered
     :return: new filtered list
     """
-    lst = set(lst)  # remove duplicates
+    lst = set(lst)  # Remove duplicates.
     new_lst = []
     for item in lst:
         item = str(item)
@@ -48,7 +49,7 @@ def getDelay():
 
 
 def search(text):
-    # helper function to check if google has blocked traffic
+    # Helper function to check if Google has blocked traffic.
     for line in text.strip().splitlines():
         if 'This page appears when Google automatically detects requests coming from your computer network' in line:
             print('\tGoogle is blocking your IP due to too many automated requests, wait or change your IP')
@@ -57,13 +58,12 @@ def search(text):
 
 
 class MissingKey(Exception):
-    """This class is for when a user is missing their api key or cse id"""
 
     def __init__(self, identity_flag):
-        if identity_flag:  # flag that checks what kind of error was raised
-            self.message = '\tMissing API key!'
+        if identity_flag:
+            self.message = '\n\033[93m[!] Missing API key.\n \033[0m'
         else:
-            self.message = '\tMissing CSE id!'
+            self.message = '\n\033[93m[!] Missing CSE id.\n \033[0m'
 
     def __str__(self):
         return self.message

@@ -1,8 +1,8 @@
-import requests
-from parsers import myparser
-import time
 from discovery.constants import *
 from lib.core import *
+from parsers import myparser
+import requests
+import time
 
 
 class search_crtsh:
@@ -46,9 +46,9 @@ class search_crtsh:
                 lines.append(line)
         links = []
         for i in range(len(lines)):
-            if i % 2 == 0:  # way html is formatted only care about every other one
+            if i % 2 == 0:  # Way html is formatted only care about every other one.
                 current = lines[i]
-                current = current[43:]  # 43 is not an arbitrary number, the id number always starts at 43rd index
+                current = current[43:]  # 43 is not an arbitrary number, the id number always starts at 43rd index.
                 link = ''
                 for ch in current:
                     if ch == '"':
@@ -64,4 +64,4 @@ class search_crtsh:
 
     def process(self):
         self.do_search()
-        print("\tSearching CRT.sh results..")
+        print("\tSearching CRT.sh results.")

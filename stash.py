@@ -132,7 +132,7 @@ class stash_manager:
                         self.previousscanresults = results
                     return self.previousscanresults
                 except Exception as e:
-                    print("Error in getting the previous scan results from the database: " + str(e))
+                    print('Error in getting the previous scan results from the database: ' + str(e))
             else:
                 try:
                     c = conn.cursor()
@@ -149,9 +149,9 @@ class stash_manager:
                     self.latestscanresults = results
                     return self.latestscanresults
                 except Exception as e:
-                    print("Error in getting the latest scan results from the database: " + str(e))
+                    print('Error in getting the latest scan results from the database: ' + str(e))
         except Exception as e:
-            print("Error connecting to theHarvester database: " + str(e))
+            print('Error connecting to theHarvester database: ' + str(e))
         finally:
             conn.close()
 

@@ -19,7 +19,7 @@ class Checker():
             try:
                 res = socket.gethostbyname(x)
                 res = str(res)
-                self.realhosts.append(x + ":" + res)
+                self.realhosts.append(x + ':' + res)
             except Exception as e:
-                self.realhosts.append(x + ":" + "empty")
+                self.realhosts.append(x + ':' + 'empty')
         return self.realhosts
