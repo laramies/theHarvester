@@ -8,7 +8,6 @@ from lib import htmlExport
 from lib import reportgraph
 from lib import statichtmlgenerator
 import datetime
-import getopt
 import ipaddress
 import re
 import stash
