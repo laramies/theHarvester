@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 from discovery import *
 from discovery.constants import *
 from lib.core import *
@@ -28,19 +29,19 @@ except ImportError:
 Core.banner()
 
 
-def start(argv):
-    if len(sys.argv) < 4:
-        Core.usage()
-        sys.exit(1)
-    try:
-        opts, args = getopt.getopt(argv, "l:d:b:s:u:vf:nhcgpte:")
-    except getopt.GetoptError:
-        Core.usage()
-        sys.exit(1)
+def start():
+    parser = argparse.ArgumentParser(description='theHarvester is a open source intelligence gathering tool(OSINT) that is used for recon')
+    parser.add_argument('-d', '--domain', help='Company name or domain to search', required=True)
+    parser.add_argument('-t', '--type', help='Perform a DNS TLD expansion discovery')
+    parser.add_argument('-b',
+                        help='Name server to use for the lookup, default is Googles', default='8.8.8.8')
+
+    args = parser.parse_args()
+
     try:
         db = stash.stash_manager()
         db.do_init()
-    except Exception as e:
+    except Exception:
         pass
     start = 0
     host_ip = []
