@@ -9,14 +9,14 @@ class SearchNetcraft:
         self.word = word.replace(' ', '%20')
         self.results = ""
         self.totalresults = ""
-        self.server = "www.google.com"
-        self.hostname = "www.google.com"
-        self.quantity = "100"
+        self.server = 'www.google.com'
+        self.hostname = 'www.google.com'
+        self.quantity = '100'
         self.counter = 0
 
     def do_search(self):
         try:
-            urly = "https://searchdns.netcraft.com/?restriction=site+ends+with&host=" + self.word
+            urly = 'https://searchdns.netcraft.com/?restriction=site+ends+with&host=' + self.word
         except Exception as e:
             print(e)
         headers = {'User-Agent': Core.get_user_agent()}
@@ -33,4 +33,4 @@ class SearchNetcraft:
 
     def process(self):
         self.do_search()
-        print("\tSearching Netcraft results.")
+        print('\tSearching results.')

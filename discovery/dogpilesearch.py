@@ -10,15 +10,15 @@ class SearchDogpile:
     def __init__(self, word, limit):
         self.word = word
         self.total_results = ""
-        self.server = "www.dogpile.com"
-        self.hostname = "www.dogpile.com"
+        self.server = 'www.dogpile.com'
+        self.hostname = 'www.dogpile.com'
         self.limit = limit
         self.counter = 0
 
     def do_search(self):
         # Dogpile is hardcoded to return 10 results.
-        url = 'http://' + self.server + "/search/web?qsi=" + str(self.counter) \
-              + "&q=\"%40" + self.word + "\""
+        url = 'http://' + self.server + '/search/web?qsi=' + str(self.counter) \
+              + '&q=\"%40' + self.word + '\"'
         headers = {
             'Host': self.hostname,
             'User-agent': Core.get_user_agent()

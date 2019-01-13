@@ -10,20 +10,20 @@ class search_exalead:
 
     def __init__(self, word, limit, start):
         self.word = word
-        self.files = "pdf"
+        self.files = 'pdf'
         self.results = ""
         self.totalresults = ""
-        self.server = "www.exalead.com"
-        self.hostname = "www.exalead.com"
+        self.server = 'www.exalead.com'
+        self.hostname = 'www.exalead.com'
         self.limit = limit
         self.counter = start
 
     def do_search(self):
         url = 'http:// ' + self.server + '/search/web/results/?q=%40' + self.word \
-              + "&elements_per_page=50&start_index=" + str(self.counter)
+              + '&elements_per_page=50&start_index=' + str(self.counter)
         headers = {
             'Host': self.hostname,
-            'Referer': ("http://" + self.hostname + "/search/web/results/?q=%40" + self.word),
+            'Referer': ('http://' + self.hostname + '/search/web/results/?q=%40' + self.word),
             'User-agent': Core.get_user_agent()
         }
         h = requests.get(url=url, headers=headers)
@@ -32,10 +32,10 @@ class search_exalead:
 
     def do_search_files(self, files):
         url = 'http:// ' + self.server + '/search/web/results/?q=%40' + self.word \
-              + "filetype:" + self.files + "&elements_per_page=50&start_index=" + str(self.counter)
+              + 'filetype:' + self.files + '&elements_per_page=50&start_index=' + str(self.counter)
         headers = {
             'Host': self.hostname,
-            'Referer': ("http://" + self.hostname + "/search/web/results/?q=%40" + self.word),
+            'Referer': ('http://' + self.hostname + '/search/web/results/?q=%40' + self.word),
             'User-agent': Core.get_user_agent()
         }
         h = requests.get(url=url, headers=headers)
@@ -46,10 +46,10 @@ class search_exalead:
         renext = re.compile('topNextUrl')
         nextres = renext.findall(self.results)
         if nextres != []:
-            nexty = "1"
+            nexty = '1'
             print(str(self.counter))
         else:
-            nexty = "0"
+            nexty = '0'
         return nexty
 
     def get_emails(self):
@@ -75,7 +75,7 @@ class search_exalead:
             self.do_search_files(files)
             time.sleep(getDelay())
             more = self.check_next()
-            if more == "1":
+            if more == '1':
                 self.counter += 50
             else:
                 break

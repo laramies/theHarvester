@@ -9,14 +9,14 @@ class search_threatcrowd:
         self.word = word.replace(' ', '%20')
         self.results = ""
         self.totalresults = ""
-        self.server = "www.google.com"
-        self.hostname = "www.google.com"
-        self.quantity = "100"
+        self.server = 'www.google.com'
+        self.hostname = 'www.google.com'
+        self.quantity = '100'
         self.counter = 0
 
     def do_search(self):
         try:
-            urly = "https://www.threatcrowd.org/searchApi/v2/domain/report/?domain=" + self.word
+            urly = 'https://www.threatcrowd.org/searchApi/v2/domain/report/?domain=' + self.word
         except Exception as e:
             print(e)
         headers = {'User-Agent': Core.get_user_agent()}
@@ -33,4 +33,4 @@ class search_threatcrowd:
 
     def process(self):
         self.do_search()
-        print('\tSearching Threatcrowd results.')
+        print('\tSearching results.')

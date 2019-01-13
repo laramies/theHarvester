@@ -8,19 +8,19 @@ class search_google_labs:
     def __init__(self, list):
         self.results = ""
         self.totalresults = ""
-        self.server = "labs.google.com"
-        self.hostname = "labs.google.com"
+        self.server = 'labs.google.com'
+        self.hostname = 'labs.google.com'
         id = 0
         self.set = ""
         for x in list:
             id += 1
             if id == 1:
-                self.set = self.set + "q" + str(id) + "=" + str(x)
+                self.set = self.set + 'q' + str(id) + '=' + str(x)
             else:
-                self.set = self.set + "&q" + str(id) + "=" + str(x)
+                self.set = self.set + '&q' + str(id) + '=' + str(x)
 
     def do_search(self):
-        url = 'http://' + self.server + "/sets?hl-en&" + self.set
+        url = 'http://' + self.server + '/sets?hl-en&' + self.set
         headers = {
             'Host': self.server,
             'User-agent': Core.get_user_agent()

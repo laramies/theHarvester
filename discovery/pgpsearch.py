@@ -8,13 +8,13 @@ class SearchPgp:
     def __init__(self, word):
         self.word = word
         self.results = ""
-        self.server = "pgp.mit.edu"
-        self.hostname = "pgp.mit.edu"
+        self.server = 'pgp.mit.edu'
+        self.hostname = 'pgp.mit.edu'
 
     def process(self):
-        print("\tSearching PGP results.")
+        print('\tSearching results.')
         try:
-            url = 'http://' + self.server + "/pks/lookup?search=" + self.word + "&op=index"
+            url = 'http://' + self.server + '/pks/lookup?search=' + self.word + '&op=index'
             headers = {
                 'Host': self.hostname,
                 'User-agent': Core.get_user_agent()
@@ -23,7 +23,7 @@ class SearchPgp:
             self.results = h.text
             self.results += self.results
         except Exception as e:
-            print("Unable to connect to PGP server: ", str(e))
+            print('Unable to connect to PGP server: ', str(e))
 
     def get_emails(self):
         rawres = myparser.Parser(self.results, self.word)

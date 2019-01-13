@@ -14,9 +14,9 @@ class SearchDuckDuckGo:
         self.totalresults = ""
         self.dorks = []
         self.links = []
-        self.database = "https://duckduckgo.com/?q="
-        self.api = "https://api.duckduckgo.com/?q=x&format=json&pretty=1"  # Currently using API.
-        self.quantity = "100"
+        self.database = 'https://duckduckgo.com/?q='
+        self.api = 'https://api.duckduckgo.com/?q=x&format=json&pretty=1'  # Currently using API.
+        self.quantity = '100'
         self.limit = limit
 
     def do_search(self):
@@ -39,9 +39,9 @@ class SearchDuckDuckGo:
 
     def crawl(self, text):
         """
-        function parses json and returns urls
+        Function parses json and returns URLs.
         :param text: formatted json
-        :return: set of urls
+        :return: set of URLs
         """
         urls = set()
         try:

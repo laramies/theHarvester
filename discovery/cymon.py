@@ -11,7 +11,7 @@ class search_cymon:
         self.word = word
         self.url = ""
         self.results = ""
-        self.server = "cymon.io"
+        self.server = 'cymon.io'
 
     def do_search(self):
         try:
@@ -24,8 +24,8 @@ class search_cymon:
 
     def process(self):
         try:
-            self.url = "https://" + self.server + "/domain/" + str(self.word)
-            print('\tSearching Cymon results.')
+            self.url = 'https://' + self.server + '/domain/' + str(self.word)
+            print('\tSearching results.')
             self.do_search()
         except Exception as e:
             print(f'Error occurred:  {e}')

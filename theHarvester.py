@@ -101,7 +101,7 @@ def start(argv):
                                     'linkedin', 'netcraft', 'pgp', 'securityTrails', 'threatcrowd', 'trello',
                                     'twitter', 'vhost', 'virustotal', 'yahoo', 'all'])
             if set(engines).issubset(supportedengines):
-                print(f'\033[94m[*] Target domain: {word} \n \033[0m')
+                print(f'\033[94m[*] Target: {word} \n \033[0m')
                 for engineitem in engines:
                     if engineitem == 'baidu':
                         print('\033[94m[*] Searching Baidu. \033[0m')
@@ -208,7 +208,7 @@ def start(argv):
                         db.store_all(word, all_emails, 'email', 'google')
 
                     elif engineitem == 'googleCSE':
-                        print('\033[94m[*] Searching Google Custom Search. \033[0m')
+                        print('\033[94m[*] Searching Google Custom Search Engine. \033[0m')
                         try:
                             search = googleCSE.SearchGoogleCSE(word, limit, start)
                             search.process()
@@ -227,7 +227,7 @@ def start(argv):
                                 pass
 
                     elif engineitem == 'google-certificates':
-                        print('\033[94m[*] Searching Google Certificate transparency report. \033[0m')
+                        print('\033[94m[*] Searching Google Certificate Transparency Report. \033[0m')
                         search = googlecertificates.SearchGoogleCertificates(word, limit, start)
                         search.process()
                         hosts = filter(search.get_domains())
@@ -633,7 +633,7 @@ def start(argv):
     else:
         print('\n[*] IPs found: ' + str(len(all_ip)))
         print('-------------------')
-        ips = sorted(ipaddress.ip_address(line.strip()) for line in all_ip)
+        ips = sorted(ipaddress.ip_address(line.strip()) for line in set(all_ip))
         print('\n'.join(map(str, ips)))
 
     if len(all_emails) == 0:
@@ -646,8 +646,8 @@ def start(argv):
     if len(all_hosts) == 0:
         print('\n[*] No hosts found.\n\n')
     else:
-        print('\n[*] Hosts found: ' + str(len(all_hosts)))
-        print('---------------------')
+        print('\n[*] Resolving hosts found: ' + str(len(all_hosts)))
+        print('-------------------------------')
         all_hosts = sorted(list(set(all_hosts)))
         full_host = hostchecker.Checker(all_hosts)
         full = full_host.check()
@@ -725,7 +725,7 @@ def start(argv):
             s = '.'
             range = s.join(range)
             if not analyzed_ranges.count(range):
-                print('[*] Performing reverse lookup in ' + range)
+                print('[*] Performing a reverse lookup in ' + range)
                 a = dnssearch.dns_reverse(range, True)
                 a.list()
                 res = a.process()
@@ -918,7 +918,7 @@ if __name__ == '__main__':
     try:
         start(sys.argv[1:])
     except KeyboardInterrupt:
-        print('\n\n\033[93m[!] ctrl+c detected from user, quitting.\n\n \033[0m')
+        print('\n\n\033[93m[!] ctrl+c detected, stopping program.\n\n \033[0m')
     except Exception:
         import traceback
         print(traceback.print_exc())
