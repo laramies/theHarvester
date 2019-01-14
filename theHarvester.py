@@ -725,7 +725,7 @@ def start(argv):
             s = '.'
             range = s.join(range)
             if not analyzed_ranges.count(range):
-                print('[*] Performing a reverse lookup in ' + range)
+                print('[*] Performing a reverse lookup on ' + range)
                 a = dnssearch.dns_reverse(range, True)
                 a.list()
                 res = a.process()
@@ -737,8 +737,8 @@ def start(argv):
                     dnsrev.append(x)
                     if x not in full:
                         full.append(x)
-        print('Hosts found after reverse lookup (in target domain):')
-        print('----------------------------------------------------')
+        print('[*] Hosts found after reverse lookup:')
+        print('-------------------------------------')
         for xh in dnsrev:
             print(xh)
 
@@ -796,7 +796,7 @@ def start(argv):
                 time.sleep(2)
                 tab.add_row(rowdata)
             printedtable = tab.draw()
-            print('\n [*] Shodan results:')
+            print('\n[*] Shodan results:')
             print('-------------------')
             print(printedtable)
         except Exception as e:
@@ -850,20 +850,11 @@ def start(argv):
             Html_file.close()
             print('NEW REPORTING FINISHED!')
             print('[*] Saving files.')
-            html = htmlExport.htmlExport(
-                all_emails,
-                full,
-                vhost,
-                dnsres,
-                dnsrev,
-                filename,
-                word,
-                shodanres,
-                dnstldres)
+            html = htmlExport.htmlExport(all_emails, full, vhost, dnsres, dnsrev, filename, word, shodanres, dnstldres)
             save = html.writehtml()
         except Exception as e:
             print(e)
-            print('Error creating the file.')
+            print('[!] Error creating the file.')
         try:
             filename = filename.split('.')[0] + '.xml'
             file = open(filename, 'w')
