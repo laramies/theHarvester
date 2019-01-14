@@ -51,7 +51,7 @@ class SearchDuckDuckGo:
                 if isinstance(val, int) or isinstance(val, dict) or val is None:
                     continue
                 if isinstance(val, list):
-                    if len(val) == 0:  # Make sure not indexing an empty list
+                    if len(val) == 0:  # Make sure not indexing an empty list.
                         continue
                     val = val[0]  # First value should be dict.
                     if isinstance(val, dict):  # Sanity check.
