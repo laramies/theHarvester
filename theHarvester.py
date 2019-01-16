@@ -32,12 +32,15 @@ Core.banner()
 def start():
     parser = argparse.ArgumentParser(description='theHarvester is a open source intelligence gathering tool(OSINT) that is used for recon')
     parser.add_argument('-d', '--domain', help='Company name or domain to search', required=True)
-    parser.add_argument('-t', '--type', help='Perform a DNS TLD expansion discovery')
+    parser.add_argument('-t', '--dnstld', help='Perform a DNS TLD expansion discovery', default=True)
     parser.add_argument('-l', '--limit', help='limit the number of search results', default=500)
+    parser.add_argument('-s', '--shodan', help='use Shodan to query discovered hosts', default=True)
+    parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file')
+    parser.add_argument('-p', '--portscan', help='port scan the detected hosts and check for Takeovers (21,22,80,443,8080)', default=True)
     parser.add_argument('-b', '--source', help='''source: baidu, bing, bingapi, censys, crtsh, cymon, dogpile,
                google, googleCSE, google-certificates, google-profiles,
                hunter, linkedin, netcraft, pgp, securityTrails, threatcrowd,
-               trello, twitter, vhost, virustotal, yahoo, all''')
+               trello, twitter, vhost, virustotal, yahoo, all''', required=True)
 
     args = parser.parse_args()
 
@@ -54,14 +57,14 @@ def start():
     dnsbrute = False
     dnslookup = False
     dnsserver = ""
-    dnstld = False
-    filename = ""
+    dnstld = args.dnstld
+    filename = args.filename
     full = []
     google_dorking = False
     host_ip = []
     limit = args.limit
-    ports_scanning = False
-    shodan = False
+    ports_scanning = args.portscan
+    shodan = args.shodan
     start = 0
     takeover_check = False
     trello_info = ([], False)
