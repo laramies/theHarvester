@@ -48,9 +48,11 @@ class SearchDuckDuckGo:
             load = json.loads(text)
             for key in load.keys():  # Iterate through keys of dict.
                 val = load.get(key)
-                if isinstance(val, int) or isinstance(val, dict):
+                if isinstance(val, int) or isinstance(val, dict) or val is None:
                     continue
                 if isinstance(val, list):
+                    if len(val) == 0:  # Make sure not indexing an empty list
+                        continue
                     val = val[0]  # First value should be dict.
                     if isinstance(val, dict):  # Sanity check.
                         for key in val.keys():
