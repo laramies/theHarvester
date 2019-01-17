@@ -32,11 +32,14 @@ Core.banner()
 def start():
     parser = argparse.ArgumentParser(description='theHarvester is a open source intelligence gathering tool(OSINT) that is used for recon')
     parser.add_argument('-d', '--domain', help='Company name or domain to search', required=True)
-    parser.add_argument('-t', '--dnstld', help='Perform a DNS TLD expansion discovery', default=True)
-    parser.add_argument('-l', '--limit', help='limit the number of search results', default=500)
-    parser.add_argument('-s', '--shodan', help='use Shodan to query discovered hosts', default=True)
+    parser.add_argument('-t', '--dnstld', help='Perform a DNS TLD expansion discovery, default False', default=False)
+    parser.add_argument('-l', '--limit', help='limit the number of search results, default 500', default=500)
+    parser.add_argument('-s', '--shodan', help='use Shodan to query discovered hosts, default False', default=False)
+    parser.add_argument('-S', '--start', help='start with result number X (default: 0)', default=0)
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file')
-    parser.add_argument('-p', '--portscan', help='port scan the detected hosts and check for Takeovers (21,22,80,443,8080)', default=True)
+    parser.add_argument('-g', '--googleDork', help='use googledorks for google search, default False', default=False)
+    parser.add_argument('-n', '--dns', help='specify DNS server')
+    parser.add_argument('-p', '--portscan', help='port scan the detected hosts and check for Takeovers (21,22,80,443,8080) default False', default=False)
     parser.add_argument('-b', '--source', help='''source: baidu, bing, bingapi, censys, crtsh, cymon, dogpile,
                google, googleCSE, google-certificates, google-profiles,
                hunter, linkedin, netcraft, pgp, securityTrails, threatcrowd,
@@ -56,16 +59,16 @@ def start():
     bingapi = 'yes'
     dnsbrute = False
     dnslookup = False
-    dnsserver = ""
+    dnsserver = args.dns
     dnstld = args.dnstld
     filename = args.filename
     full = []
-    google_dorking = False
+    google_dorking = args.googleDork
     host_ip = []
     limit = args.limit
     ports_scanning = args.portscan
     shodan = args.shodan
-    start = 0
+    start = args.start
     takeover_check = False
     trello_info = ([], False)
     vhost = []
@@ -115,10 +118,11 @@ def start():
                 print('\033[94m[*] Searching Bing. \033[0m')
                 try:
                     search = bingsearch.SearchBing(word, limit, start)
+                    bingapi = ''
                     if engineitem == 'bingapi':
-                        bingapi = 'yes'
+                        bingapi += 'yes'
                     else:
-                        bingapi = 'no'
+                        bingapi += 'no'
                         search.process(bingapi)
                         all_emails = filter(search.get_emails())
                         hosts = filter(search.get_hostnames())
@@ -202,23 +206,23 @@ def start():
                     db.store_all(word, all_emails, 'email', 'google')
 
             elif engineitem == 'googleCSE':
-                 print('\033[94m[*] Searching Google Custom Search. \033[0m')
-                 try:
-                     search = googleCSE.SearchGoogleCSE(word, limit, start)
-                     search.process()
-                     search.store_results()
-                     all_emails = filter(search.get_emails())
-                     db = stash.stash_manager()
-                     hosts = filter(search.get_hostnames())
-                     all_hosts.extend(hosts)
-                     db.store_all(word, all_hosts, 'email', 'googleCSE')
-                     db = stash.stash_manager()
-                     db.store_all(word, all_hosts, 'host', 'googleCSE')
-                 except Exception as e:
-                     if isinstance(e, MissingKey):
-                         print(e)
-                     else:
-                         pass
+                    print('\033[94m[*] Searching Google Custom Search. \033[0m')
+                    try:
+                        search = googleCSE.SearchGoogleCSE(word, limit, start)
+                        search.process()
+                        search.store_results()
+                        all_emails = filter(search.get_emails())
+                        db = stash.stash_manager()
+                        hosts = filter(search.get_hostnames())
+                        all_hosts.extend(hosts)
+                        db.store_all(word, all_hosts, 'email', 'googleCSE')
+                        db = stash.stash_manager()
+                        db.store_all(word, all_hosts, 'host', 'googleCSE')
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            print(e)
+                        else:
+                            pass
 
             elif engineitem == 'google-certificates':
                     print('\033[94m[*] Searching Google Certificate transparency report. \033[0m')
@@ -275,9 +279,9 @@ def start():
                         db.store_all(word, people, 'name', 'linkedin')
 
                         if len(people) == 0:
-                            print('\n[*] No users found.\n\n')
+                            print('\n[*] No users found Linkedin.\n\n')
                         else:
-                            print('\n[*] Users found: ' + str(len(people)))
+                            print(f'\n[*] Users found: {len(people)}')
                             print('---------------------')
                             for user in sorted(list(set(people))):
                                 print(user)
@@ -363,7 +367,7 @@ def start():
                         db.store_all(word, people, 'name', 'twitter')
 
                         if len(people) == 0:
-                            print('\n[*] No users found.\n\n')
+                            print('\n[*] No users found on Twitter.\n\n')
                         else:
                             print('\n[*] Users found: ' + str(len(people)))
                             print('---------------------')
@@ -635,9 +639,9 @@ def start():
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'yahoo')
                         db.store_all(word, all_emails, 'email', 'yahoo')
-        else:
-            print('\033[93m[!] Invalid source.\n\n \033[0m')
-            sys.exit(1)
+    else:
+        print('\033[93m[!] Invalid source.\n\n \033[0m')
+        sys.exit(1)
 
     # Sanity check to see if all_emails and all_hosts are defined.
     try:
@@ -846,7 +850,7 @@ def start():
     # Reporting
     if filename != "":
         try:
-            print('NEW REPORTING BEGINS.')
+            print('\n NEW REPORTING BEGINS.')
             db = stash.stash_manager()
             scanboarddata = db.getscanboarddata()
             latestscanresults = db.getlatestscanresults(word)
