@@ -449,8 +449,25 @@ def start():
                         db.store_all(word, all_hosts, 'host', 'CRTsh')
 
                         # cymon
+                        print('\033[94m[*] Searching Cymon. \033[0m')
+                        from discovery import cymon
+                        # Import locally or won't work.
+                        search = cymon.search_cymon(word)
+                        search.process()
+                        all_ip = search.get_ipaddresses()
+                        db = stash.stash_manager()
+                        db.store_all(word, all_ip, 'ip', 'cymon')
 
-                        # dogpile
+                        print('\033[94m[*] Searching Dogpile. \033[0m')
+                        search = dogpilesearch.SearchDogpile(word, limit)
+                        search.process()
+                        emails = filter(search.get_emails())
+                        hosts = filter(search.get_hostnames())
+                        all_hosts.extend(hosts)
+                        all_emails.extend(emails)
+                        db = stash.stash_manager()
+                        db.store_all(word, all_hosts, 'email', 'dogpile')
+                        db.store_all(word, all_hosts, 'host', 'dogpile')
 
                         print('[*] Searching DuckDuckGo.')
                         from discovery import duckduckgosearch
@@ -518,7 +535,20 @@ def start():
                             else:
                                 pass
 
-                        # linkedin
+                        print('\033[94m[*] Searching Linkedin. \033[0m')
+                        search = linkedinsearch.SearchLinkedin(word, limit)
+                        search.process()
+                        people = search.get_people()
+                        db = stash.stash_manager()
+                        db.store_all(word, people, 'name', 'linkedin')
+
+                        if len(people) == 0:
+                            print('\n[*] No users found.\n\n')
+                        else:
+                            print('\n[*] Users found: ' + str(len(people)))
+                            print('---------------------')
+                            for user in sorted(list(set(people))):
+                                print(user)
 
                         print('[*] Searching Netcraft.')
                         search = netcraft.SearchNetcraft(word)
