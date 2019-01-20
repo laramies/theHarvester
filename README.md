@@ -92,7 +92,7 @@ Add your keys to discovery/constants.py
 Dependencies:
 -------------
 * Python 3.6
-* pip3 install -r requirements.txt
+* python3 -m pip install -r requirements.txt
 
 Changelog in 3.0:
 -----------------
