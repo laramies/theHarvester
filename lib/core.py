@@ -18,7 +18,7 @@ class Core:
         print("* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *")
         print("*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *")
         print('*                                                                 *')
-        print('* theHarvester 3.0.6 v183                                         *')
+        print('* theHarvester 3.0.6 v184                                         *')
         print('* Coded by Christian Martorella                                   *')
         print('* Edge-Security Research                                          *')
         print('* cmartorella@edge-security.com                                   *')
@@ -27,31 +27,31 @@ class Core:
 
     @staticmethod
     def get_supportedengines():
-        supportedengines = set(['baidu',
-                                'bing',
-                                'bingapi',
-                                'censys',
-                                'crtsh',
-                                'cymon',
-                                'dogpile',
-                                'duckduckgo',
-                                'google',
-                                'googleCSE',
-                                'google-certificates',
-                                'google-profiles',
-                                'hunter',
-                                'linkedin',
-                                'netcraft',
-                                'pgp',
-                                'securityTrails',
-                                'threatcrowd',
-                                'trello',
-                                'twitter',
-                                'vhost',
-                                'virustotal',
-                                'yahoo',
-                                'all'
-                                ])
+        supportedengines = {'baidu',
+                            'bing',
+                            'bingapi',
+                            'censys',
+                            'crtsh',
+                            'cymon',
+                            'dogpile',
+                            'duckduckgo',
+                            'google',
+                            'googleCSE',
+                            'google-certificates',
+                            'google-profiles',
+                            'hunter',
+                            'linkedin',
+                            'netcraft',
+                            'pgp',
+                            'securityTrails',
+                            'threatcrowd',
+                            'trello',
+                            'twitter',
+                            'vhost',
+                            'virustotal',
+                            'yahoo',
+                            'all'
+                            }
         return supportedengines
 
     @staticmethod

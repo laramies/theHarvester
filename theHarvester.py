@@ -12,6 +12,7 @@ from lib import stash
 import datetime
 import ipaddress
 import re
+from platform import python_version
 import time
 
 try:
@@ -938,6 +939,9 @@ def start():
 
 
 if __name__ == '__main__':
+    if python_version()[0:3] < '3.6':
+        print('\033[93m[!] Please make sure you have python 3.6+ installed, quitting.\033[0m')
+        sys.exit(1)
     try:
         start()
     except KeyboardInterrupt:
