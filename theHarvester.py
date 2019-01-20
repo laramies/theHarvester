@@ -35,10 +35,10 @@ def start():
     parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain, default=False, params=True', default=False)
     parser.add_argument('-d', '--domain', help='Company name or domain to search', required=True)
     parser.add_argument('-t', '--dnstld', help='Perform a DNS TLD expansion discovery, default False', default=False)
-    parser.add_argument('-l', '--limit', help='limit the number of search results, default 500', default=500)
+    parser.add_argument('-l', '--limit', help='limit the number of search results, default 500', default=500, type=int)
     parser.add_argument('-s', '--shodan', help='use Shodan to query discovered hosts, default=False, params=True', default=False)
     parser.add_argument('-S', '--start', help='start with result number X (default: 0)', default=0)
-    parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file')
+    parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
     parser.add_argument('-g', '--googleDork', help='use googledorks for google search, default False', default=False)
     parser.add_argument('-n', '--dns-lookup', help='Enable DNS server lookup, default=False, params=True', default=False)
     parser.add_argument('-e', '--dns-server', help='DNS server to use for lookup')
@@ -78,7 +78,6 @@ def start():
     vhost = []
     virtual = args.virtual_host
     word = args.domain
-
     engines = set(args.source.split(','))
     if set(engines).issubset(Core.get_supportedengines()):
         print(f'\033[94m[*] Target domain: {word} \n \033[0m')
@@ -106,13 +105,13 @@ def start():
                         bingapi += 'yes'
                     else:
                         bingapi += 'no'
-                        search.process(bingapi)
-                        all_emails = filter(search.get_emails())
-                        hosts = filter(search.get_hostnames())
-                        all_hosts.extend(hosts)
-                        db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'email', 'bing')
-                        db.store_all(word, all_hosts, 'host', 'bing')
+                    search.process(bingapi)
+                    all_emails = filter(search.get_emails())
+                    hosts = filter(search.get_hostnames())
+                    all_hosts.extend(hosts)
+                    db = stash.stash_manager()
+                    db.store_all(word, all_hosts, 'email', 'bing')
+                    db.store_all(word, all_hosts, 'host', 'bing')
                 except Exception as e:
                         if isinstance(e, MissingKey):
                             print(e)
@@ -801,16 +800,16 @@ def start():
 
     # Shodan
     shodanres = []
-    import texttable
-    tab = texttable.Texttable()
-    header = ['IP address', 'Hostname', 'Org', 'Services:Ports', 'Technologies']
-    tab.header(header)
-    tab.set_cols_align(['c', 'c', 'c', 'c', 'c'])
-    tab.set_cols_valign(['m', 'm', 'm', 'm', 'm'])
-    tab.set_chars(['-', '|', '+', '#'])
-    tab.set_cols_width([15, 20, 15, 15, 18])
-    host_ip = list(set(host_ip))
     if shodan is True:
+        import texttable
+        tab = texttable.Texttable()
+        header = ['IP address', 'Hostname', 'Org', 'Services:Ports', 'Technologies']
+        tab.header(header)
+        tab.set_cols_align(['c', 'c', 'c', 'c', 'c'])
+        tab.set_cols_valign(['m', 'm', 'm', 'm', 'm'])
+        tab.set_chars(['-', '|', '+', '#'])
+        tab.set_cols_width([15, 20, 15, 15, 18])
+        host_ip = list(set(host_ip))
         print('\n\n[*] Shodan DB search (passive):\n')
         try:
             for ip in host_ip:
@@ -846,7 +845,7 @@ def start():
     # Reporting
     if filename != "":
         try:
-            print('\n NEW REPORTING BEGINS.')
+            print('\nNEW REPORTING BEGINS.')
             db = stash.stash_manager()
             scanboarddata = db.getscanboarddata()
             latestscanresults = db.getlatestscanresults(word)
