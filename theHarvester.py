@@ -8,10 +8,10 @@ from lib import hostchecker
 from lib import htmlExport
 from lib import reportgraph
 from lib import statichtmlgenerator
+from lib import stash
 import datetime
 import ipaddress
 import re
-import stash
 import time
 
 try:
@@ -31,15 +31,18 @@ Core.banner()
 
 def start():
     parser = argparse.ArgumentParser(description='theHarvester is a open source intelligence gathering tool(OSINT) that is used for recon')
+    parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain, default=False, params=True', default=False)
     parser.add_argument('-d', '--domain', help='Company name or domain to search', required=True)
     parser.add_argument('-t', '--dnstld', help='Perform a DNS TLD expansion discovery, default False', default=False)
     parser.add_argument('-l', '--limit', help='limit the number of search results, default 500', default=500)
-    parser.add_argument('-s', '--shodan', help='use Shodan to query discovered hosts, default False', default=False)
+    parser.add_argument('-s', '--shodan', help='use Shodan to query discovered hosts, default=False, params=True', default=False)
     parser.add_argument('-S', '--start', help='start with result number X (default: 0)', default=0)
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file')
     parser.add_argument('-g', '--googleDork', help='use googledorks for google search, default False', default=False)
-    parser.add_argument('-n', '--dns', help='specify DNS server')
-    parser.add_argument('-p', '--portscan', help='port scan the detected hosts and check for Takeovers (21,22,80,443,8080) default False', default=False)
+    parser.add_argument('-n', '--dns-lookup', help='Enable DNS server lookup, default=False, params=True', default=False)
+    parser.add_argument('-e', '--dns-server', help='DNS server to use for lookup')
+    parser.add_argument('-v', '--virtual-host', help='verify host name via DNS resolution and search for virtual hosts params=basic, default=False', default=False)
+    parser.add_argument('-p', '--portscan', help='port scan the detected hosts and check for Takeovers (21,22,80,443,8080) default=False, params=True', default=False)
     parser.add_argument('-b', '--source', help='''source: baidu, bing, bingapi, censys, crtsh, cymon, dogpile,
                google, googleCSE, google-certificates, google-profiles,
                hunter, linkedin, netcraft, pgp, securityTrails, threatcrowd,
@@ -57,9 +60,9 @@ def start():
     all_hosts = []
     all_ip = []
     bingapi = 'yes'
-    dnsbrute = False
-    dnslookup = False
-    dnsserver = args.dns
+    dnsbrute = args.dns_brute
+    dnslookup = args.dns_lookup
+    dnsserver = args.dns_server
     dnstld = args.dnstld
     filename = args.filename
     full = []
@@ -72,30 +75,9 @@ def start():
     takeover_check = False
     trello_info = ([], False)
     vhost = []
-    virtual = False
+    virtual = args.virtual_host
     word = args.domain
 
-
-        # elif opt == '-g':
-        # google_dorking = True
-        # elif opt == '-s':
-        # start = int(arg)
-        # elif opt == '-v':
-        # virtual = 'basic'
-        # elif opt == '-f':
-        # filename = arg
-        # elif opt == '-n':
-        # dnslookup = True
-        # elif opt == '-c':
-        # dnsbrute = True
-        # elif opt == '-h':
-        # shodan = True
-        # elif opt == '-e':
-        # dnsserver = arg
-        # elif opt == '-p':
-        # ports_scanning = True
-        # elif opt == '-t':
-        # dnstld = True
     engines = set(args.source.split(','))
     if set(engines).issubset(Core.get_supportedengines()):
         print(f'\033[94m[*] Target domain: {word} \n \033[0m')
@@ -619,7 +601,20 @@ def start():
                         except Exception:
                             pass
 
-                        # vhost
+                        print('\n[*] Virtual hosts:')
+                        print('------------------')
+                        for l in host_ip:
+                            search = bingsearch.SearchBing(l, limit, start)
+                            search.process_vhost()
+                            res = search.get_allhostnames()
+                            for x in res:
+                                x = re.sub(r'[[\<\/?]*[\w]*>]*', '', x)
+                                x = re.sub('<', '', x)
+                                x = re.sub('>', '', x)
+                                print((l + '\t' + x))
+                                vhost.append(l + ':' + x)
+                                full.append(l + ':' + x)
+                        vhost = sorted(set(vhost))
 
                         print('[*] Searching VirusTotal.')
                         search = virustotal.search_virustotal(word)
