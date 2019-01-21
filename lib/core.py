@@ -3,12 +3,43 @@
 #from discovery import *
 import os
 import random
+import yaml
 import sys
 # from lib import stash
 # import re
 
 
 class Core:
+    @staticmethod
+    def bing_key():
+        with open('api-keys.yaml', 'r') as api_keys:
+            keys = yaml.safe_load(api_keys)
+            return keys['apikeys']['bing']['key']
+
+    @staticmethod
+    def google_cse_key():
+        with open('api-keys.yaml', 'r') as api_keys:
+            keys = yaml.safe_load(api_keys)
+            return keys['apikeys']['googleCSE']
+
+    @staticmethod
+    def hunter_key():
+        with open('api-keys.yaml', 'r') as api_keys:
+            keys = yaml.safe_load(api_keys)
+            return keys['apikeys']['hunter']['key']
+
+    @staticmethod
+    def security_trails_key():
+        with open('api-keys.yaml', 'r') as api_keys:
+            keys = yaml.safe_load(api_keys)
+            return keys['apikeys']['securityTrails']['key']
+
+    @staticmethod
+    def shodan_key():
+        with open('api-keys.yaml', 'r') as api_keys:
+            keys = yaml.safe_load(api_keys)
+            return keys['apikeys']['shodan']['key']
+
     @staticmethod
     def banner():
         print('\n\033[93m*******************************************************************')

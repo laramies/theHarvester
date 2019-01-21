@@ -1,4 +1,5 @@
 from discovery.constants import *
+from lib.core import *
 from shodan import Shodan
 from shodan import exception
 
@@ -6,7 +7,7 @@ from shodan import exception
 class search_shodan:
 
     def __init__(self):
-        self.key = shodanAPI_key
+        self.key = Core.shodan_key()
         if self.key == '':
             raise MissingKey(True)
         self.api = Shodan(self.key)

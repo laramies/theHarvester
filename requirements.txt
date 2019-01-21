@@ -1,4 +1,5 @@
 beautifulsoup4>=4.7.1
+PyYaml==3.13
 plotly>=3.5.0
 pytest>=4.1.1
 requests>=2.21.0

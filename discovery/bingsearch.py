@@ -16,7 +16,7 @@ class SearchBing:
         self.hostname = 'www.bing.com'
         self.quantity = '50'
         self.limit = int(limit)
-        self.bingApi = bingAPI_key
+        self.bingApi = Core.bing_key()
         self.counter = start
 
     def do_search(self):
@@ -70,7 +70,7 @@ class SearchBing:
 
     def process(self, api):
         if api == 'yes':
-            if self.bingApi == "":
+            if self.bingApi is None:
                 raise MissingKey(True)
         while self.counter < self.limit:
             if api == 'yes':

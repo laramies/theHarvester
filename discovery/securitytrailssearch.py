@@ -1,5 +1,6 @@
 from discovery.constants import *
 from parsers import securitytrailsparser
+from lib.core import *
 import requests
 import sys
 import time
@@ -9,7 +10,7 @@ class search_securitytrail:
 
     def __init__(self, word):
         self.word = word
-        self.key = securityTrailsAPI_key
+        self.key = Core.security_trails_key()
         if self.key == "":
             raise MissingKey(True)
         self.results = ""

@@ -1,26 +1,7 @@
-"""
-Module that contains constants used across plugins.
-Contains list of API keys, user agents, and a function to get random delay and user agent.
-As well as a defined User Agent for Google Search.
-User-Agents from: https://github.com/tamimibrahim17/List-of-user-agents
-"""
-
 import random
 
 
 googleUA = "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1464.0 Safari/537.36"
-
-bingAPI_key = ''
-
-googleCSEAPI_key = ''
-
-googleCSE_id = ''
-
-hunterAPI_key = ''
-
-securityTrailsAPI_key = ''
-
-shodanAPI_key = 'oCiMsgM6rQWqiTvPxFHYcExlZgg7wvTt'  # This is the default key.
 
 
 def filter(lst):

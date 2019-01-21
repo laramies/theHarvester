@@ -1,5 +1,6 @@
 from discovery.constants import *
 from parsers import myparser
+from lib.core import *
 import re
 import requests
 import sys
@@ -19,11 +20,11 @@ class SearchGoogleCSE:
         self.quantity = "10"
         self.limit = limit
         self.counter = 1
-        self.api_key = googleCSEAPI_key
-        if self.api_key == "":
+        self.api_key = Core.google_cse_key()['key']
+        if self.api_key is None:
             raise MissingKey(True)
-        self.cse_id = googleCSE_id
-        if self.cse_id == "":
+        self.cse_id = Core.google_cse_key()['id']
+        if self.cse_id is None:
             raise MissingKey(False)
         self.lowRange = start
         self.highRange = start + 100
