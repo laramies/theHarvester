@@ -1,6 +1,6 @@
 from discovery.constants import *
-from parsers import securitytrailsparser
 from lib.core import *
+from parsers import securitytrailsparser
 import requests
 import sys
 import time

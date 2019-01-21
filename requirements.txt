@@ -1,7 +1,7 @@
 beautifulsoup4>=4.7.1
-PyYaml==3.13
 plotly>=3.5.0
+PyYaml==3.13
 pytest>=4.1.1
 requests>=2.21.0
-texttable>=1.6.0
 shodan>=1.10.0
+texttable>=1.6.0

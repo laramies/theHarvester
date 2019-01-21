@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 
-import argparse
 from discovery import *
 from discovery.constants import *
-from lib.core import *
 from lib import hostchecker
 from lib import htmlExport
 from lib import reportgraph
 from lib import statichtmlgenerator
 from lib import stash
+from lib.core import *
+from platform import python_version
+import argparse
 import datetime
 import ipaddress
 import re
-from platform import python_version
 import time
 
 try:
@@ -32,22 +32,22 @@ Core.banner()
 
 def start():
     parser = argparse.ArgumentParser(description='theHarvester is a open source intelligence gathering tool(OSINT) that is used for recon')
-    parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain, default=False, params=True', default=False)
-    parser.add_argument('-d', '--domain', help='Company name or domain to search', required=True)
-    parser.add_argument('-t', '--dnstld', help='Perform a DNS TLD expansion discovery, default False', default=False)
-    parser.add_argument('-l', '--limit', help='limit the number of search results, default 500', default=500, type=int)
+    parser.add_argument('-d', '--domain', help='company name or domain to search', required=True)
+    parser.add_argument('-l', '--limit', help='limit the number of search results, default=500', default=500, type=int)
+    parser.add_argument('-S', '--start', help='start with result number X, default=0', default=0, type=int)
+    parser.add_argument('-g', '--google-dork', help='use Google Dorks for google search, default=False, params=True', default=False)
+    parser.add_argument('-p', '--port-scan', help='scan the detected hosts and check for Takeovers (21,22,80,443,8080) default=False, params=True', default=False)
     parser.add_argument('-s', '--shodan', help='use Shodan to query discovered hosts, default=False, params=True', default=False)
-    parser.add_argument('-S', '--start', help='start with result number X (default: 0)', default=0)
-    parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
-    parser.add_argument('-g', '--googleDork', help='use googledorks for google search, default False', default=False)
-    parser.add_argument('-n', '--dns-lookup', help='Enable DNS server lookup, default=False, params=True', default=False)
-    parser.add_argument('-e', '--dns-server', help='DNS server to use for lookup')
     parser.add_argument('-v', '--virtual-host', help='verify host name via DNS resolution and search for virtual hosts params=basic, default=False', default=False)
-    parser.add_argument('-p', '--portscan', help='port scan the detected hosts and check for Takeovers (21,22,80,443,8080) default=False, params=True', default=False)
+    parser.add_argument('-e', '--dns-server', help='DNS server to use for lookup')
+    parser.add_argument('-t', '--dns-tld', help='perform a DNS TLD expansion discovery, default False', default=False)
+    parser.add_argument('-n', '--dns-lookup', help='enable DNS server lookup, default=False, params=True', default=False)
+    parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain, default=False, params=True', default=False)
+    parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
     parser.add_argument('-b', '--source', help='''source: baidu, bing, bingapi, censys, crtsh, cymon, dogpile,
-               google, googleCSE, google-certificates, google-profiles,
-               hunter, linkedin, netcraft, pgp, securityTrails, threatcrowd,
-               trello, twitter, vhost, virustotal, yahoo, all''', required=True)
+                  google, googleCSE, google-certificates, google-profiles,
+                  hunter, linkedin, netcraft, pgp, securityTrails, threatcrowd,
+                  trello, twitter, vhost, virustotal, yahoo, all''', required=True)
 
     args = parser.parse_args()
 
@@ -64,13 +64,13 @@ def start():
     dnsbrute = args.dns_brute
     dnslookup = args.dns_lookup
     dnsserver = args.dns_server
-    dnstld = args.dnstld
+    dnstld = args.dns_tld
     filename = args.filename
     full = []
-    google_dorking = args.googleDork
+    google_dorking = args.google_dork
     host_ip = []
     limit = args.limit
-    ports_scanning = args.portscan
+    ports_scanning = args.port_scan
     shodan = args.shodan
     start = args.start
     takeover_check = False
@@ -349,7 +349,7 @@ def start():
                         db.store_all(word, people, 'name', 'twitter')
 
                         if len(people) == 0:
-                            print('\n[*] No users found on Twitter.\n\n')
+                            print('\n[*] No users found.\n\n')
                         else:
                             print('\n[*] Users found: ' + str(len(people)))
                             print('---------------------')
@@ -857,7 +857,7 @@ def start():
             HTMLcode = generator.beginhtml()
             HTMLcode += generator.generatelatestscanresults(latestscanresults)
             HTMLcode += generator.generatepreviousscanresults(previousscanresults)
-            graph = reportgraph.graphgenerator(word)
+            graph = reportgraph.GraphGenerator(word)
             HTMLcode += graph.drawlatestscangraph(word, latestscanchartdata)
             HTMLcode += graph.drawscattergraphscanhistory(word, scanhistorydomain)
             HTMLcode += generator.generatepluginscanstatistics(pluginscanstatistics)

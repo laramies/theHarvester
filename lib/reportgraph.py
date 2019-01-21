@@ -1,16 +1,16 @@
-try:
-    from datetime import datetime
-    import plotly.graph_objs as go
-    import plotly.plotly as py
-    import plotly
-    from lib import stash
-    try:
-        db = stash.stash_manager()
-        db.do_init()
-    except Exception as e:
-        pass
+from datetime import datetime
+from lib import stash
+import plotly
+import plotly.graph_objs as go
+import plotly.plotly as py
 
-    class graphgenerator:
+try:
+    db = stash.stash_manager()
+    db.do_init()
+except Exception:
+    pass
+
+    class GraphGenerator:
 
         def __init__(self, domain):
             self.domain = domain
@@ -32,8 +32,8 @@ try:
                 self.bardata.append(latestscandata['shodan'])
                 self.bardata.append(latestscandata['vhost'])
                 layout = dict(title='Latest scan - number of targets identified for ' + domain,
-                xaxis = dict(title='Targets'),
-                yaxis = dict(title='Hits'),)
+                xaxis=dict(title='Targets'),
+                yaxis=dict(title='Hits'),)
                 barchartcode = plotly.offline.plot({
                 'data': [go.Bar(x=self.barcolumns, y=self.bardata)],
                 'layout': layout,
@@ -84,10 +84,7 @@ try:
                 name='email')
 
                 data = [trace0, trace1, trace2, trace3, trace4]
-                layout = dict(title='Scanning history for ' + domain,
-                        xaxis=dict(title='Date'),
-                        yaxis=dict(title='Results'),
-                              )
+                layout = dict(title='Scanning history for ' + domain, xaxis=dict(title='Date'), yaxis=dict(title='Results'))
                 scatterchartcode = plotly.offline.plot({
                 'data': data,
                 'layout': layout}, auto_open=False, include_plotlyjs=False, filename='report.html', output_type='div')

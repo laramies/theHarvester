@@ -6,7 +6,7 @@
 * | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
 *  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
 *                                                                 *
-* theHarvester 3.0.6 v184                                         *
+* theHarvester 3.0.6 v206                                         *
 * Coded by Christian Martorella                                   *
 * Edge-Security Research                                          *
 * cmartorella@edge-security.com                                   *
@@ -82,7 +82,7 @@ Active:
 
 Modules that require an API key:
 --------------------------------
-Add your keys to discovery/constants.py
+Add your keys to api-keys.yaml
 
 * googleCSE: API key and CSE ID
 * hunter: API key

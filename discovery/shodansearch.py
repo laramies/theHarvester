@@ -1,7 +1,7 @@
 from discovery.constants import *
 from lib.core import *
-from shodan import Shodan
 from shodan import exception
+from shodan import Shodan
 
 
 class search_shodan:

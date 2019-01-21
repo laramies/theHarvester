@@ -1,6 +1,6 @@
 from discovery.constants import *
-from parsers import myparser
 from lib.core import *
+from parsers import myparser
 import requests
 
 
