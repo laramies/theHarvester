@@ -1,30 +1,18 @@
 #!/usr/bin/env python3
 
-import argparse
 from discovery import *
 from discovery.constants import *
 from lib import hostchecker
 from lib import htmlExport
 from lib import reportgraph
 from lib import statichtmlgenerator
-<<<<<<< HEAD
-from lib import stash
-||||||| merged common ancestors
-=======
 from lib import stash
 from lib.core import *
 from platform import python_version
 import argparse
->>>>>>> 0d7b8a09ef12196954ed9f21fb8339335e940948
 import datetime
 import ipaddress
 import re
-<<<<<<< HEAD
-from platform import python_version
-||||||| merged common ancestors
-import stash
-=======
->>>>>>> 0d7b8a09ef12196954ed9f21fb8339335e940948
 import time
 
 try:
@@ -42,39 +30,6 @@ except ImportError:
 Core.banner()
 
 
-<<<<<<< HEAD
-def start():
-    parser = argparse.ArgumentParser(description='theHarvester is a open source intelligence gathering tool(OSINT) that is used for recon')
-    parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain, default=False, params=True', default=False)
-    parser.add_argument('-d', '--domain', help='Company name or domain to search', required=True)
-    parser.add_argument('-t', '--dnstld', help='Perform a DNS TLD expansion discovery, default False', default=False)
-    parser.add_argument('-l', '--limit', help='limit the number of search results, default 500', default=500, type=int)
-    parser.add_argument('-s', '--shodan', help='use Shodan to query discovered hosts, default=False, params=True', default=False)
-    parser.add_argument('-S', '--start', help='start with result number X (default: 0)', default=0)
-    parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
-    parser.add_argument('-g', '--googleDork', help='use googledorks for google search, default False', default=False)
-    parser.add_argument('-n', '--dns-lookup', help='Enable DNS server lookup, default=False, params=True', default=False)
-    parser.add_argument('-e', '--dns-server', help='DNS server to use for lookup')
-    parser.add_argument('-v', '--virtual-host', help='verify host name via DNS resolution and search for virtual hosts params=basic, default=False', default=False)
-    parser.add_argument('-p', '--portscan', help='port scan the detected hosts and check for Takeovers (21,22,80,443,8080) default=False, params=True', default=False)
-    parser.add_argument('-b', '--source', help='''source: baidu, bing, bingapi, censys, crtsh, cymon, dogpile,
-               google, googleCSE, google-certificates, google-profiles,
-               hunter, linkedin, netcraft, pgp, securityTrails, threatcrowd,
-               trello, twitter, vhost, virustotal, yahoo, all''', required=True)
-
-    args = parser.parse_args()
-
-||||||| merged common ancestors
-def start(argv):
-    if len(sys.argv) < 4:
-        Core.usage()
-        sys.exit(1)
-    try:
-        opts, args = getopt.getopt(argv, 'l:d:b:s:u:vf:nhcgpte:')
-    except getopt.GetoptError:
-        Core.usage()
-        sys.exit(1)
-=======
 def start():
     parser = argparse.ArgumentParser(description='theHarvester is a open source intelligence gathering tool(OSINT) that is used for recon')
     parser.add_argument('-d', '--domain', help='company name or domain to search', required=True)
@@ -96,7 +51,6 @@ def start():
 
     args = parser.parse_args()
 
->>>>>>> 0d7b8a09ef12196954ed9f21fb8339335e940948
     try:
         db = stash.stash_manager()
         db.do_init()
@@ -107,181 +61,21 @@ def start():
     all_hosts = []
     all_ip = []
     bingapi = 'yes'
-<<<<<<< HEAD
-    dnsbrute = args.dns_brute
-    dnslookup = args.dns_lookup
-    dnsserver = args.dns_server
-    dnstld = args.dnstld
-    filename = args.filename
-||||||| merged common ancestors
-    dnsbrute = False
-    dnslookup = False
-    dnsserver = ""
-    dnstld = False
-    filename = ""
-=======
     dnsbrute = args.dns_brute
     dnslookup = args.dns_lookup
     dnsserver = args.dns_server
     dnstld = args.dns_tld
     filename = args.filename
->>>>>>> 0d7b8a09ef12196954ed9f21fb8339335e940948
     full = []
-<<<<<<< HEAD
-    google_dorking = args.googleDork
-||||||| merged common ancestors
-    google_dorking = False
-=======
     google_dorking = args.google_dork
->>>>>>> 0d7b8a09ef12196954ed9f21fb8339335e940948
     host_ip = []
-<<<<<<< HEAD
-    limit = args.limit
-    ports_scanning = args.portscan
-    shodan = args.shodan
-    start = args.start
-||||||| merged common ancestors
-    limit = 500
-    ports_scanning = False
-    shodan = False
-    start = 0
-=======
     limit = args.limit
     ports_scanning = args.port_scan
     shodan = args.shodan
     start = args.start
->>>>>>> 0d7b8a09ef12196954ed9f21fb8339335e940948
     takeover_check = False
     trello_info = ([], False)
     vhost = []
-<<<<<<< HEAD
-    virtual = args.virtual_host
-    word = args.domain
-    engines = set(args.source.split(','))
-    if set(engines).issubset(Core.get_supportedengines()):
-        print(f'\033[94m[*] Target domain: {word} \n \033[0m')
-        for engineitem in engines:
-            if engineitem == 'baidu':
-                print('\033[94m[*] Searching Baidu. \033[0m')
-                try:
-                    search = baidusearch.SearchBaidu(word, limit)
-                    search.process()
-                    all_emails = filter(search.get_emails())
-                    hosts = filter(search.get_hostnames())
-                    all_hosts.extend(hosts)
-                    db = stash.stash_manager()
-                    db.store_all(word, all_hosts, 'host', 'baidu')
-                    db.store_all(word, all_emails, 'email', 'baidu')
-                except Exception:
-                    pass
-||||||| merged common ancestors
-    virtual = False
-
-    for value in enumerate(opts):
-        opt = value[1][0]
-        arg = value[1][1]
-        opt = str(opt)
-        arg = str(arg)
-        if opt == '-l':
-            limit = int(arg)
-        elif opt == '-d':
-            word = arg
-        elif opt == '-g':
-            google_dorking = True
-        elif opt == '-s':
-            start = int(arg)
-        elif opt == '-v':
-            virtual = 'basic'
-        elif opt == '-f':
-            filename = arg
-        elif opt == '-n':
-            dnslookup = True
-        elif opt == '-c':
-            dnsbrute = True
-        elif opt == '-h':
-            shodan = True
-        elif opt == '-e':
-            dnsserver = arg
-        elif opt == '-p':
-            ports_scanning = True
-        elif opt == '-t':
-            dnstld = True
-        elif opt == '-b':
-            engines = set(arg.split(','))
-            supportedengines = set(['baidu', 'bing', 'bingapi', 'censys', 'crtsh', 'cymon', 'dogpile', 'duckduckgo',
-                                    'google', 'googleCSE', 'google-certificates', 'google-profiles', 'hunter',
-                                    'linkedin', 'netcraft', 'pgp', 'securityTrails', 'threatcrowd', 'trello',
-                                    'twitter', 'vhost', 'virustotal', 'yahoo', 'all'])
-            if set(engines).issubset(supportedengines):
-                print(f'\033[94m[*] Target domain: {word} \n \033[0m')
-                for engineitem in engines:
-                    if engineitem == 'baidu':
-                        print('\033[94m[*] Searching Baidu. \033[0m')
-                        try:
-                            search = baidusearch.SearchBaidu(word, limit)
-                            search.process()
-                            all_emails = filter(search.get_emails())
-                            hosts = filter(search.get_hostnames())
-                            all_hosts.extend(hosts)
-                            db = stash.stash_manager()
-                            db.store_all(word, all_hosts, 'host', 'baidu')
-                            db.store_all(word, all_emails, 'email', 'baidu')
-                        except Exception:
-                            pass
-
-                    elif engineitem == 'bing' or engineitem == 'bingapi':
-                        print('\033[94m[*] Searching Bing. \033[0m')
-                        try:
-                            search = bingsearch.SearchBing(word, limit, start)
-                            if engineitem == 'bingapi':
-                                bingapi = 'yes'
-                            else:
-                                bingapi = 'no'
-                            search.process(bingapi)
-                            all_emails = filter(search.get_emails())
-                            hosts = filter(search.get_hostnames())
-                            all_hosts.extend(hosts)
-                            db = stash.stash_manager()
-                            db.store_all(word, all_hosts, 'email', 'bing')
-                            db.store_all(word, all_hosts, 'host', 'bing')
-                        except Exception as e:
-                            if isinstance(e, MissingKey):
-                                print(e)
-                            else:
-                                pass
-
-                    elif engineitem == 'censys':
-                        print('\033[94m[*] Searching Censys. \033[0m')
-                        from discovery import censys
-                        # Import locally or won't work
-                        search = censys.SearchCensys(word, limit)
-                        search.process()
-                        all_ip = search.get_ipaddresses()
-                        hosts = filter(search.get_hostnames())
-                        all_hosts.extend(hosts)
-                        db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'host', 'censys')
-                        db.store_all(word, all_ip, 'ip', 'censys')
-
-                    elif engineitem == 'crtsh':
-                        print('\033[94m[*] Searching CRT.sh. \033[0m')
-                        search = crtsh.search_crtsh(word)
-                        search.process()
-                        hosts = filter(search.get_hostnames())
-                        all_hosts.extend(hosts)
-                        db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'host', 'CRTsh')
-
-                    elif engineitem == 'cymon':
-                        print('\033[94m[*] Searching Cymon. \033[0m')
-                        from discovery import cymon
-                        # Import locally or won't work.
-                        search = cymon.search_cymon(word)
-                        search.process()
-                        all_ip = search.get_ipaddresses()
-                        db = stash.stash_manager()
-                        db.store_all(word, all_ip, 'ip', 'cymon')
-=======
     virtual = args.virtual_host
     word = args.domain
     engines = set(args.source.split(','))
@@ -302,30 +96,6 @@ def start():
                 except Exception:
                     pass
 
-            elif engineitem == 'bing' or engineitem == 'bingapi':
-                print('\033[94m[*] Searching Bing. \033[0m')
-                try:
-                    search = bingsearch.SearchBing(word, limit, start)
-                    bingapi = ''
-                    if engineitem == 'bingapi':
-                        bingapi += 'yes'
-                    else:
-                        bingapi += 'no'
-                    search.process(bingapi)
-                    all_emails = filter(search.get_emails())
-                    hosts = filter(search.get_hostnames())
-                    all_hosts.extend(hosts)
-                    db = stash.stash_manager()
-                    db.store_all(word, all_hosts, 'email', 'bing')
-                    db.store_all(word, all_hosts, 'host', 'bing')
-                except Exception as e:
-                        if isinstance(e, MissingKey):
-                            print(e)
-                        else:
-                            pass
->>>>>>> 0d7b8a09ef12196954ed9f21fb8339335e940948
-
-<<<<<<< HEAD
             elif engineitem == 'bing' or engineitem == 'bingapi':
                 print('\033[94m[*] Searching Bing. \033[0m')
                 try:
@@ -424,112 +194,7 @@ def start():
                         search.process()
                         search.store_results()
                         all_emails = filter(search.get_emails())
-||||||| merged common ancestors
-                    elif engineitem == 'dogpile':
-                        print('\033[94m[*] Searching Dogpile. \033[0m')
-                        search = dogpilesearch.SearchDogpile(word, limit)
-                        search.process()
-                        emails = filter(search.get_emails())
-                        hosts = filter(search.get_hostnames())
-                        all_hosts.extend(hosts)
-                        all_emails.extend(emails)
                         db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'email', 'dogpile')
-                        db.store_all(word, all_hosts, 'host', 'dogpile')
-
-                    elif engineitem == 'duckduckgo':
-                        print('\033[94m[*] Searching DuckDuckGo. \033[0m')
-                        from discovery import duckduckgosearch
-                        search = duckduckgosearch.SearchDuckDuckGo(word, limit)
-                        search.process()
-                        emails = filter(search.get_emails())
-                        hosts = filter(search.get_hostnames())
-                        all_hosts.extend(hosts)
-                        all_emails.extend(emails)
-=======
-            elif engineitem == 'censys':
-                    print('\033[94m[*] Searching Censys. \033[0m')
-                    from discovery import censys
-                    # Import locally or won't work
-                    search = censys.SearchCensys(word, limit)
-                    search.process()
-                    all_ip = search.get_ipaddresses()
-                    hosts = filter(search.get_hostnames())
-                    all_hosts.extend(hosts)
-                    db = stash.stash_manager()
-                    db.store_all(word, all_hosts, 'host', 'censys')
-                    db.store_all(word, all_ip, 'ip', 'censys')
-
-            elif engineitem == 'crtsh':
-                    print('\033[94m[*] Searching CRT.sh. \033[0m')
-                    search = crtsh.search_crtsh(word)
-                    search.process()
-                    hosts = filter(search.get_hostnames())
-                    all_hosts.extend(hosts)
-                    db = stash.stash_manager()
-                    db.store_all(word, all_hosts, 'host', 'CRTsh')
-
-            elif engineitem == 'cymon':
-                    print('\033[94m[*] Searching Cymon. \033[0m')
-                    from discovery import cymon
-                    # Import locally or won't work.
-                    search = cymon.search_cymon(word)
-                    search.process()
-                    all_ip = search.get_ipaddresses()
-                    db = stash.stash_manager()
-                    db.store_all(word, all_ip, 'ip', 'cymon')
-
-            elif engineitem == 'dogpile':
-                    print('\033[94m[*] Searching Dogpile. \033[0m')
-                    search = dogpilesearch.SearchDogpile(word, limit)
-                    search.process()
-                    emails = filter(search.get_emails())
-                    hosts = filter(search.get_hostnames())
-                    all_hosts.extend(hosts)
-                    all_emails.extend(emails)
-                    db = stash.stash_manager()
-                    db.store_all(word, all_hosts, 'email', 'dogpile')
-                    db.store_all(word, all_hosts, 'host', 'dogpile')
-
-            elif engineitem == 'duckduckgo':
-                    print('\033[94m[*] Searching DuckDuckGo. \033[0m')
-                    from discovery import duckduckgosearch
-                    search = duckduckgosearch.SearchDuckDuckGo(word, limit)
-                    search.process()
-                    emails = filter(search.get_emails())
-                    hosts = filter(search.get_hostnames())
-                    all_hosts.extend(hosts)
-                    all_emails.extend(emails)
-                    db = stash.stash_manager()
-                    db.store_all(word, all_hosts, 'email', 'duckduckgo')
-                    db.store_all(word, all_hosts, 'host', 'duckduckgo')
-
-            elif engineitem == 'google':
-                    print('\033[94m[*] Searching Google. \033[0m')
-                    search = googlesearch.search_google(word, limit, start)
-                    search.process(google_dorking)
-                    emails = filter(search.get_emails())
-                    all_emails.extend(emails)
-                    hosts = filter(search.get_hostnames())
-                    all_hosts.extend(hosts)
-                    db = stash.stash_manager()
-                    db.store_all(word, all_hosts, 'host', 'google')
-                    db.store_all(word, all_emails, 'email', 'google')
-
-            elif engineitem == 'googleCSE':
-                    print('\033[94m[*] Searching Google Custom Search. \033[0m')
-                    try:
-                        search = googleCSE.SearchGoogleCSE(word, limit, start)
-                        search.process()
-                        search.store_results()
-                        all_emails = filter(search.get_emails())
-                        db = stash.stash_manager()
-                        hosts = filter(search.get_hostnames())
-                        all_hosts.extend(hosts)
-                        db.store_all(word, all_hosts, 'email', 'googleCSE')
->>>>>>> 0d7b8a09ef12196954ed9f21fb8339335e940948
-                        db = stash.stash_manager()
-<<<<<<< HEAD
                         hosts = filter(search.get_hostnames())
                         all_hosts.extend(hosts)
                         db.store_all(word, all_hosts, 'email', 'googleCSE')
@@ -538,66 +203,6 @@ def start():
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             print(e)
-||||||| merged common ancestors
-                        db.store_all(word, all_hosts, 'email', 'duckduckgo')
-                        db.store_all(word, all_hosts, 'host', 'duckduckgo')
-
-                    elif engineitem == 'google':
-                        print('\033[94m[*] Searching Google. \033[0m')
-                        search = googlesearch.search_google(word, limit, start)
-                        search.process(google_dorking)
-                        emails = filter(search.get_emails())
-                        all_emails.extend(emails)
-                        hosts = filter(search.get_hostnames())
-                        all_hosts.extend(hosts)
-                        db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'host', 'google')
-                        db.store_all(word, all_emails, 'email', 'google')
-
-                    elif engineitem == 'googleCSE':
-                        print('\033[94m[*] Searching Google Custom Search. \033[0m')
-                        try:
-                            search = googleCSE.SearchGoogleCSE(word, limit, start)
-                            search.process()
-                            search.store_results()
-                            all_emails = filter(search.get_emails())
-                            db = stash.stash_manager()
-                            hosts = filter(search.get_hostnames())
-                            all_hosts.extend(hosts)
-                            db.store_all(word, all_hosts, 'email', 'googleCSE')
-                            db = stash.stash_manager()
-                            db.store_all(word, all_hosts, 'host', 'googleCSE')
-                        except Exception as e:
-                            if isinstance(e, MissingKey):
-                                print(e)
-                            else:
-                                pass
-
-                    elif engineitem == 'google-certificates':
-                        print('\033[94m[*] Searching Google Certificate transparency report. \033[0m')
-                        search = googlecertificates.SearchGoogleCertificates(word, limit, start)
-                        search.process()
-                        hosts = filter(search.get_domains())
-                        all_hosts.extend(hosts)
-                        db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'host', 'google-certificates')
-
-                    elif engineitem == 'google-profiles':
-                        print('\033[94m[*] Searching Google profiles. \033[0m')
-                        search = googlesearch.search_google(word, limit, start)
-                        search.process_profiles()
-                        people = search.get_profiles()
-                        db = stash.stash_manager()
-                        db.store_all(word, people, 'name', 'google-profile')
-
-                        if len(people) == 0:
-                            print('\n[*] No users found.\n\n')
-=======
-                        db.store_all(word, all_hosts, 'host', 'googleCSE')
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            print(e)
->>>>>>> 0d7b8a09ef12196954ed9f21fb8339335e940948
                         else:
                             pass
 
@@ -744,7 +349,7 @@ def start():
                         db.store_all(word, people, 'name', 'twitter')
 
                         if len(people) == 0:
-                            print('\n[*] No users found on Twitter.\n\n')
+                            print('\n[*] No users found.\n\n')
                         else:
                             print('\n[*] Users found: ' + str(len(people)))
                             print('---------------------')

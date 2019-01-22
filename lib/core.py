@@ -86,21 +86,8 @@ class Core:
         return supportedengines
 
     @staticmethod
-    def get_supportedengines():
-        supportedengines = {'baidu', 'bing', 'bingapi', 'censys', 'crtsh', 'cymon', 'dogpile', 'duckduckgo', 'google',
-                            'googleCSE', 'google-certificates', 'google-profiles', 'hunter', 'linkedin', 'netcraft',
-                            'pgp', 'securityTrails', 'threatcrowd', 'trello', 'twitter', 'vhost', 'virustotal', 'yahoo',
-                            'all'}
-        return supportedengines
-
-    @staticmethod
     def get_user_agent():
-<<<<<<< HEAD
-        """User-Agents from https://github.com/tamimibrahim17/List-of-user-agents"""
-||||||| merged common ancestors
-=======
         # User-Agents from https://github.com/tamimibrahim17/List-of-user-agents
->>>>>>> 0d7b8a09ef12196954ed9f21fb8339335e940948
         user_agents = [
             'Mozilla/5.0 (Windows NT 6.2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1464.0 Safari/537.36',
             'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0) chromeframe/10.0.648.205',
