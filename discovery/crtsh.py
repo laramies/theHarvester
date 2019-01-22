@@ -22,7 +22,7 @@ class search_crtsh:
             print(e)
         try:
             params = {'User-Agent': Core.get_user_agent()}
-            r=requests.get(urly, headers=params)
+            r = requests.get(urly, headers=params)
         except Exception as e:
             print(e)
         links = self.get_info(r.text)

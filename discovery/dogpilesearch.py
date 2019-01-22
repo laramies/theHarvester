@@ -17,14 +17,17 @@ class SearchDogpile:
 
     def do_search(self):
         # Dogpile is hardcoded to return 10 results.
-        url = 'http://' + self.server + "/search/web?qsi=" + str(self.counter) \
+        url = 'https://' + self.server + "/search/web?qsi=" + str(self.counter) \
               + "&q=\"%40" + self.word + "\""
         headers = {
             'Host': self.hostname,
             'User-agent': Core.get_user_agent()
         }
-        h = requests.get(url=url, headers=headers)
-        self.total_results += h.text
+        try:
+            h = requests.get(url=url, headers=headers)
+            self.total_results += h.text
+        except requests.exceptions.ConnectionError:
+            pass
 
     def process(self):
         while self.counter <= self.limit and self.counter <= 1000:

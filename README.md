@@ -6,7 +6,7 @@
 * | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
 *  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
 *                                                                 *
-* theHarvester 3.0.6 v183                                         *
+* theHarvester 3.0.6 v206                                         *
 * Coded by Christian Martorella                                   *
 * Edge-Security Research                                          *
 * cmartorella@edge-security.com                                   *
@@ -82,7 +82,7 @@ Active:
 
 Modules that require an API key:
 --------------------------------
-Add your keys to discovery/constants.py
+Add your keys to api-keys.yaml
 
 * googleCSE: API key and CSE ID
 * hunter: API key
@@ -92,7 +92,7 @@ Add your keys to discovery/constants.py
 Dependencies:
 -------------
 * Python 3.6
-* pip3 install -r requirements.txt
+* python3 -m pip install -r requirements.txt
 
 Changelog in 3.0:
 -----------------
@@ -110,8 +110,8 @@ Main contributors:
 -------
 * Matthew Brown @NotoriousRebel
 * Janos Zold @Jzold
-* Lee Baird @discoverscripts
-* Jay Townsend @L1ghtn1ng
+* Lee Baird @discoverscripts [![Twitter Follow](https://img.shields.io/twitter/follow/discoverscripts.svg?style=social&label=Follow)](https://twitter.com/discoverscripts)
+* Jay Townsend @L1ghtn1ng [![Twitter Follow](https://img.shields.io/twitter/follow/jay_townsend1.svg?style=social&label=Follow)](https://twitter.com/jay_townsend1)
 
 Thanks:
 -------
