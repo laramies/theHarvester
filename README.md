@@ -110,8 +110,8 @@ Main contributors:
 -------
 * Matthew Brown @NotoriousRebel
 * Janos Zold @Jzold
-* Lee Baird @discoverscripts
-* Jay Townsend @L1ghtn1ng
+* Lee Baird @discoverscripts [![Twitter Follow](https://img.shields.io/twitter/follow/discoverscripts.svg?style=social&label=Follow)](https://twitter.com/discoverscripts)
+* Jay Townsend @L1ghtn1ng [![Twitter Follow](https://img.shields.io/twitter/follow/jay_townsend1.svg?style=social&label=Follow)](https://twitter.com/jay_townsend1)
 
 Thanks:
 -------
