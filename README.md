@@ -36,7 +36,7 @@ Passive:
 
 * dogpile: Dogpile search engine - www.dogpile.com
 
-* duckduckgo:
+* duckduckgo: DuckDuckGo search engine - www.duckduckgo.com 
 
 * google: Google search engine (Optional Google dorking.) - www.google.com
 
@@ -68,7 +68,7 @@ Passive:
 
 * vhost: Bing virtual hosts search
 
-* virustotal:
+* virustotal: Virustotal.com domain search  
 
 * yahoo: Yahoo search engine
 
