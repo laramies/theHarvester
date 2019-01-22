@@ -1,11 +1,45 @@
 # coding=utf-8
 
+#from discovery import *
+# from lib import stash
 import os
 import random
+# import re
 import sys
+import yaml
 
 
 class Core:
+    @staticmethod
+    def bing_key():
+        with open('api-keys.yaml', 'r') as api_keys:
+            keys = yaml.safe_load(api_keys)
+            return keys['apikeys']['bing']['key']
+
+    @staticmethod
+    def google_cse_key():
+        with open('api-keys.yaml', 'r') as api_keys:
+            keys = yaml.safe_load(api_keys)
+            return keys['apikeys']['googleCSE']
+
+    @staticmethod
+    def hunter_key():
+        with open('api-keys.yaml', 'r') as api_keys:
+            keys = yaml.safe_load(api_keys)
+            return keys['apikeys']['hunter']['key']
+
+    @staticmethod
+    def security_trails_key():
+        with open('api-keys.yaml', 'r') as api_keys:
+            keys = yaml.safe_load(api_keys)
+            return keys['apikeys']['securityTrails']['key']
+
+    @staticmethod
+    def shodan_key():
+        with open('api-keys.yaml', 'r') as api_keys:
+            keys = yaml.safe_load(api_keys)
+            return keys['apikeys']['shodan']['key']
+
     @staticmethod
     def banner():
         print('\n\033[93m*******************************************************************')
@@ -15,7 +49,7 @@ class Core:
         print("* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *")
         print("*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *")
         print('*                                                                 *')
-        print('* theHarvester 3.0.6 v183                                         *')
+        print('* theHarvester 3.0.6 v206                                         *')
         print('* Coded by Christian Martorella                                   *')
         print('* Edge-Security Research                                          *')
         print('* cmartorella@edge-security.com                                   *')
@@ -23,36 +57,33 @@ class Core:
         print('******************************************************************* \n\n \033[0m')
 
     @staticmethod
-    def usage():
-        comm = os.path.basename(sys.argv[0])
-
-        if os.path.dirname(sys.argv[0]) == os.getcwd():
-            comm = './' + comm
-
-        print('\033[94m Usage: theHarvester.py <options> \n \033[0m')
-        print('   -d: company name or domain to search')
-        print("""   -b: source: baidu, bing, bingapi, censys, crtsh, cymon, dogpile,
-               google, googleCSE, google-certificates, google-profiles,
-               hunter, linkedin, netcraft, pgp, securityTrails, threatcrowd,
-               trello, twitter, vhost, virustotal, yahoo, all""")
-        print('   -l: limit the number of search results')
-        print('   -s: start with result number X (default: 0)')
-        print('   -g: use Google Dorking instead of normal Google search')
-        print('   -h: use Shodan to query discovered hosts')
-        print('   -e: specify DNS server')
-        print('   -v: verify host name via DNS resolution and search for virtual hosts')
-        print('   -n: perform a DNS reverse query on all ranges discovered')
-        print('   -c: perform a DNS brute force on the domain')
-        print('   -t: perform a DNS TLD expansion discovery')
-        print('   -p: port scan the detected hosts and check for Takeovers (21,22,80,443,8080)')
-        print('   -f: save the results to an HTML and/or XML file')
-        print('\n\033[94m Examples: \033[0m')
-        print(('       ' + comm + ' -d acme -l 200 -b linkedin'))
-        print(('       ' + comm + ' -d acme.com -l 500 -b google -f myresults.html'))
-        print(('       ' + comm + ' -d acme.com -b pgp, virustotal'))
-        print(('       ' + comm + ' -d acme.com -l 100 -g -b google'))
-        print(('       ' + comm + ' -d acme.com -l 200 -b googleCSE -s 300'))
-        print(('       ' + comm + ' -d acme.edu -l 300 -b bing -h \n'))
+    def get_supportedengines():
+        supportedengines = {'baidu',
+                            'bing',
+                            'bingapi',
+                            'censys',
+                            'crtsh',
+                            'cymon',
+                            'dogpile',
+                            'duckduckgo',
+                            'google',
+                            'googleCSE',
+                            'google-certificates',
+                            'google-profiles',
+                            'hunter',
+                            'linkedin',
+                            'netcraft',
+                            'pgp',
+                            'securityTrails',
+                            'threatcrowd',
+                            'trello',
+                            'twitter',
+                            'vhost',
+                            'virustotal',
+                            'yahoo',
+                            'all'
+                            }
+        return supportedengines
 
     @staticmethod
     def get_supportedengines():
@@ -64,7 +95,12 @@ class Core:
 
     @staticmethod
     def get_user_agent():
+<<<<<<< HEAD
         """User-Agents from https://github.com/tamimibrahim17/List-of-user-agents"""
+||||||| merged common ancestors
+=======
+        # User-Agents from https://github.com/tamimibrahim17/List-of-user-agents
+>>>>>>> 0d7b8a09ef12196954ed9f21fb8339335e940948
         user_agents = [
             'Mozilla/5.0 (Windows NT 6.2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1464.0 Safari/537.36',
             'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0) chromeframe/10.0.648.205',
@@ -296,3 +332,262 @@ class Core:
             'Mozilla/5.0 (Windows NT 5.1; U; de; rv:1.9.1.6) Gecko/20091201 Firefox/3.5.6 Opera 11.00'
         ]
         return random.choice(user_agents)
+
+    # TODO use this method when -b all is called to replace lines 383-635 in theHarvester.py
+    # TODO and to find the best approch of getting the
+    #  word, limit and start etc vars from the arguments and importing libs that are needed
+    # @staticmethod
+    # def engine_all_search():
+    #     print(('Full harvest on ' + word))
+    #     all_emails = []
+    #     all_hosts = []
+    #     try:
+    #         print('[*] Searching Baidu.')
+    #         search = baidusearch.SearchBaidu(word, limit)
+    #         search.process()
+    #         all_emails = filter(search.get_emails())
+    #         hosts = filter(search.get_hostnames())
+    #         all_hosts.extend(hosts)
+    #         db = stash.stash_manager()
+    #         db.store_all(word, all_hosts, 'host', 'baidu')
+    #         db.store_all(word, all_emails, 'email', 'baidu')
+    #     except Exception:
+    #         pass
+    #
+    #     print('[*] Searching Bing.')
+    #     bingapi = 'no'
+    #     search = bingsearch.SearchBing(word, limit, start)
+    #     search.process(bingapi)
+    #     emails = filter(search.get_emails())
+    #     hosts = filter(search.get_hostnames())
+    #     all_hosts.extend(hosts)
+    #     db = stash.stash_manager()
+    #     db.store_all(word, all_hosts, 'host', 'bing')
+    #     all_emails.extend(emails)
+    #     all_emails = sorted(set(all_emails))
+    #     db.store_all(word, all_emails, 'email', 'bing')
+    #
+    #     print('[*] Searching Censys.')
+    #     from discovery import censys
+    #     search = censys.SearchCensys(word, limit)
+    #     search.process()
+    #     ips = search.get_ipaddresses()
+    #     setips = set(ips)
+    #     uniqueips = list(setips)  # Remove duplicates.
+    #     all_ip.extend(uniqueips)
+    #     hosts = filter(search.get_hostnames())
+    #     sethosts = set(hosts)
+    #     uniquehosts = list(sethosts)  # Remove duplicates.
+    #     all_hosts.extend(uniquehosts)
+    #     db = stash.stash_manager()
+    #     db.store_all(word, uniquehosts, 'host', 'censys')
+    #     db.store_all(word, uniqueips, 'ip', 'censys')
+    #
+    #     print('[*] Searching CRT.sh.')
+    #     search = crtsh.search_crtsh(word)
+    #     search.process()
+    #     hosts = filter(search.get_hostnames())
+    #     all_hosts.extend(hosts)
+    #     db = stash.stash_manager()
+    #     db.store_all(word, all_hosts, 'host', 'CRTsh')
+    #
+    #     # cymon
+    #     print('\033[94m[*] Searching Cymon. \033[0m')
+    #     from discovery import cymon
+    #     # Import locally or won't work.
+    #     search = cymon.search_cymon(word)
+    #     search.process()
+    #     all_ip = search.get_ipaddresses()
+    #     db = stash.stash_manager()
+    #     db.store_all(word, all_ip, 'ip', 'cymon')
+    #
+    #     print('\033[94m[*] Searching Dogpile. \033[0m')
+    #     search = dogpilesearch.SearchDogpile(word, limit)
+    #     search.process()
+    #     emails = filter(search.get_emails())
+    #     hosts = filter(search.get_hostnames())
+    #     all_hosts.extend(hosts)
+    #     all_emails.extend(emails)
+    #     db = stash.stash_manager()
+    #     db.store_all(word, all_hosts, 'email', 'dogpile')
+    #     db.store_all(word, all_hosts, 'host', 'dogpile')
+    #
+    #     print('[*] Searching DuckDuckGo.')
+    #     from discovery import duckduckgosearch
+    #     search = duckduckgosearch.SearchDuckDuckGo(word, limit)
+    #     search.process()
+    #     emails = filter(search.get_emails())
+    #     hosts = filter(search.get_hostnames())
+    #     all_hosts.extend(hosts)
+    #     all_emails.extend(emails)
+    #     db = stash.stash_manager()
+    #     db.store_all(word, all_hosts, 'email', 'duckduckgo')
+    #     db.store_all(word, all_hosts, 'host', 'duckduckgo')
+    #
+    #     print('[*] Searching Google.')
+    #     search = googlesearch.search_google(word, limit, start)
+    #     search.process(google_dorking)
+    #     emails = filter(search.get_emails())
+    #     hosts = filter(search.get_hostnames())
+    #     all_emails.extend(emails)
+    #     db = stash.stash_manager()
+    #     db.store_all(word, all_emails, 'email', 'google')
+    #     all_hosts.extend(hosts)
+    #     db = stash.stash_manager()
+    #     db.store_all(word, all_hosts, 'host', 'google')
+    #
+    #     print('[*] Searching Google Certificate transparency report.')
+    #     search = googlecertificates.SearchGoogleCertificates(word, limit, start)
+    #     search.process()
+    #     domains = filter(search.get_domains())
+    #     all_hosts.extend(domains)
+    #     db = stash.stash_manager()
+    #     db.store_all(word, all_hosts, 'host', 'google-certificates')
+    #
+    #     try:
+    #         print('[*] Searching Google profiles.')
+    #         search = googlesearch.search_google(word, limit, start)
+    #         search.process_profiles()
+    #         people = search.get_profiles()
+    #         db = stash.stash_manager()
+    #         db.store_all(word, people, 'name', 'google-profile')
+    #         print('\nUsers from Google profiles:')
+    #         print('---------------------------')
+    #         for users in people:
+    #             print(users)
+    #     except Exception:
+    #         pass
+    #
+    #     print('[*] Searching Hunter.')
+    #     from discovery import huntersearch
+    #     # Import locally.
+    #     try:
+    #         search = huntersearch.SearchHunter(word, limit, start)
+    #         search.process()
+    #         emails = filter(search.get_emails())
+    #         hosts = filter(search.get_hostnames())
+    #         all_hosts.extend(hosts)
+    #         db = stash.stash_manager()
+    #         db.store_all(word, hosts, 'host', 'hunter')
+    #         all_emails.extend(emails)
+    #         all_emails = sorted(set(all_emails))
+    #         db.store_all(word, all_emails, 'email', 'hunter')
+    #     except Exception as e:
+    #         if isinstance(e, MissingKey):
+    #             print(e)
+    #         else:
+    #             pass
+    #
+    #     print('\033[94m[*] Searching Linkedin. \033[0m')
+    #     search = linkedinsearch.SearchLinkedin(word, limit)
+    #     search.process()
+    #     people = search.get_people()
+    #     db = stash.stash_manager()
+    #     db.store_all(word, people, 'name', 'linkedin')
+    #
+    #     if len(people) == 0:
+    #         print('\n[*] No users found.\n\n')
+    #     else:
+    #         print('\n[*] Users found: ' + str(len(people)))
+    #         print('---------------------')
+    #         for user in sorted(list(set(people))):
+    #             print(user)
+    #
+    #     print('[*] Searching Netcraft.')
+    #     search = netcraft.SearchNetcraft(word)
+    #     search.process()
+    #     hosts = filter(search.get_hostnames())
+    #     all_hosts.extend(hosts)
+    #     db = stash.stash_manager()
+    #     db.store_all(word, all_hosts, 'host', 'netcraft')
+    #
+    #     print('[*] Searching PGP key server.')
+    #     try:
+    #         search = pgpsearch.SearchPgp(word)
+    #         search.process()
+    #         emails = filter(search.get_emails())
+    #         hosts = filter(search.get_hostnames())
+    #         sethosts = set(hosts)
+    #         uniquehosts = list(sethosts)  # Remove duplicates.
+    #         all_hosts.extend(uniquehosts)
+    #         db = stash.stash_manager()
+    #         db.store_all(word, all_hosts, 'host', 'PGP')
+    #         all_emails.extend(emails)
+    #         db = stash.stash_manager()
+    #         db.store_all(word, all_emails, 'email', 'PGP')
+    #     except Exception:
+    #         pass
+    #
+    #     print('[*] Searching Threatcrowd.')
+    #     try:
+    #         search = threatcrowd.search_threatcrowd(word)
+    #         search.process()
+    #         hosts = filter(search.get_hostnames())
+    #         all_hosts.extend(hosts)
+    #         db = stash.stash_manager()
+    #         db.store_all(word, all_hosts, 'host', 'threatcrowd')
+    #     except Exception:
+    #         pass
+    #
+    #     print('[*] Searching Trello.')
+    #     from discovery import trello
+    #     # Import locally or won't work.
+    #     search = trello.search_trello(word, limit)
+    #     search.process()
+    #     emails = filter(search.get_emails())
+    #     all_emails.extend(emails)
+    #     info = search.get_urls()
+    #     hosts = filter(info[0])
+    #     trello_info = (info[1], True)
+    #     all_hosts.extend(hosts)
+    #     db = stash.stash_manager()
+    #     db.store_all(word, hosts, 'host', 'trello')
+    #     db.store_all(word, emails, 'email', 'trello')
+    #
+    #     try:
+    #         print('[*] Searching Twitter.')
+    #         search = twittersearch.search_twitter(word, limit)
+    #         search.process()
+    #         people = search.get_people()
+    #         db = stash.stash_manager()
+    #         db.store_all(word, people, 'name', 'twitter')
+    #         print('\nUsers from Twitter:')
+    #         print('-------------------')
+    #         for user in people:
+    #             print(user)
+    #     except Exception:
+    #         pass
+    #
+    #     print('\n[*] Virtual hosts:')
+    #     print('------------------')
+    #     for l in host_ip:
+    #         search = bingsearch.SearchBing(l, limit, start)
+    #         search.process_vhost()
+    #         res = search.get_allhostnames()
+    #         for x in res:
+    #             x = re.sub(r'[[\<\/?]*[\w]*>]*', '', x)
+    #             x = re.sub('<', '', x)
+    #             x = re.sub('>', '', x)
+    #             print((l + '\t' + x))
+    #             vhost.append(l + ':' + x)
+    #             full.append(l + ':' + x)
+    #     vhost = sorted(set(vhost))
+    #
+    #     print('[*] Searching VirusTotal.')
+    #     search = virustotal.search_virustotal(word)
+    #     search.process()
+    #     hosts = filter(search.get_hostnames())
+    #     all_hosts.extend(hosts)
+    #     db = stash.stash_manager()
+    #     db.store_all(word, all_hosts, 'host', 'virustotal')
+    #
+    #     print('[*] Searching Yahoo.')
+    #     search = yahoosearch.search_yahoo(word, limit)
+    #     search.process()
+    #     hosts = search.get_hostnames()
+    #     emails = search.get_emails()
+    #     all_hosts.extend(filter(hosts))
+    #     all_emails.extend(filter(emails))
+    #     db = stash.stash_manager()
+    #     db.store_all(word, all_hosts, 'host', 'yahoo')
+    #     db.store_all(word, all_emails, 'email', 'yahoo')

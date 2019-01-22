@@ -1,0 +1,16 @@
+apikeys:
+  bing:
+    key:
+
+  googleCSE:
+    key:
+    id:
+
+  hunter:
+    key:
+
+  securityTrails:
+    key:
+
+  shodan:
+    key: oCiMsgM6rQWqiTvPxFHYcExlZgg7wvTt
