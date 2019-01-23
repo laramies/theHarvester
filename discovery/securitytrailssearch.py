@@ -15,7 +15,7 @@ class search_securitytrail:
             raise MissingKey(True)
         self.results = ""
         self.totalresults = ""
-        self.database = "https://api.securitytrails.com/v1/"
+        self.database = 'https://api.securitytrails.com/v1/'
         self.info = ()
 
     def authenticate(self):
@@ -53,7 +53,7 @@ class search_securitytrail:
         parser = securitytrailsparser.Parser(word=self.word, text=self.totalresults)
         self.info = parser.parse_text()
         # Create parser and set self.info to tuple returned from parsing text.
-        print('\tDone Searching Results')
+        print('\tSearching results.')
 
     def get_ips(self):
         return self.info[0]

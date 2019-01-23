@@ -34,10 +34,10 @@ class search_shodan:
                     str(results.get('org')), str(servicesports).replace('\'', '').strip('[]'),
                     str(technologies).replace('\'', '').strip('[]')]
         except exception.APIError:
-            print(f'{ipaddress}: Not in Shodan')
-            self.hostdatarow = [ipaddress, "Not in Shodan", "Not in Shodan", "Not in Shodan", "Not in Shodan"]
+            print(f'{ipaddress}: Not in Shodan.')
+            self.hostdatarow = [ipaddress, 'Not in Shodan', 'Not in Shodan', 'Not in Shodan', 'Not in Shodan']
 
         except Exception as e:
-            print(f'Error occurred in the Shodan IP search module: {e}')
+            print(f'[!] Error occurred in the Shodan IP search module: {e}')
         finally:
             return self.hostdatarow

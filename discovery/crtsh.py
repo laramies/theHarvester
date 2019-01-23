@@ -11,8 +11,8 @@ class search_crtsh:
         self.word = word.replace(' ', '%20')
         self.results = ""
         self.totalresults = ""
-        self.server = "https://crt.sh/?q="
-        self.quantity = "100"
+        self.server = 'https://crt.sh/?q='
+        self.quantity = '100'
         self.counter = 0
 
     def do_search(self):
@@ -64,4 +64,4 @@ class search_crtsh:
 
     def process(self):
         self.do_search()
-        print("\tSearching CRT.sh results.")
+        print('\tSearching results.')

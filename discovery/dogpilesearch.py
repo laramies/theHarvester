@@ -10,8 +10,8 @@ class SearchDogpile:
     def __init__(self, word, limit):
         self.word = word
         self.total_results = ""
-        self.server = "www.dogpile.com"
-        self.hostname = "www.dogpile.com"
+        self.server = 'www.dogpile.com'
+        self.hostname = 'www.dogpile.com'
         self.limit = limit
         self.counter = 0
 

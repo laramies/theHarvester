@@ -4,6 +4,7 @@
 .html
 .vscode
 .xml
+api-keys.yaml
 debug_results.txt
 tests/myparser.py
 venv

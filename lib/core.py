@@ -1,11 +1,6 @@
 # coding=utf-8
 
-#from discovery import *
-# from lib import stash
-import os
 import random
-# import re
-import sys
 import yaml
 
 
@@ -49,7 +44,7 @@ class Core:
         print("* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *")
         print("*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *")
         print('*                                                                 *')
-        print('* theHarvester 3.0.6 v206                                         *')
+        print('* theHarvester 3.0.6 v213                                         *')
         print('* Coded by Christian Martorella                                   *')
         print('* Edge-Security Research                                          *')
         print('* cmartorella@edge-security.com                                   *')
@@ -321,8 +316,9 @@ class Core:
         return random.choice(user_agents)
 
     # TODO use this method when -b all is called to replace lines 383-635 in theHarvester.py
-    # TODO and to find the best approch of getting the
-    #  word, limit and start etc vars from the arguments and importing libs that are needed
+    # TODO and to find the best approach of getting the word, limit, and start etc vars from
+    #      the arguments and importing libs that are needed.
+    #
     # @staticmethod
     # def engine_all_search():
     #     print(('Full harvest on ' + word))

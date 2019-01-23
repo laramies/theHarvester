@@ -1,7 +1,7 @@
 import random
 
 
-googleUA = "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1464.0 Safari/537.36"
+googleUA = 'Mozilla/5.0 (Windows NT 6.2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1464.0 Safari/537.36'
 
 
 def filter(lst):
@@ -42,9 +42,9 @@ class MissingKey(Exception):
 
     def __init__(self, identity_flag):
         if identity_flag:
-            self.message = '\n\033[93m[!] Missing API key.\n \033[0m'
+            self.message = '\n\033[93m[!] Missing API key. \033[0m'
         else:
-            self.message = '\n\033[93m[!] Missing CSE id.\n \033[0m'
+            self.message = '\n\033[93m[!] Missing CSE id. \033[0m'
 
     def __str__(self):
         return self.message

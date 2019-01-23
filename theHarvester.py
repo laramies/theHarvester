@@ -14,6 +14,7 @@ import datetime
 import ipaddress
 import re
 import time
+import sys
 
 try:
     import bs4
@@ -80,7 +81,7 @@ def start():
     word = args.domain
     engines = set(args.source.split(','))
     if set(engines).issubset(Core.get_supportedengines()):
-        print(f'\033[94m[*] Target domain: {word} \n \033[0m')
+        print(f'\033[94m[*] Target: {word} \n \033[0m')
         for engineitem in engines:
             if engineitem == 'baidu':
                 print('\033[94m[*] Searching Baidu. \033[0m')
@@ -656,7 +657,7 @@ def start():
     else:
         print('\n[*] IPs found: ' + str(len(all_ip)))
         print('-------------------')
-        ips = sorted(ipaddress.ip_address(line.strip()) for line in all_ip)
+        ips = sorted(ipaddress.ip_address(line.strip()) for line in set(all_ip))
         print('\n'.join(map(str, ips)))
 
     if len(all_emails) == 0:
@@ -669,8 +670,8 @@ def start():
     if len(all_hosts) == 0:
         print('\n[*] No hosts found.\n\n')
     else:
-        print('\n[*] Hosts found: ' + str(len(all_hosts)))
-        print('---------------------')
+        print('\n[*] Resolving hosts found: ' + str(len(all_hosts)))
+        print('-------------------------------')
         all_hosts = sorted(list(set(all_hosts)))
         full_host = hostchecker.Checker(all_hosts)
         full = full_host.check()
@@ -748,7 +749,7 @@ def start():
             s = '.'
             range = s.join(range)
             if not analyzed_ranges.count(range):
-                print('[*] Performing reverse lookup in ' + range)
+                print('[*] Performing a reverse lookup on ' + range)
                 a = dnssearch.dns_reverse(range, True)
                 a.list()
                 res = a.process()
@@ -760,8 +761,8 @@ def start():
                     dnsrev.append(x)
                     if x not in full:
                         full.append(x)
-        print('Hosts found after reverse lookup (in target domain):')
-        print('----------------------------------------------------')
+        print('[*] Hosts found after reverse lookup:')
+        print('-------------------------------------')
         for xh in dnsrev:
             print(xh)
 
@@ -819,7 +820,7 @@ def start():
                 time.sleep(2)
                 tab.add_row(rowdata)
             printedtable = tab.draw()
-            print('\n [*] Shodan results:')
+            print('\n[*] Shodan results:')
             print('-------------------')
             print(printedtable)
         except Exception as e:
@@ -873,20 +874,11 @@ def start():
             Html_file.close()
             print('NEW REPORTING FINISHED!')
             print('[*] Saving files.')
-            html = htmlExport.htmlExport(
-                all_emails,
-                full,
-                vhost,
-                dnsres,
-                dnsrev,
-                filename,
-                word,
-                shodanres,
-                dnstldres)
+            html = htmlExport.htmlExport(all_emails, full, vhost, dnsres, dnsrev, filename, word, shodanres, dnstldres)
             save = html.writehtml()
         except Exception as e:
             print(e)
-            print('Error creating the file.')
+            print('[!] Error creating the file.')
         try:
             filename = filename.split('.')[0] + '.xml'
             file = open(filename, 'w')
@@ -944,7 +936,7 @@ if __name__ == '__main__':
     try:
         start()
     except KeyboardInterrupt:
-        print('\n\n\033[93m[!] ctrl+c detected from user, quitting.\n\n \033[0m')
+        print('\n\n\033[93m[!] ctrl+c detected, stopping program.\n\n \033[0m')
     except Exception:
         import traceback
         print(traceback.print_exc())

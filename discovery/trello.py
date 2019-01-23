@@ -10,16 +10,16 @@ class search_trello:
         self.word = word.replace(' ', '%20')
         self.results = ""
         self.totalresults = ""
-        self.server = "www.google.com"
-        self.hostname = "www.google.com"
-        self.quantity = "100"
+        self.server = 'www.google.com'
+        self.hostname = 'www.google.com'
+        self.quantity = '100'
         self.limit = limit
         self.counter = 0
 
     def do_search(self):
         try:
-            urly = "https://" + self.server + "/search?num=100&start=" + str(
-                self.counter) + "&hl=en&q=site%3Atrello.com%20" + self.word
+            urly = 'https://' + self.server + '/search?num=100&start=' + str(
+                self.counter) + '&hl=en&q=site%3Atrello.com%20' + self.word
         except Exception as e:
             print(e)
         headers = {'User-Agent': googleUA}
@@ -36,9 +36,9 @@ class search_trello:
         return rawres.emails()
 
     def get_urls(self):
-        print('\tSearching Trello URLs.')
+        print('\tSearching URLs.')
         try:
-            rawres = myparser.Parser(self.totalresults, "trello.com")
+            rawres = myparser.Parser(self.totalresults, 'trello.com')
             trello_urls = rawres.urls()
             visited = set()
             for url in trello_urls:
