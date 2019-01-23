@@ -10,18 +10,18 @@ class search_google:
         self.word = word
         self.results = ""
         self.totalresults = ""
-        self.server = "www.google.com"
+        self.server = 'www.google.com'
         self.dorks = []
         self.links = []
-        self.database = "https://www.google.com/search?q="
-        self.quantity = "100"
+        self.database = 'https://www.google.com/search?q='
+        self.quantity = '100'
         self.limit = limit
         self.counter = start
 
     def do_search(self):
         try:  # Do normal scraping.
-            urly = "http://" + self.server + "/search?num=" + self.quantity + "&start=" + str(
-                self.counter) + "&hl=en&meta=&q=%40\"" + self.word + "\""
+            urly = 'http://' + self.server + '/search?num=' + self.quantity + '&start=' + str(
+                self.counter) + '&hl=en&meta=&q=%40\"' + self.word + '\"'
         except Exception as e:
             print(e)
         try:
@@ -38,8 +38,8 @@ class search_google:
 
     def do_search_profiles(self):
         try:
-            urly = "http://" + self.server + "/search?num=" + self.quantity + "&start=" + str(
-                self.counter) + "&hl=en&meta=&q=site:www.google.com%20intitle:\"Google%20Profile\"%20\"Companies%20I%27ve%20worked%20for\"%20\"at%20" + self.word + "\""
+            urly = 'http://' + self.server + '/search?num=' + self.quantity + '&start=' + str(
+                self.counter) + '&hl=en&meta=&q=site:www.google.com%20intitle:\"Google%20Profile\"%20\"Companies%20I%27ve%20worked%20for\"%20\"at%20' + self.word + '\"'
         except Exception as e:
             print(e)
         try:
@@ -79,7 +79,7 @@ class search_google:
         else:  # Google dorking is true.
             self.counter = 0  # Reset counter.
             print('\n')
-            print("[-] Searching with Google Dorks: ")
+            print('[-] Searching with Google Dorks: ')
             while self.counter <= self.limit and self.counter <= 200:  # Only 200 dorks in list.
                 self.googledork()  # Call Google dorking method if user wanted it!
                 print(f'\tSearching {self.counter} results.')
@@ -102,27 +102,27 @@ class search_google:
 
     def construct_dorks(self):
         # Format is: site:targetwebsite.com + space + inurl:admindork
-        colon = "%3A"
-        plus = "%2B"
+        colon = '%3A'
+        plus = '%2B'
         space = '+'
-        period = "%2E"
-        double_quote = "%22"
-        asterick = "%2A"
-        left_bracket = "%5B"
-        right_bracket = "%5D"
-        question_mark = "%3F"
-        slash = "%2F"
-        single_quote = "%27"
-        ampersand = "%26"
-        left_peren = "%28"
-        right_peren = "%29"
+        period = '%2E'
+        double_quote = '%22'
+        asterick = '%2A'
+        left_bracket = '%5B'
+        right_bracket = '%5D'
+        question_mark = '%3F'
+        slash = '%2F'
+        single_quote = '%27'
+        ampersand = '%26'
+        left_peren = '%28'
+        right_peren = '%29'
         pipe = '%7C'
         # Replace links with html encoding.
         self.links = [self.database + space + self.word + space +
                       str(dork).replace(':', colon).replace('+', plus).replace('.', period).replace('"', double_quote)
-                          .replace("*", asterick).replace('[', left_bracket).replace(']', right_bracket)
+                          .replace('*', asterick).replace('[', left_bracket).replace(']', right_bracket)
                           .replace('?', question_mark).replace(' ', space).replace('/', slash).replace("'",single_quote)
-                          .replace("&", ampersand).replace('(', left_peren).replace(')', right_peren).replace('|', pipe)
+                          .replace('&', ampersand).replace('(', left_peren).replace(')', right_peren).replace('|', pipe)
                       for dork in self.dorks]
 
     def googledork(self):

@@ -9,14 +9,14 @@ class SearchGoogleCertificates:
         self.word = word
         self.results = ""
         self.totalresults = ""
-        self.server = "www.google.com"
-        self.quantity = "100"
+        self.server = 'www.google.com'
+        self.quantity = '100'
         self.limit = limit
         self.counter = start
 
     def do_search(self):
         try:
-            urly = "https://" + self.server + "/transparencyreport/api/v3/httpsreport/ct/certsearch?include_expired=true&include_subdomains=true&domain=" + self.word
+            urly = 'https://' + self.server + '/transparencyreport/api/v3/httpsreport/ct/certsearch?include_expired=true&include_subdomains=true&domain=' + self.word
         except Exception as e:
             print(e)
         try:
@@ -29,7 +29,7 @@ class SearchGoogleCertificates:
 
     def get_domains(self):
         domains = []
-        rawres = json.loads(self.totalresults.split("\n", 2)[2])
+        rawres = json.loads(self.totalresults.split('\n', 2)[2])
         for array in rawres[0][1]:
             domains.append(array[1])
         return list(set(domains))

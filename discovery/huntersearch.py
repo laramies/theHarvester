@@ -16,7 +16,7 @@ class SearchHunter:
         self.results = ""
         self.totalresults = ""
         self.counter = start
-        self.database = "https://api.hunter.io/v2/domain-search?domain=" + word + "&api_key=" + self.key + "&limit=" + str(self.limit)
+        self.database = 'https://api.hunter.io/v2/domain-search?domain=' + word + '&api_key=' + self.key + '&limit=' + str(self.limit)
 
     def do_search(self):
         try:
@@ -28,7 +28,7 @@ class SearchHunter:
 
     def process(self):
             self.do_search()  # Only need to do it once.
-            print('\tDone Searching Results')
+            print('\tSearching results.')
 
     def get_emails(self):
         rawres = myparser.Parser(self.totalresults, self.word)

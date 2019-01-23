@@ -12,13 +12,13 @@ class search_yandex:
         self.word = word
         self.results = ""
         self.totalresults = ""
-        self.server = "yandex.com"
-        self.hostname = "yandex.com"
+        self.server = 'yandex.com'
+        self.hostname = 'yandex.com'
         self.limit = limit
         self.counter = start
 
     def do_search(self):
-        url = 'http://' + self.server + "/search?text=%40" + self.word + "&numdoc=50&lr=" + str(self.counter)
+        url = 'http://' + self.server + '/search?text=%40' + self.word + '&numdoc=50&lr=' + str(self.counter)
         headers = {
             'Host': self.hostname,
             'User-agent': Core.get_user_agent()
@@ -29,7 +29,7 @@ class search_yandex:
         print(self.results)
 
     def do_search_files(self, files):  # TODO
-        url = 'http://' + self.server + "/search?text=%40" + self.word + "&numdoc=50&lr=" + str(self.counter)
+        url = 'http://' + self.server + '/search?text=%40' + self.word + '&numdoc=50&lr=' + str(self.counter)
         headers = {
             'Host': self.hostname,
             'User-agent': Core.get_user_agent()
@@ -42,10 +42,10 @@ class search_yandex:
         renext = re.compile('topNextUrl')
         nextres = renext.findall(self.results)
         if nextres != []:
-            nexty = "1"
+            nexty = '1'
             print(str(self.counter))
         else:
-            nexty = "0"
+            nexty = '0'
         return nexty
 
     def get_emails(self):

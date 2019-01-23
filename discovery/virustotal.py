@@ -9,14 +9,14 @@ class search_virustotal:
         self.word = word.replace(' ', '%20')
         self.results = ""
         self.totalresults = ""
-        self.server = "www.google.com"
-        self.hostname = "www.google.com"
-        self.quantity = "100"
+        self.server = 'www.google.com'
+        self.hostname = 'www.google.com'
+        self.quantity = '100'
         self.counter = 0
 
     def do_search(self):
         try:
-            urly = "https://www.virustotal.com/en/domain/" + self.word + "/information/"
+            urly = 'https://www.virustotal.com/en/domain/' + self.word + '/information/'
         except Exception as e:
             print(e)
         headers = {'User-Agent': Core.get_user_agent()}
@@ -33,4 +33,4 @@ class search_virustotal:
 
     def process(self):
         self.do_search()
-        print('\tSearching Virustotal results.')
+        print('\tSearching results.')
