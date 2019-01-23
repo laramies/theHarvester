@@ -14,6 +14,7 @@ import datetime
 import ipaddress
 import re
 import time
+import sys
 
 try:
     import bs4
@@ -37,7 +38,8 @@ def start():
     parser.add_argument('-S', '--start', help='start with result number X, default=0', default=0, type=int)
     parser.add_argument('-g', '--google-dork', help='use Google Dorks for google search, default=False, params=True', default=False)
     parser.add_argument('-p', '--port-scan', help='scan the detected hosts and check for Takeovers (21,22,80,443,8080) default=False, params=True', default=False)
-    parser.add_argument('-s', '--shodan', help='use Shodan to query discovered hosts, default=False, params=True', default=False)
+    #parser.add_argument('-s', '--shodan', help='use Shodan to query discovered hosts, default=False, params=True', default=False, type=bool)
+    parser.add_argument('-s', '--shodan', help='use Shodan to query discovered hosts', default=False, action='store_true')
     parser.add_argument('-v', '--virtual-host', help='verify host name via DNS resolution and search for virtual hosts params=basic, default=False', default=False)
     parser.add_argument('-e', '--dns-server', help='DNS server to use for lookup')
     parser.add_argument('-t', '--dns-tld', help='perform a DNS TLD expansion discovery, default False', default=False)
