@@ -1,4 +1,5 @@
 from discovery.constants import *
+from lib.core import *
 from parsers import myparser
 import requests
 
@@ -9,7 +10,7 @@ class SearchHunter:
         self.word = word
         self.limit = 100
         self.start = start
-        self.key = hunterAPI_key
+        self.key = Core.hunter_key()
         if self.key == "":
             raise MissingKey(True)
         self.results = ""
