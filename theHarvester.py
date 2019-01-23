@@ -660,7 +660,7 @@ def start():
     else:
         print('\n[*] IPs found: ' + str(len(all_ip)))
         print('-------------------')
-        ips = sorted(ipaddress.ip_address(line.strip()) for line in all_ip)
+        ips = sorted(ipaddress.ip_address(line.strip()) for line in set(all_ip))
         print('\n'.join(map(str, ips)))
 
     if len(all_emails) == 0:
