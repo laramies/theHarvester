@@ -14,6 +14,7 @@ import datetime
 import ipaddress
 import re
 import time
+import sys
 
 try:
     import bs4
@@ -80,7 +81,7 @@ def start():
     word = args.domain
     engines = set(args.source.split(','))
     if set(engines).issubset(Core.get_supportedengines()):
-        print(f'\033[94m[*] Target domain: {word} \n \033[0m')
+        print(f'\033[94m[*] Target: {word} \n \033[0m')
         for engineitem in engines:
             if engineitem == 'baidu':
                 print('\033[94m[*] Searching Baidu. \033[0m')

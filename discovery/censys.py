@@ -64,7 +64,7 @@ class SearchCensys:
                         self.page = str(counter)
                         self.urlhost = 'https://' + self.server + '/ipv4/_search?q=' + str(self.word) + '&page=' + str(
                             self.page)
-                        print(f'\tSearching Censys IP results page {self.page}.')
+                        print(f'\tSearching results page {self.page}.')
                         self.do_searchhosturl()
                         counter += 1
                     except Exception as e:
