@@ -47,6 +47,8 @@ class SearchCensys:
             pages = censysparser.Parser(self)
             totalpages = pages.search_totalpageshosts()
             pagestosearch = int(self.limit / 25)  # 25 results/page
+            if totalpages is None:
+                totalpages = 0
             if totalpages <= pagestosearch:
                 while counter <= totalpages:
                     try:
@@ -71,6 +73,8 @@ class SearchCensys:
                         print(f'Error occurred in the Censys module requesting the pages: {e}')
             counter = 2
             totalpages = pages.search_totalpagescerts()
+            if totalpages is None:
+                totalpages = 0
             if totalpages <= pagestosearch:
                 while counter <= totalpages:
                     try:

@@ -43,6 +43,9 @@ class Parser:
     def search_totalpageshosts(self):
         try:
             items = self.souphosts.findAll('span', 'SearchResultSectionHeader__statistic')
+            if items == [] or items is None:
+                self.numberofpageshosts = 0
+                return self.numberofpageshosts
             numbers = re.findall(r"/\d*", items[0].text)
             pagenumber = numbers[0].replace('/', '')
             self.numberofpageshosts = int(pagenumber)
@@ -53,6 +56,9 @@ class Parser:
     def search_totalpagescerts(self):
         try:
             items = self.soupcerts.findAll('span', 'SearchResultSectionHeader__statistic')
+            if items == [] or items is None:
+                self.numberofpageshosts = 0
+                return self.numberofpageshosts
             numbers = re.findall(r"/\d*", items[0].text)
             pagenumber = numbers[0].replace('/', '')
             self.numberofpagescerts = int(pagenumber)
