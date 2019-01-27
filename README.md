@@ -6,7 +6,7 @@
 * | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
 *  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
 *                                                                 *
-* theHarvester 3.0.6 v213                                         *
+* theHarvester 3.0.6 v235                                         *
 * Coded by Christian Martorella                                   *
 * Edge-Security Research                                          *
 * cmartorella@edge-security.com                                   *
@@ -54,7 +54,7 @@ Passive:
 
 * pgp: PGP key server - mit.edu
 
-* securitytrails: Security Trails search engine, the world's largest repository<br>
+* securityTrails: Security Trails search engine, the world's largest repository<br>
   of historical DNS data (Requires API key, see below.) - www.securitytrails.com
 
 * shodan: Shodan search engine, will search for ports and banners from discovered<br>
