@@ -45,10 +45,11 @@ def start():
     parser.add_argument('-n', '--dns-lookup', help='enable DNS server lookup, default=False, params=True', default=False)
     parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
-    parser.add_argument('-b', '--source', help='''source: baidu, bing, bingapi, censys, crtsh, cymon, dogpile,
-                  google, googleCSE, google-certificates, google-profiles,
-                  hunter, linkedin, netcraft, pgp, securityTrails, threatcrowd,
-                  trello, twitter, vhost, virustotal, yahoo, all''')
+    parser.add_argument('-b', '--source', help='''source: baidu, bing, bingapi, censys, crtsh, cymon,
+                        dogpile, duckduckgo, google, googleCSE, 
+                        google-certificates, google-profiles, hunter, 
+                        linkedin, netcraft, pgp, securityTrails, threatcrowd,
+                        trello, twitter, vhost, virustotal, yahoo, all''')
     args = parser.parse_args()
 
     try:
@@ -80,7 +81,7 @@ def start():
     if args.source is not None:
         engines = set(args.source.split(','))
         if set(engines).issubset(Core.get_supportedengines()):
-            print(f'\033[94m[*] Target domain: {word} \n \033[0m')
+            print(f'\033[94m[*] Target: {word} \n \033[0m')
             for engineitem in engines:
                 if engineitem == 'baidu':
                     print('\033[94m[*] Searching Baidu. \033[0m')
@@ -163,7 +164,7 @@ def start():
                         db.store_all(word, all_hosts, 'email', 'dogpile')
                         db.store_all(word, all_hosts, 'host', 'dogpile')
                     except Exception as e:
-                        print(f'Error occured in Dogpile: {e}')
+                        print(f'\033[93m[!] A error occurred in Dogpile: {e} \033[0m')
 
                 elif engineitem == 'duckduckgo':
                     print('\033[94m[*] Searching DuckDuckGo. \033[0m')
@@ -381,11 +382,11 @@ def start():
                     db.store_all(word, all_emails, 'email', 'yahoo')
 
                 elif engineitem == 'all':
-                    print(('Full harvest on ' + word))
+                    print(('[*] Full harvest on ' + word))
                     all_emails = []
                     all_hosts = []
                     try:
-                        print('[*] Searching Baidu.')
+                        print('\033[94m[*] Searching Baidu. \033[0m')
                         search = baidusearch.SearchBaidu(word, limit)
                         search.process()
                         all_emails = filter(search.get_emails())
@@ -397,7 +398,7 @@ def start():
                     except Exception:
                         pass
 
-                    print('[*] Searching Bing.')
+                    print('\033[94m[*] Searching Bing. \033[0m')
                     bingapi = 'no'
                     search = bingsearch.SearchBing(word, limit, start)
                     search.process(bingapi)
@@ -410,7 +411,7 @@ def start():
                     all_emails = sorted(set(all_emails))
                     db.store_all(word, all_emails, 'email', 'bing')
 
-                    print('[*] Searching Censys.')
+                    print('\033[94m[*] Searching Censys. \033[0m')
                     from discovery import censys
                     search = censys.SearchCensys(word, limit)
                     search.process()
@@ -426,7 +427,7 @@ def start():
                     db.store_all(word, uniquehosts, 'host', 'censys')
                     db.store_all(word, uniqueips, 'ip', 'censys')
 
-                    print('[*] Searching CRT.sh.')
+                    print('\033[94m[*] Searching CRT.sh. \033[0m')
                     search = crtsh.search_crtsh(word)
                     search.process()
                     hosts = filter(search.get_hostnames())
@@ -455,7 +456,7 @@ def start():
                     db.store_all(word, all_hosts, 'email', 'dogpile')
                     db.store_all(word, all_hosts, 'host', 'dogpile')
 
-                    print('[*] Searching DuckDuckGo.')
+                    print('\033[94m[*] Searching DuckDuckGo. \033[0m')
                     from discovery import duckduckgosearch
                     search = duckduckgosearch.SearchDuckDuckGo(word, limit)
                     search.process()
@@ -467,7 +468,7 @@ def start():
                     db.store_all(word, all_hosts, 'email', 'duckduckgo')
                     db.store_all(word, all_hosts, 'host', 'duckduckgo')
 
-                    print('[*] Searching Google.')
+                    print('\033[94m[*] Searching Google. \033[0m')
                     search = googlesearch.search_google(word, limit, start)
                     search.process(google_dorking)
                     emails = filter(search.get_emails())
@@ -479,7 +480,7 @@ def start():
                     db = stash.stash_manager()
                     db.store_all(word, all_hosts, 'host', 'google')
 
-                    print('[*] Searching Google Certificate transparency report.')
+                    print('\033[94m[*] Searching Google Certificate transparency report. \033[0m')
                     search = googlecertificates.SearchGoogleCertificates(word, limit, start)
                     search.process()
                     domains = filter(search.get_domains())
@@ -488,7 +489,7 @@ def start():
                     db.store_all(word, all_hosts, 'host', 'google-certificates')
 
                     try:
-                        print('[*] Searching Google profiles.')
+                        print('\033[94m[*] Searching Google profiles. \033[0m')
                         search = googlesearch.search_google(word, limit, start)
                         search.process_profiles()
                         people = search.get_profiles()
@@ -501,7 +502,7 @@ def start():
                     except Exception:
                         pass
 
-                    print('[*] Searching Hunter.')
+                    print('\033[94m[*] Searching Hunter. \033[0m')
                     from discovery import huntersearch
                     # Import locally.
                     try:
@@ -536,7 +537,7 @@ def start():
                         for user in sorted(list(set(people))):
                             print(user)
 
-                    print('[*] Searching Netcraft.')
+                    print('\033[94m[*] Searching Netcraft. \033[0m')
                     search = netcraft.SearchNetcraft(word)
                     search.process()
                     hosts = filter(search.get_hostnames())
@@ -544,7 +545,7 @@ def start():
                     db = stash.stash_manager()
                     db.store_all(word, all_hosts, 'host', 'netcraft')
 
-                    print('[*] Searching PGP key server.')
+                    print('\033[94m[*] Searching PGP key server. \033[0m')
                     try:
                         search = pgpsearch.SearchPgp(word)
                         search.process()
@@ -561,7 +562,7 @@ def start():
                     except Exception:
                         pass
 
-                    print('[*] Searching Threatcrowd.')
+                    print('\033[94m[*] Searching Threatcrowd. \033[0m')
                     try:
                         search = threatcrowd.search_threatcrowd(word)
                         search.process()
@@ -572,7 +573,7 @@ def start():
                     except Exception:
                         pass
 
-                    print('[*] Searching Trello.')
+                    print('\033[94m[*] Searching Trello. \033[0m')
                     from discovery import trello
                     # Import locally or won't work.
                     search = trello.search_trello(word, limit)
@@ -588,7 +589,7 @@ def start():
                     db.store_all(word, emails, 'email', 'trello')
 
                     try:
-                        print('[*] Searching Twitter.')
+                        print('\033[94m[*] Searching Twitter. \033[0m')
                         search = twittersearch.search_twitter(word, limit)
                         search.process()
                         people = search.get_people()
@@ -616,7 +617,7 @@ def start():
                             full.append(l + ':' + x)
                     vhost = sorted(set(vhost))
 
-                    print('[*] Searching VirusTotal.')
+                    print('\033[94m[*] Searching VirusTotal. \033[0m')
                     search = virustotal.search_virustotal(word)
                     search.process()
                     hosts = filter(search.get_hostnames())
@@ -624,7 +625,7 @@ def start():
                     db = stash.stash_manager()
                     db.store_all(word, all_hosts, 'host', 'virustotal')
 
-                    print('[*] Searching Yahoo.')
+                    print('\033[94m[*] Searching Yahoo. \033[0m')
                     search = yahoosearch.search_yahoo(word, limit)
                     search.process()
                     hosts = search.get_hostnames()
@@ -760,8 +761,8 @@ def start():
                     dnsrev.append(x)
                     if x not in full:
                         full.append(x)
-        print('Hosts found after reverse lookup (in target domain):')
-        print('----------------------------------------------------')
+        print('[*] Hosts found after reverse lookup (in target domain):')
+        print('--------------------------------------------------------')
         for xh in dnsrev:
             print(xh)
 
@@ -810,20 +811,18 @@ def start():
         tab.set_chars(['-', '|', '+', '#'])
         tab.set_cols_width([15, 20, 15, 15, 18])
         host_ip = list(set(host_ip))
-        print('\n\n[*] Shodan DB search (passive):\n')
+        print('\033[94m[*] Searching Shodan. \033[0m')
         try:
             for ip in host_ip:
-                print(('\tSearching for: ' + ip))
+                print(('\tSearching for ' + ip))
                 shodan = shodansearch.search_shodan()
                 rowdata = shodan.search_ip(ip)
                 time.sleep(2)
                 tab.add_row(rowdata)
             printedtable = tab.draw()
-            print('\n [*] Shodan results:')
-            print('-------------------')
             print(printedtable)
         except Exception as e:
-            print(f'[!] Error occurred in theHarvester - Shodan search module: {e}')
+            print(f'\033[93m[!] Error occurred in the Shodan search module: {e} \033[0m')
     else:
         pass
 
@@ -886,7 +885,8 @@ def start():
             save = html.writehtml()
         except Exception as e:
             print(e)
-            print('Error creating the file.')
+            print('\n\033[93m[!] An error occurred creating the file.\033[0m')
+
         try:
             filename = filename.split('.')[0] + '.xml'
             file = open(filename, 'w')
@@ -930,16 +930,16 @@ def start():
             file.write('</theHarvester>')
             file.flush()
             file.close()
-            print('Files saved!')
+            print('[*] Files saved.')
         except Exception as er:
-            print(f'Error saving XML file: {er}')
+            print(f'\033[93m[!] An error occurred saving XML file: {er} \033[0m')
         print('\n\n')
         sys.exit(0)
 
 
 if __name__ == '__main__':
     if python_version()[0:3] < '3.6':
-        print('\033[93m[!] Please make sure you have python 3.6+ installed, quitting.\033[0m')
+        print('\033[93m[!] Make sure you have Python 3.6+ installed, quitting. \033[0m')
         sys.exit(1)
     try:
         start()
