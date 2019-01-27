@@ -359,22 +359,6 @@ def start():
                         for user in sorted(list(set(people))):
                             print(user)
 
-                elif engineitem == 'vhost':
-                    print('\n[*] Virtual hosts:')
-                    print('------------------')
-                    for l in host_ip:
-                        search = bingsearch.SearchBing(l, limit, start)
-                        search.process_vhost()
-                        res = search.get_allhostnames()
-                        for x in res:
-                            x = re.sub(r'[[\<\/?]*[\w]*>]*', '', x)
-                            x = re.sub('<', '', x)
-                            x = re.sub('>', '', x)
-                            print((l + '\t' + x))
-                            vhost.append(l + ':' + x)
-                            full.append(l + ':' + x)
-                    vhost = sorted(set(vhost))
-
                 elif engineitem == 'virustotal':
                     print('\033[94m[*] Searching VirusTotal. \033[0m')
                     search = virustotal.search_virustotal(word)
