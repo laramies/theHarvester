@@ -55,7 +55,7 @@ class SearchCensys:
                         self.page = str(counter)
                         self.urlhost = 'https://' + self.server + '/ipv4/_search?q=' + str(self.word) + '&page=' + str(
                             self.page)
-                        print('\tSearching Censys IP results page ' + self.page + '.')
+                        print('\tSearching IP results page ' + self.page + '.')
                         self.do_searchhosturl()
                         counter += 1
                     except Exception as e:
@@ -81,7 +81,7 @@ class SearchCensys:
                         self.page = str(counter)
                         self.urlhost = 'https://' + self.server + '/certificates/_search?q=' + str(
                             self.word) + '&page=' + str(self.page)
-                        print(f'\tSearching Censys certificates results page {self.page}.')
+                        print(f'\tSearching certificates results page {self.page}.')
                         self.do_searchcertificateurl()
                         counter += 1
                     except Exception as e:
@@ -92,7 +92,7 @@ class SearchCensys:
                         self.page = str(counter)
                         self.urlhost = 'https://' + self.server + '/ipv4/_search?q=' + str(self.word) + '&page=' + str(
                             self.page)
-                        print('\tSearching Censys IP results page ' + self.page + '.')
+                        print('\tSearching IP results page ' + self.page + '.')
                         self.do_searchhosturl()
                         counter += 1
                     except Exception as e:

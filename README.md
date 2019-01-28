@@ -6,7 +6,7 @@
 * | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
 *  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
 *                                                                 *
-* theHarvester 3.0.6 v238                                         *
+* theHarvester 3.0.6 v247                                         *
 * Coded by Christian Martorella                                   *
 * Edge-Security Research                                          *
 * cmartorella@edge-security.com                                   *
@@ -43,8 +43,6 @@ Passive:
 * googleCSE: Google custom search engine
 
 * google-certificates: Google Certificate Transparency report
-
-* google-profiles: Google search engine, specific search for Google profiles
 
 * hunter: Hunter search engine (Requires API key, see below.) - www.hunter.io
 
@@ -86,7 +84,7 @@ Add your keys to api-keys.yaml
 
 * googleCSE: API key and CSE ID
 * hunter: API key
-* securitytrails: API key
+* securityTrails: API key
 * shodan: API key
 
 Dependencies:
@@ -107,7 +105,7 @@ Comments, bugs, or requests?
 cmartorella@edge-security.com
 
 Main contributors:
--------
+------------------
 * Matthew Brown @NotoriousRebel
 * Janos Zold @Jzold
 * Lee Baird @discoverscripts [![Twitter Follow](https://img.shields.io/twitter/follow/discoverscripts.svg?style=social&label=Follow)](https://twitter.com/discoverscripts)

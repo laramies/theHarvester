@@ -47,8 +47,8 @@ def start():
     parser.add_argument('-f', '--filename', help='Save the results to an HTML and/or XML file', default='', type=str)
     parser.add_argument('-b', '--source', help='''Source: baidu, bing, bingapi, censys, crtsh, cymon,
                         dogpile, duckduckgo, google, googleCSE, 
-                        google-certificates, google-profiles, hunter, 
-                        linkedin, netcraft, pgp, securityTrails, threatcrowd,
+                        google-certificates, hunter, linkedin,
+                        netcraft, pgp, securityTrails, threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo, all''')
     args = parser.parse_args()
 
@@ -219,23 +219,6 @@ def start():
                     db = stash.stash_manager()
                     db.store_all(word, all_hosts, 'host', 'google-certificates')
 
-                elif engineitem == 'google-profiles':
-                    print('\033[94m[*] Searching Google profiles. \033[0m')
-                    search = googlesearch.search_google(word, limit, start)
-                    search.process_profiles()
-                    people = search.get_profiles()
-                    db = stash.stash_manager()
-                    db.store_all(word, people, 'name', 'google-profile')
-
-                    if len(people) == 0:
-                        print('\n[*] No users found.\n\n')
-                    else:
-                        print('\n[*] Users found: ' + str(len(people)))
-                        print('---------------------')
-                        for user in sorted(list(set(people))):
-                            print(user)
-                        sys.exit(0)
-
                 elif engineitem == 'hunter':
                     print('\033[94m[*] Searching Hunter. \033[0m')
                     from discovery import huntersearch
@@ -382,11 +365,11 @@ def start():
                     db.store_all(word, all_emails, 'email', 'yahoo')
 
                 elif engineitem == 'all':
-                    print(('[*] Full harvest on ' + word))
+                    print('\033[94m[*] Running a full harvest. \033[0m')
                     all_emails = []
                     all_hosts = []
                     try:
-                        print('\033[94m[*] Searching Baidu. \033[0m')
+                        print('\033[94m\n[*] Searching Baidu. \033[0m')
                         search = baidusearch.SearchBaidu(word, limit)
                         search.process()
                         all_emails = filter(search.get_emails())
@@ -398,7 +381,7 @@ def start():
                     except Exception:
                         pass
 
-                    print('\033[94m[*] Searching Bing. \033[0m')
+                    print('\033[94m\n[*] Searching Bing. \033[0m')
                     bingapi = 'no'
                     search = bingsearch.SearchBing(word, limit, start)
                     search.process(bingapi)
@@ -411,7 +394,7 @@ def start():
                     all_emails = sorted(set(all_emails))
                     db.store_all(word, all_emails, 'email', 'bing')
 
-                    print('\033[94m[*] Searching Censys. \033[0m')
+                    print('\033[94m\n[*] Searching Censys. \033[0m')
                     from discovery import censys
                     search = censys.SearchCensys(word, limit)
                     search.process()
@@ -427,7 +410,7 @@ def start():
                     db.store_all(word, uniquehosts, 'host', 'censys')
                     db.store_all(word, uniqueips, 'ip', 'censys')
 
-                    print('\033[94m[*] Searching CRT.sh. \033[0m')
+                    print('\033[94m\n[*] Searching CRT.sh. \033[0m')
                     search = crtsh.search_crtsh(word)
                     search.process()
                     hosts = filter(search.get_hostnames())
@@ -436,7 +419,7 @@ def start():
                     db.store_all(word, all_hosts, 'host', 'CRTsh')
 
                     # cymon
-                    print('\033[94m[*] Searching Cymon. \033[0m')
+                    print('\033[94m\n[*] Searching Cymon. \033[0m')
                     from discovery import cymon
                     # Import locally or won't work.
                     search = cymon.search_cymon(word)
@@ -445,7 +428,7 @@ def start():
                     db = stash.stash_manager()
                     db.store_all(word, all_ip, 'ip', 'cymon')
 
-                    print('\033[94m[*] Searching Dogpile. \033[0m')
+                    print('\033[94m\n[*] Searching Dogpile. \033[0m')
                     search = dogpilesearch.SearchDogpile(word, limit)
                     search.process()
                     emails = filter(search.get_emails())
@@ -456,7 +439,7 @@ def start():
                     db.store_all(word, all_hosts, 'email', 'dogpile')
                     db.store_all(word, all_hosts, 'host', 'dogpile')
 
-                    print('\033[94m[*] Searching DuckDuckGo. \033[0m')
+                    print('\033[94m\n[*] Searching DuckDuckGo. \033[0m')
                     from discovery import duckduckgosearch
                     search = duckduckgosearch.SearchDuckDuckGo(word, limit)
                     search.process()
@@ -468,7 +451,7 @@ def start():
                     db.store_all(word, all_hosts, 'email', 'duckduckgo')
                     db.store_all(word, all_hosts, 'host', 'duckduckgo')
 
-                    print('\033[94m[*] Searching Google. \033[0m')
+                    print('\033[94m\n[*] Searching Google. \033[0m')
                     search = googlesearch.search_google(word, limit, start)
                     search.process(google_dorking)
                     emails = filter(search.get_emails())
@@ -480,7 +463,7 @@ def start():
                     db = stash.stash_manager()
                     db.store_all(word, all_hosts, 'host', 'google')
 
-                    print('\033[94m[*] Searching Google Certificate transparency report. \033[0m')
+                    print('\033[94m\n[*] Searching Google Certificate transparency report. \033[0m')
                     search = googlecertificates.SearchGoogleCertificates(word, limit, start)
                     search.process()
                     domains = filter(search.get_domains())
@@ -488,21 +471,7 @@ def start():
                     db = stash.stash_manager()
                     db.store_all(word, all_hosts, 'host', 'google-certificates')
 
-                    try:
-                        print('\033[94m[*] Searching Google profiles. \033[0m')
-                        search = googlesearch.search_google(word, limit, start)
-                        search.process_profiles()
-                        people = search.get_profiles()
-                        db = stash.stash_manager()
-                        db.store_all(word, people, 'name', 'google-profile')
-                        print('\nUsers from Google profiles:')
-                        print('---------------------------')
-                        for users in people:
-                            print(users)
-                    except Exception:
-                        pass
-
-                    print('\033[94m[*] Searching Hunter. \033[0m')
+                    print('\033[94m\n[*] Searching Hunter. \033[0m')
                     from discovery import huntersearch
                     # Import locally.
                     try:
@@ -522,7 +491,7 @@ def start():
                         else:
                             pass
 
-                    print('\033[94m[*] Searching Linkedin. \033[0m')
+                    print('\033[94m\n[*] Searching Linkedin. \033[0m')
                     search = linkedinsearch.SearchLinkedin(word, limit)
                     search.process()
                     people = search.get_people()
@@ -537,7 +506,7 @@ def start():
                         for user in sorted(list(set(people))):
                             print(user)
 
-                    print('\033[94m[*] Searching Netcraft. \033[0m')
+                    print('\033[94m\n[*] Searching Netcraft. \033[0m')
                     search = netcraft.SearchNetcraft(word)
                     search.process()
                     hosts = filter(search.get_hostnames())
@@ -545,7 +514,7 @@ def start():
                     db = stash.stash_manager()
                     db.store_all(word, all_hosts, 'host', 'netcraft')
 
-                    print('\033[94m[*] Searching PGP key server. \033[0m')
+                    print('\033[94m\n[*] Searching PGP key server. \033[0m')
                     try:
                         search = pgpsearch.SearchPgp(word)
                         search.process()
@@ -562,7 +531,7 @@ def start():
                     except Exception:
                         pass
 
-                    print('\033[94m[*] Searching Threatcrowd. \033[0m')
+                    print('\033[94m\n[*] Searching Threatcrowd. \033[0m')
                     try:
                         search = threatcrowd.search_threatcrowd(word)
                         search.process()
@@ -573,7 +542,7 @@ def start():
                     except Exception:
                         pass
 
-                    print('\033[94m[*] Searching Trello. \033[0m')
+                    print('\033[94m\n[*] Searching Trello. \033[0m')
                     from discovery import trello
                     # Import locally or won't work.
                     search = trello.search_trello(word, limit)
@@ -589,7 +558,7 @@ def start():
                     db.store_all(word, emails, 'email', 'trello')
 
                     try:
-                        print('\033[94m[*] Searching Twitter. \033[0m')
+                        print('\033[94m\n[*] Searching Twitter. \033[0m')
                         search = twittersearch.search_twitter(word, limit)
                         search.process()
                         people = search.get_people()
@@ -617,7 +586,7 @@ def start():
                             full.append(l + ':' + x)
                     vhost = sorted(set(vhost))
 
-                    print('\033[94m[*] Searching VirusTotal. \033[0m')
+                    print('\033[94m\n[*] Searching VirusTotal. \033[0m')
                     search = virustotal.search_virustotal(word)
                     search.process()
                     hosts = filter(search.get_hostnames())
@@ -625,7 +594,7 @@ def start():
                     db = stash.stash_manager()
                     db.store_all(word, all_hosts, 'host', 'virustotal')
 
-                    print('\033[94m[*] Searching Yahoo. \033[0m')
+                    print('\033[94m\n[*] Searching Yahoo. \033[0m')
                     search = yahoosearch.search_yahoo(word, limit)
                     search.process()
                     hosts = search.get_hostnames()
