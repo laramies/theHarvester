@@ -84,7 +84,7 @@ Add your keys to api-keys.yaml
 
 * googleCSE: API key and CSE ID
 * hunter: API key
-* securitytrails: API key
+* securityTrails: API key
 * shodan: API key
 
 Dependencies:
