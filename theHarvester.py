@@ -32,20 +32,20 @@ Core.banner()
 
 
 def start():
-    parser = argparse.ArgumentParser(description='theHarvester is a open source intelligence gathering tool(OSINT) that is used for recon')
-    parser.add_argument('-d', '--domain', help='company name or domain to search', required=True)
-    parser.add_argument('-l', '--limit', help='limit the number of search results, default=500', default=500, type=int)
-    parser.add_argument('-S', '--start', help='start with result number X, default=0', default=0, type=int)
-    parser.add_argument('-g', '--google-dork', help='use Google Dorks for google search', default=False, action='store_true')
-    parser.add_argument('-p', '--port-scan', help='scan the detected hosts and check for Takeovers (21,22,80,443,8080) default=False, params=True', default=False)
-    parser.add_argument('-s', '--shodan', help='use Shodan to query discovered hosts', default=False, action='store_true')
-    parser.add_argument('-v', '--virtual-host', help='verify host name via DNS resolution and search for virtual hosts params=basic, default=False', default=False)
-    parser.add_argument('-e', '--dns-server', help='DNS server to use for lookup')
-    parser.add_argument('-t', '--dns-tld', help='perform a DNS TLD expansion discovery, default False', default=False)
-    parser.add_argument('-n', '--dns-lookup', help='enable DNS server lookup, default=False, params=True', default=False)
-    parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False, action='store_true')
-    parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
-    parser.add_argument('-b', '--source', help='''source: baidu, bing, bingapi, censys, crtsh, cymon,
+    parser = argparse.ArgumentParser(description='theHarvester is used to gather open source intelligence on a company or domain.')
+    parser.add_argument('-d', '--domain', help='Company or domain to search', required=True)
+    parser.add_argument('-l', '--limit', help='Limit the number of search results, default=500', default=500, type=int)
+    parser.add_argument('-S', '--start', help='Start with result number X, default=0', default=0, type=int)
+    parser.add_argument('-g', '--google-dork', help='Use Google Dorks for Google search', default=False, action='store_true')
+    parser.add_argument('-p', '--port-scan', help='Scan discovered hosts and check for Takeovers (21,22,80,443,8080) default=False, params=True', default=False)
+    parser.add_argument('-s', '--shodan', help='Use Shodan to query discovered hosts', default=False, action='store_true')
+    parser.add_argument('-v', '--virtual-host', help='Verify host name via DNS resolution and search for virtual hosts params=basic, default=False', default=False)
+    parser.add_argument('-e', '--dns-server', help='Specify a DNS server to use for lookup')
+    parser.add_argument('-c', '--dns-brute', help='Perform a DNS brute force on a domain', default=False, action='store_true')
+    parser.add_argument('-n', '--dns-lookup', help='Enable a DNS server lookup, default=False, params=True', default=False)
+    parser.add_argument('-t', '--dns-tld', help='Perform a DNS TLD expansion discovery, default False', default=False)
+    parser.add_argument('-f', '--filename', help='Save the results to an HTML and/or XML file', default='', type=str)
+    parser.add_argument('-b', '--source', help='''Source: baidu, bing, bingapi, censys, crtsh, cymon,
                         dogpile, duckduckgo, google, googleCSE, 
                         google-certificates, google-profiles, hunter, 
                         linkedin, netcraft, pgp, securityTrails, threatcrowd,
