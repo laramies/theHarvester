@@ -46,6 +46,8 @@ Passive:
 
 * hunter: Hunter search engine (Requires API key, see below.) - www.hunter.io
 
+* intelx: Intelx search engine (Requires API key, see below.) - www.intelx.io
+
 * linkedin: Google search engine, specific search for Linkedin users
 
 * netcraft: Netcraft Data Mining
@@ -84,6 +86,7 @@ Add your keys to api-keys.yaml
 
 * googleCSE: API key and CSE ID
 * hunter: API key
+* intelx: API key
 * securityTrails: API key
 * shodan: API key
 
