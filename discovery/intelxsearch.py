@@ -31,6 +31,7 @@ class search_intelx:
             uuid = r.json()['id']
             url = f'{self.database}phonebook/search/result?id={uuid}&offset=0&limit={self.limit}'
             r = requests.get(url, headers=headers)
+            time.sleep(1)
             # to add in future grab status from r.text and check if more results can be gathered
             if r.status_code != 200:
                 raise Exception('Error occurred while searching intelx.')

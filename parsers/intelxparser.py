@@ -16,6 +16,12 @@ class Parser:
                 if '@' in field:
                     self.emails.add(field)
                 else:
-                    self.hosts.add(str(field).replace(')', ''))
+                    field = str(field)
+                    if 'http' in field or 'https' in field:
+                        if field[:5] == 'https':
+                            field = field[8:]
+                        else:
+                            field = field[7:]
+                    self.hosts.add(field.replace(')', '').replace(',', ''))
             return self.emails, self.hosts
         return None, None
