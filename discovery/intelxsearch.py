@@ -39,12 +39,10 @@ class search_intelx:
             print(f'An exception has occurred: {e}')
 
     def process(self):
-        print('\t Processing Results')
         self.do_search()
         intelx_parser = intelxparser.Parser()
         self.info = intelx_parser.parse_dictionaries(self.results)
         # Create parser and set self.info to tuple returned from parsing text.
-        print('\t Done Searching Results')
 
     def get_emails(self):
         return self.info[0]
