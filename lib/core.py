@@ -36,6 +36,12 @@ class Core:
             return keys['apikeys']['shodan']['key']
 
     @staticmethod
+    def intelx_key():
+        with open('api-keys.yaml', 'r') as api_keys:
+            keys = yaml.safe_load(api_keys)
+            return keys['apikeys']['intelx']['key']
+
+    @staticmethod
     def banner():
         print('\n\033[93m*******************************************************************')
         print("*  _   _                                            _             *")
@@ -66,6 +72,7 @@ class Core:
                             'google-certificates',
                             'google-profiles',
                             'hunter',
+                            'intelx',
                             'linkedin',
                             'netcraft',
                             'pgp',

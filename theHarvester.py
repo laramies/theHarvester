@@ -47,7 +47,7 @@ def start():
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
     parser.add_argument('-b', '--source', help='''source: baidu, bing, bingapi, censys, crtsh, cymon,
                         dogpile, duckduckgo, google, googleCSE, 
-                        google-certificates, google-profiles, hunter, 
+                        google-certificates, google-profiles, hunter, intelx, 
                         linkedin, netcraft, pgp, securityTrails, threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo, all''')
     args = parser.parse_args()
@@ -256,6 +256,26 @@ def start():
                         else:
                             pass
 
+                elif engineitem == 'intelx':
+                    print('\033[94m[*] Searching Intelx. \033[0m')
+                    from discovery import intelxsearch
+                    # Import locally or won't work.
+                    try:
+                        search = intelxsearch.search_intelx(word, limit)
+                        search.process()
+                        emails = filter(search.get_emails())
+                        all_emails.extend(emails)
+                        hosts = filter(search.get_hostnames())
+                        all_hosts.extend(hosts)
+                        db = stash.stash_manager()
+                        db.store_all(word, all_hosts, 'host', 'intelx')
+                        db.store_all(word, all_emails, 'email', 'intelx')
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            print(e)
+                        else:
+                            print(e)
+
                 elif engineitem == 'linkedin':
                     print('\033[94m[*] Searching Linkedin. \033[0m')
                     search = linkedinsearch.SearchLinkedin(word, limit)
@@ -397,19 +417,21 @@ def start():
                         db.store_all(word, all_emails, 'email', 'baidu')
                     except Exception:
                         pass
-
-                    print('\033[94m[*] Searching Bing. \033[0m')
-                    bingapi = 'no'
-                    search = bingsearch.SearchBing(word, limit, start)
-                    search.process(bingapi)
-                    emails = filter(search.get_emails())
-                    hosts = filter(search.get_hostnames())
-                    all_hosts.extend(hosts)
-                    db = stash.stash_manager()
-                    db.store_all(word, all_hosts, 'host', 'bing')
-                    all_emails.extend(emails)
-                    all_emails = sorted(set(all_emails))
-                    db.store_all(word, all_emails, 'email', 'bing')
+                    try:
+                        print('\033[94m[*] Searching Bing. \033[0m')
+                        bingapi = 'no'
+                        search = bingsearch.SearchBing(word, limit, start)
+                        search.process(bingapi)
+                        emails = filter(search.get_emails())
+                        hosts = filter(search.get_hostnames())
+                        all_hosts.extend(hosts)
+                        db = stash.stash_manager()
+                        db.store_all(word, all_hosts, 'host', 'bing')
+                        all_emails.extend(emails)
+                        all_emails = sorted(set(all_emails))
+                        db.store_all(word, all_emails, 'email', 'bing')
+                    except Exception:
+                        pass
 
                     print('\033[94m[*] Searching Censys. \033[0m')
                     from discovery import censys
@@ -522,6 +544,25 @@ def start():
                         else:
                             pass
 
+                    print('\033[94m[*] Searching Intelx. \033[0m')
+                    from discovery import intelxsearch
+                    # Import locally or won't work.
+                    try:
+                        search = intelxsearch.search_intelx(word, limit)
+                        search.process()
+                        emails = filter(search.get_emails())
+                        all_emails.extend(emails)
+                        hosts = filter(search.get_hostnames())
+                        all_hosts.extend(hosts)
+                        db = stash.stash_manager()
+                        db.store_all(word, all_hosts, 'host', 'intelx')
+                        db.store_all(word, all_emails, 'email', 'intelx')
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            print(e)
+                        else:
+                            print(e)
+
                     print('\033[94m[*] Searching Linkedin. \033[0m')
                     search = linkedinsearch.SearchLinkedin(word, limit)
                     search.process()
@@ -561,6 +602,25 @@ def start():
                         db.store_all(word, all_emails, 'email', 'PGP')
                     except Exception:
                         pass
+
+                    print('\033[94m[*] Searching SecurityTrails. \033[0m')
+                    from discovery import securitytrailssearch
+                    try:
+                        search = securitytrailssearch.search_securitytrail(word)
+                        search.process()
+                        hosts = filter(search.get_hostnames())
+                        all_hosts.extend(hosts)
+                        db = stash.stash_manager()
+                        db.store_all(word, hosts, 'host', 'securityTrails')
+                        ips = search.get_ips()
+                        all_ip.extend(ips)
+                        db = stash.stash_manager()
+                        db.store_all(word, ips, 'ip', 'securityTrails')
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            print(e)
+                        else:
+                            pass
 
                     print('\033[94m[*] Searching Threatcrowd. \033[0m')
                     try:
@@ -625,16 +685,19 @@ def start():
                     db = stash.stash_manager()
                     db.store_all(word, all_hosts, 'host', 'virustotal')
 
-                    print('\033[94m[*] Searching Yahoo. \033[0m')
-                    search = yahoosearch.search_yahoo(word, limit)
-                    search.process()
-                    hosts = search.get_hostnames()
-                    emails = search.get_emails()
-                    all_hosts.extend(filter(hosts))
-                    all_emails.extend(filter(emails))
-                    db = stash.stash_manager()
-                    db.store_all(word, all_hosts, 'host', 'yahoo')
-                    db.store_all(word, all_emails, 'email', 'yahoo')
+                    try:
+                        print('\033[94m[*] Searching Yahoo. \033[0m')
+                        search = yahoosearch.search_yahoo(word, limit)
+                        search.process()
+                        hosts = search.get_hostnames()
+                        emails = search.get_emails()
+                        all_hosts.extend(filter(hosts))
+                        all_emails.extend(filter(emails))
+                        db = stash.stash_manager()
+                        db.store_all(word, all_hosts, 'host', 'yahoo')
+                        db.store_all(word, all_emails, 'email', 'yahoo')
+                    except Exception as e:
+                        print(f'An exception occurred in yahoo: {e}')
         else:
             print('\033[93m[!] Invalid source.\n\n \033[0m')
             sys.exit(1)
