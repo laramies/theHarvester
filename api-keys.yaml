@@ -1,16 +1,19 @@
-apikeys:	
-  bing:	
-    key:	
+apikeys:
+  bing:
+    key:
 
-   googleCSE:	
-    key:	
-    id:	
+  googleCSE:
+    key:
+    id:
 
-   hunter:	
-    key:	
+  hunter:
+    key:
 
-   securityTrails:	
-    key:	
+  intelx:
+    key: 9df61df0-84f7-4dc7-b34c-8ccfb8646ace
 
-   shodan:	
+  securityTrails:
+    key: 
+
+  shodan:
     key: oCiMsgM6rQWqiTvPxFHYcExlZgg7wvTt
