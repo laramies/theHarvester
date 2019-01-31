@@ -36,7 +36,6 @@ class search_trello:
         return rawres.emails()
 
     def get_urls(self):
-        print('\tSearching URLs.')
         try:
             rawres = myparser.Parser(self.totalresults, 'trello.com')
             trello_urls = rawres.urls()

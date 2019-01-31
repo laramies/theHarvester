@@ -50,7 +50,7 @@ class Core:
         print("* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *")
         print("*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *")
         print('*                                                                 *')
-        print('* theHarvester 3.0.6 v238                                         *')
+        print('* theHarvester 3.0.6 v247                                         *')
         print('* Coded by Christian Martorella                                   *')
         print('* Edge-Security Research                                          *')
         print('* cmartorella@edge-security.com                                   *')
@@ -70,7 +70,6 @@ class Core:
                             'google',
                             'googleCSE',
                             'google-certificates',
-                            'google-profiles',
                             'hunter',
                             'intelx',
                             'linkedin',
@@ -433,20 +432,6 @@ class Core:
     #     all_hosts.extend(domains)
     #     db = stash.stash_manager()
     #     db.store_all(word, all_hosts, 'host', 'google-certificates')
-    #
-    #     try:
-    #         print('[*] Searching Google profiles.')
-    #         search = googlesearch.search_google(word, limit, start)
-    #         search.process_profiles()
-    #         people = search.get_profiles()
-    #         db = stash.stash_manager()
-    #         db.store_all(word, people, 'name', 'google-profile')
-    #         print('\nUsers from Google profiles:')
-    #         print('---------------------------')
-    #         for users in people:
-    #             print(users)
-    #     except Exception:
-    #         pass
     #
     #     print('[*] Searching Hunter.')
     #     from discovery import huntersearch

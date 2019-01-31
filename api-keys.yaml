@@ -7,13 +7,13 @@ apikeys:
     id:
 
   hunter:
-    key: 2723f6b795e30b04a3b5de2ebd79d809b8729cd2
+    key:
 
   intelx:
     key: 9df61df0-84f7-4dc7-b34c-8ccfb8646ace
 
   securityTrails:
-    key: H2fgSNA1FflWFMcxpP9YpNmkupFyV9pL
+    key: 
 
   shodan:
     key: oCiMsgM6rQWqiTvPxFHYcExlZgg7wvTt
