@@ -5,7 +5,7 @@ import threading
 class PortScan:
 
     def __init__(self, host, ports):
-        self.threads = 25      
+        self.threads = 25
         self.host = host
         self.ports = ports
         self.lock = threading.BoundedSemaphore(value=self.threads)

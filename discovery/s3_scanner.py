@@ -29,7 +29,7 @@ class s3_scanner:
                              (ARGS.only_interesting and any(keyword in bucket_response.text for keyword in KEYWORDS))):
                 print(f"Found bucket '{new_bucket_url}'")
                 self.__log(new_bucket_url)
-     
+
     def do_s3(self):
         try:
             print('\t Searching takeovers for ' + self.host)
