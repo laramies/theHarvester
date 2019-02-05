@@ -26,7 +26,7 @@ class SearchBing:
             'Accept-Language': 'en-us,en',
             'User-agent': Core.get_user_agent()
         }
-        h = requests.get(url=('http://'+self.server + '/search?q=%40' + self.word + '&count=50&first=' + str(self.counter)), headers=headers)
+        h = requests.get(url=('http://'+self.server + '/search?q=%40"' + self.word + '"&count=50&first=' + str(self.counter)),headers=headers)
         self.results = h.text
         self.totalresults += self.results
 
