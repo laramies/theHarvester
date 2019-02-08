@@ -22,7 +22,7 @@ except Exception:
             self.scattercountips = []
             self.scattercountshodans = []
             self.scattercountvhosts = []
-        
+
         def drawlatestscangraph(self, domain, latestscandata):
             try:
                 self.barcolumns = ['email', 'host', 'ip', 'shodan', 'vhost']

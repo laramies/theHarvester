@@ -46,8 +46,8 @@ def start():
     parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
     parser.add_argument('-b', '--source', help='''source: baidu, bing, bingapi, censys, crtsh, cymon,
-                        dogpile, duckduckgo, google, googleCSE, 
-                        google-certificates, google-profiles, hunter, intelx, 
+                        dogpile, duckduckgo, google, googleCSE,
+                        google-certificates, google-profiles, hunter, intelx,
                         linkedin, netcraft, pgp, securityTrails, threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo, all''')
     args = parser.parse_args()

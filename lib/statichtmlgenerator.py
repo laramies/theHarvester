@@ -2,7 +2,7 @@ class htmlgenerator:
 
     def __init__(self, word):
         self.domain = word
-    
+
     def generatepreviousscanresults(self, previousscanresults):
         try:
             if previousscanresults[0]=='No results':
@@ -95,7 +95,7 @@ class htmlgenerator:
             return html
         except Exception as e:
             print('Error generating the latest scan results HTML code: ' + str(e))
-            
+
     def beginhtml(self):
         html = '''
 <head><script src="https://cdn.plot.ly/plotly-latest.min.js"></script></head>
