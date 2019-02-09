@@ -3,7 +3,7 @@ from parsers import myparser
 import requests
 
 
-class search_virustotal:
+class SearchVirustotal:
 
     def __init__(self, word):
         self.word = word.replace(' ', '%20')
