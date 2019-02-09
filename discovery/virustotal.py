@@ -21,7 +21,7 @@ class search_virustotal:
             print(e)
         headers = {'User-Agent': Core.get_user_agent()}
         try:
-            r=requests.get(urly, headers=headers)
+            r = requests.get(urly, headers=headers)
         except Exception as e:
             print(e)
         self.results = r.text
