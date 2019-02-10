@@ -1,6 +1,6 @@
 beautifulsoup4>=4.7.1
-plotly>=3.5.0
-pytest>=4.1.1
+plotly>=3.6.1
+pytest>=4.2.0
 PyYaml>=3.13
 requests>=2.21.0
 shodan>=1.10.0

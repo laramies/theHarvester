@@ -382,7 +382,7 @@ def start():
 
                 elif engineitem == 'virustotal':
                     print('\033[94m[*] Searching VirusTotal. \033[0m')
-                    search = virustotal.search_virustotal(word)
+                    search = virustotal.SearchVirustotal(word)
                     search.process()
                     hosts = filter(search.get_hostnames())
                     all_hosts.extend(hosts)
@@ -678,7 +678,7 @@ def start():
                     vhost = sorted(set(vhost))
 
                     print('\033[94m[*] Searching VirusTotal. \033[0m')
-                    search = virustotal.search_virustotal(word)
+                    search = virustotal.SearchVirustotal(word)
                     search.process()
                     hosts = filter(search.get_hostnames())
                     all_hosts.extend(hosts)

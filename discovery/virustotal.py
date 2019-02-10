@@ -3,7 +3,7 @@ from parsers import myparser
 import requests
 
 
-class search_virustotal:
+class SearchVirustotal:
 
     def __init__(self, word):
         self.word = word.replace(' ', '%20')
@@ -21,7 +21,7 @@ class search_virustotal:
             print(e)
         headers = {'User-Agent': Core.get_user_agent()}
         try:
-            r=requests.get(urly, headers=headers)
+            r = requests.get(urly, headers=headers)
         except Exception as e:
             print(e)
         self.results = r.text
