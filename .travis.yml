@@ -6,7 +6,8 @@ python:
   - "3.8-dev"
 
 install:
+  - pip install --upgrade pip
   - pip install -r requirements.txt
 
 script:
-  - pytest
+  - pytest tests/*
