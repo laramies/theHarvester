@@ -49,7 +49,7 @@ def start():
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, censys, crtsh, cymon,
                         dogpile, duckduckgo, google, googleCSE,
                         google-certificates, hunter, intelx,
-                        linkedin, netcraft, pgp, securityTrails, threatcrowd,
+                        linkedin, netcraft, securityTrails, threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo, all''')
     args = parser.parse_args()
 
@@ -286,20 +286,6 @@ def start():
                     all_hosts.extend(hosts)
                     db = stash.stash_manager()
                     db.store_all(word, all_hosts, 'host', 'netcraft')
-
-                elif engineitem == 'pgp':
-                    print('\033[94m[*] Searching PGP key server. \033[0m')
-                    try:
-                        search = pgpsearch.SearchPgp(word)
-                        search.process()
-                        all_emails = filter(search.get_emails())
-                        hosts = filter(search.get_hostnames())
-                        all_hosts.extend(hosts)
-                        db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'host', 'pgp')
-                        db.store_all(word, all_emails, 'email', 'pgp')
-                    except Exception:
-                        pass
 
                 elif engineitem == 'securityTrails':
                     print('\033[94m[*] Searching SecurityTrails. \033[0m')
@@ -555,23 +541,6 @@ def start():
                     all_hosts.extend(hosts)
                     db = stash.stash_manager()
                     db.store_all(word, all_hosts, 'host', 'netcraft')
-
-                    print('\033[94m[*] Searching PGP key server. \033[0m')
-                    try:
-                        search = pgpsearch.SearchPgp(word)
-                        search.process()
-                        emails = filter(search.get_emails())
-                        hosts = filter(search.get_hostnames())
-                        sethosts = set(hosts)
-                        uniquehosts = list(sethosts)  # Remove duplicates.
-                        all_hosts.extend(uniquehosts)
-                        db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'host', 'PGP')
-                        all_emails.extend(emails)
-                        db = stash.stash_manager()
-                        db.store_all(word, all_emails, 'email', 'PGP')
-                    except Exception:
-                        pass
 
                     print('\033[94m[*] Searching SecurityTrails. \033[0m')
                     from discovery import securitytrailssearch
