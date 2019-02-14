@@ -22,7 +22,6 @@
 *.pyd       binary
 *.pyo       binary
 
-# Note: .db, .p, and .pkl files are associated
-# with the python modules ``pickle``, ``dbm.*``,
-# ``shelve``, ``marshal``, ``anydbm``, & ``bsddb``
+# Note: .db, .p, and .pkl files are associated with the python modules
+# ``pickle``, ``dbm.*``, # ``shelve``, ``marshal``, ``anydbm``, & ``bsddb``
 # (among others).
