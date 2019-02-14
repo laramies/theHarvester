@@ -10,7 +10,7 @@ class search_wfuzz:
         self.host = host
         self.results = ""
         self.totalresults = ""
-       
+
     def do_search(self):
         print('elo')
         try:
@@ -23,7 +23,7 @@ class search_wfuzz:
 
     def get_results(self):
         return self.totalresults
-    
+
     def do_check(self):
         return
 
