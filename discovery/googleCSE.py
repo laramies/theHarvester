@@ -81,7 +81,7 @@ class SearchGoogleCSE:
             self.do_search()
             ESC = chr(27)
             sys.stdout.write(ESC + '[2K' + ESC + '[G')
-            sys.stdout.write('\r\t' + 'Searching  ' + str(self.counter + self.lowRange) + ' results.')
+            sys.stdout.write('\r\t' + 'Searching ' + str(self.counter + self.lowRange) + ' results.')
             sys.stdout.flush()
             if self.counter == 101:
                 self.counter = 1
