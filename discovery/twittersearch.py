@@ -37,14 +37,12 @@ class search_twitter:
         handles = set()
         for handle in to_parse:
             handle = str(handle)
-            if len(handle) > 1:
+            if len(handle) > 2:
                 if ' ' in handle.strip():
                     handle = handle.split(' ')[0]
                     # strip off period at the end of exists
                     if handle[len(handle)-1] == '.':
                         handle = handle[:len(handle)-1]
-                    handles.add(handle)
-            else:
                 handles.add(handle)
         return handles
 
