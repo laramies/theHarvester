@@ -32,7 +32,18 @@ class search_twitter:
 
     def get_people(self):
         rawres = myparser.Parser(self.totalresults, self.word)
-        return rawres.people_twitter()
+        to_parse = rawres.people_twitter()
+        # fix invalid handles that look like @user other_output
+        handles = set()
+        for handle in to_parse:
+            handle = str(handle)
+            if ' ' in handle.strip():
+                handle = handle.split(' ')
+                handles.add(handle[0])
+            else:
+                if len(handle) > 1:
+                    handles.add(handle)
+        return handles
 
     def process(self):
         while self.counter < self.limit:
