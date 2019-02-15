@@ -166,7 +166,7 @@ def start():
                         db.store_all(word, all_hosts, 'email', 'dogpile')
                         db.store_all(word, all_hosts, 'host', 'dogpile')
                     except Exception as e:
-                        print(f'\033[93m[!] A error occurred in Dogpile: {e} \033[0m')
+                        print(f'\033[93m[!] An error occurred with Dogpile: {e} \033[0m')
 
                 elif engineitem == 'duckduckgo':
                     print('\033[94m[*] Searching DuckDuckGo. \033[0m')
@@ -824,7 +824,7 @@ def start():
             printedtable = tab.draw()
             print(printedtable)
         except Exception as e:
-            print(f'\033[93m[!] Error occurred in the Shodan search module: {e} \033[0m')
+            print(f'\033[93m[!] An error occurred with Shodan: {e} \033[0m')
     else:
         pass
 
@@ -887,7 +887,7 @@ def start():
             save = html.writehtml()
         except Exception as e:
             print(e)
-            print('\n\033[93m[!] An error occurred creating the output file.\n\n \033[0m')
+            print('\n\033[93m[!] An error occurred while creating the output file.\n\n \033[0m')
             sys.exit(1)
 
         try:
@@ -935,7 +935,7 @@ def start():
             file.close()
             print('[*] Files saved.')
         except Exception as er:
-            print(f'\033[93m[!] An error occurred saving XML file: {er} \033[0m')
+            print(f'\033[93m[!] An error occurred while saving the XML file: {er} \033[0m')
         print('\n\n')
         sys.exit(0)
 
