@@ -36,15 +36,15 @@ class search_twitter:
         # fix invalid handles that look like @user other_output
         handles = set()
         for handle in to_parse:
-            handle = str(handle)
+            handle = str(handle).strip()
             if len(handle) > 2:
-                if ' ' in handle.strip():
+                if ' ' in handle:
                     handle = handle.split(' ')[0]
                 # strip off period at the end if exists
                 if handle[len(handle) - 1] == '.':
                     handle = handle[:len(handle) - 1]
                 # strip periods if contains three of them
-                if '...' in handle.strip():
+                if '...' in handle:
                     handle = handle[:handle.index('.')]
                 handles.add(handle)
         return handles
