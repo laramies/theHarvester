@@ -16,6 +16,8 @@ class SearchDogpile:
         self.counter = 0
 
     def do_search(self):
+        #import ssl
+        #ssl._create_default_https_context = ssl._create_unverified_context
         # Dogpile is hardcoded to return 10 results.
         url = 'https://' + self.server + "/search/web?qsi=" + str(self.counter) \
               + "&q=\"%40" + self.word + "\""
@@ -24,10 +26,11 @@ class SearchDogpile:
             'User-agent': Core.get_user_agent()
         }
         try:
-            h = requests.get(url=url, headers=headers)
+            h = requests.get(url=url, headers=headers, verify=False)
+            #print(h.text)
             self.total_results += h.text
-        except requests.exceptions.ConnectionError:
-            pass
+        except Exception as e:
+            print(f'Error Occurred: {e}')
 
     def process(self):
         while self.counter <= self.limit and self.counter <= 1000:
