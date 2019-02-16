@@ -41,10 +41,10 @@ class search_twitter:
                 if ' ' in handle.strip():
                     handle = handle.split(' ')[0]
                 # strip off period at the end if exists
-                elif handle[len(handle) - 1] == '.':
+                if handle[len(handle) - 1] == '.':
                     handle = handle[:len(handle) - 1]
                 # strip periods if contains three of them
-                elif '...' in handle.strip():
+                if '...' in handle.strip():
                     handle = handle[:handle.index('.')]
                 handles.add(handle)
         return handles
