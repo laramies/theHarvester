@@ -5,16 +5,16 @@ from discovery.constants import *
 from lib import hostchecker
 from lib import htmlExport
 from lib import reportgraph
-from lib import statichtmlgenerator
 from lib import stash
+from lib import statichtmlgenerator
 from lib.core import *
 from platform import python_version
 import argparse
 import datetime
 import ipaddress
 import re
-import time
 import sys
+import time
 
 try:
     import bs4
@@ -32,11 +32,12 @@ Core.banner()
 
 
 def start():
-    parser = argparse.ArgumentParser(description='theHarvester is a open source intelligence gathering tool(OSINT) that is used for recon')
+    parser = argparse.ArgumentParser(description='theHarvester is used to gather open source intelligence (OSINT) on a\n'
+                                                 'company or domain.')
     parser.add_argument('-d', '--domain', help='company name or domain to search', required=True)
     parser.add_argument('-l', '--limit', help='limit the number of search results, default=500', default=500, type=int)
     parser.add_argument('-S', '--start', help='start with result number X, default=0', default=0, type=int)
-    parser.add_argument('-g', '--google-dork', help='use Google Dorks for google search', default=False, action='store_true')
+    parser.add_argument('-g', '--google-dork', help='use Google Dorks for Google search', default=False, action='store_true')
     parser.add_argument('-p', '--port-scan', help='scan the detected hosts and check for Takeovers (21,22,80,443,8080) default=False, params=True', default=False)
     parser.add_argument('-s', '--shodan', help='use Shodan to query discovered hosts', default=False, action='store_true')
     parser.add_argument('-v', '--virtual-host', help='verify host name via DNS resolution and search for virtual hosts params=basic, default=False', default=False)
@@ -45,10 +46,10 @@ def start():
     parser.add_argument('-n', '--dns-lookup', help='enable DNS server lookup, default=False, params=True', default=False)
     parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
-    parser.add_argument('-b', '--source', help='''source: baidu, bing, bingapi, censys, crtsh, cymon,
+    parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, censys, crtsh, cymon,
                         dogpile, duckduckgo, google, googleCSE,
-                        google-certificates, google-profiles, hunter, intelx,
-                        linkedin, netcraft, pgp, securityTrails, threatcrowd,
+                        google-certificates, hunter, intelx,
+                        linkedin, netcraft, securityTrails, threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo, all''')
     args = parser.parse_args()
 
@@ -78,6 +79,7 @@ def start():
     vhost = []
     virtual = args.virtual_host
     word = args.domain
+
     if args.source is not None:
         engines = set(args.source.split(','))
         if set(engines).issubset(Core.get_supportedengines()):
@@ -164,7 +166,7 @@ def start():
                         db.store_all(word, all_hosts, 'email', 'dogpile')
                         db.store_all(word, all_hosts, 'host', 'dogpile')
                     except Exception as e:
-                        print(f'\033[93m[!] A error occurred in Dogpile: {e} \033[0m')
+                        print(f'\033[93m[!] An error occurred with Dogpile: {e} \033[0m')
 
                 elif engineitem == 'duckduckgo':
                     print('\033[94m[*] Searching DuckDuckGo. \033[0m')
@@ -218,23 +220,6 @@ def start():
                     all_hosts.extend(hosts)
                     db = stash.stash_manager()
                     db.store_all(word, all_hosts, 'host', 'google-certificates')
-
-                elif engineitem == 'google-profiles':
-                    print('\033[94m[*] Searching Google profiles. \033[0m')
-                    search = googlesearch.search_google(word, limit, start)
-                    search.process_profiles()
-                    people = search.get_profiles()
-                    db = stash.stash_manager()
-                    db.store_all(word, people, 'name', 'google-profile')
-
-                    if len(people) == 0:
-                        print('\n[*] No users found.\n\n')
-                    else:
-                        print('\n[*] Users found: ' + str(len(people)))
-                        print('---------------------')
-                        for user in sorted(list(set(people))):
-                            print(user)
-                        sys.exit(0)
 
                 elif engineitem == 'hunter':
                     print('\033[94m[*] Searching Hunter. \033[0m')
@@ -301,20 +286,6 @@ def start():
                     all_hosts.extend(hosts)
                     db = stash.stash_manager()
                     db.store_all(word, all_hosts, 'host', 'netcraft')
-
-                elif engineitem == 'pgp':
-                    print('\033[94m[*] Searching PGP key server. \033[0m')
-                    try:
-                        search = pgpsearch.SearchPgp(word)
-                        search.process()
-                        all_emails = filter(search.get_emails())
-                        hosts = filter(search.get_hostnames())
-                        all_hosts.extend(hosts)
-                        db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'host', 'pgp')
-                        db.store_all(word, all_emails, 'email', 'pgp')
-                    except Exception:
-                        pass
 
                 elif engineitem == 'securityTrails':
                     print('\033[94m[*] Searching SecurityTrails. \033[0m')
@@ -457,7 +428,6 @@ def start():
                     db = stash.stash_manager()
                     db.store_all(word, all_hosts, 'host', 'CRTsh')
 
-                    # cymon
                     print('\033[94m[*] Searching Cymon. \033[0m')
                     from discovery import cymon
                     # Import locally or won't work.
@@ -509,20 +479,6 @@ def start():
                     all_hosts.extend(domains)
                     db = stash.stash_manager()
                     db.store_all(word, all_hosts, 'host', 'google-certificates')
-
-                    try:
-                        print('\033[94m[*] Searching Google profiles. \033[0m')
-                        search = googlesearch.search_google(word, limit, start)
-                        search.process_profiles()
-                        people = search.get_profiles()
-                        db = stash.stash_manager()
-                        db.store_all(word, people, 'name', 'google-profile')
-                        print('\nUsers from Google profiles:')
-                        print('---------------------------')
-                        for users in people:
-                            print(users)
-                    except Exception:
-                        pass
 
                     print('\033[94m[*] Searching Hunter. \033[0m')
                     from discovery import huntersearch
@@ -585,23 +541,6 @@ def start():
                     all_hosts.extend(hosts)
                     db = stash.stash_manager()
                     db.store_all(word, all_hosts, 'host', 'netcraft')
-
-                    print('\033[94m[*] Searching PGP key server. \033[0m')
-                    try:
-                        search = pgpsearch.SearchPgp(word)
-                        search.process()
-                        emails = filter(search.get_emails())
-                        hosts = filter(search.get_hostnames())
-                        sethosts = set(hosts)
-                        uniquehosts = list(sethosts)  # Remove duplicates.
-                        all_hosts.extend(uniquehosts)
-                        db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'host', 'PGP')
-                        all_emails.extend(emails)
-                        db = stash.stash_manager()
-                        db.store_all(word, all_emails, 'email', 'PGP')
-                    except Exception:
-                        pass
 
                     print('\033[94m[*] Searching SecurityTrails. \033[0m')
                     from discovery import securitytrailssearch
@@ -885,7 +824,7 @@ def start():
             printedtable = tab.draw()
             print(printedtable)
         except Exception as e:
-            print(f'\033[93m[!] Error occurred in the Shodan search module: {e} \033[0m')
+            print(f'\033[93m[!] An error occurred with Shodan: {e} \033[0m')
     else:
         pass
 
@@ -907,7 +846,7 @@ def start():
     # Reporting
     if filename != "":
         try:
-            print('\nNEW REPORTING BEGINS.')
+            print('\n[*] Reporting started.')
             db = stash.stash_manager()
             scanboarddata = db.getscanboarddata()
             latestscanresults = db.getlatestscanresults(word)
@@ -933,7 +872,7 @@ def start():
             Html_file = open('report.html', 'w')
             Html_file.write(HTMLcode)
             Html_file.close()
-            print('NEW REPORTING FINISHED!')
+            print('[*] Reporting finished.')
             print('[*] Saving files.')
             html = htmlExport.htmlExport(
                 all_emails,
@@ -948,7 +887,8 @@ def start():
             save = html.writehtml()
         except Exception as e:
             print(e)
-            print('\n\033[93m[!] An error occurred creating the file.\033[0m')
+            print('\n\033[93m[!] An error occurred while creating the output file.\n\n \033[0m')
+            sys.exit(1)
 
         try:
             filename = filename.split('.')[0] + '.xml'
@@ -995,14 +935,14 @@ def start():
             file.close()
             print('[*] Files saved.')
         except Exception as er:
-            print(f'\033[93m[!] An error occurred saving XML file: {er} \033[0m')
+            print(f'\033[93m[!] An error occurred while saving the XML file: {er} \033[0m')
         print('\n\n')
         sys.exit(0)
 
 
 if __name__ == '__main__':
     if python_version()[0:3] < '3.6':
-        print('\033[93m[!] Make sure you have Python 3.6+ installed, quitting. \033[0m')
+        print('\033[93m[!] Make sure you have Python 3.6+ installed, quitting.\n\n \033[0m')
         sys.exit(1)
     try:
         start()

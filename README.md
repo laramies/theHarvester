@@ -6,7 +6,7 @@
 * | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
 *  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
 *                                                                 *
-* theHarvester 3.0.6 v260                                         *
+* theHarvester 3.0.6 v296                                         *
 * Coded by Christian Martorella                                   *
 * Edge-Security Research                                          *
 * cmartorella@edge-security.com                                   *
@@ -52,8 +52,6 @@ Passive:
 * linkedin: Google search engine, specific search for Linkedin users
 
 * netcraft: Netcraft Data Mining
-
-* pgp: PGP key server - mit.edu
 
 * securityTrails: Security Trails search engine, the world's largest repository<br>
   of historical DNS data (Requires API key, see below.) - www.securitytrails.com

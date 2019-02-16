@@ -50,7 +50,7 @@ class Core:
         print("* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *")
         print("*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *")
         print('*                                                                 *')
-        print('* theHarvester 3.0.6 v260                                         *')
+        print('* theHarvester 3.0.6 v296                                         *')
         print('* Coded by Christian Martorella                                   *')
         print('* Edge-Security Research                                          *')
         print('* cmartorella@edge-security.com                                   *')
@@ -74,7 +74,6 @@ class Core:
                             'intelx',
                             'linkedin',
                             'netcraft',
-                            'pgp',
                             'securityTrails',
                             'threatcrowd',
                             'trello',

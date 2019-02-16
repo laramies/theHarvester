@@ -32,7 +32,24 @@ class search_twitter:
 
     def get_people(self):
         rawres = myparser.Parser(self.totalresults, self.word)
-        return rawres.people_twitter()
+        to_parse = rawres.people_twitter()
+        # fix invalid handles that look like @user other_output
+        handles = set()
+        for handle in to_parse:
+            handle = str(handle).strip()
+            if len(handle) > 2:
+                if ' ' in handle:
+                    handle = handle.split(' ')[0]
+                # strip off period at the end if exists
+                if handle[len(handle) - 1] == '.':
+                    handle = handle[:len(handle) - 1]
+                # strip periods if contains three of them
+                if '...' in handle:
+                    handle = handle[:handle.index('.')]
+                handles.add(handle)
+        if '@' in handles:
+            handles.remove('@')
+        return handles
 
     def process(self):
         while self.counter < self.limit:
