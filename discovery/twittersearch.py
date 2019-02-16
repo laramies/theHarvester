@@ -47,6 +47,8 @@ class search_twitter:
                 if '...' in handle:
                     handle = handle[:handle.index('.')]
                 handles.add(handle)
+        if '@' in handles:
+            handles.remove('@')
         return handles
 
     def process(self):
