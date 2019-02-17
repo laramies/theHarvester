@@ -8,11 +8,14 @@ install:
 - pip install -r requirements.txt
 script:
 - pytest
-
 notifications:
+  email: false
   slack:
     rooms:
-      - secure: cx6grPu1CenA8cgxHTQBWBsxxhm2bZSJkWMHylvusnTGWWa3/Q/hr2dWQ1NzywY3n0UK0kqufuFl0NpJEfLpihSlEkDUlaBiYdAIr0EpBmCNNATSY/LPvaHJcca3jtlVuCaya6xU1JEbEQlXO62wU7XNjngbYgu3BkduPzip5nDVoNdq+4wtDtzIPXg1oEuOrQONmvQAtRZxuaN5a4vTiV2x0hOi0CSK0Z0nhjRVFF7XqFn5a00V4UaBBAHpD+2lW5W9FAKU1NmW3faAkm+MCqx6cTb/QXk5jRz5cNgYh7AzqXvL4D4KcWmKmumpW2prx37klXqtntHinYwQ+DBj723q1bRHvinKkQIVkA71QFfFuq94T4yr+4ra4mL4c2Oq+lIqBKNHHy9DfaHKCTlQ1+0ND0pnXt2XPrqHtg7pYl3XCbeeJFCYDua+CL2SPEE0RJ8PAkK8TVo0zYBXzveb+ZtbbrsJDhgjj+OoViIkzpDys/2vn0vHZ1aDzr5qNLkPi1r37JfP0VtARzWfaqrGavvP1i3ebG37q4uPuyUPUftpRGeu4RXc2D0+r1WsiR/PDNRqee8rV+ULyVh55rB9tb2jyTiLk8ALFke8PcC9nc68a7OLV5J7e3ndxIhlY7TkagDScW7yh48UBoO1xn1y12DM6PZoOSaX/rXBWvOCi4g=
+      secure: eSz43Byhtf5EnrxVWNS8DThHh5j1K3AfyGWdfSJpdqrw7FgvXq3xurwg9c3JzKImRkdPTMaym0WYNPWiW0wIPmzSZhc2d3eT1AI48WzKCj4HGvszzCN1SS6hhoqO2bBoXTM7Rr/eNrVSL0wjKS3X0bv2IjKkWx9nn1rLDtzU4CMV7+yVoWrruIxh6ck3GAXmNKPPXNen91Q7f8K0yG5JKVaWuxGoop7hj0eqgEkfrTouCSH8pes8o3TVArR1cQZAQUFW43lISQGodd8LaIPrckq+FVOJt5fddCFTDpPQW0mdobKN0SjYF0mxL8fiI0LYWq4ncxR44WV3dOXZCi5uNf1C9Q+eKANuSGCgVv0+u63iO/iWr8yM4wWetiihBO/oaLoqvLchSRrfEO3x5FFhIGH3d946k4DpYSWBtKCBUNE7lyvzBkR5LUhUzAvMSSfdMsxuhuDs+Bwfou9Dqlmf0TJYDlaitGubh+nsFR3BFt19kMX/h3Ay/+6VBwnu0NGnnO9JNmtAnoRm4P5taZvwJQtd3ixazSpJvQ6srq5umuILuOthk+8M18VWdaCSOJmh6W2USFtfJfaXIOh2UjyDNGvJOYyRdGT0Gn28fqvRDRA4HOkLgu4BT5eEq4BGxdaQc0KtPYx6L0ua0g6pTREwl9gpWN7sy1NlxFXpA4BZMw0=
     on_success: always
     on_failure: always
-    on_pull_requests: true
+    template:
+      - "Repo `%{repository_slug}` *%{result}* build (<%{build_url}|#%{build_number}>) for commit (<%{compare_url}|%{commit}>) on branch `%{branch}`."
+      - "Execution time: *%{duration}*"
+      - "Message: %{message}"
