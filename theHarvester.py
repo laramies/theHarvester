@@ -246,7 +246,7 @@ def start():
                     from discovery import intelxsearch
                     # Import locally or won't work.
                     try:
-                        search = intelxsearch.search_intelx(word, limit)
+                        search = intelxsearch.SearchIntelx(word, limit)
                         search.process()
                         emails = filter(search.get_emails())
                         all_emails.extend(emails)
@@ -504,7 +504,7 @@ def start():
                     from discovery import intelxsearch
                     # Import locally or won't work.
                     try:
-                        search = intelxsearch.search_intelx(word, limit)
+                        search = intelxsearch.SearchIntelx(word, limit)
                         search.process()
                         emails = filter(search.get_emails())
                         all_emails.extend(emails)
