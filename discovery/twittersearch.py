@@ -46,6 +46,8 @@ class search_twitter:
                 # strip periods if contains three of them
                 if '...' in handle:
                     handle = handle[:handle.index('.')]
+                if '-' == handle[0]:
+                    handle = handle[1:]
                 handles.add(handle)
         if '@' in handles:
             handles.remove('@')
