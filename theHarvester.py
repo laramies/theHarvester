@@ -81,7 +81,7 @@ def start():
     word = args.domain
 
     if args.source is not None:
-        engines = set(args.source.split(','))
+        engines = set(map(str.strip, args.source.split(',')))
         if set(engines).issubset(Core.get_supportedengines()):
             print(f'\033[94m[*] Target: {word} \n \033[0m')
             for engineitem in engines:
