@@ -12,6 +12,12 @@ class Core:
             return keys['apikeys']['bing']['key']
 
     @staticmethod
+    def censys_key():
+        with open('api-keys.yaml', 'r') as api_keys:
+            keys = yaml.safe_load(api_keys)
+            return keys['apikeys']['censys']
+
+    @staticmethod
     def google_cse_key():
         with open('api-keys.yaml', 'r') as api_keys:
             keys = yaml.safe_load(api_keys)
