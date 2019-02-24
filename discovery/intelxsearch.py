@@ -4,7 +4,8 @@ from parsers import intelxparser
 import requests
 import time
 
-class search_intelx:
+
+class SearchIntelx:
 
     def __init__(self, word, limit):
         self.word = word
@@ -21,18 +22,21 @@ class search_intelx:
         try:
             user_agent = Core.get_user_agent()
             headers = {'User-Agent': user_agent, 'x-key': self.key}
-            data = f'{{"term": "{self.word}", "maxresults": {self.limit}, "media": 0, "sort": 2 , "terminate": []}}'
             # data is json that corresponds to what we are searching for, sort:2 means sort by most relevant
+            data = f'{{"term": "{self.word}", "maxresults": {self.limit}, "media": 0, "sort": 2 , "terminate": []}}'
             r = requests.post(f'{self.database}phonebook/search', data=data, headers=headers)
+
             if r.status_code == 400:
                 raise Exception('Invalid json was passed in.')
             time.sleep(1)
+
             # grab uuid to send get request to fetch data
             uuid = r.json()['id']
             url = f'{self.database}phonebook/search/result?id={uuid}&offset=0&limit={self.limit}'
             r = requests.get(url, headers=headers)
             time.sleep(1)
-            # to add in future grab status from r.text and check if more results can be gathered
+
+            # TODO: add in future grab status from r.text and check if more results can be gathered
             if r.status_code != 200:
                 raise Exception('Error occurred while searching intelx.')
             self.results = r.json()
@@ -50,4 +54,3 @@ class search_intelx:
 
     def get_hostnames(self):
         return self.info[1]
-
