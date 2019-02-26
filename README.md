@@ -6,7 +6,7 @@
 * | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
 *  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
 *                                                                 *
-* theHarvester 3.0.6 v308                                         *
+* theHarvester 3.0.6 v322                                         *
 * Coded by Christian Martorella                                   *
 * Edge-Security Research                                          *
 * cmartorella@edge-security.com                                   *
@@ -40,8 +40,6 @@ Passive:
 * duckduckgo: DuckDuckGo search engine - www.duckduckgo.com 
 
 * google: Google search engine (Optional Google dorking.) - www.google.com
-
-* googleCSE: Google custom search engine
 
 * google-certificates: Google Certificate Transparency report
 
@@ -83,7 +81,6 @@ Modules that require an API key:
 --------------------------------
 Add your keys to api-keys.yaml
 
-* googleCSE: API key and CSE ID
 * hunter: API key
 * intelx: API key
 * securityTrails: API key

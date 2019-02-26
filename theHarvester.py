@@ -47,7 +47,7 @@ def start():
     parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, censys, crtsh, cymon,
-                        dogpile, duckduckgo, google, googleCSE,
+                        dogpile, duckduckgo, google, 
                         google-certificates, hunter, intelx,
                         linkedin, netcraft, securityTrails, threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo, all''')
@@ -192,25 +192,6 @@ def start():
                     db = stash.stash_manager()
                     db.store_all(word, all_hosts, 'host', 'google')
                     db.store_all(word, all_emails, 'email', 'google')
-
-                elif engineitem == 'googleCSE':
-                    print('\033[94m[*] Searching Google Custom Search. \033[0m')
-                    try:
-                        search = googleCSE.SearchGoogleCSE(word, limit, start)
-                        search.process()
-                        search.store_results()
-                        all_emails = filter(search.get_emails())
-                        db = stash.stash_manager()
-                        hosts = filter(search.get_hostnames())
-                        all_hosts.extend(hosts)
-                        db.store_all(word, all_hosts, 'email', 'googleCSE')
-                        db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'host', 'googleCSE')
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            print(e)
-                        else:
-                            pass
 
                 elif engineitem == 'google-certificates':
                     print('\033[94m[*] Searching Google Certificate transparency report. \033[0m')
