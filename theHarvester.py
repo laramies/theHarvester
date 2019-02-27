@@ -798,7 +798,7 @@ def start():
         try:
             for ip in host_ip:
                 print(('\tSearching for ' + ip))
-                shodan = shodansearch.search_shodan()
+                shodan = shodansearch.SearchShodan()
                 rowdata = shodan.search_ip(ip)
                 time.sleep(2)
                 tab.add_row(rowdata)
