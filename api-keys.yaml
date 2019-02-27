@@ -2,14 +2,6 @@ apikeys:
   bing:
     key:
 
-  censys:
-    api_id:
-    secret:
-
-  googleCSE:
-    key:
-    id:
-
   hunter:
     key:
 

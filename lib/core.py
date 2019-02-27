@@ -12,18 +12,6 @@ class Core:
             return keys['apikeys']['bing']['key']
 
     @staticmethod
-    def censys_key():
-        with open('api-keys.yaml', 'r') as api_keys:
-            keys = yaml.safe_load(api_keys)
-            return keys['apikeys']['censys']
-
-    @staticmethod
-    def google_cse_key():
-        with open('api-keys.yaml', 'r') as api_keys:
-            keys = yaml.safe_load(api_keys)
-            return keys['apikeys']['googleCSE']
-
-    @staticmethod
     def hunter_key():
         with open('api-keys.yaml', 'r') as api_keys:
             keys = yaml.safe_load(api_keys)
@@ -56,7 +44,7 @@ class Core:
         print(r"* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *")
         print(r"*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *")
         print('*                                                                 *')
-        print('* theHarvester 3.0.6 v308                                         *')
+        print('* theHarvester 3.0.6 v322                                         *')
         print('* Coded by Christian Martorella                                   *')
         print('* Edge-Security Research                                          *')
         print('* cmartorella@edge-security.com                                   *')
@@ -74,7 +62,6 @@ class Core:
                             'dogpile',
                             'duckduckgo',
                             'google',
-                            'googleCSE',
                             'google-certificates',
                             'hunter',
                             'intelx',
