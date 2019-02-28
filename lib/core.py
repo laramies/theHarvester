@@ -18,6 +18,12 @@ class Core:
             return keys['apikeys']['hunter']['key']
 
     @staticmethod
+    def intelx_key():
+        with open('api-keys.yaml', 'r') as api_keys:
+            keys = yaml.safe_load(api_keys)
+            return keys['apikeys']['intelx']['key']
+
+    @staticmethod
     def security_trails_key():
         with open('api-keys.yaml', 'r') as api_keys:
             keys = yaml.safe_load(api_keys)
@@ -30,12 +36,6 @@ class Core:
             return keys['apikeys']['shodan']['key']
 
     @staticmethod
-    def intelx_key():
-        with open('api-keys.yaml', 'r') as api_keys:
-            keys = yaml.safe_load(api_keys)
-            return keys['apikeys']['intelx']['key']
-
-    @staticmethod
     def banner():
         print('\n\033[93m*******************************************************************')
         print("*  _   _                                            _             *")
@@ -44,7 +44,7 @@ class Core:
         print(r"* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *")
         print(r"*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *")
         print('*                                                                 *')
-        print('* theHarvester 3.0.6 v322                                         *')
+        print('* theHarvester 3.0.6 v332                                         *')
         print('* Coded by Christian Martorella                                   *')
         print('* Edge-Security Research                                          *')
         print('* cmartorella@edge-security.com                                   *')
