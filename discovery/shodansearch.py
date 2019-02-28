@@ -4,7 +4,7 @@ from shodan import exception
 from shodan import Shodan
 
 
-class search_shodan:
+class SearchShodan:
 
     def __init__(self):
         self.key = Core.shodan_key()
