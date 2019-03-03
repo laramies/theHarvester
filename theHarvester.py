@@ -30,17 +30,13 @@ except ImportError:
 
 Core.banner()
 
-def modified_soruce(engines, exclude):
-    engines = '''baidu, bing, bingapi, censys, crtsh, cymon,
-                        dogpile, duckduckgo, google, 
-                        google-certificates, hunter, intelx,
-                        linkedin, netcraft, securityTrails, threatcrowd,
-                        trello, twitter, vhost, virustotal, yahoo'''
-    engines = set(map(str.strip, engines.split(',')))
-    exclude = set(map(str.strip, exclude.split(',')))
-    for e in exclude:
+def modified_soruce(engines, exclude_engines):
+    engines = Core.get_supportedengines()
+    engines.remove('all')
+    exclude_engines = set(map(str.strip, exclude_engines.split(',')))
+    for exclude in exclude_engines:
         try:
-            engines.remove(e)
+            engines.remove(exclude)
         except Exception:
             pass
     return engines
