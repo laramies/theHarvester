@@ -30,11 +30,11 @@ except ImportError:
 
 Core.banner()
 
-def modified_soruce(engines, exclude_engines):
+def modified_soruce(engines, excluded_engines):
     engines = Core.get_supportedengines()
     engines.remove('all')
-    exclude_engines = set(map(str.strip, exclude_engines.split(',')))
-    for exclude in exclude_engines:
+    excluded_engines = set(map(str.strip, excluded_engines.split(',')))
+    for exclude in excluded_engines:
         try:
             engines.remove(exclude)
         except Exception:
