@@ -30,16 +30,11 @@ except ImportError:
 
 Core.banner()
 
-def modified_soruce(engines, excluded_engines):
+def modified_soruce(excluded_engines):
     engines = Core.get_supportedengines()
     engines.remove('all')
     excluded_engines = set(map(str.strip, excluded_engines.split(',')))
-    for exclude in excluded_engines:
-        try:
-            engines.remove(exclude)
-        except Exception:
-            pass
-    return engines
+    return engines.difference(excluded_engines)
     
 def start():
     parser = argparse.ArgumentParser(description='theHarvester is used to gather open source intelligence (OSINT) on a\n'
@@ -94,7 +89,7 @@ def start():
     if args.source is not None:
         engines = set(map(str.strip, args.source.split(',')))
         if args.source == 'all' and args.exclude is not None:
-            engines = modified_soruce(engines, args.exclude)
+            engines = modified_soruce(args.exclude)
         if set(engines).issubset(Core.get_supportedengines()):
             print(f'\033[94m[*] Target: {word} \n \033[0m')
             for engineitem in engines:
