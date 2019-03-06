@@ -1,4 +1,12 @@
 
+Changelog in 3.0:
+-----------------
+Subdomain takeover checks.
+Port scanning (basic).
+Improved DNS dictionary.
+Shodan DB search fixed.
+Result storage in Sqlite.
+
 Changelog in 2.6:
 -----------------
 - usage() improvement, CameronNemo.

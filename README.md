@@ -6,7 +6,7 @@
 * | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
 *  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
 *                                                                 *
-* theHarvester 3.0.6 v282                                         *
+* theHarvester 3.0.6 v333                                         *
 * Coded by Christian Martorella                                   *
 * Edge-Security Research                                          *
 * cmartorella@edge-security.com                                   *
@@ -17,9 +17,10 @@
 What is this?
 -------------
 theHarvester is a very simple, yet effective tool designed to be used in the early<br>
-stages of a penetration test. Use it for open source intelligence gathering and helping<br>
-to determine a company's external threat landscape on the internet. The tool gathers<br>
-emails, names, subdomains, IPs, and URLs using multiple public data sources that include:
+stages of a penetration test. Use it for open source intelligence gathering and<br>
+helping to determine a company's external threat landscape on the internet. The<br>
+tool gathers emails, names, subdomains, IPs, and URLs using multiple public data<br>
+sources that include:
 
 Passive:
 --------
@@ -41,8 +42,6 @@ Passive:
 
 * google: Google search engine (Optional Google dorking.) - www.google.com
 
-* googleCSE: Google custom search engine
-
 * google-certificates: Google Certificate Transparency report
 
 * hunter: Hunter search engine (Requires API key, see below.) - www.hunter.io
@@ -52,8 +51,6 @@ Passive:
 * linkedin: Google search engine, specific search for Linkedin users
 
 * netcraft: Netcraft Data Mining
-
-* pgp: PGP key server - mit.edu
 
 * securityTrails: Security Trails search engine, the world's largest repository<br>
   of historical DNS data (Requires API key, see below.) - www.securitytrails.com
@@ -85,24 +82,16 @@ Modules that require an API key:
 --------------------------------
 Add your keys to api-keys.yaml
 
-* googleCSE: API key and CSE ID
-* hunter: API key
-* intelx: API key
-* securityTrails: API key
-* shodan: API key
+* bingapi
+* hunter
+* intelx
+* securityTrails
+* shodan
 
 Dependencies:
 -------------
 * Python 3.6
 * python3 -m pip install -r requirements.txt
-
-Changelog in 3.0:
------------------
-* Subdomain takeover checks.
-* Port scanning (basic).
-* Improved DNS dictionary.
-* Shodan DB search fixed.
-* Result storage in Sqlite.
 
 Comments, bugs, or requests?
 ----------------------------
