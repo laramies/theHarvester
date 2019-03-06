@@ -6,3 +6,5 @@ PyYaml>=3.13
 requests>=2.21.0
 shodan>=1.11.1
 texttable>=1.6.1
+decorator
+pytz
