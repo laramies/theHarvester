@@ -30,7 +30,7 @@ except ImportError:
 
 Core.banner()
 
-def modified_soruce(excluded_engines):
+def modified_source(excluded_engines):
     engines = Core.get_supportedengines()
     engines.remove('all')
     excluded_engines = set(map(str.strip, excluded_engines.split(',')))
@@ -89,7 +89,7 @@ def start():
     if args.source is not None:
         engines = set(map(str.strip, args.source.split(',')))
         if args.source == 'all' and args.exclude is not None:
-            engines = modified_soruce(args.exclude)
+            engines = modified_source(args.exclude)
         if set(engines).issubset(Core.get_supportedengines()):
             print(f'\033[94m[*] Target: {word} \n \033[0m')
             for engineitem in engines:
