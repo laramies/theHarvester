@@ -80,10 +80,7 @@ class search_google:
             self.counter = 0  # Reset counter.
             print('\n')
             print('[-] Searching with Google Dorks: ')
-            while self.counter <= self.limit and self.counter <= 200:  # Only 200 dorks in list.
-                self.googledork()  # Call Google dorking method if user wanted it!
-                print(f'\tSearching {self.counter} results.')
-                self.counter += 100
+            self.googledork()  # Call Google dorking method if user wanted it!
 
     def process_profiles(self):
         while self.counter < self.limit:
@@ -117,36 +114,35 @@ class search_google:
         left_peren = '%28'
         right_peren = '%29'
         pipe = '%7C'
-        # Replace links with html encoding.
-        self.links = [self.database + space + self.word + space +
+        # Format is google.com/search?q=dork+space+self.word
+        self.links = [self.database +
                       str(dork).replace(':', colon).replace('+', plus).replace('.', period).replace('"', double_quote)
-                          .replace('*', asterick).replace('[', left_bracket).replace(']', right_bracket)
-                          .replace('?', question_mark).replace(' ', space).replace('/', slash).replace("'",single_quote)
-                          .replace('&', ampersand).replace('(', left_peren).replace(')', right_peren).replace('|', pipe)
+                      .replace('*', asterick).replace('[', left_bracket).replace(']', right_bracket)
+                      .replace('?', question_mark).replace(' ', space).replace('/', slash).replace("'",single_quote)
+                      .replace('&', ampersand).replace('(', left_peren).replace(')', right_peren).replace('|', pipe)
+                      + space + self.word
                       for dork in self.dorks]
 
     def googledork(self):
         self.append_dorks()  # Call functions to create list.
         self.construct_dorks()
-        if self.counter >= 0 and self.counter <= 100:
-            self.send_dork(start=0, end=100)
-        elif self.counter >= 100 and self.counter <= 200:
-            self.send_dork(start=101, end=200)
-        else:  # Only 200 dorks to prevent Google from blocking IP.
-            pass
+        self.send_dorks()
 
-    def send_dork(self, start, end):  # Helper function to minimize code reusability.
+    def send_dorks(self):  # Helper function to minimize code reusability.
         headers = {'User-Agent': googleUA}
         # Get random user agent to try and prevent google from blocking IP.
-        for i in range(start, end):
+        for num in range(len(self.links)):
             try:
-                link = self.links[i]  # Get link from dork list.
+                if num % 10 == 0:
+                    print(f'\tSearching through {num} results')
+                link = self.links[num]
                 req = requests.get(link, headers=headers)
+                print(req.text)
                 self.results = req.text
                 if search(self.results):
                     time.sleep(getDelay() * 5)  # Sleep for a longer time.
                 else:
                     time.sleep(getDelay())
                 self.totalresults += self.results
-            except:
-                continue
+            except Exception as e:
+                print(f'\tException Occurred {e}')
