@@ -1,7 +1,9 @@
 beautifulsoup4>=4.7.1
 censys==0.0.8
+decorator
 plotly>=3.6.1
 pytest>=4.3.0
+pytz
 PyYaml>=3.13
 requests>=2.21.0
 shodan>=1.11.1
