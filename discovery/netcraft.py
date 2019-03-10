@@ -15,16 +15,13 @@ class SearchNetcraft:
         self.counter = 0
 
     def do_search(self):
-        try:
-            urly = 'https://searchdns.netcraft.com/?restriction=site+ends+with&host=' + self.word
-        except Exception as e:
-            print(e)
+        urly = 'https://searchdns.netcraft.com/?host=' + self.word + '&x=0&y=0'
         headers = {'User-Agent': Core.get_user_agent()}
         try:
-            r=requests.get(urly, headers=headers)
+            request = requests.get(urly, headers=headers)
         except Exception as e:
             print(e)
-        self.results = r.text
+        self.results = request.text
         self.totalresults += self.results
 
     def get_hostnames(self):
