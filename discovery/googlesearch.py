@@ -81,8 +81,6 @@ class search_google:
             print('\n')
             print('[-] Searching with Google Dorks: ')
             self.googledork()  # Call Google dorking method if user wanted it!
-            print(f'\tSearching {self.counter} results.')
-            self.counter += 100
 
     def process_profiles(self):
         while self.counter < self.limit:
@@ -117,13 +115,13 @@ class search_google:
         right_peren = '%29'
         pipe = '%7C'
         # Format is google.com/search?q=dork+space+self.word
-        self.links = set([self.database +
+        self.links = [self.database +
                       str(dork).replace(':', colon).replace('+', plus).replace('.', period).replace('"', double_quote)
                       .replace('*', asterick).replace('[', left_bracket).replace(']', right_bracket)
                       .replace('?', question_mark).replace(' ', space).replace('/', slash).replace("'",single_quote)
                       .replace('&', ampersand).replace('(', left_peren).replace(')', right_peren).replace('|', pipe)
                       + space + self.word
-                      for dork in self.dorks])
+                      for dork in self.dorks]
 
     def googledork(self):
         self.append_dorks()  # Call functions to create list.
@@ -133,18 +131,18 @@ class search_google:
     def send_dorks(self):  # Helper function to minimize code reusability.
         headers = {'User-Agent': googleUA}
         # Get random user agent to try and prevent google from blocking IP.
-        print(self.links)
         for num in range(len(self.links)):
             try:
                 if num % 10 == 0:
-                    print(f'Searching through {num} results')
+                    print(f'\tSearching through {num} results')
                 link = self.links[num]
                 req = requests.get(link, headers=headers)
+                print(req.text)
                 self.results = req.text
                 if search(self.results):
                     time.sleep(getDelay() * 5)  # Sleep for a longer time.
                 else:
                     time.sleep(getDelay())
                 self.totalresults += self.results
-            except:
-                continue
+            except Exception as e:
+                print(f'\tException Occurred {e}')
