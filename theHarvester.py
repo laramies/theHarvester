@@ -427,15 +427,18 @@ def start():
                     db.store_all(word, all_ip, 'ip', 'cymon')
 
                     print('\033[94m[*] Searching Dogpile. \033[0m')
-                    search = dogpilesearch.SearchDogpile(word, limit)
-                    search.process()
-                    emails = filter(search.get_emails())
-                    hosts = filter(search.get_hostnames())
-                    all_hosts.extend(hosts)
-                    all_emails.extend(emails)
-                    db = stash.stash_manager()
-                    db.store_all(word, all_hosts, 'email', 'dogpile')
-                    db.store_all(word, all_hosts, 'host', 'dogpile')
+                    try:
+                        search = dogpilesearch.SearchDogpile(word, limit)
+                        search.process()
+                        emails = filter(search.get_emails())
+                        hosts = filter(search.get_hostnames())
+                        all_hosts.extend(hosts)
+                        all_emails.extend(emails)
+                        db = stash.stash_manager()
+                        db.store_all(word, all_hosts, 'email', 'dogpile')
+                        db.store_all(word, all_hosts, 'host', 'dogpile')
+                    except Exception as e:
+                        print(f'An exception has occurred in Dogpile: {e}')
 
                     print('\033[94m[*] Searching DuckDuckGo. \033[0m')
                     from discovery import duckduckgosearch
