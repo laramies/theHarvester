@@ -17,6 +17,7 @@ class SearchBaidu:
 
     def do_search(self):
         url = 'http://' + self.server + '/s?wd=%40' + self.word + '&pn=' + str(self.counter) + '&oq=' + self.word
+        url = f'https://{self.server}/s?wd=%40{self.word}&pn{self.counter}&oq={self.word}'
         headers = {
             'Host': self.hostname,
             'User-agent': Core.get_user_agent()
