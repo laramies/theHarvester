@@ -133,11 +133,10 @@ class search_google:
         # Get random user agent to try and prevent google from blocking IP.
         for num in range(len(self.links)):
             try:
-                if num % 10 == 0:
+                if num % 10 == 0 and num > 0:
                     print(f'\tSearching through {num} results')
                 link = self.links[num]
                 req = requests.get(link, headers=headers)
-                print(req.text)
                 self.results = req.text
                 if search(self.results):
                     time.sleep(getDelay() * 5)  # Sleep for a longer time.

@@ -36,5 +36,4 @@ inurl:"gs/adminlogin.aspx"
 wwwboard WebAdmin inurl:passwd.txt wwwboard|webadmin
 robots.txt
 php-addressbook "This is the addressbook for *" -warning
-filetype:log inurl:password.log
 intitle:"index of" members OR accounts
