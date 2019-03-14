@@ -59,6 +59,7 @@ class Core:
                             'censys',
                             'crtsh',
                             'cymon',
+                            'dnsdumpster',
                             'dogpile',
                             'duckduckgo',
                             'google',
