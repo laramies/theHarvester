@@ -10,8 +10,6 @@ class search_dnsdumpster:
         self.results = ""
         self.totalresults = ""
         self.server = 'dnsdumpster.com'
-        self.quantity = '100'
-        self.counter = 0
 
     def do_search(self):
         try:
