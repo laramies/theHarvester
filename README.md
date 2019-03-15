@@ -30,11 +30,13 @@ Passive:
 
 * bingapi: Microsoft search engine, through the API (Requires API key, see below.)
 
-* censys: Censys.io search engine
+* censys: Censys.io search engine - www.censys.io
 
 * crtsh: Comodo Certificate search - www.crt.sh
 
-* cymon: Cymon.io search engine
+* cymon: Cymon.io search engine - www.cymon.io
+
+* dnsdumpster: DNSdumpster search engine - dnsdumpster.com
 
 * dogpile: Dogpile search engine - www.dogpile.com
 
@@ -42,7 +44,7 @@ Passive:
 
 * google: Google search engine (Optional Google dorking.) - www.google.com
 
-* google-certificates: Google Certificate Transparency report
+* google-certificates: Google Certificate Transparency report 
 
 * hunter: Hunter search engine (Requires API key, see below.) - www.hunter.io
 
@@ -50,7 +52,7 @@ Passive:
 
 * linkedin: Google search engine, specific search for Linkedin users
 
-* netcraft: Netcraft Data Mining
+* netcraft: Netcraft Data Mining - www.netcraft.com
 
 * securityTrails: Security Trails search engine, the world's largest repository<br>
   of historical DNS data (Requires API key, see below.) - www.securitytrails.com

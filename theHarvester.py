@@ -51,7 +51,7 @@ def start():
     parser.add_argument('-n', '--dns-lookup', help='enable DNS server lookup, default=False, params=True', default=False)
     parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
-    parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, censys, crtsh, cymon,
+    parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, censys, crtsh, cymon, dnsdumpster,
                         dogpile, duckduckgo, google, 
                         google-certificates, hunter, intelx,
                         linkedin, netcraft, securityTrails, threatcrowd,
@@ -160,6 +160,19 @@ def start():
                     all_ip = search.get_ipaddresses()
                     db = stash.stash_manager()
                     db.store_all(word, all_ip, 'ip', 'cymon')
+
+                elif engineitem == 'dnsdumpster':
+                    try:
+                        print('\033[94m[*] Searching DNSdumpster. \033[0m')
+                        from discovery import dnsdumpster
+                        search = dnsdumpster.search_dnsdumpster(word)
+                        search.process()
+                        hosts = filter(search.get_hostnames())
+                        all_hosts.extend(hosts)
+                        db = stash.stash_manager()
+                        db.store_all(word, all_hosts, 'host', 'dnsdumpster')
+                    except Exception as e:
+                        print(f'\033[93m[!] An error occurred with dnsdumpster: {e} \033[0m')
 
                 elif engineitem == 'dogpile':
                     try:
@@ -425,6 +438,18 @@ def start():
                     all_ip = search.get_ipaddresses()
                     db = stash.stash_manager()
                     db.store_all(word, all_ip, 'ip', 'cymon')
+
+                    try:
+                        print('\033[94m[*] Searching DNSdumpster. \033[0m')
+                        from discovery import dnsdumpster
+                        search = dnsdumpster.search_dnsdumpster(word)
+                        search.process()
+                        hosts = filter(search.get_hostnames())
+                        all_hosts.extend(hosts)
+                        db = stash.stash_manager()
+                        db.store_all(word, all_hosts, 'host', 'dnsdumpster')
+                    except Exception as e:
+                        print(f'\033[93m[!] An error occurred with dnsdumpster: {e} \033[0m')
 
                     print('\033[94m[*] Searching Dogpile. \033[0m')
                     try:
