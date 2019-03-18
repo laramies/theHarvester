@@ -6,7 +6,7 @@
 * | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
 *  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
 *                                                                 *
-* theHarvester 3.0.6 v374                                         *
+* theHarvester 3.0.6 v380                                         *
 * Coded by Christian Martorella                                   *
 * Edge-Security Research                                          *
 * cmartorella@edge-security.com                                   *
@@ -24,7 +24,7 @@ sources that include:
 
 Passive:
 --------
-* baidu: Baidu search engine
+* baidu: Baidu search engine - www.baidu.com
 
 * bing: Microsoft search engine - www.bing.com
 
@@ -50,7 +50,7 @@ Passive:
 
 * intelx: Intelx search engine (Requires API key, see below.) - www.intelx.io
 
-* linkedin: Google search engine, specific search for Linkedin users
+* linkedin: Google search engine, specific search for Linkedin users - www.linkedin.com
 
 * netcraft: Netcraft Data Mining - www.netcraft.com
 
@@ -68,7 +68,7 @@ Passive:
 
 * vhost: Bing virtual hosts search
 
-* virustotal: Virustotal.com domain search  
+* virustotal: virustotal.com domain search
 
 * yahoo: Yahoo search engine
 
@@ -101,8 +101,8 @@ cmartorella@edge-security.com
 
 Main contributors:
 ------------------
-* Matthew Brown @NotoriousRebel
-* Janos Zold @Jzold
+* Matthew Brown @NotoriousRebe1 [![Twitter Follow](https://img.shields.io/twitter/follow/NotoriousRebe1.svg?style=social&label=Follow)](https://twitter.com/NotoriousRebe1)
+* Janos Zold @Jzold [![Twitter Follow](https://img.shields.io/twitter/follow/Jzold.svg?style=social&label=Follow)](https://twitter.com/Jzold)
 * Lee Baird @discoverscripts [![Twitter Follow](https://img.shields.io/twitter/follow/discoverscripts.svg?style=social&label=Follow)](https://twitter.com/discoverscripts)
 * Jay Townsend @L1ghtn1ng [![Twitter Follow](https://img.shields.io/twitter/follow/jay_townsend1.svg?style=social&label=Follow)](https://twitter.com/jay_townsend1)
 
