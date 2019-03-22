@@ -18,4 +18,14 @@ setuptools.setup(
         "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
         "Operating System :: OS Independent",
     ],
+    data_files=[
+        ('wordlists', [
+            '/wordlists/general/common.txt',
+            '/wordlists/dns-big.txt',
+            '/wordlists/dns-names.txt',
+            '/wordslists/dorks.txt',
+            '/wordlists/names_small.txt'
+        ]
+         )
+    ]
 )
