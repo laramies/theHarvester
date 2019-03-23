@@ -27,7 +27,7 @@ class search_dnsdumpster:
                     break
                 csrftoken += ch
             data = {
-                'Cookie': f'csfrtoken={csrftoken}', 'csrfmiddlewaretoken': {csrftoken}, 'targetip': self.word}
+                'Cookie': f'csfrtoken={csrftoken}', 'csrfmiddlewaretoken': csrftoken, 'targetip': self.word}
             headers['Referer'] = url
             post_req = session.post(url, headers=headers, data=data)
             self.results = post_req.text
