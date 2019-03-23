@@ -20,11 +20,11 @@ setuptools.setup(
     ],
     data_files=[
         ('wordlists', [
-            '/wordlists/general/common.txt',
-            '/wordlists/dns-big.txt',
-            '/wordlists/dns-names.txt',
-            '/wordslists/dorks.txt',
-            '/wordlists/names_small.txt'
+            'wordlists/general/common.txt',
+            'wordlists/dns-big.txt',
+            'wordlists/dns-names.txt',
+            'wordlists/dorks.txt',
+            'wordlists/names_small.txt'
         ]
          )
     ]
