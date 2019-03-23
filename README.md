@@ -6,7 +6,7 @@
 * | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
 *  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
 *                                                                 *
-* theHarvester 3.0.6 v308                                         *
+* theHarvester 3.0.6 v380                                         *
 * Coded by Christian Martorella                                   *
 * Edge-Security Research                                          *
 * cmartorella@edge-security.com                                   *
@@ -17,23 +17,26 @@
 What is this?
 -------------
 theHarvester is a very simple, yet effective tool designed to be used in the early<br>
-stages of a penetration test. Use it for open source intelligence gathering and helping<br>
-to determine a company's external threat landscape on the internet. The tool gathers<br>
-emails, names, subdomains, IPs, and URLs using multiple public data sources that include:
+stages of a penetration test. Use it for open source intelligence gathering and<br>
+helping to determine a company's external threat landscape on the internet. The<br>
+tool gathers emails, names, subdomains, IPs, and URLs using multiple public data<br>
+sources that include:
 
 Passive:
 --------
-* baidu: Baidu search engine
+* baidu: Baidu search engine - www.baidu.com
 
 * bing: Microsoft search engine - www.bing.com
 
 * bingapi: Microsoft search engine, through the API (Requires API key, see below.)
 
-* censys: Censys.io search engine
+* censys: Censys.io search engine - www.censys.io
 
 * crtsh: Comodo Certificate search - www.crt.sh
 
-* cymon: Cymon.io search engine
+* cymon: Cymon.io search engine - www.cymon.io
+
+* dnsdumpster: DNSdumpster search engine - dnsdumpster.com
 
 * dogpile: Dogpile search engine - www.dogpile.com
 
@@ -41,17 +44,15 @@ Passive:
 
 * google: Google search engine (Optional Google dorking.) - www.google.com
 
-* googleCSE: Google custom search engine
-
-* google-certificates: Google Certificate Transparency report
+* google-certificates: Google Certificate Transparency report 
 
 * hunter: Hunter search engine (Requires API key, see below.) - www.hunter.io
 
 * intelx: Intelx search engine (Requires API key, see below.) - www.intelx.io
 
-* linkedin: Google search engine, specific search for Linkedin users
+* linkedin: Google search engine, specific search for Linkedin users - www.linkedin.com
 
-* netcraft: Netcraft Data Mining
+* netcraft: Netcraft Data Mining - www.netcraft.com
 
 * securityTrails: Security Trails search engine, the world's largest repository<br>
   of historical DNS data (Requires API key, see below.) - www.securitytrails.com
@@ -67,7 +68,7 @@ Passive:
 
 * vhost: Bing virtual hosts search
 
-* virustotal: Virustotal.com domain search  
+* virustotal: virustotal.com domain search
 
 * yahoo: Yahoo search engine
 
@@ -83,35 +84,28 @@ Modules that require an API key:
 --------------------------------
 Add your keys to api-keys.yaml
 
-* googleCSE: API key and CSE ID
-* hunter: API key
-* intelx: API key
-* securityTrails: API key
-* shodan: API key
+* bingapi
+* hunter
+* intelx
+* securityTrails
+* shodan
 
 Dependencies:
 -------------
 * Python 3.6
 * python3 -m pip install -r requirements.txt
 
-Changelog in 3.0:
------------------
-* Subdomain takeover checks.
-* Port scanning (basic).
-* Improved DNS dictionary.
-* Shodan DB search fixed.
-* Result storage in Sqlite.
-
 Comments, bugs, or requests?
 ----------------------------
-cmartorella@edge-security.com
+* [![Twitter Follow](https://img.shields.io/twitter/follow/laramies.svg?style=social&label=Follow)](https://twitter.com/laramies) Christian Martorella @laramies
+* cmartorella@edge-security.com
 
 Main contributors:
 ------------------
-* Matthew Brown @NotoriousRebel
-* Janos Zold @Jzold
-* Lee Baird @discoverscripts [![Twitter Follow](https://img.shields.io/twitter/follow/discoverscripts.svg?style=social&label=Follow)](https://twitter.com/discoverscripts)
-* Jay Townsend @L1ghtn1ng [![Twitter Follow](https://img.shields.io/twitter/follow/jay_townsend1.svg?style=social&label=Follow)](https://twitter.com/jay_townsend1)
+* [![Twitter Follow](https://img.shields.io/twitter/follow/NotoriousRebe1.svg?style=social&label=Follow)](https://twitter.com/NotoriousRebe1) Matthew Brown @NotoriousRebe1
+* [![Twitter Follow](https://img.shields.io/twitter/follow/jay_townsend1.svg?style=social&label=Follow)](https://twitter.com/jay_townsend1) Jay "L1ghtn1ng" Townsend @jay_townsend1
+* [![Twitter Follow](https://img.shields.io/twitter/follow/Jzold.svg?style=social&label=Follow)](https://twitter.com/Jzold)  Janos Zold @Jzold 
+* [![Twitter Follow](https://img.shields.io/twitter/follow/discoverscripts.svg?style=social&label=Follow)](https://twitter.com/discoverscripts) Lee Baird @discoverscripts 
 
 Thanks:
 -------

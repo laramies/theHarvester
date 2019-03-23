@@ -30,7 +30,12 @@ except ImportError:
 
 Core.banner()
 
-
+def modified_source(excluded_engines):
+    engines = Core.get_supportedengines()
+    engines.remove('all')
+    excluded_engines = set(map(str.strip, excluded_engines.split(',')))
+    return engines.difference(excluded_engines)
+    
 def start():
     parser = argparse.ArgumentParser(description='theHarvester is used to gather open source intelligence (OSINT) on a\n'
                                                  'company or domain.')
@@ -46,11 +51,12 @@ def start():
     parser.add_argument('-n', '--dns-lookup', help='enable DNS server lookup, default=False, params=True', default=False)
     parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
-    parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, censys, crtsh, cymon,
-                        dogpile, duckduckgo, google, googleCSE,
+    parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, censys, crtsh, cymon, dnsdumpster,
+                        dogpile, duckduckgo, google, 
                         google-certificates, hunter, intelx,
                         linkedin, netcraft, securityTrails, threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo, all''')
+    parser.add_argument('-x', '--exclude', help='exclude options when using all sources', type=str)
     args = parser.parse_args()
 
     try:
@@ -81,7 +87,9 @@ def start():
     word = args.domain
 
     if args.source is not None:
-        engines = set(args.source.split(','))
+        engines = set(map(str.strip, args.source.split(',')))
+        if args.source == 'all' and args.exclude is not None:
+            engines = modified_source(args.exclude)
         if set(engines).issubset(Core.get_supportedengines()):
             print(f'\033[94m[*] Target: {word} \n \033[0m')
             for engineitem in engines:
@@ -153,6 +161,19 @@ def start():
                     db = stash.stash_manager()
                     db.store_all(word, all_ip, 'ip', 'cymon')
 
+                elif engineitem == 'dnsdumpster':
+                    try:
+                        print('\033[94m[*] Searching DNSdumpster. \033[0m')
+                        from discovery import dnsdumpster
+                        search = dnsdumpster.search_dnsdumpster(word)
+                        search.process()
+                        hosts = filter(search.get_hostnames())
+                        all_hosts.extend(hosts)
+                        db = stash.stash_manager()
+                        db.store_all(word, all_hosts, 'host', 'dnsdumpster')
+                    except Exception as e:
+                        print(f'\033[93m[!] An error occurred with dnsdumpster: {e} \033[0m')
+
                 elif engineitem == 'dogpile':
                     try:
                         print('\033[94m[*] Searching Dogpile. \033[0m')
@@ -192,25 +213,6 @@ def start():
                     db = stash.stash_manager()
                     db.store_all(word, all_hosts, 'host', 'google')
                     db.store_all(word, all_emails, 'email', 'google')
-
-                elif engineitem == 'googleCSE':
-                    print('\033[94m[*] Searching Google Custom Search. \033[0m')
-                    try:
-                        search = googleCSE.SearchGoogleCSE(word, limit, start)
-                        search.process()
-                        search.store_results()
-                        all_emails = filter(search.get_emails())
-                        db = stash.stash_manager()
-                        hosts = filter(search.get_hostnames())
-                        all_hosts.extend(hosts)
-                        db.store_all(word, all_hosts, 'email', 'googleCSE')
-                        db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'host', 'googleCSE')
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            print(e)
-                        else:
-                            pass
 
                 elif engineitem == 'google-certificates':
                     print('\033[94m[*] Searching Google Certificate transparency report. \033[0m')
@@ -437,16 +439,31 @@ def start():
                     db = stash.stash_manager()
                     db.store_all(word, all_ip, 'ip', 'cymon')
 
+                    try:
+                        print('\033[94m[*] Searching DNSdumpster. \033[0m')
+                        from discovery import dnsdumpster
+                        search = dnsdumpster.search_dnsdumpster(word)
+                        search.process()
+                        hosts = filter(search.get_hostnames())
+                        all_hosts.extend(hosts)
+                        db = stash.stash_manager()
+                        db.store_all(word, all_hosts, 'host', 'dnsdumpster')
+                    except Exception as e:
+                        print(f'\033[93m[!] An error occurred with dnsdumpster: {e} \033[0m')
+
                     print('\033[94m[*] Searching Dogpile. \033[0m')
-                    search = dogpilesearch.SearchDogpile(word, limit)
-                    search.process()
-                    emails = filter(search.get_emails())
-                    hosts = filter(search.get_hostnames())
-                    all_hosts.extend(hosts)
-                    all_emails.extend(emails)
-                    db = stash.stash_manager()
-                    db.store_all(word, all_hosts, 'email', 'dogpile')
-                    db.store_all(word, all_hosts, 'host', 'dogpile')
+                    try:
+                        search = dogpilesearch.SearchDogpile(word, limit)
+                        search.process()
+                        emails = filter(search.get_emails())
+                        hosts = filter(search.get_hostnames())
+                        all_hosts.extend(hosts)
+                        all_emails.extend(emails)
+                        db = stash.stash_manager()
+                        db.store_all(word, all_hosts, 'email', 'dogpile')
+                        db.store_all(word, all_hosts, 'host', 'dogpile')
+                    except Exception as e:
+                        print(f'An exception has occurred in Dogpile: {e}')
 
                     print('\033[94m[*] Searching DuckDuckGo. \033[0m')
                     from discovery import duckduckgosearch
@@ -817,7 +834,7 @@ def start():
         try:
             for ip in host_ip:
                 print(('\tSearching for ' + ip))
-                shodan = shodansearch.search_shodan()
+                shodan = shodansearch.SearchShodan()
                 rowdata = shodan.search_ip(ip)
                 time.sleep(2)
                 tab.add_row(rowdata)
