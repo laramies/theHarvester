@@ -18,6 +18,7 @@ setuptools.setup(
             'theHarvester = theHarvester.theHarvester:entry_point'
         ]
     },
+    scripts=['bin/theHarvester'],
 
     classifiers=[
         "Programming Language :: Python :: 3",
