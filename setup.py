@@ -6,6 +6,7 @@ with open("README.md", "r") as fh:
 setuptools.setup(
     name='theHarvester',
     version='3.0.6',
+    py_modules=['theHarvester'],
     author="Christian Martorella",
     author_email="cmartorella@edge-security.com",
     description="theHarvester is a very simple, yet effective tool designed to be used in the early stages of a penetration test",
