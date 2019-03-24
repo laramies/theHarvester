@@ -18,6 +18,12 @@ setuptools.setup(
         "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
         "Operating System :: OS Independent",
     ],
+    packages=[
+        'theHarvester',
+        'theHarvester/discovery',
+        'theHarvester/lib',
+        'theHarvester/parsers'
+    ],
     data_files=[
         ('share/dict/theHarvester', [
             'wordlists/general/common.txt',
