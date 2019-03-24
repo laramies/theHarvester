@@ -4,7 +4,7 @@ from theHarvester.discovery import *
 from theHarvester.discovery.constants import *
 from theHarvester.lib import hostchecker
 from theHarvester.lib import htmlExport
-#from theHarvester.lib import reportgraph
+from theHarvester.lib import reportgraph
 from theHarvester.lib import stash
 from theHarvester.lib import statichtmlgenerator
 from theHarvester.lib.core import *
@@ -957,7 +957,7 @@ def start():
         sys.exit(0)
 
 
-if __name__ == '__main__':
+def entry_point():
     if python_version()[0:3] < '3.6':
         print('\033[93m[!] Make sure you have Python 3.6+ installed, quitting.\n\n \033[0m')
         sys.exit(1)
@@ -970,3 +970,6 @@ if __name__ == '__main__':
 
         print(traceback.print_exc())
         sys.exit(1)
+
+if __name__ == '__main__':
+    entry_point()
