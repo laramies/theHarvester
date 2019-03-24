@@ -1,5 +1,5 @@
-import discovery.DNS as DNS
-import discovery.IPy as IPy
+import theHarvester.discovery.DNS as DNS
+import theHarvester.discovery.IPy as IPy
 import os
 import sys
 

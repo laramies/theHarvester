@@ -1,5 +1,5 @@
-from discovery.constants import *
-from lib.core import *
+from theHarvester.discovery.constants import *
+from theHarvester.lib.core import *
 from shodan import exception
 from shodan import Shodan
 

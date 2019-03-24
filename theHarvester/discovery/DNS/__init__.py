@@ -11,16 +11,16 @@
 
 __version__ = '2.3.1'
 
-from discovery.DNS import Type
-from discovery.DNS import Opcode
-from discovery.DNS import Status
-from discovery.DNS import Class
-from discovery.DNS.Base import DnsRequest, DNSError
-from discovery.DNS.Lib import DnsResult
-from discovery.DNS.Base import *
-from discovery.DNS.Lib import *
+from theHarvester.discovery.DNS import Type
+from theHarvester.discovery.DNS import Opcode
+from theHarvester.discovery.DNS import Status
+from theHarvester.discovery.DNS import Class
+from theHarvester.discovery.DNS.Base import DnsRequest, DNSError
+from theHarvester.discovery.DNS.Lib import DnsResult
+from theHarvester.discovery.DNS.Base import *
+from theHarvester.discovery.DNS.Lib import *
 Error = DNSError
-from discovery.DNS.lazy import *
+from theHarvester.discovery.DNS.lazy import *
 Request = DnsRequest
 Result = DnsResult
 

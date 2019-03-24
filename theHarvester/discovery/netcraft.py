@@ -1,5 +1,5 @@
-from lib.core import *
-from parsers import myparser
+from theHarvester.lib.core import *
+from theHarvester.parsers import myparser
 import requests
 import hashlib
 import urllib.parse as urllib

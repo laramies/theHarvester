@@ -1,6 +1,6 @@
-from discovery.constants import *
-from lib.core import *
-from parsers import myparser
+from theHarvester.discovery.constants import *
+from theHarvester.lib.core import *
+from theHarvester.parsers import myparser
 import re
 import requests
 import time

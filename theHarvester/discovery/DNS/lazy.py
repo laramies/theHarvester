@@ -7,7 +7,7 @@
 #
 
 # routines for lazy people.
-from discovery.DNS import Base
+from theHarvester.discovery.DNS import Base
 
 def revlookup(name):
     "convenience routine for doing a reverse lookup of an address"

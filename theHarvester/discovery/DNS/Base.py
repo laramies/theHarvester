@@ -12,7 +12,7 @@ This code is covered by the standard Python License.
 import socket
 import time
 
-from discovery.DNS import Type, Class, Opcode
+from theHarvester.discovery.DNS import Type, Class, Opcode
 import asyncore
 
 class DNSError(Exception):
@@ -107,7 +107,7 @@ class DnsRequest:
 
     def processTCPReply(self):
         import time
-        from discovery.DNS import Lib
+        from theHarvester.discovery.DNS import Lib
         self.f = self.s.makefile('r')
         header = self.f.read(2)
         if len(header) < 2:
@@ -121,7 +121,7 @@ class DnsRequest:
         return self.processReply()
 
     def processReply(self):
-        from discovery.DNS import Lib
+        from theHarvester.discovery.DNS import Lib
         self.args['elapsed'] = (self.time_finish - self.time_start) * 1000
         u = Lib.Munpacker(self.reply)
         r = Lib.DnsResult(u, self.args)
@@ -154,7 +154,7 @@ class DnsRequest:
     def req(self, *name, **args):
         " needs a refactoring "
         import time
-        from discovery.DNS import Lib
+        from theHarvester.discovery.DNS import Lib
         self.argparse(name, args)
         # if not self.args:
         #    raise DNSError,'reinitialize request before reuse'
@@ -222,7 +222,7 @@ class DnsRequest:
     def sendTCPRequest(self, server):
         " do the work of sending a TCP request "
         import time
-        import discovery.DNS.Lib as Lib
+        import theHarvester.discovery.DNS.Lib as Lib
         self.response = None
         for self.ns in server:
             try:

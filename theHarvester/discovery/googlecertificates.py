@@ -1,4 +1,4 @@
-from lib.core import *
+from theHarvester.lib.core import *
 import json
 import requests
 

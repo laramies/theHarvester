@@ -1,5 +1,5 @@
-from lib.core import *
-from parsers import censysparser
+from theHarvester.lib.core import *
+from theHarvester.parsers import censysparser
 import requests
 
 

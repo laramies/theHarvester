@@ -22,8 +22,8 @@
 #             DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION
 # ------------------------------------------------------------------------
 
-from discovery.DNS import Type, Class, Opcode, Status
-from discovery.DNS.Base import DNSError
+from theHarvester.discovery.DNS import Type, Class, Opcode, Status
+from theHarvester.discovery.DNS.Base import DNSError
 
 class UnpackError(DNSError):
     pass

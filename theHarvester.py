@@ -4,8 +4,8 @@ from theHarvester.discovery import *
 from theHarvester.discovery.constants import *
 from theHarvester.lib import hostchecker
 from theHarvester.lib import htmlExport
-from theHarvester.lib import reportgraph
-from theHarvester import stash
+#from theHarvester.lib import reportgraph
+from theHarvester.lib import stash
 from theHarvester.lib import statichtmlgenerator
 from theHarvester.lib.core import *
 from platform import python_version
@@ -131,7 +131,7 @@ def start():
 
                 elif engineitem == 'censys':
                     print('\033[94m[*] Searching Censys. \033[0m')
-                    from discovery import censys
+                    from theHarvester.discovery import censys
                     # Import locally or won't work
                     search = censys.SearchCensys(word, limit)
                     search.process()
