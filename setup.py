@@ -30,7 +30,7 @@ setuptools.setup(
     ],
     entry_points={
         'console_scripts': [
-            'theHarwester = theHarvester.theHarvester:start'
+            'theHarvester = theHarvester.theHarvester:start'
         ]
     }
 )
