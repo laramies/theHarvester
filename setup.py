@@ -19,12 +19,12 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     data_files=[
-        ('wordlists', [
-            'wordlists/general/common.txt',
-            'wordlists/dns-big.txt',
-            'wordlists/dns-names.txt',
-            'wordlists/dorks.txt',
-            'wordlists/names_small.txt'
+        ('share/dict/theHarvester', [
+            'general/common.txt',
+            'dns-big.txt',
+            'dns-names.txt',
+            'dorks.txt',
+            'names_small.txt'
         ]
          )
     ],
