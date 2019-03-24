@@ -6,7 +6,6 @@ with open("README.md", "r") as fh:
 setuptools.setup(
     name='theHarvester',
     version='3.0.6',
-    py_modules=['theHarvester'],
     author="Christian Martorella",
     author_email="cmartorella@edge-security.com",
     description="theHarvester is a very simple, yet effective tool designed to be used in the early stages of a penetration test",
@@ -14,6 +13,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/laramies/theHarvester",
     packages=setuptools.find_packages(),
+    scripts=['theHarvester.py'],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
@@ -29,9 +29,4 @@ setuptools.setup(
         ]
          )
     ],
-    entry_points={
-        'console_scripts': [
-            'theHarvester = theHarvester.theHarvester:start'
-        ]
-    }
 )

@@ -5,7 +5,7 @@ from theHarvester.discovery.constants import *
 from theHarvester.lib import hostchecker
 from theHarvester.lib import htmlExport
 from theHarvester.lib import reportgraph
-from theHarvester.lib import theHarvester.stash
+from theHarvester import stash
 from theHarvester.lib import statichtmlgenerator
 from theHarvester.lib.core import *
 from platform import python_version
