@@ -27,10 +27,10 @@ setuptools.setup(
             'wordlists/names_small.txt'
         ]
          )
-    ]
+    ],
     entry_points={
         'console_scripts': [
             'theHarwester = theHarvester.theHarvester:start'
         ]
-    },
+    }
 )
