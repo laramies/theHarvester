@@ -13,7 +13,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/laramies/theHarvester",
     packages=setuptools.find_packages(),
-    scripts=['theHarvester.py'],
+    scripts=['theharvester'],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
