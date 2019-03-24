@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # coding=utf-8
 
-from parsers import myparser
+from theHarvester.parsers import myparser
 import pytest
 
 
