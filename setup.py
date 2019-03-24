@@ -15,10 +15,9 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     entry_points={
         'console_scripts': [
-            'theHarvester = theHarvester.theHarvester:entry_point'
+            'theHarvester = theHarvester.__main__:entry_point'
         ]
     },
-    scripts=['bin/theHarvester'],
 
     classifiers=[
         "Programming Language :: Python :: 3",
