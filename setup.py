@@ -13,13 +13,19 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/laramies/theHarvester",
     packages=setuptools.find_packages(),
+    entry_points={
+        'console_scripts': [
+            'theHarvester = theHarvester.__main__:entry_point'
+        ]
+    },
+
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
         "Operating System :: OS Independent",
     ],
     data_files=[
-        ('wordlists', [
+        ('share/dict/theHarvester', [
             'wordlists/general/common.txt',
             'wordlists/dns-big.txt',
             'wordlists/dns-names.txt',
@@ -27,5 +33,5 @@ setuptools.setup(
             'wordlists/names_small.txt'
         ]
          )
-    ]
+    ],
 )
