@@ -12,7 +12,7 @@ This code is covered by the standard Python License.
 import socket
 import time
 
-from theHarvester.discovery.DNS import Type, Class, Opcode
+from . import Type, Class, Opcode
 import asyncore
 
 class DNSError(Exception):
