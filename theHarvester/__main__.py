@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
-from .discovery import *
-from .discovery.constants import *
-from .lib import hostchecker
-from .lib import htmlExport
-from .lib import reportgraph
-from .lib import stash
-from .lib import statichtmlgenerator
-from .lib.core import *
+from theHarvester.discovery import *
+from theHarvester.discovery.constants import *
+from theHarvester.lib import hostchecker
+from theHarvester.lib import htmlExport
+from theHarvester.lib import reportgraph
+from theHarvester.lib import stash
+from theHarvester.lib import statichtmlgenerator
+from theHarvester.lib.core import *
 from platform import python_version
 import argparse
 import datetime
