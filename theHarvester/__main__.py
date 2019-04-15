@@ -153,7 +153,7 @@ def start():
 
                 elif engineitem == 'cymon':
                     print('\033[94m[*] Searching Cymon. \033[0m')
-                    from discovery import cymon
+                    from theHarvester.discovery import cymon
                     # Import locally or won't work.
                     search = cymon.search_cymon(word)
                     search.process()
@@ -164,7 +164,7 @@ def start():
                 elif engineitem == 'dnsdumpster':
                     try:
                         print('\033[94m[*] Searching DNSdumpster. \033[0m')
-                        from discovery import dnsdumpster
+                        from theHarvester.discovery import dnsdumpster
                         search = dnsdumpster.search_dnsdumpster(word)
                         search.process()
                         hosts = filter(search.get_hostnames())
@@ -191,7 +191,7 @@ def start():
 
                 elif engineitem == 'duckduckgo':
                     print('\033[94m[*] Searching DuckDuckGo. \033[0m')
-                    from discovery import duckduckgosearch
+                    from theHarvester.discovery import duckduckgosearch
                     search = duckduckgosearch.SearchDuckDuckGo(word, limit)
                     search.process()
                     emails = filter(search.get_emails())
@@ -225,7 +225,7 @@ def start():
 
                 elif engineitem == 'hunter':
                     print('\033[94m[*] Searching Hunter. \033[0m')
-                    from discovery import huntersearch
+                    from theHarvester.discovery import huntersearch
                     # Import locally or won't work.
                     try:
                         search = huntersearch.SearchHunter(word, limit, start)
@@ -245,7 +245,7 @@ def start():
 
                 elif engineitem == 'intelx':
                     print('\033[94m[*] Searching Intelx. \033[0m')
-                    from discovery import intelxsearch
+                    from theHarvester.discovery import intelxsearch
                     # Import locally or won't work.
                     try:
                         search = intelxsearch.SearchIntelx(word, limit)
@@ -291,7 +291,7 @@ def start():
 
                 elif engineitem == 'securityTrails':
                     print('\033[94m[*] Searching SecurityTrails. \033[0m')
-                    from discovery import securitytrailssearch
+                    from theHarvester.discovery import securitytrailssearch
                     try:
                         search = securitytrailssearch.search_securitytrail(word)
                         search.process()
@@ -323,7 +323,7 @@ def start():
 
                 elif engineitem == 'trello':
                     print('\033[94m[*] Searching Trello. \033[0m')
-                    from discovery import trello
+                    from theHarvester.discovery import trello
                     # Import locally or won't work.
                     search = trello.search_trello(word, limit)
                     search.process()
@@ -407,7 +407,7 @@ def start():
                         pass
 
                     print('\033[94m[*] Searching Censys. \033[0m')
-                    from discovery import censys
+                    from theHarvester.discovery import censys
                     search = censys.SearchCensys(word, limit)
                     search.process()
                     ips = search.get_ipaddresses()
@@ -431,7 +431,7 @@ def start():
                     db.store_all(word, all_hosts, 'host', 'CRTsh')
 
                     print('\033[94m[*] Searching Cymon. \033[0m')
-                    from discovery import cymon
+                    from theHarvester.discovery import cymon
                     # Import locally or won't work.
                     search = cymon.search_cymon(word)
                     search.process()
@@ -441,7 +441,7 @@ def start():
 
                     try:
                         print('\033[94m[*] Searching DNSdumpster. \033[0m')
-                        from discovery import dnsdumpster
+                        from theHarvester.discovery import dnsdumpster
                         search = dnsdumpster.search_dnsdumpster(word)
                         search.process()
                         hosts = filter(search.get_hostnames())
@@ -466,7 +466,7 @@ def start():
                         print(f'An exception has occurred in Dogpile: {e}')
 
                     print('\033[94m[*] Searching DuckDuckGo. \033[0m')
-                    from discovery import duckduckgosearch
+                    from theHarvester.discovery import duckduckgosearch
                     search = duckduckgosearch.SearchDuckDuckGo(word, limit)
                     search.process()
                     emails = filter(search.get_emails())
@@ -498,7 +498,7 @@ def start():
                     db.store_all(word, all_hosts, 'host', 'google-certificates')
 
                     print('\033[94m[*] Searching Hunter. \033[0m')
-                    from discovery import huntersearch
+                    from theHarvester.discovery import huntersearch
                     # Import locally.
                     try:
                         search = huntersearch.SearchHunter(word, limit, start)
@@ -518,7 +518,7 @@ def start():
                             pass
 
                     print('\033[94m[*] Searching Intelx. \033[0m')
-                    from discovery import intelxsearch
+                    from theHarvester.discovery import intelxsearch
                     # Import locally or won't work.
                     try:
                         search = intelxsearch.SearchIntelx(word, limit)
@@ -560,7 +560,7 @@ def start():
                     db.store_all(word, all_hosts, 'host', 'netcraft')
 
                     print('\033[94m[*] Searching SecurityTrails. \033[0m')
-                    from discovery import securitytrailssearch
+                    from theHarvester.discovery import securitytrailssearch
                     try:
                         search = securitytrailssearch.search_securitytrail(word)
                         search.process()
@@ -590,7 +590,7 @@ def start():
                         pass
 
                     print('\033[94m[*] Searching Trello. \033[0m')
-                    from discovery import trello
+                    from theHarvester.discovery import trello
                     # Import locally or won't work.
                     search = trello.search_trello(word, limit)
                     search.process()
