@@ -12,7 +12,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/laramies/theHarvester",
-    packages=setuptools.find_packages(),
+    packages=setuptools.find_packages(exclude=['tests']),
     entry_points={
         'console_scripts': [
             'theHarvester = theHarvester.__main__:entry_point'
