@@ -9,7 +9,7 @@ before_install:
 install:
 - python setup.py test
 script:
-- python theHarvester -h
+- python theHarvester.py -h
 - pytest
 notifications:
   email: false
