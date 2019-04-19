@@ -7,7 +7,7 @@ import yaml
 class Core:
     @staticmethod
     def version():
-        return '3.1.0-dev'
+        return '3.1.0.dev'
 
     @staticmethod
     def bing_key():
