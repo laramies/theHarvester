@@ -5,8 +5,9 @@ python:
 - '3.7'
 - '3.8-dev'
 install:
-- pip install -r requirements.txt
+- python setup install
 script:
+- python theHarvester -h
 - pytest
 notifications:
   email: false
