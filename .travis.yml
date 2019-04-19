@@ -4,6 +4,8 @@ python:
 - '3.6'
 - '3.7'
 - '3.8-dev'
+before_install:
+  - pip install -r requirements.txt
 install:
 - python setup.py test
 script:
