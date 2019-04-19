@@ -4,9 +4,12 @@ python:
 - '3.6'
 - '3.7'
 - '3.8-dev'
+before_install:
+  - pip install -r requirements.txt
 install:
-- pip install -r requirements.txt
+- python setup.py test
 script:
+- python theHarvester.py -d metasploit.com -x trello,google,intelx,bingapi,crtsh,hunter -b all
 - pytest
 notifications:
   email: false

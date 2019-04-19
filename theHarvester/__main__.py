@@ -30,12 +30,14 @@ except ImportError:
 
 Core.banner()
 
+
 def modified_source(excluded_engines):
     engines = Core.get_supportedengines()
     engines.remove('all')
     excluded_engines = set(map(str.strip, excluded_engines.split(',')))
     return engines.difference(excluded_engines)
-    
+
+
 def start():
     parser = argparse.ArgumentParser(description='theHarvester is used to gather open source intelligence (OSINT) on a\n'
                                                  'company or domain.')

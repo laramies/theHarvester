@@ -6,6 +6,10 @@ import yaml
 
 class Core:
     @staticmethod
+    def version():
+        return '3.1.0.dev0'
+
+    @staticmethod
     def bing_key():
         with open('api-keys.yaml', 'r') as api_keys:
             keys = yaml.safe_load(api_keys)
@@ -44,7 +48,7 @@ class Core:
         print(r"* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *")
         print(r"*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *")
         print('*                                                                 *')
-        print('* theHarvester 3.0.6 v380                                         *')
+        print(f'* theHarvester {Core.version()}                                          *')
         print('* Coded by Christian Martorella                                   *')
         print('* Edge-Security Research                                          *')
         print('* cmartorella@edge-security.com                                   *')
