@@ -9,7 +9,7 @@ before_install:
 install:
 - python setup.py test
 script:
-- python theHarvester.py -h
+- python theHarvester.py -d metasploit.com -b all -x trello,google,intelx,bingapi
 - pytest
 notifications:
   email: false
