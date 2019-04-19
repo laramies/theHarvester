@@ -5,7 +5,7 @@ python:
 - '3.7'
 - '3.8-dev'
 install:
-- python setup.py install
+- python setup.py test
 script:
 - python theHarvester -h
 - pytest
