@@ -47,7 +47,7 @@ def start():
     parser.add_argument('-g', '--google-dork', help='use Google Dorks for Google search', default=False, action='store_true')
     parser.add_argument('-p', '--port-scan', help='scan the detected hosts and check for Takeovers (21,22,80,443,8080)', default=False, action='store_true')
     parser.add_argument('-s', '--shodan', help='use Shodan to query discovered hosts', default=False, action='store_true')
-    parser.add_argument('-v', '--virtual-host', help='verify host name via DNS resolution and search for virtual hosts', params=basic, default=False)
+    parser.add_argument('-v', '--virtual-host', help='verify host name via DNS resolution and search for virtual hosts', action='store_const', const='basic', default=False)
     parser.add_argument('-e', '--dns-server', help='DNS server to use for lookup')
     parser.add_argument('-t', '--dns-tld', help='perform a DNS TLD expansion discovery, default False', default=False)
     parser.add_argument('-n', '--dns-lookup', help='enable DNS server lookup, default False', default=False, action='store_true')
