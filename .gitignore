@@ -4,8 +4,7 @@
 .html
 .vscode
 .xml
+api-keys.yaml
 debug_results.txt
-discovery/constants.py
-stash.sqlite
 tests/myparser.py
 venv

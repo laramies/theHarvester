@@ -6,55 +6,55 @@
 * | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
 *  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
 *                                                                 *
-* theHarvester 3.0.6 v137                                         *
+* theHarvester 3.1.0 dev                                          *
 * Coded by Christian Martorella                                   *
 * Edge-Security Research                                          *
 * cmartorella@edge-security.com                                   *
 *******************************************************************
 ```
+[![Build Status](https://travis-ci.com/laramies/theHarvester.svg?branch=master)](https://travis-ci.com/laramies/theHarvester)
 
 What is this?
 -------------
 theHarvester is a very simple, yet effective tool designed to be used in the early<br>
-stages of a penetration test. Use it for open source intelligence gathering and helping<br>
-to determine a company's external threat landscape on the internet. The tool gathers<br>
-emails, names, subdomains, IPs, and URLs using multiple public data sources that include:
+stages of a penetration test. Use it for open source intelligence gathering and<br>
+helping to determine a company's external threat landscape on the internet. The<br>
+tool gathers emails, names, subdomains, IPs, and URLs using multiple public data<br>
+sources that include:
 
 Passive:
 --------
-* baidu: Baidu search engine
+* baidu: Baidu search engine - www.baidu.com
 
 * bing: Microsoft search engine - www.bing.com
 
 * bingapi: Microsoft search engine, through the API (Requires API key, see below.)
 
-* censys: Censys.io search engine
+* censys: Censys.io search engine - www.censys.io
 
 * crtsh: Comodo Certificate search - www.crt.sh
 
-* cymon: Cymon.io search engine
+* cymon: Cymon.io search engine - www.cymon.io
+
+* dnsdumpster: DNSdumpster search engine - dnsdumpster.com
 
 * dogpile: Dogpile search engine - www.dogpile.com
 
-* duckduckgo:
+* duckduckgo: DuckDuckGo search engine - www.duckduckgo.com 
 
 * google: Google search engine (Optional Google dorking.) - www.google.com
 
-* googleCSE: Google custom search engine
-
-* google-certificates: Google Certificate Transparency report
-
-* google-profiles: Google search engine, specific search for Google profiles
+* google-certificates: Google Certificate Transparency report 
 
 * hunter: Hunter search engine (Requires API key, see below.) - www.hunter.io
 
-* linkedin: Google search engine, specific search for Linkedin users
+* intelx: Intelx search engine (Requires API key, see below.) - www.intelx.io
 
-* netcraft: Netcraft Data Mining
+* linkedin: Google search engine, specific search for Linkedin users - www.linkedin.com
 
-* pgp: PGP key server - mit.edu
+* netcraft: Netcraft Data Mining - www.netcraft.com
 
-* securitytrails: Security Trails search engine, the world's largest repository<br>
+* securityTrails: Security Trails search engine, the world's largest repository<br>
   of historical DNS data (Requires API key, see below.) - www.securitytrails.com
 
 * shodan: Shodan search engine, will search for ports and banners from discovered<br>
@@ -68,7 +68,7 @@ Passive:
 
 * vhost: Bing virtual hosts search
 
-* virustotal:
+* virustotal: virustotal.com domain search
 
 * yahoo: Yahoo search engine
 
@@ -82,34 +82,32 @@ Active:
 
 Modules that require an API key:
 --------------------------------
-Add your keys to discovery/constants.py
+Add your keys to api-keys.yaml
 
-* googleCSE: API key and CSE ID
-* hunter: API key
-* securitytrails: API key
-* shodan: API key
+* bingapi
+* hunter
+* intelx
+* securityTrails
+* shodan
 
 Dependencies:
 -------------
 * Python 3.6
-* pip3 install -r requirements.txt
-
-Changelog in 3.0:
------------------
-* Subdomain takeover checks.
-* Port scanning (basic).
-* Improved DNS dictionary.
-* Shodan DB search fixed.
-* Result storage in Sqlite.
+* python3 -m pip install -r requirements.txt
 
 Comments, bugs, or requests?
 ----------------------------
-cmartorella@edge-security.com
+* [![Twitter Follow](https://img.shields.io/twitter/follow/laramies.svg?style=social&label=Follow)](https://twitter.com/laramies) Christian Martorella @laramies
+* cmartorella@edge-security.com
+
+Main contributors:
+------------------
+* [![Twitter Follow](https://img.shields.io/twitter/follow/NotoriousRebel1.svg?style=social&label=Follow)](https://twitter.com/NotoriousRebel1) Matthew Brown @NotoriousRebel1
+* [![Twitter Follow](https://img.shields.io/twitter/follow/jay_townsend1.svg?style=social&label=Follow)](https://twitter.com/jay_townsend1) Jay "L1ghtn1ng" Townsend @jay_townsend1
+* [![Twitter Follow](https://img.shields.io/twitter/follow/Jzold.svg?style=social&label=Follow)](https://twitter.com/Jzold)  Janos Zold @Jzold 
+* [![Twitter Follow](https://img.shields.io/twitter/follow/discoverscripts.svg?style=social&label=Follow)](https://twitter.com/discoverscripts) Lee Baird @discoverscripts 
 
 Thanks:
 -------
-* Matthew Brown @NotoriousRebel
-* Janos Zold @Jzold
-* Lee Baird @discoverscripts - suggestions and bugs reporting
 * John Matherly - Shodan project
 * Ahmed Aboul Ela - subdomain names dictionaries (big and small)

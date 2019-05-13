@@ -1,5 +1,8 @@
-beautifulsoup4>=4.7.0
-plotly>=3.4.2
+beautifulsoup4>=4.7.1
+censys==0.0.8
+plotly>=3.8.1
+pytest>=4.4.1
+PyYaml>=5.1
 requests>=2.21.0
-texttable>=1.4.0
-shodan>=1.10.0
+shodan>=1.12.1
+texttable>=1.6.1
