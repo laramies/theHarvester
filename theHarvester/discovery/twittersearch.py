@@ -3,6 +3,7 @@ from theHarvester.lib.core import *
 from theHarvester.parsers import myparser
 import requests
 import time
+import re
 
 
 class search_twitter:
@@ -36,24 +37,9 @@ class search_twitter:
         # fix invalid handles that look like @user other_output
         handles = set()
         for handle in to_parse:
-            handle = str(handle).strip()
-            if len(handle) > 2:
-                if ' ' in handle:
-                    handle = handle.split(' ')[0]
-                # strip off period at the end if exists
-                if handle[len(handle) - 1] == '.':
-                    handle = handle[:len(handle) - 1]
-                # strip periods if contains three of them
-                if '...' in handle:
-                    handle = handle[:handle.index('.')]
-                if '-' == handle[0]:
-                    handle = handle[1:]
-                if '-' == handle[1]:
-                    handle = handle[0] + handle[2:]
-                handles.add(handle)
-        if '@' in handles:
-            handles.remove('@')
-
+            result = re.search(r'^@?(\w){1,15}', handle)
+            if result:
+                handles.add(result.group(0))
         return handles
 
     def process(self):
