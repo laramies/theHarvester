@@ -517,7 +517,7 @@ def start():
                         if isinstance(e, MissingKey):
                             print(e)
                         else:
-                            pass
+                            print(f'Error occured in hunter: {e}')
 
                     print('\033[94m[*] Searching Intelx. \033[0m')
                     from theHarvester.discovery import intelxsearch
@@ -588,8 +588,8 @@ def start():
                         all_hosts.extend(hosts)
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'threatcrowd')
-                    except Exception:
-                        pass
+                    except Exception as error:
+                        print(error)
 
                     print('\033[94m[*] Searching Trello. \033[0m')
                     from theHarvester.discovery import trello
@@ -617,8 +617,8 @@ def start():
                         print('-------------------')
                         for user in people:
                             print(user)
-                    except Exception:
-                        pass
+                    except Exception as error:
+                        print(error)
 
                     print('\n[*] Virtual hosts:')
                     print('------------------')
@@ -710,7 +710,7 @@ def start():
 
     if trello_info[1] is True:
         trello_urls = trello_info[0]
-        if trello_urls == []:
+        if trello_urls is []:
             print('\n[*] No URLs found.')
         else:
             total = len(trello_urls)
@@ -972,6 +972,7 @@ def entry_point():
 
         print(traceback.print_exc())
         sys.exit(1)
+
 
 if __name__ == '__main__':
     entry_point()
