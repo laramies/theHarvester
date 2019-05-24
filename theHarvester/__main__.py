@@ -340,7 +340,7 @@ def start():
                     db.store_all(word, emails, 'email', 'trello')
 
                 elif engineitem == 'twitter':
-                    print('\033[94m[*] Searching Twitter. \033[0m')
+                    print('\033[94m[*] Searching Twitter usernames using Google. \033[0m')
                     search = twittersearch.search_twitter(word, limit)
                     search.process()
                     people = search.get_people()
