@@ -42,6 +42,8 @@ Passive:
 
 * duckduckgo: DuckDuckGo search engine - www.duckduckgo.com 
 
+* github-code: Github code search engine (Requires Github Personal Access Token, see below.) - www.github.com
+
 * google: Google search engine (Optional Google dorking.) - www.google.com
 
 * google-certificates: Google Certificate Transparency report 
@@ -85,6 +87,7 @@ Modules that require an API key:
 Add your keys to api-keys.yaml
 
 * bingapi
+* github
 * hunter
 * intelx
 * securityTrails
