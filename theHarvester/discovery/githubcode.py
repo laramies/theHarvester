@@ -20,7 +20,7 @@ class SuccessResult(NamedTuple):
 
 class ErrorResult(NamedTuple):
     status_code: int
-    message: str
+    body: any
 
 
 class SearchGithubCode:
@@ -35,7 +35,7 @@ class SearchGithubCode:
         self.page = 1
         self.key = Core.github_key()
         # If you don't have a personal access token, github narrows your search capabilities significantly
-        # and rate limits you more severely
+        # rate limits you more severely
         # https://developer.github.com/v3/search/#rate-limit
         if self.key is None:
             raise MissingKey(True)
@@ -84,25 +84,25 @@ class SearchGithubCode:
         elif response.status_code == 429 or response.status_code == 403:
             return RetryResult(60)
         else:
-            return ErrorResult(response.status_code, response.reason)
+            try:
+                return ErrorResult(response.status_code, response.json())
+            except ValueError:
+                return ErrorResult(response.status_code, response.text)
 
     def do_search(self, page: Optional[int]) -> Optional[Any]:
         if page is None:
-            url = 'https://api.github.com/search/code?q={}'.format(self.word)
+            url = f'https://{self.server}/search/code?q={self.word}'
         else:
-            url = 'https://api.github.com/search/code?q={}&page={}'.format(self.word, page)
+            url = f'https://{self.server}/search/code?q={self.word}&page={page}'
         headers = {
             'Host': self.hostname,
             'User-agent': Core.get_user_agent(),
             'Accept': "application/vnd.github.v3.text-match+json",
             'Authorization': 'token {}'.format(self.key)
         }
-        try:
-            h = requests.get(url=url, headers=headers, verify=False)
-            result = self.handle_response(h)
-            return result
-        except Exception as e:
-            print(f'Error Occurred: {e}')
+        h = requests.get(url=url, headers=headers, verify=True)
+        result = self.handle_response(h)
+        return result
 
     @staticmethod
     def next_page_or_end(page: Optional[int], result: SuccessResult) -> Optional[int]:
@@ -126,9 +126,10 @@ class SearchGithubCode:
                 sleepy_time = getDelay() + result.time
                 print(f'\tRetrying page in {sleepy_time} seconds...')
                 time.sleep(sleepy_time)
+            elif type(result) == ErrorResult:
+                raise Exception(f"\tException occurred: status_code: {result.status_code} reason: {result.body}")
             else:
-                raise Exception("Exception occurred: status_code: {} reason: {}".format(result.status_code,
-                                                                                        result.message))
+                raise Exception("\tUnknown exception occurred")
 
     def get_emails(self):
         rawres = myparser.Parser(self.total_results, self.word)
