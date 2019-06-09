@@ -13,3 +13,6 @@ apikeys:
 
   shodan:
     key: oCiMsgM6rQWqiTvPxFHYcExlZgg7wvTt
+
+  github:
+    key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
