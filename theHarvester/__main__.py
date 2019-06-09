@@ -205,8 +205,8 @@ def start():
                     db.store_all(word, all_hosts, 'host', 'duckduckgo')
 
                 elif engineitem == 'github-code':
+                    print('\033[94m[*] Searching Github (code). \033[0m')
                     try:
-                        print('\033[94m[*] Searching Github (code). \033[0m')
                         from theHarvester.discovery import githubcode
                         search = githubcode.SearchGithubCode(word, limit)
                         search.process()

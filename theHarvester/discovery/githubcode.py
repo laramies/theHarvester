@@ -45,10 +45,10 @@ class SearchGithubCode:
         items: List[Dict[str, Any]] = response.json().get('items')
         fragments = []
         if items is not None:
-            for i in items:
-                match = i.get("text_matches")
-                for m in match:
-                    fragments.append(m.get("fragment"))
+            for item in items:
+                matches = item.get("text_matches")
+                for match in matches:
+                    fragments.append(match.get("fragment"))
         return fragments
 
     @staticmethod
@@ -89,7 +89,7 @@ class SearchGithubCode:
             except ValueError:
                 return ErrorResult(response.status_code, response.text)
 
-    def do_search(self, page: Optional[int]) -> Optional[Any]:
+    def do_search(self, page: Optional[int]) -> Response:
         if page is None:
             url = f'https://{self.server}/search/code?q={self.word}'
         else:
@@ -100,9 +100,7 @@ class SearchGithubCode:
             'Accept': "application/vnd.github.v3.text-match+json",
             'Authorization': 'token {}'.format(self.key)
         }
-        h = requests.get(url=url, headers=headers, verify=True)
-        result = self.handle_response(h)
-        return result
+        return requests.get(url=url, headers=headers, verify=True)
 
     @staticmethod
     def next_page_or_end(page: Optional[int], result: SuccessResult) -> Optional[int]:
@@ -113,11 +111,12 @@ class SearchGithubCode:
 
     def process(self):
         while self.counter <= self.limit and self.page is not None:
-            result = self.do_search(self.page)
+            api_response = self.do_search(self.page)
+            result = self.handle_response(api_response)
             if type(result) == SuccessResult:
                 print(f'\tSearching {self.counter} results.')
-                for f in result.fragments:
-                    self.total_results += f
+                for fragment in result.fragments:
+                    self.total_results += fragment
                     self.counter = self.counter + 1
 
                 self.page = self.next_page_or_end(self.page, result)
