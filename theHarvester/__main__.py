@@ -148,8 +148,6 @@ def start():
                     print('\033[94m[*] Searching CRT.sh. \033[0m')
                     search = crtsh.SearchCrtsh(word)
                     search.process()
-                    hosts = filter(search.get_hostnames())
-                    all_hosts.extend(hosts)
                     db = stash.stash_manager()
                     db.store_all(word, all_hosts, 'host', 'CRTsh')
 
@@ -417,8 +415,6 @@ def start():
                     print('\033[94m[*] Searching CRT.sh. \033[0m')
                     search = crtsh.SearchCrtsh(word)
                     search.process()
-                    hosts = filter(search.get_hostnames())
-                    all_hosts.extend(hosts)
                     db = stash.stash_manager()
                     db.store_all(word, all_hosts, 'host', 'CRTsh')
 

@@ -1,8 +1,9 @@
-beautifulsoup4>=4.7.1
+beautifulsoup4==4.7.1
 censys==0.0.8
-plotly>=3.10.0
-pytest>=4.6.3
-PyYaml>=5.1.1
-requests>=2.22.0
-shodan>=1.13.0
-texttable>=1.6.1
+plotly==3.10.0
+pytest==4.6.3
+PyYaml==5.1.1
+psycopg2-binary==2.8.3
+requests==2.22.0
+shodan==1.13.0
+texttable==1.6.1
