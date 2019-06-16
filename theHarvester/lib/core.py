@@ -7,7 +7,7 @@ import yaml
 class Core:
     @staticmethod
     def version():
-        return '3.1.0.dev0'
+        return '3.1.0.dev1'
 
     @staticmethod
     def bing_key():
@@ -370,7 +370,7 @@ class Core:
     #     db.store_all(word, uniqueips, 'ip', 'censys')
     #
     #     print('[*] Searching CRT.sh.')
-    #     search = crtsh.search_crtsh(word)
+    #     search = crtsh.SearchCrtsh(word)
     #     search.process()
     #     hosts = filter(search.get_hostnames())
     #     all_hosts.extend(hosts)
@@ -492,7 +492,7 @@ class Core:
     #
     #     print('[*] Searching Threatcrowd.')
     #     try:
-    #         search = threatcrowd.search_threatcrowd(word)
+    #         search = threatcrowd.SearchThreatcrowd(word)
     #         search.process()
     #         hosts = filter(search.get_hostnames())
     #         all_hosts.extend(hosts)
