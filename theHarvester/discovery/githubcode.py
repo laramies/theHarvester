@@ -42,44 +42,31 @@ class SearchGithubCode:
 
     @staticmethod
     def fragments_from_response(response: Response) -> List[str]:
-        items: List[Dict[str, Any]] = response.json().get('items')
-        fragments = []
-        if items is not None:
-            for item in items:
-                matches = item.get("text_matches")
-                for match in matches:
-                    fragments.append(match.get("fragment"))
-        return fragments
+        items: List[Dict[str, Any]] = response.json().get('items') or list()
+        fragments: List[str] = list()
+        for item in items:
+            matches = item.get("text_matches") or list()
+            for match in matches:
+                fragments.append(match.get("fragment"))
+        return [fragment for fragment in fragments if fragment is not None]
 
     @staticmethod
-    def next_page_from_response(response: Response) -> Optional[int]:
-        next_link = response.links.get("next")
-        if next_link:
-            parsed = urlparse.urlparse(next_link.get("url"))
+    def page_from_response(page: str, response: Response) -> Optional[int]:
+        page_link = response.links.get(page)
+        if page_link:
+            parsed = urlparse.urlparse(page_link.get("url"))
             params = urlparse.parse_qs(parsed.query)
             page = params.get('page') or [None]
-            next_page = page[0] and int(page[0])
-            return next_page
-        else:
-            return None
-
-    @staticmethod
-    def last_page_from_response(response: Response) -> Optional[int]:
-        next_link = response.links.get("last")
-        if next_link:
-            parsed = urlparse.urlparse(next_link.get("url"))
-            params = urlparse.parse_qs(parsed.query)
-            page = params.get('page') or [None]
-            last_page = page[0] and int(page[0])
-            return last_page
+            page_number = page[0] and int(page[0])
+            return page_number
         else:
             return None
 
     def handle_response(self, response: Response) -> Optional[Any]:
         if response.ok:
             fragments = self.fragments_from_response(response)
-            next_page = self.next_page_from_response(response)
-            last_page = self.last_page_from_response(response)
+            next_page = self.page_from_response("next", response)
+            last_page = self.page_from_response("last", response)
             return SuccessResult(fragments, next_page, last_page)
         elif response.status_code == 429 or response.status_code == 403:
             return RetryResult(60)
