@@ -64,10 +64,10 @@ class SearchGithubCode:
 
     def handle_response(self, response: Response) -> Optional[Any]:
         if response.ok:
-            fragments = self.fragments_from_response(response)
+            results = self.fragments_from_response(response)
             next_page = self.page_from_response("next", response)
             last_page = self.page_from_response("last", response)
-            return SuccessResult(fragments, next_page, last_page)
+            return SuccessResult(results, next_page, last_page)
         elif response.status_code == 429 or response.status_code == 403:
             return RetryResult(60)
         else:
@@ -78,9 +78,9 @@ class SearchGithubCode:
 
     def do_search(self, page: Optional[int]) -> Response:
         if page is None:
-            url = f'https://{self.server}/search/code?q={self.word}'
+            url = f'https://{self.server}/search/code?q="{self.word}"'
         else:
-            url = f'https://{self.server}/search/code?q={self.word}&page={page}'
+            url = f'https://{self.server}/search/code?q="{self.word}"&page={page}'
         headers = {
             'Host': self.hostname,
             'User-agent': Core.get_user_agent(),
@@ -90,11 +90,11 @@ class SearchGithubCode:
         return requests.get(url=url, headers=headers, verify=True)
 
     @staticmethod
-    def next_page_or_end(page: Optional[int], result: SuccessResult) -> Optional[int]:
-        if page is not None and result.last_page is not None and page < result.last_page:
-            return page + 1
+    def next_page_or_end(result: SuccessResult) -> Optional[int]:
+        if result.next_page is not None:
+            return result.next_page
         else:
-            return None
+            return result.last_page
 
     def process(self):
         while self.counter <= self.limit and self.page is not None:
@@ -106,7 +106,7 @@ class SearchGithubCode:
                     self.total_results += fragment
                     self.counter = self.counter + 1
 
-                self.page = self.next_page_or_end(self.page, result)
+                self.page = self.next_page_or_end(result)
                 time.sleep(getDelay())
             elif type(result) == RetryResult:
                 sleepy_time = getDelay() + result.time

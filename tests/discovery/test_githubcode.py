@@ -10,8 +10,8 @@ class TestSearchGithubCode:
 
     def test_missing_key(self):
         with pytest.raises(MissingKey):
+            Core.github_key = MagicMock(return_value=None)
             githubcode.SearchGithubCode(word="test", limit=500)
-
 
     def test_fragments_from_response(self):
         Core.github_key = MagicMock(return_value="lol")
@@ -63,6 +63,18 @@ class TestSearchGithubCode:
         response.json = MagicMock(return_value=json)
         test_result = test_class_instance.fragments_from_response(response)
         assert test_result == []
+
+    def test_next_page(self):
+        Core.github_key = MagicMock(return_value="lol")
+        test_class_instance = githubcode.SearchGithubCode(word="test", limit=500)
+        test_result = githubcode.SuccessResult(list(), next_page=2, last_page=4)
+        assert(2 == test_class_instance.next_page_or_end(test_result))
+
+    def test_last_page(self):
+        Core.github_key = MagicMock(return_value="lol")
+        test_class_instance = githubcode.SearchGithubCode(word="test", limit=500)
+        test_result = githubcode.SuccessResult(list(), None, None)
+        assert(None is test_class_instance.next_page_or_end(test_result))
 
     if __name__ == '__main__':
         pytest.main()
