@@ -3,7 +3,7 @@ from theHarvester.parsers import myparser
 import requests
 
 
-class search_threatcrowd:
+class SearchThreatcrowd:
 
     def __init__(self, word):
         self.word = word.replace(' ', '%20')
@@ -15,21 +15,17 @@ class search_threatcrowd:
         self.counter = 0
 
     def do_search(self):
-        try:
-            urly = 'https://www.threatcrowd.org/searchApi/v2/domain/report/?domain=' + self.word
-        except Exception as e:
-            print(e)
+        url = f'https://www.threatcrowd.org/searchApi/v2/domain/report/?domain={self.word}'
         headers = {'User-Agent': Core.get_user_agent()}
         try:
-            r = requests.get(urly, headers=headers)
+            request = requests.get(url, headers=headers)
+            self.results = request.text
         except Exception as e:
             print(e)
-        self.results = r.text
         self.totalresults += self.results
 
     def get_hostnames(self):
-        rawres = myparser.Parser(self.results, self.word)
-        return rawres.hostnames()
+        return myparser.Parser(self.results, self.word).hostnames()
 
     def process(self):
         self.do_search()
