@@ -5,7 +5,7 @@ import requests
 import time
 
 
-class search_crtsh:
+class SearchCrtsh:
 
     def __init__(self, word):
         self.word = word.replace(' ', '%20')

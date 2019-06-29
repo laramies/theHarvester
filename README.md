@@ -34,8 +34,6 @@ Passive:
 
 * crtsh: Comodo Certificate search - www.crt.sh
 
-* cymon: Cymon.io search engine - www.cymon.io
-
 * dnsdumpster: DNSdumpster search engine - dnsdumpster.com
 
 * dogpile: Dogpile search engine - www.dogpile.com

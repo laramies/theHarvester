@@ -53,7 +53,7 @@ def start():
     parser.add_argument('-n', '--dns-lookup', help='enable DNS server lookup, default False', default=False, action='store_true')
     parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
-    parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, censys, crtsh, cymon, dnsdumpster,
+    parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, censys, crtsh, dnsdumpster,
                         dogpile, duckduckgo, github-code, google, 
                         google-certificates, hunter, intelx,
                         linkedin, netcraft, securityTrails, threatcrowd,
@@ -146,22 +146,12 @@ def start():
 
                 elif engineitem == 'crtsh':
                     print('\033[94m[*] Searching CRT.sh. \033[0m')
-                    search = crtsh.search_crtsh(word)
+                    search = crtsh.SearchCrtsh(word)
                     search.process()
                     hosts = filter(search.get_hostnames())
                     all_hosts.extend(hosts)
                     db = stash.stash_manager()
                     db.store_all(word, all_hosts, 'host', 'CRTsh')
-
-                elif engineitem == 'cymon':
-                    print('\033[94m[*] Searching Cymon. \033[0m')
-                    from theHarvester.discovery import cymon
-                    # Import locally or won't work.
-                    search = cymon.search_cymon(word)
-                    search.process()
-                    all_ip = search.get_ipaddresses()
-                    db = stash.stash_manager()
-                    db.store_all(word, all_ip, 'ip', 'cymon')
 
                 elif engineitem == 'dnsdumpster':
                     try:
@@ -332,7 +322,7 @@ def start():
                 elif engineitem == 'threatcrowd':
                     print('\033[94m[*] Searching Threatcrowd. \033[0m')
                     try:
-                        search = threatcrowd.search_threatcrowd(word)
+                        search = threatcrowd.SearchThreatcrowd(word)
                         search.process()
                         hosts = filter(search.get_hostnames())
                         all_hosts.extend(hosts)
@@ -443,21 +433,12 @@ def start():
                     db.store_all(word, uniqueips, 'ip', 'censys')
 
                     print('\033[94m[*] Searching CRT.sh. \033[0m')
-                    search = crtsh.search_crtsh(word)
+                    search = crtsh.SearchCrtsh(word)
                     search.process()
                     hosts = filter(search.get_hostnames())
                     all_hosts.extend(hosts)
                     db = stash.stash_manager()
                     db.store_all(word, all_hosts, 'host', 'CRTsh')
-
-                    print('\033[94m[*] Searching Cymon. \033[0m')
-                    from theHarvester.discovery import cymon
-                    # Import locally or won't work.
-                    search = cymon.search_cymon(word)
-                    search.process()
-                    all_ip = search.get_ipaddresses()
-                    db = stash.stash_manager()
-                    db.store_all(word, all_ip, 'ip', 'cymon')
 
                     try:
                         print('\033[94m[*] Searching DNSdumpster. \033[0m')
@@ -535,7 +516,7 @@ def start():
                         if isinstance(e, MissingKey):
                             print(e)
                         else:
-                            pass
+                            print(f'Error occured in hunter: {e}')
 
                     print('\033[94m[*] Searching Intelx. \033[0m')
                     from theHarvester.discovery import intelxsearch
@@ -600,14 +581,14 @@ def start():
 
                     print('\033[94m[*] Searching Threatcrowd. \033[0m')
                     try:
-                        search = threatcrowd.search_threatcrowd(word)
+                        search = threatcrowd.SearchThreatcrowd(word)
                         search.process()
                         hosts = filter(search.get_hostnames())
                         all_hosts.extend(hosts)
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'threatcrowd')
-                    except Exception:
-                        pass
+                    except Exception as error:
+                        print(error)
 
                     print('\033[94m[*] Searching Trello. \033[0m')
                     from theHarvester.discovery import trello
@@ -635,8 +616,8 @@ def start():
                         print('-------------------')
                         for user in people:
                             print(user)
-                    except Exception:
-                        pass
+                    except Exception as error:
+                        print(error)
 
                     print('\n[*] Virtual hosts:')
                     print('------------------')
@@ -728,7 +709,7 @@ def start():
 
     if trello_info[1] is True:
         trello_urls = trello_info[0]
-        if trello_urls == []:
+        if trello_urls is []:
             print('\n[*] No URLs found.')
         else:
             total = len(trello_urls)
@@ -768,10 +749,9 @@ def start():
                     if len(openports) > 1:
                         print(('\t[*] Detected open ports: ' + ','.join(str(e) for e in openports)))
                     takeover_check = 'True'
-                    if takeover_check == 'True':
-                        if len(openports) > 0:
-                            search_take = takeover.take_over(domain)
-                            search_take.process()
+                    if takeover_check == 'True' and len(openports) > 0:
+                        search_take = takeover.take_over(domain)
+                        search_take.process()
                 except Exception as e:
                     print(e)
 
@@ -869,9 +849,9 @@ def start():
     # We have to take out the TLDs to do this.
     recursion = None
     if recursion:
-        start = 0
+        counter = 0
         for word in vhost:
-            search = googlesearch.search_google(word, limit, start)
+            search = googlesearch.search_google(word, limit, counter)
             search.process(google_dorking)
             emails = search.get_emails()
             hosts = search.get_hostnames()
@@ -921,7 +901,7 @@ def start():
                 word,
                 shodanres,
                 dnstldres)
-            save = html.writehtml()
+            html.writehtml()
         except Exception as e:
             print(e)
             print('\n\033[93m[!] An error occurred while creating the output file.\n\n \033[0m')
@@ -990,6 +970,7 @@ def entry_point():
 
         print(traceback.print_exc())
         sys.exit(1)
+
 
 if __name__ == '__main__':
     entry_point()
