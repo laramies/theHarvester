@@ -1,4 +1,5 @@
 from theHarvester.discovery import githubcode
+from theHarvester.discovery.githubcode import RetryResult, ErrorResult, SuccessResult
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import Core
 from unittest.mock import MagicMock
@@ -8,14 +9,7 @@ import pytest
 
 class TestSearchGithubCode:
 
-    def test_missing_key(self):
-        with pytest.raises(MissingKey):
-            Core.github_key = MagicMock(return_value=None)
-            githubcode.SearchGithubCode(word="test", limit=500)
-
-    def test_fragments_from_response(self):
-        Core.github_key = MagicMock(return_value="lol")
-        test_class_instance = githubcode.SearchGithubCode(word="test", limit=500)
+    class OkResponse:
         response = Response()
         json = {
             "items": [
@@ -35,13 +29,20 @@ class TestSearchGithubCode:
                 }
             ]
         }
+        response.status_code = 200
         response.json = MagicMock(return_value=json)
-        test_result = test_class_instance.fragments_from_response(response)
-        assert test_result == ["test1", "test2"]
 
-    def test_fail_fragments_from_response(self):
-        Core.github_key = MagicMock(return_value="lol")
-        test_class_instance = githubcode.SearchGithubCode(word="test", limit=500)
+    class FailureResponse:
+        response = Response()
+        response.json = MagicMock(return_value={})
+        response.status_code = 401
+
+    class RetryResponse:
+        response = Response()
+        response.json = MagicMock(return_value={})
+        response.status_code = 403
+
+    class MalformedResponse:
         response = Response()
         json = {
             "items": [
@@ -61,8 +62,42 @@ class TestSearchGithubCode:
             ]
         }
         response.json = MagicMock(return_value=json)
-        test_result = test_class_instance.fragments_from_response(response)
+        response.status_code = 200
+
+    def test_missing_key(self):
+        with pytest.raises(MissingKey):
+            Core.github_key = MagicMock(return_value=None)
+            githubcode.SearchGithubCode(word="test", limit=500)
+
+    def test_fragments_from_response(self):
+        Core.github_key = MagicMock(return_value="lol")
+        test_class_instance = githubcode.SearchGithubCode(word="test", limit=500)
+        test_result = test_class_instance.fragments_from_response(self.OkResponse.response)
+        assert test_result == ["test1", "test2"]
+
+    def test_invalid_fragments_from_response(self):
+        Core.github_key = MagicMock(return_value="lol")
+        test_class_instance = githubcode.SearchGithubCode(word="test", limit=500)
+        test_result = test_class_instance.fragments_from_response(self.MalformedResponse.response)
         assert test_result == []
+
+    def test_handle_response_ok(self):
+        Core.github_key = MagicMock(return_value="lol")
+        test_class_instance = githubcode.SearchGithubCode(word="test", limit=500)
+        test_result = test_class_instance.handle_response(self.OkResponse.response)
+        assert isinstance(test_result, SuccessResult)
+
+    def test_handle_response_retry(self):
+        Core.github_key = MagicMock(return_value="lol")
+        test_class_instance = githubcode.SearchGithubCode(word="test", limit=500)
+        test_result = test_class_instance.handle_response(self.RetryResponse.response)
+        assert isinstance(test_result, RetryResult)
+
+    def test_handle_response_fail(self):
+        Core.github_key = MagicMock(return_value="lol")
+        test_class_instance = githubcode.SearchGithubCode(word="test", limit=500)
+        test_result = test_class_instance.handle_response(self.FailureResponse.response)
+        assert isinstance(test_result, ErrorResult)
 
     def test_next_page(self):
         Core.github_key = MagicMock(return_value="lol")
