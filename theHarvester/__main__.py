@@ -8,7 +8,6 @@ from theHarvester.lib import reportgraph
 from theHarvester.lib import stash
 from theHarvester.lib import statichtmlgenerator
 from theHarvester.lib.core import *
-from platform import python_version
 import argparse
 import datetime
 import ipaddress
@@ -940,9 +939,6 @@ def start():
 
 
 def entry_point():
-    if python_version()[0:3] < '3.6':
-        print('\033[93m[!] Make sure you have Python 3.6+ installed, quitting.\n\n \033[0m')
-        sys.exit(1)
     try:
         start()
     except KeyboardInterrupt:
