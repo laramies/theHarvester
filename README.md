@@ -93,8 +93,9 @@ Add your keys to api-keys.yaml
 
 Dependencies:
 -------------
-* Python 3.6
+* Python 3.6+
 * python3 -m pip install -r requirements.txt
+* Recommend that you use a virtualenv when cloning from git
 
 Comments, bugs, or requests?
 ----------------------------
