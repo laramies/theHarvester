@@ -8,7 +8,6 @@ from theHarvester.lib import reportgraph
 from theHarvester.lib import stash
 from theHarvester.lib import statichtmlgenerator
 from theHarvester.lib.core import *
-from platform import python_version
 import argparse
 import datetime
 import ipaddress
@@ -54,7 +53,7 @@ def start():
     parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, censys, crtsh, dnsdumpster,
-                        dogpile, duckduckgo, google, 
+                        dogpile, duckduckgo, github-code, google, 
                         google-certificates, hunter, intelx,
                         linkedin, netcraft, securityTrails, threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo, all''')
@@ -191,6 +190,24 @@ def start():
                     db = stash.stash_manager()
                     db.store_all(word, all_hosts, 'email', 'duckduckgo')
                     db.store_all(word, all_hosts, 'host', 'duckduckgo')
+
+                elif engineitem == 'github-code':
+                    print('\033[94m[*] Searching Github (code). \033[0m')
+                    try:
+                        from theHarvester.discovery import githubcode
+                        search = githubcode.SearchGithubCode(word, limit)
+                        search.process()
+                        emails = filter(search.get_emails())
+                        all_emails.extend(emails)
+                        hosts = filter(search.get_hostnames())
+                        all_hosts.extend(hosts)
+                        db = stash.stash_manager()
+                        db.store_all(word, all_hosts, 'host', 'github-code')
+                        db.store_all(word, all_emails, 'email', 'github-code')
+                    except MissingKey as ex:
+                        print(ex)
+                    else:
+                        pass
 
                 elif engineitem == 'google':
                     print('\033[94m[*] Searching Google. \033[0m')
@@ -936,9 +953,6 @@ def start():
 
 
 def entry_point():
-    if python_version()[0:3] < '3.6':
-        print('\033[93m[!] Make sure you have Python 3.6+ installed, quitting.\n\n \033[0m')
-        sys.exit(1)
     try:
         start()
     except KeyboardInterrupt:

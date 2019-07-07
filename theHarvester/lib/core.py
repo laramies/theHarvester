@@ -16,6 +16,12 @@ class Core:
             return keys['apikeys']['bing']['key']
 
     @staticmethod
+    def github_key():
+        with open('api-keys.yaml', 'r') as api_keys:
+            keys = yaml.safe_load(api_keys)
+            return keys['apikeys']['github']['key']
+
+    @staticmethod
     def hunter_key():
         with open('api-keys.yaml', 'r') as api_keys:
             keys = yaml.safe_load(api_keys)
@@ -66,6 +72,7 @@ class Core:
                             'dnsdumpster',
                             'dogpile',
                             'duckduckgo',
+                            'github-code',
                             'google',
                             'google-certificates',
                             'hunter',
