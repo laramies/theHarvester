@@ -98,8 +98,10 @@ class htmlgenerator:
 
     def beginhtml(self):
         html = '''
-<head><script src="https://cdn.plot.ly/plotly-latest.min.js"></script></head>
+<!doctype html>
 <html>
+<head><script src="https://cdn.plot.ly/plotly-latest.min.js" type="text/javascript"></script></head>
+<title>theHarvester Scan Report</title>
 <body>
 <h1 style="text-align: center;"><span style="color: #ff0000;">theHarvester Scan Report</span></h1>
         '''
