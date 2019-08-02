@@ -1,6 +1,6 @@
 beautifulsoup4>=4.7.1
 censys==0.0.8
-plotly>=3.10.0
+plotly==3.10.0
 pytest>=4.6.3
 PyYaml>=5.1.1
 requests>=2.22.0
