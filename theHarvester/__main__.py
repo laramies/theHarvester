@@ -285,7 +285,6 @@ def start():
                         print('---------------------')
                         for user in sorted(list(set(people))):
                             print(user)
-                    sys.exit(0)
 
                 elif engineitem == 'netcraft':
                     print('\033[94m[*] Searching Netcraft. \033[0m')
