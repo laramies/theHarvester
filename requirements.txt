@@ -1,7 +1,7 @@
 beautifulsoup4==4.8.0
 censys==0.0.8
 chart-studio==1.0.0
-plotly==3.10.0
+plotly==4.0.0
 pytest==5.0.1
 PyYaml==5.1.1
 requests==2.22.0
