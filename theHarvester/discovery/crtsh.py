@@ -1,26 +1,26 @@
-import psycopg2
+from theHarvester.lib.core import *
+import json
+import requests
 
 
 class SearchCrtsh:
 
     def __init__(self, word):
         self.word = word
-        self.db_server = 'crt.sh'
-        self.db_database = 'certwatch'
-        self.db_user = 'guest'
 
     def do_search(self):
-        try:
-            conn = psycopg2.connect('dbname={0} user={1} host={2}'.format(self.db_database, self.db_user, self.db_server))
-            conn.autocommit = True
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT ci.NAME_VALUE NAME_VALUE FROM certificate_identity ci WHERE ci.NAME_TYPE = 'dNSName' AND reverse(lower(ci.NAME_VALUE)) LIKE reverse(lower('%{}'));".format(
-                    self.word))
-        except ConnectionError:
-            print('[!] Unable to connect to the database')
-        return cursor
+        url = f'https://crt.sh/?q=%{self.word}&output=json'
+        request = requests.get(url, headers={'User-Agent': Core.get_user_agent()})
+
+        if request.ok:
+            try:
+                content = request.content.decode('utf-8')
+                data = json.loads(content)
+                return data
+            except ValueError as error:
+                print(f'Error when requesting data from crt.sh: {error}')
 
     def process(self):
         self.do_search()
         print('\tSearching results.')
+
