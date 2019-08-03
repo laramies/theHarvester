@@ -18,9 +18,9 @@ class htmlgenerator:
 <td style="width: 157.153px; text-align: center;"><strong>Record type</strong></td>
 <td style="width: 157.153px; text-align: center;"><strong>Result</strong></td>
 </tr>
-<tr>
 '''
                 for i in previousscanresults:
+                    html += '<tr>'
                     html += '<td style="width: 156.042px;">' + str(i) + "</td>"
                     html += '<td style="width: 156.042px;">' + str(i) + "</td>"
                     html += '<td style="width: 157.153px;">' + str(i) + "</td>"
@@ -75,9 +75,9 @@ class htmlgenerator:
 <td style="width: 157.153px; text-align: center;"><strong>Record type</strong></td>
 <td style="width: 157.153px; text-align: center;"><strong>Result</strong></td>
 </tr>
-<tr>
 '''
             for i in latestscanresults:
+                html += '<tr>'
                 html += '<td style="width: 156.042px;">' + str(i[0]) + "</td>"
                 html += '<td style="width: 156.042px;">' + str(i[1]) + "</td>"
                 html += '<td style="width: 157.153px;">' + str(i[2]) + "</td>"
@@ -98,8 +98,10 @@ class htmlgenerator:
 
     def beginhtml(self):
         html = '''
-<head><script src="https://cdn.plot.ly/plotly-latest.min.js"></script></head>
+<!doctype html>
 <html>
+<head><script src="https://cdn.plot.ly/plotly-latest.min.js" type="text/javascript"></script></head>
+<title>theHarvester Scan Report</title>
 <body>
 <h1 style="text-align: center;"><span style="color: #ff0000;">theHarvester Scan Report</span></h1>
         '''
@@ -156,9 +158,9 @@ class htmlgenerator:
 <td style="width: 157.153px; text-align: center;"><strong>Source</strong></td>
 <td style="width: 157.153px; text-align: center;"><strong>Total results</strong></td>
 </tr>
-<tr>
 '''
             for i in scanstatistics:
+                html += '<tr>'
                 html += '<td style="width: 156.042px;">' + str(i[0]) + "</td>"
                 html += '<td style="width: 156.042px;">' + str(i[1]) + "</td>"
                 html += '<td style="width: 157.153px;">' + str(i[2]) + "</td>"
