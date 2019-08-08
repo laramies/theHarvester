@@ -74,7 +74,6 @@ class Core:
                             'duckduckgo',
                             'github-code',
                             'google',
-                            'google-certificates',
                             'hunter',
                             'intelx',
                             'linkedin',

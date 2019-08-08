@@ -54,7 +54,7 @@ def start():
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, censys, crtsh, dnsdumpster,
                         dogpile, duckduckgo, github-code, google, 
-                        google-certificates, hunter, intelx,
+                        hunter, intelx,
                         linkedin, netcraft, securityTrails, threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo, all''')
     parser.add_argument('-x', '--exclude', help='exclude options when using all sources', type=str)
@@ -147,7 +147,7 @@ def start():
                     print('\033[94m[*] Searching CRT.sh. \033[0m')
                     search = crtsh.SearchCrtsh(word)
                     search.process()
-                    hosts = filter(search.get_hostnames())
+                    hosts = filter(search.get_data())
                     all_hosts.extend(hosts)
                     db = stash.stash_manager()
                     db.store_all(word, all_hosts, 'host', 'CRTsh')
@@ -223,15 +223,6 @@ def start():
                     db.store_all(word, all_hosts, 'host', 'google')
                     db.store_all(word, all_emails, 'email', 'google')
 
-                elif engineitem == 'google-certificates':
-                    print('\033[94m[*] Searching Google Certificate transparency report. \033[0m')
-                    search = googlecertificates.SearchGoogleCertificates(word, limit, start)
-                    search.process()
-                    hosts = filter(search.get_domains())
-                    all_hosts.extend(hosts)
-                    db = stash.stash_manager()
-                    db.store_all(word, all_hosts, 'host', 'google-certificates')
-
                 elif engineitem == 'hunter':
                     print('\033[94m[*] Searching Hunter. \033[0m')
                     from theHarvester.discovery import huntersearch
@@ -287,7 +278,6 @@ def start():
                         print('---------------------')
                         for user in sorted(list(set(people))):
                             print(user)
-                    sys.exit(0)
 
                 elif engineitem == 'netcraft':
                     print('\033[94m[*] Searching Netcraft. \033[0m')
@@ -434,7 +424,7 @@ def start():
                     print('\033[94m[*] Searching CRT.sh. \033[0m')
                     search = crtsh.SearchCrtsh(word)
                     search.process()
-                    hosts = filter(search.get_hostnames())
+                    hosts = filter(search.get_data())
                     all_hosts.extend(hosts)
                     db = stash.stash_manager()
                     db.store_all(word, all_hosts, 'host', 'CRTsh')
@@ -488,14 +478,6 @@ def start():
                     all_hosts.extend(hosts)
                     db = stash.stash_manager()
                     db.store_all(word, all_hosts, 'host', 'google')
-
-                    print('\033[94m[*] Searching Google Certificate transparency report. \033[0m')
-                    search = googlecertificates.SearchGoogleCertificates(word, limit, start)
-                    search.process()
-                    domains = filter(search.get_domains())
-                    all_hosts.extend(domains)
-                    db = stash.stash_manager()
-                    db.store_all(word, all_hosts, 'host', 'google-certificates')
 
                     print('\033[94m[*] Searching Hunter. \033[0m')
                     from theHarvester.discovery import huntersearch
