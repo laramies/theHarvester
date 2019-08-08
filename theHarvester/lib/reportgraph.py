@@ -2,7 +2,7 @@ from theHarvester.lib import stash
 from datetime import datetime
 import plotly
 import plotly.graph_objs as go
-import plotly.plotly as py
+import chart_studio.plotly as py
 
 try:
     db = stash.stash_manager()
@@ -92,5 +92,4 @@ except Exception:
             except Exception as e:
                 print(f'Error generating HTML for the historical graph for domain: {e}')
 
-except Exception as e:
-    print(f'Error in the reportgraph module: {e}')
+
