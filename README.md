@@ -44,8 +44,6 @@ Passive:
 
 * google: Google search engine (Optional Google dorking.) - www.google.com
 
-* google-certificates: Google Certificate Transparency report 
-
 * hunter: Hunter search engine (Requires API key, see below.) - www.hunter.io
 
 * intelx: Intelx search engine (Requires API key, see below.) - www.intelx.io

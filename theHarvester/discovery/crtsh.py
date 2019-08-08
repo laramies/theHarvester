@@ -1,6 +1,6 @@
-#from theHarvester.lib.core import *
+from theHarvester.lib.core import *
 import requests
-
+import urllib3
 
 class SearchCrtsh:
 
@@ -10,13 +10,11 @@ class SearchCrtsh:
         
     def do_search(self):
         url = f'https://crt.sh/?q=%25.{self.word}&output=json'
-        request = requests.get(url)
+        headers = {'User-Agent': Core.get_user_agent()}
+        request = requests.get(url, params=headers, timeout=30)
         if request.ok:
-            try:
-                content = request.json()
-                data = set([dct['name_value'][2:] if '*.' == dct['name_value'][:2] else dct['name_value'] for dct in content])
-            except ValueError as error:
-                print(f'Error when requesting data from crt.sh: {error}')
+            content = request.json()
+            data = set([dct['name_value'][2:] if '*.' == dct['name_value'][:2] else dct['name_value'] for dct in content])
         return data
 
     def process(self):
