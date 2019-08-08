@@ -1,6 +1,7 @@
 login.html
 administrator/login.%XT%
 admin_area/login.%XT%
+intext:@
 inurl: 
 intitle: 
 intext:

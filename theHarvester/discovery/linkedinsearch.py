@@ -39,4 +39,4 @@ class SearchLinkedin:
             self.do_search()
             time.sleep(getDelay())
             self.counter += 100
-            print(f'\tSearching  {self.counter} results.')
+            print(f'\tSearching {self.counter} results.')
