@@ -17,6 +17,7 @@ class SearchCrtsh:
                 data = set([dct['name_value'][2:] if '*.' == dct['name_value'][:2] else dct['name_value'] for dct in content])
             except ValueError as error:
                 print(f'Error when requesting data from crt.sh: {error}')
+        return data
 
     def process(self):
         print('\tSearching results.')
