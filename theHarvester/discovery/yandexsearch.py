@@ -6,7 +6,7 @@ import requests
 import time
 
 
-class search_yandex:
+class SearchYandex:
 
     def __init__(self, word, limit, start):
         self.word = word

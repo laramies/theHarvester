@@ -524,7 +524,7 @@ class Core:
     #
     #     try:
     #         print('[*] Searching Twitter.')
-    #         search = twittersearch.search_twitter(word, limit)
+    #         search = twittersearch.SearchTwitter(word, limit)
     #         search.process()
     #         people = search.get_people()
     #         db = stash.stash_manager()
@@ -560,7 +560,7 @@ class Core:
     #     db.store_all(word, all_hosts, 'host', 'virustotal')
     #
     #     print('[*] Searching Yahoo.')
-    #     search = yahoosearch.search_yahoo(word, limit)
+    #     search = yahoosearch.SearchYahoo(word, limit)
     #     search.process()
     #     hosts = search.get_hostnames()
     #     emails = search.get_emails()

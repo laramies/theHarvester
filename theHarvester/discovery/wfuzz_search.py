@@ -18,7 +18,7 @@ class search_wfuzz:
                 print(r)
                 self.results += r
         except Exception as e:
-                print(e)
+            print(e)
         self.totalresults += self.results
 
     def get_results(self):

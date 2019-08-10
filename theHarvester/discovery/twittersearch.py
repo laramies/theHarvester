@@ -6,14 +6,13 @@ import time
 import re
 
 
-class search_twitter:
+class SearchTwitter:
 
     def __init__(self, word, limit):
         self.word = word.replace(' ', '%20')
         self.results = ""
         self.totalresults = ""
         self.server = 'www.google.com'
-        self.hostname = 'www.google.com'
         self.quantity = '100'
         self.limit = int(limit)
         self.counter = 0

@@ -1,35 +1,30 @@
-from theHarvester.discovery.constants import *
+import grequests
 from theHarvester.lib.core import *
 from theHarvester.parsers import myparser
-import requests
-import time
 
 
-class search_yahoo:
+class SearchYahoo:
 
     def __init__(self, word, limit):
         self.word = word
         self.total_results = ""
         self.server = 'search.yahoo.com'
-        self.hostname = 'search.yahoo.com'
         self.limit = limit
-        self.counter = 0
 
     def do_search(self):
-        url = 'http://' + self.server + '/search?p=\"%40' + self.word + '\"&b=' + str(self.counter) + '&pz=10'
+        base_url = f'https://{self.server}/search?p=%40{self.word}&b=xx&pz=10'
         headers = {
-            'Host': self.hostname,
+            'Host': self.server,
             'User-agent': Core.get_user_agent()
         }
-        h = requests.get(url=url, headers=headers)
-        self.total_results += h.text
+        urls = [base_url.replace("xx", str(num)) for num in range(0, self.limit, 10) if num <= self.limit]
+        request = (grequests.get(url, headers=headers) for url in urls)
+        response = grequests.imap(request, size=5)
+        for entry in response:
+            self.total_results += entry.content.decode('UTF-8')
 
     def process(self):
-        while self.counter <= self.limit and self.counter <= 1000:
-            self.do_search()
-            time.sleep(getDelay())
-            print(f'\tSearching {self.counter} results.')
-            self.counter += 10
+        self.do_search()
 
     def get_emails(self):
         rawres = myparser.Parser(self.total_results, self.word)

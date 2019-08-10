@@ -338,7 +338,7 @@ def start():
 
                 elif engineitem == 'twitter':
                     print('\033[94m[*] Searching Twitter usernames using Google. \033[0m')
-                    search = twittersearch.search_twitter(word, limit)
+                    search = twittersearch.SearchTwitter(word, limit)
                     search.process()
                     people = search.get_people()
                     db = stash.stash_manager()
@@ -363,7 +363,7 @@ def start():
 
                 elif engineitem == 'yahoo':
                     print('\033[94m[*] Searching Yahoo. \033[0m')
-                    search = yahoosearch.search_yahoo(word, limit)
+                    search = yahoosearch.SearchYahoo(word, limit)
                     search.process()
                     hosts = search.get_hostnames()
                     emails = search.get_emails()
@@ -588,7 +588,7 @@ def start():
 
                     try:
                         print('\033[94m[*] Searching Twitter. \033[0m')
-                        search = twittersearch.search_twitter(word, limit)
+                        search = twittersearch.SearchTwitter(word, limit)
                         search.process()
                         people = search.get_people()
                         db = stash.stash_manager()
@@ -625,7 +625,7 @@ def start():
 
                     try:
                         print('\033[94m[*] Searching Yahoo. \033[0m')
-                        search = yahoosearch.search_yahoo(word, limit)
+                        search = yahoosearch.SearchYahoo(word, limit)
                         search.process()
                         hosts = search.get_hostnames()
                         emails = search.get_emails()
