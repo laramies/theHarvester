@@ -20,7 +20,6 @@ class SearchVirustotal:
         self.results = res.content.decode('UTF-8')
         self.totalresults += self.results
 
-
     def get_hostnames(self):
         rawres = myparser.Parser(self.results, self.word)
         return rawres.hostnames()
