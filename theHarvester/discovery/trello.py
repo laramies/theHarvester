@@ -41,7 +41,7 @@ class SearchTrello:
                     visited.add(url)
                     request = grequests.get(url=url, headers={'User-Agent': googleUA})
                     response = grequests.map([request])
-                    self.totalresults = response[0].content.decode('UTF-8').render()
+                    self.totalresults = response[0].content.decode('UTF-8')
             rawres = myparser.Parser(self.totalresults, self.word)
             return rawres.hostnames(), trello_urls
         except Exception as e:
