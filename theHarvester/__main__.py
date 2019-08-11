@@ -367,6 +367,7 @@ def start():
 
                 elif engineitem == 'virustotal':
                     print('\033[94m[*] Searching VirusTotal. \033[0m')
+                    from theHarvester.discovery import virustotal
                     search = virustotal.SearchVirustotal(word)
                     search.process()
                     hosts = filter(search.get_hostnames())
