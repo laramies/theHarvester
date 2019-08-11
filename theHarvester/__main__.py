@@ -377,6 +377,7 @@ def start():
 
                 elif engineitem == 'yahoo':
                     print('\033[94m[*] Searching Yahoo. \033[0m')
+                    from theHarvester.discovery import yahoosearch
                     search = yahoosearch.SearchYahoo(word, limit)
                     search.process()
                     hosts = search.get_hostnames()
