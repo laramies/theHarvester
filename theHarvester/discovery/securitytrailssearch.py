@@ -2,7 +2,6 @@ from theHarvester.discovery.constants import *
 from theHarvester.lib.core import *
 from theHarvester.parsers import securitytrailsparser
 import requests
-import sys
 import time
 
 
@@ -25,7 +24,6 @@ class SearchSecuritytrail:
         r = requests.get(url, headers=headers).text
         if 'False' in r or 'Invalid authentication' in r:
             print('\tKey could not be authenticated exiting program.')
-            sys.exit(-2)
         time.sleep(2)
 
     def do_search(self):
