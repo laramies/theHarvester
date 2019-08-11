@@ -352,6 +352,7 @@ def start():
 
                 elif engineitem == 'twitter':
                     print('\033[94m[*] Searching Twitter usernames using Google. \033[0m')
+                    from theHarvester.discovery import twittersearch
                     search = twittersearch.SearchTwitter(word, limit)
                     search.process()
                     people = search.get_people()
