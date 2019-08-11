@@ -99,7 +99,7 @@ def start():
             for engineitem in engines:
                 if engineitem == 'baidu':
                     print('\033[94m[*] Searching Baidu. \033[0m')
-                    from theHarvester.discovery import bingsearch
+                    from theHarvester.discovery import baidusearch
                     try:
                         search = baidusearch.SearchBaidu(word, limit)
                         search.process()
@@ -158,8 +158,8 @@ def start():
                         all_hosts.extend(hosts)
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'CRTsh')
-                    except Exception as e:
-                        print(f'\033[93m[!] An error occurred with crtsh: {e} \033[0m')
+                    except Exception:
+                        print(f'\033[93m[!] An timeout occurred with crtsh, cannot find {args.domain}\033[0m')
 
                 elif engineitem == 'dnsdumpster':
                     try:
@@ -323,6 +323,7 @@ def start():
 
                 elif engineitem == 'threatcrowd':
                     print('\033[94m[*] Searching Threatcrowd. \033[0m')
+                    from theHarvester.discovery import threatcrowd
                     try:
                         search = threatcrowd.SearchThreatcrowd(word)
                         search.process()
@@ -330,8 +331,8 @@ def start():
                         all_hosts.extend(hosts)
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'threatcrowd')
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        print('')
 
                 elif engineitem == 'trello':
                     print('\033[94m[*] Searching Trello. \033[0m')
@@ -447,8 +448,8 @@ def start():
                         all_hosts.extend(hosts)
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'CRTsh')
-                    except Exception as e:
-                        print(f'\033[93m[!] An error occurred with crtsh: {e} \033[0m')
+                    except Exception:
+                        print(f'\033[93m[!] An timeout occurred with crtsh: cannot find {args.domain} \033[0m')
 
                     try:
                         print('\033[94m[*] Searching DNSdumpster. \033[0m')
@@ -614,6 +615,7 @@ def start():
 
                     try:
                         print('\033[94m[*] Searching Twitter. \033[0m')
+                        from theHarvester.discovery import twittersearch
                         search = twittersearch.SearchTwitter(word, limit)
                         search.process()
                         people = search.get_people()
@@ -629,6 +631,7 @@ def start():
                     print('\n[*] Virtual hosts:')
                     print('------------------')
                     for l in host_ip:
+                        from theHarvester.discovery import baidusearch
                         search = bingsearch.SearchBing(l, limit, start)
                         search.process_vhost()
                         res = search.get_allhostnames()
