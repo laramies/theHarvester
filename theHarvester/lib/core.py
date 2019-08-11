@@ -510,7 +510,7 @@ class Core:
     #     print('[*] Searching Trello.')
     #     from discovery import trello
     #     # Import locally or won't work.
-    #     search = trello.search_trello(word, limit)
+    #     search = trello.SearchTrello(word, limit)
     #     search.process()
     #     emails = filter(search.get_emails())
     #     all_emails.extend(emails)

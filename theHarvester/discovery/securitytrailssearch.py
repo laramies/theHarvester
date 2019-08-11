@@ -6,7 +6,7 @@ import sys
 import time
 
 
-class search_securitytrail:
+class SearchSecuritytrail:
 
     def __init__(self, word):
         self.word = word
@@ -15,13 +15,13 @@ class search_securitytrail:
             raise MissingKey(True)
         self.results = ""
         self.totalresults = ""
-        self.database = "https://api.securitytrails.com/v1/"
+        self.api = 'https://api.securitytrails.com/v1/'
         self.info = ()
 
     def authenticate(self):
         # Method to authenticate API key before sending requests.
         headers = {'APIKEY': self.key}
-        url = self.database + 'ping'
+        url = self.api + 'ping'
         r = requests.get(url, headers=headers).text
         if 'False' in r or 'Invalid authentication' in r:
             print('\tKey could not be authenticated exiting program.')
@@ -33,7 +33,7 @@ class search_securitytrail:
         headers = {}
         try:
             # https://api.securitytrails.com/v1/domain/domain.com
-            url = self.database + 'domain/' + self.word
+            url = self.api + 'domain/' + self.word
             headers = {'APIKEY': self.key}
             r = requests.get(url, headers=headers)
             time.sleep(2)  # Not random delay because 2 seconds is required due to rate limit.

@@ -9,8 +9,6 @@ class SearchThreatcrowd:
         self.word = word.replace(' ', '%20')
         self.results = ""
         self.totalresults = ""
-        self.server = 'www.google.com'
-        self.hostname = 'www.google.com'
         self.quantity = '100'
         self.counter = 0
 
