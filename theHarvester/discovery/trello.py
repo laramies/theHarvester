@@ -11,7 +11,7 @@ class SearchTrello:
         self.totalresults = ""
         self.server = 'www.google.com'
         self.quantity = '100'
-        self.limit = 100
+        self.limit = limit
         self.counter = 0
 
     def do_search(self):
