@@ -1,35 +1,30 @@
 from theHarvester.discovery.constants import *
 from theHarvester.parsers import myparser
-import requests
-import time
+import grequests
 
 
-class search_trello:
+class SearchTrello:
 
     def __init__(self, word, limit):
         self.word = word.replace(' ', '%20')
         self.results = ""
         self.totalresults = ""
         self.server = 'www.google.com'
-        self.hostname = 'www.google.com'
         self.quantity = '100'
         self.limit = limit
         self.counter = 0
 
     def do_search(self):
-        try:
-            urly = 'https://' + self.server + '/search?num=100&start=' + str(
-                self.counter) + '&hl=en&q=site%3Atrello.com%20' + self.word
-        except Exception as e:
-            print(e)
+        base_url = f'https://{self.server}/search?num=100&start=xx&hl=en&q=site%3Atrello.com%20{self.word}'
         headers = {'User-Agent': googleUA}
         try:
-            r = requests.get(urly, headers=headers)
-            time.sleep(getDelay())
+            urls = [base_url.replace("xx", str(num)) for num in range(0, self.limit, 10) if num <= self.limit]
+            request = (grequests.get(url, headers=headers) for url in urls)
+            response = grequests.imap(request, size=5)
+            for entry in response:
+                self.totalresults += entry.content.decode('UTF-8')
         except Exception as e:
             print(e)
-        self.results = r.text
-        self.totalresults += self.results
 
     def get_emails(self):
         rawres = myparser.Parser(self.totalresults, self.word)
@@ -44,18 +39,15 @@ class search_trello:
                 # Iterate through Trello URLs gathered and visit them, append text to totalresults.
                 if url not in visited:  # Make sure visiting unique URLs.
                     visited.add(url)
-                    self.totalresults += requests.get(url=url, headers={'User-Agent': googleUA}).text
+                    request = grequests.get(url=url, headers={'User-Agent': googleUA})
+                    response = grequests.map([request])
+                    self.totalresults = response[0].content.decode('UTF-8')
             rawres = myparser.Parser(self.totalresults, self.word)
             return rawres.hostnames(), trello_urls
         except Exception as e:
             print(f'Error occurred: {e}')
 
     def process(self):
-        while self.counter < self.limit:
-            self.do_search()
-            if search(self.results):
-                time.sleep(getDelay() * 5)
-            else:
-                time.sleep(getDelay())
-            self.counter += 100
-            print(f'\tSearching {self.counter} results.')
+        self.do_search()
+        self.get_urls()
+        print(f'\tSearching {self.counter} results.')

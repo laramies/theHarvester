@@ -510,7 +510,7 @@ class Core:
     #     print('[*] Searching Trello.')
     #     from discovery import trello
     #     # Import locally or won't work.
-    #     search = trello.search_trello(word, limit)
+    #     search = trello.SearchTrello(word, limit)
     #     search.process()
     #     emails = filter(search.get_emails())
     #     all_emails.extend(emails)
@@ -524,7 +524,7 @@ class Core:
     #
     #     try:
     #         print('[*] Searching Twitter.')
-    #         search = twittersearch.search_twitter(word, limit)
+    #         search = twittersearch.SearchTwitter(word, limit)
     #         search.process()
     #         people = search.get_people()
     #         db = stash.stash_manager()
@@ -560,7 +560,7 @@ class Core:
     #     db.store_all(word, all_hosts, 'host', 'virustotal')
     #
     #     print('[*] Searching Yahoo.')
-    #     search = yahoosearch.search_yahoo(word, limit)
+    #     search = yahoosearch.SearchYahoo(word, limit)
     #     search.process()
     #     hosts = search.get_hostnames()
     #     emails = search.get_emails()

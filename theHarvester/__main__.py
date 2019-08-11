@@ -292,7 +292,7 @@ def start():
                     print('\033[94m[*] Searching SecurityTrails. \033[0m')
                     from theHarvester.discovery import securitytrailssearch
                     try:
-                        search = securitytrailssearch.search_securitytrail(word)
+                        search = securitytrailssearch.SearchSecuritytrail(word)
                         search.process()
                         hosts = filter(search.get_hostnames())
                         all_hosts.extend(hosts)
@@ -324,7 +324,7 @@ def start():
                     print('\033[94m[*] Searching Trello. \033[0m')
                     from theHarvester.discovery import trello
                     # Import locally or won't work.
-                    search = trello.search_trello(word, limit)
+                    search = trello.SearchTrello(word, limit)
                     search.process()
                     emails = filter(search.get_emails())
                     all_emails.extend(emails)
@@ -338,7 +338,7 @@ def start():
 
                 elif engineitem == 'twitter':
                     print('\033[94m[*] Searching Twitter usernames using Google. \033[0m')
-                    search = twittersearch.search_twitter(word, limit)
+                    search = twittersearch.SearchTwitter(word, limit)
                     search.process()
                     people = search.get_people()
                     db = stash.stash_manager()
@@ -363,7 +363,7 @@ def start():
 
                 elif engineitem == 'yahoo':
                     print('\033[94m[*] Searching Yahoo. \033[0m')
-                    search = yahoosearch.search_yahoo(word, limit)
+                    search = yahoosearch.SearchYahoo(word, limit)
                     search.process()
                     hosts = search.get_hostnames()
                     emails = search.get_emails()
@@ -544,7 +544,7 @@ def start():
                     print('\033[94m[*] Searching SecurityTrails. \033[0m')
                     from theHarvester.discovery import securitytrailssearch
                     try:
-                        search = securitytrailssearch.search_securitytrail(word)
+                        search = securitytrailssearch.SearchSecuritytrail(word)
                         search.process()
                         hosts = filter(search.get_hostnames())
                         all_hosts.extend(hosts)
@@ -574,7 +574,7 @@ def start():
                     print('\033[94m[*] Searching Trello. \033[0m')
                     from theHarvester.discovery import trello
                     # Import locally or won't work.
-                    search = trello.search_trello(word, limit)
+                    search = trello.SearchTrello(word, limit)
                     search.process()
                     emails = filter(search.get_emails())
                     all_emails.extend(emails)
@@ -588,7 +588,7 @@ def start():
 
                     try:
                         print('\033[94m[*] Searching Twitter. \033[0m')
-                        search = twittersearch.search_twitter(word, limit)
+                        search = twittersearch.SearchTwitter(word, limit)
                         search.process()
                         people = search.get_people()
                         db = stash.stash_manager()
@@ -625,7 +625,7 @@ def start():
 
                     try:
                         print('\033[94m[*] Searching Yahoo. \033[0m')
-                        search = yahoosearch.search_yahoo(word, limit)
+                        search = yahoosearch.SearchYahoo(word, limit)
                         search.process()
                         hosts = search.get_hostnames()
                         emails = search.get_emails()
@@ -731,7 +731,7 @@ def start():
                         print(('\t[*] Detected open ports: ' + ','.join(str(e) for e in openports)))
                     takeover_check = 'True'
                     if takeover_check == 'True' and len(openports) > 0:
-                        search_take = takeover.take_over(domain)
+                        search_take = takeover.TakeOver(domain)
                         search_take.process()
                 except Exception as e:
                     print(e)
