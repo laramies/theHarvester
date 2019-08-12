@@ -28,5 +28,5 @@ class PortScan:
         return openports
 
     def process(self):
-            ports = self.port_scanner(self.host, self.ports)
-            return ports
+        ports = self.port_scanner(self.host, self.ports)
+        return ports

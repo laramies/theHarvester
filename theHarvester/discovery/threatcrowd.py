@@ -1,6 +1,6 @@
 from theHarvester.lib.core import *
 from theHarvester.parsers import myparser
-import requests
+import grequests
 
 
 class SearchThreatcrowd:
@@ -9,17 +9,16 @@ class SearchThreatcrowd:
         self.word = word.replace(' ', '%20')
         self.results = ""
         self.totalresults = ""
-        self.server = 'www.google.com'
-        self.hostname = 'www.google.com'
         self.quantity = '100'
         self.counter = 0
 
     def do_search(self):
-        url = f'https://www.threatcrowd.org/searchApi/v2/domain/report/?domain={self.word}'
+        base_url = f'https://www.threatcrowd.org/searchApi/v2/domain/report/?domain={self.word}'
         headers = {'User-Agent': Core.get_user_agent()}
         try:
-            request = requests.get(url, headers=headers)
-            self.results = request.text
+            request = grequests.get(base_url, headers=headers)
+            data = grequests.map([request])
+            self.results = data[0].content.decode('UTF-8')
         except Exception as e:
             print(e)
         self.totalresults += self.results
@@ -29,4 +28,5 @@ class SearchThreatcrowd:
 
     def process(self):
         self.do_search()
+        self.get_hostnames()
         print('\tSearching results.')

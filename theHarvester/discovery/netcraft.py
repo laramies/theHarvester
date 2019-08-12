@@ -5,6 +5,7 @@ import hashlib
 import urllib.parse as urllib
 import re
 
+
 class SearchNetcraft:
     # this module was inspired by sublist3r's netcraft module
 

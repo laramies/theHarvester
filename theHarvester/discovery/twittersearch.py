@@ -1,35 +1,31 @@
-from theHarvester.discovery.constants import *
 from theHarvester.lib.core import *
 from theHarvester.parsers import myparser
-import requests
-import time
+import grequests
 import re
 
 
-class search_twitter:
+class SearchTwitter:
 
     def __init__(self, word, limit):
         self.word = word.replace(' ', '%20')
         self.results = ""
         self.totalresults = ""
         self.server = 'www.google.com'
-        self.hostname = 'www.google.com'
         self.quantity = '100'
         self.limit = int(limit)
         self.counter = 0
 
     def do_search(self):
-        try:
-            urly = 'https://' + self.server + '/search?num=100&start=' + str(self.counter) + '&hl=en&meta=&q=site%3Atwitter.com%20intitle%3A%22on+Twitter%22%20' + self.word
-        except Exception as e:
-            print(e)
+        base_url = f'https://{self.server}/search?num=100&start=xx&hl=en&meta=&q=site%3Atwitter.com%20intitle%3A%22on+Twitter%22%20{self.word}'
         headers = {'User-Agent': Core.get_user_agent()}
         try:
-            r = requests.get(urly, headers=headers)
-        except Exception as e:
-            print(e)
-        self.results = r.text
-        self.totalresults += self.results
+            urls = [base_url.replace("xx", str(num)) for num in range(0, self.limit, 10) if num <= self.limit]
+            request = (grequests.get(url, headers=headers) for url in urls)
+            response = grequests.imap(request, size=5)
+            for entry in response:
+                self.totalresults += entry.content.decode('UTF-8')
+        except Exception as error:
+            print(error)
 
     def get_people(self):
         rawres = myparser.Parser(self.totalresults, self.word)
@@ -43,8 +39,4 @@ class search_twitter:
         return handles
 
     def process(self):
-        while self.counter < self.limit:
-            self.do_search()
-            time.sleep(getDelay())
-            self.counter += 100
-            print(f'\tSearching {self.counter} results.')
+        self.do_search()
