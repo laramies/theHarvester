@@ -53,7 +53,7 @@ def start():
     parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, censys, crtsh, dnsdumpster,
-                        dogpile, duckduckgo, github-code, google, 
+                        dogpile, duckduckgo, exalead, github-code, google, 
                         hunter, intelx,
                         linkedin, netcraft, securityTrails, threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo, all''')
@@ -144,14 +144,16 @@ def start():
                     db.store_all(word, all_ip, 'ip', 'censys')
 
                 elif engineitem == 'crtsh':
-                    print('\033[94m[*] Searching CRT.sh. \033[0m')
-                    search = crtsh.SearchCrtsh(word)
-                    search.process()
-                    hosts = filter(search.get_data())
-                    all_hosts.extend(hosts)
-                    db = stash.stash_manager()
-                    db.store_all(word, all_hosts, 'host', 'CRTsh')
-
+                    try:
+                        print('\033[94m[*] Searching CRT.sh. \033[0m')
+                        search = crtsh.SearchCrtsh(word)
+                        search.process()
+                        hosts = filter(search.get_data())
+                        all_hosts.extend(hosts)
+                        db = stash.stash_manager()
+                        db.store_all(word, all_hosts, 'host', 'CRTsh')
+                    except Exception as e:
+                        pass
                 elif engineitem == 'dnsdumpster':
                     try:
                         print('\033[94m[*] Searching DNSdumpster. \033[0m')
@@ -210,6 +212,18 @@ def start():
                         print(ex)
                     else:
                         pass
+
+                elif engineitem == 'exalead':
+                    print('\033[94m[*] Searching Exalead \033[0m')
+                    search = exaleadsearch.search_exalead(word, limit, start)
+                    search.process()
+                    emails = filter(search.get_emails())
+                    all_emails.extend(emails)
+                    hosts = filter(search.get_hostnames())
+                    all_hosts.extend(hosts)
+                    db = stash.stash_manager()
+                    db.store_all(word, all_hosts, 'host', 'exalead')
+                    db.store_all(word, all_emails, 'email', 'exalead')
 
                 elif engineitem == 'google':
                     print('\033[94m[*] Searching Google. \033[0m')
@@ -363,7 +377,7 @@ def start():
 
                 elif engineitem == 'yahoo':
                     print('\033[94m[*] Searching Yahoo. \033[0m')
-                    search = yahoosearch.search_yahoo(word, limit)
+                    search = yahoosearch.SearchYahoo(word, limit)
                     search.process()
                     hosts = search.get_hostnames()
                     emails = search.get_emails()
@@ -466,6 +480,17 @@ def start():
                     db = stash.stash_manager()
                     db.store_all(word, all_hosts, 'email', 'duckduckgo')
                     db.store_all(word, all_hosts, 'host', 'duckduckgo')
+
+                    print('\033[94m[*] Searching Exalead \033[0m')
+                    search = exaleadsearch.search_exalead(word, limit, start)
+                    search.process()
+                    emails = filter(search.get_emails())
+                    all_emails.extend(emails)
+                    hosts = filter(search.get_hostnames())
+                    all_hosts.extend(hosts)
+                    db = stash.stash_manager()
+                    db.store_all(word, all_hosts, 'host', 'exalead')
+                    db.store_all(word, all_emails, 'email', 'exalead')
 
                     print('\033[94m[*] Searching Google. \033[0m')
                     search = googlesearch.search_google(word, limit, start)
@@ -945,7 +970,6 @@ def entry_point():
         print('\n\n\033[93m[!] ctrl+c detected from user, quitting.\n\n \033[0m')
     except Exception:
         import traceback
-
         print(traceback.print_exc())
         sys.exit(1)
 

@@ -72,6 +72,7 @@ class Core:
                             'dnsdumpster',
                             'dogpile',
                             'duckduckgo',
+                            'exalead',
                             'github-code',
                             'google',
                             'hunter',

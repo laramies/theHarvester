@@ -1,30 +1,28 @@
 from theHarvester.discovery.constants import *
 from theHarvester.lib.core import *
 from theHarvester.parsers import myparser
-import requests
+import grequests
 
 
 class SearchHunter:
 
     def __init__(self, word, limit, start):
         self.word = word
-        self.limit = 100
+        self.limit = limit
         self.start = start
         self.key = Core.hunter_key()
+        #self.key = "e802ef64e560430c3612ab7e9f2d018fd9946177"
         if self.key is None:
             raise MissingKey(True)
-        self.results = ""
-        self.totalresults = ""
+        self.total_results = ""
         self.counter = start
-        self.database = "https://api.hunter.io/v2/domain-search?domain=" + word + "&api_key=" + self.key + "&limit=" + str(self.limit)
+        self.database = f'https://api.hunter.io/v2/domain-search?domain={word}&api_key={self.key}&limit={self.limit}'
 
     def do_search(self):
-        try:
-            r = requests.get(self.database)
-        except Exception as e:
-            print(e)
-        self.results = r.text
-        self.totalresults += self.results
+        request = grequests.get(self.database)
+        response = grequests.map([request])
+        self.total_results = response[0].content.decode('UTF-8')
+
 
     def process(self):
             self.do_search()  # Only need to do it once.
@@ -40,3 +38,4 @@ class SearchHunter:
     def get_profiles(self):
         rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.profiles()
+
