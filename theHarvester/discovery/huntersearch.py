@@ -11,7 +11,6 @@ class SearchHunter:
         self.limit = limit
         self.start = start
         self.key = Core.hunter_key()
-        #self.key = "e802ef64e560430c3612ab7e9f2d018fd9946177"
         if self.key is None:
             raise MissingKey(True)
         self.total_results = ""
