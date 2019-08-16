@@ -482,16 +482,18 @@ def start():
                     db.store_all(word, all_hosts, 'host', 'duckduckgo')
 
                     print('\033[94m[*] Searching Exalead \033[0m')
-                    search = exaleadsearch.search_exalead(word, limit, start)
-                    search.process()
-                    emails = filter(search.get_emails())
-                    all_emails.extend(emails)
-                    hosts = filter(search.get_hostnames())
-                    all_hosts.extend(hosts)
-                    db = stash.stash_manager()
-                    db.store_all(word, all_hosts, 'host', 'exalead')
-                    db.store_all(word, all_emails, 'email', 'exalead')
-
+                    try:
+                        search = exaleadsearch.search_exalead(word, limit, start)
+                        search.process()
+                        emails = filter(search.get_emails())
+                        all_emails.extend(emails)
+                        hosts = filter(search.get_hostnames())
+                        all_hosts.extend(hosts)
+                        db = stash.stash_manager()
+                        db.store_all(word, all_hosts, 'host', 'exalead')
+                        db.store_all(word, all_emails, 'email', 'exalead')
+                    except Exception:
+                        pass
                     print('\033[94m[*] Searching Google. \033[0m')
                     search = googlesearch.search_google(word, limit, start)
                     search.process(google_dorking)
