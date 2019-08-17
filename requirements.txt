@@ -8,4 +8,4 @@ PyYaml==5.1.2
 requests==2.22.0
 shodan==1.14.0
 texttable==1.6.2
-grequests>=0.4.0
+grequests==0.4.0
