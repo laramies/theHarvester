@@ -345,7 +345,7 @@ def start():
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'threatcrowd')
                     except Exception as e:
-                        print('')
+                        print(e)
 
                 elif engineitem == 'trello':
                     print('\033[94m[*] Searching Trello. \033[0m')
