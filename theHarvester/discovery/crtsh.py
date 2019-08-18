@@ -1,12 +1,13 @@
 from theHarvester.lib.core import *
 import requests
 
+
 class SearchCrtsh:
 
     def __init__(self, word):
         self.word = word
         self.data = set()
-        
+
     def do_search(self):
         try:
             data = set()
@@ -18,8 +19,8 @@ class SearchCrtsh:
                 data = set([dct['name_value'][2:] if '*.' == dct['name_value'][:2] else dct['name_value'] for dct in content])
                 return data
             return data
-        except Exception as e:
-            print(f'An exception has occurred in crtsh: {e}')
+        except Exception:
+            pass
 
     def process(self):
         print('\tSearching results.')
