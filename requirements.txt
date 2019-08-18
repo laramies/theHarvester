@@ -1,6 +1,7 @@
 beautifulsoup4==4.8.0
 censys==0.0.8
 chart-studio==1.0.0
+flake8==3.7.8
 grequests==0.4.0
 plotly==4.1.0
 pytest==5.1.0

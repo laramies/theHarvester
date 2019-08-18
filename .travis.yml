@@ -11,6 +11,7 @@ install:
 script:
 - python theHarvester.py -d metasploit.com -x google,intelx,bingapi,hunter -b all
 - pytest
+- flake8
 notifications:
   email: false
   slack:
