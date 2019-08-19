@@ -3,9 +3,8 @@ censys==0.0.8
 chart-studio==1.0.0
 grequests==0.4.0
 plotly==4.1.0
-pytest==5.0.1
+pytest==5.1.0
 PyYaml==5.1.2
 requests==2.22.0
 shodan==1.14.0
 texttable==1.6.2
-grequests==0.4.0
