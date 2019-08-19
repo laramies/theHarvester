@@ -26,10 +26,10 @@ class SearchBing:
         }
         base_url = f'https://{self.server}/search?q=%40"{self.word}"&count=50&first=xx'
         urls = [base_url.replace("xx", str(num)) for num in range(0, self.limit, 50) if num <= self.limit]
-        req = (grequests.get(u, headers=headers, timeout=5) for u in urls)
-        resp = grequests.imap(req, size=5)
-        for x in resp:
-            self.total_results += x.content.decode('UTF-8')
+        req = (grequests.get(url, headers=headers, timeout=5) for url in urls)
+        responses = grequests.imap(req, size=5)
+        for response in responses:
+            self.total_results += response.content.decode('UTF-8')
 
     def do_search_api(self):
         url = 'https://api.cognitive.microsoft.com/bing/v7.0/search?'
@@ -41,8 +41,8 @@ class SearchBing:
             'safesearch': 'Off'
         }
         headers = {'User-Agent': Core.get_user_agent(), 'Ocp-Apim-Subscription-Key': self.bingApi}
-        h = grequests.get(url=url, headers=headers, params=params)
-        response = grequests.map([h])
+        grequests_resp = grequests.get(url=url, headers=headers, params=params)
+        response = grequests.map([grequests_resp])
         self.results = response[0].content.decode('UTF-8')
         self.total_results += self.results
 
@@ -55,10 +55,10 @@ class SearchBing:
         }
         base_url = f'http://{self.server}/search?q=ip:{self.word}&go=&count=50&FORM=QBHL&qs=n&first=xx'
         urls = [base_url.replace("xx", str(num)) for num in range(0, self.limit, 50) if num <= self.limit]
-        req = (grequests.get(u, headers=headers, timeout=5) for u in urls)
-        resp = grequests.imap(req, size=5)
-        for x in resp:
-            self.total_results += x.content.decode('UTF-8')
+        req = (grequests.get(url, headers=headers, timeout=5) for url in urls)
+        responses = grequests.imap(req, size=5)
+        for response in responses:
+            self.total_results += response.content.decode('UTF-8')
 
     def get_emails(self):
         rawres = myparser.Parser(self.total_results, self.word)

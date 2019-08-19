@@ -27,14 +27,14 @@ class search_exalead:
         }
         urls = [base_url.replace("xx", str(num)) for num in range(self.counter, self.limit, 50) if num <= self.limit]
         req = []
-        for u in urls:
-            req.append(grequests.get(u, headers=headers, timeout=5))
+        for url in urls:
+            req.append(grequests.get(url, headers=headers, timeout=5))
             time.sleep(3)
-        resp = grequests.imap(tuple(req), size=3)
-        for x in resp:
+        responses = grequests.imap(tuple(req), size=3)
+        for response in responses:
             # TODO if decoded content contains information about solving captcha print message to user to visit website
             # TODO to solve it or use a vpn as it appears to be ip based
-            self.total_results += x.content.decode('UTF-8')
+            self.total_results += response.content.decode('UTF-8')
 
     def do_search_files(self, files):
         url = f'https://{self.server}/search/web/results/?q=%40{self.word}filetype:{self.files}&elements_per_page' \
@@ -71,7 +71,7 @@ class search_exalead:
         return rawres.fileurls(self.files)
 
     def process(self):
-        print('Searching 0 results')
+        print('Searching results')
         self.do_search()
 
     def process_files(self, files):

@@ -19,10 +19,10 @@ class SearchBaidu:
         }
         base_url = f'https://{self.server}/s?wd=%40{self.word}&pnxx&oq={self.word}'
         urls = [base_url.replace("xx", str(num)) for num in range(0, self.limit, 10) if num <= self.limit]
-        req = (grequests.get(u, headers=headers, timeout=5) for u in urls)
-        resp = grequests.imap(req, size=5)
-        for x in resp:
-            self.total_results += x.content.decode('UTF-8')
+        req = (grequests.get(url, headers=headers, timeout=5) for url in urls)
+        responses = grequests.imap(req, size=5)
+        for response in responses:
+            self.total_results += response.content.decode('UTF-8')
 
     def process(self):
         self.do_search()
