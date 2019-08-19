@@ -25,6 +25,7 @@
 from theHarvester.discovery.DNS import Type, Class, Opcode, Status
 from theHarvester.discovery.DNS.Base import DNSError
 
+
 class UnpackError(DNSError):
     pass
 
@@ -33,6 +34,7 @@ class PackError(DNSError):
     pass
 
 # Low-level 16 and 32 bit integer packing and unpacking
+
 
 from struct import pack as struct_pack
 from struct import unpack as struct_unpack
@@ -420,7 +422,7 @@ class RRunpacker(Unpacker):
         ttl = self.get32bit()
         rdlength = self.get16bit()
         self.rdend = self.offset + rdlength
-        return (name, rrtype, klass, ttl, rdlength)
+        return name, rrtype, klass, ttl, rdlength
 
     def endRR(self):
         if self.offset != self.rdend:
@@ -693,6 +695,7 @@ def dumpRR(u):
         print('  formatted rdata:', getattr(u, mname)())
     else:
         print('  binary rdata:', u.getbytes(rdlength))
+
 
 if __name__ == "__main__":
     testpacker()

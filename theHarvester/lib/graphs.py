@@ -674,15 +674,11 @@ class BarGraph:
                         value = _number_format(v[i][0], max_dec)
 
                         if self.showValues == 1 or self.showValues == 2:
-                            graph += self.build_value(v[i]
-                                                      [0], max_dec, sum, 'right')
+                            graph += self.build_value(v[i][0], max_dec, sum, 'right')
 
-                        graph += '<td' + \
-                                 (self.__cssBARBG and ' style="' +
-                                  self.__cssBARBG + '"' or '') + '>'
+                        graph += '<td' + (self.__cssBARBG and ' style="' + self.__cssBARBG + '"' or '') + '>'
 
-                        self.barColors = (
-                                                 len(drc) >= i + 1) and drc[i].strip() or self.__colors[0]
+                        self.barColors = (len(drc) >= i + 1) and drc[i].strip() or self.__colors[0]
                         bColor = self.level_color(v[i][0], self.barColors)
                         graph += '<table border=0 cellspacing=0 cellpadding=0><tr><td>'
                         if self.type == 'fader':
@@ -690,8 +686,7 @@ class BarGraph:
                                 value, int(round(self.barWidth / 2)),
                                 self.barWidth, int(round(percent * mul)), bColor)
                         else:
-                            graph += self.build_bar(value,
-                                                    int(round(percent * mul)), self.barWidth, bColor)
+                            graph += self.build_bar(value, int(round(percent * mul)), self.barWidth, bColor)
                         graph += '</td><td width=' + \
                                  str(int(round((100 - percent) * mul))) + '></td>'
                         graph += '</tr></table></td>'
