@@ -83,12 +83,12 @@ except Exception:
                     name='email')
 
                 data = [trace0, trace1, trace2, trace3, trace4]
-                layout = dict(title='Scanning history for ' + domain, xaxis=dict(title='Date'), yaxis=dict(title='Results'))
+                layout = dict(title=f'Scanning history for {domain}', xaxis=dict(title='Date'),
+                              yaxis=dict(title='Results'))
                 scatterchartcode = plotly.offline.plot({
                     'data': data,
-                    'layout': layout}, auto_open=False, include_plotlyjs=False, filename='report.html', output_type='div')
+                    'layout': layout}, auto_open=False, include_plotlyjs=False, filename='report.html',
+                    output_type='div')
                 return scatterchartcode
             except Exception as e:
                 print(f'Error generating HTML for the historical graph for domain: {e}')
-
-

@@ -142,7 +142,7 @@ class BarGraph:
 
         # debug mode: 0 = off, 1 = on; just views some extra information
         self.debug = 0
-    #-------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     # Default bar colors; only used if barColors isn't set.
     __colors = (
@@ -658,8 +658,7 @@ class BarGraph:
                         m = False
 
                     if m or not i:
-                        label = (
-                                        lcnt < len(r)) and r[lcnt].strip() or str(i + 1)
+                        label = (lcnt < len(r)) and r[lcnt].strip() or str(i + 1)
                         graph += '<tr>'
 
                         if len(r):
