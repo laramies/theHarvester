@@ -166,7 +166,7 @@ def start():
                     try:
                         print('\033[94m[*] Searching DNSdumpster. \033[0m')
                         from theHarvester.discovery import dnsdumpster
-                        search = dnsdumpster.search_dnsdumpster(word)
+                        search = dnsdumpster.SearchDnsDumpster(word)
                         search.process()
                         hosts = filter(search.get_hostnames())
                         all_hosts.extend(hosts)
@@ -469,7 +469,7 @@ def start():
                     try:
                         print('\033[94m[*] Searching DNSdumpster. \033[0m')
                         from theHarvester.discovery import dnsdumpster
-                        search = dnsdumpster.search_dnsdumpster(word)
+                        search = dnsdumpster.SearchDnsDumpster(word)
                         search.process()
                         hosts = filter(search.get_hostnames())
                         all_hosts.extend(hosts)
@@ -763,7 +763,7 @@ def start():
     dnsres = []
     if dnsbrute is True:
         print('\n[*] Starting DNS brute force.')
-        a = dnssearch.dns_force(word, dnsserver, verbose=True)
+        a = dnssearch.DnsForce(word, dnsserver, verbose=True)
         res = a.process()
         print('\n[*] Hosts found after DNS brute force:')
         print('-------------------------------------')
@@ -810,7 +810,7 @@ def start():
             range = s.join(range)
             if not analyzed_ranges.count(range):
                 print('[*] Performing reverse lookup in ' + range)
-                a = dnssearch.dns_reverse(range, True)
+                a = dnssearch.DnsReverse(range, True)
                 a.list()
                 res = a.process()
                 analyzed_ranges.append(range)
@@ -830,7 +830,7 @@ def start():
     dnstldres = []
     if dnstld is True:
         print('[*] Starting DNS TLD expansion.')
-        a = dnssearch.dns_tld(word, dnsserver, verbose=True)
+        a = dnssearch.DnsTld(word, dnsserver, verbose=True)
         res = a.process()
         print('\n[*] Hosts found after DNS TLD expansion:')
         print('----------------------------------------')

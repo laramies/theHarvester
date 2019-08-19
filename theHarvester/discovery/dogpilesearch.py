@@ -1,8 +1,6 @@
-from theHarvester.discovery.constants import *
 from theHarvester.lib.core import *
 from theHarvester.parsers import myparser
 import grequests
-import time
 
 
 class SearchDogpile:
@@ -15,8 +13,6 @@ class SearchDogpile:
         self.limit = limit
 
     def do_search(self):
-        #import ssl
-        #ssl._create_default_https_context = ssl._create_unverified_context
         # Dogpile is hardcoded to return 10 results.
         try:
             headers = {'User-agent': Core.get_user_agent()}
@@ -39,4 +35,3 @@ class SearchDogpile:
     def get_hostnames(self):
         rawres = myparser.Parser(self.total_results, self.word)
         return rawres.hostnames()
-

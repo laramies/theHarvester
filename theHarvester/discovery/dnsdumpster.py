@@ -3,7 +3,7 @@ from theHarvester.parsers import myparser
 import requests
 
 
-class search_dnsdumpster:
+class SearchDnsDumpster:
 
     def __init__(self, word):
         self.word = word.replace(' ', '%20')
