@@ -420,8 +420,6 @@ class IPint(object):
         else:
             raise ValueError("only IPv4 and IPv6 supported")
 
-
-
         return ret + self._printPrefix(wantprefixlen)
 
     def strFullsize(self, wantprefixlen = None):
@@ -433,7 +431,7 @@ class IPint(object):
         2001:0658:022a:cafe:0200:0000:0000:0001
         """
 
-        if self.WantPrefixLen == None and wantprefixlen == None:
+        if self.WantPrefixLen is None and wantprefixlen is None:
             wantprefixlen = 1
 
         return intToIp(self.ip, self._ipversion) + self._printPrefix(wantprefixlen)
@@ -447,7 +445,7 @@ class IPint(object):
         0x20010658022acafe0200000000000001
         """
 
-        if self.WantPrefixLen == None and wantprefixlen == None:
+        if self.WantPrefixLen is None and wantprefixlen is None:
             wantprefixlen = 0
 
         x = '0x%x' % self.ip
@@ -462,7 +460,7 @@ class IPint(object):
         42540616829182469433547762482097946625
         """
 
-        if self.WantPrefixLen == None and wantprefixlen == None:
+        if self.WantPrefixLen is None and wantprefixlen is None:
             wantprefixlen = 0
 
         x = '%d' % self.ip
@@ -499,7 +497,6 @@ class IPint(object):
                 return iprange[bits[:i]]
         return "unknown"
 
-
     def netmask(self):
         """Return netmask as an integer.
 
@@ -512,7 +509,6 @@ class IPint(object):
         locallen = bits - self._prefixlen
 
         return ((2 ** self._prefixlen) - 1) << locallen
-
 
     def strNetmask(self):
         """Return netmask as an string. Mostly useful for IPv6.
@@ -544,7 +540,6 @@ class IPint(object):
         bits = _ipVersionToLen(self._ipversion)
         locallen = bits - self._prefixlen
         return 2 ** locallen
-
 
     def __nonzero__(self):
         """All IPy objects should evaluate to true in boolean context.
@@ -624,8 +619,6 @@ class IPint(object):
 
         return self.ip + int(key)
 
-
-
     def __contains__(self, item):
         """Called to implement membership test operators.
 
@@ -652,7 +645,6 @@ class IPint(object):
         else:
             return False
 
-
     def overlaps(self, item):
         """Check if two IP address ranges overlap.
 
@@ -678,14 +670,12 @@ class IPint(object):
         else:
             return 0
 
-
     def __str__(self):
         """Dispatch to the prefered String Representation.
 
         Used to implement str(IP)."""
 
         return self.strCompressed()
-
 
     def __repr__(self):
         """Print a representation of the Object.
@@ -699,7 +689,6 @@ class IPint(object):
         """
 
         return("IPint('%s')" % (self.strCompressed(1)))
-
 
     def __cmp__(self, other):
         """Called by comparison operations.
@@ -1018,6 +1007,7 @@ class IP(IPint):
         raise ValueError("%s cannot be converted to an IPv4 address."
                          % repr(self))
 
+
 class IPSet(collections.MutableSet):
     def __init__(self, iterable=[]):
         # Make sure it's iterable, otherwise wrap.
@@ -1214,6 +1204,7 @@ class IPSet(collections.MutableSet):
             except KeyError:
                 self.prefixtable[address._prefixlen] = [address]
 
+
 def _parseAddressIPv6(ipstr):
     """
     Internal function used by parseAddress() to parse IPv6 address with ':'.
@@ -1333,6 +1324,7 @@ def _parseAddressIPv6(ipstr):
         value = (value << 16) + item
         index += 1
     return value
+
 
 def parseAddress(ipstr):
     """
@@ -1460,6 +1452,7 @@ def intToIp(ip, version):
 
     return ret
 
+
 def _ipVersionToLen(version):
     """Return number of bits in address for a certain IP version.
 
@@ -1498,6 +1491,7 @@ _BitTable = {'0': '0000', '1': '0001', '2': '0010', '3': '0011',
             '8': '1000', '9': '1001', 'a': '1010', 'b': '1011',
             'c': '1100', 'd': '1101', 'e': '1110', 'f': '1111'}
 
+
 def _intToBin(val):
     """Return the binary representation of an integer as string."""
 
@@ -1512,6 +1506,7 @@ def _intToBin(val):
         ret = ret[1:]
     return ret
 
+
 def _count1Bits(num):
     """Find the highest bit set to 1 in an integer."""
     ret = 0
@@ -1519,6 +1514,7 @@ def _count1Bits(num):
         num = num >> 1
         ret += 1
     return ret
+
 
 def _count0Bits(num):
     """Find the highest bit set to 0 in an integer."""
