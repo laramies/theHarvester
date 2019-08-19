@@ -1,8 +1,7 @@
 from theHarvester.discovery.constants import *
 from theHarvester.lib.core import *
 from theHarvester.parsers import myparser
-import requests
-import time
+import grequests
 
 
 class SearchBing:
@@ -10,11 +9,10 @@ class SearchBing:
     def __init__(self, word, limit, start):
         self.word = word.replace(' ', '%20')
         self.results = ""
-        self.totalresults = ""
+        self.total_results = ""
         self.server = 'www.bing.com'
         self.apiserver = 'api.search.live.net'
         self.hostname = 'www.bing.com'
-        self.quantity = '50'
         self.limit = int(limit)
         self.bingApi = Core.bing_key()
         self.counter = start
@@ -26,9 +24,12 @@ class SearchBing:
             'Accept-Language': 'en-us,en',
             'User-agent': Core.get_user_agent()
         }
-        h = requests.get(url=('https://' + self.server + '/search?q=%40"' + self.word + '"&count=50&first=' + str(self.counter)), headers=headers)
-        self.results = h.text
-        self.totalresults += self.results
+        base_url = f'https://{self.server}/search?q=%40"{self.word}"&count=50&first=xx'
+        urls = [base_url.replace("xx", str(num)) for num in range(0, self.limit, 50) if num <= self.limit]
+        req = (grequests.get(url, headers=headers, timeout=5) for url in urls)
+        responses = grequests.imap(req, size=5)
+        for response in responses:
+            self.total_results += response.content.decode('UTF-8')
 
     def do_search_api(self):
         url = 'https://api.cognitive.microsoft.com/bing/v7.0/search?'
@@ -40,9 +41,10 @@ class SearchBing:
             'safesearch': 'Off'
         }
         headers = {'User-Agent': Core.get_user_agent(), 'Ocp-Apim-Subscription-Key': self.bingApi}
-        h = requests.get(url=url, headers=headers, params=params)
-        self.results = h.text
-        self.totalresults += self.results
+        grequests_resp = grequests.get(url=url, headers=headers, params=params)
+        response = grequests.map([grequests_resp])
+        self.results = response[0].content.decode('UTF-8')
+        self.total_results += self.results
 
     def do_search_vhost(self):
         headers = {
@@ -51,39 +53,35 @@ class SearchBing:
             'Accept-Language': 'en-us,en',
             'User-agent': Core.get_user_agent()
         }
-        url = 'http://' + self.server + '/search?q=ip:' + self.word + '&go=&count=50&FORM=QBHL&qs=n&first=' + str(self.counter)
-        h = requests.get(url=url, headers=headers)
-        self.results = h.text
-        self.totalresults += self.results
+        base_url = f'http://{self.server}/search?q=ip:{self.word}&go=&count=50&FORM=QBHL&qs=n&first=xx'
+        urls = [base_url.replace("xx", str(num)) for num in range(0, self.limit, 50) if num <= self.limit]
+        req = (grequests.get(url, headers=headers, timeout=5) for url in urls)
+        responses = grequests.imap(req, size=5)
+        for response in responses:
+            self.total_results += response.content.decode('UTF-8')
 
     def get_emails(self):
-        rawres = myparser.Parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.total_results, self.word)
         return rawres.emails()
 
     def get_hostnames(self):
-        rawres = myparser.Parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.total_results, self.word)
         return rawres.hostnames()
 
     def get_allhostnames(self):
-        rawres = myparser.Parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.total_results, self.word)
         return rawres.hostnames_all()
 
     def process(self, api):
         if api == 'yes':
             if self.bingApi is None:
                 raise MissingKey(True)
-        while self.counter < self.limit:
+        else:
             if api == 'yes':
                 self.do_search_api()
-                time.sleep(getDelay())
             else:
                 self.do_search()
-                time.sleep(getDelay())
-            self.counter += 50
             print(f'\tSearching {self.counter} results.')
 
     def process_vhost(self):
-        # Maybe it is good to use other limit for this.
-        while self.counter < self.limit:
-            self.do_search_vhost()
-            self.counter += 50
+        self.do_search_vhost()

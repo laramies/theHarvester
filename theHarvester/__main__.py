@@ -53,7 +53,7 @@ def start():
     parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, censys, crtsh, dnsdumpster,
-                        dogpile, duckduckgo, github-code, google, 
+                        dogpile, duckduckgo, exalead, github-code, google, 
                         hunter, intelx,
                         linkedin, netcraft, securityTrails, threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo, all''')
@@ -158,6 +158,7 @@ def start():
                         all_hosts.extend(hosts)
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'CRTsh')
+
                     except Exception:
                         print(f'\033[93m[!] An timeout occurred with crtsh, cannot find {args.domain}\033[0m')
 
@@ -220,6 +221,19 @@ def start():
                         print(ex)
                     else:
                         pass
+
+                elif engineitem == 'exalead':
+                    print('\033[94m[*] Searching Exalead \033[0m')
+                    from theHarvester.discovery import exaleadsearch
+                    search = exaleadsearch.search_exalead(word, limit, start)
+                    search.process()
+                    emails = filter(search.get_emails())
+                    all_emails.extend(emails)
+                    hosts = filter(search.get_hostnames())
+                    all_hosts.extend(hosts)
+                    db = stash.stash_manager()
+                    db.store_all(word, all_hosts, 'host', 'exalead')
+                    db.store_all(word, all_emails, 'email', 'exalead')
 
                 elif engineitem == 'google':
                     print('\033[94m[*] Searching Google. \033[0m')
@@ -491,6 +505,20 @@ def start():
                     db.store_all(word, all_hosts, 'email', 'duckduckgo')
                     db.store_all(word, all_hosts, 'host', 'duckduckgo')
 
+                    print('\033[94m[*] Searching Exalead \033[0m')
+                    try:
+                        from theHarvester.discovery import exaleadsearch
+                        search = exaleadsearch.search_exalead(word, limit, start)
+                        search.process()
+                        emails = filter(search.get_emails())
+                        all_emails.extend(emails)
+                        hosts = filter(search.get_hostnames())
+                        all_hosts.extend(hosts)
+                        db = stash.stash_manager()
+                        db.store_all(word, all_hosts, 'host', 'exalead')
+                        db.store_all(word, all_emails, 'email', 'exalead')
+                    except Exception:
+                        pass
                     print('\033[94m[*] Searching Google. \033[0m')
                     from theHarvester.discovery import googlesearch
                     search = googlesearch.search_google(word, limit, start)
@@ -977,7 +1005,6 @@ def entry_point():
         print('\n\n\033[93m[!] ctrl+c detected from user, quitting.\n\n \033[0m')
     except Exception:
         import traceback
-
         print(traceback.print_exc())
         sys.exit(1)
 

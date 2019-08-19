@@ -10,7 +10,10 @@ def filter(lst):
     :param lst: list to be filtered
     :return: new filtered list
     """
-    lst = set(lst)  # Remove duplicates.
+    if lst is None:
+        return []
+    if not isinstance(lst, set):
+        lst = set(lst)  # Remove duplicates.
     new_lst = []
     for item in lst:
         item = str(item)

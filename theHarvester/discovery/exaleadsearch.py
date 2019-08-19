@@ -2,9 +2,9 @@ from theHarvester.discovery.constants import *
 from theHarvester.lib.core import *
 from theHarvester.parsers import myparser
 import re
-import requests
 import time
-
+import grequests
+import requests
 
 class search_exalead:
 
@@ -12,27 +12,33 @@ class search_exalead:
         self.word = word
         self.files = 'pdf'
         self.results = ""
-        self.totalresults = ""
+        self.total_results = ""
         self.server = 'www.exalead.com'
         self.hostname = 'www.exalead.com'
         self.limit = limit
         self.counter = start
 
     def do_search(self):
-        url = 'http:// ' + self.server + '/search/web/results/?q=%40' + self.word \
-              + '&elements_per_page=50&start_index=' + str(self.counter)
+        base_url = f'https://{self.server}/search/web/results/?q=%40{self.word}&elements_per_page=50&start_index=xx'
         headers = {
             'Host': self.hostname,
             'Referer': ('http://' + self.hostname + '/search/web/results/?q=%40' + self.word),
             'User-agent': Core.get_user_agent()
         }
-        h = requests.get(url=url, headers=headers)
-        self.results = h.text
-        self.totalresults += self.results
+        urls = [base_url.replace("xx", str(num)) for num in range(self.counter, self.limit, 50) if num <= self.limit]
+        req = []
+        for url in urls:
+            req.append(grequests.get(url, headers=headers, timeout=5))
+            time.sleep(3)
+        responses = grequests.imap(tuple(req), size=3)
+        for response in responses:
+            # TODO if decoded content contains information about solving captcha print message to user to visit website
+            # TODO to solve it or use a vpn as it appears to be ip based
+            self.total_results += response.content.decode('UTF-8')
 
     def do_search_files(self, files):
-        url = 'http:// ' + self.server + '/search/web/results/?q=%40' + self.word \
-              + 'filetype:' + self.files + '&elements_per_page=50&start_index=' + str(self.counter)
+        url = f'https://{self.server}/search/web/results/?q=%40{self.word}filetype:{self.files}&elements_per_page' \
+            f'=50&start_index={self.counter} '
         headers = {
             'Host': self.hostname,
             'Referer': ('http://' + self.hostname + '/search/web/results/?q=%40' + self.word),
@@ -40,7 +46,7 @@ class search_exalead:
         }
         h = requests.get(url=url, headers=headers)
         self.results = h.text
-        self.totalresults += self.results
+        self.total_results += self.results
 
     def check_next(self):
         renext = re.compile('topNextUrl')
@@ -53,22 +59,20 @@ class search_exalead:
         return nexty
 
     def get_emails(self):
-        rawres = myparser.Parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.total_results, self.word)
         return rawres.emails()
 
     def get_hostnames(self):
-        rawres = myparser.Parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.total_results, self.word)
         return rawres.hostnames()
 
     def get_files(self):
-        rawres = myparser.Parser(self.totalresults, self.word)
+        rawres = myparser.Parser(self.total_results, self.word)
         return rawres.fileurls(self.files)
 
     def process(self):
-        while self.counter <= self.limit:
-            self.do_search()
-            self.counter += 50
-            print(f'\tSearching {self.counter} results.')
+        print('Searching results')
+        self.do_search()
 
     def process_files(self, files):
         while self.counter < self.limit:
