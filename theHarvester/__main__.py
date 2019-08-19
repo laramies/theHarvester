@@ -238,7 +238,7 @@ def start():
                 elif engineitem == 'google':
                     print('\033[94m[*] Searching Google. \033[0m')
                     from theHarvester.discovery import googlesearch
-                    search = googlesearch.search_google(word, limit, start)
+                    search = googlesearch.SearchGoogle(word, limit, start)
                     search.process(google_dorking)
                     emails = filter(search.get_emails())
                     all_emails.extend(emails)
@@ -521,7 +521,7 @@ def start():
                         pass
                     print('\033[94m[*] Searching Google. \033[0m')
                     from theHarvester.discovery import googlesearch
-                    search = googlesearch.search_google(word, limit, start)
+                    search = googlesearch.SearchGoogle(word, limit, start)
                     search.process(google_dorking)
                     emails = filter(search.get_emails())
                     hosts = filter(search.get_hostnames())
@@ -892,7 +892,7 @@ def start():
     if recursion:
         counter = 0
         for word in vhost:
-            search = googlesearch.search_google(word, limit, counter)
+            search = googlesearch.SearchGoogle(word, limit, counter)
             search.process(google_dorking)
             emails = search.get_emails()
             hosts = search.get_hostnames()

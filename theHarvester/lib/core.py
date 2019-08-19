@@ -418,7 +418,7 @@ class Core:
     #     db.store_all(word, all_hosts, 'host', 'duckduckgo')
     #
     #     print('[*] Searching Google.')
-    #     search = googlesearch.search_google(word, limit, start)
+    #     search = googlesearch.SearchGoogle(word, limit, start)
     #     search.process(google_dorking)
     #     emails = filter(search.get_emails())
     #     hosts = filter(search.get_hostnames())
