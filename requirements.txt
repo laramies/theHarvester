@@ -7,5 +7,5 @@ plotly==4.1.0
 pytest==5.1.0
 PyYaml==5.1.2
 requests==2.22.0
-shodan==1.14.0
+shodan==1.15.0
 texttable==1.6.2
