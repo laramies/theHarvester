@@ -35,9 +35,9 @@ class BarGraph:
     """Creates horizontal and vertical bar graphs, progress bars, and faders."""
 
     def __init__(self, type=''):
-        #-------------------------------------------------------------------------
+        # -------------------------------------------------------------------------
         # Configuration
-        #-------------------------------------------------------------------------
+        # -------------------------------------------------------------------------
         # graph type: "hBar", "vBar", "pBar", or "fader"
         self.type = type and type or 'hBar'
         self.values = []                          # graph data: list

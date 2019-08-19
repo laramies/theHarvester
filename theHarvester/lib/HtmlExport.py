@@ -80,7 +80,7 @@ class HtmlExport:
         self.style = a
 
     def writehtml(self):
-        page = markup.page()
+        page = markup.Page()
         page.html()
         self.styler()
         page.head(self.style)

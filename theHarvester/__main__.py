@@ -912,7 +912,7 @@ def start():
             latestscanchartdata = db.latestscanchartdata(word)
             scanhistorydomain = db.getscanhistorydomain(word)
             pluginscanstatistics = db.getpluginscanstatistics()
-            generator = statichtmlgenerator.htmlgenerator(word)
+            generator = statichtmlgenerator.HtmlGenerator(word)
             HTMLcode = generator.beginhtml()
             HTMLcode += generator.generatelatestscanresults(latestscanresults)
             HTMLcode += generator.generatepreviousscanresults(previousscanresults)
