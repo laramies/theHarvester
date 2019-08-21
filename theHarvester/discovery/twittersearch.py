@@ -19,7 +19,13 @@ class SearchTwitter:
         base_url = f'https://{self.server}/search?num=100&start=xx&hl=en&meta=&q=site%3Atwitter.com%20intitle%3A%22on+Twitter%22%20{self.word}'
         headers = {'User-Agent': Core.get_user_agent()}
         try:
-            urls = [base_url.replace("xx", str(num)) for num in range(0, self.limit, 10) if num <= self.limit]
+            urls = [
+                base_url.replace(
+                    "xx",
+                    str(num)) for num in range(
+                    0,
+                    self.limit,
+                    10) if num <= self.limit]
             request = (grequests.get(url, headers=headers) for url in urls)
             response = grequests.imap(request, size=5)
             for entry in response:

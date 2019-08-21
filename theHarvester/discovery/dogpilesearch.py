@@ -21,8 +21,19 @@ class SearchDogpile:
         try:
             headers = {'User-agent': Core.get_user_agent()}
             base_url = f'https://{self.server}/search/web?qsi=xx&q=%40{self.word}'
-            urls = [base_url.replace("xx", str(num)) for num in range(0, self.limit, 10) if num <= self.limit]
-            req = (grequests.get(url, headers=headers, verify=False, timeout=5) for url in urls)
+            urls = [
+                base_url.replace(
+                    "xx",
+                    str(num)) for num in range(
+                    0,
+                    self.limit,
+                    10) if num <= self.limit]
+            req = (
+                grequests.get(
+                    url,
+                    headers=headers,
+                    verify=False,
+                    timeout=5) for url in urls)
             responses = grequests.imap(req, size=5)
             for response in responses:
                 self.total_results += response.content.decode('UTF-8')
@@ -39,4 +50,3 @@ class SearchDogpile:
     def get_hostnames(self):
         rawres = myparser.Parser(self.total_results, self.word)
         return rawres.hostnames()
-

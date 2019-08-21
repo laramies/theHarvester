@@ -116,12 +116,20 @@ class search_google:
         pipe = '%7C'
         # Format is google.com/search?q=dork+space+self.word
         self.links = tuple(self.database +
-                      str(dork).replace(':', colon).replace('+', plus).replace('.', period).replace('"', double_quote)
-                      .replace('*', asterick).replace('[', left_bracket).replace(']', right_bracket)
-                      .replace('?', question_mark).replace(' ', space).replace('/', slash).replace("'",single_quote)
-                      .replace('&', ampersand).replace('(', left_peren).replace(')', right_peren).replace('|', pipe)
-                      + space + self.word
-                      for dork in self.dorks)
+                           str(dork).replace(
+                               ':',
+                               colon).replace(
+                               '+',
+                               plus).replace(
+                               '.',
+                               period).replace(
+                               '"',
+                               double_quote)
+                           .replace('*', asterick).replace('[', left_bracket).replace(']', right_bracket)
+                           .replace('?', question_mark).replace(' ', space).replace('/', slash).replace("'", single_quote)
+                           .replace('&', ampersand).replace('(', left_peren).replace(')', right_peren).replace('|', pipe)
+                           + space + self.word
+                           for dork in self.dorks)
 
     def googledork(self):
         self.append_dorks()  # Call functions to create list.

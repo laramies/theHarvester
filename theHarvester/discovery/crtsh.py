@@ -16,7 +16,8 @@ class SearchCrtsh:
             request = requests.get(url, headers=headers, timeout=15)
             if request.ok:
                 content = request.json()
-                data = set([dct['name_value'][2:] if '*.' == dct['name_value'][:2] else dct['name_value'] for dct in content])
+                data = set([dct['name_value'][2:] if '*.' == dct['name_value']
+                            [:2] else dct['name_value'] for dct in content])
                 return data
             return data
         except Exception:

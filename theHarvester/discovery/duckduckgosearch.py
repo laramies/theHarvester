@@ -15,7 +15,8 @@ class SearchDuckDuckGo:
         self.dorks = []
         self.links = []
         self.database = 'https://duckduckgo.com/?q='
-        self.api = 'https://api.duckduckgo.com/?q=x&format=json&pretty=1'  # Currently using API.
+        # Currently using API.
+        self.api = 'https://api.duckduckgo.com/?q=x&format=json&pretty=1'
         self.quantity = '100'
         self.limit = limit
 
@@ -32,7 +33,8 @@ class SearchDuckDuckGo:
         urls = self.crawl(self.results)
         for url in urls:
             try:
-                self.totalresults += requests.get(url, headers={'User-Agent': Core.get_user_agent()}).text
+                self.totalresults += requests.get(url,
+                                                  headers={'User-Agent': Core.get_user_agent()}).text
                 time.sleep(getDelay())
             except Exception:
                 continue
@@ -48,7 +50,8 @@ class SearchDuckDuckGo:
             load = json.loads(text)
             for key in load.keys():  # Iterate through keys of dict.
                 val = load.get(key)
-                if isinstance(val, int) or isinstance(val, dict) or val is None:
+                if isinstance(val, int) or isinstance(
+                        val, dict) or val is None:
                     continue
                 if isinstance(val, list):
                     if len(val) == 0:  # Make sure not indexing an empty list.
@@ -57,9 +60,11 @@ class SearchDuckDuckGo:
                     if isinstance(val, dict):  # Sanity check.
                         for key in val.keys():
                             value = val.get(key)
-                            if isinstance(value, str) and value != '' and 'https://' in value or 'http://' in value:
+                            if isinstance(
+                                    value, str) and value != '' and 'https://' in value or 'http://' in value:
                                 urls.add(value)
-                if isinstance(val, str) and val != '' and 'https://' in val or 'http://' in val:
+                if isinstance(
+                        val, str) and val != '' and 'https://' in val or 'http://' in val:
                     urls.add(val)
             tmp = set()
             for url in urls:

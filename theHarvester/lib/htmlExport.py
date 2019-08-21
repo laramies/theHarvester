@@ -5,7 +5,8 @@ import re
 
 class htmlExport():
 
-    def __init__(self, users, hosts, vhosts, dnsres, dnsrev, file, domain, shodan, tldres):
+    def __init__(self, users, hosts, vhosts, dnsres,
+                 dnsrev, file, domain, shodan, tldres):
         self.users = users
         self.hosts = hosts
         self.vhost = vhosts
@@ -160,7 +161,7 @@ class htmlExport():
         for x in page.content:
             try:
                 file.write(x)
-            except:
+            except BaseException:
                 print('Exception' + x)  # Send to logs.
                 pass
         file.close()

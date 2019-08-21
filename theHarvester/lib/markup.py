@@ -18,7 +18,7 @@ Please send bug reports, feature requests, enhancement
 ideas or questions to nogradi at gmail dot com.
 
 Installation: drop markup.py somewhere into your Python path.
-""" % ( __version__, __date__ )
+""" % (__version__, __date__)
 
 
 class element:
@@ -178,7 +178,8 @@ class page:
         self.case = case
         self.separator = separator
 
-        # init( ) sets it to True so we know that </body></html> has to be printed at the end.
+        # init( ) sets it to True so we know that </body></html> has to be
+        # printed at the end.
         self._full = False
         self.class_ = class_
 
@@ -216,7 +217,8 @@ class page:
 
     def __str__(self):
 
-        if self._full and (self.mode == 'strict_html' or self.mode == 'loose_html'):
+        if self._full and (
+                self.mode == 'strict_html' or self.mode == 'loose_html'):
             end = ['</body>', '</html>']
         else:
             end = []
@@ -488,6 +490,7 @@ class dummy:
 
     """A dummy class for attaching attributes."""
     pass
+
 
 doctype = dummy()
 doctype.frameset = "<!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.01 Frameset//EN' 'http://www.w3.org/TR/html4/frameset.dtd'>"

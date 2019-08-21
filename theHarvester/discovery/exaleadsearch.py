@@ -6,6 +6,7 @@ import time
 import grequests
 import requests
 
+
 class search_exalead:
 
     def __init__(self, word, limit, start):
@@ -25,7 +26,13 @@ class search_exalead:
             'Referer': ('http://' + self.hostname + '/search/web/results/?q=%40' + self.word),
             'User-agent': Core.get_user_agent()
         }
-        urls = [base_url.replace("xx", str(num)) for num in range(self.counter, self.limit, 50) if num <= self.limit]
+        urls = [
+            base_url.replace(
+                "xx",
+                str(num)) for num in range(
+                self.counter,
+                self.limit,
+                50) if num <= self.limit]
         req = []
         for url in urls:
             req.append(grequests.get(url, headers=headers, timeout=5))

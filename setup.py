@@ -35,6 +35,6 @@ setuptools.setup(
             'wordlists/dorks.txt',
             'wordlists/names_small.txt'
         ]
-         )
+        )
     ],
 )

@@ -34,7 +34,8 @@ class SearchSecuritytrail:
             url = self.api + 'domain/' + self.word
             headers = {'APIKEY': self.key}
             r = requests.get(url, headers=headers)
-            time.sleep(2)  # Not random delay because 2 seconds is required due to rate limit.
+            # Not random delay because 2 seconds is required due to rate limit.
+            time.sleep(2)
         except Exception as e:
             print(e)
         self.results = r.text
@@ -48,7 +49,8 @@ class SearchSecuritytrail:
     def process(self):
         self.authenticate()
         self.do_search()
-        parser = securitytrailsparser.Parser(word=self.word, text=self.totalresults)
+        parser = securitytrailsparser.Parser(
+            word=self.word, text=self.totalresults)
         self.info = parser.parse_text()
         # Create parser and set self.info to tuple returned from parsing text.
         print('\tDone Searching Results')

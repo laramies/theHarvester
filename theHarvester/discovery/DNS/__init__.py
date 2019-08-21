@@ -11,6 +11,7 @@
 
 __version__ = '2.3.1'
 
+from theHarvester.discovery.DNS.lazy import *
 from theHarvester.discovery.DNS import Type
 from theHarvester.discovery.DNS import Opcode
 from theHarvester.discovery.DNS import Status
@@ -20,7 +21,6 @@ from theHarvester.discovery.DNS.Lib import DnsResult
 from theHarvester.discovery.DNS.Base import *
 from theHarvester.discovery.DNS.Lib import *
 Error = DNSError
-from theHarvester.discovery.DNS.lazy import *
 Request = DnsRequest
 Result = DnsResult
 

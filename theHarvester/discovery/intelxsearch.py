@@ -22,9 +22,13 @@ class SearchIntelx:
         try:
             user_agent = Core.get_user_agent()
             headers = {'User-Agent': user_agent, 'x-key': self.key}
-            # data is json that corresponds to what we are searching for, sort:2 means sort by most relevant
+            # data is json that corresponds to what we are searching for,
+            # sort:2 means sort by most relevant
             data = f'{{"term": "{self.word}", "maxresults": {self.limit}, "media": 0, "sort": 2 , "terminate": []}}'
-            r = requests.post(f'{self.database}phonebook/search', data=data, headers=headers)
+            r = requests.post(
+                f'{self.database}phonebook/search',
+                data=data,
+                headers=headers)
 
             if r.status_code == 400:
                 raise Exception('Invalid json was passed in.')
@@ -36,7 +40,8 @@ class SearchIntelx:
             r = requests.get(url, headers=headers)
             time.sleep(1)
 
-            # TODO: add in future grab status from r.text and check if more results can be gathered
+            # TODO: add in future grab status from r.text and check if more
+            # results can be gathered
             if r.status_code != 200:
                 raise Exception('Error occurred while searching intelx.')
             self.results = r.json()

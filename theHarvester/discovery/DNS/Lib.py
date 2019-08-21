@@ -22,8 +22,12 @@
 #             DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION
 # ------------------------------------------------------------------------
 
+from struct import pack as struct_pack
+from socket import inet_ntoa, inet_aton
+from struct import unpack as struct_unpack
 from theHarvester.discovery.DNS import Type, Class, Opcode, Status
 from theHarvester.discovery.DNS.Base import DNSError
+
 
 class UnpackError(DNSError):
     pass
@@ -33,10 +37,6 @@ class PackError(DNSError):
     pass
 
 # Low-level 16 and 32 bit integer packing and unpacking
-
-from struct import pack as struct_pack
-from struct import unpack as struct_unpack
-from socket import inet_ntoa, inet_aton
 
 
 def pack16bit(n):
@@ -226,7 +226,7 @@ class Unpacker:
         if not remains:
             return domain
         else:
-           return domain + '.' + remains
+            return domain + '.' + remains
 
 
 # Test program for packin/unpacking (section 4.1.4)
@@ -551,14 +551,14 @@ def dumpM(u):
     (id, qr, opcode, aa, tc, rd, ra, z, rcode,
      qdcount, ancount, nscount, arcount) = u.getHeader()
     print('id=%d,' % id,)
-    print('qr=%d, opcode=%d, aa=%d, tc=%d, rd=%d, ra=%d, z=%d, rcode=%d,' \
-        % (qr, opcode, aa, tc, rd, ra, z, rcode))
+    print('qr=%d, opcode=%d, aa=%d, tc=%d, rd=%d, ra=%d, z=%d, rcode=%d,'
+          % (qr, opcode, aa, tc, rd, ra, z, rcode))
     if tc:
         print('*** response truncated! ***')
     if rcode:
         print('*** nonzero error code! (%d) ***' % rcode)
-    print('  qdcount=%d, ancount=%d, nscount=%d, arcount=%d' \
-        % (qdcount, ancount, nscount, arcount))
+    print('  qdcount=%d, ancount=%d, nscount=%d, arcount=%d'
+          % (qdcount, ancount, nscount, arcount))
     for i in range(qdcount):
         print('QUESTION %d:' % i,)
         dumpQ(u)
@@ -598,7 +598,7 @@ class DnsResult:
             h['opcode'], h['status'], h['id']))
         flags = filter(lambda x, h=h: h[x], ('qr', 'aa', 'rd', 'ra', 'tc'))
         print(';; flags: %s; Ques: %d, Ans: %d, Auth: %d, Addit: %d' % (
-            ''.join(map(str,flags)), h['qdcount'], h['ancount'], h['nscount'],
+            ''.join(map(str, flags)), h['qdcount'], h['ancount'], h['nscount'],
             h['arcount']))
         print(';; QUESTIONS:')
         for q in self.questions:
@@ -674,25 +674,26 @@ class DnsResult:
 
 def dumpQ(u):
     qname, qtype, qclass = u.getQuestion()
-    print('qname=%s, qtype=%d(%s), qclass=%d(%s)' \
-        % (qname,
-           qtype, Type.typestr(qtype),
-           qclass, Class.classstr(qclass)))
+    print('qname=%s, qtype=%d(%s), qclass=%d(%s)'
+          % (qname,
+             qtype, Type.typestr(qtype),
+             qclass, Class.classstr(qclass)))
 
 
 def dumpRR(u):
     name, type, klass, ttl, rdlength = u.getRRheader()
     typename = Type.typestr(type)
-    print('name=%s, type=%d(%s), class=%d(%s), ttl=%d' \
-        % (name,
-           type, typename,
-           klass, Class.classstr(klass),
-           ttl))
+    print('name=%s, type=%d(%s), class=%d(%s), ttl=%d'
+          % (name,
+             type, typename,
+             klass, Class.classstr(klass),
+             ttl))
     mname = 'get%sdata' % typename
     if hasattr(u, mname):
         print('  formatted rdata:', getattr(u, mname)())
     else:
         print('  binary rdata:', u.getbytes(rdlength))
+
 
 if __name__ == "__main__":
     testpacker()
