@@ -30,17 +30,9 @@ class Parser:
                     sub_domain_flag = 0
                 else:
                     if 'www' in self.word:
-                        self.word = str(
-                            self.word).replace(
-                            'www.',
-                            '').replace(
-                            'www',
-                            '')
+                        self.word = str(self.word).replace('www.', '').replace('www', '')
                     # Remove www from word if entered
-                    self.hostnames.add(
-                        str(line).replace(
-                            '"', '').replace(
-                            ',', '') + '.' + self.word)
+                    self.hostnames.add(str(line).replace('"', '').replace(',', '') + '.' + self.word)
             else:
                 continue
         return list(self.ips), list(self.hostnames)

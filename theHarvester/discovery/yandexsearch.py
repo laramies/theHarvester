@@ -18,8 +18,7 @@ class SearchYandex:
         self.counter = start
 
     def do_search(self):
-        url = 'http://' + self.server + '/search?text=%40' + \
-            self.word + '&numdoc=50&lr=' + str(self.counter)
+        url = 'http://' + self.server + '/search?text=%40' + self.word + '&numdoc=50&lr=' + str(self.counter)
         headers = {
             'Host': self.hostname,
             'User-agent': Core.get_user_agent()
@@ -30,8 +29,7 @@ class SearchYandex:
         print(self.results)
 
     def do_search_files(self, files):  # TODO
-        url = 'http://' + self.server + '/search?text=%40' + \
-            self.word + '&numdoc=50&lr=' + str(self.counter)
+        url = 'http://' + self.server + '/search?text=%40' + self.word + '&numdoc=50&lr=' + str(self.counter)
         headers = {
             'Host': self.hostname,
             'User-agent': Core.get_user_agent()

@@ -14,7 +14,7 @@ class dns_reverse():
         try:
             DNS.ParseResolvConf('/etc/resolv.conf')
             nameserver = DNS.defaults['server'][0]
-        except BaseException:
+        except:
             print('Error in DNS resolvers')
             sys.exit()
 
@@ -32,16 +32,15 @@ class dns_reverse():
         try:
             name = DNS.Base.DnsRequest(b, qtype='ptr').req().answers[0]['data']
             return host + ':' + name
-        except BaseException:
+        except:
             pass
 
     def get_ip_list(self, ips):
         """Generates the list of IPs to reverse"""
         try:
             list = IPy.IP(ips)
-        except BaseException:
-            print(
-                'Error in IP format, check the input and try again. (Eg. 192.168.1.0/24)')
+        except:
+            print('Error in IP format, check the input and try again. (Eg. 192.168.1.0/24)')
             sys.exit()
         name = []
         for x in list:
@@ -70,14 +69,14 @@ class dns_force():
         self.verbose = verbose
         try:
             fileDir = os.path.dirname(os.path.realpath('__file__'))
-            res_path = os.path.join(fileDir, 'lib/resolvers.txt')
+            res_path = os.path.join(fileDir,'lib/resolvers.txt')
             with open(res_path) as f:
                 self.resolvers = f.read().splitlines()
         except Exception:
             print("Resolvers file can't be open.")
         try:
             f = open(self.file, 'r')
-        except BaseException:
+        except:
             print('Error opening DNS dictionary file.')
             sys.exit()
         self.list = f.readlines()
@@ -121,10 +120,7 @@ class dns_force():
     def run(self, host):
         if self.nameserver == "":
             self.nameserver = self.getdns(self.domain)
-            print(
-                '\n\033[94m[-] Using DNS server: ' +
-                self.nameserver +
-                '\033[1;33;40m\n')
+            print('\n\033[94m[-] Using DNS server: ' + self.nameserver + '\033[1;33;40m\n')
 
         hostname = str(host.split('\n')[0]) + '.' + str(self.domain)
         if self.verbose:
@@ -138,8 +134,7 @@ class dns_force():
                 qtype='a',
                 server=self.nameserver).req(
             )
-            # TODO FIX test is sometimes not getting answers and leads to an
-            # indexing error.
+            # TODO FIX test is sometimes not getting answers and leads to an indexing error.
             hostip = test.answers[0]['data']
             return hostname + ':' + hostip
         except Exception:

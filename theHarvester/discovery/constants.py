@@ -17,8 +17,7 @@ def filter(lst):
     new_lst = []
     for item in lst:
         item = str(item)
-        if (item[0].isalpha() or item[0].isdigit()) and (
-                'xxx' not in item) and ('..' not in item):
+        if (item[0].isalpha() or item[0].isdigit()) and ('xxx' not in item) and ('..' not in item):
             if '252f' in item:
                 item = item.replace('252f', '')
             if '2F' in item:
@@ -37,8 +36,7 @@ def search(text):
     # Helper function to check if Google has blocked traffic.
     for line in text.strip().splitlines():
         if 'This page appears when Google automatically detects requests coming from your computer network' in line:
-            print(
-                '\tGoogle is blocking your IP due to too many automated requests, wait or change your IP')
+            print('\tGoogle is blocking your IP due to too many automated requests, wait or change your IP')
             return True
     return False
 

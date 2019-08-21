@@ -18,15 +18,13 @@ import time
 try:
     import bs4
 except ImportError:
-    print(
-        '\n\033[93m[!] BeautifulSoup library not found, please install before proceeding.\n\n \033[0m')
+    print('\n\033[93m[!] BeautifulSoup library not found, please install before proceeding.\n\n \033[0m')
     sys.exit(1)
 
 try:
     import requests
 except ImportError:
-    print(
-        '\n\033[93m[!] Requests library not found, please install before proceeding.\n\n \033[0m')
+    print('\n\033[93m[!] Requests library not found, please install before proceeding.\n\n \033[0m')
     sys.exit(1)
 
 Core.banner()
@@ -42,85 +40,24 @@ def modified_source(excluded_engines):
 def start():
     parser = argparse.ArgumentParser(description='theHarvester is used to gather open source intelligence (OSINT) on a\n'
                                                  'company or domain.')
-    parser.add_argument(
-        '-d',
-        '--domain',
-        help='company name or domain to search',
-        required=True)
-    parser.add_argument(
-        '-l',
-        '--limit',
-        help='limit the number of search results, default=500',
-        default=500,
-        type=int)
-    parser.add_argument(
-        '-S',
-        '--start',
-        help='start with result number X, default=0',
-        default=0,
-        type=int)
-    parser.add_argument(
-        '-g',
-        '--google-dork',
-        help='use Google Dorks for Google search',
-        default=False,
-        action='store_true')
-    parser.add_argument(
-        '-p',
-        '--port-scan',
-        help='scan the detected hosts and check for Takeovers (21,22,80,443,8080)',
-        default=False,
-        action='store_true')
-    parser.add_argument(
-        '-s',
-        '--shodan',
-        help='use Shodan to query discovered hosts',
-        default=False,
-        action='store_true')
-    parser.add_argument(
-        '-v',
-        '--virtual-host',
-        help='verify host name via DNS resolution and search for virtual hosts',
-        action='store_const',
-        const='basic',
-        default=False)
-    parser.add_argument(
-        '-e',
-        '--dns-server',
-        help='DNS server to use for lookup')
-    parser.add_argument(
-        '-t',
-        '--dns-tld',
-        help='perform a DNS TLD expansion discovery, default False',
-        default=False)
-    parser.add_argument(
-        '-n',
-        '--dns-lookup',
-        help='enable DNS server lookup, default False',
-        default=False,
-        action='store_true')
-    parser.add_argument(
-        '-c',
-        '--dns-brute',
-        help='perform a DNS brute force on the domain',
-        default=False,
-        action='store_true')
-    parser.add_argument(
-        '-f',
-        '--filename',
-        help='save the results to an HTML and/or XML file',
-        default='',
-        type=str)
+    parser.add_argument('-d', '--domain', help='company name or domain to search', required=True)
+    parser.add_argument('-l', '--limit', help='limit the number of search results, default=500', default=500, type=int)
+    parser.add_argument('-S', '--start', help='start with result number X, default=0', default=0, type=int)
+    parser.add_argument('-g', '--google-dork', help='use Google Dorks for Google search', default=False, action='store_true')
+    parser.add_argument('-p', '--port-scan', help='scan the detected hosts and check for Takeovers (21,22,80,443,8080)', default=False, action='store_true')
+    parser.add_argument('-s', '--shodan', help='use Shodan to query discovered hosts', default=False, action='store_true')
+    parser.add_argument('-v', '--virtual-host', help='verify host name via DNS resolution and search for virtual hosts', action='store_const', const='basic', default=False)
+    parser.add_argument('-e', '--dns-server', help='DNS server to use for lookup')
+    parser.add_argument('-t', '--dns-tld', help='perform a DNS TLD expansion discovery, default False', default=False)
+    parser.add_argument('-n', '--dns-lookup', help='enable DNS server lookup, default False', default=False, action='store_true')
+    parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False, action='store_true')
+    parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, censys, crtsh, dnsdumpster,
-                        dogpile, duckduckgo, exalead, github-code, google,
+                        dogpile, duckduckgo, exalead, github-code, google, 
                         hunter, intelx,
                         linkedin, netcraft, securityTrails, threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo, all''')
-    parser.add_argument(
-        '-x',
-        '--exclude',
-        help='exclude options when using all sources',
-        type=str)
+    parser.add_argument('-x', '--exclude', help='exclude options when using all sources', type=str)
     args = parser.parse_args()
 
     try:
@@ -223,8 +160,7 @@ def start():
                         db.store_all(word, all_hosts, 'host', 'CRTsh')
 
                     except Exception:
-                        print(
-                            f'\033[93m[!] An timeout occurred with crtsh, cannot find {args.domain}\033[0m')
+                        print(f'\033[93m[!] An timeout occurred with crtsh, cannot find {args.domain}\033[0m')
 
                 elif engineitem == 'dnsdumpster':
                     try:
@@ -237,8 +173,7 @@ def start():
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'dnsdumpster')
                     except Exception as e:
-                        print(
-                            f'\033[93m[!] An error occurred with dnsdumpster: {e} \033[0m')
+                        print(f'\033[93m[!] An error occurred with dnsdumpster: {e} \033[0m')
 
                 elif engineitem == 'dogpile':
                     try:
@@ -254,8 +189,7 @@ def start():
                         db.store_all(word, all_hosts, 'email', 'dogpile')
                         db.store_all(word, all_hosts, 'host', 'dogpile')
                     except Exception as e:
-                        print(
-                            f'\033[93m[!] An error occurred with Dogpile: {e} \033[0m')
+                        print(f'\033[93m[!] An error occurred with Dogpile: {e} \033[0m')
 
                 elif engineitem == 'duckduckgo':
                     print('\033[94m[*] Searching DuckDuckGo. \033[0m')
@@ -431,8 +365,7 @@ def start():
                     db.store_all(word, emails, 'email', 'trello')
 
                 elif engineitem == 'twitter':
-                    print(
-                        '\033[94m[*] Searching Twitter usernames using Google. \033[0m')
+                    print('\033[94m[*] Searching Twitter usernames using Google. \033[0m')
                     from theHarvester.discovery import twittersearch
                     search = twittersearch.SearchTwitter(word, limit)
                     search.process()
@@ -531,8 +464,7 @@ def start():
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'CRTsh')
                     except Exception:
-                        print(
-                            f'\033[93m[!] An timeout occurred with crtsh: cannot find {args.domain} \033[0m')
+                        print(f'\033[93m[!] An timeout occurred with crtsh: cannot find {args.domain} \033[0m')
 
                     try:
                         print('\033[94m[*] Searching DNSdumpster. \033[0m')
@@ -544,8 +476,7 @@ def start():
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'dnsdumpster')
                     except Exception as e:
-                        print(
-                            f'\033[93m[!] An error occurred with dnsdumpster: {e} \033[0m')
+                        print(f'\033[93m[!] An error occurred with dnsdumpster: {e} \033[0m')
 
                     print('\033[94m[*] Searching Dogpile. \033[0m')
                     from theHarvester.discovery import dogpilesearch
@@ -577,8 +508,7 @@ def start():
                     print('\033[94m[*] Searching Exalead \033[0m')
                     try:
                         from theHarvester.discovery import exaleadsearch
-                        search = exaleadsearch.search_exalead(
-                            word, limit, start)
+                        search = exaleadsearch.search_exalead(word, limit, start)
                         search.process()
                         emails = filter(search.get_emails())
                         all_emails.extend(emails)
@@ -774,14 +704,12 @@ def start():
     try:
         all_emails
     except NameError:
-        print(
-            '\n\n\033[93m[!] No emails found because all_emails is not defined.\n\n \033[0m')
+        print('\n\n\033[93m[!] No emails found because all_emails is not defined.\n\n \033[0m')
         sys.exit(1)
     try:
         all_hosts
     except NameError:
-        print(
-            '\n\n\033[93m[!] No hosts found because all_hosts is not defined.\n\n \033[0m')
+        print('\n\n\033[93m[!] No hosts found because all_hosts is not defined.\n\n \033[0m')
         sys.exit(1)
 
     # Results
@@ -790,8 +718,7 @@ def start():
     else:
         print('\n[*] IPs found: ' + str(len(all_ip)))
         print('-------------------')
-        ips = sorted(ipaddress.ip_address(line.strip())
-                     for line in set(all_ip))
+        ips = sorted(ipaddress.ip_address(line.strip()) for line in set(all_ip))
         print('\n'.join(map(str, ips)))
 
     if len(all_emails) == 0:
@@ -861,8 +788,7 @@ def start():
                     scan = port_scanner.PortScan(host, ports)
                     openports = scan.process()
                     if len(openports) > 1:
-                        print(('\t[*] Detected open ports: ' +
-                               ','.join(str(e) for e in openports)))
+                        print(('\t[*] Detected open ports: ' + ','.join(str(e) for e in openports)))
                     takeover_check = 'True'
                     if takeover_check == 'True' and len(openports) > 0:
                         search_take = takeover.TakeOver(domain)
@@ -938,12 +864,7 @@ def start():
     if shodan is True:
         import texttable
         tab = texttable.Texttable()
-        header = [
-            'IP address',
-            'Hostname',
-            'Org',
-            'Services:Ports',
-            'Technologies']
+        header = ['IP address', 'Hostname', 'Org', 'Services:Ports', 'Technologies']
         tab.header(header)
         tab.set_cols_align(['c', 'c', 'c', 'c', 'c'])
         tab.set_cols_valign(['m', 'm', 'm', 'm', 'm'])
@@ -987,22 +908,18 @@ def start():
             db = stash.stash_manager()
             scanboarddata = db.getscanboarddata()
             latestscanresults = db.getlatestscanresults(word)
-            previousscanresults = db.getlatestscanresults(
-                word, previousday=True)
+            previousscanresults = db.getlatestscanresults(word, previousday=True)
             latestscanchartdata = db.latestscanchartdata(word)
             scanhistorydomain = db.getscanhistorydomain(word)
             pluginscanstatistics = db.getpluginscanstatistics()
             generator = statichtmlgenerator.htmlgenerator(word)
             HTMLcode = generator.beginhtml()
             HTMLcode += generator.generatelatestscanresults(latestscanresults)
-            HTMLcode += generator.generatepreviousscanresults(
-                previousscanresults)
+            HTMLcode += generator.generatepreviousscanresults(previousscanresults)
             graph = reportgraph.GraphGenerator(word)
             HTMLcode += graph.drawlatestscangraph(word, latestscanchartdata)
-            HTMLcode += graph.drawscattergraphscanhistory(
-                word, scanhistorydomain)
-            HTMLcode += generator.generatepluginscanstatistics(
-                pluginscanstatistics)
+            HTMLcode += graph.drawscattergraphscanhistory(word, scanhistorydomain)
+            HTMLcode += generator.generatepluginscanstatistics(pluginscanstatistics)
             HTMLcode += generator.generatedashboardcode(scanboarddata)
             HTMLcode += '<p><span style="color: #000000;">Report generated on ' + str(
                 datetime.datetime.now()) + '</span></p>'
@@ -1028,8 +945,7 @@ def start():
             html.writehtml()
         except Exception as e:
             print(e)
-            print(
-                '\n\033[93m[!] An error occurred while creating the output file.\n\n \033[0m')
+            print('\n\033[93m[!] An error occurred while creating the output file.\n\n \033[0m')
             sys.exit(1)
 
         try:
@@ -1077,8 +993,7 @@ def start():
             file.close()
             print('[*] Files saved.')
         except Exception as er:
-            print(
-                f'\033[93m[!] An error occurred while saving the XML file: {er} \033[0m')
+            print(f'\033[93m[!] An error occurred while saving the XML file: {er} \033[0m')
         print('\n\n')
         sys.exit(0)
 
@@ -1087,8 +1002,7 @@ def entry_point():
     try:
         start()
     except KeyboardInterrupt:
-        print(
-            '\n\n\033[93m[!] ctrl+c detected from user, quitting.\n\n \033[0m')
+        print('\n\n\033[93m[!] ctrl+c detected from user, quitting.\n\n \033[0m')
     except Exception:
         import traceback
         print(traceback.print_exc())

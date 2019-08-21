@@ -19,8 +19,7 @@ class stash_manager:
     def do_init(self):
         conn = sqlite3.connect(self.db)
         c = conn.cursor()
-        c.execute(
-            'CREATE TABLE results (domain text, resource text, type text, find_date date, source text)')
+        c.execute('CREATE TABLE results (domain text, resource text, type text, find_date date, source text)')
         conn.commit()
         conn.close()
         return
@@ -65,47 +64,33 @@ class stash_manager:
             self.latestscandomain["domain"] = domain
             conn = sqlite3.connect(self.db)
             c = conn.cursor()
-            c.execute(
-                '''SELECT COUNT(*) from results WHERE domain=? AND type="host"''', (domain,))
+            c.execute('''SELECT COUNT(*) from results WHERE domain=? AND type="host"''', (domain,))
             data = c.fetchone()
             self.latestscandomain["host"] = data[0]
-            c.execute(
-                '''SELECT COUNT(*) from results WHERE domain=? AND type="email"''', (domain,))
+            c.execute('''SELECT COUNT(*) from results WHERE domain=? AND type="email"''', (domain,))
             data = c.fetchone()
             self.latestscandomain["email"] = data[0]
-            c.execute(
-                '''SELECT COUNT(*) from results WHERE domain=? AND type="ip"''', (domain,))
+            c.execute('''SELECT COUNT(*) from results WHERE domain=? AND type="ip"''', (domain,))
             data = c.fetchone()
             self.latestscandomain["ip"] = data[0]
-            c.execute(
-                '''SELECT COUNT(*) from results WHERE domain=? AND type="vhost"''', (domain,))
+            c.execute('''SELECT COUNT(*) from results WHERE domain=? AND type="vhost"''', (domain,))
             data = c.fetchone()
             self.latestscandomain["vhost"] = data[0]
-            c.execute(
-                '''SELECT COUNT(*) from results WHERE domain=? AND type="shodan"''', (domain,))
+            c.execute('''SELECT COUNT(*) from results WHERE domain=? AND type="shodan"''', (domain,))
             data = c.fetchone()
             self.latestscandomain["shodan"] = data[0]
-            c.execute(
-                '''SELECT MAX(find_date) FROM results WHERE domain=?''', (domain,))
+            c.execute('''SELECT MAX(find_date) FROM results WHERE domain=?''', (domain,))
             data = c.fetchone()
             self.latestscandomain["latestdate"] = data[0]
             latestdate = data[0]
-            c.execute(
-                '''SELECT * FROM results WHERE domain=? AND find_date=? AND type="host"''',
-                (domain,
-                 latestdate,
-                 ))
+            c.execute('''SELECT * FROM results WHERE domain=? AND find_date=? AND type="host"''', (domain, latestdate,))
             scandetailshost = c.fetchall()
             self.latestscandomain["scandetailshost"] = scandetailshost
             c.execute('''SELECT * FROM results WHERE domain=? AND find_date=? AND type="email"''',
                       (domain, latestdate,))
             scandetailsemail = c.fetchall()
             self.latestscandomain["scandetailsemail"] = scandetailsemail
-            c.execute(
-                '''SELECT * FROM results WHERE domain=? AND find_date=? AND type="ip"''',
-                (domain,
-                 latestdate,
-                 ))
+            c.execute('''SELECT * FROM results WHERE domain=? AND find_date=? AND type="ip"''', (domain, latestdate,))
             scandetailsip = c.fetchall()
             self.latestscandomain["scandetailsip"] = scandetailsip
             c.execute('''SELECT * FROM results WHERE domain=? AND find_date=? AND type="vhost"''',
@@ -133,11 +118,8 @@ class stash_manager:
                     FROM results
                     WHERE find_date=date('now', '-1 day') and domain=?''', (domain,))
                     previousscandate = c.fetchone()
-                    # When theHarvester runs first time/day this query will
-                    # return.
-                    if not previousscandate:
-                        self.previousscanresults = [
-                            "No results", "No results", "No results", "No results", "No results"]
+                    if not previousscandate:   # When theHarvester runs first time/day this query will return.
+                        self.previousscanresults = ["No results", "No results", "No results", "No results", "No results"]
                     else:
                         c = conn.cursor()
                         c.execute('''
@@ -150,14 +132,11 @@ class stash_manager:
                         self.previousscanresults = results
                     return self.previousscanresults
                 except Exception as e:
-                    print(
-                        'Error in getting the previous scan results from the database: ' +
-                        str(e))
+                    print('Error in getting the previous scan results from the database: ' + str(e))
             else:
                 try:
                     c = conn.cursor()
-                    c.execute(
-                        '''SELECT MAX(find_date) FROM results WHERE domain=?''', (domain,))
+                    c.execute('''SELECT MAX(find_date) FROM results WHERE domain=?''', (domain,))
                     latestscandate = c.fetchone()
                     c = conn.cursor()
                     c.execute('''
@@ -170,9 +149,7 @@ class stash_manager:
                     self.latestscanresults = results
                     return self.latestscanresults
                 except Exception as e:
-                    print(
-                        'Error in getting the latest scan results from the database: ' +
-                        str(e))
+                    print('Error in getting the latest scan results from the database: ' + str(e))
         except Exception as e:
             print('Error connecting to theHarvester database: ' + str(e))
         finally:
@@ -210,8 +187,7 @@ class stash_manager:
         try:
             conn = sqlite3.connect(self.db)
             c = conn.cursor()
-            c.execute(
-                '''SELECT DISTINCT(find_date) FROM results WHERE domain=?''', (domain,))
+            c.execute('''SELECT DISTINCT(find_date) FROM results WHERE domain=?''', (domain,))
             dates = c.fetchall()
             for date in dates:
                 c = conn.cursor()
@@ -271,47 +247,33 @@ class stash_manager:
             self.latestscandomain["domain"] = domain
             conn = sqlite3.connect(self.db)
             c = conn.cursor()
-            c.execute(
-                '''SELECT COUNT(*) from results WHERE domain=? AND type="host"''', (domain,))
+            c.execute('''SELECT COUNT(*) from results WHERE domain=? AND type="host"''', (domain,))
             data = c.fetchone()
             self.latestscandomain["host"] = data[0]
-            c.execute(
-                '''SELECT COUNT(*) from results WHERE domain=? AND type="email"''', (domain,))
+            c.execute('''SELECT COUNT(*) from results WHERE domain=? AND type="email"''', (domain,))
             data = c.fetchone()
             self.latestscandomain["email"] = data[0]
-            c.execute(
-                '''SELECT COUNT(*) from results WHERE domain=? AND type="ip"''', (domain,))
+            c.execute('''SELECT COUNT(*) from results WHERE domain=? AND type="ip"''', (domain,))
             data = c.fetchone()
             self.latestscandomain["ip"] = data[0]
-            c.execute(
-                '''SELECT COUNT(*) from results WHERE domain=? AND type="vhost"''', (domain,))
+            c.execute('''SELECT COUNT(*) from results WHERE domain=? AND type="vhost"''', (domain,))
             data = c.fetchone()
             self.latestscandomain["vhost"] = data[0]
-            c.execute(
-                '''SELECT COUNT(*) from results WHERE domain=? AND type="shodan"''', (domain,))
+            c.execute('''SELECT COUNT(*) from results WHERE domain=? AND type="shodan"''', (domain,))
             data = c.fetchone()
             self.latestscandomain["shodan"] = data[0]
-            c.execute(
-                '''SELECT MAX(find_date) FROM results WHERE domain=?''', (domain,))
+            c.execute('''SELECT MAX(find_date) FROM results WHERE domain=?''', (domain,))
             data = c.fetchone()
             self.latestscandomain["latestdate"] = data[0]
             latestdate = data[0]
-            c.execute(
-                '''SELECT * FROM results WHERE domain=? AND find_date=? AND type="host"''',
-                (domain,
-                 latestdate,
-                 ))
+            c.execute('''SELECT * FROM results WHERE domain=? AND find_date=? AND type="host"''', (domain, latestdate,))
             scandetailshost = c.fetchall()
             self.latestscandomain["scandetailshost"] = scandetailshost
             c.execute('''SELECT * FROM results WHERE domain=? AND find_date=? AND type="email"''',
                       (domain, latestdate,))
             scandetailsemail = c.fetchall()
             self.latestscandomain["scandetailsemail"] = scandetailsemail
-            c.execute(
-                '''SELECT * FROM results WHERE domain=? AND find_date=? AND type="ip"''',
-                (domain,
-                 latestdate,
-                 ))
+            c.execute('''SELECT * FROM results WHERE domain=? AND find_date=? AND type="ip"''', (domain, latestdate,))
             scandetailsip = c.fetchall()
             self.latestscandomain["scandetailsip"] = scandetailsip
             c.execute('''SELECT * FROM results WHERE domain=? AND find_date=? AND type="vhost"''',

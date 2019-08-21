@@ -10,23 +10,14 @@ class Parser:
 
     def genericClean(self):
         self.results = self.results.replace('<em>', '').replace('<b>', '').replace('</b>', '').replace('</em>',
-                                                                                                       '').replace('%2f', '').replace('%3a', '').replace('<strong>', '').replace('</strong>', '')\
-            .replace('<wbr>', '').replace('</wbr>', '')
+                        '').replace('%2f', '').replace('%3a', '').replace('<strong>', '').replace('</strong>','')\
+                        .replace('<wbr>','').replace('</wbr>','')
 
-        for e in ('<', '>', ':', '=', ';', '&',
-                  '%3A', '%3D', '%3C', '/', '\\'):
+        for e in ('<', '>', ':', '=', ';', '&', '%3A', '%3D', '%3C', '/', '\\'):
             self.results = self.results.replace(e, ' ')
 
     def urlClean(self):
-        self.results = self.results.replace(
-            '<em>',
-            '').replace(
-            '</em>',
-            '').replace(
-            '%2f',
-            '').replace(
-                '%3a',
-            '')
+        self.results = self.results.replace('<em>', '').replace('</em>', '').replace('%2f', '').replace('%3a', '')
         for e in ('<', '>', ':', '=', ';', '&', '%3A', '%3D', '%3C'):
             self.results = self.results.replace(e, ' ')
 
@@ -34,8 +25,7 @@ class Parser:
         self.genericClean()
         reg_emails = re.compile(
             # Local part is required, charset is flexible.
-            # https://tools.ietf.org/html/rfc6531 (removed * and () as they
-            # provide FP mostly)
+            # https://tools.ietf.org/html/rfc6531 (removed * and () as they provide FP mostly)
             r'[a-zA-Z0-9.\-_+#~!$&\',;=:]+' +
             '@' +
             '[a-zA-Z0-9.-]*' +
@@ -50,8 +40,7 @@ class Parser:
         self.temp = reg_urls.findall(self.results)
         allurls = self.unique()
         for x in allurls:
-            if x.count('webcache') or x.count(
-                    'google.com') or x.count('search?hl'):
+            if x.count('webcache') or x.count('google.com') or x.count('search?hl'):
                 pass
             else:
                 urls.append(x)
@@ -122,8 +111,7 @@ class Parser:
         return resul
 
     def profiles(self):
-        reg_people = re.compile(
-            r'">[a-zA-Z0-9._ -]* - <em>Google Profile</em>')
+        reg_people = re.compile(r'">[a-zA-Z0-9._ -]* - <em>Google Profile</em>')
         self.temp = reg_people.findall(self.results)
         resul = []
         for x in self.temp:
@@ -145,9 +133,7 @@ class Parser:
         return sets
 
     def urls(self):
-        found = re.finditer(
-            r'https://(www\.)?trello.com/([a-zA-Z0-9\-_\.]+/?)*',
-            self.results)
+        found = re.finditer(r'https://(www\.)?trello.com/([a-zA-Z0-9\-_\.]+/?)*', self.results)
         for x in found:
             self.temp.append(x.group())
         urls = self.unique()

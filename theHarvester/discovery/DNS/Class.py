@@ -12,9 +12,9 @@ $Id: Class.py,v 1.6 2002/04/23 12:52:19 anthonybaxter Exp $
 
 IN = 1          # the Internet
 CS = 2          # the CSNET class (Obsolete - used only for examples in
-# some obsolete RFCs)
+                # some obsolete RFCs)
 CH = 3          # the CHAOS class. When someone shows me python running on
-# a Symbolics Lisp machine, I'll look at implementing this.
+                # a Symbolics Lisp machine, I'll look at implementing this.
 HS = 4          # Hesiod [Dyer 87]
 
 # QCLASS values (section 3.2.5)

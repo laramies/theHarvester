@@ -17,13 +17,7 @@ class SearchYahoo:
             'Host': self.server,
             'User-agent': Core.get_user_agent()
         }
-        urls = [
-            base_url.replace(
-                "xx",
-                str(num)) for num in range(
-                0,
-                self.limit,
-                10) if num <= self.limit]
+        urls = [base_url.replace("xx", str(num)) for num in range(0, self.limit, 10) if num <= self.limit]
         request = (grequests.get(url, headers=headers) for url in urls)
         response = grequests.imap(request, size=5)
         for entry in response:
@@ -36,8 +30,7 @@ class SearchYahoo:
         rawres = myparser.Parser(self.total_results, self.word)
         toparse_emails = rawres.emails()
         emails = set()
-        # strip out numbers and dashes for emails that look like
-        # xxx-xxx-xxxemail@host.tld
+        # strip out numbers and dashes for emails that look like xxx-xxx-xxxemail@host.tld
         for email in toparse_emails:
             email = str(email)
             if '-' in email and email[0].isdigit() and email.index('-') <= 9:

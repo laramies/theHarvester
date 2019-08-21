@@ -15,10 +15,8 @@ import time
 from theHarvester.discovery.DNS import Type, Class, Opcode
 import asyncore
 
-
 class DNSError(Exception):
     pass
-
 
 defaults = {'protocol': 'udp', 'port': 53, 'opcode': Opcode.QUERY,
             'qtype': Type.A, 'rd': 1, 'timing': 1, 'timeout': 30}
@@ -30,7 +28,7 @@ def ParseResolvConf(resolv_path):
     global defaults
     try:
         lines = open(resolv_path).readlines()
-    except BaseException:
+    except:
         print('error in path' + resolv_path)
     for line in lines:
         line = line.strip()
@@ -66,9 +64,9 @@ class DnsRequest:
 
     def __init__(self, *name, **args):
         self.donefunc = None
-        # fix maybe?
+        #fix maybe?
         self.asyn = False
-        # self.async = None #TODO FIX async is a keyword
+        #self.async = None #TODO FIX async is a keyword
         self.defaults = {}
         self.argparse(name, args)
         self.defaults = self.args
@@ -151,6 +149,7 @@ class DnsRequest:
 
     def conn(self):
         self.s.connect((str(self.ns), self.port))
+
 
     def req(self, *name, **args):
         " needs a refactoring "

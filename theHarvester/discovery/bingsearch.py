@@ -25,13 +25,7 @@ class SearchBing:
             'User-agent': Core.get_user_agent()
         }
         base_url = f'https://{self.server}/search?q=%40"{self.word}"&count=50&first=xx'
-        urls = [
-            base_url.replace(
-                "xx",
-                str(num)) for num in range(
-                0,
-                self.limit,
-                50) if num <= self.limit]
+        urls = [base_url.replace("xx", str(num)) for num in range(0, self.limit, 50) if num <= self.limit]
         req = (grequests.get(url, headers=headers, timeout=5) for url in urls)
         responses = grequests.imap(req, size=5)
         for response in responses:
@@ -46,9 +40,7 @@ class SearchBing:
             'mkt': 'en-us',
             'safesearch': 'Off'
         }
-        headers = {
-            'User-Agent': Core.get_user_agent(),
-            'Ocp-Apim-Subscription-Key': self.bingApi}
+        headers = {'User-Agent': Core.get_user_agent(), 'Ocp-Apim-Subscription-Key': self.bingApi}
         grequests_resp = grequests.get(url=url, headers=headers, params=params)
         response = grequests.map([grequests_resp])
         self.results = response[0].content.decode('UTF-8')
@@ -62,13 +54,7 @@ class SearchBing:
             'User-agent': Core.get_user_agent()
         }
         base_url = f'http://{self.server}/search?q=ip:{self.word}&go=&count=50&FORM=QBHL&qs=n&first=xx'
-        urls = [
-            base_url.replace(
-                "xx",
-                str(num)) for num in range(
-                0,
-                self.limit,
-                50) if num <= self.limit]
+        urls = [base_url.replace("xx", str(num)) for num in range(0, self.limit, 50) if num <= self.limit]
         req = (grequests.get(url, headers=headers, timeout=5) for url in urls)
         responses = grequests.imap(req, size=5)
         for response in responses:

@@ -47,22 +47,19 @@ class Core:
 
     @staticmethod
     def banner():
-        print(
-            '\n\033[93m*******************************************************************')
+        print('\n\033[93m*******************************************************************')
         print("*  _   _                                            _             *")
         print(r"* | |_| |__   ___    /\  /\__ _ _ ____   _____  ___| |_ ___ _ __  *")
         print(r"* | __|  _ \ / _ \  / /_/ / _` | '__\ \ / / _ \/ __| __/ _ \ '__| *")
         print(r"* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *")
         print(r"*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *")
         print('*                                                                 *')
-        print(
-            f'* theHarvester {Core.version()}                                         *')
+        print(f'* theHarvester {Core.version()}                                         *')
         print('* Coded by Christian Martorella                                   *')
         print('* Edge-Security Research                                          *')
         print('* cmartorella@edge-security.com                                   *')
         print('*                                                                 *')
-        print(
-            '******************************************************************* \n\n \033[0m')
+        print('******************************************************************* \n\n \033[0m')
 
     @staticmethod
     def get_supportedengines():
@@ -95,8 +92,7 @@ class Core:
 
     @staticmethod
     def get_user_agent():
-        # User-Agents from
-        # https://github.com/tamimibrahim17/List-of-user-agents
+        # User-Agents from https://github.com/tamimibrahim17/List-of-user-agents
         user_agents = [
             'Mozilla/5.0 (Windows NT 6.2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1464.0 Safari/537.36',
             'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0) chromeframe/10.0.648.205',

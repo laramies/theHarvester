@@ -22,8 +22,9 @@ class SearchHunter:
         response = grequests.map([request])
         self.total_results = response[0].content.decode('UTF-8')
 
+
     def process(self):
-        self.do_search()  # Only need to do it once.
+            self.do_search()  # Only need to do it once.
 
     def get_emails(self):
         rawres = myparser.Parser(self.totalresults, self.word)
@@ -36,3 +37,4 @@ class SearchHunter:
     def get_profiles(self):
         rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.profiles()
+

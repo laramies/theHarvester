@@ -100,7 +100,7 @@ class SearchGithubCode:
         while self.counter <= self.limit and self.page is not None:
             api_response = self.do_search(self.page)
             result = self.handle_response(api_response)
-            if isinstance(result, SuccessResult):
+            if type(result) == SuccessResult:
                 print(f'\tSearching {self.counter} results.')
                 for fragment in result.fragments:
                     self.total_results += fragment
@@ -108,13 +108,12 @@ class SearchGithubCode:
 
                 self.page = self.next_page_or_end(result)
                 time.sleep(getDelay())
-            elif isinstance(result, RetryResult):
+            elif type(result) == RetryResult:
                 sleepy_time = getDelay() + result.time
                 print(f'\tRetrying page in {sleepy_time} seconds...')
                 time.sleep(sleepy_time)
-            elif isinstance(result, ErrorResult):
-                raise Exception(
-                    f"\tException occurred: status_code: {result.status_code} reason: {result.body}")
+            elif type(result) == ErrorResult:
+                raise Exception(f"\tException occurred: status_code: {result.status_code} reason: {result.body}")
             else:
                 raise Exception("\tUnknown exception occurred")
 

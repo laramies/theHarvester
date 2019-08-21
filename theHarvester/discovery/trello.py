@@ -18,13 +18,7 @@ class SearchTrello:
         base_url = f'https://{self.server}/search?num=100&start=xx&hl=en&q=site%3Atrello.com%20{self.word}'
         headers = {'User-Agent': googleUA}
         try:
-            urls = [
-                base_url.replace(
-                    "xx",
-                    str(num)) for num in range(
-                    0,
-                    self.limit,
-                    10) if num <= self.limit]
+            urls = [base_url.replace("xx", str(num)) for num in range(0, self.limit, 10) if num <= self.limit]
             request = (grequests.get(url, headers=headers) for url in urls)
             response = grequests.imap(request, size=5)
             for entry in response:
@@ -42,13 +36,10 @@ class SearchTrello:
             trello_urls = rawres.urls()
             visited = set()
             for url in trello_urls:
-                # Iterate through Trello URLs gathered and visit them, append
-                # text to totalresults.
+                # Iterate through Trello URLs gathered and visit them, append text to totalresults.
                 if url not in visited:  # Make sure visiting unique URLs.
                     visited.add(url)
-                    request = grequests.get(
-                        url=url, headers={
-                            'User-Agent': googleUA})
+                    request = grequests.get(url=url, headers={'User-Agent': googleUA})
                     response = grequests.map([request])
                     self.totalresults = response[0].content.decode('UTF-8')
             rawres = myparser.Parser(self.totalresults, self.word)

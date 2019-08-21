@@ -24,11 +24,7 @@ class SearchNetcraft:
     def request(self, url, cookies=None):
         cookies = cookies or {}
         try:
-            resp = self.session.get(
-                url,
-                headers=self.headers,
-                timeout=self.timeout,
-                cookies=cookies)
+            resp = self.session.get(url, headers=self.headers, timeout=self.timeout, cookies=cookies)
         except Exception as e:
             print(e)
             resp = None
