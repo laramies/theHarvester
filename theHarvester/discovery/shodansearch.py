@@ -27,12 +27,12 @@ class SearchShodan:
                     pass
                 port = str(result.get('port'))
                 product = str(result.get('product'))
-                servicesports.append(str(product)+':'+str(port))
+                servicesports.append(str(product) +':' +str(port))
             technologies = list(set(technologies))
             self.hostdatarow = [
-                    str(results.get('ip_str')), str(results.get('hostnames')).strip('[]\''),
-                    str(results.get('org')), str(servicesports).replace('\'', '').strip('[]'),
-                    str(technologies).replace('\'', '').strip('[]')]
+                str(results.get('ip_str')), str(results.get('hostnames')).strip('[]\''),
+                str(results.get('org')), str(servicesports).replace('\'', '').strip('[]'),
+                str(technologies).replace('\'', '').strip('[]')]
         except exception.APIError:
             print(f'{ipaddress}: Not in Shodan')
             self.hostdatarow = [ipaddress, "Not in Shodan", "Not in Shodan", "Not in Shodan", "Not in Shodan"]

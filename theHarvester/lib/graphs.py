@@ -379,8 +379,8 @@ class BarGraph:
             bar += '<td style="' + self.__cssLABELBG + '" height=' + \
                    str(int(round((mPerc_neg - percent) * mul + valSpace))) + ' nowrap>'
             bar += (self.showValues < 2) and '<span style="' + self.__cssPERCVALUES + '">' + \
-                   str(_number_format(percent, self.percValuesDecimals)) + \
-                   '%</span>' or '&nbsp;'
+            str(_number_format(percent, self.percValuesDecimals)) + \
+            '%</span>' or '&nbsp;'
             bar += '</td>'
         else:
             bar += '<td style="' + self.__cssPERCVALUES + '" valign=bottom height=' + \
@@ -466,7 +466,7 @@ class BarGraph:
 
             try:
                 drv = len(d[i]) and [e for e in d[i]] or [d[i]]
-            except:
+            except BaseException:
                 drv = [d[i]]
 
             j = 0
@@ -562,7 +562,7 @@ class BarGraph:
 
                 for i in range(len(v)):
                     label = (
-                                    lcnt < len(r)) and r[lcnt].strip() or str(lcnt + 1)
+                        lcnt < len(r)) and r[lcnt].strip() or str(lcnt + 1)
                     rowspan = len(v[i])
                     graph += '<tr><td style="' + self.__cssLABEL + '"' + \
                              ((rowspan > 1) and ' rowspan=' + str(rowspan) or '') + '>'
@@ -636,7 +636,7 @@ class BarGraph:
 
                 for i in range(len(v)):
                     label = (
-                                    lcnt < len(r)) and r[lcnt].strip() or str(lcnt + 1)
+                        lcnt < len(r)) and r[lcnt].strip() or str(lcnt + 1)
                     colspan = len(v[i])
                     graph += '<td style="' + self.__cssLABEL + '"' + \
                              ((colspan > 1) and ' colspan=' + str(colspan) or '') + '>'
@@ -654,12 +654,12 @@ class BarGraph:
                 for i in range(len(v)):
                     try:
                         m = (len(v[i]) > 1) and True or False
-                    except:
+                    except BaseException:
                         m = False
 
                     if m or not i:
                         label = (
-                                        lcnt < len(r)) and r[lcnt].strip() or str(i + 1)
+                            lcnt < len(r)) and r[lcnt].strip() or str(i + 1)
                         graph += '<tr>'
 
                         if len(r):
@@ -668,7 +668,7 @@ class BarGraph:
 
                         try:
                             sum = v[i][1] and v[i][1] or v[-1][0]
-                        except:
+                        except BaseException:
                             sum = v[-1][0]
 
                         percent = sum and v[i][0] * 100.0 / sum or 0
@@ -683,7 +683,7 @@ class BarGraph:
                                   self.__cssBARBG + '"' or '') + '>'
 
                         self.barColors = (
-                                                 len(drc) >= i + 1) and drc[i].strip() or self.__colors[0]
+                            len(drc) >= i + 1) and drc[i].strip() or self.__colors[0]
                         bColor = self.level_color(v[i][0], self.barColors)
                         graph += '<table border=0 cellspacing=0 cellpadding=0><tr><td>'
                         if self.type == 'fader':

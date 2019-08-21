@@ -160,7 +160,7 @@ class htmlExport():
         for x in page.content:
             try:
                 file.write(x)
-            except:
+            except BaseException:
                 print('Exception' + x)  # Send to logs.
                 pass
         file.close()

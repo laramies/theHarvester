@@ -217,7 +217,7 @@ class IPint(object):
                 netbits = _count1Bits(size)
                 # Make sure the broadcast is the same as the last IP, otherwise it
                 # will return /16 for something like: 192.168.0.0-192.168.191.255
-                if IP('%s/%s' % (ip, 32 -netbits)).broadcast().int() != last:
+                if IP('%s/%s' % (ip, 32 - netbits)).broadcast().int() != last:
                     raise ValueError("the range %s is not on a network boundary." % data)
             elif len(x) == 1:
                 x = data.split('/')
@@ -253,7 +253,7 @@ class IPint(object):
                 self.ip = self.ip & _prefixlenToNetmask(self._prefixlen, self._ipversion)
 
             if not _checkNetaddrWorksWithPrefixlen(self.ip,
-            self._prefixlen, self._ipversion):
+                                                   self._prefixlen, self._ipversion):
                 raise ValueError("%s has invalid prefix length (%s)" % (repr(self), self._prefixlen))
         else:
             raise TypeError("Unsupported data type: %s" % type(data))
@@ -354,7 +354,7 @@ class IPint(object):
         if self.WantPrefixLen is None and wantprefixlen is None:
             wantprefixlen = 0
         ret = _intToBin(self.ip)
-        return  '0' * (bits - len(ret)) + ret + self._printPrefix(wantprefixlen)
+        return '0' * (bits - len(ret)) + ret + self._printPrefix(wantprefixlen)
 
     def strCompressed(self, wantprefixlen=None):
         """Return a string representation in compressed format using '::' Notation.
@@ -828,7 +828,7 @@ class IP(IPint):
             return None
         ipv4 = self.ip & MAX_IPV4_ADDRESS
         if self._prefixlen != 128:
-            ipv4 = '%s/%s' % (ipv4, 32 -(128 -self._prefixlen))
+            ipv4 = '%s/%s' % (ipv4, 32 - (128 - self._prefixlen))
         return IP(ipv4, ipversion=4)
 
     def reverseNames(self):
@@ -908,7 +908,7 @@ class IP(IPint):
             s.reverse()
             first_byte_index = int(4 - (self._prefixlen // 8))
             if self._prefixlen % 8 != 0:
-                nibblepart = "%s-%s" % (s[3 -(self._prefixlen // 8)], intToIp(self.ip + self.len() - 1, 4).split('.')[-1])
+                nibblepart = "%s-%s" % (s[3 - (self._prefixlen // 8)], intToIp(self.ip + self.len() - 1, 4).split('.')[-1])
                 nibblepart += '.'
             else:
                 nibblepart = ""
@@ -1138,7 +1138,7 @@ class IPSet(collections.MutableSet):
             found = False
             for i in range(len(self.prefixes)):
                 if del_prefix in self.prefixes[i]:
-                    self.prefixes[i:i +1] = self.prefixes[i] - del_prefix
+                    self.prefixes[i:i + 1] = self.prefixes[i] - del_prefix
                     break
 
         self.optimize()
@@ -1168,7 +1168,7 @@ class IPSet(collections.MutableSet):
         i = 0
         while i < addrlen:
             # Everything that might be inside this prefix follows directly behind it.
-            j = i +1
+            j = i + 1
             while j < addrlen and self.prefixes[j] in self.prefixes[i]:
                 # Mark for deletion by overwriting with None.
                 self.prefixes[j] = None
@@ -1192,7 +1192,7 @@ class IPSet(collections.MutableSet):
             # prefix length and differ only on the last bit of the prefix.
             addrlen = len(self.prefixes)
             i = 0
-            while i < addrlen -1:
+            while i < addrlen - 1:
                 j = i + 1
 
                 try:
@@ -1286,10 +1286,10 @@ def _parseAddressIPv6(ipstr):
             raise ValueError("%r: Invalid IPv6 address" % ipstr)
         if pos != -1:
             items.append(text[:pos])
-            if text[pos:pos +2] == "::":
+            if text[pos:pos + 2] == "::":
                 index += pos
             else:
-                index += pos +1
+                index += pos + 1
 
             if index == len(ipstr):
                 # Invalid IPv6, eg. '1::2:'
@@ -1300,7 +1300,7 @@ def _parseAddressIPv6(ipstr):
 
     if items and '.' in items[-1]:
         # IPv6 ending with IPv4 like '::ffff:192.168.0.1'
-        if (fill_pos is not None) and not (fill_pos <= len(items) -1):
+        if (fill_pos is not None) and not (fill_pos <= len(items) - 1):
             # Invalid IPv6: 'ffff:192.168.0.1::'
             raise ValueError("%r: Invalid IPv6 address: '::' after IPv4" % ipstr)
         value = parseAddress(items[-1])[0]
@@ -1312,7 +1312,7 @@ def _parseAddressIPv6(ipstr):
         diff = 8 - len(items)
         if diff <= 0:
             raise ValueError("%r: Invalid IPv6 address: '::' is not needed" % ipstr)
-        items = items[:fill_pos] + ['0'] *diff + items[fill_pos:]
+        items = items[:fill_pos] + ['0'] * diff + items[fill_pos:]
 
     # Here we have a list of 8 strings.
     if len(items) != 8:
@@ -1494,9 +1494,9 @@ def _countFollowingZeros(l):
 
 
 _BitTable = {'0': '0000', '1': '0001', '2': '0010', '3': '0011',
-            '4': '0100', '5': '0101', '6': '0110', '7': '0111',
-            '8': '1000', '9': '1001', 'a': '1010', 'b': '1011',
-            'c': '1100', 'd': '1101', 'e': '1110', 'f': '1111'}
+             '4': '0100', '5': '0101', '6': '0110', '7': '0111',
+             '8': '1000', '9': '1001', 'a': '1010', 'b': '1011',
+             'c': '1100', 'd': '1101', 'e': '1110', 'f': '1111'}
 
 def _intToBin(val):
     """Return the binary representation of an integer as string."""
@@ -1562,7 +1562,7 @@ def _checkPrefix(ip, prefixlen, version):
         zbits = bits + 1
     else:
         zbits = _count0Bits(ip)
-    if zbits <  bits - prefixlen:
+    if zbits < bits - prefixlen:
         return 0
     else:
         return 1
@@ -1619,7 +1619,7 @@ def _prefixlenToNetmask(prefixlen, version):
         return 0
     elif prefixlen < 0:
         raise ValueError("Prefixlen must be > 0")
-    return ((2<<prefixlen -1) -1) << (_ipVersionToLen(version) - prefixlen)
+    return ((2<<prefixlen - 1) - 1) << (_ipVersionToLen(version) - prefixlen)
 
 
 def _remove_subprefix(prefix, subprefix):
