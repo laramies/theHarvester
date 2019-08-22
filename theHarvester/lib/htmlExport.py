@@ -160,8 +160,8 @@ class htmlExport():
         for x in page.content:
             try:
                 file.write(x)
-            except Exception as e:
-                # Send to logs.
-                print(f'An exception has occurred in htmlexport: {e}')
+            except:
+                print('Exception' + x)  # Send to logs.
+                pass
         file.close()
         return 'ok'
