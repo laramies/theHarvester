@@ -3,7 +3,7 @@
 from theHarvester.discovery import *
 from theHarvester.discovery.constants import *
 from theHarvester.lib import hostchecker
-from theHarvester.lib import htmlExport
+from theHarvester.lib import HtmlExport
 from theHarvester.lib import reportgraph
 from theHarvester.lib import stash
 from theHarvester.lib import statichtmlgenerator
@@ -932,7 +932,7 @@ def start():
             Html_file.close()
             print('[*] Reporting finished.')
             print('[*] Saving files.')
-            html = htmlExport.htmlExport(
+            html = HtmlExport.HtmlExport(
                 all_emails,
                 full,
                 vhost,
