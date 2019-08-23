@@ -7,7 +7,7 @@ import grequests
 import requests
 
 
-class search_exalead:
+class SearchExalead:
 
     def __init__(self, word, limit, start):
         self.word = word

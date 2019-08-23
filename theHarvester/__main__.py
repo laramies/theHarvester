@@ -225,7 +225,7 @@ def start():
                 elif engineitem == 'exalead':
                     print('\033[94m[*] Searching Exalead \033[0m')
                     from theHarvester.discovery import exaleadsearch
-                    search = exaleadsearch.search_exalead(word, limit, start)
+                    search = exaleadsearch.SearchExalead(word, limit, start)
                     search.process()
                     emails = filter(search.get_emails())
                     all_emails.extend(emails)
