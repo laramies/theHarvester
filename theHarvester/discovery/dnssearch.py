@@ -14,7 +14,7 @@ class DnsReverse:
         try:
             DNS.ParseResolvConf('/etc/resolv.conf')
             nameserver = DNS.defaults['server'][0]
-        except:
+        except BaseException:
             print('Error in DNS resolvers')
             sys.exit()
 
@@ -32,14 +32,14 @@ class DnsReverse:
         try:
             name = DNS.Base.DnsRequest(b, qtype='ptr').req().answers[0]['data']
             return host + ':' + name
-        except:
+        except BaseException:
             pass
 
     def get_ip_list(self, ips):
         """Generates the list of IPs to reverse"""
         try:
             list = IPy.IP(ips)
-        except:
+        except BaseException:
             print('Error in IP format, check the input and try again. (Eg. 192.168.1.0/24)')
             sys.exit()
         name = []
@@ -76,7 +76,7 @@ class DnsForce:
             print("Resolvers file can't be open.")
         try:
             f = open(self.file, 'r')
-        except:
+        except BaseException:
             print('Error opening DNS dictionary file.')
             sys.exit()
         self.list = f.readlines()
