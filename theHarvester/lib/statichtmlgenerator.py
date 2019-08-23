@@ -1,4 +1,4 @@
-class htmlgenerator:
+class HtmlGenerator:
 
     def __init__(self, word):
         self.domain = word
@@ -94,7 +94,7 @@ class htmlgenerator:
 '''
             return html
         except Exception as e:
-            print('Error generating the latest scan results HTML code: ' + str(e))
+            print(f'Error generating the latest scan results HTML code: {e}')
 
     def beginhtml(self):
         html = '''
@@ -142,7 +142,7 @@ class htmlgenerator:
 '''
             return html
         except Exception as e:
-            print('Error generating dashboard HTML code: ' + str(e))
+            print(f'Error generating dashboard HTML code: {e}')
 
     def generatepluginscanstatistics(self, scanstatistics):
         try:
@@ -175,4 +175,4 @@ class htmlgenerator:
 '''
             return html
         except Exception as e:
-            print('Error generating scan statistics HTML code: ' + str(e))
+            print(f'Error generating scan statistics HTML code: {e}')

@@ -422,7 +422,7 @@ class RRunpacker(Unpacker):
         ttl = self.get32bit()
         rdlength = self.get16bit()
         self.rdend = self.offset + rdlength
-        return (name, rrtype, klass, ttl, rdlength)
+        return name, rrtype, klass, ttl, rdlength
 
     def endRR(self):
         if self.offset != self.rdend:

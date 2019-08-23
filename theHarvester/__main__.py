@@ -53,7 +53,7 @@ def start():
     parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, censys, crtsh, dnsdumpster,
-                        dogpile, duckduckgo, exalead, github-code, google, 
+                        dogpile, duckduckgo, exalead, github-code, google,
                         hunter, intelx,
                         linkedin, netcraft, securityTrails, threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo, all''')
@@ -166,7 +166,7 @@ def start():
                     try:
                         print('\033[94m[*] Searching DNSdumpster. \033[0m')
                         from theHarvester.discovery import dnsdumpster
-                        search = dnsdumpster.search_dnsdumpster(word)
+                        search = dnsdumpster.SearchDnsDumpster(word)
                         search.process()
                         hosts = filter(search.get_hostnames())
                         all_hosts.extend(hosts)
@@ -238,7 +238,7 @@ def start():
                 elif engineitem == 'google':
                     print('\033[94m[*] Searching Google. \033[0m')
                     from theHarvester.discovery import googlesearch
-                    search = googlesearch.search_google(word, limit, start)
+                    search = googlesearch.SearchGoogle(word, limit, start)
                     search.process(google_dorking)
                     emails = filter(search.get_emails())
                     all_emails.extend(emails)
@@ -469,7 +469,7 @@ def start():
                     try:
                         print('\033[94m[*] Searching DNSdumpster. \033[0m')
                         from theHarvester.discovery import dnsdumpster
-                        search = dnsdumpster.search_dnsdumpster(word)
+                        search = dnsdumpster.SearchDnsDumpster(word)
                         search.process()
                         hosts = filter(search.get_hostnames())
                         all_hosts.extend(hosts)
@@ -521,7 +521,7 @@ def start():
                         pass
                     print('\033[94m[*] Searching Google. \033[0m')
                     from theHarvester.discovery import googlesearch
-                    search = googlesearch.search_google(word, limit, start)
+                    search = googlesearch.SearchGoogle(word, limit, start)
                     search.process(google_dorking)
                     emails = filter(search.get_emails())
                     hosts = filter(search.get_hostnames())
@@ -763,7 +763,7 @@ def start():
     dnsres = []
     if dnsbrute is True:
         print('\n[*] Starting DNS brute force.')
-        a = dnssearch.dns_force(word, dnsserver, verbose=True)
+        a = dnssearch.DnsForce(word, dnsserver, verbose=True)
         res = a.process()
         print('\n[*] Hosts found after DNS brute force:')
         print('-------------------------------------')
@@ -810,7 +810,7 @@ def start():
             range = s.join(range)
             if not analyzed_ranges.count(range):
                 print('[*] Performing reverse lookup in ' + range)
-                a = dnssearch.dns_reverse(range, True)
+                a = dnssearch.DnsReverse(range, True)
                 a.list()
                 res = a.process()
                 analyzed_ranges.append(range)
@@ -830,7 +830,7 @@ def start():
     dnstldres = []
     if dnstld is True:
         print('[*] Starting DNS TLD expansion.')
-        a = dnssearch.dns_tld(word, dnsserver, verbose=True)
+        a = dnssearch.DnsTld(word, dnsserver, verbose=True)
         res = a.process()
         print('\n[*] Hosts found after DNS TLD expansion:')
         print('----------------------------------------')
@@ -892,7 +892,7 @@ def start():
     if recursion:
         counter = 0
         for word in vhost:
-            search = googlesearch.search_google(word, limit, counter)
+            search = googlesearch.SearchGoogle(word, limit, counter)
             search.process(google_dorking)
             emails = search.get_emails()
             hosts = search.get_hostnames()
@@ -912,7 +912,7 @@ def start():
             latestscanchartdata = db.latestscanchartdata(word)
             scanhistorydomain = db.getscanhistorydomain(word)
             pluginscanstatistics = db.getpluginscanstatistics()
-            generator = statichtmlgenerator.htmlgenerator(word)
+            generator = statichtmlgenerator.HtmlGenerator(word)
             HTMLcode = generator.beginhtml()
             HTMLcode += generator.generatelatestscanresults(latestscanresults)
             HTMLcode += generator.generatepreviousscanresults(previousscanresults)
@@ -932,7 +932,7 @@ def start():
             Html_file.close()
             print('[*] Reporting finished.')
             print('[*] Saving files.')
-            html = HtmlExport.HtmlExport(
+            html = htmlExport.HtmlExport(
                 all_emails,
                 full,
                 vhost,

@@ -2,8 +2,8 @@ from theHarvester.lib.core import *
 from theHarvester.parsers import censysparser
 import requests
 
- # TODO rewrite this module to use the censys api as the current way does notwork
- # TODO And not really that maintainable as it currently stands
+# TODO rewrite this module to use the censys api as the current way does notwork
+# TODO And not really that maintainable as it currently stands
 
 
 class SearchCensys:
