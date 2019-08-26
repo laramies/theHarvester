@@ -30,12 +30,6 @@ except ImportError:
 Core.banner()
 
 
-def modified_source(excluded_engines):
-    engines = Core.get_supportedengines()
-    excluded_engines = set(map(str.strip, excluded_engines.split(',')))
-    return engines.difference(excluded_engines)
-
-
 def start():
     parser = argparse.ArgumentParser(description='theHarvester is used to gather open source intelligence (OSINT) on a\n'
                                                  'company or domain.')
@@ -56,7 +50,6 @@ def start():
                         hunter, intelx,
                         linkedin, netcraft, securityTrails, threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo''')
-    parser.add_argument('-x', '--exclude', help='exclude options when using all sources', type=str)
     args = parser.parse_args()
 
     try:
@@ -88,9 +81,6 @@ def start():
 
     if args.source is not None:
         engines = set(map(str.strip, args.source.split(',')))
-
-        if args.source == 'all' and args.exclude is not None:
-            engines = modified_source(args.exclude)
 
         if set(engines).issubset(Core.get_supportedengines()):
             print(f'\033[94m[*] Target: {word} \n \033[0m')
