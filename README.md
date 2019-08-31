@@ -70,7 +70,6 @@ Passive:
 
 * yahoo: Yahoo search engine
 
-* all: currently a subset of all the most effective plugins
 
 Active:
 -------
