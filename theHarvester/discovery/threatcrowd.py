@@ -9,8 +9,6 @@ class SearchThreatcrowd:
         self.word = word.replace(' ', '%20')
         self.results = ""
         self.totalresults = ""
-        self.quantity = '100'
-        self.counter = 0
 
     def do_search(self):
         base_url = f'https://www.threatcrowd.org/searchApi/v2/domain/report/?domain={self.word}'

@@ -35,9 +35,9 @@ class BarGraph:
     """Creates horizontal and vertical bar graphs, progress bars, and faders."""
 
     def __init__(self, type=''):
-        #-------------------------------------------------------------------------
+        # -------------------------------------------------------------------------
         # Configuration
-        #-------------------------------------------------------------------------
+        # -------------------------------------------------------------------------
         # graph type: "hBar", "vBar", "pBar", or "fader"
         self.type = type and type or 'hBar'
         self.values = []                          # graph data: list
@@ -142,7 +142,7 @@ class BarGraph:
 
         # debug mode: 0 = off, 1 = on; just views some extra information
         self.debug = 0
-    #-------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     # Default bar colors; only used if barColors isn't set.
     __colors = (
@@ -379,8 +379,8 @@ class BarGraph:
             bar += '<td style="' + self.__cssLABELBG + '" height=' + \
                    str(int(round((mPerc_neg - percent) * mul + valSpace))) + ' nowrap>'
             bar += (self.showValues < 2) and '<span style="' + self.__cssPERCVALUES + '">' + \
-                   str(_number_format(percent, self.percValuesDecimals)) + \
-                   '%</span>' or '&nbsp;'
+                str(_number_format(percent, self.percValuesDecimals)) + \
+                '%</span>' or '&nbsp;'
             bar += '</td>'
         else:
             bar += '<td style="' + self.__cssPERCVALUES + '" valign=bottom height=' + \
@@ -438,9 +438,7 @@ class BarGraph:
 
         graph = '<table border=0 cellspacing=0 cellpadding=' + \
                 str(self.graphPadding) + '><tr>'
-        graph += '<td' + \
-                 (self.__cssGRAPH and ' style="' +
-                  self.__cssGRAPH + '"' or '') + '>'
+        graph += '<td' + (self.__cssGRAPH and ' style="' + self.__cssGRAPH + '"' or '') + '>'
 
         if self.legend and self.type != 'pbar' and self.type != 'fader':
             graph += '<table border=0 cellspacing=0 cellpadding=0><tr><td>'
@@ -466,7 +464,7 @@ class BarGraph:
 
             try:
                 drv = len(d[i]) and [e for e in d[i]] or [d[i]]
-            except:
+            except Exception:
                 drv = [d[i]]
 
             j = 0
@@ -561,8 +559,7 @@ class BarGraph:
                     graph += self.build_hTitle(titleLabel, titleValue, titleBar)
 
                 for i in range(len(v)):
-                    label = (
-                                    lcnt < len(r)) and r[lcnt].strip() or str(lcnt + 1)
+                    label = (lcnt < len(r)) and r[lcnt].strip() or str(lcnt + 1)
                     rowspan = len(v[i])
                     graph += '<tr><td style="' + self.__cssLABEL + '"' + \
                              ((rowspan > 1) and ' rowspan=' + str(rowspan) or '') + '>'
@@ -607,9 +604,7 @@ class BarGraph:
                         value = _number_format(v[i][j], max_dec)
                         bColor = self.level_color(v[i][j], bc[j])
 
-                        graph += '<td' + \
-                                 (self.__cssBARBG and ' style="' +
-                                  self.__cssBARBG + '"' or '') + '>'
+                        graph += '<td' + (self.__cssBARBG and ' style="' + self.__cssBARBG + '"' or '') + '>'
                         graph += self.create_vBar(
                             value, percent, mPerc, mPerc_neg,
                             max_neg, mul, valSpace, bColor, border, spacer, spacer_neg)
@@ -635,11 +630,9 @@ class BarGraph:
                     graph += '<td style="' + self.__cssTITLE + '">' + titleLabel + '</td>'
 
                 for i in range(len(v)):
-                    label = (
-                                    lcnt < len(r)) and r[lcnt].strip() or str(lcnt + 1)
+                    label = (lcnt < len(r)) and r[lcnt].strip() or str(lcnt + 1)
                     colspan = len(v[i])
-                    graph += '<td style="' + self.__cssLABEL + '"' + \
-                             ((colspan > 1) and ' colspan=' + str(colspan) or '') + '>'
+                    graph += '<td style="' + self.__cssLABEL + '"' + ((colspan > 1) and ' colspan=' + str(colspan) or '') + '>'
                     graph += '&nbsp;' + label + '&nbsp;</td>'
                     if self.labelSpace:
                         graph += '<td width=' + str(self.labelSpace) + '></td>'
@@ -654,12 +647,11 @@ class BarGraph:
                 for i in range(len(v)):
                     try:
                         m = (len(v[i]) > 1) and True or False
-                    except:
+                    except Exception:
                         m = False
 
                     if m or not i:
-                        label = (
-                                        lcnt < len(r)) and r[lcnt].strip() or str(i + 1)
+                        label = (lcnt < len(r)) and r[lcnt].strip() or str(i + 1)
                         graph += '<tr>'
 
                         if len(r):
@@ -668,22 +660,18 @@ class BarGraph:
 
                         try:
                             sum = v[i][1] and v[i][1] or v[-1][0]
-                        except:
+                        except Exception:
                             sum = v[-1][0]
 
                         percent = sum and v[i][0] * 100.0 / sum or 0
                         value = _number_format(v[i][0], max_dec)
 
                         if self.showValues == 1 or self.showValues == 2:
-                            graph += self.build_value(v[i]
-                                                      [0], max_dec, sum, 'right')
+                            graph += self.build_value(v[i][0], max_dec, sum, 'right')
 
-                        graph += '<td' + \
-                                 (self.__cssBARBG and ' style="' +
-                                  self.__cssBARBG + '"' or '') + '>'
+                        graph += '<td' + (self.__cssBARBG and ' style="' + self.__cssBARBG + '"' or '') + '>'
 
-                        self.barColors = (
-                                                 len(drc) >= i + 1) and drc[i].strip() or self.__colors[0]
+                        self.barColors = (len(drc) >= i + 1) and drc[i].strip() or self.__colors[0]
                         bColor = self.level_color(v[i][0], self.barColors)
                         graph += '<table border=0 cellspacing=0 cellpadding=0><tr><td>'
                         if self.type == 'fader':
@@ -691,8 +679,7 @@ class BarGraph:
                                 value, int(round(self.barWidth / 2)),
                                 self.barWidth, int(round(percent * mul)), bColor)
                         else:
-                            graph += self.build_bar(value,
-                                                    int(round(percent * mul)), self.barWidth, bColor)
+                            graph += self.build_bar(value, int(round(percent * mul)), self.barWidth, bColor)
                         graph += '</td><td width=' + \
                                  str(int(round((100 - percent) * mul))) + '></td>'
                         graph += '</tr></table></td>'

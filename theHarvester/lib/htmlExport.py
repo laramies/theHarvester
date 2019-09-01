@@ -3,7 +3,7 @@ from theHarvester.lib import markup
 import re
 
 
-class htmlExport():
+class HtmlExport:
 
     def __init__(self, users, hosts, vhosts, dnsres, dnsrev, file, domain, shodan, tldres):
         self.users = users
@@ -19,68 +19,68 @@ class htmlExport():
 
     def styler(self):
         a = """<style type='text/css'>body {
-			 background: #FFFFFF  top no-repeat;
-		 }
+             background: #FFFFFF  top no-repeat;
+         }
 
-		h1 { font-family: arial, Times New Roman, times-roman, georgia, serif;
-			color: #680000;
-			margin: 0;
-			padding: 0px 0px 6px 0px;
-			font-size: 51px;
-			line-height: 44px;
-			letter-spacing: -2px;
-			font-weight: bold;
-		}
+        h1 { font-family: arial, Times New Roman, times-roman, georgia, serif;
+            color: #680000;
+            margin: 0;
+            padding: 0px 0px 6px 0px;
+            font-size: 51px;
+            line-height: 44px;
+            letter-spacing: -2px;
+            font-weight: bold;
+        }
 
-		h3 { font-family: arial, Times New Roman, times-roman, georgia, serif;
-			color: #444;
-			margin: 0;
-			padding: 0px 0px 6px 0px;
-			font-size: 30px;
-			line-height: 44px;
-			letter-spacing: -2px;
-			font-weight: bold;
-		}
+        h3 { font-family: arial, Times New Roman, times-roman, georgia, serif;
+            color: #444;
+            margin: 0;
+            padding: 0px 0px 6px 0px;
+            font-size: 30px;
+            line-height: 44px;
+            letter-spacing: -2px;
+            font-weight: bold;
+        }
 
-		li { font-family: arial, Times New Roman, times-roman, georgia, serif;
-			color: #444;
-			margin: 0;
-			padding: 0px 0px 6px 0px;
-			font-size: 15px;
-			line-height: 15px;
-			letter-spacing: 0.4px;
-		}
+        li { font-family: arial, Times New Roman, times-roman, georgia, serif;
+            color: #444;
+            margin: 0;
+            padding: 0px 0px 6px 0px;
+            font-size: 15px;
+            line-height: 15px;
+            letter-spacing: 0.4px;
+        }
 
-		h2{
-		font-family: arial, Times New Roman, times-roman, georgia, serif;
-				font-size: 48px;
-				line-height: 40px;
-				letter-spacing: -1px;
-				color: #680000 ;
-				margin: 0 0 0 0;
-				padding: 0 0 0 0;
-				font-weight: 100;
-		}
+        h2{
+        font-family: arial, Times New Roman, times-roman, georgia, serif;
+                font-size: 48px;
+                line-height: 40px;
+                letter-spacing: -1px;
+                color: #680000 ;
+                margin: 0 0 0 0;
+                padding: 0 0 0 0;
+                font-weight: 100;
+        }
 
-		pre {
-		overflow: auto;
-		padding-left: 15px;
-		padding-right: 15px;
-		font-size: 11px;
-		line-height: 15px;
-		margin-top: 10px;
-		width: 93%;
-		display: block;
-		background-color: #eeeeee;
-		color: #000000;
-		max-height: 300px;
-		}
-		</style>
-		"""
+        pre {
+        overflow: auto;
+        padding-left: 15px;
+        padding-right: 15px;
+        font-size: 11px;
+        line-height: 15px;
+        margin-top: 10px;
+        width: 93%;
+        display: block;
+        background-color: #eeeeee;
+        color: #000000;
+        max-height: 300px;
+        }
+        </style>
+        """
         self.style = a
 
     def writehtml(self):
-        page = markup.page()
+        page = markup.Page()
         page.html()
         self.styler()
         page.head(self.style)
@@ -141,7 +141,6 @@ class htmlExport():
                 page.a('Port:' + res[2])
                 page.pre(res[1])
                 page.pre.close()
-                ban = res[1]
                 reg_server = re.compile('Server:.*')
                 temp = reg_server.findall(res[1])
                 if temp != []:
@@ -160,8 +159,7 @@ class htmlExport():
         for x in page.content:
             try:
                 file.write(x)
-            except:
+            except Exception:
                 print('Exception' + x)  # Send to logs.
-                pass
         file.close()
         return 'ok'

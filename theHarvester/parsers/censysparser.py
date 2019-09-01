@@ -21,7 +21,7 @@ class Parser:
             for hostnameitem in hostnamelist:
                 hostitems = hostnameitem.next_sibling
                 hostnames = str(hostitems)
-                hostnamesclean = re.sub('[ \'\[\]]', '', hostnames)
+                hostnamesclean = re.sub(r'[ \'\[\]]', '', hostnames)
                 hostnamesclean = re.sub(r'\.\.\.', r'', hostnamesclean)
                 self.hostnamesfromcerts.extend(hostnamesclean.split(','))
             self.hostnamesfromcerts = list(filter(None, self.hostnamesfromcerts))

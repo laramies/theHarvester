@@ -9,38 +9,23 @@ class Parser:
         self.temp = []
 
     def genericClean(self):
-        self.results = re.sub('<em>', '', self.results)
-        self.results = re.sub('<b>', '', self.results)
-        self.results = re.sub('</b>', '', self.results)
-        self.results = re.sub('</em>', '', self.results)
-        self.results = re.sub('%2f', ' ', self.results)
-        self.results = re.sub('%3a', ' ', self.results)
-        self.results = re.sub('<strong>', '', self.results)
-        self.results = re.sub('</strong>', '', self.results)
-        self.results = re.sub('<wbr>', '', self.results)
-        self.results = re.sub('</wbr>', '', self.results)
+        self.results = self.results.replace('<em>', '').replace('<b>', '').replace('</b>', '').replace('</em>', '')\
+            .replace('%2f', '').replace('%3a', '').replace('<strong>', '').replace('</strong>', '')\
+            .replace('<wbr>', '').replace('</wbr>', '')
 
         for e in ('<', '>', ':', '=', ';', '&', '%3A', '%3D', '%3C', '/', '\\'):
             self.results = self.results.replace(e, ' ')
 
     def urlClean(self):
-        self.results = re.sub('<em>', '', self.results)
-        self.results = re.sub('</em>', '', self.results)
-        self.results = re.sub('%2f', ' ', self.results)
-        self.results = re.sub('%3a', ' ', self.results)
-
+        self.results = self.results.replace('<em>', '').replace('</em>', '').replace('%2f', '').replace('%3a', '')
         for e in ('<', '>', ':', '=', ';', '&', '%3A', '%3D', '%3C'):
             self.results = self.results.replace(e, ' ')
 
     def emails(self):
         self.genericClean()
-        reg_emails = re.compile(
-            # Local part is required, charset is flexible.
-            # https://tools.ietf.org/html/rfc6531 (removed * and () as they provide FP mostly)
-            r'[a-zA-Z0-9.\-_+#~!$&\',;=:]+' +
-            '@' +
-            '[a-zA-Z0-9.-]*' +
-            self.word)
+        # Local part is required, charset is flexible.
+        # https://tools.ietf.org/html/rfc6531 (removed * and () as they provide FP mostly)
+        reg_emails = re.compile(r'[a-zA-Z0-9.\-_+#~!$&\',;=:]+' + '@' + '[a-zA-Z0-9.-]*' + self.word)
         self.temp = reg_emails.findall(self.results)
         emails = self.unique()
         return emails
