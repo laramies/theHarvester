@@ -604,9 +604,7 @@ class BarGraph:
                         value = _number_format(v[i][j], max_dec)
                         bColor = self.level_color(v[i][j], bc[j])
 
-                        graph += '<td' + \
-                                 (self.__cssBARBG and ' style="' +
-                                  self.__cssBARBG + '"' or '') + '>'
+                        graph += '<td' + (self.__cssBARBG and ' style="' + self.__cssBARBG + '"' or '') + '>'
                         graph += self.create_vBar(
                             value, percent, mPerc, mPerc_neg,
                             max_neg, mul, valSpace, bColor, border, spacer, spacer_neg)
@@ -632,11 +630,9 @@ class BarGraph:
                     graph += '<td style="' + self.__cssTITLE + '">' + titleLabel + '</td>'
 
                 for i in range(len(v)):
-                    label = (
-                                    lcnt < len(r)) and r[lcnt].strip() or str(lcnt + 1)
+                    label = (lcnt < len(r)) and r[lcnt].strip() or str(lcnt + 1)
                     colspan = len(v[i])
-                    graph += '<td style="' + self.__cssLABEL + '"' + \
-                             ((colspan > 1) and ' colspan=' + str(colspan) or '') + '>'
+                    graph += '<td style="' + self.__cssLABEL + '"' + ((colspan > 1) and ' colspan=' + str(colspan) or '') + '>'
                     graph += '&nbsp;' + label + '&nbsp;</td>'
                     if self.labelSpace:
                         graph += '<td width=' + str(self.labelSpace) + '></td>'
