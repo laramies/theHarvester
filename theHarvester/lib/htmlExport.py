@@ -159,7 +159,7 @@ class HtmlExport:
         for x in page.content:
             try:
                 file.write(x)
-            except:
+            except Exception:
                 print('Exception' + x)  # Send to logs.
         file.close()
         return 'ok'

@@ -115,8 +115,7 @@ class SearchGoogle:
         right_peren = '%29'
         pipe = '%7C'
         # Format is google.com/search?q=dork+space+self.word
-        self.links = tuple(self.database +
-                           str(dork).replace(':', colon).replace('+', plus).replace('.', period).replace('"', double_quote)
+        self.links = tuple(self.database + str(dork).replace(':', colon).replace('+', plus).replace('.', period).replace('"', double_quote)
                            .replace('*', asterick).replace('[', left_bracket).replace(']', right_bracket)
                            .replace('?', question_mark).replace(' ', space).replace('/', slash).replace("'", single_quote)
                            .replace('&', ampersand).replace('(', left_peren).replace(')', right_peren).replace('|', pipe)

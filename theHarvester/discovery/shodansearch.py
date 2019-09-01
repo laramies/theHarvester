@@ -27,7 +27,7 @@ class SearchShodan:
                     pass
                 port = str(result.get('port'))
                 product = str(result.get('product'))
-                servicesports.append(str(product) +':' +str(port))
+                servicesports.append(str(product) + ':' + str(port))
             technologies = list(set(technologies))
             self.hostdatarow = [
                 str(results.get('ip_str')), str(results.get('hostnames')).strip('[]\''),

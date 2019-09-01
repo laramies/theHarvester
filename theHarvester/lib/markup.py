@@ -221,13 +221,7 @@ class Page:
         else:
             end = []
 
-        return (
-            self.separator.join(
-                self.header +
-                self.content +
-                self.footer +
-                end)
-        )
+        return self.separator.join(self.header + self.content + self.footer + end)
 
     def __call__(self, escape=False):
         """Return the document as a string.

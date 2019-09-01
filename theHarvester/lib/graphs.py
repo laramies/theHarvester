@@ -379,8 +379,8 @@ class BarGraph:
             bar += '<td style="' + self.__cssLABELBG + '" height=' + \
                    str(int(round((mPerc_neg - percent) * mul + valSpace))) + ' nowrap>'
             bar += (self.showValues < 2) and '<span style="' + self.__cssPERCVALUES + '">' + \
-                   str(_number_format(percent, self.percValuesDecimals)) + \
-                   '%</span>' or '&nbsp;'
+                str(_number_format(percent, self.percValuesDecimals)) + \
+                '%</span>' or '&nbsp;'
             bar += '</td>'
         else:
             bar += '<td style="' + self.__cssPERCVALUES + '" valign=bottom height=' + \
@@ -438,9 +438,7 @@ class BarGraph:
 
         graph = '<table border=0 cellspacing=0 cellpadding=' + \
                 str(self.graphPadding) + '><tr>'
-        graph += '<td' + \
-                 (self.__cssGRAPH and ' style="' +
-                  self.__cssGRAPH + '"' or '') + '>'
+        graph += '<td' + (self.__cssGRAPH and ' style="' + self.__cssGRAPH + '"' or '') + '>'
 
         if self.legend and self.type != 'pbar' and self.type != 'fader':
             graph += '<table border=0 cellspacing=0 cellpadding=0><tr><td>'
@@ -466,7 +464,7 @@ class BarGraph:
 
             try:
                 drv = len(d[i]) and [e for e in d[i]] or [d[i]]
-            except:
+            except Exception:
                 drv = [d[i]]
 
             j = 0
@@ -561,8 +559,7 @@ class BarGraph:
                     graph += self.build_hTitle(titleLabel, titleValue, titleBar)
 
                 for i in range(len(v)):
-                    label = (
-                                    lcnt < len(r)) and r[lcnt].strip() or str(lcnt + 1)
+                    label = (lcnt < len(r)) and r[lcnt].strip() or str(lcnt + 1)
                     rowspan = len(v[i])
                     graph += '<tr><td style="' + self.__cssLABEL + '"' + \
                              ((rowspan > 1) and ' rowspan=' + str(rowspan) or '') + '>'
@@ -667,7 +664,7 @@ class BarGraph:
 
                         try:
                             sum = v[i][1] and v[i][1] or v[-1][0]
-                        except:
+                        except Exception:
                             sum = v[-1][0]
 
                         percent = sum and v[i][0] * 100.0 / sum or 0

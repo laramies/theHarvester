@@ -15,18 +15,6 @@ import re
 import sys
 import time
 
-try:
-    import bs4
-except ImportError:
-    print('\n\033[93m[!] BeautifulSoup library not found, please install before proceeding.\n\n \033[0m')
-    sys.exit(1)
-
-try:
-    import requests
-except ImportError:
-    print('\n\033[93m[!] Requests library not found, please install before proceeding.\n\n \033[0m')
-    sys.exit(1)
-
 Core.banner()
 
 

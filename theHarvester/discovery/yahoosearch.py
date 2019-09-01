@@ -42,4 +42,3 @@ class SearchYahoo:
     def get_hostnames(self):
         rawres = myparser.Parser(self.total_results, self.word)
         return rawres.hostnames()
-
