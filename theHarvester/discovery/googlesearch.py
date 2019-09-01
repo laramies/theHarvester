@@ -118,8 +118,7 @@ class SearchGoogle:
         self.links = tuple(self.database + str(dork).replace(':', colon).replace('+', plus).replace('.', period).replace('"', double_quote)
                            .replace('*', asterick).replace('[', left_bracket).replace(']', right_bracket)
                            .replace('?', question_mark).replace(' ', space).replace('/', slash).replace("'", single_quote)
-                           .replace('&', ampersand).replace('(', left_peren).replace(')', right_peren).replace('|', pipe)
-                           + space + self.word
+                           .replace('&', ampersand).replace('(', left_peren).replace(')', right_peren).replace('|', pipe) + space + self.word
                            for dork in self.dorks)
 
     def googledork(self):
