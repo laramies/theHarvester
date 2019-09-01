@@ -11,7 +11,8 @@ install:
 script:
 - python theHarvester.py -d metasploit.com -b baidu,bing,censys,crtsh,dnsdumpster,dogpile,duckduckgo,exalead,linkedin,netcraft,threatcrowd,trello,twitter,virustotal,yahoo
 - pytest
-- flake8
+- flake8 . --count --show-source --statistics
+- flake8 . --count --exit-zero --statistics
 notifications:
   email: false
   slack:
