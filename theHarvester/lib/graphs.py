@@ -647,7 +647,7 @@ class BarGraph:
                 for i in range(len(v)):
                     try:
                         m = (len(v[i]) > 1) and True or False
-                    except:
+                    except Exception:
                         m = False
 
                     if m or not i:
