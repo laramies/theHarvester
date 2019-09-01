@@ -5,13 +5,9 @@ on:
     branches:
     - master
     - dev
-on:
-  pull_request:
-    branches:
-    - dev
 
 jobs:
-  build:
+  test:
 
     runs-on: ubuntu-latest
     strategy:
