@@ -29,8 +29,8 @@ jobs:
       run: |
         pip install -r requirements.txt
     - name: Run theHarvester
-        run: |
-          python theHarvester.py -d metasploit.com -b baidu,bing,censys,crtsh,dnsdumpster,dogpile,duckduckgo,exalead,linkedin,netcraft,threatcrowd,trello,twitter,virustotal,yahoo
+      run: |
+        python theHarvester.py -d metasploit.com -b baidu,bing,censys,crtsh,dnsdumpster,dogpile,duckduckgo,exalead,linkedin,netcraft,threatcrowd,trello,twitter,virustotal,yahoo
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
