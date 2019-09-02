@@ -12,7 +12,8 @@
 * cmartorella@edge-security.com                                   *
 *******************************************************************
 ```
-[![Build Status](https://travis-ci.com/laramies/theHarvester.svg?branch=master)](https://travis-ci.com/laramies/theHarvester)
+[![Build Status](https://travis-ci.com/laramies/theHarvester.svg?branch=master)](https://travis-ci.com/laramies/theHarvester) [![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/laramies/theHarvester.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/laramies/theHarvester/context:python)
+[![Rawsec's CyberSecurity Inventory](https://inventory.rawsec.ml/img/badges/Rawsec-inventoried-FF5050_flat_without_logo.svg)](https://inventory.rawsec.ml/)
 
 What is this?
 -------------
@@ -44,8 +45,6 @@ Passive:
 
 * google: Google search engine (Optional Google dorking.) - www.google.com
 
-* google-certificates: Google Certificate Transparency report 
-
 * hunter: Hunter search engine (Requires API key, see below.) - www.hunter.io
 
 * intelx: Intelx search engine (Requires API key, see below.) - www.intelx.io
@@ -72,7 +71,6 @@ Passive:
 
 * yahoo: Yahoo search engine
 
-* all: currently a subset of all the most effective plugins
 
 Active:
 -------

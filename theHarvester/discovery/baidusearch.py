@@ -1,8 +1,6 @@
-from theHarvester.discovery.constants import *
 from theHarvester.lib.core import *
 from theHarvester.parsers import myparser
-import requests
-import time
+import grequests
 
 
 class SearchBaidu:
@@ -13,24 +11,21 @@ class SearchBaidu:
         self.server = 'www.baidu.com'
         self.hostname = 'www.baidu.com'
         self.limit = limit
-        self.counter = 0
 
     def do_search(self):
-        url = 'http://' + self.server + '/s?wd=%40' + self.word + '&pn=' + str(self.counter) + '&oq=' + self.word
-        url = f'https://{self.server}/s?wd=%40{self.word}&pn{self.counter}&oq={self.word}'
         headers = {
             'Host': self.hostname,
             'User-agent': Core.get_user_agent()
         }
-        h = requests.get(url=url, headers=headers)
-        time.sleep(getDelay())
-        self.total_results += h.text
+        base_url = f'https://{self.server}/s?wd=%40{self.word}&pnxx&oq={self.word}'
+        urls = [base_url.replace("xx", str(num)) for num in range(0, self.limit, 10) if num <= self.limit]
+        req = (grequests.get(url, headers=headers, timeout=5) for url in urls)
+        responses = grequests.imap(req, size=5)
+        for response in responses:
+            self.total_results += response.content.decode('UTF-8')
 
     def process(self):
-        while self.counter <= self.limit and self.counter <= 1000:
-            self.do_search()
-            print(f'\tSearching {self.counter} results.')
-            self.counter += 10
+        self.do_search()
 
     def get_emails(self):
         rawres = myparser.Parser(self.total_results, self.word)

@@ -4,7 +4,7 @@ import os
 import sys
 
 
-class dns_reverse():
+class DnsReverse:
 
     def __init__(self, range, verbose=True):
         self.range = range
@@ -14,7 +14,7 @@ class dns_reverse():
         try:
             DNS.ParseResolvConf('/etc/resolv.conf')
             nameserver = DNS.defaults['server'][0]
-        except:
+        except BaseException:
             print('Error in DNS resolvers')
             sys.exit()
 
@@ -32,14 +32,14 @@ class dns_reverse():
         try:
             name = DNS.Base.DnsRequest(b, qtype='ptr').req().answers[0]['data']
             return host + ':' + name
-        except:
+        except BaseException:
             pass
 
     def get_ip_list(self, ips):
         """Generates the list of IPs to reverse"""
         try:
             list = IPy.IP(ips)
-        except:
+        except BaseException:
             print('Error in IP format, check the input and try again. (Eg. 192.168.1.0/24)')
             sys.exit()
         name = []
@@ -59,7 +59,7 @@ class dns_reverse():
         return self.results
 
 
-class dns_force():
+class DnsForce:
 
     def __init__(self, domain, dnsserver, verbose=False):
         self.domain = domain
@@ -69,14 +69,14 @@ class dns_force():
         self.verbose = verbose
         try:
             fileDir = os.path.dirname(os.path.realpath('__file__'))
-            res_path = os.path.join(fileDir,'lib/resolvers.txt')
+            res_path = os.path.join(fileDir, 'lib/resolvers.txt')
             with open(res_path) as f:
                 self.resolvers = f.read().splitlines()
         except Exception:
             print("Resolvers file can't be open.")
         try:
             f = open(self.file, 'r')
-        except:
+        except BaseException:
             print('Error opening DNS dictionary file.')
             sys.exit()
         self.list = f.readlines()
@@ -150,7 +150,7 @@ class dns_force():
         return results
 
 
-class dns_tld():
+class DnsTld:
 
     def __init__(self, domain, dnsserver, verbose=False):
         self.domain = domain
