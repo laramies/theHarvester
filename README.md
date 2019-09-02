@@ -6,7 +6,7 @@
 * | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
 *  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
 *                                                                 *
-* theHarvester 3.1.0 dev                                          *
+* theHarvester 3.1.0 dev2                                          *
 * Coded by Christian Martorella                                   *
 * Edge-Security Research                                          *
 * cmartorella@edge-security.com                                   *
@@ -39,7 +39,9 @@ Passive:
 
 * dogpile: Dogpile search engine - www.dogpile.com
 
-* duckduckgo: DuckDuckGo search engine - www.duckduckgo.com 
+* duckduckgo: DuckDuckGo search engine - www.duckduckgo.com
+
+* Exalead: a Meta search engine - https://www.exalead.com/search
 
 * github-code: Github code search engine (Requires Github Personal Access Token, see below.) - www.github.com
 
