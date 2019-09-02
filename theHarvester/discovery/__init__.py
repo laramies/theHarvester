@@ -20,6 +20,5 @@ __all__ = ['baidusearch',
            'trello',
            'twittersearch',
            'virustotal',
-           'wfuzz_search',
            'yahoosearch',
            'yandexsearch']
