@@ -9,7 +9,7 @@ on:
     branches:
     - '*'
 jobs:
-  Python_Test:
+  Python:
 
     runs-on: ubuntu-latest
     strategy:
