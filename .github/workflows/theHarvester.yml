@@ -1,4 +1,4 @@
-name: TheHarvester
+name: TheHarvester Python CI
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
     branches:
     - '*'
 jobs:
-  test:
+  Python:
 
     runs-on: ubuntu-latest
     strategy:
