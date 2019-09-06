@@ -90,8 +90,6 @@ class Parser:
         reg_people = re.compile(r'">[a-zA-Z0-9._ -]* \| LinkedIn')
         self.temp = reg_people.findall(self.results)
         resul = []
-
-
         for x in (self.temp):
             y = x.replace(' | LinkedIn', '')
             y = y.replace(' profiles ', '')

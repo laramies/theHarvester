@@ -4,6 +4,7 @@ from theHarvester.parsers import myparser
 import requests
 import time
 
+
 class SearchLinkedin:
 
     def __init__(self, word, limit):
@@ -37,16 +38,9 @@ class SearchLinkedin:
         links = myparser.Parser(self.totalresults, self.word)
         return splitter(links.links_linkedin())
 
-
     def process(self):
         while self.counter < self.limit:
             self.do_search()
             time.sleep(getDelay())
             self.counter += 100
             print(f'\tSearching {self.counter} results.')
-
-
-
-
-
-

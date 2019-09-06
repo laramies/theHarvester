@@ -34,16 +34,13 @@ def start():
     parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, censys, crtsh, dnsdumpster,
-
                         dogpile, duckduckgo, github-code, google,
                         hunter, intelx,
                         linkedin,linkedin_links, netcraft, securityTrails, threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo, all''')
     parser.add_argument('-x', '--exclude', help='exclude options when using all sources', type=str)
 
-
     args = parser.parse_args()
-
     try:
         db = stash.stash_manager()
         db.do_init()

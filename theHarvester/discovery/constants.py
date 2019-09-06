@@ -26,6 +26,7 @@ def splitter(links):
                 name_check.append(joined_name)
     return unique_list
 
+
 def filter(lst):
     """
     Method that filters list
