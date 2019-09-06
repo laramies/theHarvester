@@ -288,6 +288,7 @@ def start():
 
                 elif engineitem == 'linkedin_links':
                     print('\033[94m[*] Searching Linkedin. \033[0m')
+                    from theHarvester.discovery import linkedinsearch
                     search = linkedinsearch.SearchLinkedin(word, limit)
                     search.process()
                     people = search.get_links()
