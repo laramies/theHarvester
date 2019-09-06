@@ -53,9 +53,9 @@ def start():
     parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, censys, crtsh, dnsdumpster,
-                        dogpile, duckduckgo, github-code, google, 
+                        dogpile, duckduckgo, github-code, google,
                         hunter, intelx,
-                        linkedin, netcraft, securityTrails, threatcrowd,
+                        linkedin,linkedin_links, netcraft, securityTrails, threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo, all''')
     parser.add_argument('-x', '--exclude', help='exclude options when using all sources', type=str)
     args = parser.parse_args()
@@ -275,6 +275,22 @@ def start():
                         print('\n[*] No users found Linkedin.\n\n')
                     else:
                         print(f'\n[*] Users found: {len(people)}')
+                        print('---------------------')
+                        for user in sorted(list(set(people))):
+                            print(user)
+
+                elif engineitem == 'linkedin_links':
+                    print('\033[94m[*] Searching Linkedin. \033[0m')
+                    search = linkedinsearch.SearchLinkedin(word, limit)
+                    search.process()
+                    people = search.get_links()
+                    db = stash.stash_manager()
+                    db.store_all(word, people, 'name', 'linkedin')
+
+                    if len(people) == 0:
+                        print('\n[*] No links found Linkedin.\n\n')
+                    else:
+                        print(f'\n[*] Links found: {len(people)}')
                         print('---------------------')
                         for user in sorted(list(set(people))):
                             print(user)

@@ -77,6 +77,7 @@ class Core:
                             'hunter',
                             'intelx',
                             'linkedin',
+                            'linkedin_links',
                             'netcraft',
                             'securityTrails',
                             'threatcrowd',

@@ -4,6 +4,28 @@ import random
 googleUA = 'Mozilla/5.0 (Windows NT 6.2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1464.0 Safari/537.36'
 
 
+def splitter(links):
+    """
+    Method that tries to remove duplicates
+    :param links: list of links to remove duplicates from
+    :return: unique-ish list
+    """
+    unique_list = []
+    name_check = []
+    for url in links:
+        tail = url.split("/")[-1]
+        if len(tail) == 2 or tail == "zh-cn":
+            tail = url.split("/")[-2]
+            name = tail.split("-")
+            if len(name) > 1:
+                joined_name = name[0] + name[1]
+            else:
+                joined_name = name[0]
+            if joined_name not in name_check:
+                unique_list.append(url)
+                name_check.append(joined_name)
+    return unique_list
+
 def filter(lst):
     """
     Method that filters list
