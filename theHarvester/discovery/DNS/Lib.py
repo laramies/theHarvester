@@ -25,6 +25,7 @@
 from theHarvester.discovery.DNS import Type, Class, Opcode, Status
 from theHarvester.discovery.DNS.Base import DNSError
 
+
 class UnpackError(DNSError):
     pass
 
@@ -33,6 +34,7 @@ class PackError(DNSError):
     pass
 
 # Low-level 16 and 32 bit integer packing and unpacking
+
 
 from struct import pack as struct_pack
 from struct import unpack as struct_unpack
@@ -420,7 +422,7 @@ class RRunpacker(Unpacker):
         ttl = self.get32bit()
         rdlength = self.get16bit()
         self.rdend = self.offset + rdlength
-        return (name, rrtype, klass, ttl, rdlength)
+        return name, rrtype, klass, ttl, rdlength
 
     def endRR(self):
         if self.offset != self.rdend:
@@ -552,13 +554,13 @@ def dumpM(u):
      qdcount, ancount, nscount, arcount) = u.getHeader()
     print('id=%d,' % id,)
     print('qr=%d, opcode=%d, aa=%d, tc=%d, rd=%d, ra=%d, z=%d, rcode=%d,' \
-        % (qr, opcode, aa, tc, rd, ra, z, rcode))
+          % (qr, opcode, aa, tc, rd, ra, z, rcode))
     if tc:
         print('*** response truncated! ***')
     if rcode:
         print('*** nonzero error code! (%d) ***' % rcode)
     print('  qdcount=%d, ancount=%d, nscount=%d, arcount=%d' \
-        % (qdcount, ancount, nscount, arcount))
+          % (qdcount, ancount, nscount, arcount))
     for i in range(qdcount):
         print('QUESTION %d:' % i,)
         dumpQ(u)
@@ -675,24 +677,25 @@ class DnsResult:
 def dumpQ(u):
     qname, qtype, qclass = u.getQuestion()
     print('qname=%s, qtype=%d(%s), qclass=%d(%s)' \
-        % (qname,
-           qtype, Type.typestr(qtype),
-           qclass, Class.classstr(qclass)))
+          % (qname,
+             qtype, Type.typestr(qtype),
+             qclass, Class.classstr(qclass)))
 
 
 def dumpRR(u):
     name, type, klass, ttl, rdlength = u.getRRheader()
     typename = Type.typestr(type)
     print('name=%s, type=%d(%s), class=%d(%s), ttl=%d' \
-        % (name,
-           type, typename,
-           klass, Class.classstr(klass),
-           ttl))
+          % (name,
+             type, typename,
+             klass, Class.classstr(klass),
+             ttl))
     mname = 'get%sdata' % typename
     if hasattr(u, mname):
         print('  formatted rdata:', getattr(u, mname)())
     else:
         print('  binary rdata:', u.getbytes(rdlength))
+
 
 if __name__ == "__main__":
     testpacker()

@@ -1,5 +1,3 @@
-import gevent.monkey
-gevent.monkey.patch_all()
 __all__ = ['baidusearch',
            'bingsearch',
            'censys',
@@ -8,6 +6,7 @@ __all__ = ['baidusearch',
            'dogpilesearch',
            'duckduckgosearch',
            'exaleadsearch',
+           'githubcode',
            'googlesearch',
            'huntersearch',
            'intelxsearch',
@@ -21,6 +20,5 @@ __all__ = ['baidusearch',
            'trello',
            'twittersearch',
            'virustotal',
-           'wfuzz_search',
            'yahoosearch',
            'yandexsearch']

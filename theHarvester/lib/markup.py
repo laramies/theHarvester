@@ -10,7 +10,7 @@ in an intuitive, lightweight, customizable and pythonic way.
 
 The code is in the public domain.
 
-Version: %s as of %s.
+Version: {0} as of {1}.
 
 Documentation and further info is at http://markup.sourceforge.net/
 
@@ -18,10 +18,10 @@ Please send bug reports, feature requests, enhancement
 ideas or questions to nogradi at gmail dot com.
 
 Installation: drop markup.py somewhere into your Python path.
-""" % ( __version__, __date__ )
+""".format(__version__, __date__)
 
 
-class element:
+class Element:
 
     """This class handles the addition of a new element."""
 
@@ -114,7 +114,7 @@ class element:
             raise DeprecationError(self.tag)
 
 
-class page:
+class Page:
 
     """This is our main class representing a document. Elements are added as
     attributes of an instance of this class."""
@@ -203,8 +203,8 @@ class page:
             elif (onetags and not twotags) or (twotags and not onetags):
                 raise CustomizationError()
             else:
-                self.onetags = russell()
-                self.twotags = russell()
+                self.onetags = Russell()
+                self.twotags = Russell()
             self.mode = mode
         else:
             raise ModeError(mode)
@@ -212,7 +212,7 @@ class page:
     def __getattr__(self, attr):
         if attr.startswith("__") and attr.endswith("__"):
             raise AttributeError(attr)
-        return element(attr, case=self.case, parent=self)
+        return Element(attr, case=self.case, parent=self)
 
     def __str__(self):
 
@@ -221,13 +221,7 @@ class page:
         else:
             end = []
 
-        return (
-            self.separator.join(
-                self.header +
-                self.content +
-                self.footer +
-                end)
-        )
+        return self.separator.join(self.header + self.content + self.footer + end)
 
     def __call__(self, escape=False):
         """Return the document as a string.
@@ -381,7 +375,7 @@ class page:
                 "Script should be given a dictionary of src:type pairs.")
 
 
-class _oneliner:
+class _OneLiner:
 
     """An instance of oneliner returns a string corresponding to one element.
     This class can be used to write 'oneliners' that return a string
@@ -393,11 +387,11 @@ class _oneliner:
     def __getattr__(self, attr):
         if attr.startswith("__") and attr.endswith("__"):
             raise AttributeError(attr)
-        return element(attr, case=self.case, parent=None)
+        return Element(attr, case=self.case, parent=None)
 
 
-oneliner = _oneliner(case='lower')
-upper_oneliner = _oneliner(case='upper')
+oneliner = _OneLiner(case='lower')
+upper_oneliner = _OneLiner(case='upper')
 
 
 def _argsdicts(args, mydict):
@@ -484,18 +478,19 @@ def unescape(text):
     return text
 
 
-class dummy:
+class Dummy:
 
     """A dummy class for attaching attributes."""
     pass
 
-doctype = dummy()
+
+doctype = Dummy()
 doctype.frameset = "<!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.01 Frameset//EN' 'http://www.w3.org/TR/html4/frameset.dtd'>"
 doctype.strict = "<!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.01//EN' 'http://www.w3.org/TR/html4/strict.dtd'>"
 doctype.loose = "<!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.01 Transitional//EN' 'http://www.w3.org/TR/html4/loose.dtd'>"
 
 
-class russell:
+class Russell:
 
     """A dummy class that contains anything."""
 
@@ -514,25 +509,25 @@ class MarkupError(Exception):
 class ClosingError(MarkupError):
 
     def __init__(self, tag):
-        self.message = "The element '%s' does not accept non-keyword arguments (has no closing tag)." % tag
+        self.message = "The element '{}' does not accept non-keyword arguments (has no closing tag)".format(tag)
 
 
 class OpeningError(MarkupError):
 
     def __init__(self, tag):
-        self.message = "The element '%s' can not be opened." % tag
+        self.message = "The element '{}' can not be opened.".format(tag)
 
 
 class ArgumentError(MarkupError):
 
     def __init__(self, tag):
-        self.message = "The element '%s' was called with more than one non-keyword argument." % tag
+        self.message = "The element '{}' was called with more than one non-keyword argument.".format(tag)
 
 
 class InvalidElementError(MarkupError):
 
     def __init__(self, tag, mode):
-        self.message = "The element '%s' is not valid for your mode '%s'." % (
+        self.message = "The element '{0}' is not valid for your mode '{1}'.".format(
             tag,
             mode)
 
@@ -540,13 +535,13 @@ class InvalidElementError(MarkupError):
 class DeprecationError(MarkupError):
 
     def __init__(self, tag):
-        self.message = "The element '%s' is deprecated, instantiate markup.page with mode='loose_html' to allow it." % tag
+        self.message = "The element '{0}' is deprecated, instantiate markup.page with mode='loose_html' to allow it.".format(tag)
 
 
 class ModeError(MarkupError):
 
     def __init__(self, mode):
-        self.message = "Mode '%s' is invalid, possible values: strict_html, loose_html, xml." % mode
+        self.message = "Mode '{}' is invalid, possible values: strict_html, loose_html, xml.".format(mode)
 
 
 class CustomizationError(MarkupError):

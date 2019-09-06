@@ -13,7 +13,7 @@ class SearchNetcraft:
         self.word = word.replace(' ', '%20')
         self.totalresults = ""
         self.server = 'netcraft.com'
-        self.base_url = 'https://searchdns.netcraft.com/?restriction=site+ends+with&host={domain}'
+        self.base_url = f'https://searchdns.netcraft.com/?restriction=site+ends+with&host={word}'
         self.session = requests.session()
         self.headers = {
             'User-Agent': Core.get_user_agent()
@@ -34,7 +34,7 @@ class SearchNetcraft:
         link_regx = re.compile('<A href="(.*?)"><b>Next page</b></a>')
         link = link_regx.findall(resp)
         link = re.sub(f'host=.*?{self.word}', f'host={self.domain}', link[0])
-        url = f'http://searchdns.netcraft.com{link}'
+        url = f'https://searchdns.netcraft.com{link.replace(" ", "%20")}'
         return url
 
     def create_cookies(self, cookie):
@@ -57,13 +57,12 @@ class SearchNetcraft:
         start_url = self.base_url
         resp = self.request(start_url)
         cookies = self.get_cookies(resp.headers)
-        url = self.base_url.format(domain="yale.edu")
         while True:
-            resp = self.request(url, cookies).text
+            resp = self.request(self.base_url, cookies).text
             self.totalresults += resp
             if 'Next page' not in resp or resp is None:
                 break
-            url = self.get_next(resp)
+            self.base_url = self.get_next(resp)
 
     def get_hostnames(self):
         rawres = myparser.Parser(self.totalresults, self.word)

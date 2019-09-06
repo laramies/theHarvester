@@ -1,0 +1,40 @@
+name: TheHarvester Python CI
+
+on:
+  push:
+    branches:
+    - '*'
+
+  pull_request:
+    branches:
+    - '*'
+jobs:
+  Python:
+
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 4
+      matrix:
+        python-version: [3.6, 3.7]
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v1
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+    - name: Run theHarvester
+      run: |
+        python theHarvester.py -d metasploit.com -b baidu,bing,censys,crtsh,dnsdumpster,dogpile,duckduckgo,exalead,linkedin,netcraft,threatcrowd,trello,twitter,virustotal,yahoo
+    - name: Lint with flake8
+      run: |
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --show-source --statistics
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        flake8 . --count --exit-zero  --max-line-length=127 --statistics
+    - name: Test with pytest
+      run: |
+        pytest

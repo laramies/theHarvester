@@ -1,10 +1,10 @@
 beautifulsoup4==4.8.0
 censys==0.0.8
-chart-studio==1.0.0
+flake8==3.7.8
 grequests==0.4.0
-plotly==4.1.0
-pytest==5.0.1
+plotly==4.1.1
+pytest==5.1.2
 PyYaml==5.1.2
 requests==2.22.0
-shodan==1.14.0
+shodan==1.15.0
 texttable==1.6.2

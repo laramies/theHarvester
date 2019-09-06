@@ -6,13 +6,14 @@
 * | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
 *  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
 *                                                                 *
-* theHarvester 3.1.0 dev                                          *
+* theHarvester 3.1.0 dev2                                          *
 * Coded by Christian Martorella                                   *
 * Edge-Security Research                                          *
 * cmartorella@edge-security.com                                   *
 *******************************************************************
 ```
-[![Build Status](https://travis-ci.com/laramies/theHarvester.svg?branch=master)](https://travis-ci.com/laramies/theHarvester)
+[![Build Status](https://travis-ci.com/laramies/theHarvester.svg?branch=master)](https://travis-ci.com/laramies/theHarvester) [![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/laramies/theHarvester.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/laramies/theHarvester/context:python)
+[![Rawsec's CyberSecurity Inventory](https://inventory.rawsec.ml/img/badges/Rawsec-inventoried-FF5050_flat_without_logo.svg)](https://inventory.rawsec.ml/)
 
 What is this?
 -------------
@@ -38,7 +39,9 @@ Passive:
 
 * dogpile: Dogpile search engine - www.dogpile.com
 
-* duckduckgo: DuckDuckGo search engine - www.duckduckgo.com 
+* duckduckgo: DuckDuckGo search engine - www.duckduckgo.com
+
+* Exalead: a Meta search engine - https://www.exalead.com/search
 
 * github-code: Github code search engine (Requires Github Personal Access Token, see below.) - www.github.com
 
@@ -70,7 +73,6 @@ Passive:
 
 * yahoo: Yahoo search engine
 
-* all: currently a subset of all the most effective plugins
 
 Active:
 -------
