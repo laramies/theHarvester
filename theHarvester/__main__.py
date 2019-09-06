@@ -41,10 +41,6 @@ def start():
                         trello, twitter, vhost, virustotal, yahoo, all''')
     parser.add_argument('-x', '--exclude', help='exclude options when using all sources', type=str)
 
-                        dogpile, duckduckgo, exalead, github-code, google,
-                        hunter, intelx,
-                        linkedin, netcraft, securityTrails, threatcrowd,
-                        trello, twitter, vhost, virustotal, yahoo''')
 
     args = parser.parse_args()
 
