@@ -2,6 +2,7 @@ beautifulsoup4==4.8.0
 censys==0.0.8
 flake8==3.7.8
 grequests==0.4.0
+mypy==0.720
 plotly==4.1.1
 pytest==5.1.2
 PyYaml==5.1.2
