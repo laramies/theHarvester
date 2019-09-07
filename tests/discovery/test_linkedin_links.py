@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # coding=utf-8
-from theHarvester.parsers import myparser
 from theHarvester.discovery import linkedinsearch
 from theHarvester.lib import stash
 import pytest
 
 
 class TestGetLinks(object):
+
 
     def test_get_links(self):
         search = linkedinsearch.SearchLinkedin("facebook.com", '100')
