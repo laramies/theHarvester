@@ -10,9 +10,7 @@ class TestGetLinks(object):
         search = linkedinsearch.SearchLinkedin("facebook.com", '100')
         search.process()
         links = search.get_links()
-        for link in links:
-            print(link)
-
+        assert list(links)
 
 if __name__ == '__main__':
     pytest.main()
