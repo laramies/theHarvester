@@ -36,7 +36,7 @@ class SearchLinkedin:
 
     def get_links(self):
         links = myparser.Parser(self.totalresults, self.word)
-        return splitter(links.links_linkedin())
+        return links.links_linkedin()
 
     def process(self):
         while self.counter < self.limit:
