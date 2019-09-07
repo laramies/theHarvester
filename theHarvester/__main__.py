@@ -38,7 +38,6 @@ def start():
                         hunter, intelx,
                         linkedin, linkedin_links, netcraft, securityTrails, threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo''')
-    parser.add_argument('-x', '--exclude', help='exclude options when using all sources', type=str)
 
     args = parser.parse_args()
     try:
