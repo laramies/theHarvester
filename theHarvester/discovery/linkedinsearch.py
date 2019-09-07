@@ -34,6 +34,10 @@ class SearchLinkedin:
         rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.people_linkedin()
 
+    def get_links(self):
+        links = myparser.Parser(self.totalresults, self.word)
+        return links.links_linkedin()
+
     def process(self):
         while self.counter < self.limit:
             self.do_search()
