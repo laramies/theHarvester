@@ -78,7 +78,7 @@ class Parser:
         return hostnames
 
     def links_linkedin(self):
-        reg_links = re.compile(r"url=https:\/\/www.linkedin.com(.*?)&")
+        reg_links = re.compile(r"url=https:\/\/www\.linkedin.com(.*?)&")
         self.temp = reg_links.findall(self.results)
         resul = []
         for x in self.temp:

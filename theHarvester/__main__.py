@@ -36,7 +36,7 @@ def start():
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, censys, crtsh, dnsdumpster,
                         dogpile, duckduckgo, github-code, google,
                         hunter, intelx,
-                        linkedin,linkedin_links, netcraft, securityTrails, threatcrowd,
+                        linkedin, linkedin_links, netcraft, securityTrails, threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo, all''')
     parser.add_argument('-x', '--exclude', help='exclude options when using all sources', type=str)
 
