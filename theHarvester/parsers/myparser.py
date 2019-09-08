@@ -84,7 +84,7 @@ class Parser:
         for x in self.temp:
             y = x.replace("url=", "")
             resul.append("https://www.linkedin.com" + y)
-        return set(resul)
+        return resul
 
     def people_linkedin(self):
         reg_people = re.compile(r'">[a-zA-Z0-9._ -]* \| LinkedIn')
