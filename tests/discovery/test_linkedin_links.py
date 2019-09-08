@@ -13,7 +13,7 @@ class TestGetLinks(object):
         search = linkedinsearch.SearchLinkedin("facebook.com", '100')
         search.process()
         links = search.get_links()
-        assert list(links)
+        assert set(links)
 
     def test_links_linkedin(self):
         dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -23,7 +23,7 @@ class TestGetLinks(object):
         resul = []
         for regex_item in temp:
             stripped_url = regex_item.replace("url=", "")
-            resul.append("https://www.linkedin.com" + y)
+            resul.append("https://www.linkedin.com" + stripped_url)
         assert set(resul)
 
 
