@@ -12,7 +12,7 @@ class TestGetLinks(object):
         search = linkedinsearch.SearchLinkedin("facebook.com", '100')
         search.process()
         links = search.get_links()
-        assert list(links)
+        assert links
 
     def test_links_linkedin(self):
         dir_path = os.path.dirname(os.path.realpath(__file__))
