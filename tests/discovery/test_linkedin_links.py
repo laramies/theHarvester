@@ -2,7 +2,9 @@
 # coding=utf-8
 from theHarvester.discovery import linkedinsearch
 import pytest
+import os
 import re
+
 
 
 class TestGetLinks(object):
@@ -14,7 +16,8 @@ class TestGetLinks(object):
         assert list(links)
 
     def test_links_linkedin(self):
-        f = open("test_linkedin_links.txt").read()
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        f = open(dir_path + "/test_linkedin_links.txt").read()
         reg_links = re.compile(r"url=https:\/\/www\.linkedin.com(.*?)&")
         temp = reg_links.findall(f)
         resul = []

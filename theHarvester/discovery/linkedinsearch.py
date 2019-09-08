@@ -35,7 +35,6 @@ class SearchLinkedin:
         return rawres.people_linkedin()
 
     def get_links(self):
-        print(self.totalresults)
         links = myparser.Parser(self.totalresults, self.word)
         return links.links_linkedin()
 
