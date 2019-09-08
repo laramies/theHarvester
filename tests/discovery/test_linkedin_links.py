@@ -6,14 +6,13 @@ import os
 import re
 
 
-
 class TestGetLinks(object):
 
     def test_get_links(self):
         search = linkedinsearch.SearchLinkedin("facebook.com", '100')
         search.process()
         links = search.get_links()
-        assert set(links)
+        assert list(links)
 
     def test_links_linkedin(self):
         dir_path = os.path.dirname(os.path.realpath(__file__))
