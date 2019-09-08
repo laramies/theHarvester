@@ -17,12 +17,12 @@ class TestGetLinks(object):
 
     def test_links_linkedin(self):
         dir_path = os.path.dirname(os.path.realpath(__file__))
-        f = open(dir_path + "/test_linkedin_links.txt").read()
+        mock_response = open(dir_path + "/test_linkedin_links.txt").read()
         reg_links = re.compile(r"url=https:\/\/www\.linkedin.com(.*?)&")
-        temp = reg_links.findall(f)
+        temp = reg_links.findall(mock_response)
         resul = []
-        for x in temp:
-            y = x.replace("url=", "")
+        for regex_item in temp:
+            stripped_url = regex_item.replace("url=", "")
             resul.append("https://www.linkedin.com" + y)
         assert set(resul)
 
