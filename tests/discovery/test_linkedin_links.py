@@ -1,12 +1,26 @@
 #!/usr/bin/env python3
 # coding=utf-8
 from theHarvester.discovery import linkedinsearch
+from theHarvester.discovery.constants import splitter
 import pytest
 import os
 import re
 
 
 class TestGetLinks(object):
+
+    def test_splitter(self):
+        results = [
+                'https://www.linkedin.com/in/don-draper-b1045618',
+                'https://www.linkedin.com/in/don-draper-b59210a',
+                'https://www.linkedin.com/in/don-draper-b5bb50b3',
+                'https://www.linkedin.com/in/don-draper-b83ba26',
+                'https://www.linkedin.com/in/don-draper-b854a51'
+                ]
+        filtered_results = splitter(results)
+        assert len(filtered_results) == 1
+
+
 
     def test_get_links(self):
         search = linkedinsearch.SearchLinkedin("facebook.com", '100')
