@@ -9,3 +9,4 @@ debug_results.txt
 tests/myparser.py
 venv
 .mypy_cache
+.pytest_cache
