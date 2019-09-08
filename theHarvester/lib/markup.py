@@ -362,7 +362,7 @@ class Page:
             try:
                 for src in mydict:
                     self.script('', src=src, type='text/javascript')
-            except:
+            except Exception:
                 raise TypeError("Script should be given a dictionary of src:type pairs or a list of javascript src's.")
 
 
