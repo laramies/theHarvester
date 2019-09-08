@@ -36,6 +36,7 @@ jobs:
         python theHarvester.py -d metasploit.com -b dogpile
         python theHarvester.py -d metasploit.com -b duckduckgo
         python theHarvester.py -d metasploit.com -b exalead
+        python theHarvester.py -d metasploit.com -b google
         python theHarvester.py -d metasploit.com -b linkedin
         python theHarvester.py -d metasploit.com -b linkedin_links
         python theHarvester.py -d metasploit.com -b netcraft
