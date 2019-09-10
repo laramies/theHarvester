@@ -1,3 +1,5 @@
+![theHarvester](https://github.com/laramies/theHarvester/blob/master/theHarvester-logo.png)
+
 ```
 *******************************************************************
 *                                                                 *
