@@ -3,7 +3,6 @@
 from theHarvester.discovery import *
 from theHarvester.discovery.constants import *
 from theHarvester.lib import hostchecker
-#from theHarvester.lib import htmlExport
 from theHarvester.lib import reportgraph
 from theHarvester.lib import stash
 from theHarvester.lib import statichtmlgenerator

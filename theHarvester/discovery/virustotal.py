@@ -2,6 +2,7 @@ from theHarvester.lib.core import Core
 from theHarvester.parsers import myparser
 import requests
 
+
 class SearchVirustotal:
 
     def __init__(self, word):
@@ -26,5 +27,3 @@ class SearchVirustotal:
         print('\tSearching results.')
         self.do_search()
         self.get_hostnames()
-
-
