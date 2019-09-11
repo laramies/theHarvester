@@ -460,20 +460,20 @@ def start():
                 print(url)
 
     # DNS brute force
-    dnsres = []
+    # dnsres = []
     if dnsbrute is True:
         print('\n[*] Starting DNS brute force.')
         a = dnssearch.DnsForce(word, dnsserver, verbose=True)
         res = a.process()
-        print('\n[*] Hosts found after DNS brute force:')
-        print('-------------------------------------')
-        for y in res:
-            print(y)
-            dnsres.append(y.split(':')[0])
-            if y not in full:
-                full.append(y)
-        db = stash.stash_manager()
-        db.store_all(word, dnsres, 'host', 'dns_bruteforce')
+        # print('\n[*] Hosts found after DNS brute force:')
+        # for y in res:
+        # print('-------------------------------------')
+        #    print(y)
+        #   dnsres.append(y.split(':')[0])
+        #    if y not in full:
+        #        full.append(y)
+        # db = stash.stash_manager()
+        # db.store_all(word, dnsres, 'host', 'dns_bruteforce')
 
     # Port scanning
     if ports_scanning is True:
