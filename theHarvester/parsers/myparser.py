@@ -77,11 +77,20 @@ class Parser:
         hostnames = self.unique()
         return hostnames
 
+    def links_linkedin(self):
+        reg_links = re.compile(r"url=https:\/\/www\.linkedin.com(.*?)&")
+        self.temp = reg_links.findall(self.results)
+        resul = []
+        for regex in self.temp:
+            final_url = regex.replace("url=", "")
+            resul.append("https://www.linkedin.com" + final_url)
+        return resul
+
     def people_linkedin(self):
         reg_people = re.compile(r'">[a-zA-Z0-9._ -]* \| LinkedIn')
         self.temp = reg_people.findall(self.results)
         resul = []
-        for x in self.temp:
+        for x in (self.temp):
             y = x.replace(' | LinkedIn', '')
             y = y.replace(' profiles ', '')
             y = y.replace('LinkedIn', '')

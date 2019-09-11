@@ -1,17 +1,5 @@
-```
-*******************************************************************
-*                                                                 *
-* | |_| |__   ___    /\  /\__ _ _ ____   _____  ___| |_ ___ _ __  *
-* | __| '_ \ / _ \  / /_/ / _` | '__\ \ / / _ \/ __| __/ _ \ '__| *
-* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *
-*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *
-*                                                                 *
-* theHarvester 3.1.0 dev2                                          *
-* Coded by Christian Martorella                                   *
-* Edge-Security Research                                          *
-* cmartorella@edge-security.com                                   *
-*******************************************************************
-```
+![theHarvester](https://github.com/laramies/theHarvester/blob/master/theHarvester-logo.png)
+
 [![Build Status](https://travis-ci.com/laramies/theHarvester.svg?branch=master)](https://travis-ci.com/laramies/theHarvester) [![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/laramies/theHarvester.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/laramies/theHarvester/context:python)
 [![Rawsec's CyberSecurity Inventory](https://inventory.rawsec.ml/img/badges/Rawsec-inventoried-FF5050_flat_without_logo.svg)](https://inventory.rawsec.ml/)
 
@@ -78,7 +66,7 @@ Active:
 -------
 * DNS brute force: dictionary brute force enumeration
 * DNS reverse lookup: reverse lookup of IP´s discovered in order to find hostnames
-* DNS TDL expansion: TLD dictionary brute force enumeration
+* DNS TLD expansion: TLD dictionary brute force enumeration
 
 Modules that require an API key:
 --------------------------------
