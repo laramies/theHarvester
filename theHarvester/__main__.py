@@ -3,7 +3,7 @@
 from theHarvester.discovery import *
 from theHarvester.discovery.constants import *
 from theHarvester.lib import hostchecker
-from theHarvester.lib import htmlExport
+#from theHarvester.lib import htmlExport
 from theHarvester.lib import reportgraph
 from theHarvester.lib import stash
 from theHarvester.lib import statichtmlgenerator
@@ -628,22 +628,11 @@ def start():
             </body>
             </html>
             '''
-            Html_file = open('report.html', 'w')
+            Html_file = open(filename, 'w')
             Html_file.write(HTMLcode)
             Html_file.close()
             print('[*] Reporting finished.')
             print('[*] Saving files.')
-            html = htmlExport.HtmlExport(
-                all_emails,
-                full,
-                vhost,
-                dnsres,
-                dnsrev,
-                filename,
-                word,
-                shodanres,
-                dnstldres)
-            html.writehtml()
         except Exception as e:
             print(e)
             print('\n\033[93m[!] An error occurred while creating the output file.\n\n \033[0m')
