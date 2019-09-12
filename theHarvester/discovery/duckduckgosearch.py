@@ -77,8 +77,6 @@ class SearchDuckDuckGo:
             return tmp
         except Exception as e:
             print(f'Exception occurred: {e}')
-            import traceback as t
-            print(t.print_exc())
             return []
 
     def get_emails(self):

@@ -692,9 +692,8 @@ def entry_point():
         start()
     except KeyboardInterrupt:
         print('\n\n\033[93m[!] ctrl+c detected from user, quitting.\n\n \033[0m')
-    except Exception:
-        import traceback
-        print(traceback.print_exc())
+    except Exception as error_entry_point:
+        print(error_entry_point)
         sys.exit(1)
 
 

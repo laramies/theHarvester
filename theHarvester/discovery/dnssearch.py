@@ -1,9 +1,9 @@
-import os
 import sys
 import dns.resolver
 
 # TODO: need big focus on performance and results parsing, now does the basic.
-      
+
+
 class DnsForce:
 
     def __init__(self, domain, dnsserver, verbose=False):
@@ -13,7 +13,7 @@ class DnsForce:
         self.verbose = verbose
         try:
             f = open(self.file, 'r')
-        except BaseException:
+        except Exception:
             print('Error opening DNS dictionary file.')
             sys.exit()
         self.list = f.readlines()
@@ -28,17 +28,16 @@ class DnsForce:
         try:
             answer = dns.resolver.query(hostname, 'A')
             print(answer.canonical_name)
-            return answer.canonical_name # TODO: need rework all this results
-      
+            return answer.canonical_name  # TODO: need rework all this results
+
         except Exception:
             pass
-        
+
     def process(self):
         results = []
         for x in self.list:
             host = self.run(x)
             if host is not None:
-                #print(' : ' + host.split(':')[1])
+                # print(' : ' + host.split(':')[1])
                 results.append(host)
         return results
-        
