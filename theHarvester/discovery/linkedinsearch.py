@@ -36,6 +36,7 @@ class SearchLinkedin:
                     pass
         except Exception as e:
             print(e)
+        time.sleep(getDelay())
         self.totalresults += self.results
 
     def get_people(self):
