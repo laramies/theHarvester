@@ -76,7 +76,7 @@ def google_workaround(visit_url: str) -> str or bool:
         'type': 'GET&http=1.1',
         'uak': str(random.randint(4, 8))  # select random UA to send to Google
     }
-    resp = requests.post(url,headers={'User-Agent': googleUA}, data=data)
+    resp = requests.post(url, headers={'User-Agent': googleUA}, data=data)
     returned_html = resp.text
     if search(returned_html):
         # indicates that google is serving workaround a captcha
