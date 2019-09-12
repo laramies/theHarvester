@@ -1,3 +1,4 @@
+from typing import Union
 import random
 
 googleUA = 'Mozilla/5.0 (Windows NT 6.2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1464.0 Safari/537.36'
@@ -47,7 +48,7 @@ def filter(lst):
     return new_lst
 
 
-def getDelay() -> int:
+def getDelay() -> float:
     return random.randint(1, 3) - .5
 
 
@@ -61,7 +62,7 @@ def search(text: str) -> bool:
     return False
 
 
-def google_workaround(visit_url: str) -> str or bool:
+def google_workaround(visit_url: str) -> Union[bool, list]:
     """
     Function that makes a request on our behalf, if Google starts to block us
     :param visit_url: Url to scrape
