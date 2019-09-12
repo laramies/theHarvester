@@ -159,7 +159,3 @@ class SearchGoogle:
                 self.totalresults += self.results
             except Exception as e:
                 print(f'\tException Occurred {e}')
-
-if __name__ == '__main__':
-    x = SearchGoogle('yale.edu', 100, 0)
-    x.process(False)
