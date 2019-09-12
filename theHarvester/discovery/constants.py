@@ -80,7 +80,7 @@ def google_workaround(visit_url: str) -> str or bool:
     returned_html = resp.text
     if search(returned_html):
         # indicates that google is serving workaround a captcha
-        # TODO rework workaround with more websites to send requets on our behalf or utilize proxies option in request
+        # TODO rework workaround with more websites to send requests on our behalf or utilize proxies option in request
         return True
     # the html we get is malformed for BS4 as there are no greater than or less than signs
     if '&lt;html&gt;' in returned_html:

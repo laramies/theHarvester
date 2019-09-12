@@ -63,6 +63,7 @@ class SearchGoogle:
                     self.results = google_workaround(urly)
             except BaseException:
                 pass
+        time.sleep(getDelay())
         self.totalresults += self.results
 
     def get_emails(self):
@@ -156,6 +157,7 @@ class SearchGoogle:
                             self.results = google_workaround(link)
                     except BaseException:
                         pass
+                time.sleep(getDelay())
                 self.totalresults += self.results
             except Exception as e:
                 print(f'\tException Occurred {e}')
