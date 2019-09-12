@@ -31,9 +31,15 @@ class SearchGoogle:
             print(e)
         self.results = r.text
         if search(self.results):
-            time.sleep(getDelay() * 5)  # Sleep for a longer time.
-        else:
-            time.sleep(getDelay())
+            try:
+                if isinstance(search(self.results), bool):
+                    print('Google is blocking your ip and the workaround, returning')
+                    return
+                else:
+                    self.results = google_workaround(urly)
+            except BaseException:
+                pass
+        time.sleep(getDelay())
         self.totalresults += self.results
 
     def do_search_profiles(self):
@@ -49,9 +55,14 @@ class SearchGoogle:
             print(e)
         self.results = r.text
         if search(self.results):
-            time.sleep(getDelay() * 5)  # Sleep for a longer time.
-        else:
-            time.sleep(getDelay())
+            try:
+                if isinstance(search(self.results), bool):
+                    print('Google is blocking your ip and the workaround, returning')
+                    return
+                else:
+                    self.results = google_workaround(urly)
+            except BaseException:
+                pass
         self.totalresults += self.results
 
     def get_emails(self):
@@ -137,9 +148,18 @@ class SearchGoogle:
                 req = requests.get(link, headers=headers)
                 self.results = req.text
                 if search(self.results):
-                    time.sleep(getDelay() * 5)  # Sleep for a longer time.
-                else:
-                    time.sleep(getDelay())
+                    try:
+                        if isinstance(search(self.results), bool):
+                            print('Google is blocking your ip and the workaround, returning')
+                            return
+                        else:
+                            self.results = google_workaround(link)
+                    except BaseException:
+                        pass
                 self.totalresults += self.results
             except Exception as e:
                 print(f'\tException Occurred {e}')
+
+if __name__ == '__main__':
+    x = SearchGoogle('yale.edu', 100, 0)
+    x.process(False)
