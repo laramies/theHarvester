@@ -16,110 +16,109 @@ import collections
 # this should include www.iana.org/assignments/ipv4-address-space
 # and www.iana.org/assignments/multicast-addresses
 IPv4ranges = {
-    '0':                'PUBLIC',   # fall back
-    '00000000':         'PRIVATE',  # 0/8
-    '00001010':         'PRIVATE',  # 10/8
-    '0110010001':       'CARRIER_GRADE_NAT',  # 100.64/10
-    '01111111':         'LOOPBACK',  # 127.0/8
-    '1':                'PUBLIC',   # fall back
+    '0': 'PUBLIC',  # fall back
+    '00000000': 'PRIVATE',  # 0/8
+    '00001010': 'PRIVATE',  # 10/8
+    '0110010001': 'CARRIER_GRADE_NAT',  # 100.64/10
+    '01111111': 'LOOPBACK',  # 127.0/8
+    '1': 'PUBLIC',  # fall back
     '1010100111111110': 'PRIVATE',  # 169.254/16
-    '101011000001':     'PRIVATE',  # 172.16/12
+    '101011000001': 'PRIVATE',  # 172.16/12
     '1100000010101000': 'PRIVATE',  # 192.168/16
-    '111':              'RESERVED', # 224/3
-    }
+    '111': 'RESERVED',  # 224/3
+}
 
 # Definition of the Ranges for IPv6 IPs
 # http://www.iana.org/assignments/ipv6-address-space/
 # http://www.iana.org/assignments/ipv6-unicast-address-assignments/
 # http://www.iana.org/assignments/ipv6-multicast-addresses/
 IPv6ranges = {
-    '00000000'                                      : 'RESERVED',               # ::/8
-    '0' * 96                                        : 'RESERVED',               # ::/96 Formerly IPV4COMP [RFC4291]
-    '0' * 128                                       : 'UNSPECIFIED',            # ::/128
-    '0' * 127 + '1'                                 : 'LOOPBACK',               # ::1/128
-    '0' * 80 + '1' * 16                             : 'IPV4MAP',                # ::ffff:0:0/96
-    '00000000011001001111111110011011' + '0' * 64   : 'WKP46TRANS',             # 0064:ff9b::/96 Well-Known-Prefix [RFC6052]
-    '00000001'                                      : 'UNASSIGNED',             # 0100::/8
-    '0000001'                                       : 'RESERVED',               # 0200::/7 Formerly NSAP [RFC4048]
-    '0000010'                                       : 'RESERVED',               # 0400::/7 Formerly IPX [RFC3513]
-    '0000011'                                       : 'RESERVED',               # 0600::/7
-    '00001'                                         : 'RESERVED',               # 0800::/5
-    '0001'                                          : 'RESERVED',               # 1000::/4
-    '001'                                           : 'GLOBAL-UNICAST',         # 2000::/3 [RFC4291]
-    '00100000000000010000000'                       : 'SPECIALPURPOSE',         # 2001::/23 [RFC4773]
-    '00100000000000010000000000000000'              : 'TEREDO',                 # 2001::/32 [RFC4380]
-    '00100000000000010000000000000010' + '0' * 16   : 'BMWG',                   # 2001:0002::/48 Benchmarking [RFC5180]
-    '0010000000000001000000000001'                  : 'ORCHID',                 # 2001:0010::/28 (Temp until 2014-03-21) [RFC4843]
-    '00100000000000010000001'                       : 'ALLOCATED APNIC',        # 2001:0200::/23
-    '00100000000000010000010'                       : 'ALLOCATED ARIN',         # 2001:0400::/23
-    '00100000000000010000011'                       : 'ALLOCATED RIPE NCC',     # 2001:0600::/23
-    '00100000000000010000100'                       : 'ALLOCATED RIPE NCC',     # 2001:0800::/23
-    '00100000000000010000101'                       : 'ALLOCATED RIPE NCC',     # 2001:0a00::/23
-    '00100000000000010000110'                       : 'ALLOCATED APNIC',        # 2001:0c00::/23
-    '00100000000000010000110110111000'              : 'DOCUMENTATION',          # 2001:0db8::/32 [RFC3849]
-    '00100000000000010000111'                       : 'ALLOCATED APNIC',        # 2001:0e00::/23
-    '00100000000000010001001'                       : 'ALLOCATED LACNIC',       # 2001:1200::/23
-    '00100000000000010001010'                       : 'ALLOCATED RIPE NCC',     # 2001:1400::/23
-    '00100000000000010001011'                       : 'ALLOCATED RIPE NCC',     # 2001:1600::/23
-    '00100000000000010001100'                       : 'ALLOCATED ARIN',         # 2001:1800::/23
-    '00100000000000010001101'                       : 'ALLOCATED RIPE NCC',     # 2001:1a00::/23
-    '0010000000000001000111'                        : 'ALLOCATED RIPE NCC',     # 2001:1c00::/22
-    '00100000000000010010'                          : 'ALLOCATED RIPE NCC',     # 2001:2000::/20
-    '001000000000000100110'                         : 'ALLOCATED RIPE NCC',     # 2001:3000::/21
-    '0010000000000001001110'                        : 'ALLOCATED RIPE NCC',     # 2001:3800::/22
-    '0010000000000001001111'                        : 'RESERVED',               # 2001:3c00::/22 Possible future allocation to RIPE NCC
-    '00100000000000010100000'                       : 'ALLOCATED RIPE NCC',     # 2001:4000::/23
-    '00100000000000010100001'                       : 'ALLOCATED AFRINIC',      # 2001:4200::/23
-    '00100000000000010100010'                       : 'ALLOCATED APNIC',        # 2001:4400::/23
-    '00100000000000010100011'                       : 'ALLOCATED RIPE NCC',     # 2001:4600::/23
-    '00100000000000010100100'                       : 'ALLOCATED ARIN',         # 2001:4800::/23
-    '00100000000000010100101'                       : 'ALLOCATED RIPE NCC',     # 2001:4a00::/23
-    '00100000000000010100110'                       : 'ALLOCATED RIPE NCC',     # 2001:4c00::/23
-    '00100000000000010101'                          : 'ALLOCATED RIPE NCC',     # 2001:5000::/20
-    '0010000000000001100'                           : 'ALLOCATED APNIC',        # 2001:8000::/19
-    '00100000000000011010'                          : 'ALLOCATED APNIC',        # 2001:a000::/20
-    '00100000000000011011'                          : 'ALLOCATED APNIC',        # 2001:b000::/20
-    '0010000000000010'                              : '6TO4',                   # 2002::/16 "6to4" [RFC3056]
-    '001000000000001100'                            : 'ALLOCATED RIPE NCC',     # 2003::/18
-    '001001000000'                                  : 'ALLOCATED APNIC',        # 2400::/12
-    '001001100000'                                  : 'ALLOCATED ARIN',         # 2600::/12
-    '00100110000100000000000'                       : 'ALLOCATED ARIN',         # 2610::/23
-    '00100110001000000000000'                       : 'ALLOCATED ARIN',         # 2620::/23
-    '001010000000'                                  : 'ALLOCATED LACNIC',       # 2800::/12
-    '001010100000'                                  : 'ALLOCATED RIPE NCC',     # 2a00::/12
-    '001011000000'                                  : 'ALLOCATED AFRINIC',      # 2c00::/12
-    '00101101'                                      : 'RESERVED',               # 2d00::/8
-    '0010111'                                       : 'RESERVED',               # 2e00::/7
-    '0011'                                          : 'RESERVED',               # 3000::/4
-    '010'                                           : 'RESERVED',               # 4000::/3
-    '011'                                           : 'RESERVED',               # 6000::/3
-    '100'                                           : 'RESERVED',               # 8000::/3
-    '101'                                           : 'RESERVED',               # a000::/3
-    '110'                                           : 'RESERVED',               # c000::/3
-    '1110'                                          : 'RESERVED',               # e000::/4
-    '11110'                                         : 'RESERVED',               # f000::/5
-    '111110'                                        : 'RESERVED',               # f800::/6
-    '1111110'                                       : 'ULA',                    # fc00::/7 [RFC4193]
-    '111111100'                                     : 'RESERVED',               # fe00::/9
-    '1111111010'                                    : 'LINKLOCAL',              # fe80::/10
-    '1111111011'                                    : 'RESERVED',               # fec0::/10 Formerly SITELOCAL [RFC4291]
-    '11111111'                                      : 'MULTICAST',              # ff00::/8
-    '1111111100000001'                              : 'NODE-LOCAL MULTICAST',   # ff01::/16
-    '1111111100000010'                              : 'LINK-LOCAL MULTICAST',   # ff02::/16
-    '1111111100000100'                              : 'ADMIN-LOCAL MULTICAST',  # ff04::/16
-    '1111111100000101'                              : 'SITE-LOCAL MULTICAST',   # ff05::/16
-    '1111111100001000'                              : 'ORG-LOCAL MULTICAST',    # ff08::/16
-    '1111111100001110'                              : 'GLOBAL MULTICAST',       # ff0e::/16
-    '1111111100001111'                              : 'RESERVED MULTICAST',     # ff0f::/16
-    '111111110011'                                  : 'PREFIX-BASED MULTICAST', # ff30::/12 [RFC3306]
-    '111111110111'                                  : 'RP-EMBEDDED MULTICAST',  # ff70::/12 [RFC3956]
-    }
+    '00000000': 'RESERVED',  # ::/8
+    '0' * 96: 'RESERVED',  # ::/96 Formerly IPV4COMP [RFC4291]
+    '0' * 128: 'UNSPECIFIED',  # ::/128
+    '0' * 127 + '1': 'LOOPBACK',  # ::1/128
+    '0' * 80 + '1' * 16: 'IPV4MAP',  # ::ffff:0:0/96
+    '00000000011001001111111110011011' + '0' * 64: 'WKP46TRANS',  # 0064:ff9b::/96 Well-Known-Prefix [RFC6052]
+    '00000001': 'UNASSIGNED',  # 0100::/8
+    '0000001': 'RESERVED',  # 0200::/7 Formerly NSAP [RFC4048]
+    '0000010': 'RESERVED',  # 0400::/7 Formerly IPX [RFC3513]
+    '0000011': 'RESERVED',  # 0600::/7
+    '00001': 'RESERVED',  # 0800::/5
+    '0001': 'RESERVED',  # 1000::/4
+    '001': 'GLOBAL-UNICAST',  # 2000::/3 [RFC4291]
+    '00100000000000010000000': 'SPECIALPURPOSE',  # 2001::/23 [RFC4773]
+    '00100000000000010000000000000000': 'TEREDO',  # 2001::/32 [RFC4380]
+    '00100000000000010000000000000010' + '0' * 16: 'BMWG',  # 2001:0002::/48 Benchmarking [RFC5180]
+    '0010000000000001000000000001': 'ORCHID',  # 2001:0010::/28 (Temp until 2014-03-21) [RFC4843]
+    '00100000000000010000001': 'ALLOCATED APNIC',  # 2001:0200::/23
+    '00100000000000010000010': 'ALLOCATED ARIN',  # 2001:0400::/23
+    '00100000000000010000011': 'ALLOCATED RIPE NCC',  # 2001:0600::/23
+    '00100000000000010000100': 'ALLOCATED RIPE NCC',  # 2001:0800::/23
+    '00100000000000010000101': 'ALLOCATED RIPE NCC',  # 2001:0a00::/23
+    '00100000000000010000110': 'ALLOCATED APNIC',  # 2001:0c00::/23
+    '00100000000000010000110110111000': 'DOCUMENTATION',  # 2001:0db8::/32 [RFC3849]
+    '00100000000000010000111': 'ALLOCATED APNIC',  # 2001:0e00::/23
+    '00100000000000010001001': 'ALLOCATED LACNIC',  # 2001:1200::/23
+    '00100000000000010001010': 'ALLOCATED RIPE NCC',  # 2001:1400::/23
+    '00100000000000010001011': 'ALLOCATED RIPE NCC',  # 2001:1600::/23
+    '00100000000000010001100': 'ALLOCATED ARIN',  # 2001:1800::/23
+    '00100000000000010001101': 'ALLOCATED RIPE NCC',  # 2001:1a00::/23
+    '0010000000000001000111': 'ALLOCATED RIPE NCC',  # 2001:1c00::/22
+    '00100000000000010010': 'ALLOCATED RIPE NCC',  # 2001:2000::/20
+    '001000000000000100110': 'ALLOCATED RIPE NCC',  # 2001:3000::/21
+    '0010000000000001001110': 'ALLOCATED RIPE NCC',  # 2001:3800::/22
+    '0010000000000001001111': 'RESERVED',  # 2001:3c00::/22 Possible future allocation to RIPE NCC
+    '00100000000000010100000': 'ALLOCATED RIPE NCC',  # 2001:4000::/23
+    '00100000000000010100001': 'ALLOCATED AFRINIC',  # 2001:4200::/23
+    '00100000000000010100010': 'ALLOCATED APNIC',  # 2001:4400::/23
+    '00100000000000010100011': 'ALLOCATED RIPE NCC',  # 2001:4600::/23
+    '00100000000000010100100': 'ALLOCATED ARIN',  # 2001:4800::/23
+    '00100000000000010100101': 'ALLOCATED RIPE NCC',  # 2001:4a00::/23
+    '00100000000000010100110': 'ALLOCATED RIPE NCC',  # 2001:4c00::/23
+    '00100000000000010101': 'ALLOCATED RIPE NCC',  # 2001:5000::/20
+    '0010000000000001100': 'ALLOCATED APNIC',  # 2001:8000::/19
+    '00100000000000011010': 'ALLOCATED APNIC',  # 2001:a000::/20
+    '00100000000000011011': 'ALLOCATED APNIC',  # 2001:b000::/20
+    '0010000000000010': '6TO4',  # 2002::/16 "6to4" [RFC3056]
+    '001000000000001100': 'ALLOCATED RIPE NCC',  # 2003::/18
+    '001001000000': 'ALLOCATED APNIC',  # 2400::/12
+    '001001100000': 'ALLOCATED ARIN',  # 2600::/12
+    '00100110000100000000000': 'ALLOCATED ARIN',  # 2610::/23
+    '00100110001000000000000': 'ALLOCATED ARIN',  # 2620::/23
+    '001010000000': 'ALLOCATED LACNIC',  # 2800::/12
+    '001010100000': 'ALLOCATED RIPE NCC',  # 2a00::/12
+    '001011000000': 'ALLOCATED AFRINIC',  # 2c00::/12
+    '00101101': 'RESERVED',  # 2d00::/8
+    '0010111': 'RESERVED',  # 2e00::/7
+    '0011': 'RESERVED',  # 3000::/4
+    '010': 'RESERVED',  # 4000::/3
+    '011': 'RESERVED',  # 6000::/3
+    '100': 'RESERVED',  # 8000::/3
+    '101': 'RESERVED',  # a000::/3
+    '110': 'RESERVED',  # c000::/3
+    '1110': 'RESERVED',  # e000::/4
+    '11110': 'RESERVED',  # f000::/5
+    '111110': 'RESERVED',  # f800::/6
+    '1111110': 'ULA',  # fc00::/7 [RFC4193]
+    '111111100': 'RESERVED',  # fe00::/9
+    '1111111010': 'LINKLOCAL',  # fe80::/10
+    '1111111011': 'RESERVED',  # fec0::/10 Formerly SITELOCAL [RFC4291]
+    '11111111': 'MULTICAST',  # ff00::/8
+    '1111111100000001': 'NODE-LOCAL MULTICAST',  # ff01::/16
+    '1111111100000010': 'LINK-LOCAL MULTICAST',  # ff02::/16
+    '1111111100000100': 'ADMIN-LOCAL MULTICAST',  # ff04::/16
+    '1111111100000101': 'SITE-LOCAL MULTICAST',  # ff05::/16
+    '1111111100001000': 'ORG-LOCAL MULTICAST',  # ff08::/16
+    '1111111100001110': 'GLOBAL MULTICAST',  # ff0e::/16
+    '1111111100001111': 'RESERVED MULTICAST',  # ff0f::/16
+    '111111110011': 'PREFIX-BASED MULTICAST',  # ff30::/12 [RFC3306]
+    '111111110111': 'RP-EMBEDDED MULTICAST',  # ff70::/12 [RFC3956]
+}
 
 MAX_IPV4_ADDRESS = 0xffffffff
 MAX_IPV6_ADDRESS = 0xffffffffffffffffffffffffffffffff
-IPV6_TEST_MAP    = 0xffffffffffffffffffffffff00000000
-IPV6_MAP_MASK    = 0x00000000000000000000ffff00000000
-
+IPV6_TEST_MAP = 0xffffffffffffffffffffffff00000000
+IPV6_MAP_MASK = 0x00000000000000000000ffff00000000
 
 INT_TYPES = (int,)
 STR_TYPES = (str,)
@@ -215,7 +214,7 @@ class IPint(object):
                 # make sure the broadcast is the same as the last ip
                 # otherwise it will return /16 for something like:
                 # 192.168.0.0-192.168.191.255
-                if IP('%s/%s' % (ip, 32-netbits)).broadcast().int() != last:
+                if IP('%s/%s' % (ip, 32 - netbits)).broadcast().int() != last:
                     raise ValueError("the range %s is not on a network boundary." % data)
             elif len(x) == 1:
                 x = data.split('/')
@@ -252,7 +251,7 @@ class IPint(object):
                 self.ip = self.ip & _prefixlenToNetmask(self._prefixlen, self._ipversion)
 
             if not _checkNetaddrWorksWithPrefixlen(self.ip,
-            self._prefixlen, self._ipversion):
+                                                   self._prefixlen, self._ipversion):
                 raise ValueError("%s has invalid prefix length (%s)" % (repr(self), self._prefixlen))
         else:
             raise TypeError("Unsupported data type: %s" % type(data))
@@ -311,12 +310,12 @@ class IPint(object):
         """
 
         if (self._ipversion == 4 and self._prefixlen == 32) or \
-           (self._ipversion == 6 and self._prefixlen == 128):
+                (self._ipversion == 6 and self._prefixlen == 128):
             if self.NoPrefixForSingleIp:
                 want = 0
-        if want == None:
+        if want is None:
             want = self.WantPrefixLen
-            if want == None:
+            if want is None:
                 want = 1
         if want:
             if want == 2:
@@ -329,7 +328,7 @@ class IPint(object):
                 return "-%s" % (intToIp(self.ip + self.len() - 1, self._ipversion))
             else:
                 # default
-                return "/%d" % (self._prefixlen)
+                return "/%d" % self._prefixlen
         else:
             return ''
 
@@ -340,7 +339,7 @@ class IPint(object):
         # strHex        0x7F000001   0x20010658022ACAFE0200C0FFFE8D08FA
         # strDec        2130706433   42540616829182469433547974687817795834
 
-    def strBin(self, wantprefixlen = None):
+    def strBin(self, wantprefixlen=None):
         """Return a string representation as a binary value.
 
         >>> print(IP('127.0.0.1').strBin())
@@ -350,12 +349,12 @@ class IPint(object):
         """
 
         bits = _ipVersionToLen(self._ipversion)
-        if self.WantPrefixLen == None and wantprefixlen == None:
+        if self.WantPrefixLen is None and wantprefixlen is None:
             wantprefixlen = 0
         ret = _intToBin(self.ip)
-        return  '0' * (bits - len(ret)) + ret + self._printPrefix(wantprefixlen)
+        return '0' * (bits - len(ret)) + ret + self._printPrefix(wantprefixlen)
 
-    def strCompressed(self, wantprefixlen = None):
+    def strCompressed(self, wantprefixlen=None):
         """Return a string representation in compressed format using '::' Notation.
 
         >>> IP('127.0.0.1').strCompressed()
@@ -366,7 +365,7 @@ class IPint(object):
         'ffff:ffff:ffff:ffff:ffff:f:f:fffc/127'
         """
 
-        if self.WantPrefixLen == None and wantprefixlen == None:
+        if self.WantPrefixLen is None and wantprefixlen is None:
             wantprefixlen = 1
 
         if self._ipversion == 4:
@@ -390,7 +389,7 @@ class IPint(object):
                 # now we need hextets as strings
                 hextets = [x for x in self.strNormal(0).split(':')]
                 while compressionpos < len(hextets) and hextets[compressionpos] == '0':
-                    del(hextets[compressionpos])
+                    del (hextets[compressionpos])
                 hextets.insert(compressionpos, '')
                 if compressionpos + 1 >= len(hextets):
                     hextets.append('')
@@ -400,7 +399,7 @@ class IPint(object):
             else:
                 return self.strNormal(0) + self._printPrefix(wantprefixlen)
 
-    def strNormal(self, wantprefixlen = None):
+    def strNormal(self, wantprefixlen=None):
         """Return a string representation in the usual format.
 
         >>> print(IP('127.0.0.1').strNormal())
@@ -409,7 +408,7 @@ class IPint(object):
         2001:658:22a:cafe:200:0:0:1
         """
 
-        if self.WantPrefixLen == None and wantprefixlen == None:
+        if self.WantPrefixLen is None and wantprefixlen is None:
             wantprefixlen = 1
 
         if self._ipversion == 4:
@@ -421,7 +420,7 @@ class IPint(object):
 
         return ret + self._printPrefix(wantprefixlen)
 
-    def strFullsize(self, wantprefixlen = None):
+    def strFullsize(self, wantprefixlen=None):
         """Return a string representation in the non-mangled format.
 
         >>> print(IP('127.0.0.1').strFullsize())
@@ -430,12 +429,12 @@ class IPint(object):
         2001:0658:022a:cafe:0200:0000:0000:0001
         """
 
-        if self.WantPrefixLen == None and wantprefixlen == None:
+        if self.WantPrefixLen is None and wantprefixlen is None:
             wantprefixlen = 1
 
         return intToIp(self.ip, self._ipversion) + self._printPrefix(wantprefixlen)
 
-    def strHex(self, wantprefixlen = None):
+    def strHex(self, wantprefixlen=None):
         """Return a string representation in hex format in lower case.
 
         >>> print(IP('127.0.0.1').strHex())
@@ -444,13 +443,13 @@ class IPint(object):
         0x20010658022acafe0200000000000001
         """
 
-        if self.WantPrefixLen == None and wantprefixlen == None:
+        if self.WantPrefixLen is None and wantprefixlen is None:
             wantprefixlen = 0
 
         x = '0x%x' % self.ip
         return x + self._printPrefix(wantprefixlen)
 
-    def strDec(self, wantprefixlen = None):
+    def strDec(self, wantprefixlen=None):
         """Return a string representation in decimal format.
 
         >>> print(IP('127.0.0.1').strDec())
@@ -459,7 +458,7 @@ class IPint(object):
         42540616829182469433547762482097946625
         """
 
-        if self.WantPrefixLen == None and wantprefixlen == None:
+        if self.WantPrefixLen is None and wantprefixlen is None:
             wantprefixlen = 0
 
         x = '%d' % self.ip
@@ -497,7 +496,6 @@ class IPint(object):
                 return iprange[bits[:i]]
         return "unknown"
 
-
     def netmask(self):
         """Return netmask as an integer.
 
@@ -510,7 +508,6 @@ class IPint(object):
         locallen = bits - self._prefixlen
 
         return ((2 ** self._prefixlen) - 1) << locallen
-
 
     def strNetmask(self):
         """Return netmask as an string. Mostly useful for IPv6.
@@ -542,7 +539,6 @@ class IPint(object):
         bits = _ipVersionToLen(self._ipversion)
         locallen = bits - self._prefixlen
         return 2 ** locallen
-
 
     def __nonzero__(self):
         """All IPy objects should evaluate to true in boolean context.
@@ -622,8 +618,6 @@ class IPint(object):
 
         return self.ip + int(key)
 
-
-
     def __contains__(self, item):
         """Called to implement membership test operators.
 
@@ -650,7 +644,6 @@ class IPint(object):
         else:
             return False
 
-
     def overlaps(self, item):
         """Check if two IP address ranges overlap.
 
@@ -676,14 +669,12 @@ class IPint(object):
         else:
             return 0
 
-
     def __str__(self):
         """Dispatch to the prefered String Representation.
 
         Used to implement str(IP)."""
 
         return self.strCompressed()
-
 
     def __repr__(self):
         """Print a representation of the Object.
@@ -823,7 +814,7 @@ class IP(IPint):
             return None
         ipv4 = self.ip & MAX_IPV4_ADDRESS
         if self._prefixlen != 128:
-            ipv4 = '%s/%s' % (ipv4, 32-(128-self._prefixlen))
+            ipv4 = '%s/%s' % (ipv4, 32 - (128 - self._prefixlen))
         return IP(ipv4, ipversion=4)
 
     def reverseNames(self):
@@ -852,17 +843,17 @@ class IP(IPint):
         if self._ipversion == 4:
             ret = []
             # TODO: Refactor. Add support for IPint objects
-            if self.len() < 2**8:
+            if self.len() < 2 ** 8:
                 for x in self:
                     ret.append(x.reverseName())
-            elif self.len() < 2**16:
-                for i in xrange(0, self.len(), 2**8):
+            elif self.len() < 2 ** 16:
+                for i in xrange(0, self.len(), 2 ** 8):
                     ret.append(self[i].reverseName()[2:])
-            elif self.len() < 2**24:
-                for i in xrange(0, self.len(), 2**16):
+            elif self.len() < 2 ** 24:
+                for i in xrange(0, self.len(), 2 ** 16):
                     ret.append(self[i].reverseName()[4:])
             else:
-                for i in xrange(0, self.len(), 2**24):
+                for i in xrange(0, self.len(), 2 ** 24):
                     ret.append(self[i].reverseName()[6:])
             return ret
         elif self._ipversion == 6:
@@ -903,7 +894,8 @@ class IP(IPint):
             s.reverse()
             first_byte_index = int(4 - (self._prefixlen // 8))
             if self._prefixlen % 8 != 0:
-                nibblepart = "%s-%s" % (s[3-(self._prefixlen // 8)], intToIp(self.ip + self.len() - 1, 4).split('.')[-1])
+                nibblepart = "%s-%s" % (
+                s[3 - (self._prefixlen // 8)], intToIp(self.ip + self.len() - 1, 4).split('.')[-1])
                 nibblepart += '.'
             else:
                 nibblepart = ""
@@ -969,7 +961,7 @@ class IP(IPint):
         IP('10.0.0.0/8')
         """
 
-        return("IP('%s')" % (self.strCompressed(1)))
+        return "IP('%s')" % (self.strCompressed(1))
 
     def get_mac(self):
         """
@@ -1005,13 +997,14 @@ class IP(IPint):
         """
         if self._ipversion == 4:
             return IP(str(IPV6_MAP_MASK + self.ip) +
-                          "/%s" % (self._prefixlen + 96))
+                      "/%s" % (self._prefixlen + 96))
         else:
             if self.ip & IPV6_TEST_MAP == IPV6_MAP_MASK:
                 return IP(str(self.ip - IPV6_MAP_MASK) +
                           "/%s" % (self._prefixlen - 96))
         raise ValueError("%s cannot be converted to an IPv4 address."
                          % repr(self))
+
 
 class IPSet(collections.MutableSet):
     def __init__(self, iterable=[]):
@@ -1031,7 +1024,7 @@ class IPSet(collections.MutableSet):
     def __contains__(self, ip):
         valid_masks = self.prefixtable.keys()
         if isinstance(ip, IP):
-            #Don't dig through more-specific ranges
+            # Don't dig through more-specific ranges
             ip_mask = ip._prefixlen
             valid_masks = [x for x in valid_masks if x <= ip_mask]
         for mask in sorted(valid_masks):
@@ -1134,7 +1127,7 @@ class IPSet(collections.MutableSet):
             found = False
             for i in range(len(self.prefixes)):
                 if del_prefix in self.prefixes[i]:
-                    self.prefixes[i:i+1] = self.prefixes[i] - del_prefix
+                    self.prefixes[i:i + 1] = self.prefixes[i] - del_prefix
                     break
 
         self.optimize()
@@ -1165,7 +1158,7 @@ class IPSet(collections.MutableSet):
         while i < addrlen:
             # Everything that might be inside this prefix follows
             # directly behind it
-            j = i+1
+            j = i + 1
             while j < addrlen and self.prefixes[j] in self.prefixes[i]:
                 # Mark for deletion by overwriting with None
                 self.prefixes[j] = None
@@ -1189,7 +1182,7 @@ class IPSet(collections.MutableSet):
             # prefix length and differ only on the last bit of the prefix
             addrlen = len(self.prefixes)
             i = 0
-            while i < addrlen-1:
+            while i < addrlen - 1:
                 j = i + 1
 
                 try:
@@ -1211,6 +1204,7 @@ class IPSet(collections.MutableSet):
                 self.prefixtable[address._prefixlen].append(address)
             except KeyError:
                 self.prefixtable[address._prefixlen] = [address]
+
 
 def _parseAddressIPv6(ipstr):
     """
@@ -1284,10 +1278,10 @@ def _parseAddressIPv6(ipstr):
             raise ValueError("%r: Invalid IPv6 address" % ipstr)
         if pos != -1:
             items.append(text[:pos])
-            if text[pos:pos+2] == "::":
+            if text[pos:pos + 2] == "::":
                 index += pos
             else:
-                index += pos+1
+                index += pos + 1
 
             if index == len(ipstr):
                 # Invalid IPv6, eg. '1::2:'
@@ -1298,7 +1292,7 @@ def _parseAddressIPv6(ipstr):
 
     if items and '.' in items[-1]:
         # IPv6 ending with IPv4 like '::ffff:192.168.0.1'
-        if (fill_pos is not None) and not (fill_pos <= len(items)-1):
+        if (fill_pos is not None) and not (fill_pos <= len(items) - 1):
             # Invalid IPv6: 'ffff:192.168.0.1::'
             raise ValueError("%r: Invalid IPv6 address: '::' after IPv4" % ipstr)
         value = parseAddress(items[-1])[0]
@@ -1310,7 +1304,7 @@ def _parseAddressIPv6(ipstr):
         diff = 8 - len(items)
         if diff <= 0:
             raise ValueError("%r: Invalid IPv6 address: '::' is not needed" % ipstr)
-        items = items[:fill_pos] + ['0']*diff + items[fill_pos:]
+        items = items[:fill_pos] + ['0'] * diff + items[fill_pos:]
 
     # Here we have a list of 8 strings
     if len(items) != 8:
@@ -1323,7 +1317,7 @@ def _parseAddressIPv6(ipstr):
     for item in items:
         try:
             item = int(item, 16)
-            error = not(0 <= item <= 0xffff)
+            error = not (0 <= item <= 0xffff)
         except ValueError:
             error = True
         if error:
@@ -1331,6 +1325,7 @@ def _parseAddressIPv6(ipstr):
         value = (value << 16) + item
         index += 1
     return value
+
 
 def parseAddress(ipstr, ipversion=0):
     """
@@ -1390,16 +1385,16 @@ def parseAddress(ipstr, ipversion=0):
         if hexval > MAX_IPV6_ADDRESS:
             raise ValueError("IP Address can't be larger than %x: %x" % (MAX_IPV6_ADDRESS, hexval))
         if hexval <= MAX_IPV4_ADDRESS:
-            return (hexval, 4)
+            return hexval, 4
         else:
-            return (hexval, 6)
+            return hexval, 6
 
     if ipstr.find(':') != -1:
-        return (_parseAddressIPv6(ipstr), 6)
+        return _parseAddressIPv6(ipstr), 6
 
     elif len(ipstr) == 32 and hexval is not None:
         # assume IPv6 in pure hexadecimal notation
-        return (hexval, 6)
+        return hexval, 6
 
     elif ipstr.find('.') != -1 or (intval is not None and intval < 256 and ipversion != 6):
         # assume IPv4  ('127' gets interpreted as '127.0.0.0')
@@ -1411,7 +1406,7 @@ def parseAddress(ipstr, ipversion=0):
         for x in bytes:
             if x > 255 or x < 0:
                 raise ValueError("%r: single byte must be 0 <= byte < 256" % (ipstr))
-        return ((bytes[0] << 24) + (bytes[1] << 16) + (bytes[2] << 8) + bytes[3], 4)
+        return (bytes[0] << 24) + (bytes[1] << 16) + (bytes[2] << 8) + bytes[3], 4
 
     elif intval is not None:
         # we try to interprete it as a decimal digit -
@@ -1420,9 +1415,9 @@ def parseAddress(ipstr, ipversion=0):
         if intval > MAX_IPV6_ADDRESS:
             raise ValueError("IP Address can't be larger than %x: %x" % (MAX_IPV6_ADDRESS, intval))
         if intval <= MAX_IPV4_ADDRESS and ipversion != 6:
-            return (intval, 4)
+            return intval, 4
         else:
-            return (intval, 6)
+            return intval, 6
 
     raise ValueError("IP Address format was invalid: %s" % ipstr)
 
@@ -1458,6 +1453,7 @@ def intToIp(ip, version):
 
     return ret
 
+
 def _ipVersionToLen(version):
     """Return number of bits in address for a certain IP version.
 
@@ -1492,9 +1488,10 @@ def _countFollowingZeros(l):
 
 
 _BitTable = {'0': '0000', '1': '0001', '2': '0010', '3': '0011',
-            '4': '0100', '5': '0101', '6': '0110', '7': '0111',
-            '8': '1000', '9': '1001', 'a': '1010', 'b': '1011',
-            'c': '1100', 'd': '1101', 'e': '1110', 'f': '1111'}
+             '4': '0100', '5': '0101', '6': '0110', '7': '0111',
+             '8': '1000', '9': '1001', 'a': '1010', 'b': '1011',
+             'c': '1100', 'd': '1101', 'e': '1110', 'f': '1111'}
+
 
 def _intToBin(val):
     """Return the binary representation of an integer as string."""
@@ -1510,6 +1507,7 @@ def _intToBin(val):
         ret = ret[1:]
     return ret
 
+
 def _count1Bits(num):
     """Find the highest bit set to 1 in an integer."""
     ret = 0
@@ -1517,6 +1515,7 @@ def _count1Bits(num):
         num = num >> 1
         ret += 1
     return ret
+
 
 def _count0Bits(num):
     """Find the highest bit set to 0 in an integer."""
@@ -1560,7 +1559,7 @@ def _checkPrefix(ip, prefixlen, version):
         zbits = bits + 1
     else:
         zbits = _count0Bits(ip)
-    if zbits <  bits - prefixlen:
+    if zbits < bits - prefixlen:
         return 0
     else:
         return 1
@@ -1589,7 +1588,7 @@ def _checkNetmask(netmask, masklen):
 def _checkNetaddrWorksWithPrefixlen(net, prefixlen, version):
     """Check if a base addess of a network is compatible with a prefixlen"""
     try:
-        return (net & _prefixlenToNetmask(prefixlen, version) == net)
+        return net & _prefixlenToNetmask(prefixlen, version) == net
     except ValueError:
         return False
 
@@ -1617,7 +1616,7 @@ def _prefixlenToNetmask(prefixlen, version):
         return 0
     elif prefixlen < 0:
         raise ValueError("Prefixlen must be > 0")
-    return ((2<<prefixlen-1)-1) << (_ipVersionToLen(version) - prefixlen)
+    return ((2 << prefixlen - 1) - 1) << (_ipVersionToLen(version) - prefixlen)
 
 
 def _remove_subprefix(prefix, subprefix):
@@ -1642,7 +1641,9 @@ def _remove_subprefix(prefix, subprefix):
 
 if __name__ == "__main__":
     import doctest
+
     failure, nbtest = doctest.testmod()
     if failure:
         import sys
+
         sys.exit(1)
