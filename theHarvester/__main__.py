@@ -545,7 +545,6 @@ def start():
         print('\n[*] Virtual hosts:')
         print('------------------')
         for l in host_ip:
-            from theHarvester.discovery import bingsearch
             basic_search = bingsearch.SearchBing(l, limit, start)
             basic_search.process_vhost()
             results = basic_search.get_allhostnames()
