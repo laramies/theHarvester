@@ -8,9 +8,9 @@ class SearchCrtsh:
         self.word = word
         self.data = set()
 
-    def do_search(self):
+    def do_search(self) -> Set:
         try:
-            data = set()
+            data = set()  # type: Set
             url = f'https://crt.sh/?q=%25.{self.word}&output=json'
             headers = {'User-Agent': Core.get_user_agent()}
             request = requests.get(url, headers=headers, timeout=15)
@@ -21,10 +21,10 @@ class SearchCrtsh:
         except Exception:
             pass
 
-    def process(self):
+    def process(self) -> None:
         print('\tSearching results.')
         data = self.do_search()
         self.data = data
 
-    def get_data(self):
+    def get_data(self) -> Set:
         return self.data

@@ -1,52 +1,53 @@
 # coding=utf-8
 
 import random
+from typing import Set, Union, Any
 import yaml
 
 
 class Core:
     @staticmethod
-    def version():
+    def version() -> str:
         return '3.1.0.dev2'
 
     @staticmethod
-    def bing_key():
+    def bing_key() -> str:
         with open('api-keys.yaml', 'r') as api_keys:
             keys = yaml.safe_load(api_keys)
             return keys['apikeys']['bing']['key']
 
     @staticmethod
-    def github_key():
+    def github_key() -> str:
         with open('api-keys.yaml', 'r') as api_keys:
             keys = yaml.safe_load(api_keys)
             return keys['apikeys']['github']['key']
 
     @staticmethod
-    def hunter_key():
+    def hunter_key() -> str:
         with open('api-keys.yaml', 'r') as api_keys:
             keys = yaml.safe_load(api_keys)
             return keys['apikeys']['hunter']['key']
 
     @staticmethod
-    def intelx_key():
+    def intelx_key() -> str:
         with open('api-keys.yaml', 'r') as api_keys:
             keys = yaml.safe_load(api_keys)
             return keys['apikeys']['intelx']['key']
 
     @staticmethod
-    def security_trails_key():
+    def security_trails_key() -> str:
         with open('api-keys.yaml', 'r') as api_keys:
             keys = yaml.safe_load(api_keys)
             return keys['apikeys']['securityTrails']['key']
 
     @staticmethod
-    def shodan_key():
+    def shodan_key() -> str:
         with open('api-keys.yaml', 'r') as api_keys:
             keys = yaml.safe_load(api_keys)
             return keys['apikeys']['shodan']['key']
 
     @staticmethod
-    def banner():
+    def banner() -> None:
         print('\n\033[93m*******************************************************************')
         print("*  _   _                                            _             *")
         print(r"* | |_| |__   ___    /\  /\__ _ _ ____   _____  ___| |_ ___ _ __  *")
@@ -62,7 +63,7 @@ class Core:
         print('******************************************************************* \n\n \033[0m')
 
     @staticmethod
-    def get_supportedengines():
+    def get_supportedengines() -> Set[Union[str, Any]]:
         supportedengines = {'baidu',
                             'bing',
                             'bingapi',
@@ -90,7 +91,7 @@ class Core:
         return supportedengines
 
     @staticmethod
-    def get_user_agent():
+    def get_user_agent() -> str:
         # User-Agents from https://github.com/tamimibrahim17/List-of-user-agents
         user_agents = [
             'Mozilla/5.0 (Windows NT 6.2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1464.0 Safari/537.36',
