@@ -35,8 +35,8 @@ class DnsForce:
 
     def process(self):
         results = []
-        for x in self.list:
-            host = self.run(x)
+        for entry in self.list:
+            host = self.run(entry)
             if host is not None:
                 # print(' : ' + host.split(':')[1])
                 results.append(host)
