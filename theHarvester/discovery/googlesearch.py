@@ -19,11 +19,9 @@ class SearchGoogle:
         self.counter = start
 
     def do_search(self):
-        try:  # Do normal scraping.
-            urly = 'http://' + self.server + '/search?num=' + self.quantity + '&start=' + str(
-                self.counter) + '&hl=en&meta=&q=%40\"' + self.word + '\"'
-        except Exception as e:
-            print(e)
+        # Do normal scraping.
+        urly = 'http://' + self.server + '/search?num=' + self.quantity + '&start=' + str(
+            self.counter) + '&hl=en&meta=&q=%40\"' + self.word + '\"'
         try:
             headers = {'User-Agent': googleUA}
             r = requests.get(urly, headers=headers)
@@ -31,17 +29,20 @@ class SearchGoogle:
             print(e)
         self.results = r.text
         if search(self.results):
-            time.sleep(getDelay() * 5)  # Sleep for a longer time.
-        else:
-            time.sleep(getDelay())
+            try:
+                if isinstance(search(self.results), bool):
+                    print('Google is blocking your ip and the workaround, returning')
+                    return
+                else:
+                    self.results = google_workaround(urly)
+            except Exception:
+                pass
+        time.sleep(getDelay())
         self.totalresults += self.results
 
     def do_search_profiles(self):
-        try:
-            urly = 'http://' + self.server + '/search?num=' + self.quantity + '&start=' + str(
-                self.counter) + '&hl=en&meta=&q=site:www.google.com%20intitle:\"Google%20Profile\"%20\"Companies%20I%27ve%20worked%20for\"%20\"at%20' + self.word + '\"'
-        except Exception as e:
-            print(e)
+        urly = 'http://' + self.server + '/search?num=' + self.quantity + '&start=' + str(
+            self.counter) + '&hl=en&meta=&q=site:www.google.com%20intitle:\"Google%20Profile\"%20\"Companies%20I%27ve%20worked%20for\"%20\"at%20' + self.word + '\"'
         try:
             headers = {'User-Agent': googleUA}
             r = requests.get(urly, headers=headers)
@@ -49,9 +50,15 @@ class SearchGoogle:
             print(e)
         self.results = r.text
         if search(self.results):
-            time.sleep(getDelay() * 5)  # Sleep for a longer time.
-        else:
-            time.sleep(getDelay())
+            try:
+                if isinstance(search(self.results), bool):
+                    print('Google is blocking your ip and the workaround, returning')
+                    return
+                else:
+                    self.results = google_workaround(urly)
+            except Exception:
+                pass
+        time.sleep(getDelay())
         self.totalresults += self.results
 
     def get_emails(self):
@@ -137,9 +144,15 @@ class SearchGoogle:
                 req = requests.get(link, headers=headers)
                 self.results = req.text
                 if search(self.results):
-                    time.sleep(getDelay() * 5)  # Sleep for a longer time.
-                else:
-                    time.sleep(getDelay())
+                    try:
+                        if isinstance(search(self.results), bool):
+                            print('Google is blocking your ip and the workaround, returning')
+                            return
+                        else:
+                            self.results = google_workaround(link)
+                    except Exception:
+                        pass
+                time.sleep(getDelay())
                 self.totalresults += self.results
             except Exception as e:
                 print(f'\tException Occurred {e}')

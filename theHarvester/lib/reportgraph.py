@@ -6,8 +6,8 @@ import plotly.graph_objs as go
 try:
     db = stash.stash_manager()
     db.do_init()
-except Exception:
-    pass
+except Exception as error:
+    print(f'{error}')
 
     class GraphGenerator:
 
