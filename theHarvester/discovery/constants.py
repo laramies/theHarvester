@@ -104,5 +104,5 @@ class MissingKey(Exception):
         else:
             self.message = '\n\033[93m[!] Missing CSE id. \033[0m'
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.message

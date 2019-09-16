@@ -20,7 +20,7 @@ class SuccessResult(NamedTuple):
 
 class ErrorResult(NamedTuple):
     status_code: int
-    body: any
+    body: Any
 
 
 class SearchGithubCode:

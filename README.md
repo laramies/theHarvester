@@ -65,8 +65,7 @@ Passive:
 Active:
 -------
 * DNS brute force: dictionary brute force enumeration
-* DNS reverse lookup: reverse lookup of IP´s discovered in order to find hostnames
-* DNS TLD expansion: TLD dictionary brute force enumeration
+
 
 Modules that require an API key:
 --------------------------------

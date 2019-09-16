@@ -1,6 +1,6 @@
-from theHarvester.lib.core import *
+from theHarvester.lib.core import Core
 from theHarvester.parsers import myparser
-import grequests
+import requests
 
 
 class SearchVirustotal:
@@ -13,10 +13,9 @@ class SearchVirustotal:
         self.counter = 0
 
     def do_search(self):
-        base_url = f'https://www.virustotal.com/domain/{self.word}/details'
+        base_url = f'https://www.virustotal.com/ui/domains/{self.word}/subdomains?relationships=resolutions&cursor=STMwCi4%3D&limit=40'
         headers = {'User-Agent': Core.get_user_agent()}
-        request = grequests.get(base_url, headers=headers)
-        res = grequests.map(request)
+        res = requests.get(base_url, headers=headers)
         self.results = res.content.decode('UTF-8')
         self.totalresults += self.results
 
@@ -26,3 +25,5 @@ class SearchVirustotal:
 
     def process(self):
         print('\tSearching results.')
+        self.do_search()
+        self.get_hostnames()

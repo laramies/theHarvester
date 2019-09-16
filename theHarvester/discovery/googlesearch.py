@@ -19,11 +19,9 @@ class SearchGoogle:
         self.counter = start
 
     def do_search(self):
-        try:  # Do normal scraping.
-            urly = 'http://' + self.server + '/search?num=' + self.quantity + '&start=' + str(
-                self.counter) + '&hl=en&meta=&q=%40\"' + self.word + '\"'
-        except Exception as e:
-            print(e)
+        # Do normal scraping.
+        urly = 'http://' + self.server + '/search?num=' + self.quantity + '&start=' + str(
+            self.counter) + '&hl=en&meta=&q=%40\"' + self.word + '\"'
         try:
             headers = {'User-Agent': googleUA}
             r = requests.get(urly, headers=headers)
@@ -37,17 +35,14 @@ class SearchGoogle:
                     return
                 else:
                     self.results = google_workaround(urly)
-            except BaseException:
+            except Exception:
                 pass
         time.sleep(getDelay())
         self.totalresults += self.results
 
     def do_search_profiles(self):
-        try:
-            urly = 'http://' + self.server + '/search?num=' + self.quantity + '&start=' + str(
-                self.counter) + '&hl=en&meta=&q=site:www.google.com%20intitle:\"Google%20Profile\"%20\"Companies%20I%27ve%20worked%20for\"%20\"at%20' + self.word + '\"'
-        except Exception as e:
-            print(e)
+        urly = 'http://' + self.server + '/search?num=' + self.quantity + '&start=' + str(
+            self.counter) + '&hl=en&meta=&q=site:www.google.com%20intitle:\"Google%20Profile\"%20\"Companies%20I%27ve%20worked%20for\"%20\"at%20' + self.word + '\"'
         try:
             headers = {'User-Agent': googleUA}
             r = requests.get(urly, headers=headers)
@@ -61,7 +56,7 @@ class SearchGoogle:
                     return
                 else:
                     self.results = google_workaround(urly)
-            except BaseException:
+            except Exception:
                 pass
         time.sleep(getDelay())
         self.totalresults += self.results
@@ -155,7 +150,7 @@ class SearchGoogle:
                             return
                         else:
                             self.results = google_workaround(link)
-                    except BaseException:
+                    except Exception:
                         pass
                 time.sleep(getDelay())
                 self.totalresults += self.results

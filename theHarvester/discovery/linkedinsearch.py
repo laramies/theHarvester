@@ -17,10 +17,7 @@ class SearchLinkedin:
         self.counter = 0
 
     def do_search(self):
-        try:
-            urly = 'http://' + self.server + '/search?num=100&start=' + str(self.counter) + '&hl=en&meta=&q=site%3Alinkedin.com/in%20' + self.word
-        except Exception as e:
-            print(e)
+        urly = 'http://' + self.server + '/search?num=100&start=' + str(self.counter) + '&hl=en&meta=&q=site%3Alinkedin.com/in%20' + self.word
         try:
             headers = {'User-Agent': Core.get_user_agent()}
             r = requests.get(urly, headers=headers)
@@ -32,7 +29,7 @@ class SearchLinkedin:
                         return
                     else:
                         self.results = google_workaround(urly)
-                except BaseException:
+                except Exception:
                     pass
         except Exception as e:
             print(e)

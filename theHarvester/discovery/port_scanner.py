@@ -23,7 +23,6 @@ class PortScan:
                 connect.close()
             except Exception as e:
                 print(e)
-                pass
         self.lock.release()
         return openports
 

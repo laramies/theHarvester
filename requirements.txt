@@ -1,5 +1,6 @@
 beautifulsoup4==4.8.0
 censys==0.0.8
+dnspython==1.16.0
 flake8==3.7.8
 grequests==0.4.0
 mypy==0.720
