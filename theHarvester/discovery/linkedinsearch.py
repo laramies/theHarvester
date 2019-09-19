@@ -24,13 +24,13 @@ class SearchLinkedin:
             self.results = r.text
             if search(self.results):
                 try:
-                    if isinstance(search(self.results), bool):
+                    self.results = google_workaround(urly)
+                    if isinstance(self.results, bool):
                         print('Google is blocking your ip and the workaround, returning')
                         return
-                    else:
-                        self.results = google_workaround(urly)
                 except Exception:
-                    pass
+                    # google blocked, no useful result
+                    return
         except Exception as e:
             print(e)
         time.sleep(getDelay())
