@@ -1,6 +1,6 @@
 dist: bionic
 language: python
-
+cache: pip
 matrix:
     include:
     - python: '3.6'
