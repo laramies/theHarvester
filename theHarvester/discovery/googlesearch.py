@@ -30,13 +30,13 @@ class SearchGoogle:
         self.results = r.text
         if search(self.results):
             try:
-                if isinstance(search(self.results), bool):
+                self.results = google_workaround(urly)
+                if isinstance(self.results, bool):
                     print('Google is blocking your ip and the workaround, returning')
                     return
-                else:
-                    self.results = google_workaround(urly)
             except Exception:
-                pass
+                # google blocked, no useful result
+                return
         time.sleep(getDelay())
         self.totalresults += self.results
 
@@ -51,13 +51,13 @@ class SearchGoogle:
         self.results = r.text
         if search(self.results):
             try:
-                if isinstance(search(self.results), bool):
+                self.results = google_workaround(urly)
+                if isinstance(self.results, bool):
                     print('Google is blocking your ip and the workaround, returning')
                     return
-                else:
-                    self.results = google_workaround(urly)
             except Exception:
-                pass
+                # google blocked, no useful result
+                return
         time.sleep(getDelay())
         self.totalresults += self.results
 
@@ -145,13 +145,13 @@ class SearchGoogle:
                 self.results = req.text
                 if search(self.results):
                     try:
-                        if isinstance(search(self.results), bool):
+                        self.results = google_workaround(link)
+                        if isinstance(self.results, bool):
                             print('Google is blocking your ip and the workaround, returning')
                             return
-                        else:
-                            self.results = google_workaround(link)
                     except Exception:
-                        pass
+                        # google blocked, no useful result
+                        return
                 time.sleep(getDelay())
                 self.totalresults += self.results
             except Exception as e:
