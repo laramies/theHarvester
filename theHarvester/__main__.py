@@ -61,7 +61,7 @@ def start():
     shodan = args.shodan
     start = args.start  # type: int
     takeover_check = False
-    trello_info = ([], False)
+    trello_urls = []
     vhost = []
     virtual = args.virtual_host
     word = args.domain  # type: str
@@ -345,13 +345,12 @@ def start():
                     print('\033[94m[*] Searching Trello. \033[0m')
                     from theHarvester.discovery import trello
                     # Import locally or won't work.
-                    trello_search = trello.SearchTrello(word, limit)
+                    trello_search = trello.SearchTrello(word)
                     trello_search.process()
-                    emails = filter(trello_search.get_emails())
+                    emails, hosts, urls = trello_search.get_results()
                     all_emails.extend(emails)
-                    info = trello_search.get_urls()
-                    hosts = filter(info[0])
-                    trello_info = (info[1], True)
+                    hosts = filter(hosts)
+                    trello_urls = filter(urls)
                     all_hosts.extend(hosts)
                     db = stash.stash_manager()
                     db.store_all(word, hosts, 'host', 'trello')
@@ -448,16 +447,15 @@ def start():
         db = stash.stash_manager()
         db.store_all(word, host_ip, 'ip', 'DNS-resolver')
 
-    if trello_info[1] is True:
-        trello_urls = trello_info[0]
-        if trello_urls is []:
-            print('\n[*] No URLs found.')
-        else:
-            total = len(trello_urls)
-            print('\n[*] URLs found: ' + str(total))
-            print('--------------------')
-            for url in sorted(list(set(trello_urls))):
-                print(url)
+    length_urls = len(trello_urls)
+    if length_urls == 0:
+        print('\n[*] No Trello URLs found.')
+    else:
+        total = length_urls
+        print('\n[*] Trello URLs found: ' + str(total))
+        print('--------------------')
+        for url in sorted(trello_urls):
+            print(url)
 
     # DNS brute force
     # dnsres = []

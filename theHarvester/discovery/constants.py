@@ -62,7 +62,7 @@ def search(text: str) -> bool:
     return False
 
 
-def google_workaround(visit_url: str) -> Union[bool, list]:
+def google_workaround(visit_url: str) -> Union[bool, str]:
     """
     Function that makes a request on our behalf, if Google starts to block us
     :param visit_url: Url to scrape

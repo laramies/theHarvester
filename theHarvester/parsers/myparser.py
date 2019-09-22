@@ -25,7 +25,7 @@ class Parser:
         self.genericClean()
         # Local part is required, charset is flexible.
         # https://tools.ietf.org/html/rfc6531 (removed * and () as they provide FP mostly)
-        reg_emails = re.compile(r'[a-zA-Z0-9.\-_+#~!$&\',;=:]+' + '@' + '[a-zA-Z0-9.-]*' + self.word)
+        reg_emails = re.compile(r'[a-zA-Z0-9.\-_+#~!$&\',;=:]+' + '@' + '[a-zA-Z0-9.-]*' + self.word.replace('www.', ''))
         self.temp = reg_emails.findall(self.results)
         emails = self.unique()
         return emails
@@ -47,6 +47,9 @@ class Parser:
         reg_hosts = re.compile(r'[a-zA-Z0-9.-]*\.' + self.word)
         self.temp = reg_hosts.findall(self.results)
         hostnames = self.unique()
+        reg_hosts = re.compile(r'[a-zA-Z0-9.-]*\.' + self.word.replace('www.', ''))
+        self.temp = reg_hosts.findall(self.results)
+        hostnames.extend(self.unique())
         return hostnames
 
     def people_googleplus(self):
@@ -138,10 +141,8 @@ class Parser:
         return sets
 
     def urls(self):
-        found = re.finditer(r'https://(www\.)?trello.com/([a-zA-Z0-9\-_\.]+/?)*', self.results)
-        for x in found:
-            self.temp.append(x.group())
-        urls = self.unique()
+        found = re.finditer(r'(http|https)://(www\.)?trello.com/([a-zA-Z0-9\-_\.]+/?)*', self.results)
+        urls = {match.group().strip() for match in found}
         return urls
 
     def unique(self):
