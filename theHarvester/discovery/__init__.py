@@ -21,4 +21,4 @@ __all__ = ['baidusearch',
            'twittersearch',
            'virustotal',
            'yahoosearch',
-           'yandexsearch']
+           ]
