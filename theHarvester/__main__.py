@@ -35,7 +35,7 @@ def start():
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, censys, crtsh, dnsdumpster,
                         dogpile, duckduckgo, github-code, google,
                         hunter, intelx,
-                        linkedin, linkedin_links, netcraft, securityTrails, threatcrowd,
+                        linkedin, linkedin_links, netcraft, otx, securityTrails, threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo''')
 
     args = parser.parse_args()
@@ -307,6 +307,19 @@ def start():
                     all_hosts.extend(hosts)
                     db = stash.stash_manager()
                     db.store_all(word, all_hosts, 'host', 'netcraft')
+
+                elif engineitem == 'otx':
+                    print('\033[94m[*] Searching AlienVault OTX. \033[0m')
+                    from theHarvester.discovery import otxsearch
+                    try:
+                        otxsearch_search = otxsearch.SearchOtx(word)
+                        otxsearch_search.process()
+                        hosts = filter(otxsearch_search.get_hostnames())
+                        all_hosts.extend(hosts)
+                        db = stash.stash_manager()
+                        db.store_all(word, all_hosts, 'host', 'otx')
+                    except Exception as e:
+                        print(e)
 
                 elif engineitem == 'securityTrails':
                     print('\033[94m[*] Searching SecurityTrails. \033[0m')

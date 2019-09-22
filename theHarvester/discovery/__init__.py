@@ -12,6 +12,7 @@ __all__ = ['baidusearch',
            'intelxsearch',
            'linkedinsearch',
            'netcraft',
+           'otxsearch',
            'port_scanner',
            'securitytrailssearch',
            'shodansearch',
@@ -21,4 +22,4 @@ __all__ = ['baidusearch',
            'twittersearch',
            'virustotal',
            'yahoosearch',
-           'yandexsearch']
+           ]
