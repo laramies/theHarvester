@@ -20,7 +20,7 @@ class TestOtx(object):
     def test_search(self):
         search = otxsearch.SearchOtx(TestOtx.domain())
         search.process()
-        assert type(search.get_hostnames()) == list
+        assert type(search.get_hostnames()) == set
 
     def test_search_no_results(self):
         search = otxsearch.SearchOtx('radiant.eu')

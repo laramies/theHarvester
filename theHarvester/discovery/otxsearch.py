@@ -1,6 +1,6 @@
 from theHarvester.lib.core import *
-from theHarvester.parsers import myparser
 import grequests
+import json
 
 
 class SearchOtx:
@@ -9,6 +9,8 @@ class SearchOtx:
         self.word = word
         self.results = ''
         self.totalresults = ''
+        self.totalhosts = set()
+        self.totalips = set()
 
     def do_search(self):
         base_url = f'https://otx.alienvault.com/api/v1/indicators/domain/{self.word}/passive_dns'
@@ -20,11 +22,16 @@ class SearchOtx:
         except Exception as e:
             print(e)
         self.totalresults += self.results
+        dct = json.loads(self.totalresults)
+        self.totalhosts = {host['hostname'] for host in dct['passive_dns']}
+        self.totalips = {ip['address'] for ip in dct['passive_dns'] if 'NXDOMAIN' not in ip['address']}
 
-    def get_hostnames(self) -> Set:
-        return myparser.Parser(self.totalresults, self.word).hostnames()
+    def get_hostnames(self) -> set:
+        return self.totalhosts
+
+    def get_ips(self) -> set:
+        return self.totalips
 
     def process(self):
         self.do_search()
-        self.get_hostnames()
         print('\tSearching results.')

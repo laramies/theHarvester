@@ -316,8 +316,11 @@ def start():
                         otxsearch_search.process()
                         hosts = filter(otxsearch_search.get_hostnames())
                         all_hosts.extend(hosts)
+                        ips = filter(otxsearch_search.get_ips())
+                        all_ip.extend(ips)
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'otx')
+                        db.store_all(word, all_ip, 'ip', 'otx')
                     except Exception as e:
                         print(e)
 
