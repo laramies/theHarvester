@@ -39,7 +39,7 @@ class SearchTrello:
                 self.totalresults += self.results
                 time.sleep(getDelay() - .5)
             except Exception as e:
-                pass
+                print(f'An exception has occurred in trello: {e}')
 
     def get_emails(self):
         rawres = myparser.Parser(self.totalresults, self.word)
