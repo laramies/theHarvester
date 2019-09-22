@@ -5,6 +5,7 @@ import requests
 import random
 import time
 
+
 class SearchTrello:
 
     def __init__(self, word):
@@ -36,9 +37,9 @@ class SearchTrello:
                     except Exception as e:
                         print(e)
                 self.totalresults += self.results
-                time.sleep(getDelay()-.5)
+                time.sleep(getDelay() - .5)
             except Exception as e:
-                pass
+                print(f'An exception has occurred in trello: {e}')
 
     def get_emails(self):
         rawres = myparser.Parser(self.totalresults, self.word)
@@ -69,6 +70,3 @@ class SearchTrello:
 
     def get_results(self) -> tuple:
         return self.get_emails(), self.hostnames, self.trello_urls
-
-
-

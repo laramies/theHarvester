@@ -50,7 +50,7 @@ class Parser:
         reg_hosts = re.compile(r'[a-zA-Z0-9.-]*\.' + self.word.replace('www.', ''))
         self.temp = reg_hosts.findall(self.results)
         hostnames.extend(self.unique())
-        return hostnames
+        return list(set(hostnames))
 
     def people_googleplus(self):
         self.results = re.sub('</b>', '', self.results)
@@ -145,7 +145,7 @@ class Parser:
         urls = {match.group().strip() for match in found}
         return urls
 
-    def unique(self):
+    def unique(self) -> list:
         self.new = []
         for x in self.temp:
             if x not in self.new:
