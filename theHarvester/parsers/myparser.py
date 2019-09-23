@@ -28,7 +28,10 @@ class Parser:
         reg_emails = re.compile(r'[a-zA-Z0-9.\-_+#~!$&\',;=:]+' + '@' + '[a-zA-Z0-9.-]*' + self.word.replace('www.', ''))
         self.temp = reg_emails.findall(self.results)
         emails = self.unique()
-        return emails
+        true_emails = {str(email)[1:].lower().strip() if len(str(email)) > 1 and str(email)[0] == '.'
+                       else len(str(email)) > 1 and str(email).lower().strip() for email in emails}
+        # if email starts with dot shift email string and make sure all emails are lowercase
+        return true_emails
 
     def fileurls(self, file):
         urls = []
