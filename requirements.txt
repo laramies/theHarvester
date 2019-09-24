@@ -6,8 +6,8 @@ flake8==3.7.8
 grequests==0.4.0
 mypy==0.720
 plotly==4.1.1
-pytest==5.1.2
+pytest==5.1.3
 PyYaml==5.1.2
 requests==2.22.0
-shodan==1.15.0
+shodan==1.17.0
 texttable==1.6.2
