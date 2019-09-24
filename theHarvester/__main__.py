@@ -598,7 +598,7 @@ def start():
 
     # Here we need to add explosion mode.
     # We have to take out the TLDs to do this.
-    recursion = None
+    recursion = False
     if recursion:
         counter = 0
         for word in vhost:
