@@ -26,63 +26,85 @@ jobs:
     - name: Install dependencies
       run: |
         pip install -r requirements.txt
+
     - name: Run theHarvester module baidu
       run: |
         python theHarvester.py -d metasploit.com -b baidu
+
     - name: Run theHarvester module bing
       run: |
         python theHarvester.py -d metasploit.com -b bing
+
     - name: Run theHarvester module censys
       run: |
         python theHarvester.py -d metasploit.com -b censys
+
     - name: Run theHarvester module crtsh
       run: |
         python theHarvester.py -d metasploit.com -b crtsh
+
     - name: Run theHarvester module dnsdumpster
       run: |
         python theHarvester.py -d metasploit.com -b dnsdumpster
+
     - name: Run theHarvester module dogplie
       run: |
         python theHarvester.py -d metasploit.com -b dogpile
+
     - name: Run theHarvester module duckduckgo
       run: |
         python theHarvester.py -d metasploit.com -b duckduckgo
+
     - name: Run theHarvester module exalead
       run: |
         python theHarvester.py -d metasploit.com -b exalead
+
     - name: Run theHarvester module google
       run: |
         python theHarvester.py -d metasploit.com -b google
+
     - name: Run theHarvester module linkedin
       run: |
         python theHarvester.py -d metasploit.com -b linkedin
+
     - name: Run theHarvester module linkedin_links
       run: |
         python theHarvester.py -d metasploit.com -b linkedin_links
+
     - name: Run theHarvester module netcraft
       run: |
         python theHarvester.py -d metasploit.com -b netcraft
+
+    - name: Run theHarvester module Otx
+      run: |
+        python theHarvester.py -d metasploit.com -b otx
+
     - name: Run theHarvester module threatcrowd
       run: |
         python theHarvester.py -d metasploit.com -b threatcrowd
     - name: Run theHarvester module trello
       run: |
         python theHarvester.py -d metasploit.com -b trello
+
     - name: Run theHarvester module twitter
       run: |
         python theHarvester.py -d metasploit.com -b twitter
+
     - name: Run theHarvester module virustotal
       run: |
         python theHarvester.py -d metasploit.com -b virustotal
+
     - name: Run theHarvester module yahoo
       run: |
         python theHarvester.py -d metasploit.com -b yahoo
+
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
         flake8 . --count --show-source --statistics
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 . --count --exit-zero  --max-line-length=127 --statistics
+
     - name: Test with pytest
       run: |
         pytest
