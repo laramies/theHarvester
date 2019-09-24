@@ -21,7 +21,7 @@ class Checker:
         try:
             result = await resolver.gethostbyname(host, socket.AF_INET)
             return result
-        except Exception as e:
+        except Exception:
             # print(f'An error occurred in query: {e}')
             return f"{host}:"
 
