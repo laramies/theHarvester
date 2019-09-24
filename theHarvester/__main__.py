@@ -262,7 +262,7 @@ def start():
                         if isinstance(e, MissingKey):
                             print(e)
                         else:
-                            print(e)
+                            print(f'An exception has occurred in Intelx search: {e}')
 
                 elif engineitem == 'linkedin':
                     print('\033[94m[*] Searching Linkedin. \033[0m')
@@ -436,20 +436,16 @@ def start():
         full_host = hostchecker.Checker(all_hosts)
         full = full_host.check()
         for host in full:
-            ip = host.split(':')[1]
-            print(host)
-            if ip != 'empty':
-                if host_ip.count(ip.lower()):
-                    pass
-                else:
-                    host_ip.append(ip.lower())
+            host = str(host)
+            print(host.lower())
 
         db = stash.stash_manager()
         db.store_all(word, host_ip, 'ip', 'DNS-resolver')
 
     length_urls = len(trello_urls)
     if length_urls == 0:
-        print('\n[*] No Trello URLs found.')
+        if len(engines) >= 1 and 'trello' in engines:
+            print('\n[*] No Trello URLs found.')
     else:
         total = length_urls
         print('\n[*] Trello URLs found: ' + str(total))
