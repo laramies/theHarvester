@@ -43,6 +43,8 @@ Passive:
 
 * netcraft: Netcraft Data Mining - www.netcraft.com
 
+* otx: AlienVault Open Threat Exchange - https://otx.alienvault.com
+
 * securityTrails: Security Trails search engine, the world's largest repository<br>
   of historical DNS data (Requires API key, see below.) - www.securitytrails.com
 
