@@ -434,10 +434,8 @@ def start():
     else:
         print('\n[*] IPs found: ' + str(len(all_ip)))
         print('-------------------')
-        # ips = sorted(ipaddress.ip_address(line.strip()) for line in set(all_ip))
-        # print('\n'.join(map(str, ips)))
-        ip_list = sorted([netaddr.IPAddress(ip.strip()) for ip in set(all_ip)])
         # use netaddr as the list may contain ipv4 and ipv6 addresses
+        ip_list = sorted([netaddr.IPAddress(ip.strip()) for ip in set(all_ip)])
         print('\n'.join(map(str, ip_list)))
 
     if len(all_emails) == 0:
