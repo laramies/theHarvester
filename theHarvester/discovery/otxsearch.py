@@ -30,7 +30,7 @@ class SearchOtx:
 
     def get_hostnames(self) -> set:
         return self.totalhosts
-
+      
     def get_ips(self) -> set:
         return self.totalips
 

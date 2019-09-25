@@ -315,11 +315,10 @@ def start():
                         otxsearch_search = otxsearch.SearchOtx(word)
                         otxsearch_search.process()
                         hosts = filter(otxsearch_search.get_hostnames())
-                        print('hosts: ', hosts)
                         all_hosts.extend(list(hosts))
                         ips = filter(otxsearch_search.get_ips())
-                        print('ips: ', ips)
                         all_ip.extend(list(ips))
+                        all_hosts.extend(hosts)
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'otx')
                         db.store_all(word, all_ip, 'ip', 'otx')
@@ -603,7 +602,7 @@ def start():
 
     # Here we need to add explosion mode.
     # We have to take out the TLDs to do this.
-    recursion = None
+    recursion = False
     if recursion:
         counter = 0
         for word in vhost:

@@ -1,3 +1,8 @@
 queries:
   - exclude: py/import-and-import-from
   - exclude: py/polluting-import
+
+extraction:
+  python:
+    python_setup:
+      version: 3
