@@ -1,6 +1,6 @@
 from theHarvester.lib.core import *
-import grequests
 import json
+import grequests
 
 
 class SearchOtx:
@@ -21,14 +21,16 @@ class SearchOtx:
             self.results = data[0].content.decode('UTF-8')
         except Exception as e:
             print(e)
+
         self.totalresults += self.results
         dct = json.loads(self.totalresults)
-        self.totalhosts = {host['hostname'] for host in dct['passive_dns']}
-        self.totalips = {ip['address'] for ip in dct['passive_dns'] if 'NXDOMAIN' not in ip['address']}
+        self.totalhosts: set = {host['hostname'] for host in dct['passive_dns']}
+        self.totalips: set = {ip['address'] for ip in dct['passive_dns'] if 'NXDOMAIN' not in ip['address']}
+        # filter out ips that are just called NXDOMAIN
 
     def get_hostnames(self) -> set:
         return self.totalhosts
-
+      
     def get_ips(self) -> set:
         return self.totalips
 
