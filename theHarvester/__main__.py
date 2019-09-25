@@ -9,7 +9,7 @@ from theHarvester.lib import statichtmlgenerator
 from theHarvester.lib.core import *
 import argparse
 import datetime
-import ipaddress
+import netaddr
 import re
 import sys
 import time
@@ -315,9 +315,14 @@ def start():
                         otxsearch_search = otxsearch.SearchOtx(word)
                         otxsearch_search.process()
                         hosts = filter(otxsearch_search.get_hostnames())
-                        all_hosts.extend(hosts)
+                        print('hosts: ', hosts)
+                        all_hosts.extend(list(hosts))
+                        ips = filter(otxsearch_search.get_ips())
+                        print('ips: ', ips)
+                        all_ip.extend(list(ips))
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'otx')
+                        db.store_all(word, all_ip, 'ip', 'otx')
                     except Exception as e:
                         print(e)
 
@@ -430,8 +435,12 @@ def start():
     else:
         print('\n[*] IPs found: ' + str(len(all_ip)))
         print('-------------------')
-        ips = sorted(ipaddress.ip_address(line.strip()) for line in set(all_ip))
-        print('\n'.join(map(str, ips)))
+        #ips = sorted(ipaddress.ip_address(line.strip()) for line in set(all_ip))
+        #print('\n'.join(map(str, ips)))
+        ip_list = [netaddr.IPAddress(ip.strip()) for ip in set(all_ip)]
+        # use netaddr as the list may contain ipv4 and ipv6 addresses
+        ip_list.sort()
+        print('\n'.join(map(str, ip_list)))
 
     if len(all_emails) == 0:
         print('\n[*] No emails found.')
