@@ -80,6 +80,7 @@ class Core:
                             'linkedin',
                             'linkedin_links',
                             'netcraft',
+                            'otx',
                             'securityTrails',
                             'threatcrowd',
                             'trello',

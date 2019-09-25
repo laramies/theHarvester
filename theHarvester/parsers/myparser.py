@@ -25,10 +25,13 @@ class Parser:
         self.genericClean()
         # Local part is required, charset is flexible.
         # https://tools.ietf.org/html/rfc6531 (removed * and () as they provide FP mostly)
-        reg_emails = re.compile(r'[a-zA-Z0-9.\-_+#~!$&\',;=:]+' + '@' + '[a-zA-Z0-9.-]*' + self.word)
+        reg_emails = re.compile(r'[a-zA-Z0-9.\-_+#~!$&\',;=:]+' + '@' + '[a-zA-Z0-9.-]*' + self.word.replace('www.', ''))
         self.temp = reg_emails.findall(self.results)
         emails = self.unique()
-        return emails
+        true_emails = {str(email)[1:].lower().strip() if len(str(email)) > 1 and str(email)[0] == '.'
+                       else len(str(email)) > 1 and str(email).lower().strip() for email in emails}
+        # if email starts with dot shift email string and make sure all emails are lowercase
+        return true_emails
 
     def fileurls(self, file):
         urls = []
@@ -47,7 +50,10 @@ class Parser:
         reg_hosts = re.compile(r'[a-zA-Z0-9.-]*\.' + self.word)
         self.temp = reg_hosts.findall(self.results)
         hostnames = self.unique()
-        return hostnames
+        reg_hosts = re.compile(r'[a-zA-Z0-9.-]*\.' + self.word.replace('www.', ''))
+        self.temp = reg_hosts.findall(self.results)
+        hostnames.extend(self.unique())
+        return list(set(hostnames))
 
     def people_googleplus(self):
         self.results = re.sub('</b>', '', self.results)
@@ -138,13 +144,11 @@ class Parser:
         return sets
 
     def urls(self):
-        found = re.finditer(r'https://(www\.)?trello.com/([a-zA-Z0-9\-_\.]+/?)*', self.results)
-        for x in found:
-            self.temp.append(x.group())
-        urls = self.unique()
+        found = re.finditer(r'(http|https)://(www\.)?trello.com/([a-zA-Z0-9\-_\.]+/?)*', self.results)
+        urls = {match.group().strip() for match in found}
         return urls
 
-    def unique(self):
+    def unique(self) -> list:
         self.new = []
         for x in self.temp:
             if x not in self.new:

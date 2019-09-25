@@ -9,7 +9,7 @@ from theHarvester.lib import statichtmlgenerator
 from theHarvester.lib.core import *
 import argparse
 import datetime
-import ipaddress
+import netaddr
 import re
 import sys
 import time
@@ -35,7 +35,7 @@ def start():
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, censys, crtsh, dnsdumpster,
                         dogpile, duckduckgo, github-code, google,
                         hunter, intelx,
-                        linkedin, linkedin_links, netcraft, securityTrails, threatcrowd,
+                        linkedin, linkedin_links, netcraft, otx, securityTrails, threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo''')
 
     args = parser.parse_args()
@@ -61,14 +61,14 @@ def start():
     shodan = args.shodan
     start = args.start  # type: int
     takeover_check = False
-    trello_info = ([], False)
+    trello_urls = []
     vhost = []
     virtual = args.virtual_host
     word = args.domain  # type: str
 
     if args.source is not None:
-        engines = set(map(str.strip, args.source.split(',')))
-
+        engines = sorted(set(map(str.strip, args.source.split(','))))
+        # Iterate through search engines in order
         if set(engines).issubset(Core.get_supportedengines()):
             print(f'\033[94m[*] Target: {word} \n \033[0m')
 
@@ -262,7 +262,7 @@ def start():
                         if isinstance(e, MissingKey):
                             print(e)
                         else:
-                            print(e)
+                            print(f'An exception has occurred in Intelx search: {e}')
 
                 elif engineitem == 'linkedin':
                     print('\033[94m[*] Searching Linkedin. \033[0m')
@@ -308,6 +308,23 @@ def start():
                     db = stash.stash_manager()
                     db.store_all(word, all_hosts, 'host', 'netcraft')
 
+                elif engineitem == 'otx':
+                    print('\033[94m[*] Searching AlienVault OTX. \033[0m')
+                    from theHarvester.discovery import otxsearch
+                    try:
+                        otxsearch_search = otxsearch.SearchOtx(word)
+                        otxsearch_search.process()
+                        hosts = filter(otxsearch_search.get_hostnames())
+                        all_hosts.extend(list(hosts))
+                        ips = filter(otxsearch_search.get_ips())
+                        all_ip.extend(list(ips))
+                        all_hosts.extend(hosts)
+                        db = stash.stash_manager()
+                        db.store_all(word, all_hosts, 'host', 'otx')
+                        db.store_all(word, all_ip, 'ip', 'otx')
+                    except Exception as e:
+                        print(e)
+
                 elif engineitem == 'securityTrails':
                     print('\033[94m[*] Searching SecurityTrails. \033[0m')
                     from theHarvester.discovery import securitytrailssearch
@@ -345,13 +362,12 @@ def start():
                     print('\033[94m[*] Searching Trello. \033[0m')
                     from theHarvester.discovery import trello
                     # Import locally or won't work.
-                    trello_search = trello.SearchTrello(word, limit)
+                    trello_search = trello.SearchTrello(word)
                     trello_search.process()
-                    emails = filter(trello_search.get_emails())
+                    emails, hosts, urls = trello_search.get_results()
                     all_emails.extend(emails)
-                    info = trello_search.get_urls()
-                    hosts = filter(info[0])
-                    trello_info = (info[1], True)
+                    hosts = filter(hosts)
+                    trello_urls = filter(urls)
                     all_hosts.extend(hosts)
                     db = stash.stash_manager()
                     db.store_all(word, hosts, 'host', 'trello')
@@ -418,8 +434,9 @@ def start():
     else:
         print('\n[*] IPs found: ' + str(len(all_ip)))
         print('-------------------')
-        ips = sorted(ipaddress.ip_address(line.strip()) for line in set(all_ip))
-        print('\n'.join(map(str, ips)))
+        # use netaddr as the list may contain ipv4 and ipv6 addresses
+        ip_list = sorted([netaddr.IPAddress(ip.strip()) for ip in set(all_ip)])
+        print('\n'.join(map(str, ip_list)))
 
     if len(all_emails) == 0:
         print('\n[*] No emails found.')
@@ -437,27 +454,22 @@ def start():
         full_host = hostchecker.Checker(all_hosts)
         full = full_host.check()
         for host in full:
-            ip = host.split(':')[1]
-            print(host)
-            if ip != 'empty':
-                if host_ip.count(ip.lower()):
-                    pass
-                else:
-                    host_ip.append(ip.lower())
+            host = str(host)
+            print(host.lower())
 
         db = stash.stash_manager()
         db.store_all(word, host_ip, 'ip', 'DNS-resolver')
 
-    if trello_info[1] is True:
-        trello_urls = trello_info[0]
-        if trello_urls is []:
-            print('\n[*] No URLs found.')
-        else:
-            total = len(trello_urls)
-            print('\n[*] URLs found: ' + str(total))
-            print('--------------------')
-            for url in sorted(list(set(trello_urls))):
-                print(url)
+    length_urls = len(trello_urls)
+    if length_urls == 0:
+        if len(engines) >= 1 and 'trello' in engines:
+            print('\n[*] No Trello URLs found.')
+    else:
+        total = length_urls
+        print('\n[*] Trello URLs found: ' + str(total))
+        print('--------------------')
+        for url in sorted(trello_urls):
+            print(url)
 
     # DNS brute force
     # dnsres = []
@@ -588,7 +600,7 @@ def start():
 
     # Here we need to add explosion mode.
     # We have to take out the TLDs to do this.
-    recursion = None
+    recursion = False
     if recursion:
         counter = 0
         for word in vhost:

@@ -1,15 +1,20 @@
 dist: bionic
 language: python
-python:
-- '3.6'
-- '3.7'
-- '3.8-dev'
+cache: pip
+matrix:
+    include:
+    - python: '3.6'
+      env: TEST_SUITE=suite_3_6
+    - python: '3.7'
+      env: TEST_SUITE=suite_3_7
+    - python: '3.8-dev'
+      env: TEST_SUITE=suite_3_8_dev
 before_install:
   - pip install -r requirements.txt
 install:
 - python setup.py test
 script:
-- python theHarvester.py -d metasploit.com -b baidu,bing,censys,crtsh,dnsdumpster,dogpile,duckduckgo,exalead,linkedin,netcraft,threatcrowd,trello,twitter,virustotal,yahoo
+- python theHarvester.py -d metasploit.com -b baidu,bing,censys,crtsh,dnsdumpster,dogpile,duckduckgo,exalead,linkedin,netcraft,otx,intelx,threatcrowd,trello,twitter,virustotal,yahoo -l 200
 - pytest
 - flake8 . --count --show-source --statistics
 #- mypy *.py
