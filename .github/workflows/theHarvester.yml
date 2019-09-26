@@ -112,6 +112,6 @@ jobs:
     - name: Test with pytest
       run: |
         pytest
-#    - name: Check static type checking with mypy
+#    - name: Static type checking with mypy
 #      run: |
-#        mypy *.py
+#        mypy --pretty *.py
