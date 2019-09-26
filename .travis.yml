@@ -14,7 +14,7 @@ before_install:
 install:
 - python setup.py test
 script:
-- python theHarvester.py -d metasploit.com -b baidu,bing,censys,crtsh,dnsdumpster,dogpile,duckduckgo,exalead,linkedin,netcraft,otx,intelx,threatcrowd,trello,twitter,virustotal,yahoo -l 200
+- python theHarvester.py -d metasploit.com -b baidu,bing,crtsh,dnsdumpster,dogpile,duckduckgo,exalead,linkedin,netcraft,otx,intelx,threatcrowd,trello,twitter,virustotal,yahoo -l 200
 - pytest
 - flake8 . --count --show-source --statistics
 #- mypy --pretty *.py

@@ -19,8 +19,6 @@ Passive:
 
 * bingapi: Microsoft search engine, through the API (Requires API key, see below.)
 
-* censys: Censys.io search engine - www.censys.io
-
 * crtsh: Comodo Certificate search - www.crt.sh
 
 * dnsdumpster: DNSdumpster search engine - dnsdumpster.com

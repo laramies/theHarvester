@@ -67,7 +67,6 @@ class Core:
         supportedengines = {'baidu',
                             'bing',
                             'bingapi',
-                            'censys',
                             'crtsh',
                             'dnsdumpster',
                             'dogpile',

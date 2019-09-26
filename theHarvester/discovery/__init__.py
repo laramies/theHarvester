@@ -1,6 +1,5 @@
 __all__ = ['baidusearch',
            'bingsearch',
-           'censys',
            'crtsh',
            'dnssearch',
            'dogpilesearch',
