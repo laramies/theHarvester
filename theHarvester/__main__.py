@@ -52,6 +52,7 @@ def start():
     dnslookup = args.dns_lookup
     dnsserver = args.dns_server
     dnstld = args.dns_tld
+    engines = []
     filename = args.filename  # type: str
     full = []
     google_dorking = args.google_dork
