@@ -21,7 +21,7 @@ class SearchSpyse:
             request = requests.get(base_url, headers=headers)
             self.results = request.json()
             pprint(self.results)
-            #self.totalresults += self.results
+            # self.totalresults += self.results
 
         except Exception as e:
             print(f'An exception has occurred: {e}')
