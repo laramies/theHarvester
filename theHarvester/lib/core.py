@@ -47,6 +47,12 @@ class Core:
             return keys['apikeys']['shodan']['key']
 
     @staticmethod
+    def spyse_key() -> str:
+        with open('api-keys.yaml', 'r') as api_keys:
+            keys = yaml.safe_load(api_keys)
+            return keys['apikeys']['spyse']['key']
+
+    @staticmethod
     def banner() -> None:
         print('\n\033[93m*******************************************************************')
         print("*  _   _                                            _             *")
@@ -81,6 +87,7 @@ class Core:
                             'netcraft',
                             'otx',
                             'securityTrails',
+                            'spyse',
                             'threatcrowd',
                             'trello',
                             'twitter',

@@ -20,12 +20,10 @@ class SearchDuckDuckGo:
         self.limit = limit
 
     def do_search(self):
-        try:  # Do normal scraping.
-            url = self.api.replace('x', self.word)
-            headers = {'User-Agent': googleUA}
-            r = requests.get(url, headers=headers)
-        except Exception as e:
-            print(e)
+        # Do normal scraping.
+        url = self.api.replace('x', self.word)
+        headers = {'User-Agent': googleUA}
+        r = requests.get(url, headers=headers)
         time.sleep(getDelay())
         self.results = r.text
         self.totalresults += self.results
@@ -46,8 +44,8 @@ class SearchDuckDuckGo:
         urls = set()
         try:
             load = json.loads(text)
-            for key in load.keys():  # Iterate through keys of dict.
-                val = load.get(key)
+            for keys in load.keys():  # Iterate through keys of dict.
+                val = load.get(keys)
                 if isinstance(val, int) or isinstance(val, dict) or val is None:
                     continue
                 if isinstance(val, list):
