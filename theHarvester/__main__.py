@@ -346,6 +346,19 @@ def start():
                         else:
                             pass
 
+                elif engineitem == 'suip':
+                    print('\033[94m[*] Searching suip. \033[0m')
+                    from theHarvester.discovery import suip
+                    try:
+                        suip_search = suip.SearchSuip(word)
+                        suip_search.process()
+                        hosts = filter(suip_search.get_hostnames())
+                        all_hosts.extend(hosts)
+                        db = stash.stash_manager()
+                        db.store_all(word, all_hosts, 'host', 'suip')
+                    except Exception as e:
+                        print(e)
+
                 elif engineitem == 'threatcrowd':
                     print('\033[94m[*] Searching Threatcrowd. \033[0m')
                     from theHarvester.discovery import threatcrowd
@@ -451,15 +464,16 @@ def start():
     if len(all_hosts) == 0:
         print('\n[*] No hosts found.\n\n')
     else:
+        import asyncio
         print('\n[*] Hosts found: ' + str(len(all_hosts)))
         print('---------------------')
         all_hosts = sorted(list(set(all_hosts)))
         full_host = hostchecker.Checker(all_hosts)
-        full = full_host.check()
+        full = asyncio.run(full_host.check())
+        #full = full_host.check()
         for host in full:
             host = str(host)
             print(host.lower())
-
         db = stash.stash_manager()
         db.store_all(word, host_ip, 'ip', 'DNS-resolver')
 

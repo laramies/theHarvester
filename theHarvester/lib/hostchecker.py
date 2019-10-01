@@ -25,6 +25,26 @@ class Checker:
             # print(f'An error occurred in query: {e}')
             return f"{host}:"
 
+    async def query_all(self, resolver) -> list:
+        results = await asyncio.gather(*[asyncio.create_task(self.query(host, resolver))
+                                         for host in self.hosts])
+        return results
+
+    async def check(self):
+        import pprint as p
+        p.pprint(self.hosts, indent=4)
+
+        loop = asyncio.get_event_loop()
+        resolver = aiodns.DNSResolver(loop=loop)
+        results = await self.query_all(resolver)
+        print('results: ', results)
+        import pprint as p
+        p.pprint(results, indent=4)
+
+        #loop.close()
+        return self.realhosts
+
+    """
     def check(self):
         loop = asyncio.get_event_loop()
         resolver = aiodns.DNSResolver(loop=loop)
@@ -42,3 +62,4 @@ class Checker:
             self.realhosts.append(true_result)
         loop.close()
         return self.realhosts
+    """
