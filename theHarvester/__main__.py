@@ -470,7 +470,7 @@ def start():
         all_hosts = sorted(list(set(all_hosts)))
         full_host = hostchecker.Checker(all_hosts)
         full = asyncio.run(full_host.check())
-        #full = full_host.check()
+        # full = full_host.check()
         for host in full:
             host = str(host)
             print(host.lower())

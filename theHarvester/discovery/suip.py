@@ -2,6 +2,7 @@ from theHarvester.lib.core import *
 import grequests
 from bs4 import BeautifulSoup
 
+
 class SearchSuip:
 
     def __init__(self, word: str):
@@ -24,12 +25,12 @@ class SearchSuip:
 
         headers: dict = {'User-Agent': Core.get_user_agent()}
         try:
-            #request = grequests.post(base_url, headers=headers, params=params, data=data)
-            #data = grequests.map([request])
-            #self.results = data[0].content.decode('UTF-8')
-            #soup = BeautifulSoup(self.results, 'html.parser')
-            #hosts: list = str(soup.find('pre')).splitlines()
-            #self.clean_hosts(hosts)
+            # request = grequests.post(base_url, headers=headers, params=params, data=data)
+            # data = grequests.map([request])
+            # self.results = data[0].content.decode('UTF-8')
+            # soup = BeautifulSoup(self.results, 'html.parser')
+            # hosts: list = str(soup.find('pre')).splitlines()
+            # self.clean_hosts(hosts)
             pass
         except Exception as e:
             print(f'An exception has occurred: {e}')
@@ -62,5 +63,3 @@ class SearchSuip:
                     self.totalhosts.add(host[1:])
                 else:
                     self.totalhosts.add(host)
-
-
