@@ -345,7 +345,6 @@ def start():
                         db.store_all(word, all_hosts, 'host', 'suip')
                     except Exception as e:
                         print(e)
-                        
                 elif engineitem == 'spyse':
                     print('\033[94m[*] Searching Spyse. \033[0m')
                     from theHarvester.discovery import spyse
@@ -360,7 +359,6 @@ def start():
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'spyse')
                         # db.store_all(word, all_ip, 'ip', 'spyse')
-
                     except Exception as e:
                         print(e)
 
