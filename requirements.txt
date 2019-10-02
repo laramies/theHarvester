@@ -11,3 +11,4 @@ PyYaml==5.1.2
 requests==2.22.0
 shodan==1.19.0
 texttable==1.6.2
+retrying==1.3.3
