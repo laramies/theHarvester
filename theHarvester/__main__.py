@@ -52,6 +52,7 @@ def start():
     dnslookup = args.dns_lookup
     dnsserver = args.dns_server
     dnstld = args.dns_tld
+    engines = []
     filename = args.filename  # type: str
     full = []
     google_dorking = args.google_dork
@@ -315,11 +316,10 @@ def start():
                         otxsearch_search = otxsearch.SearchOtx(word)
                         otxsearch_search.process()
                         hosts = filter(otxsearch_search.get_hostnames())
-                        print('hosts: ', hosts)
                         all_hosts.extend(list(hosts))
                         ips = filter(otxsearch_search.get_ips())
-                        print('ips: ', ips)
                         all_ip.extend(list(ips))
+                        all_hosts.extend(hosts)
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'otx')
                         db.store_all(word, all_ip, 'ip', 'otx')
@@ -448,10 +448,8 @@ def start():
     else:
         print('\n[*] IPs found: ' + str(len(all_ip)))
         print('-------------------')
-        # ips = sorted(ipaddress.ip_address(line.strip()) for line in set(all_ip))
-        # print('\n'.join(map(str, ips)))
-        ip_list = sorted([netaddr.IPAddress(ip.strip()) for ip in set(all_ip)])
         # use netaddr as the list may contain ipv4 and ipv6 addresses
+        ip_list = sorted([netaddr.IPAddress(ip.strip()) for ip in set(all_ip)])
         print('\n'.join(map(str, ip_list)))
 
     if len(all_emails) == 0:
@@ -617,7 +615,7 @@ def start():
 
     # Here we need to add explosion mode.
     # We have to take out the TLDs to do this.
-    recursion = None
+    recursion = False
     if recursion:
         counter = 0
         for word in vhost:

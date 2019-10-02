@@ -25,8 +25,8 @@ class SearchOtx:
         self.totalresults += self.results
         dct = json.loads(self.totalresults)
         self.totalhosts: set = {host['hostname'] for host in dct['passive_dns']}
-        self.totalips: set = {ip['address'] for ip in dct['passive_dns'] if 'NXDOMAIN' not in ip['address']}
         # filter out ips that are just called NXDOMAIN
+        self.totalips: set = {ip['address'] for ip in dct['passive_dns'] if 'NXDOMAIN' not in ip['address']}
 
     def get_hostnames(self) -> set:
         return self.totalhosts
