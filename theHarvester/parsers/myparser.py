@@ -13,13 +13,13 @@ class Parser:
             .replace('%2f', '').replace('%3a', '').replace('<strong>', '').replace('</strong>', '')\
             .replace('<wbr>', '').replace('</wbr>', '')
 
-        for e in ('<', '>', ':', '=', ';', '&', '%3A', '%3D', '%3C', '/', '\\'):
-            self.results = self.results.replace(e, ' ')
+        for symbol in ('<', '>', ':', '=', ';', '&', '%3A', '%3D', '%3C', '/', '\\'):
+            self.results = self.results.replace(symbol, ' ')
 
     def urlClean(self):
         self.results = self.results.replace('<em>', '').replace('</em>', '').replace('%2f', '').replace('%3a', '')
-        for e in ('<', '>', ':', '=', ';', '&', '%3A', '%3D', '%3C'):
-            self.results = self.results.replace(e, ' ')
+        for symbol in ('<', '>', ':', '=', ';', '&', '%3A', '%3D', '%3C'):
+            self.results = self.results.replace(symbol, ' ')
 
     def emails(self):
         self.genericClean()
@@ -38,11 +38,11 @@ class Parser:
         reg_urls = re.compile('<a href="(.*?)"')
         self.temp = reg_urls.findall(self.results)
         allurls = self.unique()
-        for x in allurls:
-            if x.count('webcache') or x.count('google.com') or x.count('search?hl'):
+        for url in allurls:
+            if url.count('webcache') or url.count('google.com') or url.count('search?hl'):
                 pass
             else:
-                urls.append(x)
+                urls.append(url)
         return urls
 
     def hostnames(self):
@@ -61,24 +61,24 @@ class Parser:
         reg_people = re.compile(r'>[a-zA-Z0-9._ ]* - Google\+')
         self.temp = reg_people.findall(self.results)
         resul = []
-        for x in self.temp:
-            y = x.replace(' | LinkedIn', '')
-            y = y.replace(' profiles ', '')
-            y = y.replace('LinkedIn', '')
-            y = y.replace('"', '')
-            y = y.replace('>', '')
-            if y != " ":
-                resul.append(y)
+        for temp_str in self.temp:
+            resul_str = temp_str.replace(' | LinkedIn', '')
+            resul_str = resul_str.replace(' profiles ', '')
+            resul_str = resul_str.replace('LinkedIn', '')
+            resul_str = resul_str.replace('"', '')
+            resul_str = resul_str.replace('>', '')
+            if resul_str != " ":
+                resul.append(resul_str)
         return resul
 
     def hostnames_all(self):
         reg_hosts = re.compile('<cite>(.*?)</cite>')
         temp = reg_hosts.findall(self.results)
-        for x in temp:
-            if x.count(':'):
-                res = x.split(':')[1].split('/')[2]
+        for host in temp:
+            if host.count(':'):
+                res = host.split(':')[1].split('/')[2]
             else:
-                res = x.split('/')[0]
+                res = host.split('/')[0]
             self.temp.append(res)
         hostnames = self.unique()
         return hostnames
@@ -96,14 +96,14 @@ class Parser:
         reg_people = re.compile(r'">[a-zA-Z0-9._ -]* \| LinkedIn')
         self.temp = reg_people.findall(self.results)
         resul = []
-        for x in (self.temp):
-            y = x.replace(' | LinkedIn', '')
-            y = y.replace(' profiles ', '')
-            y = y.replace('LinkedIn', '')
-            y = y.replace('"', '')
-            y = y.replace('>', '')
-            if y != " ":
-                resul.append(y)
+        for temp_str in (self.temp):
+            resul_str = temp_str.replace(' | LinkedIn', '')
+            resul_str = resul_str.replace(' profiles ', '')
+            resul_str = resul_str.replace('LinkedIn', '')
+            resul_str = resul_str.replace('"', '')
+            resul_str = resul_str.replace('>', '')
+            if resul_str != " ":
+                resul.append(resul_str)
         return resul
 
     def people_twitter(self):
@@ -111,36 +111,36 @@ class Parser:
         self.temp = reg_people.findall(self.results)
         users = self.unique()
         resul = []
-        for x in users:
-            y = x.replace(' | LinkedIn', '')
-            y = y.replace(' profiles ', '')
-            y = y.replace('LinkedIn', '')
-            y = y.replace('"', '')
-            y = y.replace('>', '')
+        for temp_str in users:
+            resul_str = temp_str.replace(' | LinkedIn', '')
+            resul_str = resul_str.replace(' profiles ', '')
+            resul_str = resul_str.replace('LinkedIn', '')
+            resul_str = resul_str.replace('"', '')
+            resul_str = resul_str.replace('>', '')
             if y != " ":
-                resul.append(y)
+                resul.append(resul_str)
         return resul
 
     def profiles(self):
         reg_people = re.compile(r'">[a-zA-Z0-9._ -]* - <em>Google Profile</em>')
         self.temp = reg_people.findall(self.results)
         resul = []
-        for x in self.temp:
-            y = x.replace(' <em>Google Profile</em>', '')
-            y = y.replace('-', '')
-            y = y.replace('">', '')
-            if y != " ":
-                resul.append(y)
+        for temp_str in self.temp:
+            resul_str = temp_str.replace(' <em>Google Profile</em>', '')
+            resul_str = resul_str.replace('-', '')
+            resul_str = resul_str.replace('">', '')
+            if resul_str != " ":
+                resul.append(resul_str)
         return resul
 
     def set(self):
         reg_sets = re.compile(r'>[a-zA-Z0-9]*</a></font>')
         self.temp = reg_sets.findall(self.results)
         sets = []
-        for x in self.temp:
-            y = x.replace('>', '')
-            y = y.replace('</a</font', '')
-            sets.append(y)
+        for temp_str in self.temp:
+            resul_str = temp_str.replace('>', '')
+            resul_str = resul_str.replace('</a</font', '')
+            sets.append(resul_str)
         return sets
 
     def urls(self):
@@ -150,7 +150,7 @@ class Parser:
 
     def unique(self) -> list:
         self.new = []
-        for x in self.temp:
-            if x not in self.new:
-                self.new.append(x)
+        for temp in self.temp:
+            if temp not in self.new:
+                self.new.append(temp)
         return self.new
