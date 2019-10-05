@@ -13,13 +13,13 @@ class Parser:
             .replace('%2f', '').replace('%3a', '').replace('<strong>', '').replace('</strong>', '')\
             .replace('<wbr>', '').replace('</wbr>', '')
 
-        for e in ('<', '>', ':', '=', ';', '&', '%3A', '%3D', '%3C', '/', '\\'):
-            self.results = self.results.replace(e, ' ')
+        for search in ('<', '>', ':', '=', ';', '&', '%3A', '%3D', '%3C', '/', '\\'):
+            self.results = self.results.replace(search, ' ')
 
     def urlClean(self):
         self.results = self.results.replace('<em>', '').replace('</em>', '').replace('%2f', '').replace('%3a', '')
-        for e in ('<', '>', ':', '=', ';', '&', '%3A', '%3D', '%3C'):
-            self.results = self.results.replace(e, ' ')
+        for search in ('<', '>', ':', '=', ';', '&', '%3A', '%3D', '%3C'):
+            self.results = self.results.replace(search, ' ')
 
     def emails(self):
         self.genericClean()
@@ -38,11 +38,11 @@ class Parser:
         reg_urls = re.compile('<a href="(.*?)"')
         self.temp = reg_urls.findall(self.results)
         allurls = self.unique()
-        for x in allurls:
-            if x.count('webcache') or x.count('google.com') or x.count('search?hl'):
+        for iteration in allurls:
+            if iteration.count('webcache') or iteration.count('google.com') or iteration.count('search?hl'):
                 pass
             else:
-                urls.append(x)
+                urls.append(iteration)
         return urls
 
     def hostnames(self):
@@ -61,24 +61,24 @@ class Parser:
         reg_people = re.compile(r'>[a-zA-Z0-9._ ]* - Google\+')
         self.temp = reg_people.findall(self.results)
         resul = []
-        for x in self.temp:
-            y = x.replace(' | LinkedIn', '')
-            y = y.replace(' profiles ', '')
-            y = y.replace('LinkedIn', '')
-            y = y.replace('"', '')
-            y = y.replace('>', '')
-            if y != " ":
-                resul.append(y)
+        for iteration in self.temp:
+            delete = iteration.replace(' | LinkedIn', '')
+            delete = delete.replace(' profiles ', '')
+            delete = delete.replace('LinkedIn', '')
+            delete = delete.replace('"', '')
+            delete = delete.replace('>', '')
+            if delete != " ":
+                resul.append(delete)
         return resul
 
     def hostnames_all(self):
         reg_hosts = re.compile('<cite>(.*?)</cite>')
         temp = reg_hosts.findall(self.results)
-        for x in temp:
-            if x.count(':'):
-                res = x.split(':')[1].split('/')[2]
+        for iteration in temp:
+            if iteration.count(':'):
+                res = iteration.split(':')[1].split('/')[2]
             else:
-                res = x.split('/')[0]
+                res = iteration.split('/')[0]
             self.temp.append(res)
         hostnames = self.unique()
         return hostnames
@@ -96,14 +96,14 @@ class Parser:
         reg_people = re.compile(r'">[a-zA-Z0-9._ -]* \| LinkedIn')
         self.temp = reg_people.findall(self.results)
         resul = []
-        for x in (self.temp):
-            y = x.replace(' | LinkedIn', '')
-            y = y.replace(' profiles ', '')
-            y = y.replace('LinkedIn', '')
-            y = y.replace('"', '')
-            y = y.replace('>', '')
-            if y != " ":
-                resul.append(y)
+        for iteration in (self.temp):
+            delete = iteration.replace(' | LinkedIn', '')
+            delete = delete.replace(' profiles ', '')
+            delete = delete.replace('LinkedIn', '')
+            delete = delete.replace('"', '')
+            delete = delete.replace('>', '')
+            if delete != " ":
+                resul.append(delete)
         return resul
 
     def people_twitter(self):
@@ -111,36 +111,36 @@ class Parser:
         self.temp = reg_people.findall(self.results)
         users = self.unique()
         resul = []
-        for x in users:
-            y = x.replace(' | LinkedIn', '')
-            y = y.replace(' profiles ', '')
-            y = y.replace('LinkedIn', '')
-            y = y.replace('"', '')
-            y = y.replace('>', '')
-            if y != " ":
-                resul.append(y)
+        for iteration in users:
+            delete = iteration.replace(' | LinkedIn', '')
+            delete = delete.replace(' profiles ', '')
+            delete = delete.replace('LinkedIn', '')
+            delete = delete.replace('"', '')
+            delete = delete.replace('>', '')
+            if delete != " ":
+                resul.append(delete)
         return resul
 
     def profiles(self):
         reg_people = re.compile(r'">[a-zA-Z0-9._ -]* - <em>Google Profile</em>')
         self.temp = reg_people.findall(self.results)
         resul = []
-        for x in self.temp:
-            y = x.replace(' <em>Google Profile</em>', '')
-            y = y.replace('-', '')
-            y = y.replace('">', '')
-            if y != " ":
-                resul.append(y)
+        for iteration in self.temp:
+            delete = iteration.replace(' <em>Google Profile</em>', '')
+            delete = delete.replace('-', '')
+            delete = delete.replace('">', '')
+            if delete != " ":
+                resul.append(delete)
         return resul
 
     def set(self):
         reg_sets = re.compile(r'>[a-zA-Z0-9]*</a></font>')
         self.temp = reg_sets.findall(self.results)
         sets = []
-        for x in self.temp:
-            y = x.replace('>', '')
-            y = y.replace('</a</font', '')
-            sets.append(y)
+        for iteration in self.temp:
+            delete = iteration.replace('>', '')
+            delete = delete.replace('</a</font', '')
+            sets.append(delete)
         return sets
 
     def urls(self):
@@ -150,7 +150,7 @@ class Parser:
 
     def unique(self) -> list:
         self.new = []
-        for x in self.temp:
-            if x not in self.new:
-                self.new.append(x)
+        for iteration in self.temp:
+            if iteration not in self.new:
+                self.new.append(iteration)
         return self.new
