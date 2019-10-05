@@ -16,6 +16,9 @@ class Parser:
         self.domain = resultstoparse.word
 
     def search_hostnamesfromcerts(self):
+        """
+        Searches host names from certificate
+        """
         try:
             hostnamelist = self.soupcerts.findAll('i', 'fa fa-fw fa-home')
             for hostnameitem in hostnamelist:
@@ -32,6 +35,9 @@ class Parser:
             print('Error occurred in the Censys module: certificate hostname parser: ' + str(e))
 
     def search_ipaddresses(self):
+        """
+        Searches a list of IP addresses
+        """
         try:
             ipaddresslist = self.souphosts.findAll('a', 'SearchResult__title-text')
             for ipaddressitem in ipaddresslist:
@@ -41,6 +47,9 @@ class Parser:
             print('Error occurred in the Censys module: IP address parser: ' + str(e))
 
     def search_totalpageshosts(self):
+        """
+        Searches a list of Page hosts.
+        """
         try:
             items = self.souphosts.findAll('span', 'SearchResultSectionHeader__statistic')
             if items == [] or items is None:
@@ -54,6 +63,9 @@ class Parser:
             print('Error occurred in the Censys module IP search: page parser: ' + str(e))
 
     def search_totalpagescerts(self):
+        """
+        Searches a list fo total page certificates.
+        """
         try:
             items = self.soupcerts.findAll('span', 'SearchResultSectionHeader__statistic')
             if items == [] or items is None:
