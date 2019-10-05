@@ -47,13 +47,6 @@
             "index": "pypi",
             "version": "==4.8.0"
         },
-        "censys": {
-            "hashes": [
-                "sha256:7e5f623fbdc2ce1dcf3ef531e63ba486f7e255f20c4d4006b4f70b6d59a78534"
-            ],
-            "index": "pypi",
-            "version": "==0.0.8"
-        },
         "certifi": {
             "hashes": [
                 "sha256:e4f3620cfea4f83eedc95b24abd9cd56f3c4b146dd0177e83a21b4eb49e21e50",
