@@ -7,7 +7,7 @@ from shodan import Shodan
 class SearchShodan:
 
     def __init__(self):
-        self.key = Core.shodan_key()
+        self.key = Core.get_key('shodan')
         if self.key is None:
             raise MissingKey(True)
         self.api = Shodan(self.key)

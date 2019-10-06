@@ -106,7 +106,7 @@ class SearchCensys:
 
     def get_hostnames(self):
         try:
-            ips = self.get_ipaddresses()
+            ips = self.get_ips()
             headers = {'user-agent': Core.get_user_agent(), 'Accept': '*/*', 'Referer': self.urlcert}
             response = requests.post('https://censys.io/ipv4/getdns', json={'ips': ips}, headers=headers)
             responsejson = response.json()
@@ -124,7 +124,7 @@ class SearchCensys:
         except Exception as e:
             print(f'Error occurred in the Censys module - hostname search: {e}')
 
-    def get_ipaddresses(self):
+    def get_ips(self):
         try:
             ips = censysparser.Parser(self)
             self.ips = ips.search_ipaddresses()

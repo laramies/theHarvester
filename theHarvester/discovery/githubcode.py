@@ -33,7 +33,7 @@ class SearchGithubCode:
         self.limit = limit
         self.counter = 0
         self.page = 1
-        self.key = Core.github_key()
+        self.key = Core.get_key('github')
         # If you don't have a personal access token, github narrows your search capabilities significantly
         # rate limits you more severely
         # https://developer.github.com/v3/search/#rate-limit

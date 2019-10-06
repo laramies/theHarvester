@@ -10,7 +10,7 @@ class SearchIntelx:
     def __init__(self, word, limit):
         self.word = word
         # default key is public key
-        self.key = Core.intelx_key()
+        self.key = Core.get_key('intelx')
         if self.key is None:
             raise MissingKey(True)
         self.database = 'https://public.intelx.io/'

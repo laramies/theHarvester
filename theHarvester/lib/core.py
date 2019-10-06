@@ -5,46 +5,89 @@ from typing import Set, Union, Any
 import yaml
 
 
+engine_aliases = {
+    'bingapi': 'Bing',
+    'crtsh': 'CRT.sh',
+    'dnsdumpster': 'DNSdumpster',
+    'duckduckgo': 'DuckDuckGo',
+    'github-code': 'GitHub (code)',
+    'linkedin_links': 'Linkedin',
+    'otx': 'AlienVault OTX',
+    'twitter': 'Twitter usernames using Google',
+    'virustotal': 'VirusTotal'
+}
+
 class Core:
     @staticmethod
     def version() -> str:
         return '3.1.0.dev2'
 
     @staticmethod
-    def bing_key() -> str:
-        with open('api-keys.yaml', 'r') as api_keys:
+    def get_key(keyname) -> str:
+       with open('api-keys.yaml', 'r') as api_keys:
             keys = yaml.safe_load(api_keys)
-            return keys['apikeys']['bing']['key']
+            return keys['apikeys'][keyname]['key']
 
     @staticmethod
-    def github_key() -> str:
-        with open('api-keys.yaml', 'r') as api_keys:
-            keys = yaml.safe_load(api_keys)
-            return keys['apikeys']['github']['key']
+    def do_search(searcher, engineitem, db, all_hosts, all_emails, all_ip, trello_urls, google_dorking) -> None:
+        engine_alias = engine_aliases.get(engineitem, engineitem.capitalize())
+        print(f'\033[94m[*] Searching {engine_alias}. \033[0m')
+        # default settings
+        
+        process_args = []
+        should_search_hosts = True
+        should_search_emails = True
+        should_search_ips = False
+        should_search_people = False
+        # change the default settings for certain search engines
+        if engineitem[:4] == 'bing':
+            bingapi = 'yes' if engineitem == 'bingapi' else 'no'
+            process_args.append(bingapi)
+        elif engineitem == 'google':
+            process_args.append(google_dorking)
+        if engineitem in ['linkedin', 'linkedin_links', 'twitter']:
+            should_search_people = True
+            should_search_hosts = False  
+        if engineitem in ['censys', 'otx', 'securityTrails']:
+            should_search_ips = True
+        if engineitem in ['censys', 'crtsh', 'dnsdumpster', 'netcraft', 'threatcrowd', 'virustotal', 'linkedin', 'linkedin_links', 'twitter', 'otx', 'securityTrails']:
+            should_search_emails = False
 
-    @staticmethod
-    def hunter_key() -> str:
-        with open('api-keys.yaml', 'r') as api_keys:
-            keys = yaml.safe_load(api_keys)
-            return keys['apikeys']['hunter']['key']
+        try:     
+            # template method pattern
+            searcher.process(*process_args)
+            if should_search_hosts:
+                hosts = searcher.get_hostnames()
+                all_hosts.extend(hosts)
+                db.store_all(word, all_hosts, 'host', engineitem)
+            if should_search_emails:
+                emails = searcher.get_emails()                    
+                all_emails.extend(emails)
+                db.store_all(word, all_hosts, 'email', engineitem)
+            if should_search_ips:
+                ips = searcher.get_ips()
+                all_ip.extend(ips)
+                db.store_all(word, ips, 'ip', engineitem)
+            if should_search_people:                        
+                if engineitem == 'linkedin' or engineitem == 'twitter':
+                    people = searcher.get_people()
+                    search_type = 'users'
+                else:
+                    people = searcher.get_links()
+                    search_type = 'links'
+                db.store_all(word, people, 'name', engineitem)
+                if len(people) == 0:
+                    print(f'\n[*] No {search_type} found.\n\n')
+                else:
+                    print(f'\n[*] {search_type.capitalize()} found: {len(people)}')
+                    print('---------------------')
+                    print('\n'.join(sorted(set(people))))
+            if engineitem == 'trello':
+                trello_urls.extend(searcher.trello_urls)
 
-    @staticmethod
-    def intelx_key() -> str:
-        with open('api-keys.yaml', 'r') as api_keys:
-            keys = yaml.safe_load(api_keys)
-            return keys['apikeys']['intelx']['key']
+        except Exception as err:
+            print(f'\033[01;31mAn error occurred with {engine_alias}:\n{err}\033[0m')
 
-    @staticmethod
-    def security_trails_key() -> str:
-        with open('api-keys.yaml', 'r') as api_keys:
-            keys = yaml.safe_load(api_keys)
-            return keys['apikeys']['securityTrails']['key']
-
-    @staticmethod
-    def shodan_key() -> str:
-        with open('api-keys.yaml', 'r') as api_keys:
-            keys = yaml.safe_load(api_keys)
-            return keys['apikeys']['shodan']['key']
 
     @staticmethod
     def banner() -> None:
@@ -61,35 +104,6 @@ class Core:
         print('* cmartorella@edge-security.com                                   *')
         print('*                                                                 *')
         print('******************************************************************* \n\n \033[0m')
-
-    @staticmethod
-    def get_supportedengines() -> Set[Union[str, Any]]:
-        supportedengines = {'baidu',
-                            'bing',
-                            'bingapi',
-                            'censys',
-                            'crtsh',
-                            'dnsdumpster',
-                            'dogpile',
-                            'duckduckgo',
-                            'exalead',
-                            'github-code',
-                            'google',
-                            'hunter',
-                            'intelx',
-                            'linkedin',
-                            'linkedin_links',
-                            'netcraft',
-                            'otx',
-                            'securityTrails',
-                            'threatcrowd',
-                            'trello',
-                            'twitter',
-                            'vhost',
-                            'virustotal',
-                            'yahoo',
-                            }
-        return supportedengines
 
     @staticmethod
     def get_user_agent() -> str:
@@ -325,3 +339,7 @@ class Core:
             'Mozilla/5.0 (Windows NT 5.1; U; de; rv:1.9.1.6) Gecko/20091201 Firefox/3.5.6 Opera 11.00'
         ]
         return random.choice(user_agents)
+
+    @staticmethod
+    def engine_search(engine) -> None:
+        print(f'\033[94m[*] Searching {engine.upper()}')

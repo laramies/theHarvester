@@ -68,5 +68,6 @@ class SearchTrello:
         self.get_urls()
         print(f'\tSearching {self.counter} results.')
 
-    def get_results(self) -> tuple:
-        return self.get_emails(), self.hostnames, self.trello_urls
+    def get_hostnames(self):
+        return self.hostnames
+

@@ -23,5 +23,5 @@ class SearchCrtsh:
         data = self.do_search()
         self.data = data
 
-    def get_data(self) -> Set:
+    def get_hostnames(self) -> Set:
         return self.data

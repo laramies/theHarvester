@@ -14,7 +14,7 @@ class SearchBing:
         self.apiserver = 'api.search.live.net'
         self.hostname = 'www.bing.com'
         self.limit = int(limit)
-        self.bingApi = Core.bing_key()
+        self.bingApi = Core.get_key('bing')
         self.counter = start
 
     def do_search(self):

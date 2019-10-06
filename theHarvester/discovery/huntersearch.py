@@ -10,7 +10,7 @@ class SearchHunter:
         self.word = word
         self.limit = limit
         self.start = start
-        self.key = Core.hunter_key()
+        self.key = Core.get_key('hunter')
         if self.key is None:
             raise MissingKey(True)
         self.total_results = ""

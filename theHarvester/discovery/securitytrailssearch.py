@@ -9,7 +9,7 @@ class SearchSecuritytrail:
 
     def __init__(self, word):
         self.word = word
-        self.key = Core.security_trails_key()
+        self.key = Core.get_key('securityTrails')
         if self.key is None:
             raise MissingKey(True)
         self.results = ""
