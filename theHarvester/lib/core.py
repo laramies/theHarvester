@@ -2,7 +2,6 @@
 
 import random
 import yaml
-from typing import Set
 
 
 engine_aliases = {

@@ -1,5 +1,6 @@
 from theHarvester.lib.core import *
 import requests
+from typing import Set
 
 
 class SearchCrtsh:
