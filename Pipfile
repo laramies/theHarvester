@@ -5,7 +5,7 @@ name = "pypi"
 
 [packages]
 aiodns = "==2.0.0"
-beautifulsoup4 = "==4.8.0"
+beautifulsoup4 = "==4.8.1"
 dnspython = "==1.16.0"
 grequests = "==0.4.0"
 netaddr = "==0.7.19"
