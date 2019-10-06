@@ -18,7 +18,7 @@ texttable = "==1.6.2"
 
 [dev-packages]
 mypy = "==0.730"
-pytest = "==5.2.0"
+pytest = "==5.2.1"
 flake8 = "==3.7.8"
 
 [requires]
