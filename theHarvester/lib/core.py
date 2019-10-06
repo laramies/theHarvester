@@ -1,7 +1,6 @@
 # coding=utf-8
 
 import random
-from typing import Set, Union, Any
 import yaml
 
 
@@ -17,6 +16,7 @@ engine_aliases = {
     'virustotal': 'VirusTotal'
 }
 
+
 class Core:
     @staticmethod
     def version() -> str:
@@ -24,16 +24,15 @@ class Core:
 
     @staticmethod
     def get_key(keyname) -> str:
-       with open('api-keys.yaml', 'r') as api_keys:
+        with open('api-keys.yaml', 'r') as api_keys:
             keys = yaml.safe_load(api_keys)
             return keys['apikeys'][keyname]['key']
 
     @staticmethod
-    def do_search(searcher, engineitem, db, all_hosts, all_emails, all_ip, trello_urls, google_dorking) -> None:
+    def do_search(searcher, engineitem, db, word, all_hosts, all_emails, all_ip, trello_urls, google_dorking) -> None:
         engine_alias = engine_aliases.get(engineitem, engineitem.capitalize())
         print(f'\033[94m[*] Searching {engine_alias}. \033[0m')
         # default settings
-        
         process_args = []
         should_search_hosts = True
         should_search_emails = True
@@ -47,13 +46,13 @@ class Core:
             process_args.append(google_dorking)
         if engineitem in ['linkedin', 'linkedin_links', 'twitter']:
             should_search_people = True
-            should_search_hosts = False  
+            should_search_hosts = False
         if engineitem in ['censys', 'otx', 'securityTrails']:
             should_search_ips = True
         if engineitem in ['censys', 'crtsh', 'dnsdumpster', 'netcraft', 'threatcrowd', 'virustotal', 'linkedin', 'linkedin_links', 'twitter', 'otx', 'securityTrails']:
             should_search_emails = False
 
-        try:     
+        try:
             # template method pattern
             searcher.process(*process_args)
             if should_search_hosts:
@@ -61,14 +60,14 @@ class Core:
                 all_hosts.extend(hosts)
                 db.store_all(word, all_hosts, 'host', engineitem)
             if should_search_emails:
-                emails = searcher.get_emails()                    
+                emails = searcher.get_emails()
                 all_emails.extend(emails)
                 db.store_all(word, all_hosts, 'email', engineitem)
             if should_search_ips:
                 ips = searcher.get_ips()
                 all_ip.extend(ips)
                 db.store_all(word, ips, 'ip', engineitem)
-            if should_search_people:                        
+            if should_search_people:
                 if engineitem == 'linkedin' or engineitem == 'twitter':
                     people = searcher.get_people()
                     search_type = 'users'
@@ -87,7 +86,6 @@ class Core:
 
         except Exception as err:
             print(f'\033[01;31mAn error occurred with {engine_alias}:\n{err}\033[0m')
-
 
     @staticmethod
     def banner() -> None:

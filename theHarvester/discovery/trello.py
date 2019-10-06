@@ -70,4 +70,3 @@ class SearchTrello:
 
     def get_hostnames(self):
         return self.hostnames
-

@@ -46,11 +46,13 @@ supported_engines = {
 def engine_is_supported(engine_name) -> bool:
     return engine_name in supported_engines
 
+
 def searcher_factory(engine_name) -> type:
     """
     Factory method for creating searchers (e.g. SearchGoogle, SearchYahoo, etc.)
     """
     return supported_engines[engine_name]
+
 
 def start():
     parser = argparse.ArgumentParser(description='theHarvester is used to gather open source intelligence (OSINT) on a\n'
@@ -111,11 +113,11 @@ def start():
             for engineitem in engines:
                 search_args = [word, limit]
                 if engineitem in ['bing', 'bingapi', 'exalead', 'google', 'hunter']:
-                    search_args.append(start) 
+                    search_args.append(start)
                 if engineitem in ['crtsh', 'dnsdumpster', 'netcraft', 'otx', 'securityTrails', 'threatcrowd', 'trello', 'virustotal']:
-                    search_args.pop() 
-                searcher = searcher_factory(engineitem)(*search_args)                
-                Core.do_search(searcher, engineitem, db, all_hosts, all_emails, all_ip, trello_urls, google_dorking)   
+                    search_args.pop()
+                searcher = searcher_factory(engineitem)(*search_args)
+                Core.do_search(searcher, engineitem, db, word, all_hosts, all_emails, all_ip, trello_urls, google_dorking)
         else:
             print('\033[93m[!] Invalid source.\n\n \033[0m')
             sys.exit(1)
