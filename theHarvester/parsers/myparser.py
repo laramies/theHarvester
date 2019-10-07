@@ -149,8 +149,4 @@ class Parser:
         return urls
 
     def unique(self) -> list:
-        self.new = []
-        for iteration in self.temp:
-            if iteration not in self.new:
-                self.new.append(iteration)
-        return self.new
+        return list(set(self.temp))
