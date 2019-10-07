@@ -1,6 +1,7 @@
 from theHarvester.lib.core import *
-import grequests
 from bs4 import BeautifulSoup
+import grequests
+import time
 
 
 class SearchSuip:
@@ -25,16 +26,16 @@ class SearchSuip:
 
         headers: dict = {'User-Agent': Core.get_user_agent()}
         try:
-            # request = grequests.post(base_url, headers=headers, params=params, data=data)
-            # data = grequests.map([request])
-            # self.results = data[0].content.decode('UTF-8')
-            # soup = BeautifulSoup(self.results, 'html.parser')
-            # hosts: list = str(soup.find('pre')).splitlines()
-            # self.clean_hosts(hosts)
-            pass
+            request = grequests.post(base_url, headers=headers, params=params, data=data)
+            data = grequests.map([request])
+            self.results = data[0].content.decode('UTF-8')
+            soup = BeautifulSoup(self.results, 'html.parser')
+            hosts: list = str(soup.find('pre')).splitlines()
+            self.clean_hosts(hosts)
         except Exception as e:
             print(f'An exception has occurred: {e}')
         try:
+            time.sleep(5)
             params = (
                 ('act', 'amass'),
             )

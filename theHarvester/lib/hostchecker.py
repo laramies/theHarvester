@@ -25,9 +25,7 @@ class Checker:
                 return f"{host}:"
             else:
                 return f"{host}:{', '.join(map(str, addresses))}"
-            # return result
         except Exception:
-            # print(f'An error occurred in query: {e}')
             return f"{host}:"
 
     async def query_all(self, resolver) -> list:
