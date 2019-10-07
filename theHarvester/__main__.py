@@ -32,10 +32,10 @@ def start():
     parser.add_argument('-n', '--dns-lookup', help='enable DNS server lookup, default False', default=False, action='store_true')
     parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
-    parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, censys, crtsh, dnsdumpster,
+    parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, crtsh, dnsdumpster,
                         dogpile, duckduckgo, github-code, google,
                         hunter, intelx,
-                        linkedin, linkedin_links, netcraft, otx, securityTrails, threatcrowd,
+                        linkedin, linkedin_links, netcraft, otx, securityTrails, spyse, threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo''')
 
     args = parser.parse_args()
@@ -111,19 +111,6 @@ def start():
                             print(e)
                         else:
                             pass
-
-                elif engineitem == 'censys':
-                    print('\033[94m[*] Searching Censys. \033[0m')
-                    from theHarvester.discovery import censys
-                    # Import locally or won't work
-                    censys_search = censys.SearchCensys(word, limit)
-                    censys_search.process()
-                    all_ip = censys_search.get_ipaddresses()
-                    hosts = filter(censys_search.get_hostnames())
-                    all_hosts.extend(hosts)
-                    db = stash.stash_manager()
-                    db.store_all(word, all_hosts, 'host', 'censys')
-                    db.store_all(word, all_ip, 'ip', 'censys')
 
                 elif engineitem == 'crtsh':
                     try:
@@ -356,6 +343,22 @@ def start():
                         all_hosts.extend(hosts)
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'host', 'suip')
+                    except Exception as e:
+                        print(e)
+                elif engineitem == 'spyse':
+                    print('\033[94m[*] Searching Spyse. \033[0m')
+                    from theHarvester.discovery import spyse
+                    try:
+                        spysesearch_search = spyse.SearchSpyse(word)
+                        spysesearch_search.process()
+                        hosts = filter(spysesearch_search.get_hostnames())
+                        all_hosts.extend(list(hosts))
+                        # ips = filter(spysesearch_search.get_ips())
+                        # all_ip.extend(list(ips))
+                        all_hosts.extend(hosts)
+                        db = stash.stash_manager()
+                        db.store_all(word, all_hosts, 'host', 'spyse')
+                        # db.store_all(word, all_ip, 'ip', 'spyse')
                     except Exception as e:
                         print(e)
 
@@ -615,8 +618,7 @@ def start():
 
     # Here we need to add explosion mode.
     # We have to take out the TLDs to do this.
-    recursion = False
-    if recursion:
+    if args.dns_tld is not False:
         counter = 0
         for word in vhost:
             search = googlesearch.SearchGoogle(word, limit, counter)
