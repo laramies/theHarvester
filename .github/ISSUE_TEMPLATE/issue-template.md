@@ -25,8 +25,8 @@ A clear and concise description of what you expected to happen.
 If possible please add screenshots to help explain your problem.
 
 **System Information (System that tool is running on):**
- - OS: [e.g. iOS8.1]
- - Version [e.g. 22]
+ - OS: [e.g. Windows10]
+ - Version [e.g. 2.7]
 
 **Additional context**
 Add any other context about the problem here.
