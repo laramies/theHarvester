@@ -20,25 +20,23 @@ class Checker:
     async def query(host, resolver) -> [list, str]:
         try:
             result = await resolver.gethostbyname(host, socket.AF_INET)
-            return result
+            addresses = result.addresses
+            if addresses == [] or addresses is None or result is None:
+                return f"{host}:"
+            else:
+                return f"{host}:{', '.join(map(str, addresses))}"
         except Exception:
-            # print(f'An error occurred in query: {e}')
             return f"{host}:"
 
-    def check(self):
+    async def query_all(self, resolver) -> list:
+        results = await asyncio.gather(*[asyncio.create_task(self.query(host, resolver))
+                                         for host in self.hosts])
+        return results
+
+    async def check(self):
         loop = asyncio.get_event_loop()
         resolver = aiodns.DNSResolver(loop=loop)
-        for host in self.hosts:
-            resp = self.query(host, resolver)
-            result = loop.run_until_complete(resp)
-            true_result = ''
-            if isinstance(result, str):
-                true_result = result
-            elif result != '' and not isinstance(result, str) and result.addresses is not None \
-                    and result.addresses != []:
-                result = result.addresses
-                result.sort()
-                true_result = f"{host}:{', '.join(map(str, result))}"
-            self.realhosts.append(true_result)
-        loop.close()
+        results = await self.query_all(resolver)
+        self.realhosts = [result for result in results]
+        self.realhosts.sort()
         return self.realhosts

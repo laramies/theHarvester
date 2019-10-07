@@ -32,10 +32,10 @@ def start():
     parser.add_argument('-n', '--dns-lookup', help='enable DNS server lookup, default False', default=False, action='store_true')
     parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
-    parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, censys, crtsh, dnsdumpster,
+    parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, crtsh, dnsdumpster,
                         dogpile, duckduckgo, github-code, google,
                         hunter, intelx,
-                        linkedin, linkedin_links, netcraft, otx, securityTrails, threatcrowd,
+                        linkedin, linkedin_links, netcraft, otx, securityTrails, spyse, threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo''')
 
     args = parser.parse_args()
@@ -52,6 +52,7 @@ def start():
     dnslookup = args.dns_lookup
     dnsserver = args.dns_server
     dnstld = args.dns_tld
+    engines = []
     filename = args.filename  # type: str
     full = []
     google_dorking = args.google_dork
@@ -110,19 +111,6 @@ def start():
                             print(e)
                         else:
                             pass
-
-                elif engineitem == 'censys':
-                    print('\033[94m[*] Searching Censys. \033[0m')
-                    from theHarvester.discovery import censys
-                    # Import locally or won't work
-                    censys_search = censys.SearchCensys(word, limit)
-                    censys_search.process()
-                    all_ip = censys_search.get_ipaddresses()
-                    hosts = filter(censys_search.get_hostnames())
-                    all_hosts.extend(hosts)
-                    db = stash.stash_manager()
-                    db.store_all(word, all_hosts, 'host', 'censys')
-                    db.store_all(word, all_ip, 'ip', 'censys')
 
                 elif engineitem == 'crtsh':
                     try:
@@ -345,6 +333,35 @@ def start():
                         else:
                             pass
 
+                elif engineitem == 'suip':
+                    print('\033[94m[*] Searching suip. \033[0m')
+                    from theHarvester.discovery import suip
+                    try:
+                        suip_search = suip.SearchSuip(word)
+                        suip_search.process()
+                        hosts = filter(suip_search.get_hostnames())
+                        all_hosts.extend(hosts)
+                        db = stash.stash_manager()
+                        db.store_all(word, all_hosts, 'host', 'suip')
+                    except Exception as e:
+                        print(e)
+                elif engineitem == 'spyse':
+                    print('\033[94m[*] Searching Spyse. \033[0m')
+                    from theHarvester.discovery import spyse
+                    try:
+                        spysesearch_search = spyse.SearchSpyse(word)
+                        spysesearch_search.process()
+                        hosts = filter(spysesearch_search.get_hostnames())
+                        all_hosts.extend(list(hosts))
+                        # ips = filter(spysesearch_search.get_ips())
+                        # all_ip.extend(list(ips))
+                        all_hosts.extend(hosts)
+                        db = stash.stash_manager()
+                        db.store_all(word, all_hosts, 'host', 'spyse')
+                        # db.store_all(word, all_ip, 'ip', 'spyse')
+                    except Exception as e:
+                        print(e)
+
                 elif engineitem == 'threatcrowd':
                     print('\033[94m[*] Searching Threatcrowd. \033[0m')
                     from theHarvester.discovery import threatcrowd
@@ -434,10 +451,8 @@ def start():
     else:
         print('\n[*] IPs found: ' + str(len(all_ip)))
         print('-------------------')
-        # ips = sorted(ipaddress.ip_address(line.strip()) for line in set(all_ip))
-        # print('\n'.join(map(str, ips)))
-        ip_list = sorted([netaddr.IPAddress(ip.strip()) for ip in set(all_ip)])
         # use netaddr as the list may contain ipv4 and ipv6 addresses
+        ip_list = sorted([netaddr.IPAddress(ip.strip()) for ip in set(all_ip)])
         print('\n'.join(map(str, ip_list)))
 
     if len(all_emails) == 0:
@@ -450,15 +465,15 @@ def start():
     if len(all_hosts) == 0:
         print('\n[*] No hosts found.\n\n')
     else:
+        import asyncio
         print('\n[*] Hosts found: ' + str(len(all_hosts)))
         print('---------------------')
         all_hosts = sorted(list(set(all_hosts)))
         full_host = hostchecker.Checker(all_hosts)
-        full = full_host.check()
+        full = asyncio.run(full_host.check())
         for host in full:
             host = str(host)
             print(host.lower())
-
         db = stash.stash_manager()
         db.store_all(word, host_ip, 'ip', 'DNS-resolver')
 
@@ -602,8 +617,7 @@ def start():
 
     # Here we need to add explosion mode.
     # We have to take out the TLDs to do this.
-    recursion = False
-    if recursion:
+    if args.dns_tld is not False:
         counter = 0
         for word in vhost:
             search = googlesearch.SearchGoogle(word, limit, counter)

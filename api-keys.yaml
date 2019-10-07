@@ -16,3 +16,6 @@ apikeys:
 
   shodan:
     key: oCiMsgM6rQWqiTvPxFHYcExlZgg7wvTt
+
+  spyse:
+    key:

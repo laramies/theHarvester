@@ -35,10 +35,6 @@ jobs:
       run: |
         python theHarvester.py -d metasploit.com -b bing
 
-    - name: Run theHarvester module censys
-      run: |
-        python theHarvester.py -d metasploit.com -b censys
-
     - name: Run theHarvester module crtsh
       run: |
         python theHarvester.py -d metasploit.com -b crtsh
@@ -62,6 +58,10 @@ jobs:
     - name: Run theHarvester module google
       run: |
         python theHarvester.py -d metasploit.com -b google
+
+    - name: Run theHarvester module Intelx
+      run: |
+        python theHarvester.py -d metasploit.com -b intelx
 
     - name: Run theHarvester module linkedin
       run: |
@@ -108,6 +108,6 @@ jobs:
     - name: Test with pytest
       run: |
         pytest
-#    - name: Check static type checking with mypy
+#    - name: Static type checking with mypy
 #      run: |
-#        mypy *.py
+#        mypy --pretty *.py

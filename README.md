@@ -19,8 +19,6 @@ Passive:
 
 * bingapi: Microsoft search engine, through the API (Requires API key, see below.)
 
-* censys: Censys.io search engine - www.censys.io
-
 * crtsh: Comodo Certificate search - www.crt.sh
 
 * dnsdumpster: DNSdumpster search engine - dnsdumpster.com
@@ -43,11 +41,15 @@ Passive:
 
 * netcraft: Netcraft Data Mining - www.netcraft.com
 
+* otx: AlienVault Open Threat Exchange - https://otx.alienvault.com
+
 * securityTrails: Security Trails search engine, the world's largest repository<br>
   of historical DNS data (Requires API key, see below.) - www.securitytrails.com
 
 * shodan: Shodan search engine, will search for ports and banners from discovered<br>
   hosts - www.shodanhq.com
+
+* Spyse: Web research tools for professionals(Requires an API key) - https://spyse.com/
 
 * threatcrowd: Open source threat intelligence - www.threatcrowd.org
 
@@ -77,6 +79,7 @@ Add your keys to api-keys.yaml
 * intelx
 * securityTrails
 * shodan
+* spyse
 
 Dependencies:
 -------------
@@ -87,14 +90,16 @@ Dependencies:
 Comments, bugs, or requests?
 ----------------------------
 * [![Twitter Follow](https://img.shields.io/twitter/follow/laramies.svg?style=social&label=Follow)](https://twitter.com/laramies) Christian Martorella @laramies
-* cmartorella@edge-security.com
+cmartorella@edge-security.com
+* [![Twitter Follow](https://img.shields.io/twitter/follow/NotoriousRebel1.svg?style=social&label=Follow)](https://twitter.com/NotoriousRebel1) Matthew Brown @NotoriousRebel1
+* [![Twitter Follow](https://img.shields.io/twitter/follow/jay_townsend1.svg?style=social&label=Follow)](https://twitter.com/jay_townsend1) Jay "L1ghtn1ng" Townsend @jay_townsend1
 
 Main contributors:
 ------------------
 * [![Twitter Follow](https://img.shields.io/twitter/follow/NotoriousRebel1.svg?style=social&label=Follow)](https://twitter.com/NotoriousRebel1) Matthew Brown @NotoriousRebel1
 * [![Twitter Follow](https://img.shields.io/twitter/follow/jay_townsend1.svg?style=social&label=Follow)](https://twitter.com/jay_townsend1) Jay "L1ghtn1ng" Townsend @jay_townsend1
-* [![LinkedIn](https://static.licdn.com/scds/common/u/img/webpromo/btn_viewmy_160x25.png)](https://www.linkedin.com/in/janoszold/)  Janos Zold
 * [![Twitter Follow](https://img.shields.io/twitter/follow/discoverscripts.svg?style=social&label=Follow)](https://twitter.com/discoverscripts) Lee Baird @discoverscripts 
+* [![LinkedIn](https://static.licdn.com/scds/common/u/img/webpromo/btn_viewmy_160x25.png)](https://www.linkedin.com/in/janoszold/)  Janos Zold
 
 Thanks:
 -------
