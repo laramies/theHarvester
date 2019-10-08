@@ -1,7 +1,6 @@
 from theHarvester.lib.core import *
 from bs4 import BeautifulSoup
-import grequests
-import time
+import requests
 
 
 class SearchSuip:
@@ -14,7 +13,7 @@ class SearchSuip:
         self.totalips: set = set()
 
     def do_search(self):
-        base_url: str = "https://suip.biz/"
+        headers = {'User-Agent': Core.get_user_agent()}
         params = (
             ('act', 'subfinder'),
         )
@@ -23,31 +22,18 @@ class SearchSuip:
             'url': self.word.replace('www.', ''),
             'Submit1': 'Submit'
         }
-
-        headers: dict = {'User-Agent': Core.get_user_agent()}
-        try:
-            request = grequests.post(base_url, headers=headers, params=params, data=data)
-            data = grequests.map([request])
-            self.results = data[0].content.decode('UTF-8')
-            soup = BeautifulSoup(self.results, 'html.parser')
-            hosts: list = str(soup.find('pre')).splitlines()
-            self.clean_hosts(hosts)
-        except Exception as e:
-            print(f'An exception has occurred: {e}')
-        try:
-            time.sleep(5)
-            params = (
-                ('act', 'amass'),
-            )
-            request = grequests.post(base_url, headers=headers, params=params, data=data)
-            data = grequests.map([request])
-            self.results = data[0].content.decode('UTF-8')
-            soup = BeautifulSoup(self.results, 'html.parser')
-            print(soup.prettify())
-            hosts: list = str(soup.find('pre')).splitlines()
-            self.clean_hosts(hosts)
-        except Exception as e:
-            print(f'An exception has occurred: {e}')
+        response = requests.post('https://suip.biz/', headers=headers, params=params, data=data)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        hosts: list = str(soup.find('pre')).splitlines()
+        self.clean_hosts(hosts)
+        params = (
+            ('act', 'amass'),
+        )
+        # change act to amass now
+        response = requests.post('https://suip.biz/', headers=headers, params=params, data=data)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        hosts: list = str(soup.find('pre')).splitlines()
+        self.clean_hosts(hosts)
 
     def get_hostnames(self) -> set:
         return self.totalhosts
