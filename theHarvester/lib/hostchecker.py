@@ -42,7 +42,7 @@ class Checker:
             self.realhosts.append(host)
             self.addresses.update({addr for addr in address})
             # address may be a list of ips
-            # and do a set comprehension to remove uniques
+            # and do a set comprehension to remove duplicates
         self.realhosts.sort()
         self.addresses = list(self.addresses)
         return self.realhosts, self.addresses
