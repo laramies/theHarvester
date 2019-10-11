@@ -14,7 +14,8 @@ class Checker:
 
     def __init__(self, hosts: list):
         self.hosts = hosts
-        self.realhosts = []
+        self.realhosts: list = []
+        self.addresses: set = set()
 
     @staticmethod
     async def query(host, resolver) -> [list, str]:
@@ -22,21 +23,26 @@ class Checker:
             result = await resolver.gethostbyname(host, socket.AF_INET)
             addresses = result.addresses
             if addresses == [] or addresses is None or result is None:
-                return f"{host}:"
+                return f"{host}:", tuple()
             else:
-                return f"{host}:{', '.join(map(str, addresses))}"
+                return f"{host}:{', '.join(map(str, addresses))}", addresses
         except Exception:
-            return f"{host}:"
+            return f"{host}:", tuple()
 
-    async def query_all(self, resolver) -> list:
+    async def query_all(self, resolver) -> tuple:
         results = await asyncio.gather(*[asyncio.create_task(self.query(host, resolver))
                                          for host in self.hosts])
         return results
 
     async def check(self):
         loop = asyncio.get_event_loop()
-        resolver = aiodns.DNSResolver(loop=loop)
+        resolver = aiodns.DNSResolver(loop=loop, timeout=4)
         results = await self.query_all(resolver)
-        self.realhosts = [result for result in results]
+        for host, address in results:
+            self.realhosts.append(host)
+            self.addresses.update({addr for addr in address})
+            # address may be a list of ips
+            # and do a set comprehension to remove uniques
         self.realhosts.sort()
-        return self.realhosts
+        self.addresses = list(self.addresses)
+        return self.realhosts, self.addresses
