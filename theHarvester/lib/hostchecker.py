@@ -29,7 +29,7 @@ class Checker:
         except Exception:
             return f"{host}:", tuple()
 
-    async def query_all(self, resolver) -> tuple:
+    async def query_all(self, resolver) -> list:
         results = await asyncio.gather(*[asyncio.create_task(self.query(host, resolver))
                                          for host in self.hosts])
         return results
