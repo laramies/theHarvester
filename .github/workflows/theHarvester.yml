@@ -23,9 +23,13 @@ jobs:
       uses: actions/setup-python@v1
       with:
         python-version: ${{ matrix.python-version }}
+    - name: Install pipenv
+      run: |
+        pip install pipenv
+
     - name: Install dependencies
       run: |
-        pip install -r requirements.txt
+        pipenv install
 
     - name: Run theHarvester module baidu
       run: |
