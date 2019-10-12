@@ -15,7 +15,7 @@ jobs:
     strategy:
       max-parallel: 4
       matrix:
-        python-version: [3.6, 3.7]
+        python-version: [3.7]
 
     steps:
     - uses: actions/checkout@v1
@@ -34,10 +34,6 @@ jobs:
     - name: Run theHarvester module bing
       run: |
         python theHarvester.py -d metasploit.com -b bing
-
-    - name: Run theHarvester module censys
-      run: |
-        python theHarvester.py -d metasploit.com -b censys
 
     - name: Run theHarvester module crtsh
       run: |
@@ -83,6 +79,10 @@ jobs:
       run: |
         python theHarvester.py -d metasploit.com -b otx
 
+    - name: Run theHarvester module Suip
+      run: |
+        python theHarvester.py -d metasploit.com -b suip
+
     - name: Run theHarvester module threatcrowd
       run: |
         python theHarvester.py -d metasploit.com -b threatcrowd
@@ -112,6 +112,6 @@ jobs:
     - name: Test with pytest
       run: |
         pytest
-#    - name: Check static type checking with mypy
+#    - name: Static type checking with mypy
 #      run: |
-#        mypy *.py
+#        mypy --pretty *.py
