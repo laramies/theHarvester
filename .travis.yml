@@ -8,8 +8,7 @@ matrix:
     - python: '3.8-dev'
       env: TEST_SUITE=suite_3_8_dev
 before_install:
-  - pip install pipenv
-  - pipenv install
+  - pip install -r requirements.txt
 install:
 - pipenv run setup.py test
 script:

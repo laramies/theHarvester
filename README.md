@@ -86,8 +86,8 @@ Add your keys to api-keys.yaml
 Dependencies:
 -------------
 * Python 3.7+
-* python3 -m pip install pipenv
-* pipenv install
+* python3 -m pip install -r requirements.txt
+* Recommend that you use a virtualenv when cloning from git
 
 Comments, bugs, or requests?
 ----------------------------

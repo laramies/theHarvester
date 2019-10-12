@@ -1,0 +1,14 @@
+aiodns==2.0.0
+beautifulsoup4==4.8.0
+dnspython==1.16.0
+flake8==3.7.8
+grequests==0.4.0
+mypy==0.730
+netaddr==0.7.19
+plotly==4.1.1
+pytest==5.2.0
+PyYaml==5.1.2
+requests==2.22.0
+shodan==1.19.0
+texttable==1.6.2
+retrying==1.3.3
