@@ -70,7 +70,10 @@ def start():
     word = args.domain  # type: str
 
     if args.source is not None:
-        engines = sorted(set(map(str.strip, args.source.split(','))))
+        if args.source.lower() != "all":
+            engines = sorted(set(map(str.strip, args.source.split(','))))
+        else:
+            engines = Core.get_supportedengines()
         # Iterate through search engines in order
         if set(engines).issubset(Core.get_supportedengines()):
             print(f'\033[94m[*] Target: {word} \n \033[0m')
