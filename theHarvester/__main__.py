@@ -25,25 +25,19 @@ def start():
     parser.add_argument('-d', '--domain', help='company name or domain to search', required=True)
     parser.add_argument('-l', '--limit', help='limit the number of search results, default=500', default=500, type=int)
     parser.add_argument('-S', '--start', help='start with result number X, default=0', default=0, type=int)
-    parser.add_argument('-g', '--google-dork', help='use Google Dorks for Google search', default=False,
-                        action='store_true')
-    parser.add_argument('-p', '--port-scan', help='scan the detected hosts and check for Takeovers (21,22,80,443,8080)',
-                        default=False, action='store_true')
-    parser.add_argument('-s', '--shodan', help='use Shodan to query discovered hosts', default=False,
-                        action='store_true')
-    parser.add_argument('-v', '--virtual-host', help='verify host name via DNS resolution and search for virtual hosts',
-                        action='store_const', const='basic', default=False)
+    parser.add_argument('-g', '--google-dork', help='use Google Dorks for Google search', default=False, action='store_true')
+    parser.add_argument('-p', '--port-scan', help='scan the detected hosts and check for Takeovers (21,22,80,443,8080)', default=False, action='store_true')
+    parser.add_argument('-s', '--shodan', help='use Shodan to query discovered hosts', default=False, action='store_true')
+    parser.add_argument('-v', '--virtual-host', help='verify host name via DNS resolution and search for virtual hosts', action='store_const', const='basic', default=False)
     parser.add_argument('-e', '--dns-server', help='DNS server to use for lookup')
     parser.add_argument('-t', '--dns-tld', help='perform a DNS TLD expansion discovery, default False', default=False)
-    parser.add_argument('-n', '--dns-lookup', help='enable DNS server lookup, default False', default=False,
-                        action='store_true')
-    parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False,
-                        action='store_true')
+    parser.add_argument('-n', '--dns-lookup', help='enable DNS server lookup, default False', default=False, action='store_true')
+    parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, crtsh, dnsdumpster,
                         dogpile, duckduckgo, github-code, google,
                         hunter, intelx,
-                        linkedin, linkedin_links, netcraft, otx, securityTrails, spyse, threatcrowd,
+                        linkedin, linkedin_links, netcraft, otx, securityTrails, spyse(disabled for now), threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo''')
 
     args = parser.parse_args()
@@ -342,7 +336,7 @@ def start():
                             pass
 
                 elif engineitem == 'suip':
-                    print('\033[94m[*] Searching suip. \033[0m')
+                    print('\033[94m[*] Searching suip. This module can take 10+ mins to run but it is worth it.\033[0m')
                     from theHarvester.discovery import suip
                     try:
                         suip_search = suip.SearchSuip(word)
@@ -354,22 +348,22 @@ def start():
                     except Exception as e:
                         print(e)
 
-                elif engineitem == 'spyse':
-                    print('\033[94m[*] Searching Spyse. \033[0m')
-                    from theHarvester.discovery import spyse
-                    try:
-                        spysesearch_search = spyse.SearchSpyse(word)
-                        spysesearch_search.process()
-                        hosts = filter(spysesearch_search.get_hostnames())
-                        all_hosts.extend(list(hosts))
-                        # ips = filter(spysesearch_search.get_ips())
-                        # all_ip.extend(list(ips))
-                        all_hosts.extend(hosts)
-                        db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'host', 'spyse')
-                        # db.store_all(word, all_ip, 'ip', 'spyse')
-                    except Exception as e:
-                        print(e)
+                # elif engineitem == 'spyse':
+                #     print('\033[94m[*] Searching Spyse. \033[0m')
+                #     from theHarvester.discovery import spyse
+                #     try:
+                #         spysesearch_search = spyse.SearchSpyse(word)
+                #         spysesearch_search.process()
+                #         hosts = filter(spysesearch_search.get_hostnames())
+                #         all_hosts.extend(list(hosts))
+                #         # ips = filter(spysesearch_search.get_ips())
+                #         # all_ip.extend(list(ips))
+                #         all_hosts.extend(hosts)
+                #         db = stash.stash_manager()
+                #         db.store_all(word, all_hosts, 'host', 'spyse')
+                #         # db.store_all(word, all_ip, 'ip', 'spyse')
+                #     except Exception as e:
+                #         print(e)
 
                 elif engineitem == 'threatcrowd':
                     print('\033[94m[*] Searching Threatcrowd. \033[0m')

@@ -51,6 +51,8 @@ Passive:
 
 * Spyse: Web research tools for professionals(Requires an API key) - https://spyse.com/
 
+* Suip: Web research tools(This module can take 10 mins+ to run but it is worth the wait) - https://suip.biz/
+
 * threatcrowd: Open source threat intelligence - www.threatcrowd.org
 
 * trello: Search trello boards (Uses Google search.)
