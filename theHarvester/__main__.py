@@ -38,7 +38,7 @@ def start():
                         dogpile, duckduckgo, github-code, google,
                         hunter, intelx,
                         linkedin, linkedin_links, netcraft, otx, securityTrails, spyse(disabled for now), threatcrowd,
-                        trello, twitter, vhost, virustotal, yahoo''')
+                        trello, twitter, vhost, virustotal, yahoo, all''')
 
     args = parser.parse_args()
     try:
@@ -70,7 +70,7 @@ def start():
     word = args.domain  # type: str
 
     if args.source is not None:
-        if args.source.lower() != "all":
+        if args.source.lower() != 'all':
             engines = sorted(set(map(str.strip, args.source.split(','))))
         else:
             engines = Core.get_supportedengines()
@@ -339,7 +339,7 @@ def start():
                             pass
 
                 elif engineitem == 'suip':
-                    print('\033[94m[*] Searching suip. This module can take 10+ mins to run but it is worth it.\033[0m')
+                    print('\033[94m[*] Searching Suip. This module can take 10+ mins to run but it is worth it.\033[0m')
                     from theHarvester.discovery import suip
                     try:
                         suip_search = suip.SearchSuip(word)
