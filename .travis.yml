@@ -11,11 +11,11 @@ before_install:
   - pip install pipenv
   - pipenv install
 install:
-- python setup.py test
+- pipenv run setup.py test
 script:
-- python theHarvester.py -d metasploit.com -b baidu,bing,crtsh,dnsdumpster,dogpile,duckduckgo,exalead,linkedin,netcraft,otx,intelx,threatcrowd,trello,twitter,virustotal,yahoo -l 200
-- pytest
-- flake8 . --count --show-source --statistics
+- pipenv run theHarvester.py -d metasploit.com -b baidu,bing,crtsh,dnsdumpster,dogpile,duckduckgo,exalead,linkedin,netcraft,otx,intelx,threatcrowd,trello,twitter,virustotal,yahoo -l 200
+- pipenv run pytest
+- pipenv run flake8 . --count --show-source --statistics
 #- mypy --pretty *.py
 notifications:
   email: false

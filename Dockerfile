@@ -6,4 +6,4 @@ RUN apt-get -qq update
 RUN apt-get install -yqq pipenv
 RUN pipenv install
 RUN chmod +x *.py
-ENTRYPOINT ["/app/theHarvester.py"]
+ENTRYPOINT ["pipenv run /app/theHarvester.py"]
