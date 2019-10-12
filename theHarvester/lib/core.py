@@ -87,6 +87,7 @@ class Core:
                             'netcraft',
                             'otx',
                             'securityTrails',
+                            'suip',
                             'spyse',
                             'threatcrowd',
                             'trello',
