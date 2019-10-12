@@ -29,89 +29,89 @@ jobs:
 
     - name: Run theHarvester module baidu
       run: |
-        pipenv run theHarvester.py -d metasploit.com -b baidu
+        python theHarvester.py -d metasploit.com -b baidu
 
     - name: Run theHarvester module bing
       run: |
-        pipenv run theHarvester.py -d metasploit.com -b bing
+        python theHarvester.py -d metasploit.com -b bing
 
     - name: Run theHarvester module crtsh
       run: |
-        pipenv run theHarvester.py -d metasploit.com -b crtsh
+        python theHarvester.py -d metasploit.com -b crtsh
 
     - name: Run theHarvester module dnsdumpster
       run: |
-        pipenv run theHarvester.py -d metasploit.com -b dnsdumpster
+        python theHarvester.py -d metasploit.com -b dnsdumpster
 
     - name: Run theHarvester module dogplie
       run: |
-        pipenv run theHarvester.py -d metasploit.com -b dogpile
+        python theHarvester.py -d metasploit.com -b dogpile
 
     - name: Run theHarvester module duckduckgo
       run: |
-        pipenv run theHarvester.py -d metasploit.com -b duckduckgo
+        python theHarvester.py -d metasploit.com -b duckduckgo
 
     - name: Run theHarvester module exalead
       run: |
-        pipenv run theHarvester.py -d metasploit.com -b exalead
+        python theHarvester.py -d metasploit.com -b exalead
 
     - name: Run theHarvester module google
       run: |
-        pipenv run theHarvester.py -d metasploit.com -b google
+        python theHarvester.py -d metasploit.com -b google
 
     - name: Run theHarvester module Intelx
       run: |
-        pipenv run theHarvester.py -d metasploit.com -b intelx
+        python theHarvester.py -d metasploit.com -b intelx
 
     - name: Run theHarvester module linkedin
       run: |
-        pipenv run theHarvester.py -d metasploit.com -b linkedin
+        python theHarvester.py -d metasploit.com -b linkedin
 
     - name: Run theHarvester module linkedin_links
       run: |
-        pipenv run theHarvester.py -d metasploit.com -b linkedin_links
+        python theHarvester.py -d metasploit.com -b linkedin_links
 
     - name: Run theHarvester module netcraft
       run: |
-        pipenv run theHarvester.py -d metasploit.com -b netcraft
+        python theHarvester.py -d metasploit.com -b netcraft
 
     - name: Run theHarvester module Otx
       run: |
-        pipenv run theHarvester.py -d metasploit.com -b otx
+        python theHarvester.py -d metasploit.com -b otx
 
     - name: Run theHarvester module Suip
       run: |
-        pipenv run theHarvester.py -d metasploit.com -b suip
+        python theHarvester.py -d metasploit.com -b suip
 
     - name: Run theHarvester module threatcrowd
       run: |
-        pipenv run theHarvester.py -d metasploit.com -b threatcrowd
+        python theHarvester.py -d metasploit.com -b threatcrowd
     - name: Run theHarvester module trello
       run: |
-        pipenv run theHarvester.py -d metasploit.com -b trello
+        python theHarvester.py -d metasploit.com -b trello
 
     - name: Run theHarvester module twitter
       run: |
-        pipenv run theHarvester.py -d metasploit.com -b twitter
+        python theHarvester.py -d metasploit.com -b twitter
 
     - name: Run theHarvester module virustotal
       run: |
-        pipenv run theHarvester.py -d metasploit.com -b virustotal
+        python theHarvester.py -d metasploit.com -b virustotal
 
     - name: Run theHarvester module yahoo
       run: |
-        pipenv run theHarvester.py -d metasploit.com -b yahoo
+        python theHarvester.py -d metasploit.com -b yahoo
 
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
-        pipenv run flake8 . --count --show-source --statistics
+        flake8 . --count --show-source --statistics
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        pipenv run flake8 . --count --exit-zero  --max-line-length=127 --statistics
+        flake8 . --count --exit-zero  --max-line-length=127 --statistics
 
     - name: Test with pytest
       run: |
-        pipenv run pytest
+        pytest
 #    - name: Static type checking with mypy
 #      run: |
 #        mypy --pretty *.py
