@@ -56,8 +56,8 @@ class SearchGithubCode:
         if page_link:
             parsed = urlparse.urlparse(page_link.get("url"))
             params = urlparse.parse_qs(parsed.query)
-            page = params.get('page') or [None]
-            page_number = page[0] and int(page[0])
+            page_ = params.get('page') or [None]
+            page_number = page_[0] and int(page_[0])
             return page_number
         else:
             return None
