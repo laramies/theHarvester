@@ -8,6 +8,7 @@ Revised to use aiodns & asyncio on 2019-09-23
 import aiodns
 import asyncio
 import socket
+from typing import Tuple, Any
 
 
 class Checker:
@@ -18,7 +19,7 @@ class Checker:
         self.addresses: set = set()
 
     @staticmethod
-    async def query(host, resolver) -> [list, str]:
+    async def query(host, resolver) -> Tuple[str, Any]:
         try:
             result = await resolver.gethostbyname(host, socket.AF_INET)
             addresses = result.addresses
