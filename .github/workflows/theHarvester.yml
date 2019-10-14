@@ -35,6 +35,10 @@ jobs:
       run: |
         python theHarvester.py -d metasploit.com -b bing
 
+    - name: Run theHarvester module certspotter
+      run: |
+        python theHarvester.py -d metasploit.com -b certspotter
+
     - name: Run theHarvester module crtsh
       run: |
         python theHarvester.py -d metasploit.com -b crtsh
@@ -79,10 +83,6 @@ jobs:
       run: |
         python theHarvester.py -d metasploit.com -b otx
 
-    - name: Run theHarvester module Suip
-      run: |
-        python theHarvester.py -d metasploit.com -b suip
-
     - name: Run theHarvester module threatcrowd
       run: |
         python theHarvester.py -d metasploit.com -b threatcrowd
@@ -112,6 +112,7 @@ jobs:
     - name: Test with pytest
       run: |
         pytest
-#    - name: Static type checking with mypy
-#      run: |
-#        mypy --pretty *.py
+    - name: Static type checking with mypy
+      run: |
+        mypy --pretty theHarvester/discovery/*.py
+        mypy --pretty test/*.py

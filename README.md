@@ -19,6 +19,8 @@ Passive:
 
 * bingapi: Microsoft search engine, through the API (Requires API key, see below.)
 
+* CertSporter: Cert Spotter monitors Certificate Transparency logs - https://sslmate.com/certspotter/
+
 * crtsh: Comodo Certificate search - www.crt.sh
 
 * dnsdumpster: DNSdumpster search engine - dnsdumpster.com
