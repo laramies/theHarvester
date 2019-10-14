@@ -512,7 +512,7 @@ def start():
     if dnsbrute is True:
         print('\n[*] Starting DNS brute force.')
         a = dnssearch.DnsForce(word, dnsserver, verbose=True)
-        res = a.process()
+        a.process()
         # print('\n[*] Hosts found after DNS brute force:')
         # for y in res:
         # print('-------------------------------------')
