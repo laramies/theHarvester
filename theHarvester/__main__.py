@@ -34,7 +34,7 @@ def start():
     parser.add_argument('-n', '--dns-lookup', help='enable DNS server lookup, default False', default=False, action='store_true')
     parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
-    parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, crtsh, dnsdumpster,
+    parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, certspotter, crtsh, dnsdumpster,
                         dogpile, duckduckgo, github-code, google,
                         hunter, intelx,
                         linkedin, linkedin_links, netcraft, otx, securityTrails, spyse(disabled for now), threatcrowd,
@@ -116,6 +116,20 @@ def start():
                             print(e)
                         else:
                             pass
+
+                elif engineitem == 'certspotter':
+                    print('\033[94m[*] Searching CertSpotter. \033[0m')
+                    from theHarvester.discovery import certspottersearch
+                    try:
+                        certspotter_search = certspottersearch.SearchCertspoter(word)
+                        certspotter_search.process()
+                        hosts = filter(certspotter_search.get_hostnames())
+                        all_hosts.extend(list(hosts))
+                        all_hosts.extend(hosts)
+                        db = stash.stash_manager()
+                        db.store_all(word, all_hosts, 'host', 'certspotter')
+                    except Exception as e:
+                        print(e)
 
                 elif engineitem == 'crtsh':
                     try:
