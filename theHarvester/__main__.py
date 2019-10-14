@@ -69,9 +69,9 @@ def start():
     virtual = args.virtual_host
     word = args.domain  # type: str
 
-    def store(search_engine, source, store_host=False, store_emails=False, store_ip=False, store_people=False,
+    def store(search_engine, source, process_param=None, store_host=False, store_emails=False, store_ip=False, store_people=False,
               store_data=False, store_links=False, store_results=False):
-        search_engine.process()
+        search_engine.process() if process_param is None else search_engine.process(process_param)
         db_stash = stash.stash_manager()
 
         if store_host:
@@ -148,7 +148,7 @@ def start():
                             bingapi += 'yes'
                         else:
                             bingapi += 'no'
-                        store(bing_search, 'bing', store_host=True, store_emails=True)
+                        store(bing_search, 'bing', process_param=bingapi, store_host=True, store_emails=True)
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             print(e)
@@ -224,7 +224,7 @@ def start():
                     print('\033[94m[*] Searching Google. \033[0m')
                     from theHarvester.discovery import googlesearch
                     google_search = googlesearch.SearchGoogle(word, limit, start)
-                    store(google_search, engineitem, store_host=True, store_emails=True)
+                    store(google_search, engineitem, process_param=google_dorking, store_host=True, store_emails=True)
 
                 elif engineitem == 'hunter':
                     print('\033[94m[*] Searching Hunter. \033[0m')
