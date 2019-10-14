@@ -83,10 +83,6 @@ jobs:
       run: |
         python theHarvester.py -d metasploit.com -b otx
 
-    - name: Run theHarvester module Suip
-      run: |
-        python theHarvester.py -d metasploit.com -b suip
-
     - name: Run theHarvester module threatcrowd
       run: |
         python theHarvester.py -d metasploit.com -b threatcrowd
