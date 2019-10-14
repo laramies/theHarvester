@@ -69,6 +69,56 @@ def start():
     virtual = args.virtual_host
     word = args.domain  # type: str
 
+    def store(search_engine, source, store_host=False, store_emails=False, store_ip=False, store_people=False,
+              store_data=False, store_links=False, store_results=False):
+        search_engine.process()
+        db_stash = stash.stash_manager()
+
+        if store_host:
+            host_names = filter(search_engine.get_hostnames())
+            all_hosts.extend(host_names)
+            db_stash.store_all(word, all_hosts, 'host', source)
+        if store_emails:
+            email_list = filter(search_engine.get_emails())
+            db_stash.store_all(word, email_list, 'email', source)
+        if store_ip:
+            ips_list = search_engine.get_ips()
+            all_ip.extend(ips_list)
+            db_stash.store_all(word, ips, 'ip', source)
+        if store_data:
+            data = filter(crtsh_search.get_data())
+            all_hosts.extend(data)
+            db.store_all(word, all_hosts, 'host', source)
+        if store_results:
+            emails, hosts, urls = search_engine.get_results()
+            all_emails.extend(emails)
+            hosts = filter(hosts)
+            global trello_urls
+            trello_urls = filter(urls)
+            all_hosts.extend(hosts)
+            db.store_all(word, hosts, 'host', source)
+            db.store_all(word, emails, 'email', source)
+        if store_people:
+            people_list = search_engine.get_people()
+            db_stash.store_all(word, people_list, 'people', source)
+            if len(people_list) == 0:
+                print('\n[*] No users found.\n\n')
+            else:
+                print('\n[*] Users found: ' + str(len(people_list)))
+                print('---------------------')
+                for usr in sorted(list(set(people_list))):
+                    print(usr)
+        if store_links:
+            links = linkedin_links_search.get_links()
+            db.store_all(word, links, 'name', 'linkedin')
+            if len(links) == 0:
+                print('\n[*] No links found Linkedin.\n\n')
+            else:
+                print(f'\n[*] Links found: {len(links)}')
+                print('---------------------')
+                for link in sorted(list(set(links))):
+                    print(link)
+
     if args.source is not None:
         if args.source.lower() != 'all':
             engines = sorted(set(map(str.strip, args.source.split(','))))
@@ -84,13 +134,7 @@ def start():
                     from theHarvester.discovery import baidusearch
                     try:
                         baidu_search = baidusearch.SearchBaidu(word, limit)
-                        baidu_search.process()
-                        all_emails = filter(baidu_search.get_emails())
-                        hosts = filter(baidu_search.get_hostnames())
-                        all_hosts.extend(hosts)
-                        db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'host', 'baidu')
-                        db.store_all(word, all_emails, 'email', 'baidu')
+                        store(baidu_search, engineitem, store_host=True, store_emails=True)
                     except Exception:
                         pass
 
@@ -104,13 +148,7 @@ def start():
                             bingapi += 'yes'
                         else:
                             bingapi += 'no'
-                        bing_search.process(bingapi)
-                        all_emails = filter(bing_search.get_emails())
-                        hosts = filter(bing_search.get_hostnames())
-                        all_hosts.extend(hosts)
-                        db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'email', 'bing')
-                        db.store_all(word, all_hosts, 'host', 'bing')
+                        store(bing_search, 'bing', store_host=True, store_emails=True)
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             print(e)
@@ -136,25 +174,17 @@ def start():
                         print('\033[94m[*] Searching CRT.sh. \033[0m')
                         from theHarvester.discovery import crtsh
                         crtsh_search = crtsh.SearchCrtsh(word)
-                        crtsh_search.process()
-                        hosts = filter(crtsh_search.get_data())
-                        all_hosts.extend(hosts)
-                        db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'host', 'CRTsh')
+                        store(crtsh_search, 'CRTsh', store_data=True)
 
                     except Exception:
-                        print(f'\033[93m[!] An timeout occurred with crtsh, cannot find {args.domain}\033[0m')
+                        print(f'\033[93m[!] A timeout occurred with crtsh, cannot find {args.domain}\033[0m')
 
                 elif engineitem == 'dnsdumpster':
                     try:
                         print('\033[94m[*] Searching DNSdumpster. \033[0m')
                         from theHarvester.discovery import dnsdumpster
                         dns_dumpster_search = dnsdumpster.SearchDnsDumpster(word)
-                        dns_dumpster_search.process()
-                        hosts = filter(dns_dumpster_search.get_hostnames())
-                        all_hosts.extend(hosts)
-                        db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'host', 'dnsdumpster')
+                        store(dns_dumpster_search, engineitem, store_host=True)
                     except Exception as e:
                         print(f'\033[93m[!] An error occurred with dnsdumpster: {e} \033[0m')
 
@@ -163,14 +193,7 @@ def start():
                         print('\033[94m[*] Searching Dogpile. \033[0m')
                         from theHarvester.discovery import dogpilesearch
                         dogpile_search = dogpilesearch.SearchDogpile(word, limit)
-                        dogpile_search.process()
-                        emails = filter(dogpile_search.get_emails())
-                        hosts = filter(dogpile_search.get_hostnames())
-                        all_hosts.extend(hosts)
-                        all_emails.extend(emails)
-                        db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'email', 'dogpile')
-                        db.store_all(word, all_hosts, 'host', 'dogpile')
+                        store(dogpile_search, engineitem, store_host=True, store_emails=True)
                     except Exception as e:
                         print(f'\033[93m[!] An error occurred with Dogpile: {e} \033[0m')
 
@@ -178,28 +201,14 @@ def start():
                     print('\033[94m[*] Searching DuckDuckGo. \033[0m')
                     from theHarvester.discovery import duckduckgosearch
                     duckduckgo_search = duckduckgosearch.SearchDuckDuckGo(word, limit)
-                    duckduckgo_search.process()
-                    emails = filter(duckduckgo_search.get_emails())
-                    hosts = filter(duckduckgo_search.get_hostnames())
-                    all_hosts.extend(hosts)
-                    all_emails.extend(emails)
-                    db = stash.stash_manager()
-                    db.store_all(word, all_hosts, 'email', 'duckduckgo')
-                    db.store_all(word, all_hosts, 'host', 'duckduckgo')
+                    store(duckduckgo_search, engineitem, store_host=True, store_emails=True)
 
                 elif engineitem == 'github-code':
                     print('\033[94m[*] Searching Github (code). \033[0m')
                     try:
                         from theHarvester.discovery import githubcode
                         github_search = githubcode.SearchGithubCode(word, limit)
-                        github_search.process()
-                        emails = filter(github_search.get_emails())
-                        all_emails.extend(emails)
-                        hosts = filter(github_search.get_hostnames())
-                        all_hosts.extend(hosts)
-                        db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'host', 'github-code')
-                        db.store_all(word, all_emails, 'email', 'github-code')
+                        store(github_search, engineitem, store_host=True, store_emails=True)
                     except MissingKey as ex:
                         print(ex)
                     else:
@@ -209,27 +218,13 @@ def start():
                     print('\033[94m[*] Searching Exalead \033[0m')
                     from theHarvester.discovery import exaleadsearch
                     exalead_search = exaleadsearch.SearchExalead(word, limit, start)
-                    exalead_search.process()
-                    emails = filter(exalead_search.get_emails())
-                    all_emails.extend(emails)
-                    hosts = filter(exalead_search.get_hostnames())
-                    all_hosts.extend(hosts)
-                    db = stash.stash_manager()
-                    db.store_all(word, all_hosts, 'host', 'exalead')
-                    db.store_all(word, all_emails, 'email', 'exalead')
+                    store(exalead_search, engineitem, store_host=True, store_emails=True)
 
                 elif engineitem == 'google':
                     print('\033[94m[*] Searching Google. \033[0m')
                     from theHarvester.discovery import googlesearch
                     google_search = googlesearch.SearchGoogle(word, limit, start)
-                    google_search.process(google_dorking)
-                    emails = filter(google_search.get_emails())
-                    all_emails.extend(emails)
-                    hosts = filter(google_search.get_hostnames())
-                    all_hosts.extend(hosts)
-                    db = stash.stash_manager()
-                    db.store_all(word, all_hosts, 'host', 'google')
-                    db.store_all(word, all_emails, 'email', 'google')
+                    store(google_search, engineitem, store_host=True, store_emails=True)
 
                 elif engineitem == 'hunter':
                     print('\033[94m[*] Searching Hunter. \033[0m')
@@ -237,14 +232,7 @@ def start():
                     # Import locally or won't work.
                     try:
                         hunter_search = huntersearch.SearchHunter(word, limit, start)
-                        hunter_search.process()
-                        emails = filter(hunter_search.get_emails())
-                        all_emails.extend(emails)
-                        hosts = filter(hunter_search.get_hostnames())
-                        all_hosts.extend(hosts)
-                        db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'host', 'hunter')
-                        db.store_all(word, all_emails, 'email', 'hunter')
+                        store(hunter_search, engineitem, store_host=True, store_emails=True)
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             print(e)
@@ -257,14 +245,7 @@ def start():
                     # Import locally or won't work.
                     try:
                         intelx_search = intelxsearch.SearchIntelx(word, limit)
-                        intelx_search.process()
-                        emails = filter(intelx_search.get_emails())
-                        all_emails.extend(emails)
-                        hosts = filter(intelx_search.get_hostnames())
-                        all_hosts.extend(hosts)
-                        db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'host', 'intelx')
-                        db.store_all(word, all_emails, 'email', 'intelx')
+                        store(intelx_search, engineitem, store_host=True, store_emails=True)
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             print(e)
@@ -275,60 +256,26 @@ def start():
                     print('\033[94m[*] Searching Linkedin. \033[0m')
                     from theHarvester.discovery import linkedinsearch
                     linkedin_search = linkedinsearch.SearchLinkedin(word, limit)
-                    linkedin_search.process()
-                    people = linkedin_search.get_people()
-                    db = stash.stash_manager()
-                    db.store_all(word, people, 'name', 'linkedin')
-
-                    if len(people) == 0:
-                        print('\n[*] No users found Linkedin.\n\n')
-                    else:
-                        print(f'\n[*] Users found: {len(people)}')
-                        print('---------------------')
-                        for user in sorted(list(set(people))):
-                            print(user)
+                    store(linkedin_search, engineitem, store_people=True)
 
                 elif engineitem == 'linkedin_links':
                     print('\033[94m[*] Searching Linkedin. \033[0m')
                     from theHarvester.discovery import linkedinsearch
                     linkedin_links_search = linkedinsearch.SearchLinkedin(word, limit)
-                    linkedin_links_search.process()
-                    people = linkedin_links_search.get_links()
-                    db = stash.stash_manager()
-                    db.store_all(word, people, 'name', 'linkedin')
-
-                    if len(people) == 0:
-                        print('\n[*] No links found Linkedin.\n\n')
-                    else:
-                        print(f'\n[*] Links found: {len(people)}')
-                        print('---------------------')
-                        for user in sorted(list(set(people))):
-                            print(user)
+                    store(linkedin_links_search, 'linkedin', store_links=True)
 
                 elif engineitem == 'netcraft':
                     print('\033[94m[*] Searching Netcraft. \033[0m')
                     from theHarvester.discovery import netcraft
                     netcraft_search = netcraft.SearchNetcraft(word)
-                    netcraft_search.process()
-                    hosts = filter(netcraft_search.get_hostnames())
-                    all_hosts.extend(hosts)
-                    db = stash.stash_manager()
-                    db.store_all(word, all_hosts, 'host', 'netcraft')
+                    store(netcraft_search, engineitem, store_host=True)
 
                 elif engineitem == 'otx':
                     print('\033[94m[*] Searching AlienVault OTX. \033[0m')
                     from theHarvester.discovery import otxsearch
                     try:
                         otxsearch_search = otxsearch.SearchOtx(word)
-                        otxsearch_search.process()
-                        hosts = filter(otxsearch_search.get_hostnames())
-                        all_hosts.extend(list(hosts))
-                        ips = filter(otxsearch_search.get_ips())
-                        all_ip.extend(list(ips))
-                        all_hosts.extend(hosts)
-                        db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'host', 'otx')
-                        db.store_all(word, all_ip, 'ip', 'otx')
+                        store(otxsearch_search, engineitem, store_host=True, store_ip=True)
                     except Exception as e:
                         print(e)
 
@@ -337,15 +284,7 @@ def start():
                     from theHarvester.discovery import securitytrailssearch
                     try:
                         securitytrails_search = securitytrailssearch.SearchSecuritytrail(word)
-                        securitytrails_search.process()
-                        hosts = filter(securitytrails_search.get_hostnames())
-                        all_hosts.extend(hosts)
-                        db = stash.stash_manager()
-                        db.store_all(word, hosts, 'host', 'securityTrails')
-                        ips = securitytrails_search.get_ips()
-                        all_ip.extend(ips)
-                        db = stash.stash_manager()
-                        db.store_all(word, ips, 'ip', 'securityTrails')
+                        store(securitytrails_search, engineitem, )
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             print(e)
@@ -357,11 +296,7 @@ def start():
                     from theHarvester.discovery import suip
                     try:
                         suip_search = suip.SearchSuip(word)
-                        suip_search.process()
-                        hosts = filter(suip_search.get_hostnames())
-                        all_hosts.extend(hosts)
-                        db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'host', 'suip')
+                        store(suip_search, engineitem, store_host=True)
                     except Exception as e:
                         print(e)
 
@@ -387,11 +322,7 @@ def start():
                     from theHarvester.discovery import threatcrowd
                     try:
                         threatcrowd_search = threatcrowd.SearchThreatcrowd(word)
-                        threatcrowd_search.process()
-                        hosts = filter(threatcrowd_search.get_hostnames())
-                        all_hosts.extend(hosts)
-                        db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'host', 'threatcrowd')
+                        store(threatcrowd_search, engineitem, store_host=True)
                     except Exception as e:
                         print(e)
 
@@ -400,55 +331,25 @@ def start():
                     from theHarvester.discovery import trello
                     # Import locally or won't work.
                     trello_search = trello.SearchTrello(word)
-                    trello_search.process()
-                    emails, hosts, urls = trello_search.get_results()
-                    all_emails.extend(emails)
-                    hosts = filter(hosts)
-                    trello_urls = filter(urls)
-                    all_hosts.extend(hosts)
-                    db = stash.stash_manager()
-                    db.store_all(word, hosts, 'host', 'trello')
-                    db.store_all(word, emails, 'email', 'trello')
+                    store(trello_search, engineitem, store_results=True)
 
                 elif engineitem == 'twitter':
                     print('\033[94m[*] Searching Twitter usernames using Google. \033[0m')
                     from theHarvester.discovery import twittersearch
                     twitter_search = twittersearch.SearchTwitter(word, limit)
-                    twitter_search.process()
-                    people = twitter_search.get_people()
-                    db = stash.stash_manager()
-                    db.store_all(word, people, 'name', 'twitter')
-
-                    if len(people) == 0:
-                        print('\n[*] No users found.\n\n')
-                    else:
-                        print('\n[*] Users found: ' + str(len(people)))
-                        print('---------------------')
-                        for user in sorted(list(set(people))):
-                            print(user)
+                    store(twitter_search, engineitem, store_people=True)
 
                 elif engineitem == 'virustotal':
                     print('\033[94m[*] Searching VirusTotal. \033[0m')
                     from theHarvester.discovery import virustotal
                     virustotal_search = virustotal.SearchVirustotal(word)
-                    virustotal_search.process()
-                    hosts = filter(virustotal_search.get_hostnames())
-                    all_hosts.extend(hosts)
-                    db = stash.stash_manager()
-                    db.store_all(word, all_hosts, 'host', 'virustotal')
+                    store(virustotal_search, engineitem, store_host=True)
 
                 elif engineitem == 'yahoo':
                     print('\033[94m[*] Searching Yahoo. \033[0m')
                     from theHarvester.discovery import yahoosearch
                     yahoo_search = yahoosearch.SearchYahoo(word, limit)
-                    yahoo_search.process()
-                    hosts = yahoo_search.get_hostnames()
-                    emails = yahoo_search.get_emails()
-                    all_hosts.extend(filter(hosts))
-                    all_emails.extend(filter(emails))
-                    db = stash.stash_manager()
-                    db.store_all(word, all_hosts, 'host', 'yahoo')
-                    db.store_all(word, all_emails, 'email', 'yahoo')
+                    store(yahoo_search, engineitem, store_host=True, store_emails=True)
         else:
             print('\033[93m[!] Invalid source.\n\n \033[0m')
             sys.exit(1)
@@ -713,10 +614,10 @@ def start():
                     file.write('<banner><!--' + res[1] + '--></banner>')
                     reg_server = re.compile('Server:.*')
                     temp = reg_server.findall(res[1])
-                    if temp != []:
+                    if temp:
                         shodanalysis.append(res[0] + ':' + temp[0])
                     file.write('</shodan>')
-                if shodanalysis != []:
+                if shodanalysis:
                     shodanalysis = sorted(set(shodanalysis))
                     file.write('<servers>')
                     for x in shodanalysis:
