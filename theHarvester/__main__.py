@@ -69,8 +69,9 @@ def start():
     virtual = args.virtual_host
     word = args.domain  # type: str
 
-    def store(search_engine, source, process_param=None, store_host=False, store_emails=False, store_ip=False, store_people=False,
-              store_data=False, store_links=False, store_results=False):
+    def store(search_engine: Any, source: str, process_param: Any = None, store_host: bool = False,
+              store_emails: bool = False, store_ip: bool = False, store_people: bool = False,
+              store_data: bool = False, store_links: bool = False, store_results: bool = False) -> None:
         search_engine.process() if process_param is None else search_engine.process(process_param)
         db_stash = stash.stash_manager()
 
