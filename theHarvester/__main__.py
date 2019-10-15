@@ -90,14 +90,13 @@ def start():
             all_hosts.extend(data)
             db.store_all(word, all_hosts, 'host', source)
         if store_results:
-            emails, hosts, urls = search_engine.get_results()
-            all_emails.extend(emails)
-            hosts = filter(hosts)
-            global trello_urls
-            trello_urls = filter(urls)
-            all_hosts.extend(hosts)
-            db.store_all(word, hosts, 'host', source)
-            db.store_all(word, emails, 'email', source)
+            email_list, host_names, urls = search_engine.get_results()
+            all_emails.extend(email_list)
+            host_names = filter(host_names)
+            trello_urls.extend(filter(urls))
+            all_hosts.extend(host_names)
+            db.store_all(word, all_hosts, 'host', source)
+            db.store_all(word, all_emails, 'email', source)
         if store_people:
             people_list = search_engine.get_people()
             db_stash.store_all(word, people_list, 'people', source)
