@@ -72,6 +72,22 @@ def start():
     def store(search_engine: Any, source: str, process_param: Any = None, store_host: bool = False,
               store_emails: bool = False, store_ip: bool = False, store_people: bool = False,
               store_data: bool = False, store_links: bool = False, store_results: bool = False) -> None:
+        """
+        Persist details into the database.
+        The details to be stored is controlled by the parameters passed to the method.
+
+        :param search_engine: search engine to fetch details from
+        :param source: source against which the details (corresponding to the search engine) need to be persisted
+        :param process_param: any parameters to be passed to the search engine
+                              eg: Google needs google_dorking
+        :param store_host: whether to store hosts
+        :param store_emails: whether to store emails
+        :param store_ip: whether to store IP address
+        :param store_people: whether to store user details
+        :param store_data: whether to fetch host from method get_data() and persist
+        :param store_links: whether to store links
+        :param store_results: whether to fetch details from get_results() and persist
+        """
         search_engine.process() if process_param is None else search_engine.process(process_param)
         db_stash = stash.stash_manager()
 
