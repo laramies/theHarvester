@@ -103,7 +103,7 @@ def start():
             all_ip.extend(ips_list)
             db_stash.store_all(word, ips, 'ip', source)
         if store_data:
-            data = filter(crtsh_search.get_data())
+            data = filter(search_engine.get_data())
             all_hosts.extend(data)
             db.store_all(word, all_hosts, 'host', source)
         if store_results:
@@ -125,7 +125,7 @@ def start():
                 for usr in sorted(list(set(people_list))):
                     print(usr)
         if store_links:
-            links = linkedin_links_search.get_links()
+            links = search_engine.get_links()
             db.store_all(word, links, 'name', 'linkedin')
             if len(links) == 0:
                 print('\n[*] No links found Linkedin.\n\n')
