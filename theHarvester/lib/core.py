@@ -8,7 +8,7 @@ import yaml
 class Core:
     @staticmethod
     def version() -> str:
-        return '3.1.1-dev1'
+        return '3.1.1-dev2'
 
     @staticmethod
     def bing_key() -> str:
@@ -61,12 +61,12 @@ class Core:
         print(r"* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *")
         print(r"*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *")
         print('*                                                                 *')
-        print(f'* theHarvester {Core.version()}                                              *')
+        print('* theHarvester {}                                         *'.format(Core.version()))
         print('* Coded by Christian Martorella                                   *')
         print('* Edge-Security Research                                          *')
         print('* cmartorella@edge-security.com                                   *')
         print('*                                                                 *')
-        print('******************************************************************* \n\n \033[0m')
+        print('******************************************************************* \n\n\033[0m')
 
     @staticmethod
     def get_supportedengines() -> Set[Union[str, Any]]:
