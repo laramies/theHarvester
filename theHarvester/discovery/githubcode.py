@@ -29,7 +29,6 @@ class SearchGithubCode:
         self.word = word
         self.total_results = ""
         self.server = 'api.github.com'
-        self.hostname = 'api.github.com'
         self.limit = limit
         self.counter = 0
         self.page = 1
@@ -51,7 +50,7 @@ class SearchGithubCode:
         return [fragment for fragment in fragments if fragment is not None]
 
     @staticmethod
-    def page_from_response(page: str, response: Response) -> Optional[int]:
+    def page_from_response(page: str, response: Response) -> Optional[Any]:
         page_link = response.links.get(page)
         if page_link:
             parsed = urlparse.urlparse(page_link.get("url"))
@@ -82,7 +81,7 @@ class SearchGithubCode:
         else:
             url = f'https://{self.server}/search/code?q="{self.word}"&page={page}'
         headers = {
-            'Host': self.hostname,
+            'Host': self.server,
             'User-agent': Core.get_user_agent(),
             'Accept': "application/vnd.github.v3.text-match+json",
             'Authorization': 'token {}'.format(self.key)
