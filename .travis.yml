@@ -7,8 +7,8 @@ matrix:
       env: TEST_SUITE=suite_3_7
     - python: '3.8'
       env: TEST_SUITE=suite_3_8
-    - python: '3.9-dev'
-        env: TEST_SUITE=suite_3_9_dev
+#    - python: '3.9-dev'
+#        env: TEST_SUITE=suite_3_9_dev
 before_install:
   - pip install -r requirements.txt
 install:
