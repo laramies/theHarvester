@@ -126,9 +126,9 @@ def start():
                     print(usr)
         if store_links:
             links = search_engine.get_links()
-            db.store_all(word, links, 'name', 'linkedin')
+            db.store_all(word, links, 'name', engineitem)
             if len(links) == 0:
-                print('\n[*] No links found Linkedin.\n\n')
+                print('\n[*] No links found.\n\n')
             else:
                 print(f'\n[*] Links found: {len(links)}')
                 print('---------------------')
@@ -176,12 +176,7 @@ def start():
                     from theHarvester.discovery import certspottersearch
                     try:
                         certspotter_search = certspottersearch.SearchCertspoter(word)
-                        certspotter_search.process()
-                        hosts = filter(certspotter_search.get_hostnames())
-                        all_hosts.extend(list(hosts))
-                        all_hosts.extend(hosts)
-                        db = stash.stash_manager()
-                        db.store_all(word, all_hosts, 'host', 'certspotter')
+                        store(certspotter_search, engineitem, None, store_host=True)
                     except Exception as e:
                         print(e)
 
