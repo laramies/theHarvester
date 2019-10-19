@@ -101,7 +101,7 @@ def start():
         if store_ip:
             ips_list = search_engine.get_ips()
             all_ip.extend(ips_list)
-            db_stash.store_all(word, ips, 'ip', source)
+            db_stash.store_all(word, all_ip, 'ip', source)
         if store_data:
             data = filter(search_engine.get_data())
             all_hosts.extend(data)
@@ -295,7 +295,7 @@ def start():
                     from theHarvester.discovery import securitytrailssearch
                     try:
                         securitytrails_search = securitytrailssearch.SearchSecuritytrail(word)
-                        store(securitytrails_search, engineitem, )
+                        store(securitytrails_search, engineitem, store_host=True, store_ip=True)
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             print(e)
