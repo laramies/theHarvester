@@ -26,9 +26,7 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        pip install pipenv
-        pipenv install -r requirements.txt
-        pipenv shell
+        pip install -r requirements.txt
 
     - name: Run theHarvester module baidu
       run: |
