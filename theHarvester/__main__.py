@@ -64,7 +64,7 @@ def start():
     shodan = args.shodan
     start = args.start  # type: int
     takeover_check = False
-    trello_urls = []
+    all_urls = []
     vhost = []
     virtual = args.virtual_host
     word = args.domain  # type: str
@@ -110,7 +110,7 @@ def start():
             email_list, host_names, urls = search_engine.get_results()
             all_emails.extend(email_list)
             host_names = filter(host_names)
-            trello_urls.extend(filter(urls))
+            all_urls.extend(filter(urls))
             all_hosts.extend(host_names)
             db.store_all(word, all_hosts, 'host', source)
             db.store_all(word, all_emails, 'email', source)
@@ -408,7 +408,7 @@ def start():
             print(host)
         host_ip = [netaddr_ip.format() for netaddr_ip in sorted([netaddr.IPAddress(ip) for ip in ips])]
         db.store_all(word, host_ip, 'ip', 'DNS-resolver')
-    length_urls = len(trello_urls)
+    length_urls = len(all_urls)
     if length_urls == 0:
         if len(engines) >= 1 and 'trello' in engines:
             print('\n[*] No Trello URLs found.')
@@ -416,7 +416,7 @@ def start():
         total = length_urls
         print('\n[*] Trello URLs found: ' + str(total))
         print('--------------------')
-        for url in sorted(trello_urls):
+        for url in sorted(all_urls):
             print(url)
 
     # DNS brute force
