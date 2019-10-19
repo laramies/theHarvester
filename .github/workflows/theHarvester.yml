@@ -10,7 +10,6 @@ on:
     - '*'
 jobs:
   Python:
-
     runs-on: ubuntu-latest
     strategy:
       max-parallel: 4
