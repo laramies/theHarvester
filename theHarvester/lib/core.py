@@ -8,49 +8,84 @@ import yaml
 class Core:
     @staticmethod
     def version() -> str:
-        return '3.1.1-dev2'
+        return '3.1.1-dev3'
 
     @staticmethod
     def bing_key() -> str:
-        with open('api-keys.yaml', 'r') as api_keys:
-            keys = yaml.safe_load(api_keys)
-            return keys['apikeys']['bing']['key']
+        try:
+            with open('api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+        except FileNotFoundError:
+            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+                return keys['apikeys']['bing']['key']
+        return keys['apikeys']['bing']['key']
 
     @staticmethod
     def github_key() -> str:
-        with open('api-keys.yaml', 'r') as api_keys:
-            keys = yaml.safe_load(api_keys)
-            return keys['apikeys']['github']['key']
+        try:
+            with open('api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+        except FileNotFoundError:
+            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+                return keys['apikeys']['github']['key']
+        return keys['apikeys']['github']['key']
 
     @staticmethod
     def hunter_key() -> str:
-        with open('api-keys.yaml', 'r') as api_keys:
-            keys = yaml.safe_load(api_keys)
+        try:
+            with open('api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+        except FileNotFoundError:
+            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
             return keys['apikeys']['hunter']['key']
+        return keys['apikeys']['hunter']['key']
 
     @staticmethod
     def intelx_key() -> str:
-        with open('api-keys.yaml', 'r') as api_keys:
-            keys = yaml.safe_load(api_keys)
-            return keys['apikeys']['intelx']['key']
+        try:
+            with open('api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+        except FileNotFoundError:
+            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+                return keys['apikeys']['intelx']['key']
+        return keys['apikeys']['intelx']['key']
 
     @staticmethod
     def security_trails_key() -> str:
-        with open('api-keys.yaml', 'r') as api_keys:
-            keys = yaml.safe_load(api_keys)
-            return keys['apikeys']['securityTrails']['key']
+        try:
+            with open('api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+        except FileNotFoundError:
+            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+                return keys['apikeys']['securityTrails']['key']
+        return keys['apikeys']['securityTrails']['key']
 
     @staticmethod
     def shodan_key() -> str:
-        with open('api-keys.yaml', 'r') as api_keys:
-            keys = yaml.safe_load(api_keys)
-            return keys['apikeys']['shodan']['key']
+        try:
+            with open('api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+        except FileNotFoundError:
+            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+                return keys['apikeys']['shodan']['key']
+        return keys['apikeys']['shodan']['key']
 
     @staticmethod
     def spyse_key() -> str:
-        with open('api-keys.yaml', 'r') as api_keys:
-            keys = yaml.safe_load(api_keys)
-            return keys['apikeys']['spyse']['key']
+        try:
+            with open('api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+        except FileNotFoundError:
+            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+                return keys['apikeys']['spyse']['key']
+        return keys['apikeys']['spyse']['key']
 
     @staticmethod
     def banner() -> None:
