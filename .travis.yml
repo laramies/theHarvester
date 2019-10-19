@@ -10,7 +10,8 @@ matrix:
 #    - python: '3.9-dev'
 #        env: TEST_SUITE=suite_3_9_dev
 before_install:
-  - pip install -r requirements.txt
+  - pip install pipenv
+  - pipenv install --dev
 install:
 - python setup.py test
 script:
