@@ -28,6 +28,7 @@ jobs:
         pip install --upgrade pip
         pip install pipenv
         pipenv install -r requirements.txt
+        pipenv shell
 
     - name: Run theHarvester module baidu
       run: |
