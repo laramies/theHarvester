@@ -18,7 +18,7 @@ script:
 - python theHarvester.py -d metasploit.com -b baidu,bing,certspotter,crtsh,dnsdumpster,dogpile,duckduckgo,exalead,linkedin,netcraft,otx,intelx,threatcrowd,trello,twitter,virustotal,yahoo -l 200
 - pytest
 - flake8 . --count --show-source --statistics
-#- mypy --pretty theHarvester/discovery/*.py
+- mypy --pretty theHarvester/discovery/*.py
 
 notifications:
   email: false

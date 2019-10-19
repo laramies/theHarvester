@@ -25,6 +25,7 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
       run: |
+        pip install --upgrade pip
         pip install pipenv
         pipenv install
 
@@ -113,6 +114,6 @@ jobs:
     - name: Test with pytest
       run: |
         pytest
-#    - name: Static type checking with mypy
-#      run: |
-#        mypy --pretty theHarvester/discovery/*.py
+    - name: Static type checking with mypy
+      run: |
+        mypy --pretty theHarvester/discovery/*.py
