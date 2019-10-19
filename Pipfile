@@ -23,4 +23,4 @@ mypy-extensions = "==0.4.3"
 pytest = "==5.2.1"
 
 [requires]
-python_version = ["3.7", "3.8"]
+python_version = ">=3.7"
