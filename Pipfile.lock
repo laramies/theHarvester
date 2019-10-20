@@ -1,12 +1,10 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "5bf6a7ca3344f87c163708bbf1c11752dc541ff0795a189e0c96bfdb4c7b8753"
+            "sha256": "7e45ee0725c108a6f56760e8a6540c9400948fe984b9bb1ba7b29139a753b6ae"
         },
         "pipfile-spec": 6,
-        "requires": {
-            "python_version": "3.7"
-        },
+        "requires": {},
         "sources": [
             {
                 "name": "pypi",
@@ -191,11 +189,11 @@
         },
         "plotly": {
             "hashes": [
-                "sha256:157a49b510f474769f48b8bab150d254ba3216709136be4965e8a568764ee58c",
-                "sha256:a94c2e1bb99ccac02fdff454eed7440f2f134fba16f332a179c1074010de5a51"
+                "sha256:593418bbbd325ee020b7d0381a9452c603558981bde05a303b860455eb907574",
+                "sha256:6650ddb4da3aa94dcaa32e0779e611c6b17f371b5250ffdbf5ece6d66ba4483b"
             ],
             "index": "pypi",
-            "version": "==4.2.0"
+            "version": "==4.2.1"
         },
         "pycares": {
             "hashes": [
@@ -372,9 +370,11 @@
         },
         "mypy-extensions": {
             "hashes": [
-                "sha256:a161e3b917053de87dbe469987e173e49fb454eca10ef28b48b384538cc11458"
+                "sha256:090fedd75945a69ae91ce1303b5824f428daf5a028d2f6ab8a299250a846f15d",
+                "sha256:2d82818f5bb3e369420cb3c4060a7970edba416647068eb4c5343488a6c604a8"
             ],
-            "version": "==0.4.2"
+            "index": "pypi",
+            "version": "==0.4.3"
         },
         "packaging": {
             "hashes": [

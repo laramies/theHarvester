@@ -5,7 +5,7 @@ flake8==3.7.8
 grequests==0.4.0
 mypy==0.740
 netaddr==0.7.19
-plotly==4.2.0
+plotly==4.2.1
 pytest==5.2.0
 PyYaml==5.1.2
 requests==2.22.0
