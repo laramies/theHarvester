@@ -9,7 +9,7 @@ sys.argv = args = [os.path.curdir + 'theHarvester.py', '-d', domain, '-b', 'doma
 
 
 @patch('theHarvester.discovery.baidusearch.SearchBaidu')
-@patch('theHarvester.lib.stash.stash_manager')
+@patch('theHarvester.lib.stash.StashManager')
 def test_baidu(stash, search_engine):
     args[-1] = 'baidu'
     harvester.start()
@@ -17,7 +17,7 @@ def test_baidu(stash, search_engine):
 
 
 @patch('theHarvester.discovery.bingsearch.SearchBing')
-@patch('theHarvester.lib.stash.stash_manager')
+@patch('theHarvester.lib.stash.StashManager')
 def test_bing(stash, search_engine):
     args[-1] = 'bing'
     harvester.start()
@@ -27,7 +27,7 @@ def test_bing(stash, search_engine):
 
 
 @patch('theHarvester.discovery.certspottersearch.SearchCertspoter')
-@patch('theHarvester.lib.stash.stash_manager')
+@patch('theHarvester.lib.stash.StashManager')
 def test_certspotter(stash, search_engine):
     args[-1] = 'certspotter'
     harvester.start()
@@ -35,7 +35,7 @@ def test_certspotter(stash, search_engine):
 
 
 @patch('theHarvester.discovery.crtsh.SearchCrtsh')
-@patch('theHarvester.lib.stash.stash_manager')
+@patch('theHarvester.lib.stash.StashManager')
 def test_crtsh(stash, search_engine):
     args[-1] = 'crtsh'
     harvester.start()
@@ -43,7 +43,7 @@ def test_crtsh(stash, search_engine):
 
 
 @patch('theHarvester.discovery.dnsdumpster.SearchDnsDumpster')
-@patch('theHarvester.lib.stash.stash_manager')
+@patch('theHarvester.lib.stash.StashManager')
 def test_dnsdumpster(stash, search_engine):
     args[-1] = 'dnsdumpster'
     harvester.start()
@@ -51,7 +51,7 @@ def test_dnsdumpster(stash, search_engine):
 
 
 @patch('theHarvester.discovery.dogpilesearch.SearchDogpile')
-@patch('theHarvester.lib.stash.stash_manager')
+@patch('theHarvester.lib.stash.StashManager')
 def test_dogpile(stash, search_engine):
     args[-1] = 'dogpile'
     harvester.start()
@@ -59,7 +59,7 @@ def test_dogpile(stash, search_engine):
 
 
 @patch('theHarvester.discovery.duckduckgosearch.SearchDuckDuckGo')
-@patch('theHarvester.lib.stash.stash_manager')
+@patch('theHarvester.lib.stash.StashManager')
 def test_duckduckgo(stash, search_engine):
     args[-1] = 'duckduckgo'
     harvester.start()
@@ -67,7 +67,7 @@ def test_duckduckgo(stash, search_engine):
 
 
 @patch('theHarvester.discovery.githubcode.SearchGithubCode')
-@patch('theHarvester.lib.stash.stash_manager')
+@patch('theHarvester.lib.stash.StashManager')
 def test_github(stash, search_engine):
     args[-1] = 'github-code'
     harvester.start()
@@ -75,7 +75,7 @@ def test_github(stash, search_engine):
 
 
 @patch('theHarvester.discovery.exaleadsearch.SearchExalead')
-@patch('theHarvester.lib.stash.stash_manager')
+@patch('theHarvester.lib.stash.StashManager')
 def test_exalead(stash, search_engine):
     args[-1] = 'exalead'
     harvester.start()
@@ -83,7 +83,7 @@ def test_exalead(stash, search_engine):
 
 
 @patch('theHarvester.discovery.googlesearch.SearchGoogle')
-@patch('theHarvester.lib.stash.stash_manager')
+@patch('theHarvester.lib.stash.StashManager')
 def test_google(stash, search_engine):
     args[-1] = 'google'
     harvester.start()
@@ -91,7 +91,7 @@ def test_google(stash, search_engine):
 
 
 @patch('theHarvester.discovery.huntersearch.SearchHunter')
-@patch('theHarvester.lib.stash.stash_manager')
+@patch('theHarvester.lib.stash.StashManager')
 def test_hunter(stash, search_engine):
     args[-1] = 'hunter'
     harvester.start()
@@ -99,7 +99,7 @@ def test_hunter(stash, search_engine):
 
 
 @patch('theHarvester.discovery.intelxsearch.SearchIntelx')
-@patch('theHarvester.lib.stash.stash_manager')
+@patch('theHarvester.lib.stash.StashManager')
 def test_intelx(stash, search_engine):
     args[-1] = 'intelx'
     harvester.start()
@@ -107,7 +107,7 @@ def test_intelx(stash, search_engine):
 
 
 @patch('theHarvester.discovery.linkedinsearch.SearchLinkedin')
-@patch('theHarvester.lib.stash.stash_manager')
+@patch('theHarvester.lib.stash.StashManager')
 def test_linkedin(stash, search_engine):
     args[-1] = 'linkedin'
     harvester.start()
@@ -115,7 +115,7 @@ def test_linkedin(stash, search_engine):
 
 
 @patch('theHarvester.discovery.linkedinsearch.SearchLinkedin')
-@patch('theHarvester.lib.stash.stash_manager')
+@patch('theHarvester.lib.stash.StashManager')
 def test_linkedin_links(stash, search_engine):
     args[-1] = 'linkedin_links'
     harvester.start()
@@ -123,7 +123,7 @@ def test_linkedin_links(stash, search_engine):
 
 
 @patch('theHarvester.discovery.netcraft.SearchNetcraft')
-@patch('theHarvester.lib.stash.stash_manager')
+@patch('theHarvester.lib.stash.StashManager')
 def test_netcraft(stash, search_engine):
     args[-1] = 'netcraft'
     harvester.start()
@@ -131,7 +131,7 @@ def test_netcraft(stash, search_engine):
 
 
 @patch('theHarvester.discovery.otxsearch.SearchOtx')
-@patch('theHarvester.lib.stash.stash_manager')
+@patch('theHarvester.lib.stash.StashManager')
 def test_otx(stash, search_engine):
     args[-1] = 'otx'
     harvester.start()
@@ -139,7 +139,7 @@ def test_otx(stash, search_engine):
 
 
 @patch('theHarvester.discovery.securitytrailssearch.SearchSecuritytrail')
-@patch('theHarvester.lib.stash.stash_manager')
+@patch('theHarvester.lib.stash.StashManager')
 def test_security_trails(stash, search_engine):
     args[-1] = 'securityTrails'
     harvester.start()
@@ -147,7 +147,7 @@ def test_security_trails(stash, search_engine):
 
 
 @patch('theHarvester.discovery.suip.SearchSuip')
-@patch('theHarvester.lib.stash.stash_manager')
+@patch('theHarvester.lib.stash.StashManager')
 def test_suip(stash, search_engine):
     args[-1] = 'suip'
     harvester.start()
@@ -155,7 +155,7 @@ def test_suip(stash, search_engine):
 
 
 @patch('theHarvester.discovery.threatcrowd.SearchThreatcrowd')
-@patch('theHarvester.lib.stash.stash_manager')
+@patch('theHarvester.lib.stash.StashManager')
 def test_threatcrowd(stash, search_engine):
     args[-1] = 'threatcrowd'
     harvester.start()
@@ -163,7 +163,7 @@ def test_threatcrowd(stash, search_engine):
 
 
 @patch('theHarvester.discovery.trello.SearchTrello')
-@patch('theHarvester.lib.stash.stash_manager')
+@patch('theHarvester.lib.stash.StashManager')
 def test_trello(stash, search_engine):
     search_engine().get_results = MagicMock(return_value=('user@trello.com', 'trello', 'trello.com'))
     args[-1] = 'trello'
@@ -172,7 +172,7 @@ def test_trello(stash, search_engine):
 
 
 @patch('theHarvester.discovery.twittersearch.SearchTwitter')
-@patch('theHarvester.lib.stash.stash_manager')
+@patch('theHarvester.lib.stash.StashManager')
 def test_twitter(stash, search_engine):
     args[-1] = 'twitter'
     harvester.start()
@@ -180,7 +180,7 @@ def test_twitter(stash, search_engine):
 
 
 @patch('theHarvester.discovery.virustotal.SearchVirustotal')
-@patch('theHarvester.lib.stash.stash_manager')
+@patch('theHarvester.lib.stash.StashManager')
 def test_virustotal(stash, search_engine):
     args[-1] = 'virustotal'
     harvester.start()
@@ -188,7 +188,7 @@ def test_virustotal(stash, search_engine):
 
 
 @patch('theHarvester.discovery.yahoosearch.SearchYahoo')
-@patch('theHarvester.lib.stash.stash_manager')
+@patch('theHarvester.lib.stash.StashManager')
 def test_yahoo(stash, search_engine):
     args[-1] = 'yahoo'
     harvester.start()
