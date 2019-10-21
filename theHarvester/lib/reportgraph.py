@@ -4,7 +4,7 @@ import plotly
 import plotly.graph_objs as go
 
 try:
-    db = stash.stash_manager()
+    db = stash.StashManager()
     db.do_init()
 except Exception as error:
     print(f'{error}')

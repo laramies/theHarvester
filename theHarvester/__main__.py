@@ -42,32 +42,32 @@ def start():
 
     args = parser.parse_args()
     try:
-        db = stash.stash_manager()
+        db = stash.StashManager()
         db.do_init()
     except Exception:
         pass
 
-    all_emails = []
-    all_hosts = []
-    all_ip = []
+    all_emails: list = []
+    all_hosts: list = []
+    all_ip: list = []
     dnsbrute = args.dns_brute
     dnslookup = args.dns_lookup
     dnsserver = args.dns_server
     dnstld = args.dns_tld
     engines = []
-    filename = args.filename  # type: str
-    full = []
+    filename: str = args.filename
+    full: list = []
     google_dorking = args.google_dork
-    host_ip = []
-    limit = args.limit  # type: int
+    host_ip: list = []
+    limit: int = args.limit
     ports_scanning = args.port_scan
     shodan = args.shodan
-    start = args.start  # type: int
+    start: int = args.start
     takeover_check = False
-    all_urls = []
-    vhost = []
+    all_urls: list = []
+    vhost: list = []
     virtual = args.virtual_host
-    word = args.domain  # type: str
+    word: str = args.domain
 
     def store(search_engine: Any, source: str, process_param: Any = None, store_host: bool = False,
               store_emails: bool = False, store_ip: bool = False, store_people: bool = False,
@@ -89,7 +89,7 @@ def start():
         :param store_results: whether to fetch details from get_results() and persist
         """
         search_engine.process() if process_param is None else search_engine.process(process_param)
-        db_stash = stash.stash_manager()
+        db_stash = stash.StashManager()
 
         if store_host:
             host_names = filter(search_engine.get_hostnames())
@@ -402,7 +402,7 @@ def start():
         all_hosts = sorted(list(set(all_hosts)))
         full_host = hostchecker.Checker(all_hosts)
         full, ips = asyncio.run(full_host.check())
-        db = stash.stash_manager()
+        db = stash.StashManager()
         for host in full:
             host = str(host)
             print(host)
@@ -563,7 +563,7 @@ def start():
     if filename != "":
         try:
             print('\n[*] Reporting started.')
-            db = stash.stash_manager()
+            db = stash.StashManager()
             scanboarddata = db.getscanboarddata()
             latestscanresults = db.getlatestscanresults(word)
             previousscanresults = db.getlatestscanresults(word, previousday=True)
