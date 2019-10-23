@@ -24,6 +24,11 @@ class PortScan:
             except Exception as e:
                 print(e)
         self.lock.release()
+
+        if(len(self.ports)) == 0:
+            print("Not found open ports")
+            sys.Exit(1)
+
         return openports
 
     def process(self):
