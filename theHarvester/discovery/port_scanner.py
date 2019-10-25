@@ -26,7 +26,7 @@ class PortScan:
         self.lock.release()
 
         if(len(self.ports)) == 0:
-            print("Not found open ports")
+            print("No ports found on host: {0}".format(host))
 
         return openports
 
