@@ -6,7 +6,7 @@ grequests==0.4.0
 mypy==0.740
 netaddr==0.7.19
 plotly==4.2.1
-pytest==5.2.0
+pytest==5.2.2
 PyYaml==5.1.2
 requests==2.22.0
 shodan==1.19.0
