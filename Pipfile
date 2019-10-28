@@ -17,7 +17,7 @@ shodan = "==1.19.0"
 texttable = "==1.6.2"
 
 [dev-packages]
-flake8 = "==3.7.8"
+flake8 = "==3.7.9"
 mypy = "==0.740"
 mypy-extensions = "==0.4.3"
 pytest = "==5.2.2"
