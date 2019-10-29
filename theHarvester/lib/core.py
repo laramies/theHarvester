@@ -8,7 +8,7 @@ import yaml
 class Core:
     @staticmethod
     def version() -> str:
-        return '3.1.1dev3'
+        return '3.1.1dev4'
 
     @staticmethod
     def bing_key() -> str:
@@ -114,6 +114,7 @@ class Core:
                             'dogpile',
                             'duckduckgo',
                             'exalead',
+                            'goofile',
                             'github-code',
                             'google',
                             'hunter',
