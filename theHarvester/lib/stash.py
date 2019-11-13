@@ -18,7 +18,7 @@ class StashManager:
     def do_init(self):
         conn = sqlite3.connect(self.db)
         c = conn.cursor()
-        c.execute('CREATE TABLE results (domain text, resource text, type text, find_date date, source text)')
+        c.execute('CREATE TABLE IF NOT EXISTS results (domain text, resource text, type text, find_date date, source text)')
         conn.commit()
         conn.close()
         return
