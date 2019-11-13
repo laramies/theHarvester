@@ -12,6 +12,7 @@ class SearchGooglefile:
         self.totalresults = ""
         self.server = 'www.google.com'
         self.start = 0
+        self.links = set()
 
     def do_search(self):
         filetype = ['doc', 'docx', 'pdf', 'ppt', 'pptx', 'txt', 'xls', 'xlsx']
@@ -27,19 +28,22 @@ class SearchGooglefile:
             page = requests.get(url, headers=headers)
             tree = html.fromstring(page.content)
             self.results = tree.xpath('//*[@class="r"]/a/@href')
-
+            #print('results: ', self.results)
         for link in self.results:
             match = re.search(regex, link)
             if match:
-                self.totalresults += match.group('urls')
+                #print('type: ', type(match.group('urls')))
+                self.links.update(set(list(match.group('urls'))))
+                # print(match.group('urls'))
             else:
-                self.totalresults += f'{link}'
-
+                # print('not matched')
+                # print(f'{link}')
+                self.links.add(link)
         if self.results:
             self.start += 100
 
-    def get_links(self):
-        return self.totalresults
+    def get_links(self) -> set:
+        return self.links
 
     def process(self):
         self.do_search()
