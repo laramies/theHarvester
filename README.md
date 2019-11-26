@@ -77,7 +77,7 @@ Modules that require an API key:
 --------------------------------
 Add your keys to api-keys.yaml
 
-* bingapi
+* bing
 * github
 * hunter
 * intelx
