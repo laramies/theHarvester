@@ -3,6 +3,8 @@
 import random
 from typing import Set, Union, Any
 import yaml
+import asyncio
+import aiohttp
 
 
 class Core:
@@ -333,3 +335,33 @@ class Core:
             'Mozilla/5.0 (Windows NT 5.1; U; de; rv:1.9.1.6) Gecko/20091201 Firefox/3.5.6 Opera 11.00'
         ]
         return random.choice(user_agents)
+
+
+class async_fetcher:
+
+    @staticmethod
+    async def fetch(session, url, params='') -> str:
+        # This fetch method solely focuses on get requests
+        if len(params) == '':
+            async with session.get(url, params=params) as response:
+                await asyncio.sleep(1)
+                return await response.text()
+        else:
+            async with session.get(url) as response:
+                await asyncio.sleep(1)
+                return await response.text()
+
+    @staticmethod
+    async def fetch_all(urls, headers='', params='') -> list:
+        timeout = aiohttp.ClientTimeout(total=10)
+        if len(headers) == 0:
+            headers = {'User-Agent': Core.get_user_agent()}
+        if len(params) == 0:
+            async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
+                texts = await asyncio.gather(*[async_fetcher.fetch(session, url) for url in urls])
+                return texts
+        else:
+            # Indicates the request has certain params
+            async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
+                texts = await asyncio.gather(*[async_fetcher.fetch(session, url, params) for url in urls])
+                return texts

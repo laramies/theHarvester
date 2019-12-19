@@ -18,21 +18,27 @@ import time
 Core.banner()
 
 
-def start():
+async def start():
     parser = argparse.ArgumentParser(
         description='theHarvester is used to gather open source intelligence (OSINT) on a\n'
                     'company or domain.')
     parser.add_argument('-d', '--domain', help='company name or domain to search', required=True)
     parser.add_argument('-l', '--limit', help='limit the number of search results, default=500', default=500, type=int)
     parser.add_argument('-S', '--start', help='start with result number X, default=0', default=0, type=int)
-    parser.add_argument('-g', '--google-dork', help='use Google Dorks for Google search', default=False, action='store_true')
-    parser.add_argument('-p', '--port-scan', help='scan the detected hosts and check for Takeovers (21,22,80,443,8080)', default=False, action='store_true')
-    parser.add_argument('-s', '--shodan', help='use Shodan to query discovered hosts', default=False, action='store_true')
-    parser.add_argument('-v', '--virtual-host', help='verify host name via DNS resolution and search for virtual hosts', action='store_const', const='basic', default=False)
+    parser.add_argument('-g', '--google-dork', help='use Google Dorks for Google search', default=False,
+                        action='store_true')
+    parser.add_argument('-p', '--port-scan', help='scan the detected hosts and check for Takeovers (21,22,80,443,8080)',
+                        default=False, action='store_true')
+    parser.add_argument('-s', '--shodan', help='use Shodan to query discovered hosts', default=False,
+                        action='store_true')
+    parser.add_argument('-v', '--virtual-host', help='verify host name via DNS resolution and search for virtual hosts',
+                        action='store_const', const='basic', default=False)
     parser.add_argument('-e', '--dns-server', help='DNS server to use for lookup')
     parser.add_argument('-t', '--dns-tld', help='perform a DNS TLD expansion discovery, default False', default=False)
-    parser.add_argument('-n', '--dns-lookup', help='enable DNS server lookup, default False', default=False, action='store_true')
-    parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False, action='store_true')
+    parser.add_argument('-n', '--dns-lookup', help='enable DNS server lookup, default False', default=False,
+                        action='store_true')
+    parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False,
+                        action='store_true')
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, certspotter, crtsh, dnsdumpster,
                         dogpile, duckduckgo, github-code, google,
@@ -104,9 +110,9 @@ def start():
                             bingapi += 'yes'
                         else:
                             bingapi += 'no'
-                        bing_search.process(bingapi)
-                        all_emails = filter(bing_search.get_emails())
-                        hosts = filter(bing_search.get_hostnames())
+                        await bing_search.process(bingapi)
+                        all_emails = filter(await bing_search.get_emails())
+                        hosts = filter(await bing_search.get_hostnames())
                         all_hosts.extend(hosts)
                         db = stash.stash_manager()
                         db.store_all(word, all_hosts, 'email', 'bing')
@@ -489,7 +495,8 @@ def start():
         print('---------------------')
         all_hosts = sorted(list(set(all_hosts)))
         full_host = hostchecker.Checker(all_hosts)
-        full, ips = asyncio.run(full_host.check())
+        # full, ips = asyncio.run(full_host.check())
+        full, ips = await full_host.check()
         db = stash.stash_manager()
         for host in full:
             host = str(host)
@@ -733,15 +740,23 @@ def start():
         sys.exit(0)
 
 
-def entry_point():
+async def entry_point():
     try:
-        start()
+        await start()
     except KeyboardInterrupt:
         print('\n\n\033[93m[!] ctrl+c detected from user, quitting.\n\n \033[0m')
     except Exception as error_entry_point:
         print(error_entry_point)
+        import traceback as t
+        t.print_exc()
         sys.exit(1)
 
 
+#async def main():
+    #await entry_point()
+
+
 if __name__ == '__main__':
-    entry_point()
+    # asyncio.run(await entry_point())
+    #asyncio.run(entry_point())
+    asyncio.run(main=entry_point())
