@@ -1,7 +1,7 @@
 import setuptools
 from theHarvester.lib.core import Core
 
-with open("README.md", "r") as fh:
+with open('README.md', 'r') as fh:
     long_description = fh.read()
 
 setuptools.setup(
@@ -22,19 +22,19 @@ setuptools.setup(
 
     classifiers=[
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
         "Operating System :: OS Independent",
     ],
     data_files=[
-        ('share/dict/theHarvester', [
+        ('/etc/theHarvester', [
             'wordlists/general/common.txt',
             'wordlists/dns-big.txt',
             'wordlists/dns-names.txt',
             'wordlists/dorks.txt',
-            'wordlists/names_small.txt'
+            'wordlists/names_small.txt',
+            'api-keys.yaml'
         ]
         )
     ],

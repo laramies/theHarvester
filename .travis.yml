@@ -2,26 +2,26 @@ dist: bionic
 language: python
 cache: pip
 matrix:
-    include:
-    - python: '3.7'
-      env: TEST_SUITE=suite_3_7
-    - python: '3.8-dev'
-      env: TEST_SUITE=suite_3_8_dev
+  include:
+  - python: '3.7'
+    env: TEST_SUITE=suite_3_7
+  - python: '3.8'
+    env: TEST_SUITE=suite_3_8
 before_install:
-  - pip install -r requirements.txt
+- pip install pipenv
+- pipenv install --dev
 install:
 - python setup.py test
 script:
-- python theHarvester.py -d metasploit.com -b baidu,bing,certspotter,crtsh,dnsdumpster,dogpile,duckduckgo,exalead,linkedin,netcraft,otx,intelx,threatcrowd,trello,twitter,virustotal,yahoo -l 200
+- python theHarvester.py -d metasploit.com -b baidu,bing,certspotter,crtsh,dnsdumpster,dogpile,duckduckgo,exalead,linkedin,netcraft,otx,intelx,threatcrowd,trello,twitter,virustotal,yahoo
+  -l 200
 - pytest
 - flake8 . --count --show-source --statistics
 - mypy --pretty theHarvester/discovery/*.py
-
 notifications:
   email: false
   slack:
-    rooms:
-      secure: "CAdDTjl1+X4Yc6hEw2um/KFjKkwhkIMQUAZXEa0KJGQtNORIE48eQw8spOvvWZCd8Ft4Z3leDDXIy0iGqU40H6zVTd01bxRxJwrZLxbpwdZvzXdlWBNf75JsqpXA3evrHfchAsQvYWxtcC0QU5baUnsq2oz5z9v3/920HNBOgtA2YPY0chWedl6JjIidmHBDkPxqKcaR9f9i7kC7BBVYjUm1GyDiE0KGaIRwcUflqbKBMQsnRfk9dv2IK4vbbERyuP9dju7MzksL9eAr/P2PS1jkTGivzAPEfRHNSw0Wfg12bJ7DB/PpnblSVhhQ12WC3jhcBE7Yhk78uFUjHCSVlVDcGV6Bco5y3vLYxPYrt2d6xjkLKRO2Lm1m/kIpSkgvZS3WG40hjMmHqb4hjFLIC6MhggLer1r05XPX4z6BMb0sSLEU6ySp96yqvVGuwTQfboFksuW2i3HcC8+PUYbpVzW619eLQb4DRIF2wCam0bA+821lZYp6Iyr7S5fNwC/JZlfgjujaRHJspYrEoFoPGRaPYXBLKL+w5EP2q92LzfHqSfoO4dLEwcy8vhil/JZYkrHmfhR5DGgbYRJBWq2rXCjkFCvYuqrRG/dWtEhnqUNhcmDlmykPpt2CqAgAqu+Mi7bpLu1sEukb1SLqybj1GHMVcrHOcXTXtFydsMRM5dE="
+    secure: DQXvpVqLJ1NKa4zOVrrLuHjd5yCY8tdLm4QjSILc5g7NGN5QY3wVmC3m7KWq3RsqdepeiJbd3mgLYhfo6TA/tAaZxEYXKEdafWGF7ayJcEJS/fn0GuLqhOaS/PzRYSeBMQH5KodfvJQpVFzfHPj9AoIHOrHVH3x192RzIS3hRyR8kZgSCrTgxiDjTeWUzLvg/w7ikEVqVFMh73cQJegVA6A5mkHeUf20NmKzo+e0fGU7Sktk38YyNOdi3fbAiACR6ah1clSB7HaBg3VDiAmQCE8O2tftgcU6ihhnTi6d4i8Lf/traQznQ3mvSbFcw5Pedo8eXaLDhAuqwzMb3uWE9jr+zLlDa8s6+ADNVO/ISu+xV1zpnTdcjATKHaBfsNFntLij1hnyeuTEbhLRAB1T7wc+uAWVlJkkDZK08610a8NWalRtV17U8u8lJbcKWQ4IBnclG6DE+zpgsMHZpcswyeMF092mRZzUbgXG9+nbRcp1JqhgiLJUZdg5jXX7NoLdk7irbrZU4aTFqhbz3P3NexafFDXZEsp1Z1eY0uppRsd0vt8E8rX/HMw9OWHgkg7GDATZSqMu1kgJoSQQg1U3ApXacsl6WBAndLdYF+MyHJMLgzewdAJ4y4qvVMb/VkTJ8Q6PicjwlqyEP5PRLZk7fech4kuTVUqyuTibd5t8D5k=
     on_success: always
     on_failure: always
     template:

@@ -2,10 +2,11 @@ aiodns==2.0.0
 beautifulsoup4==4.8.0
 dnspython==1.16.0
 flake8==3.7.8
+gevent==1.4.0 
 grequests==0.4.0
-mypy==0.730
+mypy==0.740
 netaddr==0.7.19
-plotly==4.1.1
+plotly==4.2.1
 pytest==5.2.0
 PyYaml==5.1.2
 requests==2.22.0

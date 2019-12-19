@@ -10,7 +10,6 @@ on:
     - '*'
 jobs:
   Python:
-
     runs-on: ubuntu-latest
     strategy:
       max-parallel: 4
@@ -25,6 +24,7 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
       run: |
+        pip install --upgrade pip
         pip install -r requirements.txt
 
     - name: Run theHarvester module baidu
@@ -114,4 +114,4 @@ jobs:
         pytest
     - name: Static type checking with mypy
       run: |
-        mypy --pretty theHarvester/discovery/*.py
+        mypy --pretty theHarvester/*/*.py
