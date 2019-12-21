@@ -377,6 +377,7 @@ class async_fetcher:
     @staticmethod
     async def fetch(session, url, params='') -> str:
         # This fetch method solely focuses on get requests
+        # TODO determine if method for post requests is necessaryz
         if len(params) == '':
             async with session.get(url, params=params) as response:
                 await asyncio.sleep(1)

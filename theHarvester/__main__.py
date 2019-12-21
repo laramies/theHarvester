@@ -18,21 +18,27 @@ import time
 Core.banner()
 
 
-def start():
+async def start():
     parser = argparse.ArgumentParser(
         description='theHarvester is used to gather open source intelligence (OSINT) on a\n'
                     'company or domain.')
     parser.add_argument('-d', '--domain', help='company name or domain to search', required=True)
     parser.add_argument('-l', '--limit', help='limit the number of search results, default=500', default=500, type=int)
     parser.add_argument('-S', '--start', help='start with result number X, default=0', default=0, type=int)
-    parser.add_argument('-g', '--google-dork', help='use Google Dorks for Google search', default=False, action='store_true')
-    parser.add_argument('-p', '--port-scan', help='scan the detected hosts and check for Takeovers (21,22,80,443,8080)', default=False, action='store_true')
-    parser.add_argument('-s', '--shodan', help='use Shodan to query discovered hosts', default=False, action='store_true')
-    parser.add_argument('-v', '--virtual-host', help='verify host name via DNS resolution and search for virtual hosts', action='store_const', const='basic', default=False)
+    parser.add_argument('-g', '--google-dork', help='use Google Dorks for Google search', default=False,
+                        action='store_true')
+    parser.add_argument('-p', '--port-scan', help='scan the detected hosts and check for Takeovers (21,22,80,443,8080)',
+                        default=False, action='store_true')
+    parser.add_argument('-s', '--shodan', help='use Shodan to query discovered hosts', default=False,
+                        action='store_true')
+    parser.add_argument('-v', '--virtual-host', help='verify host name via DNS resolution and search for virtual hosts',
+                        action='store_const', const='basic', default=False)
     parser.add_argument('-e', '--dns-server', help='DNS server to use for lookup')
     parser.add_argument('-t', '--dns-tld', help='perform a DNS TLD expansion discovery, default False', default=False)
-    parser.add_argument('-n', '--dns-lookup', help='enable DNS server lookup, default False', default=False, action='store_true')
-    parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False, action='store_true')
+    parser.add_argument('-n', '--dns-lookup', help='enable DNS server lookup, default False', default=False,
+                        action='store_true')
+    parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False,
+                        action='store_true')
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, certspotter, crtsh, dnsdumpster,
                         dogpile, duckduckgo, github-code, google,
@@ -69,9 +75,9 @@ def start():
     virtual = args.virtual_host
     word: str = args.domain
 
-    def store(search_engine: Any, source: str, process_param: Any = None, store_host: bool = False,
-              store_emails: bool = False, store_ip: bool = False, store_people: bool = False,
-              store_data: bool = False, store_links: bool = False, store_results: bool = False) -> None:
+    async def store(search_engine: Any, source: str, process_param: Any = None, store_host: bool = False,
+                    store_emails: bool = False, store_ip: bool = False, store_people: bool = False,
+                    store_data: bool = False, store_links: bool = False, store_results: bool = False) -> None:
         """
         Persist details into the database.
         The details to be stored is controlled by the parameters passed to the method.
@@ -88,15 +94,15 @@ def start():
         :param store_links: whether to store links
         :param store_results: whether to fetch details from get_results() and persist
         """
-        search_engine.process() if process_param is None else search_engine.process(process_param)
+        await search_engine.process() if process_param is None else await search_engine.process(process_param)
         db_stash = stash.StashManager()
 
         if store_host:
-            host_names = filter(search_engine.get_hostnames())
+            host_names = filter(await search_engine.get_hostnames())
             all_hosts.extend(host_names)
             db_stash.store_all(word, all_hosts, 'host', source)
         if store_emails:
-            email_list = filter(search_engine.get_emails())
+            email_list = filter(await search_engine.get_emails())
             db_stash.store_all(word, email_list, 'email', source)
         if store_ip:
             ips_list = search_engine.get_ips()
@@ -150,7 +156,7 @@ def start():
                     from theHarvester.discovery import baidusearch
                     try:
                         baidu_search = baidusearch.SearchBaidu(word, limit)
-                        store(baidu_search, engineitem, store_host=True, store_emails=True)
+                        await store(baidu_search, engineitem, store_host=True, store_emails=True)
                     except Exception:
                         pass
 
@@ -164,7 +170,7 @@ def start():
                             bingapi += 'yes'
                         else:
                             bingapi += 'no'
-                        store(bing_search, 'bing', process_param=bingapi, store_host=True, store_emails=True)
+                        await store(bing_search, 'bing', process_param=bingapi, store_host=True, store_emails=True)
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             print(e)
@@ -176,7 +182,7 @@ def start():
                     from theHarvester.discovery import certspottersearch
                     try:
                         certspotter_search = certspottersearch.SearchCertspoter(word)
-                        store(certspotter_search, engineitem, None, store_host=True)
+                        await store(certspotter_search, engineitem, None, store_host=True)
                     except Exception as e:
                         print(e)
 
@@ -185,7 +191,7 @@ def start():
                         print('\033[94m[*] Searching CRT.sh. \033[0m')
                         from theHarvester.discovery import crtsh
                         crtsh_search = crtsh.SearchCrtsh(word)
-                        store(crtsh_search, 'CRTsh', store_data=True)
+                        await store(crtsh_search, 'CRTsh', store_data=True)
 
                     except Exception:
                         print(f'\033[93m[!] A timeout occurred with crtsh, cannot find {args.domain}\033[0m')
@@ -195,7 +201,7 @@ def start():
                         print('\033[94m[*] Searching DNSdumpster. \033[0m')
                         from theHarvester.discovery import dnsdumpster
                         dns_dumpster_search = dnsdumpster.SearchDnsDumpster(word)
-                        store(dns_dumpster_search, engineitem, store_host=True)
+                        await store(dns_dumpster_search, engineitem, store_host=True)
                     except Exception as e:
                         print(f'\033[93m[!] An error occurred with dnsdumpster: {e} \033[0m')
 
@@ -204,7 +210,7 @@ def start():
                         print('\033[94m[*] Searching Dogpile. \033[0m')
                         from theHarvester.discovery import dogpilesearch
                         dogpile_search = dogpilesearch.SearchDogpile(word, limit)
-                        store(dogpile_search, engineitem, store_host=True, store_emails=True)
+                        await store(dogpile_search, engineitem, store_host=True, store_emails=True)
                     except Exception as e:
                         print(f'\033[93m[!] An error occurred with Dogpile: {e} \033[0m')
 
@@ -212,14 +218,14 @@ def start():
                     print('\033[94m[*] Searching DuckDuckGo. \033[0m')
                     from theHarvester.discovery import duckduckgosearch
                     duckduckgo_search = duckduckgosearch.SearchDuckDuckGo(word, limit)
-                    store(duckduckgo_search, engineitem, store_host=True, store_emails=True)
+                    await store(duckduckgo_search, engineitem, store_host=True, store_emails=True)
 
                 elif engineitem == 'github-code':
                     print('\033[94m[*] Searching Github (code). \033[0m')
                     try:
                         from theHarvester.discovery import githubcode
                         github_search = githubcode.SearchGithubCode(word, limit)
-                        store(github_search, engineitem, store_host=True, store_emails=True)
+                        await store(github_search, engineitem, store_host=True, store_emails=True)
                     except MissingKey as ex:
                         print(ex)
                     else:
@@ -229,13 +235,14 @@ def start():
                     print('\033[94m[*] Searching Exalead \033[0m')
                     from theHarvester.discovery import exaleadsearch
                     exalead_search = exaleadsearch.SearchExalead(word, limit, start)
-                    store(exalead_search, engineitem, store_host=True, store_emails=True)
+                    await store(exalead_search, engineitem, store_host=True, store_emails=True)
 
                 elif engineitem == 'google':
                     print('\033[94m[*] Searching Google. \033[0m')
                     from theHarvester.discovery import googlesearch
                     google_search = googlesearch.SearchGoogle(word, limit, start)
-                    store(google_search, engineitem, process_param=google_dorking, store_host=True, store_emails=True)
+                    await store(google_search, engineitem, process_param=google_dorking, store_host=True,
+                                store_emails=True)
 
                 elif engineitem == 'hunter':
                     print('\033[94m[*] Searching Hunter. \033[0m')
@@ -243,7 +250,7 @@ def start():
                     # Import locally or won't work.
                     try:
                         hunter_search = huntersearch.SearchHunter(word, limit, start)
-                        store(hunter_search, engineitem, store_host=True, store_emails=True)
+                        await store(hunter_search, engineitem, store_host=True, store_emails=True)
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             print(e)
@@ -256,7 +263,7 @@ def start():
                     # Import locally or won't work.
                     try:
                         intelx_search = intelxsearch.SearchIntelx(word, limit)
-                        store(intelx_search, engineitem, store_host=True, store_emails=True)
+                        await store(intelx_search, engineitem, store_host=True, store_emails=True)
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             print(e)
@@ -267,26 +274,26 @@ def start():
                     print('\033[94m[*] Searching Linkedin. \033[0m')
                     from theHarvester.discovery import linkedinsearch
                     linkedin_search = linkedinsearch.SearchLinkedin(word, limit)
-                    store(linkedin_search, engineitem, store_people=True)
+                    await store(linkedin_search, engineitem, store_people=True)
 
                 elif engineitem == 'linkedin_links':
                     print('\033[94m[*] Searching Linkedin. \033[0m')
                     from theHarvester.discovery import linkedinsearch
                     linkedin_links_search = linkedinsearch.SearchLinkedin(word, limit)
-                    store(linkedin_links_search, 'linkedin', store_links=True)
+                    await store(linkedin_links_search, 'linkedin', store_links=True)
 
                 elif engineitem == 'netcraft':
                     print('\033[94m[*] Searching Netcraft. \033[0m')
                     from theHarvester.discovery import netcraft
                     netcraft_search = netcraft.SearchNetcraft(word)
-                    store(netcraft_search, engineitem, store_host=True)
+                    await store(netcraft_search, engineitem, store_host=True)
 
                 elif engineitem == 'otx':
                     print('\033[94m[*] Searching AlienVault OTX. \033[0m')
                     from theHarvester.discovery import otxsearch
                     try:
                         otxsearch_search = otxsearch.SearchOtx(word)
-                        store(otxsearch_search, engineitem, store_host=True, store_ip=True)
+                        await store(otxsearch_search, engineitem, store_host=True, store_ip=True)
                     except Exception as e:
                         print(e)
 
@@ -295,7 +302,7 @@ def start():
                     from theHarvester.discovery import securitytrailssearch
                     try:
                         securitytrails_search = securitytrailssearch.SearchSecuritytrail(word)
-                        store(securitytrails_search, engineitem, store_host=True, store_ip=True)
+                        await store(securitytrails_search, engineitem, store_host=True, store_ip=True)
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             print(e)
@@ -307,7 +314,7 @@ def start():
                     from theHarvester.discovery import suip
                     try:
                         suip_search = suip.SearchSuip(word)
-                        store(suip_search, engineitem, store_host=True)
+                        await store(suip_search, engineitem, store_host=True)
                     except Exception as e:
                         print(e)
 
@@ -333,7 +340,7 @@ def start():
                     from theHarvester.discovery import threatcrowd
                     try:
                         threatcrowd_search = threatcrowd.SearchThreatcrowd(word)
-                        store(threatcrowd_search, engineitem, store_host=True)
+                        await store(threatcrowd_search, engineitem, store_host=True)
                     except Exception as e:
                         print(e)
 
@@ -342,25 +349,25 @@ def start():
                     from theHarvester.discovery import trello
                     # Import locally or won't work.
                     trello_search = trello.SearchTrello(word)
-                    store(trello_search, engineitem, store_results=True)
+                    await store(trello_search, engineitem, store_results=True)
 
                 elif engineitem == 'twitter':
                     print('\033[94m[*] Searching Twitter usernames using Google. \033[0m')
                     from theHarvester.discovery import twittersearch
                     twitter_search = twittersearch.SearchTwitter(word, limit)
-                    store(twitter_search, engineitem, store_people=True)
+                    await store(twitter_search, engineitem, store_people=True)
 
                 elif engineitem == 'virustotal':
                     print('\033[94m[*] Searching VirusTotal. \033[0m')
                     from theHarvester.discovery import virustotal
                     virustotal_search = virustotal.SearchVirustotal(word)
-                    store(virustotal_search, engineitem, store_host=True)
+                    await store(virustotal_search, engineitem, store_host=True)
 
                 elif engineitem == 'yahoo':
                     print('\033[94m[*] Searching Yahoo. \033[0m')
                     from theHarvester.discovery import yahoosearch
                     yahoo_search = yahoosearch.SearchYahoo(word, limit)
-                    store(yahoo_search, engineitem, store_host=True, store_emails=True)
+                    await store(yahoo_search, engineitem, store_host=True, store_emails=True)
         else:
             print('\033[93m[!] Invalid source.\n\n \033[0m')
             sys.exit(1)
@@ -401,7 +408,8 @@ def start():
         print('---------------------')
         all_hosts = sorted(list(set(all_hosts)))
         full_host = hostchecker.Checker(all_hosts)
-        full, ips = asyncio.run(full_host.check())
+        # full, ips = asyncio.run(full_host.check())
+        full, ips = await full_host.check()
         db = stash.StashManager()
         for host in full:
             host = str(host)
@@ -645,9 +653,9 @@ def start():
         sys.exit(0)
 
 
-def entry_point():
+async def entry_point():
     try:
-        start()
+        await start()
     except KeyboardInterrupt:
         print('\n\n\033[93m[!] ctrl+c detected from user, quitting.\n\n \033[0m')
     except Exception as error_entry_point:
@@ -656,4 +664,4 @@ def entry_point():
 
 
 if __name__ == '__main__':
-    entry_point()
+    asyncio.run(main=entry_point())
