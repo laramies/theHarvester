@@ -1,6 +1,8 @@
 from theHarvester.lib.core import *
 from bs4 import BeautifulSoup
 import requests
+import aiohttp
+import asyncio
 
 
 class SearchSuip:
@@ -12,37 +14,54 @@ class SearchSuip:
         self.totalhosts: set = set()
         self.totalips: set = set()
 
-    def do_search(self):
+    async def request(self, url, params):
         headers = {'User-Agent': Core.get_user_agent()}
-        params = (
-            ('act', 'subfinder'),
-        )
+        data = {'url': self.word.replace('www.', ''), 'Submit1': 'Submit'}
+        timeout = aiohttp.ClientTimeout(total=300)
+        # by default timeout is 5 minutes we will change that to 6 minutes
+        # Depending on the domain and if it has a lot of subdomains you may want to tweak it
+        # The results are well worth the wait :)
+        try:
+            async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
+                async with session.post(url, params=params, data=data) as resp:
+                    await asyncio.sleep(3)
+                    return await resp.text()
+        except Exception as e:
+            print(f'An exception has occurred: {e}')
+            return ''
 
-        data = {
-            'url': self.word.replace('www.', ''),
-            'Submit1': 'Submit'
-        }
-        response = requests.post('https://suip.biz/', headers=headers, params=params, data=data)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        hosts: list = str(soup.find('pre')).splitlines()
-        self.clean_hosts(hosts)
-        params = (
-            ('act', 'amass'),
-        )
-        # change act to amass now
-        response = requests.post('https://suip.biz/', headers=headers, params=params, data=data)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        hosts: list = str(soup.find('pre')).splitlines()
-        self.clean_hosts(hosts)
+    async def handler(self, url):
+        first_data = [url, (('act', 'subfinder'),), ]
+        second_data = [url, (('act', 'amass'),), ]
+        async_requests = [
+            self.request(url=url, params=params)
+            for url, params in [first_data, second_data]
+        ]
+        results = await asyncio.gather(*async_requests)
+        return results
 
-    def get_hostnames(self) -> set:
+    async def do_search(self):
+        try:
+            results = await self.handler(url="https://suip.biz/")
+            for result in results:
+                # results has both responses in a list
+                # iterate through them and parse out the urls
+                soup = BeautifulSoup(str(result), 'html.parser')
+                hosts: list = str(soup.find('pre')).splitlines()
+                await self.clean_hosts(hosts)
+        except Exception as e:
+            print('An exception has occurred: ', e)
+            import traceback as t
+            t.print_exc()
+
+    async def get_hostnames(self) -> set:
         return self.totalhosts
 
-    def process(self):
-        self.do_search()
+    async def process(self):
+        await self.do_search()
         print('\tSearching results.')
 
-    def clean_hosts(self, soup_hosts):
+    async def clean_hosts(self, soup_hosts):
         for host in soup_hosts:
             host = str(host).strip()
             if len(host) > 1 and 'pre' not in host:
