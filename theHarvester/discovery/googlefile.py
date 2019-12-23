@@ -28,11 +28,11 @@ class SearchGooglefile:
             page = requests.get(url, headers=headers)
             tree = html.fromstring(page.content)
             self.results = tree.xpath('//*[@class="r"]/a/@href')
-            #print('results: ', self.results)
+            # print('results: ', self.results)
         for link in self.results:
             match = re.search(regex, link)
             if match:
-                #print('type: ', type(match.group('urls')))
+                # print('type: ', type(match.group('urls')))
                 self.links.update(set(list(match.group('urls'))))
                 # print(match.group('urls'))
             else:
