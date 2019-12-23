@@ -19,6 +19,6 @@ lxml = "==4.4.2"
 
 [dev-packages]
 flake8 = "==3.7.9"
-mypy = "==0.740"
+mypy = "==0.761"
 mypy-extensions = "==0.4.3"
 pytest = "==5.3.0"
