@@ -12,25 +12,28 @@ class SearchBaidu:
         self.hostname = 'www.baidu.com'
         self.limit = limit
 
-    def do_search(self):
+    async def do_search(self):
         headers = {
             'Host': self.hostname,
             'User-agent': Core.get_user_agent()
         }
         base_url = f'https://{self.server}/s?wd=%40{self.word}&pnxx&oq={self.word}'
         urls = [base_url.replace("xx", str(num)) for num in range(0, self.limit, 10) if num <= self.limit]
-        req = (grequests.get(url, headers=headers, timeout=5) for url in urls)
+        """req = (grequests.get(url, headers=headers, timeout=5) for url in urls)
         responses = grequests.imap(req, size=5)
         for response in responses:
-            self.total_results += response.content.decode('UTF-8')
+            self.total_results += response.content.decode('UTF-8')"""
+        responses = await async_fetcher.fetch_all(urls, headers=headers)
+        for response in responses:
+            self.total_results += response
 
-    def process(self):
-        self.do_search()
+    async def process(self):
+        await self.do_search()
 
-    def get_emails(self):
+    async def get_emails(self):
         rawres = myparser.Parser(self.total_results, self.word)
         return rawres.emails()
 
-    def get_hostnames(self):
+    async def get_hostnames(self):
         rawres = myparser.Parser(self.total_results, self.word)
         return rawres.hostnames()

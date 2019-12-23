@@ -8,21 +8,20 @@ class DnsForce:
 
     def __init__(self, domain, dnsserver, verbose=False):
         self.domain = domain
-        self.file = 'wordlists/dns-names.txt'
         self.subdo = False
         self.verbose = verbose
         try:
-            f = open(self.file, 'r')
-        except Exception:
-            print('Error opening DNS dictionary file.')
-            sys.exit()
-        self.list = f.readlines()
+            with open('wordlists/dns-names.txt', 'r') as file:
+                self.list = file.readlines()
+        except FileNotFoundError:
+            with open('/etc/theHarvester/dns-names.txt', 'r') as file:
+                self.list = file.readlines()
 
     def run(self, host):
         hostname = str(host.split('\n')[0]) + '.' + str(self.domain)
         if self.verbose:
-            ESC = chr(27)
-            sys.stdout.write(ESC + '[2K' + ESC + '[G')
+            esc = chr(27)
+            sys.stdout.write(esc + '[2K' + esc + '[G')
             sys.stdout.write('\r' + hostname + ' - ')
             sys.stdout.flush()
         try:

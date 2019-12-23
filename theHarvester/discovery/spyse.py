@@ -1,7 +1,6 @@
 from theHarvester.discovery.constants import *
 from theHarvester.lib.core import *
 import requests
-from pprint import pprint
 
 
 class SearchSpyse:
@@ -20,7 +19,6 @@ class SearchSpyse:
             headers = {'User-Agent': Core.get_user_agent()}
             request = requests.get(base_url, headers=headers)
             self.results = request.json()
-            pprint(self.results)
             # self.totalresults += self.results
 
         except Exception as e:

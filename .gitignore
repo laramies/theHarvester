@@ -8,3 +8,6 @@ debug_results.txt
 venv
 .mypy_cache
 .pytest_cache
+build/
+dist/
+theHarvester.egg-info/

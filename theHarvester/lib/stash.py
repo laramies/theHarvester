@@ -2,7 +2,7 @@ import datetime
 import sqlite3
 
 
-class stash_manager:
+class StashManager:
 
     def __init__(self):
         self.db = "stash.sqlite"
@@ -18,7 +18,7 @@ class stash_manager:
     def do_init(self):
         conn = sqlite3.connect(self.db)
         c = conn.cursor()
-        c.execute('CREATE TABLE results (domain text, resource text, type text, find_date date, source text)')
+        c.execute('CREATE TABLE IF NOT EXISTS results (domain text, resource text, type text, find_date date, source text)')
         conn.commit()
         conn.close()
         return
@@ -131,7 +131,7 @@ class stash_manager:
                         self.previousscanresults = results
                     return self.previousscanresults
                 except Exception as e:
-                    print('Error in getting the previous scan results from the database: ' + str(e))
+                    print(f'Error in getting the previous scan results from the database: {e}')
             else:
                 try:
                     c = conn.cursor()
@@ -148,9 +148,9 @@ class stash_manager:
                     self.latestscanresults = results
                     return self.latestscanresults
                 except Exception as e:
-                    print('Error in getting the latest scan results from the database: ' + str(e))
+                    print(f'Error in getting the latest scan results from the database: {e}')
         except Exception as e:
-            print('Error connecting to theHarvester database: ' + str(e))
+            print(f'Error connecting to theHarvester database: {e}')
         finally:
             conn.close()
 

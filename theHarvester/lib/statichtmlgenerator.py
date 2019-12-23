@@ -59,7 +59,7 @@ class HtmlGenerator:
 '''
             return html
         except Exception as e:
-            print('Error generating the previous scan results HTML code: ' + str(e))
+            print(f'Error generating the previous scan results HTML code: {e}')
 
     def generatelatestscanresults(self, latestscanresults):
         try:

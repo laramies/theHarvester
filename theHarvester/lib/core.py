@@ -3,54 +3,91 @@
 import random
 from typing import Set, Union, Any
 import yaml
+import asyncio
+import aiohttp
 
 
 class Core:
     @staticmethod
     def version() -> str:
-        return '3.1.0.dev2'
+        return '3.1.1dev3'
 
     @staticmethod
     def bing_key() -> str:
-        with open('api-keys.yaml', 'r') as api_keys:
-            keys = yaml.safe_load(api_keys)
-            return keys['apikeys']['bing']['key']
+        try:
+            with open('api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+        except FileNotFoundError:
+            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+                return keys['apikeys']['bing']['key']
+        return keys['apikeys']['bing']['key']
 
     @staticmethod
     def github_key() -> str:
-        with open('api-keys.yaml', 'r') as api_keys:
-            keys = yaml.safe_load(api_keys)
-            return keys['apikeys']['github']['key']
+        try:
+            with open('api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+        except FileNotFoundError:
+            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+                return keys['apikeys']['github']['key']
+        return keys['apikeys']['github']['key']
 
     @staticmethod
     def hunter_key() -> str:
-        with open('api-keys.yaml', 'r') as api_keys:
-            keys = yaml.safe_load(api_keys)
+        try:
+            with open('api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+        except FileNotFoundError:
+            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
             return keys['apikeys']['hunter']['key']
+        return keys['apikeys']['hunter']['key']
 
     @staticmethod
     def intelx_key() -> str:
-        with open('api-keys.yaml', 'r') as api_keys:
-            keys = yaml.safe_load(api_keys)
-            return keys['apikeys']['intelx']['key']
+        try:
+            with open('api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+        except FileNotFoundError:
+            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+                return keys['apikeys']['intelx']['key']
+        return keys['apikeys']['intelx']['key']
 
     @staticmethod
     def security_trails_key() -> str:
-        with open('api-keys.yaml', 'r') as api_keys:
-            keys = yaml.safe_load(api_keys)
-            return keys['apikeys']['securityTrails']['key']
+        try:
+            with open('api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+        except FileNotFoundError:
+            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+                return keys['apikeys']['securityTrails']['key']
+        return keys['apikeys']['securityTrails']['key']
 
     @staticmethod
     def shodan_key() -> str:
-        with open('api-keys.yaml', 'r') as api_keys:
-            keys = yaml.safe_load(api_keys)
-            return keys['apikeys']['shodan']['key']
+        try:
+            with open('api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+        except FileNotFoundError:
+            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+                return keys['apikeys']['shodan']['key']
+        return keys['apikeys']['shodan']['key']
 
     @staticmethod
     def spyse_key() -> str:
-        with open('api-keys.yaml', 'r') as api_keys:
-            keys = yaml.safe_load(api_keys)
-            return keys['apikeys']['spyse']['key']
+        try:
+            with open('api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+        except FileNotFoundError:
+            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+                return keys['apikeys']['spyse']['key']
+        return keys['apikeys']['spyse']['key']
 
     @staticmethod
     def banner() -> None:
@@ -61,18 +98,19 @@ class Core:
         print(r"* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *")
         print(r"*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *")
         print('*                                                                 *')
-        print(f'* theHarvester {Core.version()}                                         *')
+        print('* theHarvester {}                                          *'.format(Core.version()))
         print('* Coded by Christian Martorella                                   *')
         print('* Edge-Security Research                                          *')
         print('* cmartorella@edge-security.com                                   *')
         print('*                                                                 *')
-        print('******************************************************************* \n\n \033[0m')
+        print('******************************************************************* \n\n\033[0m')
 
     @staticmethod
     def get_supportedengines() -> Set[Union[str, Any]]:
         supportedengines = {'baidu',
                             'bing',
                             'bingapi',
+                            'certspotter',
                             'crtsh',
                             'dnsdumpster',
                             'dogpile',
@@ -332,3 +370,34 @@ class Core:
             'Mozilla/5.0 (Windows NT 5.1; U; de; rv:1.9.1.6) Gecko/20091201 Firefox/3.5.6 Opera 11.00'
         ]
         return random.choice(user_agents)
+
+
+class async_fetcher:
+
+    @staticmethod
+    async def fetch(session, url, params='') -> str:
+        # This fetch method solely focuses on get requests
+        # TODO determine if method for post requests is necessary
+        if len(params) == '':
+            async with session.get(url, params=params) as response:
+                await asyncio.sleep(3)
+                return await response.text()
+        else:
+            async with session.get(url) as response:
+                await asyncio.sleep(3)
+                return await response.text()
+
+    @staticmethod
+    async def fetch_all(urls, headers='', params='') -> list:
+        timeout = aiohttp.ClientTimeout(total=10)
+        if len(headers) == 0:
+            headers = {'User-Agent': Core.get_user_agent()}
+        if len(params) == 0:
+            async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
+                texts = await asyncio.gather(*[async_fetcher.fetch(session, url) for url in urls])
+                return texts
+        else:
+            # Indicates the request has certain params
+            async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
+                texts = await asyncio.gather(*[async_fetcher.fetch(session, url, params) for url in urls])
+                return texts
