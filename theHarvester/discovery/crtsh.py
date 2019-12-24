@@ -1,5 +1,5 @@
 from theHarvester.lib.core import *
-import requests
+import aiohttp
 
 
 class SearchCrtsh:
@@ -8,20 +8,24 @@ class SearchCrtsh:
         self.word = word
         self.data = set()
 
-    def do_search(self) -> Set:
-        data = set()  # type: Set
-        url = f'https://crt.sh/?q=%25.{self.word}&output=json'
-        headers = {'User-Agent': Core.get_user_agent()}
-        request = requests.get(url, headers=headers, timeout=15)
-        if request.ok:
-            content = request.json()
-            data = set([dct['name_value'][2:] if '*.' == dct['name_value'][:2] else dct['name_value'] for dct in content])
+    async def do_search(self) -> Set:
+        data: set = set()
+        try:
+            url = f'https://crt.sh/?q=%25.{self.word}&output=json'
+            headers = {'User-Agent': Core.get_user_agent()}
+            client = aiohttp.ClientSession(headers=headers, timeout=aiohttp.ClientTimeout(total=20))
+            response = await async_fetcher.fetch(client, url, json=True)
+            await client.close()
+            data = set(
+                [dct['name_value'][2:] if '*.' == dct['name_value'][:2] else dct['name_value'] for dct in response])
+        except Exception as e:
+            print(e)
         return data
 
-    def process(self) -> None:
+    async def process(self) -> None:
         print('\tSearching results.')
-        data = self.do_search()
+        data = await self.do_search()
         self.data = data
 
-    def get_data(self) -> Set:
+    async def get_data(self) -> Set:
         return self.data
