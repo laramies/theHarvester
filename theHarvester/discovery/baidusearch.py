@@ -1,6 +1,5 @@
 from theHarvester.lib.core import *
 from theHarvester.parsers import myparser
-import grequests
 
 
 class SearchBaidu:
@@ -19,10 +18,6 @@ class SearchBaidu:
         }
         base_url = f'https://{self.server}/s?wd=%40{self.word}&pnxx&oq={self.word}'
         urls = [base_url.replace("xx", str(num)) for num in range(0, self.limit, 10) if num <= self.limit]
-        """req = (grequests.get(url, headers=headers, timeout=5) for url in urls)
-        responses = grequests.imap(req, size=5)
-        for response in responses:
-            self.total_results += response.content.decode('UTF-8')"""
         responses = await async_fetcher.fetch_all(urls, headers=headers)
         for response in responses:
             self.total_results += response
