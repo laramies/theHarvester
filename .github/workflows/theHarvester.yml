@@ -79,9 +79,9 @@ jobs:
       run: |
         python theHarvester.py -d apple.com -b netcraft
 
-#    - name: Run theHarvester module Otx
-#      run: |
-#        python theHarvester.py -d apple.com -b otx
+    - name: Run theHarvester module Otx
+      run: |
+        python theHarvester.py -d apple.com -b otx
 
     - name: Run theHarvester module threatcrowd
       run: |
