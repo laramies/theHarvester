@@ -185,9 +185,9 @@ def start():
                         print('\033[94m[*] Searching CRT.sh. \033[0m')
                         from theHarvester.discovery import crtsh
                         crtsh_search = crtsh.SearchCrtsh(word)
-                        store(crtsh_search, 'CRTsh', store_data=True)
-                    except Exception:
-                        print(f'\033[93m[!] A timeout occurred with crtsh, cannot find {args.domain}\033[0m')
+                        await store(crtsh_search, 'CRTsh', store_data=True)
+                    except Exception as e:
+                        print(f'\033[93m[!] A timeout occurred with crtsh, cannot find {args.domain}\n {e}\033[0m')
 
                 elif engineitem == 'dnsdumpster':
                     try:
