@@ -19,8 +19,9 @@ class SearchDuckDuckGo:
         self.quantity = '100'
         self.limit = limit
 
-    def do_search(self):
+    async def do_search(self):
         # Do normal scraping.
+        """
         url = self.api.replace('x', self.word)
         headers = {'User-Agent': googleUA}
         r = requests.get(url, headers=headers)
@@ -34,8 +35,18 @@ class SearchDuckDuckGo:
                 time.sleep(getDelay())
             except Exception:
                 continue
+        """
+        url = self.api.replace('x', self.word)
+        headers = {'User-Agent': googleUA}
+        first_resp = await async_fetcher.fetch_all([url], headers=headers)
+        self.results = first_resp[0]
+        self.totalresults += self.results
+        urls = await self.crawl(self.results)
+        urls = {url for url in urls if len(url) > 5}
+        all_resps = await async_fetcher.fetch_all(urls)
+        self.totalresults += ''.join(all_resps)
 
-    def crawl(self, text):
+    async def crawl(self, text):
         """
         Function parses json and returns URLs.
         :param text: formatted json
@@ -77,13 +88,13 @@ class SearchDuckDuckGo:
             print(f'Exception occurred: {e}')
             return []
 
-    def get_emails(self):
+    async def get_emails(self):
         rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.emails()
 
-    def get_hostnames(self):
+    async def get_hostnames(self):
         rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.hostnames()
 
-    def process(self):
-        self.do_search()  # Only need to search once since using API.
+    async def process(self):
+        await self.do_search()  # Only need to search once since using API.
