@@ -1,5 +1,5 @@
 from theHarvester.lib.core import *
-import requests
+import aiohttp
 
 
 class SearchCertspoter:
@@ -8,22 +8,28 @@ class SearchCertspoter:
         self.word = word
         self.totalhosts = set()
 
-    def do_search(self) -> None:
+    async def do_search(self) -> None:
         base_url = f'https://api.certspotter.com/v1/issuances?domain={self.word}&expand=dns_names'
         headers = {'User-Agent': Core.get_user_agent()}
         try:
-            request = requests.get(base_url, headers=headers)
-            response = request.json()
-            for dct in response:
-                for key, value in dct.items():
-                    if key == 'dns_names':
-                        self.totalhosts.update({name for name in value if name})
+            client = aiohttp.ClientSession(headers=headers, timeout=aiohttp.ClientTimeout(total=30))
+            response = await async_fetcher.fetch(client, base_url, json=True)
+            await client.close()
+            if isinstance(response, list):
+                for dct in response:
+                    for key, value in dct.items():
+                        if key == 'dns_names':
+                            self.totalhosts.update({name for name in value if name})
+            elif isinstance(response, dict):
+                self.totalhosts.update({response['dns_names'] if 'dns_names' in response.keys() else ''})
+            else:
+                self.totalhosts.update({''})
         except Exception as e:
             print(e)
 
-    def get_hostnames(self) -> set:
+    async def get_hostnames(self) -> set:
         return self.totalhosts
 
-    def process(self):
-        self.do_search()
+    async def process(self):
+        await self.do_search()
         print('\tSearching results.')

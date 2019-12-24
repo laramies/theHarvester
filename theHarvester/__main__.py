@@ -105,15 +105,15 @@ async def start():
             email_list = filter(await search_engine.get_emails())
             db_stash.store_all(word, email_list, 'email', source)
         if store_ip:
-            ips_list = search_engine.get_ips()
+            ips_list = await search_engine.get_ips()
             all_ip.extend(ips_list)
             db_stash.store_all(word, all_ip, 'ip', source)
         if store_data:
-            data = filter(search_engine.get_data())
+            data = filter(await search_engine.get_data())
             all_hosts.extend(data)
             db.store_all(word, all_hosts, 'host', source)
         if store_results:
-            email_list, host_names, urls = search_engine.get_results()
+            email_list, host_names, urls = await search_engine.get_results()
             all_emails.extend(email_list)
             host_names = filter(host_names)
             all_urls.extend(filter(urls))
@@ -121,7 +121,7 @@ async def start():
             db.store_all(word, all_hosts, 'host', source)
             db.store_all(word, all_emails, 'email', source)
         if store_people:
-            people_list = search_engine.get_people()
+            people_list = await search_engine.get_people()
             db_stash.store_all(word, people_list, 'people', source)
             if len(people_list) == 0:
                 print('\n[*] No users found.\n\n')
@@ -131,7 +131,7 @@ async def start():
                 for usr in sorted(list(set(people_list))):
                     print(usr)
         if store_links:
-            links = search_engine.get_links()
+            links = await search_engine.get_links()
             db.store_all(word, links, 'name', engineitem)
             if len(links) == 0:
                 print('\n[*] No links found.\n\n')
