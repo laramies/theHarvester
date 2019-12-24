@@ -11,7 +11,7 @@ class PortScan:
         self.lock = threading.BoundedSemaphore(value=self.threads)
 
     def port_scanner(self, host, ports):
-        openports = []
+        openports: list = []
         self.lock.acquire()
         for port in ports:
             try:
@@ -26,7 +26,7 @@ class PortScan:
         self.lock.release()
 
         if(len(self.ports)) == 0:
-            print("No ports found on host: {0}".format(host))
+            print(f'No ports found on host: {host}')
 
         return openports
 
