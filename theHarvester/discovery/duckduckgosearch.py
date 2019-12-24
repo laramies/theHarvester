@@ -2,8 +2,6 @@ from theHarvester.discovery.constants import *
 from theHarvester.lib.core import *
 from theHarvester.parsers import myparser
 import json
-import requests
-import time
 
 
 class SearchDuckDuckGo:
@@ -21,21 +19,6 @@ class SearchDuckDuckGo:
 
     async def do_search(self):
         # Do normal scraping.
-        """
-        url = self.api.replace('x', self.word)
-        headers = {'User-Agent': googleUA}
-        r = requests.get(url, headers=headers)
-        time.sleep(getDelay())
-        self.results = r.text
-        self.totalresults += self.results
-        urls = self.crawl(self.results)
-        for url in urls:
-            try:
-                self.totalresults += requests.get(url, headers={'User-Agent': Core.get_user_agent()}).text
-                time.sleep(getDelay())
-            except Exception:
-                continue
-        """
         url = self.api.replace('x', self.word)
         headers = {'User-Agent': googleUA}
         first_resp = await async_fetcher.fetch_all([url], headers=headers)
