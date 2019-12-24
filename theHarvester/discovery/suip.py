@@ -17,7 +17,7 @@ class SearchSuip:
     async def request(self, url, params):
         headers = {'User-Agent': Core.get_user_agent()}
         data = {'url': self.word.replace('www.', ''), 'Submit1': 'Submit'}
-        timeout = aiohttp.ClientTimeout(total=300)
+        timeout = aiohttp.ClientTimeout(total=360)
         # by default timeout is 5 minutes we will change that to 6 minutes
         # Depending on the domain and if it has a lot of subdomains you may want to tweak it
         # The results are well worth the wait :)
@@ -33,6 +33,7 @@ class SearchSuip:
     async def handler(self, url):
         first_data = [url, (('act', 'subfinder'),), ]
         second_data = [url, (('act', 'amass'),), ]
+        # TODO RESEARCH https://suip.biz/?act=findomain
         async_requests = [
             self.request(url=url, params=params)
             for url, params in [first_data, second_data]

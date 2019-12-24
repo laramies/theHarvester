@@ -1,7 +1,7 @@
 # coding=utf-8
 
 import random
-from typing import Set, Union, Any
+from typing import Set, Union, Any, Tuple
 import yaml
 import asyncio
 import aiohttp
@@ -375,21 +375,22 @@ class Core:
 class async_fetcher:
 
     @staticmethod
-    async def fetch(session, url, params='') -> str:
+    async def fetch(session, url, params='', json=False) -> Union[str, dict, list]:
         # This fetch method solely focuses on get requests
         # TODO determine if method for post requests is necessary
-        if len(params) == '':
+        if len(params) == 0:
             async with session.get(url, params=params) as response:
-                await asyncio.sleep(3)
-                return await response.text()
+                await asyncio.sleep(2)
+                return await response.text() if json is False else await response.json()
         else:
             async with session.get(url) as response:
-                await asyncio.sleep(3)
-                return await response.text()
+                await asyncio.sleep(2)
+                return await response.text() if json is False else await response.json()
 
     @staticmethod
     async def fetch_all(urls, headers='', params='') -> list:
-        timeout = aiohttp.ClientTimeout(total=10)
+        timeout = aiohttp.ClientTimeout(total=30)
+        # By default timeout is 5 minutes, 30 seconds should suffice
         if len(headers) == 0:
             headers = {'User-Agent': Core.get_user_agent()}
         if len(params) == 0:
