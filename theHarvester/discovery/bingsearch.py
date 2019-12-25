@@ -2,7 +2,7 @@ from theHarvester.discovery.constants import *
 from theHarvester.lib.core import *
 from theHarvester.parsers import myparser
 # import grequests
-from theHarvester.lib.core import async_fetcher
+from theHarvester.lib.core import AsyncFetcher
 
 
 class SearchBing:
@@ -28,7 +28,7 @@ class SearchBing:
         }
         base_url = f'https://{self.server}/search?q=%40"{self.word}"&count=50&first=xx'
         urls = [base_url.replace("xx", str(num)) for num in range(0, self.limit, 50) if num <= self.limit]
-        responses = await async_fetcher.fetch_all(urls, headers=headers)
+        responses = await AsyncFetcher.fetch_all(urls, headers=headers)
         for response in responses:
             self.total_results += response
 
@@ -42,7 +42,7 @@ class SearchBing:
             'safesearch': 'Off'
         }
         headers = {'User-Agent': Core.get_user_agent(), 'Ocp-Apim-Subscription-Key': self.bingApi}
-        self.results = await async_fetcher.fetch_all([url], headers=headers, params=params)
+        self.results = await AsyncFetcher.fetch_all([url], headers=headers, params=params)
         self.total_results += self.results
 
     async def do_search_vhost(self):
@@ -54,7 +54,7 @@ class SearchBing:
         }
         base_url = f'http://{self.server}/search?q=ip:{self.word}&go=&count=50&FORM=QBHL&qs=n&first=xx'
         urls = [base_url.replace("xx", str(num)) for num in range(0, self.limit, 50) if num <= self.limit]
-        responses = await async_fetcher.fetch_all(urls, headers=headers)
+        responses = await AsyncFetcher.fetch_all(urls, headers=headers)
         for response in responses:
             self.total_results += response
 

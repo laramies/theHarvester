@@ -17,7 +17,7 @@ class SearchDogpile:
             headers = {'User-agent': Core.get_user_agent()}
             base_url = f'https://{self.server}/search/web?qsi=xx&q=%40{self.word}'
             urls = [base_url.replace("xx", str(num)) for num in range(0, self.limit, 10) if num <= self.limit]
-            responses = await async_fetcher.fetch_all(urls, headers=headers)
+            responses = await AsyncFetcher.fetch_all(urls, headers=headers)
             for response in responses:
                 self.total_results += response
         except Exception as e:

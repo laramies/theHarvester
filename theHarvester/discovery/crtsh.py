@@ -14,7 +14,7 @@ class SearchCrtsh:
             url = f'https://crt.sh/?q=%25.{self.word}&output=json'
             headers = {'User-Agent': Core.get_user_agent()}
             client = aiohttp.ClientSession(headers=headers, timeout=aiohttp.ClientTimeout(total=20))
-            response = await async_fetcher.fetch(client, url, json=True)
+            response = await AsyncFetcher.fetch(client, url, json=True)
             await client.close()
             data = set(
                 [dct['name_value'][2:] if '*.' == dct['name_value'][:2] else dct['name_value'] for dct in response])

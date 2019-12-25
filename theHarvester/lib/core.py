@@ -373,7 +373,7 @@ class Core:
         return random.choice(user_agents)
 
 
-class async_fetcher:
+class AsyncFetcher:
 
     @staticmethod
     async def fetch(session, url, params='', json=False) -> Union[str, dict, list]:
@@ -396,10 +396,10 @@ class async_fetcher:
             headers = {'User-Agent': Core.get_user_agent()}
         if len(params) == 0:
             async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
-                texts = await asyncio.gather(*[async_fetcher.fetch(session, url) for url in urls])
+                texts = await asyncio.gather(*[AsyncFetcher.fetch(session, url) for url in urls])
                 return texts
         else:
             # Indicates the request has certain params
             async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
-                texts = await asyncio.gather(*[async_fetcher.fetch(session, url, params) for url in urls])
+                texts = await asyncio.gather(*[AsyncFetcher.fetch(session, url, params) for url in urls])
                 return texts
