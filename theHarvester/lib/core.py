@@ -1,7 +1,7 @@
 # coding=utf-8
 
 import random
-from typing import Set, Union, Any, Tuple
+from typing import Set, Union, Any
 import yaml
 import asyncio
 import aiohttp

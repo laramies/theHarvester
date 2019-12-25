@@ -1,6 +1,5 @@
 from theHarvester.lib.core import *
 from bs4 import BeautifulSoup
-import requests
 import aiohttp
 import asyncio
 
