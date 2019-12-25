@@ -1,6 +1,5 @@
 from theHarvester.lib.core import *
 from bs4 import BeautifulSoup
-import requests
 import aiohttp
 import asyncio
 
@@ -17,7 +16,7 @@ class SearchSuip:
     async def request(self, url, params):
         headers = {'User-Agent': Core.get_user_agent()}
         data = {'url': self.word.replace('www.', ''), 'Submit1': 'Submit'}
-        timeout = aiohttp.ClientTimeout(total=360)
+        timeout = aiohttp.ClientTimeout(total=720)
         # by default timeout is 5 minutes we will change that to 6 minutes
         # Depending on the domain and if it has a lot of subdomains you may want to tweak it
         # The results are well worth the wait :)
@@ -51,9 +50,7 @@ class SearchSuip:
                 hosts: list = str(soup.find('pre')).splitlines()
                 await self.clean_hosts(hosts)
         except Exception as e:
-            print('An exception has occurred: ', e)
-            import traceback as t
-            t.print_exc()
+            print(f'An exception has occurred: {e}')
 
     async def get_hostnames(self) -> set:
         return self.totalhosts

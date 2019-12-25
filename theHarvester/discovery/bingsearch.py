@@ -1,7 +1,6 @@
 from theHarvester.discovery.constants import *
 from theHarvester.lib.core import *
 from theHarvester.parsers import myparser
-# import grequests
 from theHarvester.lib.core import async_fetcher
 
 
@@ -19,7 +18,6 @@ class SearchBing:
         self.counter = start
 
     async def do_search(self):
-        print('hello from bing do search')
         headers = {
             'Host': self.hostname,
             'Cookie': 'SRCHHPGUSR=ADLT=DEMOTE&NRSLT=50',
