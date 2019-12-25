@@ -377,16 +377,20 @@ class AsyncFetcher:
 
     @staticmethod
     async def fetch(session, url, params='', json=False) -> Union[str, dict, list]:
-        # This fetch method solely focuses on get requests
-        # TODO determine if method for post requests is necessary
-        if len(params) == 0:
-            async with session.get(url, params=params) as response:
-                await asyncio.sleep(2)
-                return await response.text() if json is False else await response.json()
-        else:
-            async with session.get(url) as response:
-                await asyncio.sleep(2)
-                return await response.text() if json is False else await response.json()
+        try:
+            # Wrap in try except due to 0x89 png/jpg files
+            # This fetch method solely focuses on get requests
+            # TODO determine if method for post requests is necessary
+            if len(params) == 0:
+                async with session.get(url, params=params) as response:
+                    await asyncio.sleep(2)
+                    return await response.text() if json is False else await response.json()
+            else:
+                async with session.get(url) as response:
+                    await asyncio.sleep(2)
+                    return await response.text() if json is False else await response.json()
+        except Exception:
+            pass
 
     @staticmethod
     async def fetch_all(urls, headers='', params='') -> list:
