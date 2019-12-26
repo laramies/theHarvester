@@ -51,8 +51,6 @@ class SearchSuip:
                 await self.clean_hosts(hosts)
         except Exception as e:
             print(f'An exception has occurred: {e}')
-            import traceback as t
-            t.print_exc()
 
     async def get_hostnames(self) -> set:
         return self.totalhosts

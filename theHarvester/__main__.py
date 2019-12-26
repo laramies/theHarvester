@@ -97,6 +97,7 @@ async def start():
             db_stash.store_all(word, all_hosts, 'host', source)
         if store_emails:
             email_list = filter(await search_engine.get_emails())
+            all_emails.extend(email_list)
             db_stash.store_all(word, email_list, 'email', source)
         if store_ip:
             ips_list = await search_engine.get_ips()
@@ -169,7 +170,7 @@ async def start():
                         if isinstance(e, MissingKey):
                             print(e)
                         else:
-                            pass
+                            print(e)
 
                 elif engineitem == 'certspotter':
                     print('\033[94m[*] Searching CertSpotter. \033[0m')
@@ -657,4 +658,6 @@ async def entry_point():
 
 
 if __name__ == '__main__':
+    #import uvloop
+    #uvloop.install()
     asyncio.run(main=entry_point())
