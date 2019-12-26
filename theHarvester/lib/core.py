@@ -383,7 +383,7 @@ class AsyncFetcher:
             # Wrap in try except due to 0x89 png/jpg files
             # This fetch method solely focuses on get requests
             # TODO determine if method for post requests is necessary
-            if len(params) != '':
+            if params != '':
                 async with session.get(url, params=params) as response:
                     await asyncio.sleep(2)
                     return await response.text() if json is False else await response.json()
