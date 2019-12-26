@@ -21,12 +21,12 @@ class SearchDuckDuckGo:
         # Do normal scraping.
         url = self.api.replace('x', self.word)
         headers = {'User-Agent': googleUA}
-        first_resp = await async_fetcher.fetch_all([url], headers=headers)
+        first_resp = await AsyncFetcher.fetch_all([url], headers=headers)
         self.results = first_resp[0]
         self.totalresults += self.results
         urls = await self.crawl(self.results)
         urls = {url for url in urls if len(url) > 5}
-        all_resps = await async_fetcher.fetch_all(urls)
+        all_resps = await AsyncFetcher.fetch_all(urls)
         self.totalresults += ''.join(all_resps)
 
     async def crawl(self, text):

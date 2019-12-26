@@ -13,7 +13,7 @@ class SearchCertspoter:
         headers = {'User-Agent': Core.get_user_agent()}
         try:
             client = aiohttp.ClientSession(headers=headers, timeout=aiohttp.ClientTimeout(total=30))
-            response = await async_fetcher.fetch(client, base_url, json=True)
+            response = await AsyncFetcher.fetch(client, base_url, json=True)
             await client.close()
             if isinstance(response, list):
                 for dct in response:
