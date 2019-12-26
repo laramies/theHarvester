@@ -36,7 +36,7 @@ class SearchExalead:
             'Referer': ('http://' + self.hostname + '/search/web/results/?q=%40' + self.word),
             'User-agent': Core.get_user_agent()
         }
-        responses = await async_fetcher.fetch_all(url, headers=headers)
+        responses = await async_fetcher.fetch_all([url], headers=headers)
         self.results = responses[0]
         self.total_results += self.results
 
