@@ -35,7 +35,7 @@ async def start():
     parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, certspotter, crtsh, dnsdumpster,
-                        dogpile, duckduckgo, goofile, github-code, google,
+                        dogpile, duckduckgo, github-code, google,
                         hunter, intelx,
                         linkedin, linkedin_links, netcraft, otx, securityTrails, spyse(disabled for now), threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo, all''')
@@ -229,12 +229,6 @@ async def start():
                     from theHarvester.discovery import exaleadsearch
                     exalead_search = exaleadsearch.SearchExalead(word, limit, start)
                     await store(exalead_search, engineitem, store_host=True, store_emails=True)
-
-                elif engineitem == 'goofile':
-                    print('\033[94m[*] Searching Goofile. \033[0m')
-                    from theHarvester.discovery import googlefile
-                    goofile_links_search = googlefile.SearchGooglefile(word)
-                    store(goofile_links_search, engineitem, store_links=True)
 
                 elif engineitem == 'google':
                     print('\033[94m[*] Searching Google. \033[0m')

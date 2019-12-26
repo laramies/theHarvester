@@ -17,6 +17,7 @@ retrying = "==1.3.3"
 shodan = "==1.21.1"
 texttable = "==1.6.2"
 lxml = "==4.4.2"
+uvloop = "==0.14.0"
 
 [dev-packages]
 flake8 = "==3.7.9"

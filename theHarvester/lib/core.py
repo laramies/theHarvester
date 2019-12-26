@@ -390,7 +390,7 @@ class AsyncFetcher:
                     await asyncio.sleep(2)
                     return await response.text() if json is False else await response.json()
         except Exception:
-            pass
+            return ""
 
     @staticmethod
     async def fetch_all(urls, headers='', params='') -> list:
