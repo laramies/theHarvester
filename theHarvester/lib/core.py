@@ -116,7 +116,6 @@ class Core:
                             'dogpile',
                             'duckduckgo',
                             'exalead',
-                            'goofile',
                             'github-code',
                             'google',
                             'hunter',
@@ -390,7 +389,7 @@ class AsyncFetcher:
                     await asyncio.sleep(2)
                     return await response.text() if json is False else await response.json()
         except Exception:
-            return ""
+            return ''
 
     @staticmethod
     async def fetch_all(urls, headers='', params='') -> list:
