@@ -379,14 +379,17 @@ class async_fetcher:
     async def fetch(session, url, params='', json=False) -> Union[str, dict, list]:
         # This fetch method solely focuses on get requests
         # TODO determine if method for post requests is necessary
-        if len(params) == 0:
-            async with session.get(url, params=params) as response:
-                await asyncio.sleep(2)
-                return await response.text() if json is False else await response.json()
-        else:
-            async with session.get(url) as response:
-                await asyncio.sleep(2)
-                return await response.text() if json is False else await response.json()
+        try:
+            if params != '':
+                async with session.get(url, params=params) as response:
+                    await asyncio.sleep(2)
+                    return await response.text() if json is False else await response.json()
+            else:
+                async with session.get(url) as response:
+                    await asyncio.sleep(2)
+                    return await response.text() if json is False else await response.json()
+        except Exception:
+            return ''
 
     @staticmethod
     async def fetch_all(urls, headers='', params='') -> list:
