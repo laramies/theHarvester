@@ -97,6 +97,7 @@ def start():
             db_stash.store_all(word, all_hosts, 'host', source)
         if store_emails:
             email_list = filter(search_engine.get_emails())
+            all_emails.extend(email_list)
             db_stash.store_all(word, email_list, 'email', source)
         if store_ip:
             ips_list = search_engine.get_ips()
