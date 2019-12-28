@@ -41,7 +41,7 @@ async def start():
                         action='store_true')
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, certspotter, crtsh, dnsdumpster,
-                        dogpile, duckduckgo, github-code, google,
+                        dogpile, duckduckgo, goofile, github-code, google,
                         hunter, intelx,
                         linkedin, linkedin_links, netcraft, otx, securityTrails, spyse(disabled for now), threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo, all''')
@@ -193,9 +193,8 @@ async def start():
                         from theHarvester.discovery import crtsh
                         crtsh_search = crtsh.SearchCrtsh(word)
                         await store(crtsh_search, 'CRTsh', store_data=True)
-
-                    except Exception:
-                        print(f'\033[93m[!] A timeout occurred with crtsh, cannot find {args.domain}\033[0m')
+                    except Exception as e:
+                        print(f'\033[93m[!] A timeout occurred with crtsh, cannot find {args.domain}\n {e}\033[0m')
 
                 elif engineitem == 'dnsdumpster':
                     try:
@@ -237,6 +236,12 @@ async def start():
                     from theHarvester.discovery import exaleadsearch
                     exalead_search = exaleadsearch.SearchExalead(word, limit, start)
                     await store(exalead_search, engineitem, store_host=True, store_emails=True)
+
+                elif engineitem == 'goofile':
+                    print('\033[94m[*] Searching Goofile. \033[0m')
+                    from theHarvester.discovery import googlefile
+                    goofile_links_search = googlefile.SearchGooglefile(word)
+                    store(goofile_links_search, engineitem, store_links=True)
 
                 elif engineitem == 'google':
                     print('\033[94m[*] Searching Google. \033[0m')
