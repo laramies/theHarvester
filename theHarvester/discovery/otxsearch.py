@@ -1,7 +1,6 @@
 from theHarvester.lib.core import *
 import re
 
-
 class SearchOtx:
 
     def __init__(self, word):
