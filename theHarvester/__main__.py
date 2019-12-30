@@ -659,6 +659,6 @@ async def entry_point():
 
 
 if __name__ == '__main__':
-    #import uvloop
-    #uvloop.install()
+    import uvloop
+    uvloop.install()
     asyncio.run(main=entry_point())
