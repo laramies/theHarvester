@@ -19,7 +19,7 @@ class SearchDnsDumpster:
             # create a session to properly verify
             url = f'https://{self.server}'
             request = session.get(url, headers=headers)
-            cookies = str(reqjuest.cookies)
+            cookies = str(request.cookies)
             # extract csrftoken from cookies
             csrftoken = ''
             for ch in cookies.split("=")[1]:
