@@ -10,3 +10,4 @@ requests==2.22.0
 shodan==1.21.1
 texttable==1.6.2
 retrying==1.3.3
+uvloop==0.14.0
