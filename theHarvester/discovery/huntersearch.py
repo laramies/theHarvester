@@ -17,7 +17,7 @@ class SearchHunter:
         self.database = f'https://api.hunter.io/v2/domain-search?domain={word}&api_key={self.key}&limit={self.limit}'
 
     async def do_search(self):
-        responses = await async_fetcher.fetch_all([self.database], headers={'User-Agent': Core.get_user_agent()})
+        responses = await AsyncFetcher.fetch_all([self.database], headers={'User-Agent': Core.get_user_agent()})
         self.total_results += responses[0]
 
     async def process(self):

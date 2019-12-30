@@ -18,7 +18,7 @@ class SearchYahoo:
             'User-agent': Core.get_user_agent()
         }
         urls = [base_url.replace("xx", str(num)) for num in range(0, self.limit, 10) if num <= self.limit]
-        responses = await async_fetcher.fetch_all(urls, headers=headers)
+        responses = await AsyncFetcher.fetch_all(urls, headers=headers)
         for response in responses:
             self.total_results += response
 

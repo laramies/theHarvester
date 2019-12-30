@@ -1,39 +1,44 @@
 from theHarvester.lib.core import *
-import json
-import grequests
+import re
 
 
 class SearchOtx:
-
     def __init__(self, word):
         self.word = word
-        self.results = ''
-        self.totalresults = ''
         self.totalhosts = set()
         self.totalips = set()
 
-    def do_search(self):
-        base_url = f'https://otx.alienvault.com/api/v1/indicators/domain/{self.word}/passive_dns'
+    async def do_search(self):
+        url = f'https://otx.alienvault.com/api/v1/indicators/domain/{self.word}/passive_dns'
         headers = {'User-Agent': Core.get_user_agent()}
-        try:
-            request = grequests.get(base_url, headers=headers)
-            data = grequests.map([request])
-            self.results = data[0].content.decode('UTF-8')
-        except Exception as e:
-            print(e)
-
-        self.totalresults += self.results
-        dct = json.loads(self.totalresults)
+        client = aiohttp.ClientSession(headers=headers, timeout=aiohttp.ClientTimeout(total=20))
+        responses = await AsyncFetcher.fetch(client, url, json=True)
+        await client.close()
+        dct = responses
+        import pprint as p
+        # p.pprint(dct, indent=4)
+        # exit(-2)
         self.totalhosts: set = {host['hostname'] for host in dct['passive_dns']}
         # filter out ips that are just called NXDOMAIN
-        self.totalips: set = {ip['address'] for ip in dct['passive_dns'] if 'NXDOMAIN' not in ip['address']}
+        self.totalips: set = {ip['address'] for ip in dct['passive_dns']
+                              if re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ip['address'])}
 
-    def get_hostnames(self) -> set:
+    async def get_hostnames(self) -> set:
         return self.totalhosts
 
-    def get_ips(self) -> set:
+    async def get_ips(self) -> set:
         return self.totalips
 
-    def process(self):
-        self.do_search()
-        print('\tSearching results.')
+    async def process(self):
+        await self.do_search()
+
+
+async def main():
+    x = SearchOtx(word="yale.edu")
+    await x.do_search()
+
+
+if __name__ == '__main__':
+    import asyncio
+
+    asyncio.run(main())
