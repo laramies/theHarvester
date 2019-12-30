@@ -1,6 +1,7 @@
 from theHarvester.lib.core import *
 import json
 import grequests
+import re
 
 
 class SearchOtx:
@@ -26,7 +27,8 @@ class SearchOtx:
         dct = json.loads(self.totalresults)
         self.totalhosts: set = {host['hostname'] for host in dct['passive_dns']}
         # filter out ips that are just called NXDOMAIN
-        self.totalips: set = {ip['address'] for ip in dct['passive_dns'] if 'NXDOMAIN' not in ip['address']}
+        self.totalips: set = {ip['address'] for ip in dct['passive_dns']
+                              if re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ip['address'])}
 
     def get_hostnames(self) -> set:
         return self.totalhosts
