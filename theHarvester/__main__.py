@@ -43,7 +43,7 @@ async def start():
     args = parser.parse_args()
     try:
         db = stash.StashManager()
-        db.do_init()
+        await db.do_init()
     except Exception:
         pass
 
@@ -94,30 +94,30 @@ async def start():
         if store_host:
             host_names = filter(await search_engine.get_hostnames())
             all_hosts.extend(host_names)
-            db_stash.store_all(word, all_hosts, 'host', source)
+            await db_stash.store_all(word, all_hosts, 'host', source)
         if store_emails:
             email_list = filter(await search_engine.get_emails())
             all_emails.extend(email_list)
-            db_stash.store_all(word, email_list, 'email', source)
+            await db_stash.store_all(word, email_list, 'email', source)
         if store_ip:
             ips_list = await search_engine.get_ips()
             all_ip.extend(ips_list)
-            db_stash.store_all(word, all_ip, 'ip', source)
+            await db_stash.store_all(word, all_ip, 'ip', source)
         if store_data:
             data = filter(await search_engine.get_data())
             all_hosts.extend(data)
-            db.store_all(word, all_hosts, 'host', source)
+            await db.store_all(word, all_hosts, 'host', source)
         if store_results:
             email_list, host_names, urls = await search_engine.get_results()
             all_emails.extend(email_list)
             host_names = filter(host_names)
             all_urls.extend(filter(urls))
             all_hosts.extend(host_names)
-            db.store_all(word, all_hosts, 'host', source)
-            db.store_all(word, all_emails, 'email', source)
+            await db.store_all(word, all_hosts, 'host', source)
+            await db.store_all(word, all_emails, 'email', source)
         if store_people:
             people_list = await search_engine.get_people()
-            db_stash.store_all(word, people_list, 'people', source)
+            await db_stash.store_all(word, people_list, 'people', source)
             if len(people_list) == 0:
                 print('\n[*] No users found.\n\n')
             else:
@@ -127,7 +127,7 @@ async def start():
                     print(usr)
         if store_links:
             links = await search_engine.get_links()
-            db.store_all(word, links, 'name', engineitem)
+            await db.store_all(word, links, 'name', engineitem)
             if len(links) == 0:
                 print('\n[*] No links found.\n\n')
             else:
@@ -409,7 +409,7 @@ async def start():
             host = str(host)
             print(host)
         host_ip = [netaddr_ip.format() for netaddr_ip in sorted([netaddr.IPAddress(ip) for ip in ips])]
-        db.store_all(word, host_ip, 'ip', 'DNS-resolver')
+        await db.store_all(word, host_ip, 'ip', 'DNS-resolver')
     length_urls = len(all_urls)
     if length_urls == 0:
         if len(engines) >= 1 and 'trello' in engines:
@@ -553,9 +553,9 @@ async def start():
         counter = 0
         for word in vhost:
             search = googlesearch.SearchGoogle(word, limit, counter)
-            search.process(google_dorking)
-            emails = search.get_emails()
-            hosts = search.get_hostnames()
+            await search.process(google_dorking)
+            emails = await search.get_emails()
+            hosts = await search.get_hostnames()
             print(emails)
             print(hosts)
     else:
@@ -566,17 +566,18 @@ async def start():
         try:
             print('\n[*] Reporting started.')
             db = stash.StashManager()
-            scanboarddata = db.getscanboarddata()
-            latestscanresults = db.getlatestscanresults(word)
-            previousscanresults = db.getlatestscanresults(word, previousday=True)
-            latestscanchartdata = db.latestscanchartdata(word)
-            scanhistorydomain = db.getscanhistorydomain(word)
-            pluginscanstatistics = db.getpluginscanstatistics()
+            scanboarddata = await db.getscanboarddata()
+            latestscanresults = await db.getlatestscanresults(word)
+            previousscanresults = await db.getlatestscanresults(word, previousday=True)
+            latestscanchartdata = await db.latestscanchartdata(word)
+            scanhistorydomain = await db.getscanhistorydomain(word)
+            pluginscanstatistics = await db.getpluginscanstatistics()
             generator = statichtmlgenerator.HtmlGenerator(word)
             HTMLcode = generator.beginhtml()
             HTMLcode += generator.generatelatestscanresults(latestscanresults)
             HTMLcode += generator.generatepreviousscanresults(previousscanresults)
             graph = reportgraph.GraphGenerator(word)
+            await graph.init_db()
             HTMLcode += graph.drawlatestscangraph(word, latestscanchartdata)
             HTMLcode += graph.drawscattergraphscanhistory(word, scanhistorydomain)
             HTMLcode += generator.generatepluginscanstatistics(pluginscanstatistics)
@@ -658,6 +659,6 @@ async def entry_point():
 
 
 if __name__ == '__main__':
-    #import uvloop
-    #uvloop.install()
+    # import uvloop
+    # uvloop.install()
     asyncio.run(main=entry_point())
