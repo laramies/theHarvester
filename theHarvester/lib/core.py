@@ -1,7 +1,7 @@
 # coding=utf-8
 
 import random
-from typing import Set, Union, Any, Tuple
+from typing import Set, Union, Any
 import yaml
 import asyncio
 import aiohttp
@@ -380,6 +380,9 @@ class AsyncFetcher:
         # This fetch method solely focuses on get requests
         # TODO determine if method for post requests is necessary
         try:
+            # Wrap in try except due to 0x89 png/jpg files
+            # This fetch method solely focuses on get requests
+            # TODO determine if method for post requests is necessary
             if params != '':
                 async with session.get(url, params=params) as response:
                     await asyncio.sleep(2)
@@ -393,8 +396,9 @@ class AsyncFetcher:
 
     @staticmethod
     async def fetch_all(urls, headers='', params='') -> list:
-        timeout = aiohttp.ClientTimeout(total=30)
         # By default timeout is 5 minutes, 30 seconds should suffice
+        timeout = aiohttp.ClientTimeout(total=30)
+
         if len(headers) == 0:
             headers = {'User-Agent': Core.get_user_agent()}
         if len(params) == 0:

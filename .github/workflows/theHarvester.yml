@@ -19,7 +19,7 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v1.1.1
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
@@ -79,9 +79,9 @@ jobs:
       run: |
         python theHarvester.py -d apple.com -b netcraft
 
-#    - name: Run theHarvester module Otx
-#      run: |
-#        python theHarvester.py -d apple.com -b otx
+    - name: Run theHarvester module Otx
+      run: |
+        python theHarvester.py -d apple.com -b otx
 
     - name: Run theHarvester module threatcrowd
       run: |
