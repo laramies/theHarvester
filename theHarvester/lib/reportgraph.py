@@ -3,11 +3,7 @@ from datetime import datetime
 import plotly
 import plotly.graph_objs as go
 
-try:
-    db = stash.StashManager()
-    db.do_init()
-except Exception as error:
-    print(f'{error}')
+
 
 class GraphGenerator:
 
@@ -21,6 +17,13 @@ class GraphGenerator:
         self.scattercountips = []
         self.scattercountshodans = []
         self.scattercountvhosts = []
+
+    async def init_db(self):
+        try:
+            db = stash.StashManager()
+            await db.do_init()
+        except Exception as error:
+            print(f'{error}')
 
     def drawlatestscangraph(self, domain, latestscandata):
         try:

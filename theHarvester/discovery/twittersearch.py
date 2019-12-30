@@ -17,6 +17,8 @@ class SearchTwitter:
 
     def do_search(self):
         base_url = f'https://{self.server}/search?num=100&start=xx&hl=en&meta=&q=site%3Atwitter.com%20intitle%3A%22on+Twitter%22%20{self.word}'
+        print(base_url)
+        exit(-2)
         headers = {'User-Agent': Core.get_user_agent()}
         try:
             urls = [base_url.replace("xx", str(num)) for num in range(0, self.limit, 10) if num <= self.limit]
@@ -40,3 +42,21 @@ class SearchTwitter:
 
     def process(self):
         self.do_search()
+
+if __name__ == '__main__':
+    #https://github.com/taspinar/twitterscraper
+    import requests
+    from bs4 import BeautifulSoup
+    PROXY_URL = 'https://free-proxy-list.net/'
+
+    response = requests.get(PROXY_URL)
+    soup = BeautifulSoup(response.text, 'lxml')
+    table = soup.find('table', id='proxylisttable')
+    list_tr = table.find_all('tr')
+    list_td = [elem.find_all('td') for elem in list_tr]
+    list_td = list(filter(None, list_td))
+    list_ip = [elem[0].text for elem in list_td]
+    list_ports = [elem[1].text for elem in list_td]
+    list_proxies = [':'.join(elem) for elem in list(zip(list_ip, list_ports))]
+    import pprint as p
+    p.pprint(list_proxies, indent=4)

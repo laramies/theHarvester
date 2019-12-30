@@ -1,5 +1,6 @@
 aiodns==2.0.0
 aiohttp==3.5.4
+aiosqlite==0.11.0
 beautifulsoup4==4.8.1
 dnspython==1.16.0
 flake8==3.7.9
