@@ -1,4 +1,3 @@
-import grequests
 from theHarvester.lib.core import *
 from theHarvester.parsers import myparser
 

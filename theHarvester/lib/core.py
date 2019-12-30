@@ -116,7 +116,6 @@ class Core:
                             'dogpile',
                             'duckduckgo',
                             'exalead',
-                            'goofile',
                             'github-code',
                             'google',
                             'hunter',

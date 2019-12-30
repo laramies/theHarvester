@@ -5,6 +5,7 @@ import plotly.graph_objs as go
 
 
 
+
 class GraphGenerator:
 
     def __init__(self, domain):
