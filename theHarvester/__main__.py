@@ -514,8 +514,8 @@ async def start():
         print('------------------')
         for l in host_ip:
             basic_search = bingsearch.SearchBing(l, limit, start)
-            basic_search.process_vhost()
-            results = basic_search.get_allhostnames()
+            await basic_search.process_vhost()
+            results = await basic_search.get_allhostnames()
             for result in results:
                 result = re.sub(r'[[\<\/?]*[\w]*>]*', '', result)
                 result = re.sub('<', '', result)

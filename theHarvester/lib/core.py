@@ -376,6 +376,27 @@ class Core:
 class AsyncFetcher:
 
     @staticmethod
+    async def post_fetch(url, headers='', data='', params='', json=False):
+        if len(headers) == 0:
+            headers = {'User-Agent': Core.get_user_agent()}
+        timeout = aiohttp.ClientTimeout(total=720)
+        # by default timeout is 5 minutes, changed to 12 minutes for suip module
+        # results are well worth the wait
+        try:
+            if params == '':
+                async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
+                    async with session.post(url, data=data) as resp:
+                        await asyncio.sleep(3)
+                        return await resp.text() if json is False else await resp.json()
+            else:
+                async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
+                    async with session.post(url, data=data, params=params) as resp:
+                        await asyncio.sleep(3)
+                        return await resp.text() if json is False else await resp.json()
+        except Exception:
+            return ''
+
+    @staticmethod
     async def fetch(session, url, params='', json=False) -> Union[str, dict, list]:
         # This fetch method solely focuses on get requests
         # TODO determine if method for post requests is necessary
