@@ -3,6 +3,7 @@ import re
 
 
 class SearchOtx:
+
     def __init__(self, word):
         self.word = word
         self.totalhosts = set()
@@ -14,10 +15,8 @@ class SearchOtx:
         client = aiohttp.ClientSession(headers=headers, timeout=aiohttp.ClientTimeout(total=20))
         responses = await AsyncFetcher.fetch(client, url, json=True)
         await client.close()
+
         dct = responses
-        import pprint as p
-        # p.pprint(dct, indent=4)
-        # exit(-2)
         self.totalhosts: set = {host['hostname'] for host in dct['passive_dns']}
         # filter out ips that are just called NXDOMAIN
         self.totalips: set = {ip['address'] for ip in dct['passive_dns']
@@ -31,14 +30,3 @@ class SearchOtx:
 
     async def process(self):
         await self.do_search()
-
-
-async def main():
-    x = SearchOtx(word="yale.edu")
-    await x.do_search()
-
-
-if __name__ == '__main__':
-    import asyncio
-
-    asyncio.run(main())
