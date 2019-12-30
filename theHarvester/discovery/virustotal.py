@@ -14,7 +14,7 @@ class SearchVirustotal:
     async def do_search(self):
         base_url = f'https://www.virustotal.com/ui/domains/{self.word}/subdomains?relationships=resolutions&cursor=STMwCi4%3D&limit=40'
         headers = {'User-Agent': Core.get_user_agent()}
-        responses = await async_fetcher.fetch_all([base_url], headers=headers)
+        responses = await AsyncFetcher.fetch_all([base_url], headers=headers)
         self.results = responses[0]
         self.totalresults += self.results
 
