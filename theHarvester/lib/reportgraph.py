@@ -9,6 +9,7 @@ try:
 except Exception as error:
     print(f'{error}')
 
+
 class GraphGenerator:
 
     def __init__(self, domain):
