@@ -1,6 +1,5 @@
 from theHarvester.lib.core import *
 from theHarvester.parsers import myparser
-import grequests
 import re
 
 
