@@ -34,6 +34,7 @@ class SearchNetcraft:
                     await asyncio.sleep(2)
                     return await sess.text()
         except Exception as e:
+            print(e)
             resp = None
         return resp
 
@@ -92,4 +93,3 @@ class SearchNetcraft:
 
     async def process(self):
         await self.do_search()
-
