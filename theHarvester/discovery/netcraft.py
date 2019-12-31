@@ -25,6 +25,7 @@ class SearchNetcraft:
     async def request(self, url, first=False):
         try:
             if first:
+                # indicates first request to extract cookie
                 async with aiohttp.ClientSession(headers=self.headers, timeout=self.timeout) as sess:
                     async with sess.get(url) as resp:
                         await asyncio.sleep(3)
@@ -57,6 +58,7 @@ class SearchNetcraft:
     async def get_cookies(self, headers):
         try:
             if headers is None:
+                # In this case just return default dict
                 return {}
             elif 'set-cookie' in headers:
                 cookies = await self.create_cookies(headers['set-cookie'])
