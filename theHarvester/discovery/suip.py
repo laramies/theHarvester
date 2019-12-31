@@ -1,6 +1,5 @@
 from theHarvester.lib.core import *
 from bs4 import BeautifulSoup
-import aiohttp
 import asyncio
 
 
@@ -16,26 +15,15 @@ class SearchSuip:
     async def request(self, url, params):
         headers = {'User-Agent': Core.get_user_agent()}
         data = {'url': self.word.replace('www.', ''), 'Submit1': 'Submit'}
-        timeout = aiohttp.ClientTimeout(total=720)
-        # by default timeout is 5 minutes we will change that to 6 minutes
-        # Depending on the domain and if it has a lot of subdomains you may want to tweak it
-        # The results are well worth the wait :)
-        try:
-            async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
-                async with session.post(url, params=params, data=data) as resp:
-                    await asyncio.sleep(3)
-                    return await resp.text()
-        except Exception as e:
-            print(f'An exception has occurred: {e}')
-            return ''
+        return await AsyncFetcher.post_fetch(url, headers=headers, params=params, data=data)
 
     async def handler(self, url):
-        first_data = [url, (('act', 'subfinder'),), ]
-        second_data = [url, (('act', 'amass'),), ]
+        first_param = [url, (('act', 'subfinder'),), ]
+        second_param = [url, (('act', 'amass'),), ]
         # TODO RESEARCH https://suip.biz/?act=findomain
         async_requests = [
             self.request(url=url, params=params)
-            for url, params in [first_data, second_data]
+            for url, params in [first_param, second_param]
         ]
         results = await asyncio.gather(*async_requests)
         return results
