@@ -9,7 +9,8 @@ import re
 
 class TestGetLinks(object):
 
-    def test_splitter(self):
+    @pytest.mark.asyncio
+    async def test_splitter(self):
         results = [
             'https://www.linkedin.com/in/don-draper-b1045618',
             'https://www.linkedin.com/in/don-draper-b59210a',
@@ -18,19 +19,21 @@ class TestGetLinks(object):
             'https://www.linkedin.com/in/don-draper-b854a51'
         ]
         filtered_results = splitter(results)
-        assert len(filtered_results) == 1
+        assert len(await filtered_results) == 1
 
-    def test_get_links(self):
+    @pytest.mark.asyncio
+    async def test_get_links(self):
         search = linkedinsearch.SearchLinkedin("facebook.com", '100')
-        search.process()
+        await search.process()
         links = search.get_links()
         assert type(links) == list
 
-    def test_links_linkedin(self):
+    @pytest.mark.asyncio
+    async def test_links_linkedin(self):
         dir_path = os.path.dirname(os.path.realpath(__file__))
         mock_response = open(dir_path + "/test_linkedin_links.txt")
         mock_response_content = mock_response.read()
-        mock_response.close()
+        await mock_response.close()
         reg_links = re.compile(r"url=https:\/\/www\.linkedin.com(.*?)&")
         temp = reg_links.findall(mock_response_content)
         resul = []
