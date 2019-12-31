@@ -415,7 +415,7 @@ class AsyncFetcher:
             return ''
 
     @staticmethod
-    async def fetch_all(urls, headers='', params='') -> list:
+    async def fetch_all(urls, headers='', params='', json=False) -> list:
         # By default timeout is 5 minutes, 30 seconds should suffice
         timeout = aiohttp.ClientTimeout(total=30)
 
@@ -423,10 +423,10 @@ class AsyncFetcher:
             headers = {'User-Agent': Core.get_user_agent()}
         if len(params) == 0:
             async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
-                texts = await asyncio.gather(*[AsyncFetcher.fetch(session, url) for url in urls])
+                texts = await asyncio.gather(*[AsyncFetcher.fetch(session, url, json=json) for url in urls])
                 return texts
         else:
             # Indicates the request has certain params
             async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
-                texts = await asyncio.gather(*[AsyncFetcher.fetch(session, url, params) for url in urls])
+                texts = await asyncio.gather(*[AsyncFetcher.fetch(session, url, params, json) for url in urls])
                 return texts
