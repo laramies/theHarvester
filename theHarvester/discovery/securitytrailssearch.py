@@ -21,27 +21,23 @@ class SearchSecuritytrail:
         headers = {'APIKEY': self.key}
         url = f'{self.api}ping'
         auth_responses = await AsyncFetcher.fetch_all([url], headers=headers)
+        auth_responses = auth_responses[0]
         if 'False' in auth_responses or 'Invalid authentication' in auth_responses:
             print('\tKey could not be authenticated exiting program.')
         await asyncio.sleep(2)
 
     async def do_search(self) -> None:
-        url = ''
-        headers = {}
         # https://api.securitytrails.com/v1/domain/domain.com
         url = f'{self.api}domain/{self.word}'
         headers = {'APIKEY': self.key}
         response = await AsyncFetcher.fetch_all([url], headers=headers)
         await asyncio.sleep(2)  # Not random delay because 2 seconds is required due to rate limit.
-
-        self.results = response
-        # print(response)
+        self.results = response[0]
         self.totalresults += self.results
         url += '/subdomains'  # Get subdomains now.
         subdomain_response = await AsyncFetcher.fetch_all([url], headers=headers)
         await asyncio.sleep(2)
-        # print(subdomain_response)
-        self.results = subdomain_response
+        self.results = subdomain_response[0]
         self.totalresults += self.results
 
     async def process(self) -> None:
@@ -53,7 +49,8 @@ class SearchSecuritytrail:
         print('\tDone Searching Results')
 
     async def get_ips(self) -> set:
-        return await self.info[0]
+        return self.info[0]
 
     async def get_hostnames(self) -> set:
-        return await self.info[1]
+        return self.info[1]
+      
