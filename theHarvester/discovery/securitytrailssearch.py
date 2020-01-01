@@ -1,7 +1,6 @@
 from theHarvester.discovery.constants import *
 from theHarvester.lib.core import *
 from theHarvester.parsers import securitytrailsparser
-from typing import NoReturn
 import asyncio
 
 
@@ -17,7 +16,7 @@ class SearchSecuritytrail:
         self.api = 'https://api.securitytrails.com/v1/'
         self.info = ()
 
-    async def authenticate(self) -> NoReturn:
+    async def authenticate(self) -> None:
         # Method to authenticate API key before sending requests.
         headers = {'APIKEY': self.key}
         url = f'{self.api}ping'
@@ -26,7 +25,7 @@ class SearchSecuritytrail:
             print('\tKey could not be authenticated exiting program.')
         await asyncio.sleep(2)
 
-    async def do_search(self):
+    async def do_search(self) -> None:
         url = ''
         headers = {}
         # https://api.securitytrails.com/v1/domain/domain.com
@@ -45,7 +44,7 @@ class SearchSecuritytrail:
         self.results = subdomain_response
         self.totalresults += self.results
 
-    async def process(self) -> NoReturn:
+    async def process(self) -> None:
         await self.authenticate()
         await self.do_search()
         parser = securitytrailsparser.Parser(word=self.word, text=self.totalresults)
@@ -53,8 +52,8 @@ class SearchSecuritytrail:
         # Create parser and set self.info to tuple returned from parsing text.
         print('\tDone Searching Results')
 
-    async def get_ips(self):
+    async def get_ips(self) -> set:
         return await self.info[0]
 
-    async def get_hostnames(self):
+    async def get_hostnames(self) -> set:
         return await self.info[1]
