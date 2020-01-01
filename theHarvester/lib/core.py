@@ -10,15 +10,15 @@ import aiohttp
 class Core:
     @staticmethod
     def version() -> str:
-        return '3.1.1dev4'
+        return '3.1.1dev5'
 
     @staticmethod
     def bing_key() -> str:
         try:
-            with open('api-keys.yaml', 'r') as api_keys:
+            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
         except FileNotFoundError:
-            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+            with open('api-keys.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
                 return keys['apikeys']['bing']['key']
         return keys['apikeys']['bing']['key']
@@ -26,10 +26,10 @@ class Core:
     @staticmethod
     def github_key() -> str:
         try:
-            with open('api-keys.yaml', 'r') as api_keys:
+            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
         except FileNotFoundError:
-            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+            with open('api-keys.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
                 return keys['apikeys']['github']['key']
         return keys['apikeys']['github']['key']
@@ -37,10 +37,10 @@ class Core:
     @staticmethod
     def hunter_key() -> str:
         try:
-            with open('api-keys.yaml', 'r') as api_keys:
+            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
         except FileNotFoundError:
-            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+            with open('api-keys.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
             return keys['apikeys']['hunter']['key']
         return keys['apikeys']['hunter']['key']
@@ -48,10 +48,10 @@ class Core:
     @staticmethod
     def intelx_key() -> str:
         try:
-            with open('api-keys.yaml', 'r') as api_keys:
+            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
         except FileNotFoundError:
-            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+            with open('api-keys.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
                 return keys['apikeys']['intelx']['key']
         return keys['apikeys']['intelx']['key']
@@ -59,10 +59,10 @@ class Core:
     @staticmethod
     def security_trails_key() -> str:
         try:
-            with open('api-keys.yaml', 'r') as api_keys:
+            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
         except FileNotFoundError:
-            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+            with open('api-keys.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
                 return keys['apikeys']['securityTrails']['key']
         return keys['apikeys']['securityTrails']['key']
@@ -70,10 +70,10 @@ class Core:
     @staticmethod
     def shodan_key() -> str:
         try:
-            with open('api-keys.yaml', 'r') as api_keys:
+            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
         except FileNotFoundError:
-            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+            with open('api-keys.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
                 return keys['apikeys']['shodan']['key']
         return keys['apikeys']['shodan']['key']
@@ -81,10 +81,10 @@ class Core:
     @staticmethod
     def spyse_key() -> str:
         try:
-            with open('api-keys.yaml', 'r') as api_keys:
+            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
         except FileNotFoundError:
-            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+            with open('api-keys.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
                 return keys['apikeys']['spyse']['key']
         return keys['apikeys']['spyse']['key']
@@ -398,7 +398,6 @@ class AsyncFetcher:
     @staticmethod
     async def fetch(session, url, params='', json=False) -> Union[str, dict, list]:
         # This fetch method solely focuses on get requests
-        # TODO determine if method for post requests is necessary
         try:
             # Wrap in try except due to 0x89 png/jpg files
             # This fetch method solely focuses on get requests

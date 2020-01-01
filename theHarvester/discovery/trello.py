@@ -1,6 +1,5 @@
 from theHarvester.discovery.constants import *
 from theHarvester.parsers import myparser
-import grequests
 import requests
 import random
 import time

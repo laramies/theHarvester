@@ -64,7 +64,7 @@ class SearchNetcraft:
                 cookies = await self.create_cookies(headers['set-cookie'])
             else:
                 cookies = {}
-        except Exception as e:
+        except Exception:
             return {}
         return cookies
 
@@ -83,7 +83,7 @@ class SearchNetcraft:
                     await self.session.close()
                     break
                 self.base_url = await self.get_next(resp)
-        except Exception as e:
+        except Exception:
             try:
                 await self.session.close()
             except Exception:

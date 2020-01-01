@@ -252,19 +252,16 @@ class StashManager:
                 cursor = await conn.execute('''SELECT * FROM results WHERE domain=? AND find_date=? AND type="host"''', (domain, latestdate,))
                 scandetailshost = await cursor.fetchall()
                 self.latestscandomain["scandetailshost"] = scandetailshost
-                cursor = await conn.execute('''SELECT * FROM results WHERE domain=? AND find_date=? AND type="email"''',
-                          (domain, latestdate,))
+                cursor = await conn.execute('''SELECT * FROM results WHERE domain=? AND find_date=? AND type="email"''', (domain, latestdate,))
                 scandetailsemail = await cursor.fetchall()
                 self.latestscandomain["scandetailsemail"] = scandetailsemail
                 cursor = await conn.execute('''SELECT * FROM results WHERE domain=? AND find_date=? AND type="ip"''', (domain, latestdate,))
                 scandetailsip = await cursor.fetchall()
                 self.latestscandomain["scandetailsip"] = scandetailsip
-                cursor = await conn.execute('''SELECT * FROM results WHERE domain=? AND find_date=? AND type="vhost"''',
-                          (domain, latestdate,))
+                cursor = await conn.execute('''SELECT * FROM results WHERE domain=? AND find_date=? AND type="vhost"''', (domain, latestdate,))
                 scandetailsvhost = await cursor.fetchall()
                 self.latestscandomain["scandetailsvhost"] = scandetailsvhost
-                cursor = await conn.execute('''SELECT * FROM results WHERE domain=? AND find_date=? AND type="shodan"''',
-                          (domain, latestdate,))
+                cursor = await conn.execute('''SELECT * FROM results WHERE domain=? AND find_date=? AND type="shodan"''', (domain, latestdate,))
                 scandetailsshodan = await cursor.fetchall()
                 self.latestscandomain["scandetailsshodan"] = scandetailsshodan
             return self.latestscandomain
