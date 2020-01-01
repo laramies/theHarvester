@@ -32,17 +32,17 @@ class SearchSecuritytrail:
         # https://api.securitytrails.com/v1/domain/domain.com
         url = f'{self.api}domain/{self.word}'
         headers = {'APIKEY': self.key}
-        responses = await AsyncFetcher.fetch_all([url], headers=headers)
+        response = await AsyncFetcher.fetch_all([url], headers=headers)
         await asyncio.sleep(2)  # Not random delay because 2 seconds is required due to rate limit.
 
-        self.results = responses[0]
-        print(responses)
+        self.results = response
+        # print(response)
         self.totalresults += self.results
         url += '/subdomains'  # Get subdomains now.
-        subdomain_responses = await AsyncFetcher.fetch_all([url], headers=headers)
+        subdomain_response = await AsyncFetcher.fetch_all([url], headers=headers)
         await asyncio.sleep(2)
-        print(subdomain_responses)
-        self.results = subdomain_responses
+        # print(subdomain_response)
+        self.results = subdomain_response
         self.totalresults += self.results
 
     async def process(self) -> NoReturn:
