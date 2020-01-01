@@ -6,7 +6,7 @@ class Parser:
         self.hostnames = set()
         self.ips = set()
 
-    def parse_text(self):
+    async def parse_text(self):
         sub_domain_flag = 0
         self.text = str(self.text).splitlines()
         # Split lines to get a list of lines.
