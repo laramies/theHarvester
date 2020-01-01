@@ -1,3 +1,6 @@
+from typing import Union, Tuple, List
+
+
 class Parser:
 
     def __init__(self, word, text):
@@ -6,7 +9,7 @@ class Parser:
         self.hostnames = set()
         self.ips = set()
 
-    def parse_text(self):
+    async def parse_text(self) -> Union[List, Tuple]:
         sub_domain_flag = 0
         self.text = str(self.text).splitlines()
         # Split lines to get a list of lines.

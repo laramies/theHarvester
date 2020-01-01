@@ -398,7 +398,6 @@ class AsyncFetcher:
     @staticmethod
     async def fetch(session, url, params='', json=False) -> Union[str, dict, list]:
         # This fetch method solely focuses on get requests
-        # TODO determine if method for post requests is necessary
         try:
             # Wrap in try except due to 0x89 png/jpg files
             # This fetch method solely focuses on get requests
