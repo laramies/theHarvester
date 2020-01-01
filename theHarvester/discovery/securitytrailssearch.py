@@ -53,4 +53,3 @@ class SearchSecuritytrail:
 
     async def get_hostnames(self) -> set:
         return self.info[1]
-      
