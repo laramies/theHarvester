@@ -14,21 +14,21 @@ class SearchTwitter:
         self.limit = int(limit)
         self.counter = 0
 
-    def do_search(self):
+    async def do_search(self):
         base_url = f'https://{self.server}/search?num=100&start=xx&hl=en&meta=&q=site%3Atwitter.com%20intitle%3A%22on+Twitter%22%20{self.word}'
         headers = {'User-Agent': Core.get_user_agent()}
         try:
             urls = [base_url.replace("xx", str(num)) for num in range(0, self.limit, 10) if num <= self.limit]
-            request = (grequests.get(url, headers=headers) for url in urls)
-            response = grequests.imap(request, size=5)
+            request = (await AsyncFetcher.fetch_all([base_url], headers=headers) for url in urls)
+            response = request
             for entry in response:
-                self.totalresults += entry.content.decode('UTF-8')
+                self.totalresults += entry
         except Exception as error:
             print(error)
 
-    def get_people(self):
+    async def get_people(self):
         rawres = myparser.Parser(self.totalresults, self.word)
-        to_parse = rawres.people_twitter()
+        to_parse = await rawres.people_twitter()
         # fix invalid handles that look like @user other_output
         handles = set()
         for handle in to_parse:
@@ -37,5 +37,5 @@ class SearchTwitter:
                 handles.add(result.group(0))
         return handles
 
-    def process(self):
-        self.do_search()
+    async def process(self):
+        await self.do_search()
