@@ -27,7 +27,7 @@ class Parser:
         # https://tools.ietf.org/html/rfc6531 (removed * and () as they provide FP mostly)
         reg_emails = re.compile(r'[a-zA-Z0-9.\-_+#~!$&\',;=:]+' + '@' + '[a-zA-Z0-9.-]*' + self.word.replace('www.', ''))
         self.temp = reg_emails.findall(self.results)
-        emails = self.unique()
+        emails = await self.unique()
         true_emails = {str(email)[1:].lower().strip() if len(str(email)) > 1 and str(email)[0] == '.'
                        else len(str(email)) > 1 and str(email).lower().strip() for email in emails}
         # if email starts with dot shift email string and make sure all emails are lowercase
@@ -37,7 +37,7 @@ class Parser:
         urls = []
         reg_urls = re.compile('<a href="(.*?)"')
         self.temp = reg_urls.findall(self.results)
-        allurls = self.unique()
+        allurls = await self.unique()
         for iteration in allurls:
             if iteration.count('webcache') or iteration.count('google.com') or iteration.count('search?hl'):
                 pass
@@ -49,10 +49,10 @@ class Parser:
         await self.genericClean()
         reg_hosts = re.compile(r'[a-zA-Z0-9.-]*\.' + self.word)
         self.temp = reg_hosts.findall(self.results)
-        hostnames = self.unique()
+        hostnames = await self.unique()
         reg_hosts = re.compile(r'[a-zA-Z0-9.-]*\.' + self.word.replace('www.', ''))
         self.temp = reg_hosts.findall(self.results)
-        hostnames.extend(self.unique())
+        hostnames.extend(await self.unique())
         return list(set(hostnames))
 
     async def people_googleplus(self):
@@ -80,7 +80,7 @@ class Parser:
             else:
                 res = iteration.split('/')[0]
             self.temp.append(res)
-        hostnames = self.unique()
+        hostnames = await self.unique()
         return hostnames
 
     async def links_linkedin(self):
@@ -109,7 +109,7 @@ class Parser:
     async def people_twitter(self):
         reg_people = re.compile(r'(@[a-zA-Z0-9._ -]*)')
         self.temp = reg_people.findall(self.results)
-        users = self.unique()
+        users = await self.unique()
         resul = []
         for iteration in users:
             delete = iteration.replace(' | LinkedIn', '')

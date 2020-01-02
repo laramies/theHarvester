@@ -19,10 +19,9 @@ class SearchTwitter:
         headers = {'User-Agent': Core.get_user_agent()}
         try:
             urls = [base_url.replace("xx", str(num)) for num in range(0, self.limit, 10) if num <= self.limit]
-            request = (await AsyncFetcher.fetch_all([base_url], headers=headers) for url in urls)
-            response = request
-            for entry in response:
-                self.totalresults += entry
+            responses = await AsyncFetcher.fetch_all(urls, headers=headers)
+            for response in responses:
+                self.totalresults += response
         except Exception as error:
             print(error)
 

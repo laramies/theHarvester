@@ -116,10 +116,10 @@ class SearchGithubCode:
             else:
                 raise Exception("\tUnknown exception occurred")
 
-    def get_emails(self):
+    async def get_emails(self):
         rawres = myparser.Parser(self.total_results, self.word)
-        return rawres.emails()
+        return await rawres.emails()
 
-    def get_hostnames(self):
+    async def get_hostnames(self):
         rawres = myparser.Parser(self.total_results, self.word)
-        return rawres.hostnames()
+        return await rawres.hostnames()

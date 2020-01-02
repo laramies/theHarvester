@@ -20,7 +20,7 @@ class SearchVirustotal:
 
     async def get_hostnames(self):
         rawres = myparser.Parser(self.results, self.word)
-        return rawres.hostnames()
+        return await rawres.hostnames()
 
     async def process(self):
         print('\tSearching results.')

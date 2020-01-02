@@ -73,11 +73,11 @@ class SearchDuckDuckGo:
 
     async def get_emails(self):
         rawres = myparser.Parser(self.totalresults, self.word)
-        return rawres.emails()
+        return await rawres.emails()
 
     async def get_hostnames(self):
         rawres = myparser.Parser(self.totalresults, self.word)
-        return rawres.hostnames()
+        return await rawres.hostnames()
 
     async def process(self):
         await self.do_search()  # Only need to search once since using API.
