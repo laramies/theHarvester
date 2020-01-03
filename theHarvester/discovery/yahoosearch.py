@@ -26,7 +26,7 @@ class SearchYahoo:
 
     async def get_emails(self):
         rawres = myparser.Parser(self.total_results, self.word)
-        toparse_emails = rawres.emails()
+        toparse_emails = await rawres.emails()
         emails = set()
         # strip out numbers and dashes for emails that look like xxx-xxx-xxxemail@host.tld
         for email in toparse_emails:
@@ -39,4 +39,4 @@ class SearchYahoo:
 
     async def get_hostnames(self):
         rawres = myparser.Parser(self.total_results, self.word)
-        return rawres.hostnames()
+        return await rawres.hostnames()

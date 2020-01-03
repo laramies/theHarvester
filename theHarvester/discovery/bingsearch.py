@@ -1,7 +1,6 @@
 from theHarvester.discovery.constants import *
 from theHarvester.lib.core import *
 from theHarvester.parsers import myparser
-from theHarvester.lib.core import AsyncFetcher
 
 
 class SearchBing:
@@ -58,15 +57,15 @@ class SearchBing:
 
     async def get_emails(self):
         rawres = myparser.Parser(self.total_results, self.word)
-        return rawres.emails()
+        return await rawres.emails()
 
     async def get_hostnames(self):
         rawres = myparser.Parser(self.total_results, self.word)
-        return rawres.hostnames()
+        return await rawres.hostnames()
 
     async def get_allhostnames(self):
         rawres = myparser.Parser(self.total_results, self.word)
-        return rawres.hostnames_all()
+        return await rawres.hostnames_all()
 
     async def process(self, api):
         if api == 'yes':

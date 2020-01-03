@@ -1,3 +1,4 @@
+from typing import Coroutine
 from theHarvester.lib.core import *
 from theHarvester.parsers import myparser
 
@@ -19,7 +20,7 @@ class SearchThreatcrowd:
             print(e)
         self.totalresults += self.results
 
-    async def get_hostnames(self) -> set:
+    async def get_hostnames(self) -> Coroutine:
         return myparser.Parser(self.results, self.word).hostnames()
 
     async def process(self):

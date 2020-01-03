@@ -8,7 +8,7 @@ class Parser:
         self.word = word
         self.temp = []
 
-    def genericClean(self):
+    async def genericClean(self):
         self.results = self.results.replace('<em>', '').replace('<b>', '').replace('</b>', '').replace('</em>', '')\
             .replace('%2f', '').replace('%3a', '').replace('<strong>', '').replace('</strong>', '')\
             .replace('<wbr>', '').replace('</wbr>', '')
@@ -16,28 +16,28 @@ class Parser:
         for search in ('<', '>', ':', '=', ';', '&', '%3A', '%3D', '%3C', '/', '\\'):
             self.results = self.results.replace(search, ' ')
 
-    def urlClean(self):
+    async def urlClean(self):
         self.results = self.results.replace('<em>', '').replace('</em>', '').replace('%2f', '').replace('%3a', '')
         for search in ('<', '>', ':', '=', ';', '&', '%3A', '%3D', '%3C'):
             self.results = self.results.replace(search, ' ')
 
-    def emails(self):
-        self.genericClean()
+    async def emails(self):
+        await self.genericClean()
         # Local part is required, charset is flexible.
         # https://tools.ietf.org/html/rfc6531 (removed * and () as they provide FP mostly)
         reg_emails = re.compile(r'[a-zA-Z0-9.\-_+#~!$&\',;=:]+' + '@' + '[a-zA-Z0-9.-]*' + self.word.replace('www.', ''))
         self.temp = reg_emails.findall(self.results)
-        emails = self.unique()
+        emails = await self.unique()
         true_emails = {str(email)[1:].lower().strip() if len(str(email)) > 1 and str(email)[0] == '.'
                        else len(str(email)) > 1 and str(email).lower().strip() for email in emails}
         # if email starts with dot shift email string and make sure all emails are lowercase
         return true_emails
 
-    def fileurls(self, file):
+    async def fileurls(self, file):
         urls = []
         reg_urls = re.compile('<a href="(.*?)"')
         self.temp = reg_urls.findall(self.results)
-        allurls = self.unique()
+        allurls = await self.unique()
         for iteration in allurls:
             if iteration.count('webcache') or iteration.count('google.com') or iteration.count('search?hl'):
                 pass
@@ -45,17 +45,17 @@ class Parser:
                 urls.append(iteration)
         return urls
 
-    def hostnames(self):
-        self.genericClean()
+    async def hostnames(self):
+        await self.genericClean()
         reg_hosts = re.compile(r'[a-zA-Z0-9.-]*\.' + self.word)
         self.temp = reg_hosts.findall(self.results)
-        hostnames = self.unique()
+        hostnames = await self.unique()
         reg_hosts = re.compile(r'[a-zA-Z0-9.-]*\.' + self.word.replace('www.', ''))
         self.temp = reg_hosts.findall(self.results)
-        hostnames.extend(self.unique())
+        hostnames.extend(await self.unique())
         return list(set(hostnames))
 
-    def people_googleplus(self):
+    async def people_googleplus(self):
         self.results = re.sub('</b>', '', self.results)
         self.results = re.sub('<b>', '', self.results)
         reg_people = re.compile(r'>[a-zA-Z0-9._ ]* - Google\+')
@@ -71,7 +71,7 @@ class Parser:
                 resul.append(delete)
         return resul
 
-    def hostnames_all(self):
+    async def hostnames_all(self):
         reg_hosts = re.compile('<cite>(.*?)</cite>')
         temp = reg_hosts.findall(self.results)
         for iteration in temp:
@@ -80,10 +80,10 @@ class Parser:
             else:
                 res = iteration.split('/')[0]
             self.temp.append(res)
-        hostnames = self.unique()
+        hostnames = await self.unique()
         return hostnames
 
-    def links_linkedin(self):
+    async def links_linkedin(self):
         reg_links = re.compile(r"url=https:\/\/www\.linkedin.com(.*?)&")
         self.temp = reg_links.findall(self.results)
         resul = []
@@ -92,7 +92,7 @@ class Parser:
             resul.append("https://www.linkedin.com" + final_url)
         return resul
 
-    def people_linkedin(self):
+    async def people_linkedin(self):
         reg_people = re.compile(r'">[a-zA-Z0-9._ -]* \| LinkedIn')
         self.temp = reg_people.findall(self.results)
         resul = []
@@ -106,10 +106,10 @@ class Parser:
                 resul.append(delete)
         return resul
 
-    def people_twitter(self):
+    async def people_twitter(self):
         reg_people = re.compile(r'(@[a-zA-Z0-9._ -]*)')
         self.temp = reg_people.findall(self.results)
-        users = self.unique()
+        users = await self.unique()
         resul = []
         for iteration in users:
             delete = iteration.replace(' | LinkedIn', '')
@@ -121,7 +121,7 @@ class Parser:
                 resul.append(delete)
         return resul
 
-    def profiles(self):
+    async def profiles(self):
         reg_people = re.compile(r'">[a-zA-Z0-9._ -]* - <em>Google Profile</em>')
         self.temp = reg_people.findall(self.results)
         resul = []
@@ -133,7 +133,7 @@ class Parser:
                 resul.append(delete)
         return resul
 
-    def set(self):
+    async def set(self):
         reg_sets = re.compile(r'>[a-zA-Z0-9]*</a></font>')
         self.temp = reg_sets.findall(self.results)
         sets = []
@@ -143,10 +143,10 @@ class Parser:
             sets.append(delete)
         return sets
 
-    def urls(self):
+    async def urls(self):
         found = re.finditer(r'(http|https)://(www\.)?trello.com/([a-zA-Z0-9\-_\.]+/?)*', self.results)
         urls = {match.group().strip() for match in found}
         return urls
 
-    def unique(self) -> list:
+    async def unique(self) -> list:
         return list(set(self.temp))
