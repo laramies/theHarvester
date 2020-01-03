@@ -120,8 +120,6 @@ class SearchGithubCode:
                     raise Exception("\tUnknown exception occurred")
         except Exception as e:
             print(f'An exception has occurred: {e}')
-            import traceback as t
-            t.print_exc()
 
     async def get_emails(self):
         rawres = myparser.Parser(self.total_results, self.word)
