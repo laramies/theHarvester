@@ -1,3 +1,4 @@
+from theHarvester.discovery.constants import *
 from theHarvester.lib.core import *
 from theHarvester.parsers import myparser
 import re
@@ -19,9 +20,19 @@ class SearchTwitter:
         headers = {'User-Agent': Core.get_user_agent()}
         try:
             urls = [base_url.replace("xx", str(num)) for num in range(0, self.limit, 10) if num <= self.limit]
-            responses = await AsyncFetcher.fetch_all(urls, headers=headers)
-            for response in responses:
-                self.totalresults += response
+            for url in urls:
+                response = await AsyncFetcher.fetch_all([url], headers=headers)
+                self.results = response[0]
+                if await search(self.results):
+                    try:
+                        self.results = await google_workaround(url)
+                        if isinstance(self.results, bool):
+                            print('Google is blocking your ip and the workaround, returning')
+                            return
+                    except Exception:
+                        # google blocked, no useful result
+                        return
+                self.totalresults += self.results
         except Exception as error:
             print(error)
 

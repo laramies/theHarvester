@@ -1,8 +1,6 @@
 from theHarvester.discovery.constants import *
 from theHarvester.parsers import myparser
-import requests
-import time
-
+import asyncio
 
 class SearchGoogle:
 
@@ -18,85 +16,91 @@ class SearchGoogle:
         self.limit = limit
         self.counter = start
 
-    def do_search(self):
+    async def do_search(self):
         # Do normal scraping.
         urly = 'http://' + self.server + '/search?num=' + self.quantity + '&start=' + str(
             self.counter) + '&hl=en&meta=&q=%40\"' + self.word + '\"'
         try:
             headers = {'User-Agent': googleUA}
-            r = requests.get(urly, headers=headers)
+            resp = await AsyncFetcher.fetch_all([urly], headers=headers)
         except Exception as e:
             print(e)
-        self.results = r.text
-        if search(self.results):
+        self.results = resp[0]
+        searched = await search(self.results)
+        if searched:
             try:
-                self.results = google_workaround(urly)
+                self.results = await google_workaround(urly)
+                print('self.results: ', self.results)
+                p.pprint(self.results, indent=4)
                 if isinstance(self.results, bool):
                     print('Google is blocking your ip and the workaround, returning')
                     return
-            except Exception:
+            except Exception as e:
+                print(e)
+                import traceback as t
+                t.print_exc()
                 # google blocked, no useful result
                 return
-        time.sleep(getDelay())
+        await asyncio.sleep(getDelay())
         self.totalresults += self.results
 
-    def do_search_profiles(self):
+    async def do_search_profiles(self):
         urly = 'http://' + self.server + '/search?num=' + self.quantity + '&start=' + str(
             self.counter) + '&hl=en&meta=&q=site:www.google.com%20intitle:\"Google%20Profile\"%20\"Companies%20I%27ve%20worked%20for\"%20\"at%20' + self.word + '\"'
         try:
             headers = {'User-Agent': googleUA}
-            r = requests.get(urly, headers=headers)
+            resp = await AsyncFetcher.fetch_all([urly], headers=headers)
         except Exception as e:
             print(e)
-        self.results = r.text
-        if search(self.results):
+        self.results = resp[0]
+        if await search(self.results):
             try:
-                self.results = google_workaround(urly)
+                self.results = await google_workaround(urly)
                 if isinstance(self.results, bool):
                     print('Google is blocking your ip and the workaround, returning')
                     return
             except Exception:
                 # google blocked, no useful result
                 return
-        time.sleep(getDelay())
+        await asyncio.sleep(getDelay())
         self.totalresults += self.results
 
-    def get_emails(self):
+    async def get_emails(self):
         rawres = myparser.Parser(self.totalresults, self.word)
-        return rawres.emails()
+        return await rawres.emails()
 
-    def get_hostnames(self):
+    async def get_hostnames(self):
         rawres = myparser.Parser(self.totalresults, self.word)
-        return rawres.hostnames()
+        return await rawres.hostnames()
 
-    def get_files(self):
+    async def get_files(self):
         rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.fileurls(self.files)
 
-    def get_profiles(self):
+    async def get_profiles(self):
         rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.profiles()
 
-    def process(self, google_dorking):
+    async def process(self, google_dorking):
         if google_dorking is False:
             while self.counter <= self.limit and self.counter <= 1000:
-                self.do_search()
+                await self.do_search()
                 print(f'\tSearching {self.counter} results.')
                 self.counter += 100
         else:  # Google dorking is true.
             self.counter = 0  # Reset counter.
             print('\n')
             print('[-] Searching with Google Dorks: ')
-            self.googledork()  # Call Google dorking method if user wanted it!
+            await self.googledork()  # Call Google dorking method if user wanted it!
 
-    def process_profiles(self):
+    async def process_profiles(self):
         while self.counter < self.limit:
-            self.do_search_profiles()
-            time.sleep(getDelay())
+            await self.do_search_profiles()
+            await asyncio.sleep(getDelay())
             self.counter += 100
             print(f'\tSearching {self.counter} results.')
 
-    def append_dorks(self):
+    async def append_dorks(self):
         # Wrap in try-except incase filepaths are messed up.
         try:
             with open('wordlists/dorks.txt', mode='r') as fp:
@@ -104,7 +108,7 @@ class SearchGoogle:
         except FileNotFoundError as error:
             print(error)
 
-    def construct_dorks(self):
+    async def construct_dorks(self):
         # Format is: site:targetwebsite.com + space + inurl:admindork
         colon = '%3A'
         plus = '%2B'
@@ -128,12 +132,12 @@ class SearchGoogle:
                            .replace('&', ampersand).replace('(', left_peren).replace(')', right_peren).replace('|', pipe) + space + self.word
                            for dork in self.dorks)
 
-    def googledork(self):
-        self.append_dorks()  # Call functions to create list.
-        self.construct_dorks()
-        self.send_dorks()
+    async def googledork(self):
+        await self.append_dorks()  # Call functions to create list.
+        await self.construct_dorks()
+        await self.send_dorks()
 
-    def send_dorks(self):  # Helper function to minimize code reusability.
+    async def send_dorks(self):  # Helper function to minimize code reusability.
         headers = {'User-Agent': googleUA}
         # Get random user agent to try and prevent google from blocking IP.
         for num in range(len(self.links)):
@@ -141,18 +145,18 @@ class SearchGoogle:
                 if num % 10 == 0 and num > 0:
                     print(f'\tSearching through {num} results')
                 link = self.links[num]
-                req = requests.get(link, headers=headers)
-                self.results = req.text
-                if search(self.results):
+                req = await AsyncFetcher.fetch_all([link], headers=headers)
+                self.results = req[0]
+                if await search(self.results):
                     try:
-                        self.results = google_workaround(link)
+                        self.results = await google_workaround(link)
                         if isinstance(self.results, bool):
                             print('Google is blocking your ip and the workaround, returning')
                             return
                     except Exception:
                         # google blocked, no useful result
                         return
-                time.sleep(getDelay())
+                await asyncio.sleep(getDelay())
                 self.totalresults += self.results
             except Exception as e:
                 print(f'\tException Occurred {e}')
