@@ -1,6 +1,5 @@
 from theHarvester.discovery.constants import *
 from theHarvester.parsers import myparser
-import requests
 import random
 import asyncio
 
@@ -42,7 +41,7 @@ class SearchTrello:
 
     async def get_emails(self):
         rawres = myparser.Parser(self.totalresults, self.word)
-        return rawres.emails()
+        return await rawres.emails()
 
     async def get_urls(self):
         try:

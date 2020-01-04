@@ -85,7 +85,7 @@ async def google_workaround(visit_url: str) -> Union[bool, str]:
     returned_html = requests.post(url, data=data, headers={'User-Agent': Core.get_user_agent()})
     returned_html = returned_html.text
     # TODO FIX
-    #returned_html = await AsyncFetcher.post_fetch(url, headers={'User-Agent': Core.get_user_agent()}, data=data)
+    # returned_html = await AsyncFetcher.post_fetch(url, headers={'User-Agent': Core.get_user_agent()}, data=data)
     import pprint as p
     print('returned html')
     p.pprint(returned_html, indent=4)
@@ -120,8 +120,7 @@ async def proxy_fetch(session, url, proxy):
     try:
         async with session.get(url, proxy=proxy, ssl=False) as resp:
             return f'success:{proxy}', await resp.text()
-    except Exception as e:
-        # print(e)
+    except Exception:
         return f'failed:{proxy}', proxy
 
 

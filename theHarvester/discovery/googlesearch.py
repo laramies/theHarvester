@@ -2,6 +2,7 @@ from theHarvester.discovery.constants import *
 from theHarvester.parsers import myparser
 import asyncio
 
+
 class SearchGoogle:
 
     def __init__(self, word, limit, start):
@@ -31,7 +32,6 @@ class SearchGoogle:
             try:
                 self.results = await google_workaround(urly)
                 print('self.results: ', self.results)
-                p.pprint(self.results, indent=4)
                 if isinstance(self.results, bool):
                     print('Google is blocking your ip and the workaround, returning')
                     return
