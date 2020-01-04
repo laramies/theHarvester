@@ -7,11 +7,12 @@ import pytest
 
 class TestMyParser(object):
 
-    def test_emails(self):
+    @pytest.mark.asyncio
+    async def test_emails(self):
         word = 'domain.com'
         results = '@domain.com***a@domain***banotherdomain.com***c@domain.com***d@sub.domain.com***'
         parse = myparser.Parser(results, word)
-        emails = sorted(parse.emails())
+        emails = sorted(await parse.emails())
         assert emails, ['c@domain.com', 'd@sub.domain.com']
 
 
