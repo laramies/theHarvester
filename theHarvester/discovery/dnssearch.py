@@ -1,5 +1,6 @@
 import sys
 import dns.resolver
+import dns.reversename
 
 # TODO: need big focus on performance and results parsing, now does the basic.
 
@@ -59,9 +60,11 @@ class DnsReverse:
             sys.stdout.write('\r' + ip + ' - ')
             sys.stdout.flush()
         try:
-            answer = dns.resolver.query(ip, 'A')
-            print(answer.canonical_name)
-            return answer.canonical_name  # TODO: need rework all this results
+            dns_record_from_ip_answer = dns.reversename.from_address(ip)
+            ptr_record_answer = dns.resolver.query(dns_record_from_ip_answer, 'PTR')
+            a_record_answer = dns.resolver.query(ptr_record_answer[0].to_text(), 'A')
+            print(a_record_answer.canonical_name)
+            return a_record_answer.canonical_name
 
         except Exception:
             pass
