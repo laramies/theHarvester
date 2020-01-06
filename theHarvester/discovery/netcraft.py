@@ -34,8 +34,7 @@ class SearchNetcraft:
                 async with self.session.get(url) as sess:
                     await asyncio.sleep(2)
                     return await sess.text()
-        except Exception as e:
-            print(e)
+        except Exception:
             resp = None
         return resp
 

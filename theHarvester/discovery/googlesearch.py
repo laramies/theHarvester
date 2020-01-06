@@ -31,7 +31,6 @@ class SearchGoogle:
             try:
                 self.results = await google_workaround(urly)
                 print('self.results: ', self.results)
-                p.pprint(self.results, indent=4)
                 if isinstance(self.results, bool):
                     print('Google is blocking your ip and the workaround, returning')
                     return
