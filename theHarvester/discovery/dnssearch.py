@@ -40,3 +40,32 @@ class DnsForce:
                 # print(' : ' + host.split(':')[1])
                 results.append(host)
         return results
+
+class DnsReverse:
+
+    def __init__(self, iprange, verbose=False):
+        self.iprange = iprange
+        self.verbose = verbose
+
+    def run(self, ip):
+        if self.verbose:
+            esc = chr(27)
+            sys.stdout.write(esc + '[2K' + esc + '[G')
+            sys.stdout.write('\r' + ip + ' - ')
+            sys.stdout.flush()
+        try:
+            answer = dns.resolver.query(ip, 'A')
+            print(answer.canonical_name)
+            return answer.canonical_name  # TODO: need rework all this results
+
+        except Exception:
+            pass
+
+    def process(self):
+        results = []
+        for entry in self.list:
+            host = self.run(entry)
+            if host is not None:
+                # print(' : ' + host.split(':')[1])
+                results.append(host)
+        return results
