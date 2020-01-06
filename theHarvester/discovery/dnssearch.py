@@ -47,6 +47,11 @@ class DnsReverse:
         self.iprange = iprange
         self.verbose = verbose
 
+    def list(self):
+        prefix = '.'.join(
+            self.iprange.split('.')[:-1])
+        self.list = [prefix + '.' + str(i) for i in range(256)]
+
     def run(self, ip):
         if self.verbose:
             esc = chr(27)
