@@ -42,18 +42,25 @@ class DnsForce:
                 results.append(host)
         return results
 
+
 class DnsReverse:
 
-    def __init__(self, iprange, verbose=False):
+    def __init__(
+            self,
+            iprange: str,
+            verbose: bool = False) -> None:
         self.iprange = iprange
         self.verbose = verbose
 
-    def list(self):
+    def list(
+            self) -> list:
         prefix = '.'.join(
             self.iprange.split('.')[:-1])
         self.list = [prefix + '.' + str(i) for i in range(256)]
 
-    def run(self, ip):
+    def run(
+            self,
+            ip: str) -> str:
         if self.verbose:
             esc = chr(27)
             sys.stdout.write(esc + '[2K' + esc + '[G')
@@ -69,7 +76,8 @@ class DnsReverse:
         except Exception:
             pass
 
-    def process(self):
+    def process(
+            self) -> list:
         results = []
         for entry in self.list:
             host = self.run(entry)
