@@ -2,6 +2,8 @@ import sys
 import dns.resolver
 import dns.reversename
 
+from typing import List
+
 # TODO: need big focus on performance and results parsing, now does the basic.
 
 
@@ -69,22 +71,22 @@ class DnsReverse:
         self.iprange = iprange
         self.verbose = verbose
 
-    def list(
-            self) -> list:
+    def _list_ips_in_range(
+            self) -> List[str]:
         """
         List all the IPs in the range.
-        They are stored in self.list.
 
         Parameters
         ----------
 
         Returns
         -------
-        out: None.
+        out: list.
+            The list of IPs in the range.
         """
         prefix = '.'.join(
             self.iprange.split('.')[:-1])
-        self.list = [prefix + '.' + str(i) for i in range(256)]
+        return [prefix + '.' + str(i) for i in range(256)]
 
     def run(
             self,
@@ -118,7 +120,7 @@ class DnsReverse:
             pass
 
     def process(
-            self) -> list:
+            self) -> List[str]:
         """
         Reverse all the IPs stored in 'self.list'.
 
@@ -131,7 +133,7 @@ class DnsReverse:
             The list of all the found CNAME records.
         """
         results = []
-        for entry in self.list:
+        for entry in self._list_ips_in_range():
             host = self.run(entry)
             if host is not None:
                 # print(' : ' + host.split(':')[1])
