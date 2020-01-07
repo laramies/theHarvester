@@ -3,7 +3,7 @@ class HtmlGenerator:
     def __init__(self, word):
         self.domain = word
 
-    def generatepreviousscanresults(self, previousscanresults):
+    async def generatepreviousscanresults(self, previousscanresults):
         try:
             if previousscanresults[0] == 'No results':
                 html = '''
@@ -61,7 +61,7 @@ class HtmlGenerator:
         except Exception as e:
             print(f'Error generating the previous scan results HTML code: {e}')
 
-    def generatelatestscanresults(self, latestscanresults):
+    async def generatelatestscanresults(self, latestscanresults):
         try:
             html = '''
 <h2><span style="color: #000000;"><strong>Latest scan report </strong></span></h2>
@@ -96,7 +96,7 @@ class HtmlGenerator:
         except Exception as e:
             print(f'Error generating the latest scan results HTML code: {e}')
 
-    def beginhtml(self):
+    async def beginhtml(self):
         html = '''
 <!doctype html>
 <html>
@@ -107,7 +107,7 @@ class HtmlGenerator:
         '''
         return html
 
-    def generatedashboardcode(self, scanboarddata):
+    async def generatedashboardcode(self, scanboarddata):
         try:
             totalnumberofdomains = scanboarddata['domains']
             totalnumberofhosts = scanboarddata['host']
@@ -144,7 +144,7 @@ class HtmlGenerator:
         except Exception as e:
             print(f'Error generating dashboard HTML code: {e}')
 
-    def generatepluginscanstatistics(self, scanstatistics):
+    async def generatepluginscanstatistics(self, scanstatistics):
         try:
             html = '''
 <h2 style="text-align: center;"><span style="color: #ff0000;">theHarvester plugin statistics</span></h2>
