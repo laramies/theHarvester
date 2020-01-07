@@ -489,11 +489,11 @@ async def start():
                 analyzed_ranges.append(ip_range)
             else:
                 continue
-            for entry in res:
-                if word in entry:
-                    dnsrev.append(entry)
-                    if entry not in full:
-                        full.append(entry)
+            for cname in res:
+                if word in cname:
+                    dnsrev.append(cname)
+                    if cname not in full:
+                        full.append(cname)
         print('[*] Hosts found after reverse lookup (in target domain):')
         print('--------------------------------------------------------')
         for xh in dnsrev:
