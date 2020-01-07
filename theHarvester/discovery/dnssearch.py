@@ -117,7 +117,7 @@ class DnsReverse:
             return str(a_record_answer.canonical_name)
 
         except Exception:
-            pass
+            return ''
 
     def process(
             self) -> List[str]:
@@ -135,7 +135,7 @@ class DnsReverse:
         results = []
         for entry in self._list_ips_in_range():
             host = self.run(entry)
-            if host is not None:
+            if host is not None and host:
                 # print(' : ' + host.split(':')[1])
                 results.append(host)
         return results
