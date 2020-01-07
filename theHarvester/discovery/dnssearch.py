@@ -64,7 +64,7 @@ class DnsReverse:
             ptr_record_answer = dns.resolver.query(dns_record_from_ip_answer, 'PTR')
             a_record_answer = dns.resolver.query(ptr_record_answer[0].to_text(), 'A')
             print(a_record_answer.canonical_name)
-            return a_record_answer.canonical_name
+            return str(a_record_answer.canonical_name)
 
         except Exception:
             pass
