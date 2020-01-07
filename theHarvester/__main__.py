@@ -472,7 +472,6 @@ def start():
             if not analyzed_ranges.count(ip_range):
                 print('[*] Performing reverse lookup in ' + ip_range)
                 a = dnssearch.DnsReverse(ip_range, True)
-                a.list()
                 res = a.process()
                 analyzed_ranges.append(ip_range)
             else:
