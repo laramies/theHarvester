@@ -44,16 +44,44 @@ class DnsForce:
 
 
 class DnsReverse:
+    """
+    Find all the IPs in a range associated with a CNAME. 
+    """
 
     def __init__(
             self,
             iprange: str,
             verbose: bool = False) -> None:
+        """
+        Initialize.
+
+        Parameters
+        ----------
+        iprange: str.
+            An IPv4 range formated as 'x.x.x.x/y'
+        verbose: bool.
+            Print the progress or not.
+
+        Returns
+        -------
+        out: None.
+        """
         self.iprange = iprange
         self.verbose = verbose
 
     def list(
             self) -> list:
+        """
+        List all the IPs in the range.
+        They are stored in self.list.
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+        out: None.
+        """
         prefix = '.'.join(
             self.iprange.split('.')[:-1])
         self.list = [prefix + '.' + str(i) for i in range(256)]
@@ -61,6 +89,19 @@ class DnsReverse:
     def run(
             self,
             ip: str) -> str:
+        """
+        Reverse a single IP and output the linked CNAME, if it exists.
+
+        Parameters
+        ----------
+        ip: str.
+            The IP to reverse.
+
+        Returns
+        -------
+        out: str.
+            The corresponding CNAME or None.
+        """
         if self.verbose:
             esc = chr(27)
             sys.stdout.write(esc + '[2K' + esc + '[G')
@@ -78,6 +119,17 @@ class DnsReverse:
 
     def process(
             self) -> list:
+        """
+        Reverse all the IPs stored in 'self.list'.
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+        out: list.
+            The list of all the found CNAME records.
+        """
         results = []
         for entry in self.list:
             host = self.run(entry)
