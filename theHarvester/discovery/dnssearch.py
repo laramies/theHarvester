@@ -45,7 +45,7 @@ class DnsForce:
 
 class DnsReverse:
     """
-    Find all the IPs in a range associated with a CNAME. 
+    Find all the IPs in a range associated with a CNAME.
     """
 
     def __init__(
