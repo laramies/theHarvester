@@ -95,7 +95,11 @@ async def start():
         """
         await search_engine.process() if process_param is None else await search_engine.process(process_param)
         db_stash = stash.StashManager()
-
+        if source == 'suip':
+            print(f'\033[94m[*] Searching {source[0].upper() + source[1:]} this module can take 10+ min but is worth '
+                  f'it. \033[0m')
+        else:
+            print(f'\033[94m[*] Searching {source[0].upper() + source[1:]}. \033[0m')
         if store_host:
             host_names = filter(await search_engine.get_hostnames())
             all_hosts.extend(host_names)
@@ -153,7 +157,6 @@ async def start():
 
             for engineitem in engines:
                 if engineitem == 'baidu':
-                    print('\033[94m[*] Searching Baidu. \033[0m')
                     from theHarvester.discovery import baidusearch
                     try:
                         baidu_search = baidusearch.SearchBaidu(word, limit)
@@ -162,7 +165,6 @@ async def start():
                         pass
 
                 elif engineitem == 'bing' or engineitem == 'bingapi':
-                    print('\033[94m[*] Searching Bing. \033[0m')
                     from theHarvester.discovery import bingsearch
                     try:
                         bing_search = bingsearch.SearchBing(word, limit, start)
@@ -180,7 +182,6 @@ async def start():
                             print(e)
 
                 elif engineitem == 'certspotter':
-                    print('\033[94m[*] Searching CertSpotter. \033[0m')
                     from theHarvester.discovery import certspottersearch
                     try:
                         certspotter_search = certspottersearch.SearchCertspoter(word)
@@ -190,7 +191,6 @@ async def start():
 
                 elif engineitem == 'crtsh':
                     try:
-                        print('\033[94m[*] Searching CRT.sh. \033[0m')
                         from theHarvester.discovery import crtsh
                         crtsh_search = crtsh.SearchCrtsh(word)
                         stor_lst.append(store(crtsh_search, 'CRTsh', store_data=True))
@@ -199,7 +199,6 @@ async def start():
 
                 elif engineitem == 'dnsdumpster':
                     try:
-                        print('\033[94m[*] Searching DNSdumpster. \033[0m')
                         from theHarvester.discovery import dnsdumpster
                         dns_dumpster_search = dnsdumpster.SearchDnsDumpster(word)
                         stor_lst.append(store(dns_dumpster_search, engineitem, store_host=True))
@@ -208,7 +207,6 @@ async def start():
 
                 elif engineitem == 'dogpile':
                     try:
-                        print('\033[94m[*] Searching Dogpile. \033[0m')
                         from theHarvester.discovery import dogpilesearch
                         dogpile_search = dogpilesearch.SearchDogpile(word, limit)
                         stor_lst.append(store(dogpile_search, engineitem, store_host=True, store_emails=True))
@@ -216,13 +214,11 @@ async def start():
                         print(f'\033[93m[!] An error occurred with Dogpile: {e} \033[0m')
 
                 elif engineitem == 'duckduckgo':
-                    print('\033[94m[*] Searching DuckDuckGo. \033[0m')
                     from theHarvester.discovery import duckduckgosearch
                     duckduckgo_search = duckduckgosearch.SearchDuckDuckGo(word, limit)
                     stor_lst.append(store(duckduckgo_search, engineitem, store_host=True, store_emails=True))
 
                 elif engineitem == 'github-code':
-                    print('\033[94m[*] Searching Github (code). \033[0m')
                     try:
                         from theHarvester.discovery import githubcode
                         github_search = githubcode.SearchGithubCode(word, limit)
@@ -233,20 +229,17 @@ async def start():
                         pass
 
                 elif engineitem == 'exalead':
-                    print('\033[94m[*] Searching Exalead \033[0m')
                     from theHarvester.discovery import exaleadsearch
                     exalead_search = exaleadsearch.SearchExalead(word, limit, start)
                     stor_lst.append(store(exalead_search, engineitem, store_host=True, store_emails=True))
 
                 elif engineitem == 'google':
-                    print('\033[94m[*] Searching Google. \033[0m')
                     from theHarvester.discovery import googlesearch
                     google_search = googlesearch.SearchGoogle(word, limit, start)
                     stor_lst.append(store(google_search, engineitem, process_param=google_dorking, store_host=True,
                                           store_emails=True))
 
                 elif engineitem == 'hunter':
-                    print('\033[94m[*] Searching Hunter. \033[0m')
                     from theHarvester.discovery import huntersearch
                     # Import locally or won't work.
                     try:
@@ -259,7 +252,6 @@ async def start():
                             pass
 
                 elif engineitem == 'intelx':
-                    print('\033[94m[*] Searching Intelx. \033[0m')
                     from theHarvester.discovery import intelxsearch
                     # Import locally or won't work.
                     try:
@@ -272,25 +264,21 @@ async def start():
                             print(f'An exception has occurred in Intelx search: {e}')
 
                 elif engineitem == 'linkedin':
-                    print('\033[94m[*] Searching Linkedin. \033[0m')
                     from theHarvester.discovery import linkedinsearch
                     linkedin_search = linkedinsearch.SearchLinkedin(word, limit)
                     stor_lst.append(store(linkedin_search, engineitem, store_people=True))
 
                 elif engineitem == 'linkedin_links':
-                    print('\033[94m[*] Searching Linkedin. \033[0m')
                     from theHarvester.discovery import linkedinsearch
                     linkedin_links_search = linkedinsearch.SearchLinkedin(word, limit)
                     stor_lst.append(store(linkedin_links_search, 'linkedin', store_links=True))
 
                 elif engineitem == 'netcraft':
-                    print('\033[94m[*] Searching Netcraft. \033[0m')
                     from theHarvester.discovery import netcraft
                     netcraft_search = netcraft.SearchNetcraft(word)
                     stor_lst.append(store(netcraft_search, engineitem, store_host=True))
 
                 elif engineitem == 'otx':
-                    print('\033[94m[*] Searching AlienVault OTX. \033[0m')
                     from theHarvester.discovery import otxsearch
                     try:
                         otxsearch_search = otxsearch.SearchOtx(word)
@@ -299,7 +287,6 @@ async def start():
                         print(e)
 
                 elif engineitem == 'securityTrails':
-                    print('\033[94m[*] Searching SecurityTrails. \033[0m')
                     from theHarvester.discovery import securitytrailssearch
                     try:
                         securitytrails_search = securitytrailssearch.SearchSecuritytrail(word)
@@ -311,7 +298,6 @@ async def start():
                             pass
 
                 elif engineitem == 'suip':
-                    print('\033[94m[*] Searching Suip. This module can take 10+ mins to run but it is worth it.\033[0m')
                     from theHarvester.discovery import suip
                     try:
                         suip_search = suip.SearchSuip(word)
@@ -320,7 +306,7 @@ async def start():
                         print(e)
 
                 # elif engineitem == 'spyse':
-                #     print('\033[94m[*] Searching Spyse. \033[0m')
+                #
                 #     from theHarvester.discovery import spyse
                 #     try:
                 #         spysesearch_search = spyse.SearchSpyse(word)
@@ -337,7 +323,6 @@ async def start():
                 #         print(e)
 
                 elif engineitem == 'threatcrowd':
-                    print('\033[94m[*] Searching Threatcrowd. \033[0m')
                     from theHarvester.discovery import threatcrowd
                     try:
                         threatcrowd_search = threatcrowd.SearchThreatcrowd(word)
@@ -346,26 +331,23 @@ async def start():
                         print(e)
 
                 elif engineitem == 'trello':
-                    print('\033[94m[*] Searching Trello. \033[0m')
                     from theHarvester.discovery import trello
                     # Import locally or won't work.
                     trello_search = trello.SearchTrello(word)
                     stor_lst.append(store(trello_search, engineitem, store_results=True))
 
                 elif engineitem == 'twitter':
-                    print('\033[94m[*] Searching Twitter usernames using Google. \033[0m')
                     from theHarvester.discovery import twittersearch
                     twitter_search = twittersearch.SearchTwitter(word, limit)
                     stor_lst.append(store(twitter_search, engineitem, store_people=True))
 
                 elif engineitem == 'virustotal':
-                    print('\033[94m[*] Searching VirusTotal. \033[0m')
                     from theHarvester.discovery import virustotal
                     virustotal_search = virustotal.SearchVirustotal(word)
                     stor_lst.append(store(virustotal_search, engineitem, store_host=True))
 
                 elif engineitem == 'yahoo':
-                    print('\033[94m[*] Searching Yahoo. \033[0m')
+
                     from theHarvester.discovery import yahoosearch
                     yahoo_search = yahoosearch.SearchYahoo(word, limit)
                     stor_lst.append(store(yahoo_search, engineitem, store_host=True, store_emails=True))
@@ -629,7 +611,7 @@ async def start():
                </body>
                </html>
                '''
-            Html_file = open(filename, 'w')
+            Html_file = open(f'{filename}.html' if '.html' not in filename else filename, 'w')
             Html_file.write(HTMLcode)
             Html_file.close()
             print('[*] Reporting finished.')
@@ -646,19 +628,17 @@ async def start():
             for x in all_emails:
                 file.write('<email>' + x + '</email>')
             for x in full:
-                x = x.split(':')
-                if len(x) == 2:
-                    file.write(
-                        '<host>' + '<ip>' + x[1] + '</ip><hostname>' + x[0] + '</hostname>' + '</host>')
+                host, ip = x.split(':') if ':' in x else (x, '')
+                if ip and len(ip) > 3:
+                    file.write(f'<host><ip>{ip}</ip><hostname>{host}</hostname></host>')
                 else:
-                    file.write('<host>' + x + '</host>')
+                    file.write(f'<host>{host}</host>')
             for x in vhost:
-                x = x.split(':')
-                if len(x) == 2:
-                    file.write(
-                        '<vhost>' + '<ip>' + x[1] + '</ip><hostname>' + x[0] + '</hostname>' + '</vhost>')
+                host, ip = x.split(':') if ':' in x else (x, '')
+                if ip and len(ip) > 3:
+                    file.write(f'<vhost><ip>{ip} </ip><hostname>{host}</hostname></vhost>')
                 else:
-                    file.write('<vhost>' + x + '</vhost>')
+                    file.write(f'<vhost>{host}</vhost>')
             if shodanres != []:
                 shodanalysis = []
                 for x in shodanres:

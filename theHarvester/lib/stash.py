@@ -28,7 +28,7 @@ class StashManager:
         self.source = source
         self.date = datetime.date.today()
         try:
-            async with aiosqlite.connect(self.db) as db:
+            async with aiosqlite.connect(self.db, timeout=20) as db:
                 await db.execute('INSERT INTO results (domain,resource, type, find_date, source) VALUES (?,?,?,?,?)',
                                  (self.domain, self.resource, self.type, self.date, self.source))
                 await db.commit()
@@ -41,21 +41,20 @@ class StashManager:
         self.type = res_type
         self.source = source
         self.date = datetime.date.today()
-        async with aiosqlite.connect(self.db) as db:
-            for x in self.all:
-                try:
-                    await db.execute(
-                        'INSERT INTO results (domain,resource, type, find_date, source) VALUES (?,?,?,?,?)',
-                        (self.domain, x, self.type, self.date, self.source))
-                    await db.commit()
-                except Exception as e:
-                    print(e)
+        master_list = [(self.domain, x, self.type, self.date, self.source) for x in self.all]
+        async with aiosqlite.connect(self.db, timeout=20) as db:
+            try:
+                await db.executemany('INSERT INTO results (domain,resource, type, find_date, source) VALUES (?,?,?,?,?)',
+                                     master_list)
+                await db.commit()
+            except Exception as e:
+                print(e)
 
     async def generatedashboardcode(self, domain):
         try:
             # TODO refactor into generic method
             self.latestscandomain["domain"] = domain
-            async with aiosqlite.connect(self.db) as conn:
+            async with aiosqlite.connect(self.db, timeout=20) as conn:
                 cursor = await conn.execute('''SELECT COUNT(*) from results WHERE domain=? AND type="host"''',
                                             (domain,))
                 data = await cursor.fetchone()
@@ -106,7 +105,7 @@ class StashManager:
 
     async def getlatestscanresults(self, domain, previousday=False):
         try:
-            async with aiosqlite.connect(self.db) as conn:
+            async with aiosqlite.connect(self.db, timeout=20) as conn:
                 if previousday:
                     try:
                         cursor = await conn.execute('''
@@ -149,7 +148,7 @@ class StashManager:
 
     async def getscanboarddata(self):
         try:
-            async with aiosqlite.connect(self.db) as conn:
+            async with aiosqlite.connect(self.db, timeout=20) as conn:
 
                 cursor = await conn.execute('''SELECT COUNT(*) from results WHERE type="host"''')
                 data = await cursor.fetchone()
@@ -175,7 +174,7 @@ class StashManager:
 
     async def getscanhistorydomain(self, domain):
         try:
-            async with aiosqlite.connect(self.db) as conn:
+            async with aiosqlite.connect(self.db, timeout=20) as conn:
                 cursor = await conn.execute('''SELECT DISTINCT(find_date) FROM results WHERE domain=?''', (domain,))
                 dates = await cursor.fetchall()
                 for date in dates:
@@ -214,7 +213,7 @@ class StashManager:
 
     async def getpluginscanstatistics(self):
         try:
-            async with aiosqlite.connect(self.db) as conn:
+            async with aiosqlite.connect(self.db, timeout=20) as conn:
                 cursor = await conn.execute('''
                 SELECT domain,find_date, type, source, count(*)
                 FROM results
@@ -228,7 +227,7 @@ class StashManager:
 
     async def latestscanchartdata(self, domain):
         try:
-            async with aiosqlite.connect(self.db) as conn:
+            async with aiosqlite.connect(self.db, timeout=20) as conn:
                 self.latestscandomain["domain"] = domain
                 cursor = await conn.execute('''SELECT COUNT(*) from results WHERE domain=? AND type="host"''', (domain,))
                 data = await cursor.fetchone()
