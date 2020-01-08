@@ -13,7 +13,7 @@ class SearchShodan:
         self.api = Shodan(self.key)
         self.hostdatarow = []
 
-    def search_ip(self, ip):
+    async def search_ip(self, ip):
         try:
             ipaddress = ip
             results = self.api.host(ipaddress)

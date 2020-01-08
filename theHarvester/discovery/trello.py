@@ -1,6 +1,5 @@
 from theHarvester.discovery.constants import *
 from theHarvester.parsers import myparser
-import requests
 import random
 import asyncio
 
@@ -42,7 +41,7 @@ class SearchTrello:
 
     async def get_emails(self):
         rawres = myparser.Parser(self.totalresults, self.word)
-        return rawres.emails()
+        return await rawres.emails()
 
     async def get_urls(self):
         try:
@@ -52,7 +51,6 @@ class SearchTrello:
             # reset what totalresults as before it was just google results now it is trello results
             headers = {'User-Agent': random.choice(['curl/7.37.0', 'Wget/1.19.4'])}
             # do not change the headers
-            print('fetching trello urls')
             responses = await AsyncFetcher.fetch_all(self.trello_urls, headers=headers)
             for response in responses:
                 self.totalresults += response

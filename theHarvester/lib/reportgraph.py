@@ -24,7 +24,7 @@ class GraphGenerator:
         except Exception as error:
             print(f'{error}')
 
-    def drawlatestscangraph(self, domain, latestscandata):
+    async def drawlatestscangraph(self, domain, latestscandata):
         try:
             self.barcolumns = ['email', 'host', 'ip', 'shodan', 'vhost']
             self.bardata.append(latestscandata['email'])
@@ -43,7 +43,7 @@ class GraphGenerator:
         except Exception as e:
             print(f'Error generating HTML bar graph code for domain: {e}')
 
-    def drawscattergraphscanhistory(self, domain, scanhistorydomain):
+    async def drawscattergraphscanhistory(self, domain, scanhistorydomain):
         try:
             scandata = scanhistorydomain
             for i in scandata:
