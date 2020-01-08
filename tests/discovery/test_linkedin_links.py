@@ -2,9 +2,9 @@
 # coding=utf-8
 from theHarvester.discovery import linkedinsearch
 from theHarvester.discovery.constants import splitter
-import pytest
 import os
 import re
+import pytest
 
 
 class TestGetLinks(object):
@@ -18,14 +18,14 @@ class TestGetLinks(object):
             'https://www.linkedin.com/in/don-draper-b83ba26',
             'https://www.linkedin.com/in/don-draper-b854a51'
         ]
-        filtered_results = splitter(results)
-        assert len(await filtered_results) == 1
+        filtered_results = await splitter(results)
+        assert len(filtered_results) == 1
 
     @pytest.mark.asyncio
     async def test_get_links(self):
         search = linkedinsearch.SearchLinkedin("facebook.com", '100')
         await search.process()
-        links = search.get_links()
+        links = await search.get_links()
         assert type(links) == list
 
     @pytest.mark.asyncio
@@ -33,7 +33,7 @@ class TestGetLinks(object):
         dir_path = os.path.dirname(os.path.realpath(__file__))
         mock_response = open(dir_path + "/test_linkedin_links.txt")
         mock_response_content = mock_response.read()
-        await mock_response.close()
+        mock_response.close()
         reg_links = re.compile(r"url=https:\/\/www\.linkedin.com(.*?)&")
         temp = reg_links.findall(mock_response_content)
         resul = []
