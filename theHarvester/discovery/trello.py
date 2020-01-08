@@ -51,7 +51,6 @@ class SearchTrello:
             # reset what totalresults as before it was just google results now it is trello results
             headers = {'User-Agent': random.choice(['curl/7.37.0', 'Wget/1.19.4'])}
             # do not change the headers
-            print('fetching trello urls')
             responses = await AsyncFetcher.fetch_all(self.trello_urls, headers=headers)
             for response in responses:
                 self.totalresults += response

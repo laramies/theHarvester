@@ -21,7 +21,7 @@ class SearchThreatcrowd:
         self.totalresults += self.results
 
     async def get_hostnames(self) -> Coroutine:
-        return myparser.Parser(self.results, self.word).hostnames()
+        return await myparser.Parser(self.results, self.word).hostnames()
 
     async def process(self):
         await self.do_search()

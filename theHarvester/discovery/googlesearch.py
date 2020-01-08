@@ -31,14 +31,11 @@ class SearchGoogle:
         if searched:
             try:
                 self.results = await google_workaround(urly)
-                print('self.results: ', self.results)
                 if isinstance(self.results, bool):
                     print('Google is blocking your ip and the workaround, returning')
                     return
             except Exception as e:
                 print(e)
-                import traceback as t
-                t.print_exc()
                 # google blocked, no useful result
                 return
         await asyncio.sleep(getDelay())
@@ -126,11 +123,14 @@ class SearchGoogle:
         right_peren = '%29'
         pipe = '%7C'
         # Format is google.com/search?q=dork+space+self.word
-        self.links = tuple(self.database + str(dork).replace(':', colon).replace('+', plus).replace('.', period).replace('"', double_quote)
-                           .replace('*', asterick).replace('[', left_bracket).replace(']', right_bracket)
-                           .replace('?', question_mark).replace(' ', space).replace('/', slash).replace("'", single_quote)
-                           .replace('&', ampersand).replace('(', left_peren).replace(')', right_peren).replace('|', pipe) + space + self.word
-                           for dork in self.dorks)
+        self.links = tuple(
+            self.database + str(dork).replace(':', colon).replace('+', plus).replace('.', period).replace('"',
+                                                                                                          double_quote)
+            .replace('*', asterick).replace('[', left_bracket).replace(']', right_bracket)
+            .replace('?', question_mark).replace(' ', space).replace('/', slash).replace("'", single_quote)
+            .replace('&', ampersand).replace('(', left_peren).replace(')', right_peren).replace('|',
+                                                                                                pipe) + space + self.word
+            for dork in self.dorks)
 
     async def googledork(self):
         await self.append_dorks()  # Call functions to create list.

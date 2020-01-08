@@ -392,7 +392,8 @@ class AsyncFetcher:
                     async with session.post(url, data=data, params=params) as resp:
                         await asyncio.sleep(3)
                         return await resp.text() if json is False else await resp.json()
-        except Exception:
+        except Exception as e:
+            print(e)
             return ''
 
     @staticmethod

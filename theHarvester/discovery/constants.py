@@ -73,6 +73,7 @@ async def google_workaround(visit_url: str) -> Union[bool, str]:
     :param visit_url: Url to scrape
     :return: Correct html that can be parsed by BS4
     """
+    return True
     url = 'https://websniffer.cc/'
     data = {
         'Cookie': '',
