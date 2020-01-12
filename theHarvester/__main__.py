@@ -36,6 +36,8 @@ async def start():
     parser.add_argument('-t', '--dns-tld', help='perform a DNS TLD expansion discovery, default False', default=False)
     parser.add_argument('-n', '--dns-lookup', help='enable DNS server lookup, default False', default=False,
                         action='store_true')
+    parser.add_argument('-r', '--take-over', help='Check for takeovers', default=False,
+                        action='store_true')
     parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False,
                         action='store_true')
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
@@ -73,6 +75,7 @@ async def start():
     vhost: list = []
     virtual = args.virtual_host
     word: str = args.domain
+    takeover_status = args.take_over
 
     async def store(search_engine: Any, source: str, process_param: Any = None, store_host: bool = False,
                     store_emails: bool = False, store_ip: bool = False, store_people: bool = False,
@@ -464,8 +467,7 @@ async def start():
     if ports_scanning:
         print('\n\n[*] Scanning ports (active).\n')
         for x in full:
-            host = x.split(':')[1]
-            domain = x.split(':')[0]
+            domain, host = x.split(':')
             if host != 'empty':
                 print(('[*] Scanning ' + host))
                 ports = [21, 22, 80, 443, 8080]
@@ -476,10 +478,14 @@ async def start():
                         print(('\t[*] Detected open ports: ' + ','.join(str(e) for e in openports)))
                     takeover_check = 'True'
                     if takeover_check == 'True' and len(openports) > 0:
-                        search_take = takeover.TakeOver(domain)
-                        search_take.process()
+                        search_take = takeover.TakeOver([domain])
+                        await search_take.process()
                 except Exception as e:
                     print(e)
+    if takeover_status:
+        print('Performing takeover check')
+        search_take = takeover.TakeOver(all_hosts)
+        await search_take.process()
 
     # DNS reverse lookup
     dnsrev = []

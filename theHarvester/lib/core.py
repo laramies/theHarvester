@@ -1,7 +1,7 @@
 # coding=utf-8
 
 import random
-from typing import Set, Union, Any
+from typing import Set, Union, Any, Tuple
 import yaml
 import asyncio
 import aiohttp
@@ -415,12 +415,31 @@ class AsyncFetcher:
             return ''
 
     @staticmethod
-    async def fetch_all(urls, headers='', params='', json=False) -> list:
+    async def takeover_fetch(session, url) -> Union[Tuple[Any, Any], str]:
+        # This fetch method solely focuses on get requests
+        try:
+            # Wrap in try except due to 0x89 png/jpg files
+            # This fetch method solely focuses on get requests
+            # TODO determine if method for post requests is necessary
+            url = f'http://{url}' if str(url).startswith(('http:', 'https:')) is False else url
+            # Clean up urls with proper schemas
+            async with session.get(url) as response:
+                await asyncio.sleep(2)
+                return url, await response.text()
+        except Exception:
+            return url, ''
+
+    @staticmethod
+    async def fetch_all(urls, headers='', params='', json=False, takeover=False) -> list:
         # By default timeout is 5 minutes, 30 seconds should suffice
         timeout = aiohttp.ClientTimeout(total=30)
 
         if len(headers) == 0:
             headers = {'User-Agent': Core.get_user_agent()}
+        if takeover:
+            async with aiohttp.ClientSession(headers=headers, timeout=aiohttp.ClientTimeout(total=15)) as session:
+                tuples = await asyncio.gather(*[AsyncFetcher.takeover_fetch(session, url) for url in urls])
+                return tuples
         if len(params) == 0:
             async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
                 texts = await asyncio.gather(*[AsyncFetcher.fetch(session, url, json=json) for url in urls])
