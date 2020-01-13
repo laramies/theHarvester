@@ -5,6 +5,7 @@ import re
 class TakeOver:
 
     def __init__(self, hosts):
+        # NOTE THIS MODULE IS ACTIVE RECON
         self.hosts = hosts
         self.results = ""
         self.totalresults = ""

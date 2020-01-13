@@ -64,13 +64,13 @@ async def start():
     engines = []
     filename: str = args.filename
     full: list = []
+    ips: list = []
     google_dorking = args.google_dork
     host_ip: list = []
     limit: int = args.limit
     ports_scanning = args.port_scan
     shodan = args.shodan
     start: int = args.start
-    takeover_check = False
     all_urls: list = []
     vhost: list = []
     virtual = args.virtual_host
@@ -105,6 +105,10 @@ async def start():
             print(f'\033[94m[*] Searching {source[0].upper() + source[1:]}. \033[0m')
         if store_host:
             host_names = filter(await search_engine.get_hostnames())
+            full_hosts_checker = hostchecker.Checker(host_names)
+            temp_hosts, temp_ips = await full_hosts_checker.check()
+            ips.extend(temp_ips)
+            full.extend(temp_hosts)
             all_hosts.extend(host_names)
             await db_stash.store_all(word, all_hosts, 'host', source)
         if store_emails:
@@ -308,22 +312,15 @@ async def start():
                     except Exception as e:
                         print(e)
 
-                # elif engineitem == 'spyse':
-                #
-                #     from theHarvester.discovery import spyse
-                #     try:
-                #         spysesearch_search = spyse.SearchSpyse(word)
-                #         spysesearch_search.process()
-                #         hosts = filter(spysesearch_search.get_hostnames())
-                #         all_hosts.extend(list(hosts))
-                #         # ips = filter(spysesearch_search.get_ips())
-                #         # all_ip.extend(list(ips))
-                #         all_hosts.extend(hosts)
-                #         db = stash.stash_manager()
-                #         db.store_all(word, all_hosts, 'host', 'spyse')
-                #         # db.store_all(word, all_ip, 'ip', 'spyse')
-                #     except Exception as e:
-                #         print(e)
+                elif engineitem == 'spyse':
+                 from theHarvester.discovery import spyse
+                 try:
+                     pass
+                     #spysesearch = spyse.SearchSpyse(word)
+                     #spysesearch.process()
+
+                 except Exception as e:
+                     print(e)
 
                 elif engineitem == 'threatcrowd':
                     from theHarvester.discovery import threatcrowd
@@ -427,10 +424,10 @@ async def start():
         print('\n[*] Hosts found: ' + str(len(all_hosts)))
         print('---------------------')
         all_hosts = sorted(list(set(all_hosts)))
-        full_host = hostchecker.Checker(all_hosts)
-        # full, ips = asyncio.run(full_host.check())
-        full, ips = await full_host.check()
+        """full_host = hostchecker.Checker(all_hosts)
+        full, ips = await full_host.check()"""
         db = stash.StashManager()
+        full.sort(key=lambda el: el.split(':')[0])
         for host in full:
             host = str(host)
             print(host)
