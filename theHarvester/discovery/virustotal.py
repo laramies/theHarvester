@@ -1,5 +1,6 @@
 from theHarvester.lib.core import *
 from theHarvester.parsers import myparser
+import re
 
 
 class SearchVirustotal:
@@ -20,7 +21,16 @@ class SearchVirustotal:
 
     async def get_hostnames(self):
         rawres = myparser.Parser(self.results, self.word)
-        return await rawres.hostnames()
+        new_lst = []
+        for host in await rawres.hostnames():
+            host = str(host)
+            if host[0].isdigit():
+                matches = re.match('.+([0-9])[^0-9]*$', host)
+                # Get last digit of string and shift hostname to remove ip in string
+                new_lst.append(host[matches.start(1) + 1:])
+            else:
+                new_lst.append(host)
+        return new_lst
 
     async def process(self):
         print('\tSearching results.')
