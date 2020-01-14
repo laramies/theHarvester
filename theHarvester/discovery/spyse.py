@@ -1,6 +1,6 @@
 from theHarvester.discovery.constants import *
 from theHarvester.lib.core import *
-import requests
+from pprint import pprint
 
 
 class SearchSpyse:
@@ -10,23 +10,25 @@ class SearchSpyse:
         self.key = Core.spyse_key()
         if self.key is None:
             raise MissingKey(True)
-        self.results = ''
-        self.totalresults = ''
+        self.totalhosts = set()
 
-    def do_search(self):
+    async def do_search(self):
         try:
-            base_url = f'https://api.spyse.com/v1/subdomains?domain={self.word}&api_token={self.key}&page=2'
+            url = f'https://api.spyse.com/v1/subdomains-aggregate?domain={self.word}&api_token={self.key}'
             headers = {'User-Agent': Core.get_user_agent()}
-            request = requests.get(base_url, headers=headers)
-            self.results = request.json()
-            # self.totalresults += self.results
+            client = aiohttp.ClientSession(headers=headers, timeout=aiohttp.ClientTimeout(total=30))
+            responses = await AsyncFetcher.fetch(client, url, json=True)
+            await client.close()
+
+            dct = responses['cidr']['cidr16']['results']['data']
+            pprint(dct, indent=4)
+
 
         except Exception as e:
             print(f'An exception has occurred: {e}')
 
-    def get_hostnames(self):
-        return self.totalresults
+    # async def get_hostnames(self):
+    #     return self.totalhosts
 
-    def process(self):
-        self.do_search()
-        print('\tSearching results.')
+    async def process(self):
+        await self.do_search()

@@ -35,9 +35,9 @@ async def start():
     parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, certspotter, crtsh, dnsdumpster,
-                        dogpile, duckduckgo, github-code, google,
+                        dogpile, duckduckgo, exalead, github-code, google,
                         hunter, intelx,
-                        linkedin, linkedin_links, netcraft, otx, securityTrails, spyse(disabled for now), threatcrowd,
+                        linkedin, linkedin_links, netcraft, otx, securityTrails, spyse, threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo, all''')
 
     args = parser.parse_args()
@@ -306,14 +306,15 @@ async def start():
                         print(e)
 
                 elif engineitem == 'spyse':
-                 from theHarvester.discovery import spyse
-                 try:
-                     pass
-                     #spysesearch = spyse.SearchSpyse(word)
-                     #spysesearch.process()
-
-                 except Exception as e:
-                     print(e)
+                    from theHarvester.discovery import spyse
+                    try:
+                        spysesearch = spyse.SearchSpyse(word)
+                        stor_lst.append(store(spysesearch, engineitem, store_host=True))
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            print(e)
+                        else:
+                            pass
 
                 elif engineitem == 'threatcrowd':
                     from theHarvester.discovery import threatcrowd
@@ -677,4 +678,4 @@ async def entry_point():
 
 
 if __name__ == '__main__':
-    asyncio.run(main=entry_point(), debug=True)
+    asyncio.run(main=entry_point())
