@@ -30,6 +30,7 @@ async def start():
     parser.add_argument('-v', '--virtual-host', help='verify host name via DNS resolution and search for virtual hosts', action='store_const', const='basic', default=False)
     parser.add_argument('-e', '--dns-server', help='DNS server to use for lookup')
     parser.add_argument('-t', '--dns-tld', help='perform a DNS TLD expansion discovery, default False', default=False)
+    parser.add_argument('-r', '--take-over', help='Check for takeovers', default=False, action='store_true')
     parser.add_argument('-n', '--dns-lookup', help='enable DNS server lookup, default False', default=False, action='store_true')
     parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
@@ -56,17 +57,18 @@ async def start():
     engines = []
     filename: str = args.filename
     full: list = []
+    ips: list = []
     google_dorking = args.google_dork
     host_ip: list = []
     limit: int = args.limit
     ports_scanning = args.port_scan
     shodan = args.shodan
     start: int = args.start
-    takeover_check = False
     all_urls: list = []
     vhost: list = []
     virtual = args.virtual_host
     word: str = args.domain
+    takeover_status = args.take_over
 
     async def store(search_engine: Any, source: str, process_param: Any = None, store_host: bool = False,
                     store_emails: bool = False, store_ip: bool = False, store_people: bool = False,
@@ -96,6 +98,10 @@ async def start():
             print(f'\033[94m[*] Searching {source[0].upper() + source[1:]}. \033[0m')
         if store_host:
             host_names = filter(await search_engine.get_hostnames())
+            full_hosts_checker = hostchecker.Checker(host_names)
+            temp_hosts, temp_ips = await full_hosts_checker.check()
+            ips.extend(temp_ips)
+            full.extend(temp_hosts)
             all_hosts.extend(host_names)
             await db_stash.store_all(word, all_hosts, 'host', source)
         if store_emails:
@@ -299,22 +305,15 @@ async def start():
                     except Exception as e:
                         print(e)
 
-                # elif engineitem == 'spyse':
-                #
-                #     from theHarvester.discovery import spyse
-                #     try:
-                #         spysesearch_search = spyse.SearchSpyse(word)
-                #         spysesearch_search.process()
-                #         hosts = filter(spysesearch_search.get_hostnames())
-                #         all_hosts.extend(list(hosts))
-                #         # ips = filter(spysesearch_search.get_ips())
-                #         # all_ip.extend(list(ips))
-                #         all_hosts.extend(hosts)
-                #         db = stash.stash_manager()
-                #         db.store_all(word, all_hosts, 'host', 'spyse')
-                #         # db.store_all(word, all_ip, 'ip', 'spyse')
-                #     except Exception as e:
-                #         print(e)
+                elif engineitem == 'spyse':
+                 from theHarvester.discovery import spyse
+                 try:
+                     pass
+                     #spysesearch = spyse.SearchSpyse(word)
+                     #spysesearch.process()
+
+                 except Exception as e:
+                     print(e)
 
                 elif engineitem == 'threatcrowd':
                     from theHarvester.discovery import threatcrowd
@@ -418,10 +417,10 @@ async def start():
         print('\n[*] Hosts found: ' + str(len(all_hosts)))
         print('---------------------')
         all_hosts = sorted(list(set(all_hosts)))
-        full_host = hostchecker.Checker(all_hosts)
-        # full, ips = asyncio.run(full_host.check())
-        full, ips = await full_host.check()
+        """full_host = hostchecker.Checker(all_hosts)
+        full, ips = await full_host.check()"""
         db = stash.StashManager()
+        full.sort(key=lambda el: el.split(':')[0])
         for host in full:
             host = str(host)
             print(host)
@@ -458,8 +457,7 @@ async def start():
     if ports_scanning:
         print('\n\n[*] Scanning ports (active).\n')
         for x in full:
-            host = x.split(':')[1]
-            domain = x.split(':')[0]
+            domain, host = x.split(':')
             if host != 'empty':
                 print(('[*] Scanning ' + host))
                 ports = [21, 22, 80, 443, 8080]
@@ -470,10 +468,14 @@ async def start():
                         print(('\t[*] Detected open ports: ' + ','.join(str(e) for e in openports)))
                     takeover_check = 'True'
                     if takeover_check == 'True' and len(openports) > 0:
-                        search_take = takeover.TakeOver(domain)
-                        search_take.process()
+                        search_take = takeover.TakeOver([domain])
+                        await search_take.process()
                 except Exception as e:
                     print(e)
+    if takeover_status:
+        print('Performing takeover check')
+        search_take = takeover.TakeOver(all_hosts)
+        await search_take.process()
 
     # DNS reverse lookup
     dnsrev = []
