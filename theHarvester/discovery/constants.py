@@ -9,7 +9,7 @@ googleUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
            'Safari/537.36 '
 
 
-def splitter(links):
+async def splitter(links):
     """
     Method that tries to remove duplicates
     LinkedinLists pulls a lot of profiles with the same name.
