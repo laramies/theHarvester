@@ -26,7 +26,7 @@ class TestGetLinks(object):
         search = linkedinsearch.SearchLinkedin("facebook.com", '100')
         await search.process()
         links = await search.get_links()
-        assert type(links) == list
+        assert isinstance(links, list)
 
     @pytest.mark.asyncio
     async def test_links_linkedin(self):

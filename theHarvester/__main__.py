@@ -306,14 +306,12 @@ async def start():
                         print(e)
 
                 elif engineitem == 'spyse':
-                 from theHarvester.discovery import spyse
-                 try:
-                     pass
-                     #spysesearch = spyse.SearchSpyse(word)
-                     #spysesearch.process()
-
-                 except Exception as e:
-                     print(e)
+                    from theHarvester.discovery import spyse
+                    try:
+                        spyse_search = spyse.SearchSpyse(word)
+                        stor_lst.append(store(spyse_search, engineitem, store_host=True, store_ip=True))
+                    except Exception as e:
+                        print(e)
 
                 elif engineitem == 'threatcrowd':
                     from theHarvester.discovery import threatcrowd
