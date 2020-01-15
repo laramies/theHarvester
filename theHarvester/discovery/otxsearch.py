@@ -1,6 +1,6 @@
 from theHarvester.lib.core import *
 import json
-import grequests
+#import grequests
 import re
 
 

@@ -32,7 +32,6 @@ class SearchSpyse:
                                 [result for result in cidr['cidr24']['results']]]]}
 
             self.hosts.update(cidr16_domains | cidr24_domains)
-
         except Exception as e:
             print(f'An exception has occurred: {e}')
 
@@ -45,3 +44,6 @@ class SearchSpyse:
     async def process(self):
         await self.do_search()
         print('\tSearching results.')
+
+    async def process(self):
+        await self.do_search()

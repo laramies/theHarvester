@@ -13,4 +13,4 @@ if python_version()[0:3] < '3.7':
 from theHarvester import __main__
 
 uvloop.install()
-asyncio.run(__main__.entry_point(), debug=True)
+asyncio.run(__main__.entry_point())
