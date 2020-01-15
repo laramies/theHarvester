@@ -41,7 +41,7 @@ class SearchLinkedin:
 
     async def get_links(self):
         links = myparser.Parser(self.totalresults, self.word)
-        return splitter(await links.links_linkedin())
+        return await splitter(await links.links_linkedin())
 
     async def process(self):
         while self.counter < self.limit:
