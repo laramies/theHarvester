@@ -308,13 +308,10 @@ async def start():
                 elif engineitem == 'spyse':
                     from theHarvester.discovery import spyse
                     try:
-                        spysesearch = spyse.SearchSpyse(word)
-                        stor_lst.append(store(spysesearch, engineitem, store_host=True))
+                        spyse_search = spyse.SearchSpyse(word)
+                        stor_lst.append(store(spyse_search, engineitem, store_host=True, store_ip=True))
                     except Exception as e:
-                        if isinstance(e, MissingKey):
-                            print(e)
-                        else:
-                            pass
+                        print(e)
 
                 elif engineitem == 'threatcrowd':
                     from theHarvester.discovery import threatcrowd
