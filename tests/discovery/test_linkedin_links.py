@@ -6,10 +6,11 @@ import os
 import re
 import pytest
 
+pytestmark = pytest.mark.asyncio
+
 
 class TestGetLinks(object):
 
-    @pytest.mark.asyncio
     async def test_splitter(self):
         results = [
             'https://www.linkedin.com/in/don-draper-b1045618',
@@ -21,14 +22,12 @@ class TestGetLinks(object):
         filtered_results = await splitter(results)
         assert len(filtered_results) == 1
 
-    @pytest.mark.asyncio
     async def test_get_links(self):
         search = linkedinsearch.SearchLinkedin("facebook.com", '100')
         await search.process()
         links = await search.get_links()
         assert isinstance(links, list)
 
-    @pytest.mark.asyncio
     async def test_links_linkedin(self):
         dir_path = os.path.dirname(os.path.realpath(__file__))
         mock_response = open(dir_path + "/test_linkedin_links.txt")
