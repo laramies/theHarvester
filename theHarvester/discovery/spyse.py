@@ -43,7 +43,3 @@ class SearchSpyse:
 
     async def process(self):
         await self.do_search()
-        print('\tSearching results.')
-
-    async def process(self):
-        await self.do_search()
