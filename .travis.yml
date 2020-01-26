@@ -11,8 +11,7 @@ matrix:
     env: TEST_SUITE=suite_3_9
 
 before_install:
-- pip install pipenv
-- pipenv install --dev
+- pip install requirements/dev.txt
 install:
 - python setup.py test
 script:
