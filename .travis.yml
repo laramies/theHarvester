@@ -7,7 +7,7 @@ matrix:
     env: TEST_SUITE=suite_3_7
   - python: '3.8'
     env: TEST_SUITE=suite_3_8
-  - python: '3.9'
+  - python: 'nightly'
     env: TEST_SUITE=suite_3_9
 
 before_install:
