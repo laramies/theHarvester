@@ -11,7 +11,7 @@ matrix:
     env: TEST_SUITE=suite_3_9
 
 before_install:
-- pip install requirements/dev.txt
+- pip install -r requirements/dev.txt
 install:
 - python setup.py test
 script:
