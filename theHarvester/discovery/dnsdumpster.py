@@ -32,7 +32,7 @@ class SearchDnsDumpster:
             post_req = session.post(url, headers=headers, data=data)
             self.results = post_req.text
         except Exception as e:
-            print(f'An exception occured: {e}')
+            print(f'An exception occurred: {e}')
         self.totalresults += self.results
 
     def get_hostnames(self):
