@@ -10,7 +10,7 @@ class Parser:
 
     def genericClean(self):
         self.results = self.results.replace('<em>', '').replace('<b>', '').replace('</b>', '').replace('</em>', '')\
-            .replace('%2f', '').replace('%3a', '').replace('<strong>', '').replace('</strong>', '')\
+            .replace('%3a', '').replace('<strong>', '').replace('</strong>', '')\
             .replace('<wbr>', '').replace('</wbr>', '')
 
         for search in ('<', '>', 'https://', 'http://', ':', '=', ';', '&', '%3A', '%3D', '%3C', '/', '\\'):
@@ -48,7 +48,6 @@ class Parser:
     def hostnames(self):
         self.genericClean()
         reg_hosts = re.compile(r'[a-zA-Z0-9.-]*\.' + self.word)
-        self.temp = reg_hosts.findall(self.results)
         hostnames = self.unique()
         reg_hosts = re.compile(r'[a-zA-Z0-9.-]*\.' + self.word.replace('www.', ''))
         self.temp = reg_hosts.findall(self.results)
