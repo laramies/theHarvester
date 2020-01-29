@@ -16,7 +16,7 @@ requests = "==2.22.0"
 retrying = "==1.3.3"
 shodan = "==1.21.3"
 texttable = "==1.6.2"
-lxml = "==4.4.3"
+lxml = "==4.5.0"
 uvloop = "==0.14.0"
 
 [dev-packages]
