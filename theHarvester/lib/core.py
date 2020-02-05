@@ -1,10 +1,10 @@
 # coding=utf-8
 
-import random
-from typing import Set, Union, Any, Tuple
+from typing import Set, Union, Any, Tuple, List
 import yaml
 import asyncio
 import aiohttp
+import random
 
 
 class Core:
@@ -88,6 +88,21 @@ class Core:
                 keys = yaml.safe_load(api_keys)
                 return keys['apikeys']['spyse']['key']
         return keys['apikeys']['spyse']['key']
+
+    @staticmethod
+    def proxy_list() -> List:
+        try:
+            with open('/etc/theHarvester/proxies.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+        except FileNotFoundError:
+            with open('proxies.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+                http_list = [f'http://{proxy}' for proxy in keys['http']] if keys['http'] is not None else []
+                https_list = [f'https://{proxy}' for proxy in keys['https']] if keys['https'] is not None else []
+                return http_list + https_list
+        http_list = [f'http://{proxy}' for proxy in keys['http']] if keys['http'] is not None else []
+        https_list = [f'https://{proxy}' for proxy in keys['https']] if keys['https'] is not None else []
+        return http_list + https_list
 
     @staticmethod
     def banner() -> None:
@@ -373,16 +388,30 @@ class Core:
 
 
 class AsyncFetcher:
+    proxy_list = Core.proxy_list()
 
-    @staticmethod
-    async def post_fetch(url, headers='', data='', params='', json=False):
+    @classmethod
+    async def post_fetch(cls, url, headers='', data='', params='', json=False, proxy=False):
         if len(headers) == 0:
             headers = {'User-Agent': Core.get_user_agent()}
         timeout = aiohttp.ClientTimeout(total=720)
         # by default timeout is 5 minutes, changed to 12 minutes for suip module
         # results are well worth the wait
         try:
-            if params == '':
+            if proxy:
+                proxy = str(random.choice(cls().proxy_list))
+                print('proxy is: ', proxy)
+                if params != "":
+                    async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
+                        async with session.get(url, params=params, proxy=proxy) as response:
+                            await asyncio.sleep(2)
+                            return await response.text() if json is False else await response.json()
+                else:
+                    async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
+                        async with session.get(url, proxy=proxy, ssl=True if 'https' in proxy else False) as response:
+                            await asyncio.sleep(2)
+                            return await response.text() if json is False else await response.json()
+            elif params == '':
                 async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
                     async with session.post(url, data=data) as resp:
                         await asyncio.sleep(3)
@@ -393,20 +422,32 @@ class AsyncFetcher:
                         await asyncio.sleep(3)
                         return await resp.text() if json is False else await resp.json()
         except Exception as e:
-            print(e)
+            print('An exception has occurred: ', e)
             return ''
 
     @staticmethod
-    async def fetch(session, url, params='', json=False) -> Union[str, dict, list]:
+    async def fetch(session, url, params='', json=False, proxy="") -> Union[str, dict, list, bool]:
         # This fetch method solely focuses on get requests
         try:
             # Wrap in try except due to 0x89 png/jpg files
             # This fetch method solely focuses on get requests
             # TODO determine if method for post requests is necessary
+            if proxy != "":
+                if params != "":
+                    async with session.get(url, params=params, proxy=proxy, ssl=True if proxy.startswith('https')
+                    else False) as response:
+                        await asyncio.sleep(2)
+                        return await response.text() if json is False else await response.json()
+                else:
+                    async with session.get(url, proxy=proxy, ssl=True if proxy.startswith('https') else False) \
+                            as response:
+                        await asyncio.sleep(2)
+                        return await response.text() if json is False else await response.json()
             if params != '':
                 async with session.get(url, params=params) as response:
                     await asyncio.sleep(2)
                     return await response.text() if json is False else await response.json()
+
             else:
                 async with session.get(url) as response:
                     await asyncio.sleep(2)
@@ -415,7 +456,7 @@ class AsyncFetcher:
             return ''
 
     @staticmethod
-    async def takeover_fetch(session, url) -> Union[Tuple[Any, Any], str]:
+    async def takeover_fetch(session, url, proxy="") -> Union[Tuple[Any, Any], str]:
         # This fetch method solely focuses on get requests
         try:
             # Wrap in try except due to 0x89 png/jpg files
@@ -423,29 +464,53 @@ class AsyncFetcher:
             # TODO determine if method for post requests is necessary
             url = f'http://{url}' if str(url).startswith(('http:', 'https:')) is False else url
             # Clean up urls with proper schemas
-            async with session.get(url) as response:
-                await asyncio.sleep(2)
-                return url, await response.text()
+            if proxy != "":
+                async with session.get(url, proxy=proxy, ssl=True if proxy.startswith('https') else False) as response:
+                    await asyncio.sleep(2)
+                    return url, await response.text()
+            else:
+                async with session.get(url) as response:
+                    await asyncio.sleep(2)
+                    return url, await response.text()
         except Exception:
             return url, ''
 
-    @staticmethod
-    async def fetch_all(urls, headers='', params='', json=False, takeover=False) -> list:
+    @classmethod
+    async def fetch_all(cls, urls, headers='', params='', json=False, takeover=False, proxy=False) -> list:
         # By default timeout is 5 minutes, 30 seconds should suffice
         timeout = aiohttp.ClientTimeout(total=30)
-
         if len(headers) == 0:
             headers = {'User-Agent': Core.get_user_agent()}
         if takeover:
             async with aiohttp.ClientSession(headers=headers, timeout=aiohttp.ClientTimeout(total=15)) as session:
-                tuples = await asyncio.gather(*[AsyncFetcher.takeover_fetch(session, url) for url in urls])
-                return tuples
+                if proxy:
+                        tuples = await asyncio.gather(*[AsyncFetcher.takeover_fetch(session, url, proxy=random.choice(cls().proxy_list)) for url in urls])
+                        return tuples
+                else:
+                        tuples = await asyncio.gather(*[AsyncFetcher.takeover_fetch(session, url) for url in urls])
+                        return tuples
+
         if len(params) == 0:
             async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
-                texts = await asyncio.gather(*[AsyncFetcher.fetch(session, url, json=json) for url in urls])
-                return texts
+                if proxy:
+                    print('proxy is none and so are params :) ')
+                    print('proxy is: ', cls().proxy_list)
+                    texts = await asyncio.gather(*[AsyncFetcher.fetch(session, url, json=json, proxy=random.choice(cls().proxy_list)) for url in urls])
+                    return texts
+                else:
+                    texts = await asyncio.gather(*[AsyncFetcher.fetch(session, url, json=json) for url in urls])
+                    return texts
         else:
             # Indicates the request has certain params
             async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
-                texts = await asyncio.gather(*[AsyncFetcher.fetch(session, url, params, json) for url in urls])
-                return texts
+                if proxy:
+                    texts = await asyncio.gather(*[AsyncFetcher.fetch(session, url, params, json,
+                                                              proxy=random.choice(cls().proxy_list)) for url in urls])
+                    return texts
+                else:
+                    texts = await asyncio.gather(*[AsyncFetcher.fetch(session, url, params, json) for url in urls])
+                    return texts
+
+if __name__ == '__main__':
+    x = Core()
+    x.proxy_list()
