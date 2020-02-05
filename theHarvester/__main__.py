@@ -34,12 +34,9 @@ async def start():
                         action='store_const', const='basic', default=False)
     parser.add_argument('-e', '--dns-server', help='DNS server to use for lookup')
     parser.add_argument('-t', '--dns-tld', help='perform a DNS TLD expansion discovery, default False', default=False)
-    parser.add_argument('-n', '--dns-lookup', help='enable DNS server lookup, default False', default=False,
-                        action='store_true')
-    parser.add_argument('-r', '--take-over', help='Check for takeovers', default=False,
-                        action='store_true')
-    parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False,
-                        action='store_true')
+    parser.add_argument('-r', '--take-over', help='Check for takeovers', default=False, action='store_true')
+    parser.add_argument('-n', '--dns-lookup', help='enable DNS server lookup, default False', default=False, action='store_true')
+    parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, certspotter, crtsh, dnsdumpster,
                         dogpile, duckduckgo, github-code, google,
@@ -665,6 +662,4 @@ async def entry_point():
 
 
 if __name__ == '__main__':
-    # import uvloop
-    # uvloop.install()
     asyncio.run(main=entry_point(), debug=True)
