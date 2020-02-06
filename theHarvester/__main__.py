@@ -24,10 +24,14 @@ async def start():
     parser.add_argument('-d', '--domain', help='company name or domain to search', required=True)
     parser.add_argument('-l', '--limit', help='limit the number of search results, default=500', default=500, type=int)
     parser.add_argument('-S', '--start', help='start with result number X, default=0', default=0, type=int)
-    parser.add_argument('-g', '--google-dork', help='use Google Dorks for Google search', default=False, action='store_true')
-    parser.add_argument('-p', '--port-scan', help='scan the detected hosts and check for Takeovers (21,22,80,443,8080)', default=False, action='store_true')
-    parser.add_argument('-s', '--shodan', help='use Shodan to query discovered hosts', default=False, action='store_true')
-    parser.add_argument('-v', '--virtual-host', help='verify host name via DNS resolution and search for virtual hosts', action='store_const', const='basic', default=False)
+    parser.add_argument('-g', '--google-dork', help='use Google Dorks for Google search', default=False,
+                        action='store_true')
+    parser.add_argument('-p', '--proxies', help='use proxies for requests, enter proxies in proxies.yaml',
+                        default=False, action='store_true')
+    parser.add_argument('-s', '--shodan', help='use Shodan to query discovered hosts', default=False,
+                        action='store_true')
+    parser.add_argument('-v', '--virtual-host', help='verify host name via DNS resolution and search for virtual hosts',
+                        action='store_const', const='basic', default=False)
     parser.add_argument('-e', '--dns-server', help='DNS server to use for lookup')
     parser.add_argument('-t', '--dns-tld', help='perform a DNS TLD expansion discovery, default False', default=False)
     parser.add_argument('-r', '--take-over', help='Check for takeovers', default=False, action='store_true')
@@ -61,7 +65,6 @@ async def start():
     google_dorking = args.google_dork
     host_ip: list = []
     limit: int = args.limit
-    ports_scanning = args.port_scan
     shodan = args.shodan
     start: int = args.start
     all_urls: list = []
@@ -451,27 +454,11 @@ async def start():
         # db = stash.stash_manager()
         # db.store_all(word, dnsres, 'host', 'dns_bruteforce')
 
-    # Port scanning
-    if ports_scanning:
-        print('\n\n[*] Scanning ports (active).\n')
-        for x in full:
-            domain, host = x.split(':')
-            if host != 'empty':
-                print(('[*] Scanning ' + host))
-                ports = [21, 22, 80, 443, 8080]
-                try:
-                    scan = port_scanner.PortScan(host, ports)
-                    openports = scan.process()
-                    if len(openports) > 1:
-                        print(('\t[*] Detected open ports: ' + ','.join(str(e) for e in openports)))
-                    takeover_check = 'True'
-                    if takeover_check == 'True' and len(openports) > 0:
-                        search_take = takeover.TakeOver([domain])
-                        await search_take.process()
-                except Exception as e:
-                    print(e)
+    # TakeOver Checking
+
     if takeover_status:
-        print('Performing takeover check')
+        print('\n[*] Performing subdomain takeover check')
+        print('\n[*] Subdomain Takeover checking IS ACTIVE RECON')
         search_take = takeover.TakeOver(all_hosts)
         await search_take.process()
 
