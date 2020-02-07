@@ -15,12 +15,15 @@ class SearchHunter:
         self.total_results = ""
         self.counter = start
         self.database = f'https://api.hunter.io/v2/domain-search?domain={word}&api_key={self.key}&limit={self.limit}'
+        self.proxy = False
 
     async def do_search(self):
-        responses = await AsyncFetcher.fetch_all([self.database], headers={'User-Agent': Core.get_user_agent()})
+        responses = await AsyncFetcher.fetch_all([self.database], headers={'User-Agent': Core.get_user_agent()},
+                                                 proxy=self.proxy)
         self.total_results += responses[0]
 
-    async def process(self):
+    async def process(self, proxy=False):
+        self.proxy = proxy
         await self.do_search()  # Only need to do it once.
 
     async def get_emails(self):

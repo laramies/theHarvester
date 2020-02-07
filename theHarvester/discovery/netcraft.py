@@ -5,6 +5,7 @@ import urllib.parse as urllib
 import re
 import aiohttp
 import asyncio
+import random
 
 
 class SearchNetcraft:
@@ -21,19 +22,30 @@ class SearchNetcraft:
         }
         self.timeout = aiohttp.ClientTimeout(total=25)
         self.domain = f"https://searchdns.netcraft.com/?restriction=site+ends+with&host={self.word}"
+        self.proxy = False
 
     async def request(self, url, first=False):
         try:
             if first:
                 # indicates first request to extract cookie
                 async with aiohttp.ClientSession(headers=self.headers, timeout=self.timeout) as sess:
-                    async with sess.get(url) as resp:
-                        await asyncio.sleep(3)
-                        return resp.headers
+                    if self.proxy:
+                        async with sess.get(url, proxy=random.choice(Core.proxy_list())) as resp:
+                            await asyncio.sleep(3)
+                            return resp.headers
+                    else:
+                        async with sess.get(url) as resp:
+                            await asyncio.sleep(3)
+                            return resp.headers
             else:
-                async with self.session.get(url) as sess:
-                    await asyncio.sleep(2)
-                    return await sess.text()
+                if self.proxy:
+                    async with self.session.get(url, proxy=random.choice(Core.proxy_list())) as sess:
+                        await asyncio.sleep(2)
+                        return await sess.text()
+                else:
+                    async with self.session.get(url) as sess:
+                        await asyncio.sleep(2)
+                        return await sess.text()
         except Exception:
             resp = None
         return resp
@@ -92,5 +104,6 @@ class SearchNetcraft:
         rawres = myparser.Parser(self.totalresults, self.word)
         return await rawres.hostnames()
 
-    async def process(self):
+    async def process(self, proxy=False):
+        self.proxy = proxy
         await self.do_search()

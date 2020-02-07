@@ -15,6 +15,7 @@ class SearchExalead:
         self.hostname = 'www.exalead.com'
         self.limit = limit
         self.counter = start
+        self.proxy = False
 
     async def do_search(self):
         base_url = f'https://{self.server}/search/web/results/?q=%40{self.word}&elements_per_page=50&start_index=xx'
@@ -24,7 +25,7 @@ class SearchExalead:
             'User-agent': Core.get_user_agent()
         }
         urls = [base_url.replace("xx", str(num)) for num in range(self.counter, self.limit, 50) if num <= self.limit]
-        responses = await AsyncFetcher.fetch_all(urls, headers=headers)
+        responses = await AsyncFetcher.fetch_all(urls, headers=headers, proxy=self.proxy)
         for response in responses:
             self.total_results += response
 
@@ -36,7 +37,7 @@ class SearchExalead:
             'Referer': ('http://' + self.hostname + '/search/web/results/?q=%40' + self.word),
             'User-agent': Core.get_user_agent()
         }
-        responses = await AsyncFetcher.fetch_all([url], headers=headers)
+        responses = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
         self.results = responses[0]
         self.total_results += self.results
 
@@ -62,7 +63,8 @@ class SearchExalead:
         rawres = myparser.Parser(self.total_results, self.word)
         return await rawres.fileurls(self.files)
 
-    async def process(self):
+    async def process(self, proxy=False):
+        self.proxy = proxy
         print('Searching results')
         await self.do_search()
 

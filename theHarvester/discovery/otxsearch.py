@@ -1,6 +1,5 @@
 from theHarvester.lib.core import *
 import json
-#import grequests
 import re
 
 
@@ -10,12 +9,13 @@ class SearchOtx:
         self.word = word
         self.totalhosts = set()
         self.totalips = set()
+        self.proxy = False
 
     async def do_search(self):
         url = f'https://otx.alienvault.com/api/v1/indicators/domain/{self.word}/passive_dns'
         headers = {'User-Agent': Core.get_user_agent()}
         client = aiohttp.ClientSession(headers=headers, timeout=aiohttp.ClientTimeout(total=20))
-        responses = await AsyncFetcher.fetch(client, url, json=True)
+        responses = await AsyncFetcher.fetch(client, url, json=True, proxy=self.proxy)
         await client.close()
 
         dct = responses
@@ -30,5 +30,6 @@ class SearchOtx:
     async def get_ips(self) -> set:
         return self.totalips
 
-    async def process(self):
+    async def process(self, proxy=False):
+        self.proxy = proxy
         await self.do_search()
