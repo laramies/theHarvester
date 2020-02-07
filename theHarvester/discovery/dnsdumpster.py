@@ -11,6 +11,7 @@ class SearchDnsDumpster:
         self.results = ""
         self.totalresults = ""
         self.server = 'dnsdumpster.com'
+        self.proxy = False
 
     async def do_search(self):
         try:
@@ -29,7 +30,7 @@ class SearchDnsDumpster:
             data = {
                 'Cookie': f'csfrtoken={csrftoken}', 'csrfmiddlewaretoken': csrftoken, 'targetip': self.word}
             headers['Referer'] = url
-            async with session.post(url, headers=headers, data=data) as resp:
+            async with session.post(url, headers=headers, data=data, proxy=self.proxy) as resp:
                 self.results = await resp.text()
             await session.close()
         except Exception as e:
@@ -40,5 +41,6 @@ class SearchDnsDumpster:
         rawres = myparser.Parser(self.totalresults, self.word)
         return await rawres.hostnames()
 
-    async def process(self):
+    async def process(self, proxy=False):
+        self.proxy = proxy
         await self.do_search()  # Only need to do it once.

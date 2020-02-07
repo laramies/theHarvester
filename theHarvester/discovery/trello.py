@@ -16,6 +16,7 @@ class SearchTrello:
         self.trello_urls = []
         self.hostnames = []
         self.counter = 0
+        self.proxy = False
 
     async def do_search(self):
         base_url = f'https://{self.server}/search?num=300&start=xx&hl=en&q=site%3Atrello.com%20{self.word}'
@@ -24,7 +25,7 @@ class SearchTrello:
         headers = {'User-Agent': googleUA}
         for url in urls:
             try:
-                resp = await AsyncFetcher.fetch_all([url], headers=headers)
+                resp = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
                 self.results = resp[0]
                 if await search(self.results):
                     try:
@@ -51,7 +52,7 @@ class SearchTrello:
             # reset what totalresults as before it was just google results now it is trello results
             headers = {'User-Agent': random.choice(['curl/7.37.0', 'Wget/1.19.4'])}
             # do not change the headers
-            responses = await AsyncFetcher.fetch_all(self.trello_urls, headers=headers)
+            responses = await AsyncFetcher.fetch_all(self.trello_urls, headers=headers, proxy=self.proxy)
             for response in responses:
                 self.totalresults += response
 
@@ -60,7 +61,8 @@ class SearchTrello:
         except Exception as e:
             print(f'Error occurred: {e}')
 
-    async def process(self):
+    async def process(self, proxy=False):
+        self.proxy = proxy
         await self.do_search()
         await self.get_urls()
         print(f'\tSearching {self.counter} results.')

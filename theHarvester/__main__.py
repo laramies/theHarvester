@@ -72,6 +72,7 @@ async def start():
     virtual = args.virtual_host
     word: str = args.domain
     takeover_status = args.take_over
+    use_proxy = args.proxies
 
     async def store(search_engine: Any, source: str, process_param: Any = None, store_host: bool = False,
                     store_emails: bool = False, store_ip: bool = False, store_people: bool = False,
@@ -92,7 +93,8 @@ async def start():
         :param store_links: whether to store links
         :param store_results: whether to fetch details from get_results() and persist
         """
-        await search_engine.process() if process_param is None else await search_engine.process(process_param)
+        await search_engine.process(use_proxy) if process_param is None else await \
+            search_engine.process(process_param, use_proxy)
         db_stash = stash.StashManager()
         if source == 'suip':
             print(f'\033[94m[*] Searching {source[0].upper() + source[1:]} this module can take 10+ min but is worth '
@@ -460,7 +462,7 @@ async def start():
         print('\n[*] Performing subdomain takeover check')
         print('\n[*] Subdomain Takeover checking IS ACTIVE RECON')
         search_take = takeover.TakeOver(all_hosts)
-        await search_take.process()
+        await search_take.process(proxy=use_proxy)
 
     # DNS reverse lookup
     dnsrev = []

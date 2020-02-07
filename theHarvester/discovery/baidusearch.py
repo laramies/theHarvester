@@ -10,6 +10,7 @@ class SearchBaidu:
         self.server = 'www.baidu.com'
         self.hostname = 'www.baidu.com'
         self.limit = limit
+        self.proxy = False
 
     async def do_search(self):
         headers = {
@@ -18,11 +19,12 @@ class SearchBaidu:
         }
         base_url = f'https://{self.server}/s?wd=%40{self.word}&pnxx&oq={self.word}'
         urls = [base_url.replace("xx", str(num)) for num in range(0, self.limit, 10) if num <= self.limit]
-        responses = await AsyncFetcher.fetch_all(urls, headers=headers)
+        responses = await AsyncFetcher.fetch_all(urls, headers=headers, proxy=self.proxy)
         for response in responses:
             self.total_results += response
 
-    async def process(self):
+    async def process(self, proxy=False):
+        self.proxy = proxy
         await self.do_search()
 
     async def get_emails(self):

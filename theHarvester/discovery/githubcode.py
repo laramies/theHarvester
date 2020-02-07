@@ -5,7 +5,7 @@ from typing import List, Dict, Any, Optional, NamedTuple, Tuple
 import asyncio
 import aiohttp
 import urllib.parse as urlparse
-
+import random
 
 class RetryResult(NamedTuple):
     time: float
@@ -37,6 +37,7 @@ class SearchGithubCode:
         # https://developer.github.com/v3/search/#rate-limit
         if self.key is None:
             raise MissingKey(True)
+        self.proxy = False
 
     @staticmethod
     async def fragments_from_response(json_data: dict) -> List[str]:
@@ -87,10 +88,14 @@ class SearchGithubCode:
             'Accept': "application/vnd.github.v3.text-match+json",
             'Authorization': f'token {self.key}'
         }
-        async with aiohttp.ClientSession(headers=headers) as sess:
-            async with sess.get(url) as resp:
-                return await resp.text(), await resp.json(), resp.status, resp.links
 
+        async with aiohttp.ClientSession(headers=headers) as sess:
+            if self.proxy:
+                async with sess.get(url, proxy=random.choice(Core.proxy_list())) as resp:
+                    return await resp.text(), await resp.json(), resp.status, resp.links
+            else:
+                async with sess.get(url, ) as resp:
+                    return await resp.text(), await resp.json(), resp.status, resp.links
     @staticmethod
     async def next_page_or_end(result: SuccessResult) -> Optional[int]:
         if result.next_page is not None:
@@ -98,7 +103,8 @@ class SearchGithubCode:
         else:
             return result.last_page
 
-    async def process(self):
+    async def process(self, proxy=False):
+        self.proxy = proxy
         try:
             while self.counter <= self.limit and self.page is not None:
                 api_response = await self.do_search(self.page)

@@ -16,6 +16,7 @@ class SearchGoogle:
         self.quantity = '100'
         self.limit = limit
         self.counter = start
+        self.proxy = False
 
     async def do_search(self):
         # Do normal scraping.
@@ -23,7 +24,7 @@ class SearchGoogle:
             self.counter) + '&hl=en&meta=&q=%40\"' + self.word + '\"'
         try:
             headers = {'User-Agent': googleUA}
-            resp = await AsyncFetcher.fetch_all([urly], headers=headers)
+            resp = await AsyncFetcher.fetch_all([urly], headers=headers, proxy=self.proxy)
         except Exception as e:
             print(e)
         self.results = resp[0]
@@ -46,7 +47,7 @@ class SearchGoogle:
             self.counter) + '&hl=en&meta=&q=site:www.google.com%20intitle:\"Google%20Profile\"%20\"Companies%20I%27ve%20worked%20for\"%20\"at%20' + self.word + '\"'
         try:
             headers = {'User-Agent': googleUA}
-            resp = await AsyncFetcher.fetch_all([urly], headers=headers)
+            resp = await AsyncFetcher.fetch_all([urly], headers=headers, proxy=self.proxy)
         except Exception as e:
             print(e)
         self.results = resp[0]
@@ -78,7 +79,8 @@ class SearchGoogle:
         rawres = myparser.Parser(self.totalresults, self.word)
         return rawres.profiles()
 
-    async def process(self, google_dorking):
+    async def process(self, google_dorking, proxy=False):
+        self.proxy = proxy
         if google_dorking is False:
             while self.counter <= self.limit and self.counter <= 1000:
                 await self.do_search()
@@ -145,7 +147,7 @@ class SearchGoogle:
                 if num % 10 == 0 and num > 0:
                     print(f'\tSearching through {num} results')
                 link = self.links[num]
-                req = await AsyncFetcher.fetch_all([link], headers=headers)
+                req = await AsyncFetcher.fetch_all([link], headers=headers, proxy=self.proxy)
                 self.results = req[0]
                 if await search(self.results):
                     try:

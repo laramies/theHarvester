@@ -7,13 +7,14 @@ class SearchCertspoter:
     def __init__(self, word):
         self.word = word
         self.totalhosts = set()
+        self.proxy = False
 
     async def do_search(self) -> None:
         base_url = f'https://api.certspotter.com/v1/issuances?domain={self.word}&expand=dns_names'
         headers = {'User-Agent': Core.get_user_agent()}
         try:
             client = aiohttp.ClientSession(headers=headers, timeout=aiohttp.ClientTimeout(total=30))
-            response = await AsyncFetcher.fetch(client, base_url, json=True)
+            response = await AsyncFetcher.fetch(client, base_url, json=True, proxy=self.proxy)
             await client.close()
             if isinstance(response, list):
                 for dct in response:
@@ -30,6 +31,7 @@ class SearchCertspoter:
     async def get_hostnames(self) -> set:
         return self.totalhosts
 
-    async def process(self):
+    async def process(self, proxy=False):
+        self.proxy = proxy
         await self.do_search()
         print('\tSearching results.')

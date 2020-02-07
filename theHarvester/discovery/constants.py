@@ -85,10 +85,9 @@ async def google_workaround(visit_url: str) -> Union[bool, str]:
         if returned_html == "" else returned_html[0]
 
     if await search(returned_html):
-        print('going to second method!')
         # indicates that google is serving workaround a captcha
         # That means we will try out second option which will utilize proxies
-        return await second_method(visit_url)
+        return True
     # the html we get is malformed for BS4 as there are no greater than or less than signs
     if '&lt;html&gt;' in returned_html:
         start_index = returned_html.index('&lt;html&gt;')
@@ -100,34 +99,6 @@ async def google_workaround(visit_url: str) -> Union[bool, str]:
     # Slice list to get the response's html
     correct_html = ''.join([ch.strip().replace('&lt;', '<').replace('&gt;', '>') for ch in correct_html])
     return correct_html
-
-
-async def second_method(url: str) -> Union[str, bool]:
-    return ""
-
-async def request(url, params):
-    headers = {'User-Agent': Core.get_user_agent()}
-    session = aiohttp.ClientSession(headers=headers)
-    results = await AsyncFetcher.fetch(session, url=url, params=params)
-    await session.close()
-    return results
-
-
-async def proxy_fetch(session, url, proxy):
-    try:
-        async with session.get(url, proxy=proxy) as resp:
-            return f'success:{proxy}', await resp.text()
-    except Exception:
-        return f'failed:{proxy}', proxy
-
-
-async def proxy_test(proxies, url):
-    print('doing proxy test with this number of proxies: ', len(proxies))
-    headers = {'User-Agent': Core.get_user_agent()}
-    timeout = aiohttp.ClientTimeout(total=50)
-    async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
-        texts = await asyncio.gather(*[proxy_fetch(session, url, proxy) for proxy in proxies])
-        return texts
 
 
 class MissingKey(Exception):
