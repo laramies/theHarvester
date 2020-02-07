@@ -1,5 +1,7 @@
 -r base.txt
 flake8==3.7.9
-pytest==5.3.2
-pytest-asyncio==0.10.0
 mypy==0.761
+mypy-extensions==0.4.3
+mock==4.0.0b1
+pytest==5.3.5
+pytest-asyncio==0.10.0

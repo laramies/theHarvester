@@ -45,7 +45,3 @@ class SearchSpyse:
     async def process(self, proxy=False):
         self.proxy = proxy
         await self.do_search()
-        print('\tSearching results.')
-
-    async def process(self):
-        await self.do_search()

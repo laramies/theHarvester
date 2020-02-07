@@ -1,5 +1,4 @@
 from theHarvester.lib.core import *
-import json
 import re
 
 

@@ -7,9 +7,11 @@ matrix:
     env: TEST_SUITE=suite_3_7
   - python: '3.8'
     env: TEST_SUITE=suite_3_8
+  - python: 'nightly'
+    env: TEST_SUITE=suite_3_9
+
 before_install:
-- pip install pipenv
-- pipenv install --dev
+- pip install -r requirements/dev.txt
 install:
 - python setup.py test
 script:
