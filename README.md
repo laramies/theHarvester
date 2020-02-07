@@ -85,11 +85,12 @@ Add your keys to api-keys.yaml
 * shodan
 * spyse
 
-Dependencies:
+Install & Dependencies:
 -------------
 * Python 3.7+
 * python3 -m pip install pipenv
-* pipenv install
+* https://github.com/laramies/theHarvester/wiki/Installation
+
 
 Comments, bugs, or requests?
 ----------------------------

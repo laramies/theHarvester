@@ -39,9 +39,9 @@ async def start():
     parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, certspotter, crtsh, dnsdumpster,
-                        dogpile, duckduckgo, github-code, google,
+                        dogpile, duckduckgo, exalead, github-code, google,
                         hunter, intelx,
-                        linkedin, linkedin_links, netcraft, otx, securityTrails, spyse(disabled for now), threatcrowd,
+                        linkedin, linkedin_links, netcraft, otx, securityTrails, spyse, threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo, all''')
 
     args = parser.parse_args()
@@ -664,4 +664,4 @@ async def entry_point():
 
 
 if __name__ == '__main__':
-    asyncio.run(main=entry_point(), debug=True)
+    asyncio.run(main=entry_point())
