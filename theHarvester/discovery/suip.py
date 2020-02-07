@@ -11,12 +11,13 @@ class SearchSuip:
         self.totalresults: str = ''
         self.totalhosts: set = set()
         self.totalips: set = set()
+        self.proxy = False
 
     async def request(self, url, params, findomain=False):
         headers = {'User-Agent': Core.get_user_agent()}
         data = {'url': self.word.replace('www.', ''), 'only_resolved': '1', 'Submit1': 'Submit'} if findomain else \
             {'url': self.word.replace('www.', ''), 'Submit1': 'Submit'}
-        return await AsyncFetcher.post_fetch(url, headers=headers, params=params, data=data)
+        return await AsyncFetcher.post_fetch(url, headers=headers, params=params, data=data, proxy=self.proxy)
 
     async def handler(self, url):
         first_param = [url, (('act', 'subfinder'),), False]
@@ -46,7 +47,8 @@ class SearchSuip:
     async def get_hostnames(self) -> set:
         return self.totalhosts
 
-    async def process(self):
+    async def process(self, proxy=False):
+        self.proxy = proxy
         await self.do_search()
         print('\tSearching results.')
 

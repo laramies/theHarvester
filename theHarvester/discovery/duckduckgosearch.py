@@ -16,12 +16,13 @@ class SearchDuckDuckGo:
         self.api = 'https://api.duckduckgo.com/?q=x&format=json&pretty=1'  # Currently using API.
         self.quantity = '100'
         self.limit = limit
+        self.proxy = False
 
     async def do_search(self):
         # Do normal scraping.
         url = self.api.replace('x', self.word)
         headers = {'User-Agent': googleUA}
-        first_resp = await AsyncFetcher.fetch_all([url], headers=headers)
+        first_resp = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
         self.results = first_resp[0]
         self.totalresults += self.results
         urls = await self.crawl(self.results)
@@ -79,5 +80,6 @@ class SearchDuckDuckGo:
         rawres = myparser.Parser(self.totalresults, self.word)
         return await rawres.hostnames()
 
-    async def process(self):
+    async def process(self, proxy=False):
+        self.proxy = proxy
         await self.do_search()  # Only need to search once since using API.

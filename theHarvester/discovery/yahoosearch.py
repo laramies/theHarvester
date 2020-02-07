@@ -9,6 +9,7 @@ class SearchYahoo:
         self.total_results = ""
         self.server = 'search.yahoo.com'
         self.limit = limit
+        self.proxy = False
 
     async def do_search(self):
         base_url = f'https://{self.server}/search?p=%40{self.word}&b=xx&pz=10'
@@ -17,7 +18,7 @@ class SearchYahoo:
             'User-agent': Core.get_user_agent()
         }
         urls = [base_url.replace("xx", str(num)) for num in range(0, self.limit, 10) if num <= self.limit]
-        responses = await AsyncFetcher.fetch_all(urls, headers=headers)
+        responses = await AsyncFetcher.fetch_all(urls, headers=headers, proxy=self.proxy)
         for response in responses:
             self.total_results += response
 
@@ -37,6 +38,7 @@ class SearchYahoo:
             emails.add(email)
         return list(emails)
 
-    async def get_hostnames(self):
+    async def get_hostnames(self, proxy=False):
+        self.proxy = proxy
         rawres = myparser.Parser(self.total_results, self.word)
         return await rawres.hostnames()

@@ -98,11 +98,9 @@ class Core:
             with open('proxies.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
                 http_list = [f'http://{proxy}' for proxy in keys['http']] if keys['http'] is not None else []
-                https_list = [f'https://{proxy}' for proxy in keys['https']] if keys['https'] is not None else []
-                return http_list + https_list
+                return http_list
         http_list = [f'http://{proxy}' for proxy in keys['http']] if keys['http'] is not None else []
-        https_list = [f'https://{proxy}' for proxy in keys['https']] if keys['https'] is not None else []
-        return http_list + https_list
+        return http_list
 
     @staticmethod
     def banner() -> None:
@@ -400,7 +398,6 @@ class AsyncFetcher:
         try:
             if proxy:
                 proxy = str(random.choice(cls().proxy_list))
-                print('proxy is: ', proxy)
                 if params != "":
                     async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
                         async with session.get(url, params=params, proxy=proxy) as response:
@@ -408,7 +405,7 @@ class AsyncFetcher:
                             return await response.text() if json is False else await response.json()
                 else:
                     async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
-                        async with session.get(url, proxy=proxy, ssl=True if 'https' in proxy else False) as response:
+                        async with session.get(url, proxy=proxy) as response:
                             await asyncio.sleep(2)
                             return await response.text() if json is False else await response.json()
             elif params == '':
@@ -434,15 +431,13 @@ class AsyncFetcher:
             # TODO determine if method for post requests is necessary
             if proxy != "":
                 if params != "":
-                    async with session.get(url, params=params, proxy=proxy, ssl=True if proxy.startswith('https')
-                    else False) as response:
-                        await asyncio.sleep(2)
+                    async with session.get(url, params=params, proxy=proxy) as response:
                         return await response.text() if json is False else await response.json()
                 else:
-                    async with session.get(url, proxy=proxy, ssl=True if proxy.startswith('https') else False) \
-                            as response:
+                    async with session.get(url, proxy=proxy) as response:
                         await asyncio.sleep(2)
                         return await response.text() if json is False else await response.json()
+
             if params != '':
                 async with session.get(url, params=params) as response:
                     await asyncio.sleep(2)
@@ -452,7 +447,8 @@ class AsyncFetcher:
                 async with session.get(url) as response:
                     await asyncio.sleep(2)
                     return await response.text() if json is False else await response.json()
-        except Exception:
+        except Exception as e:
+            print('An exception has occurred: ', e)
             return ''
 
     @staticmethod
@@ -465,7 +461,7 @@ class AsyncFetcher:
             url = f'http://{url}' if str(url).startswith(('http:', 'https:')) is False else url
             # Clean up urls with proper schemas
             if proxy != "":
-                async with session.get(url, proxy=proxy, ssl=True if proxy.startswith('https') else False) as response:
+                async with session.get(url, proxy=proxy) as response:
                     await asyncio.sleep(2)
                     return url, await response.text()
             else:
@@ -484,18 +480,20 @@ class AsyncFetcher:
         if takeover:
             async with aiohttp.ClientSession(headers=headers, timeout=aiohttp.ClientTimeout(total=15)) as session:
                 if proxy:
-                        tuples = await asyncio.gather(*[AsyncFetcher.takeover_fetch(session, url, proxy=random.choice(cls().proxy_list)) for url in urls])
-                        return tuples
+                    tuples = await asyncio.gather(
+                        *[AsyncFetcher.takeover_fetch(session, url, proxy=random.choice(cls().proxy_list)) for url in
+                          urls])
+                    return tuples
                 else:
-                        tuples = await asyncio.gather(*[AsyncFetcher.takeover_fetch(session, url) for url in urls])
-                        return tuples
+                    tuples = await asyncio.gather(*[AsyncFetcher.takeover_fetch(session, url) for url in urls])
+                    return tuples
 
         if len(params) == 0:
             async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
                 if proxy:
-                    print('proxy is none and so are params :) ')
-                    print('proxy is: ', cls().proxy_list)
-                    texts = await asyncio.gather(*[AsyncFetcher.fetch(session, url, json=json, proxy=random.choice(cls().proxy_list)) for url in urls])
+                    texts = await asyncio.gather(
+                        *[AsyncFetcher.fetch(session, url, json=json, proxy=random.choice(cls().proxy_list)) for url in
+                          urls])
                     return texts
                 else:
                     texts = await asyncio.gather(*[AsyncFetcher.fetch(session, url, json=json) for url in urls])
@@ -505,12 +503,9 @@ class AsyncFetcher:
             async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
                 if proxy:
                     texts = await asyncio.gather(*[AsyncFetcher.fetch(session, url, params, json,
-                                                              proxy=random.choice(cls().proxy_list)) for url in urls])
+                                                                      proxy=random.choice(cls().proxy_list)) for url in
+                                                   urls])
                     return texts
                 else:
                     texts = await asyncio.gather(*[AsyncFetcher.fetch(session, url, params, json) for url in urls])
                     return texts
-
-if __name__ == '__main__':
-    x = Core()
-    x.proxy_list()

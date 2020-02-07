@@ -9,7 +9,7 @@ class TakeOver:
         self.hosts = hosts
         self.results = ""
         self.totalresults = ""
-
+        self.proxy = False
         # Thank you to https://github.com/EdOverflow/can-i-take-over-xyz for these fingerprints
         self.fingerprints = {"'Trying to access your account?'": 'Campaign Monitor',
                              '404 Not Found': 'Fly.io',
@@ -48,7 +48,7 @@ class TakeOver:
 
     async def do_take(self):
         try:
-            tup_resps: list = await AsyncFetcher.fetch_all(self.hosts, takeover=True)
+            tup_resps: list = await AsyncFetcher.fetch_all(self.hosts, takeover=True, proxy=self.proxy)
             # Returns a list of tuples in this format: (url, response)
             tup_resps = [tup for tup in tup_resps if tup[1] != '']
             # Filter out responses whose responses are empty strings (indicates errored)
@@ -58,5 +58,6 @@ class TakeOver:
         except Exception as e:
             print(e)
 
-    async def process(self):
+    async def process(self, proxy=False):
+        self.proxy = proxy
         await self.do_take()
