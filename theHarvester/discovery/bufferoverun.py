@@ -3,7 +3,6 @@ import re
 
 
 class SearchBufferover:
-
     def __init__(self, word):
         self.word = word
         self.totalhosts = set()
@@ -12,16 +11,17 @@ class SearchBufferover:
 
     async def do_search(self):
         url = f'https://dns.bufferover.run/dns?q={self.word}'
-        headers = {'User-Agent': Core.get_user_agent()}
-        client = aiohttp.ClientSession(headers=headers, timeout=aiohttp.ClientTimeout(total=20))
-        responses = await AsyncFetcher.fetch(client, url, json=True, proxy=self.proxy)
-        await client.close()
-
+        responses = await AsyncFetcher.fetch_all(urls=[url], json=True, proxy=self.proxy)
+        responses = responses[0]
         dct = responses
-        self.totalhosts: set = {host for host in dct['FDNS_A']}
-        # filter out ips that are just called NXDOMAIN
-        self.totalips: set = {ip['address'] for ip in dct['FDNS_A']
-                              if re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ip['FDNS_A'])}
+
+        self.totalips = {}
+        self.totalhosts: set = {
+            host.split(',')[0] if ',' and self.word.replace('www.', '') in host.split(',')[0] in host else
+            host.split(',')[1] for host in dct['FDNS_A']}
+
+        self.totalips: set = {ip for ip in dct['FDNS_A'][0].split(',')
+                              if re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ''.join(ip))}
 
     async def get_hostnames(self) -> set:
         return self.totalhosts
