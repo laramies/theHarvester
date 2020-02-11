@@ -2,7 +2,7 @@ from theHarvester.discovery import githubcode
 from theHarvester.discovery.githubcode import RetryResult, ErrorResult, SuccessResult
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import Core
-from mock import MagicMock
+from unittest.mock import MagicMock
 from requests import Response
 import pytest
 
