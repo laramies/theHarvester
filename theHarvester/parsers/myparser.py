@@ -13,7 +13,7 @@ class Parser:
             .replace('%3a', '').replace('<strong>', '').replace('</strong>', '')\
             .replace('<wbr>', '').replace('</wbr>', '')
 
-        for search in ('<', '>', ':', '=', ';', '&', '%3A', '%3D', '%3C', '/', '\\'):
+        for search in ('<', '>', ':', '=', ';', '&', '%3A', '%3D', '%3C', '%2f', '/', '\\'):
             self.results = self.results.replace(search, ' ')
 
     def urlClean(self):
