@@ -95,7 +95,7 @@ class Core:
             with open('/etc/theHarvester/proxies.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
         except FileNotFoundError:
-            with open('proxies.yaml', 'r') as api_keys:
+            with open('/mnt/d/repos/theHarvester/proxies.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
                 http_list = [f'http://{proxy}' for proxy in keys['http']] if keys['http'] is not None else []
                 return http_list
@@ -434,7 +434,7 @@ class AsyncFetcher:
                     async with session.get(url, params=params, proxy=proxy) as response:
                         return await response.text() if json is False else await response.json()
                 else:
-                    async with session.get(url, proxy=proxy) as response:
+                    async with session.get(url) as response:
                         await asyncio.sleep(2)
                         return await response.text() if json is False else await response.json()
 
