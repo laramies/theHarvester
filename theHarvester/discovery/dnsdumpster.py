@@ -34,7 +34,7 @@ class SearchDnsDumpster:
                 self.results = await resp.text()
             await session.close()
         except Exception as e:
-            print(f'An exception occured: {e}')
+            print(f'An exception occurred: {e}')
         self.totalresults += self.results
 
     async def get_hostnames(self):

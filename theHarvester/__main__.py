@@ -24,14 +24,10 @@ async def start():
     parser.add_argument('-d', '--domain', help='company name or domain to search', required=True)
     parser.add_argument('-l', '--limit', help='limit the number of search results, default=500', default=500, type=int)
     parser.add_argument('-S', '--start', help='start with result number X, default=0', default=0, type=int)
-    parser.add_argument('-g', '--google-dork', help='use Google Dorks for Google search', default=False,
-                        action='store_true')
-    parser.add_argument('-p', '--proxies', help='use proxies for requests, enter proxies in proxies.yaml',
-                        default=False, action='store_true')
-    parser.add_argument('-s', '--shodan', help='use Shodan to query discovered hosts', default=False,
-                        action='store_true')
-    parser.add_argument('-v', '--virtual-host', help='verify host name via DNS resolution and search for virtual hosts',
-                        action='store_const', const='basic', default=False)
+    parser.add_argument('-g', '--google-dork', help='use Google Dorks for Google search', default=False, action='store_true')
+    parser.add_argument('-p', '--proxies', help='use proxies for requests, enter proxies in proxies.yaml', default=False, action='store_true')
+    parser.add_argument('-s', '--shodan', help='use Shodan to query discovered hosts', default=False, action='store_true')
+    parser.add_argument('-v', '--virtual-host', help='verify host name via DNS resolution and search for virtual hosts', action='store_const', const='basic', default=False)
     parser.add_argument('-e', '--dns-server', help='DNS server to use for lookup')
     parser.add_argument('-t', '--dns-tld', help='perform a DNS TLD expansion discovery, default False', default=False)
     parser.add_argument('-r', '--take-over', help='Check for takeovers', default=False, action='store_true')

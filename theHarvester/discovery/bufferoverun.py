@@ -21,7 +21,6 @@ class SearchBufferover:
 
         self.totalips: set = {ip.split(',')[0]for ip in dct['FDNS_A'] if
                               re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ip.split(',')[0])}
-
     async def get_hostnames(self) -> set:
         return self.totalhosts
 
