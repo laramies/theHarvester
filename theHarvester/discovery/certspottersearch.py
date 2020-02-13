@@ -35,13 +35,3 @@ class SearchCertspoter:
         self.proxy = proxy
         await self.do_search()
         print('\tSearching results.')
-
-async def main():
-    x = SearchCertspoter(word='arrow.com')
-    await x.do_search()
-    hosts = await x.get_hostnames()
-    print(hosts)
-
-if __name__ == '__main__':
-    import asyncio
-    asyncio.run(main())

@@ -16,7 +16,7 @@ class SearchBufferover:
         dct = responses
 
         self.totalhosts: set = {
-            host.split(',')[0].replace('www', '') if ',' in host and self.word.replace('www.', '') in host.split(',')[
+            host.split(',')[0].replace('www.', '') if ',' in host and self.word.replace('www.', '') in host.split(',')[
                 0] in host else
             host.split(',')[1] for host in dct['FDNS_A']}
 
