@@ -84,24 +84,6 @@ class TestSearchGithubCode:
         test_result = await test_class_instance.fragments_from_response(self.MalformedResponse.response.json())
         assert test_result == []
 
-    async def test_handle_response_ok(self):
-        Core.github_key = MagicMock(return_value="lol")
-        test_class_instance = githubcode.SearchGithubCode(word="test", limit=500)
-        test_result = await test_class_instance.handle_response()
-        assert isinstance(test_result, SuccessResult)
-
-    async def test_handle_response_retry(self):
-        Core.github_key = MagicMock(return_value="lol")
-        test_class_instance = githubcode.SearchGithubCode(word="test", limit=500)
-        test_result = await test_class_instance.handle_response(self.RetryResponse.response.json())
-        assert isinstance(test_result, RetryResult)
-
-    async def test_handle_response_fail(self):
-        Core.github_key = MagicMock(return_value="lol")
-        test_class_instance = githubcode.SearchGithubCode(word="test", limit=500)
-        test_result = await test_class_instance.handle_response(self.FailureResponse.response.json())
-        assert isinstance(test_result, ErrorResult)
-
     async def test_next_page(self):
         Core.github_key = MagicMock(return_value="lol")
         test_class_instance = githubcode.SearchGithubCode(word="test", limit=500)
