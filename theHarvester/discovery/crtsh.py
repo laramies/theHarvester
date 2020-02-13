@@ -1,5 +1,6 @@
 from theHarvester.lib.core import *
 import aiohttp
+from typing import Set
 
 
 class SearchCrtsh:
@@ -18,7 +19,8 @@ class SearchCrtsh:
             response = await AsyncFetcher.fetch(client, url, json=True, proxy=self.proxy)
             await client.close()
             data = set(
-                [dct['name_value'][2:] if '*.' == dct['name_value'][:2] else dct['name_value'] for dct in response])
+                [dict(dct)['name_value'][2:] if '*.' == dict(dct)['name_value'][:2] else dict(dct)['name_value']
+                 for dct in response])
         except Exception as e:
             print(e)
         return data
