@@ -7,6 +7,7 @@ import aiohttp
 import urllib.parse as urlparse
 import random
 
+
 class RetryResult(NamedTuple):
     time: float
 
@@ -94,8 +95,9 @@ class SearchGithubCode:
                 async with sess.get(url, proxy=random.choice(Core.proxy_list())) as resp:
                     return await resp.text(), await resp.json(), resp.status, resp.links
             else:
-                async with sess.get(url, ) as resp:
+                async with sess.get(url) as resp:
                     return await resp.text(), await resp.json(), resp.status, resp.links
+
     @staticmethod
     async def next_page_or_end(result: SuccessResult) -> Optional[int]:
         if result.next_page is not None:
