@@ -10,7 +10,7 @@ import random
 class Core:
     @staticmethod
     def version() -> str:
-        return '3.1.1dev5'
+        return '3.2.0dev0'
 
     @staticmethod
     def bing_key() -> str:
@@ -123,6 +123,7 @@ class Core:
         supportedengines = {'baidu',
                             'bing',
                             'bingapi',
+                            'bufferoverun',
                             'certspotter',
                             'crtsh',
                             'dnsdumpster',
