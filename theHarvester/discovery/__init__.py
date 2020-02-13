@@ -1,5 +1,6 @@
 __all__ = ['baidusearch',
            'bingsearch',
+           'bufferoverun',
            'crtsh',
            'certspottersearch',
            'dnssearch',

@@ -38,7 +38,7 @@ async def start():
     parser.add_argument('-n', '--dns-lookup', help='enable DNS server lookup, default False', default=False, action='store_true')
     parser.add_argument('-c', '--dns-brute', help='perform a DNS brute force on the domain', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
-    parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, certspotter, crtsh, dnsdumpster,
+    parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, bufferoverun, certspotter, crtsh, dnsdumpster,
                         dogpile, duckduckgo, exalead, github-code, google,
                         hunter, intelx,
                         linkedin, linkedin_links, netcraft, otx, securityTrails, spyse, threatcrowd,
@@ -185,6 +185,14 @@ async def start():
                             print(e)
                         else:
                             print(e)
+
+                elif engineitem == 'bufferoverun':
+                    from theHarvester.discovery import bufferoverun
+                    try:
+                        bufferoverun_search = bufferoverun.SearchBufferover(word)
+                        stor_lst.append(store(bufferoverun_search, engineitem, store_host=True, store_ip=True))
+                    except Exception as e:
+                        print(e)
 
                 elif engineitem == 'certspotter':
                     from theHarvester.discovery import certspottersearch
@@ -404,7 +412,8 @@ async def start():
         print('\n[*] IPs found: ' + str(len(all_ip)))
         print('-------------------')
         # use netaddr as the list may contain ipv4 and ipv6 addresses
-        ip_list = sorted([netaddr.IPAddress(ip.strip()) for ip in set(all_ip)])
+        ip_list = [netaddr.IPAddress(ip.strip()) for ip in set(all_ip)]
+        ip_list.sort()
         print('\n'.join(map(str, ip_list)))
 
     if len(all_emails) == 0:
