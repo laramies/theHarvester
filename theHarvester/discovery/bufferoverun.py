@@ -15,14 +15,12 @@ class SearchBufferover:
         responses = responses[0]
         dct = responses
 
-        self.totalips = {}
         self.totalhosts: set = {
-            host.split(',')[0] if ',' and self.word.replace('www.', '') in host.split(',')[0] in host else
+            host.split(',')[0].replace('www','') if ',' in host and self.word.replace('www.', '') in host.split(',')[0] in host else
             host.split(',')[1] for host in dct['FDNS_A']}
 
-        self.totalips: set = {ip for ip in dct['FDNS_A'][0].split(',')
-                              if re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ''.join(ip))}
-
+        self.totalips: set = {ip.split(',')[0]for ip in dct['FDNS_A'] if
+                              re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ip.split(',')[0])}
     async def get_hostnames(self) -> set:
         return self.totalhosts
 
