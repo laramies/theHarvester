@@ -1,5 +1,4 @@
 from theHarvester.lib.core import *
-import aiohttp
 
 
 class SearchCertspoter:
