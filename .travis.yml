@@ -2,6 +2,8 @@ dist: bionic
 language: python
 cache: pip
 matrix:
+  allow_failures:
+    - python: 'nightly'
   include:
   - python: '3.7'
     env: TEST_SUITE=suite_3_7
