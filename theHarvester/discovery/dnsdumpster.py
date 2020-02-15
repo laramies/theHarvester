@@ -33,7 +33,6 @@ class SearchDnsDumpster:
                     csrftoken += cookies[1][:cookies[1].find(';')]
             await asyncio.sleep(2)
 
-
             # extract csrftoken from cookies
             data = {
                 'Cookie': f'csfrtoken={csrftoken}', 'csrfmiddlewaretoken': csrftoken, 'targetip': self.word}

@@ -111,18 +111,18 @@ class SearchGithubCode:
             while self.counter <= self.limit and self.page is not None:
                 api_response = await self.do_search(self.page)
                 result = await self.handle_response(api_response)
-                if type(result) == SuccessResult:
+                if isinstance(result, SuccessResult):
                     print(f'\tSearching {self.counter} results.')
                     for fragment in result.fragments:
                         self.total_results += fragment
                         self.counter = self.counter + 1
                     self.page = await self.next_page_or_end(result)
                     await asyncio.sleep(getDelay())
-                elif type(result) == RetryResult:
+                elif isinstance(result, RetryResult):
                     sleepy_time = getDelay() + result.time
                     print(f'\tRetrying page in {sleepy_time} seconds...')
                     await asyncio.sleep(sleepy_time)
-                elif type(result) == ErrorResult:
+                elif isinstance(result, ErrorResult):
                     raise Exception(f"\tException occurred: status_code: {result.status_code} reason: {result.body}")
                 else:
                     raise Exception("\tUnknown exception occurred")
