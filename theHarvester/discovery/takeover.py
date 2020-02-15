@@ -1,44 +1,63 @@
+from theHarvester.lib.core import *
 import re
-import requests
 
 
 class TakeOver:
 
-    def __init__(self, host):
-        self.host = host
+    def __init__(self, hosts):
+        # NOTE THIS MODULE IS ACTIVE RECON
+        self.hosts = hosts
         self.results = ""
         self.totalresults = ""
-        self.fingerprints = ["<title>Squarespace - Domain Not Claimed</title>",
-                             'www.herokucdn.com/error-pages/no-such-app.html',
-                             '<title>Squarespace - No Such Account</title>',
-                             "<p> If you're trying to publish one, <a href=\"https://help.github.com/pages/\">read the full documentation</a> to learn how to set up <strong>GitHub Pages</strong> for your repository, organization, or user account. </p>",
-                             "<p> If you\'re trying to publish one, <a href=\"https://help.github.com/pages/\">read the full documentation</a> to learn how to set up <strong>GitHub Pages</strong> for your repository, organization, or user account. </p>",
-                             "<span class=\"title\">Bummer. It looks like the help center that you are trying to reach no longer exists.</span>",
-                             "<head> <title>The page you\'re looking for could not be found (404)</title> <style> body { color: #666; text-align: center; font-family: \"Helvetica Neue\", Helvetica, Arial, sans-serif; margin: 0; width: 800px; margin: auto; font-size: 14px; } h1 { font-size: 56px; line-height: 100px; font-weight: normal; color: #456; } h2 { font-size: 24px; color: #666; line-height: 1.5em; } h3 { color: #456; font-size: 20px; font-weight: normal; line-height: 28px; } hr { margin: 18px 0; border: 0; border-top: 1px solid #EEE; border-bottom: 1px solid white; } </style> </head>",
-                             'The specified bucket does not exist',
-                             'Bad Request: ERROR: The request could not be satisfied',
-                             'Fastly error: unknown domain:',
-                             "There isn't a Github Pages site here.",
-                             'No such app',
-                             'Unrecognized domain',
-                             'Sorry, this shop is currently unavailable.',
-                             "Whatever you were looking for doesn't currently exist at this address",
-                             'The requested URL was not found on this server.',
-                             'This UserVoice subdomain is currently available!',
-                             'Do you want to register *.wordpress.com?',
-                             'Help Center Closed']
+        self.proxy = False
+        # Thank you to https://github.com/EdOverflow/can-i-take-over-xyz for these fingerprints
+        self.fingerprints = {"'Trying to access your account?'": 'Campaign Monitor',
+                             '404 Not Found': 'Fly.io',
+                             '404 error unknown site!': 'Pantheon',
+                             'Do you want to register *.wordpress.com?': 'Wordpress',
+                             'Domain uses DO name serves with no records in DO.': 'Digital Ocean',
+                             "It looks like you may have taken a wrong turn somewhere. Don't worry...it happens to all of us.": 'LaunchRock',
+                             'No Site For Domain': 'Kinsta',
+                             'No settings were found for this company:': 'Help Scout',
+                             'Project doesnt exist... yet!': 'Readme.io',
+                             'Repository not found': 'Bitbucket',
+                             'The feed has not been found.': 'Feedpress',
+                             'No such app': 'Heroku',
+                             'The specified bucket does not exist': 'AWS/S3',
+                             'The thing you were looking for is no longer here, or never was': 'Ghost',
+                             "There isn't a Github Pages site here.": 'Github',
+                             'This UserVoice subdomain is currently available!': 'UserVoice',
+                             "Uh oh. That page doesn't exist.": 'Intercom',
+                             "We could not find what you're looking for.": 'Help Juice',
+                             "Whatever you were looking for doesn't currently exist at this address": 'Tumblr',
+                             'is not a registered InCloud YouTrack': 'JetBrains',
+                             'page not found': 'Uptimerobot',
+                             'project not found': 'Surge.sh'}
 
-    def do_take(self):
+    async def check(self, url, resp):
+        # Simple function that takes response and checks if any fingerprints exists
+        # If a fingerprint exists figures out which one and prints it out
+        regex = re.compile("(?=(" + "|".join(map(re.escape, list(self.fingerprints.keys()))) + "))")
+        # Sanitize fingerprints
+        matches = re.findall(regex, resp)
+        for match in matches:
+            print(f'\t\033[91m Takeover detected: {url}\033[1;32;40m')
+            if match in self.fingerprints.keys():
+                # Sanity check as to not error out
+                print(f'\t\033[91m Type of takeover is: {self.fingerprints[match]}\033[1;32;40m')
+
+    async def do_take(self):
         try:
-            print(f'\t Searching takeovers for {self.host}')
-            r = requests.get(f'https://{self.host}', verify=False)
-            for x in self.fingerprints:
-                take_reg = re.compile(x)
-                self.temp = take_reg.findall(r.text)
-                if self.temp != []:
-                    print(f'\t\033[91m Takeover detected! - {self.host}\033[1;32;40m')
+            tup_resps: list = await AsyncFetcher.fetch_all(self.hosts, takeover=True, proxy=self.proxy)
+            # Returns a list of tuples in this format: (url, response)
+            tup_resps = [tup for tup in tup_resps if tup[1] != '']
+            # Filter out responses whose responses are empty strings (indicates errored)
+            for url, resp in tup_resps:
+                await self.check(url, resp)
+
         except Exception as e:
             print(e)
 
-    def process(self):
-        self.do_take()
+    async def process(self, proxy=False):
+        self.proxy = proxy
+        await self.do_take()

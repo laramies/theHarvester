@@ -1,8 +1,7 @@
 from theHarvester.discovery.constants import *
 from theHarvester.lib.core import *
 from theHarvester.parsers import myparser
-import requests
-import time
+import asyncio
 
 
 class SearchLinkedin:
@@ -15,16 +14,17 @@ class SearchLinkedin:
         self.quantity = '100'
         self.limit = int(limit)
         self.counter = 0
+        self.proxy = False
 
-    def do_search(self):
+    async def do_search(self):
         urly = 'http://' + self.server + '/search?num=100&start=' + str(self.counter) + '&hl=en&meta=&q=site%3Alinkedin.com/in%20' + self.word
         try:
             headers = {'User-Agent': Core.get_user_agent()}
-            r = requests.get(urly, headers=headers)
-            self.results = r.text
-            if search(self.results):
+            resp = await AsyncFetcher.fetch_all([urly], headers=headers, proxy=self.proxy)
+            self.results = resp[0]
+            if await search(self.results):
                 try:
-                    self.results = google_workaround(urly)
+                    self.results = await google_workaround(urly)
                     if isinstance(self.results, bool):
                         print('Google is blocking your ip and the workaround, returning')
                         return
@@ -33,20 +33,21 @@ class SearchLinkedin:
                     return
         except Exception as e:
             print(e)
-        time.sleep(getDelay())
+        await asyncio.sleep(getDelay())
         self.totalresults += self.results
 
-    def get_people(self):
+    async def get_people(self):
         rawres = myparser.Parser(self.totalresults, self.word)
-        return rawres.people_linkedin()
+        return await rawres.people_linkedin()
 
-    def get_links(self):
+    async def get_links(self):
         links = myparser.Parser(self.totalresults, self.word)
-        return splitter(links.links_linkedin())
+        return await splitter(await links.links_linkedin())
 
-    def process(self):
+    async def process(self, proxy=False):
+        self.proxy = proxy
         while self.counter < self.limit:
-            self.do_search()
-            time.sleep(getDelay())
+            await self.do_search()
+            await asyncio.sleep(getDelay())
             self.counter += 100
             print(f'\tSearching {self.counter} results.')

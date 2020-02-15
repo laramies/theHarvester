@@ -1,10 +1,7 @@
-from theHarvester.discovery.constants import *
 from theHarvester.lib.core import *
 from theHarvester.parsers import myparser
 import re
-import time
-import grequests
-import requests
+import asyncio
 
 
 class SearchExalead:
@@ -18,8 +15,9 @@ class SearchExalead:
         self.hostname = 'www.exalead.com'
         self.limit = limit
         self.counter = start
+        self.proxy = False
 
-    def do_search(self):
+    async def do_search(self):
         base_url = f'https://{self.server}/search/web/results/?q=%40{self.word}&elements_per_page=50&start_index=xx'
         headers = {
             'Host': self.hostname,
@@ -27,29 +25,23 @@ class SearchExalead:
             'User-agent': Core.get_user_agent()
         }
         urls = [base_url.replace("xx", str(num)) for num in range(self.counter, self.limit, 50) if num <= self.limit]
-        req = []
-        for url in urls:
-            req.append(grequests.get(url, headers=headers, timeout=5))
-            time.sleep(3)
-        responses = grequests.imap(tuple(req), size=3)
+        responses = await AsyncFetcher.fetch_all(urls, headers=headers, proxy=self.proxy)
         for response in responses:
-            # TODO if decoded content contains information about solving captcha print message to user to visit website
-            # TODO to solve it or use a vpn as it appears to be ip based
-            self.total_results += response.content.decode('UTF-8')
+            self.total_results += response
 
-    def do_search_files(self, files):
+    async def do_search_files(self, files):
         url = f'https://{self.server}/search/web/results/?q=%40{self.word}filetype:{self.files}&elements_per_page' \
-            f'=50&start_index={self.counter} '
+              f'=50&start_index={self.counter} '
         headers = {
             'Host': self.hostname,
             'Referer': ('http://' + self.hostname + '/search/web/results/?q=%40' + self.word),
             'User-agent': Core.get_user_agent()
         }
-        h = requests.get(url=url, headers=headers)
-        self.results = h.text
+        responses = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
+        self.results = responses[0]
         self.total_results += self.results
 
-    def check_next(self):
+    async def check_next(self):
         renext = re.compile('topNextUrl')
         nextres = renext.findall(self.results)
         if nextres != []:
@@ -59,27 +51,28 @@ class SearchExalead:
             nexty = '0'
         return nexty
 
-    def get_emails(self):
+    async def get_emails(self):
         rawres = myparser.Parser(self.total_results, self.word)
-        return rawres.emails()
+        return await rawres.emails()
 
-    def get_hostnames(self):
+    async def get_hostnames(self):
         rawres = myparser.Parser(self.total_results, self.word)
-        return rawres.hostnames()
+        return await rawres.hostnames()
 
-    def get_files(self):
+    async def get_files(self):
         rawres = myparser.Parser(self.total_results, self.word)
-        return rawres.fileurls(self.files)
+        return await rawres.fileurls(self.files)
 
-    def process(self):
+    async def process(self, proxy=False):
+        self.proxy = proxy
         print('Searching results')
-        self.do_search()
+        await self.do_search()
 
-    def process_files(self, files):
+    async def process_files(self, files):
         while self.counter < self.limit:
-            self.do_search_files(files)
-            time.sleep(getDelay())
+            await self.do_search_files(files)
             more = self.check_next()
+            await asyncio.sleep(2)
             if more == '1':
                 self.counter += 50
             else:

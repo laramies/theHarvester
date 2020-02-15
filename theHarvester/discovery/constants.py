@@ -1,10 +1,12 @@
+from theHarvester.lib.core import *
 from typing import Union
 import random
 
-googleUA = 'Mozilla/5.0 (Windows NT 6.2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1464.0 Safari/537.36'
+googleUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 ' \
+           'Safari/537.36 '
 
 
-def splitter(links):
+async def splitter(links):
     """
     Method that tries to remove duplicates
     LinkedinLists pulls a lot of profiles with the same name.
@@ -52,7 +54,7 @@ def getDelay() -> float:
     return random.randint(1, 3) - .5
 
 
-def search(text: str) -> bool:
+async def search(text: str) -> bool:
     # Helper function to check if Google has blocked traffic.
     for line in text.strip().splitlines():
         if 'This page appears when Google automatically detects requests coming from your computer network' in line \
@@ -62,13 +64,12 @@ def search(text: str) -> bool:
     return False
 
 
-def google_workaround(visit_url: str) -> Union[bool, str]:
+async def google_workaround(visit_url: str) -> Union[bool, str]:
     """
     Function that makes a request on our behalf, if Google starts to block us
     :param visit_url: Url to scrape
     :return: Correct html that can be parsed by BS4
     """
-    import requests
     url = 'https://websniffer.cc/'
     data = {
         'Cookie': '',
@@ -77,11 +78,13 @@ def google_workaround(visit_url: str) -> Union[bool, str]:
         'type': 'GET&http=1.1',
         'uak': str(random.randint(4, 8))  # select random UA to send to Google
     }
-    resp = requests.post(url, headers={'User-Agent': googleUA}, data=data)
-    returned_html = resp.text
-    if search(returned_html):
+    returned_html = await AsyncFetcher.post_fetch(url, headers={'User-Agent': Core.get_user_agent()}, data=data)
+    returned_html = "This page appears when Google automatically detects requests coming from your computer network" \
+        if returned_html == "" else returned_html[0]
+
+    if await search(returned_html):
         # indicates that google is serving workaround a captcha
-        # TODO rework workaround with more websites to send requests on our behalf or utilize proxies option in request
+        # That means we will try out second option which will utilize proxies
         return True
     # the html we get is malformed for BS4 as there are no greater than or less than signs
     if '&lt;html&gt;' in returned_html:

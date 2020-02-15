@@ -2,18 +2,22 @@ dist: bionic
 language: python
 cache: pip
 matrix:
+  allow_failures:
+    - python: 'nightly'
   include:
   - python: '3.7'
     env: TEST_SUITE=suite_3_7
   - python: '3.8'
     env: TEST_SUITE=suite_3_8
+  - python: 'nightly'
+    env: TEST_SUITE=suite_3_9
+
 before_install:
-- pip install pipenv
-- pipenv install --dev
+- pip install -r requirements/dev.txt
 install:
 - python setup.py test
 script:
-- python theHarvester.py -d metasploit.com -b baidu,bing,certspotter,crtsh,dnsdumpster,dogpile,duckduckgo,exalead,linkedin,netcraft,otx,intelx,threatcrowd,trello,twitter,virustotal,yahoo
+- python theHarvester.py -d apple.com -b baidu,bing,bufferoverun,certspotter,crtsh,dnsdumpster,dogpile,duckduckgo,exalead,linkedin,netcraft,intelx,threatcrowd,trello,twitter,virustotal,yahoo
   -l 200
 - pytest
 - flake8 . --count --show-source --statistics

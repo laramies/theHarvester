@@ -1,22 +1,24 @@
 # coding=utf-8
 
-import random
-from typing import Set, Union, Any
+from typing import Set, Union, Any, Tuple, List
 import yaml
+import asyncio
+import aiohttp
+import random
 
 
 class Core:
     @staticmethod
     def version() -> str:
-        return '3.1.1dev3'
+        return '3.2.0dev0'
 
     @staticmethod
     def bing_key() -> str:
         try:
-            with open('api-keys.yaml', 'r') as api_keys:
+            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
         except FileNotFoundError:
-            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+            with open('api-keys.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
                 return keys['apikeys']['bing']['key']
         return keys['apikeys']['bing']['key']
@@ -24,10 +26,10 @@ class Core:
     @staticmethod
     def github_key() -> str:
         try:
-            with open('api-keys.yaml', 'r') as api_keys:
+            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
         except FileNotFoundError:
-            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+            with open('api-keys.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
                 return keys['apikeys']['github']['key']
         return keys['apikeys']['github']['key']
@@ -35,10 +37,10 @@ class Core:
     @staticmethod
     def hunter_key() -> str:
         try:
-            with open('api-keys.yaml', 'r') as api_keys:
+            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
         except FileNotFoundError:
-            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+            with open('api-keys.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
             return keys['apikeys']['hunter']['key']
         return keys['apikeys']['hunter']['key']
@@ -46,10 +48,10 @@ class Core:
     @staticmethod
     def intelx_key() -> str:
         try:
-            with open('api-keys.yaml', 'r') as api_keys:
+            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
         except FileNotFoundError:
-            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+            with open('api-keys.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
                 return keys['apikeys']['intelx']['key']
         return keys['apikeys']['intelx']['key']
@@ -57,10 +59,10 @@ class Core:
     @staticmethod
     def security_trails_key() -> str:
         try:
-            with open('api-keys.yaml', 'r') as api_keys:
+            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
         except FileNotFoundError:
-            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+            with open('api-keys.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
                 return keys['apikeys']['securityTrails']['key']
         return keys['apikeys']['securityTrails']['key']
@@ -68,10 +70,10 @@ class Core:
     @staticmethod
     def shodan_key() -> str:
         try:
-            with open('api-keys.yaml', 'r') as api_keys:
+            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
         except FileNotFoundError:
-            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+            with open('api-keys.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
                 return keys['apikeys']['shodan']['key']
         return keys['apikeys']['shodan']['key']
@@ -79,13 +81,26 @@ class Core:
     @staticmethod
     def spyse_key() -> str:
         try:
-            with open('api-keys.yaml', 'r') as api_keys:
+            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
         except FileNotFoundError:
-            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+            with open('api-keys.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
                 return keys['apikeys']['spyse']['key']
         return keys['apikeys']['spyse']['key']
+
+    @staticmethod
+    def proxy_list() -> List:
+        try:
+            with open('/etc/theHarvester/proxies.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+        except FileNotFoundError:
+            with open('proxies.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+                http_list = [f'http://{proxy}' for proxy in keys['http']] if keys['http'] is not None else []
+                return http_list
+        http_list = [f'http://{proxy}' for proxy in keys['http']] if keys['http'] is not None else []
+        return http_list
 
     @staticmethod
     def banner() -> None:
@@ -108,6 +123,7 @@ class Core:
         supportedengines = {'baidu',
                             'bing',
                             'bingapi',
+                            'bufferoverun',
                             'certspotter',
                             'crtsh',
                             'dnsdumpster',
@@ -368,3 +384,129 @@ class Core:
             'Mozilla/5.0 (Windows NT 5.1; U; de; rv:1.9.1.6) Gecko/20091201 Firefox/3.5.6 Opera 11.00'
         ]
         return random.choice(user_agents)
+
+
+class AsyncFetcher:
+    proxy_list = Core.proxy_list()
+
+    @classmethod
+    async def post_fetch(cls, url, headers='', data='', params='', json=False, proxy=False):
+        if len(headers) == 0:
+            headers = {'User-Agent': Core.get_user_agent()}
+        timeout = aiohttp.ClientTimeout(total=720)
+        # by default timeout is 5 minutes, changed to 12 minutes for suip module
+        # results are well worth the wait
+        try:
+            if proxy:
+                proxy = str(random.choice(cls().proxy_list))
+                if params != "":
+                    async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
+                        async with session.get(url, params=params, proxy=proxy) as response:
+                            await asyncio.sleep(2)
+                            return await response.text() if json is False else await response.json()
+                else:
+                    async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
+                        async with session.get(url, proxy=proxy) as response:
+                            await asyncio.sleep(2)
+                            return await response.text() if json is False else await response.json()
+            elif params == '':
+                async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
+                    async with session.post(url, data=data) as resp:
+                        await asyncio.sleep(3)
+                        return await resp.text() if json is False else await resp.json()
+            else:
+                async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
+                    async with session.post(url, data=data, params=params) as resp:
+                        await asyncio.sleep(3)
+                        return await resp.text() if json is False else await resp.json()
+        except Exception as e:
+            print('An exception has occurred: ', e)
+            return ''
+
+    @staticmethod
+    async def fetch(session, url, params='', json=False, proxy="") -> Union[str, dict, list, bool]:
+        # This fetch method solely focuses on get requests
+        try:
+            # Wrap in try except due to 0x89 png/jpg files
+            # This fetch method solely focuses on get requests
+            # TODO determine if method for post requests is necessary
+            if proxy != "":
+                if params != "":
+                    async with session.get(url, params=params, proxy=proxy) as response:
+                        return await response.text() if json is False else await response.json()
+                else:
+                    async with session.get(url) as response:
+                        await asyncio.sleep(2)
+                        return await response.text() if json is False else await response.json()
+
+            if params != '':
+                async with session.get(url, params=params) as response:
+                    await asyncio.sleep(2)
+                    return await response.text() if json is False else await response.json()
+
+            else:
+                async with session.get(url) as response:
+                    await asyncio.sleep(2)
+                    return await response.text() if json is False else await response.json()
+        except Exception as e:
+            print('An exception has occurred: ', e)
+            return ''
+
+    @staticmethod
+    async def takeover_fetch(session, url, proxy="") -> Union[Tuple[Any, Any], str]:
+        # This fetch method solely focuses on get requests
+        try:
+            # Wrap in try except due to 0x89 png/jpg files
+            # This fetch method solely focuses on get requests
+            # TODO determine if method for post requests is necessary
+            url = f'http://{url}' if str(url).startswith(('http:', 'https:')) is False else url
+            # Clean up urls with proper schemas
+            if proxy != "":
+                async with session.get(url, proxy=proxy) as response:
+                    await asyncio.sleep(2)
+                    return url, await response.text()
+            else:
+                async with session.get(url) as response:
+                    await asyncio.sleep(2)
+                    return url, await response.text()
+        except Exception:
+            return url, ''
+
+    @classmethod
+    async def fetch_all(cls, urls, headers='', params='', json=False, takeover=False, proxy=False) -> list:
+        # By default timeout is 5 minutes, 30 seconds should suffice
+        timeout = aiohttp.ClientTimeout(total=30)
+        if len(headers) == 0:
+            headers = {'User-Agent': Core.get_user_agent()}
+        if takeover:
+            async with aiohttp.ClientSession(headers=headers, timeout=aiohttp.ClientTimeout(total=15)) as session:
+                if proxy:
+                    tuples = await asyncio.gather(
+                        *[AsyncFetcher.takeover_fetch(session, url, proxy=random.choice(cls().proxy_list)) for url in
+                          urls])
+                    return tuples
+                else:
+                    tuples = await asyncio.gather(*[AsyncFetcher.takeover_fetch(session, url) for url in urls])
+                    return tuples
+
+        if len(params) == 0:
+            async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
+                if proxy:
+                    texts = await asyncio.gather(
+                        *[AsyncFetcher.fetch(session, url, json=json, proxy=random.choice(cls().proxy_list)) for url in
+                          urls])
+                    return texts
+                else:
+                    texts = await asyncio.gather(*[AsyncFetcher.fetch(session, url, json=json) for url in urls])
+                    return texts
+        else:
+            # Indicates the request has certain params
+            async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
+                if proxy:
+                    texts = await asyncio.gather(*[AsyncFetcher.fetch(session, url, params, json,
+                                                                      proxy=random.choice(cls().proxy_list)) for url in
+                                                   urls])
+                    return texts
+                else:
+                    texts = await asyncio.gather(*[AsyncFetcher.fetch(session, url, params, json) for url in urls])
+                    return texts

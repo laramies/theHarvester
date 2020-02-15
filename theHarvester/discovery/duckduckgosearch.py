@@ -2,8 +2,6 @@ from theHarvester.discovery.constants import *
 from theHarvester.lib.core import *
 from theHarvester.parsers import myparser
 import json
-import requests
-import time
 
 
 class SearchDuckDuckGo:
@@ -18,24 +16,21 @@ class SearchDuckDuckGo:
         self.api = 'https://api.duckduckgo.com/?q=x&format=json&pretty=1'  # Currently using API.
         self.quantity = '100'
         self.limit = limit
+        self.proxy = False
 
-    def do_search(self):
+    async def do_search(self):
         # Do normal scraping.
         url = self.api.replace('x', self.word)
         headers = {'User-Agent': googleUA}
-        r = requests.get(url, headers=headers)
-        time.sleep(getDelay())
-        self.results = r.text
+        first_resp = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
+        self.results = first_resp[0]
         self.totalresults += self.results
-        urls = self.crawl(self.results)
-        for url in urls:
-            try:
-                self.totalresults += requests.get(url, headers={'User-Agent': Core.get_user_agent()}).text
-                time.sleep(getDelay())
-            except Exception:
-                continue
+        urls = await self.crawl(self.results)
+        urls = {url for url in urls if len(url) > 5}
+        all_resps = await AsyncFetcher.fetch_all(urls)
+        self.totalresults += ''.join(all_resps)
 
-    def crawl(self, text):
+    async def crawl(self, text):
         """
         Function parses json and returns URLs.
         :param text: formatted json
@@ -77,13 +72,14 @@ class SearchDuckDuckGo:
             print(f'Exception occurred: {e}')
             return []
 
-    def get_emails(self):
+    async def get_emails(self):
         rawres = myparser.Parser(self.totalresults, self.word)
-        return rawres.emails()
+        return await rawres.emails()
 
-    def get_hostnames(self):
+    async def get_hostnames(self):
         rawres = myparser.Parser(self.totalresults, self.word)
-        return rawres.hostnames()
+        return await rawres.hostnames()
 
-    def process(self):
-        self.do_search()  # Only need to search once since using API.
+    async def process(self, proxy=False):
+        self.proxy = proxy
+        await self.do_search()  # Only need to search once since using API.

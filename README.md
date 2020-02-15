@@ -19,6 +19,8 @@ Passive:
 
 * bingapi: Microsoft search engine, through the API (Requires an API key, see below.)
 
+* Bufferoverun: Uses data from Rapid7's project sonar - https://dns.bufferover.run/dns?q=apple.com
+
 * CertSpotter: Cert Spotter monitors Certificate Transparency logs - https://sslmate.com/certspotter/
 
 * crtsh: Comodo Certificate search - www.crt.sh
@@ -85,11 +87,12 @@ Add your keys to api-keys.yaml
 * shodan
 * spyse
 
-Dependencies:
+Install & Dependencies:
 -------------
 * Python 3.7+
 * python3 -m pip install pipenv
-* pipenv install
+* https://github.com/laramies/theHarvester/wiki/Installation
+
 
 Comments, bugs, or requests?
 ----------------------------

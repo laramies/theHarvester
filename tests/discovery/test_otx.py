@@ -5,27 +5,29 @@ from theHarvester.discovery import otxsearch
 import requests
 import pytest
 
+pytestmark = pytest.mark.asyncio
+
 
 class TestOtx(object):
     @staticmethod
     def domain() -> str:
         return 'metasploit.com'
 
-    def test_api(self):
+    async def test_api(self):
         base_url = f'https://otx.alienvault.com/api/v1/indicators/domain/{TestOtx.domain()}/passive_dns'
         headers = {'User-Agent': Core.get_user_agent()}
         request = requests.get(base_url, headers=headers)
         assert request.status_code == 200
 
-    def test_search(self):
+    async def test_search(self):
         search = otxsearch.SearchOtx(TestOtx.domain())
-        search.process()
-        assert isinstance(search.get_hostnames(), set)
+        await search.process()
+        assert isinstance(await search.get_hostnames(), set)
 
-    def test_search_no_results(self):
+    async def test_search_no_results(self):
         search = otxsearch.SearchOtx('radiant.eu')
-        search.process()
-        assert len(search.get_hostnames()) == 0
+        await search.process()
+        assert len(await search.get_hostnames()) == 0
 
 
 if __name__ == '__main__':

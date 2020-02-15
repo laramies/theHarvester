@@ -1,7 +1,6 @@
 from theHarvester.discovery.constants import *
 from theHarvester.lib.core import *
 from theHarvester.parsers import myparser
-import grequests
 
 
 class SearchHunter:
@@ -16,23 +15,25 @@ class SearchHunter:
         self.total_results = ""
         self.counter = start
         self.database = f'https://api.hunter.io/v2/domain-search?domain={word}&api_key={self.key}&limit={self.limit}'
+        self.proxy = False
 
-    def do_search(self):
-        request = grequests.get(self.database)
-        response = grequests.map([request])
-        self.total_results = response[0].content.decode('UTF-8')
+    async def do_search(self):
+        responses = await AsyncFetcher.fetch_all([self.database], headers={'User-Agent': Core.get_user_agent()},
+                                                 proxy=self.proxy)
+        self.total_results += responses[0]
 
-    def process(self):
-        self.do_search()  # Only need to do it once.
+    async def process(self, proxy=False):
+        self.proxy = proxy
+        await self.do_search()  # Only need to do it once.
 
-    def get_emails(self):
+    async def get_emails(self):
         rawres = myparser.Parser(self.total_results, self.word)
-        return rawres.emails()
+        return await rawres.emails()
 
-    def get_hostnames(self):
+    async def get_hostnames(self):
         rawres = myparser.Parser(self.total_results, self.word)
-        return rawres.hostnames()
+        return await rawres.hostnames()
 
-    def get_profiles(self):
+    async def get_profiles(self):
         rawres = myparser.Parser(self.total_results, self.word)
-        return rawres.profiles()
+        return await rawres.profiles()
