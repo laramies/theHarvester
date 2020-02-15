@@ -1,5 +1,4 @@
 from theHarvester.lib.core import *
-import aiohttp
 
 
 class SearchCertspoter:
@@ -11,11 +10,9 @@ class SearchCertspoter:
 
     async def do_search(self) -> None:
         base_url = f'https://api.certspotter.com/v1/issuances?domain={self.word}&expand=dns_names'
-        headers = {'User-Agent': Core.get_user_agent()}
         try:
-            client = aiohttp.ClientSession(headers=headers, timeout=aiohttp.ClientTimeout(total=30))
-            response = await AsyncFetcher.fetch(client, base_url, json=True, proxy=self.proxy)
-            await client.close()
+            response = await AsyncFetcher.fetch_all([base_url], json=True, proxy=self.proxy)
+            response = response[0]
             if isinstance(response, list):
                 for dct in response:
                     for key, value in dct.items():
