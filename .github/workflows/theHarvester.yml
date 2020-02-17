@@ -17,7 +17,7 @@ jobs:
         python-version: [3.7, 3.8]
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v1.1.1
       with:
@@ -31,6 +31,10 @@ jobs:
       run: |
         python theHarvester.py -d yale.edu -b baidu
 
+    - name: Run theHarvester module bufferoverun
+      run: |
+        python theHarvester.py -d yale.edu -b bufferoverun
+
     - name: Run theHarvester module bing
       run: |
         python theHarvester.py -d yale.edu -b bing
@@ -41,7 +45,7 @@ jobs:
 
     - name: Run theHarvester module crtsh
       run: |
-        python theHarvester.py -d yale.edu -b crtsh
+        python theHarvester.py -d hcl.com -b crtsh
 
     - name: Run theHarvester module dnsdumpster
       run: |
