@@ -425,12 +425,10 @@ async def start():
         print('\n[*] Hosts found: ' + str(len(all_hosts)))
         print('---------------------')
         all_hosts = sorted(list(set(all_hosts)))
-        """full_host = hostchecker.Checker(all_hosts)
-        full, ips = await full_host.check()"""
         db = stash.StashManager()
-        full = [host if ':' in host else word in host.split(':')[0] and host for host in full]
+        full = [host if ':' in host and word in host else word in host.split(':')[0] and host for host in full]
         full = [host for host in full if host]
-        full.sort(key=lambda el: el.split(':')[0] if el else ':' in el and el)
+        full.sort(key=lambda el: el.split(':')[0])
         for host in full:
             print(host)
         host_ip = [netaddr_ip.format() for netaddr_ip in sorted([netaddr.IPAddress(ip) for ip in ips])]
