@@ -1,5 +1,4 @@
 from theHarvester.lib.core import *
-import aiohttp
 from typing import Set
 
 
@@ -14,12 +13,10 @@ class SearchCrtsh:
         data: set = set()
         try:
             url = f'https://crt.sh/?q=%25.{self.word}&output=json'
-            headers = {'User-Agent': Core.get_user_agent()}
-            client = aiohttp.ClientSession(headers=headers, timeout=aiohttp.ClientTimeout(total=20))
-            response = await AsyncFetcher.fetch(client, url, json=True, proxy=self.proxy)
-            await client.close()
+            response = await AsyncFetcher.fetch_all([url], json=True, proxy=self.proxy)
+            response = response[0]
             data = set(
-                [dict(dct)['name_value'][2:] if '*.' == dict(dct)['name_value'][:2] else dict(dct)['name_value']
+                [dct['name_value'][2:] if '*.' == dct['name_value'][:2] else dct['name_value']
                  for dct in response])
         except Exception as e:
             print(e)

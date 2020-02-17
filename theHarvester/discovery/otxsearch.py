@@ -12,11 +12,8 @@ class SearchOtx:
 
     async def do_search(self):
         url = f'https://otx.alienvault.com/api/v1/indicators/domain/{self.word}/passive_dns'
-        headers = {'User-Agent': Core.get_user_agent()}
-        client = aiohttp.ClientSession(headers=headers, timeout=aiohttp.ClientTimeout(total=20))
-        responses = await AsyncFetcher.fetch(client, url, json=True, proxy=self.proxy)
-        await client.close()
-
+        response = await AsyncFetcher.fetch_all([url], json=True, proxy=self.proxy)
+        responses = response[0]
         dct = responses
         self.totalhosts: set = {host['hostname'] for host in dct['passive_dns']}
         # filter out ips that are just called NXDOMAIN
