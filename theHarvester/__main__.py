@@ -428,9 +428,10 @@ async def start():
         """full_host = hostchecker.Checker(all_hosts)
         full, ips = await full_host.check()"""
         db = stash.StashManager()
-        full.sort(key=lambda el: el.split(':')[0])
+        full = [host if ':' in host else word in host.split(':')[0] and host for host in full]
+        full = [host for host in full if host]
+        full.sort(key=lambda el: el.split(':')[0] if el else ':' in el and el)
         for host in full:
-            host = str(host)
             print(host)
         host_ip = [netaddr_ip.format() for netaddr_ip in sorted([netaddr.IPAddress(ip) for ip in ips])]
         await db.store_all(word, host_ip, 'ip', 'DNS-resolver')
