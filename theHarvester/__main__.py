@@ -296,12 +296,15 @@ async def start():
                         print(e)
 
                 elif engineitem == 'pentesttools':
-                    from theHarvester.discovery import pentesttoolssearch
+                    from theHarvester.discovery import pentesttools
                     try:
-                        pentestools_search = pentestools_search.SearchPentestTools(word)
-                        stor_lst.append(store(pentestools_search, engineitem, store_host=True))
+                        pentesttools_search = pentesttools.SearchPentestTools(word)
+                        stor_lst.append(store(pentesttools_search, engineitem, store_host=True))
                     except Exception as e:
-                        print(e)
+                        if isinstance(e, MissingKey):
+                            print(e)
+                        else:
+                            print(f'An exception has occurred in PentestTools search: {e}')
 
                 elif engineitem == 'securityTrails':
                     from theHarvester.discovery import securitytrailssearch
