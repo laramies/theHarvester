@@ -37,7 +37,7 @@ async def start():
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, bufferoverun, certspotter, crtsh, dnsdumpster,
                         dogpile, duckduckgo, exalead, github-code, google,
                         hunter, intelx,
-                        linkedin, linkedin_links, netcraft, otx, securityTrails, spyse, threatcrowd,
+                        linkedin, linkedin_links, netcraft, otx, pentesttools, securityTrails, spyse, threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo, all''')
 
     args = parser.parse_args()
@@ -292,6 +292,14 @@ async def start():
                     try:
                         otxsearch_search = otxsearch.SearchOtx(word)
                         stor_lst.append(store(otxsearch_search, engineitem, store_host=True, store_ip=True))
+                    except Exception as e:
+                        print(e)
+
+                elif engineitem == 'pentesttools':
+                    from theHarvester.discovery import pentesttoolssearch
+                    try:
+                        pentestools_search = pentestools_search.SearchPentestTools(word)
+                        stor_lst.append(store(pentestools_search, engineitem, store_host=True))
                     except Exception as e:
                         print(e)
 

@@ -57,6 +57,17 @@ class Core:
         return keys['apikeys']['intelx']['key']
 
     @staticmethod
+    def pentest_tools_key() -> str:
+        try:
+            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+        except FileNotFoundError:
+            with open('api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+                return keys['apikeys']['pentestTools']['key']
+        return keys['apikeys']['pentestTools']['key']
+
+    @staticmethod
     def security_trails_key() -> str:
         try:
             with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
@@ -138,6 +149,7 @@ class Core:
                             'linkedin_links',
                             'netcraft',
                             'otx',
+                            'pentesttools',
                             'securityTrails',
                             'suip',
                             'spyse',
