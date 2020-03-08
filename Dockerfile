@@ -1,4 +1,4 @@
-FROM python:3.7-alpine3.10
+FROM python:alpine3.11
 RUN mkdir /app
 WORKDIR /app
 COPY . /app
