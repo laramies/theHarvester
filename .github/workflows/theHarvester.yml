@@ -12,7 +12,6 @@ jobs:
   tests:
     runs-on: ubuntu-latest
     strategy:
-      max-parallel: 4
       matrix:
         python-version: ['3.7', '3.8', '3.9']
     name: Python ${{ matrix.python-version }}
@@ -30,9 +29,11 @@ jobs:
           echo "::set-env name=VIRTUAL_ENV::$HOME/venv-python3.9"
           echo "::add-path::$HOME/venv-python3.9/bin"
       - uses: actions/setup-python@v1.1.1
-#        if: matrix.python-version != '3.9'
-#        with:
-#        python-version: ${{ matrix.python-version }}
+        if: matrix.python-version != '3.9'
+        with:
+          python-version: ${{ matrix.python-version }}
+          architecture: x64
+
     - name: Install dependencies
       run: |
         pip install --upgrade pip
