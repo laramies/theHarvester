@@ -34,20 +34,20 @@ jobs:
           python-version: ${{ matrix.python-version }}
           architecture: x64
 
-            - name: Install dependencies
+      - name: Install dependencies
                 run: |
                   pip install --upgrade pip
                   pip install -r requirements/dev.txt
 
-             - name: Run theHarvester module baidu
+      - name: Run theHarvester module baidu
                  run: |
                    python theHarvester.py -d yale.edu -b baidu
 
-             - name: Run theHarvester module bufferoverun
+      - name: Run theHarvester module bufferoverun
                  run: |
                    python theHarvester.py -d yale.edu -b bufferoverun
 
-             - name: Run theHarvester module bing
+      - name: Run theHarvester module bing
                  run: |
                    python theHarvester.py -d yale.edu -b bing
 
