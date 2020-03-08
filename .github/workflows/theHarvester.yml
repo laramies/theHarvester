@@ -30,9 +30,9 @@ jobs:
           echo "::set-env name=VIRTUAL_ENV::$HOME/venv-python3.9"
           echo "::add-path::$HOME/venv-python3.9/bin"
       - uses: actions/setup-python@v1.1.1
-        if: matrix.python-version != '3.9'
-        with:
-        python-version: ${{ matrix.python-version }}
+#        if: matrix.python-version != '3.9'
+#        with:
+#        python-version: ${{ matrix.python-version }}
     - name: Install dependencies
       run: |
         pip install --upgrade pip
