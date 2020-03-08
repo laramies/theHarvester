@@ -12,7 +12,7 @@ jobs:
   tests:
     runs-on: ubuntu-latest
     strategy:
-      max-parallel: 4
+ #     max-parallel: 4
       matrix:
         python-version: ['3.7', '3.8', '3.9']
     name: Python ${{ matrix.python-version }}
@@ -32,7 +32,7 @@ jobs:
       - uses: actions/setup-python@v1.1.1
         if: matrix.python-version != '3.9'
         with:
-          python-version: ${{ matrix.python-version }}
+        python-version: ${{ matrix.python-version }}
     - name: Install dependencies
       run: |
         pip install --upgrade pip
