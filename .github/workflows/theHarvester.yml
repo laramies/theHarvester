@@ -9,19 +9,32 @@ on:
     branches:
     - '*'
 jobs:
-  Python:
+  tests:
     runs-on: ubuntu-latest
     strategy:
       max-parallel: 4
       matrix:
-        python-version: [3.7, 3.8]
-
+        python-version: ['3.7', '3.8', '3.9']
+    name: Python ${{ matrix.python-version }}
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v1.1.1
-      with:
-        python-version: ${{ matrix.python-version }}
+      - uses: actions/checkout@v2
+      - name: Install Python 3.9
+        if: matrix.python-version == '3.9'
+        run: |
+          sudo add-apt-repository ppa:deadsnakes/ppa
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends python3.9-dev python3.9-distutils
+          python3.9 -m pip install --upgrade pip setuptools
+          python3.9 -m pip install --upgrade virtualenv
+          python3.9 -m virtualenv --python=3.9 $HOME/venv-python3.9
+          echo "::set-env name=VIRTUAL_ENV::$HOME/venv-python3.9"
+          echo "::add-path::$HOME/venv-python3.9/bin"
+      - uses: actions/setup-python@v1.1.1
+        if: matrix.python-version != '3.9'
+        with:
+          python-version: ${{ matrix.python-version }}
+          architecture: x64
+
     - name: Install dependencies
       run: |
         pip install --upgrade pip
