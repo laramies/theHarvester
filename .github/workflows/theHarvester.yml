@@ -22,7 +22,7 @@ jobs:
         run: |
           sudo add-apt-repository ppa:deadsnakes/ppa
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends python3.9-dev python3.9-distutils
+          sudo apt-get install -y --no-install-recommends python3.9-dev python3.9-distutils libxml-dev
           python3.9 -m pip install --upgrade pip setuptools
           python3.9 -m pip install --upgrade virtualenv
           python3.9 -m virtualenv --python=3.9 $HOME/venv-python3.9
