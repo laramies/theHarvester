@@ -8,7 +8,7 @@ What is this?
 theHarvester is a very simple, yet effective tool designed to be used in the early statges of<br>
 a penetration test or red team engagement. Use it for open source intelligence gathering and<br>
 helping to determine a company's external threat landscape on the internet. The tool gathers<br>
-emails, names, subdomains, IPs, and URLs using multiple public data sources that include:
+emails, names, subdomains, IPs and URLs using multiple public data sources that include:
 
 Passive:
 --------
