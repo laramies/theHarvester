@@ -5,11 +5,10 @@
 
 What is this?
 -------------
-theHarvester is a very simple, yet effective tool designed to be used in the early<br>
-stages of a penetration test. Use it for open source intelligence gathering and<br>
-helping to determine a company's external threat landscape on the internet. The<br>
-tool gathers emails, names, subdomains, IPs, and URLs using multiple public data<br>
-sources that include:
+theHarvester is a very simple to use, yet powerful and effective tool designed to be used in the early statges of a<br>
+penetration test or red team engagement. Use it for open source intelligence (OSINT) gathering to help determine a<br>
+company's external threat landscape on the internet. The tool gathers emails, names, subdomains, IPs and URLs using<br>
+multiple public data sources that include:
 
 Passive:
 --------
@@ -19,7 +18,7 @@ Passive:
 
 * bingapi: Microsoft search engine, through the API (Requires an API key, see below.)
 
-* Bufferoverun: Uses data from Rapid7's project sonar - https://dns.bufferover.run/dns?q=apple.com
+* Bufferoverun: Uses data from Rapid7's Project Sonar - www.rapid7.com/research/project-sonar/
 
 * CertSpotter: Cert Spotter monitors Certificate Transparency logs - https://sslmate.com/certspotter/
 
@@ -31,9 +30,9 @@ Passive:
 
 * duckduckgo: DuckDuckGo search engine - www.duckduckgo.com
 
-* Exalead: a Meta search engine - https://www.exalead.com/search
+* Exalead: a Meta search engine - www.exalead.com/search
 
-* github-code: Github code search engine (Requires a Github Personal Access Token, see below.) - www.github.com
+* github-code: GitHub code search engine (Requires a GitHub Personal Access Token, see below.) - www.github.com
 
 * google: Google search engine (Optional Google dorking.) - www.google.com
 
@@ -45,17 +44,16 @@ Passive:
 
 * netcraft: Internet Security and Data Mining - www.netcraft.com
 
-* otx: AlienVault Open Threat Exchange - https://otx.alienvault.com
+* otx: AlienVault Open Threat Exchange - otx.alienvault.com
 
-* securityTrails: Security Trails search engine, the world's largest repository<br>
-  of historical DNS data (Requires an API key, see below.) - www.securitytrails.com
+* securityTrails: Security Trails search engine, the world's largest repository of historical DNS data<br>
+  (Requires an API key, see below.) - www.securitytrails.com
 
-* shodan: Shodan search engine, will search for ports and banners from discovered<br>
-  hosts - www.shodanhq.com
+* shodan: Shodan search engine, will search for ports and banners from discovered hosts - www.shodanhq.com
 
-* Spyse: Web research tools for professionals (Requires an API key.) - https://spyse.com/
+* Spyse: Web research tools for professionals (Requires an API key.) - spyse.com
 
-* Suip: Web research tools that can take over 10 minutes to run, but worth the wait. - https://suip.biz/
+* Suip: Web research tools that can take over 10 minutes to run, but worth the wait - suip.biz
 
 * threatcrowd: Open source threat intelligence - www.threatcrowd.org
 
@@ -87,19 +85,21 @@ Add your keys to api-keys.yaml
 * shodan
 * spyse
 
-Install & Dependencies:
--------------
+
+Install and dependencies:
+-------------------------
 * Python 3.7+
 * python3 -m pip install pipenv
 * https://github.com/laramies/theHarvester/wiki/Installation
 
 
-Comments, bugs, or requests?
+Comments, bugs and requests:
 ----------------------------
 * [![Twitter Follow](https://img.shields.io/twitter/follow/laramies.svg?style=social&label=Follow)](https://twitter.com/laramies) Christian Martorella @laramies
 cmartorella@edge-security.com
 * [![Twitter Follow](https://img.shields.io/twitter/follow/NotoriousRebel1.svg?style=social&label=Follow)](https://twitter.com/NotoriousRebel1) Matthew Brown @NotoriousRebel1
 * [![Twitter Follow](https://img.shields.io/twitter/follow/jay_townsend1.svg?style=social&label=Follow)](https://twitter.com/jay_townsend1) Jay "L1ghtn1ng" Townsend @jay_townsend1
+
 
 Main contributors:
 ------------------
@@ -107,6 +107,7 @@ Main contributors:
 * [![Twitter Follow](https://img.shields.io/twitter/follow/jay_townsend1.svg?style=social&label=Follow)](https://twitter.com/jay_townsend1) Jay "L1ghtn1ng" Townsend @jay_townsend1
 * [![Twitter Follow](https://img.shields.io/twitter/follow/discoverscripts.svg?style=social&label=Follow)](https://twitter.com/discoverscripts) Lee Baird @discoverscripts 
 * [![LinkedIn](https://static.licdn.com/scds/common/u/img/webpromo/btn_viewmy_160x25.png)](https://www.linkedin.com/in/janoszold/)  Janos Zold
+
 
 Thanks:
 -------
