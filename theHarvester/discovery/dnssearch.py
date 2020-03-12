@@ -10,6 +10,8 @@ class DnsForce:
         self.domain = domain
         self.subdo = False
         self.verbose = verbose
+        dns.resolver.default_resolver = dns.resolver.Resolver(configure=False)
+        dns.resolver.default_resolver.nameservers = [dnsserver]
         try:
             with open('wordlists/dns-names.txt', 'r') as file:
                 self.list = file.readlines()
