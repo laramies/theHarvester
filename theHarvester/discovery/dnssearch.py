@@ -68,80 +68,60 @@ def list_ips_in_network_range(
     __network = IPv4Network(iprange, strict=False)
     return [__address.exploded for __address in __network.hosts()]
 
-class DnsReverse:
+def reverse_single_ip(
+        ip: str,
+        verbose: bool = False) -> str:
     """
-    Find all the IPs in a range associated with a CNAME.
+    Reverse a single IP and output the linked CNAME, if it exists.
+
+    Parameters
+    ----------
+    ip: str.
+        The IP to reverse.
+    verbose: bool.
+        Print the progress or not.
+
+    Returns
+    -------
+    out: str.
+        The corresponding CNAME or None.
     """
+    if verbose:
+        sys.stdout.write(chr(27) + '[2K' + chr(27) + '[G')
+        sys.stdout.write('\r' + ip + ' - ')
+        sys.stdout.flush()
+    try:
+        dns_record_from_ip_answer = dns.reversename.from_address(ip)
+        ptr_record_answer = dns.resolver.query(dns_record_from_ip_answer, 'PTR')
+        a_record_answer = dns.resolver.query(ptr_record_answer[0].to_text(), 'A')
+        print(a_record_answer.canonical_name)
+        return str(a_record_answer.canonical_name)
+    except Exception:
+        return ''
 
-    def __init__(
-            self,
-            iprange: str,
-            verbose: bool = False) -> None:
-        """
-        Initialize.
+def reverse_ip_range(
+        iprange: str,
+        verbose: bool = False) -> List[str]:
+    """
+    Reverse all the IPs stored in a network range.
 
-        Parameters
-        ----------
-        iprange: str.
-            An IPv4 range formated as 'x.x.x.x/y'.
-            The last digit can be set to anything, it will be ignored.
-        verbose: bool.
-            Print the progress or not.
+    Parameters
+    ----------
+    iprange: str.
+        An IPv4 range formated as 'x.x.x.x/y'.
+        The last digit can be set to anything, it will be ignored.
+    verbose: bool.
+        Print the progress or not.
 
-        Returns
-        -------
-        out: None.
-        """
-        self.iprange = iprange
-        self.verbose = verbose
-
-    def run(
-            self,
-            ip: str) -> str:
-        """
-        Reverse a single IP and output the linked CNAME, if it exists.
-
-        Parameters
-        ----------
-        ip: str.
-            The IP to reverse.
-
-        Returns
-        -------
-        out: str.
-            The corresponding CNAME or None.
-        """
-        if self.verbose:
-            esc = chr(27)
-            sys.stdout.write(esc + '[2K' + esc + '[G')
-            sys.stdout.write('\r' + ip + ' - ')
-            sys.stdout.flush()
-        try:
-            dns_record_from_ip_answer = dns.reversename.from_address(ip)
-            ptr_record_answer = dns.resolver.query(dns_record_from_ip_answer, 'PTR')
-            a_record_answer = dns.resolver.query(ptr_record_answer[0].to_text(), 'A')
-            print(a_record_answer.canonical_name)
-            return str(a_record_answer.canonical_name)
-        except Exception:
-            return ''
-
-    def process(
-            self) -> List[str]:
-        """
-        Reverse all the IPs stored in 'self.list'.
-
-        Parameters
-        ----------
-
-        Returns
-        -------
-        out: list.
-            The list of all the found CNAME records.
-        """
-        results = []
-        for entry in list_ips_in_network_range(self.iprange):
-            host = self.run(entry)
-            if host is not None and host:
-                # print(' : ' + host.split(':')[1])
-                results.append(host)
-        return results
+    Returns
+    -------
+    out: list.
+        The list of all the found CNAME records.
+    """
+    results = []
+    for ip in list_ips_in_network_range(iprange):
+        host = reverse_single_ip(ip=ip, verbose=verbose)
+        if host is not None and host:
+            # print(' : ' + host.split(':')[1])
+            results.append(host)
+    return results
