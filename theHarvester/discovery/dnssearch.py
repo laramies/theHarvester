@@ -2,6 +2,7 @@ import sys
 import dns.resolver
 import dns.reversename
 
+from ipaddress import IPv4Address, IPv4Network
 from typing import List
 
 # TODO: need big focus on performance and results parsing, now does the basic.
@@ -44,6 +45,28 @@ class DnsForce:
                 results.append(host)
         return results
 
+#####################################################################
+# DNS REVERSE
+#####################################################################
+
+def list_ips_in_network_range(
+        iprange: str) -> List[str]:
+    """
+    List all the IPs in the range.
+
+    Parameters
+    ----------
+    iprange: str.
+        A serialized ip range, like '1.2.3.0/24'.
+        The last digit can be set to anything, it will be ignored.
+
+    Returns
+    -------
+    out: list.
+        The list of IPs in the range.
+    """
+    __network = IPv4Network(iprange, strict=False)
+    return [__address.exploded for __address in __network.hosts()]
 
 class DnsReverse:
     """
@@ -60,7 +83,8 @@ class DnsReverse:
         Parameters
         ----------
         iprange: str.
-            An IPv4 range formated as 'x.x.x.x/y'
+            An IPv4 range formated as 'x.x.x.x/y'.
+            The last digit can be set to anything, it will be ignored.
         verbose: bool.
             Print the progress or not.
 
@@ -70,23 +94,6 @@ class DnsReverse:
         """
         self.iprange = iprange
         self.verbose = verbose
-
-    def _list_ips_in_range(
-            self) -> List[str]:
-        """
-        List all the IPs in the range.
-
-        Parameters
-        ----------
-
-        Returns
-        -------
-        out: list.
-            The list of IPs in the range.
-        """
-        prefix = '.'.join(
-            self.iprange.split('.')[:-1])
-        return [prefix + '.' + str(i) for i in range(256)]
 
     def run(
             self,
@@ -115,7 +122,6 @@ class DnsReverse:
             a_record_answer = dns.resolver.query(ptr_record_answer[0].to_text(), 'A')
             print(a_record_answer.canonical_name)
             return str(a_record_answer.canonical_name)
-
         except Exception:
             return ''
 
@@ -133,7 +139,7 @@ class DnsReverse:
             The list of all the found CNAME records.
         """
         results = []
-        for entry in self._list_ips_in_range():
+        for entry in list_ips_in_network_range(self.iprange):
             host = self.run(entry)
             if host is not None and host:
                 # print(' : ' + host.split(':')[1])
