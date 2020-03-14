@@ -482,8 +482,7 @@ async def start():
             ip_range = '.'.join(ip_range)
             if not reversed_ranges.count(ip_range):
                 print('\n[*] Performing reverse lookup on ' + ip_range)
-                res = reverse_ip_range(iprange=ip_range,verbose=True)
-                for cname in res:
+                for cname in reverse_ip_range(iprange=ip_range,verbose=True):
                     if word in cname:
                         dnsrev.append(cname)
                         if cname not in full:

@@ -118,10 +118,8 @@ def reverse_ip_range(
     out: list.
         The list of all the found CNAME records.
     """
-    results = []
     for ip in list_ips_in_network_range(iprange):
         host = reverse_single_ip(ip=ip, verbose=verbose)
         if host is not None and host:
             # print(' : ' + host.split(':')[1])
-            results.append(host)
-    return results
+            yield host
