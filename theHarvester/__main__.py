@@ -473,21 +473,20 @@ async def start():
     dnsrev = []
     if dnslookup is True:
         print('\n[*] Starting active queries.')
-        from theHarvester.discovery.dnssearch import reverse_ip_range
-        reversed_ranges = []
+        from theHarvester.discovery.dnssearch import (
+            reverse_ip_range,
+            serialize_ip_range)
+        reversed_ip_ranges = set()
         for entry in host_ip:
-            ip = entry.split(':')[0]
-            ip_range = ip.split('.')
-            ip_range[3] = '0/24'
-            ip_range = '.'.join(ip_range)
-            if not reversed_ranges.count(ip_range):
+            ip_range = serialize_ip_range(ip=entry, netmask='24')
+            if ip_range and not ip_range in reversed_ip_ranges:
                 print('\n[*] Performing reverse lookup on ' + ip_range)
                 for cname in reverse_ip_range(iprange=ip_range,verbose=True):
                     if word in cname:
                         dnsrev.append(cname)
                         if cname not in full:
                             full.append(cname)
-                reversed_ranges.append(ip_range)
+                reversed_ip_ranges.add(ip_range)
         print('[*] Hosts found after reverse lookup (in target domain):')
         print('--------------------------------------------------------')
         for xh in dnsrev:

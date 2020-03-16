@@ -1,3 +1,4 @@
+import re
 import sys
 import dns.resolver
 import dns.reversename
@@ -49,6 +50,45 @@ class DnsForce:
 # DNS REVERSE
 #####################################################################
 
+IP_REGEX = r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}'
+PORT_REGEX = r'\d{1,5}'
+NETMASK_REGEX = r'\d{1,2}|' + IP_REGEX
+NETWORK_REGEX = r'\b({})(?:\:({}))?(?:\/({}))?\b'.format(
+    IP_REGEX,
+    PORT_REGEX,
+    NETMASK_REGEX)
+
+def serialize_ip_range(
+        ip: str,
+        netmask: str = '24') -> str:
+    """
+    Serialize a network range in a constant format, 'x.x.x.x/y'.
+
+    Parameters
+    ----------
+    ip: str.
+        A serialized ip in the format 'x.x.x.x'.
+        Extra information like port (':z') or subnet ('/n')
+        will be ignored.
+    netmask: str.
+        The subnet subdivision, represented by a 2 digit netmask.
+
+    Returns
+    -------
+    out: str.
+        The network OSI address, like '192.168.0.0/24'.
+    """
+    __ip_matches = re.search(NETWORK_REGEX, ip, re.IGNORECASE)
+    __ip = __ip_matches.group(1)
+    __port = __ip_matches.group(2)
+    __netmask = netmask if netmask else __ip_matches.group(3)
+    if __ip and __netmask:
+        return str(IPv4Network('{}/{}'.format(__ip, __netmask), strict=False))
+    elif __ip:
+        return str(IPv4Network('{}/{}'.format(__ip, '24'), strict=False))
+    else:   # invalid input ip
+        return ''
+
 def list_ips_in_network_range(
         iprange: str) -> List[str]:
     """
@@ -65,8 +105,11 @@ def list_ips_in_network_range(
     out: list.
         The list of IPs in the range.
     """
-    __network = IPv4Network(iprange, strict=False)
-    return [__address.exploded for __address in __network.hosts()]
+    try:
+        __network = IPv4Network(iprange, strict=False)
+        return [__address.exploded for __address in __network.hosts()]
+    except Exception:
+        return []
 
 def reverse_single_ip(
         ip: str,
