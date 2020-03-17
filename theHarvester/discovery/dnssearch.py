@@ -1,10 +1,10 @@
+import asyncio
 import re
 import sys
-import dns.resolver
-import dns.reversename
 
+from aiodns import DNSResolver
 from ipaddress import IPv4Address, IPv4Network
-from typing import List
+from typing import AsyncGenerator, Awaitable, List
 
 # TODO: need big focus on performance and results parsing, now does the basic.
 
@@ -111,9 +111,10 @@ def list_ips_in_network_range(
     except Exception:
         return []
 
-def reverse_single_ip(
+async def reverse_single_ip(
         ip: str,
-        verbose: bool = False) -> str:
+        resolver: DNSResolver,
+        verbose: bool = False) -> Awaitable[str]:
     """
     Reverse a single IP and output the linked CNAME, if it exists.
 
@@ -134,17 +135,18 @@ def reverse_single_ip(
         sys.stdout.write('\r' + ip + ' - ')
         sys.stdout.flush()
     try:
-        dns_record_from_ip_answer = dns.reversename.from_address(ip)
-        ptr_record_answer = dns.resolver.query(dns_record_from_ip_answer, 'PTR')
-        a_record_answer = dns.resolver.query(ptr_record_answer[0].to_text(), 'A')
-        print(a_record_answer.canonical_name)
-        return str(a_record_answer.canonical_name)
+        __host = await resolver.gethostbyaddr(ip)
+        if __host:
+            print(__host.name)
+            return __host.name
+        else:
+            return ''
     except Exception:
         return ''
 
-def reverse_ip_range(
+async def reverse_ip_range(
         iprange: str,
-        verbose: bool = False) -> List[str]:
+        verbose: bool = False) -> AsyncGenerator[str]:
     """
     Reverse all the IPs stored in a network range.
 
@@ -161,8 +163,9 @@ def reverse_ip_range(
     out: list.
         The list of all the found CNAME records.
     """
+    __resolver = DNSResolver(timeout=4)
     for ip in list_ips_in_network_range(iprange):
-        host = reverse_single_ip(ip=ip, verbose=verbose)
-        if host is not None and host:
+        __host = await reverse_single_ip(ip=ip, resolver=__resolver, verbose=verbose)
+        if __host is not None and __host:
             # print(' : ' + host.split(':')[1])
-            yield host
+            yield __host

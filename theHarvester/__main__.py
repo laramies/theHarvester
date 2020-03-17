@@ -481,7 +481,7 @@ async def start():
             ip_range = serialize_ip_range(ip=entry, netmask='24')
             if ip_range and not ip_range in reversed_ip_ranges:
                 print('\n[*] Performing reverse lookup on ' + ip_range)
-                for cname in reverse_ip_range(iprange=ip_range,verbose=True):
+                async for cname in reverse_ip_range(iprange=ip_range,verbose=True):
                     if word in cname:
                         dnsrev.append(cname)
                         if cname not in full:
