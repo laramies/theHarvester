@@ -1,3 +1,15 @@
+# -*- coding: utf-8 -*-
+
+"""
+============
+DNS Browsing
+============
+
+Explore the space around known hosts & ips for extra catches.
+"""
+
+from __future__ import absolute_import, division, print_function
+
 import asyncio
 import re
 import sys
@@ -8,6 +20,9 @@ from typing import AsyncGenerator, Awaitable, List
 
 # TODO: need big focus on performance and results parsing, now does the basic.
 
+#####################################################################
+# DNS FORCE
+#####################################################################
 
 class DnsForce:
 
@@ -113,8 +128,7 @@ def list_ips_in_network_range(
 
 async def reverse_single_ip(
         ip: str,
-        resolver: DNSResolver,
-        verbose: bool = False) -> Awaitable[str]:
+        resolver: DNSResolver) -> Awaitable[str]:
     """
     Reverse a single IP and output the linked CNAME, if it exists.
 
@@ -122,31 +136,21 @@ async def reverse_single_ip(
     ----------
     ip: str.
         The IP to reverse.
-    verbose: bool.
-        Print the progress or not.
 
     Returns
     -------
     out: str.
         The corresponding CNAME or None.
     """
-    if verbose:
-        sys.stdout.write(chr(27) + '[2K' + chr(27) + '[G')
-        sys.stdout.write('\r' + ip + ' - ')
-        sys.stdout.flush()
     try:
         __host = await resolver.gethostbyaddr(ip)
-        if __host:
-            print(__host.name)
-            return __host.name
-        else:
-            return ''
+        return __host.name if __host else ''
     except Exception:
         return ''
 
-async def reverse_ip_range(
+async def reverse_all_ips_in_range(
         iprange: str,
-        verbose: bool = False) -> AsyncGenerator[str]:
+        verbose: bool = False) -> AsyncGenerator[str, None]:
     """
     Reverse all the IPs stored in a network range.
 
@@ -154,7 +158,8 @@ async def reverse_ip_range(
     ----------
     iprange: str.
         An IPv4 range formated as 'x.x.x.x/y'.
-        The last digit can be set to anything, it will be ignored.
+        The last 2 digits of the ip can be set to anything,
+        they will be ignored.
     verbose: bool.
         Print the progress or not.
 
@@ -165,7 +170,16 @@ async def reverse_ip_range(
     """
     __resolver = DNSResolver(timeout=4)
     for ip in list_ips_in_network_range(iprange):
-        __host = await reverse_single_ip(ip=ip, resolver=__resolver, verbose=verbose)
+        # Display the current query
+        if verbose:
+            sys.stdout.write(chr(27) + '[2K' + chr(27) + '[G')
+            sys.stdout.write('\r' + ip + ' - ')
+            sys.stdout.flush()
+
+        # Reverse the ip
+        __host = await reverse_single_ip(ip=ip, resolver=__resolver)
+
+        # Output the results
         if __host is not None and __host:
-            # print(' : ' + host.split(':')[1])
+            print(__host)
             yield __host
