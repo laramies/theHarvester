@@ -473,20 +473,28 @@ async def start():
     dnsrev = []
     if dnslookup is True:
         print('\n[*] Starting active queries.')
+        # load the reverse dns tools
         from theHarvester.discovery.dnssearch import (
-            reverse_ip_range,
+            reverse_all_ips_in_range,
             serialize_ip_range)
-        reversed_ip_ranges = set()
+        from theHarvester.lib.itertools import merge_async_generators
+
+        # create a generator of reversed ips for each range
+        reversed_ipranges = {}
         for entry in host_ip:
             ip_range = serialize_ip_range(ip=entry, netmask='24')
-            if ip_range and not ip_range in reversed_ip_ranges:
+            if ip_range and not ip_range in set(reversed_ipranges.keys()):
                 print('\n[*] Performing reverse lookup on ' + ip_range)
-                async for cname in reverse_ip_range(iprange=ip_range,verbose=True):
-                    if word in cname:
-                        dnsrev.append(cname)
-                        if cname not in full:
-                            full.append(cname)
-                reversed_ip_ranges.add(ip_range)
+                reversed_ipranges[ip_range] = reverse_all_ips_in_range(iprange=ip_range,verbose=True)
+
+        # keep only the host that contain the target domain
+        async for cname in merge_async_generators(*reversed_ipranges.values()):
+            if word in cname:
+                dnsrev.append(cname)
+                if cname not in full:
+                    full.append(cname)
+
+        # Display the newly found hosts
         print('[*] Hosts found after reverse lookup (in target domain):')
         print('--------------------------------------------------------')
         for xh in dnsrev:
