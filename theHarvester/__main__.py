@@ -478,6 +478,7 @@ async def start():
         import operator
         import random
         from theHarvester.discovery.dnssearch import (
+            generate_postprocess_callback,
             reverse_all_ips_in_range,
             serialize_ip_range)
         from theHarvester.lib.itertools import merge_async_generators
@@ -488,17 +489,14 @@ async def start():
             ip_range = serialize_ip_range(ip=entry, netmask='24')
             if ip_range and not ip_range in set(reversed_ipranges.keys()):
                 print('\n[*] Performing reverse lookup on ' + ip_range)
-                reversed_ipranges[ip_range] = reverse_all_ips_in_range(iprange=ip_range,verbose=True)
+                reversed_ipranges[ip_range] = reverse_all_ips_in_range(
+                    iprange=ip_range,
+                    callback=generate_postprocess_callback(
+                        target=word,
+                        results=full))
 
-        __truc = functools.reduce(operator.add, reversed_ipranges.values())
-        await asyncio.gather(*random.sample(__truc, k=len(__truc)))
-
-        # keep only the host that contain the target domain
-        # async for cname in merge_async_generators(*reversed_ipranges.values()):
-        #     if word in cname:
-        #         dnsrev.append(cname)
-        #         if cname not in full:
-        #             full.append(cname)
+        __tasks = functools.reduce(operator.add, reversed_ipranges.values())
+        await asyncio.gather(*random.sample(__tasks, k=len(__tasks)))
 
         # Display the newly found hosts
         print('[*] Hosts found after reverse lookup (in target domain):')

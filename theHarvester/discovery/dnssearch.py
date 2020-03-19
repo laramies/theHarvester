@@ -17,7 +17,7 @@ import sys
 
 from aiodns import DNSResolver
 from ipaddress import IPv4Address, IPv4Network
-from typing import AsyncGenerator, Awaitable, List
+from typing import AsyncGenerator, Awaitable, Callable, Iterable, List
 
 # TODO: need big focus on performance and results parsing, now does the basic.
 
@@ -144,22 +144,19 @@ async def reverse_single_ip(
         The corresponding CNAME or None.
     """
     # Display the current query
-    sys.stdout.write(chr(27) + '[2K' + chr(27) + '[G')
-    sys.stdout.write('\r' + ip + ' - ')
-    sys.stdout.flush()
+    log_query(ip)
     try:
         __host = await resolver.gethostbyaddr(ip)
-        if __host and __host.name:
-            print(__host.name)
         return __host.name if __host else ''
     except Exception:
         return ''
 
 def reverse_all_ips_in_range(
         iprange: str,
-        verbose: bool = False) -> AsyncGenerator[str, None]:
+        callback: Callable) -> List[Awaitable]:
     """
     Reverse all the IPs stored in a network range.
+    All the queries are made concurrently.
 
     Parameters
     ----------
@@ -167,18 +164,72 @@ def reverse_all_ips_in_range(
         An IPv4 range formated as 'x.x.x.x/y'.
         The last 2 digits of the ip can be set to anything,
         they will be ignored.
-    verbose: bool.
-        Print the progress or not.
+    callback: Callable.
+        Function called on the task when done.
 
     Returns
     -------
-    out: list.
+    out: List[Awaitable].
         The list of all the found CNAME records.
     """
     __resolver = DNSResolver(timeout=4)
     __reversing_tasks = []
     for __ip in list_ips_in_network_range(iprange):
         __task = asyncio.create_task(reverse_single_ip(ip=__ip, resolver=__resolver))
-        __task.add_done_callback(lambda x: print(x.result()))
+        __task.set_name(__ip)
+        __task.add_done_callback(callback)
         __reversing_tasks.append(__task)
     return __reversing_tasks
+
+#####################################################################
+# IO
+#####################################################################
+
+def log_query(
+        ip: str) -> None:
+    """
+    Display the current query in the console.
+
+    Parameters
+    ----------
+    ip: str.
+        Queried ip.
+
+    Results
+    -------
+    out: None.
+    """
+    sys.stdout.write(chr(27) + '[2K' + chr(27) + '[G')
+    sys.stdout.write('\r' + ip + ' - ')
+    sys.stdout.flush()
+
+def log_result(
+        host: str) -> None:
+    """
+    Display the query result in the console.
+
+    Parameters
+    ----------
+    host: str.
+        Host name returned by the DNS query.
+
+    Results
+    -------
+    out: None.
+    """
+    if host:
+        print(host)
+
+def generate_postprocess_callback(
+        target: str,
+        results: Iterable[str]) -> None:
+    """
+    """
+    def append_matching_hosts(task: asyncio.Future) -> None:
+        if task.done():
+            __host = task.result()
+            log_result(__host)
+            if __host and target in __host and not __host in results:
+                results.append(__host)
+
+    return append_matching_hosts
