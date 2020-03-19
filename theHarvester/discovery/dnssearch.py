@@ -143,17 +143,15 @@ async def reverse_single_ip(
     out: str.
         The corresponding CNAME or None.
     """
-    # Display the current query
-    log_query(ip)
     try:
         __host = await resolver.gethostbyaddr(ip)
         return __host.name if __host else ''
     except Exception:
         return ''
 
-def reverse_all_ips_in_range(
+async def reverse_all_ips_in_range(
         iprange: str,
-        callback: Callable) -> List[Awaitable]:
+        callback: Callable) -> None:
     """
     Reverse all the IPs stored in a network range.
     All the queries are made concurrently.
@@ -165,21 +163,18 @@ def reverse_all_ips_in_range(
         The last 2 digits of the ip can be set to anything,
         they will be ignored.
     callback: Callable.
-        Function called on the task when done.
+        Arbitrary postprocessing function.
 
     Returns
     -------
-    out: List[Awaitable].
-        The list of all the found CNAME records.
+    out: None.
     """
     __resolver = DNSResolver(timeout=4)
-    __reversing_tasks = []
     for __ip in list_ips_in_network_range(iprange):
-        __task = asyncio.create_task(reverse_single_ip(ip=__ip, resolver=__resolver))
-        __task.set_name(__ip)
-        __task.add_done_callback(callback)
-        __reversing_tasks.append(__task)
-    return __reversing_tasks
+        log_query(__ip)
+        __host = await reverse_single_ip(ip=__ip, resolver=__resolver)
+        callback(__host)
+        log_result(__host)
 
 #####################################################################
 # IO
@@ -220,16 +215,30 @@ def log_result(
     if host:
         print(host)
 
-def generate_postprocess_callback(
+def generate_postprocessing_callback(
         target: str,
-        results: Iterable[str]) -> None:
+        **iters: Iterable[str]) -> Callable:
     """
+    Postprocess the query results asynchronously too, instead of waiting for
+    the querying stage to be completely finished.
+
+    Parameters
+    ----------
+    target: str.
+        The domain wanted as TLD.
+    iters: Iterable.
+        A collection of all the subdomains -of target- found so far.
+
+    Returns
+    -------
+    out: Callable.
+        A function that will update the collection of target subdomains
+        when the query result is satisfying.
     """
-    def append_matching_hosts(task: asyncio.Future) -> None:
-        if task.done():
-            __host = task.result()
-            log_result(__host)
-            if __host and target in __host and not __host in results:
-                results.append(__host)
+    def append_matching_hosts(host: str) -> None:
+        if host and target in host:
+            for __name, __iter in iters.items():
+                if not host in __iter:
+                    __iter.append(host)
 
     return append_matching_hosts

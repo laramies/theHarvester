@@ -474,29 +474,27 @@ async def start():
     if dnslookup is True:
         print('\n[*] Starting active queries.')
         # load the reverse dns tools
-        import functools
-        import operator
-        import random
         from theHarvester.discovery.dnssearch import (
-            generate_postprocess_callback,
+            generate_postprocessing_callback,
             reverse_all_ips_in_range,
             serialize_ip_range)
         from theHarvester.lib.itertools import merge_async_generators
 
-        # create a generator of reversed ips for each range
-        reversed_ipranges = {}
+        # reverse each iprange in a separate task
+        __reverse_dns_tasks = {}
         for entry in host_ip:
-            ip_range = serialize_ip_range(ip=entry, netmask='24')
-            if ip_range and not ip_range in set(reversed_ipranges.keys()):
-                print('\n[*] Performing reverse lookup on ' + ip_range)
-                reversed_ipranges[ip_range] = reverse_all_ips_in_range(
-                    iprange=ip_range,
-                    callback=generate_postprocess_callback(
+            __ip_range = serialize_ip_range(ip=entry, netmask='24')
+            if __ip_range and not __ip_range in set(__reverse_dns_tasks.keys()):
+                print('\n[*] Performing reverse lookup on ' + __ip_range)
+                __reverse_dns_tasks[__ip_range] = asyncio.create_task(reverse_all_ips_in_range(
+                    iprange=__ip_range,
+                    callback=generate_postprocessing_callback(
                         target=word,
-                        results=full))
+                        local_results=dnsrev,
+                        overall_results=full)))
 
-        __tasks = functools.reduce(operator.add, reversed_ipranges.values())
-        await asyncio.gather(*random.sample(__tasks, k=len(__tasks)))
+        # run all the reversing tasks concurrently
+        await asyncio.gather(*__reverse_dns_tasks.values())
 
         # Display the newly found hosts
         print('[*] Hosts found after reverse lookup (in target domain):')
