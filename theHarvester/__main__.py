@@ -478,7 +478,6 @@ async def start():
             generate_postprocessing_callback,
             reverse_all_ips_in_range,
             serialize_ip_range)
-        from theHarvester.lib.itertools import merge_async_generators
 
         # reverse each iprange in a separate task
         __reverse_dns_tasks = {}

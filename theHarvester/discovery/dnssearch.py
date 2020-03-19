@@ -11,13 +11,12 @@ Explore the space around known hosts & ips for extra catches.
 from __future__ import absolute_import, division, print_function
 
 import asyncio
-import functools
 import re
 import sys
 
 from aiodns import DNSResolver
 from ipaddress import IPv4Address, IPv4Network
-from typing import AsyncGenerator, Awaitable, Callable, Iterable, List
+from typing import Awaitable, Callable, Iterable, List
 
 # TODO: need big focus on performance and results parsing, now does the basic.
 
