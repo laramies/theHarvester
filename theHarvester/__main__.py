@@ -474,6 +474,9 @@ async def start():
     if dnslookup is True:
         print('\n[*] Starting active queries.')
         # load the reverse dns tools
+        import functools
+        import operator
+        import random
         from theHarvester.discovery.dnssearch import (
             reverse_all_ips_in_range,
             serialize_ip_range)
@@ -487,12 +490,15 @@ async def start():
                 print('\n[*] Performing reverse lookup on ' + ip_range)
                 reversed_ipranges[ip_range] = reverse_all_ips_in_range(iprange=ip_range,verbose=True)
 
+        __truc = functools.reduce(operator.add, reversed_ipranges.values())
+        await asyncio.gather(*random.sample(__truc, k=len(__truc)))
+
         # keep only the host that contain the target domain
-        async for cname in merge_async_generators(*reversed_ipranges.values()):
-            if word in cname:
-                dnsrev.append(cname)
-                if cname not in full:
-                    full.append(cname)
+        # async for cname in merge_async_generators(*reversed_ipranges.values()):
+        #     if word in cname:
+        #         dnsrev.append(cname)
+        #         if cname not in full:
+        #             full.append(cname)
 
         # Display the newly found hosts
         print('[*] Hosts found after reverse lookup (in target domain):')

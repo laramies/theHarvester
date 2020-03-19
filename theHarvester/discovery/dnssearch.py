@@ -11,6 +11,7 @@ Explore the space around known hosts & ips for extra catches.
 from __future__ import absolute_import, division, print_function
 
 import asyncio
+import functools
 import re
 import sys
 
@@ -142,13 +143,19 @@ async def reverse_single_ip(
     out: str.
         The corresponding CNAME or None.
     """
+    # Display the current query
+    sys.stdout.write(chr(27) + '[2K' + chr(27) + '[G')
+    sys.stdout.write('\r' + ip + ' - ')
+    sys.stdout.flush()
     try:
         __host = await resolver.gethostbyaddr(ip)
+        if __host and __host.name:
+            print(__host.name)
         return __host.name if __host else ''
     except Exception:
         return ''
 
-async def reverse_all_ips_in_range(
+def reverse_all_ips_in_range(
         iprange: str,
         verbose: bool = False) -> AsyncGenerator[str, None]:
     """
@@ -169,17 +176,9 @@ async def reverse_all_ips_in_range(
         The list of all the found CNAME records.
     """
     __resolver = DNSResolver(timeout=4)
-    for ip in list_ips_in_network_range(iprange):
-        # Display the current query
-        if verbose:
-            sys.stdout.write(chr(27) + '[2K' + chr(27) + '[G')
-            sys.stdout.write('\r' + ip + ' - ')
-            sys.stdout.flush()
-
-        # Reverse the ip
-        __host = await reverse_single_ip(ip=ip, resolver=__resolver)
-
-        # Output the results
-        if __host is not None and __host:
-            print(__host)
-            yield __host
+    __reversing_tasks = []
+    for __ip in list_ips_in_network_range(iprange):
+        __task = asyncio.create_task(reverse_single_ip(ip=__ip, resolver=__resolver))
+        __task.add_done_callback(lambda x: print(x.result()))
+        __reversing_tasks.append(__task)
+    return __reversing_tasks
