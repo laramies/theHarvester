@@ -14,7 +14,7 @@ import sys
 
 from aiodns import DNSResolver
 from ipaddress import IPv4Network
-from typing import Awaitable, Callable, List
+from typing import Callable, List
 
 # TODO: need big focus on performance and results parsing, now does the basic.
 
@@ -102,7 +102,7 @@ def serialize_ip_range(
             return str(IPv4Network('{}/{}'.format(__ip, __netmask), strict=False))
         elif __ip:
             return str(IPv4Network('{}/{}'.format(__ip, '24'), strict=False))
-    
+
     # invalid input ip
     return ''
 
