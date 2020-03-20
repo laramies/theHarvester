@@ -14,7 +14,7 @@ import sys
 
 from aiodns import DNSResolver
 from ipaddress import IPv4Network
-from typing import Awaitable, Callable, Iterable, List
+from typing import Awaitable, Callable, List
 
 # TODO: need big focus on performance and results parsing, now does the basic.
 
@@ -95,14 +95,16 @@ def serialize_ip_range(
         The network OSI address, like '192.168.0.0/24'.
     """
     __ip_matches = re.search(NETWORK_REGEX, ip, re.IGNORECASE)
-    __ip = __ip_matches.group(1)
-    __netmask = netmask if netmask else __ip_matches.group(3)
-    if __ip and __netmask:
-        return str(IPv4Network('{}/{}'.format(__ip, __netmask), strict=False))
-    elif __ip:
-        return str(IPv4Network('{}/{}'.format(__ip, '24'), strict=False))
-    else:   # invalid input ip
-        return ''
+    if __ip_matches and __ip_matches.groups():
+        __ip = __ip_matches.group(1)
+        __netmask = netmask if netmask else __ip_matches.group(3)
+        if __ip and __netmask:
+            return str(IPv4Network('{}/{}'.format(__ip, __netmask), strict=False))
+        elif __ip:
+            return str(IPv4Network('{}/{}'.format(__ip, '24'), strict=False))
+    
+    # invalid input ip
+    return ''
 
 
 def list_ips_in_network_range(
@@ -130,7 +132,7 @@ def list_ips_in_network_range(
 
 async def reverse_single_ip(
         ip: str,
-        resolver: DNSResolver) -> Awaitable[str]:
+        resolver: DNSResolver) -> str:
     """
     Reverse a single IP and output the linked CNAME, if it exists.
 
@@ -222,7 +224,7 @@ def log_result(
 
 def generate_postprocessing_callback(
         target: str,
-        **iters: Iterable[str]) -> Callable:
+        **allhosts: List[str]) -> Callable:
     """
     Postprocess the query results asynchronously too, instead of waiting for
     the querying stage to be completely finished.
@@ -231,7 +233,7 @@ def generate_postprocessing_callback(
     ----------
     target: str.
         The domain wanted as TLD.
-    iters: Iterable.
+    allhosts: List.
         A collection of all the subdomains -of target- found so far.
 
     Returns
@@ -242,8 +244,8 @@ def generate_postprocessing_callback(
     """
     def append_matching_hosts(host: str) -> None:
         if host and target in host:
-            for __name, __iter in iters.items():
-                if host not in __iter:
-                    __iter.append(host)
+            for __name, __hosts in allhosts.items():
+                if host not in __hosts:
+                    __hosts.append(host)
 
     return append_matching_hosts
