@@ -490,7 +490,8 @@ async def start():
                     callback=generate_postprocessing_callback(
                         target=word,
                         local_results=dnsrev,
-                        overall_results=full)))
+                        overall_results=full),
+                    nameservers=[dnsserver] if dnsserver else None))
 
         # run all the reversing tasks concurrently
         await asyncio.gather(*__reverse_dns_tasks.values())

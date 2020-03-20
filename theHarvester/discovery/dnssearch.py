@@ -14,7 +14,7 @@ import sys
 
 from aiodns import DNSResolver
 from ipaddress import IPv4Network
-from typing import Callable, List
+from typing import Callable, List, Optional
 
 # TODO: need big focus on performance and results parsing, now does the basic.
 
@@ -155,7 +155,8 @@ async def reverse_single_ip(
 
 async def reverse_all_ips_in_range(
         iprange: str,
-        callback: Callable) -> None:
+        callback: Callable,
+        nameservers: Optional[List[str]] = None) -> None:
     """
     Reverse all the IPs stored in a network range.
     All the queries are made concurrently.
@@ -168,12 +169,14 @@ async def reverse_all_ips_in_range(
         they will be ignored.
     callback: Callable.
         Arbitrary postprocessing function.
+    nameservers: List[str].
+        Optional list of DNS servers.
 
     Returns
     -------
     out: None.
     """
-    __resolver = DNSResolver(timeout=4)
+    __resolver = DNSResolver(timeout=4, nameservers=nameservers)
     for __ip in list_ips_in_network_range(iprange):
         log_query(__ip)
         __host = await reverse_single_ip(ip=__ip, resolver=__resolver)
