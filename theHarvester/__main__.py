@@ -483,7 +483,7 @@ async def start():
         __reverse_dns_tasks = {}
         for entry in host_ip:
             __ip_range = serialize_ip_range(ip=entry, netmask='24')
-            if __ip_range and not __ip_range in set(__reverse_dns_tasks.keys()):
+            if __ip_range and __ip_range not in set(__reverse_dns_tasks.keys()):
                 print('\n[*] Performing reverse lookup on ' + __ip_range)
                 __reverse_dns_tasks[__ip_range] = asyncio.create_task(reverse_all_ips_in_range(
                     iprange=__ip_range,

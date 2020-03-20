@@ -8,14 +8,12 @@ DNS Browsing
 Explore the space around known hosts & ips for extra catches.
 """
 
-from __future__ import absolute_import, division, print_function
-
-import asyncio
+import dns
 import re
 import sys
 
 from aiodns import DNSResolver
-from ipaddress import IPv4Address, IPv4Network
+from ipaddress import IPv4Network
 from typing import Awaitable, Callable, Iterable, List
 
 # TODO: need big focus on performance and results parsing, now does the basic.
@@ -23,6 +21,7 @@ from typing import Awaitable, Callable, Iterable, List
 #####################################################################
 # DNS FORCE
 #####################################################################
+
 
 class DnsForce:
 
@@ -65,6 +64,7 @@ class DnsForce:
 # DNS REVERSE
 #####################################################################
 
+
 IP_REGEX = r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}'
 PORT_REGEX = r'\d{1,5}'
 NETMASK_REGEX = r'\d{1,2}|' + IP_REGEX
@@ -72,6 +72,7 @@ NETWORK_REGEX = r'\b({})(?:\:({}))?(?:\/({}))?\b'.format(
     IP_REGEX,
     PORT_REGEX,
     NETMASK_REGEX)
+
 
 def serialize_ip_range(
         ip: str,
@@ -95,7 +96,6 @@ def serialize_ip_range(
     """
     __ip_matches = re.search(NETWORK_REGEX, ip, re.IGNORECASE)
     __ip = __ip_matches.group(1)
-    __port = __ip_matches.group(2)
     __netmask = netmask if netmask else __ip_matches.group(3)
     if __ip and __netmask:
         return str(IPv4Network('{}/{}'.format(__ip, __netmask), strict=False))
@@ -103,6 +103,7 @@ def serialize_ip_range(
         return str(IPv4Network('{}/{}'.format(__ip, '24'), strict=False))
     else:   # invalid input ip
         return ''
+
 
 def list_ips_in_network_range(
         iprange: str) -> List[str]:
@@ -126,6 +127,7 @@ def list_ips_in_network_range(
     except Exception:
         return []
 
+
 async def reverse_single_ip(
         ip: str,
         resolver: DNSResolver) -> Awaitable[str]:
@@ -147,6 +149,7 @@ async def reverse_single_ip(
         return __host.name if __host else ''
     except Exception:
         return ''
+
 
 async def reverse_all_ips_in_range(
         iprange: str,
@@ -179,6 +182,7 @@ async def reverse_all_ips_in_range(
 # IO
 #####################################################################
 
+
 def log_query(
         ip: str) -> None:
     """
@@ -197,6 +201,7 @@ def log_query(
     sys.stdout.write('\r' + ip + ' - ')
     sys.stdout.flush()
 
+
 def log_result(
         host: str) -> None:
     """
@@ -213,6 +218,7 @@ def log_result(
     """
     if host:
         print(host)
+
 
 def generate_postprocessing_callback(
         target: str,
@@ -237,7 +243,7 @@ def generate_postprocessing_callback(
     def append_matching_hosts(host: str) -> None:
         if host and target in host:
             for __name, __iter in iters.items():
-                if not host in __iter:
+                if host not in __iter:
                     __iter.append(host)
 
     return append_matching_hosts
