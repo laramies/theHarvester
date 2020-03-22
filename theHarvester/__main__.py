@@ -620,7 +620,7 @@ async def start():
             sys.exit(1)
 
         try:
-            filename = filename.split('.')[0] + '.xml'
+            filename.rsplit('.', 1)[0] + '.xml'
             file = open(filename, 'w')
             file.write('<?xml version="1.0" encoding="UTF-8"?><theHarvester>')
             for x in all_emails:
