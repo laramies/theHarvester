@@ -1,4 +1,4 @@
-FROM kalilinux/kali-linux-docker
+FROM kalilinux/kali-rolling
 RUN mkdir /app
 WORKDIR /app
 COPY . /app
