@@ -22,9 +22,9 @@ Passive:
 
 * CertSpotter: Cert Spotter monitors Certificate Transparency logs - https://sslmate.com/certspotter/
 
-* crtsh: Comodo Certificate search - www.crt.sh
+* crtsh: Comodo Certificate search - https://crt.sh/
 
-* dnsdumpster: DNSdumpster search engine - dnsdumpster.com
+* dnsdumpster: DNSdumpster search engine - https://dnsdumpster.com/
 
 * dogpile: Dogpile search engine - www.dogpile.com
 
