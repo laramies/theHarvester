@@ -9,124 +9,113 @@ on:
     branches:
     - '*'
 jobs:
-  tests:
+  Python:
     runs-on: ubuntu-latest
     strategy:
+      max-parallel: 4
       matrix:
-        python-version: ['3.7', '3.8', '3.9']
-    name: Python ${{ matrix.python-version }}
+        python-version: [3.7, 3.8]
+
     steps:
-      - uses: actions/checkout@v2
-      - name: Install Python 3.9
-        if: matrix.python-version == '3.9'
-        run: |
-          sudo add-apt-repository ppa:deadsnakes/ppa
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends python3.9-dev python3.9-distutils libxml2-dev libxslt-dev
-          python3.9 -m pip install --upgrade pip setuptools
-          python3.9 -m pip install --upgrade virtualenv
-          python3.9 -m virtualenv --python=3.9 $HOME/venv-python3.9
-          echo "::set-env name=VIRTUAL_ENV::$HOME/venv-python3.9"
-          echo "::add-path::$HOME/venv-python3.9/bin"
-      - uses: actions/setup-python@v1.1.1
-        if: matrix.python-version != '3.9'
-        with:
-          python-version: ${{ matrix.python-version }}
-          architecture: x64
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v1.1.1
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install -r requirements/dev.txt
 
-      - name: Install dependencies
-        run: |
-                  pip install --upgrade pip
-                  pip install -r requirements/dev.txt
+    - name: Run theHarvester module baidu
+      run: |
+        python theHarvester.py -d yale.edu -b baidu
 
-      - name: Run theHarvester module baidu
-        run: |
-              python theHarvester.py -d yale.edu -b baidu
+    - name: Run theHarvester module bufferoverun
+      run: |
+        python theHarvester.py -d yale.edu -b bufferoverun
 
-      - name: Run theHarvester module bufferoverun
-        run: |
-              python theHarvester.py -d yale.edu -b bufferoverun
+    - name: Run theHarvester module bing
+      run: |
+        python theHarvester.py -d yale.edu -b bing
 
-      - name: Run theHarvester module bing
-        run: |
-              python theHarvester.py -d yale.edu -b bing
+    - name: Run theHarvester module certspotter
+      run: |
+        python theHarvester.py -d yale.edu -b certspotter
 
-      - name: Run theHarvester module certspotter
-        run: |
-              python theHarvester.py -d yale.edu -b certspotter
+    - name: Run theHarvester module crtsh
+      run: |
+        python theHarvester.py -d hcl.com -b crtsh
 
-      - name: Run theHarvester module crtsh
-        run: |
-                   python theHarvester.py -d hcl.com -b crtsh
+    - name: Run theHarvester module dnsdumpster
+      run: |
+        python theHarvester.py -d yale.edu -b dnsdumpster
 
-      - name: Run theHarvester module dnsdumpster
-        run: |
-                   python theHarvester.py -d yale.edu -b dnsdumpster
+    - name: Run theHarvester module dogplie
+      run: |
+        python theHarvester.py -d yale.edu -b dogpile
 
-      - name: Run theHarvester module dogplie
-        run: |
-                   python theHarvester.py -d yale.edu -b dogpile
+    - name: Run theHarvester module duckduckgo
+      run: |
+        python theHarvester.py -d yale.edu -b duckduckgo
 
-      - name: Run theHarvester module duckduckgo
-        run: |
-                   python theHarvester.py -d yale.edu -b duckduckgo
+    - name: Run theHarvester module exalead
+      run: |
+        python theHarvester.py -d yale.edu -b exalead
 
-      - name: Run theHarvester module exalead
-        run: |
-                   python theHarvester.py -d yale.edu -b exalead
+    - name: Run theHarvester module google
+      run: |
+        python theHarvester.py -d yale.edu -b google
 
-      - name: Run theHarvester module google
-        run: |
-                   python theHarvester.py -d yale.edu -b google
+    - name: Run theHarvester module Intelx
+      run: |
+        python theHarvester.py -d yale.edu -b intelx
 
-      - name: Run theHarvester module Intelx
-        run: |
-                   python theHarvester.py -d yale.edu -b intelx
+    - name: Run theHarvester module linkedin
+      run: |
+        python theHarvester.py -d yale.edu -b linkedin
 
-      - name: Run theHarvester module linkedin
-        run: |
-                   python theHarvester.py -d yale.edu -b linkedin
+    - name: Run theHarvester module linkedin_links
+      run: |
+        python theHarvester.py -d yale.edu -b linkedin_links
 
-      - name: Run theHarvester module linkedin_links
-        run: |
-                   python theHarvester.py -d yale.edu -b linkedin_links
+    - name: Run theHarvester module netcraft
+      run: |
+        python theHarvester.py -d yale.edu -b netcraft
 
-      - name: Run theHarvester module netcraft
-        run: |
-                   python theHarvester.py -d yale.edu -b netcraft
+    - name: Run theHarvester module Otx
+      run: |
+        python theHarvester.py -d yale.edu -b otx
 
-      - name: Run theHarvester module Otx
-        run: |
-                   python theHarvester.py -d yale.edu -b otx
+    - name: Run theHarvester module threatcrowd
+      run: |
+        python theHarvester.py -d yale.edu -b threatcrowd
+    - name: Run theHarvester module trello
+      run: |
+        python theHarvester.py -d yale.edu -b trello
 
-      - name: Run theHarvester module threatcrowd
-        run: |
-                   python theHarvester.py -d yale.edu -b threatcrowd
+    - name: Run theHarvester module twitter
+      run: |
+        python theHarvester.py -d yale.edu -b twitter
 
-      - name: Run theHarvester module trello
-        run: |
-                   python theHarvester.py -d yale.edu -b trello
+    - name: Run theHarvester module virustotal
+      run: |
+        python theHarvester.py -d yale.edu -b virustotal
 
-      - name: Run theHarvester module twitter
-        run: |
-                   python theHarvester.py -d yale.edu -b twitter
+    - name: Run theHarvester module yahoo
+      run: |
+        python theHarvester.py -d yale.edu -b yahoo
 
-      - name: Run theHarvester module virustotal
-        run: |
-                   python theHarvester.py -d yale.edu -b virustotal
+    - name: Lint with flake8
+      run: |
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --show-source --statistics
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        flake8 . --count --exit-zero  --max-line-length=127 --statistics
 
-      - name: Run theHarvester module yahoo
-        run: |
-                   python theHarvester.py -d yale.edu -b yahoo
-
-      - name: Lint with flake8
-        run: |
-          flake8 . --count --show-source --statistics
-          flake8 . --count --exit-zero  --max-line-length=127 --statistics
-
-      - name: Test with pytest
-        run: |
-          pytest
-      - name: Static type checking with mypy
-        run: |
-          mypy --pretty theHarvester/*/*.py
+    - name: Test with pytest
+      run: |
+        pytest
+    - name: Static type checking with mypy
+      run: |
+        mypy --pretty theHarvester/*/*.py
