@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "91770d97bbe2517d64307784f5cad7a8437a62fb58f22f2c2c3363870576019a"
+            "sha256": "a1bd8a13ac951dafe404b80fc23f8c4715bc8645b02dcc2b7bab089bb8954c0f"
         },
         "pipfile-spec": 6,
         "requires": {},
@@ -218,11 +218,11 @@
         },
         "plotly": {
             "hashes": [
-                "sha256:b6b1e13e7f04dc9a9f714ab8ecc63d00a4207a736c9835912c96b6884002be1e",
-                "sha256:e6eab2b6010921f5fb998860125b90748e581de66ebc6107b686829417d98fc4"
+                "sha256:61f34955f04201a1ebcd59feaafa7eae7c16ef9b3f439870be01fb85a949292f",
+                "sha256:ac0ca0854350bfcd833f3a8eb08aa50e184660502bb46fe907701f896ff349bd"
             ],
             "index": "pypi",
-            "version": "==4.5.4"
+            "version": "==4.6.0"
         },
         "pycares": {
             "hashes": [
@@ -544,10 +544,10 @@
         },
         "wcwidth": {
             "hashes": [
-                "sha256:8fd29383f539be45b20bd4df0dc29c20ba48654a41e661925e612311e9f3c603",
-                "sha256:f28b3e8a6483e5d49e7f8949ac1a78314e740333ae305b4ba5defd3e74fb37a8"
+                "sha256:cafe2186b3c009a04067022ce1dcd79cb38d8d65ee4f4791b8888d6599d1bbe1",
+                "sha256:ee73862862a156bf77ff92b09034fc4825dd3af9cf81bc5b360668d425f3c5f1"
             ],
-            "version": "==0.1.8"
+            "version": "==0.1.9"
         }
     }
 }
