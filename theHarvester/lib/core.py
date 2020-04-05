@@ -91,6 +91,7 @@ class Core:
 
     @staticmethod
     def proxy_list() -> List:
+        return []
         try:
             with open('/etc/theHarvester/proxies.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
@@ -132,6 +133,7 @@ class Core:
                             'exalead',
                             'github-code',
                             'google',
+                            'hackertarget',
                             'hunter',
                             'intelx',
                             'linkedin',
