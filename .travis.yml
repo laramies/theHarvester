@@ -5,10 +5,6 @@ matrix:
   allow_failures:
     - python: 'nightly'
   include:
-  - python: '3.7'
-    env: TEST_SUITE=suite_3_7
-  - python: '3.8'
-    env: TEST_SUITE=suite_3_8
   - python: 'nightly'
     env: TEST_SUITE=suite_3_9
 
@@ -22,14 +18,3 @@ script:
 - pytest
 - flake8 . --count --show-source --statistics
 - mypy --pretty theHarvester/discovery/*.py
-notifications:
-  email: false
-  slack:
-    secure: DQXvpVqLJ1NKa4zOVrrLuHjd5yCY8tdLm4QjSILc5g7NGN5QY3wVmC3m7KWq3RsqdepeiJbd3mgLYhfo6TA/tAaZxEYXKEdafWGF7ayJcEJS/fn0GuLqhOaS/PzRYSeBMQH5KodfvJQpVFzfHPj9AoIHOrHVH3x192RzIS3hRyR8kZgSCrTgxiDjTeWUzLvg/w7ikEVqVFMh73cQJegVA6A5mkHeUf20NmKzo+e0fGU7Sktk38YyNOdi3fbAiACR6ah1clSB7HaBg3VDiAmQCE8O2tftgcU6ihhnTi6d4i8Lf/traQznQ3mvSbFcw5Pedo8eXaLDhAuqwzMb3uWE9jr+zLlDa8s6+ADNVO/ISu+xV1zpnTdcjATKHaBfsNFntLij1hnyeuTEbhLRAB1T7wc+uAWVlJkkDZK08610a8NWalRtV17U8u8lJbcKWQ4IBnclG6DE+zpgsMHZpcswyeMF092mRZzUbgXG9+nbRcp1JqhgiLJUZdg5jXX7NoLdk7irbrZU4aTFqhbz3P3NexafFDXZEsp1Z1eY0uppRsd0vt8E8rX/HMw9OWHgkg7GDATZSqMu1kgJoSQQg1U3ApXacsl6WBAndLdYF+MyHJMLgzewdAJ4y4qvVMb/VkTJ8Q6PicjwlqyEP5PRLZk7fech4kuTVUqyuTibd5t8D5k=
-    on_success: always
-    on_failure: always
-    template:
-      - "Repo `%{repository_slug}` *%{result}* build (<%{build_url}|#%{build_number}>) for commit (<%{compare_url}|%{commit}>) on branch `%{branch}`."
-      - "Execution time: *%{duration}*"
-      - "Message: %{message}"
-      - "By: %{author}"

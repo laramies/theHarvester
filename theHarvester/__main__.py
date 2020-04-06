@@ -303,6 +303,17 @@ async def start():
                     except Exception as e:
                         print(e)
 
+                elif engineitem == 'pentesttools':
+                    from theHarvester.discovery import pentesttools
+                    try:
+                        pentesttools_search = pentesttools.SearchPentestTools(word)
+                        stor_lst.append(store(pentesttools_search, engineitem, store_host=True))
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            print(e)
+                        else:
+                            print(f'An exception has occurred in PentestTools search: {e}')
+
                 elif engineitem == 'securityTrails':
                     from theHarvester.discovery import securitytrailssearch
                     try:
@@ -617,7 +628,7 @@ async def start():
             sys.exit(1)
 
         try:
-            filename = filename.split('.')[0] + '.xml'
+            filename.rsplit('.', 1)[0] + '.xml'
             file = open(filename, 'w')
             file.write('<?xml version="1.0" encoding="UTF-8"?><theHarvester>')
             for x in all_emails:
