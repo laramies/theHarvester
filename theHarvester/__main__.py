@@ -36,7 +36,7 @@ async def start():
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, bufferoverun, certspotter, crtsh, dnsdumpster,
                         dogpile, duckduckgo, exalead, github-code, google,
-                        hunter, intelx,
+                        hackertarget, hunter, intelx,
                         linkedin, linkedin_links, netcraft, otx, securityTrails, spyse, threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo, all''')
 
@@ -99,10 +99,13 @@ async def start():
             print(f'\033[94m[*] Searching {source[0].upper() + source[1:]}. \033[0m')
         if store_host:
             host_names = filter(await search_engine.get_hostnames())
-            full_hosts_checker = hostchecker.Checker(host_names)
-            temp_hosts, temp_ips = await full_hosts_checker.check()
-            ips.extend(temp_ips)
-            full.extend(temp_hosts)
+            if source != 'hackertarget':
+                full_hosts_checker = hostchecker.Checker(host_names)
+                temp_hosts, temp_ips = await full_hosts_checker.check()
+                ips.extend(temp_ips)
+                full.extend(temp_hosts)
+            else:
+                full.extend(host_names)
             all_hosts.extend(host_names)
             await db_stash.store_all(word, all_hosts, 'host', source)
         if store_emails:
@@ -227,6 +230,11 @@ async def start():
                     duckduckgo_search = duckduckgosearch.SearchDuckDuckGo(word, limit)
                     stor_lst.append(store(duckduckgo_search, engineitem, store_host=True, store_emails=True))
 
+                elif engineitem == 'exalead':
+                    from theHarvester.discovery import exaleadsearch
+                    exalead_search = exaleadsearch.SearchExalead(word, limit, start)
+                    stor_lst.append(store(exalead_search, engineitem, store_host=True, store_emails=True))
+
                 elif engineitem == 'github-code':
                     try:
                         from theHarvester.discovery import githubcode
@@ -237,16 +245,16 @@ async def start():
                     else:
                         pass
 
-                elif engineitem == 'exalead':
-                    from theHarvester.discovery import exaleadsearch
-                    exalead_search = exaleadsearch.SearchExalead(word, limit, start)
-                    stor_lst.append(store(exalead_search, engineitem, store_host=True, store_emails=True))
-
                 elif engineitem == 'google':
                     from theHarvester.discovery import googlesearch
                     google_search = googlesearch.SearchGoogle(word, limit, start)
                     stor_lst.append(store(google_search, engineitem, process_param=google_dorking, store_host=True,
                                           store_emails=True))
+
+                elif engineitem == 'hackertarget':
+                    from theHarvester.discovery import hackertarget
+                    hackertarget_search = hackertarget.SearchHackerTarget(word)
+                    stor_lst.append(store(hackertarget_search, engineitem, store_host=True, store_ip=True))
 
                 elif engineitem == 'hunter':
                     from theHarvester.discovery import huntersearch
@@ -427,7 +435,7 @@ async def start():
         all_hosts = sorted(list(set(all_hosts)))
         db = stash.StashManager()
         full = [host if ':' in host and word in host else word in host.split(':')[0] and host for host in full]
-        full = [host for host in full if host]
+        full = list({host for host in full if host})
         full.sort(key=lambda el: el.split(':')[0])
         for host in full:
             print(host)

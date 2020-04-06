@@ -132,6 +132,7 @@ class Core:
                             'exalead',
                             'github-code',
                             'google',
+                            'hackertarget',
                             'hunter',
                             'intelx',
                             'linkedin',
