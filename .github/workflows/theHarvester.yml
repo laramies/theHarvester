@@ -67,6 +67,10 @@ jobs:
       run: |
         python theHarvester.py -d yale.edu -b google
 
+    - name: Run theHarvester module hackertarget
+      run: |
+        python theHarvester.py -d yale.edu -b hackertarget
+
     - name: Run theHarvester module Intelx
       run: |
         python theHarvester.py -d yale.edu -b intelx
