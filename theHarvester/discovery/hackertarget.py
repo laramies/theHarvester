@@ -23,5 +23,5 @@ class SearchHackerTarget:
         self.proxy = proxy
         await self.do_search()
 
-    async def get_hostnames(self):
+    async def get_hostnames(self) -> list:
         return self.total_results.splitlines()
