@@ -36,7 +36,7 @@ Passive:
 
 * google: Google search engine (Optional Google dorking.) - www.google.com
 
-* hackertarget: Tools for your needs - https://hackertarget.com/
+* hackertarget: Online vulnerability scanners and network intelligence to help organizations - https://hackertarget.com
 
 * hunter: Hunter search engine (Requires an API key, see below.) - www.hunter.io
 
