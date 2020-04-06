@@ -5,7 +5,6 @@ class SearchHackerTarget:
     """
     Class uses the HackerTarget api to gather subdomains and ips
     """
-
     def __init__(self, word):
         self.word = word
         self.total_results = ""
@@ -19,7 +18,6 @@ class SearchHackerTarget:
         responses = await AsyncFetcher.fetch_all(urls, headers=headers, proxy=self.proxy)
         for response in responses:
             self.total_results += response.replace(",", ":")
-        print('Finished getting results')
 
     async def process(self, proxy=False):
         self.proxy = proxy
@@ -27,4 +25,3 @@ class SearchHackerTarget:
 
     async def get_hostnames(self):
         return self.total_results.splitlines()
-
