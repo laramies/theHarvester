@@ -18,8 +18,7 @@ class SearchHackerTarget:
         urls = [f'{self.hostname}/hostsearch/?q={self.word}', f'{self.hostname}/reversedns/?q={self.word}']
         responses = await AsyncFetcher.fetch_all(urls, headers=headers, proxy=self.proxy)
         for response in responses:
-            self.total_results += response
-        self.results = list(zip(*[value.split(',') for value in self.total_results.splitlines()]))
+            self.total_results += response.replace(",", ":")
         print('Finished getting results')
 
     async def process(self, proxy=False):
@@ -27,8 +26,5 @@ class SearchHackerTarget:
         await self.do_search()
 
     async def get_hostnames(self):
-        return self.results[0]
+        return self.total_results.splitlines()
 
-    async def get_ips(self):
-        return []
-        #return self.results[1]

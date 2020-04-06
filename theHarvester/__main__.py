@@ -416,8 +416,6 @@ async def start():
         print('\n[*] IPs found: ' + str(len(all_ip)))
         print('-------------------')
         # use netaddr as the list may contain ipv4 and ipv6 addresses
-        import pprint as p
-        p.pprint(all_ip, indent=4)
         ip_list = [netaddr.IPAddress(ip.strip()) for ip in set(all_ip)]
         ip_list.sort()
         print('\n'.join(map(str, ip_list)))
