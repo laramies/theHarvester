@@ -473,27 +473,30 @@ async def start():
     dnsrev = []
     if dnslookup is True:
         print('\n[*] Starting active queries.')
-        analyzed_ranges = []
+        # load the reverse dns tools
+        from theHarvester.discovery.dnssearch import (
+            generate_postprocessing_callback,
+            reverse_all_ips_in_range,
+            serialize_ip_range)
+
+        # reverse each iprange in a separate task
+        __reverse_dns_tasks = {}
         for entry in host_ip:
-            print(entry)
-            ip = entry.split(':')[0]
-            ip_range = ip.split('.')
-            ip_range[3] = '0/24'
-            s = '.'
-            ip_range = s.join(ip_range)
-            if not analyzed_ranges.count(ip_range):
-                print('[*] Performing reverse lookup in ' + ip_range)
-                a = dnssearch.DnsReverse(ip_range, True)
-                a.list()
-                res = a.process()
-                analyzed_ranges.append(ip_range)
-            else:
-                continue
-            for entries in res:
-                if entries.count(word):
-                    dnsrev.append(entries)
-                    if entries not in full:
-                        full.append(entries)
+            __ip_range = serialize_ip_range(ip=entry, netmask='24')
+            if __ip_range and __ip_range not in set(__reverse_dns_tasks.keys()):
+                print('\n[*] Performing reverse lookup on ' + __ip_range)
+                __reverse_dns_tasks[__ip_range] = asyncio.create_task(reverse_all_ips_in_range(
+                    iprange=__ip_range,
+                    callback=generate_postprocessing_callback(
+                        target=word,
+                        local_results=dnsrev,
+                        overall_results=full),
+                    nameservers=[dnsserver] if dnsserver else None))
+
+        # run all the reversing tasks concurrently
+        await asyncio.gather(*__reverse_dns_tasks.values())
+
+        # Display the newly found hosts
         print('[*] Hosts found after reverse lookup (in target domain):')
         print('--------------------------------------------------------')
         for xh in dnsrev:
