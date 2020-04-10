@@ -254,7 +254,7 @@ async def start():
                 elif engineitem == 'hackertarget':
                     from theHarvester.discovery import hackertarget
                     hackertarget_search = hackertarget.SearchHackerTarget(word)
-                    stor_lst.append(store(hackertarget_search, engineitem, store_host=True, store_ip=True))
+                    stor_lst.append(store(hackertarget_search, engineitem, store_host=True))
 
                 elif engineitem == 'hunter':
                     from theHarvester.discovery import huntersearch
