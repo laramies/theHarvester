@@ -93,15 +93,17 @@ class Parser:
         return resul
 
     async def people_linkedin(self):
-        reg_people = re.compile(r'">[a-zA-Z0-9._ -]* \| LinkedIn')
+        reg_people = re.compile(r'">[a-zA-Z0-9._ -]* -|\| LinkedIn')
         self.temp = reg_people.findall(self.results)
         resul = []
         for iteration in (self.temp):
             delete = iteration.replace(' | LinkedIn', '')
+            delete = delete.replace(' - LinkedIn', '')
             delete = delete.replace(' profiles ', '')
             delete = delete.replace('LinkedIn', '')
             delete = delete.replace('"', '')
             delete = delete.replace('>', '')
+            delete = delete.strip("-")
             if delete != " ":
                 resul.append(delete)
         return resul
