@@ -435,7 +435,7 @@ class AsyncFetcher:
                     async with session.get(url, params=params, proxy=proxy) as response:
                         return await response.text() if json is False else await response.json()
                 else:
-                    async with session.get(url) as response:
+                    async with session.get(url, proxy=proxy) as response:
                         await asyncio.sleep(2)
                         return await response.text() if json is False else await response.json()
 
