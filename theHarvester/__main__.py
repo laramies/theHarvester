@@ -588,14 +588,13 @@ async def start():
             pluginscanstatistics = await db.getpluginscanstatistics()
             generator = statichtmlgenerator.HtmlGenerator(word)
             HTMLcode = await generator.beginhtml()
+            HTMLcode += await generator.generatedashboardcode(scanboarddata)
             HTMLcode += await generator.generatelatestscanresults(latestscanresults)
-            HTMLcode += await generator.generatepreviousscanresults(previousscanresults)
             graph = reportgraph.GraphGenerator(word)
             await graph.init_db()
             HTMLcode += await graph.drawlatestscangraph(word, latestscanchartdata)
             HTMLcode += await graph.drawscattergraphscanhistory(word, scanhistorydomain)
             HTMLcode += await generator.generatepluginscanstatistics(pluginscanstatistics)
-            HTMLcode += await generator.generatedashboardcode(scanboarddata)
             HTMLcode += '<p><span style="color: #000000;">Report generated on ' + str(
                 datetime.datetime.now()) + '</span></p>'
             HTMLcode += '''
