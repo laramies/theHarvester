@@ -12,3 +12,5 @@ shodan==1.22.0
 texttable==1.6.2
 lxml==4.5.0
 uvloop==0.14.0
+certifi==4.5.1
+ssl==1.16
