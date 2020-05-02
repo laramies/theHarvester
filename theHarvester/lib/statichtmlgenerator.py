@@ -73,7 +73,8 @@ class HtmlGenerator:
             html += '<script type="text/javascript">'
             html += 'var tabledata = ['
             for i in latestscanresults:
-                html += '{date:"' + str(i[0]) + '", domain:"' + str(i[1]) + '", plugin:"' + str(i[2]) + '", record:"' + str(i[3]) + '",result:"' + str(i[4]) + '"},'
+                html += '{date:"' + str(i[0]) + '", domain:"' + str(i[1]) + '", plugin:"' + str(
+                    i[2]) + '", record:"' + str(i[3]) + '",result:"' + str(i[4]) + '"},'
             html += '];'
             html += '''
 
@@ -157,17 +158,17 @@ function minMaxFilterFunction(headerValue, rowValue, rowData, filterParams){
 
 //create Tabulator on DOM element with id "example-table"
 var table = new Tabulator("#example-table", {
- 	height:700, // set height of table (in CSS or here), this enables the Virtual DOM and improves render speed dramatically (can be any valid css height value)
- 	data:tabledata, //assign data to table
- 	layout:"fitColumns", //fit columns to width of table (optional)
- 	columns:[ //Define Table Columns
-	 	{title:"Date", field:"date", width:150},
-	 	{title:"Domain", field:"domain", hozAlign:"left", headerFilter:"select" },
-	 	{title:"Plugin", field:"plugin", headerFilter:"select"},
-	 	{title:"Record", field:"record", headerFilter:"select", hozAlign:"center"},
-   	 	{title:"Result", field:"result", headerFilter:"select", hozAlign:"center"},
- 	]
- 	},
+    height:700, // set height of table (in CSS or here), this enables the Virtual DOM and improves render speed dramatically (can be any valid css height value)
+    data:tabledata, //assign data to table
+    layout:"fitColumns", //fit columns to width of table (optional)
+    columns:[ //Define Table Columns
+        {title:"Date", field:"date", width:150},
+        {title:"Domain", field:"domain", hozAlign:"left", headerFilter:"select" },
+        {title:"Plugin", field:"plugin", headerFilter:"select"},
+        {title:"Record", field:"record", headerFilter:"select", hozAlign:"center"},
+        {title:"Result", field:"result", headerFilter:"select", hozAlign:"center"},
+    ]
+    },
 );
 </script>
 <p>&nbsp;</p>
