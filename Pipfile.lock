@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "103a9d8c1fba49195a5bd6f0f56c453a8a5bc19cd44c287624a298a7061c5123"
+            "sha256": "14b22f685840f9711354a98d3951e7a8fbd6954893acb3a2fd636ca13a4b066f"
         },
         "pipfile-spec": 6,
         "requires": {},
@@ -75,7 +75,6 @@
                 "sha256:1d987a998c75633c40847cc966fcf5904906c920a7f17ef374f5aa4282abd304",
                 "sha256:51fcb31174be6e6664c5f69e3e1691a2d72a1a12e90f872cbdb1567eb47b6519"
             ],
-            "index": "pypi",
             "version": "==2020.4.5.1"
         },
         "cffi": {
@@ -123,6 +122,7 @@
                 "sha256:d2b5255c7c6349bc1bd1e59e08cd12acbbd63ce649f2588755783aa94dfb6b1a",
                 "sha256:dacca89f4bfadd5de3d7489b7c8a566eee0d3676333fbb50030263894c38c0dc"
             ],
+            "index": "pypi",
             "version": "==7.1.2"
         },
         "click-plugins": {
