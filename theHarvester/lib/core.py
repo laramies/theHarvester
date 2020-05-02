@@ -8,6 +8,7 @@ import random
 import ssl
 import certifi
 
+
 class Core:
     @staticmethod
     def version() -> str:
@@ -421,7 +422,7 @@ class AsyncFetcher:
                         await asyncio.sleep(3)
                         return await resp.text() if json is False else await resp.json()
         except Exception as e:
-            print('An exception has occurred: ', e)
+            print(f'An exception has occurred: {e}')
             return ''
 
     @staticmethod
@@ -431,7 +432,6 @@ class AsyncFetcher:
             # Wrap in try except due to 0x89 png/jpg files
             # This fetch method solely focuses on get requests
             # TODO determine if method for post requests is necessary
-           
             if proxy != "":
                 if params != "":
                     async with session.get(url, params=params, proxy=proxy) as response:
@@ -452,7 +452,7 @@ class AsyncFetcher:
                     await asyncio.sleep(2)
                     return await response.text() if json is False else await response.json()
         except Exception as e:
-            print('An exception has occurred: ', e)
+            print(f'An exception has occurred: {e}')
             return ''
 
     @staticmethod
