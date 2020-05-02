@@ -5,7 +5,8 @@ import yaml
 import asyncio
 import aiohttp
 import random
-
+import ssl
+import certifi
 
 class Core:
     @staticmethod
@@ -443,12 +444,13 @@ class AsyncFetcher:
             # Wrap in try except due to 0x89 png/jpg files
             # This fetch method solely focuses on get requests
             # TODO determine if method for post requests is necessary
+           
             if proxy != "":
                 if params != "":
                     async with session.get(url, params=params, proxy=proxy) as response:
                         return await response.text() if json is False else await response.json()
                 else:
-                    async with session.get(url) as response:
+                    async with session.get(url, proxy=proxy) as response:
                         await asyncio.sleep(2)
                         return await response.text() if json is False else await response.json()
 
@@ -458,7 +460,8 @@ class AsyncFetcher:
                     return await response.text() if json is False else await response.json()
 
             else:
-                async with session.get(url) as response:
+                sslcontext = ssl.create_default_context(cafile=certifi.where())
+                async with session.get(url, ssl=sslcontext) as response:
                     await asyncio.sleep(2)
                     return await response.text() if json is False else await response.json()
         except Exception as e:
