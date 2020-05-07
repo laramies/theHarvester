@@ -402,7 +402,6 @@ class Core:
 
 class AsyncFetcher:
     proxy_list = Core.proxy_list()
-    print(f'proxy_list: {proxy_list}')
 
     @classmethod
     async def post_fetch(cls, url, headers='', data='', params='', json=False, proxy=False):

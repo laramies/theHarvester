@@ -37,7 +37,7 @@ async def start():
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, bufferoverun, certspotter, crtsh, dnsdumpster,
                         dogpile, duckduckgo, exalead, github-code, google,
                         hackertarget, hunter, intelx,
-                        linkedin, linkedin_links, netcraft, otx, securityTrails, spyse, threatcrowd,
+                        linkedin, linkedin_links, netcraft, otx, pentesttools, securityTrails, spyse, threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo, all''')
 
     args = parser.parse_args()
@@ -99,7 +99,7 @@ async def start():
             print(f'\033[94m[*] Searching {source[0].upper() + source[1:]}. \033[0m')
         if store_host:
             host_names = filter(await search_engine.get_hostnames())
-            if source != 'hackertarget':
+            if source != 'hackertarget' and source != 'pentesttools':
                 full_hosts_checker = hostchecker.Checker(host_names)
                 temp_hosts, temp_ips = await full_hosts_checker.check()
                 ips.extend(temp_ips)
