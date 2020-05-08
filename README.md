@@ -48,6 +48,8 @@ Passive:
 
 * otx: AlienVault Open Threat Exchange - otx.alienvault.com
 
+* pentesttools: Powerful Penetration Testing Tools, Easy to Use (Needs an API key and is not free for API access) - https://pentest-tools.com/home
+
 * securityTrails: Security Trails search engine, the world's largest repository of historical DNS data<br>
   (Requires an API key, see below.) - www.securitytrails.com
 
@@ -83,6 +85,7 @@ Add your keys to api-keys.yaml
 * github
 * hunter
 * intelx
+* pentesttools
 * securityTrails
 * shodan
 * spyse
