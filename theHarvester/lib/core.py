@@ -5,6 +5,8 @@ import yaml
 import asyncio
 import aiohttp
 import random
+import ssl
+import certifi
 
 
 class Core:
@@ -433,7 +435,7 @@ class AsyncFetcher:
                         await asyncio.sleep(3)
                         return await resp.text() if json is False else await resp.json()
         except Exception as e:
-            print('An exception has occurred: ', e)
+            print(f'An exception has occurred: {e}')
             return ''
 
     @staticmethod
@@ -458,11 +460,12 @@ class AsyncFetcher:
                     return await response.text() if json is False else await response.json()
 
             else:
-                async with session.get(url) as response:
+                sslcontext = ssl.create_default_context(cafile=certifi.where())
+                async with session.get(url, ssl=sslcontext) as response:
                     await asyncio.sleep(2)
                     return await response.text() if json is False else await response.json()
         except Exception as e:
-            print('An exception has occurred: ', e)
+            print(f'An exception has occurred: {e}')
             return ''
 
     @staticmethod
