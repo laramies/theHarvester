@@ -608,6 +608,7 @@ async def start():
             HTMLcode = await generator.beginhtml()
             HTMLcode += await generator.generatedashboardcode(scanboarddata)
             HTMLcode += await generator.generatelatestscanresults(latestscanresults)
+            HTMLcode += await generator.generatepreviousscanresults(previousscanresults)
             graph = reportgraph.GraphGenerator(word)
             await graph.init_db()
             HTMLcode += await graph.drawlatestscangraph(word, latestscanchartdata)
