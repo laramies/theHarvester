@@ -5,7 +5,7 @@
 
 What is this?
 -------------
-theHarvester is a very simple to use, yet powerful and effective tool designed to be used in the early statges of a<br>
+theHarvester is a very simple to use, yet powerful and effective tool designed to be used in the early stages of a<br>
 penetration test or red team engagement. Use it for open source intelligence (OSINT) gathering to help determine a<br>
 company's external threat landscape on the internet. The tool gathers emails, names, subdomains, IPs and URLs using<br>
 multiple public data sources that include:
