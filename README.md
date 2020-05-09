@@ -5,7 +5,7 @@
 
 What is this?
 -------------
-theHarvester is a very simple to use, yet powerful and effective tool designed to be used in the early statges of a<br>
+theHarvester is a very simple to use, yet powerful and effective tool designed to be used in the early stages of a<br>
 penetration test or red team engagement. Use it for open source intelligence (OSINT) gathering to help determine a<br>
 company's external threat landscape on the internet. The tool gathers emails, names, subdomains, IPs and URLs using<br>
 multiple public data sources that include:
@@ -48,6 +48,8 @@ Passive:
 
 * otx: AlienVault Open Threat Exchange - otx.alienvault.com
 
+* pentesttools: Powerful Penetration Testing Tools, Easy to Use (Needs an API key and is not free for API access) - https://pentest-tools.com/home
+
 * securityTrails: Security Trails search engine, the world's largest repository of historical DNS data<br>
   (Requires an API key, see below.) - www.securitytrails.com
 
@@ -83,6 +85,7 @@ Add your keys to api-keys.yaml
 * github
 * hunter
 * intelx
+* pentesttools
 * securityTrails
 * shodan
 * spyse
