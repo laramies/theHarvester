@@ -36,6 +36,8 @@ Passive:
 
 * google: Google search engine (Optional Google dorking.) - www.google.com
 
+* hackertarget: Online vulnerability scanners and network intelligence to help organizations - https://hackertarget.com
+
 * hunter: Hunter search engine (Requires an API key, see below.) - www.hunter.io
 
 * intelx: Intelx search engine (Requires an API key, see below.) - www.intelx.io
@@ -45,6 +47,8 @@ Passive:
 * netcraft: Internet Security and Data Mining - www.netcraft.com
 
 * otx: AlienVault Open Threat Exchange - otx.alienvault.com
+
+* pentesttools: Powerful Penetration Testing Tools, Easy to Use (Needs an API key and is not free for API access) - https://pentest-tools.com/home
 
 * securityTrails: Security Trails search engine, the world's largest repository of historical DNS data<br>
   (Requires an API key, see below.) - www.securitytrails.com
@@ -81,6 +85,7 @@ Add your keys to api-keys.yaml
 * github
 * hunter
 * intelx
+* pentesttools
 * securityTrails
 * shodan
 * spyse

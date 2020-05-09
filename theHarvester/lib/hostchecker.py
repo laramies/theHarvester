@@ -28,7 +28,7 @@ class Checker:
             else:
                 return f"{host}:{', '.join(map(str, addresses))}", addresses
         except Exception:
-            return f"{host}:", tuple()
+            return f"{host}", tuple()
 
     async def query_all(self, resolver) -> list:
         results = await asyncio.gather(*[asyncio.create_task(self.query(host, resolver))
