@@ -108,7 +108,6 @@ class Core:
             with open('/etc/theHarvester/proxies.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
         except FileNotFoundError:
-            return []
             with open('proxies.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
                 http_list = [f'http://{proxy}' for proxy in keys['http']] if keys['http'] is not None else []
