@@ -117,10 +117,6 @@ async def start():
             ips_list = await search_engine.get_ips()
             all_ip.extend(ips_list)
             await db_stash.store_all(word, all_ip, 'ip', source)
-        if store_data:
-            data = filter(await search_engine.get_data())
-            all_hosts.extend(data)
-            await db.store_all(word, all_hosts, 'host', source)
         if store_results:
             email_list, host_names, urls = await search_engine.get_results()
             all_emails.extend(email_list)
@@ -206,7 +202,7 @@ async def start():
                     try:
                         from theHarvester.discovery import crtsh
                         crtsh_search = crtsh.SearchCrtsh(word)
-                        stor_lst.append(store(crtsh_search, 'CRTsh', store_data=True))
+                        stor_lst.append(store(crtsh_search, 'CRTsh', store_host=True))
                     except Exception as e:
                         print(f'\033[93m[!] A timeout occurred with crtsh, cannot find {args.domain}\n {e}\033[0m')
 
