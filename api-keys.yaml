@@ -6,13 +6,13 @@ apikeys:
     key: 
 
   hunter:
-    key:
+    key: 
 
   intelx:
     key: 9df61df0-84f7-4dc7-b34c-8ccfb8646ace
 
   pentestTools:
-    key:
+    key: 
 
   securityTrails:
     key: 
@@ -21,4 +21,4 @@ apikeys:
     key: oCiMsgM6rQWqiTvPxFHYcExlZgg7wvTt
 
   spyse:
-    key:
+    key: 
