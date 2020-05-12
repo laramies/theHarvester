@@ -1,5 +1,5 @@
 -r base.txt
-flake8==3.7.9
+flake8==3.8.0
 mypy==0.770
 mypy-extensions==0.4.3
 pyflakes==2.2.0
