@@ -36,7 +36,7 @@ async def start():
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, bufferoverun, certspotter, crtsh, dnsdumpster,
                         dogpile, duckduckgo, exalead, github-code, google,
-                        hackertarget, hunter, intelx, linkedin, linkedin_links, netcraft, otx, pentesttools, 
+                        hackertarget, hunter, intelx, linkedin, linkedin_links, netcraft, otx, pentesttools,
                         rapiddns, securityTrails, spyse, threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo, all''')
 
@@ -436,8 +436,7 @@ async def start():
         print('\n[*] IPs found: ' + str(len(all_ip)))
         print('-------------------')
         # use netaddr as the list may contain ipv4 and ipv6 addresses
-        ip_list = [netaddr.IPAddress(ip.strip()) for ip in set(all_ip)]
-        ip_list.sort()
+        ip_list = sorted([netaddr.IPAddress(ip.strip()) for ip in set(all_ip)])
         print('\n'.join(map(str, ip_list)))
 
     if len(all_emails) == 0:

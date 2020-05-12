@@ -42,4 +42,3 @@ class SearchRapidDns:
 
     async def get_hostnames(self):
         return self.total_results
-
