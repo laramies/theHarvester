@@ -546,17 +546,17 @@ async def start():
     if virtual == 'basic':
         print('\n[*] Virtual hosts:')
         print('------------------')
-        for l in host_ip:
-            basic_search = bingsearch.SearchBing(l, limit, start)
+        for data in host_ip:
+            basic_search = bingsearch.SearchBing(data, limit, start)
             await basic_search.process_vhost()
             results = await basic_search.get_allhostnames()
             for result in results:
-                result = re.sub(r'[[\<\/?]*[\w]*>]*', '', result)
+                result = re.sub(r'[[</?]*[\w]*>]*', '', result)
                 result = re.sub('<', '', result)
                 result = re.sub('>', '', result)
-                print((l + '\t' + result))
-                vhost.append(l + ':' + result)
-                full.append(l + ':' + result)
+                print((data + '\t' + result))
+                vhost.append(data + ':' + result)
+                full.append(data + ':' + result)
         vhost = sorted(set(vhost))
     else:
         pass

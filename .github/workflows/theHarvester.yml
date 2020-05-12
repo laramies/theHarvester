@@ -91,9 +91,14 @@ jobs:
       run: |
         python theHarvester.py -d yale.edu -b otx
 
+    - name: Run theHarvester module RapidDns
+      run: |
+        python theHarvester.py -d yale.edu -b rapiddns
+
     - name: Run theHarvester module threatcrowd
       run: |
         python theHarvester.py -d yale.edu -b threatcrowd
+
     - name: Run theHarvester module trello
       run: |
         python theHarvester.py -d yale.edu -b trello

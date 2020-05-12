@@ -13,7 +13,7 @@ before_install:
 install:
 - python setup.py test
 script:
-- python theHarvester.py -d apple.com -b baidu,bing,bufferoverun,certspotter,crtsh,dnsdumpster,dogpile,duckduckgo,exalead,linkedin,netcraft,intelx,threatcrowd,trello,twitter,virustotal,yahoo
+- python theHarvester.py -d apple.com -b baidu,bing,bufferoverun,certspotter,crtsh,dnsdumpster,dogpile,duckduckgo,exalead,linkedin,netcraft,intelx,threatcrowd,trello,twitter,virustotal,yahoo,rapiddns
   -l 200
 - pytest
 - flake8 . --count --show-source --statistics
