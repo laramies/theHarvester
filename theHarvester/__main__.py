@@ -36,8 +36,8 @@ async def start():
     parser.add_argument('-f', '--filename', help='save the results to an HTML and/or XML file', default='', type=str)
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, bufferoverun, certspotter, crtsh, dnsdumpster,
                         dogpile, duckduckgo, exalead, github-code, google,
-                        hackertarget, hunter, intelx,
-                        linkedin, linkedin_links, netcraft, otx, pentesttools, securityTrails, spyse, threatcrowd,
+                        hackertarget, hunter, intelx, linkedin, linkedin_links, netcraft, otx, pentesttools, 
+                        rapiddns, securityTrails, spyse, threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo, all''')
 
     args = parser.parse_args()
@@ -99,7 +99,8 @@ async def start():
             print(f'\033[94m[*] Searching {source[0].upper() + source[1:]}. \033[0m')
         if store_host:
             host_names = filter(await search_engine.get_hostnames())
-            if source != 'hackertarget' and source != 'pentesttools':
+            if source != 'hackertarget' and source != 'pentesttools' and source != 'rapiddns':
+                # If source is inside this conditional it means the hosts returned must be resolved to obtain ip
                 full_hosts_checker = hostchecker.Checker(host_names)
                 temp_hosts, temp_ips = await full_hosts_checker.check()
                 ips.extend(temp_ips)
@@ -313,6 +314,14 @@ async def start():
                             print(e)
                         else:
                             print(f'An exception has occurred in PentestTools search: {e}')
+
+                elif engineitem == 'rapiddns':
+                    from theHarvester.discovery import rapiddns
+                    try:
+                        rapiddns_search = rapiddns.SearchRapidDns(word)
+                        stor_lst.append(store(rapiddns_search, engineitem, store_host=True))
+                    except Exception as e:
+                        print(e)
 
                 elif engineitem == 'securityTrails':
                     from theHarvester.discovery import securitytrailssearch
