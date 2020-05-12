@@ -50,6 +50,8 @@ Passive:
 
 * pentesttools: Powerful Penetration Testing Tools, Easy to Use (Needs an API key and is not free for API access) - https://pentest-tools.com/home
 
+* RapidDNS: DNS query tool which make querying subdomains or sites of a same IP easy! https://rapiddns.io
+
 * securityTrails: Security Trails search engine, the world's largest repository of historical DNS data<br>
   (Requires an API key, see below.) - www.securitytrails.com
 
