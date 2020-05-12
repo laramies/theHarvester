@@ -34,7 +34,7 @@ class SearchRapidDns:
                             self.total_results.append(f'{subdomain}:{str(cells[1].get_text()).strip()}')
                 self.total_results = list({domain for domain in self.total_results})
         except Exception as e:
-            print('An exception has occurred: ' + str(e))
+            print(f'An exception has occurred: {str(e)}')
 
     async def process(self, proxy=False):
         self.proxy = proxy
