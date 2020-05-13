@@ -2,6 +2,7 @@
 *.pyc
 *.sqlite
 *.html
+*.htm
 *.vscode
 *.xml
 debug_results.txt
@@ -11,3 +12,4 @@ venv
 build/
 dist/
 api-keys.yaml
+.DS_Store
