@@ -468,20 +468,18 @@ async def start():
             print(url)
 
     # DNS brute force
-    # dnsres = []
+
     if dnsbrute is True:
         print('\n[*] Starting DNS brute force.')
-        a = dnssearch.DnsForce(word, dnsserver, verbose=True)
-        a.process()
-        # print('\n[*] Hosts found after DNS brute force:')
-        # for y in res:
-        # print('-------------------------------------')
-        #    print(y)
-        #   dnsres.append(y.split(':')[0])
-        #    if y not in full:
-        #        full.append(y)
-        # db = stash.stash_manager()
-        # db.store_all(word, dnsres, 'host', 'dns_bruteforce')
+        dns_force = dnssearch.DnsForce(word, dnsserver, verbose=True)
+        hosts, ips = await dns_force.run()
+        hosts = list({host for host in hosts if ':' in host})
+        hosts.sort(key=lambda el: el.split(':')[0])
+        print('\n[*] Hosts found after DNS brute force:')
+        db = stash.StashManager()
+        for host in hosts:
+            print(host)
+            await db.store_all(word, host, 'host', 'dns_bruteforce')
 
     # TakeOver Checking
 

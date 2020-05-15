@@ -13,10 +13,13 @@ from typing import Tuple, Any
 
 class Checker:
 
-    def __init__(self, hosts: list):
+    def __init__(self, hosts: list, nameserver=False):
         self.hosts = hosts
         self.realhosts: list = []
         self.addresses: set = set()
+        self.nameserver = []
+        if nameserver:
+            self.nameserver = nameserver
 
     @staticmethod
     async def query(host, resolver) -> Tuple[str, Any]:
@@ -37,7 +40,8 @@ class Checker:
 
     async def check(self):
         loop = asyncio.get_event_loop()
-        resolver = aiodns.DNSResolver(loop=loop, timeout=4)
+        resolver = aiodns.DNSResolver(loop=loop, timeout=4) if len(self.nameserver) == 0\
+            else aiodns.DNSResolver(loop=loop, timeout=4, nameservers=self.nameserver)
         results = await self.query_all(resolver)
         for host, address in results:
             self.realhosts.append(host)
