@@ -432,7 +432,8 @@ class AsyncFetcher:
                         return await resp.text() if json is False else await resp.json()
             else:
                 async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
-                    async with session.post(url, data=data, params=params) as resp:
+                    sslcontext = ssl.create_default_context(cafile=certifi.where())
+                    async with session.post(url, data=data, ssl=sslcontext, params=params) as resp:
                         await asyncio.sleep(3)
                         return await resp.text() if json is False else await resp.json()
         except Exception as e:
@@ -448,15 +449,18 @@ class AsyncFetcher:
             # TODO determine if method for post requests is necessary
             if proxy != "":
                 if params != "":
-                    async with session.get(url, params=params, proxy=proxy) as response:
+                    sslcontext = ssl.create_default_context(cafile=certifi.where())
+                    async with session.get(url, ssl=sslcontext, params=params, proxy=proxy) as response:
                         return await response.text() if json is False else await response.json()
                 else:
-                    async with session.get(url, proxy=proxy) as response:
+                    sslcontext = ssl.create_default_context(cafile=certifi.where())
+                    async with session.get(url, ssl=sslcontext, proxy=proxy) as response:
                         await asyncio.sleep(2)
                         return await response.text() if json is False else await response.json()
 
             if params != '':
-                async with session.get(url, params=params) as response:
+                sslcontext = ssl.create_default_context(cafile=certifi.where())
+                async with session.get(url, ssl=sslcontext, params=params) as response:
                     await asyncio.sleep(2)
                     return await response.text() if json is False else await response.json()
 

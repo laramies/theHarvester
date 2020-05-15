@@ -21,7 +21,12 @@ class SearchCrtsh:
             data = {domain for domain in data if (domain[0] != '*' and str(domain[0:4]).isnumeric() is False)}
         except Exception as e:
             print(e)
-        return data
+        clean = []
+        for x in data:
+            pre = x.split()
+            for y in pre:
+                clean.append(y)
+        return clean
 
     async def process(self, proxy=False) -> None:
         self.proxy = proxy
