@@ -8,7 +8,6 @@ DNS Browsing
 Explore the space around known hosts & ips for extra catches.
 """
 
-import dns
 import re
 import sys
 
