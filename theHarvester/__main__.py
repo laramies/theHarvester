@@ -479,7 +479,7 @@ async def start():
         db = stash.StashManager()
         for host in hosts:
             print(host)
-            await db.store_all(word, host, 'host', 'dns_bruteforce')
+        await db.store_all(word, hosts, 'host', 'dns_bruteforce')
 
     # TakeOver Checking
 
