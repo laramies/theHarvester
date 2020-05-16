@@ -91,8 +91,7 @@ def serialize_ip_range(
     return ''
 
 
-def list_ips_in_network_range(
-        iprange: str) -> List[str]:
+def list_ips_in_network_range(iprange: str) -> List[str]:
     """
     List all the IPs in the range.
 
@@ -114,21 +113,17 @@ def list_ips_in_network_range(
         return []
 
 
-async def reverse_single_ip(
-        ip: str,
-        resolver: DNSResolver) -> str:
+async def reverse_single_ip(ip: str, resolver: DNSResolver) -> str:
     """
     Reverse a single IP and output the linked CNAME, if it exists.
+        Parameters
+        ----------
+        :param ip:  IP address to reverse
+        :param resolver: DNS server to use
 
-    Parameters
-    ----------
-    ip: str.
-        The IP to reverse.
-
-    Returns
-    -------
-    out: str.
-        The corresponding CNAME or None.
+        Returns
+        -------
+        :return str: with the corresponding CNAME or None
     """
     try:
         __host = await resolver.gethostbyaddr(ip)
@@ -137,10 +132,7 @@ async def reverse_single_ip(
         return ''
 
 
-async def reverse_all_ips_in_range(
-        iprange: str,
-        callback: Callable,
-        nameservers: Optional[List[str]] = None) -> None:
+async def reverse_all_ips_in_range(iprange: str, callback: Callable, nameservers: Optional[List[str]] = None) -> None:
     """
     Reverse all the IPs stored in a network range.
     All the queries are made concurrently.
@@ -172,8 +164,7 @@ async def reverse_all_ips_in_range(
 #####################################################################
 
 
-def log_query(
-        ip: str) -> None:
+def log_query(ip: str) -> None:
     """
     Display the current query in the console.
 
@@ -191,8 +182,7 @@ def log_query(
     sys.stdout.flush()
 
 
-def log_result(
-        host: str) -> None:
+def log_result(host: str) -> None:
     """
     Display the query result in the console.
 
@@ -209,9 +199,7 @@ def log_result(
         print(host)
 
 
-def generate_postprocessing_callback(
-        target: str,
-        **allhosts: List[str]) -> Callable:
+def generate_postprocessing_callback(target: str, **allhosts: List[str]) -> Callable:
     """
     Postprocess the query results asynchronously too, instead of waiting for
     the querying stage to be completely finished.
