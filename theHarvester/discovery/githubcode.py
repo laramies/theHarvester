@@ -117,9 +117,9 @@ class SearchGithubCode:
                         self.total_results += fragment
                         self.counter = self.counter + 1
                     self.page = await self.next_page_or_end(result)
-                    await asyncio.sleep(getDelay())
+                    await asyncio.sleep(get_delay())
                 elif isinstance(result, RetryResult):
-                    sleepy_time = getDelay() + result.time
+                    sleepy_time = get_delay() + result.time
                     print(f'\tRetrying page in {sleepy_time} seconds...')
                     await asyncio.sleep(sleepy_time)
                 elif isinstance(result, ErrorResult):
