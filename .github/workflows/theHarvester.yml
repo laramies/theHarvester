@@ -115,6 +115,10 @@ jobs:
       run: |
         python theHarvester.py -d yale.edu -b yahoo
 
+    - name: Run theHarvester module DNS brute force
+      run: |
+        python theHarvester.py -d yale.edu -c
+
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
