@@ -517,7 +517,7 @@ async def start():
         await asyncio.gather(*__reverse_dns_tasks.values())
 
         # Display the newly found hosts
-        print('[*] Hosts found after reverse lookup (in target domain):')
+        print('\n[*] Hosts found after reverse lookup (in target domain):')
         print('--------------------------------------------------------')
         for xh in dnsrev:
             print(xh)

@@ -50,12 +50,16 @@ def filter(lst):
     return new_lst
 
 
-def getDelay() -> float:
+def get_delay() -> float:
+    """Method that is used to generate a random delay"""
     return random.randint(1, 3) - .5
 
 
 async def search(text: str) -> bool:
-    # Helper function to check if Google has blocked traffic.
+    """Helper function to check if Google has blocked traffic.
+    :param text: See if certain text is returned which means Google is blocking us
+    :return bool:
+    """
     for line in text.strip().splitlines():
         if 'This page appears when Google automatically detects requests coming from your computer network' in line \
                 or 'http://www.google.com/sorry/index' in line or 'https://www.google.com/sorry/index' in line:
@@ -100,7 +104,9 @@ async def google_workaround(visit_url: str) -> Union[bool, str]:
 
 
 class MissingKey(Exception):
-
+    """
+    :raise: When there is a module that has not been provided its API key
+    """
     def __init__(self, identity_flag: bool):
         if identity_flag:
             self.message = '\n\033[93m[!] Missing API key. \033[0m'

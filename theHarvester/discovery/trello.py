@@ -36,7 +36,7 @@ class SearchTrello:
                     except Exception as e:
                         print(e)
                 self.totalresults += self.results
-                await asyncio.sleep(getDelay() - .5)
+                await asyncio.sleep(get_delay() - .5)
             except Exception as e:
                 print(f'An exception has occurred in trello: {e}')
 
