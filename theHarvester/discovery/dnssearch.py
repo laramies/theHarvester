@@ -8,13 +8,13 @@ DNS Browsing
 Explore the space around known hosts & ips for extra catches.
 """
 
-import dns
 import re
 import sys
 
 from aiodns import DNSResolver
 from ipaddress import IPv4Network
 from typing import Callable, List, Optional
+from theHarvester.lib import hostchecker
 
 # TODO: need big focus on performance and results parsing, now does the basic.
 
@@ -29,39 +29,21 @@ class DnsForce:
         self.domain = domain
         self.subdo = False
         self.verbose = verbose
-        dns.resolver.default_resolver = dns.resolver.Resolver(configure=False)
-        dns.resolver.default_resolver.nameservers = [dnsserver]
+        self.dnsserver = [dnsserver] if isinstance(dnsserver, str) else dnsserver
         try:
             with open('wordlists/dns-names.txt', 'r') as file:
                 self.list = file.readlines()
         except FileNotFoundError:
             with open('/etc/theHarvester/dns-names.txt', 'r') as file:
                 self.list = file.readlines()
+        self.domain = domain.replace('www.', '')
+        self.list = [f'{word.strip()}.{self.domain}' for word in self.list]
 
-    def run(self, host):
-        hostname = str(host.split('\n')[0]) + '.' + str(self.domain)
-        if self.verbose:
-            esc = chr(27)
-            sys.stdout.write(esc + '[2K' + esc + '[G')
-            sys.stdout.write('\r' + hostname + ' - ')
-            sys.stdout.flush()
-        try:
-            answer = dns.resolver.query(hostname, 'A')
-            print(answer.canonical_name)
-            return answer.canonical_name  # TODO: need rework all this results
-
-        except Exception:
-            pass
-
-    def process(self):
-        results = []
-        for entry in self.list:
-            host = self.run(entry)
-            if host is not None:
-                # print(' : ' + host.split(':')[1])
-                results.append(host)
-        return results
-
+    async def run(self):
+        print(f'Created checker with this many words {len(self.list)}')
+        checker = hostchecker.Checker(self.list)
+        hosts, ips = await checker.check()
+        return hosts, ips
 #####################################################################
 # DNS REVERSE
 #####################################################################
