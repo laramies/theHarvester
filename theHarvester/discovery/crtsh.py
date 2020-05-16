@@ -18,15 +18,20 @@ class SearchCrtsh:
             data = set(
                 [dct['name_value'][2:] if '*.' == dct['name_value'][:2] else dct['name_value']
                  for dct in response])
+            data = {domain for domain in data if (domain[0] != '*' and str(domain[0:4]).isnumeric() is False)}
         except Exception as e:
             print(e)
-        return data
+        clean = []
+        for x in data:
+            pre = x.split()
+            for y in pre:
+                clean.append(y)
+        return clean
 
     async def process(self, proxy=False) -> None:
         self.proxy = proxy
-        print('\tSearching results.')
         data = await self.do_search()
         self.data = data
 
-    async def get_data(self) -> Set:
+    async def get_hostnames(self) -> Set:
         return self.data
