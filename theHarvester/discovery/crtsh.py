@@ -1,5 +1,5 @@
 from theHarvester.lib.core import *
-from typing import Set
+from typing import List
 
 
 class SearchCrtsh:
@@ -9,7 +9,7 @@ class SearchCrtsh:
         self.data = set()
         self.proxy = False
 
-    async def do_search(self) -> Set:
+    async def do_search(self) -> List:
         data: set = set()
         try:
             url = f'https://crt.sh/?q=%25.{self.word}&output=json'

@@ -38,7 +38,9 @@ class SearchLinkedin:
 
     async def get_people(self):
         rawres = myparser.Parser(self.totalresults, self.word)
-        return await rawres.people_linkedin()
+        temp = await rawres.people_linkedin()
+        return [person for person in temp
+                if person[0] != '.' and '...' not in person and len(person.split()) != 1]
 
     async def get_links(self):
         links = myparser.Parser(self.totalresults, self.word)
