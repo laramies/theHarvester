@@ -27,47 +27,47 @@ jobs:
         pip install --upgrade pip
         pip install -r requirements/dev.txt
 
-    - name: Run theHarvester module baidu
+    - name: Run theHarvester module Baidu
       run: |
         python theHarvester.py -d yale.edu -b baidu
 
-    - name: Run theHarvester module bufferoverun
+    - name: Run theHarvester module Bufferoverun
       run: |
         python theHarvester.py -d yale.edu -b bufferoverun
 
-    - name: Run theHarvester module bing
+    - name: Run theHarvester module Bing
       run: |
         python theHarvester.py -d yale.edu -b bing
 
-    - name: Run theHarvester module certspotter
+    - name: Run theHarvester module CertSpotter
       run: |
         python theHarvester.py -d yale.edu -b certspotter
 
-    - name: Run theHarvester module crtsh
+    - name: Run theHarvester module Crtsh
       run: |
         python theHarvester.py -d hcl.com -b crtsh
 
-    - name: Run theHarvester module dnsdumpster
+    - name: Run theHarvester module DnsDumpster
       run: |
         python theHarvester.py -d yale.edu -b dnsdumpster
 
-    - name: Run theHarvester module dogplie
+    - name: Run theHarvester module Dogplie
       run: |
         python theHarvester.py -d yale.edu -b dogpile
 
-    - name: Run theHarvester module duckduckgo
+    - name: Run theHarvester module DuckDuckGo
       run: |
         python theHarvester.py -d yale.edu -b duckduckgo
 
-    - name: Run theHarvester module exalead
+    - name: Run theHarvester module Exalead
       run: |
         python theHarvester.py -d yale.edu -b exalead
 
-    - name: Run theHarvester module google
+    - name: Run theHarvester module Google
       run: |
         python theHarvester.py -d yale.edu -b google
 
-    - name: Run theHarvester module hackertarget
+    - name: Run theHarvester module HackerTarget
       run: |
         python theHarvester.py -d yale.edu -b hackertarget
 
@@ -75,7 +75,7 @@ jobs:
       run: |
         python theHarvester.py -d yale.edu -b intelx
 
-    - name: Run theHarvester module linkedin
+    - name: Run theHarvester module LinkedIn
       run: |
         python theHarvester.py -d yale.edu -b linkedin
 
@@ -83,7 +83,7 @@ jobs:
       run: |
         python theHarvester.py -d yale.edu -b linkedin_links
 
-    - name: Run theHarvester module netcraft
+    - name: Run theHarvester module Netcraft
       run: |
         python theHarvester.py -d yale.edu -b netcraft
 
@@ -95,23 +95,27 @@ jobs:
       run: |
         python theHarvester.py -d yale.edu -b rapiddns
 
-    - name: Run theHarvester module threatcrowd
+    - name: Run theHarvester module Sublist3r
+      run: |
+        python theHarvester.py -d yale.edu -b sublist3r
+
+    - name: Run theHarvester module Threatcrowd
       run: |
         python theHarvester.py -d yale.edu -b threatcrowd
 
-    - name: Run theHarvester module trello
+    - name: Run theHarvester module Trello
       run: |
         python theHarvester.py -d yale.edu -b trello
 
-    - name: Run theHarvester module twitter
+    - name: Run theHarvester module Twitter
       run: |
         python theHarvester.py -d yale.edu -b twitter
 
-    - name: Run theHarvester module virustotal
+    - name: Run theHarvester module Virustotal
       run: |
         python theHarvester.py -d yale.edu -b virustotal
 
-    - name: Run theHarvester module yahoo
+    - name: Run theHarvester module Yahoo
       run: |
         python theHarvester.py -d yale.edu -b yahoo
 

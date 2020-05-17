@@ -156,6 +156,7 @@ class Core:
                             'rapiddns',
                             'securityTrails',
                             'suip',
+                            'sublist3r',
                             'spyse',
                             'threatcrowd',
                             'trello',
