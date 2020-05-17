@@ -37,8 +37,8 @@ async def start():
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, bufferoverun, certspotter, crtsh, dnsdumpster,
                         dogpile, duckduckgo, exalead, github-code, google,
                         hackertarget, hunter, intelx, linkedin, linkedin_links, netcraft, otx, pentesttools,
-                        rapiddns, securityTrails, spyse, suip, threatcrowd,
-                        trello, twitter, vhost, virustotal, yahoo, all''')
+                        rapiddns, securityTrails, spyse, sublist3r, suip, threatcrowd,
+                        trello, twitter, virustotal, yahoo, all''')
 
     args = parser.parse_args()
     try:
@@ -335,6 +335,14 @@ async def start():
                     try:
                         suip_search = suip.SearchSuip(word)
                         stor_lst.append(store(suip_search, engineitem, store_host=True))
+                    except Exception as e:
+                        print(e)
+
+                elif engineitem == 'sublist3r':
+                    from theHarvester.discovery import sublist3r
+                    try:
+                        sublist3r_search = sublist3r.SearchSublist3r(word)
+                        stor_lst.append(store(sublist3r_search, engineitem, store_host=True))
                     except Exception as e:
                         print(e)
 

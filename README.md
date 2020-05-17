@@ -61,6 +61,8 @@ Passive:
 
 * spyse: Web research tools for professionals (Requires an API key.) - https://spyse.com
 
+* sublist3r:  Fast subdomains enumeration tool for penetration testers - https://api.sublist3r.com/search.php?domain=example.com
+
 * Suip: Web research tools that can take over 10 minutes to run, but worth the wait - https://suip.biz
 
 * threatcrowd: Open source threat intelligence - www.threatcrowd.org
