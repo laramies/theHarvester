@@ -1,7 +1,7 @@
 aiodns==2.0.0
 aiohttp==3.6.2
 aiosqlite==0.13.0
-beautifulsoup4==4.9.0
+beautifulsoup4==4.9.1
 dnspython==1.16.0
 netaddr==0.7.19
 plotly==4.7.1
