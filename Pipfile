@@ -16,7 +16,7 @@ requests = "==2.23.0"
 retrying = "==1.3.3"
 shodan = "==1.23.0"
 texttable = "==1.6.2"
-lxml = "==4.5.0"
+lxml = "==4.5.1"
 uvloop = "==0.14.0"
 certifi = "==2020.4.5.1"
 
