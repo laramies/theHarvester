@@ -37,7 +37,7 @@ async def start():
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, bufferoverun, certspotter, crtsh, dnsdumpster,
                         dogpile, duckduckgo, exalead, github-code, google,
                         hackertarget, hunter, intelx, linkedin, linkedin_links, netcraft, otx, pentesttools,
-                        rapiddns, securityTrails, spyse, sublist3r, suip, threatcrowd,
+                        urlscan, rapiddns, securityTrails, spyse, sublist3r, suip, threatcrowd,
                         trello, twitter, virustotal, yahoo, all''')
 
     args = parser.parse_args()
@@ -297,6 +297,14 @@ async def start():
                     try:
                         otxsearch_search = otxsearch.SearchOtx(word)
                         stor_lst.append(store(otxsearch_search, engineitem, store_host=True, store_ip=True))
+                    except Exception as e:
+                        print(e)
+
+                elif engineitem == 'urlscan':
+                    from theHarvester.discovery import urlscan
+                    try:
+                        urlscan_search = urlscan.SearchUrlscan(word)
+                        stor_lst.append(store(urlscan_search, engineitem, store_host=True))
                     except Exception as e:
                         print(e)
 
