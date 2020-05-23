@@ -71,6 +71,8 @@ Passive:
 
 * twitter: Twitter accounts related to a specific domain (Uses Google search.)
 
+* urlscan: A sandbox for the web that is a URL and website scanner - https://urlscan.io
+
 * vhost: Bing virtual hosts search
 
 * virustotal: virustotal.com domain search
