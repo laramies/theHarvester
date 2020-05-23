@@ -25,6 +25,7 @@ __all__ = ['baidusearch',
            'threatcrowd',
            'trello',
            'twittersearch',
+           'urlscan',
            'virustotal',
            'yahoosearch',
            ]

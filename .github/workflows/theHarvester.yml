@@ -111,6 +111,10 @@ jobs:
       run: |
         python theHarvester.py -d yale.edu -b twitter
 
+    - name: Run theHarvester module Urlscan
+      run: |
+        python theHarvester.py -d yale.edu -b urlscan
+
     - name: Run theHarvester module Virustotal
       run: |
         python theHarvester.py -d yale.edu -b virustotal

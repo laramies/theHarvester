@@ -37,8 +37,8 @@ async def start():
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, bufferoverun, certspotter, crtsh, dnsdumpster,
                         dogpile, duckduckgo, exalead, github-code, google,
                         hackertarget, hunter, intelx, linkedin, linkedin_links, netcraft, otx, pentesttools,
-                        urlscan, rapiddns, securityTrails, spyse, sublist3r, suip, threatcrowd,
-                        trello, twitter, virustotal, yahoo, all''')
+                        rapiddns, securityTrails, spyse, sublist3r, suip, threatcrowd,
+                        trello, twitter, urlscan, virustotal, yahoo, all''')
 
     args = parser.parse_args()
     try:
@@ -300,14 +300,6 @@ async def start():
                     except Exception as e:
                         print(e)
 
-                elif engineitem == 'urlscan':
-                    from theHarvester.discovery import urlscan
-                    try:
-                        urlscan_search = urlscan.SearchUrlscan(word)
-                        stor_lst.append(store(urlscan_search, engineitem, store_host=True))
-                    except Exception as e:
-                        print(e)
-
                 elif engineitem == 'pentesttools':
                     from theHarvester.discovery import pentesttools
                     try:
@@ -380,6 +372,14 @@ async def start():
                     from theHarvester.discovery import twittersearch
                     twitter_search = twittersearch.SearchTwitter(word, limit)
                     stor_lst.append(store(twitter_search, engineitem, store_people=True))
+
+                elif engineitem == 'urlscan':
+                    from theHarvester.discovery import urlscan
+                    try:
+                        urlscan_search = urlscan.SearchUrlscan(word)
+                        stor_lst.append(store(urlscan_search, engineitem, store_host=True, store_ip=True))
+                    except Exception as e:
+                        print(e)
 
                 elif engineitem == 'virustotal':
                     from theHarvester.discovery import virustotal
