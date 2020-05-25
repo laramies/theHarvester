@@ -37,7 +37,7 @@ async def start():
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, bufferoverun, certspotter, crtsh, dnsdumpster,
                         dogpile, duckduckgo, exalead, github-code, google,
                         hackertarget, hunter, intelx, linkedin, linkedin_links, netcraft, otx, pentesttools,
-                        rapiddns, securityTrails, spyse, sublist3r, suip, threatcrowd,
+                        rapiddns, securityTrails, spyse, sublist3r, suip, threatcrowd, threatminer,
                         trello, twitter, urlscan, virustotal, yahoo, all''')
 
     args = parser.parse_args()
@@ -359,6 +359,14 @@ async def start():
                     try:
                         threatcrowd_search = threatcrowd.SearchThreatcrowd(word)
                         stor_lst.append(store(threatcrowd_search, engineitem, store_host=True))
+                    except Exception as e:
+                        print(e)
+
+                elif engineitem == 'threatminer':
+                    from theHarvester.discovery import threatminer
+                    try:
+                        threatminer_search = threatminer.SearchThreatminer(word)
+                        stor_lst.append(store(threatminer_search, engineitem, store_host=True))
                     except Exception as e:
                         print(e)
 
