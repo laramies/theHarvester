@@ -103,6 +103,10 @@ jobs:
       run: |
         python theHarvester.py -d yale.edu -b threatcrowd
 
+    - name: Run theHarvester module Threatminer
+      run: |
+        python theHarvester.py -d yale.edu -b threatminer
+
     - name: Run theHarvester module Trello
       run: |
         python theHarvester.py -d yale.edu -b trello
