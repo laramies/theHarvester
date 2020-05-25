@@ -162,7 +162,6 @@ class Core:
                             'trello',
                             'twitter',
                             'urlscan',
-                            'vhost',
                             'virustotal',
                             'yahoo',
                             }
