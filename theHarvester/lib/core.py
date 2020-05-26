@@ -12,7 +12,7 @@ import certifi
 class Core:
     @staticmethod
     def version() -> str:
-        return '3.2.0dev1'
+        return '3.2.0dev2'
 
     @staticmethod
     def bing_key() -> str:
@@ -105,11 +105,11 @@ class Core:
     @staticmethod
     def proxy_list() -> List:
         try:
-            with open('/etc/theHarvester/proxies.yaml', 'r') as api_keys:
-                keys = yaml.safe_load(api_keys)
+            with open('/etc/theHarvester/proxies.yaml', 'r') as proxy_file:
+                keys = yaml.safe_load(proxy_file)
         except FileNotFoundError:
-            with open('proxies.yaml', 'r') as api_keys:
-                keys = yaml.safe_load(api_keys)
+            with open('proxies.yaml', 'r') as proxy_file:
+                keys = yaml.safe_load(proxy_file)
                 http_list = [f'http://{proxy}' for proxy in keys['http']] if keys['http'] is not None else []
                 return http_list
         http_list = [f'http://{proxy}' for proxy in keys['http']] if keys['http'] is not None else []
