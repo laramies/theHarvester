@@ -12,20 +12,21 @@ async def read_root():
 @app.get("/test")
 async def read_item():
     try:
-        emails, ips, urls = await __main__.start(Namespace(dns_brute=False,
-                                                  dns_lookup=False,
-                                                  dns_server=None,
-                                                  dns_tld=False,
-                                                  domain='yale.edu',
-                                                  filename='',
-                                                  google_dork=False,
-                                                  limit=250,
-                                                  proxies=False,
-                                                  shodan=False,
-                                                  source='bing,intelx',
-                                                  start=0,
-                                                  take_over=False,
-                                                  virtual_host=False))
+        emails, ips, urls = await __main__.start(
+            Namespace(dns_brute=False,
+                      dns_lookup=False,
+                      dns_server=None,
+                      dns_tld=False,
+                      domain='yale.edu',
+                      filename='',
+                      google_dork=False,
+                      limit='',
+                      proxies=False,
+                      shodan=False,
+                      source='bing,intelx',
+                      start=0,
+                      take_over=False,
+                      virtual_host=False))
         return {'emails': emails, 'ips': ips, 'urls': urls}
     except Exception as e:
         return {'exception': f'{e}'}
