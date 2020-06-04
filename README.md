@@ -61,13 +61,19 @@ Passive:
 
 * spyse: Web research tools for professionals (Requires an API key.) - https://spyse.com
 
+* sublist3r: Fast subdomains enumeration tool for penetration testers - https://api.sublist3r.com/search.php?domain=example.com
+
 * Suip: Web research tools that can take over 10 minutes to run, but worth the wait - https://suip.biz
 
 * threatcrowd: Open source threat intelligence - www.threatcrowd.org
 
+* threatminer: Data mining for threat intelligence - https://www.threatminer.org/
+
 * trello: Search trello boards (Uses Google search.)
 
 * twitter: Twitter accounts related to a specific domain (Uses Google search.)
+
+* urlscan: A sandbox for the web that is a URL and website scanner - https://urlscan.io
 
 * vhost: Bing virtual hosts search
 
@@ -85,7 +91,7 @@ Active:
 
 Modules that require an API key:
 --------------------------------
-Add your keys to api-keys.yaml
+Documentation to setup API keys can be found at - https://github.com/laramies/theHarvester/wiki/Installation#api-keys
 
 * bing
 * github

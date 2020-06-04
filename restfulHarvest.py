@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import uvicorn
 import theHarvester.lib.web.api as api
 import argparse

@@ -33,7 +33,7 @@ class SearchLinkedin:
                     return
         except Exception as e:
             print(e)
-        await asyncio.sleep(getDelay())
+        await asyncio.sleep(get_delay())
         self.totalresults += self.results
 
     async def get_people(self):
@@ -50,6 +50,6 @@ class SearchLinkedin:
         self.proxy = proxy
         while self.counter < self.limit:
             await self.do_search()
-            await asyncio.sleep(getDelay())
+            await asyncio.sleep(get_delay())
             self.counter += 100
             print(f'\tSearching {self.counter} results.')
