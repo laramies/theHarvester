@@ -39,7 +39,7 @@ class SearchGoogle:
                 print(e)
                 # google blocked, no useful result
                 return
-        await asyncio.sleep(getDelay())
+        await asyncio.sleep(get_delay())
         self.totalresults += self.results
 
     async def do_search_profiles(self):
@@ -60,7 +60,7 @@ class SearchGoogle:
             except Exception:
                 # google blocked, no useful result
                 return
-        await asyncio.sleep(getDelay())
+        await asyncio.sleep(get_delay())
         self.totalresults += self.results
 
     async def get_emails(self):
@@ -95,7 +95,7 @@ class SearchGoogle:
     async def process_profiles(self):
         while self.counter < self.limit:
             await self.do_search_profiles()
-            await asyncio.sleep(getDelay())
+            await asyncio.sleep(get_delay())
             self.counter += 100
             print(f'\tSearching {self.counter} results.')
 
@@ -158,7 +158,7 @@ class SearchGoogle:
                     except Exception:
                         # google blocked, no useful result
                         return
-                await asyncio.sleep(getDelay())
+                await asyncio.sleep(get_delay())
                 self.totalresults += self.results
             except Exception as e:
                 print(f'\tException Occurred {e}')

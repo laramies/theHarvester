@@ -40,7 +40,7 @@ async def start(rest_args=None):
                         rapiddns, securityTrails, spyse, suip, threatcrowd,
                         trello, twitter, vhost, virustotal, yahoo, all''')
     # determines if filename is coming from rest api or user
-    rest_filename = ""
+   rest_filename = ""
     # indicates this from the rest API
     if rest_args:
         args = rest_args
@@ -53,7 +53,7 @@ async def start(rest_args=None):
     else:
         args = parser.parse_args()
         filename: str = args.filename
-    #args = parser.parse_args() if rest_args is None else rest_args
+    #args = parser.parse_args() if rest_args is None else rest_arg
     try:
         db = stash.StashManager()
         await db.do_init()
@@ -351,6 +351,14 @@ async def start(rest_args=None):
                     except Exception as e:
                         print(e)
 
+                elif engineitem == 'sublist3r':
+                    from theHarvester.discovery import sublist3r
+                    try:
+                        sublist3r_search = sublist3r.SearchSublist3r(word)
+                        stor_lst.append(store(sublist3r_search, engineitem, store_host=True))
+                    except Exception as e:
+                        print(e)
+
                 elif engineitem == 'spyse':
                     from theHarvester.discovery import spyse
                     try:
@@ -367,6 +375,14 @@ async def start(rest_args=None):
                     except Exception as e:
                         print(e)
 
+                elif engineitem == 'threatminer':
+                    from theHarvester.discovery import threatminer
+                    try:
+                        threatminer_search = threatminer.SearchThreatminer(word)
+                        stor_lst.append(store(threatminer_search, engineitem, store_host=True))
+                    except Exception as e:
+                        print(e)
+
                 elif engineitem == 'trello':
                     from theHarvester.discovery import trello
                     # Import locally or won't work.
@@ -377,6 +393,14 @@ async def start(rest_args=None):
                     from theHarvester.discovery import twittersearch
                     twitter_search = twittersearch.SearchTwitter(word, limit)
                     stor_lst.append(store(twitter_search, engineitem, store_people=True))
+
+                elif engineitem == 'urlscan':
+                    from theHarvester.discovery import urlscan
+                    try:
+                        urlscan_search = urlscan.SearchUrlscan(word)
+                        stor_lst.append(store(urlscan_search, engineitem, store_host=True, store_ip=True))
+                    except Exception as e:
+                        print(e)
 
                 elif engineitem == 'virustotal':
                     from theHarvester.discovery import virustotal
@@ -539,7 +563,7 @@ async def start(rest_args=None):
         await asyncio.gather(*__reverse_dns_tasks.values())
 
         # Display the newly found hosts
-        print('[*] Hosts found after reverse lookup (in target domain):')
+        print('\n[*] Hosts found after reverse lookup (in target domain):')
         print('--------------------------------------------------------')
         for xh in dnsrev:
             print(xh)
