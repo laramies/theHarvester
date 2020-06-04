@@ -684,17 +684,17 @@ async def start(rest_args=None):
                 except Exception as ex:
                     print(f"An excpetion has occurred: {ex}")
                     list(set(all_emails)), return_ips, full, f'{ex}', ""
-                #Html_file = async with aiofiles.open(f'{filename}.html' if '.html' not in filename else filename, 'w')
-                #Html_file.write(HTMLcode)
-                #Html_file.close()
+                # Html_fi le = async with aiofiles.open(f'{filename}.html' if '.html' not in filename else filename, 'w')
+                # Html_file.write(HTMLcode)
+                # Html_file.close()
         except Exception as e:
             print(e)
             print('\n\033[93m[!] An error occurred while creating the output file.\n\n \033[0m')
             sys.exit(1)
 
         try:
-            #filename = filename.rsplit('.', 1)[0] + '.xml'
-            #file = open(filename, 'w')
+            # filename = filename.rsplit('.', 1)[0] + '.xml'
+            # file = open(filename, 'w')
             if len(rest_filename) == 0:
                 filename = filename.rsplit('.', 1)[0] + '.xml'
             else:
@@ -758,4 +758,3 @@ async def entry_point():
 
 if __name__ == '__main__':
     asyncio.run(main=entry_point())
-    #await entry_point()
