@@ -28,8 +28,8 @@ class DnsForce:
         self.domain = domain
         self.subdo = False
         self.verbose = verbose
-        #self.dnsserver = [dnsserver] if isinstance(dnsserver, str) else dnsserver
-        self.dnsserver = list(map(str, dnsserver.split(',')))
+        # self.dnsserver = [dnsserver] if isinstance(dnsserver, str) else dnsserver
+        self.dnsserver = list(map(str, dnsserver.split(','))) if isinstance(dnsserver, str) else dnsserver
         try:
             with open('wordlists/dns-names.txt', 'r') as file:
                 self.list = file.readlines()
@@ -41,10 +41,13 @@ class DnsForce:
 
     async def run(self):
         print(f'Created checker with this many words {len(self.list)}')
-        checker = hostchecker.Checker(self.list) if self.dnsserver == [] else hostchecker.Checker(self.list,
-                                                                                                  nameserver=self.dnsserver)
+        checker = hostchecker.Checker(
+            self.list) if self.dnsserver == [] or self.dnsserver == "" or self.dnsserver is None \
+            else hostchecker.Checker(self.list, nameserver=self.dnsserver)
         hosts, ips = await checker.check()
         return hosts, ips
+
+
 #####################################################################
 # DNS REVERSE
 #####################################################################
@@ -160,6 +163,7 @@ async def reverse_all_ips_in_range(iprange: str, callback: Callable, nameservers
         callback(__host)
         log_result(__host)
 
+
 #####################################################################
 # IO
 #####################################################################
@@ -218,6 +222,7 @@ def generate_postprocessing_callback(target: str, **allhosts: List[str]) -> Call
         A function that will update the collection of target subdomains
         when the query result is satisfying.
     """
+
     def append_matching_hosts(host: str) -> None:
         if host and target in host:
             for __name, __hosts in allhosts.items():
