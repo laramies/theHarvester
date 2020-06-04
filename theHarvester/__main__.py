@@ -53,7 +53,7 @@ async def start(rest_args=None):
     else:
         args = parser.parse_args()
         filename: str = args.filename
-    #args = parser.parse_args() if rest_args is None else rest_args
+    
     try:
         db = stash.StashManager()
         await db.do_init()
