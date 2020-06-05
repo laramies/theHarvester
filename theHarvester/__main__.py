@@ -17,30 +17,50 @@ import sys
 Core.banner()
 
 
-async def start():
+async def start(rest_args=None):
     parser = argparse.ArgumentParser(
         description='theHarvester is used to gather open source intelligence (OSINT) on a\n'
                     'company or domain.')
     parser.add_argument('-d', '--domain', help='Company name or domain to search.', required=True)
     parser.add_argument('-l', '--limit', help='Limit the number of search results, default=500.', default=500, type=int)
     parser.add_argument('-S', '--start', help='Start with result number X, default=0.', default=0, type=int)
-    parser.add_argument('-g', '--google-dork', help='Use Google Dorks for Google search.', default=False, action='store_true')
-    parser.add_argument('-p', '--proxies', help='Use proxies for requests, enter proxies in proxies.yaml.', default=False, action='store_true')
-    parser.add_argument('-s', '--shodan', help='Use Shodan to query discovered hosts.', default=False, action='store_true')
-    parser.add_argument('-v', '--virtual-host', help='Verify host name via DNS resolution and search for virtual hosts.', action='store_const', const='basic', default=False)
+    parser.add_argument('-g', '--google-dork', help='Use Google Dorks for Google search.', default=False,
+                        action='store_true')
+    parser.add_argument('-p', '--proxies', help='Use proxies for requests, enter proxies in proxies.yaml.',
+                        default=False, action='store_true')
+    parser.add_argument('-s', '--shodan', help='Use Shodan to query discovered hosts.', default=False,
+                        action='store_true')
+    parser.add_argument('-v', '--virtual-host',
+                        help='Verify host name via DNS resolution and search for virtual hosts.', action='store_const',
+                        const='basic', default=False)
     parser.add_argument('-e', '--dns-server', help='DNS server to use for lookup.')
     parser.add_argument('-t', '--dns-tld', help='Perform a DNS TLD expansion discovery, default False.', default=False)
     parser.add_argument('-r', '--take-over', help='Check for takeovers.', default=False, action='store_true')
-    parser.add_argument('-n', '--dns-lookup', help='Enable DNS server lookup, default False.', default=False, action='store_true')
-    parser.add_argument('-c', '--dns-brute', help='Perform a DNS brute force on the domain.', default=False, action='store_true')
+    parser.add_argument('-n', '--dns-lookup', help='Enable DNS server lookup, default False.', default=False,
+                        action='store_true')
+    parser.add_argument('-c', '--dns-brute', help='Perform a DNS brute force on the domain.', default=False,
+                        action='store_true')
     parser.add_argument('-f', '--filename', help='Save the results to an HTML and/or XML file.', default='', type=str)
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, bufferoverun, certspotter, crtsh, dnsdumpster,
                         dogpile, duckduckgo, exalead, github-code, google,
                         hackertarget, hunter, intelx, linkedin, linkedin_links, netcraft, otx, pentesttools,
-                        rapiddns, securityTrails, spyse, sublist3r, suip, threatcrowd, threatminer,
-                        trello, twitter, urlscan, virustotal, yahoo, all''')
-
-    args = parser.parse_args()
+                        rapiddns, securityTrails, spyse, suip, threatcrowd,
+                        trello, twitter, vhost, virustotal, yahoo, all''')
+    # determines if filename is coming from rest api or user
+    rest_filename = ""
+    # indicates this from the rest API
+    if rest_args:
+        args = rest_args
+        # We need to make sure the filename is random as to not overwrite other files
+        filename: str = args.filename
+        import string
+        import secrets
+        alphabet = string.ascii_letters + string.digits
+        rest_filename += f"{''.join(secrets.choice(alphabet) for _ in range(32))}_{filename}" if len(filename) != 0 \
+            else ""
+    else:
+        args = parser.parse_args()
+        filename: str = args.filename
     try:
         db = stash.StashManager()
         await db.do_init()
@@ -55,7 +75,8 @@ async def start():
     dnsserver = args.dns_server
     dnstld = args.dns_tld
     engines = []
-    filename: str = args.filename
+    # If the user specifies
+
     full: list = []
     ips: list = []
     google_dorking = args.google_dork
@@ -72,7 +93,7 @@ async def start():
 
     async def store(search_engine: Any, source: str, process_param: Any = None, store_host: bool = False,
                     store_emails: bool = False, store_ip: bool = False, store_people: bool = False,
-                    store_data: bool = False, store_links: bool = False, store_results: bool = False) -> None:
+                    store_links: bool = False, store_results: bool = False) -> None:
         """
         Persist details into the database.
         The details to be stored is controlled by the parameters passed to the method.
@@ -85,7 +106,6 @@ async def start():
         :param store_emails: whether to store emails
         :param store_ip: whether to store IP address
         :param store_people: whether to store user details
-        :param store_data: whether to fetch host from method get_data() and persist
         :param store_links: whether to store links
         :param store_results: whether to fetch details from get_results() and persist
         """
@@ -437,6 +457,17 @@ async def start():
 
     await handler(lst=stor_lst)
 
+    return_ips = []
+    print("rest_filename: ", rest_filename)
+    print("rest_args: ", rest_args)
+    if rest_args is not None and len(rest_filename) == 0:
+        # Indicates user is using rest api but not wanting output to be saved to a file
+        full = [host if ':' in host and word in host else word in host.split(':')[0] and host for host in full]
+        full = list({host for host in full if host})
+        full.sort()
+        # cast to string so Rest API can understand type
+        return_ips.extend([str(ip) for ip in sorted([netaddr.IPAddress(ip.strip()) for ip in set(all_ip)])])
+        return list(set(all_emails)), return_ips, full, "", ""
     # Sanity check to see if all_emails and all_hosts are defined.
     try:
         all_emails
@@ -535,7 +566,7 @@ async def start():
                         target=word,
                         local_results=dnsrev,
                         overall_results=full),
-                    nameservers=[dnsserver] if dnsserver else None))
+                    nameservers=list(map(str, dnsserver.split(','))) if dnsserver else None))
 
         # run all the reversing tasks concurrently
         await asyncio.gather(*__reverse_dns_tasks.values())
@@ -646,57 +677,81 @@ async def start():
                </body>
                </html>
                '''
-            Html_file = open(f'{filename}.html' if '.html' not in filename else filename, 'w')
-            Html_file.write(HTMLcode)
-            Html_file.close()
-            print('[*] Reporting finished.')
-            print('[*] Saving files.')
+            if len(rest_filename) == 0:
+                Html_file = open(f'{filename}.html' if '.html' not in filename else filename, 'w')
+                Html_file.write(HTMLcode)
+                Html_file.close()
+                print('[*] Reporting finished.')
+                print('[*] Saving files.')
+            else:
+                # indicates the rest api is being used in that case we asynchronously write the file to our static directory
+                try:
+                    import aiofiles
+                    async with aiofiles.open(
+                            f'theHarvester/lib/web/static/{rest_filename}.html' if '.html' not in rest_filename
+                            else f'theHarvester/lib/web/static/{rest_filename}', 'w+') as Html_file:
+                        await Html_file.write(HTMLcode)
+                except Exception as ex:
+                    print(f"An excpetion has occurred: {ex}")
+                    list(set(all_emails)), return_ips, full, f'{ex}', ""
+                # Html_file = async with aiofiles.open(f'{filename}.html' if '.html' not in filename else filename, 'w')
+                # Html_file.write(HTMLcode)
+                # Html_file.close()
         except Exception as e:
             print(e)
             print('\n\033[93m[!] An error occurred while creating the output file.\n\n \033[0m')
             sys.exit(1)
 
         try:
-            filename = filename.rsplit('.', 1)[0] + '.xml'
-            file = open(filename, 'w')
-            file.write('<?xml version="1.0" encoding="UTF-8"?><theHarvester>')
-            for x in all_emails:
-                file.write('<email>' + x + '</email>')
-            for x in full:
-                host, ip = x.split(':') if ':' in x else (x, '')
-                if ip and len(ip) > 3:
-                    file.write(f'<host><ip>{ip}</ip><hostname>{host}</hostname></host>')
-                else:
-                    file.write(f'<host>{host}</host>')
-            for x in vhost:
-                host, ip = x.split(':') if ':' in x else (x, '')
-                if ip and len(ip) > 3:
-                    file.write(f'<vhost><ip>{ip} </ip><hostname>{host}</hostname></vhost>')
-                else:
-                    file.write(f'<vhost>{host}</vhost>')
-            if shodanres != []:
-                shodanalysis = []
-                for x in shodanres:
-                    res = x.split('SAPO')
-                    file.write('<shodan>')
-                    file.write('<host>' + res[0] + '</host>')
-                    file.write('<port>' + res[2] + '</port>')
-                    file.write('<banner><!--' + res[1] + '--></banner>')
-                    reg_server = re.compile('Server:.*')
-                    temp = reg_server.findall(res[1])
-                    if temp:
-                        shodanalysis.append(res[0] + ':' + temp[0])
-                    file.write('</shodan>')
-                if shodanalysis:
-                    shodanalysis = sorted(set(shodanalysis))
-                    file.write('<servers>')
-                    for x in shodanalysis:
-                        file.write('<server>' + x + '</server>')
-                    file.write('</servers>')
+            # filename = filename.rsplit('.', 1)[0] + '.xml'
+            # file = open(filename, 'w')
+            if len(rest_filename) == 0:
+                filename = filename.rsplit('.', 1)[0] + '.xml'
+            else:
+                filename = 'theHarvester/lib/web/static/' \
+                           + rest_filename.rsplit('.', 1)[0] + '.xml'
+            # TODO use aiofiles if user is using rest api
+            with open(filename, 'w+') as file:
+                file.write('<?xml version="1.0" encoding="UTF-8"?><theHarvester>')
+                for x in all_emails:
+                    file.write('<email>' + x + '</email>')
+                for x in full:
+                    host, ip = x.split(':') if ':' in x else (x, '')
+                    if ip and len(ip) > 3:
+                        file.write(f'<host><ip>{ip}</ip><hostname>{host}</hostname></host>')
+                    else:
+                        file.write(f'<host>{host}</host>')
+                for x in vhost:
+                    host, ip = x.split(':') if ':' in x else (x, '')
+                    if ip and len(ip) > 3:
+                        file.write(f'<vhost><ip>{ip} </ip><hostname>{host}</hostname></vhost>')
+                    else:
+                        file.write(f'<vhost>{host}</vhost>')
+                if shodanres != []:
+                    shodanalysis = []
+                    for x in shodanres:
+                        res = x.split('SAPO')
+                        file.write('<shodan>')
+                        file.write('<host>' + res[0] + '</host>')
+                        file.write('<port>' + res[2] + '</port>')
+                        file.write('<banner><!--' + res[1] + '--></banner>')
+                        reg_server = re.compile('Server:.*')
+                        temp = reg_server.findall(res[1])
+                        if temp:
+                            shodanalysis.append(res[0] + ':' + temp[0])
+                        file.write('</shodan>')
+                    if shodanalysis:
+                        shodanalysis = sorted(set(shodanalysis))
+                        file.write('<servers>')
+                        for x in shodanalysis:
+                            file.write('<server>' + x + '</server>')
+                        file.write('</servers>')
 
-            file.write('</theHarvester>')
-            file.flush()
-            file.close()
+                file.write('</theHarvester>')
+            if len(rest_filename) > 0:
+                return list(set(all_emails)), return_ips, full, f'/static/{rest_filename}.html', \
+                       f'/static/{filename[filename.find("/static/") + 8:]}' if '/static/' in filename \
+                           else f'/static/{filename}'
             print('[*] Files saved.')
         except Exception as er:
             print(f'\033[93m[!] An error occurred while saving the XML file: {er} \033[0m')
@@ -707,7 +762,6 @@ async def start():
 async def entry_point():
     try:
         await start()
-        # await handler()
     except KeyboardInterrupt:
         print('\n\n\033[93m[!] ctrl+c detected from user, quitting.\n\n \033[0m')
     except Exception as error_entry_point:
