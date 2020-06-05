@@ -47,8 +47,11 @@ async def query(request: Request, dns_server: str = Query(''),
                 dns_brute=Query(False), dns_lookup: bool = Query(False),
                 dns_tld: bool = Query(False),
                 filename: str = Query(''),
-                google_dork: bool = Query(False), proxies: bool = Query(False), shodan: bool = Query(False),
-                take_over: bool = Query(False), virtual_host: bool = Query(False),
+                google_dork: bool = Query(False),
+                proxies: bool = Query(False),
+                shodan: bool = Query(False),
+                take_over: bool = Query(False),
+                virtual_host: bool = Query(False),
                 source: List[str] = Query(..., description='Data sources to query comma separated with no space'),
                 limit: int = Query(500), start: int = Query(0), domain: str = Query(..., description='Domain to be '
                                                                                                      'harvested')):

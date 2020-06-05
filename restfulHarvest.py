@@ -11,4 +11,4 @@ parser.add_argument('-l', '--log-level', default='info', help='Set logging level
 args = parser.parse_args()
 
 if __name__ == "__main__":
-    uvicorn.run(app=api.app, host=args.host, port=args.port, log_level=args.log_level, reload=args.reload)
+    uvicorn.run(app=api.app, host=args.host, port=args.port, log_level=args.log_level)
