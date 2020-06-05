@@ -2,5 +2,6 @@ aiofiles
 argparse
 fastapi==0.54.1
 slowapi
+orjson>=3,<4
 uvicorn
 uvloop

@@ -458,8 +458,6 @@ async def start(rest_args=None):
     await handler(lst=stor_lst)
 
     return_ips = []
-    print("rest_filename: ", rest_filename)
-    print("rest_args: ", rest_args)
     if rest_args is not None and len(rest_filename) == 0:
         # Indicates user is using rest api but not wanting output to be saved to a file
         full = [host if ':' in host and word in host else word in host.split(':')[0] and host for host in full]
@@ -693,7 +691,7 @@ async def start(rest_args=None):
                         await Html_file.write(HTMLcode)
                 except Exception as ex:
                     print(f"An excpetion has occurred: {ex}")
-                    list(set(all_emails)), return_ips, full, f'{ex}', ""
+                    return list(set(all_emails)), return_ips, full, f'{ex}', ""
                 # Html_file = async with aiofiles.open(f'{filename}.html' if '.html' not in filename else filename, 'w')
                 # Html_file.write(HTMLcode)
                 # Html_file.close()
@@ -755,6 +753,7 @@ async def start(rest_args=None):
             print('[*] Files saved.')
         except Exception as er:
             print(f'\033[93m[!] An error occurred while saving the XML file: {er} \033[0m')
+            return list(set(all_emails)), return_ips, full, f'/static/{rest_filename}.html', f'{er}'
         print('\n\n')
         sys.exit(0)
 

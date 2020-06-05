@@ -4,6 +4,7 @@ from argparse import Namespace
 from typing import List
 
 from fastapi import FastAPI, Header, Query, Request
+from fastapi.responses import ORJSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -41,9 +42,9 @@ async def picture():
     return StreamingResponse(io.BytesIO(base64.b64decode(string)))
 
 
-@app.get("/query")
-@limiter.limit("5/minute")
-async def query(request: Request, dns_server: str = Query(""),
+@app.get("/query", response_class=ORJSONResponse)
+@limiter.limit("2/minute")
+async def query(request: Request, dns_server: str = Query(""), user_agent: str = Header(None),
                 dns_brute=Query(False), dns_lookup: bool = Query(False),
                 dns_tld: bool = Query(False),
                 filename: str = Query(""),
@@ -53,7 +54,11 @@ async def query(request: Request, dns_server: str = Query(""),
                 limit: int = Query(500), start: int = Query(0), domain: str = Query(..., description="Domain to be "
                                                                                                      "harvested")):
     # Query function that allows user to query theHarvester rest API
-    # Rate limit of 5 requests per minute
+    # Rate limit of 2 requests per minute
+    # basic user agent filtering
+    if "gobuster" in user_agent or "sqlmap" in user_agent or "rustbuster" in user_agent:
+        response = RedirectResponse(app.url_path_for("picture"))
+        return response
     try:
         emails, ips, urls, html_filename, xml_filename = await __main__.start(Namespace(dns_brute=dns_brute,
                                                                                         dns_lookup=dns_lookup,
