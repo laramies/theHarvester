@@ -56,7 +56,8 @@ async def start(rest_args=None):
         import string
         import secrets
         alphabet = string.ascii_letters + string.digits
-        rest_filename += f"{''.join(secrets.choice(alphabet) for _ in range(32))}_{filename}"
+        rest_filename += f"{''.join(secrets.choice(alphabet) for _ in range(32))}_{filename}" if len(filename) != 0 \
+            else ""
     else:
         args = parser.parse_args()
         filename: str = args.filename
@@ -457,6 +458,8 @@ async def start(rest_args=None):
     await handler(lst=stor_lst)
 
     return_ips = []
+    print("rest_filename: ", rest_filename)
+    print("rest_args: ", rest_args)
     if rest_args is not None and len(rest_filename) == 0:
         # Indicates user is using rest api but not wanting output to be saved to a file
         full = [host if ':' in host and word in host else word in host.split(':')[0] and host for host in full]
@@ -684,7 +687,6 @@ async def start(rest_args=None):
                 # indicates the rest api is being used in that case we asynchronously write the file to our static directory
                 try:
                     import aiofiles
-                    print(f'filename: {rest_filename}')
                     async with aiofiles.open(
                             f'theHarvester/lib/web/static/{rest_filename}.html' if '.html' not in rest_filename
                             else f'theHarvester/lib/web/static/{rest_filename}', 'w+') as Html_file:
@@ -692,7 +694,7 @@ async def start(rest_args=None):
                 except Exception as ex:
                     print(f"An excpetion has occurred: {ex}")
                     list(set(all_emails)), return_ips, full, f'{ex}', ""
-                # Html_fi le = async with aiofiles.open(f'{filename}.html' if '.html' not in filename else filename, 'w')
+                # Html_file = async with aiofiles.open(f'{filename}.html' if '.html' not in filename else filename, 'w')
                 # Html_file.write(HTMLcode)
                 # Html_file.close()
         except Exception as e:

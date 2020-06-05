@@ -22,7 +22,6 @@ async def main():
     """
     Just a simple example of how to interact with the rest api
     you can easily use requests instead of aiohttp or whatever you best see fit
-    :return:
     """
     url = "http://127.0.0.1:5000"
     domain = "netflix.com"
