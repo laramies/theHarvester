@@ -3,15 +3,21 @@ import io
 from argparse import Namespace
 from typing import List
 
-from fastapi import FastAPI, Header, Query
+from fastapi import FastAPI, Header, Query, Request
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 from starlette.responses import StreamingResponse, RedirectResponse
 from starlette.staticfiles import StaticFiles
 
 from theHarvester import __main__
 
+limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(title="Restful Harvest",
               description="Rest API for theHarvester powered by FastAPI",
               version="0.0.1")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # This is where we will host files that arise if the user specifies a filename
 # app.mount("/static", StaticFiles(directory="static/"), name="static")
@@ -21,7 +27,7 @@ app.mount("/static", StaticFiles(directory="theHarvester/lib/web/static/"), name
 @app.get("/")
 async def root(*, user_agent: str = Header(None)):
     # very basic user agent filtering
-    if "gobuster" in user_agent or "sqlmap" in user_agent:
+    if "gobuster" in user_agent or "sqlmap" in user_agent or "rustbuster" in user_agent:
         response = RedirectResponse(app.url_path_for("picture"))
         return response
     return {'message': 'Thank you for using theHarvester rest API plea'
@@ -36,7 +42,8 @@ async def picture():
 
 
 @app.get("/query")
-async def query(dns_server: str = Query(""),
+@limiter.limit("5/minute")
+async def query(request: Request, dns_server: str = Query(""),
                 dns_brute=Query(False), dns_lookup: bool = Query(False),
                 dns_tld: bool = Query(False),
                 filename: str = Query(""),
@@ -45,6 +52,8 @@ async def query(dns_server: str = Query(""),
                 source: List[str] = Query(..., description="Data sources to query comma separated with no space"),
                 limit: int = Query(500), start: int = Query(0), domain: str = Query(..., description="Domain to be "
                                                                                                      "harvested")):
+    # Query function that allows user to query theHarvester rest API
+    # Rate limit of 5 requests per minute
     try:
         emails, ips, urls, html_filename, xml_filename = await __main__.start(Namespace(dns_brute=dns_brute,
                                                                                         dns_lookup=dns_lookup,
@@ -60,29 +69,8 @@ async def query(dns_server: str = Query(""),
                                                                                         start=start,
                                                                                         take_over=take_over,
                                                                                         virtual_host=virtual_host))
+
         return {'domain': f'{domain}', 'emails': emails, 'ips': ips, 'urls': urls, 'html_file': f'{html_filename}',
-                'xml_filename': f'{xml_filename}'}
-    except Exception as e:
-        return {'exception': f'{e}'}
-
-
-@app.get("/test")
-async def read_item():
-    try:
-        emails, ips, urls = await __main__.start(Namespace(dns_brute=False,
-                                                           dns_lookup=False,
-                                                           dns_server=None,
-                                                           dns_tld=False,
-                                                           domain='yale.edu',
-                                                           filename='',
-                                                           google_dork=False,
-                                                           limit=250,
-                                                           proxies=False,
-                                                           shodan=False,
-                                                           source='bing,intelx',
-                                                           start=0,
-                                                           take_over=False,
-                                                           virtual_host=False))
-        return {'emails': emails, 'ips': ips, 'urls': urls}
+                'xml_file': f'{xml_filename}'}
     except Exception as e:
         return {'exception': f'{e}'}

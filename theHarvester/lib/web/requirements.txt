@@ -1,0 +1,6 @@
+aiofiles
+argparse
+fastapi
+slowapi
+uvicorn
+uvloop
