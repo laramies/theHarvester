@@ -24,22 +24,15 @@ async def start(rest_args=None):
     parser.add_argument('-d', '--domain', help='Company name or domain to search.', required=True)
     parser.add_argument('-l', '--limit', help='Limit the number of search results, default=500.', default=500, type=int)
     parser.add_argument('-S', '--start', help='Start with result number X, default=0.', default=0, type=int)
-    parser.add_argument('-g', '--google-dork', help='Use Google Dorks for Google search.', default=False,
-                        action='store_true')
-    parser.add_argument('-p', '--proxies', help='Use proxies for requests, enter proxies in proxies.yaml.',
-                        default=False, action='store_true')
-    parser.add_argument('-s', '--shodan', help='Use Shodan to query discovered hosts.', default=False,
-                        action='store_true')
-    parser.add_argument('-v', '--virtual-host',
-                        help='Verify host name via DNS resolution and search for virtual hosts.', action='store_const',
-                        const='basic', default=False)
+    parser.add_argument('-g', '--google-dork', help='Use Google Dorks for Google search.', default=False, action='store_true')
+    parser.add_argument('-p', '--proxies', help='Use proxies for requests, enter proxies in proxies.yaml.', default=False, action='store_true')
+    parser.add_argument('-s', '--shodan', help='Use Shodan to query discovered hosts.', default=False, action='store_true')
+    parser.add_argument('-v', '--virtual-host', help='Verify host name via DNS resolution and search for virtual hosts.', action='store_const', const='basic', default=False)
     parser.add_argument('-e', '--dns-server', help='DNS server to use for lookup.')
     parser.add_argument('-t', '--dns-tld', help='Perform a DNS TLD expansion discovery, default False.', default=False)
     parser.add_argument('-r', '--take-over', help='Check for takeovers.', default=False, action='store_true')
-    parser.add_argument('-n', '--dns-lookup', help='Enable DNS server lookup, default False.', default=False,
-                        action='store_true')
-    parser.add_argument('-c', '--dns-brute', help='Perform a DNS brute force on the domain.', default=False,
-                        action='store_true')
+    parser.add_argument('-n', '--dns-lookup', help='Enable DNS server lookup, default False.', default=False, action='store_true')
+    parser.add_argument('-c', '--dns-brute', help='Perform a DNS brute force on the domain.', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='Save the results to an HTML and/or XML file.', default='', type=str)
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, bufferoverun, certspotter, crtsh, dnsdumpster,
                         dogpile, duckduckgo, exalead, github-code, google,
@@ -102,8 +95,7 @@ async def start(rest_args=None):
 
         :param search_engine: search engine to fetch details from
         :param source: source against which the details (corresponding to the search engine) need to be persisted
-        :param process_param: any parameters to be passed to the search engine
-                              eg: Google needs google_dorking
+        :param process_param: any parameters to be passed to the search engine eg: Google needs google_dorking
         :param store_host: whether to store hosts
         :param store_emails: whether to store emails
         :param store_ip: whether to store IP address
@@ -758,8 +750,7 @@ async def start(rest_args=None):
                 file.write('</theHarvester>')
             if len(rest_filename) > 0:
                 return list(set(all_emails)), return_ips, full, f'/static/{rest_filename}.html', \
-                       f'/static/{filename[filename.find("/static/") + 8:]}' if '/static/' in filename \
-                           else f'/static/{filename}'
+                       f'/static/{filename[filename.find("/static/") + 8:]}' if '/static/' in filename else f'/static/{filename}'
             print('[*] Files saved.')
         except Exception as er:
             print(f'\033[93m[!] An error occurred while saving the XML file: {er} \033[0m')
