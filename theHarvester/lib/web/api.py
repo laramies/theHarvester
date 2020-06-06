@@ -42,6 +42,15 @@ async def picture():
     return StreamingResponse(io.BytesIO(base64.b64decode(string)))
 
 
+@app.get("/sources", response_class=ORJSONResponse)
+@limiter.limit("5/minute")
+async def getsources(request: Request):
+    # Endpoint for user to query for available sources theHarvester supports
+    # Rate limit of 5 requests per minute
+    sources = await __main__.start(Namespace(source="getsources"))
+    return {'sources': sources}
+
+
 @app.get("/query", response_class=ORJSONResponse)
 @limiter.limit("2/minute")
 async def query(request: Request, dns_server: str = Query(""), user_agent: str = Header(None),

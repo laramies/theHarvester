@@ -146,11 +146,14 @@ class StashManager:
         except Exception as e:
             print(f'Error connecting to theHarvester database: {e}')
 
-    async def getscanboarddata(self):
+    async def getscanboarddata(self, domain=""):
         try:
             async with aiosqlite.connect(self.db, timeout=30) as conn:
-
-                cursor = await conn.execute('''SELECT COUNT(*) from results WHERE type="host"''')
+                if len(domain) != 0:
+                    cursor = await conn.execute('''SELECT COUNT(*) from results WHERE type="host" and domain=?''',
+                                                (domain,))
+                else:
+                    cursor = await conn.execute('''SELECT COUNT(*) from results WHERE type="host"''')
                 data = await cursor.fetchone()
                 self.scanboarddata["host"] = data[0]
                 cursor = await conn.execute('''SELECT COUNT(*) from results WHERE type="email"''')
@@ -211,16 +214,26 @@ class StashManager:
         except Exception as e:
             print(e)
 
-    async def getpluginscanstatistics(self):
+    async def getpluginscanstatistics(self, domain=""):
         try:
             async with aiosqlite.connect(self.db, timeout=30) as conn:
-                cursor = await conn.execute('''
-                SELECT domain,find_date, type, source, count(*)
-                FROM results
-                GROUP BY domain, find_date, type, source
-                ''')
-                results = await cursor.fetchall()
-                self.scanstats = results
+                if len(domain) == 0:
+                    cursor = await conn.execute('''
+                    SELECT domain,find_date, type, source, count(*)
+                    FROM results
+                    GROUP BY domain, find_date, type, source
+                    ''')
+                    results = await cursor.fetchall()
+                    self.scanstats = results
+                else:
+                    cursor = await conn.execute('''
+                                       SELECT domain,find_date, type, source, count(*) 
+                                       FROM results WHERE domain=?
+                                       GROUP BY domain, find_date, type, source
+                                       ''', (domain,))
+                    results = await cursor.fetchall()
+                    self.scanstats = results
+
             return self.scanstats
         except Exception as e:
             print(e)

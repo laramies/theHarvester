@@ -50,6 +50,8 @@ async def start(rest_args=None):
     rest_filename = ""
     # indicates this from the rest API
     if rest_args:
+        if rest_args.source and rest_args.source == "getsources":
+            return list(sorted(Core.get_supportedengines()))
         args = rest_args
         # We need to make sure the filename is random as to not overwrite other files
         filename: str = args.filename
@@ -653,12 +655,20 @@ async def start(rest_args=None):
         try:
             print('\n[*] Reporting started.')
             db = stash.StashManager()
-            scanboarddata = await db.getscanboarddata()
+            if rest_args and rest_args.domain is not None and len(rest_args.domain) > 1:
+                # If using rest API filter by domain
+                scanboarddata = await db.getscanboarddata(domain=rest_args.domain)
+            else:
+                scanboarddata = await db.getscanboarddata()
             latestscanresults = await db.getlatestscanresults(word)
             previousscanresults = await db.getlatestscanresults(word, previousday=True)
             latestscanchartdata = await db.latestscanchartdata(word)
             scanhistorydomain = await db.getscanhistorydomain(word)
-            pluginscanstatistics = await db.getpluginscanstatistics()
+            if rest_args and rest_args.domain is not None and len(rest_args.domain) > 1:
+                # If using rest API filter by domain
+                pluginscanstatistics = await db.getpluginscanstatistics(domain=rest_args.domain)
+            else:
+                pluginscanstatistics = await db.getpluginscanstatistics()
             generator = statichtmlgenerator.HtmlGenerator(word)
             HTMLcode = await generator.beginhtml()
             HTMLcode += await generator.generatedashboardcode(scanboarddata)
