@@ -42,10 +42,11 @@ async def start(rest_args=None):
                         action='store_true')
     parser.add_argument('-f', '--filename', help='Save the results to an HTML and/or XML file.', default='', type=str)
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, bufferoverun, certspotter, crtsh, dnsdumpster,
-                        dogpile, duckduckgo, exalead, github-code, google,
-                        hackertarget, hunter, intelx, linkedin, linkedin_links, netcraft, otx, pentesttools,
-                        rapiddns, securityTrails, spyse, suip, threatcrowd,
-                        trello, twitter, vhost, virustotal, yahoo, all''')
+                            dogpile, duckduckgo, exalead, github-code, google,
+                            hackertarget, hunter, intelx, linkedin, linkedin_links, netcraft, otx, pentesttools,
+                            rapiddns, securityTrails, spyse, sublist3r, suip, threatcrowd, threatminer,
+                            trello, twitter, urlscan, virustotal, yahoo, all''')
+
     # determines if filename is coming from rest api or user
     rest_filename = ""
     # indicates this from the rest API
