@@ -688,8 +688,8 @@ async def start(rest_args=None):
                 try:
                     import aiofiles
                     async with aiofiles.open(
-                            f'theHarvester/lib/web/static/{rest_filename}.html' if '.html' not in rest_filename
-                            else f'theHarvester/lib/web/static/{rest_filename}', 'w+') as Html_file:
+                            f'theHarvester/lib/app/static/{rest_filename}.html' if '.html' not in rest_filename
+                            else f'theHarvester/lib/app/static/{rest_filename}', 'w+') as Html_file:
                         await Html_file.write(HTMLcode)
                 except Exception as ex:
                     print(f"An excpetion has occurred: {ex}")
@@ -708,7 +708,7 @@ async def start(rest_args=None):
             if len(rest_filename) == 0:
                 filename = filename.rsplit('.', 1)[0] + '.xml'
             else:
-                filename = 'theHarvester/lib/web/static/' \
+                filename = 'theHarvester/lib/app/static/' \
                            + rest_filename.rsplit('.', 1)[0] + '.xml'
             # TODO use aiofiles if user is using rest api
             with open(filename, 'w+') as file:

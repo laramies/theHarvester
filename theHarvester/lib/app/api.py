@@ -22,7 +22,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # This is where we will host files that arise if the user specifies a filename
 # app.mount('/static', StaticFiles(directory='static/'), name='static')
-app.mount('/static', StaticFiles(directory='theHarvester/lib/web/static/'), name='static')
+app.mount('/static', StaticFiles(directory='theHarvester/lib/app/static/'), name='static')
 
 
 @app.get('/')
