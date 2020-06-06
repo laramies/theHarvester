@@ -227,7 +227,7 @@ class StashManager:
                     self.scanstats = results
                 else:
                     cursor = await conn.execute('''
-                                       SELECT domain,find_date, type, source, count(*) 
+                                       SELECT domain,find_date, type, source, count(*)
                                        FROM results WHERE domain=?
                                        GROUP BY domain, find_date, type, source
                                        ''', (domain,))

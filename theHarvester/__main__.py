@@ -455,8 +455,7 @@ async def start(rest_args=None):
     if rest_args is not None and len(rest_filename) == 0:
         # Indicates user is using rest api but not wanting output to be saved to a file
         full = [host if ':' in host and word in host else word in host.split(':')[0] and host for host in full]
-        full = list({host for host in full if host})
-        full.sort()
+        full = sorted({host for host in full if host})
         # cast to string so Rest API can understand type
         return_ips.extend([str(ip) for ip in sorted([netaddr.IPAddress(ip.strip()) for ip in set(all_ip)])])
         return list(set(all_emails)), return_ips, full, "", ""
@@ -750,7 +749,7 @@ async def start(rest_args=None):
                 file.write('</theHarvester>')
             if len(rest_filename) > 0:
                 return list(set(all_emails)), return_ips, full, f'/static/{rest_filename}.html', \
-                       f'/static/{filename[filename.find("/static/") + 8:]}' if '/static/' in filename else f'/static/{filename}'
+                    f'/static/{filename[filename.find("/static/") + 8:]}' if '/static/' in filename else f'/static/{filename} '
             print('[*] Files saved.')
         except Exception as er:
             print(f'\033[93m[!] An error occurred while saving the XML file: {er} \033[0m')
