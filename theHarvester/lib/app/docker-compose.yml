@@ -1,0 +1,8 @@
+version: '3'
+services:
+        firstserver:
+                build: .
+                ports:
+                  - 80:80
+                  - 443:443
+
