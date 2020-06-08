@@ -7,7 +7,7 @@ beautifulsoup4==4.9.1
 dnspython==1.16.0
 fastapi==0.55.1
 netaddr==0.7.19
-orjson>=3,<4
+orjson==2.0.9
 plotly==4.8.1
 PyYAML==5.3.1
 requests==2.23.0
