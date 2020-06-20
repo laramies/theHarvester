@@ -25,7 +25,7 @@ async def main():
     """
     url = "http://127.0.0.1:5000"
     domain = "netflix.com"
-    query_url = f'{url}/query?limit=300&filename=helloworld&source=bing,baidu,duckduckgo,dogpile&domain={domain}'
+    query_url = f'{url}/query?limit=300&filename=output&source=bing,baidu,duckduckgo,dogpile&domain={domain}'
     async with aiohttp.ClientSession() as session:
         fetched_json = await fetch_json(session, query_url)
         emails = fetched_json["emails"]

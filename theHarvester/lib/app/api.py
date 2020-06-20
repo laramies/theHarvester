@@ -51,6 +51,33 @@ async def getsources(request: Request):
     return {'sources': sources}
 
 
+@app.get('/dnsbrute', response_class=ORJSONResponse)
+@limiter.limit('5/minute')
+async def dnsbrute(request: Request, user_agent: str = Header(None),
+                   domain: str = Query(..., description='Domain to be brute forced')):
+    # Endpoint for user to signal to do DNS brute forcing
+    # Rate limit of 5 requests per minute
+    # basic user agent filtering
+    if 'gobuster' in user_agent or 'sqlmap' in user_agent or 'rustbuster' in user_agent:
+        response = RedirectResponse(app.url_path_for('picture'))
+        return response
+    dns_bruteforce = await __main__.start(Namespace(dns_brute=True,
+                                                    dns_lookup=False,
+                                                    dns_server=False,
+                                                    dns_tld=False,
+                                                    domain=domain,
+                                                    filename="",
+                                                    google_dork=False,
+                                                    limit=500,
+                                                    proxies=False,
+                                                    shodan=False,
+                                                    source=','.join([]),
+                                                    start=0,
+                                                    take_over=False,
+                                                    virtual_host=False))
+    return {'dns_bruteforce': dns_bruteforce}
+
+
 @app.get('/query', response_class=ORJSONResponse)
 @limiter.limit('2/minute')
 async def query(request: Request, dns_server: str = Query(""), user_agent: str = Header(None),

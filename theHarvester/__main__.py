@@ -53,27 +53,33 @@ async def start(rest_args=None):
     if rest_args:
         if rest_args.source and rest_args.source == "getsources":
             return list(sorted(Core.get_supportedengines()))
-        args = rest_args
-        # We need to make sure the filename is random as to not overwrite other files
-        filename: str = args.filename
-        import string
-        import secrets
-        alphabet = string.ascii_letters + string.digits
-        rest_filename += f"{''.join(secrets.choice(alphabet) for _ in range(32))}_{filename}" if len(filename) != 0 \
-            else ""
+        elif rest_args.dns_brute:
+            args = rest_args
+            dnsbrute = (rest_args.dns_brute, True)
+        else:
+            args = rest_args
+            # We need to make sure the filename is random as to not overwrite other files
+            filename: str = args.filename
+            import string
+            import secrets
+            alphabet = string.ascii_letters + string.digits
+            rest_filename += f"{''.join(secrets.choice(alphabet) for _ in range(32))}_{filename}" \
+                if len(filename) != 0 else ""
+
     else:
         args = parser.parse_args()
         filename: str = args.filename
+        dnsbrute = (args.dns_brute, False)
     try:
         db = stash.StashManager()
         await db.do_init()
     except Exception:
         pass
 
+    # args = parser.parse_args()
     all_emails: list = []
     all_hosts: list = []
     all_ip: list = []
-    dnsbrute = args.dns_brute
     dnslookup = args.dns_lookup
     dnsserver = args.dns_server
     dnstld = args.dns_tld
@@ -422,8 +428,13 @@ async def start(rest_args=None):
                     yahoo_search = yahoosearch.SearchYahoo(word, limit)
                     stor_lst.append(store(yahoo_search, engineitem, store_host=True, store_emails=True))
         else:
-            print('\033[93m[!] Invalid source.\n\n \033[0m')
-            sys.exit(1)
+            try:
+                print('Checking if dns brute is defined')
+                # Check if dns_brute is defined
+                rest_args.dns_brute
+            except:
+                print('\033[93m[!] Invalid source.\n\n \033[0m')
+                sys.exit(1)
 
     async def worker(queue):
         while True:
@@ -458,9 +469,8 @@ async def start(rest_args=None):
         await asyncio.gather(*tasks, return_exceptions=True)
 
     await handler(lst=stor_lst)
-
     return_ips = []
-    if rest_args is not None and len(rest_filename) == 0:
+    if rest_args is not None and len(rest_filename) == 0 and rest_args.dns_brute is False:
         # Indicates user is using rest api but not wanting output to be saved to a file
         full = [host if ':' in host and word in host else word in host.split(':')[0] and host for host in full]
         full = list({host for host in full if host})
@@ -524,12 +534,15 @@ async def start(rest_args=None):
 
     # DNS brute force
 
-    if dnsbrute is True:
+    if dnsbrute and dnsbrute[0] is True:
         print('\n[*] Starting DNS brute force.')
         dns_force = dnssearch.DnsForce(word, dnsserver, verbose=True)
         hosts, ips = await dns_force.run()
         hosts = list({host for host in hosts if ':' in host})
         hosts.sort(key=lambda el: el.split(':')[0])
+        # Check if Rest API is being used if so return found hosts
+        if dnsbrute[1]:
+            return hosts
         print('\n[*] Hosts found after DNS brute force:')
         db = stash.StashManager()
         for host in hosts:
@@ -758,8 +771,8 @@ async def start(rest_args=None):
                 file.write('</theHarvester>')
             if len(rest_filename) > 0:
                 return list(set(all_emails)), return_ips, full, f'/static/{rest_filename}.html', \
-                    f'/static/{filename[filename.find("/static/") + 8:]}' if '/static/' in filename \
-                    else f'/static/{filename} '
+                       f'/static/{filename[filename.find("/static/") + 8:]}' if '/static/' in filename \
+                           else f'/static/{filename} '
             print('[*] Files saved.')
         except Exception as er:
             print(f'\033[93m[!] An error occurred while saving the XML file: {er} \033[0m')
