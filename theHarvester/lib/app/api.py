@@ -16,7 +16,7 @@ from theHarvester import __main__
 limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(title='Restful Harvest',
               description='Rest API for theHarvester powered by FastAPI',
-              version='0.0.1')
+              version='0.0.2')
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -28,7 +28,7 @@ app.mount('/static', StaticFiles(directory='theHarvester/lib/app/static/'), name
 @app.get('/')
 async def root(*, user_agent: str = Header(None)):
     # very basic user agent filtering
-    if 'gobuster' in user_agent or 'sqlmap' in user_agent or 'rustbuster' in user_agent:
+    if user_agent and ('gobuster' in user_agent or 'sqlmap' in user_agent or 'rustbuster' in user_agent):
         response = RedirectResponse(app.url_path_for('picture'))
         return response
     return {'message': 'Thank you for using theHarvester rest API plea'
@@ -58,7 +58,7 @@ async def dnsbrute(request: Request, user_agent: str = Header(None),
     # Endpoint for user to signal to do DNS brute forcing
     # Rate limit of 5 requests per minute
     # basic user agent filtering
-    if 'gobuster' in user_agent or 'sqlmap' in user_agent or 'rustbuster' in user_agent:
+    if user_agent and ('gobuster' in user_agent or 'sqlmap' in user_agent or 'rustbuster' in user_agent):
         response = RedirectResponse(app.url_path_for('picture'))
         return response
     dns_bruteforce = await __main__.start(Namespace(dns_brute=True,
@@ -92,7 +92,7 @@ async def query(request: Request, dns_server: str = Query(""), user_agent: str =
     # Query function that allows user to query theHarvester rest API
     # Rate limit of 2 requests per minute
     # basic user agent filtering
-    if 'gobuster' in user_agent or 'sqlmap' in user_agent or 'rustbuster' in user_agent:
+    if user_agent and ('gobuster' in user_agent or 'sqlmap' in user_agent or 'rustbuster' in user_agent):
         response = RedirectResponse(app.url_path_for('picture'))
         return response
     try:
