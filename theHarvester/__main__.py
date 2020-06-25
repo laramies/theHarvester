@@ -30,6 +30,8 @@ async def start(rest_args=None):
                         default=False, action='store_true')
     parser.add_argument('-s', '--shodan', help='Use Shodan to query discovered hosts.', default=False,
                         action='store_true')
+    parser.add_argument('--screenshot', help='Take screenshots of resolved domains', default=False,
+                        action='store_true')
     parser.add_argument('-v', '--virtual-host',
                         help='Verify host name via DNS resolution and search for virtual hosts.', action='store_const',
                         const='basic', default=False)
@@ -623,6 +625,24 @@ async def start(rest_args=None):
     else:
         pass
 
+
+    # Screenshots
+    if args.screenshot is True:
+        from theHarvester.screenshot.screenshot import screenshot_handler, take_screenshot
+        #from theHarvester.screenshot import take_screenshot
+        """for host in full:
+            if ':' in host:
+                try:
+                    # Did host resolve?
+                    domain = host.split(':')[0]
+                    await take_screenshot(domain)
+                    # break
+                except Exception as e:
+                    print(f'Was unable to take a screenshot for: {host}, exception: {e}')"""
+        # Grab resolved subdomains
+        coroutines = [take_screenshot(url.split(':')[0]) for url in full if ':' in url]
+        await screenshot_handler(coroutines)
+
     # Shodan
     shodanres = []
     if shodan is True:
@@ -709,8 +729,8 @@ async def start(rest_args=None):
                 try:
                     import aiofiles
                     async with aiofiles.open(
-                            f'theHarvester/lib/app/static/{rest_filename}.html' if '.html' not in rest_filename
-                            else f'theHarvester/lib/app/static/{rest_filename}', 'w+') as Html_file:
+                            f'theHarvester/app/static/{rest_filename}.html' if '.html' not in rest_filename
+                            else f'theHarvester/app/static/{rest_filename}', 'w+') as Html_file:
                         await Html_file.write(HTMLcode)
                 except Exception as ex:
                     print(f"An excpetion has occurred: {ex}")
@@ -729,7 +749,7 @@ async def start(rest_args=None):
             if len(rest_filename) == 0:
                 filename = filename.rsplit('.', 1)[0] + '.xml'
             else:
-                filename = 'theHarvester/lib/app/static/' \
+                filename = 'theHarvester/app/static/' \
                            + rest_filename.rsplit('.', 1)[0] + '.xml'
             # TODO use aiofiles if user is using rest api
             with open(filename, 'w+') as file:
