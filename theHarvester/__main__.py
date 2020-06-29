@@ -30,8 +30,8 @@ async def start(rest_args=None):
                         default=False, action='store_true')
     parser.add_argument('-s', '--shodan', help='Use Shodan to query discovered hosts.', default=False,
                         action='store_true')
-    parser.add_argument('--screenshot', help='Take screenshots of resolved domains', default=False,
-                        action='store_true')
+    parser.add_argument('--screenshot', help='Take screenshots of resolved domains specify output'
+                                             ' directory: --screenshot output_directory', default="", type=str)
     parser.add_argument('-v', '--virtual-host',
                         help='Verify host name via DNS resolution and search for virtual hosts.', action='store_const',
                         const='basic', default=False)
@@ -431,7 +431,6 @@ async def start(rest_args=None):
                     stor_lst.append(store(yahoo_search, engineitem, store_host=True, store_emails=True))
         else:
             try:
-                print('Checking if dns brute is defined')
                 # Check if dns_brute is defined
                 rest_args.dns_brute
             except:
@@ -625,23 +624,38 @@ async def start(rest_args=None):
     else:
         pass
 
+    MAX_QUEUE_SIZE = 2 ** 15 - 1
+    print(f'max queue size: {MAX_QUEUE_SIZE}')
+    import time
+    from aiomultiprocess import Pool
 
     # Screenshots
-    if args.screenshot is True:
-        from theHarvester.screenshot.screenshot import screenshot_handler, take_screenshot
+    if len(args.screenshot) > 0:
+        print(f'Screenshots can be found: {args.screenshot}')
+        # screenshot_handler,
+        from theHarvester.screenshot.screenshot import take_screenshot, screenshot_handler, _chunk_list, receive, visit
+        start = time.perf_counter()
         #from theHarvester.screenshot import take_screenshot
-        """for host in full:
-            if ':' in host:
-                try:
-                    # Did host resolve?
-                    domain = host.split(':')[0]
-                    await take_screenshot(domain)
-                    # break
-                except Exception as e:
-                    print(f'Was unable to take a screenshot for: {host}, exception: {e}')"""
+        unique_resolved_domains = list(sorted({url.split(':')[0]for url in full if ':' in url and 'wwws' not in url}))
         # Grab resolved subdomains
-        coroutines = [take_screenshot(url.split(':')[0]) for url in full if ':' in url]
-        await screenshot_handler(coroutines)
+        # coroutines = [take_screenshot(url) for url in unique_resolved_domains]
+        #await screenshot_handler(coroutines)
+        async with Pool() as pool:
+            print('Created pool')
+            #serialized_tiles = [take_screenshot(url) for url in unique_resolved_domains]
+            #print(f'Length of serialized_tiles: {len(serialized_tiles)} ')
+            for chunk in _chunk_list(unique_resolved_domains, 20):
+                print(f'Chunk: {chunk} and length: {len(chunk)}')
+                try:
+                    #resultsss = await  pool.map(visit, unique_resolved_domains)
+                    temp = await pool.map(take_screenshot, chunk)
+                    #resultsss = await pool.map(take_screenshot, unique_resolved_domains)
+                    #await pool.map(screenshot_handler, chunk)
+                except Exception as ee:
+                    print(f'An excpeption has occurred while mapping: {ee}')
+                    #continue
+        end = time.perf_counter()
+        print("Pipeline finished in {} seconds".format(end - start))
 
     # Shodan
     shodanres = []
@@ -810,6 +824,10 @@ async def entry_point():
         print(error_entry_point)
         sys.exit(1)
 
-
+"""
 if __name__ == '__main__':
-    asyncio.run(main=entry_point())
+    asyncio.run(wow())
+    #import multiprocessing
+    #multiprocessing.freeze_support()
+    #asyncio.run(main=entry_point())
+"""
