@@ -65,8 +65,8 @@ async def take_screenshot(url):
     try:
         browser = await launch(headless=True, ignoreHTTPSErrors=True, args=["--no-sandbox"])
         page = await browser.newPage()
-        # 45 second timeout
-        page.setDefaultNavigationTimeout(40000)
+        # 50 second timeout
+        page.setDefaultNavigationTimeout(50000)
         await page.setUserAgent(
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.106 Safari/537.36')
         # default timeout of 30 seconds
