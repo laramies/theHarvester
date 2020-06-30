@@ -14,8 +14,6 @@ import netaddr
 import re
 import sys
 
-Core.banner()
-
 
 async def start(rest_args=None):
     parser = argparse.ArgumentParser(
@@ -128,7 +126,8 @@ async def start(rest_args=None):
         else:
             print(f'\033[94m[*] Searching {source[0].upper() + source[1:]}. \033[0m')
         if store_host:
-            host_names = filter(await search_engine.get_hostnames())
+            #host_names = filter(await search_engine.get_hostnames())
+            host_names = [host for host in filter(await search_engine.get_hostnames()) if f'.{word}' in host]
             if source != 'hackertarget' and source != 'pentesttools' and source != 'rapiddns':
                 # If source is inside this conditional it means the hosts returned must be resolved to obtain ip
                 full_hosts_checker = hostchecker.Checker(host_names)
@@ -150,7 +149,7 @@ async def start(rest_args=None):
         if store_results:
             email_list, host_names, urls = await search_engine.get_results()
             all_emails.extend(email_list)
-            host_names = filter(host_names)
+            host_names = [host for host in filter(host_names) if f'.{word}' in host]
             all_urls.extend(filter(urls))
             all_hosts.extend(host_names)
             await db.store_all(word, all_hosts, 'host', source)
@@ -631,31 +630,45 @@ async def start(rest_args=None):
 
     # Screenshots
     if len(args.screenshot) > 0:
-        print(f'Screenshots can be found: {args.screenshot}')
-        # screenshot_handler,
-        from theHarvester.screenshot.screenshot import take_screenshot, screenshot_handler, _chunk_list, receive, visit
+        # screenshot_handler
+        #from theHarvester.screenshot.screenshot import take_screenshot, screenshot_handler, _chunk_list, receive, visit
+        from theHarvester.screenshot.screenshot import ScreenShotter
+        # AsyncFetcher.fetch_all([])
+        screen_shotter = ScreenShotter(args.screenshot)
+        print(f'Screenshots can be found: {screen_shotter.output}{screen_shotter.slash}')
         start = time.perf_counter()
+        print('Filtering domains for ones we can reach')
         #from theHarvester.screenshot import take_screenshot
-        unique_resolved_domains = list(sorted({url.split(':')[0]for url in full if ':' in url and 'wwws' not in url}))
+        unique_resolved_domains = {url.split(':')[0]for url in full if ':' in url and 'www.' not in url}
+        # First filter out ones that didn't resolve
+        #unique_resolved_domains = list(sorted([x for x in unique_resolved_domains
+        #                                       if len(await screen_shotter.visit(x)) > 0]))
+        # Second filter out ones where we can't reach them with an http request
         # Grab resolved subdomains
         # coroutines = [take_screenshot(url) for url in unique_resolved_domains]
         #await screenshot_handler(coroutines)
-        async with Pool() as pool:
+        async with Pool(15) as pool:
             print('Created pool')
+            print('mapping for unique resolved domains')
+            y = await pool.map(screen_shotter.visit, list(unique_resolved_domains))
+            unique_resolved_domains = list(sorted({x[0] for x in y if len(x[1]) > 0}))
+            print(unique_resolved_domains)
+        async with Pool(3) as pool:
             #serialized_tiles = [take_screenshot(url) for url in unique_resolved_domains]
             #print(f'Length of serialized_tiles: {len(serialized_tiles)} ')
-            for chunk in _chunk_list(unique_resolved_domains, 20):
+            print(f'Length of unique resolved domains: {len(unique_resolved_domains)} chunking now!')
+            for chunk in screen_shotter._chunk_list(unique_resolved_domains, 25):
                 print(f'Chunk: {chunk} and length: {len(chunk)}')
                 try:
                     #resultsss = await  pool.map(visit, unique_resolved_domains)
-                    temp = await pool.map(take_screenshot, chunk)
+                    temp = await pool.map(screen_shotter.take_screenshot, chunk)
                     #resultsss = await pool.map(take_screenshot, unique_resolved_domains)
                     #await pool.map(screenshot_handler, chunk)
                 except Exception as ee:
                     print(f'An excpeption has occurred while mapping: {ee}')
                     #continue
-        end = time.perf_counter()
-        print("Pipeline finished in {} seconds".format(end - start))
+    end = time.perf_counter()
+    print("Pipeline finished in {} seconds".format(end - start))
 
     # Shodan
     shodanres = []
@@ -817,6 +830,7 @@ async def start(rest_args=None):
 
 async def entry_point():
     try:
+        Core.banner()
         await start()
     except KeyboardInterrupt:
         print('\n\n\033[93m[!] ctrl+c detected from user, quitting.\n\n \033[0m')
