@@ -57,7 +57,6 @@ class ScreenShotter:
         context = await browser.createIncognitoBrowserContext()
         page = await browser.newPage()
         path = fr'{self.output}{self.slash}{url.replace("http://", "").replace("https://", "")}.png'
-        print(f'path: {path}')
         date = str(datetime.utcnow())
         try:
             # change default timeout from 30 to 35 seconds

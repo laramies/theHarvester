@@ -1,5 +1,5 @@
 from typing import List
-import json
+
 
 class HtmlGenerator:
 
@@ -186,6 +186,7 @@ var table = new Tabulator("#example-table", {
         html = '''
 <!doctype html>
 <html>
+<meta charset="utf-8">
 <head><script src="https://cdn.plot.ly/plotly-latest.min.js" type="text/javascript"></script>
 <link href="https://unpkg.com/tabulator-tables@4.6.2/dist/css/tabulator.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
@@ -287,20 +288,12 @@ var table = new Tabulator("#example-table", {
             html = '''
             <p>&nbsp;</p>
             <p>&nbsp;</p>
-            
             <h2 style="background-color:DodgerBlue; text-align:center">
                 Screenshots
             </h2>
-            
             <div id="screenshot-table"></div>
             <script type="text/javascript">
                        xxxxxxxxx            
-                       var iconFormatter= function(value, data, cell, row, options){ //plain text value
-                            var test = `${value}`;
-                            return "<img class='infoImage' src=test>";
-                            //return "<img class='infoImage' src='" + value + "'>";
-                        };
-            
                         //create Tabulator on DOM element with id "example-table"
                         var table = new Tabulator("#screenshot-table", {
                             height:650, // set height of table (in CSS or here), this enables the Virtual DOM and improves render speed dramatically (can be any valid css height value)
@@ -309,31 +302,24 @@ var table = new Tabulator("#example-table", {
                             columns:[ //Define Table Columns
                                 {title:"Date", field:"date", width:150},
                                 {title:"Domain", field:"domain", hozAlign:"left", headerFilter:"select" },
-                                {title:"Screenshot", field:"icon", align:"center", formatter:iconFormatter},
+                                {title:"Screenshot", field:"icon", align:"center", formatter:"image"},
                             ]
                             },
                         );
                    </script> 
              <p>&nbsp;</p>
-             <p>&nbsp;</p>
-                        
+             <p>&nbsp;</p>     
             '''
-            # var tabledata = [{date:"2020-07-03", domain:"box.netflix.com", plugin:"DNS-resolver", record:"ip",
-            # result:"3.220.163.143"},{date:"2020-07-03", domain:"netflix.com", plugin:"DNS-resolver", record:"ip",
-            # result:"34.209.106.197"},{date:"2020-07-03", domain:"netflix.com", plugin:"DNS-resolver", record:"ip",
-            # result:"34.212.161.97"},{date:"2020-07-03", domain:"netflix.com", plugin:"DNS-resolver", record:"ip",
-            # result:"34.223.232.157"}];
 
-            base = "var tabledata = [ "
-            print(f'Iterating through: {len(tups)} tuples')
+            base = 'var tabledata = [ '
             for tup in tups:
                 date = tup[0]
                 domain = tup[1]
-                path = tup[2]
-                data = f'{{date:"{date}", domain:"{domain}", path:"{path}"}},'
+                path = tup[2].replace('\\', '\\\\')
+                data = f'{{date:"{date}", domain:"{domain}", icon:"{path}"}},'
                 base += data
             base += '];'
             return html.replace('xxxxxxxxx', base)
         except Exception as e:
             print(f'Error generating screenshot section: {e}')
-            return ""
+            return ''

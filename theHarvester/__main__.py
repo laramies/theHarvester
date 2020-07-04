@@ -591,7 +591,6 @@ async def start():
     if len(args.screenshot) > 0:
         import time
         from aiomultiprocess import Pool
-        from itertools import chain
         from theHarvester.screenshot.screenshot import ScreenShotter
         screen_shotter = ScreenShotter(args.screenshot)
         await screen_shotter.verify_installation()
@@ -607,21 +606,18 @@ async def start():
                 # Filter out domains that we couldn't connect to
                 unique_resolved_domains = list(sorted({tup[0] for tup in results if len(tup[1]) > 0}))
             async with Pool(3) as pool:
-                print(f'Length of unique resolved domains: {len(unique_resolved_domains)} chunking now!')
+                print(f'Length of unique resolved domains: {len(unique_resolved_domains)} chunking now!\n')
                 # If you have the resources you could make the function faster by increasing the chunk number
                 chunk_number = 25
                 for chunk in screen_shotter.chunk_list(unique_resolved_domains, chunk_number):
                     try:
                         screenshot_tups.extend(await pool.map(screen_shotter.take_screenshot, chunk))
-                        # screenshot_tups.append(list(chain(*await pool.map(screen_shotter.take_screenshot, chunk))))
                     except Exception as ee:
                         print(f'An exception has occurred while mapping: {ee}')
         end = time.perf_counter()
         print(f"Finished taking screenshots in {end - start} seconds")
-
-    import pprint as p
-    p.pprint(screenshot_tups, indent=4)
-
+        print('[+] Note there may be leftover chrome processes you may have to kill manually\n')
+    
     # Shodan
     shodanres = []
     if shodan is True:
