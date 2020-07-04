@@ -47,7 +47,6 @@ async def start():
                             rapiddns, securityTrails, spyse, sublist3r, suip, threatcrowd, threatminer,
                             trello, twitter, urlscan, virustotal, yahoo, all''')
 
-
     args = parser.parse_args()
     filename: str = args.filename
     dnsbrute = (args.dns_brute, False)
@@ -445,8 +444,6 @@ async def start():
         await asyncio.gather(*tasks, return_exceptions=True)
 
     await handler(lst=stor_lst)
-    return_ips = []
-
     # Sanity check to see if all_emails and all_hosts are defined.
     try:
         all_emails
@@ -590,9 +587,11 @@ async def start():
         pass
 
     # Screenshots
+    screenshot_tups = []
     if len(args.screenshot) > 0:
         import time
         from aiomultiprocess import Pool
+        from itertools import chain
         from theHarvester.screenshot.screenshot import ScreenShotter
         screen_shotter = ScreenShotter(args.screenshot)
         await screen_shotter.verify_installation()
@@ -600,7 +599,6 @@ async def start():
         start = time.perf_counter()
         print('Filtering domains for ones we can reach')
         unique_resolved_domains = {url.split(':')[0]for url in full if ':' in url and 'www.' not in url}
-
         if len(unique_resolved_domains) > 0:
             # First filter out ones that didn't resolve
             print('Attempting to visit unique resolved domains, this is ACTIVE RECON')
@@ -614,11 +612,15 @@ async def start():
                 chunk_number = 25
                 for chunk in screen_shotter.chunk_list(unique_resolved_domains, chunk_number):
                     try:
-                        await pool.map(screen_shotter.take_screenshot, chunk)
+                        screenshot_tups.extend(await pool.map(screen_shotter.take_screenshot, chunk))
+                        # screenshot_tups.append(list(chain(*await pool.map(screen_shotter.take_screenshot, chunk))))
                     except Exception as ee:
                         print(f'An exception has occurred while mapping: {ee}')
         end = time.perf_counter()
         print(f"Finished taking screenshots in {end - start} seconds")
+
+    import pprint as p
+    p.pprint(screenshot_tups, indent=4)
 
     # Shodan
     shodanres = []
@@ -675,6 +677,8 @@ async def start():
             HTMLcode = await generator.beginhtml()
             HTMLcode += await generator.generatedashboardcode(scanboarddata)
             HTMLcode += await generator.generatelatestscanresults(latestscanresults)
+            if len(screenshot_tups) > 0:
+                HTMLcode += await generator.generatescreenshots(screenshot_tups)
             HTMLcode += await generator.generatepreviousscanresults(previousscanresults)
             graph = reportgraph.GraphGenerator(word)
             await graph.init_db()
@@ -697,7 +701,6 @@ async def start():
         Html_file.close()
         print('[*] Reporting finished.')
         print('[*] Saving files.')
-
 
         try:
             # filename = filename.rsplit('.', 1)[0] + '.xml'

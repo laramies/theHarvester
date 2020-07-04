@@ -21,10 +21,8 @@ if __name__ == '__main__':
     else:
         import uvloop
         uvloop.install()
-        if platform == "linux":
+        if "linux" in platform:
             import aiomultiprocess
             # As we are not using Windows we can change the spawn method to fork for greater performance
             aiomultiprocess.set_context("fork")
     asyncio.run(__main__.entry_point())
-
-# __main__

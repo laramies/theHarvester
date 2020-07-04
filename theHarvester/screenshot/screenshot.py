@@ -1,14 +1,17 @@
 """
-Screenshot module that utilizes pyppeteer in async fashion
-to break urls into list and assign them to workers in a queue
+Screenshot module that utilizes pyppeteer to asynchronously
+take screenshots
 """
 
 from pyppeteer import launch
 import aiohttp
+import asyncio
+from datetime import datetime
+import json
 import sys
 
 
-class ScreenShotter():
+class ScreenShotter:
 
     def __init__(self, output):
         self.output = output
@@ -43,30 +46,33 @@ class ScreenShotter():
                     text = await resp.text("UTF-8")
                     return f'http://{url}' if ('http' not in url and 'https' not in url) else url, text
         except Exception as e:
-            print(f'An exception has occurred while attempting to screenshot {url}: {e}')
+            print(f'An exception has occurred while attempting to visit {url} : {e}')
             return "", ""
 
     async def take_screenshot(self, url):
         url = f'http://{url}' if ('http' not in url and 'https' not in url) else url
-        # url = f'https://{url}' if ('http' not in url and 'https' not in url) else url
         url = url.replace('www.', '')
         print(f'Attempting to take a screenshot of: {url}')
         browser = await launch(headless=True, ignoreHTTPSErrors=True, args=["--no-sandbox"])
         context = await browser.createIncognitoBrowserContext()
         page = await browser.newPage()
+        path = fr'{self.output}{self.slash}{url.replace("http://", "").replace("https://", "")}.png'
+        print(f'path: {path}')
+        date = str(datetime.utcnow())
         try:
             # change default timeout from 30 to 35 seconds
             page.setDefaultNavigationTimeout(35000)
             await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
                                     'Chrome/83.0.4103.106 Safari/537.36')
-            # await page.goto(url, waitUntil='networkidle0')
             await page.goto(url)
-            await page.screenshot(
-                {'path': f'{self.output}{self.slash}{url.replace("http://", "").replace("https://", "")}.png'})
+            await page.screenshot({'path': path})
         except Exception as e:
-            print(f'Exception occurred: {e} for: {url} ')
+            print(f'An exception has occurred attempting to screenshot: {url} : {e}')
+            path = ""
         finally:
             # Clean up everything whether screenshot is taken or not
+            await asyncio.sleep(2)
             await page.close()
             await context.close()
             await browser.close()
+            return date, url, path
