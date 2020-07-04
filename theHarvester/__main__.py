@@ -15,7 +15,7 @@ import re
 import sys
 
 
-async def start(rest_args=None):
+async def start():
     parser = argparse.ArgumentParser(
         description='theHarvester is used to gather open source intelligence (OSINT) on a\n'
                     'company or domain.')
@@ -47,29 +47,10 @@ async def start(rest_args=None):
                             rapiddns, securityTrails, spyse, sublist3r, suip, threatcrowd, threatminer,
                             trello, twitter, urlscan, virustotal, yahoo, all''')
 
-    # determines if filename is coming from rest api or user
-    rest_filename = ""
-    # indicates this from the rest API
-    if rest_args:
-        if rest_args.source and rest_args.source == "getsources":
-            return list(sorted(Core.get_supportedengines()))
-        elif rest_args.dns_brute:
-            args = rest_args
-            dnsbrute = (rest_args.dns_brute, True)
-        else:
-            args = rest_args
-            # We need to make sure the filename is random as to not overwrite other files
-            filename: str = args.filename
-            import string
-            import secrets
-            alphabet = string.ascii_letters + string.digits
-            rest_filename += f"{''.join(secrets.choice(alphabet) for _ in range(32))}_{filename}" \
-                if len(filename) != 0 else ""
 
-    else:
-        args = parser.parse_args()
-        filename: str = args.filename
-        dnsbrute = (args.dns_brute, False)
+    args = parser.parse_args()
+    filename: str = args.filename
+    dnsbrute = (args.dns_brute, False)
     try:
         db = stash.StashManager()
         await db.do_init()
@@ -126,7 +107,6 @@ async def start(rest_args=None):
         else:
             print(f'\033[94m[*] Searching {source[0].upper() + source[1:]}. \033[0m')
         if store_host:
-            #host_names = filter(await search_engine.get_hostnames())
             host_names = [host for host in filter(await search_engine.get_hostnames()) if f'.{word}' in host]
             if source != 'hackertarget' and source != 'pentesttools' and source != 'rapiddns':
                 # If source is inside this conditional it means the hosts returned must be resolved to obtain ip
@@ -429,12 +409,8 @@ async def start(rest_args=None):
                     yahoo_search = yahoosearch.SearchYahoo(word, limit)
                     stor_lst.append(store(yahoo_search, engineitem, store_host=True, store_emails=True))
         else:
-            try:
-                # Check if dns_brute is defined
-                rest_args.dns_brute
-            except:
-                print('\033[93m[!] Invalid source.\n\n \033[0m')
-                sys.exit(1)
+            print('\033[93m[!] Invalid source.\n\n \033[0m')
+            sys.exit(1)
 
     async def worker(queue):
         while True:
@@ -470,14 +446,7 @@ async def start(rest_args=None):
 
     await handler(lst=stor_lst)
     return_ips = []
-    if rest_args is not None and len(rest_filename) == 0 and rest_args.dns_brute is False:
-        # Indicates user is using rest api but not wanting output to be saved to a file
-        full = [host if ':' in host and word in host else word in host.split(':')[0] and host for host in full]
-        full = list({host for host in full if host})
-        full.sort()
-        # cast to string so Rest API can understand type
-        return_ips.extend([str(ip) for ip in sorted([netaddr.IPAddress(ip.strip()) for ip in set(all_ip)])])
-        return list(set(all_emails)), return_ips, full, "", ""
+
     # Sanity check to see if all_emails and all_hosts are defined.
     try:
         all_emails
@@ -533,20 +502,17 @@ async def start(rest_args=None):
             print(url)
 
     # DNS brute force
-
     if dnsbrute and dnsbrute[0] is True:
         print('\n[*] Starting DNS brute force.')
         dns_force = dnssearch.DnsForce(word, dnsserver, verbose=True)
         hosts, ips = await dns_force.run()
         hosts = list({host for host in hosts if ':' in host})
         hosts.sort(key=lambda el: el.split(':')[0])
-        # Check if Rest API is being used if so return found hosts
-        if dnsbrute[1]:
-            return hosts
         print('\n[*] Hosts found after DNS brute force:')
         db = stash.StashManager()
         for host in hosts:
             print(host)
+            full.append(host)
         await db.store_all(word, hosts, 'host', 'dns_bruteforce')
 
     # TakeOver Checking
@@ -623,52 +589,36 @@ async def start(rest_args=None):
     else:
         pass
 
-    MAX_QUEUE_SIZE = 2 ** 15 - 1
-    print(f'max queue size: {MAX_QUEUE_SIZE}')
-    import time
-    from aiomultiprocess import Pool
-
     # Screenshots
     if len(args.screenshot) > 0:
-        # screenshot_handler
-        #from theHarvester.screenshot.screenshot import take_screenshot, screenshot_handler, _chunk_list, receive, visit
+        import time
+        from aiomultiprocess import Pool
         from theHarvester.screenshot.screenshot import ScreenShotter
-        # AsyncFetcher.fetch_all([])
         screen_shotter = ScreenShotter(args.screenshot)
+        await screen_shotter.verify_installation()
         print(f'Screenshots can be found: {screen_shotter.output}{screen_shotter.slash}')
         start = time.perf_counter()
         print('Filtering domains for ones we can reach')
-        #from theHarvester.screenshot import take_screenshot
         unique_resolved_domains = {url.split(':')[0]for url in full if ':' in url and 'www.' not in url}
-        # First filter out ones that didn't resolve
-        #unique_resolved_domains = list(sorted([x for x in unique_resolved_domains
-        #                                       if len(await screen_shotter.visit(x)) > 0]))
-        # Second filter out ones where we can't reach them with an http request
-        # Grab resolved subdomains
-        # coroutines = [take_screenshot(url) for url in unique_resolved_domains]
-        #await screenshot_handler(coroutines)
-        async with Pool(15) as pool:
-            print('Created pool')
-            print('mapping for unique resolved domains')
-            y = await pool.map(screen_shotter.visit, list(unique_resolved_domains))
-            unique_resolved_domains = list(sorted({x[0] for x in y if len(x[1]) > 0}))
-            print(unique_resolved_domains)
-        async with Pool(3) as pool:
-            #serialized_tiles = [take_screenshot(url) for url in unique_resolved_domains]
-            #print(f'Length of serialized_tiles: {len(serialized_tiles)} ')
-            print(f'Length of unique resolved domains: {len(unique_resolved_domains)} chunking now!')
-            for chunk in screen_shotter._chunk_list(unique_resolved_domains, 25):
-                print(f'Chunk: {chunk} and length: {len(chunk)}')
-                try:
-                    #resultsss = await  pool.map(visit, unique_resolved_domains)
-                    temp = await pool.map(screen_shotter.take_screenshot, chunk)
-                    #resultsss = await pool.map(take_screenshot, unique_resolved_domains)
-                    #await pool.map(screenshot_handler, chunk)
-                except Exception as ee:
-                    print(f'An excpeption has occurred while mapping: {ee}')
-                    #continue
-    end = time.perf_counter()
-    print("Pipeline finished in {} seconds".format(end - start))
+
+        if len(unique_resolved_domains) > 0:
+            # First filter out ones that didn't resolve
+            print('Attempting to visit unique resolved domains, this is ACTIVE RECON')
+            async with Pool(15) as pool:
+                results = await pool.map(screen_shotter.visit, list(unique_resolved_domains))
+                # Filter out domains that we couldn't connect to
+                unique_resolved_domains = list(sorted({tup[0] for tup in results if len(tup[1]) > 0}))
+            async with Pool(3) as pool:
+                print(f'Length of unique resolved domains: {len(unique_resolved_domains)} chunking now!')
+                # If you have the resources you could make the function faster by increasing the chunk number
+                chunk_number = 25
+                for chunk in screen_shotter.chunk_list(unique_resolved_domains, chunk_number):
+                    try:
+                        await pool.map(screen_shotter.take_screenshot, chunk)
+                    except Exception as ee:
+                        print(f'An exception has occurred while mapping: {ee}')
+        end = time.perf_counter()
+        print(f"Finished taking screenshots in {end - start} seconds")
 
     # Shodan
     shodanres = []
@@ -715,20 +665,12 @@ async def start(rest_args=None):
         try:
             print('\n[*] Reporting started.')
             db = stash.StashManager()
-            if rest_args and rest_args.domain is not None and len(rest_args.domain) > 1:
-                # If using rest API filter by domain
-                scanboarddata = await db.getscanboarddata(domain=rest_args.domain)
-            else:
-                scanboarddata = await db.getscanboarddata()
+            scanboarddata = await db.getscanboarddata()
             latestscanresults = await db.getlatestscanresults(word)
             previousscanresults = await db.getlatestscanresults(word, previousday=True)
             latestscanchartdata = await db.latestscanchartdata(word)
             scanhistorydomain = await db.getscanhistorydomain(word)
-            if rest_args and rest_args.domain is not None and len(rest_args.domain) > 1:
-                # If using rest API filter by domain
-                pluginscanstatistics = await db.getpluginscanstatistics(domain=rest_args.domain)
-            else:
-                pluginscanstatistics = await db.getpluginscanstatistics()
+            pluginscanstatistics = await db.getpluginscanstatistics()
             generator = statichtmlgenerator.HtmlGenerator(word)
             HTMLcode = await generator.beginhtml()
             HTMLcode += await generator.generatedashboardcode(scanboarddata)
@@ -745,40 +687,23 @@ async def start(rest_args=None):
                </body>
                </html>
                '''
-            if len(rest_filename) == 0:
-                Html_file = open(f'{filename}.html' if '.html' not in filename else filename, 'w')
-                Html_file.write(HTMLcode)
-                Html_file.close()
-                print('[*] Reporting finished.')
-                print('[*] Saving files.')
-            else:
-                # indicates the rest api is being used in that case we asynchronously write the file to our static directory
-                try:
-                    import aiofiles
-                    async with aiofiles.open(
-                            f'theHarvester/app/static/{rest_filename}.html' if '.html' not in rest_filename
-                            else f'theHarvester/app/static/{rest_filename}', 'w+') as Html_file:
-                        await Html_file.write(HTMLcode)
-                except Exception as ex:
-                    print(f"An excpetion has occurred: {ex}")
-                    return list(set(all_emails)), return_ips, full, f'{ex}', ""
-                # Html_file = async with aiofiles.open(f'{filename}.html' if '.html' not in filename else filename, 'w')
-                # Html_file.write(HTMLcode)
-                # Html_file.close()
         except Exception as e:
             print(e)
             print('\n\033[93m[!] An error occurred while creating the output file.\n\n \033[0m')
             sys.exit(1)
 
+        Html_file = open(f'{filename}.html' if '.html' not in filename else filename, 'w')
+        Html_file.write(HTMLcode)
+        Html_file.close()
+        print('[*] Reporting finished.')
+        print('[*] Saving files.')
+
+
         try:
             # filename = filename.rsplit('.', 1)[0] + '.xml'
             # file = open(filename, 'w')
-            if len(rest_filename) == 0:
-                filename = filename.rsplit('.', 1)[0] + '.xml'
-            else:
-                filename = 'theHarvester/app/static/' \
-                           + rest_filename.rsplit('.', 1)[0] + '.xml'
-            # TODO use aiofiles if user is using rest api
+            filename = filename.rsplit('.', 1)[0] + '.xml'
+
             with open(filename, 'w+') as file:
                 file.write('<?xml version="1.0" encoding="UTF-8"?><theHarvester>')
                 for x in all_emails:
@@ -816,14 +741,10 @@ async def start(rest_args=None):
                         file.write('</servers>')
 
                 file.write('</theHarvester>')
-            if len(rest_filename) > 0:
-                return list(set(all_emails)), return_ips, full, f'/static/{rest_filename}.html', \
-                       f'/static/{filename[filename.find("/static/") + 8:]}' if '/static/' in filename \
-                           else f'/static/{filename} '
+
             print('[*] Files saved.')
         except Exception as er:
             print(f'\033[93m[!] An error occurred while saving the XML file: {er} \033[0m')
-            return list(set(all_emails)), return_ips, full, f'/static/{rest_filename}.html', f'{er}'
         print('\n\n')
         sys.exit(0)
 
@@ -837,11 +758,3 @@ async def entry_point():
     except Exception as error_entry_point:
         print(error_entry_point)
         sys.exit(1)
-
-"""
-if __name__ == '__main__':
-    asyncio.run(wow())
-    #import multiprocessing
-    #multiprocessing.freeze_support()
-    #asyncio.run(main=entry_point())
-"""
