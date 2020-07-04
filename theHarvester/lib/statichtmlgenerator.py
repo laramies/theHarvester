@@ -193,13 +193,6 @@ var table = new Tabulator("#example-table", {
 </head>
 <title>theHarvester Scan Report</title>
 <body>
-<style>
-.infoImage {
-    height:500px;
-    width:500px;
-    cursor:pointer;
-}
-</style>
 <h1 style="text-align: center;"><span>theHarvester Scan Report</span></h1>
         '''
         return html
