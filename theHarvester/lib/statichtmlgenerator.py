@@ -286,7 +286,7 @@ var table = new Tabulator("#example-table", {
             </h2>
             <div id="screenshot-table"></div>
             <script type="text/javascript">
-                       xxxxxxxxx            
+                       xxxxxxxxx
                         //create Tabulator on DOM element with id "example-table"
                         var table = new Tabulator("#screenshot-table", {
                             height:650, // set height of table (in CSS or here), this enables the Virtual DOM and improves render speed dramatically (can be any valid css height value)
@@ -299,9 +299,9 @@ var table = new Tabulator("#example-table", {
                             ]
                             },
                         );
-                   </script> 
+                   </script>
              <p>&nbsp;</p>
-             <p>&nbsp;</p>     
+             <p>&nbsp;</p>
             '''
             base = 'var tabledata = [ '
             for tup in tups:
