@@ -308,8 +308,9 @@ var table = new Tabulator("#example-table", {
                 date = tup[0]
                 domain = tup[1]
                 path = tup[2].replace('\\', '\\\\')
-                data = f'{{date:"{date}", domain:"{domain}", icon:"{path}"}},'
-                base += data
+                if len(path) > 0:
+                    data = f'{{date:"{date}", domain:"{domain}", icon:"{path}"}},'
+                    base += data
             base += '];'
             return html.replace('xxxxxxxxx', base)
         except Exception as e:
