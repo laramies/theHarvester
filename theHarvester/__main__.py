@@ -593,31 +593,39 @@ async def start():
         from aiomultiprocess import Pool
         from theHarvester.screenshot.screenshot import ScreenShotter
         screen_shotter = ScreenShotter(args.screenshot)
-        await screen_shotter.verify_installation()
-        print(f'Screenshots can be found: {screen_shotter.output}{screen_shotter.slash}')
-        start = time.perf_counter()
-        print('Filtering domains for ones we can reach')
-        unique_resolved_domains = {url.split(':')[0]for url in full if ':' in url and 'www.' not in url}
-        if len(unique_resolved_domains) > 0:
-            # First filter out ones that didn't resolve
-            print('Attempting to visit unique resolved domains, this is ACTIVE RECON')
-            async with Pool(15) as pool:
-                results = await pool.map(screen_shotter.visit, list(unique_resolved_domains))
-                # Filter out domains that we couldn't connect to
-                unique_resolved_domains = list(sorted({tup[0] for tup in results if len(tup[1]) > 0}))
-            async with Pool(3) as pool:
-                print(f'Length of unique resolved domains: {len(unique_resolved_domains)} chunking now!\n')
-                # If you have the resources you could make the function faster by increasing the chunk number
-                chunk_number = 25
-                for chunk in screen_shotter.chunk_list(unique_resolved_domains, chunk_number):
-                    try:
-                        screenshot_tups.extend(await pool.map(screen_shotter.take_screenshot, chunk))
-                    except Exception as ee:
-                        print(f'An exception has occurred while mapping: {ee}')
-        end = time.perf_counter()
-        print(f"Finished taking screenshots in {end - start} seconds")
-        print('[+] Note there may be leftover chrome processes you may have to kill manually\n')
-    
+        path_exists = screen_shotter.verify_path()
+        # Verify path exists if not create it or if user does not create it skip screenshot
+        if path_exists:
+            await screen_shotter.verify_installation()
+            print(f'Screenshots can be found: {screen_shotter.output}{screen_shotter.slash}')
+            start = time.perf_counter()
+            print('Filtering domains for ones we can reach')
+            unique_resolved_domains = {url.split(':')[0]for url in full if ':' in url and 'www.' not in url}
+            if len(unique_resolved_domains) > 0:
+                # First filter out ones that didn't resolve
+                print('Attempting to visit unique resolved domains, this is ACTIVE RECON')
+                async with Pool(15) as pool:
+                    results = await pool.map(screen_shotter.visit, list(unique_resolved_domains))
+                    # Filter out domains that we couldn't connect to
+                    unique_resolved_domains = list(sorted({tup[0] for tup in results if len(tup[1]) > 0}))
+                async with Pool(3) as pool:
+                    print(f'Length of unique resolved domains: {len(unique_resolved_domains)} chunking now!\n')
+                    # If you have the resources you could make the function faster by increasing the chunk number
+                    chunk_number = 25
+                    for chunk in screen_shotter.chunk_list(unique_resolved_domains, chunk_number):
+                        try:
+                            screenshot_tups.extend(await pool.map(screen_shotter.take_screenshot, chunk))
+                        except Exception as ee:
+                            print(f'An exception has occurred while mapping: {ee}')
+            end = time.perf_counter()
+            # There is probably an easier way to do this
+            total = end - start
+            mon, sec = divmod(total, 60)
+            hr, mon = divmod(mon, 60)
+            total_time = "%02d:%02d" % (mon, sec)
+            print(f"Finished taking screenshots in {total_time} seconds")
+            print('[+] Note there may be leftover chrome processes you may have to kill manually\n')
+
     # Shodan
     shodanres = []
     if shodan is True:

@@ -303,7 +303,6 @@ var table = new Tabulator("#example-table", {
              <p>&nbsp;</p>
              <p>&nbsp;</p>     
             '''
-
             base = 'var tabledata = [ '
             for tup in tups:
                 date = tup[0]

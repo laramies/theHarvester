@@ -7,7 +7,7 @@ from pyppeteer import launch
 import aiohttp
 import asyncio
 from datetime import datetime
-import json
+import os
 import sys
 
 
@@ -17,6 +17,19 @@ class ScreenShotter:
         self.output = output
         self.slash = "\\" if 'win' in sys.platform else '/'
         self.slash = "" if (self.output[-1] == "\\" or self.output[-1] == "/") else self.slash
+
+    def verify_path(self):
+        try:
+            if not os.path.isdir(self.output):
+                answer = input(f'[+] The output path you have entered does not exist would you like to create it (y/n): ')
+                if answer.lower() == 'yes' or answer.lower() == 'y':
+                    os.mkdir(self.output)
+                    return True
+            print('path is a directory')
+            return True
+        except Exception as e:
+            print(f"An exception has occurred while attempting to verify output path's existence: {e}")
+            return False
 
     @staticmethod
     async def verify_installation():
