@@ -21,7 +21,7 @@ class ScreenShotter:
     def verify_path(self):
         try:
             if not os.path.isdir(self.output):
-                answer = input(f'[+] The output path you have entered does not exist would you like to create it (y/n): ')
+                answer = input('[+] The output path you have entered does not exist would you like to create it (y/n): ')
                 if answer.lower() == 'yes' or answer.lower() == 'y':
                     os.mkdir(self.output)
                     return True
