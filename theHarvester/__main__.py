@@ -597,7 +597,7 @@ async def start():
         # Verify path exists if not create it or if user does not create it skip screenshot
         if path_exists:
             await screen_shotter.verify_installation()
-            print(f'Screenshots can be found: {screen_shotter.output}{screen_shotter.slash}')
+            print(f'\nScreenshots can be found: {screen_shotter.output}{screen_shotter.slash}')
             start = time.perf_counter()
             print('Filtering domains for ones we can reach')
             unique_resolved_domains = {url.split(':')[0]for url in full if ':' in url and 'www.' not in url}
