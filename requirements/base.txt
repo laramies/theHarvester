@@ -15,5 +15,4 @@ retrying==1.3.3
 shodan==1.23.0
 texttable==1.6.2
 lxml==4.5.1
-uvicorn==0.11.5
 uvloop==0.14.0; platform_system != "Windows"
