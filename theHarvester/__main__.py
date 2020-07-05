@@ -14,8 +14,6 @@ import netaddr
 import re
 import sys
 
-Core.banner()
-
 
 async def start():
     parser = argparse.ArgumentParser(
@@ -24,38 +22,50 @@ async def start():
     parser.add_argument('-d', '--domain', help='Company name or domain to search.', required=True)
     parser.add_argument('-l', '--limit', help='Limit the number of search results, default=500.', default=500, type=int)
     parser.add_argument('-S', '--start', help='Start with result number X, default=0.', default=0, type=int)
-    parser.add_argument('-g', '--google-dork', help='Use Google Dorks for Google search.', default=False, action='store_true')
-    parser.add_argument('-p', '--proxies', help='Use proxies for requests, enter proxies in proxies.yaml.', default=False, action='store_true')
-    parser.add_argument('-s', '--shodan', help='Use Shodan to query discovered hosts.', default=False, action='store_true')
-    parser.add_argument('-v', '--virtual-host', help='Verify host name via DNS resolution and search for virtual hosts.', action='store_const', const='basic', default=False)
+    parser.add_argument('-g', '--google-dork', help='Use Google Dorks for Google search.', default=False,
+                        action='store_true')
+    parser.add_argument('-p', '--proxies', help='Use proxies for requests, enter proxies in proxies.yaml.',
+                        default=False, action='store_true')
+    parser.add_argument('-s', '--shodan', help='Use Shodan to query discovered hosts.', default=False,
+                        action='store_true')
+    parser.add_argument('--screenshot', help='Take screenshots of resolved domains specify output'
+                                             ' directory: --screenshot output_directory', default="", type=str)
+    parser.add_argument('-v', '--virtual-host',
+                        help='Verify host name via DNS resolution and search for virtual hosts.', action='store_const',
+                        const='basic', default=False)
     parser.add_argument('-e', '--dns-server', help='DNS server to use for lookup.')
     parser.add_argument('-t', '--dns-tld', help='Perform a DNS TLD expansion discovery, default False.', default=False)
     parser.add_argument('-r', '--take-over', help='Check for takeovers.', default=False, action='store_true')
-    parser.add_argument('-n', '--dns-lookup', help='Enable DNS server lookup, default False.', default=False, action='store_true')
-    parser.add_argument('-c', '--dns-brute', help='Perform a DNS brute force on the domain.', default=False, action='store_true')
+    parser.add_argument('-n', '--dns-lookup', help='Enable DNS server lookup, default False.', default=False,
+                        action='store_true')
+    parser.add_argument('-c', '--dns-brute', help='Perform a DNS brute force on the domain.', default=False,
+                        action='store_true')
     parser.add_argument('-f', '--filename', help='Save the results to an HTML and/or XML file.', default='', type=str)
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, bufferoverun, certspotter, crtsh, dnsdumpster,
-                        dogpile, duckduckgo, exalead, github-code, google,
-                        hackertarget, hunter, intelx, linkedin, linkedin_links, netcraft, otx, pentesttools,
-                        rapiddns, securityTrails, spyse, sublist3r, suip, threatcrowd, threatminer,
-                        trello, twitter, urlscan, virustotal, yahoo, all''')
+                            dogpile, duckduckgo, exalead, github-code, google,
+                            hackertarget, hunter, intelx, linkedin, linkedin_links, netcraft, otx, pentesttools,
+                            rapiddns, securityTrails, spyse, sublist3r, suip, threatcrowd, threatminer,
+                            trello, twitter, urlscan, virustotal, yahoo, all''')
 
     args = parser.parse_args()
+    filename: str = args.filename
+    dnsbrute = (args.dns_brute, False)
     try:
         db = stash.StashManager()
         await db.do_init()
     except Exception:
         pass
 
+    # args = parser.parse_args()
     all_emails: list = []
     all_hosts: list = []
     all_ip: list = []
-    dnsbrute = args.dns_brute
     dnslookup = args.dns_lookup
     dnsserver = args.dns_server
     dnstld = args.dns_tld
     engines = []
-    filename: str = args.filename
+    # If the user specifies
+
     full: list = []
     ips: list = []
     google_dorking = args.google_dork
@@ -72,20 +82,18 @@ async def start():
 
     async def store(search_engine: Any, source: str, process_param: Any = None, store_host: bool = False,
                     store_emails: bool = False, store_ip: bool = False, store_people: bool = False,
-                    store_data: bool = False, store_links: bool = False, store_results: bool = False) -> None:
+                    store_links: bool = False, store_results: bool = False) -> None:
         """
         Persist details into the database.
         The details to be stored is controlled by the parameters passed to the method.
 
         :param search_engine: search engine to fetch details from
         :param source: source against which the details (corresponding to the search engine) need to be persisted
-        :param process_param: any parameters to be passed to the search engine
-                              eg: Google needs google_dorking
+        :param process_param: any parameters to be passed to the search engine eg: Google needs google_dorking
         :param store_host: whether to store hosts
         :param store_emails: whether to store emails
         :param store_ip: whether to store IP address
         :param store_people: whether to store user details
-        :param store_data: whether to fetch host from method get_data() and persist
         :param store_links: whether to store links
         :param store_results: whether to fetch details from get_results() and persist
         """
@@ -98,7 +106,7 @@ async def start():
         else:
             print(f'\033[94m[*] Searching {source[0].upper() + source[1:]}. \033[0m')
         if store_host:
-            host_names = filter(await search_engine.get_hostnames())
+            host_names = [host for host in filter(await search_engine.get_hostnames()) if f'.{word}' in host]
             if source != 'hackertarget' and source != 'pentesttools' and source != 'rapiddns':
                 # If source is inside this conditional it means the hosts returned must be resolved to obtain ip
                 full_hosts_checker = hostchecker.Checker(host_names)
@@ -120,7 +128,7 @@ async def start():
         if store_results:
             email_list, host_names, urls = await search_engine.get_results()
             all_emails.extend(email_list)
-            host_names = filter(host_names)
+            host_names = [host for host in filter(host_names) if f'.{word}' in host]
             all_urls.extend(filter(urls))
             all_hosts.extend(host_names)
             await db.store_all(word, all_hosts, 'host', source)
@@ -436,7 +444,6 @@ async def start():
         await asyncio.gather(*tasks, return_exceptions=True)
 
     await handler(lst=stor_lst)
-
     # Sanity check to see if all_emails and all_hosts are defined.
     try:
         all_emails
@@ -492,8 +499,7 @@ async def start():
             print(url)
 
     # DNS brute force
-
-    if dnsbrute is True:
+    if dnsbrute and dnsbrute[0] is True:
         print('\n[*] Starting DNS brute force.')
         dns_force = dnssearch.DnsForce(word, dnsserver, verbose=True)
         hosts, ips = await dns_force.run()
@@ -503,6 +509,7 @@ async def start():
         db = stash.StashManager()
         for host in hosts:
             print(host)
+            full.append(host)
         await db.store_all(word, hosts, 'host', 'dns_bruteforce')
 
     # TakeOver Checking
@@ -535,7 +542,7 @@ async def start():
                         target=word,
                         local_results=dnsrev,
                         overall_results=full),
-                    nameservers=[dnsserver] if dnsserver else None))
+                    nameservers=list(map(str, dnsserver.split(','))) if dnsserver else None))
 
         # run all the reversing tasks concurrently
         await asyncio.gather(*__reverse_dns_tasks.values())
@@ -578,6 +585,46 @@ async def start():
         vhost = sorted(set(vhost))
     else:
         pass
+
+    # Screenshots
+    screenshot_tups = []
+    if len(args.screenshot) > 0:
+        import time
+        from aiomultiprocess import Pool
+        from theHarvester.screenshot.screenshot import ScreenShotter
+        screen_shotter = ScreenShotter(args.screenshot)
+        path_exists = screen_shotter.verify_path()
+        # Verify path exists if not create it or if user does not create it skip screenshot
+        if path_exists:
+            await screen_shotter.verify_installation()
+            print(f'\nScreenshots can be found: {screen_shotter.output}{screen_shotter.slash}')
+            start = time.perf_counter()
+            print('Filtering domains for ones we can reach')
+            unique_resolved_domains = {url.split(':')[0]for url in full if ':' in url and 'www.' not in url}
+            if len(unique_resolved_domains) > 0:
+                # First filter out ones that didn't resolve
+                print('Attempting to visit unique resolved domains, this is ACTIVE RECON')
+                async with Pool(15) as pool:
+                    results = await pool.map(screen_shotter.visit, list(unique_resolved_domains))
+                    # Filter out domains that we couldn't connect to
+                    unique_resolved_domains = list(sorted({tup[0] for tup in results if len(tup[1]) > 0}))
+                async with Pool(3) as pool:
+                    print(f'Length of unique resolved domains: {len(unique_resolved_domains)} chunking now!\n')
+                    # If you have the resources you could make the function faster by increasing the chunk number
+                    chunk_number = 25
+                    for chunk in screen_shotter.chunk_list(unique_resolved_domains, chunk_number):
+                        try:
+                            screenshot_tups.extend(await pool.map(screen_shotter.take_screenshot, chunk))
+                        except Exception as ee:
+                            print(f'An exception has occurred while mapping: {ee}')
+            end = time.perf_counter()
+            # There is probably an easier way to do this
+            total = end - start
+            mon, sec = divmod(total, 60)
+            hr, mon = divmod(mon, 60)
+            total_time = "%02d:%02d" % (mon, sec)
+            print(f"Finished taking screenshots in {total_time} seconds")
+            print('[+] Note there may be leftover chrome processes you may have to kill manually\n')
 
     # Shodan
     shodanres = []
@@ -634,6 +681,8 @@ async def start():
             HTMLcode = await generator.beginhtml()
             HTMLcode += await generator.generatedashboardcode(scanboarddata)
             HTMLcode += await generator.generatelatestscanresults(latestscanresults)
+            if len(screenshot_tups) > 0:
+                HTMLcode += await generator.generatescreenshots(screenshot_tups)
             HTMLcode += await generator.generatepreviousscanresults(previousscanresults)
             graph = reportgraph.GraphGenerator(word)
             await graph.init_db()
@@ -646,57 +695,60 @@ async def start():
                </body>
                </html>
                '''
-            Html_file = open(f'{filename}.html' if '.html' not in filename else filename, 'w')
-            Html_file.write(HTMLcode)
-            Html_file.close()
-            print('[*] Reporting finished.')
-            print('[*] Saving files.')
         except Exception as e:
             print(e)
             print('\n\033[93m[!] An error occurred while creating the output file.\n\n \033[0m')
             sys.exit(1)
 
-        try:
-            filename = filename.rsplit('.', 1)[0] + '.xml'
-            file = open(filename, 'w')
-            file.write('<?xml version="1.0" encoding="UTF-8"?><theHarvester>')
-            for x in all_emails:
-                file.write('<email>' + x + '</email>')
-            for x in full:
-                host, ip = x.split(':') if ':' in x else (x, '')
-                if ip and len(ip) > 3:
-                    file.write(f'<host><ip>{ip}</ip><hostname>{host}</hostname></host>')
-                else:
-                    file.write(f'<host>{host}</host>')
-            for x in vhost:
-                host, ip = x.split(':') if ':' in x else (x, '')
-                if ip and len(ip) > 3:
-                    file.write(f'<vhost><ip>{ip} </ip><hostname>{host}</hostname></vhost>')
-                else:
-                    file.write(f'<vhost>{host}</vhost>')
-            if shodanres != []:
-                shodanalysis = []
-                for x in shodanres:
-                    res = x.split('SAPO')
-                    file.write('<shodan>')
-                    file.write('<host>' + res[0] + '</host>')
-                    file.write('<port>' + res[2] + '</port>')
-                    file.write('<banner><!--' + res[1] + '--></banner>')
-                    reg_server = re.compile('Server:.*')
-                    temp = reg_server.findall(res[1])
-                    if temp:
-                        shodanalysis.append(res[0] + ':' + temp[0])
-                    file.write('</shodan>')
-                if shodanalysis:
-                    shodanalysis = sorted(set(shodanalysis))
-                    file.write('<servers>')
-                    for x in shodanalysis:
-                        file.write('<server>' + x + '</server>')
-                    file.write('</servers>')
+        Html_file = open(f'{filename}.html' if '.html' not in filename else filename, 'w')
+        Html_file.write(HTMLcode)
+        Html_file.close()
+        print('[*] Reporting finished.')
+        print('[*] Saving files.')
 
-            file.write('</theHarvester>')
-            file.flush()
-            file.close()
+        try:
+            # filename = filename.rsplit('.', 1)[0] + '.xml'
+            # file = open(filename, 'w')
+            filename = filename.rsplit('.', 1)[0] + '.xml'
+
+            with open(filename, 'w+') as file:
+                file.write('<?xml version="1.0" encoding="UTF-8"?><theHarvester>')
+                for x in all_emails:
+                    file.write('<email>' + x + '</email>')
+                for x in full:
+                    host, ip = x.split(':') if ':' in x else (x, '')
+                    if ip and len(ip) > 3:
+                        file.write(f'<host><ip>{ip}</ip><hostname>{host}</hostname></host>')
+                    else:
+                        file.write(f'<host>{host}</host>')
+                for x in vhost:
+                    host, ip = x.split(':') if ':' in x else (x, '')
+                    if ip and len(ip) > 3:
+                        file.write(f'<vhost><ip>{ip} </ip><hostname>{host}</hostname></vhost>')
+                    else:
+                        file.write(f'<vhost>{host}</vhost>')
+                if shodanres != []:
+                    shodanalysis = []
+                    for x in shodanres:
+                        res = x.split('SAPO')
+                        file.write('<shodan>')
+                        file.write('<host>' + res[0] + '</host>')
+                        file.write('<port>' + res[2] + '</port>')
+                        file.write('<banner><!--' + res[1] + '--></banner>')
+                        reg_server = re.compile('Server:.*')
+                        temp = reg_server.findall(res[1])
+                        if temp:
+                            shodanalysis.append(res[0] + ':' + temp[0])
+                        file.write('</shodan>')
+                    if shodanalysis:
+                        shodanalysis = sorted(set(shodanalysis))
+                        file.write('<servers>')
+                        for x in shodanalysis:
+                            file.write('<server>' + x + '</server>')
+                        file.write('</servers>')
+
+                file.write('</theHarvester>')
+
             print('[*] Files saved.')
         except Exception as er:
             print(f'\033[93m[!] An error occurred while saving the XML file: {er} \033[0m')
@@ -706,14 +758,10 @@ async def start():
 
 async def entry_point():
     try:
+        Core.banner()
         await start()
-        # await handler()
     except KeyboardInterrupt:
         print('\n\n\033[93m[!] ctrl+c detected from user, quitting.\n\n \033[0m')
     except Exception as error_entry_point:
         print(error_entry_point)
         sys.exit(1)
-
-
-if __name__ == '__main__':
-    asyncio.run(main=entry_point())
