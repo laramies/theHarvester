@@ -293,8 +293,8 @@ var table = new Tabulator("#example-table", {
                             data:tabledata, //assign data to table
                             layout:"fitColumns", //fit columns to width of table (optional)
                             columns:[ //Define Table Columns
-                                {title:"Date", field:"date", width:150},
-                                {title:"Domain", field:"domain", hozAlign:"left", headerFilter:"select" },
+                                {title:"Date", field:"date", width:200},
+                                {title:"Domain", field:"domain", hozAlign:"left", headerFilter:"select", width:300 },
                                 {title:"Screenshot", field:"icon", align:"center", formatter:"image"},
                             ]
                             },

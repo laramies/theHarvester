@@ -25,6 +25,8 @@ class ScreenShotter:
                 if answer.lower() == 'yes' or answer.lower() == 'y':
                     os.mkdir(self.output)
                     return True
+                else:
+                    return False
             return True
         except Exception as e:
             print(f"An exception has occurred while attempting to verify output path's existence: {e}")
