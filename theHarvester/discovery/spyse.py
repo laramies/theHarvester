@@ -20,7 +20,7 @@ class SearchSpyse:
                 'accept': 'application/json',
                 'Authorization': f'Bearer {self.key}',
             }
-            base_url = f'https://api.spyse.com/v2/data/domain/subdomain?limit=100&domain={self.word}'
+            base_url = f'https://api.spyse.com/v3/data/domain/subdomain?limit=100&domain={self.word}'
             results = await AsyncFetcher.fetch_all([base_url], json=True, proxy=self.proxy, headers=headers)
             results = results[0]
             self.hosts = {domain['name'] for domain in results['data']['items']}
