@@ -7,7 +7,6 @@ class SearchRapidDns:
     def __init__(self, word):
         self.word = word
         self.total_results = []
-        self.hostname = 'rapiddns.io'
         self.proxy = False
 
     async def do_search(self):
@@ -15,7 +14,7 @@ class SearchRapidDns:
             headers = {'User-agent': Core.get_user_agent()}
             # TODO see if it's worth adding sameip searches
             # f'{self.hostname}/sameip/{self.word}?full=1#result'
-            urls = [f'https://{self.hostname}/subdomain/{self.word}?full=1#result']
+            urls = [f'https://rapiddns.io/subdomain/{self.word}?full=1#result']
             responses = await AsyncFetcher.fetch_all(urls, headers=headers, proxy=self.proxy)
             if len(responses[0]) <= 1:
                 return self.total_results
