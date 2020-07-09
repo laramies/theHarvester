@@ -6,8 +6,10 @@ take screenshots
 from pyppeteer import launch
 import aiohttp
 import asyncio
+import certifi
 from datetime import datetime
 import os
+import ssl
 import sys
 
 
@@ -21,7 +23,8 @@ class ScreenShotter:
     def verify_path(self):
         try:
             if not os.path.isdir(self.output):
-                answer = input('[+] The output path you have entered does not exist would you like to create it (y/n): ')
+                answer = input(
+                    '[+] The output path you have entered does not exist would you like to create it (y/n): ')
                 if answer.lower() == 'yes' or answer.lower() == 'y':
                     os.mkdir(self.output)
                     return True
@@ -53,9 +56,10 @@ class ScreenShotter:
                                      'Chrome/83.0.4103.106 Safari/537.36'}
             url = f'http://{url}' if ('http' not in url and 'https' not in url) else url
             url = url.replace('www.', '')
+            sslcontext = ssl.create_default_context(cafile=certifi.where())
             async with aiohttp.ClientSession(timeout=timeout, headers=headers,
-                                             connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
-                async with session.get(url) as resp:
+                                             connector=aiohttp.TCPConnector(ssl=sslcontext)) as session:
+                async with session.get(url, verify_ssl=False) as resp:
                     # TODO fix with origin url, should be there somewhere
                     text = await resp.text("UTF-8")
                     return f'http://{url}' if ('http' not in url and 'https' not in url) else url, text
