@@ -40,7 +40,7 @@ class DnsForce:
         self.list = [f'{word.strip()}.{self.domain}' for word in self.list]
 
     async def run(self):
-        print(f'Created checker with this many words {len(self.list)}')
+        print(f'Starting DNS brute forcing with {len(self.list)} words')
         checker = hostchecker.Checker(
             self.list) if self.dnsserver == [] or self.dnsserver == "" or self.dnsserver is None \
             else hostchecker.Checker(self.list, nameserver=self.dnsserver)
