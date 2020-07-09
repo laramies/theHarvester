@@ -16,30 +16,20 @@ import sys
 
 
 async def start():
-    parser = argparse.ArgumentParser(
-        description='theHarvester is used to gather open source intelligence (OSINT) on a\n'
-                    'company or domain.')
+    parser = argparse.ArgumentParser(description='theHarvester is used to gather open source intelligence (OSINT) on a company or domain.')
     parser.add_argument('-d', '--domain', help='Company name or domain to search.', required=True)
     parser.add_argument('-l', '--limit', help='Limit the number of search results, default=500.', default=500, type=int)
     parser.add_argument('-S', '--start', help='Start with result number X, default=0.', default=0, type=int)
-    parser.add_argument('-g', '--google-dork', help='Use Google Dorks for Google search.', default=False,
-                        action='store_true')
-    parser.add_argument('-p', '--proxies', help='Use proxies for requests, enter proxies in proxies.yaml.',
-                        default=False, action='store_true')
-    parser.add_argument('-s', '--shodan', help='Use Shodan to query discovered hosts.', default=False,
-                        action='store_true')
-    parser.add_argument('--screenshot', help='Take screenshots of resolved domains specify output'
-                                             ' directory: --screenshot output_directory', default="", type=str)
-    parser.add_argument('-v', '--virtual-host',
-                        help='Verify host name via DNS resolution and search for virtual hosts.', action='store_const',
-                        const='basic', default=False)
+    parser.add_argument('-g', '--google-dork', help='Use Google Dorks for Google search.', default=False, action='store_true')
+    parser.add_argument('-p', '--proxies', help='Use proxies for requests, enter proxies in proxies.yaml.', default=False, action='store_true')
+    parser.add_argument('-s', '--shodan', help='Use Shodan to query discovered hosts.', default=False, action='store_true')
+    parser.add_argument('--screenshot', help='Take screenshots of resolved domains specify output directory: --screenshot output_directory', default="", type=str)
+    parser.add_argument('-v', '--virtual-host', help='Verify host name via DNS resolution and search for virtual hosts.', action='store_const', const='basic', default=False)
     parser.add_argument('-e', '--dns-server', help='DNS server to use for lookup.')
     parser.add_argument('-t', '--dns-tld', help='Perform a DNS TLD expansion discovery, default False.', default=False)
     parser.add_argument('-r', '--take-over', help='Check for takeovers.', default=False, action='store_true')
-    parser.add_argument('-n', '--dns-lookup', help='Enable DNS server lookup, default False.', default=False,
-                        action='store_true')
-    parser.add_argument('-c', '--dns-brute', help='Perform a DNS brute force on the domain.', default=False,
-                        action='store_true')
+    parser.add_argument('-n', '--dns-lookup', help='Enable DNS server lookup, default False.', default=False, action='store_true')
+    parser.add_argument('-c', '--dns-brute', help='Perform a DNS brute force on the domain.', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='Save the results to an HTML and/or XML file.', default='', type=str)
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, bufferoverun, certspotter, crtsh, dnsdumpster,
                             dogpile, duckduckgo, exalead, github-code, google,
@@ -598,7 +588,7 @@ async def start():
         if path_exists:
             await screen_shotter.verify_installation()
             print(f'\nScreenshots can be found in: {screen_shotter.output}{screen_shotter.slash}')
-            start = time.perf_counter()
+            start_time = time.perf_counter()
             print('Filtering domains for ones we can reach')
             unique_resolved_domains = {url.split(':')[0]for url in full if ':' in url and 'www.' not in url}
             if len(unique_resolved_domains) > 0:
@@ -619,11 +609,11 @@ async def start():
                             print(f'An exception has occurred while mapping: {ee}')
             end = time.perf_counter()
             # There is probably an easier way to do this
-            total = end - start
+            total = end - start_time
             mon, sec = divmod(total, 60)
             hr, mon = divmod(mon, 60)
             total_time = "%02d:%02d" % (mon, sec)
-            print(f"Finished taking screenshots in {total_time} seconds")
+            print(f'Finished taking screenshots in {total_time} seconds')
             print('[+] Note there may be leftover chrome processes you may have to kill manually\n')
 
     # Shodan
@@ -678,20 +668,20 @@ async def start():
             scanhistorydomain = await db.getscanhistorydomain(word)
             pluginscanstatistics = await db.getpluginscanstatistics()
             generator = statichtmlgenerator.HtmlGenerator(word)
-            HTMLcode = await generator.beginhtml()
-            HTMLcode += await generator.generatedashboardcode(scanboarddata)
-            HTMLcode += await generator.generatelatestscanresults(latestscanresults)
+            html_code = await generator.beginhtml()
+            html_code += await generator.generatedashboardcode(scanboarddata)
+            html_code += await generator.generatelatestscanresults(latestscanresults)
             if len(screenshot_tups) > 0:
-                HTMLcode += await generator.generatescreenshots(screenshot_tups)
-            HTMLcode += await generator.generatepreviousscanresults(previousscanresults)
+                html_code += await generator.generatescreenshots(screenshot_tups)
+            html_code += await generator.generatepreviousscanresults(previousscanresults)
             graph = reportgraph.GraphGenerator(word)
             await graph.init_db()
-            HTMLcode += await graph.drawlatestscangraph(word, latestscanchartdata)
-            HTMLcode += await graph.drawscattergraphscanhistory(word, scanhistorydomain)
-            HTMLcode += await generator.generatepluginscanstatistics(pluginscanstatistics)
-            HTMLcode += '<p><span style="color: #000000;">Report generated on ' + str(
+            html_code += await graph.drawlatestscangraph(word, latestscanchartdata)
+            html_code += await graph.drawscattergraphscanhistory(word, scanhistorydomain)
+            html_code += await generator.generatepluginscanstatistics(pluginscanstatistics)
+            html_code += '<p><span style="color: #000000;">Report generated on ' + str(
                 datetime.datetime.now()) + '</span></p>'
-            HTMLcode += '''
+            html_code += '''
                </body>
                </html>
                '''
@@ -700,15 +690,13 @@ async def start():
             print('\n\033[93m[!] An error occurred while creating the output file.\n\n \033[0m')
             sys.exit(1)
 
-        Html_file = open(f'{filename}.html' if '.html' not in filename else filename, 'w')
-        Html_file.write(HTMLcode)
-        Html_file.close()
+        html_file = open(f'{filename}.html' if '.html' not in filename else filename, 'w')
+        html_file.write(html_code)
+        html_file.close()
         print('[*] Reporting finished.')
         print('[*] Saving files.')
 
         try:
-            # filename = filename.rsplit('.', 1)[0] + '.xml'
-            # file = open(filename, 'w')
             filename = filename.rsplit('.', 1)[0] + '.xml'
 
             with open(filename, 'w+') as file:
