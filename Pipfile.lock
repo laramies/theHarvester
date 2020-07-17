@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "effc3f760bf68663f3ca689aa29aa6b2305bbf3dae44fd379f64af9b60ddabcf"
+            "sha256": "5d4653a21c9c3b82519565e3a2b8a5beb0f172e5062fb9e20d8a20afd2af52e8"
         },
         "pipfile-spec": 6,
         "requires": {},
@@ -234,11 +234,11 @@
         },
         "plotly": {
             "hashes": [
-                "sha256:ce55e1a9669ea7455574ddbfe2fb52636eb63a6c29387ee0c0a929ed2325f916",
-                "sha256:fe34a751dd4558b8483de86f0edf480f352fca0e6948799e23848a2355427a97"
+                "sha256:257f530ffd73754bd008454826905657b329053364597479bb9774437a396837",
+                "sha256:7c7b613af8def74f48b1298f08a49086bb9792104119feb4a137f737533021e1"
             ],
             "index": "pypi",
-            "version": "==4.8.2"
+            "version": "==4.9.0"
         },
         "pycares": {
             "hashes": [
@@ -359,10 +359,10 @@
         },
         "tqdm": {
             "hashes": [
-                "sha256:63ef7a6d3eb39f80d6b36e4867566b3d8e5f1fe3d6cb50c5e9ede2b3198ba7b7",
-                "sha256:7810e627bcf9d983a99d9ff8a0c09674400fd2927eddabeadf153c14a2ec8656"
+                "sha256:6baa75a88582b1db6d34ce4690da5501d2a1cb65c34664840a456b2c9f794d29",
+                "sha256:fcb7cb5b729b60a27f300b15c1ffd4744f080fb483b88f31dc8654b082cc8ea5"
             ],
-            "version": "==4.47.0"
+            "version": "==4.48.0"
         },
         "typing-extensions": {
             "hashes": [
