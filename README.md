@@ -87,7 +87,7 @@ Passive:
 Active:
 -------
 * DNS brute force: dictionary brute force enumeration
-
+* Screenshots: Take screenshots of subdomains that were found
 
 Modules that require an API key:
 --------------------------------
