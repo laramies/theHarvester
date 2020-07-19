@@ -25,7 +25,7 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        apt install -y libxml2-dev libxslt-dev
+        sudo apt install -y libxml2-dev libxslt-dev
         pip install -r requirements/dev.txt
 
     - name: Run theHarvester module Baidu
