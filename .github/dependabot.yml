@@ -16,7 +16,7 @@ updates:
     interval: daily
     timezone: Europe/London
   open-pull-requests-limit: 10
-  target-branch: dev
+  target-branch: master
   allow:
   - dependency-type: direct
   - dependency-type: indirect
