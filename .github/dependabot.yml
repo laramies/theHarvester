@@ -1,0 +1,22 @@
+version: 2
+updates:
+- package-ecosystem: pip
+  directory: "/"
+  schedule:
+    interval: daily
+    timezone: Europe/London
+  open-pull-requests-limit: 10
+  target-branch: dev
+  allow:
+  - dependency-type: direct
+  - dependency-type: indirect
+- package-ecosystem: pip
+  directory: "/requirements"
+  schedule:
+    interval: daily
+    timezone: Europe/London
+  open-pull-requests-limit: 10
+  target-branch: dev
+  allow:
+  - dependency-type: direct
+  - dependency-type: indirect
