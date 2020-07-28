@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from theHarvester.discovery import *
+from theHarvester.discovery import dnssearch, takeover, shodansearch
 from theHarvester.discovery.constants import *
 from theHarvester.lib import hostchecker
 from theHarvester.lib import reportgraph
@@ -35,7 +36,7 @@ async def start():
                             dogpile, duckduckgo, exalead, github-code, google,
                             hackertarget, hunter, intelx, linkedin, linkedin_links, netcraft, otx, pentesttools,
                             rapiddns, securityTrails, spyse, sublist3r, suip, threatcrowd, threatminer,
-                            trello, twitter, urlscan, virustotal, yahoo, all''')
+                            trello, twitter, urlscan, virustotal, yahoo''')
 
     args = parser.parse_args()
     filename: str = args.filename
@@ -46,7 +47,6 @@ async def start():
     except Exception:
         pass
 
-    # args = parser.parse_args()
     all_emails: list = []
     all_hosts: list = []
     all_ip: list = []
@@ -503,7 +503,6 @@ async def start():
         await db.store_all(word, hosts, 'host', 'dns_bruteforce')
 
     # TakeOver Checking
-
     if takeover_status:
         print('\n[*] Performing subdomain takeover check')
         print('\n[*] Subdomain Takeover checking IS ACTIVE RECON')
