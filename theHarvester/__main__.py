@@ -703,13 +703,13 @@ async def start():
                 for x in all_emails:
                     file.write('<email>' + x + '</email>')
                 for x in full:
-                    host, ip = x.split(':') if ':' in x else (x, '')
+                    host, ip = x.split(':', 1) if ':' in x else (x, '')
                     if ip and len(ip) > 3:
                         file.write(f'<host><ip>{ip}</ip><hostname>{host}</hostname></host>')
                     else:
                         file.write(f'<host>{host}</host>')
                 for x in vhost:
-                    host, ip = x.split(':') if ':' in x else (x, '')
+                    host, ip = x.split(':', 1) if ':' in x else (x, '')
                     if ip and len(ip) > 3:
                         file.write(f'<vhost><ip>{ip} </ip><hostname>{host}</hostname></vhost>')
                     else:
