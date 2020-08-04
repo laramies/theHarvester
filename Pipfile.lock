@@ -363,10 +363,10 @@
         },
         "tqdm": {
             "hashes": [
-                "sha256:44b896c38f70f91826a3f83a3195b23c0460322bfc729566ec8e4e89bb5ad713",
-                "sha256:7b7dd59cd9f03b89365ba67eb8515f5d2803fd1eb707abdbb914691a3123d9df"
+                "sha256:1a336d2b829be50e46b84668691e0a2719f26c97c62846298dd5ae2937e4d5cf",
+                "sha256:564d632ea2b9cb52979f7956e093e831c28d441c11751682f84c86fc46e4fd21"
             ],
-            "version": "==4.48.1"
+            "version": "==4.48.2"
         },
         "typing-extensions": {
             "hashes": [
@@ -427,10 +427,11 @@
         },
         "xlsxwriter": {
             "hashes": [
-                "sha256:3015f707cf237d277cf1b2d7805f409f0387e32bc52f3c76db9f85098980e828",
-                "sha256:ee3fc2f32890246aba44dd14d777d6b3135e3454f865d8cc669618e20152296b"
+                "sha256:f064bc590e8f6071fab4dd4c098f6dceea2279136be6d31742a8015f0b763ea6",
+                "sha256:f29b84ffdbfd508863e3fdc2ddbdf2ffbae14373d578021d557616a867d7e855"
             ],
-            "version": "==1.3.0"
+            "index": "pypi",
+            "version": "==1.3.1"
         },
         "yarl": {
             "hashes": [
@@ -452,7 +453,6 @@
                 "sha256:f18d68f2be6bf0e89f1521af2b1bb46e66ab0018faafa81d70f358153170a317",
                 "sha256:f379b7f83f23fe12823085cd6b906edc49df969eb99757f58ff382349a3303c6"
             ],
-            "index": "pypi",
             "version": "==1.5.1"
         }
     },
