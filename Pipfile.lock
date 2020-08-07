@@ -366,7 +366,6 @@
                 "sha256:1a336d2b829be50e46b84668691e0a2719f26c97c62846298dd5ae2937e4d5cf",
                 "sha256:564d632ea2b9cb52979f7956e093e831c28d441c11751682f84c86fc46e4fd21"
             ],
-            "index": "pypi",
             "version": "==4.48.2"
         },
         "typing-extensions": {
@@ -428,10 +427,11 @@
         },
         "xlsxwriter": {
             "hashes": [
-                "sha256:f064bc590e8f6071fab4dd4c098f6dceea2279136be6d31742a8015f0b763ea6",
-                "sha256:f29b84ffdbfd508863e3fdc2ddbdf2ffbae14373d578021d557616a867d7e855"
+                "sha256:18385dacdf6327da72e9d41589669d521ec914726bd493fc18e27afb4bb318dc",
+                "sha256:3ba4655713c8c84b428b529c8e353ac028626ec57f348094da4f66fdc573b0fb"
             ],
-            "version": "==1.3.1"
+            "index": "pypi",
+            "version": "==1.3.2"
         },
         "yarl": {
             "hashes": [
