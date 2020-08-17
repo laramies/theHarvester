@@ -12,7 +12,7 @@ class SearchQwant:
         self.start = int(start)
         self.proxy = False
 
-    def get_start_offset(self):
+    def get_start_offset(self) -> int:
         """
         print(get_start_offset(0))
         >>> 0
@@ -26,7 +26,7 @@ class SearchQwant:
         start = int(math.floor(self.start / 10.0)) * 10
         return max(start, 0)
 
-    async def do_search(self):
+    async def do_search(self) -> None:
         headers = {
             'Host': "api.qwant.com",
             'User-agent': Core.get_user_agent()
@@ -65,15 +65,15 @@ class SearchQwant:
                 self.total_results += " "
                 self.total_results += desc
 
-    async def get_emails(self):
+    async def get_emails(self) -> set:
         parser = myparser.Parser(self.total_results, self.word)
         return await parser.emails()
 
-    async def get_hostnames(self):
+    async def get_hostnames(self) -> list:
         parser = myparser.Parser(self.total_results, self.word)
         return await parser.hostnames()
 
-    async def process(self, api, proxy=False):
+    async def process(self, proxy=False) -> None:
         self.proxy = proxy
         await self.do_search()
         print(f'\tSearching {self.limit} results.')
