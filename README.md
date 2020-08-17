@@ -83,8 +83,6 @@ Passive:
 
 * yahoo: Yahoo search engine
 
-* all:
-
 
 Active:
 -------
