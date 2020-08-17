@@ -1,4 +1,6 @@
+import json
 import math
+from json.decoder import JSONDecodeError
 
 from theHarvester.lib.core import *
 from theHarvester.parsers import myparser
@@ -27,31 +29,34 @@ class SearchQwant:
         return max(start, 0)
 
     async def do_search(self) -> None:
-        headers = {
-            'Host': "api.qwant.com",
-            'User-agent': Core.get_user_agent()
-        }
+        headers = {'User-agent': Core.get_user_agent()}
 
         start = self.get_start_offset()
         limit = self.limit + start
         step = 10
-        # https://help.qwant.com/help/qwant-search/searching/refine-search-with-operators/
-        # during my tests I had better results with this operator
-        word = f"«@{self.word}»"
 
         api_urls = [
-            f"https://api.qwant.com/api/search/web?count=10&offset={str(offset)}&q={word}&t=web&r=US&device=desktop&safesearch=0&locale=en_US&uiv=4"
+            f"https://api.qwant.com/api/search/web?count=10&offset={str(offset)}&q={self.word}&t=web&r=US&device=desktop&safesearch=0&locale=en_US&uiv=4"
             for offset in range(start, limit, step)
         ]
 
-        responses = await AsyncFetcher.fetch_all(api_urls, headers=headers, json=True, proxy=self.proxy)
+        responses = await AsyncFetcher.fetch_all(api_urls, headers=headers, proxy=self.proxy)
 
         for response in responses:
             try:
-                response_items = response['data']['result']['items']
+                json_response = json.loads(response)
+            except JSONDecodeError:
+                # sometimes error 502 from server
+                continue
+
+            try:
+                response_items = json_response['data']['result']['items']
             except KeyError:
-                # {"status":"error","error":24}
-                # https://www.qwant.com/anti_robot
+                if json_response.get("status", None) \
+                        and json_response.get("error", None) == 24:
+                    # https://www.qwant.com/anti_robot
+                    print("Rate limit reached - IP Blocked until captcha is solved")
+                    break
                 continue
 
             for response_item in response_items:
