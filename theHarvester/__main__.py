@@ -35,7 +35,7 @@ async def start():
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, bufferoverun, certspotter, crtsh, dnsdumpster,
                             dogpile, duckduckgo, exalead, github-code, google,
                             hackertarget, hunter, intelx, linkedin, linkedin_links, netcraft, otx, pentesttools,
-                            rapiddns, securityTrails, spyse, sublist3r, suip, threatcrowd, threatminer,
+                            qwant, rapiddns, securityTrails, spyse, sublist3r, suip, threatcrowd, threatminer,
                             trello, twitter, urlscan, virustotal, yahoo''')
 
     args = parser.parse_args()
@@ -308,6 +308,11 @@ async def start():
                             print(e)
                         else:
                             print(f'An exception has occurred in PentestTools search: {e}')
+
+                elif engineitem == 'qwant':
+                    from theHarvester.discovery import qwantsearch
+                    qwant_search = qwantsearch.SearchQwant(word, start, limit)
+                    stor_lst.append(store(qwant_search, engineitem, store_host=True, store_emails=True))
 
                 elif engineitem == 'rapiddns':
                     from theHarvester.discovery import rapiddns

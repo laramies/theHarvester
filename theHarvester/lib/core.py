@@ -153,6 +153,7 @@ class Core:
                             'netcraft',
                             'otx',
                             'pentesttools',
+                            'qwant',
                             'rapiddns',
                             'securityTrails',
                             'suip',
