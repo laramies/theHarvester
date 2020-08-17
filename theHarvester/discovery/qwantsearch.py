@@ -1,4 +1,6 @@
+import json
 import math
+from json.decoder import JSONDecodeError
 
 from theHarvester.lib.core import *
 from theHarvester.parsers import myparser
@@ -44,11 +46,16 @@ class SearchQwant:
             for offset in range(start, limit, step)
         ]
 
-        responses = await AsyncFetcher.fetch_all(api_urls, headers=headers, json=True, proxy=self.proxy)
+        responses = await AsyncFetcher.fetch_all(api_urls, headers=headers, proxy=self.proxy)
 
         for response in responses:
             try:
-                response_items = response['data']['result']['items']
+                json_response = json.loads(response)
+            except JSONDecodeError:
+                continue
+
+            try:
+                response_items = json_response['data']['result']['items']
             except KeyError:
                 # {"status":"error","error":24}
                 # https://www.qwant.com/anti_robot
