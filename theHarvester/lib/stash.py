@@ -1,11 +1,17 @@
 import aiosqlite
 import datetime
+import os
+
+db_path = os.path.expanduser('~/.local/share/theHarvester')
+
+if not os.path.isdir(db_path):
+    os.makedirs(db_path)
 
 
 class StashManager:
 
     def __init__(self):
-        self.db = "stash.sqlite"
+        self.db = os.path.join(db_path, 'stash.sqlite')
         self.results = ""
         self.totalresults = ""
         self.latestscandomain = {}
