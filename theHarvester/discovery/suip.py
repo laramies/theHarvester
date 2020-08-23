@@ -33,6 +33,8 @@ class SearchSuip:
     async def do_search(self):
         try:
             results = await self.handler(url="https://suip.biz/")
+            from pprint import pprint
+            pprint(results)
             for num in range(len(results)):
                 # iterate through results and parse out the urls
                 result = results[num]

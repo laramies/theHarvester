@@ -33,7 +33,7 @@ async def start():
     parser.add_argument('-c', '--dns-brute', help='Perform a DNS brute force on the domain.', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='Save the results to an HTML and/or XML file.', default='', type=str)
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, bufferoverun, certspotter, crtsh, dnsdumpster,
-                            dogpile, duckduckgo, exalead, github-code, google,
+                            duckduckgo, exalead, github-code, google,
                             hackertarget, hunter, intelx, linkedin, linkedin_links, netcraft, otx, pentesttools,
                             qwant, rapiddns, securityTrails, spyse, sublist3r, suip, threatcrowd, threatminer,
                             trello, twitter, urlscan, virustotal, yahoo''')
@@ -211,14 +211,6 @@ async def start():
                         stor_lst.append(store(dns_dumpster_search, engineitem, store_host=True))
                     except Exception as e:
                         print(f'\033[93m[!] An error occurred with dnsdumpster: {e} \033[0m')
-
-                elif engineitem == 'dogpile':
-                    try:
-                        from theHarvester.discovery import dogpilesearch
-                        dogpile_search = dogpilesearch.SearchDogpile(word, limit)
-                        stor_lst.append(store(dogpile_search, engineitem, store_host=True, store_emails=True))
-                    except Exception as e:
-                        print(f'\033[93m[!] An error occurred with Dogpile: {e} \033[0m')
 
                 elif engineitem == 'duckduckgo':
                     from theHarvester.discovery import duckduckgosearch

@@ -140,7 +140,6 @@ class Core:
                             'certspotter',
                             'crtsh',
                             'dnsdumpster',
-                            'dogpile',
                             'duckduckgo',
                             'exalead',
                             'github-code',
