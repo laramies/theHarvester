@@ -325,14 +325,6 @@ async def start():
                         else:
                             pass
 
-                elif engineitem == 'suip':
-                    from theHarvester.discovery import suip
-                    try:
-                        suip_search = suip.SearchSuip(word)
-                        stor_lst.append(store(suip_search, engineitem, store_host=True))
-                    except Exception as e:
-                        print(e)
-
                 elif engineitem == 'sublist3r':
                     from theHarvester.discovery import sublist3r
                     try:

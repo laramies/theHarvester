@@ -12,7 +12,7 @@ import certifi
 class Core:
     @staticmethod
     def version() -> str:
-        return '3.2.0dev6'
+        return '3.2.0dev7'
 
     @staticmethod
     def bing_key() -> str:
@@ -155,7 +155,6 @@ class Core:
                             'qwant',
                             'rapiddns',
                             'securityTrails',
-                            'suip',
                             'sublist3r',
                             'spyse',
                             'threatcrowd',
