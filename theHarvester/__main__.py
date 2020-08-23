@@ -35,7 +35,7 @@ async def start():
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, bufferoverun, certspotter, crtsh, dnsdumpster,
                             duckduckgo, exalead, github-code, google,
                             hackertarget, hunter, intelx, linkedin, linkedin_links, netcraft, otx, pentesttools,
-                            qwant, rapiddns, securityTrails, spyse, sublist3r, suip, threatcrowd, threatminer,
+                            qwant, rapiddns, securityTrails, spyse, sublist3r, threatcrowd, threatminer,
                             trello, twitter, urlscan, virustotal, yahoo''')
 
     args = parser.parse_args()
