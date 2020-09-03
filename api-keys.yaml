@@ -3,22 +3,22 @@ apikeys:
     key: 
 
   github:
-    key: 
+    key: 7e8d4294f589240d8da600b5128998700bb00cc1 
 
-  hunter:
-    key: 
+hunter:
+    key: 3b73712ad9489d96f4ff664630927a81a55834a3 
 
   intelx:
     key: 9df61df0-84f7-4dc7-b34c-8ccfb8646ace
 
-  pentestTools:
-    key: 
+  pentestTools: 
+    key: NFjYGtfZfcenvR4fSPHDIcchqM6MYQmt
 
   securityTrails:
-    key: 
+    key: NFjYGtfZfcenvR4fSPHDIcchqM6MYQmt
 
   shodan:
-    key:
+    key: tqRALE0Ul22AIKP9fpYYOd7Jr8b2hQh3
 
   spyse:
-    key: 
+    key: d4264b4a-9998-4def-80a9-a440a20c5994
