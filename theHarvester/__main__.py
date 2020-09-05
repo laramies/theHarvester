@@ -33,9 +33,9 @@ async def start():
     parser.add_argument('-c', '--dns-brute', help='Perform a DNS brute force on the domain.', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='Save the results to an HTML and/or XML file.', default='', type=str)
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, bufferoverun, certspotter, crtsh, dnsdumpster,
-                            dogpile, duckduckgo, exalead, github-code, google,
+                            duckduckgo, exalead, github-code, google,
                             hackertarget, hunter, intelx, linkedin, linkedin_links, netcraft, otx, pentesttools,
-                            qwant, rapiddns, securityTrails, spyse, sublist3r, suip, threatcrowd, threatminer,
+                            qwant, rapiddns, securityTrails, spyse, sublist3r, threatcrowd, threatminer,
                             trello, twitter, urlscan, virustotal, yahoo''')
 
     args = parser.parse_args()
@@ -212,14 +212,6 @@ async def start():
                     except Exception as e:
                         print(f'\033[93m[!] An error occurred with dnsdumpster: {e} \033[0m')
 
-                elif engineitem == 'dogpile':
-                    try:
-                        from theHarvester.discovery import dogpilesearch
-                        dogpile_search = dogpilesearch.SearchDogpile(word, limit)
-                        stor_lst.append(store(dogpile_search, engineitem, store_host=True, store_emails=True))
-                    except Exception as e:
-                        print(f'\033[93m[!] An error occurred with Dogpile: {e} \033[0m')
-
                 elif engineitem == 'duckduckgo':
                     from theHarvester.discovery import duckduckgosearch
                     duckduckgo_search = duckduckgosearch.SearchDuckDuckGo(word, limit)
@@ -332,14 +324,6 @@ async def start():
                             print(e)
                         else:
                             pass
-
-                elif engineitem == 'suip':
-                    from theHarvester.discovery import suip
-                    try:
-                        suip_search = suip.SearchSuip(word)
-                        stor_lst.append(store(suip_search, engineitem, store_host=True))
-                    except Exception as e:
-                        print(e)
 
                 elif engineitem == 'sublist3r':
                     from theHarvester.discovery import sublist3r

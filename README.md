@@ -26,8 +26,6 @@ Passive:
 
 * dnsdumpster: DNSdumpster search engine - https://dnsdumpster.com
 
-* dogpile: Dogpile search engine - www.dogpile.com
-
 * duckduckgo: DuckDuckGo search engine - www.duckduckgo.com
 
 * exalead: a Meta search engine - www.exalead.com/search
@@ -65,8 +63,6 @@ Passive:
 
 * sublist3r: Fast subdomains enumeration tool for penetration testers - https://api.sublist3r.com/search.php?domain=example.com
 
-* Suip: Web research tools that can take over 10 minutes to run, but worth the wait - https://suip.biz
-
 * threatcrowd: Open source threat intelligence - www.threatcrowd.org
 
 * threatminer: Data mining for threat intelligence - https://www.threatminer.org/
@@ -95,18 +91,17 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 
 * bing
 * github
-* hunter
+* hunter - limited to 10 on the free plan so you will ned to do -l 10 switch
 * intelx
 * pentesttools
 * securityTrails
 * shodan
-* spyse
+* spyse - need to have a paid account be able to use the api now
 
 
 Install and dependencies:
 -------------------------
 * Python 3.7+
-* python3 -m pip install pipenv
 * https://github.com/laramies/theHarvester/wiki/Installation
 
 

@@ -81,4 +81,3 @@ class SearchQwant:
     async def process(self, proxy=False) -> None:
         self.proxy = proxy
         await self.do_search()
-        print(f'\tSearching {self.limit} results.')

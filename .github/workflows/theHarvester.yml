@@ -51,10 +51,6 @@ jobs:
       run: |
         python theHarvester.py -d yale.edu -b dnsdumpster
 
-    - name: Run theHarvester module Dogplie
-      run: |
-        python theHarvester.py -d yale.edu -b dogpile
-
     - name: Run theHarvester module DuckDuckGo
       run: |
         python theHarvester.py -d yale.edu -b duckduckgo
