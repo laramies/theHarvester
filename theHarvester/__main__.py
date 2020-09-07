@@ -34,7 +34,8 @@ async def start():
     parser.add_argument('-f', '--filename', help='Save the results to an HTML and/or XML file.', default='', type=str)
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, bufferoverun, certspotter, crtsh, dnsdumpster,
                             duckduckgo, exalead, github-code, google,
-                            hackertarget, hunter, intelx, linkedin, linkedin_links, netcraft, otx, pentesttools,
+                            hackertarget, hunter, intelx, linkedin, linkedin_links,
+                            netcraft, otx, pentesttools, projectdiscovery,
                             qwant, rapiddns, securityTrails, spyse, sublist3r, threatcrowd, threatminer,
                             trello, twitter, urlscan, virustotal, yahoo''')
 
@@ -300,6 +301,17 @@ async def start():
                             print(e)
                         else:
                             print(f'An exception has occurred in PentestTools search: {e}')
+
+                elif engineitem == 'projectdiscovery':
+                    from theHarvester.discovery import projectdiscovery
+                    try:
+                        projectdiscovery_search = projectdiscovery.SearchDiscovery(word)
+                        stor_lst.append(store(projectdiscovery_search, engineitem, store_host=True))
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            print(e)
+                        else:
+                            print(f'An exception has occurred in ProjectDiscovery search: {e}')
 
                 elif engineitem == 'qwant':
                     from theHarvester.discovery import qwantsearch

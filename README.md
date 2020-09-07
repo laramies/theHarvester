@@ -50,6 +50,10 @@ Passive:
 
 * pentesttools: Powerful Penetration Testing Tools, Easy to Use (Needs an API key and is not free for API access) - https://pentest-tools.com/home
 
+* projecdiscovery: We actively collect and maintain internet-wide assets data, 
+to enhance research and analyse changes around DNS for better insights - https://chaos.projectdiscovery.io
+(Requires an API key)
+
 * qwant: Qwant search engine - www.qwant.com
 
 * rapiddns: DNS query tool which make querying subdomains or sites of a same IP easy! https://rapiddns.io
@@ -94,6 +98,7 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * hunter - limited to 10 on the free plan so you will ned to do -l 10 switch
 * intelx
 * pentesttools
+* projecdiscovery - invite only for now
 * securityTrails
 * shodan
 * spyse - need to have a paid account be able to use the api now
