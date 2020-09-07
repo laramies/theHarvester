@@ -12,7 +12,10 @@ apikeys:
     key: 9df61df0-84f7-4dc7-b34c-8ccfb8646ace
 
   pentestTools:
-    key: 
+    key:
+
+  projectDiscovery:
+    key:
 
   securityTrails:
     key: 
