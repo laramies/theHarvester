@@ -1,10 +1,10 @@
-import setuptools
+from setuptools import setup, find_packages
 from theHarvester.lib.core import Core
 
 with open('README.md', 'r') as fh:
     long_description = fh.read()
 
-setuptools.setup(
+setup(
     name='theHarvester',
     version=Core.version(),
     author="Christian Martorella",
@@ -13,12 +13,9 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/laramies/theHarvester",
-    packages=setuptools.find_packages(exclude=['tests']),
-    entry_points={
-        'console_scripts': [
-            'theHarvester = theHarvester.__main__:entry_point'
-        ]
-    },
+    packages=find_packages(exclude=['tests']),
+    python_requires='>=3.7',
+    scripts=['bin/theHarvester'],
 
     classifiers=[
         "Programming Language :: Python :: 3",

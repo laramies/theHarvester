@@ -1,6 +1,6 @@
 ![theHarvester](https://github.com/laramies/theHarvester/blob/master/theHarvester-logo.png)
 
-[![Build Status](https://travis-ci.com/laramies/theHarvester.svg?branch=master)](https://travis-ci.com/laramies/theHarvester) [![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/laramies/theHarvester.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/laramies/theHarvester/context:python)
+![TheHarvester CI](https://github.com/laramies/theHarvester/workflows/TheHarvester%20Python%20CI/badge.svg) ![TheHarvester Docker Image CI](https://github.com/laramies/theHarvester/workflows/TheHarvester%20Docker%20Image%20CI/badge.svg) [![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/laramies/theHarvester.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/laramies/theHarvester/context:python)
 [![Rawsec's CyberSecurity Inventory](https://inventory.rawsec.ml/img/badges/Rawsec-inventoried-FF5050_flat_without_logo.svg)](https://inventory.rawsec.ml/)
 
 What is this?
@@ -26,8 +26,6 @@ Passive:
 
 * dnsdumpster: DNSdumpster search engine - https://dnsdumpster.com
 
-* dogpile: Dogpile search engine - www.dogpile.com
-
 * duckduckgo: DuckDuckGo search engine - www.duckduckgo.com
 
 * exalead: a Meta search engine - www.exalead.com/search
@@ -52,6 +50,12 @@ Passive:
 
 * pentesttools: Powerful Penetration Testing Tools, Easy to Use (Needs an API key and is not free for API access) - https://pentest-tools.com/home
 
+* projecdiscovery: We actively collect and maintain internet-wide assets data, 
+to enhance research and analyse changes around DNS for better insights - https://chaos.projectdiscovery.io
+(Requires an API key)
+
+* qwant: Qwant search engine - www.qwant.com
+
 * rapiddns: DNS query tool which make querying subdomains or sites of a same IP easy! https://rapiddns.io
 
 * securityTrails: Security Trails search engine, the world's largest repository of historical DNS data<br>
@@ -63,13 +67,15 @@ Passive:
 
 * sublist3r: Fast subdomains enumeration tool for penetration testers - https://api.sublist3r.com/search.php?domain=example.com
 
-* Suip: Web research tools that can take over 10 minutes to run, but worth the wait - https://suip.biz
-
 * threatcrowd: Open source threat intelligence - www.threatcrowd.org
+
+* threatminer: Data mining for threat intelligence - https://www.threatminer.org/
 
 * trello: Search trello boards (Uses Google search.)
 
 * twitter: Twitter accounts related to a specific domain (Uses Google search.)
+
+* urlscan: A sandbox for the web that is a URL and website scanner - https://urlscan.io
 
 * vhost: Bing virtual hosts search
 
@@ -77,32 +83,30 @@ Passive:
 
 * yahoo: Yahoo search engine
 
-* all:
-
 
 Active:
 -------
 * DNS brute force: dictionary brute force enumeration
-
+* Screenshots: Take screenshots of subdomains that were found
 
 Modules that require an API key:
 --------------------------------
-Add your keys to api-keys.yaml
+Documentation to setup API keys can be found at - https://github.com/laramies/theHarvester/wiki/Installation#api-keys
 
 * bing
 * github
-* hunter
+* hunter - limited to 10 on the free plan so you will ned to do -l 10 switch
 * intelx
 * pentesttools
+* projecdiscovery - invite only for now
 * securityTrails
 * shodan
-* spyse
+* spyse - need to have a paid account be able to use the api now
 
 
 Install and dependencies:
 -------------------------
 * Python 3.7+
-* python3 -m pip install pipenv
 * https://github.com/laramies/theHarvester/wiki/Installation
 
 

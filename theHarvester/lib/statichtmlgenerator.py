@@ -1,3 +1,6 @@
+from typing import List
+
+
 class HtmlGenerator:
 
     def __init__(self, word):
@@ -183,6 +186,7 @@ var table = new Tabulator("#example-table", {
         html = '''
 <!doctype html>
 <html>
+<meta charset="utf-8">
 <head><script src="https://cdn.plot.ly/plotly-latest.min.js" type="text/javascript"></script>
 <link href="https://unpkg.com/tabulator-tables@4.6.2/dist/css/tabulator.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
@@ -262,3 +266,53 @@ var table = new Tabulator("#example-table", {
             return html
         except Exception as e:
             print(f'Error generating scan statistics HTML code: {e}')
+
+    @staticmethod
+    async def generatescreenshots(tups: List):
+        """
+        Append screenshot content
+        :param tups: List of tuples, each tuple is comprised of 3 elements
+                    1. Domain
+                    2. Path to screenshot if it doesn't exist will be an empty string
+                    3. Html content for website
+        :return: html content that displays screenshots
+        """
+        try:
+            html = '''
+            <p>&nbsp;</p>
+            <p>&nbsp;</p>
+            <h2 style="background-color:DodgerBlue; text-align:center">
+                Screenshots
+            </h2>
+            <div id="screenshot-table"></div>
+            <script type="text/javascript">
+                       xxxxxxxxx
+                        //create Tabulator on DOM element with id "example-table"
+                        var table = new Tabulator("#screenshot-table", {
+                            height:650, // set height of table (in CSS or here), this enables the Virtual DOM and improves render speed dramatically (can be any valid css height value)
+                            data:tabledata, //assign data to table
+                            layout:"fitColumns", //fit columns to width of table (optional)
+                            columns:[ //Define Table Columns
+                                {title:"Date", field:"date", width:200},
+                                {title:"Domain", field:"domain", hozAlign:"left", headerFilter:"select", width:300 },
+                                {title:"Screenshot", field:"icon", align:"center", formatter:"image"},
+                            ]
+                            },
+                        );
+                   </script>
+             <p>&nbsp;</p>
+             <p>&nbsp;</p>
+            '''
+            base = 'var tabledata = [ '
+            for tup in tups:
+                date = tup[0]
+                domain = tup[1]
+                path = tup[2].replace('\\', '\\\\')
+                if len(path) > 0:
+                    data = f'{{date:"{date}", domain:"{domain}", icon:"{path}"}},'
+                    base += data
+            base += '];'
+            return html.replace('xxxxxxxxx', base)
+        except Exception as e:
+            print(f'Error generating screenshot section: {e}')
+            return ''

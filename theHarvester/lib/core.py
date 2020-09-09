@@ -12,7 +12,7 @@ import certifi
 class Core:
     @staticmethod
     def version() -> str:
-        return '3.2.0dev0'
+        return '3.2.0dev8'
 
     @staticmethod
     def bing_key() -> str:
@@ -70,6 +70,17 @@ class Core:
         return keys['apikeys']['pentestTools']['key']
 
     @staticmethod
+    def projectdiscovery_key() -> str:
+        try:
+            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+        except FileNotFoundError:
+            with open('api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+                return keys['apikeys']['projectDiscovery']['key']
+        return keys['apikeys']['projectDiscovery']['key']
+
+    @staticmethod
     def security_trails_key() -> str:
         try:
             with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
@@ -105,11 +116,11 @@ class Core:
     @staticmethod
     def proxy_list() -> List:
         try:
-            with open('/etc/theHarvester/proxies.yaml', 'r') as api_keys:
-                keys = yaml.safe_load(api_keys)
+            with open('/etc/theHarvester/proxies.yaml', 'r') as proxy_file:
+                keys = yaml.safe_load(proxy_file)
         except FileNotFoundError:
-            with open('proxies.yaml', 'r') as api_keys:
-                keys = yaml.safe_load(api_keys)
+            with open('proxies.yaml', 'r') as proxy_file:
+                keys = yaml.safe_load(proxy_file)
                 http_list = [f'http://{proxy}' for proxy in keys['http']] if keys['http'] is not None else []
                 return http_list
         http_list = [f'http://{proxy}' for proxy in keys['http']] if keys['http'] is not None else []
@@ -140,7 +151,6 @@ class Core:
                             'certspotter',
                             'crtsh',
                             'dnsdumpster',
-                            'dogpile',
                             'duckduckgo',
                             'exalead',
                             'github-code',
@@ -153,15 +163,17 @@ class Core:
                             'netcraft',
                             'otx',
                             'pentesttools',
+                            'projectdiscovery',
+                            'qwant',
                             'rapiddns',
                             'securityTrails',
-                            'suip',
                             'sublist3r',
                             'spyse',
                             'threatcrowd',
+                            'threatminer',
                             'trello',
                             'twitter',
-                            'vhost',
+                            'urlscan',
                             'virustotal',
                             'yahoo',
                             }

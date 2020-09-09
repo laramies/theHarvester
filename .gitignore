@@ -11,6 +11,7 @@ venv
 .pytest_cache
 build/
 dist/
+theHarvester.egg-info
 api-keys.yaml
 .DS_Store
 api-keys.yaml

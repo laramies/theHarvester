@@ -14,7 +14,7 @@ class SearchHunter:
             raise MissingKey(True)
         self.total_results = ""
         self.counter = start
-        self.database = f'https://api.hunter.io/v2/domain-search?domain={word}&api_key={self.key}&limit={self.limit}'
+        self.database = f'https://api.hunter.io/v2/domain-search?domain={self.word}&api_key={self.key}&limit={self.limit}'
         self.proxy = False
 
     async def do_search(self):
