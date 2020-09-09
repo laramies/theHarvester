@@ -13,3 +13,4 @@ build/
 dist/
 api-keys.yaml
 .DS_Store
+api-keys.yaml
