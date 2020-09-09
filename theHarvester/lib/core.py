@@ -12,7 +12,7 @@ import certifi
 class Core:
     @staticmethod
     def version() -> str:
-        return '3.2.0dev8'
+        return '3.2.0'
 
     @staticmethod
     def bing_key() -> str:
