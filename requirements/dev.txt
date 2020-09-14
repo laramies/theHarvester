@@ -3,5 +3,5 @@ flake8==3.8.3
 mypy==0.782
 mypy-extensions==0.4.3
 pyflakes==2.2.0
-pytest==6.0.1
+pytest==6.0.2
 pytest-asyncio==0.14.0
