@@ -35,7 +35,7 @@ async def start():
     parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, bufferoverun, certspotter, crtsh, dnsdumpster,
                             duckduckgo, exalead, github-code, google,
                             hackertarget, hunter, intelx, linkedin, linkedin_links,
-                            netcraft, otx, pentesttools, projectdiscovery,
+                            netcraft, omnisint, otx, pentesttools, projectdiscovery,
                             qwant, rapiddns, securityTrails, spyse, sublist3r, threatcrowd, threatminer,
                             trello, twitter, urlscan, virustotal, yahoo''')
 
@@ -282,6 +282,14 @@ async def start():
                     from theHarvester.discovery import netcraft
                     netcraft_search = netcraft.SearchNetcraft(word)
                     stor_lst.append(store(netcraft_search, engineitem, store_host=True))
+
+                elif engineitem == 'omnisint':
+                    from theHarvester.discovery import omnisint
+                    try:
+                        omnisint_search = omnisint.SearchOmnisint(word)
+                        stor_lst.append(store(omnisint_search, engineitem, store_host=True, store_ip=True))
+                    except Exception as e:
+                        print(e)
 
                 elif engineitem == 'otx':
                     from theHarvester.discovery import otxsearch

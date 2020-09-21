@@ -42,9 +42,11 @@ Passive:
 
 * linkedin: Google search engine, specific search for LinkedIn users - www.linkedin.com
 
-* linkedin_links: 
+* linkedin_links: specific search for LinkedIn users for target domain
 
 * netcraft: Internet Security and Data Mining - www.netcraft.com
+
+* omnisint: Project Crobat, A Centralised Searchable Open Source Project Sonar DNS Database - https://github.com/Cgboal/SonarSearch
 
 * otx: AlienVault Open Threat Exchange - https://otx.alienvault.com
 
