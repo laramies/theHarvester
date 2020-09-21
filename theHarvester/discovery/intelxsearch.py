@@ -11,7 +11,7 @@ class SearchIntelx:
         # default key is public key
         self.key = Core.intelx_key()
         if self.key is None:
-            raise MissingKey(True)
+            raise MissingKey(True, 'Intelx')
         self.database = 'https://public.intelx.io/'
         self.results = None
         self.info = ()

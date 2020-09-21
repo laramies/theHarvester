@@ -107,9 +107,9 @@ class MissingKey(Exception):
     """
     :raise: When there is a module that has not been provided its API key
     """
-    def __init__(self, identity_flag: bool):
+    def __init__(self, identity_flag: bool, source: str):
         if identity_flag:
-            self.message = '\n\033[93m[!] Missing API key. \033[0m'
+            self.message = f'\n\033[93m[!] Missing API key for {source}. \033[0m'
         else:
             self.message = '\n\033[93m[!] Missing CSE id. \033[0m'
 

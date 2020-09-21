@@ -1,5 +1,4 @@
 # coding=utf-8
-
 from typing import Set, Union, Any, Tuple, List
 import yaml
 import asyncio
@@ -12,7 +11,7 @@ import certifi
 class Core:
     @staticmethod
     def version() -> str:
-        return '3.2.0'
+        return '3.2.1dev0'
 
     @staticmethod
     def bing_key() -> str:
@@ -161,6 +160,7 @@ class Core:
                             'linkedin',
                             'linkedin_links',
                             'netcraft',
+                            'omnisint',
                             'otx',
                             'pentesttools',
                             'projectdiscovery',
