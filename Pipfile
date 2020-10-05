@@ -23,7 +23,7 @@ uvloop = "==0.14.0"
 certifi = "==2020.6.20"
 
 [dev-packages]
-flake8 = "==3.8.3"
+flake8 = "==3.8.4"
 mypy = "==0.782"
 mypy-extensions = "==0.4.3"
 pyflakes = "==2.2.0"
