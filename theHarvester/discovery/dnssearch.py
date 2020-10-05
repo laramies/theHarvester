@@ -31,11 +31,15 @@ class DnsForce:
         # self.dnsserver = [dnsserver] if isinstance(dnsserver, str) else dnsserver
         self.dnsserver = list(map(str, dnsserver.split(','))) if isinstance(dnsserver, str) else dnsserver
         try:
-            with open('wordlists/dns-names.txt', 'r') as file:
+            with open('/etc/theHarvester/wordlists/dns-names.txt', 'r') as file:
                 self.list = file.readlines()
         except FileNotFoundError:
-            with open('/etc/theHarvester/dns-names.txt', 'r') as file:
-                self.list = file.readlines()
+            try:
+                with open('/usr/local/etc/theHarvester/wordlists/dns-names.txt', 'r') as file:
+                    self.list = file.readlines()
+            except FileNotFoundError:
+                with open('wordlists/dns-names.txt', 'r') as file:
+                    self.list = file.readlines()
         self.domain = domain.replace('www.', '')
         self.list = [f'{word.strip()}.{self.domain}' for word in self.list]
 
