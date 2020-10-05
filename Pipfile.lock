@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "acfbe225f888589186517518fd97915a0323e824b7093b6f4b62072eaf65b9cd"
+            "sha256": "4b9318ba189e77be8b5e8f5d96d89205a6119313049601429fa1327a1522039d"
         },
         "pipfile-spec": 6,
         "requires": {},
@@ -246,11 +246,11 @@
         },
         "plotly": {
             "hashes": [
-                "sha256:752f0803588b8d895d604c58fa55119ad104f3fbdd5eb5f7d11a3079680c31c0",
-                "sha256:aa1602346ffa17895687fc48ae58611f014ed7a5da4b07e79c2ca99d6d4dca31"
+                "sha256:584b3dc685c84b652198166969742115b31892de61c86556f909f3f0f9ccd0d3",
+                "sha256:b6ad5c3d2cbf056a782e3c6833a334c45a5453a12dc8a48df971602509e8d3d6"
             ],
             "index": "pypi",
-            "version": "==4.10.0"
+            "version": "==4.11.0"
         },
         "pycares": {
             "hashes": [
