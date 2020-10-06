@@ -102,10 +102,18 @@ class SearchGoogle:
     async def append_dorks(self):
         # Wrap in try-except incase filepaths are messed up.
         try:
-            with open('wordlists/dorks.txt', mode='r') as fp:
+            with open('/etc/theHarvester/wordlists/dorks.txt', 'r') as fp:
                 self.dorks = [dork.strip() for dork in fp]
-        except FileNotFoundError as error:
-            print(error)
+        except FileNotFoundError:
+            try:
+                with open('/usr/local/etc/theHarvester/wordlists/dorks.txt', 'r') as fp:
+                    self.dorks = [dork.strip() for dork in fp]
+            except FileNotFoundError:
+                try:
+                    with open('wordlists/dorks.txt', 'r') as fp:
+                        self.dorks = [dork.strip() for dork in fp]
+                except FileNotFoundError as error:
+                    print(error)
 
     async def construct_dorks(self):
         # Format is: site:targetwebsite.com + space + inurl:admindork

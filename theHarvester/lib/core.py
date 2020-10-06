@@ -14,15 +14,22 @@ class Core:
         return '3.2.1dev0'
 
     @staticmethod
-    def bing_key() -> str:
+    def api_keys() -> dict:
         try:
             with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
                 keys = yaml.safe_load(api_keys)
         except FileNotFoundError:
-            with open('api-keys.yaml', 'r') as api_keys:
-                keys = yaml.safe_load(api_keys)
-                return keys['apikeys']['bing']['key']
-        return keys['apikeys']['bing']['key']
+            try:
+                with open('/usr/local/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+                    keys = yaml.safe_load(api_keys)
+            except FileNotFoundError:
+                with open('api-keys.yaml', 'r') as api_keys:
+                    keys = yaml.safe_load(api_keys)
+        return keys['apikeys']
+
+    @staticmethod
+    def bing_key() -> str:
+        return Core.api_keys()['bing']['key']
 
     @staticmethod
     def censys_key() -> tuple:
@@ -37,91 +44,35 @@ class Core:
 
     @staticmethod
     def github_key() -> str:
-        try:
-            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
-                keys = yaml.safe_load(api_keys)
-        except FileNotFoundError:
-            with open('api-keys.yaml', 'r') as api_keys:
-                keys = yaml.safe_load(api_keys)
-                return keys['apikeys']['github']['key']
-        return keys['apikeys']['github']['key']
+        return Core.api_keys()['github']['key']
 
     @staticmethod
     def hunter_key() -> str:
-        try:
-            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
-                keys = yaml.safe_load(api_keys)
-        except FileNotFoundError:
-            with open('api-keys.yaml', 'r') as api_keys:
-                keys = yaml.safe_load(api_keys)
-            return keys['apikeys']['hunter']['key']
-        return keys['apikeys']['hunter']['key']
+        return Core.api_keys()['hunter']['key']
 
     @staticmethod
     def intelx_key() -> str:
-        try:
-            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
-                keys = yaml.safe_load(api_keys)
-        except FileNotFoundError:
-            with open('api-keys.yaml', 'r') as api_keys:
-                keys = yaml.safe_load(api_keys)
-                return keys['apikeys']['intelx']['key']
-        return keys['apikeys']['intelx']['key']
+        return Core.api_keys()['intelx']['key']
 
     @staticmethod
     def pentest_tools_key() -> str:
-        try:
-            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
-                keys = yaml.safe_load(api_keys)
-        except FileNotFoundError:
-            with open('api-keys.yaml', 'r') as api_keys:
-                keys = yaml.safe_load(api_keys)
-                return keys['apikeys']['pentestTools']['key']
-        return keys['apikeys']['pentestTools']['key']
+        return Core.api_keys()['pentestTools']['key']
 
     @staticmethod
     def projectdiscovery_key() -> str:
-        try:
-            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
-                keys = yaml.safe_load(api_keys)
-        except FileNotFoundError:
-            with open('api-keys.yaml', 'r') as api_keys:
-                keys = yaml.safe_load(api_keys)
-                return keys['apikeys']['projectDiscovery']['key']
-        return keys['apikeys']['projectDiscovery']['key']
+        return Core.api_keys()['projectDiscovery']['key']
 
     @staticmethod
     def security_trails_key() -> str:
-        try:
-            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
-                keys = yaml.safe_load(api_keys)
-        except FileNotFoundError:
-            with open('api-keys.yaml', 'r') as api_keys:
-                keys = yaml.safe_load(api_keys)
-                return keys['apikeys']['securityTrails']['key']
-        return keys['apikeys']['securityTrails']['key']
+        return Core.api_keys()['securityTrails']['key']
 
     @staticmethod
     def shodan_key() -> str:
-        try:
-            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
-                keys = yaml.safe_load(api_keys)
-        except FileNotFoundError:
-            with open('api-keys.yaml', 'r') as api_keys:
-                keys = yaml.safe_load(api_keys)
-                return keys['apikeys']['shodan']['key']
-        return keys['apikeys']['shodan']['key']
+        return Core.api_keys()['shodan']['key']
 
     @staticmethod
     def spyse_key() -> str:
-        try:
-            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
-                keys = yaml.safe_load(api_keys)
-        except FileNotFoundError:
-            with open('api-keys.yaml', 'r') as api_keys:
-                keys = yaml.safe_load(api_keys)
-                return keys['apikeys']['spyse']['key']
-        return keys['apikeys']['spyse']['key']
+        return Core.api_keys()['spyse']['key']
 
     @staticmethod
     def proxy_list() -> List:
@@ -129,10 +80,12 @@ class Core:
             with open('/etc/theHarvester/proxies.yaml', 'r') as proxy_file:
                 keys = yaml.safe_load(proxy_file)
         except FileNotFoundError:
-            with open('proxies.yaml', 'r') as proxy_file:
-                keys = yaml.safe_load(proxy_file)
-                http_list = [f'http://{proxy}' for proxy in keys['http']] if keys['http'] is not None else []
-                return http_list
+            try:
+                with open('/usr/local/etc/theHarvester/proxies.yaml', 'r') as proxy_file:
+                    keys = yaml.safe_load(proxy_file)
+            except FileNotFoundError:
+                with open('proxies.yaml', 'r') as proxy_file:
+                    keys = yaml.safe_load(proxy_file)
         http_list = [f'http://{proxy}' for proxy in keys['http']] if keys['http'] is not None else []
         return http_list
 
