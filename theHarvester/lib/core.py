@@ -25,6 +25,17 @@ class Core:
         return keys['apikeys']['bing']['key']
 
     @staticmethod
+    def censys_key() -> tuple:
+        try:
+            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+        except FileNotFoundError:
+            with open('api-keys.yaml', 'r') as api_keys:
+                keys = yaml.safe_load(api_keys)
+                return keys['apikeys']['censys']['id'], keys['apikeys']['censys']['secret']
+        return keys['apikeys']['censys']['id'], keys['apikeys']['censys']['secret']
+
+    @staticmethod
     def github_key() -> str:
         try:
             with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
@@ -147,6 +158,7 @@ class Core:
                             'bing',
                             'bingapi',
                             'bufferoverun',
+                            'censys',
                             'certspotter',
                             'crtsh',
                             'dnsdumpster',
