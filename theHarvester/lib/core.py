@@ -33,14 +33,7 @@ class Core:
 
     @staticmethod
     def censys_key() -> tuple:
-        try:
-            with open('/etc/theHarvester/api-keys.yaml', 'r') as api_keys:
-                keys = yaml.safe_load(api_keys)
-        except FileNotFoundError:
-            with open('api-keys.yaml', 'r') as api_keys:
-                keys = yaml.safe_load(api_keys)
-                return keys['apikeys']['censys']['id'], keys['apikeys']['censys']['secret']
-        return keys['apikeys']['censys']['id'], keys['apikeys']['censys']['secret']
+        return Core.api_keys()['censys']['id'], Core.api_keys()['censys']['secret']
 
     @staticmethod
     def github_key() -> str:
