@@ -20,7 +20,7 @@ shodan = "==1.24.0"
 texttable = "==1.6.3"
 lxml = "==4.6.2"
 uvloop = "==0.14.0"
-certifi = "==2020.11.8"
+certifi = "==2020.12.5"
 
 [dev-packages]
 flake8 = "==3.8.4"
