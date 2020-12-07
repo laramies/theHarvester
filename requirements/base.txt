@@ -3,7 +3,7 @@ aiohttp==3.7.3
 aiomultiprocess==0.8.0
 aiosqlite==0.16.0
 beautifulsoup4==4.9.3
-certifi==2020.11.8
+certifi==2020.12.5
 dnspython==2.0.0
 netaddr==0.8.0
 plotly==4.13.0
