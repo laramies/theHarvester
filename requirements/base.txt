@@ -6,7 +6,7 @@ beautifulsoup4==4.9.3
 certifi==2020.12.5
 dnspython==2.0.0
 netaddr==0.8.0
-plotly==4.13.0
+plotly==4.14.1
 pyppeteer==0.2.2
 PyYAML==5.3.1
 requests==2.25.0
