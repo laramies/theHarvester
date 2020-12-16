@@ -17,6 +17,7 @@ class SearchDiscovery:
         response = await AsyncFetcher.fetch_all([url], json=True, headers={'User-Agent': Core.get_user_agent(),
                                                                            'Authorization': self.key},
                                                 proxy=self.proxy)
+        print(response)
         self.total_results = [f'{domains}.{self.word}' for domains in response[0]['subdomains']]
 
     async def get_hostnames(self) -> set:

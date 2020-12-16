@@ -19,8 +19,10 @@ if __name__ == '__main__':
         multiprocessing.freeze_support()
         asyncio.DefaultEventLoopPolicy = asyncio.WindowsSelectorEventLoopPolicy
     else:
-        import uvloop
-        uvloop.install()
+        if python_version()[0:3] < '3.9':
+            import uvloop
+            uvloop.install()
+
         if "linux" in platform:
             import aiomultiprocess
             # As we are not using Windows we can change the spawn method to fork for greater performance
