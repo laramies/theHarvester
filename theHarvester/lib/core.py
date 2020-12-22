@@ -1,4 +1,5 @@
 # coding=utf-8
+
 from typing import Set, Union, Any, Tuple, List
 import yaml
 import asyncio
@@ -11,7 +12,7 @@ import certifi
 class Core:
     @staticmethod
     def version() -> str:
-        return '3.2.2dev1'
+        return '3.2.2'
 
     @staticmethod
     def api_keys() -> dict:
