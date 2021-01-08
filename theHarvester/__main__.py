@@ -328,7 +328,7 @@ async def start():
                         if isinstance(e, MissingKey):
                             print(e)
                         else:
-                            print(f'An exception has occurred in ProjectDiscovery')
+                            print('An exception has occurred in ProjectDiscovery')
 
                 elif engineitem == 'qwant':
                     from theHarvester.discovery import qwantsearch
