@@ -7,7 +7,7 @@ censys==1.1.0
 certifi==2020.12.5
 dnspython==2.0.0
 netaddr==0.8.0
-plotly==4.14.1
+plotly==4.14.2
 pyppeteer==0.2.4
 PyYAML==5.3.1
 requests==2.25.1
