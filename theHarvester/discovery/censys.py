@@ -8,8 +8,8 @@ from censys.exceptions import (
 
 
 class SearchCensys:
-    def __init__(self, word):
-        self.word = word
+    def __init__(self, domain):
+        self.domain = domain
         self.key = Core.censys_key()
         if self.key[0] is None or self.key[1] is None:
             raise MissingKey(True, "Censys ID or Secret")
@@ -18,15 +18,15 @@ class SearchCensys:
 
     async def do_search(self):
         try:
-            cert = CensysCertificates(api_id=self.key[0], api_secret=self.key[1])
+            c = CensysCertificates(api_id=self.key[0], api_secret=self.key[1])
         except CensysUnauthorizedException:
-            raise MissingKey(True, "Censys ID or Secret")
+            raise MissingKey(True, "Censys ID and/or Secret")
 
-        query = f"parsed.names: {self.word}"
+        query = f"parsed.names: {self.domain}"
         try:
-            response = cert.search(query=query, fields=["parsed.names"], page=1)
-            for hosts in response:
-                self.totalhosts.update(hosts["parsed.names"])
+            response = c.search(query=query, fields=["parsed.names", "metadata"])
+            for cert in response:
+                self.totalhosts.update(cert["parsed.names"])
         except CensysRateLimitExceededException:
             print("Censys rate limit exceeded")
 

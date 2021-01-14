@@ -20,6 +20,8 @@ Passive:
 
 * bufferoverun: Uses data from Rapid7's Project Sonar - www.rapid7.com/research/project-sonar/
 
+* censys: Censys search engine, will use certificates searches to enumerate subdomains (Requires an API key, see below.) - [censys.io](https://censys.io/)
+
 * certspotter: Cert Spotter monitors Certificate Transparency logs - https://sslmate.com/certspotter/
 
 * crtsh: Comodo Certificate search - https://crt.sh
@@ -63,7 +65,7 @@ to enhance research and analyse changes around DNS for better insights - https:/
 * securityTrails: Security Trails search engine, the world's largest repository of historical DNS data<br>
   (Requires an API key, see below.) - www.securitytrails.com
 
-* shodan: Shodan search engine, will search for ports and banners from discovered hosts - www.shodanhq.com
+* shodan: Shodan search engine, will search for ports and banners from discovered hosts (Requires an API key, see below.) - www.shodanhq.com
 
 * spyse: Web research tools for professionals (Requires an API key.) - https://spyse.com
 
@@ -104,7 +106,7 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * securityTrails
 * shodan
 * spyse - need to have a paid account be able to use the api now
-
+* censys
 
 Install and dependencies:
 -------------------------
