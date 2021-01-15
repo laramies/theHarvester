@@ -12,7 +12,7 @@ class SearchCensys:
         self.word = domain
         self.key = Core.censys_key()
         if self.key[0] is None or self.key[1] is None:
-            raise MissingKey(True, "Censys ID and/or Secret")
+            raise MissingKey("Censys ID and/or Secret")
         self.totalhosts = set()
         self.proxy = False
 
@@ -20,7 +20,7 @@ class SearchCensys:
         try:
             c = CensysCertificates(api_id=self.key[0], api_secret=self.key[1])
         except CensysUnauthorizedException:
-            raise MissingKey(True, "Censys ID and/or Secret")
+            raise MissingKey("Censys ID and/or Secret")
 
         query = f"parsed.names: {self.word}"
         try:
