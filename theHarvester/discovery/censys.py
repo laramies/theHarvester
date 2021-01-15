@@ -9,7 +9,7 @@ from censys.exceptions import (
 
 class SearchCensys:
     def __init__(self, domain):
-        self.domain = domain
+        self.word = domain
         self.key = Core.censys_key()
         if self.key[0] is None or self.key[1] is None:
             raise MissingKey(True, "Censys ID or Secret")
@@ -22,7 +22,7 @@ class SearchCensys:
         except CensysUnauthorizedException:
             raise MissingKey(True, "Censys ID and/or Secret")
 
-        query = f"parsed.names: {self.domain}"
+        query = f"parsed.names: {self.word}"
         try:
             response = c.search(query=query, fields=["parsed.names", "metadata"])
             for cert in response:
