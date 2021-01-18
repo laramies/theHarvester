@@ -1,5 +1,3 @@
-from pprint import pprint
-
 from theHarvester.discovery.constants import *
 from theHarvester.lib.core import *
 import censys.certificates
@@ -20,11 +18,11 @@ class SearchCensys:
         cert = censys.certificates.CensysCertificates(api_id=self.key[0], api_secret=self.key[1])
         query = f'parsed.names: {self.word}'
         try:
-            response = cert.search(query=query, fields=['parsed.names'])
+            response = cert.search(query=query, fields=['parsed.names'], page=1)
         except censys.base.CensysRateLimitExceededException:
             print('Censys rate limit exceeded')
+
         for hosts in response:
-            pprint(set(hosts['parsed.names']))
             self.totalhosts.update(hosts['parsed.names'])
 
     async def get_hostnames(self) -> set:

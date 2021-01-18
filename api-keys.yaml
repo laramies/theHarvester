@@ -1,6 +1,6 @@
 apikeys:
   bing:
-    key: 
+    key:
 
   censys:
     id:
@@ -10,7 +10,7 @@ apikeys:
     key: 
 
   hunter:
-    key: 
+    key:
 
   intelx:
     key:
@@ -22,10 +22,10 @@ apikeys:
     key:
 
   securityTrails:
-    key: 
+    key:
 
   shodan:
     key:
 
   spyse:
-    key: 
+    key:
