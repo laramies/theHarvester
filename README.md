@@ -97,7 +97,7 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 
 * bing
 * github
-* hunter - limited to 10 on the free plan so you will ned to do -l 10 switch
+* hunter - limited to 10 on the free plan so you will need to do -l 10 switch
 * intelx
 * pentesttools
 * projecdiscovery - invite only for now
