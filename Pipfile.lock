@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "91ce23586ce6342da4aa76776d4333e2dcfe0b7905fead9c358c801346b24b0b"
+            "sha256": "d1d25eb04a16bf1cd8b1ae08572295482ecc50ad8e66a23665db0d59f0d4b0e9"
         },
         "pipfile-spec": 6,
         "requires": {},
@@ -74,11 +74,11 @@
         },
         "aiosqlite": {
             "hashes": [
-                "sha256:0e5b8465b0b6aa7f2b0a1fa7f3af53216fcea1947f524b658bd4b4696e72f1b7",
-                "sha256:d014ef07fbc523b2d195fc17cf35982285e3220eb73c1068d5df37b569950ea8"
+                "sha256:1df802815bb1e08a26c06d5ea9df589bcb8eec56e5f3378103b0f9b223c6703c",
+                "sha256:2e915463164efa65b60fd1901aceca829b6090082f03082618afca6fb9c8fdf7"
             ],
             "index": "pypi",
-            "version": "==0.16.0"
+            "version": "==0.16.1"
         },
         "appdirs": {
             "hashes": [
