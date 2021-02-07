@@ -9,7 +9,7 @@ class SearchSpyse:
         self.word = word
         self.key = Core.spyse_key()
         if self.key is None:
-            raise MissingKey(True)
+            raise MissingKey('Spyse')
         self.results = ''
         self.hosts = set()
         self.proxy = False

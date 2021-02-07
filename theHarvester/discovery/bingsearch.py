@@ -72,7 +72,7 @@ class SearchBing:
         self.proxy = proxy
         if api == 'yes':
             if self.bingApi is None:
-                raise MissingKey(True)
+                raise MissingKey('BingAPI')
         else:
             if api == 'yes':
                 await self.do_search_api()

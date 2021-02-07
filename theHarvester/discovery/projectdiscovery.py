@@ -8,7 +8,7 @@ class SearchDiscovery:
         self.word = word
         self.key = Core.projectdiscovery_key()
         if self.key is None:
-            raise MissingKey(True)
+            raise MissingKey('ProjectDiscovery')
         self.total_results = None
         self.proxy = False
 

@@ -32,10 +32,10 @@ async def start():
     parser.add_argument('-n', '--dns-lookup', help='Enable DNS server lookup, default False.', default=False, action='store_true')
     parser.add_argument('-c', '--dns-brute', help='Perform a DNS brute force on the domain.', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='Save the results to an HTML and/or XML file.', default='', type=str)
-    parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, bufferoverun, certspotter, crtsh, dnsdumpster,
-                            duckduckgo, exalead, github-code, google,
+    parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, bufferoverun, censys, certspotter, crtsh,
+                            dnsdumpster, duckduckgo, exalead, github-code, google,
                             hackertarget, hunter, intelx, linkedin, linkedin_links,
-                            netcraft, otx, pentesttools, projectdiscovery,
+                            netcraft, omnisint, otx, pentesttools, projectdiscovery,
                             qwant, rapiddns, securityTrails, spyse, sublist3r, threatcrowd, threatminer,
                             trello, twitter, urlscan, virustotal, yahoo''')
 
@@ -189,6 +189,15 @@ async def start():
                     except Exception as e:
                         print(e)
 
+                elif engineitem == 'censys':
+                    from theHarvester.discovery import censys
+                    try:
+                        censys_search = censys.SearchCensys(word)
+                        stor_lst.append(store(censys_search, engineitem, store_host=True))
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            print(e)
+
                 elif engineitem == 'certspotter':
                     from theHarvester.discovery import certspottersearch
                     try:
@@ -283,6 +292,14 @@ async def start():
                     netcraft_search = netcraft.SearchNetcraft(word)
                     stor_lst.append(store(netcraft_search, engineitem, store_host=True))
 
+                elif engineitem == 'omnisint':
+                    from theHarvester.discovery import omnisint
+                    try:
+                        omnisint_search = omnisint.SearchOmnisint(word, limit)
+                        stor_lst.append(store(omnisint_search, engineitem, store_host=True, store_ip=True))
+                    except Exception as e:
+                        print(e)
+
                 elif engineitem == 'otx':
                     from theHarvester.discovery import otxsearch
                     try:
@@ -311,7 +328,7 @@ async def start():
                         if isinstance(e, MissingKey):
                             print(e)
                         else:
-                            print(f'An exception has occurred in ProjectDiscovery search: {e}')
+                            print('An exception has occurred in ProjectDiscovery')
 
                 elif engineitem == 'qwant':
                     from theHarvester.discovery import qwantsearch

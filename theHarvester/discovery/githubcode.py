@@ -37,7 +37,7 @@ class SearchGithubCode:
         # rate limits you more severely
         # https://developer.github.com/v3/search/#rate-limit
         if self.key is None:
-            raise MissingKey(True)
+            raise MissingKey('Github')
         self.proxy = False
 
     @staticmethod
