@@ -12,7 +12,7 @@ import certifi
 class Core:
     @staticmethod
     def version() -> str:
-        return '3.2.2'
+        return '3.2.3'
 
     @staticmethod
     def api_keys() -> dict:
@@ -31,6 +31,10 @@ class Core:
     @staticmethod
     def bing_key() -> str:
         return Core.api_keys()['bing']['key']
+
+    @staticmethod
+    def censys_key() -> tuple:
+        return Core.api_keys()['censys']['id'], Core.api_keys()['censys']['secret']
 
     @staticmethod
     def github_key() -> str:
@@ -101,6 +105,7 @@ class Core:
                             'bing',
                             'bingapi',
                             'bufferoverun',
+                            'censys',
                             'certspotter',
                             'crtsh',
                             'dnsdumpster',
@@ -114,6 +119,7 @@ class Core:
                             'linkedin',
                             'linkedin_links',
                             'netcraft',
+                            'omnisint',
                             'otx',
                             'pentesttools',
                             'projectdiscovery',

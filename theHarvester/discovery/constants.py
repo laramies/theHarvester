@@ -1,5 +1,5 @@
 from theHarvester.lib.core import *
-from typing import Union
+from typing import Union, Optional
 import random
 
 googleUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 ' \
@@ -107,9 +107,9 @@ class MissingKey(Exception):
     """
     :raise: When there is a module that has not been provided its API key
     """
-    def __init__(self, identity_flag: bool):
-        if identity_flag:
-            self.message = '\n\033[93m[!] Missing API key. \033[0m'
+    def __init__(self, source: Optional[str]):
+        if source:
+            self.message = f'\n\033[93m[!] Missing API key for {source}. \033[0m'
         else:
             self.message = '\n\033[93m[!] Missing CSE id. \033[0m'
 

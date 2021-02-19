@@ -9,7 +9,7 @@ class SearchShodan:
     def __init__(self):
         self.key = Core.shodan_key()
         if self.key is None:
-            raise MissingKey(True)
+            raise MissingKey('Shodan')
         self.api = Shodan(self.key)
         self.hostdatarow = []
 

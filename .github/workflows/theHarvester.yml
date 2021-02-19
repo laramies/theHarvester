@@ -8,13 +8,15 @@ on:
   pull_request:
     branches:
     - '*'
+
 jobs:
   Python:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       max-parallel: 4
       matrix:
-        python-version: [3.8]
+        os: [ubuntu-latest, macos-latest]
+        python-version: [3.8, 3.9]
 
     steps:
     - uses: actions/checkout@v2
@@ -83,6 +85,10 @@ jobs:
       run: |
         python theHarvester.py -d yale.edu -b netcraft
 
+    - name: Run theHarvester module Omnisint
+      run: |
+        python theHarvester.py -d yale.edu -b omnisint
+
     - name: Run theHarvester module Otx
       run: |
         python theHarvester.py -d yale.edu -b otx
@@ -141,6 +147,7 @@ jobs:
     - name: Test with pytest
       run: |
         pytest
+
     - name: Static type checking with mypy
       run: |
         mypy --pretty theHarvester/*/*.py

@@ -1,15 +1,19 @@
 apikeys:
   bing:
-    key: 
+    key:
+
+  censys:
+    id:
+    secret:
 
   github:
     key: 
 
   hunter:
-    key: 
+    key:
 
   intelx:
-    key: 9df61df0-84f7-4dc7-b34c-8ccfb8646ace
+    key:
 
   pentestTools:
     key:
@@ -18,10 +22,10 @@ apikeys:
     key:
 
   securityTrails:
-    key: 
+    key:
 
   shodan:
     key:
 
   spyse:
-    key: 
+    key:

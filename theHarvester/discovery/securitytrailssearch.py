@@ -10,7 +10,7 @@ class SearchSecuritytrail:
         self.word = word
         self.key = Core.security_trails_key()
         if self.key is None:
-            raise MissingKey(True)
+            raise MissingKey('Securitytrail')
         self.results = ""
         self.totalresults = ""
         self.api = 'https://api.securitytrails.com/v1/'

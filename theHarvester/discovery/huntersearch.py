@@ -11,7 +11,7 @@ class SearchHunter:
         self.start = start
         self.key = Core.hunter_key()
         if self.key is None:
-            raise MissingKey(True)
+            raise MissingKey('Hunter')
         self.total_results = ""
         self.counter = start
         self.database = f'https://api.hunter.io/v2/domain-search?domain={self.word}&api_key={self.key}&limit={self.limit}'
