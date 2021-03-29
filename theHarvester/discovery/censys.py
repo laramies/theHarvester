@@ -18,13 +18,13 @@ class SearchCensys:
 
     async def do_search(self):
         try:
-            c = CensysCertificates(api_id=self.key[0], api_secret=self.key[1])
+            censys = CensysCertificates(api_id=self.key[0], api_secret=self.key[1])
         except CensysUnauthorizedException:
             raise MissingKey("Censys ID and/or Secret")
 
         query = f"parsed.names: {self.word}"
         try:
-            response = c.search(query=query, fields=["parsed.names", "metadata"])
+            response = censys.search(query=query, fields=["parsed.names", "metadata"])
             for cert in response:
                 self.totalhosts.update(cert["parsed.names"])
         except CensysRateLimitExceededException:

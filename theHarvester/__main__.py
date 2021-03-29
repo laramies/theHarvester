@@ -36,7 +36,7 @@ async def start():
                             dnsdumpster, duckduckgo, exalead, github-code, google,
                             hackertarget, hunter, intelx, linkedin, linkedin_links,
                             netcraft, omnisint, otx, pentesttools, projectdiscovery,
-                            qwant, rapiddns, securityTrails, spyse, sublist3r, threatcrowd, threatminer,
+                            qwant, rapiddns, rocketreach, securityTrails, spyse, sublist3r, threatcrowd, threatminer,
                             trello, twitter, urlscan, virustotal, yahoo''')
 
     args = parser.parse_args()
@@ -342,6 +342,17 @@ async def start():
                         stor_lst.append(store(rapiddns_search, engineitem, store_host=True))
                     except Exception as e:
                         print(e)
+
+                elif engineitem == 'rocketreach':
+                    from theHarvester.discovery import rocketreach
+                    try:
+                        rocketreach_search = rocketreach.SearchRocketreach(word)
+                        stor_lst.append(store(rocketreach_search, engineitem, store_emails=True))
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            print(e)
+                        else:
+                            print(f'An exception has occurred in RocketReach: {e}')
 
                 elif engineitem == 'securityTrails':
                     from theHarvester.discovery import securitytrailssearch

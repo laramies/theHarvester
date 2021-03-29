@@ -57,6 +57,10 @@ class Core:
         return Core.api_keys()['projectDiscovery']['key']
 
     @staticmethod
+    def rocketreach_key() -> str:
+        return Core.api_keys()['rocketreach']['key']
+
+    @staticmethod
     def security_trails_key() -> str:
         return Core.api_keys()['securityTrails']['key']
 
@@ -125,6 +129,7 @@ class Core:
                             'projectdiscovery',
                             'qwant',
                             'rapiddns',
+                            'rocketreach',
                             'securityTrails',
                             'sublist3r',
                             'spyse',
