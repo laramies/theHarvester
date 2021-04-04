@@ -269,7 +269,7 @@ async def start():
                     from theHarvester.discovery import intelxsearch
                     # Import locally or won't work.
                     try:
-                        intelx_search = intelxsearch.SearchIntelx(word, limit)
+                        intelx_search = intelxsearch.SearchIntelx(word)
                         stor_lst.append(store(intelx_search, engineitem, store_host=True, store_emails=True))
                     except Exception as e:
                         if isinstance(e, MissingKey):
