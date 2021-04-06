@@ -10,7 +10,6 @@ class SearchIntelx:
 
     def __init__(self, word):
         self.word = word
-        # default key is public key
         self.key = Core.intelx_key()
         if self.key is None:
             raise MissingKey('Intelx')
@@ -26,8 +25,8 @@ class SearchIntelx:
             # Based on: https://github.com/IntelligenceX/SDK/blob/master/Python/intelxapi.py
             # API requests self identification
             # https://intelx.io/integrations
-            headers = {'x-key': self.key, 'User-Agent': f'{Core.get_user_agent()}-theHarvester'}
-            data = {
+            headers: dict = {'x-key': self.key, 'User-Agent': f'{Core.get_user_agent()}-theHarvester'}
+            data: dict = {
                 "term": self.word,
                 "buckets": [],
                 "lookuplevel": 0,
@@ -60,8 +59,8 @@ class SearchIntelx:
         intelx_parser = intelxparser.Parser()
         self.info = await intelx_parser.parse_dictionaries(self.results)
 
-    async def get_emails(self):
+    async def get_emails(self) -> Set:
         return self.info[0]
 
-    async def get_hostnames(self):
+    async def get_hostnames(self) -> Set:
         return self.info[1]
