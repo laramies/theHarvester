@@ -11,6 +11,7 @@ from theHarvester.lib.core import *
 import argparse
 import asyncio
 import datetime
+import json
 import netaddr
 import re
 import sys
@@ -70,6 +71,9 @@ async def start():
     word: str = args.domain
     takeover_status = args.take_over
     use_proxy = args.proxies
+    linkedin_people_list_tracker: list = []
+    linkedin_links_tracker: list = []
+    twitter_people_list_tracker: list = []
 
     async def store(search_engine: Any, source: str, process_param: Any = None, store_host: bool = False,
                     store_emails: bool = False, store_ip: bool = False, store_people: bool = False,
@@ -725,6 +729,7 @@ async def start():
         print('[*] Saving files.')
 
         try:
+            # XML REPORT SECTION
             filename = filename.rsplit('.', 1)[0] + '.xml'
 
             with open(filename, 'w+') as file:
@@ -764,10 +769,50 @@ async def start():
                         file.write('</servers>')
 
                 file.write('</theHarvester>')
-
-            print('[*] Files saved.')
+            print('[*] XML File saved.')
         except Exception as er:
             print(f'\033[93m[!] An error occurred while saving the XML file: {er} \033[0m')
+
+        try:
+            # JSON REPORT SECTION
+            filename = filename.rsplit('.', 1)[0] + '.json'
+
+            # create dict with values for json output
+            json_dict = dict()
+
+            json_dict["emails"] = [email for email in all_emails]
+            json_dict["hosts"] = [host for host in full]
+            json_dict["vhosts"] = [host for host in vhost]
+
+            if len(twitter_people_list_tracker) > 0:
+                json_dict["twitter_people"] = [person for person in list(sorted(set(twitter_people_list_tracker)))]
+
+            if len(linkedin_people_list_tracker) > 0:
+                json_dict["linkedin_people"] = [person for person in list(sorted(set(linkedin_people_list_tracker)))]
+
+            if len(linkedin_links_tracker) > 0:
+                json_dict["linkedin_links"] = [link for link in list(sorted(set(linkedin_links_tracker)))]
+
+            shodan_dict = dict()
+            if shodanres != []:
+                shodanalysis = []
+                for x in shodanres:
+                    res = x.split('SAPO')
+                    shodan_dict[res[0]] = [res[2], [res[1]]]
+                    reg_server = re.compile('Server:.*')
+                    temp = reg_server.findall(res[1])
+                    if temp:
+                        shodanalysis.append(res[0] + ':' + temp[0])
+                    file.write('</shodan>')
+                if shodanalysis:
+                    shodanalysis = sorted(set(shodanalysis))
+                    shodan_dict["servers"] = [server for server in shodanalysis]
+            json_dict["shodan"] = shodan_dict
+            with open(filename, 'w+') as fp:
+                json.dump(json_dict, fp, indent=4)
+            print('[*] JSON File saved.')
+        except Exception as error:
+            print(f'\033[93m[!] An error occurred while saving the JSON file: {error} \033[0m')
         print('\n\n')
         sys.exit(0)
 
