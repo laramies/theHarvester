@@ -11,7 +11,7 @@ jobs:
   NextGen-Static-Analysis:
     runs-on: ubuntu-20.04
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v2.3.4
     - name: Download ShiftLeft CLI
       run: |
         curl https://cdn.shiftleft.io/download/sl > ${GITHUB_WORKSPACE}/sl && chmod a+rx ${GITHUB_WORKSPACE}/sl
@@ -30,7 +30,7 @@ jobs:
     #runs-on: ubuntu-latest
     #needs: NextGen-Static-Analysis
     #steps:
-    #- uses: actions/checkout@v2
+    #- uses: actions/checkout@v2.3.4
     #- name: Download ShiftLeft CLI
     #  run: |
     #    curl https://cdn.shiftleft.io/download/sl > ${GITHUB_WORKSPACE}/sl && chmod a+rx ${GITHUB_WORKSPACE}/sl
