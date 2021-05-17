@@ -18,6 +18,7 @@ import sys
 
 
 async def start():
+    """Main program function"""
     parser = argparse.ArgumentParser(description='theHarvester is used to gather open source intelligence (OSINT) on a company or domain.')
     parser.add_argument('-d', '--domain', help='Company name or domain to search.', required=True)
     parser.add_argument('-l', '--limit', help='Limit the number of search results, default=500.', default=500, type=int)
@@ -95,10 +96,7 @@ async def start():
         await search_engine.process(use_proxy) if process_param is None else await \
             search_engine.process(process_param, use_proxy)
         db_stash = stash.StashManager()
-        if source == 'suip':
-            print(f'\033[94m[*] Searching {source[0].upper() + source[1:]} this module can take 10+ min but is worth '
-                  f'it. \033[0m')
-        else:
+        if source:
             print(f'\033[94m[*] Searching {source[0].upper() + source[1:]}. \033[0m')
         if store_host:
             host_names = [host for host in filter(await search_engine.get_hostnames()) if f'.{word}' in host]
@@ -808,8 +806,8 @@ async def start():
                     shodanalysis = sorted(set(shodanalysis))
                     shodan_dict["servers"] = [server for server in shodanalysis]
             json_dict["shodan"] = shodan_dict
-            with open(filename, 'w+') as fp:
-                json.dump(json_dict, fp, indent=4)
+            with open(filename, 'w+') as json_file:
+                json.dump(json_dict, json_file, indent=4)
             print('[*] JSON File saved.')
         except Exception as error:
             print(f'\033[93m[!] An error occurred while saving the JSON file: {error} \033[0m')
