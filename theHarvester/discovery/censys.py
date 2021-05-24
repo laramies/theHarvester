@@ -1,6 +1,7 @@
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import Core
 from censys.search import CensysCertificates
+from censys.common import __version__
 from censys.common.exceptions import (
     CensysRateLimitExceededException,
     CensysUnauthorizedException,
@@ -22,7 +23,7 @@ class SearchCensys:
             c = CensysCertificates(
                 api_id=self.key[0],
                 api_secret=self.key[1],
-                user_agent=f"censys/2.0.0 (theHarvester/{Core.version()}; +https://github.com/laramies/theHarvester)",
+                user_agent=f"censys/{__version__} (theHarvester/{Core.version()}; +https://github.com/laramies/theHarvester)",
             )
         except CensysUnauthorizedException:
             raise MissingKey("Censys ID and/or Secret")
