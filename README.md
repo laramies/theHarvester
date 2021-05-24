@@ -20,7 +20,7 @@ Passive:
 
 * bufferoverun: Uses data from Rapid7's Project Sonar - www.rapid7.com/research/project-sonar/
 
-* censys: Censys search engine, will use certificates searches to enumerate subdomains (Requires an API key, see below.) - [censys.io](https://censys.io/)
+* censys: [Censys search engine](https://search.censys.io/), will use certificates searches to enumerate subdomains and gather emails (Requires an API key, see below.) - [censys.io](https://censys.io/)
 
 * certspotter: Cert Spotter monitors Certificate Transparency logs - https://sslmate.com/certspotter/
 
@@ -106,7 +106,7 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * securityTrails
 * shodan
 * spyse - need to have a paid account be able to use the api now
-* censys
+* censys - API keys are required and can be retrieved from your [Censys account](https://search.censys.io/account/api).
 
 Install and dependencies:
 -------------------------
