@@ -19,7 +19,7 @@ class SearchCensys:
 
     async def do_search(self):
         try:
-            c = CensysCertificates(api_id=self.key[0], api_secret=self.key[1])
+            c = CensysCertificates(api_id=self.key[0], api_secret=self.key[1], user_agent=f"censys/2.0.0 (theHarvester/{Core.version()}; +https://github.com/laramies/theHarvester)")
         except CensysUnauthorizedException:
             raise MissingKey("Censys ID and/or Secret")
 
