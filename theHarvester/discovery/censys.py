@@ -19,13 +19,20 @@ class SearchCensys:
 
     async def do_search(self):
         try:
-            c = CensysCertificates(api_id=self.key[0], api_secret=self.key[1], user_agent=f"censys/2.0.0 (theHarvester/{Core.version()}; +https://github.com/laramies/theHarvester)")
+            c = CensysCertificates(
+                api_id=self.key[0],
+                api_secret=self.key[1],
+                user_agent=f"censys/2.0.0 (theHarvester/{Core.version()}; +https://github.com/laramies/theHarvester)",
+            )
         except CensysUnauthorizedException:
             raise MissingKey("Censys ID and/or Secret")
 
         query = f"parsed.names: {self.word}"
         try:
-            response = c.search(query=query, fields=["parsed.names", "metadata", "parsed.subject.email_address"])
+            response = c.search(
+                query=query,
+                fields=["parsed.names", "metadata", "parsed.subject.email_address"],
+            )
             for cert in response:
                 self.totalhosts.update(cert.get("parsed.names", []))
                 self.emails.update(cert.get("parsed.subject.email_address", []))
