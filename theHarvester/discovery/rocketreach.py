@@ -29,4 +29,3 @@ class SearchRocketreach:
     # async def get_emails(self):
     #     rawres = myparser.Parser(self.total_results, self.word)
     #     return await rawres.emails()
-
