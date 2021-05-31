@@ -4,7 +4,7 @@ aiomultiprocess==0.9.0
 aiosqlite==0.17.0
 beautifulsoup4==4.9.3
 censys==1.1.1
-certifi==2020.12.5
+certifi==2021.5.30
 dnspython==2.1.0
 netaddr==0.8.0
 plotly==4.14.3
