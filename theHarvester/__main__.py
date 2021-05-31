@@ -9,7 +9,7 @@ from theHarvester.lib import stash
 from theHarvester.lib.core import *
 import argparse
 import asyncio
-import json
+import orjson
 import netaddr
 import re
 import sys
@@ -828,8 +828,8 @@ async def start(rest_args=None):
                     shodanalysis = sorted(set(shodanalysis))
                     shodan_dict["servers"] = [server for server in shodanalysis]
             json_dict["shodan"] = shodan_dict
-            with open(filename, 'w+') as json_file:
-                json.dump(json_dict, json_file, indent=4)
+            with open(filename, 'wb+') as fp:
+                fp.write(orjson.dumps(json_dict, option=orjson.OPT_SORT_KEYS))
             print('[*] JSON File saved.')
         except Exception as error:
             print(f'\033[93m[!] An error occurred while saving the JSON file: {error} \033[0m')

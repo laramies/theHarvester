@@ -5,6 +5,7 @@
 *.htm
 *.vscode
 *.xml
+*.json
 debug_results.txt
 venv
 .mypy_cache
