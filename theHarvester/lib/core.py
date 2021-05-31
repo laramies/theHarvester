@@ -29,6 +29,10 @@ class Core:
         return keys['apikeys']
 
     @staticmethod
+    def binaryedge_key() -> str:
+        return Core.api_keys()['binaryedge']['key']
+
+    @staticmethod
     def bing_key() -> str:
         return Core.api_keys()['bing']['key']
 
@@ -73,6 +77,10 @@ class Core:
         return Core.api_keys()['spyse']['key']
 
     @staticmethod
+    def zoomeye_key() -> str:
+        return Core.api_keys()['zoomEye']['key']
+
+    @staticmethod
     def proxy_list() -> List:
         try:
             with open('/etc/theHarvester/proxies.yaml', 'r') as proxy_file:
@@ -106,6 +114,7 @@ class Core:
     @staticmethod
     def get_supportedengines() -> Set[Union[str, Any]]:
         supportedengines = {'baidu',
+                            'binaryedge',
                             'bing',
                             'bingapi',
                             'bufferoverun',
@@ -140,6 +149,7 @@ class Core:
                             'urlscan',
                             'virustotal',
                             'yahoo',
+                            'zoomeye'
                             }
         return supportedengines
 

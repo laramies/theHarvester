@@ -78,20 +78,20 @@ async def dnsbrute(request: Request, user_agent: str = Header(None),
     if user_agent and ('gobuster' in user_agent or 'sqlmap' in user_agent or 'rustbuster' in user_agent):
         response = RedirectResponse(app.url_path_for('bot'))
         return response
-    dns_bruteforce = await __main__.entry_point(argparse.Namespace(dns_brute=True,
-                                                                   dns_lookup=False,
-                                                                   dns_server=False,
-                                                                   dns_tld=False,
-                                                                   domain=domain,
-                                                                   filename='',
-                                                                   google_dork=False,
-                                                                   limit=500,
-                                                                   proxies=False,
-                                                                   shodan=False,
-                                                                   source=','.join([]),
-                                                                   start=0,
-                                                                   take_over=False,
-                                                                   virtual_host=False))
+    dns_bruteforce = await __main__.start(argparse.Namespace(dns_brute=True,
+                                                             dns_lookup=False,
+                                                             dns_server=False,
+                                                             dns_tld=False,
+                                                             domain=domain,
+                                                             filename='',
+                                                             google_dork=False,
+                                                             limit=500,
+                                                             proxies=False,
+                                                             shodan=False,
+                                                             source=','.join([]),
+                                                             start=0,
+                                                             take_over=False,
+                                                             virtual_host=False))
     return {'dns_bruteforce': dns_bruteforce}
 
 
@@ -115,7 +115,7 @@ async def query(request: Request, dns_server: str = Query(""), user_agent: str =
         response = RedirectResponse(app.url_path_for('bot'))
         return response
     try:
-        emails, ips, urls, html_filename, xml_filename = await __main__.start(argparse.Namespace(dns_brute=dns_brute,
+        emails, ips, urls, xml_filename = await __main__.start(argparse.Namespace(dns_brute=dns_brute,
                                                                                                  dns_lookup=dns_lookup,
                                                                                                  dns_server=dns_server,
                                                                                                  dns_tld=dns_tld,
@@ -130,7 +130,6 @@ async def query(request: Request, dns_server: str = Query(""), user_agent: str =
                                                                                                  take_over=take_over,
                                                                                                  virtual_host=virtual_host))
 
-        return {'domain': f'{domain}', 'emails': emails, 'ips': ips, 'urls': urls, 'html_file': f'{html_filename}',
-                'xml_file': f'{xml_filename}'}
+        return {'domain': f'{domain}', 'emails': emails, 'ips': ips, 'urls': urls, 'xml_file': f'{xml_filename}'}
     except Exception as e:
         return {'exception': f'{e}'}

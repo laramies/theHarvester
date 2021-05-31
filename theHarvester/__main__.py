@@ -1,23 +1,24 @@
 #!/usr/bin/env python3
 
+from typing import Dict, List
 from theHarvester.discovery import *
 from theHarvester.discovery import dnssearch, takeover, shodansearch
 from theHarvester.discovery.constants import *
 from theHarvester.lib import hostchecker
-from theHarvester.lib import reportgraph
 from theHarvester.lib import stash
-from theHarvester.lib import statichtmlgenerator
 from theHarvester.lib.core import *
 import argparse
 import asyncio
-import datetime
+import aiofiles
 import json
 import netaddr
 import re
 import sys
+import string
+import secrets
 
 
-async def start():
+async def start(rest_args=None):
     """Main program function"""
     parser = argparse.ArgumentParser(description='theHarvester is used to gather open source intelligence (OSINT) on a company or domain.')
     parser.add_argument('-d', '--domain', help='Company name or domain to search.', required=True)
@@ -33,36 +34,54 @@ async def start():
     parser.add_argument('-r', '--take-over', help='Check for takeovers.', default=False, action='store_true')
     parser.add_argument('-n', '--dns-lookup', help='Enable DNS server lookup, default False.', default=False, action='store_true')
     parser.add_argument('-c', '--dns-brute', help='Perform a DNS brute force on the domain.', default=False, action='store_true')
-    parser.add_argument('-f', '--filename', help='Save the results to an HTML,XML and JSON file.', default='', type=str)
-    parser.add_argument('-b', '--source', help='''baidu, bing, bingapi, bufferoverun, censys, certspotter, crtsh,
+    parser.add_argument('-f', '--filename', help='Save the results to an XML and JSON file.', default='', type=str)
+    parser.add_argument('-b', '--source', help='''baidu, bing, binaryedge, bingapi, bufferoverun, censys, certspotter, crtsh,
                             dnsdumpster, duckduckgo, exalead, github-code, google,
                             hackertarget, hunter, intelx, linkedin, linkedin_links,
                             netcraft, omnisint, otx, pentesttools, projectdiscovery,
                             qwant, rapiddns, rocketreach, securityTrails, spyse, sublist3r, threatcrowd, threatminer,
-                            trello, twitter, urlscan, virustotal, yahoo''')
+                            trello, twitter, urlscan, virustotal, yahoo, zoomeye''')
 
-    args = parser.parse_args()
-    filename: str = args.filename
-    dnsbrute = (args.dns_brute, False)
+    # determines if filename is coming from rest api or user
+    rest_filename = ''
+    # indicates this from the rest API
+    if rest_args:
+        if rest_args.source and rest_args.source == "getsources":
+            return list(sorted(Core.get_supportedengines()))
+        elif rest_args.dns_brute:
+            args = rest_args
+            dnsbrute = (rest_args.dns_brute, True)
+        else:
+            args = rest_args
+            # We need to make sure the filename is random as to not overwrite other files
+            filename: str = args.filename
+            alphabet = string.ascii_letters + string.digits
+            rest_filename += f"{''.join(secrets.choice(alphabet) for _ in range(32))}_{filename}" \
+                if len(filename) != 0 else ""
+
+    else:
+        args = parser.parse_args()
+        filename: str = args.filename
+        dnsbrute = (args.dns_brute, False)
     try:
         db = stash.StashManager()
         await db.do_init()
     except Exception:
         pass
 
-    all_emails: list = []
-    all_hosts: list = []
-    all_ip: list = []
+    all_emails: List = []
+    all_hosts: List = []
+    all_ip: List = []
     dnslookup = args.dns_lookup
     dnsserver = args.dns_server
     dnstld = args.dns_tld
-    engines = []
+    engines: List = []
     # If the user specifies
 
-    full: list = []
-    ips: list = []
+    full: List = []
+    ips: List = []
     google_dorking = args.google_dork
-    host_ip: list = []
+    host_ip: List = []
     limit: int = args.limit
     shodan = args.shodan
     start: int = args.start
@@ -72,13 +91,16 @@ async def start():
     word: str = args.domain
     takeover_status = args.take_over
     use_proxy = args.proxies
-    linkedin_people_list_tracker: list = []
-    linkedin_links_tracker: list = []
-    twitter_people_list_tracker: list = []
+    linkedin_people_list_tracker: List = []
+    linkedin_links_tracker: List = []
+    twitter_people_list_tracker: List = []
+    interesting_urls: list = []
+    total_asns: list = []
 
     async def store(search_engine: Any, source: str, process_param: Any = None, store_host: bool = False,
                     store_emails: bool = False, store_ip: bool = False, store_people: bool = False,
-                    store_links: bool = False, store_results: bool = False) -> None:
+                    store_links: bool = False, store_results: bool = False,
+                    store_interestingurls: bool = False, store_asns: bool = False) -> None:
         """
         Persist details into the database.
         The details to be stored is controlled by the parameters passed to the method.
@@ -92,6 +114,8 @@ async def start():
         :param store_people: whether to store user details
         :param store_links: whether to store links
         :param store_results: whether to fetch details from get_results() and persist
+        :param store_interestingurls: whether to store interesting urls
+        :param store_asns: whether to store asns
         """
         await search_engine.process(use_proxy) if process_param is None else await \
             search_engine.process(process_param, use_proxy)
@@ -128,24 +152,28 @@ async def start():
             await db.store_all(word, all_emails, 'email', source)
         if store_people:
             people_list = await search_engine.get_people()
+            if source == 'twitter':
+                twitter_people_list_tracker.extend(people_list)
+            if source == 'linkedin':
+                linkedin_people_list_tracker.extend(people_list)
             await db_stash.store_all(word, people_list, 'people', source)
-            if len(people_list) == 0:
-                print('\n[*] No users found.\n\n')
-            else:
-                print('\n[*] Users found: ' + str(len(people_list)))
-                print('---------------------')
-                for usr in sorted(list(set(people_list))):
-                    print(usr)
+
         if store_links:
             links = await search_engine.get_links()
-            await db.store_all(word, links, 'name', engineitem)
-            if len(links) == 0:
-                print('\n[*] No links found.\n\n')
-            else:
-                print(f'\n[*] Links found: {len(links)}')
-                print('---------------------')
-                for link in sorted(list(set(links))):
-                    print(link)
+            linkedin_links_tracker.extend(links)
+            if len(links) > 0:
+                await db.store_all(word, links, 'linkedinlinks', engineitem)
+
+        if store_interestingurls:
+            iurls = await search_engine.get_interestingurls()
+            interesting_urls.extend(iurls)
+            if len(iurls) > 0:
+                await db.store_all(word, iurls, 'interestingurl', engineitem)
+        if store_asns:
+            fasns = await search_engine.get_asns()
+            total_asns.extend(fasns)
+            if len(fasns) > 0:
+                await db.store_all(word, fasns, 'asns', engineitem)
 
     stor_lst = []
     if args.source is not None:
@@ -163,8 +191,16 @@ async def start():
                     try:
                         baidu_search = baidusearch.SearchBaidu(word, limit)
                         stor_lst.append(store(baidu_search, engineitem, store_host=True, store_emails=True))
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        print(e)
+
+                elif engineitem == 'binaryedge':
+                    from theHarvester.discovery import binaryedgesearch
+                    try:
+                        binaryedge_search = binaryedgesearch.SearchBinaryEdge(word, limit)
+                        stor_lst.append(store(binaryedge_search, engineitem, store_host=True))
+                    except Exception as e:
+                        print(e)
 
                 elif engineitem == 'bing' or engineitem == 'bingapi':
                     from theHarvester.discovery import bingsearch
@@ -220,7 +256,7 @@ async def start():
                     try:
                         from theHarvester.discovery import dnsdumpster
                         dns_dumpster_search = dnsdumpster.SearchDnsDumpster(word)
-                        stor_lst.append(store(dns_dumpster_search, engineitem, store_host=True))
+                        stor_lst.append(store(dns_dumpster_search, engineitem, store_host=True, store_ip=True))
                     except Exception as e:
                         print(f'\033[93m[!] An error occurred with dnsdumpster: {e} \033[0m')
 
@@ -272,7 +308,7 @@ async def start():
                     # Import locally or won't work.
                     try:
                         intelx_search = intelxsearch.SearchIntelx(word)
-                        stor_lst.append(store(intelx_search, engineitem, store_host=True, store_emails=True))
+                        stor_lst.append(store(intelx_search, engineitem, store_interestingurls=True, store_emails=True))
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             print(e)
@@ -387,7 +423,7 @@ async def start():
                     from theHarvester.discovery import threatcrowd
                     try:
                         threatcrowd_search = threatcrowd.SearchThreatcrowd(word)
-                        stor_lst.append(store(threatcrowd_search, engineitem, store_host=True))
+                        stor_lst.append(store(threatcrowd_search, engineitem, store_host=True, store_ip=True))
                     except Exception as e:
                         print(e)
 
@@ -395,7 +431,7 @@ async def start():
                     from theHarvester.discovery import threatminer
                     try:
                         threatminer_search = threatminer.SearchThreatminer(word)
-                        stor_lst.append(store(threatminer_search, engineitem, store_host=True))
+                        stor_lst.append(store(threatminer_search, engineitem, store_host=True, store_ip=True))
                     except Exception as e:
                         print(e)
 
@@ -414,7 +450,8 @@ async def start():
                     from theHarvester.discovery import urlscan
                     try:
                         urlscan_search = urlscan.SearchUrlscan(word)
-                        stor_lst.append(store(urlscan_search, engineitem, store_host=True, store_ip=True))
+                        stor_lst.append(store(urlscan_search, engineitem, store_host=True, store_ip=True,
+                                              store_interestingurls=True, store_asns=True))
                     except Exception as e:
                         print(e)
 
@@ -424,13 +461,22 @@ async def start():
                     stor_lst.append(store(virustotal_search, engineitem, store_host=True))
 
                 elif engineitem == 'yahoo':
-
                     from theHarvester.discovery import yahoosearch
                     yahoo_search = yahoosearch.SearchYahoo(word, limit)
                     stor_lst.append(store(yahoo_search, engineitem, store_host=True, store_emails=True))
+
+                elif engineitem == 'zoomeye':
+                    from theHarvester.discovery import zoomeyesearch
+                    zoomeye_search = zoomeyesearch.SearchZoomEye(word, limit)
+                    stor_lst.append(store(zoomeye_search, engineitem, store_host=True, store_emails=True,
+                                          store_ip=True, store_interestingurls=True, store_asns=True))
         else:
-            print('\033[93m[!] Invalid source.\n\n \033[0m')
-            sys.exit(1)
+            try:
+                # Check if dns_brute is defined
+                rest_args.dns_brute
+            except Exception:
+                print('\033[93m[!] Invalid source.\n\n \033[0m')
+                sys.exit(1)
 
     async def worker(queue):
         while True:
@@ -465,6 +511,15 @@ async def start():
         await asyncio.gather(*tasks, return_exceptions=True)
 
     await handler(lst=stor_lst)
+    return_ips: List = []
+    if rest_args is not None and len(rest_filename) == 0 and rest_args.dns_brute is False:
+        # Indicates user is using rest api but not wanting output to be saved to a file
+        full = [host if ':' in host and word in host else word in host.split(':')[0] and host for host in full]
+        full = list({host for host in full if host})
+        full.sort()
+        # cast to string so Rest API can understand type
+        return_ips.extend([str(ip) for ip in sorted([netaddr.IPAddress(ip.strip()) for ip in set(all_ip)])])
+        return list(set(all_emails)), return_ips, full, '', ''
     # Sanity check to see if all_emails and all_hosts are defined.
     try:
         all_emails
@@ -526,6 +581,9 @@ async def start():
         hosts, ips = await dns_force.run()
         hosts = list({host for host in hosts if ':' in host})
         hosts.sort(key=lambda el: el.split(':')[0])
+        # Check if Rest API is being used if so return found hosts
+        if dnsbrute[1]:
+            return hosts
         print('\n[*] Hosts found after DNS brute force:')
         db = stash.StashManager()
         for host in hosts:
@@ -677,59 +735,24 @@ async def start():
     if args.dns_tld is not False:
         counter = 0
         for word in vhost:
-            search = googlesearch.SearchGoogle(word, limit, counter)
-            await search.process(google_dorking)
-            emails = await search.get_emails()
-            hosts = await search.get_hostnames()
+            search_google = googlesearch.SearchGoogle(word, limit, counter)
+            await search_google.process(google_dorking)
+            emails = await search_google.get_emails()
+            hosts = await search_google.get_hostnames()
             print(emails)
             print(hosts)
     else:
         pass
 
     # Reporting
-    if filename != "":
+    if filename != '':
+        print('\n[*] Reporting started.')
         try:
-            print('\n[*] Reporting started.')
-            db = stash.StashManager()
-            scanboarddata = await db.getscanboarddata()
-            latestscanresults = await db.getlatestscanresults(word)
-            previousscanresults = await db.getlatestscanresults(word, previousday=True)
-            latestscanchartdata = await db.latestscanchartdata(word)
-            scanhistorydomain = await db.getscanhistorydomain(word)
-            pluginscanstatistics = await db.getpluginscanstatistics()
-            generator = statichtmlgenerator.HtmlGenerator(word)
-            html_code = await generator.beginhtml()
-            html_code += await generator.generatedashboardcode(scanboarddata)
-            html_code += await generator.generatelatestscanresults(latestscanresults)
-            if len(screenshot_tups) > 0:
-                html_code += await generator.generatescreenshots(screenshot_tups)
-            html_code += await generator.generatepreviousscanresults(previousscanresults)
-            graph = reportgraph.GraphGenerator(word)
-            await graph.init_db()
-            html_code += await graph.drawlatestscangraph(word, latestscanchartdata)
-            html_code += await graph.drawscattergraphscanhistory(word, scanhistorydomain)
-            html_code += await generator.generatepluginscanstatistics(pluginscanstatistics)
-            html_code += '<p><span style="color: #000000;">Report generated on ' + str(
-                datetime.datetime.now()) + '</span></p>'
-            html_code += '''
-               </body>
-               </html>
-               '''
-        except Exception as e:
-            print(e)
-            print('\n\033[93m[!] An error occurred while creating the output file.\n\n \033[0m')
-            sys.exit(1)
-
-        html_file = open(f'{filename}.html' if '.html' not in filename else filename, 'w')
-        html_file.write(html_code)
-        html_file.close()
-        print('[*] Reporting finished.')
-        print('[*] Saving files.')
-
-        try:
-            # XML REPORT SECTION
-            filename = filename.rsplit('.', 1)[0] + '.xml'
-
+            if len(rest_filename) == 0:
+                filename = filename.rsplit('.', 1)[0] + '.xml'
+            else:
+                filename = 'theHarvester/app/static/' + rest_filename.rsplit('.', 1)[0] + '.xml'
+            # TODO use aiofiles if user is using rest api
             with open(filename, 'w+') as file:
                 file.write('<?xml version="1.0" encoding="UTF-8"?><theHarvester>')
                 for x in all_emails:
@@ -767,16 +790,16 @@ async def start():
                         file.write('</servers>')
 
                 file.write('</theHarvester>')
-            print('[*] XML File saved.')
-        except Exception as er:
-            print(f'\033[93m[!] An error occurred while saving the XML file: {er} \033[0m')
+                print('[*] XML File saved.')
+        except Exception as error:
+            print(f'\033[93m[!] An error occurred while saving the XML file: {error} \033[0m')
 
         try:
             # JSON REPORT SECTION
             filename = filename.rsplit('.', 1)[0] + '.json'
 
             # create dict with values for json output
-            json_dict = dict()
+            json_dict: Dict = dict()
 
             json_dict["emails"] = [email for email in all_emails]
             json_dict["hosts"] = [host for host in full]
@@ -791,9 +814,9 @@ async def start():
             if len(linkedin_links_tracker) > 0:
                 json_dict["linkedin_links"] = [link for link in list(sorted(set(linkedin_links_tracker)))]
 
-            shodan_dict = dict()
+            shodan_dict: Dict = dict()
             if shodanres != []:
-                shodanalysis = []
+                shodanalysis: List = []
                 for x in shodanres:
                     res = x.split('SAPO')
                     shodan_dict[res[0]] = [res[2], [res[1]]]

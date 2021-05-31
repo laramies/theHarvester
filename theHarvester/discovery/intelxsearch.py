@@ -25,8 +25,8 @@ class SearchIntelx:
             # Based on: https://github.com/IntelligenceX/SDK/blob/master/Python/intelxapi.py
             # API requests self identification
             # https://intelx.io/integrations
-            headers: dict = {'x-key': self.key, 'User-Agent': f'{Core.get_user_agent()}-theHarvester'}
-            data: dict = {
+            headers = {'x-key': self.key, 'User-Agent': f'{Core.get_user_agent()}-theHarvester'}
+            data = {
                 "term": self.word,
                 "buckets": [],
                 "lookuplevel": 0,
@@ -59,8 +59,8 @@ class SearchIntelx:
         intelx_parser = intelxparser.Parser()
         self.info = await intelx_parser.parse_dictionaries(self.results)
 
-    async def get_emails(self) -> Set:
+    async def get_emails(self):
         return self.info[0]
 
-    async def get_hostnames(self) -> Set:
+    async def get_interestingurls(self):
         return self.info[1]
