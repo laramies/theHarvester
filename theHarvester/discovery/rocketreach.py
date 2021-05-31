@@ -25,15 +25,10 @@ class SearchRocketReach:
                 'User-Agent': Core.get_user_agent()
             }
 
-            import pprint as pp
-
-            # linkedin_urls = set()
             for page in range(1, self.limit):
                 data = f'{{"query":{{"company_website_url": ["{self.word}"]}}, "start": {page}}}'
                 result = await AsyncFetcher.post_fetch(self.baseurl, headers=headers, data=data, json=True)
-
-                if 'detail' in result.keys() and 'error' in result.keys() and 'Subscribe to a plan to access' in result[
-                    'detail']:
+                if 'detail' in result.keys() and 'error' in result.keys() and 'Subscribe to a plan to access' in result['detail']:
                     # No more results can be fetched
                     break
                 if 'detail' in result.keys() and 'Request was throttled.' in result['detail']:

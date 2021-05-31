@@ -9,7 +9,6 @@ from theHarvester.lib import stash
 from theHarvester.lib.core import *
 import argparse
 import asyncio
-import aiofiles
 import json
 import netaddr
 import re

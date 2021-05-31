@@ -116,19 +116,19 @@ async def query(request: Request, dns_server: str = Query(""), user_agent: str =
         return response
     try:
         emails, ips, urls, xml_filename = await __main__.start(argparse.Namespace(dns_brute=dns_brute,
-                                                                                                 dns_lookup=dns_lookup,
-                                                                                                 dns_server=dns_server,
-                                                                                                 dns_tld=dns_tld,
-                                                                                                 domain=domain,
-                                                                                                 filename=filename,
-                                                                                                 google_dork=google_dork,
-                                                                                                 limit=limit,
-                                                                                                 proxies=proxies,
-                                                                                                 shodan=shodan,
-                                                                                                 source=','.join(source),
-                                                                                                 start=start,
-                                                                                                 take_over=take_over,
-                                                                                                 virtual_host=virtual_host))
+                                                                                  dns_lookup=dns_lookup,
+                                                                                  dns_server=dns_server,
+                                                                                  dns_tld=dns_tld,
+                                                                                  domain=domain,
+                                                                                  filename=filename,
+                                                                                  google_dork=google_dork,
+                                                                                  limit=limit,
+                                                                                  proxies=proxies,
+                                                                                  shodan=shodan,
+                                                                                  source=','.join(source),
+                                                                                  start=start,
+                                                                                  take_over=take_over,
+                                                                                  virtual_host=virtual_host))
 
         return {'domain': f'{domain}', 'emails': emails, 'ips': ips, 'urls': urls, 'xml_file': f'{xml_filename}'}
     except Exception as e:

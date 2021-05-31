@@ -17,8 +17,7 @@ class SearchUrlscan:
         resp = response[0]
         self.totalhosts = {f"{page['page']['domain']}" for page in resp['results']}
         self.totalips = {f"{page['page']['ip']}" for page in resp['results'] if 'ip' in page['page'].keys()}
-        self.interestingurls = {f"{page['page']['url']}" for page in resp['results'] if self.word in page['page']['url']
-                                and 'url' in page['page'].keys()}
+        self.interestingurls = {f"{page['page']['url']}" for page in resp['results'] if self.word in page['page']['url'] and 'url' in page['page'].keys()}
         self.totalasns = {f"{page['page']['asn']}" for page in resp['results'] if 'asn' in page['page'].keys()}
 
     async def get_hostnames(self) -> List:
