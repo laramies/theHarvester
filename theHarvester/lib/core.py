@@ -7,12 +7,12 @@ import aiohttp
 import random
 import ssl
 import certifi
-
+from .version import __version__
 
 class Core:
     @staticmethod
     def version() -> str:
-        return '3.2.4'
+        return __version__
 
     @staticmethod
     def api_keys() -> dict:
