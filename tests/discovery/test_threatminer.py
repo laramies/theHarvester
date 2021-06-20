@@ -23,6 +23,7 @@ class TestThreatminer(object):
         search = threatminer.SearchThreatminer(TestThreatminer.domain())
         await search.process()
         assert isinstance(await search.get_hostnames(), set)
+        assert isinstance(await search.get_ips(), set)
 
 
 if __name__ == '__main__':
