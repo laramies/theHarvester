@@ -19,7 +19,7 @@ class TestSublist3r(object):
         request = requests.get(base_url, headers=headers)
         assert request.status_code == 200
 
-    async def test_search(self):
+    async def test_do_search(self):
         search = sublist3r.SearchSublist3r(TestSublist3r.domain())
         await search.process()
         assert isinstance(await search.get_hostnames(), list)
