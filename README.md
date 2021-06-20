@@ -12,6 +12,8 @@ multiple public data sources that include:
 
 Passive:
 --------
+* anubis: Anubis-DB - https://github.com/jonluca/anubis
+
 * baidu: Baidu search engine - www.baidu.com
 
 * bing: Microsoft search engine - www.bing.com

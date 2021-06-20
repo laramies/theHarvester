@@ -113,7 +113,8 @@ class Core:
 
     @staticmethod
     def get_supportedengines() -> Set[Union[str, Any]]:
-        supportedengines = {'baidu',
+        supportedengines = {'anubis',
+                            'baidu',
                             'binaryedge',
                             'bing',
                             'bingapi',

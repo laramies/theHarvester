@@ -45,6 +45,10 @@ jobs:
         mypy --pretty theHarvester/*/*.py
         mypy --pretty theHarvester/*/*/*.py
 
+    - name: Run theHarvester module Anubis
+      run: |
+        python theHarvester.py -d apple.com -b anubis
+
     - name: Run theHarvester module Baidu
       run: |
         python theHarvester.py -d yale.edu -b baidu
