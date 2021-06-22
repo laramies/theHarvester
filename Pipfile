@@ -25,7 +25,7 @@ uvloop = "==0.15.2"
 
 [dev-packages]
 flake8 = "==3.8.4"
-mypy = "==0.812"
+mypy = "==0.910"
 mypy-extensions = "==0.4.3"
 pyflakes = "==2.2.0"
 pytest ="==6.2.3"
