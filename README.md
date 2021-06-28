@@ -32,8 +32,6 @@ Passive:
 
 * duckduckgo: DuckDuckGo search engine - www.duckduckgo.com
 
-* exalead: a Meta search engine - www.exalead.com/search
-
 * github-code: GitHub code search engine (Requires a GitHub Personal Access Token, see below.) - www.github.com
 
 * google: Google search engine (Optional Google dorking.) - www.google.com

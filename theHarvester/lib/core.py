@@ -124,7 +124,6 @@ class Core:
                             'crtsh',
                             'dnsdumpster',
                             'duckduckgo',
-                            'exalead',
                             'github-code',
                             'google',
                             'hackertarget',

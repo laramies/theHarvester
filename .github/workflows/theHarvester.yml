@@ -77,10 +77,6 @@ jobs:
       run: |
         python theHarvester.py -d yale.edu -b duckduckgo
 
-    - name: Run theHarvester module Exalead
-      run: |
-        python theHarvester.py -d yale.edu -b exalead
-
     - name: Run theHarvester module Google
       run: |
         python theHarvester.py -d yale.edu -b google

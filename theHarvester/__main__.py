@@ -34,7 +34,7 @@ async def start(rest_args=None):
     parser.add_argument('-c', '--dns-brute', help='Perform a DNS brute force on the domain.', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='Save the results to an XML and JSON file.', default='', type=str)
     parser.add_argument('-b', '--source', help='''anubis, baidu, bing, binaryedge, bingapi, bufferoverun, censys, certspotter, crtsh,
-                            dnsdumpster, duckduckgo, exalead, github-code, google,
+                            dnsdumpster, duckduckgo, github-code, google,
                             hackertarget, hunter, intelx, linkedin, linkedin_links,
                             netcraft, omnisint, otx, pentesttools, projectdiscovery,
                             qwant, rapiddns, rocketreach, securityTrails, spyse, sublist3r, threatcrowd, threatminer,
@@ -276,11 +276,6 @@ async def start(rest_args=None):
                     from theHarvester.discovery import duckduckgosearch
                     duckduckgo_search = duckduckgosearch.SearchDuckDuckGo(word, limit)
                     stor_lst.append(store(duckduckgo_search, engineitem, store_host=True, store_emails=True))
-
-                elif engineitem == 'exalead':
-                    from theHarvester.discovery import exaleadsearch
-                    exalead_search = exaleadsearch.SearchExalead(word, limit, start)
-                    stor_lst.append(store(exalead_search, engineitem, store_host=True, store_emails=True))
 
                 elif engineitem == 'github-code':
                     try:
