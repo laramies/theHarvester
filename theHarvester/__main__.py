@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import pprint
 from typing import Dict, List
 from theHarvester.discovery import *
 from theHarvester.discovery import dnssearch, takeover, shodansearch
