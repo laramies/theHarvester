@@ -10,7 +10,7 @@ dnspython==2.1.0
 fastapi==0.65.2
 netaddr==0.8.0
 orjson==3.5.3
-plotly==4.14.3
+plotly==5.0.0
 pyppeteer==0.2.5
 PyYAML==5.4.1
 requests==2.25.1
