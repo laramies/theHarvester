@@ -1,6 +1,6 @@
 import argparse
 from typing import List
-
+import os
 from fastapi import FastAPI, Header, Query, Request
 from fastapi.responses import HTMLResponse, ORJSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -17,7 +17,13 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # This is where we will host files that arise if the user specifies a filename
-app.mount('/static', StaticFiles(directory='theHarvester/lib/api/static/'), name='static')
+try:
+    app.mount('/static', StaticFiles(directory='theHarvester/lib/api/static/'), name='static')
+except RuntimeError:
+    static_path = os.path.expanduser('~/.local/share/theHarvester/static/')
+    if not os.path.isdir(static_path):
+        os.makedirs(static_path)
+        app.mount('/static', StaticFiles(directory='~/.local/share/theHarvester/static/'), name='static')
 
 
 @app.get('/', response_class=HTMLResponse)
