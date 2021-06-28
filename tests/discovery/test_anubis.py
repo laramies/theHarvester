@@ -27,4 +27,3 @@ class TestAnubis:
     async def test_process(self):
         await self.test_do_search()
         assert len(await self.test_do_search()) > 0
-
