@@ -1,10 +1,11 @@
-FROM python:alpine3.13
+FROM ubuntu:hirsute
+LABEL maintainer="@jay_townsend1 & @NotoriousRebel1"
 RUN mkdir /app
 WORKDIR /app
 COPY . /app
-RUN apk add --no-cache build-base libffi-dev libxml2-dev libxslt-dev
-RUN /usr/local/bin/python -m pip install --upgrade pip
-RUN /usr/local/bin/python --version
-RUN pip3 install --no-cache-dir -r requirements.txt
-RUN chmod +x ./*.py
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt update && apt install -qy python3 python3-pip libffi-dev libxml2-dev libxslt1-dev && /usr/bin/python3 -m pip install --upgrade pip && apt clean && apt autoremove -qy
+RUN /usr/bin/python3 --version && pip3 install --no-cache-dir -r requirements.txt && chmod +x ./*.py
 ENTRYPOINT ["/app/theHarvester.py"]
+ENTRYPOINT ["/app/restfulHarvest.py -H 0.0.0.0 -p 80"]
+EXPOSE 80

@@ -1,0 +1,10 @@
+.github/*
+.gitattributes
+.idea/
+.lgtm.yml
+mypy.ini
+.pytest_cache
+.mypy_cache
+tests/*
+README/
+bin/
