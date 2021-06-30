@@ -473,10 +473,16 @@ async def start(rest_args=None):
                     stor_lst.append(store(yahoo_search, engineitem, store_host=True, store_emails=True))
 
                 elif engineitem == 'zoomeye':
-                    from theHarvester.discovery import zoomeyesearch
-                    zoomeye_search = zoomeyesearch.SearchZoomEye(word, limit)
-                    stor_lst.append(store(zoomeye_search, engineitem, store_host=True, store_emails=True,
-                                          store_ip=True, store_interestingurls=True, store_asns=True))
+                    try:
+                        from theHarvester.discovery import zoomeyesearch
+                        zoomeye_search = zoomeyesearch.SearchZoomEye(word, limit)
+                        stor_lst.append(store(zoomeye_search, engineitem, store_host=True, store_emails=True,
+                                              store_ip=True, store_interestingurls=True, store_asns=True))
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            print(e)
+                        else:
+                            pass
         else:
             try:
                 # Check if dns_brute is defined
@@ -502,9 +508,9 @@ async def start(rest_args=None):
         for stor_method in lst:
             # enqueue the coroutines
             queue.put_nowait(stor_method)
-        # Create five worker tasks to process the queue concurrently.
+        # Create three worker tasks to process the queue concurrently.
         tasks = []
-        for i in range(5):
+        for i in range(3):
             task = asyncio.create_task(worker(queue))
             tasks.append(task)
 
@@ -526,7 +532,9 @@ async def start(rest_args=None):
         full.sort()
         # cast to string so Rest API can understand type
         return_ips.extend([str(ip) for ip in sorted([netaddr.IPAddress(ip.strip()) for ip in set(all_ip)])])
-        return list(set(all_emails)), return_ips, full, '', ''
+        # return list(set(all_emails)), return_ips, full, '', ''
+        return total_asns, interesting_urls, twitter_people_list_tracker, linkedin_people_list_tracker, \
+            linkedin_links_tracker, all_urls, all_ip, all_emails, all_hosts
     # Sanity check to see if all_emails and all_hosts are defined.
     try:
         all_emails
@@ -734,14 +742,14 @@ async def start(rest_args=None):
             if len(unique_resolved_domains) > 0:
                 # First filter out ones that didn't resolve
                 print('Attempting to visit unique resolved domains, this is ACTIVE RECON')
-                async with Pool(15) as pool:
+                async with Pool(12) as pool:
                     results = await pool.map(screen_shotter.visit, list(unique_resolved_domains))
                     # Filter out domains that we couldn't connect to
                     unique_resolved_domains = list(sorted({tup[0] for tup in results if len(tup[1]) > 0}))
                 async with Pool(3) as pool:
                     print(f'Length of unique resolved domains: {len(unique_resolved_domains)} chunking now!\n')
                     # If you have the resources you could make the function faster by increasing the chunk number
-                    chunk_number = 25
+                    chunk_number = 14
                     for chunk in screen_shotter.chunk_list(unique_resolved_domains, chunk_number):
                         try:
                             screenshot_tups.extend(await pool.map(screen_shotter.take_screenshot, chunk))
@@ -759,16 +767,7 @@ async def start(rest_args=None):
     # Shodan
     shodanres = []
     if shodan is True:
-        import texttable
-        tab = texttable.Texttable()
-        header = ['Asn', 'Domains', 'Hostnames', 'IP address',
-                  'Isp', 'Org', 'Ports', 'Product', 'Server',
-                  'Technologies', 'Title']
-        tab.header(header)
-        tab.set_cols_align(['c'] * len(header))
-        tab.set_cols_valign(['m'] * len(header))
-        tab.set_chars(['-', '|', '+', '#'])
-        tab.set_cols_width([20] * len(header))
+        import json
         print('\033[94m[*] Searching Shodan. \033[0m')
         try:
             for ip in host_ip:
@@ -778,19 +777,17 @@ async def start(rest_args=None):
                 await asyncio.sleep(2)
                 rowdata = []
                 for key, value in shodandict[ip].items():
-                    if str(value) == 'Not in Shodan' or \
-                            'Error occurred in the Shodan IP search module' in str(value):
-                        rowdata.append([value].extend([''] * (len(header) - 1)))
+                    if str(value) == 'Not in Shodan' or 'Error occurred in the Shodan IP search module' in str(value):
                         break
                     if isinstance(value, int):
                         value = str(value)
+
                     if isinstance(value, list):
                         value = ', '.join(map(str, value))
                     rowdata.append(value)
-                tab.add_row(rowdata)
                 shodanres.append(rowdata)
-            printedtable = tab.draw()
-            print(printedtable)
+                print(json.dumps(shodandict[ip], indent=4, sort_keys=True))
+                print('\n')
         except Exception as e:
             print(f'\033[93m[!] An error occurred with Shodan: {e} \033[0m')
     else:
@@ -846,7 +843,6 @@ async def start(rest_args=None):
             filename = filename.rsplit('.', 1)[0] + '.json'
             # create dict with values for json output
             json_dict: Dict = dict()
-
             # determine if variable exists
             # it should but just a sanity check
             if 'ip_list' in locals():
@@ -884,8 +880,8 @@ async def start(rest_args=None):
             with open(filename, 'wb+') as fp:
                 fp.write(orjson.dumps(json_dict, option=orjson.OPT_SORT_KEYS))
             print('[*] JSON File saved.')
-        except Exception as error:
-            print(f'\033[93m[!] An error occurred while saving the JSON file: {error} \033[0m')
+        except Exception as er:
+            print(f'\033[93m[!] An error occurred while saving the JSON file: {er} \033[0m')
         print('\n\n')
         sys.exit(0)
 
