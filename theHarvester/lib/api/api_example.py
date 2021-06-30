@@ -3,7 +3,6 @@ Example script to query theHarvester rest API, obtain results, and write out to 
 """
 
 import asyncio
-import sys
 import aiohttp
 import netaddr
 
@@ -103,7 +102,7 @@ async def main():
         print('\n[*] Emails found: ' + str(len(emails)))
         print('----------------------')
         all_emails = sorted(list(set(emails)))
-        print(('\n'.join(emails)))
+        print(('\n'.join(all_emails)))
 
     if len(hosts) == 0:
         print('\n[*] No hosts found.\n\n')
