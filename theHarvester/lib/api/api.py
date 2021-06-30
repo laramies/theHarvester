@@ -61,7 +61,7 @@ async def root(*, user_agent: str = Header(None)):
 @app.get('/nicebot')
 async def bot():
     # nice bot
-    string = {'bot': 'These are not the driods you are looking for'}
+    string = {'bot': 'These are not the droids you are looking for'}
     return string
 
 
@@ -121,21 +121,30 @@ async def query(request: Request, dns_server: str = Query(""), user_agent: str =
         response = RedirectResponse(app.url_path_for('bot'))
         return response
     try:
-        emails, ips, urls, xml_filename = await __main__.start(argparse.Namespace(dns_brute=dns_brute,
-                                                                                  dns_lookup=dns_lookup,
-                                                                                  dns_server=dns_server,
-                                                                                  dns_tld=dns_tld,
-                                                                                  domain=domain,
-                                                                                  filename=filename,
-                                                                                  google_dork=google_dork,
-                                                                                  limit=limit,
-                                                                                  proxies=proxies,
-                                                                                  shodan=shodan,
-                                                                                  source=','.join(source),
-                                                                                  start=start,
-                                                                                  take_over=take_over,
-                                                                                  virtual_host=virtual_host))
+        asns, iurls, twitter_people_list, \
+            linkedin_people_list, linkedin_links, \
+            aurls, aips, aemails, ahosts = await __main__.start(argparse.Namespace(dns_brute=dns_brute,
+                                                                                   dns_lookup=dns_lookup,
+                                                                                   dns_server=dns_server,
+                                                                                   dns_tld=dns_tld,
+                                                                                   domain=domain,
+                                                                                   filename=filename,
+                                                                                   google_dork=google_dork,
+                                                                                   limit=limit,
+                                                                                   proxies=proxies,
+                                                                                   shodan=shodan,
+                                                                                   source=','.join(source),
+                                                                                   start=start,
+                                                                                   take_over=take_over,
+                                                                                   virtual_host=virtual_host))
 
-        return {'domain': f'{domain}', 'emails': emails, 'ips': ips, 'urls': urls, 'xml_file': f'{xml_filename}'}
+        return {'asns': asns, 'interesting_urls': iurls,
+                'twitter_people': twitter_people_list,
+                'linkedin_people': linkedin_people_list,
+                'linkedin_links': linkedin_links,
+                'trello_urls': aurls,
+                'ips': aips,
+                'emails': aemails,
+                'hosts': ahosts}
     except Exception as e:
         return {'exception': f'{e}'}

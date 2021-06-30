@@ -3,9 +3,9 @@ Example script to query theHarvester rest API, obtain results, and write out to 
 """
 
 import asyncio
-import pprint
-
+import sys
 import aiohttp
+import netaddr
 
 
 async def fetch_json(session, url):
@@ -25,29 +25,92 @@ async def main():
     """
     url = "http://127.0.0.1:5000"
     domain = "netflix.com"
-    query_url = f'{url}/query?limit=300&filename=output&source=bing,baidu,duckduckgo,dogpile&domain={domain}'
+    query_url = f'{url}/query?limit=300&source=bing,baidu,duckduckgo,dogpile&domain={domain}'
     async with aiohttp.ClientSession() as session:
         fetched_json = await fetch_json(session, query_url)
-        emails = fetched_json["emails"]
-        ips = fetched_json["ips"]
-        urls = fetched_json["urls"]
-        html_filename = fetched_json["html_file"]
+        total_asns = fetched_json['asns']
+        interesting_urls = fetched_json['interesting_urls']
+        twitter_people_list_tracker = fetched_json['twitter_people']
+        linkedin_people_list_tracker = fetched_json['linkedin_people']
+        linkedin_links_tracker = fetched_json['linkedin_links']
+        trello_urls = fetched_json['trello_urls']
+        ips = fetched_json['ips']
+        emails = fetched_json['emails']
+        hosts = fetched_json['hosts']
 
-    async with aiohttp.ClientSession() as session:
-        html_file = await fetch(session, f"{url}{html_filename}")
+    if len(total_asns) > 0:
+        print(f'\n[*] ASNS found: {len(total_asns)}')
+        print('--------------------')
+        total_asns = list(sorted(set(total_asns)))
+        for asn in total_asns:
+            print(asn)
 
-    if len(html_file) > 0:
-        with open('results.html', 'w+') as fp:
-            fp.write(html_file)
+    if len(interesting_urls) > 0:
+        print(f'\n[*] Interesting Urls found: {len(interesting_urls)}')
+        print('--------------------')
+        interesting_urls = list(sorted(set(interesting_urls)))
+        for iurl in interesting_urls:
+            print(iurl)
 
-    print('Emails found: ')
-    pprint.pprint(emails, indent=4)
-    print('\n')
-    print('Ips found: ')
-    pprint.pprint(ips, indent=4)
-    print('\n')
-    print('Urls found: ')
-    pprint.pprint(urls, indent=4)
+    if len(twitter_people_list_tracker) == 0:
+        print('\n[*] No Twitter users found.\n\n')
+    else:
+        if len(twitter_people_list_tracker) >= 1:
+            print('\n[*] Twitter Users found: ' + str(len(twitter_people_list_tracker)))
+            print('---------------------')
+            twitter_people_list_tracker = list(sorted(set(twitter_people_list_tracker)))
+            for usr in twitter_people_list_tracker:
+                print(usr)
+
+    if len(linkedin_people_list_tracker) == 0:
+        print('\n[*] No LinkedIn users found.\n\n')
+    else:
+        if len(linkedin_people_list_tracker) >= 1:
+            print('\n[*] LinkedIn Users found: ' + str(len(linkedin_people_list_tracker)))
+            print('---------------------')
+            linkedin_people_list_tracker = list(sorted(set(linkedin_people_list_tracker)))
+            for usr in linkedin_people_list_tracker:
+                print(usr)
+
+    if len(linkedin_links_tracker) == 0:
+        print(f'\n[*] LinkedIn Links found: {len(linkedin_links_tracker)}')
+        linkedin_links_tracker = list(sorted(set(linkedin_links_tracker)))
+        print('---------------------')
+        for link in linkedin_people_list_tracker:
+            print(link)
+
+    length_urls = len(trello_urls)
+    total = length_urls
+    print('\n[*] Trello URLs found: ' + str(total))
+    print('--------------------')
+    all_urls = list(sorted(set(trello_urls)))
+    for url in sorted(all_urls):
+        print(url)
+
+    if len(ips) == 0:
+        print('\n[*] No IPs found.')
+    else:
+        print('\n[*] IPs found: ' + str(len(ips)))
+        print('-------------------')
+        # use netaddr as the list may contain ipv4 and ipv6 addresses
+        ip_list = sorted([netaddr.IPAddress(ip.strip()) for ip in set(ips)])
+        print('\n'.join(map(str, ip_list)))
+        ip_list = list(ip_list)
+
+    if len(emails) == 0:
+        print('\n[*] No emails found.')
+    else:
+        print('\n[*] Emails found: ' + str(len(emails)))
+        print('----------------------')
+        all_emails = sorted(list(set(emails)))
+        print(('\n'.join(emails)))
+
+    if len(hosts) == 0:
+        print('\n[*] No hosts found.\n\n')
+    else:
+        print('\n[*] Hosts found: ' + str(len(hosts)))
+        print('---------------------')
+        print('\n'.join(hosts))
 
 
 if __name__ == '__main__':
