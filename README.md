@@ -62,6 +62,8 @@ Passive:
 
 * rapiddns: DNS query tool which make querying subdomains or sites of a same IP easy! https://rapiddns.io
 
+* rocketreach: Access real-time verified personal/professional emails, phone numbers, social media links. - https://rocketreach.co
+
 * securityTrails: Security Trails search engine, the world's largest repository of historical DNS data<br>
   (Requires an API key, see below.) - www.securitytrails.com
 
@@ -87,6 +89,8 @@ Passive:
 
 * yahoo: Yahoo search engine
 
+* zoomeye: China version of shodan - https://www.zoomeye.org
+
 
 Active:
 -------
@@ -97,6 +101,7 @@ Modules that require an API key:
 --------------------------------
 Documentation to setup API keys can be found at - https://github.com/laramies/theHarvester/wiki/Installation#api-keys
 
+* binaryedge
 * bing
 * github
 * hunter - limited to 10 on the free plan so you will need to do -l 10 switch
@@ -108,6 +113,7 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * shodan
 * spyse - need to have a paid account be able to use the api now
 * censys - API keys are required and can be retrieved from your [Censys account](https://search.censys.io/account/api).
+* Zoomeye
 
 Install and dependencies:
 -------------------------
