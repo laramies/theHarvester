@@ -75,7 +75,7 @@ async def main():
         print(f'\n[*] LinkedIn Links found: {len(linkedin_links_tracker)}')
         linkedin_links_tracker = list(sorted(set(linkedin_links_tracker)))
         print('---------------------')
-        for link in linkedin_people_list_tracker:
+        for link in linkedin_links_tracker:
             print(link)
 
     length_urls = len(trello_urls)
@@ -94,7 +94,6 @@ async def main():
         # use netaddr as the list may contain ipv4 and ipv6 addresses
         ip_list = sorted([netaddr.IPAddress(ip.strip()) for ip in set(ips)])
         print('\n'.join(map(str, ip_list)))
-        ip_list = list(ip_list)
 
     if len(emails) == 0:
         print('\n[*] No emails found.')
