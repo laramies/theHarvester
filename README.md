@@ -12,6 +12,8 @@ multiple public data sources that include:
 
 Passive:
 --------
+* anubis: Anubis-DB - https://github.com/jonluca/anubis
+
 * baidu: Baidu search engine - www.baidu.com
 
 * bing: Microsoft search engine - www.bing.com
@@ -20,7 +22,7 @@ Passive:
 
 * bufferoverun: Uses data from Rapid7's Project Sonar - www.rapid7.com/research/project-sonar/
 
-* censys: Censys search engine, will use certificates searches to enumerate subdomains (Requires an API key, see below.) - [censys.io](https://censys.io/)
+* censys: [Censys search engine](https://search.censys.io/), will use certificates searches to enumerate subdomains and gather emails (Requires an API key, see below.) - [censys.io](https://censys.io/)
 
 * certspotter: Cert Spotter monitors Certificate Transparency logs - https://sslmate.com/certspotter/
 
@@ -29,8 +31,6 @@ Passive:
 * dnsdumpster: DNSdumpster search engine - https://dnsdumpster.com
 
 * duckduckgo: DuckDuckGo search engine - www.duckduckgo.com
-
-* exalead: a Meta search engine - www.exalead.com/search
 
 * github-code: GitHub code search engine (Requires a GitHub Personal Access Token, see below.) - www.github.com
 
@@ -54,13 +54,15 @@ Passive:
 
 * pentesttools: Powerful Penetration Testing Tools, Easy to Use (Needs an API key and is not free for API access) - https://pentest-tools.com/home
 
-* projecdiscovery: We actively collect and maintain internet-wide assets data, 
-to enhance research and analyse changes around DNS for better insights - https://chaos.projectdiscovery.io
-(Requires an API key)
+* projecdiscovery: We actively collect and maintain internet-wide assets data,
+  to enhance research and analyse changes around DNS for better insights - https://chaos.projectdiscovery.io
+  (Requires an API key)
 
 * qwant: Qwant search engine - www.qwant.com
 
 * rapiddns: DNS query tool which make querying subdomains or sites of a same IP easy! https://rapiddns.io
+
+* rocketreach: Access real-time verified personal/professional emails, phone numbers, social media links. - https://rocketreach.co
 
 * securityTrails: Security Trails search engine, the world's largest repository of historical DNS data<br>
   (Requires an API key, see below.) - www.securitytrails.com
@@ -87,6 +89,8 @@ to enhance research and analyse changes around DNS for better insights - https:/
 
 * yahoo: Yahoo search engine
 
+* zoomeye: China version of shodan - https://www.zoomeye.org
+
 
 Active:
 -------
@@ -97,16 +101,19 @@ Modules that require an API key:
 --------------------------------
 Documentation to setup API keys can be found at - https://github.com/laramies/theHarvester/wiki/Installation#api-keys
 
+* binaryedge
 * bing
 * github
 * hunter - limited to 10 on the free plan so you will need to do -l 10 switch
 * intelx
 * pentesttools
 * projecdiscovery - invite only for now
+* rocketreach 
 * securityTrails
 * shodan
 * spyse - need to have a paid account be able to use the api now
-* censys
+* censys - API keys are required and can be retrieved from your [Censys account](https://search.censys.io/account/api).
+* Zoomeye
 
 Install and dependencies:
 -------------------------
@@ -117,7 +124,7 @@ Install and dependencies:
 Comments, bugs and requests:
 ----------------------------
 * [![Twitter Follow](https://img.shields.io/twitter/follow/laramies.svg?style=social&label=Follow)](https://twitter.com/laramies) Christian Martorella @laramies
-cmartorella@edge-security.com
+  cmartorella@edge-security.com
 * [![Twitter Follow](https://img.shields.io/twitter/follow/NotoriousRebel1.svg?style=social&label=Follow)](https://twitter.com/NotoriousRebel1) Matthew Brown @NotoriousRebel1
 * [![Twitter Follow](https://img.shields.io/twitter/follow/jay_townsend1.svg?style=social&label=Follow)](https://twitter.com/jay_townsend1) Jay "L1ghtn1ng" Townsend @jay_townsend1
 
@@ -126,8 +133,8 @@ Main contributors:
 ------------------
 * [![Twitter Follow](https://img.shields.io/twitter/follow/NotoriousRebel1.svg?style=social&label=Follow)](https://twitter.com/NotoriousRebel1) Matthew Brown @NotoriousRebel1
 * [![Twitter Follow](https://img.shields.io/twitter/follow/jay_townsend1.svg?style=social&label=Follow)](https://twitter.com/jay_townsend1) Jay "L1ghtn1ng" Townsend @jay_townsend1
-* [![Twitter Follow](https://img.shields.io/twitter/follow/discoverscripts.svg?style=social&label=Follow)](https://twitter.com/discoverscripts) Lee Baird @discoverscripts 
-* [![LinkedIn](https://static.licdn.com/scds/common/u/img/webpromo/btn_viewmy_160x25.png)](https://www.linkedin.com/in/janoszold/)  Janos Zold
+* [![Twitter Follow](https://img.shields.io/twitter/follow/discoverscripts.svg?style=social&label=Follow)](https://twitter.com/discoverscripts) Lee Baird @discoverscripts
+
 
 
 Thanks:

@@ -12,7 +12,7 @@ import certifi
 class Core:
     @staticmethod
     def version() -> str:
-        return '3.2.4'
+        return '4.0.0'
 
     @staticmethod
     def api_keys() -> dict:
@@ -27,6 +27,10 @@ class Core:
                 with open('api-keys.yaml', 'r') as api_keys:
                     keys = yaml.safe_load(api_keys)
         return keys['apikeys']
+
+    @staticmethod
+    def binaryedge_key() -> str:
+        return Core.api_keys()['binaryedge']['key']
 
     @staticmethod
     def bing_key() -> str:
@@ -57,6 +61,10 @@ class Core:
         return Core.api_keys()['projectDiscovery']['key']
 
     @staticmethod
+    def rocketreach_key() -> str:
+        return Core.api_keys()['rocketreach']['key']
+
+    @staticmethod
     def security_trails_key() -> str:
         return Core.api_keys()['securityTrails']['key']
 
@@ -67,6 +75,10 @@ class Core:
     @staticmethod
     def spyse_key() -> str:
         return Core.api_keys()['spyse']['key']
+
+    @staticmethod
+    def zoomeye_key() -> str:
+        return Core.api_keys()['zoomEye']['key']
 
     @staticmethod
     def proxy_list() -> List:
@@ -101,7 +113,9 @@ class Core:
 
     @staticmethod
     def get_supportedengines() -> Set[Union[str, Any]]:
-        supportedengines = {'baidu',
+        supportedengines = {'anubis',
+                            'baidu',
+                            'binaryedge',
                             'bing',
                             'bingapi',
                             'bufferoverun',
@@ -110,7 +124,6 @@ class Core:
                             'crtsh',
                             'dnsdumpster',
                             'duckduckgo',
-                            'exalead',
                             'github-code',
                             'google',
                             'hackertarget',
@@ -125,6 +138,7 @@ class Core:
                             'projectdiscovery',
                             'qwant',
                             'rapiddns',
+                            'rocketreach',
                             'securityTrails',
                             'sublist3r',
                             'spyse',
@@ -135,6 +149,7 @@ class Core:
                             'urlscan',
                             'virustotal',
                             'yahoo',
+                            'zoomeye'
                             }
         return supportedengines
 

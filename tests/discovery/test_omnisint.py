@@ -20,7 +20,7 @@ class TestOmnisint(object):
         assert request.status_code == 200
 
     async def test_search(self):
-        search = omnisint.SearchOmnisint(TestOmnisint.domain(), 100)
+        search = omnisint.SearchOmnisint(TestOmnisint.domain())
         await search.process()
         assert isinstance(await search.get_hostnames(), set)
         assert isinstance(await search.get_ips(), set)

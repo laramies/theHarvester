@@ -15,7 +15,8 @@ setup(
     url="https://github.com/laramies/theHarvester",
     packages=find_packages(exclude=['tests']),
     python_requires='>=3.7',
-    scripts=['bin/theHarvester'],
+    scripts=['bin/theHarvester',
+             'bin/restfulHarvest'],
 
     classifiers=[
         "Programming Language :: Python :: 3",

@@ -1,28 +1,29 @@
 #!/usr/bin/env python3
 # coding=utf-8
-import requests
 from theHarvester.lib.core import *
-from theHarvester.discovery import sublist3r
+from theHarvester.discovery import bufferoverun
+import requests
 import pytest
 
 pytestmark = pytest.mark.asyncio
 
 
-class TestSublist3r(object):
+class TestBufferover(object):
     @staticmethod
     def domain() -> str:
-        return 'target.com'
+        return 'uber.com'
 
     async def test_api(self):
-        base_url = f'https://api.sublist3r.com/search.php?domain={TestSublist3r.domain()}'
+        base_url = f'https://dns.bufferover.run/dns?q={TestBufferover.domain()}'
         headers = {'User-Agent': Core.get_user_agent()}
         request = requests.get(base_url, headers=headers)
         assert request.status_code == 200
 
     async def test_do_search(self):
-        search = sublist3r.SearchSublist3r(TestSublist3r.domain())
+        search = bufferoverun.SearchBufferover(TestBufferover.domain())
         await search.process()
-        assert isinstance(await search.get_hostnames(), list)
+        assert isinstance(await search.get_hostnames(), set)
+        assert isinstance(await search.get_ips(), set)
 
 
 if __name__ == '__main__':

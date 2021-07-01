@@ -1,4 +1,7 @@
 apikeys:
+  binaryedge:
+    key:
+
   bing:
     key:
 
@@ -7,7 +10,7 @@ apikeys:
     secret:
 
   github:
-    key: 
+    key:
 
   hunter:
     key:
@@ -21,6 +24,9 @@ apikeys:
   projectDiscovery:
     key:
 
+  rocketreach:
+    key:
+
   securityTrails:
     key:
 
@@ -28,4 +34,7 @@ apikeys:
     key:
 
   spyse:
+    key:
+
+  zoomeye:
     key:

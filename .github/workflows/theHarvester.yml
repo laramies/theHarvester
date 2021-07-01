@@ -29,6 +29,26 @@ jobs:
         pip install --upgrade pip
         pip install -r requirements/dev.txt
 
+    - name: Lint with flake8
+      run: |
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --show-source --statistics
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        flake8 . --count --exit-zero  --max-line-length=127 --statistics
+
+    - name: Test with pytest
+      run: |
+        pytest
+
+    - name: Static type checking with mypy
+      run: |
+        mypy --pretty theHarvester/*/*.py
+        mypy --pretty theHarvester/*/*/*.py
+
+    - name: Run theHarvester module Anubis
+      run: |
+        python theHarvester.py -d apple.com -b anubis
+
     - name: Run theHarvester module Baidu
       run: |
         python theHarvester.py -d yale.edu -b baidu
@@ -56,10 +76,6 @@ jobs:
     - name: Run theHarvester module DuckDuckGo
       run: |
         python theHarvester.py -d yale.edu -b duckduckgo
-
-    - name: Run theHarvester module Exalead
-      run: |
-        python theHarvester.py -d yale.edu -b exalead
 
     - name: Run theHarvester module Google
       run: |
@@ -136,18 +152,3 @@ jobs:
     - name: Run theHarvester module DNS brute force
       run: |
         python theHarvester.py -d yale.edu -c
-
-    - name: Lint with flake8
-      run: |
-        # stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 . --count --exit-zero  --max-line-length=127 --statistics
-
-    - name: Test with pytest
-      run: |
-        pytest
-
-    - name: Static type checking with mypy
-      run: |
-        mypy --pretty theHarvester/*/*.py

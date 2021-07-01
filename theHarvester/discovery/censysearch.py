@@ -1,7 +1,8 @@
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import Core
-from censys.certificates import CensysCertificates
-from censys.exceptions import (
+from censys.search import CensysCertificates
+from censys.common import __version__
+from censys.common.exceptions import (
     CensysRateLimitExceededException,
     CensysUnauthorizedException,
 )
@@ -14,24 +15,36 @@ class SearchCensys:
         if self.key[0] is None or self.key[1] is None:
             raise MissingKey("Censys ID and/or Secret")
         self.totalhosts = set()
+        self.emails = set()
         self.proxy = False
 
     async def do_search(self):
         try:
-            c = CensysCertificates(api_id=self.key[0], api_secret=self.key[1])
+            cert_search = CensysCertificates(
+                api_id=self.key[0],
+                api_secret=self.key[1],
+                user_agent=f"censys/{__version__} (theHarvester/{Core.version()}; +https://github.com/laramies/theHarvester)",
+            )
         except CensysUnauthorizedException:
-            raise MissingKey("Censys ID and/or Secret")
+            raise MissingKey('Censys ID and/or Secret')
 
         query = f"parsed.names: {self.word}"
         try:
-            response = c.search(query=query, fields=["parsed.names", "metadata"])
+            response = cert_search.search(
+                query=query,
+                fields=["parsed.names", "metadata", "parsed.subject.email_address"],
+            )
             for cert in response:
-                self.totalhosts.update(cert["parsed.names"])
+                self.totalhosts.update(cert.get("parsed.names", []))
+                self.emails.update(cert.get("parsed.subject.email_address", []))
         except CensysRateLimitExceededException:
             print("Censys rate limit exceeded")
 
     async def get_hostnames(self) -> set:
         return self.totalhosts
+
+    async def get_emails(self) -> set:
+        return self.emails
 
     async def process(self, proxy=False):
         self.proxy = proxy

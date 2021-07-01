@@ -10,7 +10,6 @@ class SearchIntelx:
 
     def __init__(self, word):
         self.word = word
-        # default key is public key
         self.key = Core.intelx_key()
         if self.key is None:
             raise MissingKey('Intelx')
@@ -63,5 +62,5 @@ class SearchIntelx:
     async def get_emails(self):
         return self.info[0]
 
-    async def get_hostnames(self):
+    async def get_interestingurls(self):
         return self.info[1]
