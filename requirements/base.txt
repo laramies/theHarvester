@@ -20,4 +20,4 @@ slowapi==0.1.4
 starlette==0.14.2
 lxml==4.6.3
 uvicorn==0.14.0
-uvloop==0.15.2; platform_system != "Windows"
+uvloop==0.15.3; platform_system != "Windows"
