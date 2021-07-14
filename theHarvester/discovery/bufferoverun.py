@@ -15,10 +15,11 @@ class SearchBufferover:
         responses = responses[0]
         dct = responses
 
-        self.totalhosts: set = {
-            host.split(',')[0].replace('www.', '') if ',' in host and self.word.replace('www.', '') in host.split(',')[
-                0] in host else
-            host.split(',')[1] for host in dct['FDNS_A']}
+        if dct['FDNS_A']:
+            self.totalhosts: set = {
+                host.split(',')[0].replace('www.', '') if ',' in host and self.word.replace('www.', '') in host.split(',')[
+                    0] in host else
+                host.split(',')[1] for host in dct['FDNS_A']}
 
         self.totalips: set = {ip.split(',')[0] for ip in dct['FDNS_A'] if
                               re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ip.split(',')[0])}
