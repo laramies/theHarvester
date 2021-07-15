@@ -27,7 +27,6 @@ apikeys:
   rocketreach:
     key:
 
-  securityTrails:
     key:
 
   shodan:
@@ -36,5 +35,5 @@ apikeys:
   spyse:
     key:
 
-  zoomeye:
-    key:
+
+    
