@@ -15,13 +15,3 @@ updates:
   allow:
   - dependency-type: direct
   - dependency-type: indirect
-- package-ecosystem: pip
-  directory: "/requirements"
-  schedule:
-    interval: daily
-    timezone: Europe/London
-  open-pull-requests-limit: 10
-  target-branch: master
-  allow:
-  - dependency-type: direct
-  - dependency-type: indirect
