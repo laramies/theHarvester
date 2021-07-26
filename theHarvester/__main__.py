@@ -421,7 +421,7 @@ async def start(rest_args=None):
                 elif engineitem == 'spyse':
                     from theHarvester.discovery import spyse
                     try:
-                        spyse_search = spyse.SearchSpyse(word)
+                        spyse_search = spyse.SearchSpyse(word, limit)
                         stor_lst.append(store(spyse_search, engineitem, store_host=True, store_ip=True))
                     except Exception as e:
                         print(e)
