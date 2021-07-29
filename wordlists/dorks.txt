@@ -38,3 +38,7 @@ wwwboard WebAdmin inurl:passwd.txt wwwboard|webadmin
 robots.txt
 php-addressbook "This is the addressbook for *" -warning
 intitle:"index of" members OR accounts
+inurl:"contact"
+intext:email filetype:log
+"Index of /mail"
+"admin account info" filetype:log
