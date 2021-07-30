@@ -24,4 +24,4 @@ class SearchHackerTarget:
         await self.do_search()
 
     async def get_hostnames(self) -> list:
-        return [x for x in self.total_results.splitlines() if not 'No PTR records found' in x]
+        return [result for result in self.total_results.splitlines() if not 'No PTR records found' in result]
