@@ -42,7 +42,8 @@ jobs:
 
     - name: Static type checking with mypy
       run: |
-        mypy --pretty theHarvester/**/*.py
+        mypy --pretty theHarvester/*/*.py
+        mypy --pretty theHarvester/*/*/*.py
 
     - name: Run theHarvester module Anubis
       run: |
