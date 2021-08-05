@@ -1,40 +1,15 @@
-login.html
-administrator/login.%XT%
-admin_area/login.%XT%
+inurl:"contact"
+intext:email filetype:log
+"Index of /mail"
+"admin account info" filetype:log
 intext:@
-inurl: 
-intitle: 
-intext:
-sysadm/
-administratoraccounts/
-usr/
-root/
-secret/
-admin/login.%XT%
-moderator/login.%XT%
-login%XT%
-logout%XT%
-super_index%XT%
-super_login%XT%
-supermanager%XT%
-superuser%XT%
-inurl:/publications.asp?type=
+administrator accounts/
 intitle:"Index of" .bash_history
 intitle:"index of" members OR accounts
-inurl:section.php?id=
-=inurl:/filedown.php?file=
-inurl:/shared/help.php?page=
-inurl:index.php?load=
-inurl:home.php?pagina=
-index.php?mode=
-intitle:"index of" +myd size
+inurl:/shared/help.php
 inurl:public
 intitle:index.of inbox
-intext:"Storage Management Server for" intitle:"Server Administration"
-inurl:"gs/adminlogin.aspx"
-"http://*:*@www" 
-=enable password | secret "current configuration" -intext:the
-wwwboard WebAdmin inurl:passwd.txt wwwboard|webadmin
+intitle:"Server Administration" 
+inurl:passwd.txt
 robots.txt
 php-addressbook "This is the addressbook for *" -warning
-intitle:"index of" members OR accounts
