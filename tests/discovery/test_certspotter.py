@@ -7,12 +7,7 @@ import requests
 import pytest
 
 pytestmark = pytest.mark.asyncio
-
-
-@pytest.fixture()
-def is_github_action():
-    if os.getenv('GITHUB_ACTIONS') is True:
-        return 'github'
+github_ci = os.getenv('GITHUB_ACTIONS')
 
 
 class TestCertspotter(object):
