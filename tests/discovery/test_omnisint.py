@@ -16,7 +16,7 @@ class TestOmnisint(object):
     def domain() -> str:
         return 'uber.com'
 
-    @pytest.mark.skipif(github_ci == 'True', reason='Skipping on Github CI due to unstable status code from site')
+    @pytest.mark.skipif(github_ci == 'true', reason='Skipping on Github CI due to unstable status code from site')
     async def test_api(self):
         base_url = f'https://sonar.omnisint.io/all/{TestOmnisint.domain()}'
         headers = {'User-Agent': Core.get_user_agent()}
