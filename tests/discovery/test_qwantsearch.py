@@ -1,9 +1,16 @@
 #!/usr/bin/env python3
 # coding=utf-8
 from theHarvester.discovery import qwantsearch
+import os
 import pytest
 
 pytestmark = pytest.mark.asyncio
+
+
+@pytest.fixture()
+def is_github_action():
+    if os.getenv('GITHUB_ACTIONS'):
+        return 'github'
 
 
 class TestSearchQwant(object):

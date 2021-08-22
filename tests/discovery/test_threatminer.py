@@ -3,9 +3,16 @@
 import requests
 from theHarvester.lib.core import *
 from theHarvester.discovery import threatminer
+import os
 import pytest
 
 pytestmark = pytest.mark.asyncio
+
+
+@pytest.fixture()
+def is_github_action():
+    if os.getenv('GITHUB_ACTIONS'):
+        return 'github'
 
 
 class TestThreatminer(object):

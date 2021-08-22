@@ -2,10 +2,17 @@
 # coding=utf-8
 from theHarvester.lib.core import *
 from theHarvester.discovery import certspottersearch
+import os
 import requests
 import pytest
 
 pytestmark = pytest.mark.asyncio
+
+
+@pytest.fixture()
+def is_github_action():
+    if os.getenv('GITHUB_ACTIONS'):
+        return 'github'
 
 
 class TestCertspotter(object):

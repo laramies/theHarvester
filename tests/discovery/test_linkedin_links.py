@@ -9,6 +9,12 @@ import pytest
 pytestmark = pytest.mark.asyncio
 
 
+@pytest.fixture()
+def is_github_action():
+    if os.getenv('GITHUB_ACTIONS'):
+        return 'github'
+
+
 class TestGetLinks(object):
 
     async def test_splitter(self):
