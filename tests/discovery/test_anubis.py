@@ -3,9 +3,11 @@
 import requests
 from theHarvester.lib.core import *
 from theHarvester.discovery import anubis
+import os
 import pytest
 
 pytestmark = pytest.mark.asyncio
+github_ci = os.getenv('GITHUB_ACTIONS')  # Github set this to be the following: true instead of True
 
 
 class TestAnubis:

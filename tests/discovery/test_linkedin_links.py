@@ -7,6 +7,7 @@ import re
 import pytest
 
 pytestmark = pytest.mark.asyncio
+github_ci = os.getenv('GITHUB_ACTIONS')  # Github set this to be the following: true instead of True
 
 
 class TestGetLinks(object):

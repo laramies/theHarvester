@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 # coding=utf-8
 from theHarvester.discovery import qwantsearch
+import os
 import pytest
 
 pytestmark = pytest.mark.asyncio
+github_ci = os.getenv('GITHUB_ACTIONS')  # Github set this to be the following: true instead of True
 
 
 class TestSearchQwant(object):
