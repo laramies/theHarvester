@@ -7,8 +7,7 @@ import requests
 import pytest
 
 pytestmark = pytest.mark.asyncio
-github_ci = os.getenv('GITHUB_ACTIONS')
-print(github_ci)
+github_ci = os.getenv('GITHUB_ACTIONS')  # Github set this to be the following: true instead of True
 
 
 class TestOmnisint(object):
