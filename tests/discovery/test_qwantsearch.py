@@ -9,7 +9,7 @@ pytestmark = pytest.mark.asyncio
 
 @pytest.fixture()
 def is_github_action():
-    if os.getenv('GITHUB_ACTIONS'):
+    if os.getenv('GITHUB_ACTIONS') is True:
         return 'github'
 
 
