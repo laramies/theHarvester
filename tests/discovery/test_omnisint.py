@@ -10,6 +10,7 @@ pytestmark = pytest.mark.asyncio
 github_ci = os.getenv('GITHUB_ACTIONS')
 print(github_ci)
 
+
 class TestOmnisint(object):
     @staticmethod
     def domain() -> str:
