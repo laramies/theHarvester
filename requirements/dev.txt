@@ -8,5 +8,5 @@ pytest-asyncio==0.15.1
 types-certifi==0.1.4
 types-chardet==0.1.5
 types-orjson==3.6.0
-types-PyYAML==5.4.6
+types-PyYAML==5.4.8
 types-requests==2.25.6
