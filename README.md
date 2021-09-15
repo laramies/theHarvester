@@ -69,7 +69,7 @@ Passive:
 
 * shodan: Shodan search engine, will search for ports and banners from discovered hosts (Requires an API key, see below.) - www.shodanhq.com
 
-* spyse: Web research tools for professionals (Requires an API key.) - https://spyse.com
+* spyse: [Spyse is a search engine](https://spyse.com/) built for a quick cyber intelligence of IT infrastructures, networks, and even the smallest parts of the internet. (Requires an API key, see below.) - [spyse.com](https://spyse.com)
 
 * sublist3r: Fast subdomains enumeration tool for penetration testers - https://api.sublist3r.com/search.php?domain=example.com
 
