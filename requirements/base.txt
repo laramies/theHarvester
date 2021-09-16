@@ -21,3 +21,4 @@ starlette==0.14.2
 lxml==4.6.3
 uvicorn==0.15.0
 uvloop==0.16.0; platform_system != "Windows"
+spyse-python==2.2.3
