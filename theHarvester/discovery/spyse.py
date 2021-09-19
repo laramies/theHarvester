@@ -1,6 +1,6 @@
 from theHarvester.discovery.constants import *
 from theHarvester.lib.core import *
-import json
+from spyse import Client, SearchQuery, QueryParam, DomainSearchParams, Operators
 
 
 class SearchSpyse:
@@ -15,51 +15,63 @@ class SearchSpyse:
         self.hosts = set()
         self.proxy = False
         self.limit = limit
+        self.client = Client(self.key)
 
     async def do_search(self):
-        # Spyse allows to get up to 100 results per one request
-        max_limit = 100
-        # Spyse "search" methods allows to fetch up to 10 000 first results
-        max_offset = 9900
-        offset = 0
+        fetch_count = 0
 
-        while True:
-            try:
-                headers = {
-                    'accept': 'application/json',
-                    'Authorization': f'Bearer {self.key}',
-                }
+        query = SearchQuery()
+        query.append_param(QueryParam(DomainSearchParams.name, Operators.ends_with, self.word))
 
-                base_url = 'https://api.spyse.com/v4/data/domain/search'
+        try:
+            total = self.client.count_domains(query)
+            if total == 0:
+                return
 
-                query = {
-                    'search_params': [
-                        {
-                            'name': {
-                                'operator': 'ends',
-                                'value': '.' + self.word,
-                            }
-                        }
-                    ],
-                    'limit': max_limit if self.limit > max_limit else self.limit,
-                    'offset': offset,
-                }
+            # The default "Search" method returns only first 10 000 subdomains
+            # To obtain more than 10 000 subdomains the "Scroll" method should be using
+            # Note: The "Scroll" method is only available for "PRO" customers, so we need to check
+            # self.client.account.is_scroll_search_enabled param
+            if total > self.client.SEARCH_RESULTS_LIMIT and self.client.account.is_scroll_search_enabled:
+                scroll_id = None
+                while True:
+                    scroll_results = self.client.scroll_domains(query, scroll_id)
 
-                results = await AsyncFetcher.post_fetch(base_url, json=True, headers=headers, data=json.dumps(query))
+                    scroll_id = scroll_results.search_id
+                    for domain in scroll_results.results:
+                        self.hosts.add(domain.name)
 
-                if len(results.get('data').get('items')) > 0:
-                    for domain in results['data']['items']:
-                        self.hosts.add(domain['name'])
+                    fetch_count += len(scroll_results.results)
 
-                else:
-                    break
+                    if len(scroll_results.results) == 0 or fetch_count >= self.limit:
+                        break
+            else:
+                # Spyse allows to get up to 100 results per one request
+                max_limit = 100
+                # Spyse "search" methods allows to fetch up to 10 000 first results
+                max_offset = 9900
+                offset = 0
 
-                offset += max_limit
-                if offset > max_offset or offset + max_limit > self.limit:
-                    break
+                while True:
+                    limit = max_limit if self.limit - fetch_count > max_limit else self.limit - fetch_count
+                    if limit <= 0:
+                        break
 
-            except Exception as e:
-                print(f'An exception has occurred: {e}')
+                    results = self.client.search_domains(query, limit, offset)
+
+                    if len(results.results) == 0:
+                        break
+
+                    for domain in results.results:
+                        self.hosts.add(domain.name)
+
+                    offset += max_limit
+                    fetch_count += len(results.results)
+                    if offset > max_offset or fetch_count == total:
+                        break
+
+        except Exception as e:
+            print(f'An exception has occurred: {e}')
 
     async def get_hostnames(self):
         return self.hosts
