@@ -9,4 +9,4 @@ types-certifi==2020.4.0
 types-chardet==0.1.5
 types-orjson==3.6.0
 types-PyYAML==5.4.10
-types-requests==2.25.6
+types-requests==2.25.8
