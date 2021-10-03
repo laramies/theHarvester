@@ -336,7 +336,7 @@ async def start(rest_args=None):
                     from theHarvester.discovery import omnisint
                     try:
                         omnisint_search = omnisint.SearchOmnisint(word)
-                        stor_lst.append(store(omnisint_search, engineitem, store_host=True, store_ip=True))
+                        stor_lst.append(store(omnisint_search, engineitem, store_host=True))
                     except Exception as e:
                         print(e)
 

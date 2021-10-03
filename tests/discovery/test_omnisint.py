@@ -25,8 +25,7 @@ class TestOmnisint(object):
     async def test_search(self):
         search = omnisint.SearchOmnisint(TestOmnisint.domain())
         await search.process()
-        assert isinstance(await search.get_hostnames(), set)
-        assert isinstance(await search.get_ips(), set)
+        assert isinstance(await search.get_hostnames(), list)
 
 
 if __name__ == '__main__':
