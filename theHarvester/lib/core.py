@@ -12,7 +12,7 @@ import certifi
 class Core:
     @staticmethod
     def version() -> str:
-        return '4.0.0'
+        return '4.0.1'
 
     @staticmethod
     def api_keys() -> dict:
@@ -131,7 +131,6 @@ class Core:
                             'intelx',
                             'linkedin',
                             'linkedin_links',
-                            'netcraft',
                             'omnisint',
                             'otx',
                             'pentesttools',
