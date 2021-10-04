@@ -1,22 +1,24 @@
-import requests
-import json
 from theHarvester.lib.core import *
 
 
 class SearchOmnisint:
     def __init__(self, word):
         self.word = word
-        self.totalhosts = list()
+        self.totalhosts = set()
+        self.totalips = set()
         self.proxy = False
 
     async def do_search(self):
         base_url = f'https://sonar.omnisint.io/all/{self.word}?page=1'
-        data = requests.get(base_url, headers={'User-Agent': Core.get_user_agent()}).text
-        entries = json.loads(data)
-        self.totalhosts = entries
+        responses = await AsyncFetcher.fetch_all([base_url], json=True, headers={'User-Agent': Core.get_user_agent()},
+                                                 proxy=self.proxy)
+        self.totalhosts = list({host for host in responses[0]})
 
-    async def get_hostnames(self) -> list:
+    async def get_hostnames(self) -> set:
         return self.totalhosts
+
+    async def get_ips(self) -> set:
+        return self.totalips
 
     async def process(self, proxy=False):
         self.proxy = proxy
