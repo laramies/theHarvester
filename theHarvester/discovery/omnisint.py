@@ -6,7 +6,7 @@ from theHarvester.lib.core import *
 class SearchOmnisint:
     def __init__(self, word):
         self.word = word
-        self.totalhosts = set()
+        self.totalhosts = list()
         self.proxy = False
 
     async def do_search(self):
@@ -15,7 +15,7 @@ class SearchOmnisint:
         entries = json.loads(data)
         self.totalhosts = entries
 
-    async def get_hostnames(self) -> set:
+    async def get_hostnames(self) -> list:
         return self.totalhosts
 
     async def process(self, proxy=False):
