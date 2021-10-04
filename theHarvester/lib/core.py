@@ -396,7 +396,7 @@ class AsyncFetcher:
         if len(headers) == 0:
             headers = {'User-Agent': Core.get_user_agent()}
         timeout = aiohttp.ClientTimeout(total=720)
-        # by default timeout is 5 minutes, changed to 12 minutes for suip module
+        # by default timeout is 5 minutes, changed to 12 minutes
         # results are well worth the wait
         try:
             if proxy:
