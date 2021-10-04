@@ -12,7 +12,7 @@ import certifi
 class Core:
     @staticmethod
     def version() -> str:
-        return '4.0.0'
+        return '4.0.1'
 
     @staticmethod
     def api_keys() -> dict:
@@ -131,7 +131,6 @@ class Core:
                             'intelx',
                             'linkedin',
                             'linkedin_links',
-                            'netcraft',
                             'omnisint',
                             'otx',
                             'pentesttools',
@@ -397,7 +396,7 @@ class AsyncFetcher:
         if len(headers) == 0:
             headers = {'User-Agent': Core.get_user_agent()}
         timeout = aiohttp.ClientTimeout(total=720)
-        # by default timeout is 5 minutes, changed to 12 minutes for suip module
+        # by default timeout is 5 minutes, changed to 12 minutes
         # results are well worth the wait
         try:
             if proxy:

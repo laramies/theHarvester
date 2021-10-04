@@ -16,7 +16,10 @@ class SearchThreatminer:
         self.totalhosts: set = {host for host in response[0]['results']}
         second_url = f'https://api.threatminer.org/v2/domain.php?q={self.word}&rt=2'
         secondresp = await AsyncFetcher.fetch_all([second_url], json=True, proxy=self.proxy)
-        self.totalips: set = {resp['ip'] for resp in secondresp[0]['results']}
+        try:
+            self.totalips: set = {resp['ip'] for resp in secondresp[0]['results']}
+        except TypeError:
+            pass
 
     async def get_hostnames(self) -> Type[list]:
         return self.totalhosts

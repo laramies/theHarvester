@@ -36,7 +36,7 @@ async def start(rest_args=None):
     parser.add_argument('-b', '--source', help='''anubis, baidu, bing, binaryedge, bingapi, bufferoverun, censys, certspotter, crtsh,
                             dnsdumpster, duckduckgo, github-code, google,
                             hackertarget, hunter, intelx, linkedin, linkedin_links,
-                            netcraft, omnisint, otx, pentesttools, projectdiscovery,
+                            omnisint, otx, pentesttools, projectdiscovery,
                             qwant, rapiddns, rocketreach, securityTrails, spyse, sublist3r, threatcrowd, threatminer,
                             trello, twitter, urlscan, virustotal, yahoo, zoomeye''')
 
@@ -332,16 +332,11 @@ async def start(rest_args=None):
                     linkedin_links_search = linkedinsearch.SearchLinkedin(word, limit)
                     stor_lst.append(store(linkedin_links_search, 'linkedin', store_links=True))
 
-                elif engineitem == 'netcraft':
-                    from theHarvester.discovery import netcraft
-                    netcraft_search = netcraft.SearchNetcraft(word)
-                    stor_lst.append(store(netcraft_search, engineitem, store_host=True))
-
                 elif engineitem == 'omnisint':
                     from theHarvester.discovery import omnisint
                     try:
                         omnisint_search = omnisint.SearchOmnisint(word)
-                        stor_lst.append(store(omnisint_search, engineitem, store_host=True, store_ip=True))
+                        stor_lst.append(store(omnisint_search, engineitem, store_host=True))
                     except Exception as e:
                         print(e)
 
