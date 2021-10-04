@@ -7,7 +7,6 @@ class SearchOmnisint:
     def __init__(self, word):
         self.word = word
         self.totalhosts = set()
-        self.totalips = set()
         self.proxy = False
 
     async def do_search(self):
@@ -18,9 +17,6 @@ class SearchOmnisint:
 
     async def get_hostnames(self) -> set:
         return self.totalhosts
-
-    # async def get_ips(self) -> set:
-    #     return self.totalips
 
     async def process(self, proxy=False):
         self.proxy = proxy
