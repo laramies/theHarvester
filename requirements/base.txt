@@ -9,7 +9,7 @@ certifi==2021.05.30
 dnspython==2.1.0
 fastapi==0.68.1
 netaddr==0.8.0
-orjson==3.6.3
+orjson==3.6.4
 pyppeteer==0.2.6
 PyYAML==5.4.1
 requests==2.26.0
