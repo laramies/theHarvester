@@ -10,3 +10,4 @@ types-chardet==4.0.0
 types-orjson==3.6.0
 types-PyYAML==5.4.10
 types-requests==2.25.9
+wheel==0.37.0

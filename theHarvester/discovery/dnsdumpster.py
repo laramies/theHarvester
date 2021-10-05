@@ -33,8 +33,6 @@ class SearchDnsDumpster:
                     csrftoken += cookies[1][:cookies[1].find(';')]
             await asyncio.sleep(2)
 
-
-
             # extract csrftoken from cookies
             data = {
                 'Cookie': f'csfrtoken={csrftoken}', 'csrfmiddlewaretoken': csrftoken,
@@ -58,4 +56,3 @@ class SearchDnsDumpster:
     async def process(self, proxy=False):
         self.proxy = proxy
         await self.do_search()  # Only need to do it once.
-
