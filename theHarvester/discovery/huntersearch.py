@@ -54,8 +54,7 @@ class SearchHunter:
             # See docs for more details: https://hunter.io/api-documentation/v2#domain-search
             for offset in range(0, 100 * total_number_reqs, 100):
                 req_url = f'https://api.hunter.io/v2/domain-search?domain={self.word}&api_key={self.key}&limit{self.limit}&offset={offset}'
-                response = await AsyncFetcher.fetch_all([req_url], headers=headers, proxy=self.proxy,
-                                                        json=True)
+                response = await AsyncFetcher.fetch_all([req_url], headers=headers, proxy=self.proxy, json=True)
                 temp_emails, temp_hostnames = await self.parse_resp(response[0])
                 self.emails.extend(temp_emails)
                 self.hostnames.extend(temp_hostnames)
