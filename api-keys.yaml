@@ -9,6 +9,9 @@ apikeys:
     id:
     secret:
 
+  fullhunt:
+    key:
+
   github:
     key:
 

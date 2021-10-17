@@ -34,6 +34,8 @@ Passive:
 
 * duckduckgo: DuckDuckGo search engine - www.duckduckgo.com
 
+* fullhunt: The Next-Generation Attack Surface Security Platform - https://fullhunt.io
+
 * github-code: GitHub code search engine (Requires a GitHub Personal Access Token, see below.) - www.github.com
 
 * google: Google search engine (Optional Google dorking.) - www.google.com
@@ -103,6 +105,7 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * binaryedge - not free
 * bing
 * censys - API keys are required and can be retrieved from your [Censys account](https://search.censys.io/account/api).
+* fullhunt
 * github
 * hunter - limited to 10 on the free plan so you will need to do -l 10 switch
 * intelx
