@@ -8,6 +8,6 @@ pytest-asyncio==0.15.1
 types-certifi==2020.4.0
 types-chardet==4.0.0
 types-orjson==3.6.1
-types-PyYAML==5.4.10
+types-PyYAML==5.4.12
 types-requests==2.25.11
 wheel==0.37.0
