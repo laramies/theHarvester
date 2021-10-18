@@ -97,10 +97,6 @@ jobs:
       run: |
         python theHarvester.py -d yale.edu -b linkedin_links
 
-    - name: Run theHarvester module Netcraft
-      run: |
-        python theHarvester.py -d yale.edu -b netcraft
-
     - name: Run theHarvester module Omnisint
       run: |
         python theHarvester.py -d yale.edu -b omnisint
