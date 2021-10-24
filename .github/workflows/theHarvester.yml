@@ -27,6 +27,7 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
+        pip install wheel
         pip install -r requirements/dev.txt
 
     - name: Lint with flake8
@@ -93,9 +94,13 @@ jobs:
       run: |
         python theHarvester.py -d yale.edu -b linkedin
 
-    - name: Run theHarvester module linkedin_links
+    - name: Run theHarvester module Linkedin links
       run: |
         python theHarvester.py -d yale.edu -b linkedin_links
+
+    - name: Run theHarvester module N45ht
+      run: |
+        python theHarvester.py -d yale.edu -b n45ht
 
     - name: Run theHarvester module Omnisint
       run: |
