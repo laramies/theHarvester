@@ -9,7 +9,7 @@ from censys.common.exceptions import (
 
 
 class SearchCensys:
-    def __init__(self, domain, limit=100):
+    def __init__(self, domain, limit=500):
         self.word = domain
         self.key = Core.censys_key()
         if self.key[0] is None or self.key[1] is None:
