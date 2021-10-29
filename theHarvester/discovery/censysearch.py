@@ -9,13 +9,14 @@ from censys.common.exceptions import (
 
 
 class SearchCensys:
-    def __init__(self, domain):
+    def __init__(self, domain, limit=500):
         self.word = domain
         self.key = Core.censys_key()
         if self.key[0] is None or self.key[1] is None:
             raise MissingKey("Censys ID and/or Secret")
         self.totalhosts = set()
         self.emails = set()
+        self.limit = limit
         self.proxy = False
 
     async def do_search(self):
@@ -33,6 +34,7 @@ class SearchCensys:
             response = cert_search.search(
                 query=query,
                 fields=["parsed.names", "metadata", "parsed.subject.email_address"],
+                max_records=self.limit,
             )
             for cert in response:
                 self.totalhosts.update(cert.get("parsed.names", []))
