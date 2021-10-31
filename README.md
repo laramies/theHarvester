@@ -117,7 +117,7 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * securityTrails
 * shodan
 * spyse - not free
-* zoomeye - not free
+* zoomeye
 
 Install and dependencies:
 -------------------------

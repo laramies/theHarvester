@@ -242,7 +242,7 @@ async def start(rest_args=None):
                 elif engineitem == 'censys':
                     from theHarvester.discovery import censysearch
                     try:
-                        censys_search = censysearch.SearchCensys(word)
+                        censys_search = censysearch.SearchCensys(word, limit)
                         stor_lst.append(store(censys_search, engineitem, store_host=True, store_emails=True))
                     except Exception as e:
                         if isinstance(e, MissingKey):
