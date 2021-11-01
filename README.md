@@ -94,6 +94,7 @@ Passive:
 
 * zoomeye: China version of shodan - https://www.zoomeye.org
 
+* ip fast: Find out IP Address detailed information using the fastest and simple lookup too - https://ip-fast.com
 
 Active:
 -------
