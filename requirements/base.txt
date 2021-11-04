@@ -19,6 +19,6 @@ setuptools==58.3.0
 shodan==1.25.0
 slowapi==0.1.5
 spyse-python==2.2.3
-starlette==0.16.0
+starlette==0.17.0
 uvicorn==0.15.0
 uvloop==0.16.0; platform_system != "Windows"
