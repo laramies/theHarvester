@@ -8,7 +8,7 @@ censys==2.0.9
 certifi==2021.10.8
 dnspython==2.1.0
 fastapi==0.70.0
-lxml==4.6.3
+lxml==4.6.4
 netaddr==0.8.0
 orjson==3.6.4
 pyppeteer==0.2.6
