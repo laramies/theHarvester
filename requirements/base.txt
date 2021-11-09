@@ -1,6 +1,6 @@
 aiodns==3.0.0
 aiofiles==0.7.0
-aiohttp==3.7.4.post0
+aiohttp==3.8.0
 aiomultiprocess==0.9.0
 aiosqlite==0.17.0
 beautifulsoup4==4.10.0
