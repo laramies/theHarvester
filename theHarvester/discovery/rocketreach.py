@@ -27,7 +27,7 @@ class SearchRocketReach:
 
             next_page = 1 # track pagniation
             for count in range(1, self.limit):
-                data = f'{{"query":{{"company_domain": ["{self.word}"]}}, "start": {next_page}, "page_size": 100}'
+                data = f'{{"query":{{"company_domain": ["{self.word}"]}}, "start": {next_page}, "page_size": 100}}'
                 result = await AsyncFetcher.post_fetch(self.baseurl, headers=headers, data=data, json=True)
                 if 'detail' in result.keys() and 'error' in result.keys() and 'Subscribe to a plan to access' in result['detail']:
                     # No more results can be fetched
