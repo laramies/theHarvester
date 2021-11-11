@@ -25,7 +25,7 @@ class SearchRocketReach:
                 'User-Agent': Core.get_user_agent()
             }
 
-            next_page = 1 # track pagniation
+            next_page = 1  # track pagniation
             for count in range(1, self.limit):
                 data = f'{{"query":{{"company_domain": ["{self.word}"]}}, "start": {next_page}, "page_size": 100}}'
                 result = await AsyncFetcher.post_fetch(self.baseurl, headers=headers, data=data, json=True)
