@@ -100,7 +100,7 @@ class SearchGoogle:
             print(f'\tSearching {self.counter} results.')
 
     async def append_dorks(self):
-        # Wrap in try-except incase filepaths are messed up.
+        # Wrap in try-except in case filepaths are messed up.
         try:
             with open('/etc/theHarvester/wordlists/dorks.txt', 'r') as fp:
                 self.dorks = [dork.strip() for dork in fp]
