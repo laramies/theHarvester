@@ -34,8 +34,8 @@ async def start(rest_args=None):
     parser.add_argument('-c', '--dns-brute', help='Perform a DNS brute force on the domain.', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='Save the results to an XML and JSON file.', default='', type=str)
     parser.add_argument('-b', '--source', help='''anubis, baidu, bing, binaryedge, bingapi, bufferoverun, censys, certspotter, crtsh,
-                            dnsdumpster, duckduckgo, github-code, google,
-                            hackertarget, hunter, intelx, linkedin, linkedin_links,
+                            dnsdumpster, duckduckgo, fullhunt, github-code, google,
+                            hackertarget, hunter, intelx, linkedin, linkedin_links, n45ht,
                             omnisint, otx, pentesttools, projectdiscovery,
                             qwant, rapiddns, rocketreach, securityTrails, spyse, sublist3r, threatcrowd, threatminer,
                             trello, twitter, urlscan, virustotal, yahoo, zoomeye''')
@@ -242,7 +242,7 @@ async def start(rest_args=None):
                 elif engineitem == 'censys':
                     from theHarvester.discovery import censysearch
                     try:
-                        censys_search = censysearch.SearchCensys(word)
+                        censys_search = censysearch.SearchCensys(word, limit)
                         stor_lst.append(store(censys_search, engineitem, store_host=True, store_emails=True))
                     except Exception as e:
                         if isinstance(e, MissingKey):
@@ -276,6 +276,15 @@ async def start(rest_args=None):
                     from theHarvester.discovery import duckduckgosearch
                     duckduckgo_search = duckduckgosearch.SearchDuckDuckGo(word, limit)
                     stor_lst.append(store(duckduckgo_search, engineitem, store_host=True, store_emails=True))
+
+                elif engineitem == 'fullhunt':
+                    from theHarvester.discovery import fullhuntsearch
+                    try:
+                        fullhunt_search = fullhuntsearch.SearchFullHunt(word)
+                        stor_lst.append(store(fullhunt_search, engineitem, store_host=True))
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            print(e)
 
                 elif engineitem == 'github-code':
                     try:
@@ -331,6 +340,14 @@ async def start(rest_args=None):
                     from theHarvester.discovery import linkedinsearch
                     linkedin_links_search = linkedinsearch.SearchLinkedin(word, limit)
                     stor_lst.append(store(linkedin_links_search, 'linkedin', store_links=True))
+
+                elif engineitem == 'n45ht':
+                    from theHarvester.discovery import n45htsearch
+                    try:
+                        n45ht_search = n45htsearch.SearchN45ht(word)
+                        stor_lst.append(store(n45ht_search, engineitem, store_host=True))
+                    except Exception as e:
+                        print(e)
 
                 elif engineitem == 'omnisint':
                     from theHarvester.discovery import omnisint

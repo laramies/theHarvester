@@ -16,17 +16,18 @@ jobs:
       max-parallel: 4
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python-version: [3.8, 3.9]
+        python-version: [3.8, 3.9, 3.10-dev]
 
     steps:
     - uses: actions/checkout@v2
     - name: Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2.2.2
+      uses: actions/setup-python@v2.3.0
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
       run: |
         pip install --upgrade pip
+        pip install wheel
         pip install -r requirements/dev.txt
 
     - name: Lint with flake8
@@ -93,13 +94,13 @@ jobs:
       run: |
         python theHarvester.py -d yale.edu -b linkedin
 
-    - name: Run theHarvester module linkedin_links
+    - name: Run theHarvester module Linkedin links
       run: |
         python theHarvester.py -d yale.edu -b linkedin_links
 
-    - name: Run theHarvester module Netcraft
+    - name: Run theHarvester module N45ht
       run: |
-        python theHarvester.py -d yale.edu -b netcraft
+        python theHarvester.py -d yale.edu -b n45ht
 
     - name: Run theHarvester module Omnisint
       run: |

@@ -34,6 +34,8 @@ Passive:
 
 * duckduckgo: DuckDuckGo search engine - www.duckduckgo.com
 
+* fullhunt: The Next-Generation Attack Surface Security Platform - https://fullhunt.io
+
 * github-code: GitHub code search engine (Requires a GitHub Personal Access Token, see below.) - www.github.com
 
 * google: Google search engine (Optional Google dorking.) - www.google.com
@@ -47,6 +49,8 @@ Passive:
 * linkedin: Google search engine, specific search for LinkedIn users - www.linkedin.com
 
 * linkedin_links: specific search for LinkedIn users for target domain (Uses Google search.)
+
+* n45ht: - https://n45ht.or.id
 
 * omnisint: Project Crobat, A Centralised Searchable Open Source Project Sonar DNS Database - https://github.com/Cgboal/SonarSearch
 
@@ -103,6 +107,7 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * binaryedge - not free
 * bing
 * censys - API keys are required and can be retrieved from your [Censys account](https://search.censys.io/account/api).
+* fullhunt
 * github
 * hunter - limited to 10 on the free plan so you will need to do -l 10 switch
 * intelx
@@ -112,7 +117,7 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * securityTrails
 * shodan
 * spyse - not free
-* zoomeye - not free
+* zoomeye
 
 Install and dependencies:
 -------------------------

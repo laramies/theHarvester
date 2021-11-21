@@ -12,7 +12,7 @@ import certifi
 class Core:
     @staticmethod
     def version() -> str:
-        return '4.0.1'
+        return '4.0.2'
 
     @staticmethod
     def api_keys() -> dict:
@@ -39,6 +39,10 @@ class Core:
     @staticmethod
     def censys_key() -> tuple:
         return Core.api_keys()['censys']['id'], Core.api_keys()['censys']['secret']
+
+    @staticmethod
+    def fullhunt_key() -> str:
+        return Core.api_keys()['fullhunt']['key']
 
     @staticmethod
     def github_key() -> str:
@@ -124,6 +128,7 @@ class Core:
                             'crtsh',
                             'dnsdumpster',
                             'duckduckgo',
+                            'fullhunt',
                             'github-code',
                             'google',
                             'hackertarget',
@@ -131,6 +136,7 @@ class Core:
                             'intelx',
                             'linkedin',
                             'linkedin_links',
+                            'n45ht',
                             'omnisint',
                             'otx',
                             'pentesttools',
