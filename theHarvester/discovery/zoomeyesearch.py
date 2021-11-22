@@ -11,6 +11,10 @@ class SearchZoomEye:
         self.word = word
         self.limit = limit
         self.key = Core.zoomeye_key()
+        # NOTE for ZoomEye you get a system recharge on the 1st of every month
+        # Which resets your balance to 10000 requests
+        # If you wish to extract as many subdomains as possible visit the fetch_subdomains
+        # To see how
         if self.key is None:
             raise MissingKey('zoomeye')
         self.baseurl = 'https://api.zoomeye.org/host/search'
@@ -52,17 +56,52 @@ class SearchZoomEye:
         """
         self.iurl_regex = re.compile(self.iurl_regex, re.VERBOSE)
 
+    async def fetch_subdomains(self):
+        # Based on docs from: https://www.zoomeye.org/doc#search-sub-domain-ip
+        headers = {
+            'API-KEY': self.key,
+            'User-Agent': Core.get_user_agent()
+        }
+
+        subdomain_search_endpoint = f'https://api.zoomeye.org/domain/search?q={self.word}&type=0&'
+
+        response = await AsyncFetcher.fetch_all([subdomain_search_endpoint + 'page=1'],
+                                                json=True, proxy=self.proxy, headers=headers)
+        # Make initial request to determine total number of subdomains
+        resp = response[0]
+        if resp['status'] != 200:
+            return
+        total = resp['total']
+        # max number of results per request seems to be 30
+        # NOTE: If you wish to get as many subdomains as possible
+        # Change the line below to:
+        # self.limit = (total // 30) + 1
+        self.limit = self.limit if total > self.limit else (total // 30) + 1
+        self.totalhosts.extend([item["name"] for item in resp["list"]])
+        for i in range(2, self.limit):
+            response = await AsyncFetcher.fetch_all([subdomain_search_endpoint + f'page={i}'],
+                                                    json=True, proxy=self.proxy, headers=headers)
+            resp = response[0]
+            if resp['status'] != 200:
+                return
+            found_subdomains = [item["name"] for item in resp["list"]]
+            if len(found_subdomains) == 0:
+                break
+            self.totalhosts.extend(found_subdomains)
+            if i % 10 == 0:
+                await asyncio.sleep(get_delay() + 1)
+
     async def do_search(self):
         headers = {
             'API-KEY': self.key,
             'User-Agent': Core.get_user_agent()
         }
+        # Fetch subdomains first
+        await self.fetch_subdomains()
         params = (
             ('query', f'site:{self.word}'),
             ('page', '1'),
         )
-        # TODO add: https://www.zoomeye.org/profile/domain to fetch subdomains more easily once
-        # once api endpoint is created
         response = await AsyncFetcher.fetch_all([self.baseurl], json=True, proxy=self.proxy, headers=headers,
                                                 params=params)
         # First request determines how many pages there in total
@@ -78,7 +117,7 @@ class SearchZoomEye:
         if cur_page == -1:
             # No need to do loop just parse and leave
             if 'matches' in resp.keys():
-                hostnames, emails, ips, asns, iurls = await self.parse_matchs(resp['matches'])
+                hostnames, emails, ips, asns, iurls = await self.parse_matches(resp['matches'])
                 self.totalhosts.extend(hostnames)
                 self.totalemails.extend(emails)
                 self.totalips.extend(ips)
@@ -87,7 +126,7 @@ class SearchZoomEye:
         else:
             if 'matches' in resp.keys():
                 # Parse out initial results and then continue to loop
-                hostnames, emails, ips, asns, iurls = await self.parse_matchs(resp['matches'])
+                hostnames, emails, ips, asns, iurls = await self.parse_matches(resp['matches'])
                 self.totalhosts.extend(hostnames)
                 self.totalemails.extend(emails)
                 self.totalips.extend(ips)
@@ -95,7 +134,7 @@ class SearchZoomEye:
                 self.interestingurls.extend(iurls)
 
             for num in range(2, self.limit):
-                print(f'Currently on page: {num}')
+                # print(f'Currently on page: {num}')
                 params = (
                     ('query', f'site:{self.word}'),
                     ('page', f'{num}'),
@@ -108,7 +147,7 @@ class SearchZoomEye:
                     print('Match not found in keys')
                     break
 
-                hostnames, emails, ips, asns, iurls = await self.parse_matchs(resp['matches'])
+                hostnames, emails, ips, asns, iurls = await self.parse_matches(resp['matches'])
 
                 if len(hostnames) == 0 and len(emails) == 0 and len(ips) == 0 \
                         and len(asns) == 0 and len(iurls) == 0:
@@ -123,9 +162,10 @@ class SearchZoomEye:
                 self.totalasns.extend(asns)
                 self.interestingurls.extend(iurls)
 
-                await asyncio.sleep(get_delay() + 2)
+                if num % 10 == 0:
+                    await asyncio.sleep(get_delay() + 1)
 
-    async def parse_matchs(self, matches):
+    async def parse_matches(self, matches):
         # Helper function to parse items from match json
         # ips = {match["ip"] for match in matches}
         ips = set()

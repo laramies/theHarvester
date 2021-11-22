@@ -2,7 +2,7 @@ import argparse
 from typing import List
 import os
 from fastapi import FastAPI, Header, Query, Request
-from fastapi.responses import HTMLResponse, ORJSONResponse
+from fastapi.responses import HTMLResponse, UJSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -65,7 +65,7 @@ async def bot():
     return string
 
 
-@app.get('/sources', response_class=ORJSONResponse)
+@app.get('/sources', response_class=UJSONResponse)
 @limiter.limit('5/minute')
 async def getsources(request: Request):
     # Endpoint for user to query for available sources theHarvester supports
@@ -74,7 +74,7 @@ async def getsources(request: Request):
     return {'sources': sources}
 
 
-@app.get('/dnsbrute', response_class=ORJSONResponse)
+@app.get('/dnsbrute', response_class=UJSONResponse)
 @limiter.limit('5/minute')
 async def dnsbrute(request: Request, user_agent: str = Header(None),
                    domain: str = Query(..., description='Domain to be brute forced')):
@@ -101,7 +101,7 @@ async def dnsbrute(request: Request, user_agent: str = Header(None),
     return {'dns_bruteforce': dns_bruteforce}
 
 
-@app.get('/query', response_class=ORJSONResponse)
+@app.get('/query', response_class=UJSONResponse)
 @limiter.limit('2/minute')
 async def query(request: Request, dns_server: str = Query(""), user_agent: str = Header(None),
                 dns_brute: bool = Query(False),
