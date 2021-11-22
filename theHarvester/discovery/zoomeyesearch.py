@@ -65,7 +65,7 @@ class SearchZoomEye:
 
         subdomain_search_endpoint = f'https://api.zoomeye.org/domain/search?q={self.word}&type=0&'
 
-        response = await AsyncFetcher.fetch_all([subdomain_search_endpoint + f'page=1'],
+        response = await AsyncFetcher.fetch_all([subdomain_search_endpoint + 'page=1'],
                                                 json=True, proxy=self.proxy, headers=headers)
         # Make initial request to determine total number of subdomains
         resp = response[0]
