@@ -86,7 +86,9 @@ async def google_workaround(visit_url: str) -> Union[bool, str]:
     returned_html = "This page appears when Google automatically detects requests coming from your computer network" \
         if returned_html == "" else returned_html[0]
 
-    if await search(returned_html):
+    returned_html = "" if 'Please Wait... | Cloudflare' in returned_html else returned_html
+
+    if len(returned_html) == 0 or await search(returned_html) or '&lt;html' not in returned_html:
         # indicates that google is serving workaround a captcha
         # That means we will try out second option which will utilize proxies
         return True

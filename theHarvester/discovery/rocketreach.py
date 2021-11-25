@@ -25,8 +25,9 @@ class SearchRocketReach:
                 'User-Agent': Core.get_user_agent()
             }
 
-            for page in range(1, self.limit):
-                data = f'{{"query":{{"company_website_url": ["{self.word}"]}}, "start": {page}}}'
+            next_page = 1  # track pagniation
+            for count in range(1, self.limit):
+                data = f'{{"query":{{"company_domain": ["{self.word}"]}}, "start": {next_page}, "page_size": 100}}'
                 result = await AsyncFetcher.post_fetch(self.baseurl, headers=headers, data=data, json=True)
                 if 'detail' in result.keys() and 'error' in result.keys() and 'Subscribe to a plan to access' in result['detail']:
                     # No more results can be fetched
@@ -42,6 +43,10 @@ class SearchRocketReach:
                     for profile in result['profiles']:
                         if 'linkedin_url' in dict(profile).keys():
                             self.links.add(profile['linkedin_url'])
+                if 'pagination' in dict(result).keys():
+                    next_page = int(result['pagination']['next'])
+                    if next_page > int(result['pagination']['total']):
+                        break
 
             await asyncio.sleep(get_delay() + 2)
 

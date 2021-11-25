@@ -8,7 +8,7 @@ from theHarvester.lib import stash
 from theHarvester.lib.core import *
 import argparse
 import asyncio
-import orjson
+import ujson
 import netaddr
 import re
 import sys
@@ -890,7 +890,9 @@ async def start(rest_args=None):
 
             json_dict["shodan"] = shodanres
             with open(filename, 'wb+') as fp:
-                fp.write(orjson.dumps(json_dict, option=orjson.OPT_SORT_KEYS))
+                # If you do not wish to install ujson you can do
+                # fp.write(json.dumps(json_dict, sort_keys=True)
+                fp.write(ujson.dumps(json_dict, sort_keys=True))
             print('[*] JSON File saved.')
         except Exception as er:
             print(f'\033[93m[!] An error occurred while saving the JSON file: {er} \033[0m')
