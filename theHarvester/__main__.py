@@ -889,7 +889,7 @@ async def start(rest_args=None):
                 json_dict["linkedin_links"] = linkedin_links_tracker
 
             json_dict["shodan"] = shodanres
-            with open(filename, 'wb+') as fp:
+            with open(filename, 'w+') as fp:
                 # If you do not wish to install ujson you can do
                 # fp.write(json.dumps(json_dict, sort_keys=True)
                 fp.write(ujson.dumps(json_dict, sort_keys=True))
