@@ -9,5 +9,5 @@ types-certifi==2021.10.8.0
 types-chardet==4.0.1
 types-ujson==4.2.0
 types-PyYAML==6.0.1
-types-requests==2.26.0
+types-requests==2.26.1
 wheel==0.37.0
