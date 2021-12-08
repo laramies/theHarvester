@@ -20,5 +20,5 @@ shodan==1.25.0
 slowapi==0.1.5
 spyse-python==2.2.3
 starlette==0.16.0
-uvicorn==0.15.0
+uvicorn==0.16.0
 uvloop==0.16.0; platform_system != "Windows"
