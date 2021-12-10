@@ -13,7 +13,7 @@ jobs:
   Python:
     runs-on: ${{ matrix.os }}
     strategy:
-      max-parallel: 4
+      max-parallel: 8
       matrix:
         os: [ubuntu-latest, macos-latest]
         python-version: [3.8, 3.9, 3.10.0]
