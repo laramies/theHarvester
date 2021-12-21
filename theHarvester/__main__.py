@@ -65,7 +65,9 @@ async def start(rest_args=None):
         await db.do_init()
     except Exception:
         pass
-
+    import os
+    if len(filename) > 2 and filename[:2] == "~/":
+        filename = os.path.expanduser(filename)
     all_emails: List = []
     all_hosts: List = []
     all_ip: List = []
