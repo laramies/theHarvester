@@ -73,7 +73,8 @@ class ScreenShotter:
         print(f'Attempting to take a screenshot of: {url}')
         browser = await launch(headless=True, ignoreHTTPSErrors=True, args=["--no-sandbox"])
         context = await browser.createIncognitoBrowserContext()
-        page = await browser.newPage()
+        # Create a new page in a pristine context.
+        page = await context.newPage()
         path = fr'{self.output}{self.slash}{url.replace("http://", "").replace("https://", "")}.png'
         date = str(datetime.utcnow())
         try:
