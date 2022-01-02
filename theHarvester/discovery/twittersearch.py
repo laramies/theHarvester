@@ -49,5 +49,6 @@ class SearchTwitter:
                 handles.add(result.group(0))
         return handles
 
-    async def process(self):
+    async def process(self, proxy=False):
+        self.proxy = proxy
         await self.do_search()
