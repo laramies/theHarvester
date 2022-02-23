@@ -16,7 +16,7 @@ PyYAML==6.0
 requests==2.27.1
 retrying==1.3.3
 setuptools==60.9.3
-shodan==1.26.1
+shodan==1.27.0
 slowapi==0.1.5
 -e git+https://github.com/L1ghtn1ng/spyse-python@main#egg=spyse-python
 starlette==0.17.1
