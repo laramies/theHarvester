@@ -6,7 +6,7 @@ aiosqlite==0.17.0
 beautifulsoup4==4.10.0
 censys==2.1.2
 certifi==2021.10.8
-dnspython==2.2.0
+dnspython==2.2.1
 fastapi==0.74.1
 lxml==4.8.0
 netaddr==0.8.0
