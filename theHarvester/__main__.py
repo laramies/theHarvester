@@ -22,23 +22,20 @@ async def start(rest_args=None):
     parser.add_argument('-d', '--domain', help='Company name or domain to search.', required=True)
     parser.add_argument('-l', '--limit', help='Limit the number of search results, default=500.', default=500, type=int)
     parser.add_argument('-S', '--start', help='Start with result number X, default=0.', default=0, type=int)
-    parser.add_argument('-g', '--google-dork', help='Use Google Dorks for Google search.', default=False, action='store_true')
     parser.add_argument('-p', '--proxies', help='Use proxies for requests, enter proxies in proxies.yaml.', default=False, action='store_true')
     parser.add_argument('-s', '--shodan', help='Use Shodan to query discovered hosts.', default=False, action='store_true')
     parser.add_argument('--screenshot', help='Take screenshots of resolved domains specify output directory: --screenshot output_directory', default="", type=str)
     parser.add_argument('-v', '--virtual-host', help='Verify host name via DNS resolution and search for virtual hosts.', action='store_const', const='basic', default=False)
     parser.add_argument('-e', '--dns-server', help='DNS server to use for lookup.')
-    parser.add_argument('-t', '--dns-tld', help='Perform a DNS TLD expansion discovery, default False.', default=False)
     parser.add_argument('-r', '--take-over', help='Check for takeovers.', default=False, action='store_true')
     parser.add_argument('-n', '--dns-lookup', help='Enable DNS server lookup, default False.', default=False, action='store_true')
     parser.add_argument('-c', '--dns-brute', help='Perform a DNS brute force on the domain.', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='Save the results to an XML and JSON file.', default='', type=str)
     parser.add_argument('-b', '--source', help='''anubis, baidu, bing, binaryedge, bingapi, bufferoverun, censys, certspotter, crtsh,
-                            dnsdumpster, duckduckgo, fullhunt, github-code, google,
-                            hackertarget, hunter, intelx, linkedin, linkedin_links,
+                            dnsdumpster, duckduckgo, fullhunt, github-code, hackertarget, hunter, intelx,
                             omnisint, otx, pentesttools, projectdiscovery,
                             qwant, rapiddns, rocketreach, securityTrails, spyse, sublist3r, threatcrowd, threatminer,
-                            trello, twitter, urlscan, virustotal, yahoo, zoomeye''')
+                            urlscan, virustotal, yahoo, zoomeye''')
 
     # determines if filename is coming from rest api or user
     rest_filename = ''
@@ -73,13 +70,11 @@ async def start(rest_args=None):
     all_ip: List = []
     dnslookup = args.dns_lookup
     dnsserver = args.dns_server
-    dnstld = args.dns_tld
     engines: List = []
     # If the user specifies
 
     full: List = []
     ips: List = []
-    google_dorking = args.google_dork
     host_ip: List = []
     limit: int = args.limit
     shodan = args.shodan
@@ -158,10 +153,6 @@ async def start(rest_args=None):
             await db.store_all(word, all_emails, 'email', source)
         if store_people:
             people_list = await search_engine.get_people()
-            if source == 'twitter':
-                twitter_people_list_tracker.extend(people_list)
-            if source == 'linkedin':
-                linkedin_people_list_tracker.extend(people_list)
             await db_stash.store_all(word, people_list, 'people', source)
 
         if store_links:
@@ -432,17 +423,6 @@ async def start(rest_args=None):
                     except Exception as e:
                         print(e)
 
-                elif engineitem == 'trello':
-                    from theHarvester.discovery import trello
-                    # Import locally or won't work.
-                    trello_search = trello.SearchTrello(word)
-                    stor_lst.append(store(trello_search, engineitem, store_results=True))
-
-                elif engineitem == 'twitter':
-                    from theHarvester.discovery import twittersearch
-                    twitter_search = twittersearch.SearchTwitter(word, limit)
-                    stor_lst.append(store(twitter_search, engineitem, store_people=True))
-
                 elif engineitem == 'urlscan':
                     from theHarvester.discovery import urlscan
                     try:
@@ -681,20 +661,6 @@ async def start(rest_args=None):
         for xh in dnsrev:
             print(xh)
 
-    # DNS TLD expansion
-    dnstldres = []
-    if dnstld is True:
-        print('[*] Starting DNS TLD expansion.')
-        a = dnssearch.DnsTld(word, dnsserver, verbose=True)
-        res = a.process()
-        print('\n[*] Hosts found after DNS TLD expansion:')
-        print('----------------------------------------')
-        for y in res:
-            print(y)
-            dnstldres.append(y)
-            if y not in full:
-                full.append(y)
-
     # Virtual hosts search
     if virtual == 'basic':
         print('\n[*] Virtual hosts:')
@@ -722,7 +688,7 @@ async def start(rest_args=None):
         from theHarvester.screenshot.screenshot import ScreenShotter
         screen_shotter = ScreenShotter(args.screenshot)
         path_exists = screen_shotter.verify_path()
-        # Verify path exists if not create it or if user does not create it skip screenshot
+        # Verify path exists, if not create it or if user does not create it skips screenshot
         if path_exists:
             await screen_shotter.verify_installation()
             print(f'\nScreenshots can be found in: {screen_shotter.output}{screen_shotter.slash}')
@@ -780,20 +746,6 @@ async def start(rest_args=None):
                 print('\n')
         except Exception as e:
             print(f'\033[93m[!] An error occurred with Shodan: {e} \033[0m')
-    else:
-        pass
-
-    # Here we need to add explosion mode.
-    # We have to take out the TLDs to do this.
-    if args.dns_tld is not False:
-        counter = 0
-        for word in vhost:
-            search_google = googlesearch.SearchGoogle(word, limit, counter)
-            await search_google.process(google_dorking)
-            emails = await search_google.get_emails()
-            hosts = await search_google.get_hostnames()
-            print(emails)
-            print(hosts)
     else:
         pass
 

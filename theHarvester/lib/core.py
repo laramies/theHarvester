@@ -317,7 +317,7 @@ class AsyncFetcher:
 
     @classmethod
     async def fetch_all(cls, urls, headers='', params='', json=False, takeover=False, proxy=False) -> list:
-        # By default timeout is 5 minutes, 60 seconds should suffice
+        # By default, timeout is 5 minutes, 60 seconds should suffice
         timeout = aiohttp.ClientTimeout(total=60)
         if len(headers) == 0:
             headers = {'User-Agent': Core.get_user_agent()}
