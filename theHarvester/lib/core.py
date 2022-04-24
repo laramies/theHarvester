@@ -137,7 +137,6 @@ class Core:
                             'intelx',
                             'linkedin',
                             'linkedin_links',
-                            'n45ht',
                             'omnisint',
                             'otx',
                             'pentesttools',

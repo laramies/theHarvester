@@ -35,7 +35,7 @@ async def start(rest_args=None):
     parser.add_argument('-f', '--filename', help='Save the results to an XML and JSON file.', default='', type=str)
     parser.add_argument('-b', '--source', help='''anubis, baidu, bing, binaryedge, bingapi, bufferoverun, censys, certspotter, crtsh,
                             dnsdumpster, duckduckgo, fullhunt, github-code, google,
-                            hackertarget, hunter, intelx, linkedin, linkedin_links, n45ht,
+                            hackertarget, hunter, intelx, linkedin, linkedin_links,
                             omnisint, otx, pentesttools, projectdiscovery,
                             qwant, rapiddns, rocketreach, securityTrails, spyse, sublist3r, threatcrowd, threatminer,
                             trello, twitter, urlscan, virustotal, yahoo, zoomeye''')
@@ -342,14 +342,6 @@ async def start(rest_args=None):
                     from theHarvester.discovery import linkedinsearch
                     linkedin_links_search = linkedinsearch.SearchLinkedin(word, limit)
                     stor_lst.append(store(linkedin_links_search, 'linkedin', store_links=True))
-
-                elif engineitem == 'n45ht':
-                    from theHarvester.discovery import n45htsearch
-                    try:
-                        n45ht_search = n45htsearch.SearchN45ht(word)
-                        stor_lst.append(store(n45ht_search, engineitem, store_host=True))
-                    except Exception as e:
-                        print(e)
 
                 elif engineitem == 'omnisint':
                     from theHarvester.discovery import omnisint
