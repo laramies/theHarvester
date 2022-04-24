@@ -72,10 +72,6 @@ Passive:
 
 * threatminer: Data mining for threat intelligence - https://www.threatminer.org/
 
-* trello: Search trello boards (Uses Google search.)
-
-* twitter: Twitter accounts related to a specific domain (Uses Google search.)
-
 * urlscan: A sandbox for the web that is a URL and website scanner - https://urlscan.io
 
 * vhost: Bing virtual hosts search
@@ -101,7 +97,7 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * censys - API keys are required and can be retrieved from your [Censys account](https://search.censys.io/account/api).
 * fullhunt
 * github
-* hunter - limited to 10 on the free plan so you will need to do -l 10 switch
+* hunter - limited to 10 on the free plan, so you will need to do -l 10 switch
 * intelx
 * pentesttools - not free
 * projecdiscovery - invite only for now
