@@ -298,12 +298,6 @@ async def start(rest_args=None):
                     else:
                         pass
 
-                elif engineitem == 'google':
-                    from theHarvester.discovery import googlesearch
-                    google_search = googlesearch.SearchGoogle(word, limit, start)
-                    stor_lst.append(store(google_search, engineitem, process_param=google_dorking, store_host=True,
-                                          store_emails=True))
-
                 elif engineitem == 'hackertarget':
                     from theHarvester.discovery import hackertarget
                     hackertarget_search = hackertarget.SearchHackerTarget(word)
@@ -332,16 +326,6 @@ async def start(rest_args=None):
                             print(e)
                         else:
                             print(f'An exception has occurred in Intelx search: {e}')
-
-                elif engineitem == 'linkedin':
-                    from theHarvester.discovery import linkedinsearch
-                    linkedin_search = linkedinsearch.SearchLinkedin(word, limit)
-                    stor_lst.append(store(linkedin_search, engineitem, store_people=True))
-
-                elif engineitem == 'linkedin_links':
-                    from theHarvester.discovery import linkedinsearch
-                    linkedin_links_search = linkedinsearch.SearchLinkedin(word, limit)
-                    stor_lst.append(store(linkedin_links_search, 'linkedin', store_links=True))
 
                 elif engineitem == 'omnisint':
                     from theHarvester.discovery import omnisint

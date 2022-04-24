@@ -38,17 +38,11 @@ Passive:
 
 * github-code: GitHub code search engine (Requires a GitHub Personal Access Token, see below.) - www.github.com
 
-* google: Google search engine (Optional Google dorking.) - www.google.com
-
 * hackertarget: Online vulnerability scanners and network intelligence to help organizations - https://hackertarget.com
 
 * hunter: Hunter search engine (Requires an API key, see below.) - www.hunter.io
 
 * intelx: Intelx search engine (Requires an API key, see below.) - www.intelx.io
-
-* linkedin: Google search engine, specific search for LinkedIn users - www.linkedin.com
-
-* linkedin_links: specific search for LinkedIn users for target domain (Uses Google search.)
 
 * omnisint: Project Crobat, A Centralised Searchable Open Source Project Sonar DNS Database - https://github.com/Cgboal/SonarSearch
 
