@@ -6,7 +6,7 @@ pyflakes==2.4.0
 pytest==7.1.2
 pytest-asyncio==0.18.3
 types-certifi==2021.10.8.2
-types-chardet==4.0.3
+types-chardet==4.0.4
 types-ujson==4.2.1
 types-PyYAML==6.0.7
 types-requests==2.27.25
