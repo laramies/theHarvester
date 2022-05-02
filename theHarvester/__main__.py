@@ -433,9 +433,15 @@ async def start(rest_args=None):
                         print(e)
 
                 elif engineitem == 'virustotal':
-                    from theHarvester.discovery import virustotal
-                    virustotal_search = virustotal.SearchVirustotal(word)
-                    stor_lst.append(store(virustotal_search, engineitem, store_host=True))
+                    try:
+                        from theHarvester.discovery import virustotal
+                        virustotal_search = virustotal.SearchVirustotal(word)
+                        stor_lst.append(store(virustotal_search, engineitem, store_host=True))
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            print(e)
+                        else:
+                            pass
 
                 elif engineitem == 'yahoo':
                     from theHarvester.discovery import yahoosearch

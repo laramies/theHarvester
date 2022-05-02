@@ -39,5 +39,8 @@ apikeys:
   spyse:
     key:
 
+  virustotal:
+    key:
+
   zoomeye:
     key:

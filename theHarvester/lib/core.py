@@ -85,6 +85,10 @@ class Core:
         return Core.api_keys()['zoomeye']['key']
 
     @staticmethod
+    def virustotal_key() -> str:
+        return Core.api_keys()['virustotal']['key']
+
+    @staticmethod
     def proxy_list() -> List:
         try:
             with open('/etc/theHarvester/proxies.yaml', 'r') as proxy_file:
@@ -316,7 +320,7 @@ class AsyncFetcher:
             return url, ''
 
     @classmethod
-    async def fetch_all(cls, urls, headers='', params='', json=False, takeover=False, proxy=False) -> list:
+    async def fetch_all(cls, urls, headers='', params='', json=False, takeover=False, proxy=False) -> tuple:
         # By default, timeout is 5 minutes, 60 seconds should suffice
         timeout = aiohttp.ClientTimeout(total=60)
         if len(headers) == 0:
