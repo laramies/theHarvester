@@ -19,6 +19,6 @@ setuptools==62.3.2
 shodan==1.27.0
 slowapi==0.1.5
 -e git+https://github.com/L1ghtn1ng/spyse-python@main#egg=spyse-python
-starlette==0.19.1
+starlette==0.20.1
 uvicorn==0.17.6
 uvloop==0.16.0; platform_system != "Windows"
