@@ -1,6 +1,6 @@
 [tool.pytest.ini_options]
 minversion = "7.1"
-asyncio_mode=auto
+addopts = "--no-header --asyncio-mode=auto"
 testpaths = [
     "tests",
     "tests/discovery/",
