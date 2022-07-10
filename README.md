@@ -16,7 +16,7 @@ Passive:
 
 * baidu: Baidu search engine - www.baidu.com
 
-* binaryedge: placeholder - www.binaryedge.io
+* binaryedge: List of known subdomains from www.binaryedge.io
 
 * bing: Microsoft search engine - www.bing.com
 
