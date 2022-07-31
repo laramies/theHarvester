@@ -1,6 +1,6 @@
 # coding=utf-8
-
-from typing import Set, Union, Any, Tuple, List
+from __future__ import annotations
+from typing import Union, Any, Tuple, List
 import yaml
 import asyncio
 import aiohttp
@@ -77,10 +77,6 @@ class Core:
         return Core.api_keys()['shodan']['key']
 
     @staticmethod
-    def spyse_key() -> str:
-        return Core.api_keys()['spyse']['key']
-
-    @staticmethod
     def zoomeye_key() -> str:
         return Core.api_keys()['zoomeye']['key']
 
@@ -121,8 +117,8 @@ class Core:
         print('*******************************************************************')
 
     @staticmethod
-    def get_supportedengines() -> Set[Union[str, Any]]:
-        supportedengines = {'anubis',
+    def get_supportedengines() -> list[str | Any]:
+        supportedengines = ['anubis',
                             'baidu',
                             'binaryedge',
                             'bing',
@@ -147,14 +143,13 @@ class Core:
                             'rocketreach',
                             'securityTrails',
                             'sublist3r',
-                            'spyse',
                             'threatcrowd',
                             'threatminer',
                             'urlscan',
                             'virustotal',
                             'yahoo',
                             'zoomeye'
-                            }
+                            ]
         return supportedengines
 
     @staticmethod
