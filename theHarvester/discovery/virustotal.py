@@ -2,6 +2,7 @@ from theHarvester.discovery.constants import *
 from theHarvester.lib.core import *
 from pprint import pprint
 
+
 class SearchVirustotal:
 
     def __init__(self, word):
