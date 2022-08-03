@@ -66,9 +66,7 @@ NETWORK_REGEX = r'\b({})(?:\:({}))?(?:\/({}))?\b'.format(
     NETMASK_REGEX)
 
 
-def serialize_ip_range(
-        ip: str,
-        netmask: str = '24') -> str:
+def serialize_ip_range(ip: str, netmask: str = '24') -> str:
     """
     Serialize a network range in a constant format, 'x.x.x.x/y'.
 

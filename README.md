@@ -38,19 +38,11 @@ Passive:
 
 * github-code: GitHub code search engine (Requires a GitHub Personal Access Token, see below.) - www.github.com
 
-* google: Google search engine (Optional Google dorking.) - www.google.com
-
 * hackertarget: Online vulnerability scanners and network intelligence to help organizations - https://hackertarget.com
 
 * hunter: Hunter search engine (Requires an API key, see below.) - www.hunter.io
 
 * intelx: Intelx search engine (Requires an API key, see below.) - www.intelx.io
-
-* linkedin: Google search engine, specific search for LinkedIn users - www.linkedin.com
-
-* linkedin_links: specific search for LinkedIn users for target domain (Uses Google search.)
-
-* n45ht: - https://n45ht.or.id
 
 * omnisint: Project Crobat, A Centralised Searchable Open Source Project Sonar DNS Database - https://github.com/Cgboal/SonarSearch
 
@@ -80,10 +72,6 @@ Passive:
 
 * threatminer: Data mining for threat intelligence - https://www.threatminer.org/
 
-* trello: Search trello boards (Uses Google search.)
-
-* twitter: Twitter accounts related to a specific domain (Uses Google search.)
-
 * urlscan: A sandbox for the web that is a URL and website scanner - https://urlscan.io
 
 * vhost: Bing virtual hosts search
@@ -109,7 +97,7 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * censys - API keys are required and can be retrieved from your [Censys account](https://search.censys.io/account/api).
 * fullhunt
 * github
-* hunter - limited to 10 on the free plan so you will need to do -l 10 switch
+* hunter - limited to 10 on the free plan, so you will need to do -l 10 switch
 * intelx
 * pentesttools - not free
 * projecdiscovery - invite only for now

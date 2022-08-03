@@ -1,4 +1,4 @@
-FROM ubuntu:impish
+FROM ubuntu:kinetic
 LABEL maintainer="@jay_townsend1 & @NotoriousRebel1"
 RUN mkdir /app
 WORKDIR /app
