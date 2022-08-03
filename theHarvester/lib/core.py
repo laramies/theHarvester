@@ -12,7 +12,7 @@ import certifi
 class Core:
     @staticmethod
     def version() -> str:
-        return '4.1.0'
+        return '4.2.0dev'
 
     @staticmethod
     def api_keys() -> dict:
