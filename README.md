@@ -5,10 +5,10 @@
 
 What is this?
 -------------
-theHarvester is a simple to use, yet powerful tool designed to be used during the reconniasance stage of a red team<br>
-assessment or penetration test. It performs open source intelligence (OSINT) gathering to help determine a domain's<br>
-external threat landscape. The tool gathers names, emails, IPs, subdomains, and URLs by using multiple public datasourrces<br>
-that include:
+theHarvester is a simple to use, yet powerful tool designed to be used during the reconnaissance stage of a red<br>
+team assessment or penetration test. It performs open source intelligence (OSINT) gathering to help determine a<br>
+domain's external threat landscape. The tool gathers names, emails, IPs, subdomains, and URLs by using multiple<br>
+public resources that include:<br>
 
 Passive:
 --------
@@ -64,8 +64,6 @@ Passive:
 
 * shodan: Shodan search engine, will search for ports and banners from discovered hosts (Requires an API key, see below.) - www.shodanhq.com
 
-* spyse: [Spyse is a search engine](https://spyse.com/) built for a quick cyber intelligence of IT infrastructures, networks, and even the smallest parts of the internet. (Requires an API key, see below.) - [spyse.com](https://spyse.com)
-
 * sublist3r: Fast subdomains enumeration tool for penetration testers - https://api.sublist3r.com/search.php?domain=example.com
 
 * threatcrowd: Open source threat intelligence - www.threatcrowd.org
@@ -92,19 +90,18 @@ Modules that require an API key:
 --------------------------------
 Documentation to setup API keys can be found at - https://github.com/laramies/theHarvester/wiki/Installation#api-keys
 
-* binaryedge - not free
+* binaryedge - $10/month
 * bing
 * censys - API keys are required and can be retrieved from your [Censys account](https://search.censys.io/account/api).
 * fullhunt
 * github
 * hunter - limited to 10 on the free plan, so you will need to do -l 10 switch
 * intelx
-* pentesttools - not free
+* pentesttools - $
 * projecdiscovery - invite only for now
-* rocketreach - not free
+* rocketreach - $
 * securityTrails
-* shodan
-* spyse - not free
+* shodan - $
 * zoomeye
 
 Install and dependencies:
@@ -114,7 +111,7 @@ Install and dependencies:
 
 
 Comments, bugs, and requests:
-----------------------------
+-----------------------------
 * [![Twitter Follow](https://img.shields.io/twitter/follow/laramies.svg?style=social&label=Follow)](https://twitter.com/laramies) Christian Martorella @laramies
   cmartorella@edge-security.com
 * [![Twitter Follow](https://img.shields.io/twitter/follow/NotoriousRebel1.svg?style=social&label=Follow)](https://twitter.com/NotoriousRebel1) Matthew Brown @NotoriousRebel1
