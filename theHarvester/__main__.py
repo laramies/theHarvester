@@ -154,13 +154,11 @@ async def start(rest_args=None):
         if store_people:
             people_list = await search_engine.get_people()
             await db_stash.store_all(word, people_list, 'people', source)
-
         if store_links:
             links = await search_engine.get_links()
             linkedin_links_tracker.extend(links)
             if len(links) > 0:
                 await db.store_all(word, links, 'linkedinlinks', engineitem)
-
         if store_interestingurls:
             iurls = await search_engine.get_interestingurls()
             interesting_urls.extend(iurls)
@@ -286,8 +284,6 @@ async def start(rest_args=None):
                         stor_lst.append(store(github_search, engineitem, store_host=True, store_emails=True))
                     except MissingKey as ex:
                         print(ex)
-                    else:
-                        pass
 
                 elif engineitem == 'hackertarget':
                     from theHarvester.discovery import hackertarget
@@ -303,8 +299,6 @@ async def start(rest_args=None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             print(e)
-                        else:
-                            pass
 
                 elif engineitem == 'intelx':
                     from theHarvester.discovery import intelxsearch
@@ -388,8 +382,6 @@ async def start(rest_args=None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             print(e)
-                        else:
-                            pass
 
                 elif engineitem == 'sublist3r':
                     from theHarvester.discovery import sublist3r
@@ -432,8 +424,6 @@ async def start(rest_args=None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             print(e)
-                        else:
-                            pass
 
                 elif engineitem == 'yahoo':
                     from theHarvester.discovery import yahoosearch
@@ -449,8 +439,6 @@ async def start(rest_args=None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             print(e)
-                        else:
-                            pass
         else:
             try:
                 # Check if dns_brute is defined
