@@ -48,9 +48,10 @@ class SearchVirustotal:
             count += jdata['meta']['count']
             if count == 0 or fail_counter >= 2:
                 break
-            data = jdata['data']
-            self.hostnames.extend(await self.parse_hostnames(data, self.word))
-            counter += 1
+            if 'data' in jdata.keys():
+                data = jdata['data']
+                self.hostnames.extend(await self.parse_hostnames(data, self.word))
+                counter += 1
             await asyncio.sleep(16)
         self.hostnames = list(sorted(set(self.hostnames)))
         # verify domains such as x.x.com.multicdn.x.com are parsed properly
