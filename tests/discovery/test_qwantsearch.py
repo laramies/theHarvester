@@ -14,15 +14,15 @@ class TestSearchQwant(object):
     def domain() -> str:
         return 'example.com'
 
-    def test_get_start_offset_return_0(self):
+    async def test_get_start_offset_return_0(self):
         search = qwantsearch.SearchQwant(TestSearchQwant.domain(), 0, 200)
         assert search.get_start_offset() == 0
 
-    def test_get_start_offset_return_50(self):
+    async def test_get_start_offset_return_50(self):
         search = qwantsearch.SearchQwant(TestSearchQwant.domain(), 55, 200)
         assert search.get_start_offset() == 50
 
-    def test_get_start_offset_return_100(self):
+    async def test_get_start_offset_return_100(self):
         search = qwantsearch.SearchQwant(TestSearchQwant.domain(), 100, 200)
         assert search.get_start_offset() == 100
 

@@ -1,5 +1,5 @@
+#!/usr/bin/env python3
 # Note: This script runs theHarvester
-# from platform import python_version
 import sys
 import asyncio
 from theHarvester import __main__
@@ -17,10 +17,7 @@ if __name__ == '__main__':
         multiprocessing.freeze_support()
         asyncio.DefaultEventLoopPolicy = asyncio.WindowsSelectorEventLoopPolicy
     else:
-        # with uvloop 0.16.0 support for python3.10 has been added
-        # https://github.com/MagicStack/uvloop/releases/tag/v0.16.0
         import uvloop
-
         uvloop.install()
 
         if "linux" in platform:

@@ -66,9 +66,7 @@ NETWORK_REGEX = r'\b({})(?:\:({}))?(?:\/({}))?\b'.format(
     NETMASK_REGEX)
 
 
-def serialize_ip_range(
-        ip: str,
-        netmask: str = '24') -> str:
+def serialize_ip_range(ip: str, netmask: str = '24') -> str:
     """
     Serialize a network range in a constant format, 'x.x.x.x/y'.
 
@@ -148,7 +146,7 @@ async def reverse_all_ips_in_range(iprange: str, callback: Callable, nameservers
     Parameters
     ----------
     iprange: str.
-        An IPv4 range formated as 'x.x.x.x/y'.
+        An IPv4 range formatted as 'x.x.x.x/y'.
         The last 2 digits of the ip can be set to anything,
         they will be ignored.
     callback: Callable.

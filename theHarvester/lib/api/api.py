@@ -146,5 +146,5 @@ async def query(request: Request, dns_server: str = Query(""), user_agent: str =
                 'ips': aips,
                 'emails': aemails,
                 'hosts': ahosts}
-    except Exception as e:
-        return {'exception': f'{e}'}
+    except Exception:
+        return {'exception': 'Please contact the server administrator to check the issue'}

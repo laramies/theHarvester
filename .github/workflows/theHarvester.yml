@@ -1,155 +1,128 @@
+---
 name: TheHarvester Python CI
 
 on:
   push:
     branches:
-    - '*'
+      - '*'
 
   pull_request:
     branches:
-    - '*'
+      - '*'
 
 jobs:
   Python:
     runs-on: ${{ matrix.os }}
     strategy:
-      max-parallel: 4
+      max-parallel: 8
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        python-version: [3.8, 3.9, 3.10-dev]
+        os: [ ubuntu-latest, macos-latest ]
+        python-version: [ 3.8, 3.9, 3.10.0 ]
 
     steps:
-    - uses: actions/checkout@v2
-    - name: Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2.3.0
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
-      run: |
-        pip install --upgrade pip
-        pip install wheel
-        pip install -r requirements/dev.txt
+      - uses: actions/checkout@v3
+      - name: Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install wheel
+          pip install -r requirements/dev.txt
 
-    - name: Lint with flake8
-      run: |
-        # stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 . --count --exit-zero  --max-line-length=127 --statistics
+      - name: Lint with flake8
+        run: |
+          # stop the build if there are Python syntax errors or undefined names
+          flake8 . --count --show-source --statistics
+          # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+          flake8 . --count --exit-zero  --max-line-length=127 --statistics
 
-    - name: Test with pytest
-      run: |
-        pytest
+      - name: Test with pytest
+        run: |
+          pytest
 
-    - name: Static type checking with mypy
-      run: |
-        mypy --pretty theHarvester/*/*.py
-        mypy --pretty theHarvester/*/*/*.py
+      - name: Static type checking with mypy
+        run: |
+          mypy --pretty theHarvester/*/*.py
+          mypy --pretty theHarvester/*/*/*.py
 
-    - name: Run theHarvester module Anubis
-      run: |
-        python theHarvester.py -d apple.com -b anubis
+      - name: Run theHarvester module Anubis
+        run: |
+          python theHarvester.py -d apple.com -b anubis
 
-    - name: Run theHarvester module Baidu
-      run: |
-        python theHarvester.py -d yale.edu -b baidu
+      - name: Run theHarvester module Baidu
+        run: |
+          python theHarvester.py -d yale.edu -b baidu
 
-    - name: Run theHarvester module Bufferoverun
-      run: |
-        python theHarvester.py -d yale.edu -b bufferoverun
+      - name: Run theHarvester module Bufferoverun
+        run: |
+          python theHarvester.py -d yale.edu -b bufferoverun
 
-    - name: Run theHarvester module Bing
-      run: |
-        python theHarvester.py -d yale.edu -b bing
+      - name: Run theHarvester module Bing
+        run: |
+          python theHarvester.py -d yale.edu -b bing
 
-    - name: Run theHarvester module CertSpotter
-      run: |
-        python theHarvester.py -d yale.edu -b certspotter
+      - name: Run theHarvester module CertSpotter
+        run: |
+          python theHarvester.py -d yale.edu -b certspotter
 
-    - name: Run theHarvester module Crtsh
-      run: |
-        python theHarvester.py -d hcl.com -b crtsh
+      - name: Run theHarvester module Crtsh
+        run: |
+          python theHarvester.py -d hcl.com -b crtsh
 
-    - name: Run theHarvester module DnsDumpster
-      run: |
-        python theHarvester.py -d yale.edu -b dnsdumpster
+      - name: Run theHarvester module DnsDumpster
+        run: |
+          python theHarvester.py -d yale.edu -b dnsdumpster
 
-    - name: Run theHarvester module DuckDuckGo
-      run: |
-        python theHarvester.py -d yale.edu -b duckduckgo
+      - name: Run theHarvester module DuckDuckGo
+        run: |
+          python theHarvester.py -d yale.edu -b duckduckgo
 
-    - name: Run theHarvester module Google
-      run: |
-        python theHarvester.py -d yale.edu -b google
+      - name: Run theHarvester module HackerTarget
+        run: |
+          python theHarvester.py -d yale.edu -b hackertarget
 
-    - name: Run theHarvester module HackerTarget
-      run: |
-        python theHarvester.py -d yale.edu -b hackertarget
+      - name: Run theHarvester module Intelx
+        run: |
+          python theHarvester.py -d yale.edu -b intelx
 
-    - name: Run theHarvester module Intelx
-      run: |
-        python theHarvester.py -d yale.edu -b intelx
+      - name: Run theHarvester module Omnisint
+        run: |
+          python theHarvester.py -d yale.edu -b omnisint
 
-    - name: Run theHarvester module LinkedIn
-      run: |
-        python theHarvester.py -d yale.edu -b linkedin
+      - name: Run theHarvester module Otx
+        run: |
+          python theHarvester.py -d yale.edu -b otx
 
-    - name: Run theHarvester module Linkedin links
-      run: |
-        python theHarvester.py -d yale.edu -b linkedin_links
+      - name: Run theHarvester module Qwant
+        run: |
+          python theHarvester.py -d yale.edu -b qwant
 
-    - name: Run theHarvester module N45ht
-      run: |
-        python theHarvester.py -d yale.edu -b n45ht
+      - name: Run theHarvester module RapidDns
+        run: |
+          python theHarvester.py -d yale.edu -b rapiddns
 
-    - name: Run theHarvester module Omnisint
-      run: |
-        python theHarvester.py -d yale.edu -b omnisint
+      - name: Run theHarvester module Sublist3r
+        run: |
+          python theHarvester.py -d yale.edu -b sublist3r
 
-    - name: Run theHarvester module Otx
-      run: |
-        python theHarvester.py -d yale.edu -b otx
+      - name: Run theHarvester module Threatcrowd
+        run: |
+          python theHarvester.py -d yale.edu -b threatcrowd
 
-    - name: Run theHarvester module Qwant
-      run: |
-        python theHarvester.py -d yale.edu -b qwant
+      - name: Run theHarvester module Threatminer
+        run: |
+          python theHarvester.py -d yale.edu -b threatminer
 
-    - name: Run theHarvester module RapidDns
-      run: |
-        python theHarvester.py -d yale.edu -b rapiddns
+      - name: Run theHarvester module Urlscan
+        run: |
+          python theHarvester.py -d yale.edu -b urlscan
 
-    - name: Run theHarvester module Sublist3r
-      run: |
-        python theHarvester.py -d yale.edu -b sublist3r
+      - name: Run theHarvester module Yahoo
+        run: |
+          python theHarvester.py -d yale.edu -b yahoo
 
-    - name: Run theHarvester module Threatcrowd
-      run: |
-        python theHarvester.py -d yale.edu -b threatcrowd
-
-    - name: Run theHarvester module Threatminer
-      run: |
-        python theHarvester.py -d yale.edu -b threatminer
-
-    - name: Run theHarvester module Trello
-      run: |
-        python theHarvester.py -d yale.edu -b trello
-
-    - name: Run theHarvester module Twitter
-      run: |
-        python theHarvester.py -d yale.edu -b twitter
-
-    - name: Run theHarvester module Urlscan
-      run: |
-        python theHarvester.py -d yale.edu -b urlscan
-
-    - name: Run theHarvester module Virustotal
-      run: |
-        python theHarvester.py -d yale.edu -b virustotal
-
-    - name: Run theHarvester module Yahoo
-      run: |
-        python theHarvester.py -d yale.edu -b yahoo
-
-    - name: Run theHarvester module DNS brute force
-      run: |
-        python theHarvester.py -d yale.edu -c
+      - name: Run theHarvester module DNS brute force
+        run: |
+          python theHarvester.py -d yale.edu -c

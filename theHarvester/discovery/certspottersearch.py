@@ -19,7 +19,7 @@ class SearchCertspoter:
                         if key == 'dns_names':
                             self.totalhosts.update({name for name in value if name})
             elif isinstance(response, dict):
-                self.totalhosts.update({response['dns_names'] if 'dns_names' in response.keys() else ''})
+                self.totalhosts.update({response['dns_names'] if 'dns_names' in response.keys() else ''})  # type: ignore
             else:
                 self.totalhosts.update({''})
         except Exception as e:

@@ -5,10 +5,10 @@
 
 What is this?
 -------------
-theHarvester is a very simple to use, yet powerful and effective tool designed to be used in the early stages of a<br>
-penetration test or red team engagement. Use it for open source intelligence (OSINT) gathering to help determine a<br>
-company's external threat landscape on the internet. The tool gathers emails, names, subdomains, IPs and URLs using<br>
-multiple public data sources that include:
+theHarvester is a simple to use, yet powerful tool designed to be used during the reconnaissance stage of a red<br>
+team assessment or penetration test. It performs open source intelligence (OSINT) gathering to help determine<br>
+a domain's external threat landscape. The tool gathers names, emails, IPs, subdomains, and URLs by using<br>
+multiple public resources that include:<br>
 
 Passive:
 --------
@@ -16,7 +16,7 @@ Passive:
 
 * baidu: Baidu search engine - www.baidu.com
 
-* binaryedge: placeholder - www.binaryedge.io
+* binaryedge: List of known subdomains from www.binaryedge.io
 
 * bing: Microsoft search engine - www.bing.com
 
@@ -38,19 +38,11 @@ Passive:
 
 * github-code: GitHub code search engine (Requires a GitHub Personal Access Token, see below.) - www.github.com
 
-* google: Google search engine (Optional Google dorking.) - www.google.com
-
 * hackertarget: Online vulnerability scanners and network intelligence to help organizations - https://hackertarget.com
 
 * hunter: Hunter search engine (Requires an API key, see below.) - www.hunter.io
 
 * intelx: Intelx search engine (Requires an API key, see below.) - www.intelx.io
-
-* linkedin: Google search engine, specific search for LinkedIn users - www.linkedin.com
-
-* linkedin_links: specific search for LinkedIn users for target domain (Uses Google search.)
-
-* n45ht: - https://n45ht.or.id
 
 * omnisint: Project Crobat, A Centralised Searchable Open Source Project Sonar DNS Database - https://github.com/Cgboal/SonarSearch
 
@@ -72,17 +64,11 @@ Passive:
 
 * shodan: Shodan search engine, will search for ports and banners from discovered hosts (Requires an API key, see below.) - www.shodanhq.com
 
-* spyse: [Spyse is a search engine](https://spyse.com/) built for a quick cyber intelligence of IT infrastructures, networks, and even the smallest parts of the internet. (Requires an API key, see below.) - [spyse.com](https://spyse.com)
-
 * sublist3r: Fast subdomains enumeration tool for penetration testers - https://api.sublist3r.com/search.php?domain=example.com
 
 * threatcrowd: Open source threat intelligence - www.threatcrowd.org
 
 * threatminer: Data mining for threat intelligence - https://www.threatminer.org/
-
-* trello: Search trello boards (Uses Google search.)
-
-* twitter: Twitter accounts related to a specific domain (Uses Google search.)
 
 * urlscan: A sandbox for the web that is a URL and website scanner - https://urlscan.io
 
@@ -104,19 +90,18 @@ Modules that require an API key:
 --------------------------------
 Documentation to setup API keys can be found at - https://github.com/laramies/theHarvester/wiki/Installation#api-keys
 
-* binaryedge - not free
+* binaryedge - $10/month
 * bing
 * censys - API keys are required and can be retrieved from your [Censys account](https://search.censys.io/account/api).
 * fullhunt
 * github
-* hunter - limited to 10 on the free plan so you will need to do -l 10 switch
+* hunter - limited to 10 on the free plan, so you will need to do -l 10 switch
 * intelx
-* pentesttools - not free
+* pentesttools - $
 * projecdiscovery - invite only for now
-* rocketreach - not free
+* rocketreach - $
 * securityTrails
-* shodan
-* spyse - not free
+* shodan - $
 * zoomeye
 
 Install and dependencies:
@@ -126,7 +111,7 @@ Install and dependencies:
 
 
 Comments, bugs, and requests:
-----------------------------
+-----------------------------
 * [![Twitter Follow](https://img.shields.io/twitter/follow/laramies.svg?style=social&label=Follow)](https://twitter.com/laramies) Christian Martorella @laramies
   cmartorella@edge-security.com
 * [![Twitter Follow](https://img.shields.io/twitter/follow/NotoriousRebel1.svg?style=social&label=Follow)](https://twitter.com/NotoriousRebel1) Matthew Brown @NotoriousRebel1

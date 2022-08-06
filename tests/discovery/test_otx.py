@@ -27,12 +27,6 @@ class TestOtx(object):
         assert isinstance(await search.get_hostnames(), set)
         assert isinstance(await search.get_ips(), set)
 
-    async def test_search_no_results(self):
-        search = otxsearch.SearchOtx('radiant.eu')
-        await search.process()
-        assert len(await search.get_hostnames()) == 0
-        assert len(await search.get_ips()) == 0
-
 
 if __name__ == '__main__':
     pytest.main()

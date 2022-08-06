@@ -36,7 +36,7 @@ apikeys:
   shodan:
     key:
 
-  spyse:
+  virustotal:
     key:
 
   zoomeye:
