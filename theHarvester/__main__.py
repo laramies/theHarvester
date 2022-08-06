@@ -31,7 +31,7 @@ async def start(rest_args=None):
     parser.add_argument('-n', '--dns-lookup', help='Enable DNS server lookup, default False.', default=False, action='store_true')
     parser.add_argument('-c', '--dns-brute', help='Perform a DNS brute force on the domain.', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='Save the results to an XML and JSON file.', default='', type=str)
-    parser.add_argument('-b', '--source', help='''anubis, baidu, bing, binaryedge, bingapi, bufferoverun, censys, certspotter, crtsh,
+    parser.add_argument('-b', '--source', help='''anubis, baidu, binaryedge, bing, bingapi, bufferoverun, censys, certspotter, crtsh,
                             dnsdumpster, duckduckgo, fullhunt, github-code, hackertarget, hunter, intelx,
                             omnisint, otx, pentesttools, projectdiscovery,
                             qwant, rapiddns, rocketreach, securityTrails, sublist3r, threatcrowd, threatminer,
