@@ -29,6 +29,10 @@ class Core:
         return keys['apikeys']
 
     @staticmethod
+    def bevigil_key() -> str:
+        return Core.api_keys()['bevigil']['key']
+
+    @staticmethod
     def binaryedge_key() -> str:
         return Core.api_keys()['binaryedge']['key']
 
@@ -120,6 +124,7 @@ class Core:
     def get_supportedengines() -> list[str | Any]:
         supportedengines = ['anubis',
                             'baidu',
+                            'bevigil',
                             'binaryedge',
                             'bing',
                             'bingapi',

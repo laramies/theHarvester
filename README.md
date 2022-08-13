@@ -14,6 +14,8 @@ Passive:
 --------
 * anubis: Anubis-DB - https://github.com/jonluca/anubis
 
+* bevigil: CloudSEK BeVigil scans mobile application for OSINT assets and makes them available through an API - https://bevigil.com/osint-api
+
 * baidu: Baidu search engine - www.baidu.com
 
 * binaryedge: List of known subdomains from www.binaryedge.io
@@ -90,6 +92,7 @@ Modules that require an API key:
 --------------------------------
 Documentation to setup API keys can be found at - https://github.com/laramies/theHarvester/wiki/Installation#api-keys
 
+* bevigil - Free upto 50 queries. Pricing can be found here: https://bevigil.com/pricing/osint
 * binaryedge - $10/month
 * bing
 * censys - API keys are required and can be retrieved from your [Censys account](https://search.censys.io/account/api).
