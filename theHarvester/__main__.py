@@ -31,7 +31,7 @@ async def start(rest_args=None):
     parser.add_argument('-n', '--dns-lookup', help='Enable DNS server lookup, default False.', default=False, action='store_true')
     parser.add_argument('-c', '--dns-brute', help='Perform a DNS brute force on the domain.', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='Save the results to an XML and JSON file.', default='', type=str)
-    parser.add_argument('-b', '--source', help='''anubis, baidu, binaryedge, bing, bingapi, bufferoverun, censys, certspotter, crtsh,
+    parser.add_argument('-b', '--source', help='''anubis, baidu, bevigil, binaryedge, bing, bingapi, bufferoverun, censys, certspotter, crtsh,
                             dnsdumpster, duckduckgo, fullhunt, github-code, hackertarget, hunter, intelx,
                             omnisint, otx, pentesttools, projectdiscovery,
                             qwant, rapiddns, rocketreach, securityTrails, sublist3r, threatcrowd, threatminer,
@@ -194,6 +194,14 @@ async def start(rest_args=None):
                     try:
                         baidu_search = baidusearch.SearchBaidu(word, limit)
                         stor_lst.append(store(baidu_search, engineitem, store_host=True, store_emails=True))
+                    except Exception as e:
+                        print(e)
+
+                elif engineitem == 'bevigil':
+                    from theHarvester.discovery import bevigil
+                    try:
+                        bevigil_search = bevigil.SearchBeVigil(word)
+                        stor_lst.append(store(bevigil_search, engineitem, store_host=True, store_interestingurls=True))
                     except Exception as e:
                         print(e)
 
