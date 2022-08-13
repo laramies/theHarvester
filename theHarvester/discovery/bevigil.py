@@ -12,9 +12,7 @@ class SearchBeVigil:
     async def do_search(self):
         subdomainEndpoint = f"https://osint.bevigil.com/api/{self.word}/subdomains/"
         urlEndpoint = f"https://osint.bevigil.com/api/{self.word}/urls/"
-        headers = {
-            'X-Access-Token': self.key
-        }
+        headers = {'X-Access-Token': self.key}
 
         responses = await AsyncFetcher.fetch_all([subdomainEndpoint], json=True, proxy=self.proxy, headers=headers)
         response = responses[0]
