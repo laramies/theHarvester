@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-import uvicorn
 import argparse
+import uvicorn
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-H', '--host', default='127.0.0.1', help='IP address to listen on default is 127.0.0.1')
