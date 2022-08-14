@@ -13,7 +13,7 @@ github_ci = os.getenv('GITHUB_ACTIONS')  # Github set this to be the following: 
 class TestSublist3r(object):
     @staticmethod
     def domain() -> str:
-        return 'target.com'
+        return 'google.com'
 
     async def test_api(self):
         base_url = f'https://api.sublist3r.com/search.php?domain={TestSublist3r.domain()}'
@@ -21,6 +21,7 @@ class TestSublist3r(object):
         request = requests.get(base_url, headers=headers)
         assert request.status_code == 200
 
+    @pytest.mark.skipif(github_ci == 'true', reason='Skipping on Github CI due unstable site')
     async def test_do_search(self):
         search = sublist3r.SearchSublist3r(TestSublist3r.domain())
         await search.process()
