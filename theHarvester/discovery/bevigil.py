@@ -1,7 +1,8 @@
 from theHarvester.lib.core import *
 
+
 class SearchBeVigil:
-    
+
     def __init__(self, word):
         self.word = word
         self.totalhosts = set()
@@ -10,16 +11,16 @@ class SearchBeVigil:
         self.proxy = False
 
     async def do_search(self):
-        subdomainEndpoint = f"https://osint.bevigil.com/api/{self.word}/subdomains/"
-        urlEndpoint = f"https://osint.bevigil.com/api/{self.word}/urls/"
+        subdomain_endpoint = f"https://osint.bevigil.com/api/{self.word}/subdomains/"
+        url_endpoint = f"https://osint.bevigil.com/api/{self.word}/urls/"
         headers = {'X-Access-Token': self.key}
 
-        responses = await AsyncFetcher.fetch_all([subdomainEndpoint], json=True, proxy=self.proxy, headers=headers)
+        responses = await AsyncFetcher.fetch_all([subdomain_endpoint], json=True, proxy=self.proxy, headers=headers)
         response = responses[0]
         for subdomain in response["subdomains"]:
             self.totalhosts.add(subdomain)
-    
-        responses = await AsyncFetcher.fetch_all([urlEndpoint], json=True, proxy=self.proxy, headers=headers)
+
+        responses = await AsyncFetcher.fetch_all([url_endpoint], json=True, proxy=self.proxy, headers=headers)
         response = responses[0]
         for url in response["urls"]:
             self.interestingurls.add(url)
@@ -33,4 +34,3 @@ class SearchBeVigil:
     async def process(self, proxy=False):
         self.proxy = proxy
         await self.do_search()
-        
