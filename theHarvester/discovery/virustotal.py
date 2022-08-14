@@ -55,8 +55,7 @@ class SearchVirustotal:
             await asyncio.sleep(16)
         self.hostnames = list(sorted(set(self.hostnames)))
         # verify domains such as x.x.com.multicdn.x.com are parsed properly
-        self.hostnames = [host for host in self.hostnames if ((len(host.split('.')) >= 3)
-                                                              and host.split('.')[-2] == self.word.split('.')[-2])]
+        self.hostnames = [host for host in self.hostnames if ((len(host.split('.')) >= 3) and host.split('.')[-2] == self.word.split('.')[-2])]
 
     async def get_hostnames(self) -> list:
         return self.hostnames
@@ -78,9 +77,7 @@ class SearchVirustotal:
         # Other false positives may occur over time and yes there are other ways to parse this, feel free to implement
         # them and submit a PR or raise an issue if you run into this filtering not being enough
         # TODO determine if parsing 'v=spf1 include:_spf-x.acme.com include:_spf-x.acme.com' is worth parsing
-        total_subdomains = [x for x in total_subdomains if
-                            not str(x).endswith('edgekey.net') and not str(x).endswith('akadns.net')
-                            and 'include:_spf' not in str(x)]
+        total_subdomains = [x for x in total_subdomains if not str(x).endswith('edgekey.net') and not str(x).endswith('akadns.net') and 'include:_spf' not in str(x)]
         total_subdomains.sort()
         return total_subdomains
 

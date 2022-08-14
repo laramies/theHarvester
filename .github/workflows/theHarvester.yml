@@ -55,10 +55,6 @@ jobs:
         run: |
           python theHarvester.py -d yale.edu -b baidu
 
-      - name: Run theHarvester module Bufferoverun
-        run: |
-          python theHarvester.py -d yale.edu -b bufferoverun
-
       - name: Run theHarvester module Bing
         run: |
           python theHarvester.py -d yale.edu -b bing
