@@ -4,7 +4,7 @@ aiohttp==3.8.1
 aiomultiprocess==0.9.0
 aiosqlite==0.17.0
 beautifulsoup4==4.11.1
-censys==2.1.7
+censys==2.1.8
 certifi==2022.6.15
 dnspython==2.2.1
 fastapi==0.79.0
