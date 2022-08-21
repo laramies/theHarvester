@@ -1,9 +1,0 @@
-queries:
-  - exclude: py/import-and-import-from
-  - exclude: py/polluting-import
-  - exclude: py/member-test-non-container
-
-extraction:
-  python:
-    python_setup:
-      version: 3
