@@ -1,5 +1,5 @@
 aiodns==3.0.0
-aiofiles==0.8.0
+aiofiles==22.1.0
 aiohttp==3.8.1
 aiomultiprocess==0.9.0
 aiosqlite==0.17.0
