@@ -1,13 +1,13 @@
-from typing import Union, Tuple, List
+from typing import Union, Tuple, List, Set
 
 
 class Parser:
 
-    def __init__(self, word, text):
+    def __init__(self, word, text) -> None:
         self.word = word
         self.text = text
-        self.hostnames = set()
-        self.ips = set()
+        self.hostnames: Set = set()
+        self.ips: Set = set()
 
     async def parse_text(self) -> Union[List, Tuple]:
         sub_domain_flag = 0

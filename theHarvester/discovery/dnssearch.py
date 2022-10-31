@@ -24,7 +24,7 @@ from theHarvester.lib import hostchecker
 
 class DnsForce:
 
-    def __init__(self, domain, dnsserver, verbose=False):
+    def __init__(self, domain, dnsserver, verbose: bool=False) -> None:
         self.domain = domain
         self.subdo = False
         self.verbose = verbose
@@ -59,8 +59,8 @@ class DnsForce:
 
 IP_REGEX = r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}'
 PORT_REGEX = r'\d{1,5}'
-NETMASK_REGEX = r'\d{1,2}|' + IP_REGEX
-NETWORK_REGEX = r'\b({})(?:\:({}))?(?:\/({}))?\b'.format(
+NETMASK_REGEX: str = r'\d{1,2}|' + IP_REGEX
+NETWORK_REGEX: str = r'\b({})(?:\:({}))?(?:\/({}))?\b'.format(
     IP_REGEX,
     PORT_REGEX,
     NETMASK_REGEX)

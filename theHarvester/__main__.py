@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from typing import Dict, List
+from typing import Optional, Dict, List
 from theHarvester.discovery import *
 from theHarvester.discovery import dnssearch, takeover, shodansearch
 from theHarvester.discovery.constants import *
@@ -16,7 +16,7 @@ import string
 import secrets
 
 
-async def start(rest_args=None):
+async def start(rest_args: Optional[argparse.Namespace] = None):
     """Main program function"""
     parser = argparse.ArgumentParser(description='theHarvester is used to gather open source intelligence (OSINT) on a company or domain.')
     parser.add_argument('-d', '--domain', help='Company name or domain to search.', required=True)
@@ -824,7 +824,7 @@ async def start(rest_args=None):
         sys.exit(0)
 
 
-async def entry_point():
+async def entry_point() -> None:
     try:
         Core.banner()
         await start()

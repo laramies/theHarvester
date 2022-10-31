@@ -2,13 +2,13 @@ from theHarvester.lib.core import *
 
 
 class SearchOmnisint:
-    def __init__(self, word):
+    def __init__(self, word) -> None:
         self.word = word
         self.totalhosts = set()
         self.totalips = set()
         self.proxy = False
 
-    async def do_search(self):
+    async def do_search(self) -> None:
         base_url = f'https://sonar.omnisint.io/all/{self.word}?page=1'
         responses = await AsyncFetcher.fetch_all([base_url], json=True, headers={'User-Agent': Core.get_user_agent()},
                                                  proxy=self.proxy)
@@ -20,6 +20,6 @@ class SearchOmnisint:
     async def get_ips(self) -> set:
         return self.totalips
 
-    async def process(self, proxy=False):
+    async def process(self, proxy: bool=False) -> None:
         self.proxy = proxy
         await self.do_search()

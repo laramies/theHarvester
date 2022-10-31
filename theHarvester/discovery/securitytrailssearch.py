@@ -6,7 +6,7 @@ import asyncio
 
 class SearchSecuritytrail:
 
-    def __init__(self, word):
+    def __init__(self, word) -> None:
         self.word = word
         self.key = Core.security_trails_key()
         if self.key is None:
@@ -41,7 +41,7 @@ class SearchSecuritytrail:
         self.results = subdomain_response[0]
         self.totalresults += self.results
 
-    async def process(self, proxy=False) -> None:
+    async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.authenticate()
         await self.do_search()

@@ -8,7 +8,7 @@ import pytest
 class TestMyParser(object):
 
     @pytest.mark.asyncio
-    async def test_emails(self):
+    async def test_emails(self) -> None:
         word = 'domain.com'
         results = '@domain.com***a@domain***banotherdomain.com***c@domain.com***d@sub.domain.com***'
         parse = myparser.Parser(results, word)

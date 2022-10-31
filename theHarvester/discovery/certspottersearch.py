@@ -1,11 +1,12 @@
 from theHarvester.lib.core import *
+from typing import Set
 
 
 class SearchCertspoter:
 
-    def __init__(self, word):
+    def __init__(self, word) -> None:
         self.word = word
-        self.totalhosts = set()
+        self.totalhosts: Set = set()
         self.proxy = False
 
     async def do_search(self) -> None:
@@ -28,7 +29,7 @@ class SearchCertspoter:
     async def get_hostnames(self) -> set:
         return self.totalhosts
 
-    async def process(self, proxy=False):
+    async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_search()
         print('\tSearching results.')

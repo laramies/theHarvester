@@ -4,9 +4,9 @@ from theHarvester.lib.core import *
 
 class SearchRapidDns:
 
-    def __init__(self, word):
+    def __init__(self, word) -> None:
         self.word = word
-        self.total_results = []
+        self.total_results: List = []
         self.proxy = False
 
     async def do_search(self):
@@ -35,7 +35,7 @@ class SearchRapidDns:
         except Exception as e:
             print(f'An exception has occurred: {str(e)}')
 
-    async def process(self, proxy=False):
+    async def process(self, proxy: bool=False) -> None:
         self.proxy = proxy
         await self.do_search()
 

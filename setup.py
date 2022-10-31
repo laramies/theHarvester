@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 from theHarvester.lib.core import Core
 
 with open('README.md', 'r') as fh:
-    long_description = fh.read()
+    long_description: str = fh.read()
 
 setup(
     name='theHarvester',
@@ -20,9 +20,8 @@ setup(
 
     classifiers=[
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
         "Operating System :: OS Independent",
     ],

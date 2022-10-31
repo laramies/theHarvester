@@ -4,14 +4,14 @@ from theHarvester.parsers import myparser
 
 class SearchYahoo:
 
-    def __init__(self, word, limit):
+    def __init__(self, word, limit) -> None:
         self.word = word
         self.total_results = ""
         self.server = 'search.yahoo.com'
         self.limit = limit
         self.proxy = False
 
-    async def do_search(self):
+    async def do_search(self) -> None:
         base_url = f'https://{self.server}/search?p=%40{self.word}&b=xx&pz=10'
         headers = {
             'Host': self.server,
@@ -22,7 +22,7 @@ class SearchYahoo:
         for response in responses:
             self.total_results += response
 
-    async def process(self):
+    async def process(self) -> None:
         await self.do_search()
 
     async def get_emails(self):
@@ -38,7 +38,7 @@ class SearchYahoo:
             emails.add(email)
         return list(emails)
 
-    async def get_hostnames(self, proxy=False):
+    async def get_hostnames(self, proxy: bool=False):
         self.proxy = proxy
         rawres = myparser.Parser(self.total_results, self.word)
         return await rawres.hostnames()

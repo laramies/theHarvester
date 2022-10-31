@@ -1,8 +1,11 @@
+from typing import Set
+
+
 class Parser:
 
-    def __init__(self):
-        self.emails = set()
-        self.hosts = set()
+    def __init__(self) -> None:
+        self.emails: Set = set()
+        self.hosts: Set = set()
 
     async def parse_dictionaries(self, results: dict) -> tuple:
         """

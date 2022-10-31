@@ -1,6 +1,6 @@
 # coding=utf-8
 from __future__ import annotations
-from typing import Union, Any, Tuple, List
+from typing import Sized, Union, Any, Tuple, List
 import yaml
 import asyncio
 import aiohttp
@@ -238,7 +238,7 @@ class AsyncFetcher:
     proxy_list = Core.proxy_list()
 
     @classmethod
-    async def post_fetch(cls, url, headers='', data='', params='', json=False, proxy=False):
+    async def post_fetch(cls, url, headers: Sized='', data: str='', params: str='', json: bool=False, proxy: bool=False):
         if len(headers) == 0:
             headers = {'User-Agent': Core.get_user_agent()}
         timeout = aiohttp.ClientTimeout(total=720)
@@ -273,7 +273,7 @@ class AsyncFetcher:
             return ''
 
     @staticmethod
-    async def fetch(session, url, params='', json=False, proxy="") -> Union[str, dict, list, bool]:
+    async def fetch(session, url, params: str = '', json: bool = False, proxy: str = "") -> Union[str, dict, list, bool]:
         # This fetch method solely focuses on get requests
         try:
             # Wrap in try except due to 0x89 png/jpg files
@@ -306,7 +306,7 @@ class AsyncFetcher:
             return ''
 
     @staticmethod
-    async def takeover_fetch(session, url, proxy="") -> Union[Tuple[Any, Any], str]:
+    async def takeover_fetch(session, url: str, proxy: str = "") -> Union[Tuple[Any, Any], str]:
         # This fetch method solely focuses on get requests
         try:
             # Wrap in try except due to 0x89 png/jpg files
@@ -326,7 +326,8 @@ class AsyncFetcher:
             return url, ''
 
     @classmethod
-    async def fetch_all(cls, urls, headers='', params='', json=False, takeover=False, proxy=False) -> tuple:
+    async def fetch_all(cls, urls, headers: Sized='', params: Sized='', json: bool = False, takeover: bool = False,
+                        proxy: bool = False) -> tuple:
         # By default, timeout is 5 minutes; 60 seconds should suffice
         timeout = aiohttp.ClientTimeout(total=60)
         if len(headers) == 0:

@@ -4,13 +4,13 @@ from theHarvester.lib.core import *
 
 class SearchThreatcrowd:
 
-    def __init__(self, word):
+    def __init__(self, word) -> None:
         self.word = word.replace(' ', '%20')
-        self.hostnames = list()
-        self.ips = list()
+        self.hostnames: List = list()
+        self.ips: List = list()
         self.proxy = False
 
-    async def do_search(self):
+    async def do_search(self) -> None:
         base_url = f'https://www.threatcrowd.org/searchApi/v2/domain/report/?domain={self.word}'
         headers = {'User-Agent': Core.get_user_agent()}
         try:
@@ -27,7 +27,7 @@ class SearchThreatcrowd:
     async def get_hostnames(self) -> List:
         return self.hostnames
 
-    async def process(self, proxy=False):
+    async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_search()
         await self.get_hostnames()

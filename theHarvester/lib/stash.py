@@ -1,6 +1,8 @@
 import aiosqlite
 import datetime
 import os
+from sqlite3.dbapi2 import Row
+from typing import Iterable, Optional, Union, List, Dict
 
 db_path = os.path.expanduser('~/.local/share/theHarvester')
 
@@ -10,24 +12,24 @@ if not os.path.isdir(db_path):
 
 class StashManager:
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.db = os.path.join(db_path, 'stash.sqlite')
         self.results = ""
         self.totalresults = ""
-        self.latestscandomain = {}
-        self.domainscanhistory = []
-        self.scanboarddata = {}
-        self.scanstats = []
-        self.latestscanresults = []
-        self.previousscanresults = []
+        self.latestscandomain: Dict = {}
+        self.domainscanhistory: List = []
+        self.scanboarddata: Dict = {}
+        self.scanstats: List = []
+        self.latestscanresults: List = []
+        self.previousscanresults: List = []
 
-    async def do_init(self):
+    async def do_init(self) -> None:
         async with aiosqlite.connect(self.db) as db:
             await db.execute(
                 'CREATE TABLE IF NOT EXISTS results (domain text, resource text, type text, find_date date, source text)')
             await db.commit()
 
-    async def store(self, domain, resource, res_type, source):
+    async def store(self, domain, resource, res_type, source) -> None:
         self.domain = domain
         self.resource = resource
         self.type = res_type
@@ -41,7 +43,7 @@ class StashManager:
         except Exception as e:
             print(e)
 
-    async def store_all(self, domain, all, res_type, source):
+    async def store_all(self, domain, all, res_type, source) -> None:
         self.domain = domain
         self.all = all
         self.type = res_type
@@ -109,7 +111,7 @@ class StashManager:
         except Exception as e:
             print(e)
 
-    async def getlatestscanresults(self, domain, previousday=False):
+    async def getlatestscanresults(self, domain, previousday: bool=False) -> Optional[Iterable[Union[Row, str]]]:
         try:
             async with aiosqlite.connect(self.db, timeout=30) as conn:
                 if previousday:
@@ -217,7 +219,7 @@ class StashManager:
         except Exception as e:
             print(e)
 
-    async def getpluginscanstatistics(self):
+    async def getpluginscanstatistics(self) -> Optional[Iterable[Row]]:
         try:
             async with aiosqlite.connect(self.db, timeout=30) as conn:
                 cursor = await conn.execute('''

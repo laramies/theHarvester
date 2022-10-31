@@ -1,7 +1,7 @@
 from theHarvester.discovery.constants import *
 from theHarvester.lib.core import *
 from theHarvester.parsers import myparser
-from typing import List, Dict, Any, Optional, NamedTuple, Tuple
+from typing import Union, List, Dict, Any, Optional, NamedTuple, Tuple
 import asyncio
 import aiohttp
 import urllib.parse as urlparse
@@ -25,13 +25,13 @@ class ErrorResult(NamedTuple):
 
 class SearchGithubCode:
 
-    def __init__(self, word, limit):
+    def __init__(self, word, limit) -> None:
         self.word = word
         self.total_results = ""
         self.server = 'api.github.com'
         self.limit = limit
-        self.counter = 0
-        self.page = 1
+        self.counter: int = 0
+        self.page: int = 1
         self.key = Core.github_key()
         # If you don't have a personal access token, github narrows your search capabilities significantly
         # rate limits you more severely
@@ -63,7 +63,7 @@ class SearchGithubCode:
         else:
             return None
 
-    async def handle_response(self, response: Tuple[str, dict, int, Any]):
+    async def handle_response(self, response: Tuple[str, dict, int, Any]) -> Union[ErrorResult, RetryResult, SuccessResult]:
         text, json_data, status, links = response
         if status == 200:
             results = await self.fragments_from_response(json_data)
@@ -78,7 +78,7 @@ class SearchGithubCode:
             except ValueError:
                 return ErrorResult(status, text)
 
-    async def do_search(self, page: Optional[int]) -> Tuple[str, dict, int, Any]:
+    async def do_search(self, page: int) -> Tuple[str, dict, int, Any]:
         if page is None:
             url = f'https://{self.server}/search/code?q="{self.word}"'
         else:
@@ -99,13 +99,13 @@ class SearchGithubCode:
                     return await resp.text(), await resp.json(), resp.status, resp.links
 
     @staticmethod
-    async def next_page_or_end(result: SuccessResult) -> Optional[int]:
+    async def next_page_or_end(result: SuccessResult) -> int:
         if result.next_page is not None:
             return result.next_page
         else:
             return result.last_page
 
-    async def process(self, proxy=False):
+    async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         try:
             while self.counter <= self.limit and self.page is not None:
