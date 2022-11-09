@@ -1,0 +1,14 @@
+2.1
+git clone https://github.com/laramies/theHarvester.git
+ls
+cd theHarvester
+python3 -m pip install -r requirements.txt 
+pip install censys
+theharvester -d karunya.edu -b all
+2.2
+git clone https://github.com/elceef/dnstwist.git
+ls
+cd dnstwist
+pip install -r requirements.txt 
+sudo apt install dnstwist 
+dnstwist --geoip tradingview.com
