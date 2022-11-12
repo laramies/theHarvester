@@ -1,14 +1,14 @@
 -r base.txt
 flake8==5.0.4
-mypy==0.982
+mypy==0.990
 mypy-extensions==0.4.3
 pyre-check==0.9.16
 pyflakes==2.5.0
 pytest==7.2.0
-pytest-asyncio==0.20.1
+pytest-asyncio==0.20.2
 types-certifi==2021.10.8.3
 types-chardet==5.0.4
 types-ujson==5.5.0
-types-PyYAML==6.0.12.1
-types-requests==2.28.11.2
-wheel==0.37.1
+types-PyYAML==6.0.12.2
+types-requests==2.28.11.4
+wheel==0.38.4
