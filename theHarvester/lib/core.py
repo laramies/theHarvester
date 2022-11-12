@@ -139,7 +139,6 @@ class Core:
                             'hackertarget',
                             'hunter',
                             'intelx',
-                            'omnisint',
                             'otx',
                             'pentesttools',
                             'projectdiscovery',
