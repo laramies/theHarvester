@@ -3,6 +3,7 @@ from theHarvester.lib.core import *
 from shodan import exception
 from shodan import Shodan
 from collections import OrderedDict
+from typing import List
 
 
 class SearchShodan:
@@ -15,7 +16,7 @@ class SearchShodan:
         self.hostdatarow: List = []
         self.tracker: OrderedDict = OrderedDict()
 
-    async def search_ip(self, ip):
+    async def search_ip(self, ip) -> OrderedDict:
         try:
             ipaddress = ip
             results = self.api.host(ipaddress)
