@@ -2,7 +2,7 @@ import aiosqlite
 import datetime
 import os
 from sqlite3.dbapi2 import Row
-from typing import Iterable, Optional, Union, List, Dict
+from typing import Iterable, Optional, List, Dict, Union
 
 db_path = os.path.expanduser('~/.local/share/theHarvester')
 
@@ -111,7 +111,7 @@ class StashManager:
         except Exception as e:
             print(e)
 
-    async def getlatestscanresults(self, domain, previousday: bool=False) -> Optional[Iterable[Union[Row, str]]]:
+    async def getlatestscanresults(self, domain, previousday: bool = False) -> Optional[Iterable[Union[Row, str]]]:
         try:
             async with aiosqlite.connect(self.db, timeout=30) as conn:
                 if previousday:

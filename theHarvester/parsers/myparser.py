@@ -34,7 +34,7 @@ class Parser:
         # if email starts with dot shift email string and make sure all emails are lowercase
         return true_emails
 
-    async def fileurls(self, file):
+    async def fileurls(self, file) -> List:
         urls: List = []
         reg_urls = re.compile('<a href="(.*?)"')
         self.temp = reg_urls.findall(self.results)

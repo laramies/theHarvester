@@ -12,11 +12,11 @@ class SearchSublist3r:
     async def do_search(self) -> None:
         url = f'https://api.sublist3r.com/search.php?domain={self.word}'
         response = await AsyncFetcher.fetch_all([url], json=True, proxy=self.proxy)
-        self.totalhosts: list = response[0]
+        self.totalhosts = response[0]
 
     async def get_hostnames(self) -> Type[list]:
         return self.totalhosts
 
-    async def process(self, proxy: bool=False) -> None:
+    async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_search()

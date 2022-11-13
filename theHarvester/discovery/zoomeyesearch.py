@@ -105,13 +105,13 @@ class SearchZoomEye:
         )
         response = await AsyncFetcher.fetch_all([self.baseurl], json=True, proxy=self.proxy, headers=headers,
                                                 params=params)
-        # First request determines how many pages there in total
+        # The First request determines how many pages there in total
         resp = response[0]
         total_pages = int(resp['available'])
         self.limit = self.limit if total_pages > self.limit else total_pages
         self.limit = 3 if self.limit == 2 else self.limit
         cur_page = 2 if self.limit >= 2 else -1
-        # Means there is only one page
+        # Means there is only one-page
         # hostnames, emails, ips, asns, iurls
         nomatches_counter = 0
         # cur_page = -1
@@ -212,7 +212,7 @@ class SearchZoomEye:
                 print(f'An exception has occurred: {e}')
         return hostnames, emails, ips, asns, iurls
 
-    async def process(self, proxy: bool=False) -> None:
+    async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_search()  # Only need to do it once.
 

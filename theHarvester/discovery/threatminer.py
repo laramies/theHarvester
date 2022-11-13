@@ -1,4 +1,4 @@
-from typing import Type, List
+from typing import Type, List, Set
 from theHarvester.lib.core import *
 
 
@@ -6,8 +6,8 @@ class SearchThreatminer:
 
     def __init__(self, word) -> None:
         self.word = word
-        self.totalhosts: List = []
-        self.totalips: List = []
+        self.totalhosts: Set = set()
+        self.totalips: Set = set()
         self.proxy = False
 
     async def do_search(self) -> None:
@@ -21,10 +21,10 @@ class SearchThreatminer:
         except TypeError:
             pass
 
-    async def get_hostnames(self) -> list:
+    async def get_hostnames(self) -> Set:
         return self.totalhosts
 
-    async def get_ips(self) -> list:
+    async def get_ips(self) -> Set:
         return self.totalips
 
     async def process(self, proxy: bool = False) -> None:

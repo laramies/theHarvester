@@ -6,11 +6,11 @@ class SearchCrtsh:
 
     def __init__(self, word) -> None:
         self.word = word
-        self.data: Set = set()
+        self.data: List = []
         self.proxy = False
 
     async def do_search(self) -> List:
-        data: set = set()
+        data: Set = set()
         try:
             url = f'https://crt.sh/?q=%25.{self.word}&output=json'
             response = await AsyncFetcher.fetch_all([url], json=True, proxy=self.proxy)
@@ -28,10 +28,10 @@ class SearchCrtsh:
                 clean.append(y)
         return clean
 
-    async def process(self, proxy: bool=False) -> None:
+    async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         data = await self.do_search()
         self.data = data
 
-    async def get_hostnames(self) -> Set:
+    async def get_hostnames(self) -> list:
         return self.data
