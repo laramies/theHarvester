@@ -47,8 +47,8 @@ class SearchDuckDuckGo:
                 if isinstance(val, list):
                     if len(val) == 0:  # Make sure not indexing an empty list.
                         continue
-                    val = val[0]  # First value should be dict.
-                    if isinstance(val, dict):  # Sanity check.
+                    val = val[0]  # The First value should be dict.
+                    if isinstance(val, dict):  # Validation check.
                         for key in val.keys():
                             value = val.get(key)
                             if isinstance(value, str) and value != '' and 'https://' in value or 'http://' in value:
@@ -81,6 +81,6 @@ class SearchDuckDuckGo:
         rawres = myparser.Parser(self.totalresults, self.word)
         return await rawres.hostnames()
 
-    async def process(self, proxy: bool=False) -> None:
+    async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_search()  # Only need to search once since using API.

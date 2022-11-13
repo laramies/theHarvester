@@ -36,6 +36,6 @@ class SearchBinaryEdge:
     async def get_hostnames(self) -> set:
         return self.totalhosts
 
-    async def process(self, proxy: bool=False) -> None:
+    async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_search()

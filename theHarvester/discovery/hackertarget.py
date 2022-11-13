@@ -20,7 +20,7 @@ class SearchHackerTarget:
         for response in responses:
             self.total_results += response.replace(",", ":")
 
-    async def process(self, proxy: bool=False) -> None:
+    async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_search()
 

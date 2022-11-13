@@ -10,7 +10,7 @@ from censys.common.exceptions import (
 
 
 class SearchCensys:
-    def __init__(self, domain, limit: int=500) -> None:
+    def __init__(self, domain, limit: int = 500) -> None:
         self.word = domain
         self.key = Core.censys_key()
         if self.key[0] is None or self.key[1] is None:
@@ -49,6 +49,6 @@ class SearchCensys:
     async def get_emails(self) -> set:
         return self.emails
 
-    async def process(self, proxy: bool=False) -> None:
+    async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_search()

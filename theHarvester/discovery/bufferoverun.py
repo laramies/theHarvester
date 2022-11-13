@@ -30,6 +30,6 @@ class SearchBufferover:
     async def get_ips(self) -> set:
         return self.totalips
 
-    async def process(self, proxy: bool=False) -> None:
+    async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_search()

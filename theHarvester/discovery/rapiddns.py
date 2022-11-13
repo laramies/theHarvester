@@ -21,7 +21,7 @@ class SearchRapidDns:
             soup = BeautifulSoup(responses[0], 'html.parser')
             rows = soup.find("table").find("tbody").find_all("tr")
             if rows:
-                # Sanity check
+                # Validation check
                 for row in rows:
                     cells = row.find_all("td")
                     if len(cells) >= 0:
@@ -35,7 +35,7 @@ class SearchRapidDns:
         except Exception as e:
             print(f'An exception has occurred: {str(e)}')
 
-    async def process(self, proxy: bool=False) -> None:
+    async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_search()
 

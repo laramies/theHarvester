@@ -235,7 +235,7 @@ class AsyncFetcher:
     proxy_list = Core.proxy_list()
 
     @classmethod
-    async def post_fetch(cls, url, headers: Sized='', data: str='', params: str='', json: bool=False, proxy: bool=False):
+    async def post_fetch(cls, url, headers: Sized = '', data: str = '', params: str = '', json: bool = False, proxy: bool = False):
         if len(headers) == 0:
             headers = {'User-Agent': Core.get_user_agent()}
         timeout = aiohttp.ClientTimeout(total=720)
@@ -323,7 +323,7 @@ class AsyncFetcher:
             return url, ''
 
     @classmethod
-    async def fetch_all(cls, urls, headers: Sized='', params: Sized='', json: bool = False, takeover: bool = False,
+    async def fetch_all(cls, urls, headers: Sized = '', params: Sized = '', json: bool = False, takeover: bool = False,
                         proxy: bool = False) -> tuple:
         # By default, timeout is 5 minutes; 60 seconds should suffice
         timeout = aiohttp.ClientTimeout(total=60)

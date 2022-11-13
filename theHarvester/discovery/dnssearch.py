@@ -24,7 +24,7 @@ from theHarvester.lib import hostchecker
 
 class DnsForce:
 
-    def __init__(self, domain, dnsserver, verbose: bool=False) -> None:
+    def __init__(self, domain, dnsserver, verbose: bool = False) -> None:
         self.domain = domain
         self.subdo = False
         self.verbose = verbose

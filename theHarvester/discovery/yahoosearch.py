@@ -38,7 +38,7 @@ class SearchYahoo:
             emails.add(email)
         return list(emails)
 
-    async def get_hostnames(self, proxy: bool=False):
+    async def get_hostnames(self, proxy: bool = False):
         self.proxy = proxy
         rawres = myparser.Parser(self.total_results, self.word)
         return await rawres.hostnames()

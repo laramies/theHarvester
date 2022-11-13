@@ -57,6 +57,6 @@ class SearchRocketReach:
     async def get_links(self):
         return self.links
 
-    async def process(self, proxy: bool=False) -> None:
+    async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_search()

@@ -68,7 +68,7 @@ class SearchBing:
         rawres = myparser.Parser(self.total_results, self.word)
         return await rawres.hostnames_all()
 
-    async def process(self, api, proxy: bool=False) -> None:
+    async def process(self, api, proxy: bool = False) -> None:
         self.proxy = proxy
         if api == 'yes':
             if self.bingApi is None:

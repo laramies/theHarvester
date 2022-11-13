@@ -23,7 +23,7 @@ class SearchBaidu:
         for response in responses:
             self.total_results += response
 
-    async def process(self, proxy: bool=False) -> None:
+    async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_search()
 

@@ -77,10 +77,11 @@ class SearchVirustotal:
         # Other false positives may occur over time and yes there are other ways to parse this, feel free to implement
         # them and submit a PR or raise an issue if you run into this filtering not being enough
         # TODO determine if parsing 'v=spf1 include:_spf-x.acme.com include:_spf-x.acme.com' is worth parsing
-        total_subdomains = [x for x in total_subdomains if not str(x).endswith('edgekey.net') and not str(x).endswith('akadns.net') and 'include:_spf' not in str(x)]
+        total_subdomains = [x for x in total_subdomains if not str(x).endswith('edgekey.net') and not str(x).endswith(
+            'akadns.net') and 'include:_spf' not in str(x)]
         total_subdomains.sort()
         return total_subdomains
 
-    async def process(self, proxy: bool=False) -> None:
+    async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_search()

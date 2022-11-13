@@ -53,6 +53,6 @@ class SearchDnsDumpster:
         rawres = myparser.Parser(self.totalresults, self.word)
         return await rawres.hostnames()
 
-    async def process(self, proxy: bool=False) -> None:
+    async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_search()  # Only need to do it once.

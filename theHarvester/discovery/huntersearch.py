@@ -21,7 +21,7 @@ class SearchHunter:
         self.emails: List = []
 
     async def do_search(self) -> None:
-        # First determine if user account is not a free account, this call is free
+        # First determine if a user account is not a free account, this call is free
         is_free = True
         headers = {'User-Agent': Core.get_user_agent()}
         acc_info_url = f'https://api.hunter.io/v2/account?api_key={self.key}'
@@ -67,7 +67,7 @@ class SearchHunter:
                                if self.word in source['domain']}))
         return emails, domains
 
-    async def process(self, proxy: bool=False) -> None:
+    async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_search()  # Only need to do it once.
 
