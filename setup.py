@@ -1,12 +1,12 @@
 from setuptools import setup, find_packages
-from theHarvester.lib.core import Core
+from theHarvester.lib.version import version
 
 with open('README.md', 'r') as fh:
     long_description: str = fh.read()
 
 setup(
     name='theHarvester',
-    version=Core.version(),
+    version=version(),
     author="Christian Martorella",
     author_email="cmartorella@edge-security.com",
     description="theHarvester is a very simple, yet effective tool designed to be used in the early stages of a penetration test",
@@ -14,7 +14,7 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/laramies/theHarvester",
     packages=find_packages(exclude=['tests']),
-    python_requires='>=3.7',
+    python_requires='>=3.10',
     scripts=['bin/theHarvester',
              'bin/restfulHarvest'],
 

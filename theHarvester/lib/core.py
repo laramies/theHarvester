@@ -7,12 +7,10 @@ import aiohttp
 import random
 import ssl
 import certifi
+from version import version
 
 
 class Core:
-    @staticmethod
-    def version() -> str:
-        return '4.2.0'
 
     @staticmethod
     def api_keys() -> dict:
@@ -113,7 +111,7 @@ class Core:
         print(r"*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *")
         print('*                                                                 *')
         print(
-            '* theHarvester {version}{filler}*'.format(version=Core.version(), filler=' ' * (51 - len(Core.version()))))
+            '* theHarvester {version}{filler}*'.format(version=version(), filler=' ' * (51 - len(version()))))
         print('* Coded by Christian Martorella                                   *')
         print('* Edge-Security Research                                          *')
         print('* cmartorella@edge-security.com                                   *')
