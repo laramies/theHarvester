@@ -83,10 +83,6 @@ jobs:
         run: |
           python theHarvester.py -d yale.edu -b intelx
 
-      - name: Run theHarvester module Omnisint
-        run: |
-          python theHarvester.py -d yale.edu -b omnisint
-
       - name: Run theHarvester module Otx
         run: |
           python theHarvester.py -d yale.edu -b otx

@@ -7,7 +7,7 @@ import aiohttp
 import random
 import ssl
 import certifi
-from version import version
+from .version import version
 
 
 class Core:
