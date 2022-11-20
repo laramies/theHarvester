@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from typing import Dict, List
+from typing import Optional, Dict, List
 from theHarvester.discovery import *
 from theHarvester.discovery import dnssearch, takeover, shodansearch
 from theHarvester.discovery.constants import *
@@ -16,7 +16,7 @@ import string
 import secrets
 
 
-async def start(rest_args=None):
+async def start(rest_args: Optional[argparse.Namespace] = None):
     """Main program function"""
     parser = argparse.ArgumentParser(description='theHarvester is used to gather open source intelligence (OSINT) on a company or domain.')
     parser.add_argument('-d', '--domain', help='Company name or domain to search.', required=True)
@@ -33,7 +33,7 @@ async def start(rest_args=None):
     parser.add_argument('-f', '--filename', help='Save the results to an XML and JSON file.', default='', type=str)
     parser.add_argument('-b', '--source', help='''anubis, baidu, bevigil, binaryedge, bing, bingapi, bufferoverun, censys, certspotter, crtsh,
                             dnsdumpster, duckduckgo, fullhunt, github-code, hackertarget, hunter, intelx,
-                            omnisint, otx, pentesttools, projectdiscovery,
+                            otx, pentesttools, projectdiscovery,
                             qwant, rapiddns, rocketreach, securityTrails, sublist3r, threatcrowd, threatminer,
                             urlscan, virustotal, yahoo, zoomeye''')
 
@@ -55,7 +55,7 @@ async def start(rest_args=None):
                 if len(filename) != 0 else ""
     else:
         args = parser.parse_args()
-        filename: str = args.filename
+        filename = args.filename
         dnsbrute = (args.dns_brute, False)
     try:
         db = stash.StashManager()
@@ -91,12 +91,12 @@ async def start(rest_args=None):
     interesting_urls: list = []
     total_asns: list = []
 
-    linkedin_people_list_tracker: list = []
-    linkedin_links_tracker: list = []
-    twitter_people_list_tracker: list = []
+    linkedin_people_list_tracker = []
+    linkedin_links_tracker = []
+    twitter_people_list_tracker = []
 
-    interesting_urls: list = []
-    total_asns: list = []
+    interesting_urls = []
+    total_asns = []
 
     async def store(search_engine: Any, source: str, process_param: Any = None, store_host: bool = False,
                     store_emails: bool = False, store_ip: bool = False, store_people: bool = False,
@@ -319,14 +319,6 @@ async def start(rest_args=None):
                             print(e)
                         else:
                             print(f'An exception has occurred in Intelx search: {e}')
-
-                elif engineitem == 'omnisint':
-                    from theHarvester.discovery import omnisint
-                    try:
-                        omnisint_search = omnisint.SearchOmnisint(word)
-                        stor_lst.append(store(omnisint_search, engineitem, store_host=True))
-                    except Exception as e:
-                        print(e)
 
                 elif engineitem == 'otx':
                     from theHarvester.discovery import otxsearch
@@ -623,7 +615,7 @@ async def start(rest_args=None):
         await search_take.process(proxy=use_proxy)
 
     # DNS reverse lookup
-    dnsrev = []
+    dnsrev: List = []
     if dnslookup is True:
         print('\n[*] Starting active queries.')
         # load the reverse dns tools
@@ -633,7 +625,7 @@ async def start(rest_args=None):
             serialize_ip_range)
 
         # reverse each iprange in a separate task
-        __reverse_dns_tasks = {}
+        __reverse_dns_tasks: Dict = {}
         for entry in host_ip:
             __ip_range = serialize_ip_range(ip=entry, netmask='24')
             if __ip_range and __ip_range not in set(__reverse_dns_tasks.keys()):
@@ -824,7 +816,7 @@ async def start(rest_args=None):
         sys.exit(0)
 
 
-async def entry_point():
+async def entry_point() -> None:
     try:
         Core.banner()
         await start()

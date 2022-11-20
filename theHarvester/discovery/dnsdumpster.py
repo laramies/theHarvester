@@ -6,14 +6,14 @@ import asyncio
 
 class SearchDnsDumpster:
 
-    def __init__(self, word):
+    def __init__(self, word) -> None:
         self.word = word.replace(' ', '%20')
         self.results = ""
         self.totalresults = ""
         self.server = 'dnsdumpster.com'
         self.proxy = False
 
-    async def do_search(self):
+    async def do_search(self) -> None:
         try:
             agent = Core.get_user_agent()
             headers = {'User-Agent': agent}
@@ -53,6 +53,6 @@ class SearchDnsDumpster:
         rawres = myparser.Parser(self.totalresults, self.word)
         return await rawres.hostnames()
 
-    async def process(self, proxy=False):
+    async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_search()  # Only need to do it once.

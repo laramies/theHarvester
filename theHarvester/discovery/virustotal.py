@@ -4,15 +4,15 @@ from theHarvester.lib.core import *
 
 class SearchVirustotal:
 
-    def __init__(self, word):
+    def __init__(self, word) -> None:
         self.key = Core.virustotal_key()
         if self.key is None:
             raise MissingKey('virustotal')
         self.word = word
         self.proxy = False
-        self.hostnames = []
+        self.hostnames: List = []
 
-    async def do_search(self):
+    async def do_search(self) -> None:
         # TODO determine if more endpoints can yield useful info given a domain
         # based on: https://developers.virustotal.com/reference/domains-relationships
         # base_url = "https://www.virustotal.com/api/v3/domains/domain/subdomains?limit=40"
@@ -77,10 +77,11 @@ class SearchVirustotal:
         # Other false positives may occur over time and yes there are other ways to parse this, feel free to implement
         # them and submit a PR or raise an issue if you run into this filtering not being enough
         # TODO determine if parsing 'v=spf1 include:_spf-x.acme.com include:_spf-x.acme.com' is worth parsing
-        total_subdomains = [x for x in total_subdomains if not str(x).endswith('edgekey.net') and not str(x).endswith('akadns.net') and 'include:_spf' not in str(x)]
+        total_subdomains = [x for x in total_subdomains if not str(x).endswith('edgekey.net') and not str(x).endswith(
+            'akadns.net') and 'include:_spf' not in str(x)]
         total_subdomains.sort()
         return total_subdomains
 
-    async def process(self, proxy=False):
+    async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_search()

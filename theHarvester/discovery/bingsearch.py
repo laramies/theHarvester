@@ -5,7 +5,7 @@ from theHarvester.parsers import myparser
 
 class SearchBing:
 
-    def __init__(self, word, limit, start):
+    def __init__(self, word, limit, start) -> None:
         self.word = word.replace(' ', '%20')
         self.results = ""
         self.total_results = ""
@@ -17,7 +17,7 @@ class SearchBing:
         self.counter = start
         self.proxy = False
 
-    async def do_search(self):
+    async def do_search(self) -> None:
         headers = {
             'Host': self.hostname,
             'Cookie': 'SRCHHPGUSR=ADLT=DEMOTE&NRSLT=50',
@@ -30,7 +30,7 @@ class SearchBing:
         for response in responses:
             self.total_results += response
 
-    async def do_search_api(self):
+    async def do_search_api(self) -> None:
         url = 'https://api.cognitive.microsoft.com/bing/v7.0/search?'
         params = {
             'q': self.word,
@@ -43,7 +43,7 @@ class SearchBing:
         self.results = await AsyncFetcher.fetch_all([url], headers=headers, params=params, proxy=self.proxy)
         self.total_results += self.results
 
-    async def do_search_vhost(self):
+    async def do_search_vhost(self) -> None:
         headers = {
             'Host': self.hostname,
             'Cookie': 'mkt=en-US;ui=en-US;SRCHHPGUSR=NEWWND=0&ADLT=DEMOTE&NRSLT=50',
@@ -68,7 +68,7 @@ class SearchBing:
         rawres = myparser.Parser(self.total_results, self.word)
         return await rawres.hostnames_all()
 
-    async def process(self, api, proxy=False):
+    async def process(self, api, proxy: bool = False) -> None:
         self.proxy = proxy
         if api == 'yes':
             if self.bingApi is None:
@@ -80,5 +80,5 @@ class SearchBing:
                 await self.do_search()
             print(f'\tSearching {self.counter} results.')
 
-    async def process_vhost(self):
+    async def process_vhost(self) -> None:
         await self.do_search_vhost()

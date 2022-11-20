@@ -2,23 +2,24 @@ from theHarvester.discovery.constants import *
 from theHarvester.lib.core import *
 from theHarvester.parsers import myparser
 import json
+from typing import Union
 
 
 class SearchDuckDuckGo:
 
-    def __init__(self, word, limit):
+    def __init__(self, word, limit) -> None:
         self.word = word
         self.results = ""
         self.totalresults = ""
-        self.dorks = []
-        self.links = []
+        self.dorks: List = []
+        self.links: List = []
         self.database = 'https://duckduckgo.com/?q='
         self.api = 'https://api.duckduckgo.com/?q=x&format=json&pretty=1'  # Currently using API.
         self.quantity = '100'
         self.limit = limit
         self.proxy = False
 
-    async def do_search(self):
+    async def do_search(self) -> None:
         # Do normal scraping.
         url = self.api.replace('x', self.word)
         headers = {'User-Agent': googleUA}
@@ -30,7 +31,7 @@ class SearchDuckDuckGo:
         all_resps = await AsyncFetcher.fetch_all(urls)
         self.totalresults += ''.join(all_resps)
 
-    async def crawl(self, text):
+    async def crawl(self, text: Union[bytes, str]):
         """
         Function parses json and returns URLs.
         :param text: formatted json
@@ -46,8 +47,8 @@ class SearchDuckDuckGo:
                 if isinstance(val, list):
                     if len(val) == 0:  # Make sure not indexing an empty list.
                         continue
-                    val = val[0]  # First value should be dict.
-                    if isinstance(val, dict):  # Sanity check.
+                    val = val[0]  # The First value should be dict.
+                    if isinstance(val, dict):  # Validation check.
                         for key in val.keys():
                             value = val.get(key)
                             if isinstance(value, str) and value != '' and 'https://' in value or 'http://' in value:
@@ -80,6 +81,6 @@ class SearchDuckDuckGo:
         rawres = myparser.Parser(self.totalresults, self.word)
         return await rawres.hostnames()
 
-    async def process(self, proxy=False):
+    async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_search()  # Only need to search once since using API.

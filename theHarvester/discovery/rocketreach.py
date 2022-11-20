@@ -1,23 +1,24 @@
 from theHarvester.discovery.constants import *
 from theHarvester.lib.core import *
+from typing import Set
 import asyncio
 
 
 class SearchRocketReach:
 
-    def __init__(self, word, limit):
-        self.ips = set()
+    def __init__(self, word, limit) -> None:
+        self.ips: Set = set()
         self.word = word
         self.key = Core.rocketreach_key()
         if self.key is None:
             raise MissingKey('RocketReach')
-        self.hosts = set()
+        self.hosts: Set = set()
         self.proxy = False
         self.baseurl = 'https://api.rocketreach.co/v2/api/search'
-        self.links = set()
+        self.links: Set = set()
         self.limit = limit
 
-    async def do_search(self):
+    async def do_search(self) -> None:
         try:
             headers = {
                 'Api-Key': self.key,
@@ -56,6 +57,6 @@ class SearchRocketReach:
     async def get_links(self):
         return self.links
 
-    async def process(self, proxy=False):
+    async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_search()

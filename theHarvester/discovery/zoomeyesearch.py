@@ -1,13 +1,14 @@
 from theHarvester.discovery.constants import *
 from theHarvester.lib.core import *
 from theHarvester.parsers import myparser
+from typing import List
 import asyncio
 import re
 
 
 class SearchZoomEye:
 
-    def __init__(self, word, limit):
+    def __init__(self, word, limit) -> None:
         self.word = word
         self.limit = limit
         self.key = Core.zoomeye_key()
@@ -19,11 +20,11 @@ class SearchZoomEye:
             raise MissingKey('zoomeye')
         self.baseurl = 'https://api.zoomeye.org/host/search'
         self.proxy = False
-        self.totalasns = list()
-        self.totalhosts = list()
-        self.interestingurls = list()
-        self.totalips = list()
-        self.totalemails = list()
+        self.totalasns: List = list()
+        self.totalhosts: List = list()
+        self.interestingurls: List = list()
+        self.totalips: List = list()
+        self.totalemails: List = list()
         # Regex used is directly from: https://github.com/GerbenJavado/LinkFinder/blob/master/linkfinder.py#L29
         # Maybe one day it will be a pip package
         # Regardless LinkFinder is an amazing tool!
@@ -56,7 +57,7 @@ class SearchZoomEye:
         """
         self.iurl_regex = re.compile(self.iurl_regex, re.VERBOSE)
 
-    async def fetch_subdomains(self):
+    async def fetch_subdomains(self) -> None:
         # Based on docs from: https://www.zoomeye.org/doc#search-sub-domain-ip
         headers = {
             'API-KEY': self.key,
@@ -91,7 +92,7 @@ class SearchZoomEye:
             if i % 10 == 0:
                 await asyncio.sleep(get_delay() + 1)
 
-    async def do_search(self):
+    async def do_search(self) -> None:
         headers = {
             'API-KEY': self.key,
             'User-Agent': Core.get_user_agent()
@@ -104,13 +105,13 @@ class SearchZoomEye:
         )
         response = await AsyncFetcher.fetch_all([self.baseurl], json=True, proxy=self.proxy, headers=headers,
                                                 params=params)
-        # First request determines how many pages there in total
+        # The First request determines how many pages there in total
         resp = response[0]
         total_pages = int(resp['available'])
         self.limit = self.limit if total_pages > self.limit else total_pages
         self.limit = 3 if self.limit == 2 else self.limit
         cur_page = 2 if self.limit >= 2 else -1
-        # Means there is only one page
+        # Means there is only one-page
         # hostnames, emails, ips, asns, iurls
         nomatches_counter = 0
         # cur_page = -1
@@ -211,7 +212,7 @@ class SearchZoomEye:
                 print(f'An exception has occurred: {e}')
         return hostnames, emails, ips, asns, iurls
 
-    async def process(self, proxy=False):
+    async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_search()  # Only need to do it once.
 

@@ -4,7 +4,7 @@ from theHarvester.parsers import myparser
 
 class SearchBaidu:
 
-    def __init__(self, word, limit):
+    def __init__(self, word, limit) -> None:
         self.word = word
         self.total_results = ""
         self.server = 'www.baidu.com'
@@ -12,7 +12,7 @@ class SearchBaidu:
         self.limit = limit
         self.proxy = False
 
-    async def do_search(self):
+    async def do_search(self) -> None:
         headers = {
             'Host': self.hostname,
             'User-agent': Core.get_user_agent()
@@ -23,7 +23,7 @@ class SearchBaidu:
         for response in responses:
             self.total_results += response
 
-    async def process(self, proxy=False):
+    async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_search()
 

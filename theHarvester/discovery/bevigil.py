@@ -1,16 +1,17 @@
 from theHarvester.lib.core import *
+from typing import Set
 
 
 class SearchBeVigil:
 
-    def __init__(self, word):
+    def __init__(self, word) -> None:
         self.word = word
-        self.totalhosts = set()
-        self.interestingurls = set()
+        self.totalhosts: Set = set()
+        self.interestingurls: Set = set()
         self.key = Core.bevigil_key()
         self.proxy = False
 
-    async def do_search(self):
+    async def do_search(self) -> None:
         subdomain_endpoint = f"https://osint.bevigil.com/api/{self.word}/subdomains/"
         url_endpoint = f"https://osint.bevigil.com/api/{self.word}/urls/"
         headers = {'X-Access-Token': self.key}
@@ -31,6 +32,6 @@ class SearchBeVigil:
     async def get_interestingurls(self) -> set:
         return self.interestingurls
 
-    async def process(self, proxy=False):
+    async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_search()

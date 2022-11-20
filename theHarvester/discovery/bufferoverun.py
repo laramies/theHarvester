@@ -3,13 +3,13 @@ import re
 
 
 class SearchBufferover:
-    def __init__(self, word):
+    def __init__(self, word) -> None:
         self.word = word
         self.totalhosts = set()
         self.totalips = set()
         self.proxy = False
 
-    async def do_search(self):
+    async def do_search(self) -> None:
         url = f'https://dns.bufferover.run/dns?q={self.word}'
         responses = await AsyncFetcher.fetch_all(urls=[url], json=True, proxy=self.proxy)
         responses = responses[0]
@@ -30,6 +30,6 @@ class SearchBufferover:
     async def get_ips(self) -> set:
         return self.totalips
 
-    async def process(self, proxy=False):
+    async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_search()

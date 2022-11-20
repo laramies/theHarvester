@@ -1,5 +1,5 @@
 import argparse
-from typing import List
+from typing import Any, Dict, Union, List
 import os
 from fastapi import FastAPI, Header, Query, Request
 from fastapi.responses import HTMLResponse, UJSONResponse
@@ -27,7 +27,7 @@ except RuntimeError:
 
 
 @app.get('/', response_class=HTMLResponse)
-async def root(*, user_agent: str = Header(None)):
+async def root(*, user_agent: str = Header(None)) -> Union[RedirectResponse, str]:
     # very basic user agent filtering
     if user_agent and ('gobuster' in user_agent or 'sqlmap' in user_agent or 'rustbuster' in user_agent):
         response = RedirectResponse(app.url_path_for('bot'))
@@ -59,7 +59,7 @@ async def root(*, user_agent: str = Header(None)):
 
 
 @app.get('/nicebot')
-async def bot():
+async def bot() -> Dict[str, str]:
     # nice bot
     string = {'bot': 'These are not the droids you are looking for'}
     return string
@@ -77,7 +77,7 @@ async def getsources(request: Request):
 @app.get('/dnsbrute', response_class=UJSONResponse)
 @limiter.limit('5/minute')
 async def dnsbrute(request: Request, user_agent: str = Header(None),
-                   domain: str = Query(..., description='Domain to be brute forced')):
+                   domain: str = Query(..., description='Domain to be brute forced')) -> Union[Dict[str, Any], RedirectResponse]:
     # Endpoint for user to signal to do DNS brute forcing
     # Rate limit of 5 requests per minute
     # basic user agent filtering
@@ -112,7 +112,7 @@ async def query(request: Request, dns_server: str = Query(""), user_agent: str =
                 take_over: bool = Query(False), virtual_host: bool = Query(False),
                 source: List[str] = Query(..., description='Data sources to query comma separated with no space'),
                 limit: int = Query(500), start: int = Query(0),
-                domain: str = Query(..., description='Domain to be harvested')):
+                domain: str = Query(..., description='Domain to be harvested')) -> Union[Dict[str, Any], RedirectResponse]:
 
     # Query function that allows user to query theHarvester rest API
     # Rate limit of 2 requests per minute

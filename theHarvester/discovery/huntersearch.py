@@ -1,10 +1,11 @@
 from theHarvester.discovery.constants import *
 from theHarvester.lib.core import *
+from typing import List
 
 
 class SearchHunter:
 
-    def __init__(self, word, limit, start):
+    def __init__(self, word, limit, start) -> None:
         self.word = word
         self.limit = limit
         self.limit = 10 if limit > 10 else limit
@@ -16,11 +17,11 @@ class SearchHunter:
         self.counter = start
         self.database = f'https://api.hunter.io/v2/domain-search?domain={self.word}&api_key={self.key}&limit=10'
         self.proxy = False
-        self.hostnames = []
-        self.emails = []
+        self.hostnames: List = []
+        self.emails: List = []
 
-    async def do_search(self):
-        # First determine if user account is not a free account, this call is free
+    async def do_search(self) -> None:
+        # First determine if a user account is not a free account, this call is free
         is_free = True
         headers = {'User-Agent': Core.get_user_agent()}
         acc_info_url = f'https://api.hunter.io/v2/account?api_key={self.key}'
@@ -66,7 +67,7 @@ class SearchHunter:
                                if self.word in source['domain']}))
         return emails, domains
 
-    async def process(self, proxy=False):
+    async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_search()  # Only need to do it once.
 
