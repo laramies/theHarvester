@@ -39,6 +39,10 @@ class Core:
         return Core.api_keys()['bing']['key']
 
     @staticmethod
+    def bufferoverun_key() -> str:
+        return Core.api_keys()['bufferoverun']['key']
+
+    @staticmethod
     def censys_key() -> tuple:
         return Core.api_keys()['censys']['id'], Core.api_keys()['censys']['secret']
 
