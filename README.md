@@ -24,7 +24,7 @@ Passive:
 
 * bingapi: Microsoft search engine, through the API (Requires an API key, see below.)
 
-* bufferoverun: Uses data from Rapid7's Project Sonar - www.rapid7.com/research/project-sonar/
+* bufferoverun: https://tls.bufferover.run
 
 * censys: [Censys search engine](https://search.censys.io/), will use certificates searches to enumerate subdomains and gather emails (Requires an API key, see below.) - [censys.io](https://censys.io/)
 
@@ -95,6 +95,7 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * bevigil - Free upto 50 queries. Pricing can be found here: https://bevigil.com/pricing/osint
 * binaryedge - $10/month
 * bing
+* bufferoverun - uses the free api
 * censys - API keys are required and can be retrieved from your [Censys account](https://search.censys.io/account/api).
 * fullhunt
 * github
@@ -109,7 +110,7 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 
 Install and dependencies:
 -------------------------
-* Python 3.7+
+* Python 3.10+
 * https://github.com/laramies/theHarvester/wiki/Installation
 
 
