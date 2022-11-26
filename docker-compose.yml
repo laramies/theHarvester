@@ -1,0 +1,13 @@
+version: "3.9"
+services:
+  theharvester.svc.local:
+    container_name: theHarvester
+    volumes:
+      - ./api-keys.yaml:/app/api-keys.yaml
+    build: .
+    ports:
+      - "8080:80"
+
+networks:
+  default:
+    name: app_custom_network
