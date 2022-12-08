@@ -23,8 +23,8 @@ async def main() -> None:
     you can easily use requests instead of aiohttp or whatever you best see fit
     """
     url = "http://127.0.0.1:5000"
-    domain = "netflix.com"
-    query_url = f'{url}/query?limit=300&source=bing,baidu,duckduckgo,dogpile&domain={domain}'
+    domain = "fortifydata.com"
+    query_url = f'{url}/query?&source=all&domain={domain}'
     async with aiohttp.ClientSession() as session:
         fetched_json = await fetch_json(session, query_url)
         total_asns = fetched_json['asns']
