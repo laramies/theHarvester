@@ -24,8 +24,7 @@ class SearchBufferover:
                 host.split(',')if ',' in host and self.word.replace('www.', '') in host.split(',')[0] in host else
                 host.split(',')[4] for host in dct['Results']}
 
-        self.totalips = {ip.split(',')[0] for ip in dct['Results'] if
-                              re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ip.split(',')[0])}
+        self.totalips = {ip.split(',')[0] for ip in dct['Results'] if re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ip.split(',')[0])}
 
     async def get_hostnames(self) -> set:
         return self.totalhosts
