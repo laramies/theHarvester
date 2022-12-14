@@ -6,30 +6,31 @@ from typing import Union
 
 
 class SearchDuckDuckGo:
-
     def __init__(self, word, limit) -> None:
         self.word = word
         self.results = ""
         self.totalresults = ""
         self.dorks: List = []
         self.links: List = []
-        self.database = 'https://duckduckgo.com/?q='
-        self.api = 'https://api.duckduckgo.com/?q=x&format=json&pretty=1'  # Currently using API.
-        self.quantity = '100'
+        self.database = "https://duckduckgo.com/?q="
+        self.api = "https://api.duckduckgo.com/?q=x&format=json&pretty=1"  # Currently using API.
+        self.quantity = "100"
         self.limit = limit
         self.proxy = False
 
     async def do_search(self) -> None:
         # Do normal scraping.
-        url = self.api.replace('x', self.word)
-        headers = {'User-Agent': googleUA}
-        first_resp = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
+        url = self.api.replace("x", self.word)
+        headers = {"User-Agent": googleUA}
+        first_resp = await AsyncFetcher.fetch_all(
+            [url], headers=headers, proxy=self.proxy
+        )
         self.results = first_resp[0]
         self.totalresults += self.results
         urls = await self.crawl(self.results)
         urls = {url for url in urls if len(url) > 5}
         all_resps = await AsyncFetcher.fetch_all(urls)
-        self.totalresults += ''.join(all_resps)
+        self.totalresults += "".join(all_resps)
 
     async def crawl(self, text: Union[bytes, str]):
         """
@@ -51,26 +52,38 @@ class SearchDuckDuckGo:
                     if isinstance(val, dict):  # Validation check.
                         for key in val.keys():
                             value = val.get(key)
-                            if isinstance(value, str) and value != '' and 'https://' in value or 'http://' in value:
+                            if (
+                                isinstance(value, str)
+                                and value != ""
+                                and "https://" in value
+                                or "http://" in value
+                            ):
                                 urls.add(value)
-                if isinstance(val, str) and val != '' and 'https://' in val or 'http://' in val:
+                if (
+                    isinstance(val, str)
+                    and val != ""
+                    and "https://" in val
+                    or "http://" in val
+                ):
                     urls.add(val)
             tmp = set()
             for url in urls:
-                if '<' in url and 'href=' in url:  # Format is <href="https://www.website.com"/>
-                    equal_index = url.index('=')
-                    true_url = ''
-                    for ch in url[equal_index + 1:]:
+                if (
+                    "<" in url and "href=" in url
+                ):  # Format is <href="https://www.website.com"/>
+                    equal_index = url.index("=")
+                    true_url = ""
+                    for ch in url[equal_index + 1 :]:
                         if ch == '"':
                             tmp.add(true_url)
                             break
                         true_url += ch
                 else:
-                    if url != '':
+                    if url != "":
                         tmp.add(url)
             return tmp
         except Exception as e:
-            print(f'Exception occurred: {e}')
+            print(f"Exception occurred: {e}")
             return []
 
     async def get_emails(self):

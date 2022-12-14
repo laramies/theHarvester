@@ -9,17 +9,19 @@ from _pytest.mark.structures import MarkDecorator
 from typing import Optional
 
 pytestmark: MarkDecorator = pytest.mark.asyncio
-github_ci: Optional[str] = os.getenv('GITHUB_ACTIONS')  # Github set this to be the following: true instead of True
+github_ci: Optional[str] = os.getenv(
+    "GITHUB_ACTIONS"
+)  # Github set this to be the following: true instead of True
 
 
 class TestAnubis:
     @staticmethod
     def domain() -> str:
-        return 'apple.com'
+        return "apple.com"
 
     async def test_api(self) -> None:
-        base_url = f'https://jldc.me/anubis/subdomains/{TestAnubis.domain()}'
-        headers = {'User-Agent': Core.get_user_agent()}
+        base_url = f"https://jldc.me/anubis/subdomains/{TestAnubis.domain()}"
+        headers = {"User-Agent": Core.get_user_agent()}
         request = requests.get(base_url, headers=headers)
         assert request.status_code == 200
 

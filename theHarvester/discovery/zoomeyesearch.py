@@ -7,7 +7,6 @@ import re
 
 
 class SearchZoomEye:
-
     def __init__(self, word, limit) -> None:
         self.word = word
         self.limit = limit
@@ -17,8 +16,8 @@ class SearchZoomEye:
         # If you wish to extract as many subdomains as possible visit the fetch_subdomains
         # To see how
         if self.key is None:
-            raise MissingKey('zoomeye')
-        self.baseurl = 'https://api.zoomeye.org/host/search'
+            raise MissingKey("zoomeye")
+        self.baseurl = "https://api.zoomeye.org/host/search"
         self.proxy = False
         self.totalasns: List = list()
         self.totalhosts: List = list()
@@ -59,20 +58,23 @@ class SearchZoomEye:
 
     async def fetch_subdomains(self) -> None:
         # Based on docs from: https://www.zoomeye.org/doc#search-sub-domain-ip
-        headers = {
-            'API-KEY': self.key,
-            'User-Agent': Core.get_user_agent()
-        }
+        headers = {"API-KEY": self.key, "User-Agent": Core.get_user_agent()}
 
-        subdomain_search_endpoint = f'https://api.zoomeye.org/domain/search?q={self.word}&type=0&'
+        subdomain_search_endpoint = (
+            f"https://api.zoomeye.org/domain/search?q={self.word}&type=0&"
+        )
 
-        response = await AsyncFetcher.fetch_all([subdomain_search_endpoint + 'page=1'],
-                                                json=True, proxy=self.proxy, headers=headers)
+        response = await AsyncFetcher.fetch_all(
+            [subdomain_search_endpoint + "page=1"],
+            json=True,
+            proxy=self.proxy,
+            headers=headers,
+        )
         # Make initial request to determine total number of subdomains
         resp = response[0]
-        if resp['status'] != 200:
+        if resp["status"] != 200:
             return
-        total = resp['total']
+        total = resp["total"]
         # max number of results per request seems to be 30
         # NOTE: If you wish to get as many subdomains as possible
         # Change the line below to:
@@ -80,10 +82,14 @@ class SearchZoomEye:
         self.limit = self.limit if total > self.limit else (total // 30) + 1
         self.totalhosts.extend([item["name"] for item in resp["list"]])
         for i in range(2, self.limit):
-            response = await AsyncFetcher.fetch_all([subdomain_search_endpoint + f'page={i}'],
-                                                    json=True, proxy=self.proxy, headers=headers)
+            response = await AsyncFetcher.fetch_all(
+                [subdomain_search_endpoint + f"page={i}"],
+                json=True,
+                proxy=self.proxy,
+                headers=headers,
+            )
             resp = response[0]
-            if resp['status'] != 200:
+            if resp["status"] != 200:
                 return
             found_subdomains = [item["name"] for item in resp["list"]]
             if len(found_subdomains) == 0:
@@ -93,21 +99,19 @@ class SearchZoomEye:
                 await asyncio.sleep(get_delay() + 1)
 
     async def do_search(self) -> None:
-        headers = {
-            'API-KEY': self.key,
-            'User-Agent': Core.get_user_agent()
-        }
+        headers = {"API-KEY": self.key, "User-Agent": Core.get_user_agent()}
         # Fetch subdomains first
         await self.fetch_subdomains()
         params = (
-            ('query', f'site:{self.word}'),
-            ('page', '1'),
+            ("query", f"site:{self.word}"),
+            ("page", "1"),
         )
-        response = await AsyncFetcher.fetch_all([self.baseurl], json=True, proxy=self.proxy, headers=headers,
-                                                params=params)
+        response = await AsyncFetcher.fetch_all(
+            [self.baseurl], json=True, proxy=self.proxy, headers=headers, params=params
+        )
         # The First request determines how many pages there in total
         resp = response[0]
-        total_pages = int(resp['available'])
+        total_pages = int(resp["available"])
         self.limit = self.limit if total_pages > self.limit else total_pages
         self.limit = 3 if self.limit == 2 else self.limit
         cur_page = 2 if self.limit >= 2 else -1
@@ -117,17 +121,21 @@ class SearchZoomEye:
         # cur_page = -1
         if cur_page == -1:
             # No need to do loop just parse and leave
-            if 'matches' in resp.keys():
-                hostnames, emails, ips, asns, iurls = await self.parse_matches(resp['matches'])
+            if "matches" in resp.keys():
+                hostnames, emails, ips, asns, iurls = await self.parse_matches(
+                    resp["matches"]
+                )
                 self.totalhosts.extend(hostnames)
                 self.totalemails.extend(emails)
                 self.totalips.extend(ips)
                 self.totalasns.extend(asns)
                 self.interestingurls.extend(iurls)
         else:
-            if 'matches' in resp.keys():
+            if "matches" in resp.keys():
                 # Parse out initial results and then continue to loop
-                hostnames, emails, ips, asns, iurls = await self.parse_matches(resp['matches'])
+                hostnames, emails, ips, asns, iurls = await self.parse_matches(
+                    resp["matches"]
+                )
                 self.totalhosts.extend(hostnames)
                 self.totalemails.extend(emails)
                 self.totalips.extend(ips)
@@ -137,21 +145,33 @@ class SearchZoomEye:
             for num in range(2, self.limit):
                 # print(f'Currently on page: {num}')
                 params = (
-                    ('query', f'site:{self.word}'),
-                    ('page', f'{num}'),
+                    ("query", f"site:{self.word}"),
+                    ("page", f"{num}"),
                 )
-                response = await AsyncFetcher.fetch_all([self.baseurl], json=True, proxy=self.proxy, headers=headers,
-                                                        params=params)
+                response = await AsyncFetcher.fetch_all(
+                    [self.baseurl],
+                    json=True,
+                    proxy=self.proxy,
+                    headers=headers,
+                    params=params,
+                )
                 resp = response[0]
-                if 'matches' not in resp.keys():
-                    print(f'Your resp: {resp}')
-                    print('Match not found in keys')
+                if "matches" not in resp.keys():
+                    print(f"Your resp: {resp}")
+                    print("Match not found in keys")
                     break
 
-                hostnames, emails, ips, asns, iurls = await self.parse_matches(resp['matches'])
+                hostnames, emails, ips, asns, iurls = await self.parse_matches(
+                    resp["matches"]
+                )
 
-                if len(hostnames) == 0 and len(emails) == 0 and len(ips) == 0 \
-                        and len(asns) == 0 and len(iurls) == 0:
+                if (
+                    len(hostnames) == 0
+                    and len(emails) == 0
+                    and len(ips) == 0
+                    and len(asns) == 0
+                    and len(iurls) == 0
+                ):
                     nomatches_counter += 1
 
                 if nomatches_counter >= 5:
@@ -176,40 +196,48 @@ class SearchZoomEye:
         emails = set()
         for match in matches:
             try:
-                ips.add(match['ip'])
+                ips.add(match["ip"])
 
-                if 'geoinfo' in match.keys():
-                    asns.add(int(match['geoinfo']['asn']))
+                if "geoinfo" in match.keys():
+                    asns.add(int(match["geoinfo"]["asn"]))
 
-                if 'rdns_new' in match.keys():
-                    rdns_new = match['rdns_new']
+                if "rdns_new" in match.keys():
+                    rdns_new = match["rdns_new"]
 
-                    if ',' in rdns_new:
-                        parts = str(rdns_new).split(',')
+                    if "," in rdns_new:
+                        parts = str(rdns_new).split(",")
                         rdns_new = parts[0]
                         if len(parts) == 2:
                             hostnames.add(parts[1])
-                        rdns_new = rdns_new[:-1] if rdns_new[-1] == '.' else rdns_new
+                        rdns_new = rdns_new[:-1] if rdns_new[-1] == "." else rdns_new
                         hostnames.add(rdns_new)
                     else:
-                        rdns_new = rdns_new[:-1] if rdns_new[-1] == '.' else rdns_new
+                        rdns_new = rdns_new[:-1] if rdns_new[-1] == "." else rdns_new
                         hostnames.add(rdns_new)
 
-                if 'rdns' in match.keys():
-                    rdns = match['rdns']
-                    rdns = rdns[:-1] if rdns[-1] == '.' else rdns
+                if "rdns" in match.keys():
+                    rdns = match["rdns"]
+                    rdns = rdns[:-1] if rdns[-1] == "." else rdns
                     hostnames.add(rdns)
 
-                if 'portinfo' in match.keys():
+                if "portinfo" in match.keys():
                     # re.
-                    temp_emails = set(await self.parse_emails(match['portinfo']['banner']))
+                    temp_emails = set(
+                        await self.parse_emails(match["portinfo"]["banner"])
+                    )
                     emails.update(temp_emails)
-                    hostnames.update(set(await self.parse_hostnames(match['portinfo']['banner'])))
-                    iurls = {str(iurl.group(1)).replace('"', '') for iurl
-                             in re.finditer(self.iurl_regex, match['portinfo']['banner'])
-                             if self.word in str(iurl.group(1))}
+                    hostnames.update(
+                        set(await self.parse_hostnames(match["portinfo"]["banner"]))
+                    )
+                    iurls = {
+                        str(iurl.group(1)).replace('"', "")
+                        for iurl in re.finditer(
+                            self.iurl_regex, match["portinfo"]["banner"]
+                        )
+                        if self.word in str(iurl.group(1))
+                    }
             except Exception as e:
-                print(f'An exception has occurred: {e}')
+                print(f"An exception has occurred: {e}")
         return hostnames, emails, ips, asns, iurls
 
     async def process(self, proxy: bool = False) -> None:

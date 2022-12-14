@@ -29,7 +29,7 @@ class SearchCensys:
                 user_agent=f"censys/{__version__} (theHarvester/{thehavester_version}); +https://github.com/laramies/theHarvester)",
             )
         except CensysUnauthorizedException:
-            raise MissingKey('Censys ID and/or Secret')
+            raise MissingKey("Censys ID and/or Secret")
 
         query = f"parsed.names: {self.word}"
         try:

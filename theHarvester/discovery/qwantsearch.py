@@ -29,7 +29,7 @@ class SearchQwant:
         return max(start, 0)
 
     async def do_search(self) -> None:
-        headers = {'User-agent': Core.get_user_agent()}
+        headers = {"User-agent": Core.get_user_agent()}
 
         start = self.get_start_offset()
         limit = self.limit + start
@@ -40,7 +40,9 @@ class SearchQwant:
             for offset in range(start, limit, step)
         ]
 
-        responses = await AsyncFetcher.fetch_all(api_urls, headers=headers, proxy=self.proxy)
+        responses = await AsyncFetcher.fetch_all(
+            api_urls, headers=headers, proxy=self.proxy
+        )
 
         for response in responses:
             try:
@@ -50,17 +52,19 @@ class SearchQwant:
                 continue
 
             try:
-                response_items = json_response['data']['result']['items']
+                response_items = json_response["data"]["result"]["items"]
             except KeyError:
-                if json_response.get("status", None) \
-                        and json_response.get("error", None) == 24:
+                if (
+                    json_response.get("status", None)
+                    and json_response.get("error", None) == 24
+                ):
                     # https://www.qwant.com/anti_robot
                     print("Rate limit reached - IP Blocked until captcha is solved")
                     break
                 continue
 
             for response_item in response_items:
-                desc = response_item.get('desc', '')
+                desc = response_item.get("desc", "")
                 """
                 response_item[0]['desc'] = "end of previous description."
                 response_item[1]['desc'] = "john.doo@company.com start the next description"

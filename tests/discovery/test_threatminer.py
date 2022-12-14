@@ -9,17 +9,19 @@ from _pytest.mark.structures import MarkDecorator
 from typing import Optional
 
 pytestmark: MarkDecorator = pytest.mark.asyncio
-github_ci: Optional[str] = os.getenv('GITHUB_ACTIONS')  # Github set this to be the following: true instead of True
+github_ci: Optional[str] = os.getenv(
+    "GITHUB_ACTIONS"
+)  # Github set this to be the following: true instead of True
 
 
 class TestThreatminer(object):
     @staticmethod
     def domain() -> str:
-        return 'target.com'
+        return "target.com"
 
     async def test_api(self) -> None:
-        base_url = f'https://api.threatminer.org/v2/domain.php?q={TestThreatminer.domain()}&rt=5'
-        headers = {'User-Agent': Core.get_user_agent()}
+        base_url = f"https://api.threatminer.org/v2/domain.php?q={TestThreatminer.domain()}&rt=5"
+        headers = {"User-Agent": Core.get_user_agent()}
         request = requests.get(base_url, headers=headers)
         assert request.status_code == 200
 
@@ -30,5 +32,5 @@ class TestThreatminer(object):
         assert isinstance(await search.get_ips(), set)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     pytest.main()

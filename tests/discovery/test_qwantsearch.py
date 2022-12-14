@@ -7,14 +7,15 @@ from _pytest.mark.structures import MarkDecorator
 from typing import Optional
 
 pytestmark: MarkDecorator = pytest.mark.asyncio
-github_ci: Optional[str] = os.getenv('GITHUB_ACTIONS')  # Github set this to be the following: true instead of True
+github_ci: Optional[str] = os.getenv(
+    "GITHUB_ACTIONS"
+)  # Github set this to be the following: true instead of True
 
 
 class TestSearchQwant(object):
-
     @staticmethod
     def domain() -> str:
-        return 'example.com'
+        return "example.com"
 
     async def test_get_start_offset_return_0(self) -> None:
         search = qwantsearch.SearchQwant(TestSearchQwant.domain(), 0, 200)
