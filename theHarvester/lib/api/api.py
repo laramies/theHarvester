@@ -49,20 +49,14 @@ async def root(*, user_agent: str = Header(None)) -> Union[RedirectResponse, str
     <!DOCTYPE html>
     <html lang="en-US">
         <head>
-            <title>theHarvester API</title>
-             <style>
-              .img-container {
-                text-align: center;
-                display: block;
-                }
-            </style>
+            <title>theHarvester Megham Garg</title>
         </head>
         <body>
             <br/>
             <a href="https://github.com/laramies/theHarvester" target="_blank">
-            <span class="img-container">
-                <img src="https://raw.githubusercontent.com/laramies/theHarvester/master/theHarvester-logo.png" alt="theHarvester logo"/>
-            </span>
+                <span>
+                    The Harvester
+                </span>
             </a>
         </body>
     </html>
