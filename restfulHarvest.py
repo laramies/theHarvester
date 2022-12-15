@@ -12,8 +12,8 @@ parser.add_argument(
 parser.add_argument(
     "-p",
     "--port",
-    default=5000,
-    help="Port to bind the web server to, default is 5000",
+    default=8000,
+    help="Port to bind the web server to, default is 8000",
     type=int,
 )
 parser.add_argument(

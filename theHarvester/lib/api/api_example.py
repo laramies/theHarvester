@@ -22,7 +22,7 @@ async def main() -> None:
     Just a simple example of how to interact with the rest api
     you can easily use requests instead of aiohttp or whatever you best see fit
     """
-    url = "http://127.0.0.1:5000"
+    url = "http://127.0.0.1:8000"
     domain = "fortifydata.com"
     query_url = f"{url}/query?&source=all&domain={domain}"
     async with aiohttp.ClientSession() as session:
