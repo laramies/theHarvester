@@ -179,7 +179,7 @@ class SearchZoomEye:
                 ips.add(match['ip'])
 
                 if 'geoinfo' in match.keys():
-                    asns.add(int(match['geoinfo']['asn']))
+                    asns.add(f"AS{match['geoinfo']['asn']}")
 
                 if 'rdns_new' in match.keys():
                     rdns_new = match['rdns_new']
