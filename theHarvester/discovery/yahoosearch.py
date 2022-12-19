@@ -22,7 +22,8 @@ class SearchYahoo:
         for response in responses:
             self.total_results += response
 
-    async def process(self) -> None:
+    async def process(self, proxy: bool = False) -> None:
+        self.proxy = proxy
         await self.do_search()
 
     async def get_emails(self):
