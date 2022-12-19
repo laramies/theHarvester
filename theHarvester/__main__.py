@@ -427,8 +427,11 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
 
                 elif engineitem == 'yahoo':
                     from theHarvester.discovery import yahoosearch
-                    yahoo_search = yahoosearch.SearchYahoo(word, limit)
-                    stor_lst.append(store(yahoo_search, engineitem, store_host=True, store_emails=True))
+                    try:
+                        yahoo_search = yahoosearch.SearchYahoo(word, limit)
+                        stor_lst.append(store(yahoo_search, engineitem, store_host=True, store_emails=True))
+                    except Exception as e:
+                        print(e)
 
                 elif engineitem == 'zoomeye':
                     try:
