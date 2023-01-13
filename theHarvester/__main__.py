@@ -568,7 +568,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
         # use netaddr as the list may contain ipv4 and ipv6 addresses
         ip_list = []
         for ip in set(all_ip):
-            try: 
+            try:
                 ip_list.append(netaddr.IPAddress(ip.strip()))
             except Exception:
                 pass
