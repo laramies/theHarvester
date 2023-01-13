@@ -566,7 +566,13 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
         print('\n[*] IPs found: ' + str(len(all_ip)))
         print('-------------------')
         # use netaddr as the list may contain ipv4 and ipv6 addresses
-        ip_list = sorted([netaddr.IPAddress(ip.strip()) for ip in set(all_ip)])
+        ip_list = []
+        for ip in set(all_ip):
+            try:
+                ip_list.append(netaddr.IPAddress(ip.strip()))
+            except Exception:
+                pass
+        ip_list = sorted(ip_list)
         print('\n'.join(map(str, ip_list)))
         ip_list = list(ip_list)
 
