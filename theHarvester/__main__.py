@@ -570,7 +570,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
         for ip in set(all_ip):
             try: 
                 ip_list.append(netaddr.IPAddress(ip.strip()))
-            except:
+            except Exception as ex:
                 pass
         ip_list = sorted(ip_list)
         print('\n'.join(map(str, ip_list)))
