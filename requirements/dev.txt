@@ -4,7 +4,7 @@ mypy==0.991
 mypy-extensions==0.4.3
 pyre-check==0.9.17
 pyflakes==3.0.1
-pytest==7.2.0
+pytest==7.2.1
 pytest-asyncio==0.20.3
 types-certifi==2021.10.8.3
 types-chardet==5.0.4.1
