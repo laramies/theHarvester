@@ -1,7 +1,7 @@
 -r base.txt
 flake8==6.0.0
 mypy==1.0.0
-mypy-extensions==0.4.3
+mypy-extensions==1.0.0
 pyre-check==0.9.17
 pyflakes==3.0.1
 pytest==7.2.1
