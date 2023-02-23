@@ -661,6 +661,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
         print('\n[*] Virtual hosts:')
         print('------------------')
         for data in host_ip:
+            from theHarvester.discovery import bingsearch
             basic_search = bingsearch.SearchBing(data, limit, start)
             await basic_search.process_vhost()
             results = await basic_search.get_allhostnames()
