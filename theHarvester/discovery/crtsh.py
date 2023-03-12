@@ -4,13 +4,13 @@ from typing import List, Set
 
 class SearchCrtsh:
 
-    def __init__(self, word):
+    def __init__(self, word) -> None:
         self.word = word
-        self.data = set()
+        self.data: List = []
         self.proxy = False
 
     async def do_search(self) -> List:
-        data: set = set()
+        data: Set = set()
         try:
             url = f'https://crt.sh/?q=%25.{self.word}&output=json'
             response = await AsyncFetcher.fetch_all([url], json=True, proxy=self.proxy)
@@ -21,17 +21,17 @@ class SearchCrtsh:
             data = {domain for domain in data if (domain[0] != '*' and str(domain[0:4]).isnumeric() is False)}
         except Exception as e:
             print(e)
-        clean = []
+        clean: List = []
         for x in data:
             pre = x.split()
             for y in pre:
                 clean.append(y)
         return clean
 
-    async def process(self, proxy=False) -> None:
+    async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         data = await self.do_search()
         self.data = data
 
-    async def get_hostnames(self) -> Set:
+    async def get_hostnames(self) -> list:
         return self.data

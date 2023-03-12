@@ -11,16 +11,17 @@ from datetime import datetime
 import os
 import ssl
 import sys
+from typing import Sized, Tuple
 
 
 class ScreenShotter:
 
-    def __init__(self, output):
+    def __init__(self, output) -> None:
         self.output = output
         self.slash = "\\" if 'win' in sys.platform else '/'
         self.slash = "" if (self.output[-1] == "\\" or self.output[-1] == "/") else self.slash
 
-    def verify_path(self):
+    def verify_path(self) -> bool:
         try:
             if not os.path.isdir(self.output):
                 answer = input(
@@ -36,19 +37,19 @@ class ScreenShotter:
             return False
 
     @staticmethod
-    async def verify_installation():
+    async def verify_installation() -> None:
         # Helper function that verifies pyppeteer & chromium are installed
         # If chromium is not installed pyppeteer will prompt user to install it
         browser = await launch(headless=True, ignoreHTTPSErrors=True, args=["--no-sandbox"])
         await browser.close()
 
     @staticmethod
-    def chunk_list(items, chunk_size):
+    def chunk_list(items: Sized, chunk_size):
         # Based off of: https://github.com/apache/incubator-sdap-ingester
         return [items[i:i + chunk_size] for i in range(0, len(items), chunk_size)]
 
     @staticmethod
-    async def visit(url):
+    async def visit(url: str) -> Tuple[str, str]:
         try:
             # print(f'attempting to visit: {url}')
             timeout = aiohttp.ClientTimeout(total=35)
@@ -67,7 +68,7 @@ class ScreenShotter:
             print(f'An exception has occurred while attempting to visit {url} : {e}')
             return "", ""
 
-    async def take_screenshot(self, url):
+    async def take_screenshot(self, url: str) -> Tuple[str, ...]:
         url = f'http://{url}' if not url.startswith('http') else url
         url = url.replace('www.', '')
         print(f'Attempting to take a screenshot of: {url}')

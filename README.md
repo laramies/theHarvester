@@ -1,7 +1,7 @@
-![theHarvester](https://github.com/laramies/theHarvester/blob/master/theHarvester-logo.png)
+![theHarvester](https://github.com/laramies/theHarvester/blob/master/theHarvester-logo.webp)
 
-![TheHarvester CI](https://github.com/laramies/theHarvester/workflows/TheHarvester%20Python%20CI/badge.svg) ![TheHarvester Docker Image CI](https://github.com/laramies/theHarvester/workflows/TheHarvester%20Docker%20Image%20CI/badge.svg) [![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/laramies/theHarvester.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/laramies/theHarvester/context:python)
-[![Rawsec's CyberSecurity Inventory](https://inventory.rawsec.ml/img/badges/Rawsec-inventoried-FF5050_flat_without_logo.svg)](https://inventory.rawsec.ml/)
+![TheHarvester CI](https://github.com/laramies/theHarvester/workflows/TheHarvester%20Python%20CI/badge.svg) ![TheHarvester Docker Image CI](https://github.com/laramies/theHarvester/workflows/TheHarvester%20Docker%20Image%20CI/badge.svg)
+[![Rawsec's CyberSecurity Inventory](https://inventory.raw.pm/img/badges/Rawsec-inventoried-FF5050_flat_without_logo.svg)](https://inventory.raw.pm/)
 
 What is this?
 -------------
@@ -14,6 +14,8 @@ Passive:
 --------
 * anubis: Anubis-DB - https://github.com/jonluca/anubis
 
+* bevigil: CloudSEK BeVigil scans mobile application for OSINT assets and makes them available through an API - https://bevigil.com/osint-api
+
 * baidu: Baidu search engine - www.baidu.com
 
 * binaryedge: List of known subdomains from www.binaryedge.io
@@ -22,7 +24,7 @@ Passive:
 
 * bingapi: Microsoft search engine, through the API (Requires an API key, see below.)
 
-* bufferoverun: Uses data from Rapid7's Project Sonar - www.rapid7.com/research/project-sonar/
+* bufferoverun: https://tls.bufferover.run
 
 * censys: [Censys search engine](https://search.censys.io/), will use certificates searches to enumerate subdomains and gather emails (Requires an API key, see below.) - [censys.io](https://censys.io/)
 
@@ -90,8 +92,10 @@ Modules that require an API key:
 --------------------------------
 Documentation to setup API keys can be found at - https://github.com/laramies/theHarvester/wiki/Installation#api-keys
 
+* bevigil - Free upto 50 queries. Pricing can be found here: https://bevigil.com/pricing/osint
 * binaryedge - $10/month
 * bing
+* bufferoverun - uses the free api
 * censys - API keys are required and can be retrieved from your [Censys account](https://search.censys.io/account/api).
 * fullhunt
 * github
@@ -106,7 +110,7 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 
 Install and dependencies:
 -------------------------
-* Python 3.7+
+* Python 3.10+
 * https://github.com/laramies/theHarvester/wiki/Installation
 
 

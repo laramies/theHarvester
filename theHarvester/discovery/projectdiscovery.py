@@ -4,7 +4,7 @@ from theHarvester.lib.core import *
 
 class SearchDiscovery:
 
-    def __init__(self, word):
+    def __init__(self, word) -> None:
         self.word = word
         self.key = Core.projectdiscovery_key()
         if self.key is None:
@@ -19,9 +19,9 @@ class SearchDiscovery:
                                                 proxy=self.proxy)
         self.total_results = [f'{domains}.{self.word}' for domains in response[0]['subdomains']]
 
-    async def get_hostnames(self) -> set:
+    async def get_hostnames(self):
         return self.total_results
 
-    async def process(self, proxy=False):
+    async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_search()

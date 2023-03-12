@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from typing import Dict, List
+from typing import Optional, Dict, List
 from theHarvester.discovery import *
 from theHarvester.discovery import dnssearch, takeover, shodansearch
 from theHarvester.discovery.constants import *
@@ -16,7 +16,7 @@ import string
 import secrets
 
 
-async def start(rest_args=None):
+async def start(rest_args: Optional[argparse.Namespace] = None):
     """Main program function"""
     parser = argparse.ArgumentParser(description='theHarvester is used to gather open source intelligence (OSINT) on a company or domain.')
     parser.add_argument('-d', '--domain', help='Company name or domain to search.', required=True)
@@ -31,9 +31,9 @@ async def start(rest_args=None):
     parser.add_argument('-n', '--dns-lookup', help='Enable DNS server lookup, default False.', default=False, action='store_true')
     parser.add_argument('-c', '--dns-brute', help='Perform a DNS brute force on the domain.', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='Save the results to an XML and JSON file.', default='', type=str)
-    parser.add_argument('-b', '--source', help='''anubis, baidu, binaryedge, bing, bingapi, bufferoverun, censys, certspotter, crtsh,
+    parser.add_argument('-b', '--source', help='''anubis, baidu, bevigil, binaryedge, bing, bingapi, bufferoverun, censys, certspotter, crtsh,
                             dnsdumpster, duckduckgo, fullhunt, github-code, hackertarget, hunter, intelx,
-                            omnisint, otx, pentesttools, projectdiscovery,
+                            otx, pentesttools, projectdiscovery,
                             qwant, rapiddns, rocketreach, securityTrails, sublist3r, threatcrowd, threatminer,
                             urlscan, virustotal, yahoo, zoomeye''')
 
@@ -55,7 +55,7 @@ async def start(rest_args=None):
                 if len(filename) != 0 else ""
     else:
         args = parser.parse_args()
-        filename: str = args.filename
+        filename = args.filename
         dnsbrute = (args.dns_brute, False)
     try:
         db = stash.StashManager()
@@ -82,7 +82,7 @@ async def start(rest_args=None):
     all_urls: list = []
     vhost: list = []
     virtual = args.virtual_host
-    word: str = args.domain
+    word: str = args.domain.rstrip('\n')
     takeover_status = args.take_over
     use_proxy = args.proxies
     linkedin_people_list_tracker: List = []
@@ -91,12 +91,12 @@ async def start(rest_args=None):
     interesting_urls: list = []
     total_asns: list = []
 
-    linkedin_people_list_tracker: list = []
-    linkedin_links_tracker: list = []
-    twitter_people_list_tracker: list = []
+    linkedin_people_list_tracker = []
+    linkedin_links_tracker = []
+    twitter_people_list_tracker = []
 
-    interesting_urls: list = []
-    total_asns: list = []
+    interesting_urls = []
+    total_asns = []
 
     async def store(search_engine: Any, source: str, process_param: Any = None, store_host: bool = False,
                     store_emails: bool = False, store_ip: bool = False, store_people: bool = False,
@@ -194,6 +194,14 @@ async def start(rest_args=None):
                     try:
                         baidu_search = baidusearch.SearchBaidu(word, limit)
                         stor_lst.append(store(baidu_search, engineitem, store_host=True, store_emails=True))
+                    except Exception as e:
+                        print(e)
+
+                elif engineitem == 'bevigil':
+                    from theHarvester.discovery import bevigil
+                    try:
+                        bevigil_search = bevigil.SearchBeVigil(word)
+                        stor_lst.append(store(bevigil_search, engineitem, store_host=True, store_interestingurls=True))
                     except Exception as e:
                         print(e)
 
@@ -312,14 +320,6 @@ async def start(rest_args=None):
                         else:
                             print(f'An exception has occurred in Intelx search: {e}')
 
-                elif engineitem == 'omnisint':
-                    from theHarvester.discovery import omnisint
-                    try:
-                        omnisint_search = omnisint.SearchOmnisint(word)
-                        stor_lst.append(store(omnisint_search, engineitem, store_host=True))
-                    except Exception as e:
-                        print(e)
-
                 elif engineitem == 'otx':
                     from theHarvester.discovery import otxsearch
                     try:
@@ -427,8 +427,11 @@ async def start(rest_args=None):
 
                 elif engineitem == 'yahoo':
                     from theHarvester.discovery import yahoosearch
-                    yahoo_search = yahoosearch.SearchYahoo(word, limit)
-                    stor_lst.append(store(yahoo_search, engineitem, store_host=True, store_emails=True))
+                    try:
+                        yahoo_search = yahoosearch.SearchYahoo(word, limit)
+                        stor_lst.append(store(yahoo_search, engineitem, store_host=True, store_emails=True))
+                    except Exception as e:
+                        print(e)
 
                 elif engineitem == 'zoomeye':
                     try:
@@ -563,7 +566,13 @@ async def start(rest_args=None):
         print('\n[*] IPs found: ' + str(len(all_ip)))
         print('-------------------')
         # use netaddr as the list may contain ipv4 and ipv6 addresses
-        ip_list = sorted([netaddr.IPAddress(ip.strip()) for ip in set(all_ip)])
+        ip_list = []
+        for ip in set(all_ip):
+            try:
+                ip_list.append(netaddr.IPAddress(ip.strip()))
+            except Exception:
+                pass
+        ip_list = sorted(ip_list)
         print('\n'.join(map(str, ip_list)))
         ip_list = list(ip_list)
 
@@ -615,7 +624,7 @@ async def start(rest_args=None):
         await search_take.process(proxy=use_proxy)
 
     # DNS reverse lookup
-    dnsrev = []
+    dnsrev: List = []
     if dnslookup is True:
         print('\n[*] Starting active queries.')
         # load the reverse dns tools
@@ -625,7 +634,7 @@ async def start(rest_args=None):
             serialize_ip_range)
 
         # reverse each iprange in a separate task
-        __reverse_dns_tasks = {}
+        __reverse_dns_tasks: Dict = {}
         for entry in host_ip:
             __ip_range = serialize_ip_range(ip=entry, netmask='24')
             if __ip_range and __ip_range not in set(__reverse_dns_tasks.keys()):
@@ -652,6 +661,7 @@ async def start(rest_args=None):
         print('\n[*] Virtual hosts:')
         print('------------------')
         for data in host_ip:
+            from theHarvester.discovery import bingsearch
             basic_search = bingsearch.SearchBing(data, limit, start)
             await basic_search.process_vhost()
             results = await basic_search.get_allhostnames()
@@ -816,7 +826,7 @@ async def start(rest_args=None):
         sys.exit(0)
 
 
-async def entry_point():
+async def entry_point() -> None:
     try:
         Core.banner()
         await start()

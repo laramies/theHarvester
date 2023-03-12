@@ -8,7 +8,7 @@ import requests
 
 class SearchIntelx:
 
-    def __init__(self, word):
+    def __init__(self, word) -> None:
         self.word = word
         self.key = Core.intelx_key()
         if self.key is None:
@@ -16,11 +16,11 @@ class SearchIntelx:
         self.database = 'https://2.intelx.io'
         self.results = None
         self.info = ()
-        self.limit = 10000
+        self.limit: int = 10000
         self.proxy = False
         self.offset = -1
 
-    async def do_search(self):
+    async def do_search(self) -> None:
         try:
             # Based on: https://github.com/IntelligenceX/SDK/blob/master/Python/intelxapi.py
             # API requests self identification
@@ -53,7 +53,7 @@ class SearchIntelx:
         except Exception as e:
             print(f'An exception has occurred in Intelx: {e}')
 
-    async def process(self, proxy=False):
+    async def process(self, proxy: bool = False):
         self.proxy = proxy
         await self.do_search()
         intelx_parser = intelxparser.Parser()

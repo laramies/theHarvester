@@ -1,14 +1,15 @@
 import re
+from typing import Set, List
 
 
 class Parser:
 
-    def __init__(self, results, word):
+    def __init__(self, results, word) -> None:
         self.results = results
         self.word = word
-        self.temp = []
+        self.temp: List = []
 
-    async def genericClean(self):
+    async def genericClean(self) -> None:
         self.results = self.results.replace('<em>', '').replace('<b>', '').replace('</b>', '').replace('</em>', '') \
             .replace('%3a', '').replace('<strong>', '').replace('</strong>', '') \
             .replace('<wbr>', '').replace('</wbr>', '')
@@ -16,7 +17,7 @@ class Parser:
         for search in ('<', '>', ':', '=', ';', '&', '%3A', '%3D', '%3C', '%2f', '/', '\\'):
             self.results = self.results.replace(search, ' ')
 
-    async def urlClean(self):
+    async def urlClean(self) -> None:
         self.results = self.results.replace('<em>', '').replace('</em>', '').replace('%2f', '').replace('%3a', '')
         for search in ('<', '>', ':', '=', ';', '&', '%3A', '%3D', '%3C'):
             self.results = self.results.replace(search, ' ')
@@ -33,8 +34,8 @@ class Parser:
         # if email starts with dot shift email string and make sure all emails are lowercase
         return true_emails
 
-    async def fileurls(self, file):
-        urls = []
+    async def fileurls(self, file) -> List:
+        urls: List = []
         reg_urls = re.compile('<a href="(.*?)"')
         self.temp = reg_urls.findall(self.results)
         allurls = await self.unique()
@@ -77,7 +78,7 @@ class Parser:
             sets.append(delete)
         return sets
 
-    async def urls(self):
+    async def urls(self) -> Set[str]:
         found = re.finditer(r'(http|https)://(www\.)?trello.com/([a-zA-Z\d\-_\.]+/?)*', self.results)
         urls = {match.group().strip() for match in found}
         return urls

@@ -3,33 +3,34 @@ from theHarvester.lib.core import *
 from shodan import exception
 from shodan import Shodan
 from collections import OrderedDict
+from typing import List
 
 
 class SearchShodan:
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.key = Core.shodan_key()
         if self.key is None:
             raise MissingKey('Shodan')
         self.api = Shodan(self.key)
-        self.hostdatarow = []
+        self.hostdatarow: List = []
         self.tracker: OrderedDict = OrderedDict()
 
-    async def search_ip(self, ip):
+    async def search_ip(self, ip) -> OrderedDict:
         try:
             ipaddress = ip
             results = self.api.host(ipaddress)
             asn = ''
-            domains = list()
-            hostnames = list()
+            domains: List = list()
+            hostnames: List = list()
             ip_str = ''
             isp = ''
             org = ''
-            ports = list()
+            ports: List = list()
             title = ''
             server = ''
             product = ''
-            technologies = list()
+            technologies: List = list()
 
             data_first_dict = dict(results['data'][0])
 

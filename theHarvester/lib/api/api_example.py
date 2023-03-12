@@ -17,7 +17,7 @@ async def fetch(session, url):
         return await response.text()
 
 
-async def main():
+async def main() -> None:
     """
     Just a simple example of how to interact with the rest api
     you can easily use requests instead of aiohttp or whatever you best see fit

@@ -4,7 +4,7 @@ import re
 
 class TakeOver:
 
-    def __init__(self, hosts):
+    def __init__(self, hosts) -> None:
         # NOTE THIS MODULE IS ACTIVE RECON
         self.hosts = hosts
         self.results = ""
@@ -34,8 +34,8 @@ class TakeOver:
                              'page not found': 'Uptimerobot',
                              'project not found': 'Surge.sh'}
 
-    async def check(self, url, resp):
-        # Simple function that takes response and checks if any fingerprints exists
+    async def check(self, url, resp) -> None:
+        # Simple function that takes response and checks if any fingerprints exist
         # If a fingerprint exists figures out which one and prints it out
         regex = re.compile("(?=(" + "|".join(map(re.escape, list(self.fingerprints.keys()))) + "))")
         # Sanitize fingerprints
@@ -43,10 +43,10 @@ class TakeOver:
         for match in matches:
             print(f'\t\033[91m Takeover detected: {url}\033[1;32;40m')
             if match in self.fingerprints.keys():
-                # Sanity check as to not error out
+                # Validation check as to not error out
                 print(f'\t\033[91m Type of takeover is: {self.fingerprints[match]}\033[1;32;40m')
 
-    async def do_take(self):
+    async def do_take(self) -> None:
         try:
             if len(self.hosts) > 0:
                 tup_resps: list = await AsyncFetcher.fetch_all(self.hosts, takeover=True, proxy=self.proxy)
@@ -60,6 +60,6 @@ class TakeOver:
         except Exception as e:
             print(e)
 
-    async def process(self, proxy=False):
+    async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_take()

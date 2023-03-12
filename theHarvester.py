@@ -4,8 +4,8 @@ import sys
 import asyncio
 from theHarvester import __main__
 
-if sys.version_info.major < 3 or sys.version_info.minor < 7:
-    print('\033[93m[!] Make sure you have Python 3.7+ installed, quitting.\n\n \033[0m')
+if sys.version_info.major < 3 or sys.version_info.minor < 10:
+    print('\033[93m[!] Make sure you have Python 3.10+ installed, quitting.\n\n \033[0m')
     sys.exit(1)
 
 if __name__ == '__main__':
@@ -23,6 +23,6 @@ if __name__ == '__main__':
         if "linux" in platform:
             import aiomultiprocess
 
-            # As we are not using Windows we can change the spawn method to fork for greater performance
+            # As we are not using Windows, we can change the spawn method to fork for greater performance
             aiomultiprocess.set_context("fork")
     asyncio.run(__main__.entry_point())

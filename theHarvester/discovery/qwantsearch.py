@@ -7,7 +7,7 @@ from theHarvester.parsers import myparser
 
 
 class SearchQwant:
-    def __init__(self, word, start, limit):
+    def __init__(self, word, start, limit) -> None:
         self.word = word
         self.total_results = ""
         self.limit = int(limit)
@@ -78,6 +78,6 @@ class SearchQwant:
         parser = myparser.Parser(self.total_results, self.word)
         return await parser.hostnames()
 
-    async def process(self, proxy=False) -> None:
+    async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_search()

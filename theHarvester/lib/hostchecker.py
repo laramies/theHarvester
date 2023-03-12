@@ -8,16 +8,16 @@ Revised to use aiodns & asyncio on 2019-09-23
 import aiodns
 import asyncio
 import socket
-from typing import Tuple, Any
+from typing import Tuple, Any, List, Set
 
 
 class Checker:
 
-    def __init__(self, hosts: list, nameserver=False):
+    def __init__(self, hosts: list, nameserver: bool = False) -> None:
         self.hosts = hosts
-        self.realhosts: list = []
-        self.addresses: set = set()
-        self.nameserver = []
+        self.realhosts: List = []
+        self.addresses: Set = set()
+        self.nameserver: List = []
         if nameserver:
             self.nameserver = nameserver
 
@@ -33,7 +33,8 @@ class Checker:
         except Exception:
             return f"{host}", tuple()
 
-    async def query_all(self, resolver) -> list:
+    async def query_all(self, resolver) -> tuple[
+            BaseException | Any, BaseException | Any, BaseException | Any, BaseException | Any, BaseException | Any]:
         results = await asyncio.gather(*[asyncio.create_task(self.query(host, resolver))
                                          for host in self.hosts])
         return results
