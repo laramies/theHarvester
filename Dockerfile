@@ -1,6 +1,9 @@
 FROM alpine:3.17.0
 LABEL maintainer="@jay_townsend1 & @NotoriousRebel1 (alpine @viardant)"
 RUN mkdir /app
+RUN mkdir /etc/theHarvester/
+COPY api-keys.yaml /etc/theHarvester/
+COPY proxies.yaml /etc/theHarvester/
 WORKDIR /app
 COPY requirements.txt requirements.txt
 COPY requirements requirements
