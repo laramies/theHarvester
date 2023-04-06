@@ -1,7 +1,7 @@
-![theHarvester](https://github.com/laramies/theHarvester/blob/master/theHarvester-logo.png)
+![theHarvester](https://github.com/laramies/theHarvester/blob/master/theHarvester-logo.webp)
 
 ![TheHarvester CI](https://github.com/laramies/theHarvester/workflows/TheHarvester%20Python%20CI/badge.svg) ![TheHarvester Docker Image CI](https://github.com/laramies/theHarvester/workflows/TheHarvester%20Docker%20Image%20CI/badge.svg)
-[![Rawsec's CyberSecurity Inventory](https://inventory.rawsec.ml/img/badges/Rawsec-inventoried-FF5050_flat_without_logo.svg)](https://inventory.rawsec.ml/)
+[![Rawsec's CyberSecurity Inventory](https://inventory.raw.pm/img/badges/Rawsec-inventoried-FF5050_flat_without_logo.svg)](https://inventory.raw.pm/)
 
 What is this?
 -------------

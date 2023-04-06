@@ -82,7 +82,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
     all_urls: list = []
     vhost: list = []
     virtual = args.virtual_host
-    word: str = args.domain
+    word: str = args.domain.rstrip('\n')
     takeover_status = args.take_over
     use_proxy = args.proxies
     linkedin_people_list_tracker: List = []
@@ -566,7 +566,13 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
         print('\n[*] IPs found: ' + str(len(all_ip)))
         print('-------------------')
         # use netaddr as the list may contain ipv4 and ipv6 addresses
-        ip_list = sorted([netaddr.IPAddress(ip.strip()) for ip in set(all_ip)])
+        ip_list = []
+        for ip in set(all_ip):
+            try:
+                ip_list.append(netaddr.IPAddress(ip.strip()))
+            except Exception:
+                pass
+        ip_list = sorted(ip_list)
         print('\n'.join(map(str, ip_list)))
         ip_list = list(ip_list)
 
@@ -655,6 +661,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
         print('\n[*] Virtual hosts:')
         print('------------------')
         for data in host_ip:
+            from theHarvester.discovery import bingsearch
             basic_search = bingsearch.SearchBing(data, limit, start)
             await basic_search.process_vhost()
             results = await basic_search.get_allhostnames()
