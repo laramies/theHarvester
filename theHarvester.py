@@ -4,8 +4,8 @@ import sys
 import asyncio
 from theHarvester import __main__
 
-if sys.version_info.major < 3 or sys.version_info.minor < 10:
-    print('\033[93m[!] Make sure you have Python 3.10+ installed, quitting.\n\n \033[0m')
+if sys.version_info.major < 3 or sys.version_info.minor < 9:
+    print('\033[93m[!] Make sure you have Python 3.9+ installed, quitting.\n\n \033[0m')
     sys.exit(1)
 
 if __name__ == '__main__':
