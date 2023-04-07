@@ -47,12 +47,16 @@ class Parser:
         return urls
 
     async def hostnames(self):
+        # should check both www. and not www.
         hostnames = []
         await self.genericClean()
         reg_hosts = re.compile(r'[a-zA-Z0-9.-]*\.' + self.word)
         first_hostnames = reg_hosts.findall(self.results)
         hostnames.extend(first_hostnames)
+        # TODO determine if necessary below or if only pass through is fine
         reg_hosts = re.compile(r'[a-zA-Z0-9.-]*\.' + self.word.replace('www.', ''))
+        # reg_hosts = re.compile(r'www\.[a-zA-Z0-9.-]*\.' + 'www.' + self.word)
+        #reg_hosts = re.compile(r'www\.[a-zA-Z0-9.-]*\.(?:' + 'www.' + self.word + ')?')
         second_hostnames = reg_hosts.findall(self.results)
         hostnames.extend(second_hostnames)
         return list(set(hostnames))
