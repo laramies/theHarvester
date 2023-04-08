@@ -26,4 +26,3 @@ if __name__ == '__main__':
             # As we are not using Windows, we can change the spawn method to fork for greater performance
             aiomultiprocess.set_context("fork")
     asyncio.run(__main__.entry_point())
-    

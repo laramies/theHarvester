@@ -30,7 +30,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
     parser.add_argument('-t', '--take-over', help='Check for takeovers.', default=False, action='store_true')
     # TODO add dns resolver flag
     parser.add_argument('-r', '--dns-resolve', help='Perform DNS resolution on subdomains with given resolver list or passed in resolvers, default False.', default="",
-                        type=str)
+                        type=str, nargs='?')
     parser.add_argument('-n', '--dns-lookup', help='Enable DNS server lookup, default False.', default=False, action='store_true')
     parser.add_argument('-c', '--dns-brute', help='Perform a DNS brute force on the domain.', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='Save the results to an XML and JSON file.', default='', type=str)
@@ -68,6 +68,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
     import os
     if len(filename) > 2 and filename[:2] == "~/":
         filename = os.path.expanduser(filename)
+
     all_emails: List = []
     all_hosts: List = []
     all_ip: List = []
@@ -75,7 +76,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
     dnsserver = args.dns_server # TODO arg is not used anywhere replace with resolvers wordlist arg dnsresolve
     dnsresolve = args.dns_resolve
     final_dns_resolver_list = []
-    if len(dnsresolve) > 0:
+    if dnsresolve is not None and len(dnsresolve) > 0:
         # Three scenarios:
         # 8.8.8.8
         # 1.1.1.1,8.8.8.8 or 1.1.1.1, 8.8.8.8
@@ -95,7 +96,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
         else:
             try:
                 if ',' in dnsresolve:
-                    cleaned = dnsresolve.replace(' ')
+                    cleaned = dnsresolve.replace(' ', '')
                     for item in cleaned.split(','):
                         _ = netaddr.IPAddress(item)
                         final_dns_resolver_list.append(item)
@@ -106,10 +107,12 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
             except Exception as e:
                 print(f'Passed in DNS resolvers are invalid double check, got error: {e}')
                 print(f'Dumping resolvers passed in: {e}')
+                sys.exit(0)
 
         # if for some reason there are duplicates
         final_dns_resolver_list = list(set(final_dns_resolver_list))
         # print(f'My final list: {final_dns_resolver_list}')
+
     engines: List = []
     # If the user specifies
     full: List = []
@@ -167,8 +170,8 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
             if source != 'hackertarget' and source != 'pentesttools' and source != 'rapiddns':
                 # If source is inside this conditional it means the hosts returned must be resolved to obtain ip
                 # This should only be checked if --dns-resolve has a wordlist
-                if len(final_dns_resolver_list) > 0:
-                    # indicates there are nameservers passed in
+                if dnsresolve is None or len(final_dns_resolver_list) > 0:
+                    # indicates that -r was passed in
                     full_hosts_checker = hostchecker.Checker(host_names, final_dns_resolver_list)
                     temp_hosts, temp_ips = await full_hosts_checker.check()
                     ips.extend(temp_ips)
