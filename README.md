@@ -24,11 +24,15 @@ Passive:
 
 * bingapi: Microsoft search engine, through the API (Requires an API key, see below.)
 
+* brave: Brave search engine - https://search.brave.com/
+
 * bufferoverun: https://tls.bufferover.run
 
 * censys: [Censys search engine](https://search.censys.io/), will use certificates searches to enumerate subdomains and gather emails (Requires an API key, see below.) - [censys.io](https://censys.io/)
 
 * certspotter: Cert Spotter monitors Certificate Transparency logs - https://sslmate.com/certspotter/
+
+* criminalip Specialized Cyber Threat Intelligence (CTI) search engine - https://www.criminalip.io
 
 * crtsh: Comodo Certificate search - https://crt.sh
 
@@ -43,6 +47,8 @@ Passive:
 * hackertarget: Online vulnerability scanners and network intelligence to help organizations - https://hackertarget.com
 
 * hunter: Hunter search engine (Requires an API key, see below.) - www.hunter.io
+
+* hunterhow: Internet Search Engines For Security Researchers - https://hunter.how
 
 * intelx: Intelx search engine (Requires an API key, see below.) - www.intelx.io
 
@@ -64,11 +70,9 @@ Passive:
 * securityTrails: Security Trails search engine, the world's largest repository of historical DNS data<br>
   (Requires an API key, see below.) - www.securitytrails.com
 
-* shodan: Shodan search engine, will search for ports and banners from discovered hosts (Requires an API key, see below.) - www.shodanhq.com
+* shodan: Shodan search engine, will search for ports and banners from discovered hosts (Requires an API key, see below.) - https://shodan.io
 
-* sublist3r: Fast subdomains enumeration tool for penetration testers - https://api.sublist3r.com/search.php?domain=example.com
-
-* threatcrowd: Open source threat intelligence - www.threatcrowd.org
+* subdomainfinderc99: A subdomain finder is a tool used to find the subdomains of a given domain - https://subdomainfinder.c99.nl
 
 * threatminer: Data mining for threat intelligence - https://www.threatminer.org/
 
@@ -97,9 +101,11 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * bing
 * bufferoverun - uses the free api
 * censys - API keys are required and can be retrieved from your [Censys account](https://search.censys.io/account/api).
+* criminalip
 * fullhunt
 * github
 * hunter - limited to 10 on the free plan, so you will need to do -l 10 switch
+* hunterhow
 * intelx
 * pentesttools - $
 * projecdiscovery - invite only for now
@@ -110,7 +116,7 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 
 Install and dependencies:
 -------------------------
-* Python 3.10+
+* Python 3.9+
 * https://github.com/laramies/theHarvester/wiki/Installation
 
 

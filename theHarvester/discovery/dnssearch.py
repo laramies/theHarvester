@@ -29,7 +29,8 @@ class DnsForce:
         self.subdo = False
         self.verbose = verbose
         # self.dnsserver = [dnsserver] if isinstance(dnsserver, str) else dnsserver
-        self.dnsserver = list(map(str, dnsserver.split(','))) if isinstance(dnsserver, str) else dnsserver
+        # self.dnsserver = list(map(str, dnsserver.split(','))) if isinstance(dnsserver, str) else dnsserver
+        self.dnsserver = dnsserver
         try:
             with open('/etc/theHarvester/wordlists/dns-names.txt', 'r') as file:
                 self.list = file.readlines()
@@ -45,9 +46,7 @@ class DnsForce:
 
     async def run(self):
         print(f'Starting DNS brute forcing with {len(self.list)} words')
-        checker = hostchecker.Checker(
-            self.list) if self.dnsserver == [] or self.dnsserver == "" or self.dnsserver is None \
-            else hostchecker.Checker(self.list, nameserver=self.dnsserver)
+        checker = hostchecker.Checker(self.list, nameserver=self.dnsserver)
         hosts, ips = await checker.check()
         return hosts, ips
 
