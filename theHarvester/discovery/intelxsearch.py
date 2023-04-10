@@ -63,4 +63,5 @@ class SearchIntelx:
         return self.info[0]
 
     async def get_interestingurls(self):
+        # TODO parse add return hostnames for subdomains of urls
         return self.info[1]

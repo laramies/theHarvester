@@ -27,15 +27,18 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
     parser.add_argument('--screenshot', help='Take screenshots of resolved domains specify output directory: --screenshot output_directory', default="", type=str)
     parser.add_argument('-v', '--virtual-host', help='Verify host name via DNS resolution and search for virtual hosts.', action='store_const', const='basic', default=False)
     parser.add_argument('-e', '--dns-server', help='DNS server to use for lookup.')
-    parser.add_argument('-r', '--take-over', help='Check for takeovers.', default=False, action='store_true')
+    parser.add_argument('-t', '--take-over', help='Check for takeovers.', default=False, action='store_true')
+    # TODO add dns resolver flag
+    parser.add_argument('-r', '--dns-resolve', help='Perform DNS resolution on subdomains with given resolver list or passed in resolvers, default False.', default="",
+                        type=str, nargs='?')
     parser.add_argument('-n', '--dns-lookup', help='Enable DNS server lookup, default False.', default=False, action='store_true')
     parser.add_argument('-c', '--dns-brute', help='Perform a DNS brute force on the domain.', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='Save the results to an XML and JSON file.', default='', type=str)
-    parser.add_argument('-b', '--source', help='''anubis, baidu, bevigil, binaryedge, bing, bingapi, bufferoverun, censys, certspotter, crtsh,
-                            dnsdumpster, duckduckgo, fullhunt, github-code, hackertarget, hunter, intelx,
-                            otx, pentesttools, projectdiscovery,
-                            qwant, rapiddns, rocketreach, securityTrails, sublist3r, threatcrowd, threatminer,
-                            urlscan, virustotal, yahoo, zoomeye''')
+    parser.add_argument('-b', '--source', help='''anubis, baidu, bevigil, binaryedge, bing, bingapi, bufferoverun, brave, 
+                            censys, certspotter, criminalip, crtsh, dnsdumpster, duckduckgo, fullhunt, github-code, 
+                            hackertarget, hunter, hunterhow, intelx, otx, pentesttools, projectdiscovery, qwant, 
+                            rapiddns, rocketreach, securityTrails, subdomainfinderc99, threatminer, urlscan, 
+                            virustotal, yahoo, zoomeye''')
 
     # determines if filename is coming from rest api or user
     rest_filename = ''
@@ -65,14 +68,53 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
     import os
     if len(filename) > 2 and filename[:2] == "~/":
         filename = os.path.expanduser(filename)
+
     all_emails: List = []
     all_hosts: List = []
     all_ip: List = []
     dnslookup = args.dns_lookup
-    dnsserver = args.dns_server
+    dnsserver = args.dns_server # TODO arg is not used anywhere replace with resolvers wordlist arg dnsresolve
+    dnsresolve = args.dns_resolve
+    final_dns_resolver_list = []
+    if dnsresolve is not None and len(dnsresolve) > 0:
+        # Three scenarios:
+        # 8.8.8.8
+        # 1.1.1.1,8.8.8.8 or 1.1.1.1, 8.8.8.8
+        # resolvers.txt
+        if os.path.exists(dnsresolve):
+            with open(dnsresolve, mode='r', encoding='UTF-8') as fp:
+                for line in fp:
+                    line = line.strip()
+                    try:
+                        if len(line) > 0:
+                            _ = netaddr.IPAddress(line)
+                            final_dns_resolver_list.append(line)
+                    except Exception as e:
+                        print(f'An exception has occurred while reading from: {dnsresolve}, {e}')
+                        print(f'Current line: {line}')
+                        return
+        else:
+            try:
+                if ',' in dnsresolve:
+                    cleaned = dnsresolve.replace(' ', '')
+                    for item in cleaned.split(','):
+                        _ = netaddr.IPAddress(item)
+                        final_dns_resolver_list.append(item)
+                else:
+                    # Verify user passed in actual IP address does not verify if the IP is a resolver just if an IP
+                    _ = netaddr.IPAddress(dnsresolve)
+                    final_dns_resolver_list.append(dnsresolve)
+            except Exception as e:
+                print(f'Passed in DNS resolvers are invalid double check, got error: {e}')
+                print(f'Dumping resolvers passed in: {e}')
+                sys.exit(0)
+
+        # if for some reason there are duplicates
+        final_dns_resolver_list = list(set(final_dns_resolver_list))
+        # print(f'My final list: {final_dns_resolver_list}')
+
     engines: List = []
     # If the user specifies
-
     full: List = []
     ips: List = []
     host_ip: List = []
@@ -127,10 +169,15 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
             host_names = [host for host in filter(await search_engine.get_hostnames()) if f'.{word}' in host]
             if source != 'hackertarget' and source != 'pentesttools' and source != 'rapiddns':
                 # If source is inside this conditional it means the hosts returned must be resolved to obtain ip
-                full_hosts_checker = hostchecker.Checker(host_names)
-                temp_hosts, temp_ips = await full_hosts_checker.check()
-                ips.extend(temp_ips)
-                full.extend(temp_hosts)
+                # This should only be checked if --dns-resolve has a wordlist
+                if dnsresolve is None or len(final_dns_resolver_list) > 0:
+                    # indicates that -r was passed in
+                    full_hosts_checker = hostchecker.Checker(host_names, final_dns_resolver_list)
+                    temp_hosts, temp_ips = await full_hosts_checker.check()
+                    ips.extend(temp_ips)
+                    full.extend(temp_hosts)
+                else:
+                    full.extend(host_names)
             else:
                 full.extend(host_names)
             all_hosts.extend(host_names)
@@ -238,6 +285,14 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                     except Exception as e:
                         print(e)
 
+                elif engineitem == 'brave':
+                    from theHarvester.discovery import bravesearch
+                    try:
+                        brave_search = bravesearch.SearchBrave(word, limit)
+                        stor_lst.append(store(brave_search, engineitem, store_host=True, store_emails=True))
+                    except Exception as e:
+                        print(e)
+
                 elif engineitem == 'censys':
                     from theHarvester.discovery import censysearch
                     try:
@@ -255,6 +310,17 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                     except Exception as e:
                         print(e)
 
+                elif engineitem == 'criminalip':
+                    from theHarvester.discovery import criminalip
+                    try:
+                        criminalip_search = criminalip.SearchCriminalIP(word)
+                        stor_lst.append(store(criminalip_search, engineitem, store_host=True, store_ip=True,
+                                              store_asns=True))
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            print(e)
+                        else:
+                            print(f'An excepion has occurred in criminalip: {e}')
                 elif engineitem == 'crtsh':
                     try:
                         from theHarvester.discovery import crtsh
@@ -307,6 +373,17 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             print(e)
+
+                elif engineitem == 'hunterhow':
+                    from theHarvester.discovery import searchhunterhow
+                    try:
+                        hunterhow_search = searchhunterhow.SearchHunterHow(word)
+                        stor_lst.append(store(hunterhow_search, engineitem, store_host=True))
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            print(e)
+                        else:
+                            print(f'An exception has occurred in hunterhow search: {e}')
 
                 elif engineitem == 'intelx':
                     from theHarvester.discovery import intelxsearch
@@ -383,21 +460,16 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                         if isinstance(e, MissingKey):
                             print(e)
 
-                elif engineitem == 'sublist3r':
-                    from theHarvester.discovery import sublist3r
+                elif engineitem == 'subdomainfinderc99':
+                    from theHarvester.discovery import subdomainfinderc99
                     try:
-                        sublist3r_search = sublist3r.SearchSublist3r(word)
-                        stor_lst.append(store(sublist3r_search, engineitem, store_host=True))
+                        subdomainfinderc99_search = subdomainfinderc99.SearchSubdomainfinderc99(word)
+                        stor_lst.append(store(subdomainfinderc99_search, engineitem, store_host=True))
                     except Exception as e:
-                        print(e)
-
-                elif engineitem == 'threatcrowd':
-                    from theHarvester.discovery import threatcrowd
-                    try:
-                        threatcrowd_search = threatcrowd.SearchThreatcrowd(word)
-                        stor_lst.append(store(threatcrowd_search, engineitem, store_host=True, store_ip=True))
-                    except Exception as e:
-                        print(e)
+                        if isinstance(e, MissingKey):
+                            print(e)
+                        else:
+                            print(f'An exception has occurred in Subdomainfinderc99 search: {e}')
 
                 elif engineitem == 'threatminer':
                     from theHarvester.discovery import threatminer
@@ -589,10 +661,11 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
     else:
         print('\n[*] Hosts found: ' + str(len(all_hosts)))
         print('---------------------')
-        all_hosts = sorted(list(set(all_hosts)))
+        all_hosts = list(sorted(list(set(all_hosts))))
         db = stash.StashManager()
-        full = [host if ':' in host and word in host else word in host.split(':')[0] and host for host in full]
-        full = list({host for host in full if host})
+        all_hosts = [host.replace('www.', '') for host in all_hosts]
+        full = [host if ':' in host and host.endswith(word) else host.split(':')[0].endswith(word) and host for host in full]
+        full = list({host.replace('www.', '') for host in full if host})
         full.sort(key=lambda el: el.split(':')[0])
         for host in full:
             print(host)
@@ -602,7 +675,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
     # DNS brute force
     if dnsbrute and dnsbrute[0] is True:
         print('\n[*] Starting DNS brute force.')
-        dns_force = dnssearch.DnsForce(word, dnsserver, verbose=True)
+        dns_force = dnssearch.DnsForce(word, final_dns_resolver_list, verbose=True)
         hosts, ips = await dns_force.run()
         hosts = list({host for host in hosts if ':' in host})
         hosts.sort(key=lambda el: el.split(':')[0])
@@ -625,8 +698,9 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
 
     # DNS reverse lookup
     dnsrev: List = []
+    # print(f'DNSlookup: {dnslookup}')
     if dnslookup is True:
-        print('\n[*] Starting active queries.')
+        print('\n[*] Starting active queries for DNSLookup.')
         # load the reverse dns tools
         from theHarvester.discovery.dnssearch import (
             generate_postprocessing_callback,
@@ -645,7 +719,8 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                         target=word,
                         local_results=dnsrev,
                         overall_results=full),
-                    nameservers=list(map(str, dnsserver.split(','))) if dnsserver else None))
+                        nameservers= final_dns_resolver_list if len(final_dns_resolver_list) > 0 else None))
+                    #nameservers=list(map(str, dnsserver.split(','))) if dnsserver else None))
 
         # run all the reversing tasks concurrently
         await asyncio.gather(*__reverse_dns_tasks.values())
