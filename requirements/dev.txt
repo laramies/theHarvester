@@ -2,6 +2,7 @@
 flake8==6.0.0
 mypy==1.2.0
 mypy-extensions==1.0.0
+pydantic==1.10.7
 pyre-check==0.9.18
 pyflakes==3.0.1
 pytest==7.2.2
@@ -11,4 +12,5 @@ types-chardet==5.0.4.3
 types-ujson==5.7.0.1
 types-PyYAML==6.0.12.9
 types-requests==2.28.11.17
+types-python-dateutil==2.8.19.12
 wheel==0.40.0
