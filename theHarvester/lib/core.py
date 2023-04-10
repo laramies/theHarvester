@@ -243,11 +243,11 @@ class AsyncFetcher:
         if len(headers) == 0:
             headers = {'User-Agent': Core.get_user_agent()}
         timeout = aiohttp.ClientTimeout(total=720)
-        # By default, timeout is 5 minutes, changed to 12 minutes
+        # By default, timeout is 5 minutes, changed to 12-minutes
         # results are well worth the wait
         try:
             if proxy:
-                proxy = str(random.choice(cls().proxy_list))
+                proxy = random.choice(cls().proxy_list)
                 if params != "":
                     async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
                         async with session.get(url, params=params, proxy=proxy) as response:
@@ -279,7 +279,7 @@ class AsyncFetcher:
 
     @classmethod
     async def fetch(cls, session, url, params: str = '', json: bool = False, proxy: str = "") -> Union[
-        str, dict, list, bool]:
+            str, dict, list, bool]:
         # This fetch method solely focuses on get requests
         try:
             # Wrap in try except due to 0x89 png/jpg files

@@ -121,7 +121,7 @@ class StashManager:
                         FROM results
                         WHERE find_date=date('now', '-1 day') and domain=?''', (domain,))
                         previousscandate = await cursor.fetchone()
-                        if not previousscandate:  # When theHarvester runs first time/day this query will return.
+                        if not previousscandate:  # When theHarvester runs first time/day, this query will return.
                             self.previousscanresults = ["No results", "No results", "No results", "No results",
                                                         "No results"]
                         else:
@@ -153,6 +153,7 @@ class StashManager:
                         print(f'Error in getting the latest scan results from the database: {e}')
         except Exception as e:
             print(f'Error connecting to theHarvester database: {e}')
+        return self.latestscanresults
 
     async def getscanboarddata(self):
         try:
@@ -229,9 +230,9 @@ class StashManager:
                 ''')
                 results = await cursor.fetchall()
                 self.scanstats = results
-            return self.scanstats
         except Exception as e:
             print(e)
+        return self.scanstats
 
     async def latestscanchartdata(self, domain):
         try:

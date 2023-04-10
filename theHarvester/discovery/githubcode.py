@@ -14,8 +14,8 @@ class RetryResult(NamedTuple):
 
 class SuccessResult(NamedTuple):
     fragments: List[str]
-    next_page: Optional[int]
-    last_page: Optional[int]
+    next_page: Optional[Any]
+    last_page: Optional[Any]
 
 
 class ErrorResult(NamedTuple):
@@ -33,7 +33,7 @@ class SearchGithubCode:
         self.counter: int = 0
         self.page: int = 1
         self.key = Core.github_key()
-        # If you don't have a personal access token, github narrows your search capabilities significantly
+        # If you don't have a personal access token, GitHub narrows your search capabilities significantly
         # rate limits you more severely
         # https://developer.github.com/v3/search/#rate-limit
         if self.key is None:

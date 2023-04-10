@@ -34,7 +34,7 @@ class Checker:
             return f"{host}", tuple()
 
     async def query_all(self, resolver) -> tuple[
-        BaseException | Any, BaseException | Any, BaseException | Any, BaseException | Any, BaseException | Any]:
+            BaseException | Any, BaseException | Any, BaseException | Any, BaseException | Any, BaseException | Any]:
         results = await asyncio.gather(*[asyncio.create_task(self.query(host, resolver))
                                          for host in self.hosts])
         return results
