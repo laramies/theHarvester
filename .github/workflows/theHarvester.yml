@@ -90,10 +90,6 @@ jobs:
         run: |
           python theHarvester.py -d yale.edu -b rapiddns
 
-      - name: Run theHarvester module Threatcrowd
-        run: |
-          python theHarvester.py -d yale.edu -b threatcrowd
-
       - name: Run theHarvester module Threatminer
         run: |
           python theHarvester.py -d yale.edu -b threatminer
