@@ -20,7 +20,7 @@ class SearchCriminalIP:
         # https://www.criminalip.io/developer/api/post-domain-scan
         # https://www.criminalip.io/developer/api/get-domain-status-id
         # https://www.criminalip.io/developer/api/get-domain-report-id
-        url = f'https://api.criminalip.io/v1/domain/scan'
+        url = 'https://api.criminalip.io/v1/domain/scan'
         data = f'{{"query": "{self.word}"}}'
         # print(f'Current key: {self.key}')
         user_agent = Core.get_user_agent()

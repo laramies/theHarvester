@@ -279,7 +279,7 @@ class AsyncFetcher:
 
     @classmethod
     async def fetch(cls, session, url, params: str = '', json: bool = False, proxy: str = "") -> Union[
-        str, dict, list, bool]:
+            str, dict, list, bool]:
         # This fetch method solely focuses on get requests
         try:
             # Wrap in try except due to 0x89 png/jpg files
