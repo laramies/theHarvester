@@ -6,9 +6,9 @@ labels: ''
 
 ---
 
-## Note we do not support installing theHarvester on andriod
+## Note we do not support installing theHarvester on android
 
-**Feature Request or Bug or Other**
+**Feature Request or Bug or Another**
 Feature Request | Bug | Other
 
 **Describe the feature request or bug or other**
