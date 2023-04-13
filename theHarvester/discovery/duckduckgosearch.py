@@ -59,7 +59,7 @@ class SearchDuckDuckGo:
 
                 if isinstance(val, str) and val != '' and 'https://' in val or 'http://' in val:
                     urls.add(val)
-            tmp = set
+            tmp = set()
             for url in urls:
                 if '<' in url and 'href=' in url:  # Format is <href="https://www.website.com"/>
                     equal_index = url.index('=')
