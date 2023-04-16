@@ -37,7 +37,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
     parser.add_argument('-f', '--filename', help='Save the results to an XML and JSON file.', default='', type=str)
     parser.add_argument('-b', '--source', help='''anubis, baidu, bevigil, binaryedge, bing, bingapi, bufferoverun, brave,
                             censys, certspotter, criminalip, crtsh, dnsdumpster, duckduckgo, fullhunt, github-code,
-                            hackertarget, hunter, hunterhow, intelx, otx, pentesttools, projectdiscovery, qwant,
+                            hackertarget, hunter, hunterhow, intelx, otx, pentesttools, projectdiscovery,
                             rapiddns, rocketreach, securityTrails, subdomainfinderc99, threatminer, urlscan,
                             virustotal, yahoo, zoomeye''')
 
@@ -435,11 +435,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                             print(e)
                         else:
                             print('An exception has occurred in ProjectDiscovery')
-
-                elif engineitem == 'qwant':
-                    from theHarvester.discovery import qwantsearch
-                    qwant_search = qwantsearch.SearchQwant(word, start, limit)
-                    stor_lst.append(store(qwant_search, engineitem, store_host=True, store_emails=True))
 
                 elif engineitem == 'rapiddns':
                     from theHarvester.discovery import rapiddns

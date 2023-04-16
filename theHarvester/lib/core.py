@@ -157,7 +157,6 @@ class Core:
                             'otx',
                             'pentesttools',
                             'projectdiscovery',
-                            'qwant',
                             'rapiddns',
                             'rocketreach',
                             'securityTrails',
