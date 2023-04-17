@@ -61,8 +61,6 @@ Passive:
 * projecdiscovery: We actively collect and maintain internet-wide assets data,
   to enhance research and analyse changes around DNS for better insights (Requires an API key, see below.) - https://chaos.projectdiscovery.io
 
-* qwant: Qwant search engine - www.qwant.com
-
 * rapiddns: DNS query tool which make querying subdomains or sites of a same IP easy! https://rapiddns.io
 
 * rocketreach: Access real-time verified personal/professional emails, phone numbers, and social media links. - https://rocketreach.co
