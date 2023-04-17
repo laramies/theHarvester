@@ -56,8 +56,7 @@ class SearchCriminalIP:
                         print(f'Dumping data: scan_response: {response} status_response: {status}')
                         return
                     if scan_percentage == -1:
-                        print(
-                            f'CriminalIP scan failed dumping data: scan_response: {response} status_response: {status}')
+                        print(f'CriminalIP scan failed dumping data: scan_response: {response} status_response: {status}')
                         return
                     # Wait for scan to finish
                     if counter >= 5:
@@ -66,10 +65,8 @@ class SearchCriminalIP:
                         await asyncio.sleep(10 * get_delay())
                     counter += 1
                     if counter == 10:
-                        print(
-                            'Ten iterations have occurred in CriminalIP waiting for scan to finish, returning to prevent infinite loop.')
-                        print(
-                            f'Verify results manually on CriminalIP dumping data: scan_response: {response} status_response: {status}')
+                        print('Ten iterations have occurred in CriminalIP waiting for scan to finish, returning to prevent infinite loop.')
+                        print(f'Verify results manually on CriminalIP dumping data: scan_response: {response} status_response: {status}')
                         return
 
                 report_url = f"https://api.criminalip.io/v1/domain/report/{scan_id}"

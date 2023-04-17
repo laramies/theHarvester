@@ -15,6 +15,9 @@ apikeys:
     id:
     secret:
 
+  criminalip:
+    key:
+
   fullhunt:
     key:
 
