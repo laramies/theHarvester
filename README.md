@@ -56,7 +56,7 @@ Passive:
 
 * otx: AlienVault Open Threat Exchange - https://otx.alienvault.com
 
-* pentesttools: Powerful Penetration Testing Tools, Easy to Use (Requires an API key, see below.) - https://pentest-tools.com/home
+* Pentest-Tools.com: Cloud-based toolkit for offensive security testing, focused on web applications and network penetration testing (Requires an API key, see below.) - https://pentest-tools.com/
 
 * projecdiscovery: We actively collect and maintain internet-wide assets data,
   to enhance research and analyse changes around DNS for better insights (Requires an API key, see below.) - https://chaos.projectdiscovery.io
