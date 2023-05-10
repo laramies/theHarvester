@@ -31,7 +31,7 @@ class SearchBing:
             self.total_results += response
 
     async def do_search_api(self) -> None:
-        url = 'https://api.cognitive.microsoft.com/bing/v7.0/search?'
+        url = 'https://api.bing.microsoft.com/v7.0/search?'
         params = {
             'q': self.word,
             'count': str(self.limit),
@@ -41,7 +41,8 @@ class SearchBing:
         }
         headers = {'User-Agent': Core.get_user_agent(), 'Ocp-Apim-Subscription-Key': self.bingApi}
         self.results = await AsyncFetcher.fetch_all([url], headers=headers, params=params, proxy=self.proxy)
-        self.total_results += self.results
+        for res in self.results:
+            self.total_results += res
 
     async def do_search_vhost(self) -> None:
         headers = {
@@ -73,11 +74,9 @@ class SearchBing:
         if api == 'yes':
             if self.bingApi is None:
                 raise MissingKey('BingAPI')
+            await self.do_search_api()
         else:
-            if api == 'yes':
-                await self.do_search_api()
-            else:
-                await self.do_search()
+            await self.do_search()
             print(f'\tSearching {self.counter} results.')
 
     async def process_vhost(self) -> None:
