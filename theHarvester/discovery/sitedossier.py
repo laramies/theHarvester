@@ -1,5 +1,6 @@
-from theharvester.lib.core import *
-from theharvester.parsers import myparser
+from theHarvester.lib.core import *
+from theHarvester.parsers import myparser
+import requests
 
 
 class SearchSitedossier:
@@ -8,20 +9,19 @@ class SearchSitedossier:
         self.word = word
         self.totalresults = ""
         self.server = "www.sitedossier.com"
-        self.hostname = "www.sitedossier.com"
         self.limit = 50
 
-    def do_search(self):
+    async def do_search(self):
         url = f"http://{self.server}/parentdomain/{self.word}"
-        headers = {
-            'User-Agent': Core.get_user_agent()
-        }
-        try:
-            response = requests.get(url, headers=headers)
-            self.totalresults += response.text
-        except Exception as e:
-            print(e)
+        headers = {'User-Agent': Core.get_user_agent()}
 
-    def get_hostnames(self):
+        response = requests.get(url, headers=headers)
+        self.totalresults += response.text
+
+    async def get_hostnames(self):
         rawres = myparser.Parser(self.totalresults, self.word)
-        return rawres.hostnames()
+        return await rawres.hostnames()
+
+    async def process(self, proxy: bool = False) -> None:
+        self.proxy = proxy
+        await self.do_search()
