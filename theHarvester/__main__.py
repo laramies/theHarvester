@@ -38,7 +38,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
     parser.add_argument('-b', '--source', help='''anubis, baidu, bevigil, binaryedge, bing, bingapi, bufferoverun, brave,
                             censys, certspotter, criminalip, crtsh, dnsdumpster, duckduckgo, fullhunt, github-code,
                             hackertarget, hunter, hunterhow, intelx, otx, pentesttools, projectdiscovery,
-                            rapiddns, rocketreach, securityTrails, subdomainfinderc99, threatminer, urlscan,
+                            rapiddns, rocketreach, securityTrails, sitedossier, subdomainfinderc99, threatminer, urlscan,
                             virustotal, yahoo, zoomeye''')
 
     # determines if filename is coming from rest api or user
@@ -464,6 +464,14 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             print(e)
+
+                elif engineitem == 'sitedossier':
+                    from theHarvester.discovery import sitedossier
+                    try:
+                        sitedossier_search = sitedossier.SearchSitedossier(word)
+                        stor_lst.append(store(sitedossier_search, engineitem, store_host=True, store_ip=True))
+                    except Exception as e:
+                        print(e)
 
                 elif engineitem == 'subdomainfinderc99':
                     from theHarvester.discovery import subdomainfinderc99
