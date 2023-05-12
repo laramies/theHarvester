@@ -82,9 +82,6 @@ jobs:
         run: |
           python theHarvester.py -d yale.edu -b otx
 
-      - name: Run theHarvester module Qwant
-        run: |
-          python theHarvester.py -d yale.edu -b qwant
 
       - name: Run theHarvester module RapidDns
         run: |
