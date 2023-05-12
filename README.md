@@ -70,6 +70,8 @@ Passive:
 
 * shodan: Shodan search engine, will search for ports and banners from discovered hosts (Requires an API key, see below.) - https://shodan.io
 
+* sitedossier: Find available information on a site
+
 * subdomainfinderc99: A subdomain finder is a tool used to find the subdomains of a given domain - https://subdomainfinder.c99.nl
 
 * threatminer: Data mining for threat intelligence - https://www.threatminer.org/
