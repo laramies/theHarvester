@@ -160,6 +160,7 @@ class Core:
                             'rapiddns',
                             'rocketreach',
                             'securityTrails',
+                            'sitedossier',
                             'subdomainfinderc99',
                             'threatminer',
                             'urlscan',
