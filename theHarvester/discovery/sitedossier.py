@@ -14,7 +14,6 @@ class SearchSitedossier:
     async def do_search(self):
         url = f"http://{self.server}/parentdomain/{self.word}"
         headers = {'User-Agent': Core.get_user_agent()}
-
         response = requests.get(url, headers=headers)
         self.totalresults += response.text
 
