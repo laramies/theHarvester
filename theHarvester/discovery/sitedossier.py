@@ -1,6 +1,5 @@
 from theHarvester.lib.core import *
 from theHarvester.parsers import myparser
-import requests
 
 
 class SearchSitedossier:
@@ -14,8 +13,8 @@ class SearchSitedossier:
     async def do_search(self):
         url = f"http://{self.server}/parentdomain/{self.word}"
         headers = {'User-Agent': Core.get_user_agent()}
-        response = requests.get(url, headers=headers)
-        self.totalresults += response.text
+        response = await AsyncFetcher.fetch_all([url], json=False, headers=headers, proxy=self.proxy)
+        self.totalresults += response[0]
 
     async def get_hostnames(self):
         rawres = myparser.Parser(self.totalresults, self.word)
