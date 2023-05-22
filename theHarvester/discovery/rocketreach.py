@@ -14,7 +14,7 @@ class SearchRocketReach:
             raise MissingKey('RocketReach')
         self.hosts: Set = set()
         self.proxy = False
-        self.baseurl = 'https://api.rocketreach.co/v2/api/search'
+        self.baseurl = 'https://rocketreach.co/api/v2/person/search'
         self.links: Set = set()
         self.limit = limit
 
@@ -26,7 +26,7 @@ class SearchRocketReach:
                 'User-Agent': Core.get_user_agent()
             }
 
-            next_page = 1  # track pagniation
+            next_page = 1  # track pagination
             for count in range(1, self.limit):
                 data = f'{{"query":{{"company_domain": ["{self.word}"]}}, "start": {next_page}, "page_size": 100}}'
                 result = await AsyncFetcher.post_fetch(self.baseurl, headers=headers, data=data, json=True)
@@ -49,7 +49,7 @@ class SearchRocketReach:
                     if next_page > int(result['pagination']['total']):
                         break
 
-            await asyncio.sleep(get_delay() + 2)
+            await asyncio.sleep(get_delay() + 5)
 
         except Exception as e:
             print(f'An exception has occurred: {e}')
