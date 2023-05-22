@@ -23,7 +23,7 @@ class SearchHunterHow:
         page = 1
         page_size = 100  # can be either: 10,20,50,100)
         # The interval between the start time and the end time cannot exceed one year
-        # Can not exceed one year but years=1 does not work due to their backend, 364 will suffice
+        # Can not exceed one year, but years=1 does not work due to their backend, 364 will suffice
         today = datetime.today()
         one_year_ago = today - relativedelta(days=364)
         start_time = one_year_ago.strftime('%Y-%m-%d')

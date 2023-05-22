@@ -49,9 +49,9 @@ class TakeOver:
     async def do_take(self) -> None:
         try:
             if len(self.hosts) > 0:
-                tup_resps: list = await AsyncFetcher.fetch_all(self.hosts, takeover=True, proxy=self.proxy)
+                tup_resps: tuple = await AsyncFetcher.fetch_all(self.hosts, takeover=True, proxy=self.proxy)
                 # Returns a list of tuples in this format: (url, response)
-                tup_resps = [tup for tup in tup_resps if tup[1] != '']
+                tup_resps = tuple(tup for tup in tup_resps if tup[1] != '')
                 # Filter out responses whose responses are empty strings (indicates errored)
                 for url, resp in tup_resps:
                     await self.check(url, resp)

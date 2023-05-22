@@ -28,20 +28,20 @@ class SearchHunter:
         response = await AsyncFetcher.fetch_all([acc_info_url], headers=headers, json=True)
         is_free = is_free if 'plan_name' in response[0]['data'].keys() and response[0]['data']['plan_name'].lower() \
                              == 'free' else False
-        # Extract total number of requests that are available for account
+        # Extract the total number of requests that are available for an account
 
         total_requests_avail = response[0]['data']['requests']['searches']['available'] - response[0]['data']['requests']['searches']['used']
         if is_free:
             response = await AsyncFetcher.fetch_all([self.database], headers=headers, proxy=self.proxy, json=True)
             self.emails, self.hostnames = await self.parse_resp(json_resp=response[0])
         else:
-            # Determine total number of emails that are available
-            # As the most emails you can get within one query is 100
+            # Determine the total number of emails that are available
+            # As the most emails you can get within one query are 100
             # This is only done where paid accounts are in play
             hunter_dinfo_url = f'https://api.hunter.io/v2/email-count?domain={self.word}'
             response = await AsyncFetcher.fetch_all([hunter_dinfo_url], headers=headers, proxy=self.proxy, json=True)
             total_number_reqs = response[0]['data']['total'] // 100
-            # Parse out meta field within initial JSON response to determine total number of results
+            # Parse out meta field within initial JSON response to determine the total number of results
             if total_requests_avail < total_number_reqs:
                 print('WARNING: account does not have enough requests to gather all emails')
                 print(f'Total requests available: {total_requests_avail}, total requests '

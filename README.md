@@ -56,12 +56,10 @@ Passive:
 
 * otx: AlienVault Open Threat Exchange - https://otx.alienvault.com
 
-* pentesttools: Powerful Penetration Testing Tools, Easy to Use (Requires an API key, see below.) - https://pentest-tools.com/home
+* Pentest-Tools.com: Cloud-based toolkit for offensive security testing, focused on web applications and network penetration testing (Requires an API key, see below.) - https://pentest-tools.com/
 
 * projecdiscovery: We actively collect and maintain internet-wide assets data,
   to enhance research and analyse changes around DNS for better insights (Requires an API key, see below.) - https://chaos.projectdiscovery.io
-
-* qwant: Qwant search engine - www.qwant.com
 
 * rapiddns: DNS query tool which make querying subdomains or sites of a same IP easy! https://rapiddns.io
 
@@ -71,6 +69,8 @@ Passive:
   (Requires an API key, see below.) - www.securitytrails.com
 
 * shodan: Shodan search engine, will search for ports and banners from discovered hosts (Requires an API key, see below.) - https://shodan.io
+
+* sitedossier: Find available information on a site
 
 * subdomainfinderc99: A subdomain finder is a tool used to find the subdomains of a given domain - https://subdomainfinder.c99.nl
 

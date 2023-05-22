@@ -82,21 +82,10 @@ jobs:
         run: |
           python theHarvester.py -d yale.edu -b otx
 
-      - name: Run theHarvester module Qwant
-        run: |
-          python theHarvester.py -d yale.edu -b qwant
 
       - name: Run theHarvester module RapidDns
         run: |
           python theHarvester.py -d yale.edu -b rapiddns
-
-      - name: Run theHarvester module Sublist3r
-        run: |
-          python theHarvester.py -d yale.edu -b sublist3r
-
-      - name: Run theHarvester module Threatcrowd
-        run: |
-          python theHarvester.py -d yale.edu -b threatcrowd
 
       - name: Run theHarvester module Threatminer
         run: |

@@ -54,7 +54,7 @@ class SearchSubdomainfinderc99:
         for c in html.find_all('input'):
             try:
                 csrf_params[c.get('name')] = c.get('value')
-            except:
+            except Exception:
                 continue
 
         return csrf_params

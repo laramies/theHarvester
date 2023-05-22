@@ -18,7 +18,8 @@ import secrets
 
 async def start(rest_args: Optional[argparse.Namespace] = None):
     """Main program function"""
-    parser = argparse.ArgumentParser(description='theHarvester is used to gather open source intelligence (OSINT) on a company or domain.')
+    parser = argparse.ArgumentParser(
+        description='theHarvester is used to gather open source intelligence (OSINT) on a company or domain.')
     parser.add_argument('-d', '--domain', help='Company name or domain to search.', required=True)
     parser.add_argument('-l', '--limit', help='Limit the number of search results, default=500.', default=500, type=int)
     parser.add_argument('-S', '--start', help='Start with result number X, default=0.', default=0, type=int)
@@ -29,15 +30,15 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
     parser.add_argument('-e', '--dns-server', help='DNS server to use for lookup.')
     parser.add_argument('-t', '--take-over', help='Check for takeovers.', default=False, action='store_true')
     # TODO add dns resolver flag
-    parser.add_argument('-r', '--dns-resolve', help='Perform DNS resolution on subdomains with given resolver list or passed in resolvers, default False.', default="",
+    parser.add_argument('-r', '--dns-resolve', help='Perform DNS resolution on subdomains with a resolver list or passed in resolvers, default False.', default="",
                         type=str, nargs='?')
     parser.add_argument('-n', '--dns-lookup', help='Enable DNS server lookup, default False.', default=False, action='store_true')
     parser.add_argument('-c', '--dns-brute', help='Perform a DNS brute force on the domain.', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='Save the results to an XML and JSON file.', default='', type=str)
-    parser.add_argument('-b', '--source', help='''anubis, baidu, bevigil, binaryedge, bing, bingapi, bufferoverun, brave, 
-                            censys, certspotter, criminalip, crtsh, dnsdumpster, duckduckgo, fullhunt, github-code, 
-                            hackertarget, hunter, hunterhow, intelx, otx, pentesttools, projectdiscovery, qwant, 
-                            rapiddns, rocketreach, securityTrails, subdomainfinderc99, threatminer, urlscan, 
+    parser.add_argument('-b', '--source', help='''anubis, baidu, bevigil, binaryedge, bing, bingapi, bufferoverun, brave,
+                            censys, certspotter, criminalip, crtsh, dnsdumpster, duckduckgo, fullhunt, github-code,
+                            hackertarget, hunter, hunterhow, intelx, otx, pentesttools, projectdiscovery,
+                            rapiddns, rocketreach, securityTrails, sitedossier, subdomainfinderc99, threatminer, urlscan,
                             virustotal, yahoo, zoomeye''')
 
     # determines if filename is coming from rest api or user
@@ -73,7 +74,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
     all_hosts: List = []
     all_ip: List = []
     dnslookup = args.dns_lookup
-    dnsserver = args.dns_server # TODO arg is not used anywhere replace with resolvers wordlist arg dnsresolve
+    dnsserver = args.dns_server  # TODO arg is not used anywhere replace with resolvers wordlist arg dnsresolve
     dnsresolve = args.dns_resolve
     final_dns_resolver_list = []
     if dnsresolve is not None and len(dnsresolve) > 0:
@@ -109,9 +110,8 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                 print(f'Dumping resolvers passed in: {e}')
                 sys.exit(0)
 
-        # if for some reason there are duplicates
+        # if for some reason, there are duplicates
         final_dns_resolver_list = list(set(final_dns_resolver_list))
-        # print(f'My final list: {final_dns_resolver_list}')
 
     engines: List = []
     # If the user specifies
@@ -146,7 +146,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                     store_interestingurls: bool = False, store_asns: bool = False) -> None:
         """
         Persist details into the database.
-        The details to be stored is controlled by the parameters passed to the method.
+        The details to be stored are controlled by the parameters passed to the method.
 
         :param search_engine: search engine to fetch details from
         :param source: source against which the details (corresponding to the search engine) need to be persisted
@@ -163,12 +163,14 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
         await search_engine.process(use_proxy) if process_param is None else await \
             search_engine.process(process_param, use_proxy)
         db_stash = stash.StashManager()
+
         if source:
             print(f'\033[94m[*] Searching {source[0].upper() + source[1:]}. ')
+
         if store_host:
             host_names = [host for host in filter(await search_engine.get_hostnames()) if f'.{word}' in host]
             if source != 'hackertarget' and source != 'pentesttools' and source != 'rapiddns':
-                # If source is inside this conditional it means the hosts returned must be resolved to obtain ip
+                # If a source is inside this conditional, it means the hosts returned must be resolved to obtain ip
                 # This should only be checked if --dns-resolve has a wordlist
                 if dnsresolve is None or len(final_dns_resolver_list) > 0:
                     # indicates that -r was passed in
@@ -182,14 +184,17 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                 full.extend(host_names)
             all_hosts.extend(host_names)
             await db_stash.store_all(word, all_hosts, 'host', source)
+
         if store_emails:
             email_list = filter(await search_engine.get_emails())
             all_emails.extend(email_list)
             await db_stash.store_all(word, email_list, 'email', source)
+
         if store_ip:
             ips_list = await search_engine.get_ips()
             all_ip.extend(ips_list)
             await db_stash.store_all(word, all_ip, 'ip', source)
+
         if store_results:
             email_list, host_names, urls = await search_engine.get_results()
             all_emails.extend(email_list)
@@ -198,19 +203,23 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
             all_hosts.extend(host_names)
             await db.store_all(word, all_hosts, 'host', source)
             await db.store_all(word, all_emails, 'email', source)
+
         if store_people:
             people_list = await search_engine.get_people()
             await db_stash.store_all(word, people_list, 'people', source)
+
         if store_links:
             links = await search_engine.get_links()
             linkedin_links_tracker.extend(links)
             if len(links) > 0:
                 await db.store_all(word, links, 'linkedinlinks', engineitem)
+
         if store_interestingurls:
             iurls = await search_engine.get_interestingurls()
             interesting_urls.extend(iurls)
             if len(iurls) > 0:
                 await db.store_all(word, iurls, 'interestingurls', engineitem)
+
         if store_asns:
             fasns = await search_engine.get_asns()
             total_asns.extend(fasns)
@@ -321,6 +330,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                             print(e)
                         else:
                             print(f'An excepion has occurred in criminalip: {e}')
+
                 elif engineitem == 'crtsh':
                     try:
                         from theHarvester.discovery import crtsh
@@ -427,11 +437,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                         else:
                             print('An exception has occurred in ProjectDiscovery')
 
-                elif engineitem == 'qwant':
-                    from theHarvester.discovery import qwantsearch
-                    qwant_search = qwantsearch.SearchQwant(word, start, limit)
-                    stor_lst.append(store(qwant_search, engineitem, store_host=True, store_emails=True))
-
                 elif engineitem == 'rapiddns':
                     from theHarvester.discovery import rapiddns
                     try:
@@ -459,6 +464,14 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             print(e)
+
+                elif engineitem == 'sitedossier':
+                    from theHarvester.discovery import sitedossier
+                    try:
+                        sitedossier_search = sitedossier.SearchSitedossier(word)
+                        stor_lst.append(store(sitedossier_search, engineitem, store_host=True, store_ip=True))
+                    except Exception as e:
+                        print(e)
 
                 elif engineitem == 'subdomainfinderc99':
                     from theHarvester.discovery import subdomainfinderc99
@@ -664,7 +677,8 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
         all_hosts = list(sorted(list(set(all_hosts))))
         db = stash.StashManager()
         all_hosts = [host.replace('www.', '') for host in all_hosts]
-        full = [host if ':' in host and host.endswith(word) else host.split(':')[0].endswith(word) and host for host in full]
+        full = [host if ':' in host and host.endswith(word) else host.split(':')[0].endswith(word) and host for host in
+                full]
         full = list({host.replace('www.', '') for host in full if host})
         full.sort(key=lambda el: el.split(':')[0])
         for host in full:
@@ -719,8 +733,8 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                         target=word,
                         local_results=dnsrev,
                         overall_results=full),
-                        nameservers= final_dns_resolver_list if len(final_dns_resolver_list) > 0 else None))
-                    #nameservers=list(map(str, dnsserver.split(','))) if dnsserver else None))
+                    nameservers=final_dns_resolver_list if len(final_dns_resolver_list) > 0 else None))
+                # nameservers=list(map(str, dnsserver.split(','))) if dnsserver else None))
 
         # run all the reversing tasks concurrently
         await asyncio.gather(*__reverse_dns_tasks.values())
@@ -741,7 +755,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
             await basic_search.process_vhost()
             results = await basic_search.get_allhostnames()
             for result in results:
-                result = re.sub(r'[[</?]*[\w]*>]*', '', result)
+                result = re.sub(r'[[</?]*\w*>]*', '', result)
                 result = re.sub('<', '', result)
                 result = re.sub('>', '', result)
                 print((data + '\t' + result))
@@ -765,7 +779,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
             print(f'\nScreenshots can be found in: {screen_shotter.output}{screen_shotter.slash}')
             start_time = time.perf_counter()
             print('Filtering domains for ones we can reach')
-            unique_resolved_domains = {url.split(':')[0]for url in full if ':' in url and 'www.' not in url}
+            unique_resolved_domains = {url.split(':')[0] for url in full if ':' in url and 'www.' not in url}
             if len(unique_resolved_domains) > 0:
                 # First filter out ones that didn't resolve
                 print('Attempting to visit unique resolved domains, this is ACTIVE RECON')
@@ -775,7 +789,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                     unique_resolved_domains = list(sorted({tup[0] for tup in results if len(tup[1]) > 0}))
                 async with Pool(3) as pool:
                     print(f'Length of unique resolved domains: {len(unique_resolved_domains)} chunking now!\n')
-                    # If you have the resources you could make the function faster by increasing the chunk number
+                    # If you have the resources, you could make the function faster by increasing the chunk number
                     chunk_number = 14
                     for chunk in screen_shotter.chunk_list(unique_resolved_domains, chunk_number):
                         try:

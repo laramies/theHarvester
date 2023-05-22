@@ -1,6 +1,6 @@
 apikeys:
   bevigil:
-   key:
+    key:
 
   binaryedge:
     key:
@@ -14,6 +14,9 @@ apikeys:
   censys:
     id:
     secret:
+
+  criminalip:
+    key:
 
   fullhunt:
     key:

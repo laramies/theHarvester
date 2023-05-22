@@ -16,9 +16,9 @@ class SearchBrave:
     async def do_search(self):
         try:
             headers = {'User-Agent': Core.get_user_agent()}
-            for i in range(0, 50):
+            for offset in range(0, 50):
                 # To reduce total number of requests made just search for "self.word" instead of self.word
-                current_url = f'{self.server}"{self.word}"&offset={i}&source=web&show_local=0'
+                current_url = f'{self.server}"{self.word}"&offset={offset}&source=web&show_local=0'
                 resp = await AsyncFetcher.fetch_all([current_url], headers=headers, proxy=self.proxy)
                 self.results = resp[0]
                 self.totalresults += self.results
@@ -26,8 +26,8 @@ class SearchBrave:
                 if 'Not many great matches came back for your search' in resp[0] \
                         or 'Your request has been flagged as being suspicious and Brave Search' in resp[0] \
                         or 'Prove' in resp[0] and 'robot' in resp[0] or 'Robot' in resp[0]:
-                        # print('Breaking!')
-                        break
+                    # print('Breaking!')
+                    break
                 await asyncio.sleep(get_delay() + 5)
         except Exception as e:
             print(f'An exception has occurred in bravesearch: {e}')
