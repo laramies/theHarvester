@@ -1,5 +1,3 @@
-import pprint
-
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import *
 from typing import Set
