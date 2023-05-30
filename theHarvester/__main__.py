@@ -30,14 +30,13 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
     parser.add_argument('-e', '--dns-server', help='DNS server to use for lookup.')
     parser.add_argument('-t', '--take-over', help='Check for takeovers.', default=False, action='store_true')
     # TODO add dns resolver flag
-    parser.add_argument('-r', '--dns-resolve', help='Perform DNS resolution on subdomains with a resolver list or passed in resolvers, default False.', default="",
-                        type=str, nargs='?')
+    parser.add_argument('-r', '--dns-resolve', help='Perform DNS resolution on subdomains with a resolver list or passed in resolvers, default False.', default="", type=str, nargs='?')
     parser.add_argument('-n', '--dns-lookup', help='Enable DNS server lookup, default False.', default=False, action='store_true')
     parser.add_argument('-c', '--dns-brute', help='Perform a DNS brute force on the domain.', default=False, action='store_true')
     parser.add_argument('-f', '--filename', help='Save the results to an XML and JSON file.', default='', type=str)
     parser.add_argument('-b', '--source', help='''anubis, baidu, bevigil, binaryedge, bing, bingapi, bufferoverun, brave,
                             censys, certspotter, criminalip, crtsh, dnsdumpster, duckduckgo, fullhunt, github-code,
-                            hackertarget, hunter, hunterhow, intelx, otx, pentesttools, projectdiscovery,
+                            hackertarget, hunter, hunterhow, intelx, netlas, otx, pentesttools, projectdiscovery,
                             rapiddns, rocketreach, securityTrails, sitedossier, subdomainfinderc99, threatminer, urlscan,
                             virustotal, yahoo, zoomeye''')
 
@@ -406,6 +405,15 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                             print(e)
                         else:
                             print(f'An exception has occurred in Intelx search: {e}')
+
+                elif engineitem == 'netlas':
+                    from theHarvester.discovery import netlas
+                    try:
+                        netlas_search = netlas.SearchNetlas(word)
+                        stor_lst.append(store(netlas_search, engineitem, store_host=True, store_ip=True))
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            print(e)
 
                 elif engineitem == 'otx':
                     from theHarvester.discovery import otxsearch
