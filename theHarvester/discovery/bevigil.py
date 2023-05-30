@@ -1,3 +1,4 @@
+from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import *
 from typing import Set
 
@@ -9,6 +10,8 @@ class SearchBeVigil:
         self.totalhosts: Set = set()
         self.interestingurls: Set = set()
         self.key = Core.bevigil_key()
+        if self.key is None:
+            raise MissingKey('bevigil')
         self.proxy = False
 
     async def do_search(self) -> None:

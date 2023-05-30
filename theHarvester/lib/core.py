@@ -73,6 +73,10 @@ class Core:
         return Core.api_keys()['intelx']['key']
 
     @staticmethod
+    def netlas_key() -> str:
+        return Core.api_keys()['netlas']['key']
+
+    @staticmethod
     def pentest_tools_key() -> str:
         return Core.api_keys()['pentestTools']['key']
 
@@ -154,6 +158,7 @@ class Core:
                             'hunter',
                             'hunterhow',
                             'intelx',
+                            'netlas',
                             'otx',
                             'pentesttools',
                             'projectdiscovery',

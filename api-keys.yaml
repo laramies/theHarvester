@@ -30,6 +30,9 @@ apikeys:
   intelx:
     key:
 
+  netlas:
+    key:
+
   pentestTools:
     key:
 
