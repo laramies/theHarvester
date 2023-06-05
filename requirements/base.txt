@@ -7,7 +7,7 @@ beautifulsoup4==4.12.2
 censys==2.2.2
 certifi==2023.5.7
 dnspython==2.3.0
-fastapi==0.95.2
+fastapi==0.96.0
 lxml==4.9.2
 netaddr==0.8.0
 ujson==5.7.0
