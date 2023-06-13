@@ -10,7 +10,7 @@ dnspython==2.3.0
 fastapi==0.97.0
 lxml==4.9.2
 netaddr==0.8.0
-ujson==5.7.0
+ujson==5.8.0
 pyppeteer==1.0.2
 PyYAML==6.0
 python-dateutil==2.8.2
