@@ -16,7 +16,7 @@ PyYAML==6.0
 python-dateutil==2.8.2
 requests==2.31.0
 retrying==1.3.4
-setuptools==67.8.0
+setuptools==68.0.0
 shodan==1.29.1
 slowapi==0.1.8
 uvicorn==0.22.0
