@@ -1,4 +1,4 @@
-FROM alpine:3.17.3
+FROM alpine:3.18.0
 LABEL maintainer="@jay_townsend1 & @NotoriousRebel1 (alpine @viardant)"
 RUN mkdir /app
 RUN mkdir /etc/theHarvester/

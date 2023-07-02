@@ -52,7 +52,7 @@ Passive:
 
 * intelx: Intelx search engine (Requires an API key, see below.) - www.intelx.io
 
-* omnisint: Project Crobat, A Centralised Searchable Open Source Project Sonar DNS Database - https://github.com/Cgboal/SonarSearch
+* Netlas: A Shodan or Censys competitor - https://app.netlas.io
 
 * otx: AlienVault Open Threat Exchange - https://otx.alienvault.com
 
@@ -92,7 +92,7 @@ Active:
 * DNS brute force: dictionary brute force enumeration
 * Screenshots: Take screenshots of subdomains that were found
 
-Modules that require an API key:
+Modules that require an API keys:
 --------------------------------
 Documentation to setup API keys can be found at - https://github.com/laramies/theHarvester/wiki/Installation#api-keys
 
@@ -107,6 +107,7 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * hunter - limited to 10 on the free plan, so you will need to do -l 10 switch
 * hunterhow
 * intelx
+* netlas - $
 * pentesttools - $
 * projecdiscovery - invite only for now
 * rocketreach - $
