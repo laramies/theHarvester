@@ -186,7 +186,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                     full_hosts_checker = hostchecker.Checker(host_names, final_dns_resolver_list)
                     # If full this is only getting resolved hosts
                     resolved_pair, temp_hosts, temp_ips = await full_hosts_checker.check()
-                    ips.extend(temp_ips)
+                    all_ip.extend(temp_ips)
                     full.extend(resolved_pair)
                     # full.extend(temp_hosts)
                 else:
@@ -695,9 +695,9 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
             try:
                 ip = ip.strip()
                 if '/' in ip:
-                    ip_list.append(netaddr.IPNetwork(ip))
+                    ip_list.append(str(netaddr.IPNetwork(ip)))
                 else:
-                    ip_list.append(netaddr.IPAddress(ip))
+                    ip_list.append(str(netaddr.IPAddress(ip)))
             except Exception as e:
                 print(f'An exception has occurred while adding: {ip} to ip_list: {e}')
                 continue
