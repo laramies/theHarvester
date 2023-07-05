@@ -11,6 +11,7 @@ class SearchBeVigil:
         self.interestingurls: Set = set()
         self.key = Core.bevigil_key()
         if self.key is None:
+            self.key = ""
             raise MissingKey('bevigil')
         self.proxy = False
 

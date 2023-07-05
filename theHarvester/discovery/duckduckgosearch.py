@@ -1,8 +1,7 @@
-from pydantic.types import Json
 from theHarvester.discovery.constants import *
 from theHarvester.lib.core import *
 from theHarvester.parsers import myparser
-import json
+import ujson
 
 
 class SearchDuckDuckGo:
@@ -22,7 +21,7 @@ class SearchDuckDuckGo:
     async def do_search(self) -> None:
         # Do normal scraping.
         url = self.api.replace('x', self.word)
-        headers = {'User-Agent': googleUA}
+        headers = {'User-Agent': Core.get_user_agent()}
         first_resp = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
         self.results = first_resp[0]
         self.totalresults += self.results
@@ -31,7 +30,7 @@ class SearchDuckDuckGo:
         all_resps = await AsyncFetcher.fetch_all(urls)
         self.totalresults += ''.join(all_resps)
 
-    async def crawl(self, text: Json):
+    async def crawl(self, text):
         """
         Function parses json and returns URLs.
         :param text: formatted json
@@ -39,7 +38,7 @@ class SearchDuckDuckGo:
         """
         urls = set()
         try:
-            load = json.loads(text)
+            load = ujson.loads(text)
             for keys in load.keys():  # Iterate through keys of dict.
                 val = load.get(keys)
 

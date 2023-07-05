@@ -3,7 +3,7 @@ from theHarvester.discovery.constants import get_delay
 from theHarvester.parsers import myparser
 from typing import Set
 from bs4 import BeautifulSoup
-import json
+import ujson
 
 
 class SearchSubdomainfinderc99:
@@ -26,7 +26,7 @@ class SearchSubdomainfinderc99:
         data['privatequery'] = 'on'
         await asyncio.sleep(get_delay())
         second_resp = await AsyncFetcher.post_fetch(self.server, headers=headers, proxy=self.proxy,
-                                                    data=json.dumps(data))
+                                                    data=ujson.dumps(data))
 
         # print(second_resp)
         self.totalresults += second_resp

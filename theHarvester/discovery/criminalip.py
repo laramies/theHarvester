@@ -1,7 +1,7 @@
 from theHarvester.lib.core import *
 from theHarvester.discovery.constants import MissingKey, get_delay
 from typing import Set
-import json
+import ujson
 from urllib.parse import urlparse
 
 

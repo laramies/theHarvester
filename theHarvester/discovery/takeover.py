@@ -1,6 +1,6 @@
 from theHarvester.lib.core import *
 import re
-
+import ujson
 
 class TakeOver:
 
@@ -10,29 +10,46 @@ class TakeOver:
         self.results = ""
         self.totalresults = ""
         self.proxy = False
+        self.fingerprints = dict()
+
+    async def populate_fingerprints(self):
         # Thank you to https://github.com/EdOverflow/can-i-take-over-xyz for these fingerprints
-        self.fingerprints = {"'Trying to access your account?'": 'Campaign Monitor',
-                             '404 Not Found': 'Fly.io',
-                             '404 error unknown site!': 'Pantheon',
-                             'Do you want to register *.wordpress.com?': 'Wordpress',
-                             'Domain uses DO name serves with no records in DO.': 'Digital Ocean',
-                             "It looks like you may have taken a wrong turn somewhere. Don't worry...it happens to all of us.": 'LaunchRock',
-                             'No Site For Domain': 'Kinsta',
-                             'No settings were found for this company:': 'Help Scout',
-                             'Project doesnt exist... yet!': 'Readme.io',
-                             'Repository not found': 'Bitbucket',
-                             'The feed has not been found.': 'Feedpress',
-                             'No such app': 'Heroku',
-                             'The specified bucket does not exist': 'AWS/S3',
-                             'The thing you were looking for is no longer here, or never was': 'Ghost',
-                             "There isn't a Github Pages site here.": 'Github',
-                             'This UserVoice subdomain is currently available!': 'UserVoice',
-                             "Uh oh. That page doesn't exist.": 'Intercom',
-                             "We could not find what you're looking for.": 'Help Juice',
-                             "Whatever you were looking for doesn't currently exist at this address": 'Tumblr',
-                             'is not a registered InCloud YouTrack': 'JetBrains',
-                             'page not found': 'Uptimerobot',
-                             'project not found': 'Surge.sh'}
+        populate_url = 'https://raw.githubusercontent.com/EdOverflow/can-i-take-over-xyz/master/fingerprints.json'
+        headers = {'User-Agent': Core.get_user_agent()}
+        response = await AsyncFetcher.fetch_all([populate_url], headers=headers)
+        try:
+            resp = response[0]
+            print(f'Dumping resp: {resp}')
+            unparsed_json = ujson.loads(resp)
+            for unparsed_fingerprint in unparsed_json:
+                if unparsed_fingerprint['status'] == 'Vulnerable':
+                    self.fingerprints[unparsed_fingerprint['fingerprint']] = unparsed_fingerprint['service']
+        except Exception as e:
+            print(f'An exception has occurred populating takeover fingerprints: {e}, defaulting to static list')
+            self.fingerprints = {"'Trying to access your account?'": 'Campaign Monitor',
+                                 '404 Not Found': 'Fly.io',
+                                 '404 error unknown site!': 'Pantheon',
+                                 'Do you want to register *.wordpress.com?': 'Wordpress',
+                                 'Domain uses DO name serves with no records in DO.': 'Digital Ocean',
+                                 "It looks like you may have taken a wrong turn somewhere. Don't worry...it happens to all of us.": 'LaunchRock',
+                                 'No Site For Domain': 'Kinsta',
+                                 'No settings were found for this company:': 'Help Scout',
+                                 'Project doesnt exist... yet!': 'Readme.io',
+                                 'Repository not found': 'Bitbucket',
+                                 'The feed has not been found.': 'Feedpress',
+                                 'No such app': 'Heroku',
+                                 'The specified bucket does not exist': 'AWS/S3',
+                                 'The thing you were looking for is no longer here, or never was': 'Ghost',
+                                 "There isn't a Github Pages site here.": 'Github',
+                                 'This UserVoice subdomain is currently available!': 'UserVoice',
+                                 "Uh oh. That page doesn't exist.": 'Intercom',
+                                 "We could not find what you're looking for.": 'Help Juice',
+                                 "Whatever you were looking for doesn't currently exist at this address": 'Tumblr',
+                                 'is not a registered InCloud YouTrack': 'JetBrains',
+                                 'page not found': 'Uptimerobot',
+                                 'project not found': 'Surge.sh'}
+        print(f'my fingerprints')
+        print(self.fingerprints)
 
     async def check(self, url, resp) -> None:
         # Simple function that takes response and checks if any fingerprints exist
@@ -63,3 +80,12 @@ class TakeOver:
     async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_take()
+
+async def main():
+    # https://en.fofa.info/result?qbase64=ZG9tYWluPSJ1YmVyLmNvbSI%3D&page=1&page_size=20&size=100
+    word = 'yahoo.com'
+    x = TakeOver(hosts=['yahoo.com'])
+    await x.populate_fingerprints()
+
+if __name__ == '__main__':
+    asyncio.run(main())
