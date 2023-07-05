@@ -54,6 +54,8 @@ Passive:
 
 * Netlas: A Shodan or Censys competitor - https://app.netlas.io
 
+* Onyphe: Cyber Defense Search Engine - https://www.onyphe.io/
+
 * otx: AlienVault Open Threat Exchange - https://otx.alienvault.com
 
 * Pentest-Tools.com: Cloud-based toolkit for offensive security testing, focused on web applications and network penetration testing (Requires an API key, see below.) - https://pentest-tools.com/
@@ -71,6 +73,8 @@ Passive:
 * shodan: Shodan search engine, will search for ports and banners from discovered hosts (Requires an API key, see below.) - https://shodan.io
 
 * sitedossier: Find available information on a site
+
+* subdomaincenter: A subdomain finder tool used to find subdomains of a given domain - https://www.subdomain.center/
 
 * subdomainfinderc99: A subdomain finder is a tool used to find the subdomains of a given domain - https://subdomainfinder.c99.nl
 

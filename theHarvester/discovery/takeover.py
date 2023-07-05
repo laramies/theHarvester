@@ -81,11 +81,3 @@ class TakeOver:
         self.proxy = proxy
         await self.do_take()
 
-async def main():
-    # https://en.fofa.info/result?qbase64=ZG9tYWluPSJ1YmVyLmNvbSI%3D&page=1&page_size=20&size=100
-    word = 'yahoo.com'
-    x = TakeOver(hosts=['yahoo.com'])
-    await x.populate_fingerprints()
-
-if __name__ == '__main__':
-    asyncio.run(main())
