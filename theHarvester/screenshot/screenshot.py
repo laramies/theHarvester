@@ -90,7 +90,7 @@ class ScreenShotter:
             path = ""
         finally:
             # Clean up everything whether screenshot is taken or not
-            await asyncio.sleep(2)
+            await asyncio.sleep(5)
             await page.close()
             await context.close()
             await browser.close()

@@ -11,6 +11,7 @@ Explore the space around known hosts & ips for extra catches.
 import re
 import sys
 
+import asyncio
 from aiodns import DNSResolver
 from ipaddress import IPv4Network
 from typing import Callable, List, Optional
@@ -47,7 +48,7 @@ class DnsForce:
     async def run(self):
         print(f'Starting DNS brute forcing with {len(self.list)} words')
         checker = hostchecker.Checker(self.list, nameserver=self.dnsserver)
-        hosts, ips = await checker.check()
+        _, hosts, ips = await checker.check()
         return hosts, ips
 
 
@@ -157,7 +158,8 @@ async def reverse_all_ips_in_range(iprange: str, callback: Callable, nameservers
     -------
     out: None.
     """
-    __resolver = DNSResolver(timeout=4, nameservers=nameservers)
+    loop = asyncio.get_event_loop()
+    __resolver = DNSResolver(loop=loop, timeout=8, nameservers=nameservers)
     for __ip in list_ips_in_network_range(iprange):
         log_query(__ip)
         __host = await reverse_single_ip(ip=__ip, resolver=__resolver)

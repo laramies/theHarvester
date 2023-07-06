@@ -2,7 +2,7 @@ from theHarvester.discovery.constants import *
 from theHarvester.lib.core import *
 from theHarvester.parsers import intelxparser
 import asyncio
-import json
+import ujson
 import requests
 
 
@@ -41,8 +41,8 @@ class SearchIntelx:
             }
 
             total_resp = requests.post(f'{self.database}/phonebook/search', headers=headers, json=data)
-            phonebook_id = json.loads(total_resp.text)['id']
-            await asyncio.sleep(2)
+            phonebook_id = ujson.loads(total_resp.text)['id']
+            await asyncio.sleep(5)
 
             # Fetch results from phonebook based on ID
             resp = await AsyncFetcher.fetch_all(

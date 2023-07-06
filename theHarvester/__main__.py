@@ -23,21 +23,30 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
     parser.add_argument('-d', '--domain', help='Company name or domain to search.', required=True)
     parser.add_argument('-l', '--limit', help='Limit the number of search results, default=500.', default=500, type=int)
     parser.add_argument('-S', '--start', help='Start with result number X, default=0.', default=0, type=int)
-    parser.add_argument('-p', '--proxies', help='Use proxies for requests, enter proxies in proxies.yaml.', default=False, action='store_true')
-    parser.add_argument('-s', '--shodan', help='Use Shodan to query discovered hosts.', default=False, action='store_true')
-    parser.add_argument('--screenshot', help='Take screenshots of resolved domains specify output directory: --screenshot output_directory', default="", type=str)
-    parser.add_argument('-v', '--virtual-host', help='Verify host name via DNS resolution and search for virtual hosts.', action='store_const', const='basic', default=False)
+    parser.add_argument('-p', '--proxies', help='Use proxies for requests, enter proxies in proxies.yaml.',
+                        default=False, action='store_true')
+    parser.add_argument('-s', '--shodan', help='Use Shodan to query discovered hosts.', default=False,
+                        action='store_true')
+    parser.add_argument('--screenshot',
+                        help='Take screenshots of resolved domains specify output directory: --screenshot output_directory',
+                        default="", type=str)
+    parser.add_argument('-v', '--virtual-host',
+                        help='Verify host name via DNS resolution and search for virtual hosts.', action='store_const',
+                        const='basic', default=False)
     parser.add_argument('-e', '--dns-server', help='DNS server to use for lookup.')
     parser.add_argument('-t', '--take-over', help='Check for takeovers.', default=False, action='store_true')
-    # TODO add dns resolver flag
-    parser.add_argument('-r', '--dns-resolve', help='Perform DNS resolution on subdomains with a resolver list or passed in resolvers, default False.', default="", type=str, nargs='?')
-    parser.add_argument('-n', '--dns-lookup', help='Enable DNS server lookup, default False.', default=False, action='store_true')
-    parser.add_argument('-c', '--dns-brute', help='Perform a DNS brute force on the domain.', default=False, action='store_true')
+    parser.add_argument('-r', '--dns-resolve',
+                        help='Perform DNS resolution on subdomains with a resolver list or passed in resolvers, default False.',
+                        default="", type=str, nargs='?')
+    parser.add_argument('-n', '--dns-lookup', help='Enable DNS server lookup, default False.', default=False,
+                        action='store_true')
+    parser.add_argument('-c', '--dns-brute', help='Perform a DNS brute force on the domain.', default=False,
+                        action='store_true')
     parser.add_argument('-f', '--filename', help='Save the results to an XML and JSON file.', default='', type=str)
     parser.add_argument('-b', '--source', help='''anubis, baidu, bevigil, binaryedge, bing, bingapi, bufferoverun, brave,
                             censys, certspotter, criminalip, crtsh, dnsdumpster, duckduckgo, fullhunt, github-code,
-                            hackertarget, hunter, hunterhow, intelx, netlas, otx, pentesttools, projectdiscovery,
-                            rapiddns, rocketreach, securityTrails, sitedossier, subdomainfinderc99, threatminer, urlscan,
+                            hackertarget, hunter, hunterhow, intelx, netlas, onyphe, otx, pentesttools, projectdiscovery,
+                            rapiddns, rocketreach, securityTrails, sitedossier, subdomaincenter, subdomainfinderc99, threatminer, urlscan,
                             virustotal, yahoo, zoomeye''')
 
     # determines if filename is coming from rest api or user
@@ -167,16 +176,19 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
             print(f'\033[94m[*] Searching {source[0].upper() + source[1:]}. ')
 
         if store_host:
-            host_names = [host for host in filter(await search_engine.get_hostnames()) if f'.{word}' in host]
+            host_names = {host for host in filter(await search_engine.get_hostnames()) if f'.{word}' in host}
+            host_names = list(host_names)
             if source != 'hackertarget' and source != 'pentesttools' and source != 'rapiddns':
                 # If a source is inside this conditional, it means the hosts returned must be resolved to obtain ip
                 # This should only be checked if --dns-resolve has a wordlist
                 if dnsresolve is None or len(final_dns_resolver_list) > 0:
-                    # indicates that -r was passed in
+                    # indicates that -r was passed in if dnsresolve is None
                     full_hosts_checker = hostchecker.Checker(host_names, final_dns_resolver_list)
-                    temp_hosts, temp_ips = await full_hosts_checker.check()
-                    ips.extend(temp_ips)
-                    full.extend(temp_hosts)
+                    # If full this is only getting resolved hosts
+                    resolved_pair, temp_hosts, temp_ips = await full_hosts_checker.check()
+                    all_ip.extend(temp_ips)
+                    full.extend(resolved_pair)
+                    # full.extend(temp_hosts)
                 else:
                     full.extend(host_names)
             else:
@@ -415,6 +427,15 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                         if isinstance(e, MissingKey):
                             print(e)
 
+                elif engineitem == 'onyphe':
+                    from theHarvester.discovery import onyphe
+                    try:
+                        onyphe_search = onyphe.SearchOnyphe(word)
+                        stor_lst.append(store(onyphe_search, engineitem, store_host=True, store_ip=True,
+                                              store_asns=True))
+                    except Exception as e:
+                        print(e)
+
                 elif engineitem == 'otx':
                     from theHarvester.discovery import otxsearch
                     try:
@@ -464,6 +485,14 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                         else:
                             print(f'An exception has occurred in RocketReach: {e}')
 
+                elif engineitem == 'subdomaincenter':
+                    from theHarvester.discovery import subdomaincenter
+                    try:
+                        subdomaincenter_search = subdomaincenter.SubdomainCenter(word)
+                        stor_lst.append(store(subdomaincenter_search, engineitem, store_host=True))
+                    except Exception as e:
+                        print(e)
+
                 elif engineitem == 'securityTrails':
                     from theHarvester.discovery import securitytrailssearch
                     try:
@@ -477,7 +506,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                     from theHarvester.discovery import sitedossier
                     try:
                         sitedossier_search = sitedossier.SearchSitedossier(word)
-                        stor_lst.append(store(sitedossier_search, engineitem, store_host=True, store_ip=True))
+                        stor_lst.append(store(sitedossier_search, engineitem, store_host=True))
                     except Exception as e:
                         print(e)
 
@@ -556,7 +585,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
 
     async def handler(lst):
         queue = asyncio.Queue()
-
         for stor_method in lst:
             # enqueue the coroutines
             queue.put_nowait(stor_method)
@@ -579,12 +607,15 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
     return_ips: List = []
     if rest_args is not None and len(rest_filename) == 0 and rest_args.dns_brute is False:
         # Indicates user is using REST api but not wanting output to be saved to a file
-        full = [host if ':' in host and word in host else word in host.split(':')[0] and host for host in full]
-        full = list({host for host in full if host})
-        full.sort()
+        # for host in full:
+        # full = [host if ':' in host and word in host else word in host.split(':')[0] and host for host in full]
+        # full = list({host for host in full if host})
+        # full.sort()
         # cast to string so Rest API can understand type
         return_ips.extend([str(ip) for ip in sorted([netaddr.IPAddress(ip.strip()) for ip in set(all_ip)])])
         # return list(set(all_emails)), return_ips, full, '', ''
+        all_hosts = [host.replace('www.', '') for host in all_hosts if host.replace('www.', '') in all_hosts]
+        all_hosts = list(sorted(set(all_hosts)))
         return total_asns, interesting_urls, twitter_people_list_tracker, linkedin_people_list_tracker, \
             linkedin_links_tracker, all_urls, all_ip, all_emails, all_hosts
     # Check to see if all_emails and all_hosts are defined.
@@ -662,10 +693,15 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
         ip_list = []
         for ip in set(all_ip):
             try:
-                ip_list.append(netaddr.IPAddress(ip.strip()))
-            except Exception:
-                pass
-        ip_list = sorted(ip_list)
+                ip = ip.strip()
+                if '/' in ip:
+                    ip_list.append(str(netaddr.IPNetwork(ip)))
+                else:
+                    ip_list.append(str(netaddr.IPAddress(ip)))
+            except Exception as e:
+                print(f'An exception has occurred while adding: {ip} to ip_list: {e}')
+                continue
+        ip_list = list(sorted(ip_list))
         print('\n'.join(map(str, ip_list)))
         ip_list = list(ip_list)
 
@@ -680,20 +716,43 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
     if len(all_hosts) == 0:
         print('\n[*] No hosts found.\n\n')
     else:
-        print('\n[*] Hosts found: ' + str(len(all_hosts)))
-        print('---------------------')
-        all_hosts = list(sorted(list(set(all_hosts))))
+        # TODO make this logic a lot less confusing
+        # Full should only be used if dns resolving is actually true
+        # In that case use full else use all_hosts
         db = stash.StashManager()
-        all_hosts = [host.replace('www.', '') for host in all_hosts]
-        full = [host if ':' in host and host.endswith(word) else host.split(':')[0].endswith(word) and host for host in
-                full]
-        full = list({host.replace('www.', '') for host in full if host})
-        full.sort(key=lambda el: el.split(':')[0])
-        for host in full:
-            print(host)
-        host_ip = [netaddr_ip.format() for netaddr_ip in sorted([netaddr.IPAddress(ip) for ip in ips])]
-        await db.store_all(word, host_ip, 'ip', 'DNS-resolver')
-
+        if dnsresolve is None or len(final_dns_resolver_list) > 0:
+            print('\n[*] Hosts found: ' + str(len(full)))
+            print('---------------------')
+            temp = set()
+            for host in full:
+                if ':' in host:
+                    # TODO parse addresses and sort them as they are IPs
+                    subdomain, addr = host.split(':')
+                    if subdomain.endswith(word):
+                        temp.add(subdomain + ':' + addr)
+                        continue
+                if host.endswith(word):
+                    if host[:4] == 'www.':
+                        if host[4:] in all_hosts:
+                            temp.add(host[4:])
+                            continue
+                    temp.add(host)
+            full = list(sorted(temp))
+            full.sort(key=lambda el: el.split(':')[0])
+            for host in full:
+                print(host)
+            # host_ip = [netaddr_ip.format() for netaddr_ip in sorted([netaddr.IPAddress(ip) for ip in ips])]
+            for host in full:
+                if ':' in host:
+                    host_ip = host.split(':')[1].split(',')
+                    await db.store_all(word, host_ip, 'ip', 'DNS-resolver')
+        else:
+            all_hosts = [host.replace('www.', '') for host in all_hosts if host.replace('www.', '') in all_hosts]
+            all_hosts = list(sorted(set(all_hosts)))
+            print('\n[*] Hosts found: ' + str(len(all_hosts)))
+            print('---------------------')
+            for host in all_hosts:
+                print(host)
     # DNS brute force
     if dnsbrute and dnsbrute[0] is True:
         print('\n[*] Starting DNS brute force.')
@@ -708,7 +767,10 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
         db = stash.StashManager()
         for host in hosts:
             print(host)
-            full.append(host)
+            if host not in full:
+                full.append(host)
+            if host not in all_hosts:
+                all_hosts.append(host)
         await db.store_all(word, hosts, 'host', 'dns_bruteforce')
 
     # TakeOver Checking
@@ -746,7 +808,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
 
         # run all the reversing tasks concurrently
         await asyncio.gather(*__reverse_dns_tasks.values())
-
         # Display the newly found hosts
         print('\n[*] Hosts found after reverse lookup (in target domain):')
         print('--------------------------------------------------------')
@@ -787,11 +848,17 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
             print(f'\nScreenshots can be found in: {screen_shotter.output}{screen_shotter.slash}')
             start_time = time.perf_counter()
             print('Filtering domains for ones we can reach')
-            unique_resolved_domains = {url.split(':')[0] for url in full if ':' in url and 'www.' not in url}
+            if dnsresolve is None or len(final_dns_resolver_list) > 0:
+                unique_resolved_domains = {url.split(':')[0] for url in full if ':' in url and 'www.' not in url}
+            else:
+                # Technically not resolved in this case which is not ideal
+                # You should always use dns resolve when doing screenshotting
+                print(f'NOTE for future use cases you should only use screenshotting in tandem with DNS resolving')
+                unique_resolved_domains = set(all_hosts)
             if len(unique_resolved_domains) > 0:
                 # First filter out ones that didn't resolve
                 print('Attempting to visit unique resolved domains, this is ACTIVE RECON')
-                async with Pool(12) as pool:
+                async with Pool(10) as pool:
                     results = await pool.map(screen_shotter.visit, list(unique_resolved_domains))
                     # Filter out domains that we couldn't connect to
                     unique_resolved_domains = list(sorted({tup[0] for tup in results if len(tup[1]) > 0}))
@@ -816,14 +883,14 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
     # Shodan
     shodanres = []
     if shodan is True:
-        import json
+        import ujson
         print('\033[94m[*] Searching Shodan. ')
         try:
             for ip in host_ip:
                 print(('\tSearching for ' + ip))
                 shodan = shodansearch.SearchShodan()
                 shodandict = await shodan.search_ip(ip)
-                await asyncio.sleep(2)
+                await asyncio.sleep(5)
                 rowdata = []
                 for key, value in shodandict[ip].items():
                     if str(value) == 'Not in Shodan' or 'Error occurred in the Shodan IP search module' in str(value):
@@ -835,7 +902,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                         value = ', '.join(map(str, value))
                     rowdata.append(value)
                 shodanres.append(rowdata)
-                print(json.dumps(shodandict[ip], indent=4, sort_keys=True))
+                print(ujson.dumps(shodandict[ip], indent=4, sort_keys=True))
                 print('\n')
         except Exception as e:
             print(f'[!] An error occurred with Shodan: {e} ')
@@ -887,8 +954,12 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
             if len(all_emails) > 0:
                 json_dict["emails"] = [email for email in all_emails]
 
-            if len(full) > 0:
-                json_dict["hosts"] = [host for host in full]
+            if dnsresolve is None or len(final_dns_resolver_list) > 0:
+                if len(full) > 0:
+                    json_dict["hosts"] = [host for host in full]
+                else:
+                    if len(all_hosts) > 0:
+                        json_dict["hosts"] = [host for host in all_hosts]
 
             if vhost and len(vhost) > 0:
                 json_dict["vhosts"] = [host for host in vhost]
@@ -915,7 +986,12 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
             with open(filename, 'w+') as fp:
                 # If you do not wish to install ujson you can do
                 # fp.write(json.dumps(json_dict, sort_keys=True)
-                fp.write(ujson.dumps(json_dict, sort_keys=True))
+                try:
+                    import ujson as json_dumper
+                except ImportError:
+                    import json as json_dumper
+                dumped_json = json_dumper.dumps(json_dict, sort_keys=True)
+                fp.write(dumped_json)
             print('[*] JSON File saved.')
         except Exception as er:
             print(f'[!] An error occurred while saving the JSON file: {er} ')
