@@ -1,16 +1,19 @@
 from theHarvester.lib.core import *
 import re
 import ujson
+from collections import defaultdict
+from random import shuffle
+
 
 class TakeOver:
 
     def __init__(self, hosts) -> None:
         # NOTE THIS MODULE IS ACTIVE RECON
         self.hosts = hosts
-        self.results = ""
-        self.totalresults = ""
         self.proxy = False
         self.fingerprints = dict()
+        # https://stackoverflow.com/questions/33080869/python-how-to-create-a-dict-of-dict-of-list-with-defaultdict
+        self.results = defaultdict(list)
 
     async def populate_fingerprints(self):
         # Thank you to https://github.com/EdOverflow/can-i-take-over-xyz for these fingerprints
@@ -19,10 +22,13 @@ class TakeOver:
         response = await AsyncFetcher.fetch_all([populate_url], headers=headers)
         try:
             resp = response[0]
-            print(f'Dumping resp: {resp}')
             unparsed_json = ujson.loads(resp)
             for unparsed_fingerprint in unparsed_json:
-                if unparsed_fingerprint['status'] == 'Vulnerable':
+                if unparsed_fingerprint['service'] in ["Smugsmug"]:
+                    # Subdomain must be in format domain.smugsmug.com
+                    # This will never happen as subdomains are parsed and filtered to be in format of *.word.com
+                    continue
+                if unparsed_fingerprint['status'] == 'Vulnerable' or unparsed_fingerprint['status'] == 'Edge case':
                     self.fingerprints[unparsed_fingerprint['fingerprint']] = unparsed_fingerprint['service']
         except Exception as e:
             print(f'An exception has occurred populating takeover fingerprints: {e}, defaulting to static list')
@@ -48,8 +54,6 @@ class TakeOver:
                                  'is not a registered InCloud YouTrack': 'JetBrains',
                                  'page not found': 'Uptimerobot',
                                  'project not found': 'Surge.sh'}
-        print(f'my fingerprints')
-        print(self.fingerprints)
 
     async def check(self, url, resp) -> None:
         # Simple function that takes response and checks if any fingerprints exist
@@ -57,19 +61,26 @@ class TakeOver:
         regex = re.compile("(?=(" + "|".join(map(re.escape, list(self.fingerprints.keys()))) + "))")
         # Sanitize fingerprints
         matches = re.findall(regex, resp)
+        matches = list(set(matches))
         for match in matches:
             print(f'\t\033[91m Takeover detected: {url}\033[1;32;40m')
             if match in self.fingerprints.keys():
                 # Validation check as to not error out
-                print(f'\t\033[91m Type of takeover is: {self.fingerprints[match]}\033[1;32;40m')
+                service = self.fingerprints[match]
+                print(f'\t\033[91m Type of takeover is: {service} with match: {match}\033[1;32;40m')
+                self.results[url].append({match: service})
 
     async def do_take(self) -> None:
         try:
             if len(self.hosts) > 0:
-                tup_resps: tuple = await AsyncFetcher.fetch_all(self.hosts, takeover=True, proxy=self.proxy)
                 # Returns a list of tuples in this format: (url, response)
-                tup_resps = tuple(tup for tup in tup_resps if tup[1] != '')
                 # Filter out responses whose responses are empty strings (indicates errored)
+                https_hosts = [f'https://{host}' for host in self.hosts]
+                http_hosts = [f'http://{host}' for host in self.hosts]
+                all_hosts = https_hosts + http_hosts
+                shuffle(all_hosts)
+                tup_resps = await AsyncFetcher.fetch_all(all_hosts, takeover=True, proxy=self.proxy)
+                tup_resps = [tup for tup in tup_resps if len(tup[1]) >= 1]
                 for url, resp in tup_resps:
                     await self.check(url, resp)
             else:
@@ -81,3 +92,5 @@ class TakeOver:
         self.proxy = proxy
         await self.do_take()
 
+    async def get_takeover_results(self):
+        return self.results

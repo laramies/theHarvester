@@ -694,16 +694,16 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
         for ip in set(all_ip):
             try:
                 ip = ip.strip()
-                if '/' in ip:
-                    ip_list.append(str(netaddr.IPNetwork(ip)))
-                else:
-                    ip_list.append(str(netaddr.IPAddress(ip)))
+                if len(ip) > 0:
+                    if '/' in ip:
+                        ip_list.append(str(netaddr.IPNetwork(ip)))
+                    else:
+                        ip_list.append(str(netaddr.IPAddress(ip)))
             except Exception as e:
                 print(f'An exception has occurred while adding: {ip} to ip_list: {e}')
                 continue
         ip_list = list(sorted(ip_list))
         print('\n'.join(map(str, ip_list)))
-        ip_list = list(ip_list)
 
     if len(all_emails) == 0:
         print('\n[*] No emails found.')
@@ -716,13 +716,8 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
     if len(all_hosts) == 0:
         print('\n[*] No hosts found.\n\n')
     else:
-        # TODO make this logic a lot less confusing
-        # Full should only be used if dns resolving is actually true
-        # In that case use full else use all_hosts
         db = stash.StashManager()
         if dnsresolve is None or len(final_dns_resolver_list) > 0:
-            print('\n[*] Hosts found: ' + str(len(full)))
-            print('---------------------')
             temp = set()
             for host in full:
                 if ':' in host:
@@ -733,19 +728,23 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                         continue
                 if host.endswith(word):
                     if host[:4] == 'www.':
-                        if host[4:] in all_hosts:
+                        if host[4:] in all_hosts or host[4:] in full:
                             temp.add(host[4:])
                             continue
                     temp.add(host)
             full = list(sorted(temp))
             full.sort(key=lambda el: el.split(':')[0])
+            print('\n[*] Hosts found: ' + str(len(full)))
+            print('---------------------')
             for host in full:
                 print(host)
-            # host_ip = [netaddr_ip.format() for netaddr_ip in sorted([netaddr.IPAddress(ip) for ip in ips])]
-            for host in full:
-                if ':' in host:
-                    host_ip = host.split(':')[1].split(',')
-                    await db.store_all(word, host_ip, 'ip', 'DNS-resolver')
+                try:
+                    if ':' in host:
+                        _, addr = host.split(':')
+                        await db.store(word, addr, 'ip', 'DNS-resolver')
+                except Exception as e:
+                    print(f'An exception has occurred while attempting to insert: {host} IP into DB: {e}')
+                    continue
         else:
             all_hosts = [host.replace('www.', '') for host in all_hosts if host.replace('www.', '') in all_hosts]
             all_hosts = list(sorted(set(all_hosts)))
@@ -753,33 +752,54 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
             print('---------------------')
             for host in all_hosts:
                 print(host)
+
     # DNS brute force
     if dnsbrute and dnsbrute[0] is True:
         print('\n[*] Starting DNS brute force.')
         dns_force = dnssearch.DnsForce(word, final_dns_resolver_list, verbose=True)
-        hosts, ips = await dns_force.run()
-        hosts = list({host for host in hosts if ':' in host})
-        hosts.sort(key=lambda el: el.split(':')[0])
+        resolved_pair, hosts, ips = await dns_force.run()
+        # hosts = list({host for host in hosts if ':' in host})
+        # hosts.sort(key=lambda el: el.split(':')[0])
         # Check if Rest API is being used if so return found hosts
         if dnsbrute[1]:
-            return hosts
-        print('\n[*] Hosts found after DNS brute force:')
+            return resolved_pair
         db = stash.StashManager()
-        for host in hosts:
-            print(host)
-            if host not in full:
-                full.append(host)
-            if host not in all_hosts:
-                all_hosts.append(host)
-        await db.store_all(word, hosts, 'host', 'dns_bruteforce')
+        temp = set()
+        for host in resolved_pair:
+            if ':' in host:
+                # TODO parse addresses and sort them as they are IPs
+                subdomain, addr = host.split(':')
+                if subdomain.endswith(word):
+                    # Append to full so it's within JSON/XML at the end if output file is requested
+                    if host not in full:
+                        full.append(host)
+                        temp.add(subdomain + ':' + addr)
+                    if host not in all_hosts:
+                        all_hosts.append(host)
+                    continue
+            if host.endswith(word):
+                if host[:4] == 'www.':
+                    if host[4:] in all_hosts or host[4:] in full:
+                        continue
+                if host not in full:
+                    full.append(host)
+                    temp.add(host)
+                if host not in all_hosts:
+                    all_hosts.append(host)
+        print('\n[*] Hosts found after DNS brute force:')
+        for sub in temp:
+            print(sub)
+        await db.store_all(word, list(sorted(temp)), 'host', 'dns_bruteforce')
 
+    takeover_results = dict()
     # TakeOver Checking
     if takeover_status:
         print('\n[*] Performing subdomain takeover check')
         print('\n[*] Subdomain Takeover checking IS ACTIVE RECON')
         search_take = takeover.TakeOver(all_hosts)
+        await search_take.populate_fingerprints()
         await search_take.process(proxy=use_proxy)
-
+        takeover_results = await search_take.get_takeover_results()
     # DNS reverse lookup
     dnsrev: List = []
     # print(f'DNSlookup: {dnslookup}')
@@ -887,6 +907,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
         print('\033[94m[*] Searching Shodan. ')
         try:
             for ip in host_ip:
+                # TODO fix shodan
                 print(('\tSearching for ' + ip))
                 shodan = shodansearch.SearchShodan()
                 shodandict = await shodan.search_ip(ip)
@@ -897,7 +918,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                         break
                     if isinstance(value, int):
                         value = str(value)
-
                     if isinstance(value, list):
                         value = ', '.join(map(str, value))
                     rowdata.append(value)
@@ -949,20 +969,20 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
             # it should but just a validation check
             if 'ip_list' in locals():
                 if all_ip and len(all_ip) >= 1 and ip_list and len(ip_list) > 0:
-                    json_dict["ips"] = [str(ip) for ip in ip_list]
+                    json_dict["ips"] = ip_list
 
             if len(all_emails) > 0:
-                json_dict["emails"] = [email for email in all_emails]
+                json_dict["emails"] = all_emails
 
-            if dnsresolve is None or len(final_dns_resolver_list) > 0:
-                if len(full) > 0:
-                    json_dict["hosts"] = [host for host in full]
-                else:
-                    if len(all_hosts) > 0:
-                        json_dict["hosts"] = [host for host in all_hosts]
+            if dnsresolve is None or len(final_dns_resolver_list) > 0 and len(full) > 0:
+                json_dict["hosts"] = full
+            elif len(all_hosts) > 0:
+                json_dict["hosts"] = all_hosts
+            else:
+                json_dict["hosts"] = []
 
             if vhost and len(vhost) > 0:
-                json_dict["vhosts"] = [host for host in vhost]
+                json_dict["vhosts"] = vhost
 
             if len(interesting_urls) > 0:
                 json_dict["interesting_urls"] = interesting_urls
@@ -982,10 +1002,11 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
             if len(linkedin_links_tracker) > 0:
                 json_dict["linkedin_links"] = linkedin_links_tracker
 
+            if takeover_status and len(takeover_results) > 0:
+                json_dict['takeover_results'] = takeover_results
+
             json_dict["shodan"] = shodanres
             with open(filename, 'w+') as fp:
-                # If you do not wish to install ujson you can do
-                # fp.write(json.dumps(json_dict, sort_keys=True)
                 try:
                     import ujson as json_dumper
                 except ImportError:
