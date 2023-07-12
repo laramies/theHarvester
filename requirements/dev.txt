@@ -6,7 +6,7 @@ pydantic==2.0.2
 pyre-check==0.9.18
 pyflakes==3.0.1
 pytest==7.4.0
-pytest-asyncio==0.21.0
+pytest-asyncio==0.21.1
 types-certifi==2021.10.8.3
 types-chardet==5.0.4.6
 types-ujson==5.8.0.0
