@@ -118,10 +118,11 @@ class Core:
                 with open('/usr/local/etc/theHarvester/proxies.yaml', 'r') as proxy_file:
                     keys = yaml.safe_load(proxy_file)
             except FileNotFoundError:
-                with open('proxies.yaml', 'r') as proxy_file:
-                    keys = yaml.safe_load(proxy_file)
-        except Exception:
-            return []
+                try:
+                    with open('proxies.yaml', 'r') as proxy_file:
+                        keys = yaml.safe_load(proxy_file)
+                except Exception:
+                    return []
         http_list = [f'http://{proxy}' for proxy in keys['http']] if keys['http'] is not None else []
         return http_list
 
@@ -329,17 +330,30 @@ class AsyncFetcher:
             # Wrap in try except due to 0x89 png/jpg files
             # This fetch method solely focuses on get requests
             # TODO determine if method for post requests is necessary
-            url = f'http://{url}' if str(url).startswith(('http:', 'https:')) is False else url
+            # url = f'http://{url}' if str(url).startswith(('http:', 'https:')) is False else url
             # Clean up urls with proper schemas
             if proxy != "":
-                async with session.get(url, proxy=proxy) as response:
-                    await asyncio.sleep(5)
-                    return url, await response.text()
+                if 'https://' in url:
+                    sslcontext = ssl.create_default_context(cafile=certifi.where())
+                    async with session.get(url, proxy=proxy, ssl=sslcontext) as response:
+                        await asyncio.sleep(5)
+                        return url, await response.text()
+                else:
+                    async with session.get(url, proxy=proxy, ssl=False) as response:
+                        await asyncio.sleep(5)
+                        return url, await response.text()
             else:
-                async with session.get(url) as response:
-                    await asyncio.sleep(5)
-                    return url, await response.text()
-        except Exception:
+                if 'https://' in url:
+                    sslcontext = ssl.create_default_context(cafile=certifi.where())
+                    async with session.get(url, ssl=sslcontext) as response:
+                        await asyncio.sleep(5)
+                        return url, await response.text()
+                else:
+                    async with session.get(url, ssl=False) as response:
+                        await asyncio.sleep(5)
+                        return url, await response.text()
+        except Exception as e:
+            print(f'Takeover check error on: {url} : {e}')
             return url, ''
 
     @classmethod

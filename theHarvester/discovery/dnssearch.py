@@ -48,8 +48,8 @@ class DnsForce:
     async def run(self):
         print(f'Starting DNS brute forcing with {len(self.list)} words')
         checker = hostchecker.Checker(self.list, nameserver=self.dnsserver)
-        _, hosts, ips = await checker.check()
-        return hosts, ips
+        resolved_pair, hosts, ips = await checker.check()
+        return resolved_pair, hosts, ips
 
 
 #####################################################################
