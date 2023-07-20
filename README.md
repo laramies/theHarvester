@@ -80,6 +80,8 @@ Passive:
 
 * threatminer: Data mining for threat intelligence - https://www.threatminer.org/
 
+* tomba: Tomba search engine (Requires an API key, see below.) - www.tomba.io
+
 * urlscan: A sandbox for the web that is a URL and website scanner - https://urlscan.io
 
 * vhost: Bing virtual hosts search
@@ -117,6 +119,7 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * rocketreach - $
 * securityTrails
 * shodan - $
+* tomba - Free up to 50 search. Pricing can be found here: https://tomba.io/pricing
 * zoomeye
 
 Install and dependencies:

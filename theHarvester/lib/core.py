@@ -105,6 +105,14 @@ class Core:
         return Core.api_keys()['zoomeye']['key']
 
     @staticmethod
+    def tomba_key() -> str:
+        return Core.api_keys()['tomba']['key']
+
+    @staticmethod
+    def tomba_secret() -> str:
+        return Core.api_keys()['tomba']['secret']
+
+    @staticmethod
     def virustotal_key() -> str:
         return Core.api_keys()['virustotal']['key']
 
@@ -177,6 +185,7 @@ class Core:
                             'subdomaincenter',
                             'subdomainfinderc99',
                             'threatminer',
+                            'tomba',
                             'urlscan',
                             'virustotal',
                             'yahoo',

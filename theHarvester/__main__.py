@@ -46,8 +46,8 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
     parser.add_argument('-b', '--source', help='''anubis, baidu, bevigil, binaryedge, bing, bingapi, bufferoverun, brave,
                             censys, certspotter, criminalip, crtsh, dnsdumpster, duckduckgo, fullhunt, github-code,
                             hackertarget, hunter, hunterhow, intelx, netlas, onyphe, otx, pentesttools, projectdiscovery,
-                            rapiddns, rocketreach, securityTrails, sitedossier, subdomaincenter, subdomainfinderc99, threatminer, urlscan,
-                            virustotal, yahoo, zoomeye''')
+                            rapiddns, rocketreach, securityTrails, sitedossier, subdomaincenter, subdomainfinderc99, threatminer, tomba,
+                            urlscan, virustotal, yahoo, zoomeye''')
 
     # determines if filename is coming from rest api or user
     rest_filename = ''
@@ -528,6 +528,15 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                         stor_lst.append(store(threatminer_search, engineitem, store_host=True, store_ip=True))
                     except Exception as e:
                         print(e)
+
+                elif engineitem == 'tomba':
+                    try:
+                        from theHarvester.discovery import tombasearch
+                        tomba_search = tombasearch.SearchTomba(word, limit, start)
+                        stor_lst.append(store(tomba_search, engineitem, store_host=True, store_emails=True))
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            print(e)
 
                 elif engineitem == 'urlscan':
                     from theHarvester.discovery import urlscan
