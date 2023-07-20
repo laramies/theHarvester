@@ -54,6 +54,10 @@ apikeys:
   shodan:
     key:
 
+  tomba:
+    key:
+    secret:
+
   virustotal:
     key:
 
