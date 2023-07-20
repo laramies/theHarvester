@@ -106,11 +106,7 @@ class Core:
 
     @staticmethod
     def tomba_key() -> str:
-        return Core.api_keys()['tomba']['key']
-
-    @staticmethod
-    def tomba_secret() -> str:
-        return Core.api_keys()['tomba']['secret']
+        return Core.api_keys()['tomba']['key'], Core.api_keys()['tomba']['secret']
 
     @staticmethod
     def virustotal_key() -> str:

@@ -11,11 +11,8 @@ class SearchTomba:
         self.limit = 10 if limit > 10 else limit
         self.start = start
         self.key = Core.tomba_key()
-        self.secret = Core.tomba_secret()
-        if self.key is None:
-            raise MissingKey('Tomba key')
-        if self.secret is None:
-            raise MissingKey('Tomba secret')
+        if self.key[0] is None or self.key[1] is None:
+            raise MissingKey('Tomba Key and/or Secret')
         self.total_results = ""
         self.counter = start
         self.database = f'https://api.tomba.io/v1/domain-search?domain={self.word}&limit=10'
@@ -26,8 +23,8 @@ class SearchTomba:
     async def do_search(self) -> None:
         # First determine if a user account is not a free account, this call is free
         is_free = True
-        headers = {'User-Agent': Core.get_user_agent(), 'X-Tomba-Key': self.key, 'X-Tomba-Secret': self.secret}
-        acc_info_url = f'https://api.tomba.io/v1/me'
+        headers = {'User-Agent': Core.get_user_agent(), 'X-Tomba-Key': self.key[0], 'X-Tomba-Secret': self.key[1]}
+        acc_info_url = 'https://api.tomba.io/v1/me'
         response = await AsyncFetcher.fetch_all([acc_info_url], headers=headers, json=True)
         is_free = is_free if 'name' in response[0]['data']['pricing'].keys() and response[0]['data']['pricing']['name'].lower() \
                              == 'free' else False
@@ -56,7 +53,7 @@ class SearchTomba:
             # max number of emails you can get per request
             # increments of max number with page determining where to start
             # See docs for more details: https://developer.tomba.io/#domain-search
-            for page in range(1, total_number_reqs + 1):    
+            for page in range(0, total_number_reqs + 1):
                 req_url = f'https://api.tomba.io/v1/domain-search?domain={self.word}&limit={self.limit}&page={page}'
                 response = await AsyncFetcher.fetch_all([req_url], headers=headers, proxy=self.proxy, json=True)
                 temp_emails, temp_hostnames = await self.parse_resp(response[0])
