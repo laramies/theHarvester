@@ -882,7 +882,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
             else:
                 # Technically not resolved in this case which is not ideal
                 # You should always use dns resolve when doing screenshotting
-                print(f'NOTE for future use cases you should only use screenshotting in tandem with DNS resolving')
+                print('NOTE for future use cases you should only use screenshotting in tandem with DNS resolving')
                 unique_resolved_domains = set(all_hosts)
             if len(unique_resolved_domains) > 0:
                 # First filter out ones that didn't resolve
@@ -912,7 +912,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
     # Shodan
     shodanres = []
     if shodan is True:
-        import ujson
         print('\033[94m[*] Searching Shodan. ')
         try:
             for ip in host_ip:
@@ -1016,11 +1015,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
 
             json_dict["shodan"] = shodanres
             with open(filename, 'w+') as fp:
-                try:
-                    import ujson as json_dumper
-                except ImportError:
-                    import json as json_dumper
-                dumped_json = json_dumper.dumps(json_dict, sort_keys=True)
+                dumped_json = ujson.dumps(json_dict, sort_keys=True)
                 fp.write(dumped_json)
             print('[*] JSON File saved.')
         except Exception as er:

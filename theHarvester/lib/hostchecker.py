@@ -80,4 +80,3 @@ class Checker:
         self.addresses = list(self.addresses)
         all_results = list(sorted(all_results))
         return all_results, self.realhosts, self.addresses
-
