@@ -194,7 +194,7 @@ class StashManager:
                                 ),
                             )
                             results = await cursor.fetchall()
-                            self.previousscanresults = results
+                            self.previousscanresults = list(results)
                         return self.previousscanresults
                     except Exception as e:
                         print(
@@ -215,12 +215,12 @@ class StashManager:
                         ORDER BY source,type
                         """,
                             (
-                                latestscandate[0],
+                                latestscandate,
                                 domain,
                             ),
                         )
                         results = await cursor.fetchall()
-                        self.latestscanresults = results
+                        self.latestscanresults = list(results)
                         return self.latestscanresults
                     except Exception as e:
                         print(
@@ -325,7 +325,7 @@ class StashManager:
                 """
                 )
                 results = await cursor.fetchall()
-                self.scanstats = results
+                self.scanstats = list(results)
         except Exception as e:
             print(e)
         return self.scanstats
