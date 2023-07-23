@@ -8,7 +8,7 @@ import os
 import ssl
 import sys
 from datetime import datetime
-from typing import Sized, Tuple
+from typing import Collection, Tuple
 
 import aiohttp
 import certifi
@@ -51,9 +51,11 @@ class ScreenShotter:
         await browser.close()
 
     @staticmethod
-    def chunk_list(items: Sized, chunk_size):
+    def chunk_list(items: Collection, chunk_size: int) -> list:
         # Based off of: https://github.com/apache/incubator-sdap-ingester
-        return [items[i : i + chunk_size] for i in range(0, len(items), chunk_size)]
+        return [
+            list(items)[i : i + chunk_size] for i in range(0, len(items), chunk_size)
+        ]
 
     @staticmethod
     async def visit(url: str) -> Tuple[str, str]:
