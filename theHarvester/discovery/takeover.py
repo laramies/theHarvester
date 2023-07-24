@@ -12,9 +12,9 @@ class TakeOver:
         # NOTE THIS MODULE IS ACTIVE RECON
         self.hosts = hosts
         self.proxy = False
-        self.fingerprints = dict()
+        self.fingerprints: dict[str, str] = dict()
         # https://stackoverflow.com/questions/33080869/python-how-to-create-a-dict-of-dict-of-list-with-defaultdict
-        self.results = defaultdict(list)
+        self.results: defaultdict[str, list] = defaultdict()
 
     async def populate_fingerprints(self):
         # Thank you to https://github.com/EdOverflow/can-i-take-over-xyz for these fingerprints
@@ -96,7 +96,7 @@ class TakeOver:
                 tup_resps = await AsyncFetcher.fetch_all(
                     all_hosts, takeover=True, proxy=self.proxy
                 )
-                tup_resps = [tup for tup in tup_resps if len(tup[1]) >= 1]
+                tup_resps = *(tup for tup in tup_resps if len(tup[1]) >= 1),
                 for url, resp in tup_resps:
                     await self.check(url, resp)
             else:
