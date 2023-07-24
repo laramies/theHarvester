@@ -6,7 +6,7 @@ from theHarvester.parsers import myparser
 class SearchBing:
     def __init__(self, word, limit, start) -> None:
         self.word = word.replace(" ", "%20")
-        self.results = ""
+        self.results: tuple[Any, ...] = ()
         self.total_results = ""
         self.server = "www.bing.com"
         self.apiserver = "api.search.live.net"
