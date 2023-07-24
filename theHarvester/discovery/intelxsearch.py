@@ -16,7 +16,7 @@ class SearchIntelx:
             raise MissingKey("Intelx")
         self.database = "https://2.intelx.io"
         self.results: Any = None
-        self.info = ()
+        self.info: tuple[Any, ...] = ()
         self.limit: int = 10000
         self.proxy = False
         self.offset = -1
@@ -68,6 +68,7 @@ class SearchIntelx:
         self.proxy = proxy
         await self.do_search()
         intelx_parser = intelxparser.Parser()
+        # TODO: give self.info more appropriate typing
         self.info = await intelx_parser.parse_dictionaries(self.results)
 
     async def get_emails(self):
