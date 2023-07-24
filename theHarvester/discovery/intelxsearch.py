@@ -15,7 +15,7 @@ class SearchIntelx:
         if self.key is None:
             raise MissingKey("Intelx")
         self.database = "https://2.intelx.io"
-        self.results = None
+        self.results: Any = None
         self.info = ()
         self.limit: int = 10000
         self.proxy = False
@@ -60,7 +60,7 @@ class SearchIntelx:
                 proxy=self.proxy,
             )
             resp = resp[0]
-            self.results = resp
+            self.results = resp  # TODO: give self.results more appropriate typing
         except Exception as e:
             print(f"An exception has occurred in Intelx: {e}")
 
