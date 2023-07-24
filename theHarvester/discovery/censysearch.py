@@ -5,7 +5,7 @@ from censys.common.exceptions import (
     CensysRateLimitExceededException,
     CensysUnauthorizedException,
 )
-from censys.search import CensysCertificates
+from censys.search import CensysCerts
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import Core
@@ -25,7 +25,7 @@ class SearchCensys:
 
     async def do_search(self) -> None:
         try:
-            cert_search = CensysCertificates(
+            cert_search = CensysCerts(
                 api_id=self.key[0],
                 api_secret=self.key[1],
                 user_agent=f"censys/{__version__} (theHarvester/{thehavester_version}); +https://github.com/laramies/theHarvester)",
@@ -40,7 +40,7 @@ class SearchCensys:
                 fields=["parsed.names", "metadata", "parsed.subject.email_address"],
                 max_records=self.limit,
             )
-            for cert in response:
+            for cert in response():
                 self.totalhosts.update(cert.get("parsed.names", []))
                 self.emails.update(cert.get("parsed.subject.email_address", []))
         except CensysRateLimitExceededException:
