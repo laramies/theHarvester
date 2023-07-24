@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import random
 import ssl
-from typing import Any, List, Sized, Tuple, Union
+from typing import Any, List, Tuple, Union
 
 import aiohttp
 import certifi
@@ -108,7 +108,7 @@ class Core:
         return Core.api_keys()["zoomeye"]["key"]
 
     @staticmethod
-    def tomba_key() -> str:
+    def tomba_key() -> tuple[str, str]:
         return Core.api_keys()["tomba"]["key"], Core.api_keys()["tomba"]["secret"]
 
     @staticmethod
@@ -271,7 +271,7 @@ class AsyncFetcher:
     async def post_fetch(
         cls,
         url,
-        headers: Sized = "",
+        headers: dict[str, str] = {},
         data: str = "",
         params: str = "",
         json: bool = False,
@@ -430,8 +430,8 @@ class AsyncFetcher:
     async def fetch_all(
         cls,
         urls,
-        headers: Sized = "",
-        params: Sized = "",
+        headers: dict[str, str] = {},
+        params: str = "",
         json: bool = False,
         takeover: bool = False,
         proxy: bool = False,
