@@ -1,4 +1,5 @@
 import asyncio
+from typing import Sequence
 
 from theHarvester.discovery.constants import *
 from theHarvester.lib.core import *
@@ -14,7 +15,7 @@ class SearchSecuritytrail:
         self.results = ""
         self.totalresults = ""
         self.api = "https://api.securitytrails.com/v1/"
-        self.info = ()
+        self.info: tuple[set, set] = (set(), set())
         self.proxy = False
 
     async def authenticate(self) -> None:

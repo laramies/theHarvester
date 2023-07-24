@@ -1,15 +1,14 @@
-from typing import Union, Tuple, List, Set
+from typing import List, Set, Tuple, Union
 
 
 class Parser:
-
     def __init__(self, word, text) -> None:
         self.word = word
         self.text = text
         self.hostnames: Set = set()
         self.ips: Set = set()
 
-    async def parse_text(self) -> Union[List, Tuple]:
+    async def parse_text(self) -> tuple[set, set]:
         sub_domain_flag = 0
         self.text = str(self.text).splitlines()
         # Split lines to get a list of lines.
@@ -17,7 +16,7 @@ class Parser:
             line = self.text[index].strip()
             if '"ip":' in line:
                 # Extract IP.
-                ip = ''
+                ip = ""
                 for ch in line[7:]:
                     if ch == '"':
                         break
@@ -29,13 +28,17 @@ class Parser:
                 sub_domain_flag = 1
                 continue
             elif sub_domain_flag > 0:
-                if ']' in line:
+                if "]" in line:
                     sub_domain_flag = 0
                 else:
-                    if 'www' in self.word:
-                        self.word = str(self.word).replace('www.', '').replace('www', '')
+                    if "www" in self.word:
+                        self.word = (
+                            str(self.word).replace("www.", "").replace("www", "")
+                        )
                     # Remove www from word if entered
-                    self.hostnames.add(str(line).replace('"', '').replace(',', '') + '.' + self.word)
+                    self.hostnames.add(
+                        str(line).replace('"', "").replace(",", "") + "." + self.word
+                    )
             else:
                 continue
-        return list(self.ips), list(self.hostnames)
+        return self.ips, self.hostnames
