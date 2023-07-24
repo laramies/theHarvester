@@ -423,8 +423,7 @@ class AsyncFetcher:
                         await asyncio.sleep(5)
                         return url, await response.text()
         except Exception as e:
-            print(f"Takeover check error on: {url} : {e}")
-        finally:
+            print(f"Takeover check error: {e}")
             return url, ""
 
     @classmethod
