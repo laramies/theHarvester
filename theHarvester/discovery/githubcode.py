@@ -1,7 +1,7 @@
 import asyncio
 import random
 import urllib.parse as urlparse
-from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
+from typing import Any, Dict, List, NamedTuple, Tuple, Union
 
 import aiohttp
 
@@ -16,8 +16,8 @@ class RetryResult(NamedTuple):
 
 class SuccessResult(NamedTuple):
     fragments: List[str]
-    next_page: Optional[Any]
-    last_page: Optional[Any]
+    next_page: Union[int, None]
+    last_page: int
 
 
 class ErrorResult(NamedTuple):
@@ -53,7 +53,7 @@ class SearchGithubCode:
         return [fragment for fragment in fragments if fragment is not None]
 
     @staticmethod
-    async def page_from_response(page: str, links) -> Optional[Any]:
+    async def page_from_response(page: str, links) -> Union[int, None]:
         page_link = links.get(page)
         if page_link:
             parsed = urlparse.urlparse(str(page_link.get("url")))
@@ -71,6 +71,7 @@ class SearchGithubCode:
         if status == 200:
             results = await self.fragments_from_response(json_data)
             next_page = await self.page_from_response("next", links)
+            # TODO: figure out what int is last page
             last_page = await self.page_from_response("last", links)
             return SuccessResult(results, next_page, last_page)
         elif status == 429 or status == 403:
