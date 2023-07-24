@@ -96,7 +96,7 @@ class TakeOver:
                 tup_resps = await AsyncFetcher.fetch_all(
                     all_hosts, takeover=True, proxy=self.proxy
                 )
-                tup_resps = (tup for tup in tup_resps if len(tup[1]) >= 1)
+                tup_resps = tuple(tup for tup in tup_resps if len(tup[1]) >= 1)
                 for url, resp in tup_resps:
                     await self.check(url, resp)
             else:
