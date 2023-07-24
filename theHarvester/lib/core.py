@@ -272,7 +272,7 @@ class AsyncFetcher:
         cls,
         url,
         headers: dict[str, str] = {},
-        data: str = "",
+        data: Union[str, dict[str, str]] = "",
         params: str = "",
         json: bool = False,
         proxy: bool = False,
