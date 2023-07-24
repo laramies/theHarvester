@@ -28,7 +28,7 @@ class SearchZoomEye:
         # Regex used is directly from: https://github.com/GerbenJavado/LinkFinder/blob/master/linkfinder.py#L29
         # Maybe one day it will be a pip package
         # Regardless LinkFinder is an amazing tool!
-        self.iurl_regex = r"""
+        regex_str = r"""
           (?:"|')                               # Start newline delimiter
           (
             ((?:[a-zA-Z]{1,10}://|//)           # Match a scheme [a-Z]*1-10 or //
@@ -55,7 +55,7 @@ class SearchZoomEye:
           )
           (?:"|')                               # End newline delimiter
         """
-        self.iurl_regex = re.compile(self.iurl_regex, re.VERBOSE)
+        self.iurl_regex = re.compile(regex_str, re.VERBOSE)
 
     async def fetch_subdomains(self) -> None:
         # Based on docs from: https://www.zoomeye.org/doc#search-sub-domain-ip

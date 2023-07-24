@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import random
 import ssl
-from typing import Any, List, Tuple, Union
+from typing import Any, List, Sized, Tuple, Union
 
 import aiohttp
 import certifi
@@ -336,7 +336,7 @@ class AsyncFetcher:
 
     @classmethod
     async def fetch(
-        cls, session, url, params: str = "", json: bool = False, proxy: str = ""
+        cls, session, url, params: Sized = "", json: bool = False, proxy: str = ""
     ) -> Union[str, dict, list, bool]:
         # This fetch method solely focuses on get requests
         try:
@@ -344,7 +344,7 @@ class AsyncFetcher:
             # This fetch method solely focuses on get requests
             if proxy != "":
                 proxy = str(random.choice(cls().proxy_list))
-                if params != "":
+                if len(params) != 0:
                     sslcontext = ssl.create_default_context(cafile=certifi.where())
                     async with session.get(
                         url, ssl=sslcontext, params=params, proxy=proxy
@@ -366,7 +366,7 @@ class AsyncFetcher:
                             else await response.json()
                         )
 
-            if params != "":
+            if len(params) != 0:
                 sslcontext = ssl.create_default_context(cafile=certifi.where())
                 async with session.get(url, ssl=sslcontext, params=params) as response:
                     await asyncio.sleep(5)
@@ -431,7 +431,7 @@ class AsyncFetcher:
         cls,
         urls,
         headers: dict[str, str] = {},
-        params: str = "",
+        params: Sized = "",
         json: bool = False,
         takeover: bool = False,
         proxy: bool = False,
