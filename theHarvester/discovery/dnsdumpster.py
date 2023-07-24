@@ -24,13 +24,13 @@ class SearchDnsDumpster:
             csrftoken = ""
             if self.proxy is False:
                 async with session.get(url, headers=headers) as resp:
-                    cookies = str(resp.cookies)
-                    cookies = cookies.split("csrftoken=")
+                    resp_cookies = str(resp.cookies)
+                    cookies = resp_cookies.split("csrftoken=")
                     csrftoken += cookies[1][: cookies[1].find(";")]
             else:
                 async with session.get(url, headers=headers, proxy=self.proxy) as resp:
-                    cookies = str(resp.cookies)
-                    cookies = cookies.split("csrftoken=")
+                    resp_cookies = str(resp.cookies)
+                    cookies = resp_cookies.split("csrftoken=")
                     csrftoken += cookies[1][: cookies[1].find(";")]
             await asyncio.sleep(5)
 
