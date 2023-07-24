@@ -424,6 +424,7 @@ class AsyncFetcher:
                         return url, await response.text()
         except Exception as e:
             print(f"Takeover check error on: {url} : {e}")
+        finally:
             return url, ""
 
     @classmethod
