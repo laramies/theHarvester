@@ -17,7 +17,7 @@ class RetryResult(NamedTuple):
 class SuccessResult(NamedTuple):
     fragments: List[str]
     next_page: Union[int, None]
-    last_page: int
+    last_page: Union[int, None]
 
 
 class ErrorResult(NamedTuple):
@@ -32,7 +32,7 @@ class SearchGithubCode:
         self.server = "api.github.com"
         self.limit = limit
         self.counter: int = 0
-        self.page: int = 1
+        self.page: Union[int, None] = 1
         self.key = Core.github_key()
         # If you don't have a personal access token, GitHub narrows your search capabilities significantly
         # rate limits you more severely
@@ -71,7 +71,6 @@ class SearchGithubCode:
         if status == 200:
             results = await self.fragments_from_response(json_data)
             next_page = await self.page_from_response("next", links)
-            # TODO: figure out what int is last page
             last_page = await self.page_from_response("last", links)
             return SuccessResult(results, next_page, last_page)
         elif status == 429 or status == 403:
@@ -105,7 +104,7 @@ class SearchGithubCode:
                     return await resp.text(), await resp.json(), resp.status, resp.links
 
     @staticmethod
-    async def next_page_or_end(result: SuccessResult) -> int:
+    async def next_page_or_end(result: SuccessResult) -> Union[int, None]:
         if result.next_page is not None:
             return result.next_page
         else:
