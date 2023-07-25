@@ -176,7 +176,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
             print(f'\033[94m[*] Searching {source[0].upper() + source[1:]}. ')
 
         if store_host:
-            host_names = {host for host in filter(await search_engine.get_hostnames()) if f'.{word}' in host}
+            host_names = list({host for host in filter(await search_engine.get_hostnames()) if f'.{word}' in host})
             host_names = list(host_names)
             if source != 'hackertarget' and source != 'pentesttools' and source != 'rapiddns':
                 # If a source is inside this conditional, it means the hosts returned must be resolved to obtain ip
@@ -574,10 +574,13 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                         if isinstance(e, MissingKey):
                             print(e)
         else:
-            try:
-                # Check if dns_brute is defined
-                rest_args.dns_brute
-            except Exception:
+            if rest_args is not None:
+                try:
+                    rest_args.dns_brute
+                except Exception:
+                    print('\n[!] Invalid source.\n')
+                    sys.exit(1)
+            else:
                 print('\n[!] Invalid source.\n')
                 sys.exit(1)
 
@@ -848,7 +851,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
         print('\n[*] Virtual hosts:')
         print('------------------')
         for data in host_ip:
-            from theHarvester.discovery import bingsearch
             basic_search = bingsearch.SearchBing(data, limit, start)
             await basic_search.process_vhost()
             results = await basic_search.get_allhostnames()
@@ -890,19 +892,19 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                 async with Pool(10) as pool:
                     results = await pool.map(screen_shotter.visit, list(unique_resolved_domains))
                     # Filter out domains that we couldn't connect to
-                    unique_resolved_domains = list(sorted({tup[0] for tup in results if len(tup[1]) > 0}))
+                    unique_resolved_domains_list = list(sorted({tup[0] for tup in results if len(tup[1]) > 0}))
                 async with Pool(3) as pool:
-                    print(f'Length of unique resolved domains: {len(unique_resolved_domains)} chunking now!\n')
+                    print(f'Length of unique resolved domains: {len(unique_resolved_domains_list)} chunking now!\n')
                     # If you have the resources, you could make the function faster by increasing the chunk number
                     chunk_number = 14
-                    for chunk in screen_shotter.chunk_list(unique_resolved_domains, chunk_number):
+                    for chunk in screen_shotter.chunk_list(unique_resolved_domains_list, chunk_number):
                         try:
                             screenshot_tups.extend(await pool.map(screen_shotter.take_screenshot, chunk))
                         except Exception as ee:
                             print(f'An exception has occurred while mapping: {ee}')
             end = time.perf_counter()
             # There is probably an easier way to do this
-            total = end - start_time
+            total = int(end - start_time)
             mon, sec = divmod(total, 60)
             hr, mon = divmod(mon, 60)
             total_time = "%02d:%02d" % (mon, sec)
