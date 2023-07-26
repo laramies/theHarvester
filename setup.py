@@ -1,11 +1,12 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
+
 from theHarvester.lib.version import version
 
-with open('README.md', 'r') as fh:
+with open("README.md", "r") as fh:
     long_description: str = fh.read()
 
 setup(
-    name='theHarvester',
+    name="theHarvester",
     version=version(),
     author="Christian Martorella",
     author_email="cmartorella@edge-security.com",
@@ -13,11 +14,9 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/laramies/theHarvester",
-    packages=find_packages(exclude=['tests']),
-    python_requires='>=3.9',
-    scripts=['bin/theHarvester',
-             'bin/restfulHarvest'],
-
+    packages=find_packages(exclude=["tests"]),
+    python_requires=">=3.9",
+    scripts=["bin/theHarvester", "bin/restfulHarvest"],
     classifiers=[
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.9",
@@ -27,15 +26,17 @@ setup(
         "Operating System :: OS Independent",
     ],
     data_files=[
-        ('/etc/theHarvester', [
-            'wordlists/general/common.txt',
-            'wordlists/dns-big.txt',
-            'wordlists/dns-names.txt',
-            'wordlists/dorks.txt',
-            'wordlists/names_small.txt',
-            'api-keys.yaml',
-            'proxies.yaml'
-        ]
+        (
+            "/etc/theHarvester",
+            [
+                "wordlists/general/common.txt",
+                "wordlists/dns-big.txt",
+                "wordlists/dns-names.txt",
+                "wordlists/dorks.txt",
+                "wordlists/names_small.txt",
+                "api-keys.yaml",
+                "proxies.yaml",
+            ],
         )
     ],
 )
