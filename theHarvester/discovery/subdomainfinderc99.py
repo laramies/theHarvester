@@ -1,9 +1,11 @@
-from theHarvester.lib.core import *
-from theHarvester.discovery.constants import get_delay
-from theHarvester.parsers import myparser
 from typing import Set
-from bs4 import BeautifulSoup
+
 import ujson
+from bs4 import BeautifulSoup
+
+from theHarvester.discovery.constants import get_delay
+from theHarvester.lib.core import *
+from theHarvester.parsers import myparser
 
 
 class SearchSubdomainfinderc99:
@@ -12,21 +14,24 @@ class SearchSubdomainfinderc99:
         self.total_results: Set = set()
         self.proxy = False
         # TODO add api support
-        self.server = 'https://subdomainfinder.c99.nl/'
-        self.totalresults = ''
+        self.server = "https://subdomainfinder.c99.nl/"
+        self.totalresults = ""
 
     async def do_search(self) -> None:
         # Based on https://gist.github.com/th3gundy/bc83580cbe04031e9164362b33600962
-        headers = {'User-Agent': Core.get_user_agent()}
-        resp = await AsyncFetcher.fetch_all([self.server], headers=headers, proxy=self.proxy)
+        headers = {"User-Agent": Core.get_user_agent()}
+        resp = await AsyncFetcher.fetch_all(
+            [self.server], headers=headers, proxy=self.proxy
+        )
         data = await self.get_csrf_params(resp[0])
 
-        data['scan_subdomains'] = ''
-        data['domain'] = self.word
-        data['privatequery'] = 'on'
+        data["scan_subdomains"] = ""
+        data["domain"] = self.word
+        data["privatequery"] = "on"
         await asyncio.sleep(get_delay())
-        second_resp = await AsyncFetcher.post_fetch(self.server, headers=headers, proxy=self.proxy,
-                                                    data=ujson.dumps(data))
+        second_resp = await AsyncFetcher.post_fetch(
+            self.server, headers=headers, proxy=self.proxy, data=ujson.dumps(data)
+        )
 
         # print(second_resp)
         self.totalresults += second_resp
@@ -50,10 +55,10 @@ class SearchSubdomainfinderc99:
     @staticmethod
     async def get_csrf_params(data):
         csrf_params = {}
-        html = BeautifulSoup(data, 'html.parser').find('div', {'class': 'input-group'})
-        for c in html.find_all('input'):
+        html = BeautifulSoup(data, "html.parser").find("div", {"class": "input-group"})
+        for c in html.find_all("input"):
             try:
-                csrf_params[c.get('name')] = c.get('value')
+                csrf_params[c.get("name")] = c.get("value")
             except Exception:
                 continue
 
