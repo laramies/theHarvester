@@ -107,7 +107,7 @@ class SearchVirustotal:
             x
             for x in total_subdomains
             if "edgekey.net" not in str(x)
-            and "edgesuite.net" not in str(x)
+            and "akadns.net" not in str(x)
             and "include:_spf" not in str(x)
         ]
         total_subdomains.sort()
