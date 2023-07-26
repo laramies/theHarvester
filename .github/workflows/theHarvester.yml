@@ -31,6 +31,14 @@ jobs:
           pip install wheel
           pip install -r requirements/dev.txt
 
+      - name: Lint with black
+        run: |
+          black . --diff --check
+      
+      - name: Lint with isort
+        run: |
+          isort . --diff --check
+
       - name: Lint with flake8
         run: |
           # stop the build if there are Python syntax errors or undefined names
