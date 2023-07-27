@@ -5,16 +5,55 @@ import re
 import secrets
 import string
 import sys
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import netaddr
 import ujson
 
-from theHarvester.discovery import *
-from theHarvester.discovery import dnssearch, shodansearch, takeover
-from theHarvester.discovery.constants import *
+from theHarvester.discovery import (
+    anubis,
+    baidusearch,
+    bevigil,
+    binaryedgesearch,
+    bingsearch,
+    bravesearch,
+    bufferoverun,
+    censysearch,
+    certspottersearch,
+    criminalip,
+    crtsh,
+    dnsdumpster,
+    dnssearch,
+    duckduckgosearch,
+    fullhuntsearch,
+    githubcode,
+    hackertarget,
+    huntersearch,
+    intelxsearch,
+    netlas,
+    onyphe,
+    otxsearch,
+    pentesttools,
+    projectdiscovery,
+    rapiddns,
+    rocketreach,
+    searchhunterhow,
+    securitytrailssearch,
+    shodansearch,
+    sitedossier,
+    subdomaincenter,
+    subdomainfinderc99,
+    takeover,
+    threatminer,
+    tombasearch,
+    urlscan,
+    virustotal,
+    yahoosearch,
+    zoomeyesearch,
+)
+from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib import hostchecker, stash
-from theHarvester.lib.core import *
+from theHarvester.lib.core import Core
 
 
 async def start(rest_args: Optional[argparse.Namespace] = None):
@@ -352,8 +391,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
 
             for engineitem in engines:
                 if engineitem == "anubis":
-                    from theHarvester.discovery import anubis
-
                     try:
                         anubis_search = anubis.SearchAnubis(word)
                         stor_lst.append(
@@ -363,8 +400,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                         print(e)
 
                 elif engineitem == "baidu":
-                    from theHarvester.discovery import baidusearch
-
                     try:
                         baidu_search = baidusearch.SearchBaidu(word, limit)
                         stor_lst.append(
@@ -379,8 +414,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                         print(e)
 
                 elif engineitem == "bevigil":
-                    from theHarvester.discovery import bevigil
-
                     try:
                         bevigil_search = bevigil.SearchBeVigil(word)
                         stor_lst.append(
@@ -395,8 +428,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                         print(e)
 
                 elif engineitem == "binaryedge":
-                    from theHarvester.discovery import binaryedgesearch
-
                     try:
                         binaryedge_search = binaryedgesearch.SearchBinaryEdge(
                             word, limit
@@ -408,8 +439,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                         print(e)
 
                 elif engineitem == "bing" or engineitem == "bingapi":
-                    from theHarvester.discovery import bingsearch
-
                     try:
                         bing_search = bingsearch.SearchBing(word, limit, start)
                         bingapi = ""
@@ -433,8 +462,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                             print(e)
 
                 elif engineitem == "bufferoverun":
-                    from theHarvester.discovery import bufferoverun
-
                     try:
                         bufferoverun_search = bufferoverun.SearchBufferover(word)
                         stor_lst.append(
@@ -449,8 +476,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                         print(e)
 
                 elif engineitem == "brave":
-                    from theHarvester.discovery import bravesearch
-
                     try:
                         brave_search = bravesearch.SearchBrave(word, limit)
                         stor_lst.append(
@@ -465,8 +490,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                         print(e)
 
                 elif engineitem == "censys":
-                    from theHarvester.discovery import censysearch
-
                     try:
                         censys_search = censysearch.SearchCensys(word, limit)
                         stor_lst.append(
@@ -482,8 +505,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                             print(e)
 
                 elif engineitem == "certspotter":
-                    from theHarvester.discovery import certspottersearch
-
                     try:
                         certspotter_search = certspottersearch.SearchCertspoter(word)
                         stor_lst.append(
@@ -493,8 +514,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                         print(e)
 
                 elif engineitem == "criminalip":
-                    from theHarvester.discovery import criminalip
-
                     try:
                         criminalip_search = criminalip.SearchCriminalIP(word)
                         stor_lst.append(
@@ -514,8 +533,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
 
                 elif engineitem == "crtsh":
                     try:
-                        from theHarvester.discovery import crtsh
-
                         crtsh_search = crtsh.SearchCrtsh(word)
                         stor_lst.append(store(crtsh_search, "CRTsh", store_host=True))
                     except Exception as e:
@@ -525,8 +542,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
 
                 elif engineitem == "dnsdumpster":
                     try:
-                        from theHarvester.discovery import dnsdumpster
-
                         dns_dumpster_search = dnsdumpster.SearchDnsDumpster(word)
                         stor_lst.append(
                             store(
@@ -540,8 +555,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                         print(f"[!] An error occurred with dnsdumpster: {e}")
 
                 elif engineitem == "duckduckgo":
-                    from theHarvester.discovery import duckduckgosearch
-
                     duckduckgo_search = duckduckgosearch.SearchDuckDuckGo(word, limit)
                     stor_lst.append(
                         store(
@@ -553,8 +566,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                     )
 
                 elif engineitem == "fullhunt":
-                    from theHarvester.discovery import fullhuntsearch
-
                     try:
                         fullhunt_search = fullhuntsearch.SearchFullHunt(word)
                         stor_lst.append(
@@ -566,8 +577,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
 
                 elif engineitem == "github-code":
                     try:
-                        from theHarvester.discovery import githubcode
-
                         github_search = githubcode.SearchGithubCode(word, limit)
                         stor_lst.append(
                             store(
@@ -581,16 +590,12 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                         print(ex)
 
                 elif engineitem == "hackertarget":
-                    from theHarvester.discovery import hackertarget
-
                     hackertarget_search = hackertarget.SearchHackerTarget(word)
                     stor_lst.append(
                         store(hackertarget_search, engineitem, store_host=True)
                     )
 
                 elif engineitem == "hunter":
-                    from theHarvester.discovery import huntersearch
-
                     # Import locally or won't work.
                     try:
                         hunter_search = huntersearch.SearchHunter(word, limit, start)
@@ -607,8 +612,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                             print(e)
 
                 elif engineitem == "hunterhow":
-                    from theHarvester.discovery import searchhunterhow
-
                     try:
                         hunterhow_search = searchhunterhow.SearchHunterHow(word)
                         stor_lst.append(
@@ -621,8 +624,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                             print(f"An exception has occurred in hunterhow search: {e}")
 
                 elif engineitem == "intelx":
-                    from theHarvester.discovery import intelxsearch
-
                     # Import locally or won't work.
                     try:
                         intelx_search = intelxsearch.SearchIntelx(word)
@@ -641,8 +642,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                             print(f"An exception has occurred in Intelx search: {e}")
 
                 elif engineitem == "netlas":
-                    from theHarvester.discovery import netlas
-
                     try:
                         netlas_search = netlas.SearchNetlas(word)
                         stor_lst.append(
@@ -658,8 +657,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                             print(e)
 
                 elif engineitem == "onyphe":
-                    from theHarvester.discovery import onyphe
-
                     try:
                         onyphe_search = onyphe.SearchOnyphe(word)
                         stor_lst.append(
@@ -675,8 +672,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                         print(e)
 
                 elif engineitem == "otx":
-                    from theHarvester.discovery import otxsearch
-
                     try:
                         otxsearch_search = otxsearch.SearchOtx(word)
                         stor_lst.append(
@@ -691,8 +686,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                         print(e)
 
                 elif engineitem == "pentesttools":
-                    from theHarvester.discovery import pentesttools
-
                     try:
                         pentesttools_search = pentesttools.SearchPentestTools(word)
                         stor_lst.append(
@@ -707,8 +700,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                             )
 
                 elif engineitem == "projectdiscovery":
-                    from theHarvester.discovery import projectdiscovery
-
                     try:
                         projectdiscovery_search = projectdiscovery.SearchDiscovery(word)
                         stor_lst.append(
@@ -721,8 +712,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                             print("An exception has occurred in ProjectDiscovery")
 
                 elif engineitem == "rapiddns":
-                    from theHarvester.discovery import rapiddns
-
                     try:
                         rapiddns_search = rapiddns.SearchRapidDns(word)
                         stor_lst.append(
@@ -732,8 +721,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                         print(e)
 
                 elif engineitem == "rocketreach":
-                    from theHarvester.discovery import rocketreach
-
                     try:
                         rocketreach_search = rocketreach.SearchRocketReach(word, limit)
                         stor_lst.append(
@@ -746,8 +733,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                             print(f"An exception has occurred in RocketReach: {e}")
 
                 elif engineitem == "subdomaincenter":
-                    from theHarvester.discovery import subdomaincenter
-
                     try:
                         subdomaincenter_search = subdomaincenter.SubdomainCenter(word)
                         stor_lst.append(
@@ -757,8 +742,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                         print(e)
 
                 elif engineitem == "securityTrails":
-                    from theHarvester.discovery import securitytrailssearch
-
                     try:
                         securitytrails_search = (
                             securitytrailssearch.SearchSecuritytrail(word)
@@ -776,8 +759,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                             print(e)
 
                 elif engineitem == "sitedossier":
-                    from theHarvester.discovery import sitedossier
-
                     try:
                         sitedossier_search = sitedossier.SearchSitedossier(word)
                         stor_lst.append(
@@ -787,8 +768,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                         print(e)
 
                 elif engineitem == "subdomainfinderc99":
-                    from theHarvester.discovery import subdomainfinderc99
-
                     try:
                         subdomainfinderc99_search = (
                             subdomainfinderc99.SearchSubdomainfinderc99(word)
@@ -807,8 +786,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                             )
 
                 elif engineitem == "threatminer":
-                    from theHarvester.discovery import threatminer
-
                     try:
                         threatminer_search = threatminer.SearchThreatminer(word)
                         stor_lst.append(
@@ -824,8 +801,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
 
                 elif engineitem == "tomba":
                     try:
-                        from theHarvester.discovery import tombasearch
-
                         tomba_search = tombasearch.SearchTomba(word, limit, start)
                         stor_lst.append(
                             store(
@@ -840,8 +815,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                             print(e)
 
                 elif engineitem == "urlscan":
-                    from theHarvester.discovery import urlscan
-
                     try:
                         urlscan_search = urlscan.SearchUrlscan(word)
                         stor_lst.append(
@@ -859,8 +832,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
 
                 elif engineitem == "virustotal":
                     try:
-                        from theHarvester.discovery import virustotal
-
                         virustotal_search = virustotal.SearchVirustotal(word)
                         stor_lst.append(
                             store(virustotal_search, engineitem, store_host=True)
@@ -870,8 +841,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                             print(e)
 
                 elif engineitem == "yahoo":
-                    from theHarvester.discovery import yahoosearch
-
                     try:
                         yahoo_search = yahoosearch.SearchYahoo(word, limit)
                         stor_lst.append(
@@ -887,8 +856,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
 
                 elif engineitem == "zoomeye":
                     try:
-                        from theHarvester.discovery import zoomeyesearch
-
                         zoomeye_search = zoomeyesearch.SearchZoomEye(word, limit)
                         stor_lst.append(
                             store(
