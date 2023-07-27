@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 import argparse
 import asyncio
+import os
 import re
 import secrets
 import string
 import sys
+import time
 from typing import Any, Dict, List, Optional
 
 import netaddr
 import ujson
+from aiomultiprocess import Pool
 
 from theHarvester.discovery import (
     anubis,
@@ -54,6 +57,7 @@ from theHarvester.discovery import (
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib import hostchecker, stash
 from theHarvester.lib.core import Core
+from theHarvester.screenshot.screenshot import ScreenShotter
 
 
 async def start(rest_args: Optional[argparse.Namespace] = None):
@@ -181,7 +185,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
         await db.do_init()
     except Exception:
         pass
-    import os
 
     if len(filename) > 2 and filename[:2] == "~/":
         filename = os.path.expanduser(filename)
@@ -596,7 +599,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                     )
 
                 elif engineitem == "hunter":
-                    # Import locally or won't work.
                     try:
                         hunter_search = huntersearch.SearchHunter(word, limit, start)
                         stor_lst.append(
@@ -624,7 +626,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                             print(f"An exception has occurred in hunterhow search: {e}")
 
                 elif engineitem == "intelx":
-                    # Import locally or won't work.
                     try:
                         intelx_search = intelxsearch.SearchIntelx(word)
                         stor_lst.append(
@@ -1149,23 +1150,17 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
     # print(f'DNSlookup: {dnslookup}')
     if dnslookup is True:
         print("\n[*] Starting active queries for DNSLookup.")
-        # load the reverse dns tools
-        from theHarvester.discovery.dnssearch import (
-            generate_postprocessing_callback,
-            reverse_all_ips_in_range,
-            serialize_ip_range,
-        )
 
         # reverse each iprange in a separate task
         __reverse_dns_tasks: Dict = {}
         for entry in host_ip:
-            __ip_range = serialize_ip_range(ip=entry, netmask="24")
+            __ip_range = dnssearch.serialize_ip_range(ip=entry, netmask="24")
             if __ip_range and __ip_range not in set(__reverse_dns_tasks.keys()):
                 print("\n[*] Performing reverse lookup on " + __ip_range)
                 __reverse_dns_tasks[__ip_range] = asyncio.create_task(
-                    reverse_all_ips_in_range(
+                    dnssearch.reverse_all_ips_in_range(
                         iprange=__ip_range,
-                        callback=generate_postprocessing_callback(
+                        callback=dnssearch.generate_postprocessing_callback(
                             target=word, local_results=dnsrev, overall_results=full
                         ),
                         nameservers=final_dns_resolver_list
@@ -1205,12 +1200,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
     # Screenshots
     screenshot_tups = []
     if len(args.screenshot) > 0:
-        import time
-
-        from aiomultiprocess import Pool
-
-        from theHarvester.screenshot.screenshot import ScreenShotter
-
         screen_shotter = ScreenShotter(args.screenshot)
         path_exists = screen_shotter.verify_path()
         # Verify path exists, if not create it or if user does not create it skips screenshot
