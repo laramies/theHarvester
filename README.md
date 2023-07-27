@@ -10,69 +10,73 @@ team assessment or penetration test. It performs open source intelligence (OSINT
 a domain's external threat landscape. The tool gathers names, emails, IPs, subdomains, and URLs by using<br>
 multiple public resources that include:<br>
 
-Passive:
---------
+Passive modules:
+----------------
 * anubis: Anubis-DB - https://github.com/jonluca/anubis
 
-* bevigil: CloudSEK BeVigil scans mobile application for OSINT assets and makes them available through an API - https://bevigil.com/osint-api
+* bevigil: CloudSEK BeVigil scans mobile application for OSINT assets (Requires an API key, see below.) - https://bevigil.com/osint-api
 
 * baidu: Baidu search engine - www.baidu.com
 
-* binaryedge: List of known subdomains from www.binaryedge.io
+* binaryedge: List of known subdomains (Requires an API key, see below.) - https://www.binaryedge.io
 
-* bing: Microsoft search engine - www.bing.com
+* bing: Microsoft search engine - https://www.bing.com
 
 * bingapi: Microsoft search engine, through the API (Requires an API key, see below.)
 
 * brave: Brave search engine - https://search.brave.com/
 
-* bufferoverun: https://tls.bufferover.run
+* bufferoverun: (Requires an API key, see below.) https://tls.bufferover.run
 
-* censys: [Censys search engine](https://search.censys.io/), will use certificates searches to enumerate subdomains and gather emails (Requires an API key, see below.) - [censys.io](https://censys.io/)
+* censys: [Censys search engine](https://search.censys.io/) will use certificates searches to enumerate subdomains and gather emails<br>
+  (Requires an API key, see below.) https://censys.io
 
 * certspotter: Cert Spotter monitors Certificate Transparency logs - https://sslmate.com/certspotter/
 
-* criminalip Specialized Cyber Threat Intelligence (CTI) search engine - https://www.criminalip.io
+* criminalip: Specialized Cyber Threat Intelligence (CTI) search engine (Requires an API key, see below.) - https://www.criminalip.io
 
 * crtsh: Comodo Certificate search - https://crt.sh
 
 * dnsdumpster: DNSdumpster search engine - https://dnsdumpster.com
 
-* duckduckgo: DuckDuckGo search engine - www.duckduckgo.com
+* duckduckgo: DuckDuckGo search engine - https://duckduckgo.com
 
-* fullhunt: The Next-Generation Attack Surface Security Platform - https://fullhunt.io
+* fullhunt: Next-generation attack surface security platform (Requires an API key, see below.) - https://fullhunt.io
 
 * github-code: GitHub code search engine (Requires a GitHub Personal Access Token, see below.) - www.github.com
 
 * hackertarget: Online vulnerability scanners and network intelligence to help organizations - https://hackertarget.com
 
-* hunter: Hunter search engine (Requires an API key, see below.) - www.hunter.io
+* hunter: Hunter search engine (Requires an API key, see below.) - https://hunter.io
 
-* hunterhow: Internet Search Engines For Security Researchers - https://hunter.how
+* hunterhow: Internet search engines for security researchers (Requires an API key, see below.) - https://hunter.how
 
-* intelx: Intelx search engine (Requires an API key, see below.) - www.intelx.io
+* intelx: Intelx search engine (Requires an API key, see below.) - http://intelx.io
 
-* Netlas: A Shodan or Censys competitor - https://app.netlas.io
+* netlas: A Shodan or Censys competitor (Requires an API key, see below.) - https://app.netlas.io
 
-* Onyphe: Cyber Defense Search Engine - https://www.onyphe.io/
+* onyphe: Cyber defense search engine (Requires an API key, see below.) - https://www.onyphe.io/
 
-* otx: AlienVault Open Threat Exchange - https://otx.alienvault.com
+* otx: AlienVault open threat exchange - https://otx.alienvault.com
 
-* Pentest-Tools.com: Cloud-based toolkit for offensive security testing, focused on web applications and network penetration testing (Requires an API key, see below.) - https://pentest-tools.com/
+* pentestTools: Cloud-based toolkit for offensive security testing, focused on web applications and network penetration<br>
+  testing (Requires an API key, see below.) - https://pentest-tools.com/
 
-* projecdiscovery: We actively collect and maintain internet-wide assets data,
-  to enhance research and analyse changes around DNS for better insights (Requires an API key, see below.) - https://chaos.projectdiscovery.io
+* projecDiscovery: We actively collect and maintain internet-wide assets data, to enhance research and analyse changes around<br>
+  DNS for better insights (Requires an API key, see below.) - https://chaos.projectdiscovery.io
 
 * rapiddns: DNS query tool which make querying subdomains or sites of a same IP easy! https://rapiddns.io
 
-* rocketreach: Access real-time verified personal/professional emails, phone numbers, and social media links. - https://rocketreach.co
+* rocketreach: Access real-time verified personal/professional emails, phone numbers, and social media links (Requires an API key,<br>
+  see below.) - https://rocketreach.co
 
-* securityTrails: Security Trails search engine, the world's largest repository of historical DNS data<br>
-  (Requires an API key, see below.) - www.securitytrails.com
+* securityTrails: Security Trails search engine, the world's largest repository of historical DNS data (Requires an API key, see<br>
+  below.) - https://securitytrails.com
 
-* shodan: Shodan search engine, will search for ports and banners from discovered hosts (Requires an API key, see below.) - https://shodan.io
+* -s, --shodan: Shodan search engine will search for ports and banners from discovered hosts (Requires an API key, see below.)<br>
+  https://shodan.io
 
-* sitedossier: Find available information on a site
+* sitedossier: Find available information on a site - http://www.sitedossier.com
 
 * subdomaincenter: A subdomain finder tool used to find subdomains of a given domain - https://www.subdomain.center/
 
@@ -80,21 +84,21 @@ Passive:
 
 * threatminer: Data mining for threat intelligence - https://www.threatminer.org/
 
-* tomba: Tomba search engine (Requires an API key, see below.) - www.tomba.io
+* tomba: Tomba search engine (Requires an API key, see below.) - https://tomba.io
 
 * urlscan: A sandbox for the web that is a URL and website scanner - https://urlscan.io
 
 * vhost: Bing virtual hosts search
 
-* virustotal: virustotal.com domain search
+* virustotal: Domain search (Requires an API key, see below.) - https://www.virustotal.com
 
 * yahoo: Yahoo search engine
 
-* zoomeye: China version of shodan - https://www.zoomeye.org
+* zoomeye: China's version of Shodan (Requires an API key, see below.) - https://www.zoomeye.org
 
 
-Active:
--------
+Active modules:
+---------------
 * DNS brute force: dictionary brute force enumeration
 * Screenshots: Take screenshots of subdomains that were found
 
@@ -105,7 +109,7 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * bevigil - Free upto 50 queries. Pricing can be found here: https://bevigil.com/pricing/osint
 * binaryedge - $10/month
 * bing
-* bufferoverun - uses the free api
+* bufferoverun - uses the free API
 * censys - API keys are required and can be retrieved from your [Censys account](https://search.censys.io/account/api).
 * criminalip
 * fullhunt
@@ -114,12 +118,13 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * hunterhow
 * intelx
 * netlas - $
-* pentesttools - $
-* projecdiscovery - invite only for now
+* onyphe -$
+* pentestTools - $
+* projecDiscovery - invite only for now
 * rocketreach - $
 * securityTrails
 * shodan - $
-* tomba - Free up to 50 search. Pricing can be found here: https://tomba.io/pricing
+* tomba - Free up to 50 search.
 * zoomeye
 
 Install and dependencies:
