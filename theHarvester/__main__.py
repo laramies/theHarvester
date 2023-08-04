@@ -308,7 +308,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
             host_names = list(
                 {
                     host
-                    for host in filter(await search_engine.get_hostnames())
+                    for host in await search_engine.get_hostnames()
                     if f".{word}" in host
                 }
             )
@@ -342,7 +342,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
             await db_stash.store_all(word, all_hosts, "host", source)
 
         if store_emails:
-            email_list = filter(await search_engine.get_emails())
+            email_list = await search_engine.get_emails()
             all_emails.extend(email_list)
             await db_stash.store_all(word, email_list, "email", source)
 
@@ -354,8 +354,8 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
         if store_results:
             email_list, host_names, urls = await search_engine.get_results()
             all_emails.extend(email_list)
-            host_names = [host for host in filter(host_names) if f".{word}" in host]
-            all_urls.extend(filter(urls))
+            host_names = [{host for host in host_names if f".{word}" in host}]
+            all_urls.extend(urls)
             all_hosts.extend(host_names)
             await db.store_all(word, all_hosts, "host", source)
             await db.store_all(word, all_emails, "email", source)
