@@ -1,8 +1,8 @@
 import asyncio
 from typing import Set
 
-from theHarvester.discovery.constants import MissingKey
-from theHarvester.lib.core import AsyncFetcher, Core, get_delay
+from theHarvester.discovery.constants import MissingKey, get_delay
+from theHarvester.lib.core import AsyncFetcher, Core
 
 
 class SearchBinaryEdge:

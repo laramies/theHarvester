@@ -1,6 +1,7 @@
 import asyncio
 
-from theHarvester.lib.core import AsyncFetcher, Core, get_delay
+from theHarvester.discovery.constants import get_delay
+from theHarvester.lib.core import AsyncFetcher, Core
 from theHarvester.parsers import myparser
 
 
