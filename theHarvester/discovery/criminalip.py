@@ -1,10 +1,9 @@
+import asyncio
 from typing import Set
 from urllib.parse import urlparse
 
-import ujson
-
 from theHarvester.discovery.constants import MissingKey, get_delay
-from theHarvester.lib.core import *
+from theHarvester.lib.core import AsyncFetcher, Core
 
 
 class SearchCriminalIP:

@@ -1,5 +1,7 @@
-from theHarvester.discovery.constants import *
-from theHarvester.lib.core import *
+import asyncio
+
+from theHarvester.discovery.constants import MissingKey
+from theHarvester.lib.core import AsyncFetcher, Core
 
 
 class SearchVirustotal:
@@ -9,7 +11,7 @@ class SearchVirustotal:
             raise MissingKey("virustotal")
         self.word = word
         self.proxy = False
-        self.hostnames: List = []
+        self.hostnames: list = []
 
     async def do_search(self) -> None:
         # TODO determine if more endpoints can yield useful info given a domain

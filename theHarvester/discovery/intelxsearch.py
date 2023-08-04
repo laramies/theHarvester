@@ -1,10 +1,11 @@
 import asyncio
+from typing import Any
 
 import requests
 import ujson
 
-from theHarvester.discovery.constants import *
-from theHarvester.lib.core import *
+from theHarvester.discovery.constants import MissingKey
+from theHarvester.lib.core import AsyncFetcher, Core
 from theHarvester.parsers import intelxparser
 
 

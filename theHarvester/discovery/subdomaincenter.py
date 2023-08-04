@@ -1,4 +1,4 @@
-from theHarvester.discovery.constants import *
+from theHarvester.lib.core import AsyncFetcher, Core
 
 
 class SubdomainCenter:

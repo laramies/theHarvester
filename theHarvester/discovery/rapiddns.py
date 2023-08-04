@@ -1,12 +1,12 @@
 from bs4 import BeautifulSoup
 
-from theHarvester.lib.core import *
+from theHarvester.lib.core import AsyncFetcher, Core
 
 
 class SearchRapidDns:
     def __init__(self, word) -> None:
         self.word = word
-        self.total_results: List = []
+        self.total_results: list = []
         self.proxy = False
 
     async def do_search(self):

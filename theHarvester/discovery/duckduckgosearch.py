@@ -1,7 +1,6 @@
 import ujson
 
-from theHarvester.discovery.constants import *
-from theHarvester.lib.core import *
+from theHarvester.lib.core import AsyncFetcher, Core
 from theHarvester.parsers import myparser
 
 
@@ -10,8 +9,8 @@ class SearchDuckDuckGo:
         self.word = word
         self.results = ""
         self.totalresults = ""
-        self.dorks: List = []
-        self.links: List = []
+        self.dorks: list = []
+        self.links: list = []
         self.database = "https://duckduckgo.com/?q="
         self.api = "https://api.duckduckgo.com/?q=x&format=json&pretty=1"  # Currently using API.
         self.quantity = "100"

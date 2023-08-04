@@ -2,7 +2,7 @@ from typing import Set
 from urllib.parse import urlparse
 
 from theHarvester.discovery.constants import MissingKey
-from theHarvester.lib.core import *
+from theHarvester.lib.core import AsyncFetcher, Core
 
 # from theHarvester.parsers import myparser
 

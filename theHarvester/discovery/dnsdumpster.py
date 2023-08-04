@@ -2,7 +2,7 @@ import asyncio
 
 import aiohttp
 
-from theHarvester.lib.core import *
+from theHarvester.lib.core import Core
 from theHarvester.parsers import myparser
 
 
