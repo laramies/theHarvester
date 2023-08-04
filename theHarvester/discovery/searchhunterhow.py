@@ -5,7 +5,7 @@ from typing import Set
 from dateutil.relativedelta import relativedelta
 
 from theHarvester.discovery.constants import MissingKey
-from theHarvester.lib.core import *
+from theHarvester.lib.core import AsyncFetcher, Core
 
 
 class SearchHunterHow:

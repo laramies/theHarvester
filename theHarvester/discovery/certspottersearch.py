@@ -1,6 +1,6 @@
 from typing import Set
 
-from theHarvester.lib.core import *
+from theHarvester.lib.core import AsyncFetcher
 
 
 class SearchCertspoter:

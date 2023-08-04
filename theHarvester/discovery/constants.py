@@ -1,7 +1,7 @@
 import random
 from typing import Optional, Union
 
-from theHarvester.lib.core import *
+from theHarvester.lib.core import AsyncFetcher, Core
 
 
 async def splitter(links):

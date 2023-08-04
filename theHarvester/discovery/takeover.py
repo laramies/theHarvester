@@ -4,7 +4,7 @@ from random import shuffle
 
 import ujson
 
-from theHarvester.lib.core import *
+from theHarvester.lib.core import AsyncFetcher, Core
 
 
 class TakeOver:

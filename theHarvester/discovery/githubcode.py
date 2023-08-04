@@ -5,8 +5,8 @@ from typing import Any, Dict, List, NamedTuple, Tuple, Union
 
 import aiohttp
 
-from theHarvester.discovery.constants import *
-from theHarvester.lib.core import *
+from theHarvester.discovery.constants import MissingKey, get_delay
+from theHarvester.lib.core import Core
 from theHarvester.parsers import myparser
 
 

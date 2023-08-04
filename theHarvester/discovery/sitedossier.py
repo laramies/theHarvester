@@ -1,6 +1,9 @@
+import asyncio
+
 from bs4 import BeautifulSoup
 
-from theHarvester.discovery.constants import *
+from theHarvester.discovery.constants import get_delay
+from theHarvester.lib.core import AsyncFetcher, Core
 
 
 class SearchSitedossier:
