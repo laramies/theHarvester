@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import socket
-from typing import Any, List, Set, Tuple
+from typing import Any, List, Set
 
 import aiodns
 
