@@ -354,7 +354,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
         if store_results:
             email_list, host_names, urls = await search_engine.get_results()
             all_emails.extend(email_list)
-            host_names = [{host for host in host_names if f".{word}" in host}]
+            host_names = list({host for host in host_names if f".{word}" in host})
             all_urls.extend(urls)
             all_hosts.extend(host_names)
             await db.store_all(word, all_hosts, "host", source)
