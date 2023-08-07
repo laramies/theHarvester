@@ -36,6 +36,8 @@ Passive modules:
 * criminalip: Specialized Cyber Threat Intelligence (CTI) search engine (Requires an API key, see below.) - https://www.criminalip.io
 
 * crtsh: Comodo Certificate search - https://crt.sh
+  
+* deepinfo: A comprehensive attack surface solution that has been dealing with Internet-wide data for multiple years. (Requires an API key, see below.) - https://www.deepinfo.com
 
 * dnsdumpster: DNSdumpster search engine - https://dnsdumpster.com
 
@@ -112,6 +114,7 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * bufferoverun - uses the free API
 * censys - API keys are required and can be retrieved from your [Censys account](https://search.censys.io/account/api).
 * criminalip
+* deepinfo
 * fullhunt
 * github
 * hunter - limited to 10 on the free plan, so you will need to do -l 10 switch
