@@ -2,4 +2,4 @@
 
 
 def version() -> str:
-    return "4.4.2"
+    return "4.4.3"
