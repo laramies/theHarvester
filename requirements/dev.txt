@@ -4,7 +4,7 @@ flake8==6.1.0
 isort==5.12.0
 mypy==1.5.0
 mypy-extensions==1.0.0
-pydantic==2.1.1
+pydantic==2.2.0
 pyre-check==0.9.18
 pyflakes==3.1.0
 pytest==7.4.0
