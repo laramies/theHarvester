@@ -7,8 +7,7 @@ COPY proxies.yaml /etc/theHarvester/
 WORKDIR /app
 COPY requirements.txt requirements.txt
 COPY requirements requirements
-RUN apk update && apk upgrade --available && apk add git libffi-dev gcc python3-dev py-pip libxml2-dev libxslt-dev && python3 -m pip install --upgrade pip
-
+RUN apk update && apk upgrade --available && apk add --no-cache musl-dev git libffi-dev gcc python3-dev py3-pip libxml2-dev libxslt-dev && python3 -m pip install --upgrade pip
 RUN python3 --version && pip3 install --no-cache-dir -r requirements.txt
 COPY . /app
 RUN chmod +x ./*.py
