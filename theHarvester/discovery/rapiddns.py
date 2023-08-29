@@ -1,4 +1,3 @@
-# comment here
 from bs4 import BeautifulSoup
 
 from theHarvester.lib.core import AsyncFetcher, Core
