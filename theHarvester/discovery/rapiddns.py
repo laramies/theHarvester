@@ -1,3 +1,4 @@
+# comment here
 from bs4 import BeautifulSoup
 
 from theHarvester.lib.core import AsyncFetcher, Core
@@ -26,7 +27,7 @@ class SearchRapidDns:
                 # Validation check
                 for row in rows:
                     cells = row.find_all("td")
-                    if len(cells) >= 0:
+                    if len(cells) > 0:
                         # sanity check
                         subdomain = str(cells[0].get_text())
                         if cells[-1].get_text() == "CNAME":
