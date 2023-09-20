@@ -13,6 +13,6 @@ types-certifi==2021.10.8.3
 types-chardet==5.0.4.6
 types-ujson==5.8.0.1
 types-PyYAML==6.0.12.11
-types-requests==2.31.0.2
+types-requests==2.31.0.3
 types-python-dateutil==2.8.19.14
 wheel==0.41.2
