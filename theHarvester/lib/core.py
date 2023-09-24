@@ -69,7 +69,7 @@ class Core:
 
     @staticmethod
     def hunterhow_key() -> str:
-        return Core.api_keys()["hunter"]["key"]
+        return Core.api_keys()["hunterhow"]["key"]
 
     @staticmethod
     def intelx_key() -> str:
