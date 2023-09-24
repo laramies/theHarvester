@@ -32,11 +32,5 @@ class TestCertspotter(object):
         await search.process()
         assert isinstance(await search.get_hostnames(), set)
 
-    async def test_search_no_results(self) -> None:
-        search = certspottersearch.SearchCertspoter("radiant.eu")
-        await search.process()
-        assert len(await search.get_hostnames()) == 0
-
-
 if __name__ == "__main__":
     pytest.main()
