@@ -21,7 +21,7 @@ DATA_DIR = Path(__file__).parents[1] / "data"
 CONFIG_DIRS = [
     Path("/etc/theHarvester/"),
     Path("/usr/local/etc/theHarvester/"),
-    Path.home() / ".theHarvester",
+    Path("~/.theHarvester"),
 ]
 
 
@@ -31,14 +31,14 @@ class Core:
         # Return the first we find
         for path in CONFIG_DIRS:
             with contextlib.suppress(FileNotFoundError):
-                file = path / filename
+                file = path.expanduser() / filename
                 config = file.read_text()
                 print(f"Read {filename} from {file}")
                 return config
 
         # Fallback to creating default in user's home dir
         default = (DATA_DIR / filename).read_text()
-        dest = CONFIG_DIRS[-1] / filename
+        dest = CONFIG_DIRS[-1].expanduser() / filename
         dest.parent.mkdir(exist_ok=True)
         dest.write_text(default)
         print(f"Created default {filename} at {dest}")
