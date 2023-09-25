@@ -102,7 +102,7 @@ Active modules:
 * DNS brute force: dictionary brute force enumeration
 * Screenshots: Take screenshots of subdomains that were found
 
-Modules that require an API keys:
+Modules that require an API key:
 --------------------------------
 Documentation to setup API keys can be found at - https://github.com/laramies/theHarvester/wiki/Installation#api-keys
 
