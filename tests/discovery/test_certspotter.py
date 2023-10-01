@@ -32,5 +32,6 @@ class TestCertspotter(object):
         await search.process()
         assert isinstance(await search.get_hostnames(), set)
 
+
 if __name__ == "__main__":
     pytest.main()
