@@ -28,21 +28,24 @@ class SearchCensys:
             cert_search = CensysCerts(
                 api_id=self.key[0],
                 api_secret=self.key[1],
-                user_agent=f"censys/{__version__} (theHarvester/{thehavester_version}); +https://github.com/laramies/theHarvester)",
+                user_agent=f"censys-python/{__version__} (theHarvester/{thehavester_version}); +https://github.com/laramies/theHarvester)",
             )
         except CensysUnauthorizedException:
             raise MissingKey("Censys ID and/or Secret")
 
-        query = f"parsed.names: {self.word}"
+        query = f"names: {self.word}"
         try:
             response = cert_search.search(
                 query=query,
-                fields=["parsed.names", "metadata", "parsed.subject.email_address"],
+                fields=["names", "parsed.subject.email_address"],
                 max_records=self.limit,
             )
             for cert in response():
-                self.totalhosts.update(cert.get("parsed.names", []))
-                self.emails.update(cert.get("parsed.subject.email_address", []))
+                self.totalhosts.update(cert.get("names", []))
+                email_address = (
+                    cert.get("parsed", {}).get("subject", {}).get("email_address", [])
+                )
+                self.emails.update(email_address)
         except CensysRateLimitExceededException:
             print("Censys rate limit exceeded")
 
