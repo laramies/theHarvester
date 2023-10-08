@@ -1,3 +1,39 @@
+[project]
+name = "theHarvester"
+description = "theHarvester is a very simple, yet effective tool designed to be used in the early stages of a penetration test"
+readme = "README.md"
+authors = [
+    { name = "Christian Martorella", email = "cmartorella@edge-security.com" },
+    { name = "Jay Townsend", email = "townsend891@hotmail.com" },
+    { name = "Matthew Brown", email = "36310667+NotoriousRebel@users.noreply.github.com" },
+]
+requires-python = ">=3.9"
+urls.Homepage = "https://github.com/laramies/theHarvester"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
+    "Operating System :: OS Independent",
+]
+dynamic = ["dependencies", "optional-dependencies", "version"]
+
+[project.scripts]
+theHarvester = "theHarvester.theHarvester:main"
+restfulHarvest = "theHarvester.restfulHarvest:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "theHarvester.lib.version.VERSION" }
+dependencies = { file = "requirements/base.txt" }
+optional-dependencies.dev = { file = "requirements/dev.txt" }
+
+[tool.setuptools.packages.find]
+include = ["theHarvester*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.txt", "*.yaml"]
+
 [tool.pytest.ini_options]
 minversion = "7.1"
 addopts = "--no-header --asyncio-mode=auto"
@@ -5,3 +41,7 @@ testpaths = [
     "tests",
     "tests/discovery/",
 ]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"

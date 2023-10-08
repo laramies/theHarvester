@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import random
 import ssl
+from pathlib import Path
 from typing import Any, List, Sized, Tuple, Union
 
 import aiohttp
@@ -15,20 +17,36 @@ import yaml
 
 from .version import version
 
+DATA_DIR = Path(__file__).parents[1] / "data"
+CONFIG_DIRS = [
+    Path("/etc/theHarvester/"),
+    Path("/usr/local/etc/theHarvester/"),
+    Path("~/.theHarvester"),
+]
+
 
 class Core:
     @staticmethod
+    def _read_config(filename: str) -> str:
+        # Return the first we find
+        for path in CONFIG_DIRS:
+            with contextlib.suppress(FileNotFoundError):
+                file = path.expanduser() / filename
+                config = file.read_text()
+                print(f"Read {filename} from {file}")
+                return config
+
+        # Fallback to creating default in user's home dir
+        default = (DATA_DIR / filename).read_text()
+        dest = CONFIG_DIRS[-1].expanduser() / filename
+        dest.parent.mkdir(exist_ok=True)
+        dest.write_text(default)
+        print(f"Created default {filename} at {dest}")
+        return default
+
+    @staticmethod
     def api_keys() -> dict:
-        try:
-            with open("/etc/theHarvester/api-keys.yaml", "r") as api_keys:
-                keys = yaml.safe_load(api_keys)
-        except FileNotFoundError:
-            try:
-                with open("/usr/local/etc/theHarvester/api-keys.yaml", "r") as api_keys:
-                    keys = yaml.safe_load(api_keys)
-            except FileNotFoundError:
-                with open("api-keys.yaml", "r") as api_keys:
-                    keys = yaml.safe_load(api_keys)
+        keys = yaml.safe_load(Core._read_config("api-keys.yaml"))
         return keys["apikeys"]
 
     @staticmethod
@@ -117,21 +135,7 @@ class Core:
 
     @staticmethod
     def proxy_list() -> List:
-        try:
-            with open("/etc/theHarvester/proxies.yaml", "r") as proxy_file:
-                keys = yaml.safe_load(proxy_file)
-        except FileNotFoundError:
-            try:
-                with open(
-                    "/usr/local/etc/theHarvester/proxies.yaml", "r"
-                ) as proxy_file:
-                    keys = yaml.safe_load(proxy_file)
-            except FileNotFoundError:
-                try:
-                    with open("proxies.yaml", "r") as proxy_file:
-                        keys = yaml.safe_load(proxy_file)
-                except Exception:
-                    return []
+        keys = yaml.safe_load(Core._read_config("proxies.yaml"))
         http_list = (
             [f"http://{proxy}" for proxy in keys["http"]]
             if keys["http"] is not None

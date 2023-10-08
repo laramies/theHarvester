@@ -28,13 +28,12 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install wheel
-          pip install -r requirements/dev.txt
+          pip install .[dev]
 
       - name: Lint with black
         run: |
           black . --diff --check
-      
+
       - name: Lint with isort
         run: |
           isort . --diff --check
@@ -52,64 +51,63 @@ jobs:
 
       - name: Run theHarvester module Anubis
         run: |
-          python theHarvester.py -d apple.com -b anubis
+          theHarvester -d apple.com -b anubis
 
       - name: Run theHarvester module Baidu
         run: |
-          python theHarvester.py -d yale.edu -b baidu
+          theHarvester -d yale.edu -b baidu
 
       - name: Run theHarvester module Bing
         run: |
-          python theHarvester.py -d yale.edu -b bing
+          theHarvester -d yale.edu -b bing
 
       - name: Run theHarvester module CertSpotter
         run: |
-          python theHarvester.py -d yale.edu -b certspotter
+          theHarvester -d yale.edu -b certspotter
 
       - name: Run theHarvester module Crtsh
         run: |
-          python theHarvester.py -d hcl.com -b crtsh
+          theHarvester -d hcl.com -b crtsh
 
       - name: Run theHarvester module DnsDumpster
         run: |
-          python theHarvester.py -d yale.edu -b dnsdumpster
+          theHarvester -d yale.edu -b dnsdumpster
 
       - name: Run theHarvester module DuckDuckGo
         run: |
-          python theHarvester.py -d yale.edu -b duckduckgo
+          theHarvester -d yale.edu -b duckduckgo
 
       - name: Run theHarvester module HackerTarget
         run: |
-          python theHarvester.py -d yale.edu -b hackertarget
+          theHarvester -d yale.edu -b hackertarget
 
       - name: Run theHarvester module Intelx
         run: |
-          python theHarvester.py -d yale.edu -b intelx
+          theHarvester -d yale.edu -b intelx
 
       - name: Run theHarvester module Otx
         run: |
-          python theHarvester.py -d yale.edu -b otx
-
+          theHarvester -d yale.edu -b otx
 
       - name: Run theHarvester module RapidDns
         run: |
-          python theHarvester.py -d yale.edu -b rapiddns
+          theHarvester -d yale.edu -b rapiddns
 
       - name: Run theHarvester module Threatminer
         run: |
-          python theHarvester.py -d yale.edu -b threatminer
+          theHarvester -d yale.edu -b threatminer
 
       - name: Run theHarvester module Urlscan
         run: |
-          python theHarvester.py -d yale.edu -b urlscan
+          theHarvester -d yale.edu -b urlscan
 
       - name: Run theHarvester module Yahoo
         run: |
-          python theHarvester.py -d yale.edu -b yahoo
+          theHarvester -d yale.edu -b yahoo
 
       - name: Run theHarvester module DNS brute force
         run: |
-          python theHarvester.py -d yale.edu -c
+          theHarvester -d yale.edu -c
 
       - name: Static type checking with mypy
         run: |

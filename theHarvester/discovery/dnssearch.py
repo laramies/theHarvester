@@ -17,10 +17,13 @@ from typing import Callable, List, Optional
 from aiodns import DNSResolver
 
 from theHarvester.lib import hostchecker
+from theHarvester.lib.core import DATA_DIR
 
 #####################################################################
 # DNS FORCE
 #####################################################################
+
+DNS_NAMES = DATA_DIR / "wordlists" / "dns-names.txt"
 
 
 class DnsForce:
@@ -31,18 +34,8 @@ class DnsForce:
         # self.dnsserver = [dnsserver] if isinstance(dnsserver, str) else dnsserver
         # self.dnsserver = list(map(str, dnsserver.split(','))) if isinstance(dnsserver, str) else dnsserver
         self.dnsserver = dnsserver
-        try:
-            with open("/etc/theHarvester/wordlists/dns-names.txt", "r") as file:
-                self.list = file.readlines()
-        except FileNotFoundError:
-            try:
-                with open(
-                    "/usr/local/etc/theHarvester/wordlists/dns-names.txt", "r"
-                ) as file:
-                    self.list = file.readlines()
-            except FileNotFoundError:
-                with open("wordlists/dns-names.txt", "r") as file:
-                    self.list = file.readlines()
+        with DNS_NAMES.open("r") as file:
+            self.list = file.readlines()
         self.domain = domain.replace("www.", "")
         self.list = [f"{word.strip()}.{self.domain}" for word in self.list]
 
