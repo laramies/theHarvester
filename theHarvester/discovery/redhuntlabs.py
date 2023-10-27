@@ -1,8 +1,14 @@
 import asyncio
 import requests
 
+from theHarvester.discovery.constants import MissingKey
+from theHarvester.lib.core import AsyncFetcher, Core
+
 class SearchRedHuntLabs:
     def __init__(self, word, page=1, page_size=40):
+        self.key = Core.virustotal_key()
+        if self.key is None:
+            raise MissingKey("virustotal")
         self.word = word
         self.page = page
         self.page_size = page_size
@@ -14,8 +20,7 @@ class SearchRedHuntLabs:
         api_url = f"https://reconapi.redhuntlabs.com/community/v1/domains/subdomains?domain={self.word}&page_size={self.page_size}&page={self.page}"
 
         headers = {
-            "User-Agent": Core.get_user_agent(),  # You may need to provide a user-agent
-            # Add any necessary headers here
+            "X-BLOBR-KEY": self.key,
         }
 
         fail_counter = 0
@@ -36,7 +41,8 @@ class SearchRedHuntLabs:
             except requests.exceptions.RequestException as e:
                 # Handle request exceptions (e.g., connection error)
                 fail_counter += 1
-                if fail_counter >= 2:
+                if fail_counter >= 2 and "limit has been reached" in e.response.json(['message']):
+                    print ("Your API credits have been exhausted. Head over to https://devportal.redhuntlabs.com/")
                     break
 
             await asyncio.sleep(16)  # Sleep for rate limiting
