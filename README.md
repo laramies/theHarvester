@@ -67,6 +67,8 @@ Passive modules:
 
 * rapiddns: DNS query tool which make querying subdomains or sites of a same IP easy! https://rapiddns.io
 
+* RedHunt Labs: RedHunt Labs' Attack Surface Recon APIs provide comprehensive domain intelligence and reconnaissance capabilities, with a free community plan  (Requires an API key, see below.) https://devportal.redhuntlabs.com/
+
 * rocketreach: Access real-time verified personal/professional emails, phone numbers, and social media links (Requires an API key,<br>
   see below.) - https://rocketreach.co
 
@@ -120,7 +122,8 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * netlas - $
 * onyphe -$
 * pentestTools - $
-* projecDiscovery - invite only for now
+* projectDiscovery - invite only for now
+* redhuntlabs - limited to 100 on the free community plan, more can be availed at the [developer portal](https://devportal.redhuntlabs.com/)
 * rocketreach - $
 * securityTrails
 * shodan - $
