@@ -132,6 +132,10 @@ class Core:
     @staticmethod
     def virustotal_key() -> str:
         return Core.api_keys()["virustotal"]["key"]
+    
+    @staticmethod
+    def redhuntlabs_key() -> str:
+        return Core.api_keys()["redhuntlabs"]["key"]
 
     @staticmethod
     def proxy_list() -> List:
@@ -192,6 +196,7 @@ class Core:
             "pentesttools",
             "projectdiscovery",
             "rapiddns",
+            "redhuntlabs",
             "rocketreach",
             "securityTrails",
             "sitedossier",

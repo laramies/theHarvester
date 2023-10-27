@@ -39,6 +39,7 @@ from theHarvester.discovery import (
     pentesttools,
     projectdiscovery,
     rapiddns,
+    redhuntlabs,
     rocketreach,
     searchhunterhow,
     securitytrailssearch,
@@ -153,7 +154,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
         help="""anubis, baidu, bevigil, binaryedge, bing, bingapi, bufferoverun, brave,
                             censys, certspotter, criminalip, crtsh, dnsdumpster, duckduckgo, fullhunt, github-code,
                             hackertarget, hunter, hunterhow, intelx, netlas, onyphe, otx, pentesttools, projectdiscovery,
-                            rapiddns, rocketreach, securityTrails, sitedossier, subdomaincenter, subdomainfinderc99, threatminer, tomba,
+                            rapiddns, redhuntlabs, rocketreach, securityTrails, sitedossier, subdomaincenter, subdomainfinderc99, threatminer, tomba,
                             urlscan, virustotal, yahoo, zoomeye""",
     )
 
@@ -720,6 +721,16 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                         )
                     except Exception as e:
                         print(e)
+                
+                elif engineitem == "redhuntlabs":
+                    try:
+                        redhuntlabs_search = redhuntlabs.SearchRedHuntLabs(word)
+                        stor_lst.append(
+                            store(redhuntlabs_search, engineitem, store_host=True)
+                        )
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            print(e)
 
                 elif engineitem == "rocketreach":
                     try:
