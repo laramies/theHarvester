@@ -19,7 +19,7 @@ github_ci: Optional[str] = os.getenv(
 class TestOtx(object):
     @staticmethod
     def domain() -> str:
-        return "metasploit.com"
+        return "cybermon.uk"
 
     async def test_api(self) -> None:
         base_url = f"https://otx.alienvault.com/api/v1/indicators/domain/{TestOtx.domain()}/passive_dns"
