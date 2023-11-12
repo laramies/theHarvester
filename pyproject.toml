@@ -4,7 +4,7 @@ description = "theHarvester is a very simple, yet effective tool designed to be 
 readme = "README.md"
 authors = [
     { name = "Christian Martorella", email = "cmartorella@edge-security.com" },
-    { name = "Jay Townsend", email = "townsend891@hotmail.com" },
+    { name = "Jay Townsend", email = "jay@cybermon.uk" },
     { name = "Matthew Brown", email = "36310667+NotoriousRebel@users.noreply.github.com" },
 ]
 requires-python = ">=3.9"
