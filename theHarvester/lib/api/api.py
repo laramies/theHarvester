@@ -1,13 +1,12 @@
 import argparse
 import os
-from typing import Any, Dict, List, Union
+from typing import Dict, List
 
 from fastapi import FastAPI, Header, Query, Request
-from fastapi.responses import HTMLResponse, UJSONResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response, UJSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
-from starlette.responses import RedirectResponse
 from starlette.staticfiles import StaticFiles
 
 from theHarvester import __main__
@@ -37,8 +36,8 @@ except RuntimeError:
         )
 
 
-@app.get("/", response_class=HTMLResponse)
-async def root(*, user_agent: str = Header(None)) -> Union[RedirectResponse, str]:
+@app.get("/")
+async def root(*, user_agent: str = Header(None)) -> Response:
     # very basic user agent filtering
     if user_agent and (
         "gobuster" in user_agent or "sqlmap" in user_agent or "rustbuster" in user_agent
@@ -46,7 +45,8 @@ async def root(*, user_agent: str = Header(None)) -> Union[RedirectResponse, str
         response = RedirectResponse(app.url_path_for("bot"))
         return response
 
-    html = """
+    return HTMLResponse(
+        """
     <!DOCTYPE html>
     <html lang="en-US">
         <head>
@@ -68,7 +68,7 @@ async def root(*, user_agent: str = Header(None)) -> Union[RedirectResponse, str
         </body>
     </html>
     """
-    return html
+    )
 
 
 @app.get("/nicebot")
@@ -87,13 +87,13 @@ async def getsources(request: Request):
     return {"sources": sources}
 
 
-@app.get("/dnsbrute", response_class=UJSONResponse)
+@app.get("/dnsbrute")
 @limiter.limit("5/minute")
 async def dnsbrute(
     request: Request,
     user_agent: str = Header(None),
     domain: str = Query(..., description="Domain to be brute forced"),
-) -> Union[Dict[str, Any], RedirectResponse]:
+) -> Response:
     # Endpoint for user to signal to do DNS brute forcing
     # Rate limit of 5 requests per minute
     # basic user agent filtering
@@ -120,10 +120,10 @@ async def dnsbrute(
             virtual_host=False,
         )
     )
-    return {"dns_bruteforce": dns_bruteforce}
+    return UJSONResponse({"dns_bruteforce": dns_bruteforce})
 
 
-@app.get("/query", response_class=UJSONResponse)
+@app.get("/query")
 @limiter.limit("2/minute")
 async def query(
     request: Request,
@@ -144,7 +144,7 @@ async def query(
     limit: int = Query(500),
     start: int = Query(0),
     domain: str = Query(..., description="Domain to be harvested"),
-) -> Union[Dict[str, Any], RedirectResponse]:
+) -> Response:
     # Query function that allows user to query theHarvester rest API
     # Rate limit of 2 requests per minute
     # basic user agent filtering
@@ -183,18 +183,20 @@ async def query(
             )
         )
 
-        return {
-            "asns": asns,
-            "interesting_urls": iurls,
-            "twitter_people": twitter_people_list,
-            "linkedin_people": linkedin_people_list,
-            "linkedin_links": linkedin_links,
-            "trello_urls": aurls,
-            "ips": aips,
-            "emails": aemails,
-            "hosts": ahosts,
-        }
-    except Exception:
-        return {
-            "exception": "Please contact the server administrator to check the issue"
-        }
+        return UJSONResponse(
+            {
+                "asns": asns,
+                "interesting_urls": iurls,
+                "twitter_people": twitter_people_list,
+                "linkedin_people": linkedin_people_list,
+                "linkedin_links": linkedin_links,
+                "trello_urls": aurls,
+                "ips": aips,
+                "emails": aemails,
+                "hosts": ahosts,
+            }
+        )
+    except Exception as e:
+        return UJSONResponse(
+            {"exception": "Please contact the server administrator to check the issue"}
+        )
