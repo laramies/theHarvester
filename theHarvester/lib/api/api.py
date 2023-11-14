@@ -196,7 +196,7 @@ async def query(
                 "hosts": ahosts,
             }
         )
-    except Exception as e:
+    except Exception:
         return UJSONResponse(
             {"exception": "Please contact the server administrator to check the issue"}
         )
