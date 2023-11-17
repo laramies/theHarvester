@@ -439,7 +439,7 @@ class AsyncFetcher:
         json: bool = False,
         takeover: bool = False,
         proxy: bool = False,
-    ) -> tuple:
+    ) -> list:
         # By default, timeout is 5 minutes; 60 seconds should suffice
         timeout = aiohttp.ClientTimeout(total=60)
         if len(headers) == 0:
@@ -449,7 +449,7 @@ class AsyncFetcher:
                 headers=headers, timeout=aiohttp.ClientTimeout(total=15)
             ) as session:
                 if proxy:
-                    tuples = await asyncio.gather(
+                    return await asyncio.gather(
                         *[
                             AsyncFetcher.takeover_fetch(
                                 session, url, proxy=random.choice(cls().proxy_list)
@@ -457,19 +457,17 @@ class AsyncFetcher:
                             for url in urls
                         ]
                     )
-                    return tuples
                 else:
-                    tuples = await asyncio.gather(
+                    return await asyncio.gather(
                         *[AsyncFetcher.takeover_fetch(session, url) for url in urls]
                     )
-                    return tuples
 
         if len(params) == 0:
             async with aiohttp.ClientSession(
                 headers=headers, timeout=timeout
             ) as session:
                 if proxy:
-                    texts = await asyncio.gather(
+                    return await asyncio.gather(
                         *[
                             AsyncFetcher.fetch(
                                 session,
@@ -480,19 +478,17 @@ class AsyncFetcher:
                             for url in urls
                         ]
                     )
-                    return texts
                 else:
-                    texts = await asyncio.gather(
+                    return await asyncio.gather(
                         *[AsyncFetcher.fetch(session, url, json=json) for url in urls]
                     )
-                    return texts
         else:
             # Indicates the request has certain params
             async with aiohttp.ClientSession(
                 headers=headers, timeout=timeout
             ) as session:
                 if proxy:
-                    texts = await asyncio.gather(
+                    return await asyncio.gather(
                         *[
                             AsyncFetcher.fetch(
                                 session,
@@ -504,12 +500,10 @@ class AsyncFetcher:
                             for url in urls
                         ]
                     )
-                    return texts
                 else:
-                    texts = await asyncio.gather(
+                    return await asyncio.gather(
                         *[
                             AsyncFetcher.fetch(session, url, params, json)
                             for url in urls
                         ]
                     )
-                    return texts
