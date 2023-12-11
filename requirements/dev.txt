@@ -1,6 +1,6 @@
 black==23.11.0
 flake8==6.1.0
-isort==5.12.0
+isort==5.13.1
 mypy==1.7.0
 mypy-extensions==1.0.0
 pydantic==2.5.1
