@@ -30,7 +30,7 @@ class ScreenShotter:
                     "[+] The output path you have entered does not exist would you like to create it (y/n): "
                 )
                 if answer.lower() == "yes" or answer.lower() == "y":
-                    os.mkdir(self.output)
+                    os.makedirs(self.output)
                     return True
                 else:
                     return False
