@@ -325,7 +325,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                     full_hosts_checker = hostchecker.Checker(
                         host_names, final_dns_resolver_list
                     )
-                    # If full this is only getting resolved hosts
+                    # If full, this is only getting resolved hosts
                     (
                         resolved_pair,
                         temp_hosts,
@@ -922,11 +922,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
         and rest_args.dns_brute is False
     ):
         # Indicates user is using REST api but not wanting output to be saved to a file
-        # for host in full:
-        # full = [host if ':' in host and word in host else word in host.split(':')[0] and host for host in full]
-        # full = list({host for host in full if host})
-        # full.sort()
-        # cast to string so Rest API can understand type
+        # cast to string so Rest API can understand the type
         return_ips.extend(
             [
                 str(ip)
@@ -1103,8 +1099,6 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
         print("\n[*] Starting DNS brute force.")
         dns_force = dnssearch.DnsForce(word, final_dns_resolver_list, verbose=True)
         resolved_pair, hosts, ips = await dns_force.run()
-        # hosts = list({host for host in hosts if ':' in host})
-        # hosts.sort(key=lambda el: el.split(':')[0])
         # Check if Rest API is being used if so return found hosts
         if dnsbrute[1]:
             return resolved_pair
@@ -1115,7 +1109,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                 # TODO parse addresses and sort them as they are IPs
                 subdomain, addr = host.split(":")
                 if subdomain.endswith(word):
-                    # Append to full so it's within JSON/XML at the end if output file is requested
+                    # Append to full, so it's within JSON/XML at the end if output file is requested
                     if host not in full:
                         full.append(host)
                         temp.add(subdomain + ":" + addr)
@@ -1202,7 +1196,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
     if len(args.screenshot) > 0:
         screen_shotter = ScreenShotter(args.screenshot)
         path_exists = screen_shotter.verify_path()
-        # Verify path exists, if not create it or if user does not create it skips screenshot
+        # Verify the path exists, if not create it or if user does not create it skips screenshot
         if path_exists:
             await screen_shotter.verify_installation()
             print(
@@ -1217,7 +1211,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                     if ":" in url and "www." not in url
                 }
             else:
-                # Technically not resolved in this case which is not ideal
+                # Technically not resolved in this case, which is not ideal
                 # You should always use dns resolve when doing screenshotting
                 print(
                     "NOTE for future use cases you should only use screenshotting in tandem with DNS resolving"
@@ -1338,7 +1332,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
             filename = filename.rsplit(".", 1)[0] + ".json"
             # create dict with values for json output
             json_dict: Dict = dict()
-            # determine if variable exists
+            # determine if a variable exists
             # it should but just a validation check
             if "ip_list" in locals():
                 if all_ip and len(all_ip) >= 1 and ip_list and len(ip_list) > 0:
