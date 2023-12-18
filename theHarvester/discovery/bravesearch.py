@@ -19,7 +19,7 @@ class SearchBrave:
         for query in [f'"{self.word}"', f"site:{self.word}"]:
             try:
                 for offset in range(0, 50):
-                    # To reduce total number of requests only two queries are made "self.word" and site:self.word
+                    # To reduce the total number of requests, only two queries are made "self.word" and site:self.word
                     current_url = f"{self.server}{query}&offset={offset}&source=web&show_local=0&spellcheck=0"
                     resp = await AsyncFetcher.fetch_all(
                         [current_url], headers=headers, proxy=self.proxy
@@ -35,9 +35,8 @@ class SearchBrave:
                         and "robot" in resp[0]
                         or "Robot" in resp[0]
                     ):
-                        await asyncio.sleep(get_delay() + 80)
                         break
-                    await asyncio.sleep(get_delay() + 10)
+                    await asyncio.sleep(get_delay() + 15)
             except Exception as e:
                 print(f"An exception has occurred in bravesearch: {e}")
                 await asyncio.sleep(get_delay() + 80)

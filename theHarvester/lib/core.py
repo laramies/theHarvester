@@ -464,7 +464,7 @@ class AsyncFetcher:
 
         if len(params) == 0:
             async with aiohttp.ClientSession(
-                headers=headers, timeout=timeout
+                headers=headers, timeout=timeout, max_field_size=13000
             ) as session:
                 if proxy:
                     return await asyncio.gather(
