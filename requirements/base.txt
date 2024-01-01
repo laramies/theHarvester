@@ -9,7 +9,7 @@ certifi==2023.11.17
 dnspython==2.4.2
 fastapi==0.108.0
 lxml==5.0.0
-netaddr==0.9.0
+netaddr==0.10.0
 ujson==5.9.0
 pyppeteer==1.0.2
 PyYAML==6.0.1
