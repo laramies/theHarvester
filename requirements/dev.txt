@@ -5,7 +5,7 @@ mypy==1.8.0
 mypy-extensions==1.0.0
 pydantic==2.5.3
 pyre-check==0.9.19
-pyflakes==3.1.0
+pyflakes==3.2.0
 pytest==7.4.4
 pytest-asyncio==0.23.3
 types-certifi==2021.10.8.3
