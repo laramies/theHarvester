@@ -11,7 +11,7 @@ fastapi==0.109.2
 lxml==5.1.0
 netaddr==1.2.1
 ujson==5.9.0
-pyppeteer==1.0.2
+pyppeteer==2.0.0
 PyYAML==6.0.1
 python-dateutil==2.8.2
 requests==2.31.0
