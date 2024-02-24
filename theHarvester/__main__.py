@@ -1057,7 +1057,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
             for host in full:
                 if ":" in host:
                     # TODO parse addresses and sort them as they are IPs
-                    subdomain, addr = host.split(":")
+                    subdomain, addr = host.split(":", 1)
                     if subdomain.endswith(word):
                         temp.add(subdomain + ":" + addr)
                         continue
@@ -1075,7 +1075,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
                 print(host)
                 try:
                     if ":" in host:
-                        _, addr = host.split(":")
+                        _, addr = host.split(":", 1)
                         await db.store(word, addr, "ip", "DNS-resolver")
                 except Exception as e:
                     print(
@@ -1107,7 +1107,7 @@ async def start(rest_args: Optional[argparse.Namespace] = None):
         for host in resolved_pair:
             if ":" in host:
                 # TODO parse addresses and sort them as they are IPs
-                subdomain, addr = host.split(":")
+                subdomain, addr = host.split(":", 1)
                 if subdomain.endswith(word):
                     # Append to full, so it's within JSON/XML at the end if output file is requested
                     if host not in full:
