@@ -1,15 +1,15 @@
 #!/usr/bin/env python
-# encoding: utf-8
 """
 Created by laramies on 2008-08-21.
 Revised to use aiodns & asyncio on 2019-09-23
 """
+
 # Support for Python3.9
 from __future__ import annotations
 
 import asyncio
 import socket
-from typing import Any, List, Set
+from typing import Any
 
 import aiodns
 
@@ -17,8 +17,8 @@ import aiodns
 class Checker:
     def __init__(self, hosts: list, nameserver: list) -> None:
         self.hosts = hosts
-        self.realhosts: List = []
-        self.addresses: Set = set()
+        self.realhosts: list = []
+        self.addresses: set = set()
         self.nameserver = nameserver
 
     # @staticmethod
@@ -40,13 +40,13 @@ class Checker:
             result = await resolver.gethostbyname(host, socket.AF_INET)
             addresses = result.addresses
             if addresses == [] or addresses is None or result is None:
-                return f"{host}:"
+                return f'{host}:'
             else:
-                addresses = ",".join(map(str, list(sorted(set(addresses)))))
+                addresses = ','.join(map(str, list(sorted(set(addresses)))))
                 # addresses = list(sorted(addresses))
-                return f"{host}:{addresses}"
+                return f'{host}:{addresses}'
         except Exception:
-            return f"{host}:"
+            return f'{host}:'
 
     # https://stackoverflow.com/questions/312443/how-do-i-split-a-list-into-equally-sized-chunks
     @staticmethod
@@ -57,9 +57,7 @@ class Checker:
 
     async def query_all(self, resolver, hosts) -> list[Any]:
         # TODO chunk list into 50 pieces regardless of IPs and subnets
-        results = await asyncio.gather(
-            *[asyncio.create_task(self.resolve_host(host, resolver)) for host in hosts]
-        )
+        results = await asyncio.gather(*[asyncio.create_task(self.resolve_host(host, resolver)) for host in hosts])
         return results
 
     async def check(self):
@@ -75,9 +73,9 @@ class Checker:
             results = await self.query_all(resolver, chunk)
             all_results.update(results)
             for pair in results:
-                host, addresses = pair.split(":")
+                host, addresses = pair.split(':')
                 self.realhosts.append(host)
-                self.addresses.update({addr for addr in addresses.split(",")})
+                self.addresses.update({addr for addr in addresses.split(',')})
                 # address may be a list of ips
                 # and do a set comprehension to remove duplicates
         self.realhosts.sort()
