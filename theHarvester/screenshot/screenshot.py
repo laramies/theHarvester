@@ -1,9 +1,8 @@
 """
-Screenshot module that utilizes pyppeteer to asynchronously
+Screenshot module that utilizes playwright to asynchronously
 take screenshots
 """
 
-import asyncio
 import os
 import ssl
 import sys
@@ -12,7 +11,7 @@ from datetime import datetime
 
 import aiohttp
 import certifi
-from pyppeteer import launch
+from playwright.async_api import async_playwright
 
 
 class ScreenShotter:
@@ -37,10 +36,14 @@ class ScreenShotter:
 
     @staticmethod
     async def verify_installation() -> None:
-        # Helper function that verifies pyppeteer & chromium are installed
-        # If chromium is not installed pyppeteer will prompt user to install it
-        browser = await launch(headless=True, ignoreHTTPSErrors=True, args=['--no-sandbox'])
-        await browser.close()
+        # Helper function that verifies playwright & chromium is installed
+        try:
+            async with async_playwright() as p:
+                browser = await p.chromium.launch()
+                await browser.close()
+            print('Playwright and Chromium are successfully installed.')
+        except Exception as e:
+            print(f'An exception has occurred while attempting to verify installation: {e}')
 
     @staticmethod
     def chunk_list(items: Collection, chunk_size: int) -> list:
@@ -50,11 +53,10 @@ class ScreenShotter:
     @staticmethod
     async def visit(url: str) -> tuple[str, str]:
         try:
-            # print(f'attempting to visit: {url}')
             timeout = aiohttp.ClientTimeout(total=35)
             headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
-                'Chrome/83.0.4103.106 Safari/537.36'
+                'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) '
+                'Chrome/122.0.0.0 Safari/537.36'
             }
             url = f'http://{url}' if not url.startswith('http') else url
             url = url.replace('www.', '')
@@ -65,7 +67,6 @@ class ScreenShotter:
                 connector=aiohttp.TCPConnector(ssl=sslcontext),
             ) as session:
                 async with session.get(url, verify_ssl=False) as resp:
-                    # TODO fix with origin url, should be there somewhere
                     text = await resp.text('UTF-8')
                     return f'http://{url}' if not url.startswith('http') else url, text
         except Exception as e:
@@ -76,28 +77,23 @@ class ScreenShotter:
         url = f'http://{url}' if not url.startswith('http') else url
         url = url.replace('www.', '')
         print(f'Attempting to take a screenshot of: {url}')
-        browser = await launch(headless=True, ignoreHTTPSErrors=True, args=['--no-sandbox'])
-        context = await browser.createIncognitoBrowserContext()
-        # Create a new page in a pristine context.
-        page = await context.newPage()
-        path = rf'{self.output}{self.slash}{url.replace("http://", "").replace("https://", "")}.png'
-        date = str(datetime.utcnow())
-        try:
-            # change default timeout from 30 to 35 seconds
-            page.setDefaultNavigationTimeout(35000)
-            await page.setUserAgent(
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
-                'Chrome/83.0.4103.106 Safari/537.36'
-            )
-            await page.goto(url)
-            await page.screenshot({'path': path})
-        except Exception as e:
-            print(f'An exception has occurred attempting to screenshot: {url} : {e}')
-            path = ''
-        finally:
-            # Clean up everything whether screenshot is taken or not
-            await asyncio.sleep(5)
-            await page.close()
-            await context.close()
-            await browser.close()
-            return date, url, path
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            # New browser context
+            context = await browser.new_context()
+            page = await context.new_page()
+            path = rf'{self.output}{self.slash}{url.replace("http://", "").replace("https://", "")}.png'
+            date = str(datetime.utcnow())
+            try:
+                # Will fail if network idle or load event doesn't fire after
+                # 35s which should be handled
+                await page.goto(url, timeout=35000)
+                await page.screenshot(path=path)
+            except Exception as e:
+                print(f'An exception has occurred attempting to screenshot: {url} : {e}')
+                path = ''
+            finally:
+                await page.close()
+                await context.close()
+                await browser.close()
+                return date, url, path
