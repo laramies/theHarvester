@@ -35,7 +35,7 @@ include = ["theHarvester*"]
 "*" = ["*.txt", "*.yaml"]
 
 [tool.pytest.ini_options]
-minversion = "7.1"
+minversion = "7.1.1"
 addopts = "--no-header --asyncio-mode=auto"
 testpaths = [
     "tests",
@@ -45,3 +45,62 @@ testpaths = [
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
+
+[tool.mypy]
+python_version = "3.11"
+warn_unused_configs = true
+ignore_missing_imports = true
+show_traceback = true
+show_error_codes = true
+namespace_packages = true
+
+[tool.ruff]
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    "tests",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".mypy_cache",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".github",
+    ".venv",
+    ".vscode",
+    ".idea",
+    "__pypackages__",
+    "build",
+    "dist",
+    "site-packages",
+    "venv",
+]
+
+line-length = 130
+
+target-version = "py310"
+
+[tool.ruff.lint]
+# Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`) codes by default.
+# Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
+select = ["E4", "E7", "E9", "F", "I", "UP"]
+ignore = []
+
+# Allow fix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.format]
+# Like Black, use double quotes for strings.
+quote-style = "single"
+indent-style = "space"
+
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"
