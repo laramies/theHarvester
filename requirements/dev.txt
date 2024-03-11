@@ -1,4 +1,4 @@
-mypy==1.8.0
+mypy==1.9.0
 mypy-extensions==1.0.0
 pyre-check==0.9.19
 pytest==8.1.1
