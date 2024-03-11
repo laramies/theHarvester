@@ -2,7 +2,7 @@ mypy==1.9.0
 mypy-extensions==1.0.0
 pyre-check==0.9.19
 pytest==8.1.1
-pytest-asyncio==0.23.5
+pytest-asyncio==0.23.5.post1
 types-certifi==2021.10.8.3
 types-chardet==5.0.4.6
 types-ujson==5.9.0.0
