@@ -4,9 +4,8 @@ import asyncio
 import contextlib
 import random
 import ssl
-from collections.abc import Sized
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import aiohttp
 import certifi
@@ -16,6 +15,9 @@ import ujson as json_loader
 import yaml
 
 from .version import version
+
+if TYPE_CHECKING:
+    from collections.abc import Sized
 
 DATA_DIR = Path(__file__).parents[1] / 'data'
 CONFIG_DIRS = [
