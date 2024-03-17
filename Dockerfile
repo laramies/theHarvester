@@ -1,7 +1,7 @@
-FROM alpine:3
+FROM python:3.11-slim-bookworm
 LABEL maintainer="@jay_townsend1 & @NotoriousRebel1"
-RUN apk update && apk upgrade --available && apk add --no-cache musl-dev git libffi-dev gcc python3-dev pipx libxml2-dev libxslt-dev bash
 RUN mkdir -p "~/.local/share/theHarvester/static/"
+RUN apt update && apt install -y pipx git; apt clean; apt autoremove -y
 RUN pipx install git+https://github.com/laramies/theHarvester.git
 RUN pipx ensurepath
 ENTRYPOINT ["/root/.local/bin/restfulHarvest", "-H", "0.0.0.0", "-p", "80"]
