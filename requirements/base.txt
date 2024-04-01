@@ -8,7 +8,7 @@ censys==2.2.11
 certifi==2024.2.2
 dnspython==2.6.1
 fastapi==0.110.0
-lxml==5.1.0
+lxml==5.2.0
 netaddr==1.2.1
 ujson==5.9.0
 playwright==1.42.0
