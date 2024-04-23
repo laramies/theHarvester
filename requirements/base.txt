@@ -1,7 +1,7 @@
 aiodns==3.2.0
 aiofiles==23.2.1
 aiohttp==3.9.5
-aiomultiprocess==0.9.0
+aiomultiprocess==0.9.1
 aiosqlite==0.20.0
 beautifulsoup4==4.12.3
 censys==2.2.12
