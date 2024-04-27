@@ -28,7 +28,7 @@ except RuntimeError:
         os.makedirs(static_path)
         app.mount(
             '/static',
-            StaticFiles(directory='~/.local/share/theHarvester/static/'),
+            StaticFiles(directory=static_path),
             name='static',
         )
 
