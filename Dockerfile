@@ -1,6 +1,5 @@
 FROM python:3.11-slim-bookworm
 LABEL maintainer="@jay_townsend1 & @NotoriousRebel1"
-RUN mkdir -p "~/.local/share/theHarvester/static/"
 RUN apt update && apt install -y pipx git; apt clean; apt autoremove -y
 RUN pipx install git+https://github.com/laramies/theHarvester.git
 RUN pipx ensurepath
