@@ -11,7 +11,7 @@ fastapi==0.111.0
 lxml==5.2.1
 netaddr==1.2.1
 ujson==5.10.0
-playwright==1.43.0
+playwright==1.44.0
 PyYAML==6.0.1
 python-dateutil==2.9.0.post0
 requests==2.31.0
