@@ -825,24 +825,12 @@ async def start(rest_args: argparse.Namespace | None = None):
                 queue.task_done()
 
     async def handler(lst):
-        queue = asyncio.Queue()
-        for stor_method in lst:
-            # enqueue the coroutines
-            queue.put_nowait(stor_method)
-        # Create three worker tasks to process the queue concurrently.
-        tasks = []
-        for i in range(3):
-            task = asyncio.create_task(worker(queue))
-            tasks.append(task)
-
-        # Wait until the queue is fully processed.
-        await queue.join()
-
-        # Cancel our worker tasks.
-        for task in tasks:
-            task.cancel()
-        # Wait until all worker tasks are cancelled.
-        await asyncio.gather(*tasks, return_exceptions=True)
+        tasks = [asyncio.create_task(store_method) for store_method in lst]
+        for task in asyncio.as_completed(tasks):
+            try:
+                await task
+            except Exception as e:
+                print(f"An error occurred: {e}")
 
     await handler(lst=stor_lst)
     return_ips: list = []
