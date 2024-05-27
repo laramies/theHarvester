@@ -282,6 +282,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         :param store_interestingurls: whether to store interesting urls
         :param store_asns: whether to store asns
         """
+        global ips_list
         await search_engine.process(use_proxy) if process_param is None else await search_engine.process(process_param, use_proxy)
         db_stash = stash.StashManager()
 
@@ -313,6 +314,9 @@ async def start(rest_args: argparse.Namespace | None = None):
             all_hosts.extend(host_names)
             await db_stash.store_all(word, all_hosts, 'host', source)
 
+            for host in host_names:
+                print(f"host: {host}")
+
         if store_emails:
             email_list = await search_engine.get_emails()
             all_emails.extend(email_list)
@@ -322,6 +326,8 @@ async def start(rest_args: argparse.Namespace | None = None):
             ips_list = await search_engine.get_ips()
             all_ip.extend(ips_list)
             await db_stash.store_all(word, all_ip, 'ip', source)
+            for ip in ips_list:
+                print(f"ip: {ip}")
 
         if store_results:
             email_list, host_names, urls = await search_engine.get_results()
@@ -331,6 +337,10 @@ async def start(rest_args: argparse.Namespace | None = None):
             all_hosts.extend(host_names)
             await db.store_all(word, all_hosts, 'host', source)
             await db.store_all(word, all_emails, 'email', source)
+            for host in host_names:
+                print(f"host: {host}")
+            for ip in ips_list:
+                print(f"ip: {ip}")
 
         if store_people:
             people_list = await search_engine.get_people()
