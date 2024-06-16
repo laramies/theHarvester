@@ -129,7 +129,7 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 
 Install and dependencies:
 -------------------------
-* Python 3.9+
+* Python 3.10+
 * https://github.com/laramies/theHarvester/wiki/Installation
 
 

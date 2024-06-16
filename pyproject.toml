@@ -7,11 +7,10 @@ authors = [
     { name = "Jay Townsend", email = "jay@cybermon.uk" },
     { name = "Matthew Brown", email = "36310667+NotoriousRebel@users.noreply.github.com" },
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 urls.Homepage = "https://github.com/laramies/theHarvester"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
