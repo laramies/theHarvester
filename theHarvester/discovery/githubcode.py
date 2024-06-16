@@ -1,7 +1,7 @@
 import asyncio
 import random
 import urllib.parse as urlparse
-from typing import Any, NamedTuple
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
 
 import aiohttp
 
@@ -15,9 +15,9 @@ class RetryResult(NamedTuple):
 
 
 class SuccessResult(NamedTuple):
-    fragments: list[str]
-    next_page: int | None
-    last_page: int | None
+    fragments: List[str]
+    next_page: Optional[int]
+    last_page: Optional[int]
 
 
 class ErrorResult(NamedTuple):
@@ -32,7 +32,7 @@ class SearchGithubCode:
         self.server = 'api.github.com'
         self.limit = limit
         self.counter: int = 0
-        self.page: int | None = 1
+        self.page: Optional[int] = 1
         self.key = Core.github_key()
         # If you don't have a personal access token, GitHub narrows your search capabilities significantly
         # rate limits you more severely
@@ -42,9 +42,9 @@ class SearchGithubCode:
         self.proxy = False
 
     @staticmethod
-    async def fragments_from_response(json_data: dict) -> list[str]:
-        items: list[dict[str, Any]] = json_data.get('items') or list()
-        fragments: list[str] = list()
+    async def fragments_from_response(json_data: Dict) -> List[str]:
+        items: List[Dict[str, Any]] = json_data.get('items') or list()
+        fragments: List[str] = list()
         for item in items:
             matches = item.get('text_matches') or list()
             for match in matches:
@@ -53,18 +53,18 @@ class SearchGithubCode:
         return [fragment for fragment in fragments if fragment is not None]
 
     @staticmethod
-    async def page_from_response(page: str, links) -> int | None:
+    async def page_from_response(page: str, links) -> Optional[int]:
         page_link = links.get(page)
         if page_link:
             parsed = urlparse.urlparse(str(page_link.get('url')))
             params = urlparse.parse_qs(parsed.query)
-            pages: list[Any] = params.get('page', [None])
+            pages: List[Any] = params.get('page', [None])
             page_number = pages[0] and int(pages[0])
             return page_number
         else:
             return None
 
-    async def handle_response(self, response: tuple[str, dict, int, Any]) -> ErrorResult | RetryResult | SuccessResult:
+    async def handle_response(self, response: Tuple[str, dict, int, Any]) -> Union[ErrorResult, RetryResult, SuccessResult]:
         text, json_data, status, links = response
         if status == 200:
             results = await self.fragments_from_response(json_data)
@@ -100,7 +100,7 @@ class SearchGithubCode:
                     return await resp.text(), await resp.json(), resp.status, resp.links
 
     @staticmethod
-    async def next_page_or_end(result: SuccessResult) -> int | None:
+    async def next_page_or_end(result: SuccessResult) -> Optional[int]:
         if result.next_page is not None:
             return result.next_page
         else:

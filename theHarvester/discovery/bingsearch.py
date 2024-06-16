@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, List
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import AsyncFetcher, Core
@@ -8,7 +8,7 @@ from theHarvester.parsers import myparser
 class SearchBing:
     def __init__(self, word, limit, start) -> None:
         self.word = word.replace(' ', '%20')
-        self.results: list[Any] = []
+        self.results: List[Any] = []
         self.total_results = ''
         self.server = 'www.bing.com'
         self.apiserver = 'api.search.live.net'

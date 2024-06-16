@@ -5,7 +5,7 @@ import contextlib
 import random
 import ssl
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Union, Dict, List, Tuple
 
 import aiohttp
 import certifi
@@ -47,7 +47,7 @@ class Core:
         return default
 
     @staticmethod
-    def api_keys() -> dict:
+    def api_keys() -> Dict:
         keys = yaml.safe_load(Core._read_config('api-keys.yaml'))
         return keys['apikeys']
 
@@ -68,7 +68,7 @@ class Core:
         return Core.api_keys()['bufferoverun']['key']
 
     @staticmethod
-    def censys_key() -> tuple:
+    def censys_key() -> Tuple:
         return Core.api_keys()['censys']['id'], Core.api_keys()['censys']['secret']
 
     @staticmethod
@@ -136,7 +136,7 @@ class Core:
         return Core.api_keys()['virustotal']['key']
 
     @staticmethod
-    def proxy_list() -> list:
+    def proxy_list() -> List:
         keys = yaml.safe_load(Core._read_config('proxies.yaml'))
         http_list = [f'http://{proxy}' for proxy in keys['http']] if keys['http'] is not None else []
         return http_list
@@ -158,7 +158,7 @@ class Core:
         print('*******************************************************************')
 
     @staticmethod
-    def get_supportedengines() -> list[str | Any]:
+    def get_supportedengines() -> List[str | Any]:
         supportedengines = [
             'anubis',
             'baidu',
@@ -270,7 +270,7 @@ class AsyncFetcher:
         cls,
         url,
         headers=None,
-        data: str | dict[str, str] = '',
+        data: Union[str, Dict[str, str]] = '',
         params: str = '',
         json: bool = False,
         proxy: bool = False,

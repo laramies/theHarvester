@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import socket
-from typing import Any
+from typing import Any, List
 
 import aiodns
 
@@ -55,7 +55,7 @@ class Checker:
         for i in range(0, len(lst), n):
             yield lst[i : i + n]
 
-    async def query_all(self, resolver, hosts) -> list[Any]:
+    async def query_all(self, resolver, hosts) -> List[Any]:
         # TODO chunk list into 50 pieces regardless of IPs and subnets
         results = await asyncio.gather(*[asyncio.create_task(self.resolve_host(host, resolver)) for host in hosts])
         return results

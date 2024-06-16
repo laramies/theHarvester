@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, Union
 from unittest import mock
 
 import pytest
@@ -15,7 +15,7 @@ def mock_environ(monkeypatch, tmp_path: Path):
     monkeypatch.setenv("HOME", str(tmp_path))
 
 
-def mock_read_text(mocked: dict[Path, str | Exception]):
+def mock_read_text(mocked: Dict[Path, Union[str, Exception]]):
     read_text = Path.read_text
 
     def _read_text(self: Path, *args, **kwargs):

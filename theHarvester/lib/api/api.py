@@ -1,5 +1,6 @@
 import argparse
 import os
+from typing import Dict, List
 
 from fastapi import FastAPI, Header, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response, UJSONResponse
@@ -67,7 +68,7 @@ async def root(*, user_agent: str = Header(None)) -> Response:
 
 
 @app.get('/nicebot')
-async def bot() -> dict[str, str]:
+async def bot() -> Dict[str, str]:
     # nice bot
     string = {'bot': 'These are not the droids you are looking for'}
     return string
@@ -131,7 +132,7 @@ async def query(
     shodan: bool = Query(False),
     take_over: bool = Query(False),
     virtual_host: bool = Query(False),
-    source: list[str] = Query(..., description='Data sources to query comma separated with no space'),
+    source: List[str] = Query(..., description='Data sources to query comma separated with no space'),
     limit: int = Query(500),
     start: int = Query(0),
     domain: str = Query(..., description='Domain to be harvested'),
