@@ -9,5 +9,5 @@ types-ujson==5.10.0.20240515
 types-PyYAML==6.0.12.20240311
 types-requests==2.32.0.20240622 # 2.31.0.7 introduced a regression
 types-python-dateutil==2.9.0.20240316
-ruff==0.5.0
+ruff==0.5.1
 wheel==0.43.0
