@@ -21,7 +21,7 @@ from theHarvester.lib.core import DATA_DIR
 # DNS FORCE
 #####################################################################
 
-DNS_NAMES = DATA_DIR / 'wordlists' / 'dns-names.txt'
+DNS_NAMES = DATA_DIR / "wordlists" / "dns-names.txt"
 
 
 class DnsForce:
@@ -32,13 +32,13 @@ class DnsForce:
         # self.dnsserver = [dnsserver] if isinstance(dnsserver, str) else dnsserver
         # self.dnsserver = list(map(str, dnsserver.split(','))) if isinstance(dnsserver, str) else dnsserver
         self.dnsserver = dnsserver
-        with DNS_NAMES.open('r') as file:
+        with DNS_NAMES.open("r") as file:
             self.list = file.readlines()
-        self.domain = domain.replace('www.', '')
-        self.list = [f'{word.strip()}.{self.domain}' for word in self.list]
+        self.domain = domain.replace("www.", "")
+        self.list = [f"{word.strip()}.{self.domain}" for word in self.list]
 
     async def run(self):
-        print(f'Starting DNS brute forcing with {len(self.list)} words')
+        print(f"Starting DNS brute forcing with {len(self.list)} words")
         checker = hostchecker.Checker(self.list, nameserver=self.dnsserver)
         resolved_pair, hosts, ips = await checker.check()
         return resolved_pair, hosts, ips
@@ -49,13 +49,13 @@ class DnsForce:
 #####################################################################
 
 
-IP_REGEX = r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}'
-PORT_REGEX = r'\d{1,5}'
-NETMASK_REGEX: str = r'\d{1,2}|' + IP_REGEX
-NETWORK_REGEX: str = rf'\b({IP_REGEX})(?:\:({PORT_REGEX}))?(?:\/({NETMASK_REGEX}))?\b'
+IP_REGEX = r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"
+PORT_REGEX = r"\d{1,5}"
+NETMASK_REGEX: str = r"\d{1,2}|" + IP_REGEX
+NETWORK_REGEX: str = rf"\b({IP_REGEX})(?:\:({PORT_REGEX}))?(?:\/({NETMASK_REGEX}))?\b"
 
 
-def serialize_ip_range(ip: str, netmask: str = '24') -> str:
+def serialize_ip_range(ip: str, netmask: str = "24") -> str:
     """
     Serialize a network range in a constant format, 'x.x.x.x/y'.
 
@@ -78,12 +78,12 @@ def serialize_ip_range(ip: str, netmask: str = '24') -> str:
         __ip = __ip_matches.group(1)
         __netmask = netmask if netmask else __ip_matches.group(3)
         if __ip and __netmask:
-            return str(IPv4Network(f'{__ip}/{__netmask}', strict=False))
+            return str(IPv4Network(f"{__ip}/{__netmask}", strict=False))
         elif __ip:
-            return str(IPv4Network('{}/{}'.format(__ip, '24'), strict=False))
+            return str(IPv4Network("{}/{}".format(__ip, "24"), strict=False))
 
     # invalid input ip
-    return ''
+    return ""
 
 
 def list_ips_in_network_range(iprange: str) -> list[str]:
@@ -122,12 +122,14 @@ async def reverse_single_ip(ip: str, resolver: DNSResolver) -> str:
     """
     try:
         __host = await resolver.gethostbyaddr(ip)
-        return __host.name if __host else ''
+        return __host.name if __host else ""
     except Exception:
-        return ''
+        return ""
 
 
-async def reverse_all_ips_in_range(iprange: str, callback: Callable, nameservers: list[str] | None = None) -> None:
+async def reverse_all_ips_in_range(
+    iprange: str, callback: Callable, nameservers: list[str] | None = None
+) -> None:
     """
     Reverse all the IPs stored in a network range.
     All the queries are made concurrently.
@@ -174,8 +176,8 @@ def log_query(ip: str) -> None:
     -------
     out: None.
     """
-    sys.stdout.write(chr(27) + '[2K' + chr(27) + '[G')
-    sys.stdout.write('\r' + ip + ' - ')
+    sys.stdout.write(chr(27) + "[2K" + chr(27) + "[G")
+    sys.stdout.write("\r" + ip + " - ")
     sys.stdout.flush()
 
 
