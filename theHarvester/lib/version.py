@@ -1,4 +1,4 @@
-VERSION = '4.6.0'
+VERSION = "4.6.0"
 
 
 def version() -> str:

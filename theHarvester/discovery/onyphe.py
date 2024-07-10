@@ -9,26 +9,28 @@ from theHarvester.lib.core import AsyncFetcher, Core
 class SearchOnyphe:
     def __init__(self, word) -> None:
         self.word = word
-        self.response = ''
+        self.response = ""
         self.totalhosts: set = set()
         self.totalips: set = set()
         self.asns: set = set()
         self.key = Core.onyphe_key()
         if self.key is None:
-            raise MissingKey('onyphe')
+            raise MissingKey("onyphe")
         self.proxy = False
 
     async def do_search(self) -> None:
         # https://www.onyphe.io/docs/apis/search
         # https://www.onyphe.io/search?q=domain%3Acharter.com&captcharesponse=j5cGT
         # base_url = f'https://www.onyphe.io/api/v2/search/?q=domain:domain:{self.word}'
-        base_url = f'https://www.onyphe.io/api/v2/search/?q=domain:{self.word}'
+        base_url = f"https://www.onyphe.io/api/v2/search/?q=domain:{self.word}"
         headers = {
-            'User-Agent': Core.get_user_agent(),
-            'Content-Type': 'application/json',
-            'Authorization': f'bearer {self.key}',
+            "User-Agent": Core.get_user_agent(),
+            "Content-Type": "application/json",
+            "Authorization": f"bearer {self.key}",
         }
-        response = await AsyncFetcher.fetch_all([base_url], json=True, headers=headers, proxy=self.proxy)
+        response = await AsyncFetcher.fetch_all(
+            [base_url], json=True, headers=headers, proxy=self.proxy
+        )
         self.response = response[0]
         await self.parse_onyphe_resp_json()
 
@@ -36,52 +38,74 @@ class SearchOnyphe:
         if isinstance(self.response, list):
             self.response = self.response[0]
         if not isinstance(self.response, dict):
-            raise Exception(f'An exception has occurred {self.response} is not a dict')
-        if 'Success' == self.response['text']:
-            if 'results' in self.response.keys():
-                for result in self.response['results']:
+            raise Exception(f"An exception has occurred {self.response} is not a dict")
+        if "Success" == self.response["text"]:
+            if "results" in self.response.keys():
+                for result in self.response["results"]:
                     try:
-                        if 'alternativeip' in result.keys():
-                            self.totalips.update({altip for altip in result['alternativeip']})
-                        if 'url' in result.keys() and isinstance(result['url'], list):
-                            self.totalhosts.update(
-                                urlparse(url).netloc for url in result['url'] if urlparse(url).netloc.endswith(self.word)
+                        if "alternativeip" in result.keys():
+                            self.totalips.update(
+                                {altip for altip in result["alternativeip"]}
                             )
-                        self.asns.add(result['asn'])
-                        self.asns.add(result['geolocus']['asn'])
-                        self.totalips.add(result['geolocus']['subnet'])
-                        self.totalips.add(result['ip'])
-                        self.totalips.add(result['subnet'])
+                        if "url" in result.keys() and isinstance(result["url"], list):
+                            self.totalhosts.update(
+                                urlparse(url).netloc
+                                for url in result["url"]
+                                if urlparse(url).netloc.endswith(self.word)
+                            )
+                        self.asns.add(result["asn"])
+                        self.asns.add(result["geolocus"]["asn"])
+                        self.totalips.add(result["geolocus"]["subnet"])
+                        self.totalips.add(result["ip"])
+                        self.totalips.add(result["subnet"])
                         # Shouldn't be needed as API autoparses urls from html raw data
                         # rawres = myparser.Parser(result['data'], self.word)
                         # if await rawres.hostnames():
                         #     self.totalhosts.update(set(await rawres.hostnames()))
                         for subdomain_key in [
-                            'domain',
-                            'hostname',
-                            'subdomains',
-                            'subject',
-                            'reverse',
-                            'geolocus',
+                            "domain",
+                            "hostname",
+                            "subdomains",
+                            "subject",
+                            "reverse",
+                            "geolocus",
                         ]:
                             if subdomain_key in result.keys():
-                                if subdomain_key == 'subject':
+                                if subdomain_key == "subject":
                                     self.totalhosts.update(
-                                        {domain for domain in result[subdomain_key]['altname'] if domain.endswith(self.word)}
+                                        {
+                                            domain
+                                            for domain in result[subdomain_key][
+                                                "altname"
+                                            ]
+                                            if domain.endswith(self.word)
+                                        }
                                     )
-                                elif subdomain_key == 'geolocus':
+                                elif subdomain_key == "geolocus":
                                     self.totalhosts.update(
-                                        {domain for domain in result[subdomain_key]['domain'] if domain.endswith(self.word)}
+                                        {
+                                            domain
+                                            for domain in result[subdomain_key][
+                                                "domain"
+                                            ]
+                                            if domain.endswith(self.word)
+                                        }
                                     )
                                 else:
                                     self.totalhosts.update(
-                                        {domain for domain in result[subdomain_key] if domain.endswith(self.word)}
+                                        {
+                                            domain
+                                            for domain in result[subdomain_key]
+                                            if domain.endswith(self.word)
+                                        }
                                     )
                     except Exception as e:
-                        print(f'An exception has occurred on result: {result}: {e}')
+                        print(f"An exception has occurred on result: {result}: {e}")
                         continue
         else:
-            print(f'Onhyphe API query did not succeed dumping current response: {self.response}')
+            print(
+                f"Onhyphe API query did not succeed dumping current response: {self.response}"
+            )
 
     async def get_asns(self) -> set:
         return self.asns

@@ -8,7 +8,7 @@ class SearchVirustotal:
     def __init__(self, word) -> None:
         self.key = Core.virustotal_key()
         if self.key is None:
-            raise MissingKey('virustotal')
+            raise MissingKey("virustotal")
         self.word = word
         self.proxy = False
         self.hostnames: list = []
@@ -18,12 +18,14 @@ class SearchVirustotal:
         # based on: https://developers.virustotal.com/reference/domains-relationships
         # base_url = "https://www.virustotal.com/api/v3/domains/domain/subdomains?limit=40"
         headers = {
-            'User-Agent': Core.get_user_agent(),
-            'Accept': 'application/json',
-            'x-apikey': self.key,
+            "User-Agent": Core.get_user_agent(),
+            "Accept": "application/json",
+            "x-apikey": self.key,
         }
-        base_url = f'https://www.virustotal.com/api/v3/domains/{self.word}/subdomains?limit=40'
-        cursor = ''
+        base_url = (
+            f"https://www.virustotal.com/api/v3/domains/{self.word}/subdomains?limit=40"
+        )
+        cursor = ""
         count = 0
         fail_counter = 0
         counter = 0
@@ -35,29 +37,42 @@ class SearchVirustotal:
             # TODO add timer logic if proven to be needed
             # in the meantime sleeping 16 seconds should eliminate hitting the rate limit
             # in case rate limit is hit, fail counter exists and sleep for 65 seconds
-            send_url = base_url + '&cursor=' + cursor if cursor != '' and len(cursor) > 2 else base_url
-            responses = await AsyncFetcher.fetch_all([send_url], headers=headers, proxy=self.proxy, json=True)
+            send_url = (
+                base_url + "&cursor=" + cursor
+                if cursor != "" and len(cursor) > 2
+                else base_url
+            )
+            responses = await AsyncFetcher.fetch_all(
+                [send_url], headers=headers, proxy=self.proxy, json=True
+            )
             jdata = responses[0]
-            if 'data' not in jdata.keys():
+            if "data" not in jdata.keys():
                 await asyncio.sleep(60 + 5)
                 fail_counter += 1
-            if 'meta' in jdata.keys():
-                cursor = jdata['meta']['cursor'] if 'cursor' in jdata['meta'].keys() else ''
-                if len(cursor) == 0 and 'data' in jdata.keys():
+            if "meta" in jdata.keys():
+                cursor = (
+                    jdata["meta"]["cursor"] if "cursor" in jdata["meta"].keys() else ""
+                )
+                if len(cursor) == 0 and "data" in jdata.keys():
                     # if cursor no longer is within the meta field have hit last entry
                     breakcon = True
-            count += jdata['meta']['count']
+            count += jdata["meta"]["count"]
             if count == 0 or fail_counter >= 2:
                 break
-            if 'data' in jdata.keys():
-                data = jdata['data']
+            if "data" in jdata.keys():
+                data = jdata["data"]
                 self.hostnames.extend(await self.parse_hostnames(data, self.word))
                 counter += 1
             await asyncio.sleep(16)
         self.hostnames = list(sorted(set(self.hostnames)))
         # verify domains such as x.x.com.multicdn.x.com are parsed properly
         self.hostnames = [
-            host for host in self.hostnames if ((len(host.split('.')) >= 3) and host.split('.')[-2] == self.word.split('.')[-2])
+            host
+            for host in self.hostnames
+            if (
+                (len(host.split(".")) >= 3)
+                and host.split(".")[-2] == self.word.split(".")[-2]
+            )
         ]
 
     async def get_hostnames(self) -> list:
@@ -67,20 +82,22 @@ class SearchVirustotal:
     async def parse_hostnames(data, word):
         total_subdomains = set()
         for attribute in data:
-            total_subdomains.add(attribute['id'].replace('"', '').replace('www.', ''))
-            attributes = attribute['attributes']
+            total_subdomains.add(attribute["id"].replace('"', "").replace("www.", ""))
+            attributes = attribute["attributes"]
             total_subdomains.update(
                 {
-                    value['value'].replace('"', '').replace('www.', '')
-                    for value in attributes['last_dns_records']
-                    if word in value['value']
+                    value["value"].replace('"', "").replace("www.", "")
+                    for value in attributes["last_dns_records"]
+                    if word in value["value"]
                 }
             )
-            if 'last_https_certificate' in attributes.keys():
+            if "last_https_certificate" in attributes.keys():
                 total_subdomains.update(
                     {
-                        value.replace('"', '').replace('www.', '')
-                        for value in attributes['last_https_certificate']['extensions']['subject_alternative_name']
+                        value.replace('"', "").replace("www.", "")
+                        for value in attributes["last_https_certificate"]["extensions"][
+                            "subject_alternative_name"
+                        ]
                         if word in value
                     }
                 )
@@ -91,7 +108,9 @@ class SearchVirustotal:
         total_subdomains = [
             x
             for x in total_subdomains
-            if 'edgekey.net' not in str(x) and 'akadns.net' not in str(x) and 'include:_spf' not in str(x)
+            if "edgekey.net" not in str(x)
+            and "akadns.net" not in str(x)
+            and "include:_spf" not in str(x)
         ]
         total_subdomains.sort()
         return total_subdomains
