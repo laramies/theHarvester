@@ -5,7 +5,7 @@ from sqlite3.dbapi2 import Row
 
 import aiosqlite
 
-db_path = os.path.expanduser("~/.local/share/theHarvester")
+db_path = os.path.expanduser('~/.local/share/theHarvester')
 
 if not os.path.isdir(db_path):
     os.makedirs(db_path)
@@ -13,9 +13,9 @@ if not os.path.isdir(db_path):
 
 class StashManager:
     def __init__(self) -> None:
-        self.db = os.path.join(db_path, "stash.sqlite")
-        self.results = ""
-        self.totalresults = ""
+        self.db = os.path.join(db_path, 'stash.sqlite')
+        self.results = ''
+        self.totalresults = ''
         self.latestscandomain: dict = {}
         self.domainscanhistory: list = []
         self.scanboarddata: dict = {}
@@ -26,7 +26,7 @@ class StashManager:
     async def do_init(self) -> None:
         async with aiosqlite.connect(self.db) as db:
             await db.execute(
-                "CREATE TABLE IF NOT EXISTS results (domain text, resource text, type text, find_date date, source text)"
+                'CREATE TABLE IF NOT EXISTS results (domain text, resource text, type text, find_date date, source text)'
             )
             await db.commit()
 
@@ -39,7 +39,7 @@ class StashManager:
         try:
             async with aiosqlite.connect(self.db, timeout=30) as db:
                 await db.execute(
-                    "INSERT INTO results (domain,resource, type, find_date, source) VALUES (?,?,?,?,?)",
+                    'INSERT INTO results (domain,resource, type, find_date, source) VALUES (?,?,?,?,?)',
                     (self.domain, self.resource, self.type, self.date, self.source),
                 )
                 await db.commit()
@@ -52,13 +52,11 @@ class StashManager:
         self.type = res_type
         self.source = source
         self.date = datetime.date.today()
-        master_list = [
-            (self.domain, x, self.type, self.date, self.source) for x in self.all
-        ]
+        master_list = [(self.domain, x, self.type, self.date, self.source) for x in self.all]
         async with aiosqlite.connect(self.db, timeout=30) as db:
             try:
                 await db.executemany(
-                    "INSERT INTO results (domain,resource, type, find_date, source) VALUES (?,?,?,?,?)",
+                    'INSERT INTO results (domain,resource, type, find_date, source) VALUES (?,?,?,?,?)',
                     master_list,
                 )
                 await db.commit()
@@ -68,43 +66,41 @@ class StashManager:
     async def generatedashboardcode(self, domain):
         try:
             # TODO refactor into generic method
-            self.latestscandomain["domain"] = domain
+            self.latestscandomain['domain'] = domain
             async with aiosqlite.connect(self.db, timeout=30) as conn:
                 cursor = await conn.execute(
                     '''SELECT COUNT(*) from results WHERE domain=? AND type="host"''',
                     (domain,),
                 )
                 data = await cursor.fetchone()
-                self.latestscandomain["host"] = data[0]
+                self.latestscandomain['host'] = data[0]
                 cursor = await conn.execute(
                     '''SELECT COUNT(*) from results WHERE domain=? AND type="email"''',
                     (domain,),
                 )
                 data = await cursor.fetchone()
-                self.latestscandomain["email"] = data[0]
+                self.latestscandomain['email'] = data[0]
                 cursor = await conn.execute(
                     '''SELECT COUNT(*) from results WHERE domain=? AND type="ip"''',
                     (domain,),
                 )
                 data = await cursor.fetchone()
-                self.latestscandomain["ip"] = data[0]
+                self.latestscandomain['ip'] = data[0]
                 cursor = await conn.execute(
                     '''SELECT COUNT(*) from results WHERE domain=? AND type="vhost"''',
                     (domain,),
                 )
                 data = await cursor.fetchone()
-                self.latestscandomain["vhost"] = data[0]
+                self.latestscandomain['vhost'] = data[0]
                 cursor = await conn.execute(
                     '''SELECT COUNT(*) from results WHERE domain=? AND type="shodan"''',
                     (domain,),
                 )
                 data = await cursor.fetchone()
-                self.latestscandomain["shodan"] = data[0]
-                cursor = await conn.execute(
-                    """SELECT MAX(find_date) FROM results WHERE domain=?""", (domain,)
-                )
+                self.latestscandomain['shodan'] = data[0]
+                cursor = await conn.execute("""SELECT MAX(find_date) FROM results WHERE domain=?""", (domain,))
                 data = await cursor.fetchone()
-                self.latestscandomain["latestdate"] = data[0]
+                self.latestscandomain['latestdate'] = data[0]
                 latestdate = data[0]
                 cursor = await conn.execute(
                     '''SELECT * FROM results WHERE domain=? AND find_date=? AND type="host"''',
@@ -114,7 +110,7 @@ class StashManager:
                     ),
                 )
                 scandetailshost = await cursor.fetchall()
-                self.latestscandomain["scandetailshost"] = scandetailshost
+                self.latestscandomain['scandetailshost'] = scandetailshost
                 cursor = await conn.execute(
                     '''SELECT * FROM results WHERE domain=? AND find_date=? AND type="email"''',
                     (
@@ -123,7 +119,7 @@ class StashManager:
                     ),
                 )
                 scandetailsemail = await cursor.fetchall()
-                self.latestscandomain["scandetailsemail"] = scandetailsemail
+                self.latestscandomain['scandetailsemail'] = scandetailsemail
                 cursor = await conn.execute(
                     '''SELECT * FROM results WHERE domain=? AND find_date=? AND type="ip"''',
                     (
@@ -132,7 +128,7 @@ class StashManager:
                     ),
                 )
                 scandetailsip = await cursor.fetchall()
-                self.latestscandomain["scandetailsip"] = scandetailsip
+                self.latestscandomain['scandetailsip'] = scandetailsip
                 cursor = await conn.execute(
                     '''SELECT * FROM results WHERE domain=? AND find_date=? AND type="vhost"''',
                     (
@@ -141,7 +137,7 @@ class StashManager:
                     ),
                 )
                 scandetailsvhost = await cursor.fetchall()
-                self.latestscandomain["scandetailsvhost"] = scandetailsvhost
+                self.latestscandomain['scandetailsvhost'] = scandetailsvhost
                 cursor = await conn.execute(
                     '''SELECT * FROM results WHERE domain=? AND find_date=? AND type="shodan"''',
                     (
@@ -150,14 +146,12 @@ class StashManager:
                     ),
                 )
                 scandetailsshodan = await cursor.fetchall()
-                self.latestscandomain["scandetailsshodan"] = scandetailsshodan
+                self.latestscandomain['scandetailsshodan'] = scandetailsshodan
             return self.latestscandomain
         except Exception as e:
             print(e)
 
-    async def getlatestscanresults(
-        self, domain, previousday: bool = False
-    ) -> Iterable[Row | str] | None:
+    async def getlatestscanresults(self, domain, previousday: bool = False) -> Iterable[Row | str] | None:
         try:
             async with aiosqlite.connect(self.db, timeout=30) as conn:
                 if previousday:
@@ -170,15 +164,13 @@ class StashManager:
                             (domain,),
                         )
                         previousscandate = await cursor.fetchone()
-                        if (
-                            not previousscandate
-                        ):  # When theHarvester runs first time/day, this query will return.
+                        if not previousscandate:  # When theHarvester runs first time/day, this query will return.
                             self.previousscanresults = [
-                                "No results",
-                                "No results",
-                                "No results",
-                                "No results",
-                                "No results",
+                                'No results',
+                                'No results',
+                                'No results',
+                                'No results',
+                                'No results',
                             ]
                         else:
                             cursor = await conn.execute(
@@ -197,9 +189,7 @@ class StashManager:
                             self.previousscanresults = list(results)
                         return self.previousscanresults
                     except Exception as e:
-                        print(
-                            f"Error in getting the previous scan results from the database: {e}"
-                        )
+                        print(f'Error in getting the previous scan results from the database: {e}')
                 else:
                     try:
                         cursor = await conn.execute(
@@ -223,46 +213,32 @@ class StashManager:
                         self.latestscanresults = list(results)
                         return self.latestscanresults
                     except Exception as e:
-                        print(
-                            f"Error in getting the latest scan results from the database: {e}"
-                        )
+                        print(f'Error in getting the latest scan results from the database: {e}')
         except Exception as e:
-            print(f"Error connecting to theHarvester database: {e}")
+            print(f'Error connecting to theHarvester database: {e}')
         return self.latestscanresults
 
     async def getscanboarddata(self):
         try:
             async with aiosqlite.connect(self.db, timeout=30) as conn:
-                cursor = await conn.execute(
-                    '''SELECT COUNT(*) from results WHERE type="host"'''
-                )
+                cursor = await conn.execute('''SELECT COUNT(*) from results WHERE type="host"''')
                 data = await cursor.fetchone()
-                self.scanboarddata["host"] = data[0]
-                cursor = await conn.execute(
-                    '''SELECT COUNT(*) from results WHERE type="email"'''
-                )
+                self.scanboarddata['host'] = data[0]
+                cursor = await conn.execute('''SELECT COUNT(*) from results WHERE type="email"''')
                 data = await cursor.fetchone()
-                self.scanboarddata["email"] = data[0]
-                cursor = await conn.execute(
-                    '''SELECT COUNT(*) from results WHERE type="ip"'''
-                )
+                self.scanboarddata['email'] = data[0]
+                cursor = await conn.execute('''SELECT COUNT(*) from results WHERE type="ip"''')
                 data = await cursor.fetchone()
-                self.scanboarddata["ip"] = data[0]
-                cursor = await conn.execute(
-                    '''SELECT COUNT(*) from results WHERE type="vhost"'''
-                )
+                self.scanboarddata['ip'] = data[0]
+                cursor = await conn.execute('''SELECT COUNT(*) from results WHERE type="vhost"''')
                 data = await cursor.fetchone()
-                self.scanboarddata["vhost"] = data[0]
-                cursor = await conn.execute(
-                    '''SELECT COUNT(*) from results WHERE type="shodan"'''
-                )
+                self.scanboarddata['vhost'] = data[0]
+                cursor = await conn.execute('''SELECT COUNT(*) from results WHERE type="shodan"''')
                 data = await cursor.fetchone()
-                self.scanboarddata["shodan"] = data[0]
-                cursor = await conn.execute(
-                    """SELECT COUNT(DISTINCT(domain)) FROM results """
-                )
+                self.scanboarddata['shodan'] = data[0]
+                cursor = await conn.execute("""SELECT COUNT(DISTINCT(domain)) FROM results """)
                 data = await cursor.fetchone()
-                self.scanboarddata["domains"] = data[0]
+                self.scanboarddata['domains'] = data[0]
             return self.scanboarddata
         except Exception as e:
             print(e)
@@ -302,12 +278,12 @@ class StashManager:
                     )
                     countshodan = await cursor.fetchone()
                     results = {
-                        "date": str(date[0]),
-                        "hosts": str(counthost[0]),
-                        "email": str(countemail[0]),
-                        "ip": str(countip[0]),
-                        "vhost": str(countvhost[0]),
-                        "shodan": str(countshodan[0]),
+                        'date': str(date[0]),
+                        'hosts': str(counthost[0]),
+                        'email': str(countemail[0]),
+                        'ip': str(countip[0]),
+                        'vhost': str(countvhost[0]),
+                        'shodan': str(countshodan[0]),
                     }
                     self.domainscanhistory.append(results)
             return self.domainscanhistory
@@ -333,42 +309,40 @@ class StashManager:
     async def latestscanchartdata(self, domain):
         try:
             async with aiosqlite.connect(self.db, timeout=30) as conn:
-                self.latestscandomain["domain"] = domain
+                self.latestscandomain['domain'] = domain
                 cursor = await conn.execute(
                     '''SELECT COUNT(*) from results WHERE domain=? AND type="host"''',
                     (domain,),
                 )
                 data = await cursor.fetchone()
-                self.latestscandomain["host"] = data[0]
+                self.latestscandomain['host'] = data[0]
                 cursor = await conn.execute(
                     '''SELECT COUNT(*) from results WHERE domain=? AND type="email"''',
                     (domain,),
                 )
                 data = await cursor.fetchone()
-                self.latestscandomain["email"] = data[0]
+                self.latestscandomain['email'] = data[0]
                 cursor = await conn.execute(
                     '''SELECT COUNT(*) from results WHERE domain=? AND type="ip"''',
                     (domain,),
                 )
                 data = await cursor.fetchone()
-                self.latestscandomain["ip"] = data[0]
+                self.latestscandomain['ip'] = data[0]
                 cursor = await conn.execute(
                     '''SELECT COUNT(*) from results WHERE domain=? AND type="vhost"''',
                     (domain,),
                 )
                 data = await cursor.fetchone()
-                self.latestscandomain["vhost"] = data[0]
+                self.latestscandomain['vhost'] = data[0]
                 cursor = await conn.execute(
                     '''SELECT COUNT(*) from results WHERE domain=? AND type="shodan"''',
                     (domain,),
                 )
                 data = await cursor.fetchone()
-                self.latestscandomain["shodan"] = data[0]
-                cursor = await conn.execute(
-                    """SELECT MAX(find_date) FROM results WHERE domain=?""", (domain,)
-                )
+                self.latestscandomain['shodan'] = data[0]
+                cursor = await conn.execute("""SELECT MAX(find_date) FROM results WHERE domain=?""", (domain,))
                 data = await cursor.fetchone()
-                self.latestscandomain["latestdate"] = data[0]
+                self.latestscandomain['latestdate'] = data[0]
                 latestdate = data[0]
                 cursor = await conn.execute(
                     '''SELECT * FROM results WHERE domain=? AND find_date=? AND type="host"''',
@@ -378,7 +352,7 @@ class StashManager:
                     ),
                 )
                 scandetailshost = await cursor.fetchall()
-                self.latestscandomain["scandetailshost"] = scandetailshost
+                self.latestscandomain['scandetailshost'] = scandetailshost
                 cursor = await conn.execute(
                     '''SELECT * FROM results WHERE domain=? AND find_date=? AND type="email"''',
                     (
@@ -387,7 +361,7 @@ class StashManager:
                     ),
                 )
                 scandetailsemail = await cursor.fetchall()
-                self.latestscandomain["scandetailsemail"] = scandetailsemail
+                self.latestscandomain['scandetailsemail'] = scandetailsemail
                 cursor = await conn.execute(
                     '''SELECT * FROM results WHERE domain=? AND find_date=? AND type="ip"''',
                     (
@@ -396,7 +370,7 @@ class StashManager:
                     ),
                 )
                 scandetailsip = await cursor.fetchall()
-                self.latestscandomain["scandetailsip"] = scandetailsip
+                self.latestscandomain['scandetailsip'] = scandetailsip
                 cursor = await conn.execute(
                     '''SELECT * FROM results WHERE domain=? AND find_date=? AND type="vhost"''',
                     (
@@ -405,7 +379,7 @@ class StashManager:
                     ),
                 )
                 scandetailsvhost = await cursor.fetchall()
-                self.latestscandomain["scandetailsvhost"] = scandetailsvhost
+                self.latestscandomain['scandetailsvhost'] = scandetailsvhost
                 cursor = await conn.execute(
                     '''SELECT * FROM results WHERE domain=? AND find_date=? AND type="shodan"''',
                     (
@@ -414,7 +388,7 @@ class StashManager:
                     ),
                 )
                 scandetailsshodan = await cursor.fetchall()
-                self.latestscandomain["scandetailsshodan"] = scandetailsshodan
+                self.latestscandomain['scandetailsshodan'] = scandetailsshodan
             return self.latestscandomain
         except Exception as e:
             print(e)
