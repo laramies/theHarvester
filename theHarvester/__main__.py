@@ -308,83 +308,91 @@ async def start(rest_args: argparse.Namespace | None = None):
         :param store_asns: whether to store asns
         """
         
-        for word in domainLists:
+        # Initialize variables to store results for each domain
+        # all_hosts = []
+        # all_emails = []
+        # all_ip = []
+        # all_people = []
+        # all_links = []
+        # all_interestingurls = []
+        # all_asns = []
         
-            await search_engine.process(use_proxy) if process_param is None else await search_engine.process(process_param, use_proxy)
-            db_stash = stash.StashManager()
+        
+        await search_engine.process(use_proxy) if process_param is None else await search_engine.process(process_param, use_proxy)
+        db_stash = stash.StashManager()
 
-            if source:
-                print(f'\033[94m[*] Searching {source[0].upper() + source[1:]}. ')
+        if source:
+            print(f'\033[94m[*] Searching {source[0].upper() + source[1:]}. ')
 
-            if store_host:
-                host_names = list({host for host in await search_engine.get_hostnames() if f'.{word}' in host})
-                host_names = list(host_names)
-                if source != 'hackertarget' and source != 'pentesttools' and source != 'rapiddns':
-                    # If a source is inside this conditional, it means the hosts returned must be resolved to obtain ip
-                    # This should only be checked if --dns-resolve has a wordlist
-                    if dnsresolve is None or len(final_dns_resolver_list) > 0:
-                        # indicates that -r was passed in if dnsresolve is None
-                        full_hosts_checker = hostchecker.Checker(host_names, final_dns_resolver_list)
-                        # If full, this is only getting resolved hosts
-                        (
-                            resolved_pair,
-                            temp_hosts,
-                            temp_ips,
-                        ) = await full_hosts_checker.check()
-                        all_ip.extend(temp_ips)
-                        full.extend(resolved_pair)
-                        # full.extend(temp_hosts)
-                    else:
-                        full.extend(host_names)
+        if store_host:
+            host_names = list({host for host in await search_engine.get_hostnames() if f'.{word}' in host})
+            host_names = list(host_names)
+            if source != 'hackertarget' and source != 'pentesttools' and source != 'rapiddns':
+                # If a source is inside this conditional, it means the hosts returned must be resolved to obtain ip
+                # This should only be checked if --dns-resolve has a wordlist
+                if dnsresolve is None or len(final_dns_resolver_list) > 0:
+                    # indicates that -r was passed in if dnsresolve is None
+                    full_hosts_checker = hostchecker.Checker(host_names, final_dns_resolver_list)
+                    # If full, this is only getting resolved hosts
+                    (
+                        resolved_pair,
+                        temp_hosts,
+                        temp_ips,
+                    ) = await full_hosts_checker.check()
+                    all_ip.extend(temp_ips)
+                    full.extend(resolved_pair)
+                    # full.extend(temp_hosts)
                 else:
                     full.extend(host_names)
-                all_hosts.extend(host_names)
-                await db_stash.store_all(word, all_hosts, 'host', source)
+            else:
+                full.extend(host_names)
+            all_hosts.extend(host_names)
+            await db_stash.store_all(word, all_hosts, 'host', source)
 
-            if store_emails:
-                email_list = await search_engine.get_emails()
-                all_emails.extend(email_list)
-                await db_stash.store_all(word, email_list, 'email', source)
+        if store_emails:
+            email_list = await search_engine.get_emails()
+            all_emails.extend(email_list)
+            await db_stash.store_all(word, email_list, 'email', source)
 
-            if store_ip:
-                ips_list = await search_engine.get_ips()
-                all_ip.extend(ips_list)
-                await db_stash.store_all(word, all_ip, 'ip', source)
+        if store_ip:
+            ips_list = await search_engine.get_ips()
+            all_ip.extend(ips_list)
+            await db_stash.store_all(word, all_ip, 'ip', source)
 
-            if store_results:
-                email_list, host_names, urls = await search_engine.get_results()
-                all_emails.extend(email_list)
-                host_names = list({host for host in host_names if f'.{word}' in host})
-                all_urls.extend(urls)
-                all_hosts.extend(host_names)
-                await db.store_all(word, all_hosts, 'host', source)
-                await db.store_all(word, all_emails, 'email', source)
+        if store_results:
+            email_list, host_names, urls = await search_engine.get_results()
+            all_emails.extend(email_list)
+            host_names = list({host for host in host_names if f'.{word}' in host})
+            all_urls.extend(urls)
+            all_hosts.extend(host_names)
+            await db.store_all(word, all_hosts, 'host', source)
+            await db.store_all(word, all_emails, 'email', source)
 
-            if store_people:
-                people_list = await search_engine.get_people()
-                await db_stash.store_all(word, people_list, 'people', source)
+        if store_people:
+            people_list = await search_engine.get_people()
+            await db_stash.store_all(word, people_list, 'people', source)
 
-            if store_links:
-                links = await search_engine.get_links()
-                linkedin_links_tracker.extend(links)
-                if len(links) > 0:
-                    await db.store_all(word, links, 'linkedinlinks', engineitem)
+        if store_links:
+            links = await search_engine.get_links()
+            linkedin_links_tracker.extend(links)
+            if len(links) > 0:
+                await db.store_all(word, links, 'linkedinlinks', engineitem)
 
-            if store_interestingurls:
-                iurls = await search_engine.get_interestingurls()
-                interesting_urls.extend(iurls)
-                if len(iurls) > 0:
-                    await db.store_all(word, iurls, 'interestingurls', engineitem)
+        if store_interestingurls:
+            iurls = await search_engine.get_interestingurls()
+            interesting_urls.extend(iurls)
+            if len(iurls) > 0:
+                await db.store_all(word, iurls, 'interestingurls', engineitem)
 
-            if store_asns:
-                fasns = await search_engine.get_asns()
-                total_asns.extend(fasns)
-                if len(fasns) > 0:
-                    await db.store_all(word, fasns, 'asns', engineitem)
+        if store_asns:
+            fasns = await search_engine.get_asns()
+            total_asns.extend(fasns)
+            if len(fasns) > 0:
+                await db.store_all(word, fasns, 'asns', engineitem)
 
     
+    stor_lst = []
     for word in domainLists:
-        stor_lst = []
         if args.source is not None:
             if args.source.lower() != 'all':
                 engines = sorted(set(map(str.strip, args.source.split(','))))
@@ -398,7 +406,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     if engineitem == 'anubis':
                         try:
                             anubis_search = anubis.SearchAnubis(word)
-                            stor_lst.append(store(anubis_search, engineitem, store_host=True))
+                            stor_lst.append(await store(anubis_search, engineitem, store_host=True))
                         except Exception as e:
                             print(e)
 
@@ -406,7 +414,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         try:
                             baidu_search = baidusearch.SearchBaidu(word, limit)
                             stor_lst.append(
-                                store(
+                                await store(
                                     baidu_search,
                                     engineitem,
                                     store_host=True,
@@ -420,7 +428,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         try:
                             bevigil_search = bevigil.SearchBeVigil(word)
                             stor_lst.append(
-                                store(
+                                await store(
                                     bevigil_search,
                                     engineitem,
                                     store_host=True,
@@ -433,7 +441,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     elif engineitem == 'binaryedge':
                         try:
                             binaryedge_search = binaryedgesearch.SearchBinaryEdge(word, limit)
-                            stor_lst.append(store(binaryedge_search, engineitem, store_host=True))
+                            stor_lst.append(await store(binaryedge_search, engineitem, store_host=True))
                         except Exception as e:
                             print(e)
 
@@ -446,7 +454,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                             else:
                                 bingapi += 'no'
                             stor_lst.append(
-                                store(
+                                await store(
                                     bing_search,
                                     'bing',
                                     process_param=bingapi,
@@ -464,7 +472,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         try:
                             bufferoverun_search = bufferoverun.SearchBufferover(word)
                             stor_lst.append(
-                                store(
+                                await store(
                                     bufferoverun_search,
                                     engineitem,
                                     store_host=True,
@@ -478,7 +486,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         try:
                             brave_search = bravesearch.SearchBrave(word, limit)
                             stor_lst.append(
-                                store(
+                                await store(
                                     brave_search,
                                     engineitem,
                                     store_host=True,
@@ -492,7 +500,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         try:
                             censys_search = censysearch.SearchCensys(word, limit)
                             stor_lst.append(
-                                store(
+                                await store(
                                     censys_search,
                                     engineitem,
                                     store_host=True,
@@ -506,7 +514,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     elif engineitem == 'certspotter':
                         try:
                             certspotter_search = certspottersearch.SearchCertspoter(word)
-                            stor_lst.append(store(certspotter_search, engineitem, None, store_host=True))
+                            stor_lst.append(await store(certspotter_search, engineitem, None, store_host=True))
                         except Exception as e:
                             print(e)
 
@@ -514,7 +522,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         try:
                             criminalip_search = criminalip.SearchCriminalIP(word)
                             stor_lst.append(
-                                store(
+                                await store(
                                     criminalip_search,
                                     engineitem,
                                     store_host=True,
@@ -531,7 +539,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     elif engineitem == 'crtsh':
                         try:
                             crtsh_search = crtsh.SearchCrtsh(word)
-                            stor_lst.append(store(crtsh_search, 'CRTsh', store_host=True))
+                            stor_lst.append(await store(crtsh_search, 'CRTsh', store_host=True))
                         except Exception as e:
                             print(f'[!] A timeout occurred with crtsh, cannot find {args.domain}\n {e}')
 
@@ -539,7 +547,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         try:
                             dns_dumpster_search = dnsdumpster.SearchDnsDumpster(word)
                             stor_lst.append(
-                                store(
+                                await store(
                                     dns_dumpster_search,
                                     engineitem,
                                     store_host=True,
@@ -552,7 +560,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     elif engineitem == 'duckduckgo':
                         duckduckgo_search = duckduckgosearch.SearchDuckDuckGo(word, limit)
                         stor_lst.append(
-                            store(
+                            await store(
                                 duckduckgo_search,
                                 engineitem,
                                 store_host=True,
@@ -563,7 +571,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     elif engineitem == 'fullhunt':
                         try:
                             fullhunt_search = fullhuntsearch.SearchFullHunt(word)
-                            stor_lst.append(store(fullhunt_search, engineitem, store_host=True))
+                            stor_lst.append(await store(fullhunt_search, engineitem, store_host=True))
                         except Exception as e:
                             if isinstance(e, MissingKey):
                                 print(e)
@@ -572,7 +580,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         try:
                             github_search = githubcode.SearchGithubCode(word, limit)
                             stor_lst.append(
-                                store(
+                                await store(
                                     github_search,
                                     engineitem,
                                     store_host=True,
@@ -584,13 +592,13 @@ async def start(rest_args: argparse.Namespace | None = None):
 
                     elif engineitem == 'hackertarget':
                         hackertarget_search = hackertarget.SearchHackerTarget(word)
-                        stor_lst.append(store(hackertarget_search, engineitem, store_host=True))
+                        stor_lst.append(await store(hackertarget_search, engineitem, store_host=True))
 
                     elif engineitem == 'hunter':
                         try:
                             hunter_search = huntersearch.SearchHunter(word, limit, start)
                             stor_lst.append(
-                                store(
+                                await store(
                                     hunter_search,
                                     engineitem,
                                     store_host=True,
@@ -604,7 +612,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     elif engineitem == 'hunterhow':
                         try:
                             hunterhow_search = searchhunterhow.SearchHunterHow(word)
-                            stor_lst.append(store(hunterhow_search, engineitem, store_host=True))
+                            stor_lst.append(await store(hunterhow_search, engineitem, store_host=True))
                         except Exception as e:
                             if isinstance(e, MissingKey):
                                 print(e)
@@ -615,7 +623,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         try:
                             intelx_search = intelxsearch.SearchIntelx(word)
                             stor_lst.append(
-                                store(
+                                await store(
                                     intelx_search,
                                     engineitem,
                                     store_interestingurls=True,
@@ -632,7 +640,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         try:
                             netlas_search = netlas.SearchNetlas(word)
                             stor_lst.append(
-                                store(
+                                await store(
                                     netlas_search,
                                     engineitem,
                                     store_host=True,
@@ -647,7 +655,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         try:
                             onyphe_search = onyphe.SearchOnyphe(word)
                             stor_lst.append(
-                                store(
+                                await store(
                                     onyphe_search,
                                     engineitem,
                                     store_host=True,
@@ -662,7 +670,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         try:
                             otxsearch_search = otxsearch.SearchOtx(word)
                             stor_lst.append(
-                                store(
+                                await store(
                                     otxsearch_search,
                                     engineitem,
                                     store_host=True,
@@ -675,7 +683,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     elif engineitem == 'pentesttools':
                         try:
                             pentesttools_search = pentesttools.SearchPentestTools(word)
-                            stor_lst.append(store(pentesttools_search, engineitem, store_host=True))
+                            stor_lst.append(await store(pentesttools_search, engineitem, store_host=True))
                         except Exception as e:
                             if isinstance(e, MissingKey):
                                 print(e)
@@ -685,7 +693,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     elif engineitem == 'projectdiscovery':
                         try:
                             projectdiscovery_search = projectdiscovery.SearchDiscovery(word)
-                            stor_lst.append(store(projectdiscovery_search, engineitem, store_host=True))
+                            stor_lst.append(await store(projectdiscovery_search, engineitem, store_host=True))
                         except Exception as e:
                             if isinstance(e, MissingKey):
                                 print(e)
@@ -702,7 +710,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     elif engineitem == 'rocketreach':
                         try:
                             rocketreach_search = rocketreach.SearchRocketReach(word, limit)
-                            stor_lst.append(store(rocketreach_search, engineitem, store_links=True))
+                            stor_lst.append(await store(rocketreach_search, engineitem, store_links=True))
                         except Exception as e:
                             if isinstance(e, MissingKey):
                                 print(e)
@@ -712,7 +720,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     elif engineitem == 'subdomaincenter':
                         try:
                             subdomaincenter_search = subdomaincenter.SubdomainCenter(word)
-                            stor_lst.append(store(subdomaincenter_search, engineitem, store_host=True))
+                            stor_lst.append(await store(subdomaincenter_search, engineitem, store_host=True))
                         except Exception as e:
                             print(e)
 
@@ -720,7 +728,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         try:
                             securitytrails_search = securitytrailssearch.SearchSecuritytrail(word)
                             stor_lst.append(
-                                store(
+                                await store(
                                     securitytrails_search,
                                     engineitem,
                                     store_host=True,
@@ -734,14 +742,14 @@ async def start(rest_args: argparse.Namespace | None = None):
                     elif engineitem == 'sitedossier':
                         try:
                             sitedossier_search = sitedossier.SearchSitedossier(word)
-                            stor_lst.append(store(sitedossier_search, engineitem, store_host=True))
+                            stor_lst.append(await store(sitedossier_search, engineitem, store_host=True))
                         except Exception as e:
                             print(e)
 
                     elif engineitem == 'subdomainfinderc99':
                         try:
                             subdomainfinderc99_search = subdomainfinderc99.SearchSubdomainfinderc99(word)
-                            stor_lst.append(store(subdomainfinderc99_search, engineitem, store_host=True))
+                            stor_lst.append(await store(subdomainfinderc99_search, engineitem, store_host=True))
                         except Exception as e:
                             if isinstance(e, MissingKey):
                                 print(e)
@@ -752,7 +760,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         try:
                             threatminer_search = threatminer.SearchThreatminer(word)
                             stor_lst.append(
-                                store(
+                                await store(
                                     threatminer_search,
                                     engineitem,
                                     store_host=True,
@@ -766,7 +774,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         try:
                             tomba_search = tombasearch.SearchTomba(word, limit, start)
                             stor_lst.append(
-                                store(
+                                await store(
                                     tomba_search,
                                     engineitem,
                                     store_host=True,
@@ -781,7 +789,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         try:
                             urlscan_search = urlscan.SearchUrlscan(word)
                             stor_lst.append(
-                                store(
+                                await store(
                                     urlscan_search,
                                     engineitem,
                                     store_host=True,
@@ -796,7 +804,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     elif engineitem == 'virustotal':
                         try:
                             virustotal_search = virustotal.SearchVirustotal(word)
-                            stor_lst.append(store(virustotal_search, engineitem, store_host=True))
+                            stor_lst.append(await store(virustotal_search, engineitem, store_host=True))
                         except Exception as e:
                             if isinstance(e, MissingKey):
                                 print(e)
@@ -805,7 +813,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         try:
                             yahoo_search = yahoosearch.SearchYahoo(word, limit)
                             stor_lst.append(
-                                store(
+                                await store(
                                     yahoo_search,
                                     engineitem,
                                     store_host=True,
@@ -819,7 +827,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         try:
                             zoomeye_search = zoomeyesearch.SearchZoomEye(word, limit)
                             stor_lst.append(
-                                store(
+                                await store(
                                     zoomeye_search,
                                     engineitem,
                                     store_host=True,
@@ -843,68 +851,68 @@ async def start(rest_args: argparse.Namespace | None = None):
                     print('\n[!] Invalid source.\n')
                     sys.exit(1)
 
-    async def worker(queue):
-        while True:
-            # Get a "work item" out of the queue.
-            stor = await queue.get()
-            try:
-                await stor
-                queue.task_done()
-                # Notify the queue that the "work item" has been processed.
-            except Exception:
-                queue.task_done()
+        async def worker(queue):
+            while True:
+                # Get a "work item" out of the queue.
+                stor = await queue.get()
+                try:
+                    await stor
+                    queue.task_done()
+                    # Notify the queue that the "work item" has been processed.
+                except Exception:
+                    queue.task_done()
 
-    async def handler(lst):
-        queue = asyncio.Queue()
-        for stor_method in lst:
-            # enqueue the coroutines
-            queue.put_nowait(stor_method)
-        # Create three worker tasks to process the queue concurrently.
-        tasks = []
-        for i in range(3):
-            task = asyncio.create_task(worker(queue))
-            tasks.append(task)
+        async def handler(lst):
+            queue = asyncio.Queue()
+            for stor_method in lst:
+                # enqueue the coroutines
+                queue.put_nowait(stor_method)
+            # Create three worker tasks to process the queue concurrently.
+            tasks = []
+            for i in range(3):
+                task = asyncio.create_task(worker(queue))
+                tasks.append(task)
 
-        # Wait until the queue is fully processed.
-        await queue.join()
+            # Wait until the queue is fully processed.
+            await queue.join()
 
-        # Cancel our worker tasks.
-        for task in tasks:
-            task.cancel()
-        # Wait until all worker tasks are cancelled.
-        await asyncio.gather(*tasks, return_exceptions=True)
+            # Cancel our worker tasks.
+            for task in tasks:
+                task.cancel()
+            # Wait until all worker tasks are cancelled.
+            await asyncio.gather(*tasks, return_exceptions=True)
 
-    await handler(lst=stor_lst)
-    return_ips: list = []
-    if rest_args is not None and len(rest_filename) == 0 and rest_args.dns_brute is False:
-        # Indicates user is using REST api but not wanting output to be saved to a file
-        # cast to string so Rest API can understand the type
-        return_ips.extend([str(ip) for ip in sorted([netaddr.IPAddress(ip.strip()) for ip in set(all_ip)])])
-        # return list(set(all_emails)), return_ips, full, '', ''
-        all_hosts = [host.replace('www.', '') for host in all_hosts if host.replace('www.', '') in all_hosts]
-        all_hosts = list(sorted(set(all_hosts)))
-        return (
-            total_asns,
-            interesting_urls,
-            twitter_people_list_tracker,
-            linkedin_people_list_tracker,
-            linkedin_links_tracker,
-            all_urls,
-            all_ip,
-            all_emails,
-            all_hosts,
-        )
-    # Check to see if all_emails and all_hosts are defined.
-    try:
-        all_emails
-    except NameError:
-        print('\n\n[!] No emails found because all_emails is not defined.\n\n ')
-        sys.exit(1)
-    try:
-        all_hosts
-    except NameError:
-        print('\n\n[!] No hosts found because all_hosts is not defined.\n\n ')
-        sys.exit(1)
+        await handler(lst=stor_lst)
+        return_ips: list = []
+        if rest_args is not None and len(rest_filename) == 0 and rest_args.dns_brute is False:
+            # Indicates user is using REST api but not wanting output to be saved to a file
+            # cast to string so Rest API can understand the type
+            return_ips.extend([str(ip) for ip in sorted([netaddr.IPAddress(ip.strip()) for ip in set(all_ip)])])
+            # return list(set(all_emails)), return_ips, full, '', ''
+            all_hosts = [host.replace('www.', '') for host in all_hosts if host.replace('www.', '') in all_hosts]
+            all_hosts = list(sorted(set(all_hosts)))
+            return (
+                total_asns,
+                interesting_urls,
+                twitter_people_list_tracker,
+                linkedin_people_list_tracker,
+                linkedin_links_tracker,
+                all_urls,
+                all_ip,
+                all_emails,
+                all_hosts,
+            )
+        # Check to see if all_emails and all_hosts are defined.
+        try:
+            all_emails
+        except NameError:
+            print('\n\n[!] No emails found because all_emails is not defined.\n\n ')
+            sys.exit(1)
+        try:
+            all_hosts
+        except NameError:
+            print('\n\n[!] No hosts found because all_hosts is not defined.\n\n ')
+            sys.exit(1)
 
     # Results
     if len(total_asns) > 0:
