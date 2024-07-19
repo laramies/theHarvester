@@ -308,16 +308,6 @@ async def start(rest_args: argparse.Namespace | None = None):
         :param store_asns: whether to store asns
         """
         
-        # Initialize variables to store results for each domain
-        # all_hosts = []
-        # all_emails = []
-        # all_ip = []
-        # all_people = []
-        # all_links = []
-        # all_interestingurls = []
-        # all_asns = []
-        
-        
         await search_engine.process(use_proxy) if process_param is None else await search_engine.process(process_param, use_proxy)
         db_stash = stash.StashManager()
 
