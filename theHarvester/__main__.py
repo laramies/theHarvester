@@ -180,18 +180,18 @@ async def start(rest_args: argparse.Namespace | None = None):
         args = parser.parse_args()
         filename = args.filename
         dnsbrute = (args.dns_brute, False)
-    
+
     # Check if neither -d/--domain nor --domainlist is provided
     if not args.domain and not args.domainlist:
         parser.print_help()
-        print("\nError: Either -d/--domain or --domainlist must be provided.")
+        print('\nError: Either -d/--domain or --domainlist must be provided.')
         sys.exit(1)
 
     # Initialize domainLists from file if --domainlist is provided
     if args.domainlist:
         domain_list_file = args.domainlist
         try:
-            with open(domain_list_file, 'r') as f:
+            with open(domain_list_file) as f:
                 domainLists = [line.strip() for line in f.readlines() if line.strip()]
         except FileNotFoundError:
             print(f"Error: File '{domain_list_file}' not found.")
@@ -199,7 +199,6 @@ async def start(rest_args: argparse.Namespace | None = None):
     else:
         domainLists = [args.domain] if args.domain else []
 
-    
     try:
         db = stash.StashManager()
         await db.do_init()
@@ -307,7 +306,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         :param store_interestingurls: whether to store interesting urls
         :param store_asns: whether to store asns
         """
-        
+
         await search_engine.process(use_proxy) if process_param is None else await search_engine.process(process_param, use_proxy)
         db_stash = stash.StashManager()
 
@@ -380,7 +379,6 @@ async def start(rest_args: argparse.Namespace | None = None):
             if len(fasns) > 0:
                 await db.store_all(word, fasns, 'asns', engineitem)
 
-    
     stor_lst = []
     for word in domainLists:
         if args.source is not None:
