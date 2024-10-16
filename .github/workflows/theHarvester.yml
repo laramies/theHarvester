@@ -86,11 +86,6 @@ jobs:
           theHarvester -d yale.edu -b hackertarget
         continue-on-error: true
 
-      - name: Run theHarvester module Intelx
-        run: |
-          theHarvester -d yale.edu -b intelx
-        continue-on-error: true
-
       - name: Run theHarvester module Otx
         run: |
           theHarvester -d yale.edu -b otx
