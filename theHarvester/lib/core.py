@@ -15,7 +15,6 @@ import ujson as json_loader
 import yaml
 
 from .version import version
-
 if TYPE_CHECKING:
     from collections.abc import Sized
 
@@ -287,12 +286,12 @@ class AsyncFetcher:
                 proxy = random.choice(cls().proxy_list)
                 if params != '':
                     async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
-                        async with session.get(url, params=params, proxy=proxy) as response:
+                        async with session.get(url, params=params, proxy=str(proxy) if proxy else None) as response:
                             await asyncio.sleep(5)
                             return await response.text() if json is False else await response.json()
                 else:
                     async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
-                        async with session.get(url, proxy=proxy) as response:
+                        async with session.get(url, proxy=str(proxy) if proxy else None) as response:
                             await asyncio.sleep(5)
                             return await response.text() if json is False else await response.json()
             elif params == '':

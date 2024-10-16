@@ -102,7 +102,7 @@ jobs:
         run: |
           theHarvester -d yale.edu -c
 
-#      - name: Static type checking with mypy
-#        run: |
-#          mypy --pretty theHarvester/*/*.py
-#          mypy --pretty theHarvester/*/*/*.py
+      - name: Static type checking with mypy
+        run: |
+          mypy --pretty theHarvester/*/*.py
+          mypy --pretty theHarvester/*/*/*.py

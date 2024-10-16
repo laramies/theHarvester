@@ -28,7 +28,7 @@ class SearchDnsDumpster:
                     cookies = resp_cookies.split('csrftoken=')
                     csrftoken += cookies[1][: cookies[1].find(';')]
             else:
-                async with session.get(url, headers=headers, proxy=self.proxy) as resp:
+                async with session.get(url, headers=headers, proxy=str(self.proxy) if self.proxy else None) as resp:
                     resp_cookies = str(resp.cookies)
                     cookies = resp_cookies.split('csrftoken=')
                     csrftoken += cookies[1][: cookies[1].find(';')]
@@ -46,7 +46,7 @@ class SearchDnsDumpster:
                 async with session.post(url, headers=headers, data=data) as resp:
                     self.results = await resp.text()
             else:
-                async with session.post(url, headers=headers, data=data, proxy=self.proxy) as resp:
+                async with session.post(url, headers=headers, data=data, proxy=str(self.proxy) if self.proxy else None) as resp:
                     self.results = await resp.text()
             await session.close()
         except Exception as e:
