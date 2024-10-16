@@ -34,17 +34,14 @@ jobs:
       - name: Lint with ruff
         run: |
           ruff check
-        continue-on-error: true
 
       - name: Format with ruff
         run: |
           ruff format --check --diff
-        continue-on-error: true
 
       - name: Test with pytest
         run: |
           pytest
-        continue-on-error: true
 
       - name: Run theHarvester module Anubis
         run: |
