@@ -33,19 +33,19 @@ class SearchShodan:
 
             data_first_dict = dict(results['data'][0])
 
-            if 'ip_str' in data_first_dict.keys():
+            if 'ip_str' in data_first_dict:
                 ip_str += data_first_dict['ip_str']
 
-            if 'http' in data_first_dict.keys():
+            if 'http' in data_first_dict:
                 http_results_dict = dict(data_first_dict['http'])
-                if 'title' in http_results_dict.keys():
+                if 'title' in http_results_dict:
                     title_val = str(http_results_dict['title']).strip()
                     if title_val != 'None':
                         title += title_val
-                if 'components' in http_results_dict.keys():
+                if 'components' in http_results_dict:
                     for key in http_results_dict['components'].keys():
                         technologies.append(key)
-                if 'server' in http_results_dict.keys():
+                if 'server' in http_results_dict:
                     server_val = str(http_results_dict['server']).strip()
                     if server_val != 'None':
                         server += server_val

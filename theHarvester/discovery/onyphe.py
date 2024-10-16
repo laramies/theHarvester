@@ -37,7 +37,7 @@ class SearchOnyphe:
             self.response = self.response[0]
         if not isinstance(self.response, dict):
             raise Exception(f'An exception has occurred {self.response} is not a dict')
-        if 'Success' == self.response['text']:
+        if self.response['text'] == 'Success':
             if 'results' in self.response.keys():
                 for result in self.response['results']:
                     try:

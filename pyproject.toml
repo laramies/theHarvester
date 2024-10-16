@@ -7,13 +7,13 @@ authors = [
     { name = "Jay Townsend", email = "jay@cybermon.uk" },
     { name = "Matthew Brown", email = "36310667+NotoriousRebel@users.noreply.github.com" },
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 urls.Homepage = "https://github.com/laramies/theHarvester"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
     "Operating System :: OS Independent",
 ]
@@ -78,12 +78,22 @@ exclude = [
 ]
 
 line-length = 130
-target-version = "py310"
+target-version = "py311"
 show-fixes = true
 
 [tool.ruff.lint]
-select = ["E4", "E7", "E9", "F", "I", "UP", "TCH"]
-ignore = []
+select = ["E4",
+    "E7",
+    "E9",
+    "F",
+    "I",
+    "UP",
+    "TCH",
+    "FA",
+    "RUF",
+    "PT",
+    ]
+ignore = ["S311", "RUF021", "RUF029", "F841"]
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
 fixable = ["ALL"]
