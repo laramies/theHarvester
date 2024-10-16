@@ -15,6 +15,7 @@ import ujson as json_loader
 import yaml
 
 from .version import version
+
 if TYPE_CHECKING:
     from collections.abc import Sized
 
