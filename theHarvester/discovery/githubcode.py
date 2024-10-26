@@ -52,9 +52,12 @@ class SearchGithubCode:
     @staticmethod
     async def fragments_from_response(json_data: dict) -> list[str]:
         try:
-            return [match['fragment'] for item in json_data.get('items', [])
-                    for match in item.get('text_matches', [])
-                    if match.get('fragment') is not None]
+            return [
+                match['fragment']
+                for item in json_data.get('items', [])
+                for match in item.get('text_matches', [])
+                if match.get('fragment') is not None
+            ]
         except Exception as e:
             print(f'Error extracting fragments: {e}')
             return []

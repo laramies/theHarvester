@@ -1,11 +1,11 @@
 import asyncio
 from typing import Any
+from urllib.parse import urlparse
 
-import requests
-import ujson
+import aiohttp
 
 from theHarvester.discovery.constants import MissingKey
-from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.core import Core
 from theHarvester.parsers import intelxparser
 
 
@@ -16,20 +16,18 @@ class SearchIntelx:
         if self.key is None:
             raise MissingKey('Intelx')
         self.database = 'https://2.intelx.io'
-        self.results: Any = None
-        self.info: tuple[Any, ...] = ()
+        self.results: dict[str, Any] = {}
+        self.info: tuple[list[str], list[str], list[str]] = ([], [], [])
         self.limit: int = 10000
         self.proxy = False
-        self.offset = -1
+        self.offset = 0
 
     async def do_search(self) -> None:
         try:
-            # Based on: https://github.com/IntelligenceX/SDK/blob/master/Python/intelxapi.py
-            # API requests self identification
-            # https://intelx.io/integrations
             headers = {
                 'x-key': self.key,
                 'User-Agent': f'{Core.get_user_agent()}-theHarvester',
+                'Content-Type': 'application/json',
             }
             data = {
                 'term': self.word,
@@ -39,25 +37,27 @@ class SearchIntelx:
                 'timeout': 5,
                 'datefrom': '',
                 'dateto': '',
-                'sort': 2,
+                'sort': 4,  # Sort by date descending for faster relevant results
                 'media': 0,
                 'terminate': [],
                 'target': 0,
             }
+            async with aiohttp.ClientSession() as session:
+                async with session.post(f'{self.database}/phonebook/search', headers=headers, json=data) as total_resp:
+                    search_data = await total_resp.json()
+                    if not search_data['success']:
+                        print(f'Error: {search_data["message"]}')
+                        return
+                    phonebook_id = search_data['id']
 
-            total_resp = requests.post(f'{self.database}/phonebook/search', headers=headers, json=data)
-            phonebook_id = ujson.loads(total_resp.text)['id']
-            await asyncio.sleep(5)
+                await asyncio.sleep(2)  # Reduced sleep time as 5s is excessive
 
-            # Fetch results from phonebook based on ID
-            resp = await AsyncFetcher.fetch_all(
-                [f'{self.database}/phonebook/search/result?id={phonebook_id}&limit={self.limit}&offset={self.offset}'],
-                headers=headers,
-                json=True,
-                proxy=self.proxy,
-            )
-            resp = resp[0]
-            self.results = resp  # TODO: give self.results more appropriate typing
+                async with session.get(
+                    f'{self.database}/phonebook/search/result?id={phonebook_id}&limit={self.limit}&offset={self.offset}',
+                    headers=headers,
+                ) as resp:
+                    self.results = await resp.json()
+
         except Exception as e:
             print(f'An exception has occurred in Intelx: {e}')
 
@@ -65,12 +65,22 @@ class SearchIntelx:
         self.proxy = proxy
         await self.do_search()
         intelx_parser = intelxparser.Parser()
-        # TODO: give self.info more appropriate typing
         self.info = await intelx_parser.parse_dictionaries(self.results)
 
-    async def get_emails(self):
+    async def get_emails(self) -> list[str]:
         return self.info[0]
 
-    async def get_interestingurls(self):
-        # TODO parse add return hostnames for subdomains of urls
-        return self.info[1]
+    async def get_interestingurls(self) -> tuple[list[str], list[str]]:
+        urls = self.info[1]
+        subdomains = []
+
+        for url in urls:
+            try:
+                parsed = urlparse(url)
+                domain = parsed.netloc
+                if domain.count('.') > 1 and self.word in domain:
+                    subdomains.append(domain)
+            except Exception:
+                continue
+
+        return urls, list(set(subdomains))
