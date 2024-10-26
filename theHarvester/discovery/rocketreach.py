@@ -27,7 +27,7 @@ class SearchRocketReach:
 
             next_page = 1  # track pagination
             for count in range(1, self.limit):
-                data = f'{{"query":{{"company_domain": ["{self.word}"]}}, "start": {next_page}, "page_size": 100}}'
+                data = f'{{"query":{{"current_employer_domain": ["{self.word}"]}}, "page": {next_page}, "page_size": 100}}'
                 result = await AsyncFetcher.post_fetch(self.baseurl, headers=headers, data=data, json=True)
                 if 'detail' in result.keys() and 'error' in result.keys() and 'Subscribe to a plan to access' in result['detail']:
                     # No more results can be fetched
@@ -46,14 +46,14 @@ class SearchRocketReach:
                         if 'linkedin_url' in dict(profile).keys():
                             self.links.add(profile['linkedin_url'])
                 if 'pagination' in dict(result).keys():
-                    next_page = int(result['pagination']['next'])
-                    if next_page > int(result['pagination']['total']):
+                    next_page = result['pagination']['page'] + 1
+                    if next_page > result['pagination']['total_pages']:
                         break
 
             await asyncio.sleep(get_delay() + 5)
 
         except Exception as e:
-            print(f'An exception has occurred: {e}')
+            print(f'An exception has occurred rocketreach: {e}')
 
     async def get_links(self):
         return self.links
