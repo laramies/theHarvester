@@ -90,7 +90,7 @@ class SearchGithubCode:
             return ErrorResult(500, str(e))
 
     @staticmethod
-    async def next_page_or_end(result: SuccessResult) -> int | None:
+    async def next_page_or_end(result: SuccessResult) -> int:
         if result.next_page is not None:
             return result.next_page
         else:
