@@ -89,6 +89,13 @@ class SearchGithubCode:
             print(f'Error handling response: {e}')
             return ErrorResult(500, str(e))
 
+    @staticmethod
+    async def next_page_or_end(result: SuccessResult) -> int | None:
+        if result.next_page is not None:
+            return result.next_page
+        else:
+            return result.last_page
+
     async def do_search(self, page: int) -> tuple[str, dict, int, Any]:
         try:
             url = f'{self.base_url}&page={page}' if page else self.base_url

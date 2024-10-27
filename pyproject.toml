@@ -35,8 +35,10 @@ include = ["theHarvester*"]
 "*" = ["*.txt", "*.yaml"]
 
 [tool.pytest.ini_options]
-minversion = "7.1.1"
-addopts = "--no-header --asyncio-mode=auto"
+minversion = "8.3.3"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "--no-header"
 testpaths = [
     "tests",
     "tests/discovery/",

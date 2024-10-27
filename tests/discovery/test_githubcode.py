@@ -77,7 +77,6 @@ class TestSearchGithubCode:
         Core.github_key = MagicMock(return_value="lol")
         test_class_instance = githubcode.SearchGithubCode(word="test", limit=500)
         test_result = githubcode.SuccessResult(list(), None, None)
-        assert None is await test_class_instance.next_page_or_end(test_result)
-
+        assert await test_class_instance.next_page_or_end(test_result) is None
     if __name__ == "__main__":
         pytest.main()
