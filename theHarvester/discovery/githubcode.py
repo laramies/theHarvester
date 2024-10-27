@@ -16,8 +16,8 @@ class RetryResult(NamedTuple):
 
 class SuccessResult(NamedTuple):
     fragments: list[str]
-    next_page: int | None
-    last_page: int | None
+    next_page: int
+    last_page: int
 
 
 class ErrorResult(NamedTuple):
