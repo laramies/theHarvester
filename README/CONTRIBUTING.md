@@ -3,7 +3,7 @@ Welcome to theHarvester project, so you would like to contribute.
 The following below must be met to get accepted.
 
 # CI
-Make sure all CI passes and you do not introduce any alerts from lgtm.
+Make sure all CI passes and you do not introduce any alerts from ruff
 
 # Unit Tests
 For new modules a unit test for that module is required and we use pytest.
@@ -12,7 +12,7 @@ For new modules a unit test for that module is required and we use pytest.
 * No single letter variables and variable names must represent the action that it is performing
 * Have static typing on functions etc
 * Make sure no errors are reported from mypy
-* No issues reported with flake8
+* No issues reported with ruff
  
 # Submitting Bugs
 If you find a bug in a module that you want to submit an issue for and know how to write python code.

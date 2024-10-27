@@ -1,10 +1,11 @@
 .github/*
 .gitattributes
+.git-blame-ignore-revs
 .idea/
-.lgtm.yml
-mypy.ini
 .pytest_cache
 .mypy_cache
 tests/*
 README/
 bin/
+theHarvester-logo.png
+theHarvester-logo.webp
