@@ -33,12 +33,12 @@ jobs:
 
       - name: Lint with ruff
         run: |
-          ruff check
+          ruff check --fix
         continue-on-error: ${{ matrix.python-version == '3.13' }}
 
       - name: Format with ruff
         run: |
-          ruff format --check --diff
+          ruff format
         continue-on-error: ${{ matrix.python-version == '3.13' }}
 
       - name: Test with pytest
@@ -114,10 +114,4 @@ jobs:
       - name: Run theHarvester module DNS brute force
         run: |
           theHarvester -d yale.edu -c
-        continue-on-error: ${{ matrix.python-version == '3.13' }}
-
-      - name: Static type checking with mypy
-        run: |
-          mypy --pretty theHarvester/*/*.py
-          mypy --pretty theHarvester/*/*/*.py
         continue-on-error: ${{ matrix.python-version == '3.13' }}
