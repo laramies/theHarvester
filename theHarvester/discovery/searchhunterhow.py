@@ -32,16 +32,7 @@ class SearchHunterHow:
         # two_years_ago = one_year_ago - relativedelta(days=364)
         # start_time = two_years_ago.strftime('%Y-%m-%d')
         # end_time = one_year_ago.strftime('%Y-%m-%d')
-        url = 'https://api.hunter.how/search?api-key=%s&query=%s&page=%d&page_size=%d&start_time=%s&end_time=%s' % (
-            # self.key, encoded_query, page, page_size, start_time, end_time
-            self.key,
-            encoded_query,
-            page,
-            page_size,
-            start_time,
-            end_time,
-        )
-        # print(f'Sending url: {url}')
+        url = f'https://api.hunter.how/search?api-key={self.key}&query={encoded_query}&page={page}&page_size={page_size}&start_time={start_time}&end_time={end_time}'
         response = await AsyncFetcher.fetch_all(
             [url],
             json=True,

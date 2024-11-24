@@ -1137,7 +1137,7 @@ async def start(rest_args: argparse.Namespace | None = None):
             total = int(end - start_time)
             mon, sec = divmod(total, 60)
             hr, mon = divmod(mon, 60)
-            total_time = '%02d:%02d' % (mon, sec)
+            total_time = f'{mon:02d}:{sec:02d}'
             print(f'Finished taking screenshots in {total_time} seconds')
             print('[+] Note there may be leftover chrome processes you may have to kill manually\n')
 
