@@ -59,7 +59,9 @@ namespace_packages = true
 # astral.sh tools setup
 [tool.uv]
 python-preference = "managed"
-upgrade-package = ["ruff"]
+
+[tool.uv.pip]
+python-version = "3.11"
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
