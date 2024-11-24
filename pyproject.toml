@@ -56,6 +56,11 @@ show_traceback = true
 show_error_codes = true
 namespace_packages = true
 
+# astral.sh tools setup
+[tool.uv]
+python-preference = "managed"
+upgrade-package = ["ruff"]
+
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
 exclude = [
