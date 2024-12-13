@@ -604,7 +604,7 @@ async def start(rest_args: argparse.Namespace | None = None):
 
                 elif engineitem == 'netlas':
                     try:
-                        netlas_search = netlas.SearchNetlas(word)
+                        netlas_search = netlas.SearchNetlas(word, limit)
                         stor_lst.append(
                             store(
                                 netlas_search,
