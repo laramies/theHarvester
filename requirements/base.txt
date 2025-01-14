@@ -20,4 +20,4 @@ shodan==1.31.0
 slowapi==0.1.9
 uvicorn==0.34.0
 uvloop==0.21.0; platform_system != "Windows"
-winloop==0.1.7; platform_system == "Windows"
+winloop==0.1.8; platform_system == "Windows"
