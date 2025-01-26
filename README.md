@@ -37,8 +37,6 @@ Passive modules:
 
 * crtsh: Comodo Certificate search - https://crt.sh
 
-* dnsdumpster: DNSdumpster search engine - https://dnsdumpster.com
-
 * duckduckgo: DuckDuckGo search engine - https://duckduckgo.com
 
 * fullhunt: Next-generation attack surface security platform (Requires an API key, see below.) - https://fullhunt.io
