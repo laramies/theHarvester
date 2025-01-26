@@ -54,9 +54,7 @@ class SearchTomba:
             # Parse out meta field within initial JSON response to determine the total number of results
             if total_requests_avail < total_number_reqs:
                 print('WARNING: The account does not have enough requests to gather all the emails.')
-                print(
-                    f'Total requests available: {total_requests_avail}, total requests ' f'needed to be made: {total_number_reqs}'
-                )
+                print(f'Total requests available: {total_requests_avail}, total requests needed to be made: {total_number_reqs}')
                 print(
                     'RETURNING current results, If you still wish to run this module despite the current results, please comment out the "if request" line.'
                 )

@@ -20,7 +20,7 @@ class SearchNetlas:
 
         :return: None
         """
-        api = f"https://app.netlas.io/api/domains_count/?q=*.{self.word}"
+        api = f'https://app.netlas.io/api/domains_count/?q=*.{self.word}'
         headers = {'X-API-Key': self.key}
         response = await AsyncFetcher.fetch_all([api], json=True, headers=headers, proxy=self.proxy)
         amount_size = response[0]['count']
@@ -32,26 +32,26 @@ class SearchNetlas:
         :return: None
         """
         user_agent = Core.get_user_agent()
-        url = "https://app.netlas.io/api/domains/download/"
+        url = 'https://app.netlas.io/api/domains/download/'
 
         payload = {
-            "q": f"*.{self.word}",
-            "fields": ["domain"],
-            "source_type": "include",
-            "size": self.limit,
-            "type": "json",
-            "indice": [0]
+            'q': f'*.{self.word}',
+            'fields': ['domain'],
+            'source_type': 'include',
+            'size': self.limit,
+            'type': 'json',
+            'indice': [0],
         }
 
         headers = {
             'X-API-Key': self.key,
-            "User-Agent": user_agent,
+            'User-Agent': user_agent,
         }
         response = await AsyncFetcher.post_fetch(url, data=payload, headers=headers, proxy=self.proxy)
         resp_json = json.loads(response)
 
         for el in resp_json:
-            domain = el["data"]["domain"]
+            domain = el['data']['domain']
             self.totalhosts.append(domain)
 
     async def get_hostnames(self) -> list:

@@ -35,7 +35,7 @@ class SearchRocketReach:
                 if 'detail' in result.keys() and 'Request was throttled.' in result['detail']:
                     # Rate limit has been triggered need to sleep extra
                     print(
-                        f"RocketReach requests have been throttled; "
+                        f'RocketReach requests have been throttled; '
                         f'{result["detail"].split(" ", 3)[-1].replace("available", "availability")}'
                     )
                     break
