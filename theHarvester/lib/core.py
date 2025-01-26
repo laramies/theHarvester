@@ -35,7 +35,6 @@ class Core:
             with contextlib.suppress(FileNotFoundError):
                 file = path.expanduser() / filename
                 config = file.read_text()
-                print(f'Read {filename} from {file}')
                 return config
 
         # Fallback to creating default in user's home dir
@@ -66,10 +65,6 @@ class Core:
     @staticmethod
     def bufferoverun_key() -> str:
         return Core.api_keys()['bufferoverun']['key']
-
-    @staticmethod
-    def dnsdumpster_key() -> str:
-        return Core.api_keys()['dnsdumpster']['key']
 
     @staticmethod
     def censys_key() -> tuple:
@@ -176,7 +171,6 @@ class Core:
             'certspotter',
             'criminalip',
             'crtsh',
-            'dnsdumpster',
             'duckduckgo',
             'fullhunt',
             'github-code',
@@ -321,9 +315,8 @@ class AsyncFetcher:
     @classmethod
     async def fetch(cls, session, url, params: Sized = '', json: bool = False, proxy: str = '') -> str | dict | list | bool:
         # This fetch method solely focuses on get requests
+        # Wrap in try except due to 0x89 png/jpg files
         try:
-            # Wrap in try except due to 0x89 png/jpg files
-            # This fetch method solely focuses on get requests
             if proxy != '':
                 proxy = str(random.choice(cls().proxy_list))
                 if len(params) != 0:

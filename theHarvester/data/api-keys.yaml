@@ -11,9 +11,6 @@ apikeys:
   bufferoverun:
     key:
 
-  dnsdumpster:
-    key:
-
   censys:
     id:
     secret:
