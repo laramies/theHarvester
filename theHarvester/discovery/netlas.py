@@ -29,7 +29,7 @@ class SearchNetlas:
     async def do_search(self) -> None:
         """Download domains for query 'q' size of 'limit'
 
-            :return: None
+        :return: None
         """
         user_agent = Core.get_user_agent()
         url = 'https://app.netlas.io/api/domains/download/'

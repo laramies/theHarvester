@@ -1,6 +1,5 @@
-import aiohttp
 from theHarvester.discovery.constants import MissingKey
-from theHarvester.lib.core import Core, AsyncFetcher
+from theHarvester.lib.core import AsyncFetcher, Core
 
 
 class SearchDnsDumpster:
@@ -14,10 +13,7 @@ class SearchDnsDumpster:
 
     async def do_search(self) -> None:
         url = f'https://api.dnsdumpster.com/domain/{self.word}'
-        headers = {
-            'User-Agent': Core.get_user_agent(),
-            'X-API-Key': self.key
-        }
+        headers = {'User-Agent': Core.get_user_agent(), 'X-API-Key': self.key}
         try:
             responses = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
             response = responses[0]
@@ -25,9 +21,9 @@ class SearchDnsDumpster:
                 json_response = await response.json()
                 self.total_results = json_response.get('a', [])
             else:
-                print(f"Error: Received status code {response.status}")
+                print(f'Error: Received status code {response.status}')
         except Exception as e:
-            print(f"An exception occurred in DNSdumpster: {e}")
+            print(f'An exception occurred in DNSdumpster: {e}')
 
     async def get_hostnames(self):
         return [entry['host'] for entry in self.total_results]
