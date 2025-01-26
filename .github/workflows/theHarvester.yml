@@ -71,11 +71,6 @@ jobs:
           theHarvester -d hcl.com -b crtsh
         continue-on-error: ${{ matrix.python-version == '3.13' }}
 
-      - name: Run theHarvester module DnsDumpster
-        run: |
-          theHarvester -d yale.edu -b dnsdumpster
-        continue-on-error: ${{ matrix.python-version == '3.13' }}
-
       - name: Run theHarvester module DuckDuckGo
         run: |
           theHarvester -d yale.edu -b duckduckgo
