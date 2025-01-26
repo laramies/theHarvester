@@ -77,8 +77,7 @@ class SearchOnyphe:
                                     self.totalhosts.update(
                                         {domain for domain in result[subdomain_key] if domain.endswith(self.word)}
                                     )
-                    except Exception as e:
-                        print(f'An exception has occurred on result: {result}: {e}')
+                    except Exception:
                         continue
         else:
             print(f'Onhyphe API query did not succeed dumping current response: {self.response}')
