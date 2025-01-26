@@ -147,7 +147,7 @@ async def start(rest_args: argparse.Namespace | None = None):
     parser.add_argument(
         '-b',
         '--source',
-        help="""anubis, baidu, bevigil, binaryedge, bing, bingapi, bufferoverun, brave,
+        help="""anubis, baidu, bevigil, binaryedge, bing, bingapi, brave, bufferoverun,
                             censys, certspotter, criminalip, crtsh, duckduckgo, fullhunt, github-code,
                             hackertarget, hunter, hunterhow, intelx, netlas, onyphe, otx, pentesttools, projectdiscovery,
                             rapiddns, rocketreach, securityTrails, sitedossier, subdomaincenter, subdomainfinderc99, threatminer, tomba,
