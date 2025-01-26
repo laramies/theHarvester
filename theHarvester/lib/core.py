@@ -68,6 +68,10 @@ class Core:
         return Core.api_keys()['bufferoverun']['key']
 
     @staticmethod
+    def dnsdumpster_key() -> str:
+        return Core.api_keys()['dnsdumpster']['key']
+
+    @staticmethod
     def censys_key() -> tuple:
         return Core.api_keys()['censys']['id'], Core.api_keys()['censys']['secret']
 
