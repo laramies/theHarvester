@@ -29,18 +29,18 @@ class SearchNetlas:
     async def do_search(self) -> None:
         """Download domains for query 'q' size of 'limit'
 
-        :return: None
+            :return: None
         """
         user_agent = Core.get_user_agent()
         url = 'https://app.netlas.io/api/domains/download/'
 
         payload = {
             'q': f'*.{self.word}',
-            'fields': ['domain'],
+            'fields': json.dumps(['domain']),  # Convert the list to a JSON string
             'source_type': 'include',
-            'size': self.limit,
+            'size': str(self.limit),  # Convert integer to string
             'type': 'json',
-            'indice': [0],
+            'indice': json.dumps([0]),  # Convert the list to a JSON string
         }
 
         headers = {
@@ -50,8 +50,8 @@ class SearchNetlas:
         response = await AsyncFetcher.post_fetch(url, data=payload, headers=headers, proxy=self.proxy)
         resp_json = json.loads(response)
 
-        for el in resp_json:
-            domain = el['data']['domain']
+        for data in resp_json:
+            domain = data['data']['domain']
             self.totalhosts.append(domain)
 
     async def get_hostnames(self) -> list:

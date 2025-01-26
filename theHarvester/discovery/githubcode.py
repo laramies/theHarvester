@@ -69,7 +69,7 @@ class SearchGithubCode:
                 parsed = urlparse.urlparse(str(page_link.get('url')))
                 if page_param := urlparse.parse_qs(parsed.query).get('page', [None])[0]:
                     return int(page_param)
-            return None
+            return 0
         except Exception as e:
             print(f'Error parsing page response: {e}')
             return None
@@ -79,8 +79,9 @@ class SearchGithubCode:
             text, json_data, status, links = response
             if status == 200:
                 results = await self.fragments_from_response(json_data)
-                next_page = await self.page_from_response('next', links)
-                last_page = await self.page_from_response('last', links)
+                # Ensure next_page and last_page default to 0 if None
+                next_page = await self.page_from_response('next', links) or 0
+                last_page = await self.page_from_response('last', links) or 0
                 return SuccessResult(results, next_page, last_page)
             if status in (429, 403):
                 return RetryResult(60)
@@ -90,7 +91,7 @@ class SearchGithubCode:
             return ErrorResult(500, str(e))
 
     @staticmethod
-    async def next_page_or_end(result: SuccessResult) -> int:
+    async def next_page_or_end(result: SuccessResult) -> int | None:
         if result.next_page is not None:
             return result.next_page
         else:
