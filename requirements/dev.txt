@@ -1,6 +1,6 @@
 mypy==1.15.0
 mypy-extensions==1.0.0
-pytest==8.3.4
+pytest==8.3.5
 pytest-asyncio==0.25.3
 types-certifi==2021.10.8.3
 types-chardet==5.0.4.6
