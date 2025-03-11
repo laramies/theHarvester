@@ -799,6 +799,10 @@ async def start(rest_args: argparse.Namespace | None = None):
                     print('\n[!] Invalid source.\n')
                     sys.exit(1)
             else:
+                # Print which engines aren't supported
+                unsupported_engines = set(engines) - set(Core.get_supportedengines())
+                if unsupported_engines:
+                    print(f"The following engines are not supported: {unsupported_engines}")
                 print('\n[!] Invalid source.\n')
                 sys.exit(1)
 
