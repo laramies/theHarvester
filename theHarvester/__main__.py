@@ -50,6 +50,7 @@ from theHarvester.discovery import (
     tombasearch,
     urlscan,
     virustotal,
+    whoisxml,
     yahoosearch,
     zoomeyesearch,
 )
@@ -151,7 +152,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                             censys, certspotter, criminalip, crtsh, duckduckgo, fullhunt, github-code,
                             hackertarget, hunter, hunterhow, intelx, netlas, onyphe, otx, pentesttools, projectdiscovery,
                             rapiddns, rocketreach, securityTrails, sitedossier, subdomaincenter, subdomainfinderc99, threatminer, tomba,
-                            urlscan, virustotal, yahoo, zoomeye""",
+                            urlscan, virustotal, yahoo, whoisxml, zoomeye""",
     )
 
     # determines if filename is coming from rest api or user
@@ -759,6 +760,16 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             print(e)
+
+                elif engineitem == 'whoisxml':
+                    try:
+                        whoisxml_search = whoisxml.SearchWhoisXML(word)
+                        stor_lst.append(store(whoisxml_search, engineitem, store_host=True))
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            print(e)
+                        else:
+                            print(f'An exception has occurred in WhoisXML search: {e}')
 
                 elif engineitem == 'yahoo':
                     try:

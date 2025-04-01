@@ -61,5 +61,8 @@ apikeys:
   virustotal:
     key:
 
+  whoisxml:
+    key:
+
   zoomeye:
     key:
