@@ -90,6 +90,8 @@ Passive modules:
 
 * virustotal: Domain search (Requires an API key, see below.) - https://www.virustotal.com
 
+* whoisxml: Subdomain search (Requires an API key, see below.) - https://subdomains.whoisxmlapi.com/api/pricing
+
 * yahoo: Yahoo search engine
 
 * zoomeye: China's version of Shodan (Requires an API key, see below.) - https://www.zoomeye.org
@@ -123,6 +125,7 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * securityTrails
 * shodan - $
 * tomba - Free up to 50 search.
+* whoisxml
 * zoomeye
 
 Install and dependencies:
