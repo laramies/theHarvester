@@ -137,6 +137,11 @@ class Core:
     @staticmethod
     def whoisxml_key() -> str:
         return Core.api_keys()['whoisxml']['key']
+    
+    
+    @staticmethod
+    def venacus_key() -> str:
+        return Core.api_keys()['venacus']['key']
 
     @staticmethod
     def proxy_list() -> list:
@@ -200,6 +205,7 @@ class Core:
             'whoisxml',
             'yahoo',
             'zoomeye',
+            'venacus'
         ]
         return supportedengines
 

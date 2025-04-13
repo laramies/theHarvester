@@ -53,6 +53,7 @@ from theHarvester.discovery import (
     whoisxml,
     yahoosearch,
     zoomeyesearch,
+    venacussearch
 )
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib import hostchecker, stash
@@ -152,7 +153,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                             censys, certspotter, criminalip, crtsh, duckduckgo, fullhunt, github-code,
                             hackertarget, hunter, hunterhow, intelx, netlas, onyphe, otx, pentesttools, projectdiscovery,
                             rapiddns, rocketreach, securityTrails, sitedossier, subdomaincenter, subdomainfinderc99, threatminer, tomba,
-                            urlscan, virustotal, yahoo, whoisxml, zoomeye""",
+                            urlscan, virustotal, yahoo, whoisxml, zoomeye, venacus""",
     )
 
     # determines if filename is coming from rest api or user
@@ -186,6 +187,7 @@ async def start(rest_args: argparse.Namespace | None = None):
     all_emails: list = []
     all_hosts: list = []
     all_ip: list = []
+    all_people: list[dict[str, str]] = []
     dnslookup = args.dns_lookup
     dnsserver = args.dns_server  # TODO arg is not used anywhere replace with resolvers wordlist arg dnsresolve
     dnsresolve = args.dns_resolve
@@ -338,6 +340,7 @@ async def start(rest_args: argparse.Namespace | None = None):
 
         if store_people:
             people_list = await search_engine.get_people()
+            all_people.extend(people_list)
             await db_stash.store_all(word, people_list, 'people', source)
 
         if store_links:
@@ -802,6 +805,29 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             print(e)
+                
+                elif engineitem == 'venacus':
+                    try:
+                        venacus_search = venacussearch.SearchVenacus(
+                            word=word,
+                            limit=limit,
+                            offset_doc=start
+                        )
+                        stor_lst.append(
+                            store(
+                                venacus_search,
+                                engineitem,
+                                store_emails=True,
+                                store_ip=True,
+                                store_people=True,
+                                store_interestingurls=True,
+                            )
+                        )
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            print(e)
+                        else:
+                            print(f'An exception has occurred in venacus search: {e}')
         else:
             if rest_args is not None:
                 try:
@@ -962,6 +988,14 @@ async def start(rest_args: argparse.Namespace | None = None):
         print('----------------------')
         all_emails = sorted(list(set(all_emails)))
         print('\n'.join(all_emails))
+        
+    if len(all_people) == 0:
+        print('\n[*] No people found.')
+    else:
+        print('\n[*] People found: ' + str(len(all_people)))
+        print('----------------------')
+        for person in all_people:
+            print(person)
 
     if len(all_hosts) == 0:
         print('\n[*] No hosts found.\n\n')
@@ -1241,6 +1275,10 @@ async def start(rest_args: argparse.Namespace | None = None):
 
             if len(linkedin_links_tracker) > 0:
                 json_dict['linkedin_links'] = linkedin_links_tracker
+                
+            if len(all_people) > 0:
+                json_dict['people'] = all_people
+            
 
             if takeover_status and len(takeover_results) > 0:
                 json_dict['takeover_results'] = takeover_results
