@@ -50,7 +50,7 @@ class StashManager:
         # people are not stored in the database
         if res_type == 'people':
             return
-        
+
         self.domain = domain
         self.all = all
         self.type = res_type

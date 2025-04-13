@@ -49,11 +49,11 @@ from theHarvester.discovery import (
     threatminer,
     tombasearch,
     urlscan,
+    venacussearch,
     virustotal,
     whoisxml,
     yahoosearch,
     zoomeyesearch,
-    venacussearch
 )
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib import hostchecker, stash
@@ -805,14 +805,10 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             print(e)
-                
+
                 elif engineitem == 'venacus':
                     try:
-                        venacus_search = venacussearch.SearchVenacus(
-                            word=word,
-                            limit=limit,
-                            offset_doc=start
-                        )
+                        venacus_search = venacussearch.SearchVenacus(word=word, limit=limit, offset_doc=start)
                         stor_lst.append(
                             store(
                                 venacus_search,
@@ -839,7 +835,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                 # Print which engines aren't supported
                 unsupported_engines = set(engines) - set(Core.get_supportedengines())
                 if unsupported_engines:
-                    print(f"The following engines are not supported: {unsupported_engines}")
+                    print(f'The following engines are not supported: {unsupported_engines}')
                 print('\n[!] Invalid source.\n')
                 sys.exit(1)
 
@@ -988,7 +984,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         print('----------------------')
         all_emails = sorted(list(set(all_emails)))
         print('\n'.join(all_emails))
-        
+
     if len(all_people) == 0:
         print('\n[*] No people found.')
     else:
@@ -1275,10 +1271,9 @@ async def start(rest_args: argparse.Namespace | None = None):
 
             if len(linkedin_links_tracker) > 0:
                 json_dict['linkedin_links'] = linkedin_links_tracker
-                
+
             if len(all_people) > 0:
                 json_dict['people'] = all_people
-            
 
             if takeover_status and len(takeover_results) > 0:
                 json_dict['takeover_results'] = takeover_results
