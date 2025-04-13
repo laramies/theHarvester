@@ -13,11 +13,8 @@ class SearchWhoisXML:
 
     async def do_search(self):
         # https://subdomains.whoisxmlapi.com/api/documentation/making-requests
-        url = f'https://subdomains.whoisxmlapi.com/api/v1'
-        params = {
-            'apiKey': self.key,
-            'domainName': self.word
-        }
+        url = 'https://subdomains.whoisxmlapi.com/api/v1'
+        params = {'apiKey': self.key, 'domainName': self.word}
         response = await AsyncFetcher.fetch_all(
             [url],
             json=True,

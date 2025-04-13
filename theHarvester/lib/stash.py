@@ -47,6 +47,10 @@ class StashManager:
             print(e)
 
     async def store_all(self, domain, all, res_type, source) -> None:
+        # people are not stored in the database
+        if res_type == 'people':
+            return
+
         self.domain = domain
         self.all = all
         self.type = res_type

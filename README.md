@@ -96,6 +96,8 @@ Passive modules:
 
 * zoomeye: China's version of Shodan (Requires an API key, see below.) - https://www.zoomeye.org
 
+* venacus: Venacus search engine (Requires an API key, see below.) - https://venacus.com
+
 
 Active modules:
 ---------------
@@ -127,6 +129,7 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * tomba - Free up to 50 search.
 * whoisxml
 * zoomeye
+* venacus - $
 
 Install and dependencies:
 -------------------------
