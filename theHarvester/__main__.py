@@ -665,7 +665,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                 elif engineitem == 'rocketreach':
                     try:
                         rocketreach_search = rocketreach.SearchRocketReach(word, limit)
-                        stor_lst.append(store(rocketreach_search, engineitem, store_links=True))
+                        stor_lst.append(store(rocketreach_search, engineitem, store_links=True, store_emails=True))
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             print(e)
