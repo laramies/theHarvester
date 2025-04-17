@@ -55,10 +55,6 @@ class Core:
         return Core.api_keys()['bevigil']['key']
 
     @staticmethod
-    def binaryedge_key() -> str:
-        return Core.api_keys()['binaryedge']['key']
-
-    @staticmethod
     def bing_key() -> str:
         return Core.api_keys()['bing']['key']
 
@@ -170,7 +166,6 @@ class Core:
             'anubis',
             'baidu',
             'bevigil',
-            'binaryedge',
             'bing',
             'bingapi',
             'bufferoverun',

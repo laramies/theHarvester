@@ -18,8 +18,6 @@ Passive modules:
 
 * baidu: Baidu search engine - www.baidu.com
 
-* binaryedge: List of known subdomains (Requires an API key, see below.) - https://www.binaryedge.io
-
 * bing: Microsoft search engine - https://www.bing.com
 
 * bingapi: Microsoft search engine, through the API (Requires an API key, see below.)
@@ -108,9 +106,8 @@ Modules that require an API key:
 Documentation to setup API keys can be found at - https://github.com/laramies/theHarvester/wiki/Installation#api-keys
 
 * bevigil - Free upto 50 queries. Pricing can be found here: https://bevigil.com/pricing/osint
-* binaryedge - $10/month
 * bing
-* bufferoverun - uses the free API
+* bufferoverun - uses the free binaAPI
 * censys - API keys are required and can be retrieved from your [Censys account](https://search.censys.io/account/api).
 * criminalip
 * fullhunt

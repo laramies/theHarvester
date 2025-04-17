@@ -17,7 +17,6 @@ from theHarvester.discovery import (
     anubis,
     baidusearch,
     bevigil,
-    binaryedgesearch,
     bingsearch,
     bravesearch,
     bufferoverun,
@@ -149,14 +148,14 @@ async def start(rest_args: argparse.Namespace | None = None):
     parser.add_argument(
         '-b',
         '--source',
-        help="""anubis, baidu, bevigil, binaryedge, bing, bingapi, brave, bufferoverun,
+        help="""anubis, baidu, bevigil, bing, bingapi, brave, bufferoverun,
                             censys, certspotter, criminalip, crtsh, duckduckgo, fullhunt, github-code,
                             hackertarget, hunter, hunterhow, intelx, netlas, onyphe, otx, pentesttools, projectdiscovery,
                             rapiddns, rocketreach, securityTrails, sitedossier, subdomaincenter, subdomainfinderc99, threatminer, tomba,
                             urlscan, virustotal, yahoo, whoisxml, zoomeye, venacus""",
     )
 
-    # determines if filename is coming from rest api or user
+    # determines if the filename is coming from rest api or user
     rest_filename = ''
     # indicates this from the rest API
     if rest_args:
@@ -404,13 +403,6 @@ async def start(rest_args: argparse.Namespace | None = None):
                                 store_interestingurls=True,
                             )
                         )
-                    except Exception as e:
-                        print(e)
-
-                elif engineitem == 'binaryedge':
-                    try:
-                        binaryedge_search = binaryedgesearch.SearchBinaryEdge(word, limit)
-                        stor_lst.append(store(binaryedge_search, engineitem, store_host=True))
                     except Exception as e:
                         print(e)
 
