@@ -1,5 +1,5 @@
 mypy==1.15.0
-mypy-extensions==1.0.0
+mypy-extensions==1.1.0
 pytest==8.3.5
 pytest-asyncio==0.26.0
 types-certifi==2021.10.8.3
