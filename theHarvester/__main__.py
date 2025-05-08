@@ -1202,6 +1202,7 @@ async def start(rest_args: argparse.Namespace | None = None):
             # XML REPORT SECTION
             with open(filename, 'w+') as file:
                 file.write('<?xml version="1.0" encoding="UTF-8"?><theHarvester>')
+                file.write('<cmd>' + ' '.join(['"{}"'.format(arg) if ' ' in arg else arg for arg in sys.argv[1:]]) + '</cmd>')
                 for x in all_emails:
                     file.write('<email>' + x + '</email>')
                 for x in full:
@@ -1227,6 +1228,8 @@ async def start(rest_args: argparse.Namespace | None = None):
             filename = filename.rsplit('.', 1)[0] + '.json'
             # create dict with values for json output
             json_dict: dict = dict()
+            # start by adding the command line arguments
+            json_dict["cmd"] = ' '.join(['"{}"'.format(arg) if ' ' in arg else arg for arg in sys.argv[1:]])
             # determine if a variable exists
             # it should but just a validation check
             if 'ip_list' in locals():
