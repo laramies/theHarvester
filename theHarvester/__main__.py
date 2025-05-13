@@ -24,6 +24,7 @@ from theHarvester.discovery import (
     certspottersearch,
     criminalip,
     crtsh,
+    search_dehashed,
     dnssearch,
     duckduckgosearch,
     fullhuntsearch,
@@ -149,7 +150,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         '-b',
         '--source',
         help="""anubis, baidu, bevigil, bing, bingapi, brave, bufferoverun,
-                            censys, certspotter, criminalip, crtsh, duckduckgo, fullhunt, github-code,
+                            censys, certspotter, criminalip, crtsh, dehashed, duckduckgo, fullhunt, github-code,
                             hackertarget, hunter, hunterhow, intelx, netlas, onyphe, otx, pentesttools, projectdiscovery,
                             rapiddns, rocketreach, securityTrails, sitedossier, subdomaincenter, subdomainfinderc99, threatminer, tomba,
                             urlscan, virustotal, yahoo, whoisxml, zoomeye, venacus""",
@@ -503,6 +504,23 @@ async def start(rest_args: argparse.Namespace | None = None):
                         stor_lst.append(store(crtsh_search, 'CRTsh', store_host=True))
                     except Exception as e:
                         print(f'[!] A timeout occurred with crtsh, cannot find {args.domain}\n {e}')
+
+                elif engineitem == 'dehashed':
+                    try:
+                        dehashed_search = search_dehashed.SearchDehashed(word)
+                        stor_lst.append(
+                            store(
+                                dehashed_search,
+                                engineitem,
+                                store_host=False,
+                                store_ip=True,
+                            )
+                        )
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            print(e)
+                        else:
+                            print(f'An exception has occurred in Dehashed: {e}')
 
                 elif engineitem == 'duckduckgo':
                     duckduckgo_search = duckduckgosearch.SearchDuckDuckGo(word, limit)

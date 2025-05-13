@@ -66,3 +66,6 @@ apikeys:
   
   venacus:
     key:
+    
+  dehashed:
+    key:
