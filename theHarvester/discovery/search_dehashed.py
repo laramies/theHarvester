@@ -12,10 +12,7 @@ class SearchDehashed:
             raise MissingKey('Dehashed')
 
         self.api = 'https://api.dehashed.com/v2/search'
-        self.headers = {
-            'Content-Type': 'application/json',
-            'Dehashed-Api-Key': self.key
-        }
+        self.headers = {'Content-Type': 'application/json', 'Dehashed-Api-Key': self.key}
         self.results = ''
         self.data: list[dict] = []
 
@@ -24,14 +21,7 @@ class SearchDehashed:
         page = 1
         size = 100
         while True:
-            payload = {
-                'query': self.word,
-                'page': page,
-                'size': size,
-                'wildcard': False,
-                'regex': False,
-                'de_dupe': False
-            }
+            payload = {'query': self.word, 'page': page, 'size': size, 'wildcard': False, 'regex': False, 'de_dupe': False}
 
             try:
                 response = requests.post(self.api, json=payload, headers=self.headers)
@@ -58,11 +48,11 @@ class SearchDehashed:
 
     async def print_csv_results(self) -> None:
         if not self.data:
-            print("\t[!] No data found.")
+            print('\t[!] No data found.')
             return
 
-        print("\n[Dehashed Results]")
-        print("Email,Username,Password,Phone,IP,Source")
+        print('\n[Dehashed Results]')
+        print('Email,Username,Password,Phone,IP,Source')
 
         for entry in self.data:
             email = entry.get('email', '')

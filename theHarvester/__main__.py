@@ -1247,7 +1247,7 @@ async def start(rest_args: argparse.Namespace | None = None):
             # create dict with values for json output
             json_dict: dict = dict()
             # start by adding the command line arguments
-            json_dict["cmd"] = ' '.join(['"{}"'.format(arg) if ' ' in arg else arg for arg in sys.argv[1:]])
+            json_dict['cmd'] = ' '.join(['"{}"'.format(arg) if ' ' in arg else arg for arg in sys.argv[1:]])
             # determine if a variable exists
             # it should but just a validation check
             if 'ip_list' in locals():
