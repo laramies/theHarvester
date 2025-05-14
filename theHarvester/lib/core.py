@@ -71,6 +71,10 @@ class Core:
         return Core.api_keys()['criminalip']['key']
 
     @staticmethod
+    def dehashed_key() -> str:
+        return Core.api_keys()['dehashed']['key']
+
+    @staticmethod
     def fullhunt_key() -> str:
         return Core.api_keys()['fullhunt']['key']
 
@@ -175,6 +179,7 @@ class Core:
             'criminalip',
             'crtsh',
             'duckduckgo',
+            'dehashed',
             'fullhunt',
             'github-code',
             'hackertarget',
