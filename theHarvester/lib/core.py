@@ -21,9 +21,9 @@ if TYPE_CHECKING:
 
 DATA_DIR = Path(__file__).parents[1] / 'data'
 CONFIG_DIRS = [
+    Path('~/.theHarvester'),
     Path('/etc/theHarvester/'),
     Path('/usr/local/etc/theHarvester/'),
-    Path('~/.theHarvester'),
 ]
 
 
