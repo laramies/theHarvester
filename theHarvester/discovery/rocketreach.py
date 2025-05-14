@@ -48,7 +48,7 @@ class SearchRocketReach:
                             self.links.add(profile['linkedin_url'])
                         if 'emails' in dict(profile).keys() and profile['emails']:
                             for email in profile['emails']:
-                                if 'email' in email and email['email']:
+                                if email.get('email'):
                                     self.emails.add(email['email'])
                 if 'pagination' in dict(result).keys():
                     next_page = result['pagination']['page'] + 1

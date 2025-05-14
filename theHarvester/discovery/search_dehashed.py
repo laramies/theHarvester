@@ -1,5 +1,7 @@
 import time
+
 import requests
+
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import Core
 
@@ -72,7 +74,7 @@ class SearchDehashed:
     async def get_emails(self) -> set:
         emails = set()
         for entry in self.data:
-            if 'email' in entry and entry['email']:
+            if entry.get('email'):
                 emails.add(entry['email'])
         return emails
 
@@ -82,6 +84,6 @@ class SearchDehashed:
     async def get_ips(self) -> set:
         ips = set()
         for entry in self.data:
-            if 'ip_address' in entry and entry['ip_address']:
+            if entry.get('ip_address'):
                 ips.add(entry['ip_address'])
         return ips
