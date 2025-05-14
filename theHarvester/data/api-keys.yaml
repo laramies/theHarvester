@@ -15,6 +15,9 @@ apikeys:
   criminalip:
     key:
 
+  dehashed:
+    key:
+
   fullhunt:
     key:
 
@@ -55,6 +58,9 @@ apikeys:
     key:
     secret:
 
+  venacus:
+    key:
+
   virustotal:
     key:
 
@@ -62,10 +68,4 @@ apikeys:
     key:
 
   zoomeye:
-    key:
-  
-  venacus:
-    key:
-    
-  dehashed:
     key:
