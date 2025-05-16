@@ -1394,13 +1394,6 @@ async def start(rest_args: argparse.Namespace | None = None):
             if not os.path.exists(wordlist):
                 print(f"\n[!] Wordlist not found: {wordlist}")
                 print("Creating a basic API wordlist for scanning...")
-                
-                # Create a default simple API endpoint list
-                basic_endpoints = [
-                    "/api", "/api/v1", "/api/v2", "/api/v3", "/graphql", "/swagger", "/docs", "/redoc", 
-                    "/swagger-ui", "/openapi.json", "/api-docs", "/rest", "/ws", "/swagger-ui.html",
-                    "/health", "/status", "/metrics", "/actuator", "/debug"
-                ]
                 temp_wordlist = "./wordlists/temp_api_endpoints.txt"
                 with open(temp_wordlist, "w") as f:
                     f.write("\n".join(basic_endpoints))
