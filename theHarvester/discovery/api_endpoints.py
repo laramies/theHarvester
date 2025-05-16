@@ -1,226 +1,622 @@
 """
-API endpoint scanner module.
-This module contains the SearchApiEndpoints class that scans for common API endpoints
-on target domains.
+Advanced API endpoint scanner module.
+This module contains the SearchApiEndpoints class that performs comprehensive API endpoint
+scanning, detection, and analysis on target domains with advanced features for security testing.
 """
 
 import asyncio
 import os
-from typing import List, Set, Dict
+import json
+import re
+import logging
+from dataclasses import dataclass, field, asdict
+from typing import List, Set, Dict, Optional, Tuple, Any, Union
+from urllib.parse import urlparse, urljoin
+
 from theHarvester.lib.core import AsyncFetcher, Core
 from theHarvester.discovery.constants import MissingKey
 
-class SearchApiEndpoints:
-    """
-    SearchApiEndpoints class for scanning common API endpoints on target domains.
-    """
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger('api_endpoints')
 
-    def __init__(self, word: str, wordlist: str = None) -> None:
+@dataclass
+class EndpointResult:
+    """Data class for storing endpoint scan results."""
+    url: str
+    status_code: int = 0
+    method: str = ""
+    content_type: str = ""
+    content_length: int = 0
+    response_time: float = 0.0
+    auth_required: bool = False
+    api_version: str = ""
+    rate_limited: bool = False
+    rate_limit_headers: Dict[str, str] = field(default_factory=dict)
+    security_headers: Dict[str, str] = field(default_factory=dict)
+    content_preview: str = ""
+    interesting: bool = False
+    tech_stack: List[str] = field(default_factory=list)
+    parameters: List[str] = field(default_factory=list)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return asdict(self)
+
+
+class SearchApiEndpoints:
+   
+    def __init__(self, 
+                 word: str, 
+                 wordlist: str = None, 
+                 concurrency: int = 20,
+                 timeout: int = 10,
+                 proxy: str = None,
+                 user_agent: str = None,
+                 follow_redirects: bool = True,
+                 verify_ssl: bool = True,
+                 additional_headers: Dict[str, str] = None) -> None:
         """
-        Initialize the SearchApiEndpoints class.
+        Initialize the SearchApiEndpoints class with advanced configuration options.
 
         Args:
-            word: The target domain to scan.
-            wordlist: Optional path to a custom wordlist file. If not provided, uses default api_endpoints.txt
+            word: The target domain to scan
+            wordlist: Optional path to a custom wordlist file
+            concurrency: Maximum number of concurrent requests (default: 20)
+            timeout: Request timeout in seconds (default: 10)
+            proxy: Proxy URL (e.g. "http://127.0.0.1:8080")
+            user_agent: Custom User-Agent string
+            follow_redirects: Whether to follow HTTP redirects
+            verify_ssl: Whether to verify SSL certificates
+            additional_headers: Additional HTTP headers to include in requests
         """
         self.word = word
         self.hosts: Set[str] = set()
         self.endpoints: Set[str] = set()
-        self.found_endpoints: Set[str] = set()
-        self.interesting_endpoints: Set[str] = set()
-        self.auth_required: Set[str] = set()
+        self.found_endpoints: Dict[str, EndpointResult] = {}
+        self.interesting_endpoints: Dict[str, EndpointResult] = {}
+        self.auth_required: Dict[str, EndpointResult] = {}
         self.api_versions: Set[str] = set()
-        self.rate_limits: Dict[str, Dict] = {}
+        self.rate_limits: Dict[str, EndpointResult] = {}
         self.methods: Set[str] = set()
         self.status_codes: Set[int] = set()
         self.response_sizes: Dict[str, int] = {}
-        self.proxy = False
+        self.tech_stack: Dict[str, List[str]] = {}
+        self.schema_detected: Dict[str, Dict[str, Any]] = {}
+        self.proxy = proxy
+        self.concurrency = concurrency
+        self.timeout = timeout
+        self.follow_redirects = follow_redirects
+        self.verify_ssl = verify_ssl
+        self.semaphore = asyncio.Semaphore(concurrency)
+        self.user_agent = user_agent or Core.get_user_agent()
+        self.additional_headers = additional_headers or {}
         
         # Set default wordlist path
-        default_wordlist = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'wordlists', 'api_endpoints.txt')
+        default_wordlist = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 
+                                       'wordlists', 'api_endpoints.txt')
         self.wordlist = wordlist if wordlist else default_wordlist
+        
+        # Add comprehensive API paths categorized by functionality
+        self.common_api_paths = [
+            # Core API endpoints
+            '/api', '/api/v1', '/api/v2', '/api/v3', '/api/latest', '/api/beta',
+            '/rest', '/rest/v1', '/rest/v2', '/rest/api', '/restapi', '/api/rest',
+            '/service', '/services', '/service-api', '/api-service',
+            '/api-gateway', '/gateway', '/api-proxy', '/apis',
+            
+            # GraphQL endpoints
+            '/graphql', '/gql', '/graph', '/graphiql', '/graphql-api', '/graphql/console',
+            '/graphql-console', '/graphql-playground', '/graphql-explorer', '/graphql/explorer',
+            
+            # API documentation
+            '/swagger', '/swagger-ui', '/swagger-ui.html', '/swagger-resources',
+            '/swagger.json', '/swagger.yaml', '/swagger-config', '/api-docs',
+            '/api-docs.json', '/api/swagger', '/api/docs', '/docs/api', '/documentation',
+            '/openapi', '/openapi.json', '/openapi.yaml', '/docs', '/redoc',
+            '/apidoc', '/schema', '/api-explorer', '/api-reference',
+            
+            # API versions and versioning
+            '/v1', '/v2', '/v3', '/v4', '/v5', '/v1.0', '/v2.0', '/v3.0',
+            '/version', '/versions', '/api/versions', '/api-version',
+            
+            # Authentication and authorization
+            '/auth', '/oauth', '/oauth2', '/oauth/token', '/oauth/authorize',
+            '/identity', '/login', '/signin', '/signup', '/register', '/token',
+            '/jwt', '/auth/token', '/api/auth', '/api/login', '/api/logout',
+            '/oidc', '/connect/token', '/connect/authorize', '/api/access-token',
+            '/auth/refresh', '/2fa', '/mfa', '/api/authenticate', '/sso',
+            
+            # User management
+            '/users', '/api/users', '/accounts', '/api/accounts', '/profiles',
+            '/api/profiles', '/members', '/api/members', '/api/me', '/api/user',
+            
+            # System status and monitoring
+            '/health', '/healthcheck', '/health-check', '/status', '/api/status',
+            '/metrics', '/prometheus', '/monitoring', '/stats', '/statistics',
+            '/ping', '/alive', '/readiness', '/liveness', '/heartbeat',
+            
+            # Data operations
+            '/data', '/database', '/query', '/search', '/api/search', '/filter',
+            '/api/data', '/export', '/import', '/backup', '/restore',
+            
+            # Admin interfaces
+            '/admin', '/admin/api', '/management', '/manage', '/console',
+            '/dashboard', '/control', '/panel', '/administrator', '/sys',
+            
+            # Common application endpoints
+            '/app', '/application', '/mobile-api', '/web-api', '/public-api',
+            '/internal-api', '/private-api', '/external-api', '/partner-api',
+            
+            # File operations
+            '/files', '/api/files', '/upload', '/api/upload', '/download',
+            '/media', '/images', '/documents', '/attachments', '/assets',
+            
+            # Webhooks and integrations
+            '/webhooks', '/hooks', '/callback', '/integration', '/integrations',
+            '/api/webhooks', '/events', '/notifications', '/feeds', '/subscriptions',
+            
+            # General functionality
+            '/config', '/settings', '/preferences', '/options', '/system',
+            '/info', '/about', '/help', '/support', '/contact',
+            
+            # Legacy and common paths
+            '/api.php', '/api.asp', '/api.jsp', '/api.do', '/api.json',
+            '/api.xml', '/rpc', '/soap', '/ws', '/webservice', '/jsonrpc',
+            '/api/soap', '/soap/api', '/xml-rpc', '/wsdl', '/asmx',
+            
+            # eCommerce specific
+            '/products', '/orders', '/cart', '/checkout', '/payment',
+            '/catalog', '/inventory', '/api/products', '/api/orders',
+            
+            # Content management
+            '/content', '/posts', '/articles', '/pages', '/comments',
+            '/tags', '/categories', '/api/content', '/api/posts',
+            
+            # Analytics and reporting
+            '/analytics', '/reports', '/reporting', '/logs', '/audit',
+            '/tracking', '/api/reports', '/api/analytics', '/api/logs',
+            
+            # Third-party API patterns
+            '/api/facebook', '/api/google', '/api/twitter', '/api/github',
+            '/api/stripe', '/api/paypal', '/api/aws', '/api/azure',
+            
+            # Mobile app specific
+            '/mobile', '/app/api', '/api/mobile', '/api/app', '/api/ios', '/api/android',
+            
+            # Common test endpoints
+            '/test', '/demo', '/sample', '/example', '/sandbox', '/dev',
+            '/staging', '/beta', '/alpha', '/development', '/testing'
+        ]
+        
+        # Patterns for identifying API technologies
+        self.tech_patterns = {
+            'graphql': [r'{"data":', r'"errors":', r'"query":', r'graphql'],
+            'swagger': [r'swagger', r'openapi', r'api-docs'],
+            'oauth': [r'oauth', r'token', r'authorize', r'access_token'],
+            'jwt': [r'jwt', r'bearer', r'authorization'],
+            'rest': [r'rest', r'/v\d+/', r'application/json'],
+            'soap': [r'soap', r'xml', r'wsdl', r'xmlns'],
+            'grpc': [r'grpc', r'protocol-buffers'],
+        }
+        
+        # Initialize results storage
+        self.results = []
+        
+        # Logger setup
+        self.logger = logger
 
     async def do_search(self) -> None:
         """
-        Perform the API endpoint scan.
+        Perform the API endpoint scan with advanced features.
         """
         try:
+            self.logger.info(f"Starting API endpoint scan for {self.word}")
+            
             # Load endpoints from wordlist
             endpoints = self._load_wordlist()
             if not endpoints:
-                raise Exception(f"No endpoints found in wordlist: {self.wordlist}")
+                self.logger.warning(f"No endpoints found in wordlist: {self.wordlist}")
+                endpoints = []
             
-            # Create tasks for each endpoint
+            # Add common API paths that might not be in the wordlist
+            endpoints.extend(self.common_api_paths)
+            endpoints = list(set(endpoints))  # Remove duplicates
+            
+            # Detect base URL schema (http or https)
+            schema = await self._detect_schema()
+            self.logger.info(f"Detected schema for {self.word}: {schema}")
+            
+            # Generate batches of tasks to control concurrency
+            self.logger.info(f"Prepared {len(endpoints)} endpoints to scan with concurrency {self.concurrency}")
+            
+            # Create tasks with semaphore for controlled concurrency
             tasks = []
             for endpoint in endpoints:
-                url = f"https://{self.word}{endpoint}"
-                tasks.append(self._check_endpoint(url))
+                url = f"{schema}://{self.word}{endpoint}"
+                tasks.append(self._check_endpoint_with_semaphore(url))
             
-            # Wait for all tasks to complete
-            await asyncio.gather(*tasks)
+            # Execute tasks with progress tracking
+            results = await asyncio.gather(*tasks)
+            self.results = [r for r in results if r]
+            
+            self.logger.info(f"API endpoint scan completed. Found {len(self.found_endpoints)} endpoints.")
+            
+            # Additional processing after scan
+            await self._post_scan_analysis()
             
         except Exception as e:
-            print(f"Error in API endpoint scan: {str(e)}")
+            self.logger.error(f"Error in API endpoint scan: {str(e)}", exc_info=True)
 
+    async def _detect_schema(self) -> str:
+        """Detect if the domain supports HTTPS or fall back to HTTP."""
+        try:
+            https_url = f"https://{self.word}"
+            headers = self._get_headers()
+            
+            response = await AsyncFetcher.fetch(
+                url=https_url,
+                headers=headers,
+                proxy=self.proxy,
+                verify=self.verify_ssl,
+                timeout=self.timeout
+            )
+            
+            if response and getattr(response, 'status', 0) < 400:
+                return "https"
+        except Exception:
+            pass
+        
+        return "http"  # Fallback to HTTP if HTTPS fails
+
+    async def _check_endpoint_with_semaphore(self, url: str) -> Optional[EndpointResult]:
+        """Execute endpoint check with semaphore for controlled concurrency."""
+        async with self.semaphore:
+            return await self._check_endpoint(url)
+            
     def _load_wordlist(self) -> List[str]:
-        """Load endpoints from wordlist file."""
+        """Load endpoints from wordlist file with advanced filtering."""
         try:
             with open(self.wordlist, 'r') as f:
-                return [line.strip() for line in f if line.strip() and not line.strip().startswith('#')]
+                lines = [line.strip() for line in f if line.strip() and not line.strip().startswith('#')]
+                
+            # Ensure all paths start with /
+            endpoints = [line if line.startswith('/') else f'/{line}' for line in lines]
+            
+            # Add some path variations (with and without trailing slash)
+            variations = []
+            for endpoint in endpoints:
+                variations.append(endpoint)
+                if endpoint.endswith('/'):
+                    variations.append(endpoint[:-1])  # Without trailing slash
+                else:
+                    variations.append(f"{endpoint}/")  # With trailing slash
+                    
+            return list(set(variations))  # Return unique endpoints
+            
         except Exception as e:
-            print(f"Error loading wordlist {self.wordlist}: {e}")
+            self.logger.error(f"Error loading wordlist {self.wordlist}: {e}")
             return []
 
-    async def _check_endpoint(self, url: str) -> None:
+    async def _check_endpoint(self, url: str) -> Optional[EndpointResult]:
         """
-        Check if an endpoint exists and is accessible.
+        Check if an endpoint exists and analyze its properties.
 
         Args:
             url: The URL to check.
+            
+        Returns:
+            Optional[EndpointResult]: Result object or None if not found
         """
-        methods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS']
-        headers = {
-            'User-Agent': Core.get_user_agent(),
-            'Accept': '*/*'
-        }
+        methods = ['GET', 'POST', 'OPTIONS', 'HEAD', 'PUT', 'DELETE', 'PATCH']
+        headers = self._get_headers()
         
         for method in methods:
             try:
+                # Track request time
+                start_time = asyncio.get_event_loop().time()
+                
                 # Use AsyncFetcher to make the request
                 response = await AsyncFetcher.fetch(
                     url=url,
                     method=method,
                     headers=headers,
-                    proxy=self.proxy
+                    proxy=self.proxy,
+                    verify=self.verify_ssl,
+                    follow_redirects=self.follow_redirects,
+                    timeout=self.timeout
                 )
+                
+                # Calculate response time
+                response_time = asyncio.get_event_loop().time() - start_time
                 
                 # If we get a response, process it
                 if response:
-                    self._process_response(url, method, response)
+                    result = self._process_response(url, method, response, response_time)
+                    if result:
+                        return result
                     
-            except Exception:
+            except asyncio.TimeoutError:
+                self.logger.debug(f"Timeout for {method} {url}")
                 continue
+            except Exception as e:
+                self.logger.debug(f"Error checking {method} {url}: {str(e)}")
+                continue
+                
+        return None
 
-    def _process_response(self, url: str, method: str, response) -> None:
-        """Process and categorize API endpoint response."""
-        status = getattr(response, 'status', 0)
-        if status > 0:
-            self.endpoints.add(url)
-            self.found_endpoints.add(url)
-            self.methods.add(method)
-            self.status_codes.add(status)
+    def _get_headers(self) -> Dict[str, str]:
+        """Get request headers with optional custom additions."""
+        headers = {
+            'User-Agent': self.user_agent,
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Connection': 'close'
+        }
+        
+        # Add custom headers if provided
+        if self.additional_headers:
+            headers.update(self.additional_headers)
             
-            # Track response size
-            content_length = len(getattr(response, 'content', b''))
-            self.response_sizes[url] = content_length
-            
-            # Check for interesting endpoints
-            if status in [200, 201, 202]:
-                self.interesting_endpoints.add(url)
-            
-            # Check for authentication requirements
-            if status in [401, 403]:
-                self.auth_required.add(url)
-            
-            # Detect API versions
-            if '/v' in url:
-                version = url.split('/v')[1].split('/')[0]
-                if version.isdigit():
-                    self.api_versions.add(f"v{version}")
-            
-            # Check for rate limiting
-            if status == 429:
-                self.rate_limits[url] = {
-                    'method': method,
-                    'headers': dict(getattr(response, 'headers', {}))
-                }
+        return headers
 
-    def get_hostnames(self) -> Set[str]:
+    def _process_response(self, url: str, method: str, response, response_time: float) -> Optional[EndpointResult]:
         """
-        Get the set of hostnames found.
+        Process and categorize API endpoint response with detailed analysis.
+        
+        Returns:
+            Optional[EndpointResult]: Result object or None if not relevant
+        """
+        status = getattr(response, 'status', 0)
+        if status == 0:
+            return None
+            
+        # Track this endpoint
+        self.endpoints.add(url)
+        self.methods.add(method)
+        self.status_codes.add(status)
+        
+        # Get response properties
+        headers = dict(getattr(response, 'headers', {}))
+        content = getattr(response, 'content', b'')
+        content_length = len(content)
+        self.response_sizes[url] = content_length
+        
+        # Try to get content type
+        content_type = headers.get('Content-Type', '')
+        
+        # Create preview of content (limited to 200 chars)
+        content_preview = ""
+        try:
+            if content:
+                content_preview = content.decode('utf-8', errors='ignore')[:200]
+        except Exception:
+            pass
+            
+        # Extract security headers
+        security_headers = {k: v for k, v in headers.items() if k.lower() in [
+            'content-security-policy', 'x-xss-protection', 'x-content-type-options',
+            'strict-transport-security', 'x-frame-options', 'referrer-policy'
+        ]}
+        
+        # Detect API version
+        api_version = ""
+        if '/v' in url:
+            version_match = re.search(r'/v(\d+(?:\.\d+)*)', url)
+            if version_match:
+                api_version = f"v{version_match.group(1)}"
+                self.api_versions.add(api_version)
+        
+        # Check if rate limited
+        rate_limited = status == 429
+        rate_limit_headers = {}
+        if any(header.lower().startswith('x-rate-limit') or header.lower().startswith('ratelimit') for header in headers):
+            rate_limit_headers = {k: v for k, v in headers.items() if 'rate' in k.lower() or 'limit' in k.lower()}
+        
+        # Determine if authentication is required
+        auth_required = status in [401, 403]
+        
+        # Check if this is an interesting endpoint
+        interesting = (status in [200, 201, 202, 204] and 
+                      (content_length > 0 or method in ['GET', 'POST']) and
+                      ('api' in url.lower() or 'json' in content_type.lower() or 'xml' in content_type.lower()))
+        
+        # Detect technologies used
+        tech_stack = []
+        for tech, patterns in self.tech_patterns.items():
+            content_str = content_preview.lower()
+            headers_str = str(headers).lower()
+            
+            if any(re.search(pattern, content_str) for pattern in patterns) or \
+               any(re.search(pattern, headers_str) for pattern in patterns) or \
+               any(re.search(pattern, url.lower()) for pattern in patterns):
+                tech_stack.append(tech)
+        
+        # Try to extract potential parameters from response
+        parameters = []
+        if 'json' in content_type.lower() and content:
+            try:
+                json_data = json.loads(content)
+                # Extract top-level keys as potential parameters
+                if isinstance(json_data, dict):
+                    parameters = list(json_data.keys())
+            except json.JSONDecodeError:
+                pass
+        
+        # Create result object
+        result = EndpointResult(
+            url=url,
+            status_code=status,
+            method=method,
+            content_type=content_type,
+            content_length=content_length,
+            response_time=response_time,
+            auth_required=auth_required,
+            api_version=api_version,
+            rate_limited=rate_limited,
+            rate_limit_headers=rate_limit_headers,
+            security_headers=security_headers,
+            content_preview=content_preview,
+            interesting=interesting,
+            tech_stack=tech_stack,
+            parameters=parameters[:20]  # Limit to first 20 params
+        )
+        
+        # Store in appropriate collections
+        self.found_endpoints[url] = result
+        
+        if interesting:
+            self.interesting_endpoints[url] = result
+        
+        if auth_required:
+            self.auth_required[url] = result
+            
+        if rate_limited or rate_limit_headers:
+            self.rate_limits[url] = result
+            
+        if tech_stack:
+            self.tech_stack[url] = tech_stack
+            
+        # Look for potential API schema definitions (Swagger/OpenAPI)
+        if ('swagger' in url.lower() or 'openapi' in url.lower() or 'api-docs' in url.lower()) and content:
+            try:
+                schema = json.loads(content)
+                if 'swagger' in schema or 'openapi' in schema:
+                    self.schema_detected[url] = schema
+            except json.JSONDecodeError:
+                pass
+                
+        return result
+
+    async def _post_scan_analysis(self) -> None:
+        """Perform additional analysis after completing the initial scan."""
+        # Analyze patterns in successful endpoints
+        if self.interesting_endpoints:
+            self.logger.info(f"Performing post-scan analysis on {len(self.interesting_endpoints)} interesting endpoints")
+            
+            # Extract path patterns from successful endpoints to find more
+            path_patterns = set()
+            for url in self.interesting_endpoints:
+                parts = urlparse(url).path.split('/')
+                if len(parts) > 2:
+                    # Extract patterns like /api/*, /v1/*, etc.
+                    pattern = '/'.join(parts[:3]) + '/*'
+                    path_patterns.add(pattern)
+            
+            # Additional scan based on patterns (implementation omitted for brevity)
+            self.logger.info(f"Identified {len(path_patterns)} API path patterns for potential further scanning")
+
+    def get_results_summary(self) -> Dict[str, Any]:
+        """
+        Get a comprehensive summary of scan results.
 
         Returns:
-            Set[str]: The set of hostnames.
+            Dict[str, Any]: Summary of scan results
         """
+        return {
+            'target': self.word,
+            'total_endpoints_checked': len(self.endpoints),
+            'found_endpoints': len(self.found_endpoints),
+            'interesting_endpoints': len(self.interesting_endpoints),
+            'auth_required_endpoints': len(self.auth_required),
+            'rate_limited_endpoints': len(self.rate_limits),
+            'api_versions': list(self.api_versions),
+            'status_codes': list(self.status_codes),
+            'methods': list(self.methods),
+            'tech_stack_summary': self._get_tech_stack_summary(),
+            'schema_detected': len(self.schema_detected) > 0,
+        }
+    
+    def _get_tech_stack_summary(self) -> Dict[str, int]:
+        """Summarize detected technologies."""
+        summary = {}
+        for url, techs in self.tech_stack.items():
+            for tech in techs:
+                summary[tech] = summary.get(tech, 0) + 1
+        return summary
+
+    def get_detailed_results(self) -> List[Dict[str, Any]]:
+        """
+        Get detailed results for all endpoints.
+
+        Returns:
+            List[Dict[str, Any]]: List of endpoint result dictionaries
+        """
+        return [result.to_dict() for result in self.found_endpoints.values()]
+
+    def get_hostnames(self) -> Set[str]:
+        """Get the set of hostnames found."""
         return self.hosts
 
     def get_endpoints(self) -> Set[str]:
-        """
-        Get the set of all endpoints checked.
-
-        Returns:
-            Set[str]: The set of endpoints.
-        """
+        """Get the set of all endpoints checked."""
         return self.endpoints
 
-    def get_found_endpoints(self) -> Set[str]:
-        """
-        Get the set of found and accessible endpoints.
-
-        Returns:
-            Set[str]: The set of found endpoints.
-        """
+    def get_found_endpoints(self) -> Dict[str, EndpointResult]:
+        """Get dictionary of found and accessible endpoints with detailed results."""
         return self.found_endpoints
 
-    def get_interesting_endpoints(self) -> Set[str]:
-        """
-        Get the set of interesting endpoints (returning 200, 201, or 202).
-
-        Returns:
-            Set[str]: The set of interesting endpoints.
-        """
+    def get_interesting_endpoints(self) -> Dict[str, EndpointResult]:
+        """Get dictionary of interesting endpoints with detailed results."""
         return self.interesting_endpoints
 
-    def get_auth_required(self) -> Set[str]:
-        """
-        Get the set of endpoints requiring authentication.
-
-        Returns:
-            Set[str]: The set of endpoints requiring auth.
-        """
+    def get_auth_required(self) -> Dict[str, EndpointResult]:
+        """Get dictionary of endpoints requiring authentication with detailed results."""
         return self.auth_required
 
     def get_api_versions(self) -> Set[str]:
-        """
-        Get the set of detected API versions.
-
-        Returns:
-            Set[str]: The set of API versions.
-        """
+        """Get the set of detected API versions."""
         return self.api_versions
 
-    def get_rate_limits(self) -> Dict[str, Dict]:
-        """
-        Get the rate limit information for endpoints.
-
-        Returns:
-            Dict[str, Dict]: Dictionary of rate limit information.
-        """
+    def get_rate_limits(self) -> Dict[str, EndpointResult]:
+        """Get rate limit information for endpoints with detailed results."""
         return self.rate_limits
 
     def get_methods(self) -> Set[str]:
-        """
-        Get the set of HTTP methods used.
-
-        Returns:
-            Set[str]: The set of HTTP methods.
-        """
+        """Get the set of HTTP methods used."""
         return self.methods
 
     def get_status_codes(self) -> Set[int]:
-        """
-        Get the set of HTTP status codes encountered.
-
-        Returns:
-            Set[int]: The set of status codes.
-        """
+        """Get the set of HTTP status codes encountered."""
         return self.status_codes
 
     def get_response_sizes(self) -> Dict[str, int]:
+        """Get the response sizes for each endpoint."""
+        return self.response_sizes
+        
+    def get_tech_stack(self) -> Dict[str, List[str]]:
+        """Get detected technology stack for endpoints."""
+        return self.tech_stack
+        
+    def get_schema_detected(self) -> Dict[str, Dict[str, Any]]:
+        """Get detected API schemas (Swagger/OpenAPI)."""
+        return self.schema_detected
+        
+    def export_results(self, output_file: str = None, format: str = 'json') -> Union[str, Dict, None]:
         """
-        Get the response sizes for each endpoint.
+        Export scan results to a file or return as string/dict.
 
+        Args:
+            output_file: Optional file path to save results
+            format: Export format ('json', 'dict')
+            
         Returns:
-            Dict[str, int]: Dictionary mapping endpoints to their response sizes.
+            Union[str, Dict, None]: Results in requested format or None if saved to file
         """
-        return self.response_sizes 
+        results = {
+            'summary': self.get_results_summary(),
+            'endpoints': self.get_detailed_results()
+        }
+        
+        if output_file:
+            with open(output_file, 'w') as f:
+                json.dump(results, f, indent=2)
+            return None
+            
+        if format == 'json':
+            return json.dumps(results, indent=2)
+        else:
+            return results
