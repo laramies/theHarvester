@@ -17,7 +17,6 @@ from theHarvester.discovery import (
     anubis,
     baidusearch,
     bevigil,
-    binaryedgesearch,
     bingsearch,
     bravesearch,
     bufferoverun,
@@ -39,6 +38,7 @@ from theHarvester.discovery import (
     projectdiscovery,
     rapiddns,
     rocketreach,
+    search_dehashed,
     searchhunterhow,
     securitytrailssearch,
     shodansearch,
@@ -49,14 +49,22 @@ from theHarvester.discovery import (
     threatminer,
     tombasearch,
     urlscan,
+    venacussearch,
     virustotal,
+    whoisxml,
     yahoosearch,
     zoomeyesearch,
+    haveibeenpwned,
+    leaklookup,
+    securityscorecard,
+    builtwith,
+    api_endpoints,
 )
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib import hostchecker, stash
 from theHarvester.lib.core import Core
 from theHarvester.screenshot.screenshot import ScreenShotter
+from theHarvester.lib.api.api_endpoints import SearchAPIEndpoints
 
 
 async def start(rest_args: argparse.Namespace | None = None):
@@ -147,14 +155,16 @@ async def start(rest_args: argparse.Namespace | None = None):
     parser.add_argument(
         '-b',
         '--source',
-        help="""anubis, baidu, bevigil, binaryedge, bing, bingapi, brave, bufferoverun,
-                            censys, certspotter, criminalip, crtsh, duckduckgo, fullhunt, github-code,
+        help="""anubis, baidu, bevigil, bing, bingapi, brave, bufferoverun,
+                            censys, certspotter, criminalip, crtsh, dehashed, duckduckgo, fullhunt, github-code,
                             hackertarget, hunter, hunterhow, intelx, netlas, onyphe, otx, pentesttools, projectdiscovery,
                             rapiddns, rocketreach, securityTrails, sitedossier, subdomaincenter, subdomainfinderc99, threatminer, tomba,
-                            urlscan, virustotal, yahoo, zoomeye""",
+                            urlscan, virustotal, yahoo, whoisxml, zoomeye, venacus""",
     )
+    parser.add_argument('-w', '--wordlist', help='Specify a wordlist for API endpoint scanning.', default='')
+    parser.add_argument('-a', '--api-scan', help='Scan for API endpoints.', action='store_true')
 
-    # determines if filename is coming from rest api or user
+    # determines if the filename is coming from rest api or user
     rest_filename = ''
     # indicates this from the rest API
     if rest_args:
@@ -185,6 +195,7 @@ async def start(rest_args: argparse.Namespace | None = None):
     all_emails: list = []
     all_hosts: list = []
     all_ip: list = []
+    all_people: list[dict[str, str]] = []
     dnslookup = args.dns_lookup
     dnsserver = args.dns_server  # TODO arg is not used anywhere replace with resolvers wordlist arg dnsresolve
     dnsresolve = args.dns_resolve
@@ -337,6 +348,7 @@ async def start(rest_args: argparse.Namespace | None = None):
 
         if store_people:
             people_list = await search_engine.get_people()
+            all_people.extend(people_list)
             await db_stash.store_all(word, people_list, 'people', source)
 
         if store_links:
@@ -400,13 +412,6 @@ async def start(rest_args: argparse.Namespace | None = None):
                                 store_interestingurls=True,
                             )
                         )
-                    except Exception as e:
-                        print(e)
-
-                elif engineitem == 'binaryedge':
-                    try:
-                        binaryedge_search = binaryedgesearch.SearchBinaryEdge(word, limit)
-                        stor_lst.append(store(binaryedge_search, engineitem, store_host=True))
                     except Exception as e:
                         print(e)
 
@@ -507,6 +512,23 @@ async def start(rest_args: argparse.Namespace | None = None):
                         stor_lst.append(store(crtsh_search, 'CRTsh', store_host=True))
                     except Exception as e:
                         print(f'[!] A timeout occurred with crtsh, cannot find {args.domain}\n {e}')
+
+                elif engineitem == 'dehashed':
+                    try:
+                        dehashed_search = search_dehashed.SearchDehashed(word)
+                        stor_lst.append(
+                            store(
+                                dehashed_search,
+                                engineitem,
+                                store_host=False,
+                                store_ip=True,
+                            )
+                        )
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            print(e)
+                        else:
+                            print(f'An exception has occurred in Dehashed: {e}')
 
                 elif engineitem == 'duckduckgo':
                     duckduckgo_search = duckduckgosearch.SearchDuckDuckGo(word, limit)
@@ -661,7 +683,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                 elif engineitem == 'rocketreach':
                     try:
                         rocketreach_search = rocketreach.SearchRocketReach(word, limit)
-                        stor_lst.append(store(rocketreach_search, engineitem, store_links=True))
+                        stor_lst.append(store(rocketreach_search, engineitem, store_links=True, store_emails=True))
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             print(e)
@@ -760,6 +782,16 @@ async def start(rest_args: argparse.Namespace | None = None):
                         if isinstance(e, MissingKey):
                             print(e)
 
+                elif engineitem == 'whoisxml':
+                    try:
+                        whoisxml_search = whoisxml.SearchWhoisXML(word)
+                        stor_lst.append(store(whoisxml_search, engineitem, store_host=True))
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            print(e)
+                        else:
+                            print(f'An exception has occurred in WhoisXML search: {e}')
+
                 elif engineitem == 'yahoo':
                     try:
                         yahoo_search = yahoosearch.SearchYahoo(word, limit)
@@ -791,6 +823,121 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             print(e)
+
+                elif engineitem == 'venacus':
+                    try:
+                        venacus_search = venacussearch.SearchVenacus(word=word, limit=limit, offset_doc=start)
+                        stor_lst.append(
+                            store(
+                                venacus_search,
+                                engineitem,
+                                store_emails=True,
+                                store_ip=True,
+                                store_people=True,
+                                store_interestingurls=True,
+                            )
+                        )
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            print(e)
+                        else:
+                            print(f'An exception has occurred in venacus search: {e}')
+
+                elif engineitem == 'haveibeenpwned':
+                    try:
+                        haveibeenpwned_search = haveibeenpwned.SearchHaveIBeenPwned(word)
+                        stor_lst.append(
+                            store(
+                                haveibeenpwned_search,
+                                engineitem,
+                                store_host=True,
+                                store_emails=True,
+                            )
+                        )
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            print(e)
+
+                elif engineitem == 'leaklookup':
+                    try:
+                        leaklookup_search = leaklookup.SearchLeakLookup(word)
+                        stor_lst.append(
+                            store(
+                                leaklookup_search,
+                                engineitem,
+                                store_host=True,
+                                store_emails=True,
+                            )
+                        )
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            print(e)
+
+                elif engineitem == 'securityscorecard':
+                    try:
+                        securityscorecard_search = securityscorecard.SearchSecurityScorecard(word)
+                        stor_lst.append(
+                            store(
+                                securityscorecard_search,
+                                engineitem,
+                                store_host=True,
+                                store_ip=True,
+                            )
+                        )
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            print(e)
+
+                elif engineitem == 'builtwith':
+                    try:
+                        builtwith_search = builtwith.SearchBuiltWith(word)
+                        stor_lst.append(
+                            store(
+                                builtwith_search,
+                                engineitem,
+                                store_interestingurls=True,
+                            )
+                        )
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            print(e)
+
+                # Add api_endpoints to the list of search engines
+                elif engineitem == 'api_endpoints':
+                    try:
+                        api_scanner = api_endpoints.SearchApiEndpoints(word=args.domain, wordlist=args.wordlist)
+                        await api_scanner.do_search()
+                        
+                        # Print results
+                        print(f"\n[*] API Endpoints found: {len(api_scanner.get_found_endpoints())}")
+                        for endpoint in api_scanner.get_found_endpoints():
+                            print(f"    - {endpoint}")
+                        
+                        print(f"\n[*] Interesting endpoints (200, 201, 202): {len(api_scanner.get_interesting_endpoints())}")
+                        for endpoint in api_scanner.get_interesting_endpoints():
+                            print(f"    - {endpoint}")
+                        
+                        print(f"\n[*] Endpoints requiring authentication: {len(api_scanner.get_auth_required())}")
+                        for endpoint in api_scanner.get_auth_required():
+                            print(f"    - {endpoint}")
+                        
+                        print(f"\n[*] Detected API versions: {len(api_scanner.get_api_versions())}")
+                        for version in api_scanner.get_api_versions():
+                            print(f"    - {version}")
+                        
+                        print(f"\n[*] Rate limited endpoints: {len(api_scanner.get_rate_limits())}")
+                        for endpoint, info in api_scanner.get_rate_limits().items():
+                            print(f"    - {endpoint} ({info['method']})")
+                        
+                        print(f"\n[*] HTTP methods used: {', '.join(api_scanner.get_methods())}")
+                        print(f"\n[*] HTTP status codes encountered: {', '.join(map(str, api_scanner.get_status_codes()))}")
+                        
+                        # Add results to storage
+                        storage.add_endpoints(api_scanner.get_found_endpoints())
+                        
+                    except MissingKey:
+                        print("API endpoint scanning requires a wordlist. Use -w to specify a wordlist file.")
+                        sys.exit(1)
         else:
             if rest_args is not None:
                 try:
@@ -802,7 +949,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                 # Print which engines aren't supported
                 unsupported_engines = set(engines) - set(Core.get_supportedengines())
                 if unsupported_engines:
-                    print(f"The following engines are not supported: {unsupported_engines}")
+                    print(f'The following engines are not supported: {unsupported_engines}')
                 print('\n[!] Invalid source.\n')
                 sys.exit(1)
 
@@ -951,6 +1098,14 @@ async def start(rest_args: argparse.Namespace | None = None):
         print('----------------------')
         all_emails = sorted(list(set(all_emails)))
         print('\n'.join(all_emails))
+
+    if len(all_people) == 0:
+        print('\n[*] No people found.')
+    else:
+        print('\n[*] People found: ' + str(len(all_people)))
+        print('----------------------')
+        for person in all_people:
+            print(person)
 
     if len(all_hosts) == 0:
         print('\n[*] No hosts found.\n\n')
@@ -1169,6 +1324,7 @@ async def start(rest_args: argparse.Namespace | None = None):
             # XML REPORT SECTION
             with open(filename, 'w+') as file:
                 file.write('<?xml version="1.0" encoding="UTF-8"?><theHarvester>')
+                file.write('<cmd>' + ' '.join([f'"{arg}"' if ' ' in arg else arg for arg in sys.argv[1:]]) + '</cmd>')
                 for x in all_emails:
                     file.write('<email>' + x + '</email>')
                 for x in full:
@@ -1194,6 +1350,8 @@ async def start(rest_args: argparse.Namespace | None = None):
             filename = filename.rsplit('.', 1)[0] + '.json'
             # create dict with values for json output
             json_dict: dict = dict()
+            # start by adding the command line arguments
+            json_dict['cmd'] = ' '.join([f'"{arg}"' if ' ' in arg else arg for arg in sys.argv[1:]])
             # determine if a variable exists
             # it should but just a validation check
             if 'ip_list' in locals():
@@ -1231,6 +1389,9 @@ async def start(rest_args: argparse.Namespace | None = None):
             if len(linkedin_links_tracker) > 0:
                 json_dict['linkedin_links'] = linkedin_links_tracker
 
+            if len(all_people) > 0:
+                json_dict['people'] = all_people
+
             if takeover_status and len(takeover_results) > 0:
                 json_dict['takeover_results'] = takeover_results
 
@@ -1243,6 +1404,34 @@ async def start(rest_args: argparse.Namespace | None = None):
             print(f'[!] An error occurred while saving the JSON file: {er} ')
         print('\n\n')
         sys.exit(0)
+
+    if args.api_scan:
+        try:
+            api_scanner = SearchAPIEndpoints(args.domain, args.wordlist if args.wordlist else None)
+            await api_scanner.process(args.proxies)
+            
+            print('\n[*] API Endpoints found:')
+            for endpoint in await api_scanner.get_endpoints():
+                print(f'    {endpoint}')
+            
+            print('\n[*] Interesting endpoints:')
+            for endpoint in await api_scanner.get_interesting_endpoints():
+                print(f'    {endpoint}')
+            
+            print('\n[*] Endpoints requiring authentication:')
+            for endpoint in await api_scanner.get_auth_required():
+                print(f'    {endpoint}')
+            
+            print('\n[*] API versions detected:')
+            for version in await api_scanner.get_api_versions():
+                print(f'    {version}')
+            
+            print('\n[*] Rate limited endpoints:')
+            for endpoint, info in (await api_scanner.get_rate_limits()).items():
+                print(f'    {endpoint} ({info["method"]})')
+            
+        except Exception as e:
+            print(f'Error in API endpoint scanning: {e}')
 
 
 async def entry_point() -> None:

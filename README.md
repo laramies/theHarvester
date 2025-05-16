@@ -18,8 +18,6 @@ Passive modules:
 
 * baidu: Baidu search engine - www.baidu.com
 
-* binaryedge: List of known subdomains (Requires an API key, see below.) - https://www.binaryedge.io
-
 * bing: Microsoft search engine - https://www.bing.com
 
 * bingapi: Microsoft search engine, through the API (Requires an API key, see below.)
@@ -88,12 +86,15 @@ Passive modules:
 
 * vhost: Bing virtual hosts search
 
+* venacus: Venacus search engine (Requires an API key, see below.) - https://venacus.com
+
 * virustotal: Domain search (Requires an API key, see below.) - https://www.virustotal.com
+
+* whoisxml: Subdomain search (Requires an API key, see below.) - https://subdomains.whoisxmlapi.com/api/pricing
 
 * yahoo: Yahoo search engine
 
 * zoomeye: China's version of Shodan (Requires an API key, see below.) - https://www.zoomeye.org
-
 
 Active modules:
 ---------------
@@ -105,9 +106,8 @@ Modules that require an API key:
 Documentation to setup API keys can be found at - https://github.com/laramies/theHarvester/wiki/Installation#api-keys
 
 * bevigil - Free upto 50 queries. Pricing can be found here: https://bevigil.com/pricing/osint
-* binaryedge - $10/month
 * bing
-* bufferoverun - uses the free API
+* bufferoverun - uses the free binaAPI
 * censys - API keys are required and can be retrieved from your [Censys account](https://search.censys.io/account/api).
 * criminalip
 * fullhunt
@@ -123,6 +123,8 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * securityTrails
 * shodan - $
 * tomba - Free up to 50 search.
+* venacus - $
+* whoisxml
 * zoomeye
 
 Install and dependencies:
@@ -130,14 +132,12 @@ Install and dependencies:
 * Python 3.11+
 * https://github.com/laramies/theHarvester/wiki/Installation
 
-
 Comments, bugs, and requests:
 -----------------------------
 * [![Twitter Follow](https://img.shields.io/twitter/follow/laramies.svg?style=social&label=Follow)](https://twitter.com/laramies) Christian Martorella @laramies
   cmartorella@edge-security.com
 * [![Twitter Follow](https://img.shields.io/twitter/follow/NotoriousRebel1.svg?style=social&label=Follow)](https://twitter.com/NotoriousRebel1) Matthew Brown @NotoriousRebel1
 * [![Twitter Follow](https://img.shields.io/twitter/follow/jay_townsend1.svg?style=social&label=Follow)](https://twitter.com/jay_townsend1) Jay "L1ghtn1ng" Townsend @jay_townsend1
-
 
 Main contributors:
 ------------------

@@ -2,9 +2,6 @@ apikeys:
   bevigil:
     key:
 
-  binaryedge:
-    key:
-
   bing:
     key:
 
@@ -16,6 +13,9 @@ apikeys:
     secret:
 
   criminalip:
+    key:
+
+  dehashed:
     key:
 
   fullhunt:
@@ -58,7 +58,13 @@ apikeys:
     key:
     secret:
 
+  venacus:
+    key:
+
   virustotal:
+    key:
+
+  whoisxml:
     key:
 
   zoomeye:

@@ -15,6 +15,7 @@ class SearchRocketReach:
         self.proxy = False
         self.baseurl = 'https://rocketreach.co/api/v2/person/search'
         self.links: set = set()
+        self.emails: set = set()
         self.limit = limit
 
     async def do_search(self) -> None:
@@ -45,6 +46,10 @@ class SearchRocketReach:
                     for profile in result['profiles']:
                         if 'linkedin_url' in dict(profile).keys():
                             self.links.add(profile['linkedin_url'])
+                        if 'emails' in dict(profile).keys() and profile['emails']:
+                            for email in profile['emails']:
+                                if email.get('email'):
+                                    self.emails.add(email['email'])
                 if 'pagination' in dict(result).keys():
                     next_page = result['pagination']['page'] + 1
                     if next_page > result['pagination']['total_pages']:
@@ -57,6 +62,9 @@ class SearchRocketReach:
 
     async def get_links(self):
         return self.links
+
+    async def get_emails(self):
+        return self.emails
 
     async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
