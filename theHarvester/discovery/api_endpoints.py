@@ -1,5 +1,5 @@
 """
-Advanced API endpoint scanner module.
+API endpoint scanner module.
 This module contains the SearchApiEndpoints class that performs comprehensive API endpoint
 scanning, detection, and analysis on target domains with advanced features for security testing.
 """
@@ -48,6 +48,9 @@ class EndpointResult:
 
 
 class SearchApiEndpoints:
+    """
+    SearchApiEndpoints class for scanning common API endpoints on target domains.
+    """
    
     def __init__(self, 
                  word: str, 
