@@ -14,6 +14,8 @@ Passive modules:
 ----------------
 * anubis: Anubis-DB - https://github.com/jonluca/anubis
 
+* binaryedge: List of known subdomains (Requires an API key, see below.) - https://www.binaryedge.io
+
 * bevigil: CloudSEK BeVigil scans mobile application for OSINT assets (Requires an API key, see below.) - https://bevigil.com/osint-api
 
 * baidu: Baidu search engine - www.baidu.com
