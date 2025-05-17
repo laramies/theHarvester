@@ -221,7 +221,6 @@ class Core:
             'sitedossier',
             'subdomaincenter',
             'subdomainfinderc99',
-            'spyse',
             'sublist3r',
             'threatcrowd',
             'threatminer',
