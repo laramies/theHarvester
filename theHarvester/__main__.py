@@ -161,7 +161,7 @@ async def start(rest_args: argparse.Namespace | None = None):
     parser.add_argument(
         '-b',
         '--source',
-        help="""anubis, baidu, bevigil, binaryedge, bing, bingapi, brave, bufferoverun,
+        help="""anubis, baidu, bevigil, bing, bingapi, brave, bufferoverun,
                             censys, certspotter, criminalip, crtsh, dehashed, duckduckgo, fullhunt, github-code,
                             hackertarget, hunter, hunterhow, intelx, netlas, onyphe, otx, pentesttools, projectdiscovery,
                             rapiddns, rocketreach, securityTrails, sitedossier, subdomaincenter, subdomainfinderc99, threatminer, tomba,
@@ -418,6 +418,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except Exception as e:
                         print(e)
+
                         
                 elif engineitem == 'binaryedge':
                     try:
@@ -853,6 +854,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                             print(e)
                         else:
                             print(f'An exception has occurred in venacus search: {e}')
+
                             
                 elif engineitem == 'haveibeenpwned':
                     try:
@@ -921,6 +923,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                             print(e)
                         else:
                             print(f'An exception has occurred in BuiltWith search: {e}')
+                            
         else:
             if rest_args is not None:
                 try:
