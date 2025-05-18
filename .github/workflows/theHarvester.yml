@@ -28,6 +28,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo mkdir -p /usr/local/etc/theHarvester
+          sudo cp theHarvester/data/*.yaml /usr/local/etc/theHarvester/
           pip install --upgrade pip
           pip install .[dev]
         continue-on-error: ${{ matrix.python-version == '3.14' }}
@@ -49,65 +50,65 @@ jobs:
 
       - name: Run theHarvester module Anubis
         run: |
-          sudo theHarvester -d apple.com -b anubis
+          theHarvester -d apple.com -b anubis
         continue-on-error: ${{ matrix.python-version == '3.14' }}
 
       - name: Run theHarvester module Baidu
         run: |
-          sudo theHarvester -d yale.edu -b baidu
+          theHarvester -d yale.edu -b baidu
         continue-on-error: ${{ matrix.python-version == '3.14' }}
 
       - name: Run theHarvester module Bing
         run: |
-          sudo theHarvester -d yale.edu -b bing
+          theHarvester -d yale.edu -b bing
         continue-on-error: ${{ matrix.python-version == '3.14' }}
 
       - name: Run theHarvester module CertSpotter
         run: |
-          sudo theHarvester -d yale.edu -b certspotter
+          theHarvester -d yale.edu -b certspotter
         continue-on-error: ${{ matrix.python-version == '3.14' }}
 
       - name: Run theHarvester module Crtsh
         run: |
-          sudo theHarvester -d hcl.com -b crtsh
+          theHarvester -d hcl.com -b crtsh
         continue-on-error: ${{ matrix.python-version == '3.14' }}
 
       - name: Run theHarvester module DuckDuckGo
         run: |
-          sudo theHarvester -d yale.edu -b duckduckgo
+          theHarvester -d yale.edu -b duckduckgo
         continue-on-error: ${{ matrix.python-version == '3.14' }}
 
       - name: Run theHarvester module HackerTarget
         run: |
-          sudo theHarvester -d yale.edu -b hackertarget
+          theHarvester -d yale.edu -b hackertarget
         continue-on-error: ${{ matrix.python-version == '3.14' }}
 
       - name: Run theHarvester module Otx
         run: |
-          sudo theHarvester -d yale.edu -b otx
+          theHarvester -d yale.edu -b otx
         continue-on-error: ${{ matrix.python-version == '3.14' }}
 
       - name: Run theHarvester module RapidDns
         run: |
-          sudo theHarvester -d yale.edu -b rapiddns
+          theHarvester -d yale.edu -b rapiddns
         continue-on-error: ${{ matrix.python-version == '3.14' }}
 
       - name: Run theHarvester module Threatminer
         run: |
-          sudo theHarvester -d yale.edu -b threatminer
+          theHarvester -d yale.edu -b threatminer
         continue-on-error: ${{ matrix.python-version == '3.14' }}
 
       - name: Run theHarvester module Urlscan
         run: |
-          sudo theHarvester -d yale.edu -b urlscan
+          theHarvester -d yale.edu -b urlscan
         continue-on-error: ${{ matrix.python-version == '3.14' }}
 
       - name: Run theHarvester module Yahoo
         run: |
-          sudo theHarvester -d yale.edu -b yahoo
+          theHarvester -d yale.edu -b yahoo
         continue-on-error: ${{ matrix.python-version == '3.14' }}
 
       - name: Run theHarvester module DNS brute force
         run: |
-          sudo theHarvester -d yale.edu -c
+          theHarvester -d yale.edu -c
         continue-on-error: ${{ matrix.python-version == '3.14' }}
