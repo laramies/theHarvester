@@ -30,17 +30,17 @@ jobs:
           sudo cp theHarvester/data/*.yaml /usr/local/etc/theHarvester/
           pip install --upgrade pip
           pip install .[dev]
-        continue-on-error: ${{ matrix.python-version == '3.14' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
 
       - name: Lint with ruff
         run: |
           ruff check --fix
-        continue-on-error: ${{ matrix.python-version == '3.14' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
 
       - name: Format with ruff
         run: |
           ruff format
-        continue-on-error: ${{ matrix.python-version == '3.14' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
 
       - name: Commit changes for ruff formating and linting
         run: |
@@ -55,69 +55,69 @@ jobs:
       - name: Test with pytest
         run: |
           pytest
-        continue-on-error: ${{ matrix.python-version == '3.14' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
 
       - name: Run theHarvester module Anubis
         run: |
           theHarvester -d apple.com -b anubis
-        continue-on-error: ${{ matrix.python-version == '3.14' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
 
       - name: Run theHarvester module Baidu
         run: |
           theHarvester -d yale.edu -b baidu
-        continue-on-error: ${{ matrix.python-version == '3.14' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
 
       - name: Run theHarvester module Bing
         run: |
           theHarvester -d yale.edu -b bing
-        continue-on-error: ${{ matrix.python-version == '3.14' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
 
       - name: Run theHarvester module CertSpotter
         run: |
           theHarvester -d yale.edu -b certspotter
-        continue-on-error: ${{ matrix.python-version == '3.14' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
 
       - name: Run theHarvester module Crtsh
         run: |
           theHarvester -d hcl.com -b crtsh
-        continue-on-error: ${{ matrix.python-version == '3.14' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
 
       - name: Run theHarvester module DuckDuckGo
         run: |
           theHarvester -d yale.edu -b duckduckgo
-        continue-on-error: ${{ matrix.python-version == '3.14' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
 
       - name: Run theHarvester module HackerTarget
         run: |
           theHarvester -d yale.edu -b hackertarget
-        continue-on-error: ${{ matrix.python-version == '3.14' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
 
       - name: Run theHarvester module Otx
         run: |
           theHarvester -d yale.edu -b otx
-        continue-on-error: ${{ matrix.python-version == '3.14' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
 
       - name: Run theHarvester module RapidDns
         run: |
           theHarvester -d yale.edu -b rapiddns
-        continue-on-error: ${{ matrix.python-version == '3.14' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
 
       - name: Run theHarvester module Threatminer
         run: |
           theHarvester -d yale.edu -b threatminer
-        continue-on-error: ${{ matrix.python-version == '3.14' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
 
       - name: Run theHarvester module Urlscan
         run: |
           theHarvester -d yale.edu -b urlscan
-        continue-on-error: ${{ matrix.python-version == '3.14' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
 
       - name: Run theHarvester module Yahoo
         run: |
           theHarvester -d yale.edu -b yahoo
-        continue-on-error: ${{ matrix.python-version == '3.14' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
 
       - name: Run theHarvester module DNS brute force
         run: |
           theHarvester -d yale.edu -c
-        continue-on-error: ${{ matrix.python-version == '3.14' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
