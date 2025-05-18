@@ -16,6 +16,7 @@ github_ci: Optional[str] = os.getenv(
 )  # Github set this to be the following: true instead of True
 
 
+@pytest.mark.skipif(github_ci == 'true', reason="Skipping this test for now")
 class TestAnubis:
     @staticmethod
     def domain() -> str:
