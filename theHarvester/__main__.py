@@ -522,7 +522,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                             print(e)
                         else:
                             print(f'An exception has occurred in Dehashed: {e}')
-                            
+
                 elif engineitem == 'dnsdumpster':
                     try:
                         dnsdumpster_search = search_dnsdumpster.SearchDNSDumpster(word)
@@ -535,9 +535,9 @@ async def start(rest_args: argparse.Namespace | None = None):
                             )
                         )
                     except MissingKey as e:
-                            print(e)
+                        print(e)
                     except Exception as e:
-                            print(f'An exception has occurred in DNSDumpster: {e}')
+                        print(f'An exception has occurred in DNSDumpster: {e}')
 
                 elif engineitem == 'duckduckgo':
                     duckduckgo_search = duckduckgosearch.SearchDuckDuckGo(word, limit)
