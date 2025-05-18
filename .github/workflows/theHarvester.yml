@@ -1,4 +1,3 @@
----
 name: TheHarvester Python CI
 
 on:
@@ -42,6 +41,16 @@ jobs:
         run: |
           ruff format
         continue-on-error: ${{ matrix.python-version == '3.14' }}
+
+      - name: Commit changes for ruff formating and linting
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add .
+          git commit -m "Apply ruff fixes and formatting" || true # Use || true to prevent failure if no changes
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Test with pytest
         run: |
