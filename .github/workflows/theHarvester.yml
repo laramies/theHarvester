@@ -27,7 +27,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: |
-          mkdir -p /usr/local/etc/theHarvester
+          sudo mkdir -p /usr/local/etc/theHarvester
           pip install --upgrade pip
           pip install .[dev]
         continue-on-error: ${{ matrix.python-version == '3.13' }}
