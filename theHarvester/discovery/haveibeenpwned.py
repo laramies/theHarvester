@@ -41,6 +41,7 @@ class SearchHaveIBeenPwned:
                             self.breaches = await response.json()
                             self._extract_data()
                         elif response.status == 401:
+                            print("[!] Missing API key for HaveIBeenPwned.")
                             raise MissingKey("HaveIBeenPwned")
         except Exception as e:
             print(f"Error in HaveIBeenPwned search: {e}")

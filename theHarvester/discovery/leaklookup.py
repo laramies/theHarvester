@@ -39,6 +39,7 @@ class SearchLeakLookup:
                             self.leaks = await response.json()
                             self._extract_data()
                         elif response.status == 401:
+                            print("[!] Missing API key for Leak-Lookup.")
                             raise MissingKey("Leak-Lookup")
         except Exception as e:
             print(f"Error in Leak-Lookup search: {e}")

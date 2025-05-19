@@ -42,6 +42,7 @@ class SearchBuiltWith:
                             self.tech_stack = data
                             self._extract_data()
                         elif response.status == 401:
+                            print("[!] Missing API key for BuiltWith.")
                             raise MissingKey("BuiltWith")
         except Exception as e:
             print(f"Error in BuiltWith search: {e}")
