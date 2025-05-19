@@ -20,7 +20,6 @@ from theHarvester.discovery import (
     baidusearch,
     bevigil,
     bingsearch,
-    binaryedgesearch,
     bravesearch,
     bufferoverun,
     builtwith,
@@ -68,7 +67,7 @@ from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib import hostchecker, stash
 from theHarvester.lib.core import Core
 from theHarvester.screenshot.screenshot import ScreenShotter
-from theHarvester.discovery.api_endpoints import SearchAPIEndpoints
+from theHarvester.discovery.api_endpoints import SearchApiEndpoints
 
 
 async def start(rest_args: argparse.Namespace | None = None):
