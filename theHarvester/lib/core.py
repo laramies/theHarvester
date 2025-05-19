@@ -75,6 +75,10 @@ class Core:
         return Core.api_keys()['dehashed']['key']
 
     @staticmethod
+    def dnsdumpster_key() -> str:
+        return Core.api_keys()['dnsdumpster']['key']
+
+    @staticmethod
     def fullhunt_key() -> str:
         return Core.api_keys()['fullhunt']['key']
 
@@ -199,6 +203,7 @@ class Core:
             'dnsdumpster',
             'duckduckgo',
             'dehashed',
+            'dnsdumpster',
             'fullhunt',
             'github-code',
             'hackertarget',

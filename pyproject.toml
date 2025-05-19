@@ -17,7 +17,48 @@ classifiers = [
     "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
     "Operating System :: OS Independent",
 ]
-dynamic = ["dependencies", "optional-dependencies", "version"]
+dynamic = ["version"]
+dependencies = [
+    "aiodns==3.4.0",
+    "aiofiles==24.1.0",
+    "aiohttp==3.11.18",
+    "aiomultiprocess==0.9.1",
+    "aiosqlite==0.21.0",
+    "beautifulsoup4==4.13.4",
+    "censys==2.2.17",
+    "certifi==2025.4.26",
+    "dnspython==2.7.0",
+    "fastapi==0.115.12",
+    "lxml==5.4.0",
+    "netaddr==1.3.0",
+    "ujson==5.10.0",
+    "playwright==1.52.0",
+    "PyYAML==6.0.2",
+    "python-dateutil==2.9.0.post0",
+    "requests==2.32.3",
+    "retrying==1.3.4",
+    "shodan==1.31.0",
+    "slowapi==0.1.9",
+    "uvicorn==0.34.2",
+    "uvloop==0.21.0; platform_system != 'Windows'",
+    "winloop==0.1.8; platform_system == 'Windows'",
+]
+
+[project.optional-dependencies]
+dev = [
+    "mypy==1.15.0",
+    "mypy-extensions==1.1.0",
+    "pytest==8.3.5",
+    "pytest-asyncio==0.26.0",
+    "types-certifi==2021.10.8.3",
+    "types-chardet==5.0.4.6",
+    "types-ujson==5.10.0.20250326",
+    "types-PyYAML==6.0.12.20250516",
+    "types-requests==2.32.0.20250515",
+    "types-python-dateutil==2.9.0.20250516",
+    "ruff==0.11.10",
+    "wheel==0.45.1",
+]
 
 [project.scripts]
 theHarvester = "theHarvester.theHarvester:main"
@@ -25,8 +66,6 @@ restfulHarvest = "theHarvester.restfulHarvest:main"
 
 [tool.setuptools.dynamic]
 version = { attr = "theHarvester.lib.version.VERSION" }
-dependencies = { file = "requirements/base.txt" }
-optional-dependencies.dev = { file = "requirements/dev.txt" }
 
 [tool.setuptools.packages.find]
 include = ["theHarvester*"]
@@ -56,7 +95,6 @@ show_traceback = true
 show_error_codes = true
 namespace_packages = true
 
-# astral.sh tools setup
 [tool.uv]
 python-preference = "managed"
 

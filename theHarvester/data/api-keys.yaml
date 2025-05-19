@@ -19,6 +19,9 @@ apikeys:
   dehashed:
     key:
 
+  dnsdumpster:
+    key:
+
   fullhunt:
     key:
 

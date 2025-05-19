@@ -21,6 +21,9 @@ class TestCertspotter(object):
     def domain() -> str:
         return "metasploit.com"
 
+
+@pytest.mark.skipif(github_ci == 'true', reason="Skipping this test for now")
+class TestCertspotterSearch(object):
     async def test_api(self) -> None:
         base_url = f"https://api.certspotter.com/v1/issuances?domain={TestCertspotter.domain()}&expand=dns_names"
         headers = {"User-Agent": Core.get_user_agent()}

@@ -42,6 +42,7 @@ from theHarvester.discovery import (
     rapiddns,
     rocketreach,
     search_dehashed,
+    search_dnsdumpster,
     searchhunterhow,
     securitytrailssearch,
     shodansearch,
@@ -161,7 +162,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         '-b',
         '--source',
         help="""anubis, baidu, bevigil, bing, bingapi, brave, bufferoverun,
-                            censys, certspotter, criminalip, crtsh, dehashed, duckduckgo, fullhunt, github-code,
+                            censys, certspotter, criminalip, crtsh, dehashed, dnsdumpster, duckduckgo, fullhunt, github-code,
                             hackertarget, hunter, hunterhow, intelx, netlas, onyphe, otx, pentesttools, projectdiscovery,
                             rapiddns, rocketreach, securityTrails, sitedossier, subdomaincenter, subdomainfinderc99, threatminer, tomba,
                             urlscan, virustotal, yahoo, whoisxml, zoomeye, venacus""",
@@ -533,6 +534,22 @@ async def start(rest_args: argparse.Namespace | None = None):
                             print(e)
                         else:
                             print(f'An exception has occurred in Dehashed: {e}')
+
+                elif engineitem == 'dnsdumpster':
+                    try:
+                        dnsdumpster_search = search_dnsdumpster.SearchDNSDumpster(word)
+                        stor_lst.append(
+                            store(
+                                dnsdumpster_search,
+                                engineitem,
+                                store_host=True,
+                                store_ip=True,
+                            )
+                        )
+                    except MissingKey as e:
+                        print(e)
+                    except Exception as e:
+                        print(f'An exception has occurred in DNSDumpster: {e}')
 
                 elif engineitem == 'duckduckgo':
                     duckduckgo_search = duckduckgosearch.SearchDuckDuckGo(word, limit)
