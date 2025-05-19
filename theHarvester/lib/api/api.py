@@ -2,15 +2,15 @@ import argparse
 import os
 
 from fastapi import FastAPI, Header, Query, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse, Response, UJSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from starlette.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
-from theHarvester.lib.api.additional_endpoints import router as additional_router
 
 from theHarvester import __main__
+from theHarvester.lib.api.additional_endpoints import router as additional_router
 
 limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(
@@ -24,14 +24,14 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # ty
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=['*'],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=['*'],
+    allow_headers=['*'],
 )
 
 # Include additional endpoints
-app.include_router(additional_router, prefix="/additional", tags=["Additional APIs"])
+app.include_router(additional_router, prefix='/additional', tags=['Additional APIs'])
 
 # This is where we will host files that arise if the user specifies a filename
 try:

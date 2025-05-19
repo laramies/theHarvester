@@ -8,10 +8,10 @@ import string
 import sys
 import time
 import traceback
-import ujson
 from typing import Any
 
 import netaddr
+import ujson
 from aiomultiprocess import Pool
 
 from theHarvester.discovery import (
@@ -32,8 +32,10 @@ from theHarvester.discovery import (
     fullhuntsearch,
     githubcode,
     hackertarget,
+    haveibeenpwned,
     huntersearch,
     intelxsearch,
+    leaklookup,
     netlas,
     onyphe,
     otxsearch,
@@ -44,6 +46,7 @@ from theHarvester.discovery import (
     search_dehashed,
     search_dnsdumpster,
     searchhunterhow,
+    securityscorecard,
     securitytrailssearch,
     shodansearch,
     sitedossier,
@@ -52,11 +55,6 @@ from theHarvester.discovery import (
     takeover,
     threatminer,
     tombasearch,
-    haveibeenpwned,
-    leaklookup,
-    securityscorecard,
-    builtwith,
-    api_endpoints,
     urlscan,
     venacussearch,
     virustotal,
@@ -68,7 +66,6 @@ from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib import hostchecker, stash
 from theHarvester.lib.core import Core
 from theHarvester.screenshot.screenshot import ScreenShotter
-from theHarvester.discovery.api_endpoints import SearchApiEndpoints
 
 
 async def start(rest_args: argparse.Namespace | None = None):
@@ -419,7 +416,6 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         print(e)
 
-                        
                 elif engineitem == 'bing' or engineitem == 'bingapi':
                     try:
                         bing_search = bingsearch.SearchBing(word, limit, start)
@@ -864,7 +860,6 @@ async def start(rest_args: argparse.Namespace | None = None):
                         else:
                             print(f'An exception has occurred in venacus search: {e}')
 
-                            
                 elif engineitem == 'haveibeenpwned':
                     try:
                         haveibeenpwned_search = haveibeenpwned.SearchHaveIBeenPwned(word)
@@ -907,7 +902,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                                 store_host=True,
                                 store_ip=True,
                                 store_interestingurls=True,
-                                store_asns=True
+                                store_asns=True,
                             )
                         )
                     except Exception as e:
@@ -919,20 +914,13 @@ async def start(rest_args: argparse.Namespace | None = None):
                 elif engineitem == 'builtwith':
                     try:
                         builtwith_search = builtwith.SearchBuiltWith(word)
-                        stor_lst.append(
-                            store(
-                                builtwith_search,
-                                engineitem,
-                                store_host=True,
-                                store_interestingurls=True
-                            )
-                        )
+                        stor_lst.append(store(builtwith_search, engineitem, store_host=True, store_interestingurls=True))
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             print(e)
                         else:
                             print(f'An exception has occurred in BuiltWith search: {e}')
-                            
+
         else:
             if rest_args is not None:
                 try:
@@ -1398,69 +1386,85 @@ async def start(rest_args: argparse.Namespace | None = None):
         except Exception as er:
             print(f'[!] An error occurred while saving the JSON file: {er} ')
         print('\n\n')
-    
+
     # Enhanced code block for API Endpoint scanning feature
     if args.api_scan or 'api_endpoints' in engines:
         try:
             # Define a default wordlist if none is specified
-            wordlist = args.wordlist if args.wordlist else "./wordlists/api_endpoints.txt"
-            
+            wordlist = args.wordlist if args.wordlist else './wordlists/api_endpoints.txt'
+
             # Check if the wordlist file exists first
             if not os.path.exists(wordlist):
-                print(f"\n[!] Wordlist not found: {wordlist}")
-                print("Creating a basic API wordlist for scanning...")
+                print(f'\n[!] Wordlist not found: {wordlist}')
+                print('Creating a basic API wordlist for scanning...')
                 # Create a default simple API endpoint list
                 basic_endpoints = [
-                    "/api", "/api/v1", "/api/v2", "/api/v3", "/graphql", "/swagger", "/docs", "/redoc", 
-                    "/swagger-ui", "/openapi.json", "/api-docs", "/rest", "/ws", "/swagger-ui.html",
-                    "/health", "/status", "/metrics", "/actuator", "/debug"
+                    '/api',
+                    '/api/v1',
+                    '/api/v2',
+                    '/api/v3',
+                    '/graphql',
+                    '/swagger',
+                    '/docs',
+                    '/redoc',
+                    '/swagger-ui',
+                    '/openapi.json',
+                    '/api-docs',
+                    '/rest',
+                    '/ws',
+                    '/swagger-ui.html',
+                    '/health',
+                    '/status',
+                    '/metrics',
+                    '/actuator',
+                    '/debug',
                 ]
-                temp_wordlist = "./wordlists/temp_api_endpoints.txt"
-                with open(temp_wordlist, "w") as f:
-                    f.write("\n".join(basic_endpoints))
+                temp_wordlist = './wordlists/temp_api_endpoints.txt'
+                with open(temp_wordlist, 'w') as f:
+                    f.write('\n'.join(basic_endpoints))
                 wordlist = temp_wordlist
-                print(f"Basic API wordlist created with {len(basic_endpoints)} endpoints.")
-            
-            print(f"\n[*] Starting API endpoint scanning with wordlist: {wordlist}")
+                print(f'Basic API wordlist created with {len(basic_endpoints)} endpoints.')
+
+            print(f'\n[*] Starting API endpoint scanning with wordlist: {wordlist}')
             api_scanner = api_endpoints.SearchApiEndpoints(word=args.domain, wordlist=wordlist)
             await api_scanner.do_search()
-            
+
             # Print results
             endpoints_found = api_scanner.get_found_endpoints()
-            print(f"\n[*] API Endpoints found: {len(endpoints_found)}")
+            print(f'\n[*] API Endpoints found: {len(endpoints_found)}')
             for endpoint in endpoints_found:
-                print(f"    - {endpoint}")
-            
+                print(f'    - {endpoint}')
+
             interesting_endpoints = api_scanner.get_interesting_endpoints()
-            print(f"\n[*] Interesting endpoints (200, 201, 202): {len(interesting_endpoints)}")
+            print(f'\n[*] Interesting endpoints (200, 201, 202): {len(interesting_endpoints)}')
             for endpoint in interesting_endpoints:
-                print(f"    - {endpoint}")
-            
+                print(f'    - {endpoint}')
+
             auth_required = api_scanner.get_auth_required()
-            print(f"\n[*] Endpoints requiring authentication: {len(auth_required)}")
+            print(f'\n[*] Endpoints requiring authentication: {len(auth_required)}')
             for endpoint in auth_required:
-                print(f"    - {endpoint}")
-            
+                print(f'    - {endpoint}')
+
             api_versions = api_scanner.get_api_versions()
-            print(f"\n[*] Detected API versions: {len(api_versions)}")
+            print(f'\n[*] Detected API versions: {len(api_versions)}')
             for version in api_versions:
-                print(f"    - {version}")
-            
+                print(f'    - {version}')
+
             rate_limits = api_scanner.get_rate_limits()
-            print(f"\n[*] Rate limited endpoints: {len(rate_limits)}")
+            print(f'\n[*] Rate limited endpoints: {len(rate_limits)}')
             for endpoint, info in rate_limits.items():
-                print(f"    - {endpoint} ({info['method']})")
-            
+                print(f'    - {endpoint} ({info["method"]})')
+
             methods = api_scanner.get_methods()
-            print(f"\n[*] HTTP methods used: {', '.join(methods)}")
-            
+            print(f'\n[*] HTTP methods used: {", ".join(methods)}')
+
             status_codes = api_scanner.get_status_codes()
-            print(f"\n[*] HTTP status codes encountered: {', '.join(map(str, status_codes))}")
-            
+            print(f'\n[*] HTTP status codes encountered: {", ".join(map(str, status_codes))}')
+
             # Add results to storage
             db = stash.StashManager()
             await db.store_all(word, endpoints_found, 'api_endpoint', 'api_scan')
-            
+
             # Use custom database function if available
             try:
                 # Try to use the storage module if available
@@ -1468,26 +1472,26 @@ async def start(rest_args: argparse.Namespace | None = None):
                 await db_storage.store_all(word, endpoints_found, 'api_endpoint', 'api_scan')
             except AttributeError:
                 pass  # Skip if there's no custom function
-            
+
             # Add to interesting URLs if any endpoints were found
             if interesting_endpoints:
-                new_urls = [f"https://{args.domain}{endpoint}" for endpoint in interesting_endpoints]
+                new_urls = [f'https://{args.domain}{endpoint}' for endpoint in interesting_endpoints]
                 interesting_urls.extend(new_urls)
-                
+
                 # Also add complete domain paths to the interesting_urls list
                 all_urls.extend(new_urls)
-                
-            print("\n[+] API scanning completed successfully.")
-            
+
+            print('\n[+] API scanning completed successfully.')
+
         except MissingKey:
-            print("\n[!] API endpoint scanning requires a wordlist. Use -w to specify a wordlist file.")
-            print("    Creating a basic wordlist and trying again...")
+            print('\n[!] API endpoint scanning requires a wordlist. Use -w to specify a wordlist file.')
+            print('    Creating a basic wordlist and trying again...')
             # The wordlist creation code above could be used here
         except Exception as e:
             print(f'\n[!] An exception has occurred in API Endpoints scanning: {e}')
-            print("    Continuing with the rest of the scan...")
+            print('    Continuing with the rest of the scan...')
             traceback.print_exc()  # More detailed error information for developers
-            
+
     # If SecurityScorecard option is selected
     if 'securityscorecard' in engines:
         try:
@@ -1495,28 +1499,28 @@ async def start(rest_args: argparse.Namespace | None = None):
             securityscorecard_scanner = securityscorecard.SearchSecurityScorecard(word)
             # Use the process method according to the original structure of this module
             await securityscorecard_scanner.process(use_proxy)
-            
+
             # Use existing API to get results
             hosts = await securityscorecard_scanner.get_hostnames()
             if hosts:
-                print(f"\n[*] SecurityScorecard results: {len(hosts)} hosts found")
+                print(f'\n[*] SecurityScorecard results: {len(hosts)} hosts found')
                 for host in hosts:
-                    print(f"    - {host}")
-                    
+                    print(f'    - {host}')
+
                 # Add results to the main host list
                 all_hosts.extend(hosts)
-                
+
             # Add detected IPs
             ips = await securityscorecard_scanner.get_ips()
             if ips:
-                print(f"\n[*] SecurityScorecard IPs found: {len(ips)}")
+                print(f'\n[*] SecurityScorecard IPs found: {len(ips)}')
                 for ip in ips:
-                    print(f"    - {ip}")
+                    print(f'    - {ip}')
                 all_ip.extend(ips)
-            
+
         except Exception as e:
             print(f'An exception has occurred in SecurityScorecard scanning: {e}')
-        
+
     # If BuiltWith option is selected
     if 'builtwith' in engines:
         try:
@@ -1524,29 +1528,30 @@ async def start(rest_args: argparse.Namespace | None = None):
             builtwith_scanner = builtwith.SearchBuiltWith(word)
             # Use the process method according to the original structure of this module
             await builtwith_scanner.process(use_proxy)
-            
+
             # Use existing API to get results
             hosts = await builtwith_scanner.get_hostnames()
             if hosts:
-                print(f"\n[*] BuiltWith results: {len(hosts)} hosts found")
+                print(f'\n[*] BuiltWith results: {len(hosts)} hosts found')
                 for host in hosts:
-                    print(f"    - {host}")
-                    
+                    print(f'    - {host}')
+
                 # Add results to the main host list
                 all_hosts.extend(hosts)
-                
+
             # Add interesting URLs
             urls = await builtwith_scanner.get_urls() if hasattr(builtwith_scanner, 'get_urls') else []
             if urls:
-                print(f"\n[*] BuiltWith interesting URLs found: {len(urls)}")
+                print(f'\n[*] BuiltWith interesting URLs found: {len(urls)}')
                 for url in urls:
-                    print(f"    - {url}")
+                    print(f'    - {url}')
                 interesting_urls.extend(urls)
-            
+
         except Exception as e:
             print(f'An exception has occurred in BuiltWith scanning: {e}')
-            
+
     sys.exit(0)
+
 
 async def entry_point() -> None:
     try:

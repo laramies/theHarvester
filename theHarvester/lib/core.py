@@ -5,7 +5,7 @@ import contextlib
 import random
 import ssl
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, List
+from typing import TYPE_CHECKING, Any
 
 import aiohttp
 import certifi
@@ -185,7 +185,7 @@ class Core:
         print('*******************************************************************')
 
     @staticmethod
-    def get_supportedengines() -> List[str]:
+    def get_supportedengines() -> list[str]:
         """
         Returns a list of supported search engines.
         """
@@ -242,7 +242,6 @@ class Core:
             'builtwith',
             'api_endpoints'  # Add the new API endpoint scanner
             'venacus',
-
         ]
 
     @staticmethod
@@ -324,7 +323,7 @@ class Core:
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 Edg/132.0.0.0',
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:134.0) Gecko/20100101 Firefox/134.0',
             'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/119.0'
+            'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/119.0',
         ]
         return random.choice(user_agents)
 
