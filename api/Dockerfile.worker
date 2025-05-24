@@ -1,0 +1,21 @@
+# Base image (same as API)
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app/api
+
+# Install Poetry
+RUN pip install poetry
+
+# Copy Poetry config and lock file
+COPY pyproject.toml poetry.lock* ./
+
+# Install project dependencies (including dev if tests or linters run in container, though not typical for prod worker)
+RUN poetry install --no-root --no-dev
+
+# Copy the rest of the application code
+COPY . .
+
+# Command to run Celery worker (placeholder, will be refined)
+# Ensure 'app.celery_app' matches where the Celery app instance is defined
+CMD ["poetry", "run", "celery", "-A", "app.main.celery_app", "worker", "-l", "info"]
