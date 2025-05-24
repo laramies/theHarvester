@@ -1,0 +1,121 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, develop ] # Adjust as needed
+  pull_request:
+    branches: [ main, develop ] # Adjust as needed
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install pre-commit
+        run: pip install pre-commit
+
+      - name: Run pre-commit checks
+        run: pre-commit run --all-files --show-diff-on-failure
+
+  # Placeholder for future test job for Python (engine, api)
+  test_python:
+    name: Test Python
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      # - name: Install Poetry for Engine
+      #   run: pipx install poetry && poetry --version
+      # - name: Install Engine dependencies
+      #   run: cd engine && poetry install
+      # - name: Run Engine tests
+      #   run: cd engine && poetry run pytest
+        
+      # - name: Install Poetry for API
+      #   run: pipx install poetry && poetry --version # Re-install or ensure available
+      # - name: Install API dependencies
+      #   run: cd api && poetry install
+      # - name: Run API tests
+      #   run: cd api && poetry run pytest
+      - name: Placeholder Python Test
+        run: echo "Python tests would run here"
+
+  # Placeholder for future test job for Node (web)
+  test_node:
+    name: Test Node
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      # - name: Install Web dependencies
+      #   run: cd web && npm install
+      # - name: Run Web tests
+      #   run: cd web && npm test # Or your specific test command
+      - name: Placeholder Node Test
+        run: echo "Node.js tests would run here"
+
+  # Placeholder for future build job
+  build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [test_python, test_node] # Depends on tests passing
+    if: github.ref == 'refs/heads/main' # Example: only build on main branch pushes
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+      
+      # - name: Set up Docker Buildx
+      #   uses: docker/setup-buildx-action@v3
+        
+      # - name: Log in to GitHub Container Registry
+      #   uses: docker/login-action@v3
+      #   with:
+      #     registry: ghcr.io
+      #     username: ${{ github.actor }}
+      #     password: ${{ secrets.GITHUB_TOKEN }}
+          
+      # - name: Build and push API image
+      #   uses: docker/build-push-action@v5
+      #   with:
+      #     context: ./api
+      #     push: true
+      #     tags: ghcr.io/knowledge-harvester/api:latest # Adjust your-username and repo
+          
+      # - name: Build and push Worker image
+      #   uses: docker/build-push-action@v5
+      #   with:
+      #     context: ./api
+      #     dockerfile: ./api/Dockerfile.worker
+      #     push: true
+      #     tags: ghcr.io/knowledge-harvester/worker:latest # Adjust your-username and repo
+
+      # - name: Build and push Web image
+      #   uses: docker/build-push-action@v5
+      #   with:
+      #     context: ./web
+      #     push: true
+      #     tags: ghcr.io/knowledge-harvester/web:latest # Adjust your-username and repo
+      - name: Placeholder Build
+        run: echo "Docker images would be built and pushed here"

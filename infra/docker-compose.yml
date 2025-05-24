@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: knowledge_harvester_postgres
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: knowledge_harvester_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: knowledge_harvester_redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ../api
+      dockerfile: Dockerfile
+    container_name: knowledge_harvester_api
+    command: poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ../api:/app/api
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      DATABASE_URL: "postgresql+asyncpg://user:password@postgres:5432/knowledge_harvester_db"
+      REDIS_URL: "redis://redis:6379/0"
+      # Add other necessary API environment variables here
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ../api  # Shares context with API
+      dockerfile: Dockerfile.worker
+    container_name: knowledge_harvester_worker
+    command: poetry run celery -A app.main.celery_app worker -l info --concurrency=1 # Placeholder command
+    volumes:
+      - ../api:/app/api # Mount API code
+    depends_on:
+      - redis
+      - postgres # If worker interacts with DB directly
+    environment:
+      DATABASE_URL: "postgresql+asyncpg://user:password@postgres:5432/knowledge_harvester_db"
+      REDIS_URL: "redis://redis:6379/0"
+      CELERY_BROKER_URL: "redis://redis:6379/0"
+      CELERY_RESULT_BACKEND: "redis://redis:6379/0"
+      # Add other necessary worker environment variables here
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ../web
+      dockerfile: Dockerfile
+    container_name: knowledge_harvester_web
+    command: npm run dev # For development, npm start for production
+    volumes:
+      - ../web:/app/web
+      - /app/web/node_modules # Isolate node_modules
+      - /app/web/.next # Isolate .next build cache
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
