@@ -14,9 +14,9 @@ Passive modules:
 ----------------
 * anubis: Anubis-DB - https://github.com/jonluca/anubis
 
-* bevigil: CloudSEK BeVigil scans mobile application for OSINT assets (Requires an API key, see below.) - https://bevigil.com/osint-api
-
 * baidu: Baidu search engine - www.baidu.com
+
+* bevigil: CloudSEK BeVigil scans mobile application for OSINT assets (Requires an API key, see below.) - https://bevigil.com/osint-api
 
 * bing: Microsoft search engine - https://www.bing.com
 
@@ -84,9 +84,9 @@ Passive modules:
 
 * urlscan: A sandbox for the web that is a URL and website scanner - https://urlscan.io
 
-* vhost: Bing virtual hosts search
-
 * venacus: Venacus search engine (Requires an API key, see below.) - https://venacus.com
+
+* vhost: Bing virtual hosts search
 
 * virustotal: Domain search (Requires an API key, see below.) - https://www.virustotal.com
 
