@@ -14,7 +14,6 @@ import netaddr
 import ujson
 from aiomultiprocess import Pool
 
-from theHarvester.lib.core import DATA_DIR
 from theHarvester.discovery import (
     anubis,
     api_endpoints,
@@ -65,7 +64,7 @@ from theHarvester.discovery import (
 )
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib import hostchecker, stash
-from theHarvester.lib.core import Core
+from theHarvester.lib.core import DATA_DIR, Core
 from theHarvester.screenshot.screenshot import ScreenShotter
 
 
