@@ -14,6 +14,7 @@ import netaddr
 import ujson
 from aiomultiprocess import Pool
 
+from theHarvester.lib.core import DATA_DIR
 from theHarvester.discovery import (
     anubis,
     api_endpoints,
@@ -1391,7 +1392,7 @@ async def start(rest_args: argparse.Namespace | None = None):
     if args.api_scan or 'api_endpoints' in engines:
         try:
             # Define a default wordlist if none is specified
-            wordlist = args.wordlist if args.wordlist else './wordlists/api_endpoints.txt'
+            wordlist = args.wordlist if args.wordlist else str(DATA_DIR / 'wordlists' / 'api_endpoints.txt')
 
             # Check if the wordlist file exists first
             if not os.path.exists(wordlist):
@@ -1419,7 +1420,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     '/actuator',
                     '/debug',
                 ]
-                temp_wordlist = './wordlists/temp_api_endpoints.txt'
+                temp_wordlist = str(DATA_DIR / 'wordlists' / 'temp_api_endpoints.txt')
                 with open(temp_wordlist, 'w') as f:
                     f.write('\n'.join(basic_endpoints))
                 wordlist = temp_wordlist
