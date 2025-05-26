@@ -26,9 +26,10 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: |
+          sudo groupadd runner
           sudo mkdir -p /usr/local/etc/theHarvester
           sudo cp theHarvester/data/*.yaml /usr/local/etc/theHarvester/
-          sudo chown -R runner:root /usr/local/etc/theHarvester/
+          sudo chown -R runner:runner /usr/local/etc/theHarvester/
           pip install --upgrade pip
           pip install .[dev]
         continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
