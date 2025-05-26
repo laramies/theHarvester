@@ -15,7 +15,6 @@ import ujson
 from aiomultiprocess import Pool
 
 from theHarvester.discovery import (
-    anubis,
     api_endpoints,
     baidusearch,
     bevigil,
@@ -158,7 +157,7 @@ async def start(rest_args: argparse.Namespace | None = None):
     parser.add_argument(
         '-b',
         '--source',
-        help="""anubis, baidu, bevigil, bing, bingapi, brave, bufferoverun,
+        help="""baidu, bevigil, bing, bingapi, brave, bufferoverun,
                             censys, certspotter, criminalip, crtsh, dehashed, dnsdumpster, duckduckgo, fullhunt, github-code,
                             hackertarget, hunter, hunterhow, intelx, netlas, onyphe, otx, pentesttools, projectdiscovery,
                             rapiddns, rocketreach, securityTrails, sitedossier, subdomaincenter, subdomainfinderc99, threatminer, tomba,
@@ -226,7 +225,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         _ = netaddr.IPAddress(item)
                         final_dns_resolver_list.append(item)
                 else:
-                    # Verify user passed in actual IP address does not verify if the IP is a resolver just if an IP
+                    # Verify user passed in the actual IP address does not verify if the IP is a resolver just if an IP
                     _ = netaddr.IPAddress(dnsresolve)
                     final_dns_resolver_list.append(dnsresolve)
             except Exception as e:
@@ -381,14 +380,7 @@ async def start(rest_args: argparse.Namespace | None = None):
             print(f'\n[*] Target: {word} \n')
 
             for engineitem in engines:
-                if engineitem == 'anubis':
-                    try:
-                        anubis_search = anubis.SearchAnubis(word)
-                        stor_lst.append(store(anubis_search, engineitem, store_host=True))
-                    except Exception as e:
-                        print(e)
-
-                elif engineitem == 'baidu':
+                if engineitem == 'baidu':
                     try:
                         baidu_search = baidusearch.SearchBaidu(word, limit)
                         stor_lst.append(

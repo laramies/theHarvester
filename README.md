@@ -12,7 +12,6 @@ multiple public resources that include:<br>
 
 Passive modules:
 ----------------
-* anubis: Anubis-DB - https://github.com/jonluca/anubis
 
 * baidu: Baidu search engine - www.baidu.com
 
