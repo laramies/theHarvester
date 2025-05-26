@@ -28,6 +28,7 @@ jobs:
         run: |
           sudo mkdir -p /usr/local/etc/theHarvester
           sudo cp theHarvester/data/*.yaml /usr/local/etc/theHarvester/
+          sudo chown -R root:$(whoami) /usr/local/etc/theHarvester/
           pip install --upgrade pip
           pip install .[dev]
         continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
@@ -54,7 +55,7 @@ jobs:
 
       - name: Test with pytest
         run: |
-          sudo pytest tests/**
+          pytest tests/**
         continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
 
       - name: Run theHarvester module Baidu
