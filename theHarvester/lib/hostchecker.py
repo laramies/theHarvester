@@ -15,11 +15,11 @@ import aiodns
 
 
 class Checker:
-    def __init__(self, hosts: list, nameserver: list) -> None:
+    def __init__(self, hosts: list, nameservers: list) -> None:
         self.hosts = hosts
         self.realhosts: list = []
         self.addresses: set = set()
-        self.nameserver = nameserver
+        self.nameservers = nameservers
 
     # @staticmethod
     # async def query(host, resolver) -> Tuple[str, Any]:
@@ -64,8 +64,8 @@ class Checker:
         loop = asyncio.get_event_loop()
         resolver = (
             aiodns.DNSResolver(loop=loop, timeout=8)
-            if len(self.nameserver) == 0
-            else aiodns.DNSResolver(loop=loop, timeout=8, nameservers=self.nameserver)
+            if len(self.nameservers) == 0
+            else aiodns.DNSResolver(loop=loop, timeout=8, nameservers=self.nameservers)
         )
         all_results = set()
         for chunk in self.chunks(self.hosts, 50):

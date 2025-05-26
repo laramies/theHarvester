@@ -39,7 +39,7 @@ class DnsForce:
 
     async def run(self):
         print(f'Starting DNS brute forcing with {len(self.list)} words')
-        checker = hostchecker.Checker(self.list, nameserver=self.dnsserver)
+        checker = hostchecker.Checker(self.list, nameservers=self.dnsserver)
         resolved_pair, hosts, ips = await checker.check()
         return resolved_pair, hosts, ips
 
