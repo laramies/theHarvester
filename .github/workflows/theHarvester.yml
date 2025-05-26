@@ -54,7 +54,7 @@ jobs:
 
       - name: Test with pytest
         run: |
-          pytest
+          pytest tests/**
         continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
 
       - name: Run theHarvester module Baidu
