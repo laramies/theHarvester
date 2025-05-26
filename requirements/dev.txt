@@ -4,7 +4,7 @@ pytest==8.3.5
 pytest-asyncio==0.26.0
 pytest-cov==4.1.0
 pytest-mock==3.12.0
-pytest-timeout==2.2.0
+pytest-timeout==2.4.0
 ruff==0.11.10
 types-beautifulsoup4==4.12.0.20240106
 types-certifi==2021.10.8.3
