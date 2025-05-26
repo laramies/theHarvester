@@ -155,6 +155,13 @@ async def start(rest_args: argparse.Namespace | None = None):
     parser.add_argument('-w', '--wordlist', help='Specify a wordlist for API endpoint scanning.', default='')
     parser.add_argument('-a', '--api-scan', help='Scan for API endpoints.', action='store_true')
     parser.add_argument(
+        '-q',
+        '--quiet',
+        help='Suppress missing API key warnings.',
+        default=False,
+        action='store_true',
+    )
+    parser.add_argument(
         '-b',
         '--source',
         help="""baidu, bevigil, bing, bingapi, brave, bufferoverun,
@@ -427,7 +434,8 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
-                            print(e)
+                            if not args.quiet:
+                                print(e)
                         else:
                             print(e)
 
@@ -472,7 +480,8 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
-                            print(e)
+                            if not args.quiet:
+                                print(e)
 
                 elif engineitem == 'certspotter':
                     try:
@@ -495,7 +504,8 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
-                            print(e)
+                            if not args.quiet:
+                                print(e)
                         else:
                             print(f'An excepion has occurred in criminalip: {e}')
 
@@ -519,7 +529,8 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
-                            print(e)
+                            if not args.quiet:
+                                print(e)
                         else:
                             print(f'An exception has occurred in Dehashed: {e}')
 
@@ -535,7 +546,8 @@ async def start(rest_args: argparse.Namespace | None = None):
                             )
                         )
                     except MissingKey as e:
-                        print(e)
+                        if not args.quiet:
+                            print(e)
                     except Exception as e:
                         print(f'An exception has occurred in DNSDumpster: {e}')
 
@@ -556,7 +568,8 @@ async def start(rest_args: argparse.Namespace | None = None):
                         stor_lst.append(store(fullhunt_search, engineitem, store_host=True))
                     except Exception as e:
                         if isinstance(e, MissingKey):
-                            print(e)
+                            if not args.quiet:
+                                print(e)
 
                 elif engineitem == 'github-code':
                     try:
@@ -570,7 +583,8 @@ async def start(rest_args: argparse.Namespace | None = None):
                             )
                         )
                     except MissingKey as ex:
-                        print(ex)
+                        if not args.quiet:
+                            print(ex)
 
                 elif engineitem == 'hackertarget':
                     hackertarget_search = hackertarget.SearchHackerTarget(word)
@@ -589,7 +603,8 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
-                            print(e)
+                            if not args.quiet:
+                                print(e)
 
                 elif engineitem == 'hunterhow':
                     try:
@@ -597,7 +612,8 @@ async def start(rest_args: argparse.Namespace | None = None):
                         stor_lst.append(store(hunterhow_search, engineitem, store_host=True))
                     except Exception as e:
                         if isinstance(e, MissingKey):
-                            print(e)
+                            if not args.quiet:
+                                print(e)
                         else:
                             print(f'An exception has occurred in hunterhow search: {e}')
 
@@ -614,7 +630,8 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
-                            print(e)
+                            if not args.quiet:
+                                print(e)
                         else:
                             print(f'An exception has occurred in Intelx search: {e}')
 
@@ -631,7 +648,8 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
-                            print(e)
+                            if not args.quiet:
+                                print(e)
 
                 elif engineitem == 'onyphe':
                     try:
@@ -668,7 +686,8 @@ async def start(rest_args: argparse.Namespace | None = None):
                         stor_lst.append(store(pentesttools_search, engineitem, store_host=True))
                     except Exception as e:
                         if isinstance(e, MissingKey):
-                            print(e)
+                            if not args.quiet:
+                                print(e)
                         else:
                             print(f'An exception has occurred in PentestTools search: {e}')
 
@@ -678,7 +697,8 @@ async def start(rest_args: argparse.Namespace | None = None):
                         stor_lst.append(store(projectdiscovery_search, engineitem, store_host=True))
                     except Exception as e:
                         if isinstance(e, MissingKey):
-                            print(e)
+                            if not args.quiet:
+                                print(e)
                         else:
                             print('An exception has occurred in ProjectDiscovery')
 
@@ -695,7 +715,8 @@ async def start(rest_args: argparse.Namespace | None = None):
                         stor_lst.append(store(rocketreach_search, engineitem, store_links=True, store_emails=True))
                     except Exception as e:
                         if isinstance(e, MissingKey):
-                            print(e)
+                            if not args.quiet:
+                                print(e)
                         else:
                             print(f'An exception has occurred in RocketReach: {e}')
 
@@ -719,7 +740,8 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
-                            print(e)
+                            if not args.quiet:
+                                print(e)
 
                 elif engineitem == 'sitedossier':
                     try:
@@ -734,7 +756,8 @@ async def start(rest_args: argparse.Namespace | None = None):
                         stor_lst.append(store(subdomainfinderc99_search, engineitem, store_host=True))
                     except Exception as e:
                         if isinstance(e, MissingKey):
-                            print(e)
+                            if not args.quiet:
+                                print(e)
                         else:
                             print(f'An exception has occurred in Subdomainfinderc99 search: {e}')
 
@@ -765,7 +788,8 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
-                            print(e)
+                            if not args.quiet:
+                                print(e)
 
                 elif engineitem == 'urlscan':
                     try:
@@ -789,7 +813,8 @@ async def start(rest_args: argparse.Namespace | None = None):
                         stor_lst.append(store(virustotal_search, engineitem, store_host=True))
                     except Exception as e:
                         if isinstance(e, MissingKey):
-                            print(e)
+                            if not args.quiet:
+                                print(e)
 
                 elif engineitem == 'whoisxml':
                     try:
@@ -797,7 +822,8 @@ async def start(rest_args: argparse.Namespace | None = None):
                         stor_lst.append(store(whoisxml_search, engineitem, store_host=True))
                     except Exception as e:
                         if isinstance(e, MissingKey):
-                            print(e)
+                            if not args.quiet:
+                                print(e)
                         else:
                             print(f'An exception has occurred in WhoisXML search: {e}')
 
@@ -831,7 +857,8 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
-                            print(e)
+                            if not args.quiet:
+                                print(e)
 
                 elif engineitem == 'venacus':
                     try:
@@ -848,7 +875,8 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
-                            print(e)
+                            if not args.quiet:
+                                print(e)
                         else:
                             print(f'An exception has occurred in venacus search: {e}')
 
