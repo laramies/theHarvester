@@ -11,7 +11,7 @@ types-certifi==2021.10.8.3
 types-chardet==5.0.4.6
 types-netaddr==1.2.0.20240331
 types-PyYAML==6.0.12.20250516
-types-python-dateutil==2.9.0.20241206
+types-python-dateutil==2.9.0.20250516
 types-requests==2.32.0.20250515 # 2.31.0.7 introduced a regression
 types-ujson==5.10.0.20250326
 wheel==0.45.1
