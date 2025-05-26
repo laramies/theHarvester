@@ -6,7 +6,7 @@ pytest-cov==4.1.0
 pytest-mock==3.12.0
 pytest-timeout==2.2.0
 ruff==0.11.10
-types-beautifulsoup4==4.12.0.20240106
+types-beautifulsoup4==4.12.0.20250516
 types-certifi==2021.10.8.3
 types-chardet==5.0.4.6
 types-netaddr==1.2.0.20240331
