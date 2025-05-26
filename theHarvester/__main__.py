@@ -1065,6 +1065,8 @@ async def start(rest_args: argparse.Namespace | None = None):
                 continue
         ip_list = list(sorted(ip_list))
         print('\n'.join(map(str, ip_list)))
+        # Populate host_ip from ip_list for DNS lookup, virtual hosts search, and Shodan search
+        host_ip = ip_list
 
     if len(all_emails) == 0:
         print('\n[*] No emails found.')
