@@ -48,7 +48,7 @@ jobs:
           git config user.email github-actions@github.com
           git add .
           git commit -m "Apply ruff fixes and formatting" || true # Use || true to prevent failure if no changes
-          git push origin HEAD
+          git push origin $GITHUB_REF
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
