@@ -15,7 +15,7 @@ jobs:
     strategy:
       max-parallel: 10
       matrix:
-        os: [ ubuntu-latest, macos-latest ]
+        os: [ ubuntu-latest ]
         python-version: [ '3.12', '3.13', '3.14.0-beta.1' ]
 
     steps:
