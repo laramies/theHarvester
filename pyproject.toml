@@ -21,7 +21,7 @@ dynamic = ["version"]
 dependencies = [
     "aiodns==3.4.0",
     "aiofiles==24.1.0",
-    "aiohttp==3.12.2",
+    "aiohttp==3.12.6",
     "aiomultiprocess==0.9.1",
     "aiosqlite==0.21.0",
     "beautifulsoup4==4.13.4",
