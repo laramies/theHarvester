@@ -37,17 +37,12 @@ RUN curl -fsSL https://www.python.org/ftp/python/3.11.6/Python-3.11.6.tgz -o Pyt
 # Install pip for Python 3.11
 RUN curl https://bootstrap.pypa.io/get-pip.py | python3.11
 
-# Install pipx for Python 3.11
-RUN python3.11 -m pip install --user pipx
+# Copy the application code
+COPY . /app
+WORKDIR /app
 
-# Add pipx to PATH
-ENV PATH=/root/.local/bin:$PATH
-
-# Install theHarvester via pipx
-RUN pipx install --python python3.11 git+https://github.com/laramies/theHarvester.git
-
-# Ensure pipx path
-RUN pipx ensurepath
+# Install the application
+RUN python3.11 -m pip install -e .
 
 # Set the entrypoint
-ENTRYPOINT ["/root/.local/bin/restfulHarvest", "-H", "0.0.0.0", "-p", "80"]
+ENTRYPOINT ["restfulHarvest", "-H", "0.0.0.0", "-p", "80"]
