@@ -49,7 +49,7 @@ dev = [
     "mypy==1.16.0",
     "mypy-extensions==1.1.0",
     "pytest==8.4.0",
-    "pytest-asyncio==0.26.0",
+    "pytest-asyncio==1.0.0",
     "types-certifi==2021.10.8.3",
     "types-chardet==5.0.4.6",
     "types-python-dateutil==2.9.0.20250516",
