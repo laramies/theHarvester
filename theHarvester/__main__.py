@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import argparse
 import asyncio
-import netaddr
 import os
 import re
 import secrets
@@ -9,9 +8,11 @@ import string
 import sys
 import time
 import traceback
+from typing import Any
+
+import netaddr
 import ujson
 from aiomultiprocess import Pool
-from typing import Any
 
 from theHarvester.discovery import (
     api_endpoints,
@@ -451,7 +452,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except Exception as e:
                         print(e)
-    
+
                 elif engineitem == 'bufferoverun':
                     try:
                         bufferoverun_search = bufferoverun.SearchBufferover(word)
