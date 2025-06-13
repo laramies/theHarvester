@@ -23,7 +23,9 @@ Passive modules:
 
 * brave: Brave search engine - https://search.brave.com/
 
-* bufferoverun: (Requires an API key, see below.) https://tls.bufferover.run
+* bufferoverun: Fast domain name lookups for TLS certificates in IPv4 space (Requires an API key, see below.) https://tls.bufferover.run
+
+* builtwith: Find out what websites are built with - https://builtwith.com
 
 * censys: [Censys search engine](https://search.censys.io/) will use certificates searches to enumerate subdomains and gather emails<br>
   (Requires an API key, see below.) https://censys.io
@@ -46,11 +48,15 @@ Passive modules:
 
 * hackertarget: Online vulnerability scanners and network intelligence to help organizations - https://hackertarget.com
 
+* haveibeenpwned: Check if your email address is in a data breach - https://haveibeenpwned.com
+
 * hunter: Hunter search engine (Requires an API key, see below.) - https://hunter.io
 
 * hunterhow: Internet search engines for security researchers (Requires an API key, see below.) - https://hunter.how
 
 * intelx: Intelx search engine (Requires an API key, see below.) - http://intelx.io
+
+* leaklookup: Data breach search engine - https://leak-lookup.com
 
 * netlas: A Shodan or Censys competitor (Requires an API key, see below.) - https://app.netlas.io
 
@@ -67,6 +73,8 @@ for better insights (Requires an API key, see below.) - https://chaos.projectdis
 * rapiddns: DNS query tool which make querying subdomains or sites of a same IP easy! https://rapiddns.io
 
 * rocketreach: Access real-time verified personal/professional emails, phone numbers, and social media links (Requires an API key, see below.) - https://rocketreach.co
+
+* securityscorecard: helps TPRM and SOC teams detect, prioritize, and remediate vendor risk across their entire supplier ecosystem at scale - https://securityscorecard.com
 
 * securityTrails: Security Trails search engine, the world's largest repository of historical DNS data (Requires an API key, see below.) - https://securitytrails.com
 
