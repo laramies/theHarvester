@@ -34,6 +34,10 @@ Passive modules:
 
 * crtsh: Comodo Certificate search - https://crt.sh
 
+* dehashed: Take your data security to the next level (Requires an API key, see below.) - https://dehashed.com
+
+* dnsdumpster: Domain research tool that can discover hosts related to a domain - https://dnsdumpster.com
+
 * duckduckgo: DuckDuckGo search engine - https://duckduckgo.com
 
 * fullhunt: Next-generation attack surface security platform (Requires an API key, see below.) - https://fullhunt.io
@@ -54,22 +58,19 @@ Passive modules:
 
 * otx: AlienVault open threat exchange - https://otx.alienvault.com
 
-* pentestTools: Cloud-based toolkit for offensive security testing, focused on web applications and network penetration<br>
-  testing (Requires an API key, see below.) - https://pentest-tools.com/
+* pentestTools: Cloud-based toolkit for offensive security testing, focused on web applications and network penetration testing<br>
+(Requires an API key, see below.) - https://pentest-tools.com/
 
-* projecDiscovery: We actively collect and maintain internet-wide assets data, to enhance research and analyse changes around<br>
-  DNS for better insights (Requires an API key, see below.) - https://chaos.projectdiscovery.io
+* projecDiscovery: We actively collect and maintain internet-wide assets data, to enhance research and analyse changes around DNS<br>
+for better insights (Requires an API key, see below.) - https://chaos.projectdiscovery.io
 
 * rapiddns: DNS query tool which make querying subdomains or sites of a same IP easy! https://rapiddns.io
 
-* rocketreach: Access real-time verified personal/professional emails, phone numbers, and social media links (Requires an API key,<br>
-  see below.) - https://rocketreach.co
+* rocketreach: Access real-time verified personal/professional emails, phone numbers, and social media links (Requires an API key, see below.) - https://rocketreach.co
 
-* securityTrails: Security Trails search engine, the world's largest repository of historical DNS data (Requires an API key, see<br>
-  below.) - https://securitytrails.com
+* securityTrails: Security Trails search engine, the world's largest repository of historical DNS data (Requires an API key, see below.) - https://securitytrails.com
 
-* -s, --shodan: Shodan search engine will search for ports and banners from discovered hosts (Requires an API key, see below.)<br>
-  https://shodan.io
+* -s, --shodan: Shodan search engine will search for ports and banners from discovered hosts (Requires an API key, see below.) - https://shodan.io
 
 * sitedossier: Find available information on a site - http://www.sitedossier.com
 
