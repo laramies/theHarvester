@@ -19,7 +19,7 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
-    "aiodns==3.4.0",
+    "aiodns==3.5.0",
     "aiofiles==24.1.0",
     "aiohttp==3.12.13",
     "aiomultiprocess==0.9.1",
