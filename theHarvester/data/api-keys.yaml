@@ -9,6 +9,9 @@ apikeys:
   bufferoverun:
     key:
 
+  builtwith:
+    key:
+
   censys:
     id:
     secret:
@@ -28,6 +31,9 @@ apikeys:
   github:
     key:
 
+  haveibeenpwned:
+    key:
+
   hunter:
     key:
 
@@ -35,6 +41,9 @@ apikeys:
     key:
 
   intelx:
+    key:
+
+  leaklookup:
     key:
 
   netlas:
@@ -50,6 +59,9 @@ apikeys:
     key:
 
   rocketreach:
+    key:
+
+  securityscorecard:
     key:
 
   securityTrails:
