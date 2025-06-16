@@ -25,7 +25,7 @@ Passive modules:
 
 * bufferoverun: Fast domain name lookups for TLS certificates in IPv4 space (Requires an API key, see below.) https://tls.bufferover.run
 
-* builtwith: Find out what websites are built with - https://builtwith.com
+* builtwith: Find out what websites are built with (Requires an API key, see below.) - https://builtwith.com
 
 * censys: [Censys search engine](https://search.censys.io/) will use certificates searches to enumerate subdomains and gather emails<br>
   (Requires an API key, see below.) https://censys.io
@@ -48,7 +48,7 @@ Passive modules:
 
 * hackertarget: Online vulnerability scanners and network intelligence to help organizations - https://hackertarget.com
 
-* haveibeenpwned: Check if your email address is in a data breach - https://haveibeenpwned.com
+* haveibeenpwned: Check if your email address is in a data breach (Requires an API key, see below.) - https://haveibeenpwned.com
 
 * hunter: Hunter search engine (Requires an API key, see below.) - https://hunter.io
 
@@ -56,7 +56,7 @@ Passive modules:
 
 * intelx: Intelx search engine (Requires an API key, see below.) - http://intelx.io
 
-* leaklookup: Data breach search engine - https://leak-lookup.com
+* leaklookup: Data breach search engine (Requires an API key, see below.) - https://leak-lookup.com
 
 * netlas: A Shodan or Censys competitor (Requires an API key, see below.) - https://app.netlas.io
 
@@ -74,7 +74,7 @@ for better insights (Requires an API key, see below.) - https://chaos.projectdis
 
 * rocketreach: Access real-time verified personal/professional emails, phone numbers, and social media links (Requires an API key, see below.) - https://rocketreach.co
 
-* securityscorecard: helps TPRM and SOC teams detect, prioritize, and remediate vendor risk across their entire supplier ecosystem at scale - https://securityscorecard.com
+* securityscorecard: helps TPRM and SOC teams detect, prioritize, and remediate vendor risk across their entire supplier ecosystem at scale (Requires an API key, see below.) - https://securityscorecard.com
 
 * securityTrails: Security Trails search engine, the world's largest repository of historical DNS data (Requires an API key, see below.) - https://securitytrails.com
 
@@ -116,18 +116,23 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * bevigil - Free upto 50 queries. Pricing can be found here: https://bevigil.com/pricing/osint
 * bing
 * bufferoverun - uses the free binaAPI
+* builtwith
 * censys - API keys are required and can be retrieved from your [Censys account](https://search.censys.io/account/api).
 * criminalip
+* dehashed
 * fullhunt
-* github
+* github-code
+* haveibeenpwned
 * hunter - limited to 10 on the free plan, so you will need to do -l 10 switch
 * hunterhow
 * intelx
+* leaklookup
 * netlas - $
 * onyphe -$
 * pentestTools - $
 * projecDiscovery - invite only for now
 * rocketreach - $
+* securityscorecard
 * securityTrails
 * shodan - $
 * tomba - Free up to 50 search.
