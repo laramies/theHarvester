@@ -48,7 +48,7 @@ dependencies = [
 dev = [
     "mypy==1.16.1",
     "mypy-extensions==1.1.0",
-    "pytest==8.4.0",
+    "pytest==8.4.1",
     "pytest-asyncio==1.0.0",
     "types-certifi==2021.10.8.3",
     "types-chardet==5.0.4.6",
