@@ -1,8 +1,8 @@
-from typing import Optional
-from fastapi import Header, HTTPException
+
+from fastapi import Header
 
 
-def get_api_key(x_api_key: Optional[str] = Header(None)) -> str:
+def get_api_key(x_api_key: str | None = Header(None)) -> str:
     """
     Simple API key authentication dependency.
     For now, this is a placeholder that allows any request.
