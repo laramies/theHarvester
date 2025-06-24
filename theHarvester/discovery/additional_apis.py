@@ -1,16 +1,16 @@
 import asyncio
-from typing import Dict, Any
+from typing import Any
 
+from theHarvester.discovery.builtwith import SearchBuiltWith
 from theHarvester.discovery.haveibeenpwned import SearchHaveIBeenPwned
 from theHarvester.discovery.leaklookup import SearchLeakLookup
 from theHarvester.discovery.securityscorecard import SearchSecurityScorecard
-from theHarvester.discovery.builtwith import SearchBuiltWith
 
 
 class AdditionalAPIs:
     """Wrapper class for additional API services."""
     
-    def __init__(self, domain: str, api_keys: Dict[str, str] = None):
+    def __init__(self, domain: str, api_keys: dict[str, str] | None = None):
         self.domain = domain
         self.api_keys = api_keys or {}
         
@@ -30,7 +30,7 @@ class AdditionalAPIs:
             'emails': set()
         }
     
-    async def process(self, proxy: bool = False) -> Dict[str, Any]:
+    async def process(self, proxy: bool = False) -> dict[str, Any]:
         """Process all additional API services and return combined results."""
         tasks = [
             self._process_haveibeenpwned(proxy),
