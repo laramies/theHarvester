@@ -17,7 +17,8 @@ async def get_breaches(request: DomainRequest, api_key: str = Depends(get_api_ke
     """Get breach information for a domain using HaveIBeenPwned."""
     try:
         apis = AdditionalAPIs(request.domain, request.api_keys or {})
-        results = await apis.haveibeenpwned.search_breaches(request.domain)
+        await apis._process_haveibeenpwned()
+        results = apis.results['breaches']
         return {'status': 'success', 'data': results}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -28,7 +29,8 @@ async def get_leaks(request: DomainRequest, api_key: str = Depends(get_api_key))
     """Get leaked credentials for a domain using Leak-Lookup."""
     try:
         apis = AdditionalAPIs(request.domain, request.api_keys or {})
-        results = await apis.leaklookup.search_leaks(request.domain)
+        await apis._process_leaklookup()
+        results = apis.results['leaks']
         return {'status': 'success', 'data': results}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -39,7 +41,8 @@ async def get_security_score(request: DomainRequest, api_key: str = Depends(get_
     """Get security scorecard for a domain."""
     try:
         apis = AdditionalAPIs(request.domain, request.api_keys or {})
-        results = await apis.securityscorecard.get_domain_score(request.domain)
+        await apis._process_securityscorecard()
+        results = apis.results['security_score']
         return {'status': 'success', 'data': results}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -50,7 +53,8 @@ async def get_tech_stack(request: DomainRequest, api_key: str = Depends(get_api_
     """Get technology stack information for a domain using BuiltWith."""
     try:
         apis = AdditionalAPIs(request.domain, request.api_keys or {})
-        results = await apis.builtwith.get_tech_stack(request.domain)
+        await apis._process_builtwith()
+        results = apis.results['tech_stack']
         return {'status': 'success', 'data': results}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
