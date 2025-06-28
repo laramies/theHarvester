@@ -25,26 +25,24 @@ RUN apt update && apt install -y \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python 3.11 from source
-RUN curl -fsSL https://www.python.org/ftp/python/3.11.6/Python-3.11.6.tgz -o Python-3.11.6.tgz \
-    && tar -xvf Python-3.11.6.tgz \
-    && cd Python-3.11.6 \
+# Install Python 3.12 from source
+RUN curl -fsSL https://www.python.org/ftp/python/3.12.11/Python-3.12.11.tgz -o Python-3.12.11.tgz \
+    && tar -xvf Python-3.12.11.tgz \
+    && cd Python-3.12.11 \
     && ./configure --enable-optimizations \
-    && make -j 2 \
+    && make -j 4 \
     && make altinstall \
-    && rm -rf /Python-3.11.6 /Python-3.11.6.tgz
+    && rm -rf /Python-3.12.11 /Python-3.12.11.tgz
 
-# Install pip for Python 3.11
-RUN curl https://bootstrap.pypa.io/get-pip.py | python3.11
+RUN curl https://bootstrap.pypa.io/get-pip.py | python3.12
 
-# Install pipx for Python 3.11
-RUN python3.11 -m pip install --user pipx
+RUN python3.12 -m pip install --user pipx
 
 # Add pipx to PATH
 ENV PATH=/root/.local/bin:$PATH
 
 # Install theHarvester via pipx
-RUN pipx install --python python3.11 git+https://github.com/laramies/theHarvester.git
+RUN pipx install --python python3.12 git+https://github.com/laramies/theHarvester.git
 
 # Ensure pipx path
 RUN pipx ensurepath
