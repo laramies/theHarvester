@@ -99,7 +99,7 @@ namespace_packages = true
 python-preference = "managed"
 
 [tool.uv.pip]
-python-version = "3.11"
+python-version = "3.12"
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
@@ -125,7 +125,7 @@ exclude = [
 ]
 
 line-length = 130
-target-version = "py311"
+target-version = "py312"
 show-fixes = true
 
 [tool.ruff.lint]

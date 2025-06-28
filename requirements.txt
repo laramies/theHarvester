@@ -1,1 +1,0 @@
-# This file is deprecated. All dependencies are now defined in pyproject.toml
