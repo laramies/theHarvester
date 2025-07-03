@@ -55,7 +55,7 @@ dev = [
     "types-python-dateutil==2.9.0.20250516",
     "types-PyYAML==6.0.12.20250516",
     "types-requests==2.32.4.20250611",
-    "ruff==0.12.1",
+    "ruff==0.12.2",
     "types-ujson==5.10.0.20250326",
     "wheel==0.45.1",
 ]
