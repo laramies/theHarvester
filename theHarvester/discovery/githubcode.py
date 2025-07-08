@@ -110,7 +110,7 @@ class SearchGithubCode:
     async def process(self, proxy: bool = False) -> None:
         try:
             self.proxy = proxy
-            while self.counter <= self.limit and self.page is not None:
+            while self.counter <= self.limit and self.page != 0:
                 try:
                     api_response = await self.do_search(self.page)
                     result = await self.handle_response(api_response)

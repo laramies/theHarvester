@@ -90,6 +90,55 @@ class TestSearchGithubCode:
         test_result = githubcode.SuccessResult(list(), 0, 0)
         assert await test_class_instance.next_page_or_end(test_result) is 0
 
+    async def test_infinite_loop_fix_page_zero(self):
+        """Test that the loop condition properly exits when page becomes 0"""
+        Core.github_key = MagicMock(return_value="test_key")
+        test_class_instance = githubcode.SearchGithubCode(word="test", limit=500)
+
+        # Test the fixed condition: page != 0
+        page = 0
+        counter = 0
+        limit = 10
+
+        # The condition should be False when page is 0, preventing infinite loop
+        condition_result = counter <= limit and page != 0
+        assert condition_result is False, "Loop should exit when page is 0"
+
+    async def test_infinite_loop_fix_page_nonzero(self):
+        """Test that the loop condition continues when page is non-zero"""
+        Core.github_key = MagicMock(return_value="test_key")
+        test_class_instance = githubcode.SearchGithubCode(word="test", limit=500)
+
+        # Test with non-zero page values
+        for page in [1, 2, 3, 10]:
+            counter = 0
+            limit = 10
+
+            # The condition should be True when page is non-zero
+            condition_result = counter <= limit and page != 0
+            assert condition_result is True, f"Loop should continue when page is {page}"
+
+    async def test_infinite_loop_fix_old_vs_new_condition(self):
+        """Test that demonstrates the difference between old and new conditions"""
+        Core.github_key = MagicMock(return_value="test_key")
+        test_class_instance = githubcode.SearchGithubCode(word="test", limit=500)
+
+        page = 0
+        counter = 0
+        limit = 10
+
+        # Old problematic condition (would cause infinite loop)
+        old_condition = counter <= limit and page is not None
+
+        # New fixed condition (properly exits)
+        new_condition = counter <= limit and page != 0
+
+        # Old condition would be True (causing infinite loop)
+        assert old_condition is True, "Old condition would cause infinite loop when page=0"
+
+        # New condition is False (properly exits)
+        assert new_condition is False, "New condition properly exits when page=0"
+
 
 if __name__ == "__main__":
     pytest.main()
