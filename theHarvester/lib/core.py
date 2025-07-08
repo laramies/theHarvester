@@ -209,6 +209,7 @@ class Core:
             'fullhunt',
             'github-code',
             'hackertarget',
+            'haveibeenpwned',
             'hunter',
             'hunterhow',
             'intelx',
