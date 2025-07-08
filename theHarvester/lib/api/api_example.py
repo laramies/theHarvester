@@ -33,7 +33,7 @@ async def main() -> None:
     Just a simple example of how to interact with the rest api
     you can use requests instead of aiohttp or whatever you best see fit
     """
-    url = 'http://127.0.0.1:5000'
+    url = 'http://127.0.0.1:8080'
     domain = 'netflix.com'
     query_url = f'{url}/query?dns_brute=false&dns_lookup=false&dns_tld=false&proxies=false&shodan=false&take_over=false&virtual_host=false&api_scan=false&source=otx&source=subdomaincenter&limit=500&start=0&domain={domain}'
 
