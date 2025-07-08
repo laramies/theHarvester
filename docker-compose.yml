@@ -8,7 +8,7 @@ services:
       - ./theHarvester/data/proxies.yaml:/root/.theHarvester/proxies.yaml
     build: .
     ports:
-      - "8080:80"
+      - "5000:80"
 
 networks:
   default:
