@@ -279,7 +279,6 @@ async def query(
     user_agent: str = Header(None),
     dns_brute: bool = Query(False, description='Perform a DNS brute force on the domain'),
     dns_lookup: bool = Query(False, description='Enable DNS server lookup'),
-    dns_tld: bool = Query(False, description='Perform a TLD expansion'),
     dns_resolve: str = Query('', description='Perform DNS resolution on subdomains with a resolver list or passed in resolvers'),
     filename: str = Query('', description='Save the results to an XML and JSON file'),
     proxies: bool = Query(False, description='Use proxies for requests'),
@@ -330,7 +329,6 @@ async def query(
                 dns_brute=dns_brute,
                 dns_lookup=dns_lookup,
                 dns_server=dns_server,
-                dns_tld=dns_tld,
                 domain=domain,
                 filename=filename,
                 limit=limit,
@@ -343,6 +341,8 @@ async def query(
                 wordlist=wordlist,
                 api_scan=api_scan,
                 dns_resolve=dns_resolve,
+                quiet=False,
+                screenshot='',
             )
         )
 
