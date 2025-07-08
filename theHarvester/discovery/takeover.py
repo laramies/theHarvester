@@ -66,11 +66,11 @@ class TakeOver:
         matches = re.findall(regex, resp)
         matches = list(set(matches))
         for match in matches:
-            print(f'\t\033[91m Takeover detected: {url}\033[1;32;40m')
+            print(f'\t Takeover detected: {url}')
             if match in self.fingerprints.keys():
                 # Validation check as to not error out
                 service = self.fingerprints[match]
-                print(f'\t\033[91m Type of takeover is: {service} with match: {match}\033[1;32;40m')
+                print(f'\t Type of takeover is: {service} with match: {match}')
                 self.results[url].append({match: service})
 
     async def do_take(self) -> None:

@@ -307,7 +307,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         db_stash = stash.StashManager()
 
         if source:
-            print(f'\033[94m[*] Searching {source[0].upper() + source[1:]}. ')
+            print(f'[*] Searching {source[0].upper() + source[1:]}. ')
 
         if store_host:
             host_names = list({host for host in await search_engine.get_hostnames() if f'.{word}' in host})
@@ -1293,7 +1293,7 @@ async def start(rest_args: argparse.Namespace | None = None):
     # Shodan
     shodanres = []
     if shodan is True:
-        print('\033[94m[*] Searching Shodan. ')
+        print('[*] Searching Shodan. ')
         try:
             for ip in host_ip:
                 # TODO fix shodan
