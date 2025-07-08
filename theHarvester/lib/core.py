@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-import aiohttp
 import asyncio
-import certifi
 import contextlib
 import random
 import ssl
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+import aiohttp
+import certifi
 
 # need to import as different name as to not shadow already existing json var in post_fetch
 import ujson as json_loader
@@ -109,7 +110,7 @@ class Core:
     @staticmethod
     def leaklookup_key() -> str:
         return Core.api_keys()['leaklookup']['key']
-    
+
     @staticmethod
     def netlas_key() -> str:
         return Core.api_keys()['netlas']['key']
