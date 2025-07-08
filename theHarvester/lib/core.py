@@ -132,13 +132,13 @@ class Core:
         return Core.api_keys()['rocketreach']['key']
 
     @staticmethod
-    def security_trails_key() -> str:
-        return Core.api_keys()['securityTrails']['key']
-
-    @staticmethod
     def securityscorecard_key() -> str:
         return Core.api_keys()['securityscorecard']['key']
 
+    @staticmethod
+    def security_trails_key() -> str:
+        return Core.api_keys()['securityTrails']['key']
+    
     @staticmethod
     def shodan_key() -> str:
         return Core.api_keys()['shodan']['key']
