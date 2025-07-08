@@ -1,14 +1,13 @@
 from __future__ import annotations
 
+import aiohttp
 import asyncio
+import certifi
 import contextlib
 import random
 import ssl
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-
-import aiohttp
-import certifi
 
 # need to import as different name as to not shadow already existing json var in post_fetch
 import ujson as json_loader
@@ -64,6 +63,10 @@ class Core:
         return Core.api_keys()['bufferoverun']['key']
 
     @staticmethod
+    def builtwith_key() -> str:
+        return Core.api_keys()['builtwith']['key']
+
+    @staticmethod
     def censys_key() -> tuple:
         return Core.api_keys()['censys']['id'], Core.api_keys()['censys']['secret']
 
@@ -88,6 +91,10 @@ class Core:
         return Core.api_keys()['github']['key']
 
     @staticmethod
+    def haveibeenpwned_key() -> str:
+        return Core.api_keys()['haveibeenpwned']['key']
+
+    @staticmethod
     def hunter_key() -> str:
         return Core.api_keys()['hunter']['key']
 
@@ -100,16 +107,20 @@ class Core:
         return Core.api_keys()['intelx']['key']
 
     @staticmethod
+    def leaklookup_key() -> str:
+        return Core.api_keys()['leaklookup']['key']
+    
+    @staticmethod
     def netlas_key() -> str:
         return Core.api_keys()['netlas']['key']
 
     @staticmethod
-    def pentest_tools_key() -> str:
-        return Core.api_keys()['pentestTools']['key']
-
-    @staticmethod
     def onyphe_key() -> str:
         return Core.api_keys()['onyphe']['key']
+
+    @staticmethod
+    def pentest_tools_key() -> str:
+        return Core.api_keys()['pentestTools']['key']
 
     @staticmethod
     def projectdiscovery_key() -> str:
@@ -124,16 +135,20 @@ class Core:
         return Core.api_keys()['securityTrails']['key']
 
     @staticmethod
+    def securityscorecard_key() -> str:
+        return Core.api_keys()['securityscorecard']['key']
+
+    @staticmethod
     def shodan_key() -> str:
         return Core.api_keys()['shodan']['key']
 
     @staticmethod
-    def zoomeye_key() -> str:
-        return Core.api_keys()['zoomeye']['key']
-
-    @staticmethod
     def tomba_key() -> tuple[str, str]:
         return Core.api_keys()['tomba']['key'], Core.api_keys()['tomba']['secret']
+
+    @staticmethod
+    def venacus_key() -> str:
+        return Core.api_keys()['venacus']['key']
 
     @staticmethod
     def virustotal_key() -> str:
@@ -144,24 +159,8 @@ class Core:
         return Core.api_keys()['whoisxml']['key']
 
     @staticmethod
-    def venacus_key() -> str:
-        return Core.api_keys()['venacus']['key']
-
-    @staticmethod
-    def haveibeenpwned_key() -> str:
-        return Core.api_keys()['haveibeenpwned']['key']
-
-    @staticmethod
-    def leaklookup_key() -> str:
-        return Core.api_keys()['leaklookup']['key']
-
-    @staticmethod
-    def securityscorecard_key() -> str:
-        return Core.api_keys()['securityscorecard']['key']
-
-    @staticmethod
-    def builtwith_key() -> str:
-        return Core.api_keys()['builtwith']['key']
+    def zoomeye_key() -> str:
+        return Core.api_keys()['zoomeye']['key']
 
     @staticmethod
     def proxy_list() -> list:
@@ -191,38 +190,41 @@ class Core:
         Returns a list of supported search engines.
         """
         return [
+            'api_endpoints',
             'baidu',
             'bevigil',
             'bing',
             'bingapi',
             'bufferoverun',
+            'builtwith',
             'brave',
             'censys',
             'certspotter',
             'criminalip',
             'crtsh',
-            'dnsdumpster',
-            'duckduckgo',
             'dehashed',
             'dnsdumpster',
+            'duckduckgo',
             'fullhunt',
             'github-code',
             'hackertarget',
             'hunter',
             'hunterhow',
             'intelx',
-            'netlas',
-            'onyphe',
+            'leaklookup',
             'linkedin',
             'linkedin_links',
             'netcraft',
+            'netlas',
             'omnisint',
+            'onyphe',
             'otx',
             'pentesttools',
             'projectdiscovery',
             'qwant',
             'rapiddns',
             'rocketreach',
+            'securityscorecard',
             'securityTrails',
             'sitedossier',
             'subdomaincenter',
@@ -232,17 +234,12 @@ class Core:
             'threatminer',
             'tomba',
             'urlscan',
+            'venacus',
             'virustotal',
             'whoisxml',
             'yahoo',
             'zoomeye',
             'zoomeyeapi',
-            'haveibeenpwned',
-            'leaklookup',
-            'securityscorecard',
-            'builtwith',
-            'api_endpoints',  # Add the new API endpoint scanner
-            'venacus',
         ]
 
     @staticmethod
