@@ -44,12 +44,13 @@ jobs:
         continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
 
       - name: Commit changes for ruff formating and linting
+        if: github.event_name == 'push'
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
           git add .
           git commit -m "Apply ruff fixes and formatting" || true # Use || true to prevent failure if no changes
-          git push origin $GITHUB_REF
+          git push origin HEAD:${{ github.ref_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
