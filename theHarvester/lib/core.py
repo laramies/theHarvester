@@ -228,6 +228,7 @@ class Core:
             'rocketreach',
             'securityscorecard',
             'securityTrails',
+            'shodan',
             'sitedossier',
             'subdomaincenter',
             'subdomainfinderc99',
