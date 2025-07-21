@@ -10,6 +10,56 @@ team assessment or penetration test. It performs open source intelligence (OSINT
 a domain's external threat landscape. The tool gathers names, emails, IPs, subdomains, and URLs by using
 multiple public resources that include:
 
+Install and dependencies:
+-------------------------
+* Python 3.12 or higher.
+* https://github.com/laramies/theHarvester/wiki/Installation
+
+
+## Requirements
+Recommend using uv.
+
+1. Install uv:
+   ```bash
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
+
+2. Clone the repository:
+   ```bash
+   git clone https://github.com/laramies/theHarvester
+   cd theHarvester
+   ```
+
+3. Install dependencies and create a virtual environment:
+   ```bash
+   uv sync
+   ```
+
+4. Run theHarvester:
+   ```bash
+   uv run theHarvester
+   ```
+
+## Development
+
+To install development dependencies:
+```bash
+uv sync --extra dev
+```
+
+To run tests:
+```bash
+uv run pytest
+```
+
+To run linting and formatting:
+```bash
+uv run ruff check
+```
+```bash
+uv run ruff format
+```
+
 Passive modules:
 ----------------
 
@@ -139,11 +189,6 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * venacus - $
 * whoisxml
 * zoomeye
-
-Install and dependencies:
--------------------------
-* Python 3.11+
-* https://github.com/laramies/theHarvester/wiki/Installation
 
 Comments, bugs, and requests:
 -----------------------------
