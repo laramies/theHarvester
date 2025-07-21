@@ -167,7 +167,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         help="""baidu, bevigil, bing, bingapi, brave, bufferoverun,
                             builtwith, censys, certspotter, criminalip, crtsh, dehashed, dnsdumpster, duckduckgo, fullhunt, github-code,
                             hackertarget, haveibeenpwned, hunter, hunterhow, intelx, leaklookup, netlas, onyphe, otx, pentesttools,
-                            projectdiscovery, rapiddns, rocketreach, securityscorecard, securityTrails, sitedossier, subdomaincenter,
+                            projectdiscovery, rapiddns, rocketreach, securityscorecard, securityTrails, shodan, sitedossier, subdomaincenter,
                             subdomainfinderc99, threatminer, tomba, urlscan, venacus, virustotal, whoisxml, yahoo, zoomeye""",
     )
 
@@ -797,6 +797,44 @@ async def start(rest_args: argparse.Namespace | None = None):
                             if not args.quiet:
                                 print(e)
 
+                elif engineitem == 'shodan':
+                    try:
+                        shodan_search = shodansearch.SearchShodan()
+                        # For normal module usage, we need to create a wrapper that works with the store function
+                        class ShodanWrapper:
+                            def __init__(self, domain):
+                                self.word = domain
+                                self.hosts = set()
+                                self.shodan = shodan_search
+                                
+                            async def do_search(self):
+                                import socket
+                                try:
+                                    # Resolve domain to IP and search in Shodan
+                                    ip = socket.gethostbyname(self.word)
+                                    print(f'\tSearching Shodan for {ip}')
+                                    result = await self.shodan.search_ip(ip)
+                                    if ip in result and isinstance(result[ip], dict):
+                                        # Add the IP as a host for consistency with other modules
+                                        self.hosts.add(ip)
+                                        print(f'Found Shodan data for {ip}')
+                                    elif ip in result and isinstance(result[ip], str):
+                                        print(f'{ip}: {result[ip]}')
+                                except Exception as e:
+                                    print(f'Error in Shodan search: {e}')
+                                    
+                            def get_hostnames(self):
+                                return list(self.hosts)
+                                
+                        shodan_wrapper = ShodanWrapper(word)
+                        stor_lst.append(store(shodan_wrapper, engineitem, store_host=True))
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            if not args.quiet:
+                                print(e)
+                        else:
+                            print(f'An exception has occurred in Shodan search: {e}')
+
                 elif engineitem == 'sitedossier':
                     try:
                         sitedossier_search = sitedossier.SearchSitedossier(word)
@@ -1296,23 +1334,32 @@ async def start(rest_args: argparse.Namespace | None = None):
         print('[*] Searching Shodan. ')
         try:
             for ip in host_ip:
-                # TODO fix shodan
-                print('\tSearching for ' + ip)
-                shodan = shodansearch.SearchShodan()
-                shodandict = await shodan.search_ip(ip)
-                await asyncio.sleep(5)
-                rowdata = []
-                for key, value in shodandict[ip].items():
-                    if str(value) == 'Not in Shodan' or 'Error occurred in the Shodan IP search module' in str(value):
-                        break
-                    if isinstance(value, int):
-                        value = str(value)
-                    if isinstance(value, list):
-                        value = ', '.join(map(str, value))
-                    rowdata.append(value)
-                shodanres.append(rowdata)
-                print(ujson.dumps(shodandict[ip], indent=4, sort_keys=True))
-                print('\n')
+                try:
+                    print('\tSearching for ' + ip)
+                    shodan_search = shodansearch.SearchShodan()
+                    shodandict = await shodan_search.search_ip(ip)
+                    await asyncio.sleep(5)
+                    
+                    # Check if the result is a string (error message)
+                    if isinstance(shodandict[ip], str):
+                        print(f'{ip}: {shodandict[ip]}')
+                        continue
+                    
+                    # Process the results if it's a dictionary
+                    if isinstance(shodandict[ip], dict):
+                        rowdata = []
+                        for key, value in shodandict[ip].items():
+                            if isinstance(value, int):
+                                value = str(value)
+                            if isinstance(value, list):
+                                value = ', '.join(map(str, value))
+                            rowdata.append(value)
+                        shodanres.append(rowdata)
+                        print(ujson.dumps(shodandict[ip], indent=4, sort_keys=True))
+                        print('\n')
+                except Exception as ip_error:
+                    print(f'[SHODAN-error] Error searching {ip}: {ip_error}')
+                    continue
         except Exception as e:
             print(f'[!] An error occurred with Shodan: {e} ')
     else:
