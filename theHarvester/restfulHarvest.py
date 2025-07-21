@@ -39,10 +39,10 @@ def main():
     )
 
     args: argparse.Namespace = parser.parse_args()
-    
+
     # Set environment variable for API rate limit
     os.environ['API_RATE_LIMIT'] = args.rate_limit
-    
+
     uvicorn.run(
         'theHarvester.lib.api.api:app',
         host=args.host,
