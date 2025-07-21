@@ -800,15 +800,17 @@ async def start(rest_args: argparse.Namespace | None = None):
                 elif engineitem == 'shodan':
                     try:
                         shodan_search = shodansearch.SearchShodan()
+
                         # For normal module usage, we need to create a wrapper that works with the store function
                         class ShodanWrapper:
                             def __init__(self, domain):
                                 self.word = domain
                                 self.hosts = set()
                                 self.shodan = shodan_search
-                                
+
                             async def do_search(self):
                                 import socket
+
                                 try:
                                     # Resolve domain to IP and search in Shodan
                                     ip = socket.gethostbyname(self.word)
@@ -822,10 +824,10 @@ async def start(rest_args: argparse.Namespace | None = None):
                                         print(f'{ip}: {result[ip]}')
                                 except Exception as e:
                                     print(f'Error in Shodan search: {e}')
-                                    
+
                             def get_hostnames(self):
                                 return list(self.hosts)
-                                
+
                         shodan_wrapper = ShodanWrapper(word)
                         stor_lst.append(store(shodan_wrapper, engineitem, store_host=True))
                     except Exception as e:
@@ -1339,12 +1341,12 @@ async def start(rest_args: argparse.Namespace | None = None):
                     shodan_search = shodansearch.SearchShodan()
                     shodandict = await shodan_search.search_ip(ip)
                     await asyncio.sleep(5)
-                    
+
                     # Check if the result is a string (error message)
                     if isinstance(shodandict[ip], str):
                         print(f'{ip}: {shodandict[ip]}')
                         continue
-                    
+
                     # Process the results if it's a dictionary
                     if isinstance(shodandict[ip], dict):
                         rowdata = []
