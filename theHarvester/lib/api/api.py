@@ -14,6 +14,8 @@ from starlette.staticfiles import StaticFiles
 from theHarvester import __main__
 from theHarvester.lib.api.additional_endpoints import router as additional_router
 
+API_RATE_LIMIT = os.getenv('API_RATE_LIMIT', '5/minute')
+
 
 # Define Pydantic models for request and response validation
 class QueryResponse(BaseModel):
@@ -155,13 +157,13 @@ class SourcesResponse(BaseModel):
         status.HTTP_429_TOO_MANY_REQUESTS: {'model': ErrorResponse},
     },
 )
-@limiter.limit('5/minute')
+@limiter.limit(API_RATE_LIMIT)
 async def getsources(request: Request) -> Response:
     """
     Endpoint to query for available sources theHarvester supports.
 
     Returns a list of all supported data sources that can be used with the query endpoint.
-    Rate limit of 5 requests per minute.
+    Rate limit is configurable via CLI argument (default: 5 requests per minute).
     """
     try:
         sources = __main__.Core.get_supportedengines()
@@ -196,7 +198,7 @@ class DnsBruteResponse(BaseModel):
         status.HTTP_429_TOO_MANY_REQUESTS: {'model': ErrorResponse},
     },
 )
-@limiter.limit('5/minute')
+@limiter.limit(API_RATE_LIMIT)
 async def dnsbrute(
     request: Request,
     user_agent: str = Header(None),
@@ -207,7 +209,7 @@ async def dnsbrute(
     Endpoint for DNS brute forcing.
 
     This endpoint performs DNS brute force on the specified domain and returns the results.
-    Rate limit of 5 requests per minute.
+    Rate limit is configurable via CLI argument (default: 5 requests per minute).
     """
     # Basic user agent filtering
     if user_agent and ('gobuster' in user_agent or 'sqlmap' in user_agent or 'rustbuster' in user_agent):
@@ -272,7 +274,7 @@ async def dnsbrute(
         status.HTTP_429_TOO_MANY_REQUESTS: {'model': ErrorResponse},
     },
 )
-@limiter.limit('5/minute')  # Increased rate limit
+@limiter.limit(API_RATE_LIMIT)  # Configurable rate limit
 async def query(
     request: Request,
     dns_server: str = Query('', description='DNS server to use for lookup'),
@@ -296,7 +298,7 @@ async def query(
     Query function that allows user to query theHarvester rest API.
 
     This endpoint performs searches using the specified data sources and returns the results.
-    Rate limit of 5 requests per minute.
+    Rate limit is configurable via CLI argument (default: 5 requests per minute).
     """
     # Basic user agent filtering
     if user_agent and ('gobuster' in user_agent or 'sqlmap' in user_agent or 'rustbuster' in user_agent):
