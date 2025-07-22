@@ -3,39 +3,35 @@
 ![TheHarvester CI](https://github.com/laramies/theHarvester/workflows/TheHarvester%20Python%20CI/badge.svg) ![TheHarvester Docker Image CI](https://github.com/laramies/theHarvester/workflows/TheHarvester%20Docker%20Image%20CI/badge.svg)
 [![Rawsec's CyberSecurity Inventory](https://inventory.raw.pm/img/badges/Rawsec-inventoried-FF5050_flat_without_logo.svg)](https://inventory.raw.pm/)
 
-What is this?
--------------
+About
+-----
 theHarvester is a simple to use, yet powerful tool designed to be used during the reconnaissance stage of a red
 team assessment or penetration test. It performs open source intelligence (OSINT) gathering to help determine
 a domain's external threat landscape. The tool gathers names, emails, IPs, subdomains, and URLs by using
 multiple public resources that include:
 
-Install and dependencies:
--------------------------
+Install and dependencies
+------------------------
 * Python 3.12 or higher.
 * https://github.com/laramies/theHarvester/wiki/Installation
 
-
-## Requirements
-Recommend using uv.
-
-1. Install uv:
+Install uv:
    ```bash
    curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
 
-2. Clone the repository:
+Clone the repository:
    ```bash
    git clone https://github.com/laramies/theHarvester
    cd theHarvester
    ```
 
-3. Install dependencies and create a virtual environment:
+Install dependencies and create a virtual environment:
    ```bash
    uv sync
    ```
 
-4. Run theHarvester:
+Run theHarvester:
    ```bash
    uv run theHarvester
    ```
@@ -60,107 +56,100 @@ uv run ruff check
 uv run ruff format
 ```
 
-Passive modules:
-----------------
+Passive modules
+---------------
 
-* baidu: Baidu search engine - www.baidu.com
+* baidu: Baidu search engine (https://www.baidu.com)
 
-* bevigil: CloudSEK BeVigil scans mobile application for OSINT assets (Requires an API key, see below.) - https://bevigil.com/osint-api
+* bevigil: CloudSEK BeVigil scans mobile application for OSINT assets (https://bevigil.com/osint-api)
 
-* bing: Microsoft search engine - https://www.bing.com
+* brave: Brave search engine (https://search.brave.com)
 
-* bingapi: Microsoft search engine, through the API (Requires an API key, see below.)
+* bufferoverun: Fast domain name lookups for TLS certificates in IPv4 space (https://tls.bufferover.run)
 
-* brave: Brave search engine - https://search.brave.com/
+* builtwith: Find out what websites are built with (https://builtwith.com)
 
-* bufferoverun: Fast domain name lookups for TLS certificates in IPv4 space (Requires an API key, see below.) https://tls.bufferover.run
+* censys: Uses certificates searches to enumerate subdomains and gather emails (https://censys.io)
 
-* builtwith: Find out what websites are built with (Requires an API key, see below.) - https://builtwith.com
+* certspotter: Cert Spotter monitors Certificate Transparency logs (https://sslmate.com/certspotter)
 
-* censys: [Censys search engine](https://search.censys.io/) will use certificates searches to enumerate subdomains and gather emails<br>
-  (Requires an API key, see below.) https://censys.io
+* criminalip: Specialized Cyber Threat Intelligence (CTI) search engine (https://www.criminalip.io)
 
-* certspotter: Cert Spotter monitors Certificate Transparency logs - https://sslmate.com/certspotter/
+* crtsh: Comodo Certificate search (https://crt.sh)
 
-* criminalip: Specialized Cyber Threat Intelligence (CTI) search engine (Requires an API key, see below.) - https://www.criminalip.io
+* dehashed: Take your data security to the next level is (https://dehashed.com)
 
-* crtsh: Comodo Certificate search - https://crt.sh
+* dnsdumpster: Domain research tool that can discover hosts related to a domain (https://dnsdumpster.com)
 
-* dehashed: Take your data security to the next level (Requires an API key, see below.) - https://dehashed.com
+* duckduckgo: DuckDuckGo search engine (https://duckduckgo.com)
 
-* dnsdumpster: Domain research tool that can discover hosts related to a domain - https://dnsdumpster.com
+* fullhunt: Next-generation attack surface security platform (https://fullhunt.io)
 
-* duckduckgo: DuckDuckGo search engine - https://duckduckgo.com
+* github-code: GitHub code search engine (https://www.github.com)
 
-* fullhunt: Next-generation attack surface security platform (Requires an API key, see below.) - https://fullhunt.io
+* hackertarget: Online vulnerability scanners and network intelligence to help organizations (https://hackertarget.com)
 
-* github-code: GitHub code search engine (Requires a GitHub Personal Access Token, see below.) - www.github.com
+* haveibeenpwned: Check if your email address is in a data breach (https://haveibeenpwned.com)
 
-* hackertarget: Online vulnerability scanners and network intelligence to help organizations - https://hackertarget.com
+* hunter: Hunter search engine (https://hunter.io)
 
-* haveibeenpwned: Check if your email address is in a data breach (Requires an API key, see below.) - https://haveibeenpwned.com
+* hunterhow: Internet search engines for security researchers (https://hunter.how)
 
-* hunter: Hunter search engine (Requires an API key, see below.) - https://hunter.io
+* intelx: Intelx search engine (http://intelx.io)
 
-* hunterhow: Internet search engines for security researchers (Requires an API key, see below.) - https://hunter.how
+* leaklookup: Data breach search engine (https://leak-lookup.com)
 
-* intelx: Intelx search engine (Requires an API key, see below.) - http://intelx.io
+* netlas: A Shodan or Censys competitor (https://app.netlas.io)
 
-* leaklookup: Data breach search engine (Requires an API key, see below.) - https://leak-lookup.com
+* onyphe: Cyber defense search engine (https://www.onyphe.io)
 
-* netlas: A Shodan or Censys competitor (Requires an API key, see below.) - https://app.netlas.io
+* otx: AlienVault open threat exchange (https://otx.alienvault.com)
 
-* onyphe: Cyber defense search engine (Requires an API key, see below.) - https://www.onyphe.io/
+* pentestTools: Cloud-based toolkit for offensive security testing, focused on web applications and network penetration testing (https://pentest-tools.com)
 
-* otx: AlienVault open threat exchange - https://otx.alienvault.com
+* projecDiscovery: Actively collects and maintains internet-wide assets data, to enhance research and analyse changes around DNS for better insights (https://chaos.projectdiscovery.io)
 
-* pentestTools: Cloud-based toolkit for offensive security testing, focused on web applications and network penetration testing<br>
-(Requires an API key, see below.) - https://pentest-tools.com/
+* rapiddns: DNS query tool which make querying subdomains or sites of a same IP easy (https://rapiddns.io)
 
-* projecDiscovery: We actively collect and maintain internet-wide assets data, to enhance research and analyse changes around DNS<br>
-for better insights (Requires an API key, see below.) - https://chaos.projectdiscovery.io
+* rocketreach: Access real-time verified personal/professional emails, phone numbers, and social media links (https://rocketreach.co)
 
-* rapiddns: DNS query tool which make querying subdomains or sites of a same IP easy! https://rapiddns.io
+* securityscorecard: helps TPRM and SOC teams detect, prioritize, and remediate vendor risk across their entire supplier ecosystem at scale (https://securityscorecard.com)
 
-* rocketreach: Access real-time verified personal/professional emails, phone numbers, and social media links (Requires an API key, see below.) - https://rocketreach.co
+* securityTrails: Security Trails search engine, the world's largest repository of historical DNS data (https://securitytrails.com)
 
-* securityscorecard: helps TPRM and SOC teams detect, prioritize, and remediate vendor risk across their entire supplier ecosystem at scale (Requires an API key, see below.) - https://securityscorecard.com
+* -s, --shodan: Shodan search engine will search for ports and banners from discovered hosts (https://shodan.io)
 
-* securityTrails: Security Trails search engine, the world's largest repository of historical DNS data (Requires an API key, see below.) - https://securitytrails.com
+* sitedossier: Find available information on a site (http://www.sitedossier.com)
 
-* -s, --shodan: Shodan search engine will search for ports and banners from discovered hosts (Requires an API key, see below.) - https://shodan.io
+* subdomaincenter: A subdomain finder tool used to find subdomains of a given domain (https://www.subdomain.center)
 
-* sitedossier: Find available information on a site - http://www.sitedossier.com
+* subdomainfinderc99: A subdomain finder is a tool used to find the subdomains of a given domain (https://subdomainfinder.c99.nl)
 
-* subdomaincenter: A subdomain finder tool used to find subdomains of a given domain - https://www.subdomain.center/
+* threatminer: Data mining for threat intelligence (https://www.threatminer.org)
 
-* subdomainfinderc99: A subdomain finder is a tool used to find the subdomains of a given domain - https://subdomainfinder.c99.nl
+* tomba: Tomba search engine (https://tomba.io)
 
-* threatminer: Data mining for threat intelligence - https://www.threatminer.org/
+* urlscan: A sandbox for the web that is a URL and website scanner (https://urlscan.io)
 
-* tomba: Tomba search engine (Requires an API key, see below.) - https://tomba.io
-
-* urlscan: A sandbox for the web that is a URL and website scanner - https://urlscan.io
-
-* venacus: Venacus search engine (Requires an API key, see below.) - https://venacus.com
+* venacus: Venacus search engine (https://venacus.com)
 
 * vhost: Bing virtual hosts search
 
-* virustotal: Domain search (Requires an API key, see below.) - https://www.virustotal.com
+* virustotal: Domain search (https://www.virustotal.com)
 
-* whoisxml: Subdomain search (Requires an API key, see below.) - https://subdomains.whoisxmlapi.com/api/pricing
+* whoisxml: Subdomain search (https://subdomains.whoisxmlapi.com/api/pricing)
 
-* yahoo: Yahoo search engine
+* yahoo: Yahoo search engine (https://www.yahoo.com)
 
-* zoomeye: China's version of Shodan (Requires an API key, see below.) - https://www.zoomeye.org
+* zoomeye: China's version of Shodan (https://www.zoomeye.org)
 
-Active modules:
----------------
+Active modules
+--------------
 * DNS brute force: dictionary brute force enumeration
 * Screenshots: Take screenshots of subdomains that were found
 
-Modules that require an API key:
---------------------------------
+Modules that require an API key
+-------------------------------
 Documentation to setup API keys can be found at - https://github.com/laramies/theHarvester/wiki/Installation#api-keys
 
 * bevigil - Free upto 50 queries. Pricing can be found here: https://bevigil.com/pricing/osint
@@ -170,6 +159,7 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * censys - API keys are required and can be retrieved from your [Censys account](https://search.censys.io/account/api).
 * criminalip
 * dehashed
+* dnsdumpster
 * fullhunt
 * github-code
 * haveibeenpwned
@@ -190,15 +180,15 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * whoisxml
 * zoomeye
 
-Comments, bugs, and requests:
------------------------------
+Comments, bugs, and requests
+----------------------------
 * [![Twitter Follow](https://img.shields.io/twitter/follow/laramies.svg?style=social&label=Follow)](https://twitter.com/laramies) Christian Martorella @laramies
   cmartorella@edge-security.com
 * [![Twitter Follow](https://img.shields.io/twitter/follow/NotoriousRebel1.svg?style=social&label=Follow)](https://twitter.com/NotoriousRebel1) Matthew Brown @NotoriousRebel1
 * [![Twitter Follow](https://img.shields.io/twitter/follow/jay_townsend1.svg?style=social&label=Follow)](https://twitter.com/jay_townsend1) Jay "L1ghtn1ng" Townsend @jay_townsend1
 
-Main contributors:
-------------------
+Main contributors
+-----------------
 * [![Twitter Follow](https://img.shields.io/twitter/follow/NotoriousRebel1.svg?style=social&label=Follow)](https://twitter.com/NotoriousRebel1) Matthew Brown @NotoriousRebel1
 * [![Twitter Follow](https://img.shields.io/twitter/follow/jay_townsend1.svg?style=social&label=Follow)](https://twitter.com/jay_townsend1) Jay "L1ghtn1ng" Townsend @jay_townsend1
 * [![Twitter Follow](https://img.shields.io/twitter/follow/discoverscripts.svg?style=social&label=Follow)](https://twitter.com/discoverscripts) Lee Baird @discoverscripts
