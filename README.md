@@ -152,13 +152,13 @@ Modules that require an API key
 -------------------------------
 Documentation to setup API keys can be found at - https://github.com/laramies/theHarvester/wiki/Installation#api-keys
 
-* bevigil - Free upto 50 queries. Pricing can be found here: https://bevigil.com/pricing/osint
-* bufferoverun - uses the free binaAPI
-* builtwith
-* censys - API keys are required and can be retrieved from your [Censys account](https://search.censys.io/account/api).
-* criminalip
-* dehashed
-* dnsdumpster
+* bevigil - 50 free queries/month or 1,000 queries/month $50
+* bufferoverun - 100 free queries/month or 10,000/month $25
+* builtwith - 50 free queries ever or $2950/yr
+* censys - 500 credits $100
+* criminalip - 100 free queries/month or 700,000/month $59
+* dehashed - 500 credts $15, 5,000 credits $150
+* dnsdumpster - 50 free querries/day or $49
 * fullhunt
 * github-code
 * haveibeenpwned
