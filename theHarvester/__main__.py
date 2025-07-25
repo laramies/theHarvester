@@ -18,7 +18,6 @@ from theHarvester.discovery import (
     api_endpoints,
     baidusearch,
     bevigil,
-    bingsearch,
     bravesearch,
     bufferoverun,
     builtwith,
@@ -164,7 +163,7 @@ async def start(rest_args: argparse.Namespace | None = None):
     parser.add_argument(
         '-b',
         '--source',
-        help="""baidu, bevigil, bing, bingapi, brave, bufferoverun,
+        help="""baidu, bevigil, brave, bufferoverun,
                             builtwith, censys, certspotter, criminalip, crtsh, dehashed, dnsdumpster, duckduckgo, fullhunt, github-code,
                             hackertarget, haveibeenpwned, hunter, hunterhow, intelx, leaklookup, netlas, onyphe, otx, pentesttools,
                             projectdiscovery, rapiddns, rocketreach, securityscorecard, securityTrails, shodan, sitedossier, subdomaincenter,
@@ -414,30 +413,6 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except Exception as e:
                         print(e)
-
-                elif engineitem == 'bing' or engineitem == 'bingapi':
-                    try:
-                        bing_search = bingsearch.SearchBing(word, limit, start)
-                        bingapi = ''
-                        if engineitem == 'bingapi':
-                            bingapi += 'yes'
-                        else:
-                            bingapi += 'no'
-                        stor_lst.append(
-                            store(
-                                bing_search,
-                                'bing',
-                                process_param=bingapi,
-                                store_host=True,
-                                store_emails=True,
-                            )
-                        )
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            if not args.quiet:
-                                print(e)
-                        else:
-                            print(e)
 
                 elif engineitem == 'brave':
                     try:
@@ -1273,7 +1248,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         print('\n[*] Virtual hosts:')
         print('------------------')
         for data in host_ip:
-            basic_search = bingsearch.SearchBing(data, limit, start)
+            basic_search = bingsearch.SearchBing(data, limit, start)  # Should we delete this section?
             await basic_search.process_vhost()
             results = await basic_search.get_allhostnames()
             for result in results:
