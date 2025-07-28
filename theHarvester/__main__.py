@@ -95,8 +95,8 @@ async def start(rest_args: argparse.Namespace | None = None):
     )
     parser.add_argument(
         '-s',
-        '--shodan',
-        help='Use Shodan to query discovered hosts.',
+        '--',
+        help='Use  to query discovered hosts.',
         default=False,
         action='store_true',
     )
@@ -166,7 +166,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         help="""baidu, bevigil, brave, bufferoverun,
                             builtwith, censys, certspotter, criminalip, crtsh, dehashed, dnsdumpster, duckduckgo, fullhunt, github-code,
                             hackertarget, haveibeenpwned, hunter, hunterhow, intelx, leaklookup, netlas, onyphe, otx, pentesttools,
-                            projectdiscovery, rapiddns, rocketreach, securityscorecard, securityTrails, shodan, sitedossier, subdomaincenter,
+                            projectdiscovery, rapiddns, rocketreach, securityscorecard, securityTrails, sitedossier, subdomaincenter,
                             subdomainfinderc99, threatminer, tomba, urlscan, venacus, virustotal, whoisxml, yahoo, zoomeye""",
     )
 
