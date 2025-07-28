@@ -95,8 +95,8 @@ async def start(rest_args: argparse.Namespace | None = None):
     )
     parser.add_argument(
         '-s',
-        '--',
-        help='Use  to query discovered hosts.',
+        '--shodan',
+        help='Use Shodan to query discovered hosts.',
         default=False,
         action='store_true',
     )
