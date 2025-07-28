@@ -95,7 +95,7 @@ Passive modules
 
 * hunterhow: Internet search engines for security researchers (https://hunter.how)
 
-* intelx: Intelx search engine (http://intelx.io)
+* intelx: Intelx search engine (https://intelx.io)
 
 * leaklookup: Data breach search engine (https://leak-lookup.com)
 
@@ -119,7 +119,7 @@ Passive modules
 
 * -s, --shodan: Shodan search engine will search for ports and banners from discovered hosts (https://shodan.io)
 
-* sitedossier: Find available information on a site (http://www.sitedossier.com)
+* sitedossier: Find available information on a site (https://www.sitedossier.com)
 
 * subdomaincenter: A subdomain finder tool used to find subdomains of a given domain (https://www.subdomain.center)
 
@@ -152,30 +152,30 @@ Modules that require an API key
 -------------------------------
 Documentation to setup API keys can be found at - https://github.com/laramies/theHarvester/wiki/Installation#api-keys
 
-* bevigil - 50 free queries/month or 1,000 queries/month $50
-* bufferoverun - 100 free queries/month or 10,000/month $25
-* builtwith - 50 free queries ever or $2950/yr
+* bevigil - 50 free queries/month, 1k queries/month $50
+* bufferoverun - 100 free queries/month, 10k/month $25
+* builtwith - 50 free queries ever, $2950/yr
 * censys - 500 credits $100
-* criminalip - 100 free queries/month or 700,000/month $59
-* dehashed - 500 credts $15, 5,000 credits $150
-* dnsdumpster - 50 free querries/day or $49
-* fullhunt
+* criminalip - 100 free queries/month, 700k/month $59
+* dehashed - 500 credts $15, 5k credits $150
+* dnsdumpster - 50 free querries/day, $49
+* fullhunt - 50 free queries, 200 queries $29/month, 500 queries $59/month 
 * github-code
-* haveibeenpwned
-* hunter - limited to 10 on the free plan, so you will need to do -l 10 switch
-* hunterhow
+* haveibeenpwned - 10 email searches/min $4.50, 50 email searches/min $22
+* hunter - 50 credits/month free, 12k credits/yr $34
+* hunterhow - 10k free API results per 30 days, 50k API results per 30 days $10
 * intelx
-* leaklookup
-* netlas - $
-* onyphe -$
-* pentestTools - $
-* projecDiscovery - invite only for now
-* rocketreach - $
+* leaklookup - 20 credits $10, 50 credits $20, 140 credits $50, 300 credits $100
+* netlas - 50 free requests/day, 1k requests $49, 10k requests $249
+* onyphe - 10M results/month $587
+* pentestTools - 5 assets netsec $95/month, 5 assets webnetsec $140/month
+* projecDiscovery - requires work email. Free monthly discovery and vulnerability scans on sign-up email domain, enterprise $
+* rocketreach - 100 email lookups/month $48, 250 email lookups/month $108
 * securityscorecard
-* securityTrails
-* shodan - $
+* securityTrails - 50 free queries/month, 20k queries/month $500
+* shodan
 * tomba - Free up to 50 search.
-* venacus - $
+* venacus
 * whoisxml
 * zoomeye
 
