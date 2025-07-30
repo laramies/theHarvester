@@ -41,7 +41,7 @@ dependencies = [
     "ujson==5.10.0",
     "uvicorn==0.35.0",
     "uvloop==0.21.0; platform_system != 'Windows'",
-    "winloop==0.1.91; platform_system == 'Windows'",
+    "winloop==0.2.0; platform_system == 'Windows'",
 ]
 
 [project.optional-dependencies]
@@ -55,7 +55,7 @@ dev = [
     "types-python-dateutil==2.9.0.20250708",
     "types-PyYAML==6.0.12.20250516",
     "types-requests==2.32.4.20250611",
-    "ruff==0.12.4",
+    "ruff==0.12.5",
     "types-ujson==5.10.0.20250326",
     "wheel==0.45.1",
 ]
