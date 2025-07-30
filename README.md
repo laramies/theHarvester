@@ -173,11 +173,11 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * rocketreach - 100 email lookups/month $48, 250 email lookups/month $108
 * securityscorecard
 * securityTrails - 50 free queries/month, 20k queries/month $500
-* shodan
-* tomba - Free up to 50 search.
-* venacus
-* whoisxml
-* zoomeye
+* shodan - Freelancer $69 month, Small Business $359 month
+* tomba - 25 searches/month free, 1k searches/month $39, 5k searches/month $89
+* venacus - 1 search/day free, 10 searches/day $12, 30 searches/day $36
+* whoisxml - 2k queries $50, 5k queries $105
+* zoomeye - 5 results/day free, 30/results/day $190/yr
 
 Comments, bugs, and requests
 ----------------------------
