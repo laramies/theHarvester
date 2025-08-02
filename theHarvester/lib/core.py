@@ -210,6 +210,7 @@ class Core:
             'github-code',
             'hackertarget',
             'haveibeenpwned',
+            'hudsonrock',
             'hunter',
             'hunterhow',
             'intelx',

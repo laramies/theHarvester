@@ -1,6 +1,6 @@
 import enum
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, Union
 
 
 class TokenTypesEnum(str, enum.Enum):
@@ -35,7 +35,7 @@ class Parser:
         self.parsed_data: dict[str, set[str]] = {}
         self.people: list[dict[str, str]] = []
 
-    async def parse_text_tokens(self, results: list[dict[str, Any]]) -> Mapping[str, set[str] | list[dict[str, str]]]:
+    async def parse_text_tokens(self, results: list[dict[str, Any]]) -> Mapping[str, Union[set[str], list[dict[str, str]]]]:
         """
         Extracts different types of information from the recognized text tokens
         """

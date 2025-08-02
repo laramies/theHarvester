@@ -11,6 +11,7 @@ import re
 import sys
 from collections.abc import Callable
 from ipaddress import IPv4Network
+from typing import Union
 
 from aiodns import DNSResolver
 
@@ -127,7 +128,7 @@ async def reverse_single_ip(ip: str, resolver: DNSResolver) -> str:
         return ''
 
 
-async def reverse_all_ips_in_range(iprange: str, callback: Callable, nameservers: list[str] | None = None) -> None:
+async def reverse_all_ips_in_range(iprange: str, callback: Callable, nameservers: Union[list[str], None] = None) -> None:
     """
     Reverse all the IPs stored in a network range.
     All the queries are made concurrently.

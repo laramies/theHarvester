@@ -8,7 +8,7 @@ import string
 import sys
 import time
 import traceback
-from typing import Any
+from typing import Any, Union
 
 import netaddr
 import ujson
@@ -32,6 +32,7 @@ from theHarvester.discovery import (
     githubcode,
     hackertarget,
     haveibeenpwned,
+    hudsonrocksearch,
     huntersearch,
     intelxsearch,
     leaklookup,
@@ -67,7 +68,7 @@ from theHarvester.lib.core import DATA_DIR, Core
 from theHarvester.screenshot.screenshot import ScreenShotter
 
 
-async def start(rest_args: argparse.Namespace | None = None):
+async def start(rest_args: Union[argparse.Namespace, None] = None):
     """Main program function"""
     parser = argparse.ArgumentParser(
         description='theHarvester is used to gather open source intelligence (OSINT) on a company or domain.'
@@ -166,7 +167,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         '--source',
         help="""baidu, bevigil, bing, bingapi, brave, bufferoverun,
                             builtwith, censys, certspotter, criminalip, crtsh, dehashed, dnsdumpster, duckduckgo, fullhunt, github-code,
-                            hackertarget, haveibeenpwned, hunter, hunterhow, intelx, leaklookup, netlas, onyphe, otx, pentesttools,
+                            hackertarget, haveibeenpwned, hudsonrock, hunter, hunterhow, intelx, leaklookup, netlas, onyphe, otx, pentesttools,
                             projectdiscovery, rapiddns, rocketreach, securityscorecard, securityTrails, shodan, sitedossier, subdomaincenter,
                             subdomainfinderc99, threatminer, tomba, urlscan, venacus, virustotal, whoisxml, yahoo, zoomeye""",
     )
@@ -615,6 +616,21 @@ async def start(rest_args: argparse.Namespace | None = None):
                             print(e)
                         else:
                             print(f'An exception has occurred in HaveIBeenPwned search: {e}')
+
+                elif engineitem == 'hudsonrock':
+                    try:
+                        hudsonrock_search = hudsonrocksearch.SearchHudsonRock(word)
+                        stor_lst.append(
+                            store(
+                                hudsonrock_search,
+                                engineitem,
+                                store_host=True,
+                                store_emails=True,
+                                store_ip=True,
+                            )
+                        )
+                    except Exception as e:
+                        print(f'An exception has occurred in Hudson Rock search: {e}')
 
                 elif engineitem == 'hunter':
                     try:
