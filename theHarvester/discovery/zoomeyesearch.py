@@ -215,7 +215,8 @@ class SearchZoomEye:
                         if self.word in str(iurl.group(1))
                     }
             except Exception as e:
-                print(f'An exception has occurred: {e}')
+                print(f'ZoomEye parsing error: {e}')
+                # Continue processing other matches instead of failing completely
         return hostnames, emails, ips, asns, iurls
 
     async def process(self, proxy: bool = False) -> None:

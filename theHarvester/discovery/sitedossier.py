@@ -18,10 +18,18 @@ class SearchSitedossier:
         # This site seems to yield a lot of results but is a bit annoying to scrape
         # Hence the need for delays after each request to get the most results
         # Feel free to tweak the delays as needed
-        url = f'http://{self.server}/parentdomain/{self.word}'
-        headers = {'User-Agent': Core.get_user_agent()}
-        response = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
-        base_response = response[0]
+        try:
+            url = f'http://{self.server}/parentdomain/{self.word}'
+            headers = {'User-Agent': Core.get_user_agent()}
+            response = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
+            if not response or not response[0]:
+                print('SiteDossier: No response received')
+                return
+            base_response = response[0]
+        except Exception as e:
+            print(f'SiteDossier connection error: {e}')
+            return
+            
         soup = BeautifulSoup(base_response, 'html.parser')
         # iter_counter = 1
         # iterations_needed = total_number // 100

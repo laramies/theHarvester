@@ -1,4 +1,5 @@
 import random
+from typing import Union
 
 from theHarvester.lib.core import AsyncFetcher, Core
 
@@ -68,7 +69,7 @@ async def search(text: str) -> bool:
     return False
 
 
-async def google_workaround(visit_url: str) -> bool | str:
+async def google_workaround(visit_url: str) -> Union[bool, str]:
     """
     Function that makes a request on our behalf if Google starts to block us
     :param visit_url: Url to scrape
@@ -113,7 +114,7 @@ class MissingKey(Exception):
     :raise: When there is a module that has not been provided its API key
     """
 
-    def __init__(self, source: str | None) -> None:
+    def __init__(self, source: Union[str, None]) -> None:
         if source:
             self.message = f'\n[!] Missing API key for {source}. '
         else:
