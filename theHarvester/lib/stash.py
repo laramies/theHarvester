@@ -2,7 +2,6 @@ import datetime
 import os
 from collections.abc import Iterable
 from sqlite3.dbapi2 import Row
-from typing import Union
 
 import aiosqlite
 
@@ -156,7 +155,7 @@ class StashManager:
         except Exception as e:
             print(e)
 
-    async def getlatestscanresults(self, domain, previousday: bool = False) -> Union[Iterable[Union[Row, str]], None]:
+    async def getlatestscanresults(self, domain, previousday: bool = False) -> Iterable[Row | str] | None:
         try:
             async with aiosqlite.connect(self.db, timeout=30) as conn:
                 if previousday:
@@ -295,7 +294,7 @@ class StashManager:
         except Exception as e:
             print(e)
 
-    async def getpluginscanstatistics(self) -> Union[Iterable[Row], None]:
+    async def getpluginscanstatistics(self) -> Iterable[Row] | None:
         try:
             async with aiosqlite.connect(self.db, timeout=30) as conn:
                 cursor = await conn.execute(

@@ -34,18 +34,18 @@ class SearchSecuritytrail:
             headers = {'APIKEY': self.key}
             response = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
             await asyncio.sleep(5)  # Not random delay because 2 seconds is required due to rate limit.
-            
+
             if response and response[0]:
                 self.results = response[0]
                 self.totalresults += self.results
             else:
                 print('SecurityTrails: No response received for domain query')
                 return
-                
+
             url += '/subdomains'  # Get subdomains now.
             subdomain_response = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
             await asyncio.sleep(5)
-            
+
             if subdomain_response and subdomain_response[0]:
                 self.results = subdomain_response[0]
                 self.totalresults += self.results

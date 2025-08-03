@@ -14,12 +14,12 @@ class SearchThreatminer:
             response = await AsyncFetcher.fetch_all([url], json=True, proxy=self.proxy)
             if response and isinstance(response[0], dict) and 'results' in response[0]:
                 self.totalhosts = {host for host in response[0]['results'] if host}
-            
+
             second_url = f'https://api.threatminer.org/v2/domain.php?q={self.word}&rt=2'
             secondresp = await AsyncFetcher.fetch_all([second_url], json=True, proxy=self.proxy)
             if secondresp and isinstance(secondresp[0], dict) and 'results' in secondresp[0]:
                 try:
-                    self.totalips = {resp['ip'] for resp in secondresp[0]['results'] if 'ip' in resp and resp['ip']}
+                    self.totalips = {resp['ip'] for resp in secondresp[0]['results'] if resp.get('ip')}
                 except (TypeError, KeyError):
                     pass
         except Exception as e:

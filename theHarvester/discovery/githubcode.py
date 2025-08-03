@@ -1,7 +1,7 @@
 import asyncio
 import random
 import urllib.parse as urlparse
-from typing import Any, NamedTuple, Union
+from typing import Any, NamedTuple
 
 import aiohttp
 
@@ -63,7 +63,7 @@ class SearchGithubCode:
             return []
 
     @staticmethod
-    async def page_from_response(page: str, links) -> Union[int, None]:
+    async def page_from_response(page: str, links) -> int | None:
         try:
             if page_link := links.get(page):
                 parsed = urlparse.urlparse(str(page_link.get('url')))
@@ -74,7 +74,7 @@ class SearchGithubCode:
             print(f'Error parsing page response: {e}')
             return None
 
-    async def handle_response(self, response: tuple[str, dict, int, Any]) -> Union[ErrorResult, RetryResult, SuccessResult]:
+    async def handle_response(self, response: tuple[str, dict, int, Any]) -> ErrorResult | RetryResult | SuccessResult:
         try:
             text, json_data, status, links = response
             if status == 200:
@@ -91,7 +91,7 @@ class SearchGithubCode:
             return ErrorResult(500, str(e))
 
     @staticmethod
-    async def next_page_or_end(result: SuccessResult) -> Union[int, None]:
+    async def next_page_or_end(result: SuccessResult) -> int | None:
         if result.next_page is not None:
             return result.next_page
         else:

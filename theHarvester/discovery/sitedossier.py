@@ -29,7 +29,7 @@ class SearchSitedossier:
         except Exception as e:
             print(f'SiteDossier connection error: {e}')
             return
-            
+
         soup = BeautifulSoup(base_response, 'html.parser')
         # iter_counter = 1
         # iterations_needed = total_number // 100

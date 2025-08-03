@@ -8,7 +8,7 @@ import string
 import sys
 import time
 import traceback
-from typing import Any, Union
+from typing import Any
 
 import netaddr
 import ujson
@@ -68,7 +68,7 @@ from theHarvester.lib.core import DATA_DIR, Core
 from theHarvester.screenshot.screenshot import ScreenShotter
 
 
-async def start(rest_args: Union[argparse.Namespace, None] = None):
+async def start(rest_args: argparse.Namespace | None = None):
     """Main program function"""
     parser = argparse.ArgumentParser(
         description='theHarvester is used to gather open source intelligence (OSINT) on a company or domain.'

@@ -10,7 +10,7 @@ import logging
 import os
 import re
 from dataclasses import asdict, dataclass, field
-from typing import Any, Union
+from typing import Any
 from urllib.parse import urlparse
 
 from theHarvester.lib.core import AsyncFetcher, Core
@@ -53,14 +53,14 @@ class SearchApiEndpoints:
     def __init__(
         self,
         word: str,
-        wordlist: Union[str, None] = None,
+        wordlist: str | None = None,
         concurrency: int = 20,
         timeout: int = 10,
-        proxy: Union[str, None] = None,
-        user_agent: Union[str, None] = None,
+        proxy: str | None = None,
+        user_agent: str | None = None,
         follow_redirects: bool = True,
         verify_ssl: bool = True,
-        additional_headers: Union[dict[str, str], None] = None,
+        additional_headers: dict[str, str] | None = None,
     ) -> None:
         """
         Initialize the SearchApiEndpoints class with advanced configuration options.
@@ -446,7 +446,7 @@ class SearchApiEndpoints:
 
         return 'http'  # Fallback to HTTP if HTTPS fails
 
-    async def _check_endpoint_with_semaphore(self, url: str) -> Union[EndpointResult, None]:
+    async def _check_endpoint_with_semaphore(self, url: str) -> EndpointResult | None:
         """Execute endpoint check with semaphore for controlled concurrency."""
         async with self.semaphore:
             return await self._check_endpoint(url)
@@ -475,7 +475,7 @@ class SearchApiEndpoints:
             self.logger.error(f'Error loading wordlist {self.wordlist}: {e}')
             return []
 
-    async def _check_endpoint(self, url: str) -> Union[EndpointResult, None]:
+    async def _check_endpoint(self, url: str) -> EndpointResult | None:
         """
         Check if an endpoint exists and analyze its properties.
 
@@ -537,7 +537,7 @@ class SearchApiEndpoints:
 
         return headers
 
-    def _process_response(self, url: str, method: str, response, response_time: float) -> Union[EndpointResult, None]:
+    def _process_response(self, url: str, method: str, response, response_time: float) -> EndpointResult | None:
         """
         Process and categorize API endpoint response with detailed analysis.
 
@@ -782,7 +782,7 @@ class SearchApiEndpoints:
         """Get detected API schemas (Swagger/OpenAPI)."""
         return self.schema_detected
 
-    def export_results(self, output_file: Union[str, None] = None, format: str = 'json') -> Union[str, dict, None]:
+    def export_results(self, output_file: str | None = None, format: str = 'json') -> str | dict | None:
         """
         Export scan results to a file or return as string/dict.
 
