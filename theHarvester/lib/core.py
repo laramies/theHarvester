@@ -210,6 +210,7 @@ class Core:
             'github-code',
             'hackertarget',
             'haveibeenpwned',
+            'hudsonrock',
             'hunter',
             'hunterhow',
             'intelx',
@@ -472,7 +473,7 @@ class AsyncFetcher:
                     return await asyncio.gather(*[AsyncFetcher.takeover_fetch(session, url) for url in urls])
 
         if len(params) == 0:
-            async with aiohttp.ClientSession(headers=headers, timeout=timeout, max_field_size=13000) as session:
+            async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
                 if proxy:
                     return await asyncio.gather(
                         *[

@@ -28,18 +28,32 @@ class SearchSecuritytrail:
         await asyncio.sleep(5)
 
     async def do_search(self) -> None:
-        # https://api.securitytrails.com/v1/domain/domain.com
-        url = f'{self.api}domain/{self.word}'
-        headers = {'APIKEY': self.key}
-        response = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
-        await asyncio.sleep(5)  # Not random delay because 2 seconds is required due to rate limit.
-        self.results = response[0]
-        self.totalresults += self.results
-        url += '/subdomains'  # Get subdomains now.
-        subdomain_response = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
-        await asyncio.sleep(5)
-        self.results = subdomain_response[0]
-        self.totalresults += self.results
+        try:
+            # https://api.securitytrails.com/v1/domain/domain.com
+            url = f'{self.api}domain/{self.word}'
+            headers = {'APIKEY': self.key}
+            response = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
+            await asyncio.sleep(5)  # Not random delay because 2 seconds is required due to rate limit.
+            
+            if response and response[0]:
+                self.results = response[0]
+                self.totalresults += self.results
+            else:
+                print('SecurityTrails: No response received for domain query')
+                return
+                
+            url += '/subdomains'  # Get subdomains now.
+            subdomain_response = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
+            await asyncio.sleep(5)
+            
+            if subdomain_response and subdomain_response[0]:
+                self.results = subdomain_response[0]
+                self.totalresults += self.results
+            else:
+                print('SecurityTrails: No response received for subdomain query')
+        except Exception as e:
+            print(f'SecurityTrails API error: {e}')
+            return
 
     async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy

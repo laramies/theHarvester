@@ -1,4 +1,4 @@
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Union
 from urllib.parse import quote
 
 from theHarvester.discovery.constants import MissingKey
@@ -434,7 +434,7 @@ class SearchFullHunt:
         """Return all collected results"""
         return self.total_results
 
-    async def process(self, proxy: bool = False, filters: dict[str, str] | None = None) -> None:
+    async def process(self, proxy: bool = False, filters: Union[dict[str, str], None] = None) -> None:
         """Main processing method
 
         Args:

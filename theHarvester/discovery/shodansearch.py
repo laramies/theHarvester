@@ -19,6 +19,10 @@ class SearchShodan:
         try:
             ipaddress = ip
             results = self.api.host(ipaddress)
+            
+            if not results or 'data' not in results or not results['data']:
+                print(f'Shodan: No data found for IP {ip}')
+                return OrderedDict()
             asn = ''
             domains: list = list()
             hostnames: list = list()
