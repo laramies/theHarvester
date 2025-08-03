@@ -1,0 +1,11 @@
+.github/*
+.gitattributes
+.git-blame-ignore-revs
+.idea/
+.pytest_cache
+.mypy_cache
+tests/*
+README/
+bin/
+theHarvester-logo.png
+theHarvester-logo.webp
