@@ -1248,7 +1248,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         print('\n[*] Virtual hosts:')
         print('------------------')
         for data in host_ip:
-            basic_search = bingsearch.SearchBing(data, limit, start)  # Should we delete this section?
+            basic_search = bingsearch.SearchBing(data, limit, start)
             await basic_search.process_vhost()
             results = await basic_search.get_allhostnames()
             for result in results:
