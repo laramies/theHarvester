@@ -165,7 +165,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         '--source',
         help="""baidu, bevigil, brave, bufferoverun,
                             builtwith, censys, certspotter, criminalip, crtsh, dehashed, dnsdumpster, duckduckgo, fullhunt, github-code,
-                            hackertarget, haveibeenpwned, hunter, hunterhow, intelx, leaklookup, netlas, onyphe, otx, pentesttools,
+                            hackertarget, haveibeenpwned, hudsonrock, hunter, hunterhow, intelx, leaklookup, netlas, onyphe, otx, pentesttools,
                             projectdiscovery, rapiddns, rocketreach, securityscorecard, securityTrails, sitedossier, subdomaincenter,
                             subdomainfinderc99, threatminer, tomba, urlscan, venacus, virustotal, whoisxml, yahoo, zoomeye""",
     )
