@@ -1,6 +1,7 @@
 import asyncio
 
 from bs4 import BeautifulSoup
+from bs4.element import Tag
 
 from theHarvester.discovery.constants import get_delay
 from theHarvester.lib.core import AsyncFetcher, Core
@@ -44,12 +45,16 @@ class SearchSitedossier:
         if (
             stop_conditions[0] not in base_response and stop_conditions[1] not in base_response
         ) and bot_string not in base_response:
-            total_number = soup.find('i')
-            total_number = int(total_number.text.strip().split(' ')[-1].replace(',', ''))
+            total_number_el = soup.find('i')
+            if not isinstance(total_number_el, Tag) or not total_number_el.text:
+                return
+            total_number = int(total_number_el.text.strip().split(' ')[-1].replace(',', ''))
             hrefs = soup.find_all('a', href=True)
             for a in hrefs:
-                unparsed = a['href']
-                if '/site/' in unparsed:
+                if not isinstance(a, Tag):
+                    continue
+                unparsed = a.get('href')
+                if isinstance(unparsed, str) and '/site/' in unparsed:
                     subdomain = str(unparsed.split('/')[-1]).lower()
                     self.totalhosts.add(subdomain)
             await asyncio.sleep(get_delay() + 15 + get_delay())
@@ -85,8 +90,10 @@ class SearchSitedossier:
                 soup = BeautifulSoup(response, 'html.parser')
                 hrefs = soup.find_all('a', href=True)
                 for a in hrefs:
-                    unparsed = a['href']
-                    if '/site/' in unparsed:
+                    if not isinstance(a, Tag):
+                        continue
+                    unparsed = a.get('href')
+                    if isinstance(unparsed, str) and '/site/' in unparsed:
                         subdomain = str(unparsed.split('/')[-1]).lower()
                         self.totalhosts.add(subdomain)
                 await asyncio.sleep(get_delay() + 15 + get_delay())

@@ -1,4 +1,5 @@
 from bs4 import BeautifulSoup
+from bs4.element import Tag
 
 from theHarvester.lib.core import AsyncFetcher, Core
 
@@ -19,10 +20,18 @@ class SearchRapidDns:
             if len(responses[0]) <= 1:
                 return self.total_results
             soup = BeautifulSoup(responses[0], 'html.parser')
-            rows = soup.find('table').find('tbody').find_all('tr')
+            table_el = soup.find('table')
+            if not isinstance(table_el, Tag):
+                return self.total_results
+            tbody_el = table_el.find('tbody')
+            if not isinstance(tbody_el, Tag):
+                return self.total_results
+            rows = tbody_el.find_all('tr')
             if rows:
                 # Validation check
                 for row in rows:
+                    if not isinstance(row, Tag):
+                        continue
                     cells = row.find_all('td')
                     if len(cells) > 0:
                         # sanity check

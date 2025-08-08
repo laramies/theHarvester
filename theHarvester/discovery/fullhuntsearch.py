@@ -131,7 +131,7 @@ class SearchFullHunt:
             'search_results': [],  # Raw search results from advanced queries
         }
         self.proxy = False
-        self.filters = {}  # Store filters for advanced searches
+        self.filters: dict[str, str] = {}  # Store filters for advanced searches
 
     def _get_headers(self) -> dict[str, str]:
         """Returns the headers needed for API requests"""

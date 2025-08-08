@@ -20,18 +20,23 @@ class AdditionalAPIs:
         self.leaklookup = SearchLeakLookup(domain)
         self.securityscorecard = SearchSecurityScorecard(domain)
         self.builtwith = SearchBuiltWith(domain)
-        self.shodan = None  # Will be initialized when needed
+        self.shodan: SearchShodan | None = None  # Will be initialized when needed
+
+        # Aggregated sets for results
+        self.hosts: set[str] = set()
+        self.emails: set[str] = set()
 
         # Results storage
-        self.results = {
+        self.results: dict[str, Any] = {
             'breaches': [],
             'leaks': [],
             'security_score': {},
             'tech_stack': {},
             'shodan_data': {},
-            'hosts': set(),
-            'emails': set(),
+            'hosts': [],
+            'emails': [],
         }
+        self.shodan_data: dict[str, Any] = {}
 
     async def process(self, proxy: bool = False) -> dict[str, Any]:
         """Process all additional API services and return combined results."""
@@ -45,9 +50,10 @@ class AdditionalAPIs:
 
         await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Convert sets to lists for JSON serialization
-        self.results['hosts'] = list(self.results['hosts'])
-        self.results['emails'] = list(self.results['emails'])
+        # Convert aggregated sets to lists for JSON serialization
+        self.results['hosts'] = list(self.hosts)
+        self.results['emails'] = list(self.emails)
+        self.results['shodan_data'] = self.shodan_data
 
         return self.results
 
@@ -56,8 +62,8 @@ class AdditionalAPIs:
         try:
             await self.haveibeenpwned.process(proxy)
             self.results['breaches'] = self.haveibeenpwned.breaches
-            self.results['hosts'].update(self.haveibeenpwned.hosts)
-            self.results['emails'].update(self.haveibeenpwned.emails)
+            self.hosts.update(self.haveibeenpwned.hosts)
+            self.emails.update(self.haveibeenpwned.emails)
         except Exception as e:
             print(f'Error processing HaveIBeenPwned: {e}')
 
@@ -66,8 +72,8 @@ class AdditionalAPIs:
         try:
             await self.leaklookup.process(proxy)
             self.results['leaks'] = self.leaklookup.leaks
-            self.results['hosts'].update(self.leaklookup.hosts)
-            self.results['emails'].update(self.leaklookup.emails)
+            self.hosts.update(self.leaklookup.hosts)
+            self.emails.update(self.leaklookup.emails)
         except Exception as e:
             print(f'Error processing Leak-Lookup: {e}')
 
@@ -81,7 +87,7 @@ class AdditionalAPIs:
                 'issues': self.securityscorecard.issues,
                 'recommendations': self.securityscorecard.recommendations,
             }
-            self.results['hosts'].update(self.securityscorecard.hosts)
+            self.hosts.update(self.securityscorecard.hosts)
         except Exception as e:
             print(f'Error processing SecurityScorecard: {e}')
 
@@ -97,7 +103,7 @@ class AdditionalAPIs:
                 'analytics': list(self.builtwith.analytics),
                 'interesting_urls': list(self.builtwith.interesting_urls),
             }
-            self.results['hosts'].update(self.builtwith.hosts)
+            self.hosts.update(self.builtwith.hosts)
         except Exception as e:
             print(f'Error processing BuiltWith: {e}')
 
@@ -111,7 +117,7 @@ class AdditionalAPIs:
             # Get IPs from hosts for Shodan lookup
             import socket
 
-            ips_to_search = set()
+            ips_to_search: set[str] = set()
 
             # Try to resolve domain to IP
             try:
@@ -121,7 +127,7 @@ class AdditionalAPIs:
                 pass
 
             # Add any IPs from other results
-            for host in self.results['hosts']:
+            for host in self.hosts:
                 if ':' in host:
                     # Extract IP from host:ip format
                     parts = host.split(':')
@@ -137,7 +143,7 @@ class AdditionalAPIs:
                     shodan_result = await self.shodan.search_ip(ip)
 
                     if ip in shodan_result and isinstance(shodan_result[ip], dict):
-                        self.results['shodan_data'][ip] = shodan_result[ip]
+                        self.shodan_data[ip] = shodan_result[ip]
                     elif ip in shodan_result and isinstance(shodan_result[ip], str):
                         print(f'{ip}: {shodan_result[ip]}')
 
@@ -149,8 +155,9 @@ class AdditionalAPIs:
         except Exception as e:
             print(f'Error processing Shodan: {e}')
 
-    def _is_valid_ip(self, ip_str: str) -> bool:
-        """Check if string is a valid IP address."""
+    @staticmethod
+    def _is_valid_ip(ip_str: str) -> bool:
+        """Check if a string is a valid IP address."""
         import ipaddress
 
         try:
@@ -159,10 +166,10 @@ class AdditionalAPIs:
         except ValueError:
             return False
 
-    async def get_hosts(self) -> set:
+    async def get_hosts(self) -> set[str]:
         """Get all discovered hosts."""
-        return self.results['hosts']
+        return self.hosts
 
-    async def get_emails(self) -> set:
+    async def get_emails(self) -> set[str]:
         """Get all discovered emails."""
-        return self.results['emails']
+        return self.emails

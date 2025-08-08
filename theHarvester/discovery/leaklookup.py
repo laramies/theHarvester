@@ -10,12 +10,12 @@ class SearchLeakLookup:
         self.api_key = Core.leaklookup_key()
         self.base_url = 'https://leak-lookup.com/api'
         self.headers = {'Authorization': f'Bearer {self.api_key}', 'Content-Type': 'application/json'}
-        self.hosts = set()
-        self.emails = set()
-        self.leaks = []
-        self.passwords = set()
-        self.sources = set()
-        self.leak_dates = set()
+        self.hosts: set[str] = set()
+        self.emails: set[str] = set()
+        self.leaks: list[dict] = []
+        self.passwords: set[str] = set()
+        self.sources: set[str] = set()
+        self.leak_dates: set[str] = set()
 
     async def process(self, proxy: bool = False) -> None:
         """Search for leaked credentials associated with an email."""

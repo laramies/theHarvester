@@ -8,7 +8,7 @@ import string
 import sys
 import time
 import traceback
-from typing import Any
+from typing import Any, Awaitable
 
 import netaddr
 import ujson
@@ -18,6 +18,7 @@ from theHarvester.discovery import (
     api_endpoints,
     baidusearch,
     bevigil,
+    bingsearch,
     bravesearch,
     bufferoverun,
     builtwith,
@@ -999,7 +1000,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                 queue.task_done()
 
     async def handler(lst):
-        queue = asyncio.Queue()
+        queue: asyncio.Queue[Awaitable[Any]] = asyncio.Queue()
         for stor_method in lst:
             # enqueue the coroutines
             queue.put_nowait(stor_method)
@@ -1515,7 +1516,7 @@ async def start(rest_args: argparse.Namespace | None = None):
             rate_limits = api_scanner.get_rate_limits()
             print(f'\n[*] Rate limited endpoints: {len(rate_limits)}')
             for endpoint, info in rate_limits.items():
-                print(f'    - {endpoint} ({info["method"]})')
+                print(f'    - {endpoint} ({info.method})')
 
             methods = api_scanner.get_methods()
             print(f'\n[*] HTTP methods used: {", ".join(methods)}')

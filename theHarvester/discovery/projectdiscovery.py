@@ -8,8 +8,8 @@ class SearchDiscovery:
         self.key = Core.projectdiscovery_key()
         if self.key is None:
             raise MissingKey('ProjectDiscovery')
-        self.total_results = None
-        self.proxy = False
+        self.total_results: list[str] = []
+        self.proxy: bool = False
 
     async def do_search(self):
         url = f'https://dns.projectdiscovery.io/dns/{self.word}/subdomains'

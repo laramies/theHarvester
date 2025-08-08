@@ -10,13 +10,13 @@ class SearchHaveIBeenPwned:
         self.api_key = Core.haveibeenpwned_key()
         self.base_url = 'https://haveibeenpwned.com/api/v3'
         self.headers = {'hibp-api-key': self.api_key, 'user-agent': 'theHarvester', 'Content-Type': 'application/json'}
-        self.hosts = set()
-        self.emails = set()
-        self.breaches = []
-        self.pastes = []
-        self.breach_dates = set()
-        self.breach_types = set()
-        self.affected_data = set()
+        self.hosts: set[str] = set()
+        self.emails: set[str] = set()
+        self.breaches: list[dict] = []
+        self.pastes: list[dict] = []
+        self.breach_dates: set[str] = set()
+        self.breach_types: set[str] = set()
+        self.affected_data: set[str] = set()
 
     async def process(self, proxy: bool = False) -> None:
         """Search for breaches associated with a domain or email."""

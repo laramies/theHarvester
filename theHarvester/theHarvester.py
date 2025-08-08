@@ -17,7 +17,8 @@ def main():
 
             asyncio.DefaultEventLoopPolicy = winloop.EventLoopPolicy
         except ModuleNotFoundError:
-            asyncio.DefaultEventLoopPolicy = asyncio.WindowsSelectorEventLoopPolicy
+            # Fallback to WindowsSelectorEventLoopPolicy if available, else keep default
+            asyncio.DefaultEventLoopPolicy = getattr(asyncio, 'WindowsSelectorEventLoopPolicy', asyncio.DefaultEventLoopPolicy)
     else:
         import uvloop
 

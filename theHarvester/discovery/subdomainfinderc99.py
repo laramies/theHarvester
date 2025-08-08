@@ -2,6 +2,7 @@ import asyncio
 
 import ujson
 from bs4 import BeautifulSoup
+from bs4.element import Tag
 
 from theHarvester.discovery.constants import get_delay
 from theHarvester.lib.core import AsyncFetcher, Core
@@ -50,11 +51,18 @@ class SearchSubdomainfinderc99:
 
     @staticmethod
     async def get_csrf_params(data):
-        csrf_params = {}
+        csrf_params: dict[str, str] = {}
         html = BeautifulSoup(data, 'html.parser').find('div', {'class': 'input-group'})
+        if not isinstance(html, Tag):
+            return csrf_params
         for c in html.find_all('input'):
             try:
-                csrf_params[c.get('name')] = c.get('value')
+                if not isinstance(c, Tag):
+                    continue
+                name = c.get('name')
+                value = c.get('value')
+                if isinstance(name, str) and value is not None:
+                    csrf_params[name] = str(value)
             except Exception:
                 continue
 

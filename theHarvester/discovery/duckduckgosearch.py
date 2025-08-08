@@ -9,13 +9,13 @@ class SearchDuckDuckGo:
         self.word = word
         self.results = ''
         self.totalresults = ''
-        self.dorks: list = []
-        self.links: list = []
+        self.dorks: list[str] = []
+        self.links: list[str] = []
         self.database = 'https://duckduckgo.com/?q='
         self.api = 'https://api.duckduckgo.com/?q=x&format=json&pretty=1'  # Currently using API.
         self.quantity = '100'
         self.limit = limit
-        self.proxy = False
+        self.proxy: bool = False
 
     async def do_search(self) -> None:
         # Do normal scraping.
@@ -29,7 +29,7 @@ class SearchDuckDuckGo:
         all_resps = await AsyncFetcher.fetch_all(urls)
         self.totalresults += ''.join(all_resps)
 
-    async def crawl(self, text):
+    async def crawl(self, text: str) -> set[str]:
         """
         Function parses json and returns URLs.
         :param text: formatted json
@@ -52,10 +52,10 @@ class SearchDuckDuckGo:
                     if isinstance(val, dict):  # Validation check.
                         for key in val.keys():
                             value = val.get(key)
-                            if isinstance(value, str) and value != '' and 'https://' in value or 'http://' in value:
+                            if isinstance(value, str) and value != '' and ('https://' in value or 'http://' in value):
                                 urls.add(value)
 
-                if isinstance(val, str) and val != '' and 'https://' in val or 'http://' in val:
+                if isinstance(val, str) and val != '' and ('https://' in val or 'http://' in val):
                     urls.add(val)
             tmp = set()
             for url in urls:
@@ -73,7 +73,7 @@ class SearchDuckDuckGo:
             return tmp
         except Exception as e:
             print(f'Exception occurred: {e}')
-            return []
+            return set()
 
     async def get_emails(self):
         rawres = myparser.Parser(self.totalresults, self.word)

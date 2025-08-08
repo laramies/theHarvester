@@ -1,4 +1,5 @@
 import aiohttp
+from typing import Any
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import AsyncFetcher, Core
@@ -10,14 +11,14 @@ class SearchBuiltWith:
         self.api_key = Core.builtwith_key()
         self.base_url = 'https://api.builtwith.com/v21/api.json'
         self.headers = {'Authorization': f'Bearer {self.api_key}', 'Content-Type': 'application/json'}
-        self.hosts = set()
-        self.tech_stack = {}
-        self.interesting_urls = set()
-        self.frameworks = set()
-        self.languages = set()
-        self.servers = set()
-        self.cms = set()
-        self.analytics = set()
+        self.hosts: set[str] = set()
+        self.tech_stack: dict[str, Any] = {}
+        self.interesting_urls: set[str] = set()
+        self.frameworks: set[str] = set()
+        self.languages: set[str] = set()
+        self.servers: set[str] = set()
+        self.cms: set[str] = set()
+        self.analytics: set[str] = set()
 
     async def process(self, proxy: bool = False) -> None:
         """Get technology stack information for a domain."""

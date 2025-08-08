@@ -382,7 +382,7 @@ class SearchApiEndpoints:
         }
 
         # Initialize results storage
-        self.results = []
+        self.results: list[EndpointResult] = []
 
         # Logger setup
         self.logger = logger
@@ -719,7 +719,7 @@ class SearchApiEndpoints:
 
     def _get_tech_stack_summary(self) -> dict[str, int]:
         """Summarize detected technologies."""
-        summary = {}
+        summary: dict[str, int] = {}
         for url, techs in self.tech_stack.items():
             for tech in techs:
                 summary[tech] = summary.get(tech, 0) + 1

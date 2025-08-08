@@ -8,8 +8,8 @@ class SearchWhoisXML:
         self.key = Core.whoisxml_key()
         if self.key is None:
             raise MissingKey('whoisxml')
-        self.total_results = None
-        self.proxy = False
+        self.total_results: list[str] = []
+        self.proxy: bool = False
 
     async def do_search(self):
         # https://subdomains.whoisxmlapi.com/api/documentation/making-requests

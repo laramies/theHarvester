@@ -65,7 +65,7 @@ class SearchVirustotal:
 
     @staticmethod
     async def parse_hostnames(data, word):
-        total_subdomains = set()
+        total_subdomains: set[str] = set()
         for attribute in data:
             total_subdomains.add(attribute['id'].replace('"', '').replace('www.', ''))
             attributes = attribute['attributes']
@@ -84,17 +84,18 @@ class SearchVirustotal:
                         if word in value
                     }
                 )
-        total_subdomains = list(sorted(total_subdomains))
+        # Convert to list for further processing without changing variable type mid-function
+        subdomains_list: list[str] = list(sorted(total_subdomains))
         # Other false positives may occur over time and yes there are other ways to parse this, feel free to implement
         # them and submit a PR or raise an issue if you run into this filtering not being enough
         # TODO determine if parsing 'v=spf1 include:_spf-x.acme.com include:_spf-x.acme.com' is worth parsing
-        total_subdomains = [
+        subdomains_list = [
             x
-            for x in total_subdomains
+            for x in subdomains_list
             if 'edgekey.net' not in str(x) and 'akadns.net' not in str(x) and 'include:_spf' not in str(x)
         ]
-        total_subdomains.sort()
-        return total_subdomains
+        subdomains_list.sort()
+        return subdomains_list
 
     async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy

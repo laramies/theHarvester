@@ -383,33 +383,75 @@ class AsyncFetcher:
             return ''
 
     @classmethod
-    async def fetch(cls, session, url, params: Sized = '', json: bool = False, proxy: str = '') -> str | dict | list | bool:
-        # This fetch method solely focuses on get requests
-        # Wrap in try except due to 0x89 png/jpg files
+    async def fetch(
+        cls,
+        session: aiohttp.ClientSession | None = None,
+        url: str = '',
+        params: Sized = '',
+        json: bool = False,
+        proxy: str | bool | None = '',
+        headers: dict[str, str] | None = None,
+        method: str = 'GET',
+        verify: bool | None = None,
+        follow_redirects: bool | None = None,
+        timeout: int | None = None,
+    ) -> Any:
+        """
+        Generic HTTP request helper.
+        - If a session is not provided, one will be created and closed automatically.
+        - Supports optional headers, method selection, proxy, ssl verification, redirects and timeout.
+        - Returns response text or json depending on `json` flag.
+        """
         try:
-            if proxy != '':
-                proxy = str(random.choice(cls().proxy_list))
-                if len(params) != 0:
-                    sslcontext = ssl.create_default_context(cafile=certifi.where())
-                    async with session.get(url, ssl=sslcontext, params=params, proxy=proxy) as response:
-                        return await response.text() if json is False else await response.json()
-                else:
-                    sslcontext = ssl.create_default_context(cafile=certifi.where())
-                    async with session.get(url, ssl=sslcontext, proxy=proxy) as response:
-                        await asyncio.sleep(5)
-                        return await response.text() if json is False else await response.json()
-
-            if len(params) != 0:
-                sslcontext = ssl.create_default_context(cafile=certifi.where())
-                async with session.get(url, ssl=sslcontext, params=params) as response:
-                    await asyncio.sleep(5)
-                    return await response.text() if json is False else await response.json()
-
+            # Prepare SSL argument
+            ssl_arg: ssl.SSLContext | bool | None
+            if verify is False:
+                ssl_arg = False
             else:
-                sslcontext = ssl.create_default_context(cafile=certifi.where())
-                async with session.get(url, ssl=sslcontext) as response:
+                # default True or None -> verify
+                ssl_arg = ssl.create_default_context(cafile=certifi.where())
+
+            # Resolve proxy parameter
+            proxy_url: str | None = None
+            if isinstance(proxy, str) and proxy != '':
+                proxy_url = proxy
+            elif isinstance(proxy, bool) and proxy:
+                try:
+                    proxy_choice = random.choice(cls().proxy_list)
+                    proxy_url = str(proxy_choice) if proxy_choice else None
+                except Exception:
+                    proxy_url = None
+
+            # Prepare timeout
+            client_timeout = aiohttp.ClientTimeout(total=timeout) if timeout else None
+
+            # Use provided headers or default UA
+            req_headers = headers if headers is not None else {'User-Agent': Core.get_user_agent()}
+
+            # Decide whether we need to manage the session
+            owns_session = session is None
+            if owns_session:
+                session = aiohttp.ClientSession(headers=req_headers, timeout=client_timeout)
+            assert session is not None
+
+            try:
+                request_kwargs: dict[str, Any] = {
+                    'ssl': ssl_arg,
+                }
+                if proxy_url:
+                    request_kwargs['proxy'] = proxy_url
+                if follow_redirects is not None:
+                    request_kwargs['allow_redirects'] = follow_redirects
+                if params != '':
+                    request_kwargs['params'] = params
+
+                async with session.request(method.upper(), url, **request_kwargs) as response:
+                    # small backoff similar to previous implementation
                     await asyncio.sleep(5)
                     return await response.text() if json is False else await response.json()
+            finally:
+                if owns_session:
+                    await session.close()
         except Exception as e:
             print(f'An exception has occurred: {e}')
             return ''
