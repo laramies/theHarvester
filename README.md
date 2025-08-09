@@ -119,8 +119,6 @@ Passive modules
 
 * -s, --shodan: Shodan search engine will search for ports and banners from discovered hosts (https://shodan.io)
 
-* sitedossier: Find available information on a site (https://www.sitedossier.com)
-
 * subdomaincenter: A subdomain finder tool used to find subdomains of a given domain (https://www.subdomain.center)
 
 * subdomainfinderc99: A subdomain finder is a tool used to find the subdomains of a given domain (https://subdomainfinder.c99.nl)
@@ -132,8 +130,6 @@ Passive modules
 * urlscan: A sandbox for the web that is a URL and website scanner (https://urlscan.io)
 
 * venacus: Venacus search engine (https://venacus.com)
-
-* vhost: Bing virtual hosts search
 
 * virustotal: Domain search (https://www.virustotal.com)
 
