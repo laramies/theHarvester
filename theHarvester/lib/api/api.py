@@ -237,7 +237,6 @@ async def dnsbrute(
                 source=','.join([]),
                 start=0,
                 take_over=False,
-                virtual_host=False,
                 wordlist='',
                 api_scan=False,
                 dns_resolve=dns_resolve,
@@ -274,7 +273,7 @@ async def dnsbrute(
         status.HTTP_429_TOO_MANY_REQUESTS: {'model': ErrorResponse},
     },
 )
-@limiter.limit(API_RATE_LIMIT)  # Configurable rate limit
+@limiter.limit(API_RATE_LIMIT)
 async def query(
     request: Request,
     dns_server: str = Query('', description='DNS server to use for lookup'),
@@ -286,7 +285,6 @@ async def query(
     proxies: bool = Query(False, description='Use proxies for requests'),
     shodan: bool = Query(False, description='Use Shodan to query discovered hosts'),
     take_over: bool = Query(False, description='Check for takeovers'),
-    virtual_host: bool = Query(False, description='Verify host name via DNS resolution and search for virtual hosts'),
     wordlist: str = Query('', description='Specify a wordlist for API endpoint scanning'),
     api_scan: bool = Query(False, description='Scan for API endpoints'),
     source: list[str] = Query(..., description='Data sources to query (comma separated with no space)'),
@@ -339,7 +337,6 @@ async def query(
                 source=','.join(source),
                 start=start,
                 take_over=take_over,
-                virtual_host=virtual_host,
                 wordlist=wordlist,
                 api_scan=api_scan,
                 dns_resolve=dns_resolve,
