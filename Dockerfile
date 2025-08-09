@@ -1,4 +1,4 @@
-FROM debian:testing-slim
+FROM debian:trixie-slim
 
 LABEL maintainer="@jay_townsend1 & @NotoriousRebel1"
 
@@ -12,7 +12,6 @@ RUN apt update && apt install -y \
     libreadline-dev \
     libsqlite3-dev \
     wget \
-    curl \
     llvm \
     libncurses5-dev \
     libncursesw5-dev \
@@ -25,24 +24,23 @@ RUN apt update && apt install -y \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python 3.12 from source
-RUN curl -fsSL https://www.python.org/ftp/python/3.12.11/Python-3.12.11.tgz -o Python-3.12.11.tgz \
-    && tar -xvf Python-3.12.11.tgz \
-    && cd Python-3.12.11 \
+RUN curl -fsSL https://www.python.org/ftp/python/3.13.6/Python-3.13.6.tgz -o Python-3.13.6.tgz \
+    && tar -xvf Python-3.13.6.tgz \
+    && cd Python-3.13.6 \
     && ./configure --enable-optimizations \
     && make -j 4 \
     && make altinstall \
-    && rm -rf /Python-3.12.11 /Python-3.12.11.tgz
+    && rm -rf /Python-3.13.6 /Python-3.13.6.tgz
 
-RUN curl https://bootstrap.pypa.io/get-pip.py | python3.12
+RUN curl https://bootstrap.pypa.io/get-pip.py | python3.13
 
-RUN python3.12 -m pip install --user pipx
+RUN python3.13 -m pip install --user pipx
 
 # Add pipx to PATH
 ENV PATH=/root/.local/bin:$PATH
 
 # Install theHarvester via pipx
-RUN pipx install --python python3.12 git+https://github.com/laramies/theHarvester.git
+RUN pipx install --python python3.13 git+https://github.com/laramies/theHarvester.git
 
 # Ensure pipx path
 RUN pipx ensurepath
