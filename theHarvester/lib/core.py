@@ -375,8 +375,7 @@ class AsyncFetcher:
                     async with session.post(url, data=data, ssl=sslcontext, params=params) as resp:
                         await asyncio.sleep(3)
                         return await resp.text() if json is False else await resp.json()
-        except Exception as e:
-            print(f'An exception has occurred in post_fetch: {e}')
+        except Exception:
             return ''
 
     @classmethod
@@ -454,8 +453,7 @@ class AsyncFetcher:
             finally:
                 if owns_session:
                     await session.close()
-        except Exception as e:
-            print(f'An exception has occurred: {e}')
+        except Exception:
             return ''
 
     @staticmethod
