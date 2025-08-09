@@ -1,5 +1,6 @@
-import aiohttp
 from typing import Any
+
+import aiohttp
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import AsyncFetcher, Core

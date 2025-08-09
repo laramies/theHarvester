@@ -194,8 +194,6 @@ class Core:
             'api_endpoints',
             'baidu',
             'bevigil',
-            'bing',
-            'bingapi',
             'bufferoverun',
             'builtwith',
             'brave',

@@ -2,13 +2,12 @@
 import argparse
 import asyncio
 import os
-import re
 import secrets
 import string
 import sys
 import time
 import traceback
-from typing import Any, Awaitable
+from typing import TYPE_CHECKING, Any
 
 import netaddr
 import ujson
@@ -18,7 +17,6 @@ from theHarvester.discovery import (
     api_endpoints,
     baidusearch,
     bevigil,
-    bingsearch,
     bravesearch,
     bufferoverun,
     builtwith,
@@ -67,6 +65,9 @@ from theHarvester.lib import hostchecker, stash
 from theHarvester.lib.core import DATA_DIR, Core
 from theHarvester.screenshot.screenshot import ScreenShotter
 
+if TYPE_CHECKING:
+    from collections.abc import Awaitable
+
 
 async def start(rest_args: argparse.Namespace | None = None):
     """Main program function"""
@@ -108,14 +109,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         default='',
         type=str,
     )
-    parser.add_argument(
-        '-v',
-        '--virtual-host',
-        help='Verify host name via DNS resolution and search for virtual hosts.',
-        action='store_const',
-        const='basic',
-        default=False,
-    )
+
     parser.add_argument('-e', '--dns-server', help='DNS server to use for lookup.')
     parser.add_argument(
         '-t',
@@ -1259,25 +1253,6 @@ async def start(rest_args: argparse.Namespace | None = None):
         print('--------------------------------------------------------')
         for xh in dnsrev:
             print(xh)
-
-    # Virtual hosts search
-    if virtual == 'basic':
-        print('\n[*] Virtual hosts:')
-        print('------------------')
-        for data in host_ip:
-            basic_search = bingsearch.SearchBing(data, limit, start)
-            await basic_search.process_vhost()
-            results = await basic_search.get_allhostnames()
-            for result in results:
-                result = re.sub(r'[[</?]*\w*>]*', '', result)
-                result = re.sub('<', '', result)
-                result = re.sub('>', '', result)
-                print(data + '\t' + result)
-                vhost.append(data + ':' + result)
-                full.append(data + ':' + result)
-        vhost = sorted(set(vhost))
-    else:
-        pass
 
     # Screenshots
     screenshot_tups = []
