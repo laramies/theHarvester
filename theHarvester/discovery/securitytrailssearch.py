@@ -39,7 +39,7 @@ class SearchSecuritytrail:
             domain_response = await AsyncFetcher.fetch_all([domain_url], headers=headers, json=True, proxy=self.proxy)
             await asyncio.sleep(5)  # 2+ seconds is required due to rate limit.
 
-            if domain_response and isinstance(domain_response[0], (dict, list)):
+            if domain_response and isinstance(domain_response[0], dict | list):
                 self.domain_data = domain_response[0] if isinstance(domain_response[0], dict) else {}
             else:
                 print('SecurityTrails: No JSON response received for domain query')
@@ -54,7 +54,7 @@ class SearchSecuritytrail:
             subdomain_response = await AsyncFetcher.fetch_all([subdomains_url], headers=headers, json=True, proxy=self.proxy)
             await asyncio.sleep(5)
 
-            if subdomain_response and isinstance(subdomain_response[0], (dict, list)):
+            if subdomain_response and isinstance(subdomain_response[0], dict | list):
                 self.subdomains_data = subdomain_response[0] if isinstance(subdomain_response[0], dict) else {}
             else:
                 print('SecurityTrails: No JSON response received for subdomain query')
@@ -76,7 +76,11 @@ class SearchSecuritytrail:
                 'domain': self.domain_data if isinstance(self.domain_data, dict) else {},
                 'subdomains': self.subdomains_data if isinstance(self.subdomains_data, dict) else {},
             }
-        parser_input = combined_payload if combined_payload and (combined_payload['domain'] or combined_payload['subdomains']) else self.totalresults
+        parser_input = (
+            combined_payload
+            if combined_payload and (combined_payload['domain'] or combined_payload['subdomains'])
+            else self.totalresults
+        )
         parser = securitytrailsparser.Parser(word=self.word, text=parser_input)
         self.info = await parser.parse_text()
         # Create parser and set self.info to tuple returned from parsing text.

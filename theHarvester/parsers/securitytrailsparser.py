@@ -45,7 +45,7 @@ class Parser:
             if isinstance(subs, list):
                 for s in subs:
                     if isinstance(s, str) and s:
-                        self.hostnames.add(f"{s.strip()}.{apex}")
+                        self.hostnames.add(f'{s.strip()}.{apex}')
 
         # Structured dict handling
         if isinstance(self.text, dict):

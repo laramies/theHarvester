@@ -1,8 +1,15 @@
+import json as _stdlib_json
+from types import ModuleType
+
 from theHarvester.lib.core import AsyncFetcher
+
+json: ModuleType = _stdlib_json
 try:
-    import ujson as json
-except ImportError:
-    import json
+    import ujson as _ujson  # type: ignore[import-not-found]
+
+    json = _ujson
+except Exception:
+    pass
 
 
 class SearchThreatminer:
@@ -39,11 +46,7 @@ class SearchThreatminer:
             second_results = second.get('results', []) if isinstance(second, dict) else []
             if isinstance(second_results, list):
                 try:
-                    self.totalips = {
-                        item.get('ip')
-                        for item in second_results
-                        if isinstance(item, dict) and item.get('ip')
-                    }
+                    self.totalips = {item.get('ip') for item in second_results if isinstance(item, dict) and item.get('ip')}
                 except Exception:
                     pass
         except Exception as e:
