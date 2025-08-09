@@ -247,7 +247,6 @@ async def start(rest_args: argparse.Namespace | None = None):
     start: int = args.start
     all_urls: list = []
     vhost: list = []
-    virtual = args.virtual_host
     word: str = args.domain.rstrip('\n')
     takeover_status = args.take_over
     use_proxy = args.proxies
