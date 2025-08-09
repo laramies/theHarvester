@@ -45,6 +45,9 @@ class SearchGithubCode:
                 'Accept': 'application/vnd.github.v3.text-match+json',
                 'Authorization': f'token {self.key}',
             }
+            # Retry control to avoid infinite loops on rate limiting
+            self.retry_count = 0
+            self.max_retries = 3
         except Exception as e:
             print(f'Error initializing SearchGithubCode: {e}')
             raise
@@ -116,17 +119,33 @@ class SearchGithubCode:
                     result = await self.handle_response(api_response)
 
                     if isinstance(result, SuccessResult):
+                        # Reset retry counter on any successful response
+                        self.retry_count = 0
                         print(f'\tSearching {self.counter} results.')
                         self.total_results += ''.join(result.fragments)
                         self.counter += len(result.fragments)
-                        self.page = result.next_page or result.last_page
+                        next_or_last = result.next_page or result.last_page
+                        # Break if pagination does not advance to avoid infinite loop
+                        if next_or_last == self.page:
+                            print('\tNo page advancement detected; exiting to avoid infinite loop.')
+                            self.page = 0
+                            break
+                        self.page = next_or_last
                         await asyncio.sleep(get_delay())
                     elif isinstance(result, RetryResult):
+                        self.retry_count += 1
+                        if self.retry_count > self.max_retries:
+                            print('\tMaximum retries reached; exiting to avoid infinite loop.')
+                            self.page = 0
+                            break
                         sleepy_time = get_delay() + result.time
                         print(f'\tRetrying page in {sleepy_time} seconds...')
                         await asyncio.sleep(sleepy_time)
                     else:
+                        # On error, stop to avoid endless retries on a bad state
                         print(f'\tException occurred: status_code: {result.status_code} reason: {result.body}')
+                        self.page = 0
+                        break
                 except Exception as e:
                     print(f'Error processing page: {e}')
                     await asyncio.sleep(get_delay())
