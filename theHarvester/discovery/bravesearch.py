@@ -28,8 +28,7 @@ class SearchBrave:
                     if (
                         'Not many great matches came back for your search' in resp[0]
                         or 'Your request has been flagged as being suspicious and Brave Search' in resp[0]
-                        or ('Prove' in resp[0]
-                        and 'robot' in resp[0])
+                        or ('Prove' in resp[0] and 'robot' in resp[0])
                         or 'Robot' in resp[0]
                     ):
                         break

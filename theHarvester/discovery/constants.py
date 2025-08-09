@@ -59,9 +59,9 @@ async def search(text: str) -> bool:
     """
     for line in text.strip().splitlines():
         if (
-                'This page appears when Google automatically detects requests coming from your computer network' in line
-                or 'http://www.google.com/sorry/index' in line
-                or 'https://www.google.com/sorry/index' in line
+            'This page appears when Google automatically detects requests coming from your computer network' in line
+            or 'http://www.google.com/sorry/index' in line
+            or 'https://www.google.com/sorry/index' in line
         ):
             # print('\tGoogle is blocking your IP due to too many automated requests, wait or change your IP')
             return True
