@@ -28,6 +28,8 @@ CONFIG_DIRS = [
 
 
 class Core:
+    quiet: bool = False
+
     @staticmethod
     def _read_config(filename: str) -> str:
         # Return the first we find
@@ -35,10 +37,11 @@ class Core:
             with contextlib.suppress(FileNotFoundError):
                 file = path.expanduser() / filename
                 config = file.read_text()
-                print(f'Read {filename} from {file}')
+                if not Core.quiet:
+                    print(f'Read {filename} from {file}')
                 return config
 
-        # Fallback to creating default in user's home dir
+        # Fallback to creating default in the user's home dir
         default = (DATA_DIR / filename).read_text()
         dest = CONFIG_DIRS[0].expanduser() / filename
         dest.parent.mkdir(exist_ok=True)

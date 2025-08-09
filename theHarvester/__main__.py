@@ -151,7 +151,7 @@ async def start(rest_args: argparse.Namespace | None = None):
     parser.add_argument(
         '-q',
         '--quiet',
-        help='Suppress missing API key warnings.',
+        help='Suppress missing API key warnings and reading the api-keys file.',
         default=False,
         action='store_true',
     )
@@ -184,6 +184,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         args = parser.parse_args()
         filename = args.filename
         dnsbrute = (args.dns_brute, False)
+    Core.quiet = getattr(args, 'quiet', False)
     try:
         db = stash.StashManager()
         await db.do_init()
