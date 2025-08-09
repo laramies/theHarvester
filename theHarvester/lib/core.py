@@ -228,7 +228,6 @@ class Core:
             'securityscorecard',
             'securityTrails',
             'shodan',
-            'sitedossier',
             'subdomaincenter',
             'subdomainfinderc99',
             'sublist3r',

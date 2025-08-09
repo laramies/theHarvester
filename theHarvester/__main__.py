@@ -47,7 +47,6 @@ from theHarvester.discovery import (
     securityscorecard,
     securitytrailssearch,
     shodansearch,
-    sitedossier,
     subdomaincenter,
     subdomainfinderc99,
     takeover,
@@ -162,7 +161,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         help="""baidu, bevigil, brave, bufferoverun,
                             builtwith, censys, certspotter, criminalip, crtsh, dehashed, dnsdumpster, duckduckgo, fullhunt, github-code,
                             hackertarget, haveibeenpwned, hudsonrock, hunter, hunterhow, intelx, leaklookup, netlas, onyphe, otx, pentesttools,
-                            projectdiscovery, rapiddns, rocketreach, securityscorecard, securityTrails, shodan, sitedossier, subdomaincenter,
+                            projectdiscovery, rapiddns, rocketreach, securityscorecard, securityTrails, shodan, subdomaincenter,
                             subdomainfinderc99, threatminer, tomba, urlscan, venacus, virustotal, whoisxml, yahoo, zoomeye""",
     )
 
@@ -822,13 +821,6 @@ async def start(rest_args: argparse.Namespace | None = None):
                                 print(e)
                         else:
                             print(f'An exception has occurred in Shodan search: {e}')
-
-                elif engineitem == 'sitedossier':
-                    try:
-                        sitedossier_search = sitedossier.SearchSitedossier(word)
-                        stor_lst.append(store(sitedossier_search, engineitem, store_host=True))
-                    except Exception as e:
-                        print(e)
 
                 elif engineitem == 'subdomaincenter':
                     try:
