@@ -67,9 +67,8 @@ class SearchDuckDuckGo:
                             tmp.add(true_url)
                             break
                         true_url += ch
-                else:
-                    if url != '':
-                        tmp.add(url)
+                elif url != '':
+                    tmp.add(url)
             return tmp
         except Exception as e:
             print(f'Exception occurred: {e}')

@@ -59,9 +59,9 @@ async def search(text: str) -> bool:
     """
     for line in text.strip().splitlines():
         if (
-            'This page appears when Google automatically detects requests coming from your computer network' in line
-            or 'http://www.google.com/sorry/index' in line
-            or 'https://www.google.com/sorry/index' in line
+                'This page appears when Google automatically detects requests coming from your computer network' in line
+                or 'http://www.google.com/sorry/index' in line
+                or 'https://www.google.com/sorry/index' in line
         ):
             # print('\tGoogle is blocking your IP due to too many automated requests, wait or change your IP')
             return True
@@ -108,7 +108,7 @@ async def google_workaround(visit_url: str) -> bool | str:
     return correct_html
 
 
-class MissingKey(Exception):
+class MissingKeyError(Exception):
     """
     :raise: When there is a module that has not been provided its API key
     """
@@ -121,3 +121,7 @@ class MissingKey(Exception):
 
     def __str__(self) -> str:
         return self.message
+
+
+# Backward compatibility: keep old name for external imports
+MissingKey = MissingKeyError

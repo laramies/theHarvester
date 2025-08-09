@@ -129,18 +129,24 @@ target-version = "py312"
 show-fixes = true
 
 [tool.ruff.lint]
-select = ["E4",
-    "E7",
-    "E9",
+select = ["E",
     "F",
+    "N",
     "I",
     "UP",
     "TCH",
     "FA",
     "RUF",
     "PT",
+    "TC",
+    "ASYNC"
     ]
-ignore = ["S311", "RUF021", "RUF029", "F841"]
+ignore = [
+    "E501",
+    "ASYNC230",
+    "N999",
+    "PLR0915"
+    ]
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
 fixable = ["ALL"]

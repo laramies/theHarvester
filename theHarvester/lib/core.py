@@ -391,7 +391,7 @@ class AsyncFetcher:
         method: str = 'GET',
         verify: bool | None = None,
         follow_redirects: bool | None = None,
-        timeout: int | None = None,
+        request_timeout: int | None = None,
     ) -> Any:
         """
         Generic HTTP request helper.
@@ -420,7 +420,7 @@ class AsyncFetcher:
                     proxy_url = None
 
             # Prepare timeout
-            client_timeout = aiohttp.ClientTimeout(total=timeout) if timeout else None
+            client_timeout = aiohttp.ClientTimeout(total=request_timeout) if request_timeout else None
 
             # Use provided headers or default UA
             req_headers = headers if headers is not None else {'User-Agent': Core.get_user_agent()}
@@ -442,10 +442,15 @@ class AsyncFetcher:
                 if params != '':
                     request_kwargs['params'] = params
 
-                async with session.request(method.upper(), url, **request_kwargs) as response:
-                    # small backoff similar to previous implementation
-                    await asyncio.sleep(5)
-                    return await response.text() if json is False else await response.json()
+                if request_timeout:
+                    async with asyncio.timeout(request_timeout):
+                        async with session.request(method.upper(), url, **request_kwargs) as response:
+                            await asyncio.sleep(5)
+                            return await response.text() if json is False else await response.json()
+                else:
+                    async with session.request(method.upper(), url, **request_kwargs) as response:
+                        await asyncio.sleep(5)
+                        return await response.text() if json is False else await response.json()
             finally:
                 if owns_session:
                     await session.close()
@@ -472,16 +477,15 @@ class AsyncFetcher:
                     async with session.get(url, proxy=proxy, ssl=False) as response:
                         await asyncio.sleep(5)
                         return url, await response.text()
+            elif 'https://' in url:
+                sslcontext = ssl.create_default_context(cafile=certifi.where())
+                async with session.get(url, ssl=sslcontext) as response:
+                    await asyncio.sleep(5)
+                    return url, await response.text()
             else:
-                if 'https://' in url:
-                    sslcontext = ssl.create_default_context(cafile=certifi.where())
-                    async with session.get(url, ssl=sslcontext) as response:
-                        await asyncio.sleep(5)
-                        return url, await response.text()
-                else:
-                    async with session.get(url, ssl=False) as response:
-                        await asyncio.sleep(5)
-                        return url, await response.text()
+                async with session.get(url, ssl=False) as response:
+                    await asyncio.sleep(5)
+                    return url, await response.text()
         except Exception as e:
             print(f'Takeover check error: {e}')
             return url, ''

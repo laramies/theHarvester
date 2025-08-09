@@ -436,7 +436,7 @@ class SearchApiEndpoints:
             headers = self._get_headers()
 
             response = await AsyncFetcher.fetch(
-                url=https_url, headers=headers, proxy=self.proxy, verify=self.verify_ssl, timeout=self.timeout
+                url=https_url, headers=headers, proxy=self.proxy, verify=self.verify_ssl, request_timeout=self.timeout
             )
 
             if response and getattr(response, 'status', 0) < 400:
@@ -501,7 +501,7 @@ class SearchApiEndpoints:
                     proxy=self.proxy,
                     verify=self.verify_ssl,
                     follow_redirects=self.follow_redirects,
-                    timeout=self.timeout,
+                    request_timeout=self.timeout,
                 )
 
                 # Calculate response time

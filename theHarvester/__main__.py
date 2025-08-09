@@ -958,20 +958,19 @@ async def start(rest_args: argparse.Namespace | None = None):
                             if not args.quiet:
                                 print(e)
 
-        else:
-            if rest_args is not None:
-                try:
-                    rest_args.dns_brute
-                except Exception:
-                    print('\n[!] Invalid source.\n')
-                    sys.exit(1)
-            else:
-                # Print which engines aren't supported
-                unsupported_engines = set(engines) - set(Core.get_supportedengines())
-                if unsupported_engines:
-                    print(f'The following engines are not supported: {unsupported_engines}')
+        elif rest_args is not None:
+            try:
+                rest_args.dns_brute
+            except Exception:
                 print('\n[!] Invalid source.\n')
                 sys.exit(1)
+        else:
+            # Print which engines aren't supported
+            unsupported_engines = set(engines) - set(Core.get_supportedengines())
+            if unsupported_engines:
+                print(f'The following engines are not supported: {unsupported_engines}')
+            print('\n[!] Invalid source.\n')
+            sys.exit(1)
 
     async def worker(queue):
         while True:
@@ -1053,23 +1052,21 @@ async def start(rest_args: argparse.Namespace | None = None):
 
     if len(twitter_people_list_tracker) == 0 and 'twitter' in engines:
         print('\n[*] No Twitter users found.\n\n')
-    else:
-        if len(twitter_people_list_tracker) >= 1:
-            print('\n[*] Twitter Users found: ' + str(len(twitter_people_list_tracker)))
-            print('---------------------')
-            twitter_people_list_tracker = list(sorted(set(twitter_people_list_tracker)))
-            for usr in twitter_people_list_tracker:
-                print(usr)
+    elif len(twitter_people_list_tracker) >= 1:
+        print('\n[*] Twitter Users found: ' + str(len(twitter_people_list_tracker)))
+        print('---------------------')
+        twitter_people_list_tracker = list(sorted(set(twitter_people_list_tracker)))
+        for usr in twitter_people_list_tracker:
+            print(usr)
 
     if len(linkedin_people_list_tracker) == 0 and 'linkedin' in engines:
         print('\n[*] No LinkedIn users found.\n\n')
-    else:
-        if len(linkedin_people_list_tracker) >= 1:
-            print('\n[*] LinkedIn Users found: ' + str(len(linkedin_people_list_tracker)))
-            print('---------------------')
-            linkedin_people_list_tracker = list(sorted(set(linkedin_people_list_tracker)))
-            for usr in linkedin_people_list_tracker:
-                print(usr)
+    elif len(linkedin_people_list_tracker) >= 1:
+        print('\n[*] LinkedIn Users found: ' + str(len(linkedin_people_list_tracker)))
+        print('---------------------')
+        linkedin_people_list_tracker = list(sorted(set(linkedin_people_list_tracker)))
+        for usr in linkedin_people_list_tracker:
+            print(usr)
 
     if len(linkedin_links_tracker) == 0 and ('linkedin' in engines or 'rocketreach' in engines):
         print(f'\n[*] LinkedIn Links found: {len(linkedin_links_tracker)}')
@@ -1373,7 +1370,7 @@ async def start(rest_args: argparse.Namespace | None = None):
             if len(all_emails) > 0:
                 json_dict['emails'] = all_emails
 
-            if dnsresolve is None or len(final_dns_resolver_list) > 0 and len(full) > 0:
+            if dnsresolve is None or (len(final_dns_resolver_list) > 0 and len(full) > 0):
                 json_dict['hosts'] = full
             elif len(all_hosts) > 0:
                 json_dict['hosts'] = all_hosts

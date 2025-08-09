@@ -38,18 +38,18 @@ class SearchVirustotal:
             send_url = base_url + '&cursor=' + cursor if cursor != '' and len(cursor) > 2 else base_url
             responses = await AsyncFetcher.fetch_all([send_url], headers=headers, proxy=self.proxy, json=True)
             jdata = responses[0]
-            if 'data' not in jdata.keys():
+            if 'data' not in jdata:
                 await asyncio.sleep(60 + 5)
                 fail_counter += 1
-            if 'meta' in jdata.keys():
-                cursor = jdata['meta']['cursor'] if 'cursor' in jdata['meta'].keys() else ''
-                if len(cursor) == 0 and 'data' in jdata.keys():
+            if 'meta' in jdata:
+                cursor = jdata['meta']['cursor'] if 'cursor' in jdata['meta'] else ''
+                if len(cursor) == 0 and 'data' in jdata:
                     # if cursor no longer is within the meta field have hit last entry
                     breakcon = True
             count += jdata['meta']['count']
             if count == 0 or fail_counter >= 2:
                 break
-            if 'data' in jdata.keys():
+            if 'data' in jdata:
                 data = jdata['data']
                 self.hostnames.extend(await self.parse_hostnames(data, self.word))
                 counter += 1
@@ -76,7 +76,7 @@ class SearchVirustotal:
                     if word in value['value']
                 }
             )
-            if 'last_https_certificate' in attributes.keys():
+            if 'last_https_certificate' in attributes:
                 total_subdomains.update(
                     {
                         value.replace('"', '').replace('www.', '')

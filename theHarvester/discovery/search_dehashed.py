@@ -1,6 +1,7 @@
-import time
+import asyncio
+import random
 
-import requests
+import aiohttp
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import Core
@@ -14,9 +15,13 @@ class SearchDehashed:
             raise MissingKey('Dehashed')
 
         self.api = 'https://api.dehashed.com/v2/search'
-        self.headers = {'Content-Type': 'application/json', 'Dehashed-Api-Key': self.key}
+        self.headers = {
+            'Dehashed-Api-Key': self.key,
+            'User-Agent': Core.get_user_agent(),
+        }
         self.results = ''
         self.data: list[dict] = []
+        self.proxy: bool = False
 
     async def do_search(self) -> None:
         print(f'\t[+] Performing Dehashed search for: {self.word}')
@@ -26,13 +31,31 @@ class SearchDehashed:
             payload = {'query': self.word, 'page': page, 'size': size, 'wildcard': False, 'regex': False, 'de_dupe': False}
 
             try:
-                response = requests.post(self.api, json=payload, headers=self.headers)
-                if response.status_code == 401:
-                    raise Exception('Unauthorized. Check Dehashed API key.')
-                if response.status_code == 403:
-                    raise Exception('Forbidden. API key is not allowed.')
+                # Resolve proxy URL if enabled
+                proxy_url = None
+                if isinstance(self.proxy, str) and self.proxy:
+                    proxy_url = self.proxy
+                elif isinstance(self.proxy, bool) and self.proxy:
+                    try:
+                        proxies = Core.proxy_list()
+                        if proxies:
+                            proxy_url = str(random.choice(proxies))
+                    except Exception:
+                        proxy_url = None
 
-                data = response.json()
+                timeout = aiohttp.ClientTimeout(total=120)
+                async with aiohttp.ClientSession(headers=self.headers, timeout=timeout) as session:
+                    async with session.post(self.api, json=payload, proxy=proxy_url) as response:
+                        if response.status == 401:
+                            raise Exception('Unauthorized. Check Dehashed API key.')
+                        if response.status == 403:
+                            raise Exception('Forbidden. API key is not allowed.')
+                        try:
+                            data = await response.json()
+                        except Exception:
+                            text = await response.text()
+                            raise Exception(f'Unexpected response format: {text[:200]}')
+
                 entries = data.get('entries', [])
                 if not entries:
                     break
@@ -43,7 +66,7 @@ class SearchDehashed:
                 if len(entries) < size:
                     break
                 page += 1
-                time.sleep(0.5)
+                await asyncio.sleep(0.5)
             except Exception as e:
                 print(f'\t[!] Dehashed error: {e}')
                 break
@@ -68,6 +91,7 @@ class SearchDehashed:
             print(csv_line)
 
     async def process(self, proxy: bool = False) -> None:
+        self.proxy = proxy
         await self.do_search()
         await self.print_csv_results()
 

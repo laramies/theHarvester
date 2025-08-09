@@ -145,16 +145,14 @@ class SearchCriminalIP:
             if k == 'dns_record_type_a':
                 for ip in data['dns_record'][k]['ipv4']:
                     self.totalips.add(ip['ip'])
-            else:
-                if isinstance(v, list):
-                    for item in v:
-                        if isinstance(item, list):
-                            for subitem in item:
-                                if subitem.endswith('.' + self.word):
-                                    self.totalhosts.add(subitem)
-                        else:
-                            if item.endswith('.' + self.word):
-                                self.totalhosts.add(item)
+            elif isinstance(v, list):
+                for item in v:
+                    if isinstance(item, list):
+                        for subitem in item:
+                            if subitem.endswith('.' + self.word):
+                                self.totalhosts.add(subitem)
+                    elif item.endswith('.' + self.word):
+                        self.totalhosts.add(item)
 
         for domain_list in data['domain_list']:
             self.asns.add(str(domain_list['asn']))

@@ -65,23 +65,21 @@ async def main() -> None:
 
     if len(twitter_people_list_tracker) == 0:
         print('\n[*] No Twitter users found.')
-    else:
-        if len(twitter_people_list_tracker) >= 1:
-            print('\n[*] Twitter Users found: ' + str(len(twitter_people_list_tracker)))
-            print('---------------------')
-            twitter_people_list_tracker = list(sorted(set(twitter_people_list_tracker)))
-            for usr in twitter_people_list_tracker:
-                print(usr)
+    elif len(twitter_people_list_tracker) >= 1:
+        print('\n[*] Twitter Users found: ' + str(len(twitter_people_list_tracker)))
+        print('---------------------')
+        twitter_people_list_tracker = list(sorted(set(twitter_people_list_tracker)))
+        for usr in twitter_people_list_tracker:
+            print(usr)
 
     if len(linkedin_people_list_tracker) == 0:
         print('\n[*] No LinkedIn users found.')
-    else:
-        if len(linkedin_people_list_tracker) >= 1:
-            print('\n[*] LinkedIn Users found: ' + str(len(linkedin_people_list_tracker)))
-            print('---------------------')
-            linkedin_people_list_tracker = list(sorted(set(linkedin_people_list_tracker)))
-            for usr in linkedin_people_list_tracker:
-                print(usr)
+    elif len(linkedin_people_list_tracker) >= 1:
+        print('\n[*] LinkedIn Users found: ' + str(len(linkedin_people_list_tracker)))
+        print('---------------------')
+        linkedin_people_list_tracker = list(sorted(set(linkedin_people_list_tracker)))
+        for usr in linkedin_people_list_tracker:
+            print(usr)
 
     if len(linkedin_links_tracker) == 0:
         print('\n[*] No LinkedIn links found.')
