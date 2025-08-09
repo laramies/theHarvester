@@ -105,9 +105,9 @@ Passive modules
 
 * otx: AlienVault open threat exchange (https://otx.alienvault.com)
 
-* pentestTools: Cloud-based toolkit for offensive security testing, focused on web applications and network penetration testing (https://pentest-tools.com)
+* pentesttools: Cloud-based toolkit for offensive security testing, focused on web applications and network penetration testing (https://pentest-tools.com)
 
-* projecDiscovery: Actively collects and maintains internet-wide assets data, to enhance research and analyse changes around DNS for better insights (https://chaos.projectdiscovery.io)
+* projecdiscovery: Actively collects and maintains internet-wide assets data, to enhance research and analyse changes around DNS for better insights (https://chaos.projectdiscovery.io)
 
 * rapiddns: DNS query tool which make querying subdomains or sites of a same IP easy (https://rapiddns.io)
 
@@ -168,8 +168,8 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * leaklookup - 20 credits $10, 50 credits $20, 140 credits $50, 300 credits $100
 * netlas - 50 free requests/day, 1k requests $49, 10k requests $249
 * onyphe - 10M results/month $587
-* pentestTools - 5 assets netsec $95/month, 5 assets webnetsec $140/month
-* projecDiscovery - requires work email. Free monthly discovery and vulnerability scans on sign-up email domain, enterprise $
+* pentesttools - 5 assets netsec $95/month, 5 assets webnetsec $140/month
+* projecdiscovery - requires work email. Free monthly discovery and vulnerability scans on sign-up email domain, enterprise $
 * rocketreach - 100 email lookups/month $48, 250 email lookups/month $108
 * securityscorecard
 * securityTrails - 50 free queries/month, 20k queries/month $500
