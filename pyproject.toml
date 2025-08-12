@@ -52,7 +52,7 @@ dev = [
     "pytest-asyncio==1.1.0",
     "types-certifi==2021.10.8.3",
     "types-chardet==5.0.4.6",
-    "types-python-dateutil==2.9.0.20250708",
+    "types-python-dateutil==2.9.0.20250809",
     "types-PyYAML==6.0.12.20250516",
     "types-requests==2.32.4.20250611",
     "ruff==0.12.8",
