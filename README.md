@@ -63,7 +63,7 @@ Passive modules
 
 * bevigil: CloudSEK BeVigil scans mobile application for OSINT assets (https://bevigil.com/osint-api)
 
-* brave: Brave search engine (https://search.brave.com)
+* brave: Brave search engine - now uses official Brave Search API (https://api-dashboard.search.brave.com)
 
 * bufferoverun: Fast domain name lookups for TLS certificates in IPv4 space (https://tls.bufferover.run)
 
@@ -149,6 +149,7 @@ Modules that require an API key
 Documentation to setup API keys can be found at - https://github.com/laramies/theHarvester/wiki/Installation#api-keys
 
 * bevigil - 50 free queries/month, 1k queries/month $50
+* brave - Free plan available, Pro plans for higher limits
 * bufferoverun - 100 free queries/month, 10k/month $25
 * builtwith - 50 free queries ever, $2950/yr
 * censys - 500 credits $100
