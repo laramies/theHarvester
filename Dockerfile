@@ -24,13 +24,13 @@ RUN apt update && apt install -y \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-RUN curl -fsSL https://www.python.org/ftp/python/3.13.6/Python-3.13.6.tgz -o Python-3.13.6.tgz \
-    && tar -xvf Python-3.13.6.tgz \
-    && cd Python-3.13.6 \
+RUN curl -fsSL https://www.python.org/ftp/python/3.13.7/Python-3.13.7.tgz -o Python-3.13.7.tgz \
+    && tar -xvf Python-3.13.7.tgz \
+    && cd Python-3.13.7 \
     && ./configure --enable-optimizations \
     && make -j 4 \
     && make altinstall \
-    && rm -rf /Python-3.13.6 /Python-3.13.6.tgz
+    && rm -rf /Python-3.13.7 /Python-3.13.7.tgz
 
 RUN curl https://bootstrap.pypa.io/get-pip.py | python3.13
 
