@@ -67,7 +67,7 @@ class SearchBrave:
                             print(f'API quota exceeded: {error_msg}')
                             break
                         else:
-                            print(f'API error ({error_code}): {error_msg}')
+                            #print(f'API error ({error_code}): {error_msg}')
                             break
 
                     if 'web' in resp and 'results' in resp['web']:
