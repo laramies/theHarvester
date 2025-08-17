@@ -20,20 +20,16 @@ class SearchBrave:
         self.rate_limit_delay = 1  # Initial delay for rate limiting
 
     async def do_search(self):
-        headers = {
-            'Accept': 'application/json',
-            'Accept-Encoding': 'gzip',
-            'X-Subscription-Token': self.api_key
-        }
-        
+        headers = {'Accept': 'application/json', 'Accept-Encoding': 'gzip', 'X-Subscription-Token': self.api_key}
+
         # Search queries: exact match and site-specific
         queries = [f'"{self.word}"', f'site:{self.word}']
-        
+
         for query in queries:
             try:
                 # Calculate number of pages based on limit (20 results per page)
                 pages = min((self.limit // 20) + 1, 5)  # Maximum 5 pages
-                
+
                 for offset in range(0, pages * 20, 20):
                     params = {
                         'q': query,
@@ -43,30 +39,25 @@ class SearchBrave:
                         'freshness': 'all',
                         'extra_snippets': 'true',  # Enable extra snippets for richer content
                         'text_decorations': 'true',  # Enable highlighting
-                        'spellcheck': 'true'  # Enable spellcheck
+                        'spellcheck': 'true',  # Enable spellcheck
                     }
-                    
+
                     # Build URL with parameters
                     param_string = '&'.join([f'{k}={quote(str(v))}' for k, v in params.items()])
                     url = f'{self.server}?{param_string}'
-                    
-                    resp = await AsyncFetcher.fetch(
-                        url=url,
-                        headers=headers,
-                        proxy=self.proxy,
-                        json=True
-                    )
-                    
+
+                    resp = await AsyncFetcher.fetch(url=url, headers=headers, proxy=self.proxy, json=True)
+
                     # Handle API response
                     if resp is None:
                         print('No response received from Brave Search API')
                         break
-                    
+
                     # Check for API errors (rate limit, quota exceeded, etc.)
                     if 'error' in resp:
                         error_msg = resp.get('error', {}).get('message', 'Unknown API error')
                         error_code = resp.get('error', {}).get('code', 'unknown')
-                        
+
                         if 'rate limit' in error_msg.lower() or error_code == 'rate_limit_exceeded':
                             print(f'Rate limit exceeded. Increasing delay to {self.rate_limit_delay * 2} seconds')
                             self.rate_limit_delay *= 2
@@ -78,38 +69,38 @@ class SearchBrave:
                         else:
                             print(f'API error ({error_code}): {error_msg}')
                             break
-                    
+
                     if 'web' in resp and 'results' in resp['web']:
                         results = resp['web']['results']
                         if not results:
                             break
-                            
+
                         # Extract text content from results for parsing (including extra snippets)
                         for result in results:
-                            result_text = f"{result.get('title', '')} {result.get('description', '')}"
-                            
+                            result_text = f'{result.get("title", "")} {result.get("description", "")}'
+
                             # Add extra snippets if available
                             if 'extra_snippets' in result:
                                 for snippet in result['extra_snippets']:
-                                    result_text += f" {snippet}"
-                            
-                            result_text += f" {result.get('url', '')}"
+                                    result_text += f' {snippet}'
+
+                            result_text += f' {result.get("url", "")}'
                             self.totalresults += result_text + '\n'
-                            
+
                         self.results.extend(results)
-                        
+
                         # Stop if we've reached our limit
                         if len(self.results) >= self.limit:
                             break
                     else:
                         print('Unexpected response format from Brave Search API')
                         break
-                        
+
                     await asyncio.sleep(get_delay())
-                    
+
             except Exception as e:
                 error_msg = str(e).lower()
-                
+
                 # Handle specific API-related exceptions
                 if 'rate limit' in error_msg or '429' in error_msg:
                     print(f'Rate limit detected in exception. Increasing delay to {self.rate_limit_delay * 2} seconds')
