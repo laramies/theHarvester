@@ -1,0 +1,20 @@
+name: Release
+
+on:
+  push:
+    tags: ["*"]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/theHarvester
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build distribution
+        run: pipx run build
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1
