@@ -34,7 +34,7 @@ dependencies = [
     "playwright==1.54.0",
     "PyYAML==6.0.2",
     "python-dateutil==2.9.0.post0",
-    "requests==2.32.4",
+    "requests==2.32.5",
     "retrying==1.4.2",
     "shodan==1.31.0",
     "slowapi==0.1.9",
