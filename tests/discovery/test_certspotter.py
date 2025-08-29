@@ -4,7 +4,7 @@ import os
 from typing import Optional
 
 import pytest
-import requests
+import httpx
 from _pytest.mark.structures import MarkDecorator
 
 from theHarvester.discovery import certspottersearch
@@ -27,7 +27,7 @@ class TestCertspotterSearch(object):
     async def test_api(self) -> None:
         base_url = f"https://api.certspotter.com/v1/issuances?domain={TestCertspotter.domain()}&expand=dns_names"
         headers = {"User-Agent": Core.get_user_agent()}
-        request = requests.get(base_url, headers=headers)
+        request = httpx.get(base_url, headers=headers)
         assert request.status_code == 200
 
     async def test_search(self) -> None:
