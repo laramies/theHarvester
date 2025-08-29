@@ -11,7 +11,6 @@ requires-python = ">=3.12"
 urls.Homepage = "https://github.com/laramies/theHarvester"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
@@ -88,12 +87,13 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 warn_unused_configs = true
 ignore_missing_imports = true
 show_traceback = true
 show_error_codes = true
 namespace_packages = true
+check_untyped_defs = true
 
 [tool.uv]
 python-preference = "managed"
