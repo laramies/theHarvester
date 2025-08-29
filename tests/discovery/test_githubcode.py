@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 import pytest
 from _pytest.mark.structures import MarkDecorator
-from requests import Response
+from httpx import Response
 from theHarvester.discovery import githubcode
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import Core
@@ -11,12 +11,11 @@ pytestmark: MarkDecorator = pytest.mark.asyncio
 
 class TestSearchGithubCode:
     class OkResponse:
-        response = Response()
+        response = Response(status_code=200)
 
         # Mocking the json method properly
         def __init__(self):
-            self.response = Response()
-            self.response.status_code = 200
+            self.response = Response(status_code=200)
             object.__setattr__(
                 self.response,
                 "json",
@@ -31,25 +30,18 @@ class TestSearchGithubCode:
             )
 
     class FailureResponse:
-        response = Response()
-
         def __init__(self):
-            self.response = Response()
-            self.response.status_code = 401
+            self.response = Response(status_code=401)
             object.__setattr__(self.response, "json", MagicMock(return_value={}))
 
     class RetryResponse:
         def __init__(self):
-            self.response = Response()
-            self.response.status_code = 403
+            self.response = Response(status_code=403)
             object.__setattr__(self.response, "json", MagicMock(return_value={}))
 
     class MalformedResponse:
-        response = Response()
-
         def __init__(self):
-            self.response = Response()
-            self.response.status_code = 200
+            self.response = Response(status_code=200)
             object.__setattr__(
                 self.response,
                 "json",

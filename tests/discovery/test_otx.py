@@ -2,9 +2,8 @@
 # coding=utf-8
 import os
 from typing import Optional
-
+import httpx
 import pytest
-import requests
 from _pytest.mark.structures import MarkDecorator
 
 from theHarvester.discovery import otxsearch
@@ -24,7 +23,7 @@ class TestOtx(object):
     async def test_api(self) -> None:
         base_url = f"https://otx.alienvault.com/api/v1/indicators/domain/{TestOtx.domain()}/passive_dns"
         headers = {"User-Agent": Core.get_user_agent()}
-        request = requests.get(base_url, headers=headers)
+        request = httpx.get(base_url, headers=headers)
         assert request.status_code == 200
 
     async def test_search(self) -> None:
