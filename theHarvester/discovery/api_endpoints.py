@@ -441,8 +441,10 @@ class SearchApiEndpoints:
 
             if response and getattr(response, 'status', 0) < 400:
                 return 'https'
-        except Exception:
-            pass
+            else:
+                self.logger.info(f'[*] HTTPS request to {https_url} returned status: {getattr(response, "status", "No status")}')
+        except Exception as e:
+            self.logger.error(f"Failed to fetch HTTPS URL '{https_url}': {e}")
 
         return 'http'  # Fallback to HTTP if HTTPS fails
 
@@ -546,6 +548,7 @@ class SearchApiEndpoints:
         """
         status = getattr(response, 'status', 0)
         if status == 0:
+            self.logger.warning(f'No status code received from response for URL: {url}')
             return None
 
         # Track this endpoint
@@ -553,22 +556,32 @@ class SearchApiEndpoints:
         self.methods.add(method)
         self.status_codes.add(status)
 
-        # Get response properties
-        headers = dict(getattr(response, 'headers', {}))
-        content = getattr(response, 'content', b'')
+        # Get response headers safely
+        try:
+            headers = dict(getattr(response, 'headers', {}))
+        except Exception as e:
+            self.logger.error(f'Failed to get headers from response for URL {url}: {e}')
+            headers = {}
+
+        try:
+            content = getattr(response, 'content', b'')
+        except Exception as e:
+            self.logger.error(f'Failed to get content from response for URL {url}: {e}')
+            content = b''
+
         content_length = len(content)
         self.response_sizes[url] = content_length
 
-        # Try to get content type
+        # Try to get content type from headers
         content_type = headers.get('Content-Type', '')
 
-        # Create preview of content (limited to 200 chars)
+        # Try to create a preview of the response content (up to 200 characters)
         content_preview = ''
-        try:
-            if content:
+        if content:
+            try:
                 content_preview = content.decode('utf-8', errors='ignore')[:200]
-        except Exception:
-            pass
+            except Exception as e:
+                self.logger.error(f'Failed to decode content for URL {url}: {e}')
 
         # Extract security headers
         security_headers = {
@@ -622,16 +635,23 @@ class SearchApiEndpoints:
             ):
                 tech_stack.append(tech)
 
-        # Try to extract potential parameters from response
-        parameters = []
-        if 'json' in content_type.lower() and content:
-            try:
-                json_data = json.loads(content)
-                # Extract top-level keys as potential parameters
-                if isinstance(json_data, dict):
-                    parameters = list(json_data.keys())
-            except json.JSONDecodeError:
-                pass
+            # Try to extract potential parameters from response
+            parameters = []
+
+            if 'json' in content_type.lower() and content:
+                try:
+                    json_data = json.loads(content)
+
+                    # Extract top-level keys as potential parameters
+                    if isinstance(json_data, dict):
+                        parameters = list(json_data.keys())
+                    else:
+                        self.logger.error(f'JSON response is not a dictionary. Type: {type(json_data).__name__}')
+
+                except json.JSONDecodeError as e:
+                    self.logger.error(f'Failed to parse JSON from response content: {e}')
+                except Exception as e:
+                    self.logger.error(f'Unexpected error while extracting parameters from JSON: {e}')
 
         # Create result object
         result = EndpointResult(
@@ -671,10 +691,18 @@ class SearchApiEndpoints:
         if ('swagger' in url.lower() or 'openapi' in url.lower() or 'api-docs' in url.lower()) and content:
             try:
                 schema = json.loads(content)
-                if 'swagger' in schema or 'openapi' in schema:
-                    self.schema_detected[url] = schema
-            except json.JSONDecodeError:
-                pass
+
+                if isinstance(schema, dict):
+                    if 'swagger' in schema or 'openapi' in schema:
+                        self.schema_detected[url] = schema
+                    else:
+                        self.logger.warning(f"JSON at {url} loaded successfully but no 'swagger' or 'openapi' key found.")
+                else:
+                    self.logger.error(f'JSON at {url} is not a dictionary. Type: {type(schema).__name__}')
+            except json.JSONDecodeError as e:
+                self.logger.error(f'Failed to parse JSON from {url}: {e}')
+            except Exception as e:
+                self.logger.error(f'Unexpected error while processing schema at {url}: {e}')
 
         return result
 
