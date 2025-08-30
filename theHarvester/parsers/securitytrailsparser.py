@@ -23,7 +23,7 @@ class Parser:
                 ipaddress.ip_address(value)
                 self.ips.add(value)
             except ValueError:
-                pass
+                raise ValueError(f'Invalid IP address provided: {value}')
 
         def parse_domain_dict(d: dict) -> None:
             current_dns = d.get('current_dns', {}) if isinstance(d, dict) else {}

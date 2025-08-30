@@ -87,8 +87,17 @@ class TakeOver:
                     await self.check(url, resp)
             else:
                 return
+        except IndexError:
+            print('Response was empty — possible network error or invalid URL.')
+        except ujson.JSONDecodeError:
+            print('Failed to parse JSON — cert fingerprints might be unavailable.')
+        except KeyError as ke:
+            print(f'Missing expected field in fingerprint: {ke}')
+        except TypeError as te:
+            print(f'Invalid response structure: {te}')
         except Exception as e:
-            print(e)
+            print(f'Unexpected error: {e}')
+
 
     async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy

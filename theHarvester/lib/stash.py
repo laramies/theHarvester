@@ -56,7 +56,7 @@ class StashManager:
                 )
                 await db.commit()
         except Exception as e:
-            print(e)
+            print(f'Unexpected error while storing result: {e}')
 
     async def store_all(self, domain, all, res_type, source) -> None:
         # people are not stored in the database
@@ -77,7 +77,7 @@ class StashManager:
                 )
                 await db.commit()
             except Exception as e:
-                print(e)
+                print(f'Unexpected error while storing result: {e}')
 
     async def generatedashboardcode(self, domain):
         try:
@@ -165,7 +165,7 @@ class StashManager:
                 self.latestscandomain['scandetailsshodan'] = scandetailsshodan
             return self.latestscandomain
         except Exception as e:
-            print(e)
+            print(f'Unexpected error while generating the dashboard code: {e}')
 
     async def getlatestscanresults(self, domain, previousday: bool = False) -> Iterable[Row | str] | None:
         try:
@@ -259,7 +259,7 @@ class StashManager:
                 self.scanboarddata['domains'] = self._col0_int(data)
             return self.scanboarddata
         except Exception as e:
-            print(e)
+            print(f'Unexpected error while getting the scanboard data: {e}')
 
     async def getscanhistorydomain(self, domain):
         try:
@@ -306,7 +306,7 @@ class StashManager:
                     self.domainscanhistory.append(results)
             return self.domainscanhistory
         except Exception as e:
-            print(e)
+            print(f'Unexpected error while getting the scanhistory of a domain: {e}')
 
     async def getpluginscanstatistics(self) -> Iterable[Row] | None:
         try:
@@ -321,7 +321,7 @@ class StashManager:
                 results = await cursor.fetchall()
                 self.scanstats = list(results)
         except Exception as e:
-            print(e)
+            print(f'Unexpected error while getting a plugins scanstatistics: {e}')
         return self.scanstats
 
     async def latestscanchartdata(self, domain):
@@ -408,5 +408,7 @@ class StashManager:
                 scandetailsshodan = await cursor.fetchall()
                 self.latestscandomain['scandetailsshodan'] = scandetailsshodan
             return self.latestscandomain
+        except aiosqlite.Error as db_err:
+            print(f"Database error occurred for domain '{domain}': {db_err}")
         except Exception as e:
-            print(e)
+            print(f"Unexpected error in latestscanchartdata for domain '{domain}': {e}")
