@@ -1,3 +1,6 @@
+
+# Create non-root user for security
+RUN useradd -m -u 1000 -s /bin/bash theharvester
 FROM debian:trixie-slim
 
 LABEL maintainer="@jay_townsend1 & @NotoriousRebel1"
@@ -46,4 +49,11 @@ RUN pipx install --python python3.13 git+https://github.com/laramies/theHarveste
 RUN pipx ensurepath
 
 # Set the entrypoint
+
+# Change ownership of application files to non-root user
+RUN chown -R theharvester:theharvester /app
+
+# Switch to non-root user
+USER theharvester
+# Switch to non-root userUSER harvester
 ENTRYPOINT ["/root/.local/bin/restfulHarvest", "-H", "0.0.0.0", "-p", "80"]
