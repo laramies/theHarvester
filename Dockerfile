@@ -55,8 +55,8 @@ ENV UV_PYTHON=python3.13
 ENV PATH=/app/.venv/bin:$PATH
 
 # Create and sync environment using uv
-# Installs dependencies from pyproject.toml/uv.lock
-RUN uv venv --python $UV_PYTHON && uv sync --frozen
+# Installs dependencies from pyproject.toml
+RUN uv venv --python $UV_PYTHON && uv sync
 
 # Expose port if the service listens on 80
 EXPOSE 80
