@@ -1,12 +1,11 @@
-
-# Create non-root user for security
-RUN useradd -m -u 1000 -s /bin/bash theharvester
 FROM debian:trixie-slim
 
 LABEL maintainer="@jay_townsend1 & @NotoriousRebel1"
 
+RUN useradd -m -u 1000 -s /bin/bash theharvester
+
 # Install dependencies for building Python from source
-RUN apt update && apt install -y \
+RUN apt update && apt dist-upgrade -qqy && apt install -y \
     curl \
     build-essential \
     libssl-dev \
@@ -25,35 +24,42 @@ RUN apt update && apt install -y \
     python3-dev \
     git \
     gcc \
-    && rm -rf /var/lib/apt/lists/*
+    vim \
+    && apt clean && apt autoremove -qqy && rm -rf /var/lib/apt/lists/*
 
+# Install Python 3.13.7 from source
 RUN curl -fsSL https://www.python.org/ftp/python/3.13.7/Python-3.13.7.tgz -o Python-3.13.7.tgz \
     && tar -xvf Python-3.13.7.tgz \
     && cd Python-3.13.7 \
     && ./configure --enable-optimizations \
     && make -j 4 \
     && make altinstall \
-    && rm -rf /Python-3.13.7 /Python-3.13.7.tgz
+    && cd / && rm -rf /Python-3.13.7 /Python-3.13.7.tgz
 
-RUN curl https://bootstrap.pypa.io/get-pip.py | python3.13
+# Install uv
+RUN curl -fsSL https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/local/bin sh
 
-RUN python3.13 -m pip install --user pipx
+# Set workdir and copy project files
+WORKDIR /app
+COPY . /app
 
-# Add pipx to PATH
-ENV PATH=/root/.local/bin:$PATH
-
-# Install theHarvester via pipx
-RUN pipx install --python python3.13 git+https://github.com/laramies/theHarvester.git
-
-# Ensure pipx path
-RUN pipx ensurepath
-
-# Set the entrypoint
-
-# Change ownership of application files to non-root user
+# Ensure files are owned by theharvester user (for uv cache/venv writes)
 RUN chown -R theharvester:theharvester /app
 
-# Switch to non-root user
+# Use non-root user
 USER theharvester
-# Switch to non-root userUSER harvester
-ENTRYPOINT ["/root/.local/bin/restfulHarvest", "-H", "0.0.0.0", "-p", "80"]
+
+# Configure uv to use the freshly installed python
+ENV UV_PYTHON=python3.13
+# Ensure uv bin shims are on PATH for the user (uv places venv bins in .venv by default)
+ENV PATH=/app/.venv/bin:$PATH
+
+# Create and sync environment using uv
+# Installs dependencies from pyproject.toml/uv.lock
+RUN uv venv --python $UV_PYTHON && uv sync --frozen
+
+# Expose port if the service listens on 80
+EXPOSE 80
+
+# Run the application as theharvester user
+ENTRYPOINT ["python", "restfulHarvest.py", "-H", "0.0.0.0", "-p", "80"]
