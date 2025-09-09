@@ -176,6 +176,9 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * whoisxml - 2k queries $50, 5k queries $105
 * zoomeye - 5 results/day free, 30/results/day $190/yr
 
+## Package versions
+[![Packaging status](https://repology.org/badge/vertical-allrepos/theharvester.svg)](https://repology.org/project/theharvester/versions)
+
 Comments, bugs, and requests
 ----------------------------
 * [![Twitter Follow](https://img.shields.io/twitter/follow/laramies.svg?style=social&label=Follow)](https://twitter.com/laramies) Christian Martorella @laramies
