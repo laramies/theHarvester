@@ -393,7 +393,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                             )
                         )
                     except Exception as e:
-                        show_default_error_message(engineitem,word,e)
+                        show_default_error_message(engineitem, word, e)
 
                 elif engineitem == 'bevigil':
                     try:
@@ -407,7 +407,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                             )
                         )
                     except Exception as e:
-                        show_default_error_message(engineitem,word,error=e)
+                        show_default_error_message(engineitem, word, error=e)
 
                 elif engineitem == 'brave':
                     try:
@@ -421,7 +421,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                             )
                         )
                     except Exception as e:
-                        show_default_error_message(engineitem,word,error=e)
+                        show_default_error_message(engineitem, word, error=e)
 
                 elif engineitem == 'bufferoverun':
                     try:
@@ -435,7 +435,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                             )
                         )
                     except Exception as e:
-                        show_default_error_message(engineitem,word,e)
+                        show_default_error_message(engineitem, word, e)
 
                 elif engineitem == 'builtwith':
                     try:
@@ -446,7 +446,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                             print(f"Failed to perform BuiltWith search for word: '{word}'")
                             print(f'A Missing Key Error occured in builtwith: {e}')
                         else:
-                            show_default_error_message(engineitem,word,e)
+                            show_default_error_message(engineitem, word, e)
 
                 elif engineitem == 'censys':
                     try:
@@ -512,7 +512,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                             if not args.quiet:
                                 print(f'A Missing key error occurred in criminalip: {e}')
                         else:
-                            show_default_error_message(engineitem,word,e)
+                            show_default_error_message(engineitem, word, e)
 
                 elif engineitem == 'crtsh':
                     try:
@@ -537,7 +537,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                             if not args.quiet:
                                 print(f'A Missing Key error occurred in dehashed: {e}')
                         else:
-                            show_default_error_message(engineitem,word,e)
+                            show_default_error_message(engineitem, word, e)
 
                 elif engineitem == 'dnsdumpster':
                     try:
@@ -554,7 +554,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         if not args.quiet:
                             print(e)
                     except Exception as e:
-                        show_default_error_message(engineitem,word,e)
+                        show_default_error_message(engineitem, word, e)
 
                 elif engineitem == 'duckduckgo':
                     duckduckgo_search = duckduckgosearch.SearchDuckDuckGo(word, limit)

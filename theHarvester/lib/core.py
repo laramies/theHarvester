@@ -555,7 +555,7 @@ class AsyncFetcher:
                 else:
                     return await asyncio.gather(*[AsyncFetcher.fetch(session, url, params, json) for url in urls])
 
-def show_default_error_message(engine_name :str, word :str, error) -> None:
-    print(f"Failed to process {engine_name} search for word: '{word}'")
-    print(f"Error Message: {error}")
 
+def show_default_error_message(engine_name: str, word: str, error) -> None:
+    print(f"Failed to process {engine_name} search for word: '{word}'")
+    print(f'Error Message: {error}')

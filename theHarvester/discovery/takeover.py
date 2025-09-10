@@ -98,7 +98,6 @@ class TakeOver:
         except Exception as e:
             print(f'Unexpected error: {e}')
 
-
     async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_take()
