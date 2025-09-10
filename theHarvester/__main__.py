@@ -315,7 +315,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     # If full, this is only getting resolved hosts
                     (
                         resolved_pair,
-                        temp_hosts,
+                        _temp_hosts,
                         temp_ips,
                     ) = await full_hosts_checker.check()
                     all_ip.extend(temp_ips)
