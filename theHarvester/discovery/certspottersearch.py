@@ -21,8 +21,12 @@ class SearchCertspoter:
                 self.totalhosts.update({response['dns_names'] if 'dns_names' in response.keys() else ''})  # type: ignore
             else:
                 self.totalhosts.update({''})
+        except IndexError:
+            print('No data returned from Cert Spotter.')
+        except ConnectionError:
+            print('Network connection failed.')
         except Exception as e:
-            print(e)
+            print(f'Unexpected error occurred: {e}')
 
     async def get_hostnames(self) -> set:
         return self.totalhosts

@@ -123,8 +123,10 @@ class AdditionalAPIs:
             try:
                 ip = socket.gethostbyname(self.domain)
                 ips_to_search.add(ip)
-            except socket.gaierror:
-                pass
+            except socket.gaierror as e:
+                print(f"Failed to resolve domain '{self.domain}': {e}")
+            except Exception as e:
+                print(f"Unexpected error while resolving domain '{self.domain}': {e}")
 
             # Add any IPs from other results
             for host in self.hosts:

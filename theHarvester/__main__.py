@@ -61,7 +61,7 @@ from theHarvester.discovery import (
 )
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib import hostchecker, stash
-from theHarvester.lib.core import DATA_DIR, Core
+from theHarvester.lib.core import DATA_DIR, Core, show_default_error_message
 from theHarvester.screenshot.screenshot import ScreenShotter
 
 if TYPE_CHECKING:
@@ -189,7 +189,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         db = stash.StashManager()
         await db.do_init()
     except Exception:
-        pass
+        raise ValueError('Failed to initialize StashManager')
 
     if len(filename) > 2 and filename[:2] == '~/':
         filename = os.path.expanduser(filename)
@@ -393,7 +393,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                             )
                         )
                     except Exception as e:
-                        print(e)
+                        show_default_error_message(engineitem,word,e)
 
                 elif engineitem == 'bevigil':
                     try:
@@ -407,7 +407,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                             )
                         )
                     except Exception as e:
-                        print(e)
+                        show_default_error_message(engineitem,word,error=e)
 
                 elif engineitem == 'brave':
                     try:
@@ -421,7 +421,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                             )
                         )
                     except Exception as e:
-                        print(e)
+                        show_default_error_message(engineitem,word,error=e)
 
                 elif engineitem == 'bufferoverun':
                     try:
@@ -435,7 +435,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                             )
                         )
                     except Exception as e:
-                        print(e)
+                        show_default_error_message(engineitem,word,e)
 
                 elif engineitem == 'builtwith':
                     try:
@@ -443,9 +443,10 @@ async def start(rest_args: argparse.Namespace | None = None):
                         stor_lst.append(store(builtwith_search, engineitem, store_host=True, store_interestingurls=True))
                     except Exception as e:
                         if isinstance(e, MissingKey):
-                            print(e)
+                            print(f"Failed to perform BuiltWith search for word: '{word}'")
+                            print(f'A Missing Key Error occured in builtwith: {e}')
                         else:
-                            print(f'An exception has occurred in BuiltWith search: {e}')
+                            show_default_error_message(engineitem,word,e)
 
                 elif engineitem == 'censys':
                     try:
@@ -458,17 +459,41 @@ async def start(rest_args: argparse.Namespace | None = None):
                                 store_emails=True,
                             )
                         )
+                    except MissingKey as mk:
+                        if not args.quiet:
+                            print(f'Censys API key is missing or invalid: {mk}')
+                    except ConnectionError as ce:
+                        if not args.quiet:
+                            print(f'Network error while querying Censys: {ce}')
+                    except TimeoutError as te:
+                        if not args.quiet:
+                            print(f'Timeout occurred while contacting Censys: {te}')
+                    except ValueError as ve:
+                        if not args.quiet:
+                            print(f'Censys returned unexpected data: {ve}')
                     except Exception as e:
-                        if isinstance(e, MissingKey):
-                            if not args.quiet:
-                                print(e)
+                        if not args.quiet:
+                            print(f'Unexpected error occurred in Censys module: {e}')
 
                 elif engineitem == 'certspotter':
                     try:
                         certspotter_search = certspottersearch.SearchCertspoter(word)
                         stor_lst.append(store(certspotter_search, engineitem, None, store_host=True))
+                    except ConnectionError as ce:
+                        if not args.quiet:
+                            print(f'Network connection error while accessing Certspotter: {ce}')
+                    except TimeoutError as te:
+                        if not args.quiet:
+                            print(f'Request to Certspotter timed out: {te}')
+                    except ValueError as ve:
+                        if not args.quiet:
+                            print(f'Certspotter returned invalid data: {ve}')
+                    except MissingKey as mk:
+                        if not args.quiet:
+                            print(f'Unexpected response structure from Certspotter (missing key): {mk}')
                     except Exception as e:
-                        print(e)
+                        if not args.quiet:
+                            print(f'Unexpected error occurred in Certspotter module: {e}')
 
                 elif engineitem == 'criminalip':
                     try:
@@ -485,9 +510,9 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(e)
+                                print(f'A Missing key error occurred in criminalip: {e}')
                         else:
-                            print(f'An excepion has occurred in criminalip: {e}')
+                            show_default_error_message(engineitem,word,e)
 
                 elif engineitem == 'crtsh':
                     try:
@@ -510,9 +535,9 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(e)
+                                print(f'A Missing Key error occurred in dehashed: {e}')
                         else:
-                            print(f'An exception has occurred in Dehashed: {e}')
+                            show_default_error_message(engineitem,word,e)
 
                 elif engineitem == 'dnsdumpster':
                     try:
@@ -529,7 +554,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         if not args.quiet:
                             print(e)
                     except Exception as e:
-                        print(f'An exception has occurred in DNSDumpster: {e}')
+                        show_default_error_message(engineitem,word,e)
 
                 elif engineitem == 'duckduckgo':
                     duckduckgo_search = duckduckgosearch.SearchDuckDuckGo(word, limit)
@@ -549,7 +574,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(e)
+                                print(f'A Missing Key error occurred in fullhunt: {e}')
 
                 elif engineitem == 'github-code':
                     try:
@@ -564,7 +589,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except MissingKey as ex:
                         if not args.quiet:
-                            print(ex)
+                            print(f'A Missing Key error occurred in github-code: {ex}')
 
                 elif engineitem == 'hackertarget':
                     hackertarget_search = hackertarget.SearchHackerTarget(word)
@@ -582,7 +607,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
-                            print(e)
+                            print(f'A Missing Key error occurred in HaveIBeenPwned search: {e}')
                         else:
                             print(f'An exception has occurred in HaveIBeenPwned search: {e}')
 
@@ -615,7 +640,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(e)
+                                print(f'A Missing Key error occurred in Hunter: {e}')
 
                 elif engineitem == 'hunterhow':
                     try:
@@ -624,7 +649,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(e)
+                                print(f'A Missing Key error occurred in Hunter How: {e}')
                         else:
                             print(f'An exception has occurred in hunterhow search: {e}')
 
@@ -642,7 +667,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(e)
+                                print(f'A Missing Key error occurred in intelx: {e}')
                         else:
                             print(f'An exception has occurred in Intelx search: {e}')
 
@@ -658,7 +683,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
-                            print(e)
+                            print(f'A Missing Key error occurred in LeakLookup: {e}')
                         else:
                             print(f'An exception has occurred in LeakLookup search: {e}')
 
@@ -676,7 +701,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(e)
+                                print(f'A Missing Key error occurred in Netlas: {e}')
 
                 elif engineitem == 'onyphe':
                     try:
@@ -690,8 +715,21 @@ async def start(rest_args: argparse.Namespace | None = None):
                                 store_asns=True,
                             )
                         )
+                    except ConnectionError as ce:
+                        if not args.quiet:
+                            print(f'Network connection error while accessing Onyphe: {ce}')
+                    except TimeoutError as te:
+                        if not args.quiet:
+                            print(f'Request to Onyphe timed out: {te}')
+                    except ValueError as ve:
+                        if not args.quiet:
+                            print(f'Onyphe returned invalid or unexpected data: {ve}')
+                    except KeyError as ke:
+                        if not args.quiet:
+                            print(f'Unexpected response structure from Onyphe (missing key): {ke}')
                     except Exception as e:
-                        print(e)
+                        if not args.quiet:
+                            print(f'Unexpected error occurred in Onyphe module: {e}')
 
                 elif engineitem == 'otx':
                     try:
@@ -704,8 +742,21 @@ async def start(rest_args: argparse.Namespace | None = None):
                                 store_ip=True,
                             )
                         )
+                    except ConnectionError as ce:
+                        if not args.quiet:
+                            print(f'Network connection error while accessing OTX: {ce}')
+                    except TimeoutError as te:
+                        if not args.quiet:
+                            print(f'Request to OTX timed out: {te}')
+                    except ValueError as ve:
+                        if not args.quiet:
+                            print(f'OTX returned invalid or unexpected data: {ve}')
+                    except KeyError as ke:
+                        if not args.quiet:
+                            print(f'Unexpected response structure from OTX (missing key): {ke}')
                     except Exception as e:
-                        print(e)
+                        if not args.quiet:
+                            print(f'Unexpected error occurred in OTX module: {e}')
 
                 elif engineitem == 'pentesttools':
                     try:
@@ -714,7 +765,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(e)
+                                print(f'A Missing Key error occurred in PentestTools search: {e}')
                         else:
                             print(f'An exception has occurred in PentestTools search: {e}')
 
@@ -725,7 +776,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(e)
+                                print(f'A Missing Key error occurred in ProjectDiscovery: {e}')
                         else:
                             print('An exception has occurred in ProjectDiscovery')
 
@@ -733,8 +784,21 @@ async def start(rest_args: argparse.Namespace | None = None):
                     try:
                         rapiddns_search = rapiddns.SearchRapidDns(word)
                         stor_lst.append(store(rapiddns_search, engineitem, store_host=True))
+                    except ConnectionError as ce:
+                        if not args.quiet:
+                            print(f'Network connection error while accessing RapidDNS: {ce}')
+                    except TimeoutError as te:
+                        if not args.quiet:
+                            print(f'Request to RapidDNS timed out: {te}')
+                    except ValueError as ve:
+                        if not args.quiet:
+                            print(f'RapidDNS returned invalid or unexpected data: {ve}')
+                    except KeyError as ke:
+                        if not args.quiet:
+                            print(f'Unexpected response structure from RapidDNS (missing key): {ke}')
                     except Exception as e:
-                        print(e)
+                        if not args.quiet:
+                            print(f'Unexpected error occurred in RapidDNS module: {e}')
 
                 elif engineitem == 'rocketreach':
                     try:
@@ -743,7 +807,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(e)
+                                print(f'A Missing Key error occurred in RocketReach: {e}')
                         else:
                             print(f'An exception has occurred in RocketReach: {e}')
 
@@ -762,7 +826,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
-                            print(e)
+                            print(f'A Missing Key error occurred in SecurityScorecard search: {e}')
                         else:
                             print(f'An exception has occurred in SecurityScorecard search: {e}')
 
@@ -780,7 +844,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(e)
+                                print(f'A Missing Key error occurred Security Trails: {e}')
 
                 elif engineitem == 'shodan':
                     try:
@@ -818,7 +882,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(e)
+                                print(f'A Missing Key error occurred in Shodan search: {e}')
                         else:
                             print(f'An exception has occurred in Shodan search: {e}')
 
@@ -826,8 +890,21 @@ async def start(rest_args: argparse.Namespace | None = None):
                     try:
                         subdomaincenter_search = subdomaincenter.SubdomainCenter(word)
                         stor_lst.append(store(subdomaincenter_search, engineitem, store_host=True))
+                    except ConnectionError as ce:
+                        if not args.quiet:
+                            print(f'Network connection error while accessing SubdomainCenter: {ce}')
+                    except TimeoutError as te:
+                        if not args.quiet:
+                            print(f'Request to SubdomainCenter timed out: {te}')
+                    except ValueError as ve:
+                        if not args.quiet:
+                            print(f'SubdomainCenter returned invalid or unexpected data: {ve}')
+                    except KeyError as ke:
+                        if not args.quiet:
+                            print(f'Unexpected response structure from SubdomainCenter (missing key): {ke}')
                     except Exception as e:
-                        print(e)
+                        if not args.quiet:
+                            print(f'Unexpected error occurred in SubdomainCenter module: {e}')
 
                 elif engineitem == 'subdomainfinderc99':
                     try:
@@ -836,7 +913,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(e)
+                                print(f'A Missing Key error occurred in Subdomainfinderc99 search: {e}')
                         else:
                             print(f'An exception has occurred in Subdomainfinderc99 search: {e}')
 
@@ -851,8 +928,21 @@ async def start(rest_args: argparse.Namespace | None = None):
                                 store_ip=True,
                             )
                         )
+                    except ConnectionError as ce:
+                        if not args.quiet:
+                            print(f'Network connection error while accessing ThreatMiner: {ce}')
+                    except TimeoutError as te:
+                        if not args.quiet:
+                            print(f'Request to ThreatMiner timed out: {te}')
+                    except ValueError as ve:
+                        if not args.quiet:
+                            print(f'ThreatMiner returned invalid or unexpected data: {ve}')
+                    except KeyError as ke:
+                        if not args.quiet:
+                            print(f'Unexpected response structure from ThreatMiner (missing key): {ke}')
                     except Exception as e:
-                        print(e)
+                        if not args.quiet:
+                            print(f'Unexpected error occurred in ThreatMiner module: {e}')
 
                 elif engineitem == 'tomba':
                     try:
@@ -868,7 +958,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(e)
+                                print(f'A Missing Key error occurred in Tomba: {e}')
 
                 elif engineitem == 'urlscan':
                     try:
@@ -883,8 +973,21 @@ async def start(rest_args: argparse.Namespace | None = None):
                                 store_asns=True,
                             )
                         )
+                    except ConnectionError as ce:
+                        if not args.quiet:
+                            print(f'Network connection error while accessing Urlscan: {ce}')
+                    except TimeoutError as te:
+                        if not args.quiet:
+                            print(f'Request to Urlscan timed out: {te}')
+                    except ValueError as ve:
+                        if not args.quiet:
+                            print(f'Urlscan returned invalid or unexpected data: {ve}')
+                    except KeyError as ke:
+                        if not args.quiet:
+                            print(f'Unexpected response structure from Urlscan (missing key): {ke}')
                     except Exception as e:
-                        print(e)
+                        if not args.quiet:
+                            print(f'Unexpected error occurred in Urlscan module: {e}')
 
                 elif engineitem == 'venacus':
                     try:
@@ -902,7 +1005,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(e)
+                                print(f'A Missing Key error occurred in venacus search: {e}')
                         else:
                             print(f'An exception has occurred in venacus search: {e}')
 
@@ -913,7 +1016,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(e)
+                                print(f'A Missing Key error occurred in virustotal search: {e}')
 
                 elif engineitem == 'whoisxml':
                     try:
@@ -922,7 +1025,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(e)
+                                print(f'A Missing Key error occurred in whoisxml search: {e}')
                         else:
                             print(f'An exception has occurred in WhoisXML search: {e}')
 
@@ -937,8 +1040,21 @@ async def start(rest_args: argparse.Namespace | None = None):
                                 store_emails=True,
                             )
                         )
+                    except ConnectionError as ce:
+                        if not args.quiet:
+                            print(f'Network connection error while accessing Yahoo: {ce}')
+                    except TimeoutError as te:
+                        if not args.quiet:
+                            print(f'Request to Yahoo timed out: {te}')
+                    except ValueError as ve:
+                        if not args.quiet:
+                            print(f'Yahoo returned invalid or unexpected data: {ve}')
+                    except KeyError as ke:
+                        if not args.quiet:
+                            print(f'Unexpected response structure from Yahoo (missing key): {ke}')
                     except Exception as e:
-                        print(e)
+                        if not args.quiet:
+                            print(f'Unexpected error occurred in Yahoo module: {e}')
 
                 elif engineitem == 'zoomeye':
                     try:
@@ -957,7 +1073,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(e)
+                                print(f'A Missing Key error occurred in zoomeye: {e}')
 
         elif rest_args is not None:
             try:
@@ -982,6 +1098,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                 queue.task_done()
                 # Notify the queue that the "work item" has been processed.
             except Exception:
+                print('\n A error occured while processing a "work item".\n')
                 queue.task_done()
 
     async def handler(lst):
@@ -1498,7 +1615,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                 db_storage = stash.StashManager()
                 await db_storage.store_all(word, endpoints_found, 'api_endpoint', 'api_scan')
             except AttributeError:
-                pass  # Skip if there's no custom function
+                print('\n[*] No custom database functions found')
 
             # Add to interesting URLs if any endpoints were found
             if interesting_endpoints:
