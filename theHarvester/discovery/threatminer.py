@@ -6,13 +6,11 @@ from theHarvester.lib.core import AsyncFetcher
 json: ModuleType = _stdlib_json
 try:
     import ujson as _ujson
-
     json = _ujson
-    print("[*] Using 'ujson' for JSON operations.")
-except ImportError as e:
-    print(f"'ujson' not available. Falling back to standard 'json' module. Reason: {e}")
-except Exception as e:
-    print(f"Unexpected error while importing 'ujson'. Falling back to standard 'json'. Reason: {e}")
+except ImportError:
+    pass
+except Exception:
+    pass
 
 
 class SearchThreatminer:

@@ -22,17 +22,23 @@ from theHarvester.discovery import (
     builtwith,
     censysearch,
     certspottersearch,
+    chaos,
+    commoncrawl,
     criminalip,
     crtsh,
     dnssearch,
     duckduckgosearch,
+    facebook,
+    fofa,
     fullhuntsearch,
     githubcode,
+    gitlabsearch,
     hackertarget,
     haveibeenpwned,
     hudsonrocksearch,
     huntersearch,
     intelxsearch,
+    leakix,
     leaklookup,
     netlas,
     onyphe,
@@ -40,6 +46,7 @@ from theHarvester.discovery import (
     pentesttools,
     projectdiscovery,
     rapiddns,
+    robtex,
     rocketreach,
     search_dehashed,
     search_dnsdumpster,
@@ -50,12 +57,15 @@ from theHarvester.discovery import (
     subdomaincenter,
     subdomainfinderc99,
     takeover,
+    threatcrowd,
     threatminer,
     tombasearch,
     urlscan,
     venacussearch,
     virustotal,
+    waybackarchive,
     whoisxml,
+    windvane,
     yahoosearch,
     zoomeyesearch,
 )
@@ -159,10 +169,10 @@ async def start(rest_args: argparse.Namespace | None = None):
         '-b',
         '--source',
         help="""baidu, bevigil, brave, bufferoverun,
-                            builtwith, censys, certspotter, criminalip, crtsh, dehashed, dnsdumpster, duckduckgo, fullhunt, github-code,
-                            hackertarget, haveibeenpwned, hudsonrock, hunter, hunterhow, intelx, leaklookup, netlas, onyphe, otx, pentesttools,
-                            projectdiscovery, rapiddns, rocketreach, securityscorecard, securityTrails, shodan, subdomaincenter,
-                            subdomainfinderc99, threatminer, tomba, urlscan, venacus, virustotal, whoisxml, yahoo, zoomeye""",
+                            builtwith, censys, certspotter, chaos, commoncrawl, criminalip, crtsh, dehashed, dnsdumpster, duckduckgo, facebook, fofa, fullhunt, github-code,
+                            gitlab, hackertarget, haveibeenpwned, hudsonrock, hunter, hunterhow, intelx, leakix, leaklookup, netlas, onyphe, otx, pentesttools,
+                            projectdiscovery, rapiddns, robtex, rocketreach, securityscorecard, securityTrails, shodan, subdomaincenter,
+                            subdomainfinderc99, threatcrowd, threatminer, tomba, urlscan, venacus, virustotal, waybackarchive, whoisxml, windvane, yahoo, zoomeye""",
     )
 
     # determines if the filename is coming from rest api or user
@@ -495,6 +505,36 @@ async def start(rest_args: argparse.Namespace | None = None):
                         if not args.quiet:
                             print(f'Unexpected error occurred in Certspotter module: {e}')
 
+                elif engineitem == 'chaos':
+                    try:
+                        chaos_search = chaos.SearchChaos(word)
+                        stor_lst.append(
+                            store(
+                                chaos_search,
+                                engineitem,
+                                store_host=True,
+                            )
+                        )
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            if not args.quiet:
+                                print(f'A Missing Key error occurred in Chaos: {e}')
+                        else:
+                            show_default_error_message(engineitem, word, e)
+
+                elif engineitem == 'commoncrawl':
+                    try:
+                        commoncrawl_search = commoncrawl.SearchCommoncrawl(word)
+                        stor_lst.append(
+                            store(
+                                commoncrawl_search,
+                                engineitem,
+                                store_host=True,
+                            )
+                        )
+                    except Exception as e:
+                        show_default_error_message(engineitem, word, e)
+
                 elif engineitem == 'criminalip':
                     try:
                         criminalip_search = criminalip.SearchCriminalIP(word)
@@ -567,6 +607,41 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     )
 
+                elif engineitem == 'facebook':
+                    try:
+                        facebook_search = facebook.SearchFacebook(word)
+                        stor_lst.append(
+                            store(
+                                facebook_search,
+                                engineitem,
+                                store_host=True,
+                            )
+                        )
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            if not args.quiet:
+                                print(f'A Missing Key error occurred in Facebook CT: {e}')
+                        else:
+                            show_default_error_message(engineitem, word, e)
+
+                elif engineitem == 'fofa':
+                    try:
+                        fofa_search = fofa.SearchFofa(word)
+                        stor_lst.append(
+                            store(
+                                fofa_search,
+                                engineitem,
+                                store_host=True,
+                                store_ip=True,
+                            )
+                        )
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            if not args.quiet:
+                                print(f'A Missing Key error occurred in Fofa: {e}')
+                        else:
+                            show_default_error_message(engineitem, word, e)
+
                 elif engineitem == 'fullhunt':
                     try:
                         fullhunt_search = fullhuntsearch.SearchFullHunt(word)
@@ -590,6 +665,20 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except MissingKey as ex:
                         if not args.quiet:
                             print(f'A Missing Key error occurred in github-code: {ex}')
+
+                elif engineitem == 'gitlab':
+                    try:
+                        gitlab_search = gitlabsearch.SearchGitlab(word)
+                        stor_lst.append(
+                            store(
+                                gitlab_search,
+                                engineitem,
+                                store_host=True,
+                                store_emails=True,
+                            )
+                        )
+                    except Exception as e:
+                        show_default_error_message(engineitem, word, e)
 
                 elif engineitem == 'hackertarget':
                     hackertarget_search = hackertarget.SearchHackerTarget(word)
@@ -670,6 +759,20 @@ async def start(rest_args: argparse.Namespace | None = None):
                                 print(f'A Missing Key error occurred in intelx: {e}')
                         else:
                             print(f'An exception has occurred in Intelx search: {e}')
+
+                elif engineitem == 'leakix':
+                    try:
+                        leakix_search = leakix.SearchLeakix(word)
+                        stor_lst.append(
+                            store(
+                                leakix_search,
+                                engineitem,
+                                store_host=True,
+                                store_emails=True,
+                            )
+                        )
+                    except Exception as e:
+                        show_default_error_message(engineitem, word, e)
 
                 elif engineitem == 'leaklookup':
                     try:
@@ -800,6 +903,20 @@ async def start(rest_args: argparse.Namespace | None = None):
                         if not args.quiet:
                             print(f'Unexpected error occurred in RapidDNS module: {e}')
 
+                elif engineitem == 'robtex':
+                    try:
+                        robtex_search = robtex.SearchRobtex(word)
+                        stor_lst.append(
+                            store(
+                                robtex_search,
+                                engineitem,
+                                store_host=True,
+                                store_ip=True,
+                            )
+                        )
+                    except Exception as e:
+                        show_default_error_message(engineitem, word, e)
+
                 elif engineitem == 'rocketreach':
                     try:
                         rocketreach_search = rocketreach.SearchRocketReach(word, limit)
@@ -917,6 +1034,20 @@ async def start(rest_args: argparse.Namespace | None = None):
                         else:
                             print(f'An exception has occurred in Subdomainfinderc99 search: {e}')
 
+                elif engineitem == 'threatcrowd':
+                    try:
+                        threatcrowd_search = threatcrowd.SearchThreatcrowd(word)
+                        stor_lst.append(
+                            store(
+                                threatcrowd_search,
+                                engineitem,
+                                store_host=True,
+                                store_ip=True,
+                            )
+                        )
+                    except Exception as e:
+                        show_default_error_message(engineitem, word, e)
+
                 elif engineitem == 'threatminer':
                     try:
                         threatminer_search = threatminer.SearchThreatminer(word)
@@ -1018,6 +1149,19 @@ async def start(rest_args: argparse.Namespace | None = None):
                             if not args.quiet:
                                 print(f'A Missing Key error occurred in virustotal search: {e}')
 
+                elif engineitem == 'waybackarchive':
+                    try:
+                        waybackarchive_search = waybackarchive.SearchWaybackarchive(word)
+                        stor_lst.append(
+                            store(
+                                waybackarchive_search,
+                                engineitem,
+                                store_host=True,
+                            )
+                        )
+                    except Exception as e:
+                        show_default_error_message(engineitem, word, e)
+
                 elif engineitem == 'whoisxml':
                     try:
                         whoisxml_search = whoisxml.SearchWhoisXML(word)
@@ -1028,6 +1172,21 @@ async def start(rest_args: argparse.Namespace | None = None):
                                 print(f'A Missing Key error occurred in whoisxml search: {e}')
                         else:
                             print(f'An exception has occurred in WhoisXML search: {e}')
+
+                elif engineitem == 'windvane':
+                    try:
+                        windvane_search = windvane.SearchWindvane(word)
+                        stor_lst.append(
+                            store(
+                                windvane_search,
+                                engineitem,
+                                store_host=True,
+                                store_ip=True,
+                                store_emails=True,
+                            )
+                        )
+                    except Exception as e:
+                        show_default_error_message(engineitem, word, e)
 
                 elif engineitem == 'yahoo':
                     try:
