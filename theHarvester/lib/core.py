@@ -213,7 +213,6 @@ class Core:
             'dehashed',
             'dnsdumpster',
             'duckduckgo',
-            'facebook',
             'fofa',
             'fullhunt',
             'github-code',
