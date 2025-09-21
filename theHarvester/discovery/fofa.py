@@ -32,11 +32,7 @@ class SearchFofa:
     def _get_api_credentials(self) -> tuple[str, str]:
         """Get Fofa API credentials"""
         try:
-            api_keys = Core.api_keys()
-            if 'fofa' in api_keys:
-                return api_keys['fofa'].get('key', ''), api_keys['fofa'].get('email', '')
-            else:
-                raise MissingKey('Fofa API (key and email required)')
+            return Core.fofa_key()
         except Exception:
             raise MissingKey('Fofa API (key and email required)')
 

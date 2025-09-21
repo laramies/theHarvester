@@ -91,6 +91,10 @@ class Core:
         return Core.api_keys()['dnsdumpster']['key']
 
     @staticmethod
+    def fofa_key() -> tuple[str, str]:
+        return Core.api_keys()['fofa']['key'], Core.api_keys()['fofa']['email']
+
+    @staticmethod
     def fullhunt_key() -> str:
         return Core.api_keys()['fullhunt']['key']
 
@@ -165,6 +169,10 @@ class Core:
     @staticmethod
     def whoisxml_key() -> str:
         return Core.api_keys()['whoisxml']['key']
+
+    @staticmethod
+    def windvane_key() -> str:
+        return Core.api_keys()['windvane']['key']
 
     @staticmethod
     def zoomeye_key() -> str:

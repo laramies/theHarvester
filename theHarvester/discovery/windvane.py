@@ -1,6 +1,7 @@
 import json as _stdlib_json
 from types import ModuleType
 
+from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import AsyncFetcher, Core
 
 json: ModuleType = _stdlib_json
@@ -40,7 +41,15 @@ class SearchWindvane:
         self.totalemails: set = set()
         self.proxy = False
         self.hostname = 'https://windvane.lichoin.com/trpc.backendhub.public.WindvaneService'
-        self.api_key = None  # Can be set via environment variable or config
+        self.api_key = self._get_api_key()
+
+    def _get_api_key(self) -> str | None:
+        
+        try:
+            return Core.windvane_key()
+        except Exception:
+            # API key is optional for windvane - returns None for limited access
+            return None
 
     @staticmethod
     def _safe_parse_json(payload: object) -> dict:
@@ -335,9 +344,6 @@ class SearchWindvane:
         """
         self.proxy = proxy
         
-        # Try to get API key from environment if not set
-        if not self.api_key:
-            import os
-            self.api_key = os.environ.get('WINDVANE_API_KEY')
+        # API key is already set via _get_api_key() method
         
         await self.do_search()
