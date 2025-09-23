@@ -7,6 +7,7 @@ from theHarvester.lib.core import AsyncFetcher, Core
 json: ModuleType = _stdlib_json
 try:
     import ujson as _ujson
+
     json = _ujson
 except ImportError:
     pass
@@ -47,14 +48,11 @@ class SearchChaos:
 
     async def do_search(self) -> None:
         try:
-            headers = {
-                'User-agent': Core.get_user_agent(),
-                'Authorization': f'Bearer {self.key}'
-            }
-            
+            headers = {'User-agent': Core.get_user_agent(), 'Authorization': f'Bearer {self.key}'}
+
             # Chaos API endpoint for subdomain enumeration
             url = f'{self.hostname}/dns/{self.word}/subdomains'
-            
+
             response = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
 
             if not response or not isinstance(response, list) or not response[0]:
@@ -63,7 +61,7 @@ class SearchChaos:
 
             try:
                 data = self._safe_parse_json(response[0])
-                
+
                 if isinstance(data, dict):
                     # Check for error messages
                     if 'error' in data:
@@ -72,33 +70,33 @@ class SearchChaos:
                         if 'unauthorized' in error_msg.lower():
                             raise MissingKey('Chaos (ProjectDiscovery)')
                         return
-                    
+
                     # Extract subdomains from response
                     subdomains = data.get('subdomains', [])
                     if not subdomains:
                         subdomains = data.get('data', [])
                     if not subdomains:
                         subdomains = data.get('results', [])
-                        
+
                     if isinstance(subdomains, list):
                         for subdomain in subdomains:
                             if isinstance(subdomain, str):
                                 # Chaos returns subdomain names without the root domain
                                 # So we need to append the root domain
-                                full_domain = f"{subdomain}.{self.word}" if subdomain else self.word
+                                full_domain = f'{subdomain}.{self.word}' if subdomain else self.word
                                 self.totalhosts.add(full_domain.lower())
                             elif isinstance(subdomain, dict):
                                 # Handle different response formats
                                 sub = subdomain.get('subdomain', '') or subdomain.get('name', '')
                                 if sub:
-                                    full_domain = f"{sub}.{self.word}"
+                                    full_domain = f'{sub}.{self.word}'
                                     self.totalhosts.add(full_domain.lower())
-                                    
+
                 elif isinstance(data, list):
                     # Sometimes the response is directly a list
                     for subdomain in data:
                         if isinstance(subdomain, str):
-                            full_domain = f"{subdomain}.{self.word}" if subdomain else self.word
+                            full_domain = f'{subdomain}.{self.word}' if subdomain else self.word
                             self.totalhosts.add(full_domain.lower())
 
             except Exception as e:

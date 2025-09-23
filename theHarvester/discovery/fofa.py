@@ -1,5 +1,5 @@
-import json as _stdlib_json
 import base64
+import json as _stdlib_json
 from types import ModuleType
 
 from theHarvester.discovery.constants import MissingKey
@@ -8,6 +8,7 @@ from theHarvester.lib.core import AsyncFetcher, Core
 json: ModuleType = _stdlib_json
 try:
     import ujson as _ujson
+
     json = _ujson
 except ImportError:
     pass
@@ -50,11 +51,11 @@ class SearchFofa:
     async def do_search(self) -> None:
         try:
             headers = {'User-agent': Core.get_user_agent()}
-            
+
             # Fofa search query - encode in base64
             query = f'domain="{self.word}"'
             query_encoded = base64.b64encode(query.encode()).decode()
-            
+
             # Fofa API endpoint
             url = f'{self.hostname}/api/v1/search/all'
             params = {
@@ -62,13 +63,13 @@ class SearchFofa:
                 'key': self.api_key,
                 'qbase64': query_encoded,
                 'fields': 'host,ip,port,protocol,title',
-                'size': 100  # Limit results
+                'size': 100,  # Limit results
             }
-            
+
             # Build URL with parameters
-            param_string = '&'.join([f"{k}={v}" for k, v in params.items()])
-            full_url = f"{url}?{param_string}"
-            
+            param_string = '&'.join([f'{k}={v}' for k, v in params.items()])
+            full_url = f'{url}?{param_string}'
+
             response = await AsyncFetcher.fetch_all([full_url], headers=headers, proxy=self.proxy)
 
             if not response or not isinstance(response, list) or not response[0]:
@@ -77,7 +78,7 @@ class SearchFofa:
 
             try:
                 data = self._safe_parse_json(response[0])
-                
+
                 if isinstance(data, dict):
                     # Check for errors
                     if data.get('error', False):
@@ -86,22 +87,22 @@ class SearchFofa:
                         if '账号无效' in error_msg or 'invalid' in error_msg.lower():
                             raise MissingKey('Fofa API (Invalid credentials)')
                         return
-                    
+
                     # Extract results
                     results = data.get('results', [])
                     if isinstance(results, list):
                         for result in results:
                             if isinstance(result, list) and len(result) >= 2:
                                 host = result[0]  # host field
-                                ip = result[1]    # ip field
-                                
+                                ip = result[1]  # ip field
+
                                 # Add host if it's related to our domain
                                 if isinstance(host, str) and self.word in host:
                                     # Extract clean hostname
                                     clean_host = host.replace('http://', '').replace('https://', '').split(':')[0]
                                     if clean_host.endswith(f'.{self.word}') or clean_host == self.word:
                                         self.totalhosts.add(clean_host.lower())
-                                
+
                                 # Add IP
                                 if isinstance(ip, str) and ip:
                                     self.totalips.add(ip)

@@ -6,6 +6,7 @@ from theHarvester.lib.core import AsyncFetcher, Core
 json: ModuleType = _stdlib_json
 try:
     import ujson as _ujson
+
     json = _ujson
 except ImportError:
     pass
@@ -40,10 +41,10 @@ class SearchThreatcrowd:
     async def do_search(self) -> None:
         try:
             headers = {'User-agent': Core.get_user_agent()}
-            
-            # ThreatCrowd domain report API 
+
+            # ThreatCrowd domain report API
             url = f'{self.hostname}/searchApi/v2/domain/report/?domain={self.word}'
-            
+
             response = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
 
             if not response or not isinstance(response, list) or not response[0]:
@@ -52,14 +53,14 @@ class SearchThreatcrowd:
 
             try:
                 data = self._safe_parse_json(response[0])
-                
+
                 if isinstance(data, dict):
                     # Check response code - '1' means success in ThreatCrowd API
                     response_code = data.get('response_code', '')
                     if response_code and response_code != '1':
                         print(f'ThreatCrowd API returned error code: {response_code}')
                         return
-                    
+
                     # Extract subdomains - direct list in response
                     subdomains = data.get('subdomains', [])
                     if isinstance(subdomains, list):
@@ -69,7 +70,7 @@ class SearchThreatcrowd:
                                 clean_subdomain = subdomain.strip().lower()
                                 if clean_subdomain.endswith(f'.{self.word}') or clean_subdomain == self.word:
                                     self.totalhosts.add(clean_subdomain)
-                    
+
                     # Extract IPs if available (from resolutions)
                     resolutions = data.get('resolutions', [])
                     if isinstance(resolutions, list):

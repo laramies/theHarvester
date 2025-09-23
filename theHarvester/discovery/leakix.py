@@ -6,6 +6,7 @@ from theHarvester.lib.core import AsyncFetcher, Core
 json: ModuleType = _stdlib_json
 try:
     import ujson as _ujson
+
     json = _ujson
 except ImportError:
     pass
@@ -42,16 +43,16 @@ class SearchLeakix:
     async def do_search(self) -> None:
         try:
             headers = {'User-agent': Core.get_user_agent()}
-            
+
             # Try public endpoints (without API key requirements)
             # Most LeakIX endpoints require API keys, so this is limited
-            
+
             # Try to search public data (this may have limited results)
             search_queries = [
                 f'{self.hostname}/api/subdomains/{self.word}',
                 f'{self.hostname}/host/{self.word}',
             ]
-            
+
             for query_url in search_queries:
                 try:
                     response = await AsyncFetcher.fetch_all([query_url], headers=headers, proxy=self.proxy)
@@ -61,28 +62,28 @@ class SearchLeakix:
 
                     # Check if response is an error message
                     if isinstance(response[0], str) and (
-                        'Incorrect API Key' in response[0] or 
-                        'unauthorized' in response[0].lower() or
-                        'error' in response[0].lower()
+                        'Incorrect API Key' in response[0]
+                        or 'unauthorized' in response[0].lower()
+                        or 'error' in response[0].lower()
                     ):
                         print(f'LeakIX API requires authentication: {response[0][:100]}')
                         continue
 
                     try:
                         data = self._safe_parse_json(response[0])
-                        
+
                         for item in data:
                             if isinstance(item, dict):
                                 # Extract hostnames from different fields
                                 hostname = item.get('hostname', '') or item.get('host', '') or item.get('domain', '')
                                 if hostname and (hostname.endswith(f'.{self.word}') or hostname == self.word):
                                     self.totalhosts.add(hostname.lower())
-                                
+
                                 # Extract emails if available
                                 email = item.get('email', '') or item.get('username', '')
                                 if email and '@' in email and self.word in email:
                                     self.totalemails.add(email.lower())
-                                    
+
                                 # Check for subdomains in other fields
                                 for field in ['subdomain', 'target', 'service_name']:
                                     value = item.get(field, '')
@@ -92,7 +93,7 @@ class SearchLeakix:
 
                     except Exception as e:
                         print(f'Failed to parse LeakIX response: {e}')
-                        
+
                 except Exception as e:
                     print(f'LeakIX API error for {query_url}: {e}')
                     continue
@@ -102,7 +103,7 @@ class SearchLeakix:
 
     async def get_hostnames(self) -> set:
         return self.totalhosts
-        
+
     async def get_emails(self) -> set:
         return self.totalemails
 

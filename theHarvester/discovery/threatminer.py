@@ -6,6 +6,7 @@ from theHarvester.lib.core import AsyncFetcher
 json: ModuleType = _stdlib_json
 try:
     import ujson as _ujson
+
     json = _ujson
 except ImportError:
     pass

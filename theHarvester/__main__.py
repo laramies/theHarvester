@@ -606,7 +606,6 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     )
 
-
                 elif engineitem == 'fofa':
                     try:
                         fofa_search = fofa.SearchFofa(word)

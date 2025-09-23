@@ -32,7 +32,7 @@ class SearchRobtex:
         results = []
         if not payload:
             return results
-        
+
         for line in payload.strip().split('\n'):
             if line.strip():
                 try:
@@ -44,7 +44,7 @@ class SearchRobtex:
     async def do_search(self) -> None:
         try:
             headers = {'User-agent': Core.get_user_agent()}
-            
+
             # Use passive DNS forward lookup to get subdomains
             url = f'{self.hostname}/pdns/forward/{self.word}'
             response = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
@@ -66,16 +66,16 @@ class SearchRobtex:
                     rrdata = record.get('rrdata', '')
                     rrtype = record.get('rrtype', '')
                     rrname = record.get('rrname', '')
-                    
+
                     # Add the original domain name
                     if rrname and rrname.endswith(self.word):
                         self.totalhosts.add(rrname)
-                    
+
                     # For CNAME records, the rrdata contains hostnames
                     if rrtype == 'CNAME' and rrdata:
                         if rrdata.endswith(self.word) or f'.{self.word}' in rrdata:
                             self.totalhosts.add(rrdata.rstrip('.'))
-                    
+
                     # For A records, we can get IPs
                     if rrtype == 'A' and rrdata:
                         try:
@@ -89,7 +89,7 @@ class SearchRobtex:
             # Also try reverse DNS lookup for additional data
             reverse_url = f'{self.hostname}/pdns/reverse/{self.word}'
             reverse_response = await AsyncFetcher.fetch_all([reverse_url], headers=headers, proxy=self.proxy)
-            
+
             if reverse_response and isinstance(reverse_response, list) and reverse_response[0]:
                 try:
                     reverse_data = self._safe_parse_json_lines(reverse_response[0])
