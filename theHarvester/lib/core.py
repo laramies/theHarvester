@@ -198,7 +198,6 @@ class Core:
         Returns a list of supported search engines.
         """
         return [
-            'api_endpoints',
             'baidu',
             'bevigil',
             'bufferoverun',
