@@ -91,6 +91,10 @@ class Core:
         return Core.api_keys()['dnsdumpster']['key']
 
     @staticmethod
+    def fofa_key() -> tuple[str, str]:
+        return Core.api_keys()['fofa']['key'], Core.api_keys()['fofa']['email']
+
+    @staticmethod
     def fullhunt_key() -> str:
         return Core.api_keys()['fullhunt']['key']
 
@@ -167,6 +171,10 @@ class Core:
         return Core.api_keys()['whoisxml']['key']
 
     @staticmethod
+    def windvane_key() -> str:
+        return Core.api_keys()['windvane']['key']
+
+    @staticmethod
     def zoomeye_key() -> str:
         return Core.api_keys()['zoomeye']['key']
 
@@ -205,19 +213,24 @@ class Core:
             'brave',
             'censys',
             'certspotter',
+            'chaos',
+            'commoncrawl',
             'criminalip',
             'crtsh',
             'dehashed',
             'dnsdumpster',
             'duckduckgo',
+            'fofa',
             'fullhunt',
             'github-code',
+            'gitlab',
             'hackertarget',
             'haveibeenpwned',
             'hudsonrock',
             'hunter',
             'hunterhow',
             'intelx',
+            'leakix',
             'leaklookup',
             'linkedin',
             'linkedin_links',
@@ -230,6 +243,7 @@ class Core:
             'projectdiscovery',
             'qwant',
             'rapiddns',
+            'robtex',
             'rocketreach',
             'securityscorecard',
             'securityTrails',
@@ -243,7 +257,9 @@ class Core:
             'urlscan',
             'venacus',
             'virustotal',
+            'waybackarchive',
             'whoisxml',
+            'windvane',
             'yahoo',
             'zoomeye',
             'zoomeyeapi',

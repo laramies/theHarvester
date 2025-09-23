@@ -25,6 +25,10 @@ apikeys:
   dnsdumpster:
     key:
 
+  fofa:
+    key:
+    email:
+
   fullhunt:
     key:
 
@@ -81,6 +85,9 @@ apikeys:
     key:
 
   whoisxml:
+    key:
+
+  windvane:
     key:
 
   zoomeye:
