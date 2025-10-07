@@ -139,6 +139,8 @@ Passive modules
 
 * yahoo: Yahoo search engine (https://www.yahoo.com)
 
+* windvane: Windvane search engine (https://windvane.lichoin.com)
+
 * zoomeye: China's version of Shodan (https://www.zoomeye.org)
 
 Active modules
@@ -178,6 +180,7 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * venacus - 1 search/day free, 10 searches/day $12, 30 searches/day $36
 * virustotal - free 500 lookups/day, 15.5k lookups/month. Busines accounts requires a work email
 * whoisxml - 2k queries $50, 5k queries $105
+* windvane - 100 free queries
 * zoomeye - 5 results/day free, 30/results/day $190/yr
 
 ## Package versions
