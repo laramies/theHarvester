@@ -164,18 +164,19 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * haveibeenpwned - 10 email searches/min $4.50, 50 email searches/min $22
 * hunter - 50 credits/month free, 12k credits/yr $34
 * hunterhow - 10k free API results per 30 days, 50k API results per 30 days $10
-* intelx
+* intelx - free account is very limited. Business acount $2900
 * leaklookup - 20 credits $10, 50 credits $20, 140 credits $50, 300 credits $100
 * netlas - 50 free requests/day, 1k requests $49, 10k requests $249
 * onyphe - 10M results/month $587
 * pentesttools - 5 assets netsec $95/month, 5 assets webnetsec $140/month
 * projecdiscovery - requires work email. Free monthly discovery and vulnerability scans on sign-up email domain, enterprise $
 * rocketreach - 100 email lookups/month $48, 250 email lookups/month $108
-* securityscorecard
+* securityscorecard - requires a work email
 * securityTrails - 50 free queries/month, 20k queries/month $500
 * shodan - Freelancer $69 month, Small Business $359 month
 * tomba - 25 searches/month free, 1k searches/month $39, 5k searches/month $89
 * venacus - 1 search/day free, 10 searches/day $12, 30 searches/day $36
+* virustotal - free 500 lookups/day, 15.5k lookups/month. Busines accounts requires a work email
 * whoisxml - 2k queries $50, 5k queries $105
 * zoomeye - 5 results/day free, 30/results/day $190/yr
 
