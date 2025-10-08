@@ -47,6 +47,9 @@ apikeys:
   intelx:
     key:
 
+  leakix:
+    key:
+
   leaklookup:
     key:
 
