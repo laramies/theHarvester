@@ -1,14 +1,12 @@
 from unittest.mock import MagicMock, AsyncMock
 import asyncio
 import pytest
-from _pytest.mark.structures import MarkDecorator
 from theHarvester.discovery import githubcode
 from theHarvester.lib.core import Core
 
-pytestmark: MarkDecorator = pytest.mark.asyncio
-
 
 class TestSearchGithubCodeProcess:
+    @pytest.mark.asyncio
     async def test_process_stops_after_max_retries(self, monkeypatch):
         Core.github_key = MagicMock(return_value="test_key")  # type: ignore[method-assign]
         inst = githubcode.SearchGithubCode(word="test", limit=10)
@@ -34,6 +32,7 @@ class TestSearchGithubCodeProcess:
         assert inst.page == 0, "Process should stop after exceeding max retries"
         assert inst.retry_count == 3, "Retry count should exceed max_retries before stopping"
 
+    @pytest.mark.asyncio
     async def test_process_stops_on_error_result(self, monkeypatch):
         Core.github_key = MagicMock(return_value="test_key")  # type: ignore[method-assign]
         inst = githubcode.SearchGithubCode(word="test", limit=10)
@@ -56,6 +55,7 @@ class TestSearchGithubCodeProcess:
         await inst.process()
         assert inst.page == 0, "Process should stop on error result to avoid infinite loop"
 
+    @pytest.mark.asyncio
     async def test_process_breaks_on_same_page_pagination(self, monkeypatch):
         Core.github_key = MagicMock(return_value="test_key")  # type: ignore[method-assign]
         inst = githubcode.SearchGithubCode(word="test", limit=10)

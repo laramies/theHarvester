@@ -5,12 +5,10 @@ from typing import Optional
 
 import pytest
 import httpx
-from _pytest.mark.structures import MarkDecorator
 
 from theHarvester.discovery import certspottersearch
 from theHarvester.lib.core import *
 
-pytestmark: MarkDecorator = pytest.mark.asyncio
 github_ci: Optional[str] = os.getenv(
     "GITHUB_ACTIONS"
 )  # Github set this to be the following: true instead of True
@@ -24,12 +22,14 @@ class TestCertspotter(object):
 
 @pytest.mark.skipif(github_ci == 'true', reason="Skipping this test for now")
 class TestCertspotterSearch(object):
+    @pytest.mark.asyncio
     async def test_api(self) -> None:
         base_url = f"https://api.certspotter.com/v1/issuances?domain={TestCertspotter.domain()}&expand=dns_names"
         headers = {"User-Agent": Core.get_user_agent()}
         request = httpx.get(base_url, headers=headers)
         assert request.status_code == 200
 
+    @pytest.mark.asyncio
     async def test_search(self) -> None:
         search = certspottersearch.SearchCertspoter(TestCertspotter.domain())
         await search.process()

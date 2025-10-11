@@ -1,12 +1,10 @@
-from _pytest.mark.structures import MarkDecorator
 import pytest
 
 from theHarvester.discovery import baidusearch
 
-pytestmark: MarkDecorator = pytest.mark.asyncio
-
 
 class TestBaiduSearch:
+    @pytest.mark.asyncio
     async def test_process_and_parsing(self, monkeypatch):
         called = {}
 
@@ -48,6 +46,7 @@ class TestBaiduSearch:
 
         assert {"a.example.com", "www.example.com", "sub.a.example.com"} <= set(hosts)
 
+    @pytest.mark.asyncio
     async def test_pagination_limit_exclusive(self, monkeypatch):
         captured = {}
 
