@@ -16,7 +16,7 @@ jobs:
       max-parallel: 10
       matrix:
         os: [ ubuntu-latest ]
-        python-version: [ '3.12', '3.13', '3.14.0-beta.1' ]
+        python-version: [ '3.12', '3.13', '3.14.0' ]
 
     steps:
       - uses: actions/checkout@v5
@@ -31,17 +31,17 @@ jobs:
           sudo chown -R runner:runner /usr/local/etc/theHarvester/
           pip install --upgrade pip
           pip install .[dev]
-        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0' }}
 
       - name: Lint with ruff
         run: |
           ruff check --fix
-        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0' }}
 
       - name: Format with ruff
         run: |
           ruff format
-        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0' }}
 
       - name: Commit changes for ruff formating and linting
         if: github.event_name == 'push'
@@ -57,59 +57,59 @@ jobs:
       - name: Test with pytest
         run: |
           pytest tests/**
-        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0' }}
 
       - name: Run theHarvester module Baidu
         run: |
           theHarvester -d yale.edu -b baidu
-        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0' }}
 
       - name: Run theHarvester module CertSpotter
         run: |
           theHarvester -d yale.edu -b certspotter
-        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0' }}
 
       - name: Run theHarvester module Crtsh
         run: |
           theHarvester -d hcl.com -b crtsh
-        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0' }}
 
       - name: Run theHarvester module DuckDuckGo
         run: |
           theHarvester -d yale.edu -b duckduckgo
-        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0' }}
 
       - name: Run theHarvester module HackerTarget
         run: |
           theHarvester -d yale.edu -b hackertarget
-        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0' }}
 
       - name: Run theHarvester module Otx
         run: |
           theHarvester -d yale.edu -b otx
-        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0' }}
 
       - name: Run theHarvester module RapidDns
         run: |
           theHarvester -d yale.edu -b rapiddns
-        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0' }}
 
       - name: Run theHarvester module Threatminer
         run: |
           theHarvester -d yale.edu -b threatminer
-        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0' }}
 
       - name: Run theHarvester module Urlscan
         run: |
           theHarvester -d yale.edu -b urlscan
-        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0' }}
 
       - name: Run theHarvester module Yahoo
         run: |
           theHarvester -d yale.edu -b yahoo
-        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0' }}
 
       - name: Run theHarvester module DNS brute force
         run: |
           theHarvester -d yale.edu -c
-        continue-on-error: ${{ matrix.python-version == '3.14.0-beta.1' }}
+        continue-on-error: ${{ matrix.python-version == '3.14.0' }}
