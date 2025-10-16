@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import argparse
 import asyncio
 import os
@@ -17,6 +16,7 @@ from theHarvester.discovery import (
     api_endpoints,
     baidusearch,
     bevigil,
+    bitbucket,
     bravesearch,
     bufferoverun,
     builtwith,
@@ -167,7 +167,7 @@ async def start(rest_args: argparse.Namespace | None = None):
     parser.add_argument(
         '-b',
         '--source',
-        help="""baidu, bevigil, brave, bufferoverun,
+        help="""baidu, bevigil, bitbucket, brave, bufferoverun,
                             builtwith, censys, certspotter, chaos, commoncrawl, criminalip, crtsh, dehashed, dnsdumpster, duckduckgo, fofa, fullhunt, github-code,
                             gitlab, hackertarget, haveibeenpwned, hudsonrock, hunter, hunterhow, intelx, leakix, leaklookup, netlas, onyphe, otx, pentesttools,
                             projectdiscovery, rapiddns, robtex, rocketreach, securityscorecard, securityTrails, shodan, subdomaincenter,
@@ -417,6 +417,21 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except Exception as e:
                         show_default_error_message(engineitem, word, error=e)
+                elif engineitem == 'bitbucket-code':
+                    try:
+                        bitbucket_search = bitbucket.SearchBitBucketCode(word, limit)
+                        stor_lst.append(
+                            store(
+                                bitbucket_search,
+                                engineitem,
+                                store_host=True,
+                                store_emails=True,
+                            )
+                        )
+                    except MissingKey as ex:
+                        if not args.quiet:
+                            print(f'A Missing Key error occurred in bitbucket: {ex}')
+
 
                 elif engineitem == 'brave':
                     try:
