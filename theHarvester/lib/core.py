@@ -63,6 +63,10 @@ class Core:
         return Core.api_keys()['bing']['key']
 
     @staticmethod
+    def bitbucket_key() -> str:
+        return Core.api_keys()['bitbucket']['key']
+
+    @staticmethod
     def brave_key() -> str:
         return Core.api_keys()['brave']['key']
 
