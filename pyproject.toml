@@ -27,7 +27,7 @@ dependencies = [
     "censys==2.2.18",
     "certifi==2025.10.5",
     "dnspython==2.8.0",
-    "fastapi==0.120.1",
+    "fastapi==0.120.2",
     "lxml==6.0.2",
     "netaddr==1.3.0",
     "playwright==1.55.0",
