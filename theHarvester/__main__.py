@@ -453,7 +453,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             print(f"Failed to perform BuiltWith search for word: '{word}'")
-                            print(f'A Missing Key Error occured in builtwith: {e}')
+                            print(f'A Missing Key Error occurred in builtwith: {e}')
                         else:
                             show_default_error_message(engineitem, word, e)
 
@@ -1239,7 +1239,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                 queue.task_done()
                 # Notify the queue that the "work item" has been processed.
             except Exception:
-                print('\n A error occured while processing a "work item".\n')
+                print('\n A error occurred while processing a "work item".\n')
                 queue.task_done()
 
     async def handler(lst):
