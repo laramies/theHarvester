@@ -95,7 +95,7 @@ class SearchZoomEye:
             try:
                 return int(payload['available'])
             except ValueError:
-                print('Payload availablity is not a integer')
+                print('Payload availability is not a integer')
             except Exception as e:
                 print(f'An error occurred in page_total_from_payload : {e}')
         total_results = payload.get('total') or payload.get('count') or payload.get('total_count')
