@@ -19,7 +19,7 @@ jobs:
         python-version: [ '3.12', '3.13', '3.14.0' ]
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
         with:
