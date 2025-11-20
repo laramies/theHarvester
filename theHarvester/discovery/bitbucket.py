@@ -38,7 +38,7 @@ class SearchBitBucketCode:
             if self.key is None:
                 raise MissingKey('BitBucket')
             self.proxy = False
-            self.base_url = f'https://{self.server}/2.0/repositories/"{self.word}"/src' #Word must contain username and repo
+            self.base_url = f'https://{self.server}/2.0/repositories/"{self.word}"/src'  # Word must contain username and repo
             self.headers = {
                 'Host': self.server,
                 'User-agent': Core.get_user_agent(),

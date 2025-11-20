@@ -432,7 +432,6 @@ async def start(rest_args: argparse.Namespace | None = None):
                         if not args.quiet:
                             print(f'A Missing Key error occurred in bitbucket: {ex}')
 
-
                 elif engineitem == 'brave':
                     try:
                         brave_search = bravesearch.SearchBrave(word, limit)
