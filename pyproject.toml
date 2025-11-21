@@ -53,7 +53,7 @@ dev = [
     "types-chardet==5.0.4.6",
     "types-python-dateutil==2.9.0.20251115",
     "types-PyYAML==6.0.12.20250822",
-    "ruff==0.14.5",
+    "ruff==0.14.6",
     "types-ujson==5.10.0.20250822",
     "wheel==0.45.1",
 ]
