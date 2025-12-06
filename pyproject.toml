@@ -40,7 +40,7 @@ dependencies = [
     "ujson==5.11.0",
     "uvicorn==0.38.0",
     "uvloop==0.22.1; platform_system != 'Windows'",
-    "winloop==0.4.0'Windows'",
+    "winloop==0.4.0; platform_system == 'Windows'",
 ]
 
 [project.optional-dependencies]
