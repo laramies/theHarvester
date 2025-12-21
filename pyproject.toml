@@ -7,7 +7,7 @@ authors = [
     { name = "Jay Townsend", email = "jay@cybermon.uk" },
     { name = "Matthew Brown", email = "36310667+NotoriousRebel@users.noreply.github.com" },
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.12, <3.14"
 urls.Homepage = "https://github.com/laramies/theHarvester"
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -43,7 +43,7 @@ dependencies = [
     "winloop==0.4.0; platform_system == 'Windows'",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "mypy==1.19.1",
     "mypy-extensions==1.1.0",
@@ -56,6 +56,7 @@ dev = [
     "ruff==0.14.10",
     "types-ujson==5.10.0.20250822",
     "wheel==0.45.1",
+    "ty==0.0.5",
 ]
 
 [project.scripts]
@@ -86,7 +87,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.13"
 warn_unused_configs = true
 ignore_missing_imports = true
 show_traceback = true
@@ -98,7 +99,15 @@ check_untyped_defs = true
 python-preference = "managed"
 
 [tool.uv.pip]
-python-version = "3.12"
+python-version = "3.13"
+
+[tool.ty.src]
+respect-ignore-files = false
+exclude = [
+    ".venv/**",
+    "tests/**",
+    ".github/*"
+]
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
@@ -124,7 +133,7 @@ exclude = [
 ]
 
 line-length = 130
-target-version = "py312"
+target-version = "py313"
 show-fixes = true
 
 [tool.ruff.lint]

@@ -16,5 +16,7 @@ theHarvester.egg-info
 api-keys.yaml
 .DS_Store
 .venv
+.venv/**
 .pyre
 uv.lock
+.junie

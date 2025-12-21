@@ -73,7 +73,7 @@ class ScreenShotter:
             print(f'An exception has occurred while attempting to visit {url} : {e}')
             return '', ''
 
-    async def take_screenshot(self, url: str) -> tuple[str, ...]:
+    async def take_screenshot(self, url: str) -> None:
         url = f'http://{url}' if not url.startswith('http') else url
         url = url.replace('www.', '')
         print(f'Attempting to take a screenshot of: {url}')
@@ -83,7 +83,7 @@ class ScreenShotter:
             context = await browser.new_context()
             page = await context.new_page()
             path = rf'{self.output}{self.slash}{url.replace("http://", "").replace("https://", "")}.png'
-            date = str(datetime.utcnow())
+            date = str(datetime.now())
             try:
                 # Will fail if network idle or load event doesn't fire after
                 # 35s which should be handled
@@ -96,4 +96,4 @@ class ScreenShotter:
                 await page.close()
                 await context.close()
                 await browser.close()
-                return date, url, path
+                print(date, url, path)
