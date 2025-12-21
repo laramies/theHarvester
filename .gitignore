@@ -18,5 +18,4 @@ api-keys.yaml
 .venv
 .venv/**
 .pyre
-uv.lock
 .junie
