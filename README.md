@@ -40,7 +40,7 @@ Run theHarvester:
 
 To install development dependencies:
 ```bash
-uv sync --extra dev
+uv sync --all-groups
 ```
 
 To run tests:
