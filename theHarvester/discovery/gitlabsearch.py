@@ -42,7 +42,7 @@ class SearchGitlab:
 
     def _extract_domains_from_text(self, text: str) -> set:
         """Extract domain names from text that match our target domain"""
-        domains = set()
+        domains: set[str] = set()
         if not text:
             return domains
 
@@ -60,7 +60,7 @@ class SearchGitlab:
 
     def _extract_emails_from_text(self, text: str) -> set:
         """Extract email addresses that match our target domain"""
-        emails = set()
+        emails: set[str] = set()
         if not text:
             return emails
 

@@ -57,7 +57,6 @@ from theHarvester.discovery import (
     subdomainfinderc99,
     takeover,
     threatcrowd,
-    threatminer,
     tombasearch,
     urlscan,
     venacussearch,
@@ -171,7 +170,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                             builtwith, censys, certspotter, chaos, commoncrawl, criminalip, crtsh, dehashed, dnsdumpster, duckduckgo, fofa, fullhunt, github-code,
                             gitlab, hackertarget, haveibeenpwned, hudsonrock, hunter, hunterhow, intelx, leakix, leaklookup, netlas, onyphe, otx, pentesttools,
                             projectdiscovery, rapiddns, robtex, rocketreach, securityscorecard, securityTrails, shodan, subdomaincenter,
-                            subdomainfinderc99, threatcrowd, threatminer, tomba, urlscan, venacus, virustotal, waybackarchive, whoisxml, windvane, yahoo, zoomeye""",
+                            subdomainfinderc99, threatcrowd, tomba, urlscan, venacus, virustotal, waybackarchive, whoisxml, windvane, yahoo, zoomeye""",
     )
 
     # determines if the filename is coming from rest api or user
@@ -1046,33 +1045,6 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except Exception as e:
                         show_default_error_message(engineitem, word, e)
-
-                elif engineitem == 'threatminer':
-                    try:
-                        threatminer_search = threatminer.SearchThreatminer(word)
-                        stor_lst.append(
-                            store(
-                                threatminer_search,
-                                engineitem,
-                                store_host=True,
-                                store_ip=True,
-                            )
-                        )
-                    except ConnectionError as ce:
-                        if not args.quiet:
-                            print(f'Network connection error while accessing ThreatMiner: {ce}')
-                    except TimeoutError as te:
-                        if not args.quiet:
-                            print(f'Request to ThreatMiner timed out: {te}')
-                    except ValueError as ve:
-                        if not args.quiet:
-                            print(f'ThreatMiner returned invalid or unexpected data: {ve}')
-                    except KeyError as ke:
-                        if not args.quiet:
-                            print(f'Unexpected response structure from ThreatMiner (missing key): {ke}')
-                    except Exception as e:
-                        if not args.quiet:
-                            print(f'Unexpected error occurred in ThreatMiner module: {e}')
 
                 elif engineitem == 'tomba':
                     try:

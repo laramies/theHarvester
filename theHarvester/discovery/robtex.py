@@ -29,7 +29,7 @@ class SearchRobtex:
     @staticmethod
     def _safe_parse_json_lines(payload: str) -> list:
         """Parse JSONL (JSON Lines) format"""
-        results = []
+        results: list = []
         if not payload:
             return results
 

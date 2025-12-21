@@ -11,8 +11,9 @@ from theHarvester.discovery.shodansearch import SearchShodan
 class AdditionalAPIs:
     """Wrapper class for additional API services."""
 
-    def __init__(self, domain: str):
+    def __init__(self, domain: str, api_keys: dict[str, str] | None = None):
         self.domain = domain
+        self.api_keys = api_keys or {}
 
         # Initialize API services
         self.haveibeenpwned = SearchHaveIBeenPwned(domain)

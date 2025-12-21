@@ -29,7 +29,7 @@ class SearchCommoncrawl:
     @staticmethod
     def _safe_parse_json_lines(payload: str) -> list:
         """Parse JSON lines format"""
-        results = []
+        results: list = []
         if not payload:
             return results
 
