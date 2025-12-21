@@ -677,8 +677,11 @@ async def start(rest_args: argparse.Namespace | None = None):
                         show_default_error_message(engineitem, word, e)
 
                 elif engineitem == 'hackertarget':
-                    hackertarget_search = hackertarget.SearchHackerTarget(word)
-                    stor_lst.append(store(hackertarget_search, engineitem, store_host=True))
+                    try:
+                        hackertarget_search = hackertarget.SearchHackerTarget(word)
+                        stor_lst.append(store(hackertarget_search, engineitem, store_host=True))
+                    except Exception as e:
+                        show_default_error_message(engineitem, word, e)
 
                 elif engineitem == 'haveibeenpwned':
                     try:

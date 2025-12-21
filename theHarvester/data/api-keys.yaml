@@ -35,6 +35,9 @@ apikeys:
   github:
     key:
 
+  hackertarget:
+    key:
+
   haveibeenpwned:
     key:
 

@@ -107,6 +107,10 @@ class Core:
         return Core.api_keys()['github']['key']
 
     @staticmethod
+    def hackertarget_key() -> str:
+        return Core.api_keys()['hackertarget']['key']
+
+    @staticmethod
     def haveibeenpwned_key() -> str:
         return Core.api_keys()['haveibeenpwned']['key']
 

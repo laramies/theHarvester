@@ -1,100 +1,5 @@
 # theHarvester/discovery/hackertarget.py
-import os
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
-
-# yaml is optional; fall back gracefully if not installed
-try:
-    import yaml
-except Exception:
-    yaml = None
-
 from theHarvester.lib.core import AsyncFetcher, Core
-
-
-def _append_apikey_to_url(url: str, apikey: str | None) -> str:
-    """
-    Safely append an `apikey` query parameter to a URL, preserving existing params.
-    If apikey is falsy, returns the original URL unchanged.
-    """
-    if not apikey:
-        return url
-    scheme, netloc, path, query, fragment = urlsplit(url)
-    q = dict(parse_qsl(query))
-    q['apikey'] = apikey
-    new_query = urlencode(q)
-    return urlunsplit((scheme, netloc, path, new_query, fragment))
-
-
-def _load_api_keys_fallback() -> dict:
-    """
-    Fallback loader for api-keys.yml if the project does not provide a loader.
-    Looks in a few likely paths and returns a dict (or {}).
-    """
-    if yaml is None:
-        return {}
-
-    candidates = [
-        os.path.join(os.getcwd(), 'api-keys.yml'),
-        os.path.join(os.getcwd(), 'theHarvester', 'api-keys.yml'),
-        os.path.join(os.getcwd(), 'theHarvester', 'etc', 'api-keys.yml'),
-        os.path.expanduser('~/.theHarvester/api-keys.yml'),
-    ]
-
-    for p in candidates:
-        if os.path.isfile(p):
-            try:
-                with open(p, encoding='utf-8') as fh:
-                    return yaml.safe_load(fh) or {}
-            except (OSError, yaml.YAMLError):
-                # treat read/parse errors as "no keys found" for this fallback
-                return {}
-    return {}
-
-
-def _get_hackertarget_key() -> str | None:
-    """
-    Try to obtain Hackertarget API key from repo-provided loader (preferred),
-    or fall back to reading api-keys.yml directly.
-
-    Accepts multiple common formats:
-      hackertarget: "KEY"
-      hackertarget:
-        key: "KEY"
-        apikey: "KEY"
-    Also supports top-level names like hackertarget_key or hackertarget_apikey.
-    """
-    # 1) Try to use a Core loader if it exists
-    try:
-        # Many modules expose config/loaders on Core; try common names:
-        if hasattr(Core, 'load_api_keys'):
-            keys = Core.load_api_keys()
-        elif hasattr(Core, 'get_api_keys'):
-            keys = Core.get_api_keys()
-        else:
-            keys = None
-
-        if isinstance(keys, dict):
-            if 'hackertarget' in keys:
-                ht = keys['hackertarget']
-                if isinstance(ht, dict):
-                    return ht.get('key') or ht.get('apikey') or ht.get('api_key')
-                return ht
-            # other possible top-level keys
-            return keys.get('hackertarget') or keys.get('hackertarget_key') or keys.get('hackertarget_apikey')
-    except Exception:
-        # ignore and fall through to fallback loader
-        pass
-
-    # 2) Fallback: attempt to read api-keys.yml manually
-    keys = _load_api_keys_fallback()
-    if not isinstance(keys, dict):
-        return None
-    if 'hackertarget' in keys:
-        ht = keys['hackertarget']
-        if isinstance(ht, dict):
-            return ht.get('key') or ht.get('apikey') or ht.get('api_key')
-        return ht
-    return keys.get('hackertarget') or keys.get('hackertarget_key') or keys.get('hackertarget_apikey')
 
 
 class SearchHackerTarget:
@@ -111,6 +16,7 @@ class SearchHackerTarget:
         self.hostname = 'https://api.hackertarget.com'
         self.proxy = False
         self.results = None
+        self.key = Core.hackertarget_key()
 
     async def do_search(self) -> None:
         headers = {'User-agent': Core.get_user_agent()}
@@ -122,8 +28,10 @@ class SearchHackerTarget:
         ]
 
         # if user supplied an API key in api-keys.yml (or repo loader), append it
-        ht_key = _get_hackertarget_key()
-        request_urls = [_append_apikey_to_url(u, ht_key) for u in base_urls]
+        if self.key:
+            request_urls = [f'{u}&apikey={self.key}' for u in base_urls]
+        else:
+            request_urls = base_urls
 
         # fetch all using existing AsyncFetcher helper
         responses = await AsyncFetcher.fetch_all(request_urls, headers=headers, proxy=self.proxy)
