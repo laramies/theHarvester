@@ -345,13 +345,13 @@ class AsyncFetcher:
 
     @classmethod
     async def post_fetch(
-            cls,
-            url,
-            headers=None,
-            data: str | dict[str, str] = '',
-            params: str = '',
-            json: bool = False,
-            proxy: bool = False,
+        cls,
+        url,
+        headers=None,
+        data: str | dict[str, str] = '',
+        params: str = '',
+        json: bool = False,
+        proxy: bool = False,
     ):
         if headers is None:
             headers = {}
@@ -393,17 +393,17 @@ class AsyncFetcher:
 
     @classmethod
     async def fetch(
-            cls,
-            session: aiohttp.ClientSession | None = None,
-            url: str = '',
-            params: Sized = '',
-            json: bool = False,
-            proxy: str | bool | None = '',
-            headers: dict[str, str] | None = None,
-            method: str = 'GET',
-            verify: bool | None = None,
-            follow_redirects: bool | None = None,
-            request_timeout: int | None = None,
+        cls,
+        session: aiohttp.ClientSession | None = None,
+        url: str = '',
+        params: Sized = '',
+        json: bool = False,
+        proxy: str | bool | None = '',
+        headers: dict[str, str] | None = None,
+        method: str = 'GET',
+        verify: bool | None = None,
+        follow_redirects: bool | None = None,
+        request_timeout: int | None = None,
     ) -> Any:
         """
         Generic HTTP request helper.
@@ -503,13 +503,13 @@ class AsyncFetcher:
 
     @classmethod
     async def fetch_all(
-            cls,
-            urls,
-            headers=None,
-            params: Sized = '',
-            json: bool = False,
-            takeover: bool = False,
-            proxy: bool = False,
+        cls,
+        urls,
+        headers=None,
+        params: Sized = '',
+        json: bool = False,
+        takeover: bool = False,
+        proxy: bool = False,
     ) -> list:
         # By default, timeout is 5 minutes; 60 seconds should suffice
         if headers is None:
@@ -521,8 +521,7 @@ class AsyncFetcher:
             async with aiohttp.ClientSession(headers=headers, timeout=aiohttp.ClientTimeout(total=15)) as session:
                 if proxy:
                     return await asyncio.gather(
-                        *[AsyncFetcher.takeover_fetch(session, url, proxy=random.choice(cls().proxy_list)) for url in
-                          urls]
+                        *[AsyncFetcher.takeover_fetch(session, url, proxy=random.choice(cls().proxy_list)) for url in urls]
                     )
                 else:
                     return await asyncio.gather(*[AsyncFetcher.takeover_fetch(session, url) for url in urls])
