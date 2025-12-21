@@ -20,17 +20,20 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
-      - name: Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
         with:
           python-version: ${{ matrix.python-version }}
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
       - name: Install dependencies
         run: |
           sudo mkdir -p /usr/local/etc/theHarvester
           sudo cp theHarvester/data/*.yaml /usr/local/etc/theHarvester/
           sudo chown -R runner:runner /usr/local/etc/theHarvester/
-          pip install --upgrade pip
-          pip install .[dev]
+          uv sync --all-groups --frozen
+          echo "$GITHUB_WORKSPACE/.venv/bin" >> $GITHUB_PATH
         continue-on-error: ${{ matrix.python-version == '3.14.0' }}
 
       - name: Lint with ruff
