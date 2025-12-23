@@ -97,11 +97,6 @@ jobs:
           theHarvester -d yale.edu -b rapiddns
         continue-on-error: ${{ matrix.python-version == '3.14.0' }}
 
-      - name: Run theHarvester module Threatminer
-        run: |
-          theHarvester -d yale.edu -b threatminer
-        continue-on-error: ${{ matrix.python-version == '3.14.0' }}
-
       - name: Run theHarvester module Urlscan
         run: |
           theHarvester -d yale.edu -b urlscan
