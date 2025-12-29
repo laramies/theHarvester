@@ -6,6 +6,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
-    - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag theharvester:$(date +%s)
+      - uses: actions/checkout@v6
+      - name: Build the Docker image
+        run: docker build --tag theharvester .
+      - name: Smoke test
+        run: docker run --rm theharvester --help | grep restfulHarvest
