@@ -99,5 +99,5 @@ class SearchShodan:
         except Exception as e:
             # print(f'Error occurred in the Shodan IP search module: {e}')
             self.tracker[ip] = f'Error occurred in the Shodan IP search module: {e}'
-        finally:
-            return self.tracker
+
+        return self.tracker
