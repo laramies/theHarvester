@@ -62,6 +62,18 @@ class TestThcApi:
         except (httpx.TimeoutException, httpx.RequestError):
             pytest.skip('Skipping due to network error')
 
+    @pytest.mark.asyncio
+    async def test_api_returns_rate_limit_headers(self) -> None:
+        """Verify that the API returns rate limit headers."""
+        url = 'https://ip.thc.org/api/v1/subdomains/download?domain=example.com&limit=1&hide_header=true'
+        headers = {'User-Agent': Core.get_user_agent()}
+        try:
+            response = httpx.get(url, headers=headers, timeout=30)
+            assert 'x-ratelimit-limit' in response.headers
+            assert 'x-ratelimit-remaining' in response.headers
+        except (httpx.TimeoutException, httpx.RequestError):
+            pytest.skip('Skipping due to network error')
+
 
 # =============================================================================
 # 2. Subdomain Search Tests (Main Functionality)
