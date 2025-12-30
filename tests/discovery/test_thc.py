@@ -257,6 +257,14 @@ class TestThcInitialization:
         search = thc.SearchThc('test.com')
         assert search.proxy is False
 
+    def test_init_has_rate_limit_settings(self) -> None:
+        """Verify that rate limit settings are initialized."""
+        search = thc.SearchThc('test.com')
+        assert hasattr(search, 'max_retries')
+        assert hasattr(search, 'base_delay')
+        assert search.max_retries == 3
+        assert search.base_delay == 2
+
     def test_class_has_required_methods(self) -> None:
         """Verify that the class has the required methods."""
         search = thc.SearchThc('test.com')
