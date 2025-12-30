@@ -90,7 +90,7 @@ class TestSearchGithubCode:
         Core.github_key = MagicMock(return_value="test_key")  # type: ignore[method-assign]
         test_class_instance = githubcode.SearchGithubCode(word="test", limit=500)
         test_result = githubcode.SuccessResult(list(), 0, 0)
-        assert await test_class_instance.next_page_or_end(test_result) is 0
+        assert await test_class_instance.next_page_or_end(test_result) == 0
 
     @pytest.mark.asyncio
     async def test_infinite_loop_fix_page_zero(self):

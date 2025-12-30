@@ -7,12 +7,13 @@ authors = [
     { name = "Jay Townsend", email = "jay@cybermon.uk" },
     { name = "Matthew Brown", email = "36310667+NotoriousRebel@users.noreply.github.com" },
 ]
-requires-python = ">=3.12, <3.14"
+requires-python = ">=3.12"
 urls.Homepage = "https://github.com/laramies/theHarvester"
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
     "Operating System :: OS Independent",
 ]
@@ -22,23 +23,23 @@ dependencies = [
     "aiofiles==25.1.0",
     "aiohttp==3.13.2",
     "aiomultiprocess==0.9.1",
-    "aiosqlite==0.22.0",
+    "aiosqlite==0.22.1",
     "beautifulsoup4==4.14.3",
     "censys==2.2.19",
     "certifi==2025.11.12",
     "dnspython==2.8.0",
-    "fastapi==0.125.0",
+    "fastapi==0.128.0",
     "lxml==6.0.2",
     "netaddr==1.3.0",
     "playwright==1.57.0",
-    "PyYAML==6.0.2",
+    "PyYAML==6.0.3",
     "python-dateutil==2.9.0.post0",
     "httpx==0.28.1",
     "retrying==1.4.2",
     "shodan==1.31.0",
     "slowapi==0.1.9",
     "ujson==5.11.0",
-    "uvicorn==0.38.0",
+    "uvicorn==0.40.0",
     "uvloop==0.22.1; platform_system != 'Windows'",
     "winloop==0.4.0; platform_system == 'Windows'",
 ]
@@ -56,7 +57,7 @@ dev = [
     "ruff==0.14.10",
     "types-ujson==5.10.0.20250822",
     "wheel==0.45.1",
-    "ty==0.0.5",
+    "ty==0.0.8",
 ]
 
 [project.scripts]
