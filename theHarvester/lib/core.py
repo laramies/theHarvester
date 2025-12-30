@@ -259,6 +259,7 @@ class Core:
             'subdomaincenter',
             'subdomainfinderc99',
             'sublist3r',
+            'thc',
             'threatcrowd',
             'tomba',
             'urlscan',
