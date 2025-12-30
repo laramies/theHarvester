@@ -23,14 +23,14 @@ github_ci: Optional[str] = os.getenv('GITHUB_ACTIONS')
 
 
 # =============================================================================
-# 1. Tests de API Directa (Validacion de Endpoints)
+# 1. Direct API Tests (Endpoint Validation)
 # =============================================================================
 class TestThcApi:
-    """Tests para validar que la API de THC responde correctamente."""
+    """Tests to validate that the THC API responds correctly."""
 
     @pytest.mark.asyncio
     async def test_api_subdomains_download_endpoint_responds(self) -> None:
-        """Verificar que el endpoint de descarga de subdominios responde."""
+        """Verify that the subdomain download endpoint responds."""
         url = 'https://ip.thc.org/api/v1/subdomains/download?domain=google.com&limit=10&hide_header=true'
         headers = {'User-Agent': Core.get_user_agent()}
         try:
@@ -41,7 +41,7 @@ class TestThcApi:
 
     @pytest.mark.asyncio
     async def test_api_subdomains_returns_text_format(self) -> None:
-        """Verificar que la respuesta es texto plano."""
+        """Verify that the response is plain text."""
         url = 'https://ip.thc.org/api/v1/subdomains/download?domain=google.com&limit=5&hide_header=true'
         headers = {'User-Agent': Core.get_user_agent()}
         try:
@@ -53,7 +53,7 @@ class TestThcApi:
 
     @pytest.mark.asyncio
     async def test_api_cli_subdomain_endpoint(self) -> None:
-        """Verificar endpoint CLI /sb/{domain}."""
+        """Verify CLI endpoint /sb/{domain}."""
         url = 'https://ip.thc.org/sb/google.com?l=5&noheader'
         headers = {'User-Agent': Core.get_user_agent()}
         try:
@@ -64,10 +64,10 @@ class TestThcApi:
 
 
 # =============================================================================
-# 2. Tests de Busqueda de Subdominios (Funcionalidad Principal)
+# 2. Subdomain Search Tests (Main Functionality)
 # =============================================================================
 class TestThcSubdomainSearch:
-    """Tests para la funcionalidad de busqueda de subdominios."""
+    """Tests for subdomain search functionality."""
 
     @staticmethod
     def domain() -> str:
@@ -79,7 +79,7 @@ class TestThcSubdomainSearch:
 
     @pytest.mark.asyncio
     async def test_search_returns_set(self) -> None:
-        """Verificar que get_hostnames() retorna un set."""
+        """Verify that get_hostnames() returns a set."""
         search = thc.SearchThc(self.domain())
         try:
             await search.process()
@@ -90,7 +90,7 @@ class TestThcSubdomainSearch:
 
     @pytest.mark.asyncio
     async def test_search_finds_subdomains(self) -> None:
-        """Verificar que encuentra subdominios para un dominio conocido."""
+        """Verify that it finds subdomains for a known domain."""
         search = thc.SearchThc(self.domain())
         try:
             await search.process()
@@ -101,7 +101,7 @@ class TestThcSubdomainSearch:
 
     @pytest.mark.asyncio
     async def test_search_results_contain_target_domain(self) -> None:
-        """Verificar que todos los resultados contienen el dominio objetivo."""
+        """Verify that all results contain the target domain."""
         search = thc.SearchThc(self.small_domain())
         try:
             await search.process()
@@ -113,7 +113,7 @@ class TestThcSubdomainSearch:
 
     @pytest.mark.asyncio
     async def test_search_no_duplicates(self) -> None:
-        """Verificar que no hay duplicados en los resultados."""
+        """Verify that there are no duplicates in the results."""
         search = thc.SearchThc(self.domain())
         try:
             await search.process()
@@ -125,14 +125,14 @@ class TestThcSubdomainSearch:
 
 
 # =============================================================================
-# 3. Tests de Casos Edge
+# 3. Edge Case Tests
 # =============================================================================
 class TestThcEdgeCases:
-    """Tests para casos limite y manejo de errores."""
+    """Tests for edge cases and error handling."""
 
     @pytest.mark.asyncio
     async def test_search_nonexistent_domain(self) -> None:
-        """Verificar comportamiento con dominio inexistente."""
+        """Verify behavior with non-existent domain."""
         search = thc.SearchThc('this-domain-definitely-does-not-exist-12345.com')
         try:
             await search.process()
@@ -145,7 +145,7 @@ class TestThcEdgeCases:
 
     @pytest.mark.asyncio
     async def test_search_empty_domain(self) -> None:
-        """Verificar comportamiento con dominio vacio."""
+        """Verify behavior with empty domain."""
         search = thc.SearchThc('')
         try:
             await search.process()
@@ -158,7 +158,7 @@ class TestThcEdgeCases:
 
     @pytest.mark.asyncio
     async def test_search_special_characters_domain(self) -> None:
-        """Verificar comportamiento con caracteres especiales."""
+        """Verify behavior with special characters."""
         search = thc.SearchThc('example.com; DROP TABLE domains;--')
         try:
             await search.process()
@@ -171,8 +171,8 @@ class TestThcEdgeCases:
 
     @pytest.mark.asyncio
     async def test_search_unicode_domain(self) -> None:
-        """Verificar comportamiento con dominio IDN/unicode."""
-        search = thc.SearchThc('münchen.de')
+        """Verify behavior with IDN/unicode domain."""
+        search = thc.SearchThc('xn--mnchen-3ya.de')
         try:
             await search.process()
         except (httpx.TimeoutException, httpx.RequestError):
@@ -184,7 +184,7 @@ class TestThcEdgeCases:
 
     @pytest.mark.asyncio
     async def test_search_subdomain_as_input(self) -> None:
-        """Verificar comportamiento cuando se pasa un subdominio."""
+        """Verify behavior when a subdomain is passed as input."""
         search = thc.SearchThc('www.google.com')
         try:
             await search.process()
@@ -195,10 +195,10 @@ class TestThcEdgeCases:
 
 
 # =============================================================================
-# 4. Tests de Proxy
+# 4. Proxy Tests
 # =============================================================================
 class TestThcProxy:
-    """Tests para funcionalidad de proxy."""
+    """Tests for proxy functionality."""
 
     @staticmethod
     def domain() -> str:
@@ -206,7 +206,7 @@ class TestThcProxy:
 
     @pytest.mark.asyncio
     async def test_process_accepts_proxy_parameter(self) -> None:
-        """Verificar que process() acepta parametro proxy."""
+        """Verify that process() accepts proxy parameter."""
         search = thc.SearchThc(self.domain())
         try:
             await search.process(proxy=False)
@@ -217,36 +217,36 @@ class TestThcProxy:
 
     @pytest.mark.asyncio
     async def test_proxy_attribute_is_set(self) -> None:
-        """Verificar que el atributo proxy se establece correctamente."""
+        """Verify that the proxy attribute is set correctly."""
         search = thc.SearchThc(self.domain())
         assert search.proxy is False
 
 
 # =============================================================================
-# 5. Tests de Inicializacion y Atributos
+# 5. Initialization and Attributes Tests
 # =============================================================================
 class TestThcInitialization:
-    """Tests para inicializacion y estructura de la clase."""
+    """Tests for class initialization and structure."""
 
     def test_init_sets_word(self) -> None:
-        """Verificar que __init__ establece el dominio."""
+        """Verify that __init__ sets the domain."""
         domain = 'test.com'
         search = thc.SearchThc(domain)
         assert search.word == domain
 
     def test_init_creates_empty_results(self) -> None:
-        """Verificar que results se inicializa vacio."""
+        """Verify that results is initialized empty."""
         search = thc.SearchThc('test.com')
         assert hasattr(search, 'results')
         assert len(search.results) == 0
 
     def test_init_proxy_default_false(self) -> None:
-        """Verificar que proxy es False por defecto."""
+        """Verify that proxy is False by default."""
         search = thc.SearchThc('test.com')
         assert search.proxy is False
 
     def test_class_has_required_methods(self) -> None:
-        """Verificar que la clase tiene los metodos requeridos."""
+        """Verify that the class has the required methods."""
         search = thc.SearchThc('test.com')
         assert hasattr(search, 'do_search')
         assert hasattr(search, 'get_hostnames')
@@ -257,10 +257,10 @@ class TestThcInitialization:
 
 
 # =============================================================================
-# 6. Tests de Formato de Respuesta
+# 6. Response Format Tests
 # =============================================================================
 class TestThcResponseFormat:
-    """Tests para verificar el formato de las respuestas."""
+    """Tests to verify response format."""
 
     @staticmethod
     def domain() -> str:
@@ -268,7 +268,7 @@ class TestThcResponseFormat:
 
     @pytest.mark.asyncio
     async def test_hostnames_are_strings(self) -> None:
-        """Verificar que todos los hostnames son strings."""
+        """Verify that all hostnames are strings."""
         search = thc.SearchThc(self.domain())
         try:
             await search.process()
@@ -280,7 +280,7 @@ class TestThcResponseFormat:
 
     @pytest.mark.asyncio
     async def test_hostnames_are_valid_format(self) -> None:
-        """Verificar que los hostnames tienen formato valido."""
+        """Verify that hostnames have valid format."""
         search = thc.SearchThc(self.domain())
         try:
             await search.process()
@@ -294,7 +294,7 @@ class TestThcResponseFormat:
 
     @pytest.mark.asyncio
     async def test_hostnames_are_lowercase(self) -> None:
-        """Verificar que los hostnames estan en minusculas."""
+        """Verify that hostnames are lowercase."""
         search = thc.SearchThc(self.domain())
         try:
             await search.process()
@@ -306,27 +306,27 @@ class TestThcResponseFormat:
 
 
 # =============================================================================
-# 7. Tests de Integracion con theHarvester
+# 7. Integration Tests with theHarvester
 # =============================================================================
 @pytest.mark.skipif(github_ci == 'true', reason='Skip integration tests in CI')
 class TestThcIntegration:
-    """Tests de integracion con el framework theHarvester."""
+    """Integration tests with theHarvester framework."""
 
     @pytest.mark.asyncio
     async def test_module_can_be_imported(self) -> None:
-        """Verificar que el modulo se puede importar."""
+        """Verify that the module can be imported."""
         from theHarvester.discovery import thc as thc_module
         assert thc_module is not None
 
     @pytest.mark.asyncio
     async def test_search_class_exists(self) -> None:
-        """Verificar que la clase SearchThc existe."""
+        """Verify that SearchThc class exists."""
         from theHarvester.discovery import thc as thc_module
         assert hasattr(thc_module, 'SearchThc')
 
     @pytest.mark.asyncio
     async def test_compatible_with_store_function(self) -> None:
-        """Verificar compatibilidad con la funcion store de __main__.py."""
+        """Verify compatibility with store function from __main__.py."""
         search = thc.SearchThc('example.com')
         assert hasattr(search, 'process')
         assert hasattr(search, 'get_hostnames')
