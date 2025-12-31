@@ -56,6 +56,7 @@ from theHarvester.discovery import (
     subdomaincenter,
     subdomainfinderc99,
     takeover,
+    thc,
     threatcrowd,
     tombasearch,
     urlscan,
@@ -170,7 +171,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                             builtwith, censys, certspotter, chaos, commoncrawl, criminalip, crtsh, dehashed, dnsdumpster, duckduckgo, fofa, fullhunt, github-code,
                             gitlab, hackertarget, haveibeenpwned, hudsonrock, hunter, hunterhow, intelx, leakix, leaklookup, netlas, onyphe, otx, pentesttools,
                             projectdiscovery, rapiddns, robtex, rocketreach, securityscorecard, securityTrails, shodan, subdomaincenter,
-                            subdomainfinderc99, threatcrowd, tomba, urlscan, venacus, virustotal, waybackarchive, whoisxml, windvane, yahoo, zoomeye""",
+                            subdomainfinderc99, thc, threatcrowd, tomba, urlscan, venacus, virustotal, waybackarchive, whoisxml, windvane, yahoo, zoomeye""",
     )
 
     # determines if the filename is coming from rest api or user
@@ -1031,6 +1032,13 @@ async def start(rest_args: argparse.Namespace | None = None):
                                 print(f'A Missing Key error occurred in Subdomainfinderc99 search: {e}')
                         else:
                             print(f'An exception has occurred in Subdomainfinderc99 search: {e}')
+
+                elif engineitem == 'thc':
+                    try:
+                        thc_search = thc.SearchThc(word)
+                        stor_lst.append(store(thc_search, engineitem, store_host=True))
+                    except Exception as e:
+                        show_default_error_message(engineitem, word, e)
 
                 elif engineitem == 'threatcrowd':
                     try:

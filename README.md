@@ -127,6 +127,8 @@ Passive modules
 
 * subdomainfinderc99: A subdomain finder is a tool used to find the subdomains of a given domain (https://subdomainfinder.c99.nl)
 
+* thc: Free subdomain enumeration service with no API key required (https://ip.thc.org)
+
 * threatminer: Data mining for threat intelligence (https://www.threatminer.org)
 
 * tomba: Tomba search engine (https://tomba.io)
