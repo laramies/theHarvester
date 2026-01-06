@@ -32,7 +32,7 @@ def mock_read_text(mocked: dict[Path, str | Exception]):
     ("name", "contents", "expected"),
     [
         ("api-keys", "apikeys: {}", {}),
-        ("proxies", "http: [localhost:8080]", ["http://localhost:8080"]),
+        ("proxies", "http: [localhost:8080]", {"http": ["http://localhost:8080"], "socks5": []}),
     ],
 )
 @pytest.mark.parametrize("dir", CONFIG_DIRS)
@@ -65,7 +65,10 @@ def test_read_config_copies_default_to_home(name: str, capsys):
     expected = (
         default["apikeys"]
         if name == "api-keys"
-        else [f"http://{h}" for h in default["http"]]
+        else {
+            "http": [f"http://{h}" for h in default["http"]] if default.get("http") else [],
+            "socks5": [f"socks5://{h}" for h in default["socks5"]] if default.get("socks5") else [],
+        }
     )
     assert got == expected
     assert f"Created default {file.name} at {file}" in capsys.readouterr().out
