@@ -21,12 +21,12 @@ dynamic = ["version"]
 dependencies = [
     "aiodns==3.6.1",
     "aiofiles==25.1.0",
-    "aiohttp==3.13.2",
+    "aiohttp==3.13.3",
     "aiomultiprocess==0.9.1",
     "aiosqlite==0.22.1",
     "beautifulsoup4==4.14.3",
     "censys==2.2.19",
-    "certifi==2025.11.12",
+    "certifi==2026.1.4",
     "dnspython==2.8.0",
     "fastapi==0.128.0",
     "lxml==6.0.2",
@@ -57,7 +57,7 @@ dev = [
     "ruff==0.14.10",
     "types-ujson==5.10.0.20250822",
     "wheel==0.45.1",
-    "ty==0.0.8",
+    "ty==0.0.9",
 ]
 
 [project.scripts]
