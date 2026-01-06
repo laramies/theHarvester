@@ -64,7 +64,7 @@ class ScreenShotter:
             sslcontext = ssl.create_default_context(cafile=certifi.where())
 
             # Create connector based on proxy type
-            connector = None
+            connector: ProxyConnector | aiohttp.TCPConnector | None = None
             proxy_param = None
             if proxy:
                 if proxy.startswith('socks5://'):

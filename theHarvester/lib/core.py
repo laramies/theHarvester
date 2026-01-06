@@ -518,7 +518,7 @@ class AsyncFetcher:
             return ''
 
     @staticmethod
-    async def takeover_fetch(session, url: str, proxy: str = '') -> tuple[Any, Any] | str:
+    async def takeover_fetch(session, url: str, proxy: str | None = None) -> tuple[Any, Any] | str:
         # This fetch method solely focuses on get requests
         try:
             # Wrap in try except due to 0x89 png/jpg files
@@ -526,7 +526,7 @@ class AsyncFetcher:
             # TODO determine if method for post requests is necessary
             # url = f'http://{url}' if str(url).startswith(('http:', 'https:')) is False else url
             # Clean up urls with proper schemas
-            if proxy != '':
+            if proxy:
                 if 'https://' in url:
                     sslcontext = ssl.create_default_context(cafile=certifi.where())
                     async with session.get(url, proxy=proxy, ssl=sslcontext) as response:
