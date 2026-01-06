@@ -11,6 +11,7 @@ from datetime import datetime
 
 import aiohttp
 import certifi
+from aiohttp_socks import ProxyConnector
 from playwright.async_api import async_playwright
 
 
@@ -51,7 +52,7 @@ class ScreenShotter:
         return [list(items)[i : i + chunk_size] for i in range(0, len(items), chunk_size)]
 
     @staticmethod
-    async def visit(url: str) -> tuple[str, str]:
+    async def visit(url: str, proxy: str | None = None) -> tuple[str, str]:
         try:
             timeout = aiohttp.ClientTimeout(total=35)
             headers = {
@@ -61,12 +62,26 @@ class ScreenShotter:
             url = f'http://{url}' if not url.startswith('http') else url
             url = url.replace('www.', '')
             sslcontext = ssl.create_default_context(cafile=certifi.where())
+
+            # Create connector based on proxy type
+            connector = None
+            proxy_param = None
+            if proxy:
+                if proxy.startswith('socks5://'):
+                    connector = ProxyConnector.from_url(proxy, ssl=sslcontext)
+                else:
+                    # HTTP proxy
+                    connector = aiohttp.TCPConnector(ssl=sslcontext)
+                    proxy_param = proxy
+            else:
+                connector = aiohttp.TCPConnector(ssl=sslcontext)
+
             async with aiohttp.ClientSession(
                 timeout=timeout,
                 headers=headers,
-                connector=aiohttp.TCPConnector(ssl=sslcontext),
+                connector=connector,
             ) as session:
-                async with session.get(url, ssl=False) as resp:
+                async with session.get(url, ssl=False, proxy=proxy_param) as resp:
                     text = await resp.text('UTF-8')
                     return f'http://{url}' if not url.startswith('http') else url, text
         except Exception as e:

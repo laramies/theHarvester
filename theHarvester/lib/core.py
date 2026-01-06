@@ -13,6 +13,7 @@ import certifi
 # need to import as different name as to not shadow already existing json var in post_fetch
 import ujson as json_loader
 import yaml
+from aiohttp_socks import ProxyConnector
 
 from .version import version
 
@@ -187,10 +188,11 @@ class Core:
         return Core.api_keys()['zoomeye']['key']
 
     @staticmethod
-    def proxy_list() -> list:
+    def proxy_list() -> dict:
         keys = yaml.safe_load(Core._read_config('proxies.yaml'))
         http_list = [f'http://{proxy}' for proxy in keys['http']] if keys['http'] is not None else []
-        return http_list
+        socks5_list = [f'socks5://{proxy}' for proxy in keys['socks5']] if keys.get('socks5') is not None else []
+        return {'http': http_list, 'socks5': socks5_list}
 
     @staticmethod
     def banner() -> None:
@@ -344,6 +346,40 @@ class Core:
 class AsyncFetcher:
     proxy_list = Core.proxy_list()
 
+    @staticmethod
+    def _get_random_proxy(proxy_dict: dict) -> tuple[str | None, str | None]:
+        """
+        Get a random proxy from the proxy dictionary.
+        Returns (proxy_url, proxy_type) where proxy_type is 'http' or 'socks5'
+        """
+        all_proxies = []
+        for proxy_type, proxies in proxy_dict.items():
+            if proxies:
+                for proxy in proxies:
+                    all_proxies.append((proxy, proxy_type))
+
+        if not all_proxies:
+            return None, None
+
+        return random.choice(all_proxies)
+
+    @staticmethod
+    async def _create_connector(
+        proxy_url: str | None, proxy_type: str | None, ssl_context: ssl.SSLContext | bool | None = None
+    ) -> aiohttp.BaseConnector:
+        """
+        Create an appropriate connector for the given proxy type.
+        Returns a connector that can be used with aiohttp.ClientSession.
+        """
+        if proxy_url and proxy_type == 'socks5':
+            # Create SOCKS5 proxy connector using aiohttp-socks
+            # ProxyConnector.from_url can handle socks5://host:port URLs
+            connector = ProxyConnector.from_url(proxy_url, ssl=ssl_context)
+            return connector
+        else:
+            # Use default TCP connector for HTTP proxies or no proxy
+            return aiohttp.TCPConnector(ssl=ssl_context if ssl_context else ssl.create_default_context(cafile=certifi.where()))
+
     @classmethod
     async def post_fetch(
         cls,
@@ -363,15 +399,21 @@ class AsyncFetcher:
         # results are well worth the wait
         try:
             if proxy:
-                proxy = random.choice(cls().proxy_list)
+                proxy_url, proxy_type = cls._get_random_proxy(cls().proxy_list)
+                sslcontext = ssl.create_default_context(cafile=certifi.where())
+                connector = await cls._create_connector(proxy_url, proxy_type, sslcontext)
+
                 if params != '':
-                    async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
-                        async with session.get(url, params=params, proxy=str(proxy) if proxy else None) as response:
+                    async with aiohttp.ClientSession(headers=headers, timeout=timeout, connector=connector) as session:
+                        # For HTTP proxies, pass proxy parameter; for SOCKS5, connector handles it
+                        proxy_param = proxy_url if proxy_type == 'http' else None
+                        async with session.get(url, params=params, proxy=proxy_param) as response:
                             await asyncio.sleep(5)
                             return await response.text() if json is False else await response.json()
                 else:
-                    async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
-                        async with session.get(url, proxy=str(proxy) if proxy else None) as response:
+                    async with aiohttp.ClientSession(headers=headers, timeout=timeout, connector=connector) as session:
+                        proxy_param = proxy_url if proxy_type == 'http' else None
+                        async with session.get(url, proxy=proxy_param) as response:
                             await asyncio.sleep(5)
                             return await response.text() if json is False else await response.json()
             elif params == '':
@@ -423,14 +465,16 @@ class AsyncFetcher:
 
             # Resolve proxy parameter
             proxy_url: str | None = None
+            proxy_type: str | None = None
             if isinstance(proxy, str) and proxy != '':
                 proxy_url = proxy
+                proxy_type = 'socks5' if proxy_url.startswith('socks5://') else 'http'
             elif isinstance(proxy, bool) and proxy:
                 try:
-                    proxy_choice = random.choice(cls().proxy_list)
-                    proxy_url = str(proxy_choice) if proxy_choice else None
+                    proxy_url, proxy_type = cls._get_random_proxy(cls().proxy_list)
                 except Exception:
                     proxy_url = None
+                    proxy_type = None
 
             # Prepare timeout
             client_timeout = aiohttp.ClientTimeout(total=request_timeout) if request_timeout else None
@@ -441,14 +485,17 @@ class AsyncFetcher:
             # Decide whether we need to manage the session
             owns_session = session is None
             if owns_session:
-                session = aiohttp.ClientSession(headers=req_headers, timeout=client_timeout)
+                # Create connector based on proxy type
+                connector = await cls._create_connector(proxy_url, proxy_type, ssl_arg) if proxy_url else None
+                session = aiohttp.ClientSession(headers=req_headers, timeout=client_timeout, connector=connector)
             assert session is not None
 
             try:
                 request_kwargs: dict[str, Any] = {
                     'ssl': ssl_arg,
                 }
-                if proxy_url:
+                # For HTTP proxies, pass the proxy parameter; for SOCKS5, the connector handles it
+                if proxy_url and proxy_type == 'http':
                     request_kwargs['proxy'] = proxy_url
                 if follow_redirects is not None:
                     request_kwargs['allow_redirects'] = follow_redirects
@@ -521,8 +568,10 @@ class AsyncFetcher:
         if takeover:
             async with aiohttp.ClientSession(headers=headers, timeout=aiohttp.ClientTimeout(total=15)) as session:
                 if proxy:
+                    # Get random proxy for each URL
+                    proxy_urls = [cls._get_random_proxy(cls().proxy_list)[0] for _ in urls]
                     return await asyncio.gather(
-                        *[AsyncFetcher.takeover_fetch(session, url, proxy=random.choice(cls().proxy_list)) for url in urls]
+                        *[AsyncFetcher.takeover_fetch(session, url, proxy=proxy_url) for url, proxy_url in zip(urls, proxy_urls)]
                     )
                 else:
                     return await asyncio.gather(*[AsyncFetcher.takeover_fetch(session, url) for url in urls])
@@ -530,15 +579,17 @@ class AsyncFetcher:
         if len(params) == 0:
             async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
                 if proxy:
+                    # Get random proxy for each URL (returns tuple of proxy_url and proxy_type)
+                    proxy_data = [cls._get_random_proxy(cls().proxy_list) for _ in urls]
                     return await asyncio.gather(
                         *[
                             AsyncFetcher.fetch(
                                 session,
                                 url,
                                 json=json,
-                                proxy=random.choice(cls().proxy_list),
+                                proxy=proxy_url,
                             )
-                            for url in urls
+                            for url, (proxy_url, proxy_type) in zip(urls, proxy_data)
                         ]
                     )
                 else:
@@ -547,6 +598,7 @@ class AsyncFetcher:
             # Indicates the request has certain params
             async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
                 if proxy:
+                    proxy_data = [cls._get_random_proxy(cls().proxy_list) for _ in urls]
                     return await asyncio.gather(
                         *[
                             AsyncFetcher.fetch(
@@ -554,9 +606,9 @@ class AsyncFetcher:
                                 url,
                                 params,
                                 json,
-                                proxy=random.choice(cls().proxy_list),
+                                proxy=proxy_url,
                             )
-                            for url in urls
+                            for url, (proxy_url, proxy_type) in zip(urls, proxy_data)
                         ]
                     )
                 else:

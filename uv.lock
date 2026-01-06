@@ -122,6 +122,19 @@ wheels = [
 ]
 
 [[package]]
+name = "aiohttp-socks"
+version = "0.11.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "aiohttp" },
+    { name = "python-socks" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1f/cc/e5bbd54f76bd56291522251e47267b645dac76327b2657ade9545e30522c/aiohttp_socks-0.11.0.tar.gz", hash = "sha256:0afe51638527c79077e4bd6e57052c87c4824233d6e20bb061c53766421b10f0", size = 11196, upload-time = "2025-12-09T13:35:52.564Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bf/7d/4b633d709b8901d59444d2e512b93e72fe62d2b492a040097c3f7ba017bb/aiohttp_socks-0.11.0-py3-none-any.whl", hash = "sha256:9aacce57c931b8fbf8f6d333cf3cafe4c35b971b35430309e167a35a8aab9ec1", size = 10556, upload-time = "2025-12-09T13:35:50.18Z" },
+]
+
+[[package]]
 name = "aiomultiprocess"
 version = "0.9.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1291,6 +1304,15 @@ wheels = [
 ]
 
 [[package]]
+name = "python-socks"
+version = "2.8.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/6c/07/cfdd6a846ac859e513b4e68bb6c669a90a74d89d8d405516fba7fc9c6f0c/python_socks-2.8.0.tar.gz", hash = "sha256:340f82778b20a290bdd538ee47492978d603dff7826aaf2ce362d21ad9ee6f1b", size = 273130, upload-time = "2025-12-09T12:17:05.433Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/13/10/e2b575faa32d1d32e5e6041fc64794fa9f09526852a06b25353b66f52cae/python_socks-2.8.0-py3-none-any.whl", hash = "sha256:57c24b416569ccea493a101d38b0c82ed54be603aa50b6afbe64c46e4a4e4315", size = 55075, upload-time = "2025-12-09T12:17:03.269Z" },
+]
+
+[[package]]
 name = "pyyaml"
 version = "6.0.3"
 source = { registry = "https://pypi.org/simple" }
@@ -1475,6 +1497,7 @@ dependencies = [
     { name = "aiodns" },
     { name = "aiofiles" },
     { name = "aiohttp" },
+    { name = "aiohttp-socks" },
     { name = "aiomultiprocess" },
     { name = "aiosqlite" },
     { name = "beautifulsoup4" },
@@ -1518,6 +1541,7 @@ requires-dist = [
     { name = "aiodns", specifier = "==3.6.1" },
     { name = "aiofiles", specifier = "==25.1.0" },
     { name = "aiohttp", specifier = "==3.13.3" },
+    { name = "aiohttp-socks", specifier = "==0.11.0" },
     { name = "aiomultiprocess", specifier = "==0.9.1" },
     { name = "aiosqlite", specifier = "==0.22.1" },
     { name = "beautifulsoup4", specifier = "==4.14.3" },

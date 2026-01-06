@@ -1,2 +1,4 @@
 http:
     - ip:port
+socks5:
+    - ip:port
