@@ -60,10 +60,6 @@ class Core:
         return Core.api_keys()['bevigil']['key']
 
     @staticmethod
-    def bing_key() -> str:
-        return Core.api_keys()['bing']['key']
-
-    @staticmethod
     def bitbucket_key() -> str:
         return Core.api_keys()['bitbucket']['key']
 
