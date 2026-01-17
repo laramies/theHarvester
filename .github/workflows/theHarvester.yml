@@ -36,12 +36,14 @@ jobs:
           echo "$GITHUB_WORKSPACE/.venv/bin" >> $GITHUB_PATH
 
       - name: Lint with ruff
-        run: |
-          ruff check --fix
+        uses: astral-sh/ruff-action@v3
+        with:
+          args: check --fix
 
       - name: Format with ruff
-        run: |
-          ruff format
+        uses: astral-sh/ruff-action@v3
+        with:
+          args: format
 
       - name: Commit changes for ruff formating and linting
         if: github.event_name == 'push'
