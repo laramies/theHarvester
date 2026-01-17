@@ -87,6 +87,7 @@ def sanitize_for_xml(text: str) -> str:
     text = text.replace("'", '&apos;')
     return text
 
+
 def sanitize_filename(filename: str) -> str:
     filename = os.path.basename(filename)
     filename = re.sub(r'[^a-zA-Z0-9._-]', '_', filename)
@@ -99,6 +100,7 @@ def sanitize_filename(filename: str) -> str:
     if not filename:
         filename = 'sanitized_file'
     return filename
+
 
 async def start(rest_args: argparse.Namespace | None = None):
     """Main program function"""

@@ -181,6 +181,7 @@ async def getsources(request: Request) -> Response:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
+
 # Define Pydantic model for DNS brute force response
 class DnsBruteResponse(BaseModel):
     dns_bruteforce: list[str] = Field(default_factory=list, description='List of DNS brute force results')
