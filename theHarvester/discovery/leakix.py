@@ -42,12 +42,16 @@ class SearchLeakix:
 
     async def do_search(self) -> None:
         try:
-            headers = {'User-agent': Core.get_user_agent()}
+            headers = {
+                'User-agent': Core.get_user_agent(),
+                'accept': 'application/json',
+            }
 
-            # Try public endpoints (without API key requirements)
-            # Most LeakIX endpoints require API keys, so this is limited
+            # Add API key if available
+            api_key = Core.leakix_key()
+            if api_key:
+                headers['api-key'] = api_key
 
-            # Try to search public data (this may have limited results)
             search_queries = [
                 f'{self.hostname}/api/subdomains/{self.word}',
                 f'{self.hostname}/host/{self.word}',
@@ -60,7 +64,7 @@ class SearchLeakix:
                     if not response or not isinstance(response, list) or not response[0]:
                         continue
 
-                    # Check if response is an error message
+                    # Check if the response is an error message
                     if isinstance(response[0], str) and (
                         'Incorrect API Key' in response[0]
                         or 'unauthorized' in response[0].lower()

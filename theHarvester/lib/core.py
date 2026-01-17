@@ -128,6 +128,10 @@ class Core:
         return Core.api_keys()['leaklookup']['key']
 
     @staticmethod
+    def leakix_key() -> str:
+        return Core.api_keys()['leakix']['key']
+
+    @staticmethod
     def netlas_key() -> str:
         return Core.api_keys()['netlas']['key']
 
