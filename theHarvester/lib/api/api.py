@@ -51,8 +51,8 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # ty
 app.add_middleware(
     CORSMiddleware,
     allow_origins=['*'],
-    allow_credentials=True,
-    allow_methods=['*'],
+    allow_credentials=False,
+    allow_methods=['GET', 'POST'],
     allow_headers=['*'],
 )
 
@@ -173,16 +173,13 @@ async def getsources(request: Request) -> Response:
         error_traceback = traceback.format_exc()
         print(f'Error in getsources endpoint: {e!s}\n{error_traceback}')
 
-        # Return a detailed error response
         return UJSONResponse(
             {
-                'detail': f'An error occurred while retrieving sources: {e!s}',
+                'detail': 'An error occurred while retrieving sources',
                 'error_type': type(e).__name__,
-                'traceback': error_traceback if os.getenv('DEBUG') == '1' else None,
             },
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
-
 
 # Define Pydantic model for DNS brute force response
 class DnsBruteResponse(BaseModel):
@@ -253,12 +250,10 @@ async def dnsbrute(
         error_traceback = traceback.format_exc()
         print(f'Error in dnsbrute endpoint: {e!s}\n{error_traceback}')
 
-        # Return a detailed error response
         return UJSONResponse(
             {
-                'detail': f'An error occurred while processing your request: {e!s}',
+                'detail': 'An error occurred while processing your request',
                 'error_type': type(e).__name__,
-                'traceback': error_traceback if os.getenv('DEBUG') == '1' else None,
             },
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
@@ -367,12 +362,10 @@ async def query(
         error_traceback = traceback.format_exc()
         print(f'Error in query endpoint: {e!s}\n{error_traceback}')
 
-        # Return a detailed error response
         return UJSONResponse(
             {
-                'detail': f'An error occurred while processing your request: {e!s}',
+                'detail': 'An error occurred while processing your request',
                 'error_type': type(e).__name__,
-                'traceback': error_traceback if os.getenv('DEBUG') == '1' else None,
             },
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )

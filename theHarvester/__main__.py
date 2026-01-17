@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import os
+import re
 import secrets
 import string
 import sys
@@ -76,6 +77,28 @@ from theHarvester.screenshot.screenshot import ScreenShotter
 if TYPE_CHECKING:
     from collections.abc import Awaitable
 
+
+def sanitize_for_xml(text: str) -> str:
+    """Sanitize text for safe inclusion in XML documents."""
+    text = text.replace('&', '&amp;')
+    text = text.replace('<', '&lt;')
+    text = text.replace('>', '&gt;')
+    text = text.replace('"', '&quot;')
+    text = text.replace("'", '&apos;')
+    return text
+
+def sanitize_filename(filename: str) -> str:
+    filename = os.path.basename(filename)
+    filename = re.sub(r'[^a-zA-Z0-9._-]', '_', filename)
+    # Remove consecutive underscores
+    filename = re.sub(r'_+', '_', filename)
+    filename = filename.strip('_.')
+    if filename.startswith('.'):
+        filename = '_' + filename
+    # Ensure we have a valid filename
+    if not filename:
+        filename = 'sanitized_file'
+    return filename
 
 async def start(rest_args: argparse.Namespace | None = None):
     """Main program function"""
@@ -200,8 +223,20 @@ async def start(rest_args: argparse.Namespace | None = None):
     except Exception:
         raise ValueError('Failed to initialize StashManager')
 
-    if len(filename) > 2 and filename[:2] == '~/':
-        filename = os.path.expanduser(filename)
+    if len(filename) > 0:
+        if filename.startswith('~/'):
+            # Allow home directory expansion but sanitize the rest
+            base_path = os.path.expanduser('~')
+            sanitized = sanitize_filename(filename[2:])
+            filename = os.path.join(base_path, sanitized)
+        elif os.path.isabs(filename):
+            # For absolute paths, sanitize just the filename component
+            dirname = os.path.dirname(filename)
+            basename = sanitize_filename(os.path.basename(filename))
+            filename = os.path.join(dirname, basename)
+        else:
+            # For relative paths, sanitize the entire filename
+            filename = sanitize_filename(filename)
 
     all_emails: list = []
     all_hosts: list = []
@@ -1589,21 +1624,24 @@ async def start(rest_args: argparse.Namespace | None = None):
             # XML REPORT SECTION
             with open(filename, 'w+') as file:
                 file.write('<?xml version="1.0" encoding="UTF-8"?><theHarvester>')
-                file.write('<cmd>' + ' '.join([f'"{arg}"' if ' ' in arg else arg for arg in sys.argv[1:]]) + '</cmd>')
+                sanitized_args = [sanitize_for_xml(f'"{arg}"' if ' ' in arg else arg) for arg in sys.argv[1:]]
+                file.write('<cmd>' + ' '.join(sanitized_args) + '</cmd>')
                 for x in all_emails:
-                    file.write('<email>' + x + '</email>')
+                    file.write('<email>' + sanitize_for_xml(x) + '</email>')
                 for x in full:
                     host, ip = x.split(':', 1) if ':' in x else (x, '')
                     if ip and len(ip) > 3:
-                        file.write(f'<host><ip>{ip}</ip><hostname>{host}</hostname></host>')
+                        file.write(f'<host><ip>{sanitize_for_xml(ip)}</ip><hostname>{sanitize_for_xml(host)}</hostname></host>')
                     else:
-                        file.write(f'<host>{host}</host>')
+                        file.write(f'<host>{sanitize_for_xml(host)}</host>')
                 for x in vhost:
                     host, ip = x.split(':', 1) if ':' in x else (x, '')
                     if ip and len(ip) > 3:
-                        file.write(f'<vhost><ip>{ip} </ip><hostname>{host}</hostname></vhost>')
+                        file.write(
+                            f'<vhost><ip>{sanitize_for_xml(ip)} </ip><hostname>{sanitize_for_xml(host)}</hostname></vhost>'
+                        )
                     else:
-                        file.write(f'<vhost>{host}</vhost>')
+                        file.write(f'<vhost>{sanitize_for_xml(host)}</vhost>')
                 # TODO add Shodan output into XML report
                 file.write('</theHarvester>')
                 print('[*] XML File saved.')
@@ -1613,11 +1651,11 @@ async def start(rest_args: argparse.Namespace | None = None):
         try:
             # JSON REPORT SECTION
             filename = filename.rsplit('.', 1)[0] + '.json'
-            # create dict with values for json output
+            # create dict with values for JSON output
             json_dict: dict = dict()
             # start by adding the command line arguments
             json_dict['cmd'] = ' '.join([f'"{arg}"' if ' ' in arg else arg for arg in sys.argv[1:]])
-            # determine if a variable exists
+            # to determine if a variable exists
             # it should but just a validation check
             if 'ip_list' in locals():
                 if all_ip and len(all_ip) >= 1 and ip_list and len(ip_list) > 0:
@@ -1774,7 +1812,7 @@ async def start(rest_args: argparse.Namespace | None = None):
             print('    Continuing with the rest of the scan...')
             traceback.print_exc()  # More detailed error information for developers
 
-    # If SecurityScorecard option is selected
+    # If the SecurityScorecard option is selected
     if 'securityscorecard' in engines:
         try:
             print('\n[*] Performing SecurityScorecard scan...')
