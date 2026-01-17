@@ -4,6 +4,8 @@ LABEL maintainer="@jay_townsend1 & @NotoriousRebel1"
 
 RUN useradd -m -u 1000 -s /bin/bash theharvester
 
+RUN apt-get update && apt-get upgrade -yqq && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 # Set workdir and copy project files
 WORKDIR /app
 COPY . /app
