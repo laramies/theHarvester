@@ -3,6 +3,9 @@ apikeys:
   bevigil:
     key:
 
+  bitbucket:
+    key:
+
   brave:
     key:
 
