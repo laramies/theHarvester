@@ -1529,7 +1529,6 @@ async def start(rest_args: argparse.Namespace | None = None):
 
         # run all the reversing tasks concurrently
         await asyncio.gather(*__reverse_dns_tasks.values())
-        # Display the newly found hosts
         print('\n[*] Hosts found after reverse lookup (in target domain):')
         print('--------------------------------------------------------')
         for xh in dnsrev:
@@ -1851,7 +1850,6 @@ async def start(rest_args: argparse.Namespace | None = None):
             # Use the process method according to the original structure of this module
             await builtwith_scanner.process(use_proxy)
 
-            # Use existing API to get results
             hosts = await builtwith_scanner.get_hostnames()
             if hosts:
                 print(f'\n[*] BuiltWith results: {len(hosts)} hosts found')
@@ -1861,8 +1859,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                 # Add results to the main host list
                 all_hosts.extend(hosts)
 
-            # Add interesting URLs
-            urls = await builtwith_scanner.get_urls() if hasattr(builtwith_scanner, 'get_urls') else []
+            urls = list(await builtwith_scanner.get_interesting_urls())
             if urls:
                 print(f'\n[*] BuiltWith interesting URLs found: {len(urls)}')
                 for url in urls:
