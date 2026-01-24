@@ -7,6 +7,8 @@ import asyncio
 import aiohttp
 import netaddr
 
+from theHarvester.lib.output import print_section, sorted_unique
+
 
 async def fetch_json(session, url):
     try:
@@ -50,55 +52,46 @@ async def main() -> None:
         hosts = fetched_json.get('hosts', [])
 
     if len(total_asns) > 0:
-        print(f'\n[*] ASNS found: {len(total_asns)}')
-        print('--------------------')
-        total_asns = list(sorted(set(total_asns)))
-        for asn in total_asns:
-            print(asn)
+        print_section(f'\n[*] ASNS found: {len(total_asns)}', total_asns, '--------------------')
+        total_asns = sorted_unique(total_asns)
 
     if len(interesting_urls) > 0:
-        print(f'\n[*] Interesting Urls found: {len(interesting_urls)}')
-        print('--------------------')
-        interesting_urls = list(sorted(set(interesting_urls)))
-        for iurl in interesting_urls:
-            print(iurl)
+        print_section(f'\n[*] Interesting Urls found: {len(interesting_urls)}', interesting_urls, '--------------------')
+        interesting_urls = sorted_unique(interesting_urls)
 
     if len(twitter_people_list_tracker) == 0:
         print('\n[*] No Twitter users found.')
     elif len(twitter_people_list_tracker) >= 1:
-        print('\n[*] Twitter Users found: ' + str(len(twitter_people_list_tracker)))
-        print('---------------------')
-        twitter_people_list_tracker = list(sorted(set(twitter_people_list_tracker)))
-        for usr in twitter_people_list_tracker:
-            print(usr)
+        print_section(
+            '\n[*] Twitter Users found: ' + str(len(twitter_people_list_tracker)),
+            twitter_people_list_tracker,
+            '---------------------',
+        )
+        twitter_people_list_tracker = sorted_unique(twitter_people_list_tracker)
 
     if len(linkedin_people_list_tracker) == 0:
         print('\n[*] No LinkedIn users found.')
     elif len(linkedin_people_list_tracker) >= 1:
-        print('\n[*] LinkedIn Users found: ' + str(len(linkedin_people_list_tracker)))
-        print('---------------------')
-        linkedin_people_list_tracker = list(sorted(set(linkedin_people_list_tracker)))
-        for usr in linkedin_people_list_tracker:
-            print(usr)
+        print_section(
+            '\n[*] LinkedIn Users found: ' + str(len(linkedin_people_list_tracker)),
+            linkedin_people_list_tracker,
+            '---------------------',
+        )
+        linkedin_people_list_tracker = sorted_unique(linkedin_people_list_tracker)
 
     if len(linkedin_links_tracker) == 0:
         print('\n[*] No LinkedIn links found.')
     else:
-        print(f'\n[*] LinkedIn Links found: {len(linkedin_links_tracker)}')
-        print('---------------------')
-        linkedin_links_tracker = list(sorted(set(linkedin_links_tracker)))
-        for link in linkedin_links_tracker:
-            print(link)
+        print_section(
+            f'\n[*] LinkedIn Links found: {len(linkedin_links_tracker)}', linkedin_links_tracker, '---------------------'
+        )
+        linkedin_links_tracker = sorted_unique(linkedin_links_tracker)
 
     length_urls = len(trello_urls)
     if length_urls == 0:
         print('\n[*] No Trello URLs found.')
     else:
-        print('\n[*] Trello URLs found: ' + str(length_urls))
-        print('--------------------')
-        all_urls = list(sorted(set(trello_urls)))
-        for url in sorted(all_urls):
-            print(url)
+        print_section('\n[*] Trello URLs found: ' + str(length_urls), trello_urls, '--------------------')
 
     if len(ips) == 0:
         print('\n[*] No IPs found.')
@@ -114,7 +107,7 @@ async def main() -> None:
     else:
         print('\n[*] Emails found: ' + str(len(emails)))
         print('----------------------')
-        all_emails = sorted(list(set(emails)))
+        all_emails = sorted_unique(emails)
         print('\n'.join(all_emails))
 
     if len(hosts) == 0:

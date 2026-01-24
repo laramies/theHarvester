@@ -110,7 +110,7 @@ class Parser:
         return sets
 
     async def urls(self) -> Set[str]:
-        found = re.finditer(r'(http|https)://(www\.)?trello.com/([a-zA-Z\d\-_\.]+/?)*', self.results)
+        found = re.finditer(r'(http|https)://(www\.)?trello.com/([a-zA-Z\d\-_.]+/?)*', self.results)
         urls = {match.group().strip() for match in found}
         return urls
 

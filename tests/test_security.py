@@ -36,7 +36,7 @@ class TestCORSConfiguration:
         allow_origins = options.get('allow_origins', [])
         allow_credentials = options.get('allow_credentials', False)
 
-        if '*' in allow_origins:
+        if isinstance(allow_origins, (list, tuple, set)) and '*' in allow_origins:
             assert (
                 allow_credentials is False
             ), 'CRITICAL: CORS must not allow credentials with wildcard origins (CVE risk)'
