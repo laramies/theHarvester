@@ -8,6 +8,8 @@ class SearchSecurityScorecard:
     def __init__(self, word: str):
         self.word = word
         self.api_key = Core.securityscorecard_key()
+        if self.api_key is None:
+            raise MissingKey('SecurityScorecard')
         self.base_url = 'https://api.securityscorecard.io'
         self.headers = {'Authorization': f'Token {self.api_key}', 'Content-Type': 'application/json'}
         self.hosts: set[str] = set()
@@ -33,9 +35,6 @@ class SearchSecurityScorecard:
                         if response.status == 200:
                             data = await response.json()
                             self._extract_data(data)
-                        elif response.status == 401:
-                            print('[!] Missing API key for SecurityScorecard.')
-                            raise MissingKey('SecurityScorecard')
         except Exception as e:
             print(f'Error in SecurityScorecard search: {e}')
 

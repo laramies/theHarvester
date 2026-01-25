@@ -8,6 +8,8 @@ class SearchHaveIBeenPwned:
     def __init__(self, word: str):
         self.word = word
         self.api_key = Core.haveibeenpwned_key()
+        if self.api_key is None:
+            raise MissingKey('HaveIBeenPwned')
         self.base_url = 'https://haveibeenpwned.com/api/v3'
         self.headers = {'hibp-api-key': self.api_key, 'user-agent': 'theHarvester', 'Content-Type': 'application/json'}
         self.hosts: set[str] = set()
@@ -34,9 +36,6 @@ class SearchHaveIBeenPwned:
                         if response.status == 200:
                             self.breaches = await response.json()
                             self._extract_data()
-                        elif response.status == 401:
-                            print('[!] Missing API key for HaveIBeenPwned.')
-                            raise MissingKey('HaveIBeenPwned')
         except Exception as e:
             print(f'Error in HaveIBeenPwned search: {e}')
 

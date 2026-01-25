@@ -10,6 +10,8 @@ class SearchBuiltWith:
     def __init__(self, word: str):
         self.word = word
         self.api_key = Core.builtwith_key()
+        if self.api_key is None:
+            raise MissingKey('BuiltWith')
         self.base_url = 'https://api.builtwith.com/v21/api.json'
         self.headers = {'Authorization': f'Bearer {self.api_key}', 'Content-Type': 'application/json'}
         self.hosts: set[str] = set()
@@ -38,9 +40,6 @@ class SearchBuiltWith:
                             data = await response.json()
                             self.tech_stack = data
                             self._extract_data()
-                        elif response.status == 401:
-                            print('[!] Missing API key for BuiltWith.')
-                            raise MissingKey('BuiltWith')
         except Exception as e:
             print(f'Error in BuiltWith search: {e}')
 

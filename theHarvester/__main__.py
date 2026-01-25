@@ -733,7 +733,8 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
-                            print(f'A Missing Key error occurred in HaveIBeenPwned search: {e}')
+                            if not args.quiet:
+                                print(MissingKey('HaveIBeenPwned'))
                         else:
                             print(f'An exception has occurred in HaveIBeenPwned search: {e}')
 
@@ -980,7 +981,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
-                            print(f'A Missing Key error occurred in SecurityScorecard search: {e}')
+                            print(MissingKey('SecurityScorecard'))
                         else:
                             print(f'An exception has occurred in SecurityScorecard search: {e}')
 
@@ -1794,25 +1795,21 @@ async def start(rest_args: argparse.Namespace | None = None):
             print('    Continuing with the rest of the scan...')
             traceback.print_exc()  # More detailed error information for developers
 
-    # If the SecurityScorecard option is selected
     if 'securityscorecard' in engines:
         try:
             print('\n[*] Performing SecurityScorecard scan...')
             securityscorecard_scanner = securityscorecard.SearchSecurityScorecard(word)
-            # Use the process method according to the original structure of this module
             await securityscorecard_scanner.process(use_proxy)
 
-            # Use existing API to get results
+            # Use the existing API to get results
             hosts = await securityscorecard_scanner.get_hostnames()
             if hosts:
                 print(f'\n[*] SecurityScorecard results: {len(hosts)} hosts found')
                 for host in hosts:
                     print(f'    - {host}')
 
-                # Add results to the main host list
                 all_hosts.extend(hosts)
 
-            # Add detected IPs
             ips = await securityscorecard_scanner.get_ips()
             if ips:
                 print(f'\n[*] SecurityScorecard IPs found: {len(ips)}')
@@ -1823,7 +1820,6 @@ async def start(rest_args: argparse.Namespace | None = None):
         except Exception as e:
             print(f'An exception has occurred in SecurityScorecard scanning: {e}')
 
-    # If BuiltWith option is selected
     if 'builtwith' in engines:
         try:
             print('\n[*] Performing BuiltWith scan...')
@@ -1847,7 +1843,11 @@ async def start(rest_args: argparse.Namespace | None = None):
                 interesting_urls.extend(urls)
 
         except Exception as e:
-            print(f'An exception has occurred in BuiltWith scanning: {e}')
+            if isinstance(e, MissingKey):
+                if not args.quiet:
+                    print(MissingKey('BuiltWith'))
+                else:
+                    print(f'An exception has occurred in BuiltWith scanning: {e}')
 
     sys.exit(0)
 
