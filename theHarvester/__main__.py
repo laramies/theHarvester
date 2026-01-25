@@ -455,9 +455,10 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except Exception as e:
                         show_default_error_message(engineitem, word, error=e)
-                elif engineitem == 'bitbucket-code':
+
+                elif engineitem == 'bitbucket':
                     try:
-                        bitbucket_search = bitbucket.SearchBitBucketCode(word, limit)
+                        bitbucket_search = bitbucket.SearchBitBucket(word, limit)
                         stor_lst.append(
                             store(
                                 bitbucket_search,
@@ -466,9 +467,11 @@ async def start(rest_args: argparse.Namespace | None = None):
                                 store_emails=True,
                             )
                         )
-                    except MissingKey as ex:
-                        if not args.quiet:
-                            print(f'A Missing Key error occurred in bitbucket: {ex}')
+                    except Exception as ex:
+                        if isinstance(ex, MissingKey):
+                            print(MissingKey('Bitbucket'))
+                        else:
+                            show_default_error_message(engineitem, word, ex)
 
                 elif engineitem == 'brave':
                     try:

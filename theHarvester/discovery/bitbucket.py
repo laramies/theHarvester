@@ -25,31 +25,27 @@ class ErrorResult(NamedTuple):
     body: Any
 
 
-class SearchBitBucketCode:
+class SearchBitBucket:
     def __init__(self, word, limit) -> None:
-        try:
-            self.word = word
-            self.total_results = ''
-            self.server = 'api.bitbucket.org'
-            self.limit = limit
-            self.counter = 0
-            self.page = 1
-            self.key = Core.bitbucket_key()
-            if self.key is None:
-                raise MissingKey('BitBucket')
-            self.proxy = False
-            self.base_url = f'https://{self.server}/2.0/repositories/"{self.word}"/src'  # Word must contain username and repo
-            self.headers = {
-                'Host': self.server,
-                'User-agent': Core.get_user_agent(),
-                'Authorization': f'token {self.key}',
-            }
-            # Retry control to avoid infinite loops on rate limiting
-            self.retry_count = 0
-            self.max_retries = 3
-        except Exception as e:
-            print(f'Error initializing SearchBitbucketCode: {e}')
-            raise
+        self.word = word
+        self.total_results = ''
+        self.server = 'api.bitbucket.org'
+        self.limit = limit
+        self.counter = 0
+        self.page = 1
+        self.key = Core.bitbucket_key()
+        if self.key is None:
+            raise MissingKey('BitBucket')
+        self.proxy = False
+        self.base_url = f'https://{self.server}/2.0/repositories/"{self.word}"/src'  # Word must contain a username and repo
+        self.headers = {
+            'Host': self.server,
+            'User-agent': Core.get_user_agent(),
+            'Authorization': f'token {self.key}',
+        }
+        # Retry control to avoid infinite loops on rate limiting
+        self.retry_count = 0
+        self.max_retries = 3
 
     @staticmethod
     async def fragments_from_response(json_data: dict) -> list[str]:
@@ -149,7 +145,7 @@ class SearchBitBucketCode:
                     print(f'Error processing page: {e}')
                     await asyncio.sleep(get_delay())
         except Exception as e:
-            print(f'An exception has occurred in bitbucketcode process: {e}')
+            print(f'An exception has occurred in bitbucket process: {e}')
 
     async def get_emails(self):
         try:
