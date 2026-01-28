@@ -1,38 +1,12 @@
 #!/usr/bin/env python3
 # Note: This script runs theHarvester
-import asyncio
 import sys
 
-from theHarvester import __main__
+from theHarvester.theHarvester import main
 
-if sys.version_info.major < 3 or sys.version_info.minor < 11:
-    print(
-        "[!] Make sure you have Python 3.11+ installed, quitting.\n\n"
-    )
+if sys.version_info.major < 3 or sys.version_info.minor < 10:
+    print('[!] Make sure you have Python 3.10+ installed, quitting.\n\n')
     sys.exit(1)
 
-if __name__ == "__main__":
-    platform = sys.platform
-    if platform == "win32":
-        # Required or things will break if trying to take screenshots
-        import multiprocessing
-
-        multiprocessing.freeze_support()
-        try:
-            # See if we have winloop as a performance enhancement on windows
-            import winloop
-
-            asyncio.DefaultEventLoopPolicy = winloop.EventLoopPolicy
-        except ModuleNotFoundError:
-            asyncio.DefaultEventLoopPolicy = asyncio.WindowsSelectorEventLoopPolicy
-    else:
-        import uvloop
-
-        uvloop.install()
-
-        if "linux" in platform:
-            import aiomultiprocess
-
-            # As we are not using Windows, we can change the spawn method to fork for greater performance
-            aiomultiprocess.set_context("fork")
-    asyncio.run(__main__.entry_point())
+if __name__ == '__main__':
+    main()

@@ -2,6 +2,7 @@
 name = "theHarvester"
 description = "theHarvester is a very simple, yet effective tool designed to be used in the early stages of a penetration test"
 readme = "README.md"
+license = "GPL-2.0-only"
 authors = [
     { name = "Christian Martorella", email = "cmartorella@edge-security.com" },
     { name = "Jay Townsend", email = "jay@cybermon.uk" },
@@ -14,7 +15,6 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
-    "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
     "Operating System :: OS Independent",
 ]
 dynamic = ["version"]
@@ -65,28 +65,16 @@ dev = [
 theHarvester = "theHarvester.theHarvester:main"
 restfulHarvest = "theHarvester.restfulHarvest:main"
 
-[tool.setuptools.dynamic]
-version = { attr = "theHarvester.lib.version.VERSION" }
-
-[tool.setuptools.packages.find]
-include = ["theHarvester*"]
-
-[tool.setuptools.package-data]
-"*" = ["*.txt", "*.yaml"]
-
 [tool.pytest.ini_options]
 minversion = "8.3.3"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 addopts = "--no-header"
-testpaths = [
-    "tests",
-    "tests/discovery/",
-]
+testpaths = ["tests"]
 
 [build-system]
-requires = ["setuptools>=68"]
-build-backend = "setuptools.build_meta"
+requires = ["flit_core >=3.11,<4"]
+build-backend = "flit_core.buildapi"
 
 [tool.mypy]
 python_version = "3.13"
