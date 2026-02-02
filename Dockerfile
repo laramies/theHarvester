@@ -22,4 +22,4 @@ USER theharvester
 EXPOSE 80
 
 # Run the application as theharvester user
-ENTRYPOINT ["python", "restfulHarvest.py", "-H", "0.0.0.0", "-p", "80"]
+ENTRYPOINT ["restfulHarvest", "-H", "0.0.0.0", "-p", "80"]

@@ -5,9 +5,9 @@ from censys.common.exceptions import (
 )
 from censys.search import CensysCerts
 
+from theHarvester import __version__ as thehavester_version
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import Core
-from theHarvester.lib.version import version as thehavester_version
 
 
 class SearchCensys:
