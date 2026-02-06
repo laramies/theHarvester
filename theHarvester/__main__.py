@@ -230,9 +230,9 @@ async def start(rest_args: argparse.Namespace | None = None):
     if len(filename) > 0:
         if filename.startswith('~/'):
             # Allow home directory expansion but sanitize the rest
-            base_path = anyio.Path.expanduser('~')  # ty:ignore[invalid-argument-type]
+            base_path = await anyio.Path('~').expanduser()
             sanitized = sanitize_filename(filename[2:])
-            filename = anyio.Path.joinpath(base_path, sanitized)  # ty:ignore[invalid-assignment]
+            filename = str(base_path.joinpath(sanitized))
         elif os.path.isabs(filename):
             # For absolute paths, sanitize just the filename component
             dirname = os.path.dirname(filename)
@@ -248,14 +248,14 @@ async def start(rest_args: argparse.Namespace | None = None):
     all_people: list[dict[str, str]] = []
     dnslookup = args.dns_lookup
     dnsserver = args.dns_server  # TODO arg is not used anywhere replace with resolvers wordlist arg dnsresolve
-    dnsresolve = args.dns_resolve
+    dnsresolve: str | None = args.dns_resolve
     final_dns_resolver_list = []
     if dnsresolve is not None and len(dnsresolve) > 0:
         # Three scenarios:
         # 8.8.8.8
         # 1.1.1.1,8.8.8.8 or 1.1.1.1, 8.8.8.8
         # resolvers.txt
-        if anyio.Path.exists(dnsresolve):
+        if await anyio.Path(dnsresolve).exists():
             with open(dnsresolve, encoding='UTF-8') as fp:
                 for line in fp:
                     line = line.strip()
@@ -1700,7 +1700,7 @@ async def start(rest_args: argparse.Namespace | None = None):
             # Define a default wordlist if none is specified
             wordlist = args.wordlist if args.wordlist else str(DATA_DIR / 'wordlists' / 'api_endpoints.txt')
 
-            if not anyio.Path.exists(wordlist):  # ty:ignore[invalid-argument-type]
+            if not await anyio.Path(wordlist).exists():
                 print(f'\n[!] Wordlist not found: {wordlist}')
                 print('Creating a basic API wordlist for scanning...')
                 # Create a default simple API endpoint list
