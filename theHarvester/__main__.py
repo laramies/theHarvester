@@ -9,6 +9,7 @@ import time
 import traceback
 from typing import TYPE_CHECKING, Any
 
+import anyio
 import netaddr
 import ujson
 from aiomultiprocess import Pool
@@ -229,9 +230,9 @@ async def start(rest_args: argparse.Namespace | None = None):
     if len(filename) > 0:
         if filename.startswith('~/'):
             # Allow home directory expansion but sanitize the rest
-            base_path = os.path.expanduser('~')
+            base_path = anyio.Path.expanduser('~')  # ty:ignore[invalid-argument-type]
             sanitized = sanitize_filename(filename[2:])
-            filename = os.path.join(base_path, sanitized)
+            filename = anyio.Path.joinpath(base_path, sanitized)  # ty:ignore[invalid-assignment]
         elif os.path.isabs(filename):
             # For absolute paths, sanitize just the filename component
             dirname = os.path.dirname(filename)
@@ -254,7 +255,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         # 8.8.8.8
         # 1.1.1.1,8.8.8.8 or 1.1.1.1, 8.8.8.8
         # resolvers.txt
-        if os.path.exists(dnsresolve):
+        if anyio.Path.exists(dnsresolve):
             with open(dnsresolve, encoding='UTF-8') as fp:
                 for line in fp:
                     line = line.strip()
@@ -265,7 +266,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         print(f'An exception has occurred while reading from: {dnsresolve}, {e}')
                         print(f'Current line: {line}')
-                        return
+                        return None
         else:
             try:
                 if ',' in dnsresolve:
@@ -1699,8 +1700,7 @@ async def start(rest_args: argparse.Namespace | None = None):
             # Define a default wordlist if none is specified
             wordlist = args.wordlist if args.wordlist else str(DATA_DIR / 'wordlists' / 'api_endpoints.txt')
 
-            # Check if the wordlist file exists first
-            if not os.path.exists(wordlist):
+            if not anyio.Path.exists(wordlist):  # ty:ignore[invalid-argument-type]
                 print(f'\n[!] Wordlist not found: {wordlist}')
                 print('Creating a basic API wordlist for scanning...')
                 # Create a default simple API endpoint list

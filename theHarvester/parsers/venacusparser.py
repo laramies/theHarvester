@@ -3,7 +3,7 @@ from collections.abc import Mapping
 from typing import Any
 
 
-class TokenTypesEnum(str, enum.Enum):
+class TokenTypesEnum(enum.StrEnum):
     ID = 'id'
     FIRSTNAME = 'firstname'
     LASTNAME = 'lastname'
