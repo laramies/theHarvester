@@ -29,10 +29,10 @@ dependencies = [
     "censys==2.2.19",
     "certifi==2026.1.4",
     "dnspython==2.8.0",
-    "fastapi==0.128.0",
+    "fastapi==0.128.2",
     "lxml==6.0.2",
     "netaddr==1.3.0",
-    "playwright==1.57.0",
+    "playwright==1.58.0",
     "PyYAML==6.0.3",
     "python-dateutil==2.9.0.post0",
     "httpx==0.28.1",
@@ -55,10 +55,10 @@ dev = [
     "types-chardet==5.0.4.6",
     "types-python-dateutil==2.9.0.20260124",
     "types-PyYAML==6.0.12.20250915",
-    "ruff==0.14.14",
+    "ruff==0.15.0",
     "types-ujson==5.10.0.20250822",
     "wheel==0.46.3",
-    "ty==0.0.13",
+    "ty==0.0.15",
 ]
 
 [project.scripts]
