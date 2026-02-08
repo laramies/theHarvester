@@ -1016,7 +1016,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                                 self.hosts = set()
                                 self.shodan = shodan_search
 
-                            async def do_search(self):
+                            async def process(self, use_proxy: bool = False):
                                 import socket
 
                                 try:
@@ -1027,13 +1027,17 @@ async def start(rest_args: argparse.Namespace | None = None):
                                     if ip in result and isinstance(result[ip], dict):
                                         # Add the IP as a host for consistency with other modules
                                         self.hosts.add(ip)
+
+                                        for host in result[ip].get('hostnames', []):
+                                            self.hosts.add(host)
+
                                         print(f'Found Shodan data for {ip}')
                                     elif ip in result and isinstance(result[ip], str):
                                         print(f'{ip}: {result[ip]}')
                                 except Exception as e:
                                     print(f'Error in Shodan search: {e}')
 
-                            def get_hostnames(self):
+                            async def get_hostnames(self):
                                 return list(self.hosts)
 
                         shodan_wrapper = ShodanWrapper(word)
