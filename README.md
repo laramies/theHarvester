@@ -103,6 +103,8 @@ Passive modules
 
 * leaklookup: Data breach search engine (https://leak-lookup.com)
 
+* mojeek: Mojeek search engine (https://www.mojeek.com)
+
 * netlas: A Shodan or Censys competitor (https://app.netlas.io)
 
 * onyphe: Cyber defense search engine (https://www.onyphe.io)
