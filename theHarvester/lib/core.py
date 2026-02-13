@@ -126,6 +126,10 @@ class Core:
     @staticmethod
     def leaklookup_key() -> str:
         return Core.api_keys()['leaklookup']['key']
+        
+    @staticmethod
+    def mojeek_key() -> str:
+        return Core.api_keys()['mojeek']['key']
 
     @staticmethod
     def leakix_key() -> str:
@@ -245,6 +249,7 @@ class Core:
             'leaklookup',
             'linkedin',
             'linkedin_links',
+            'mojeek',
             'netcraft',
             'netlas',
             'omnisint',
