@@ -9,6 +9,7 @@ class SearchMojeek:
         self.server = 'www.mojeek.com'
         self.limit = limit
         self.proxy = False
+        self.api_key = Core.api_keys().get('mojeek', '')
 
     async def do_search(self) -> None:
         headers = {'User-agent': Core.get_user_agent()}
