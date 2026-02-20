@@ -13,47 +13,70 @@ class SearchRocketReach:
             raise MissingKey('RocketReach')
         self.hosts: set = set()
         self.proxy = False
-        self.baseurl = 'https://rocketreach.co/api/v2/person/search'
+        self.baseurl = 'https://api.rocketreach.co/api/v2/person/search'
         self.links: set = set()
         self.emails: set = set()
         self.limit = limit
 
     async def do_search(self) -> None:
         try:
+            if self.limit <= 0:
+                return
+
             headers = {
                 'Api-Key': self.key,
                 'Content-Type': 'application/json',
                 'User-Agent': Core.get_user_agent(),
             }
 
-            next_page = 1  # track pagination
-            for count in range(1, self.limit):
-                data = f'{{"query":{{"current_employer_domain": ["{self.word}"]}}, "page": {next_page}, "page_size": 100}}'
+            start = 0
+            remaining = self.limit
+            while remaining > 0:
+                page_size = min(100, remaining)
+                data = {
+                    'query': {'current_employer_domain': [self.word]},
+                    'start': start,
+                    'page_size': page_size,
+                }
                 result = await AsyncFetcher.post_fetch(self.baseurl, headers=headers, data=data, json=True)
-                if 'detail' in result.keys() and 'error' in result.keys() and 'Subscribe to a plan to access' in result['detail']:
+                if not isinstance(result, dict):
+                    break
+
+                detail = result.get('detail', '')
+                if detail and 'Subscribe to a plan to access' in str(detail):
                     # No more results can be fetched
                     break
-                if 'detail' in result.keys() and 'Request was throttled.' in result['detail']:
+
+                if detail and 'Request was throttled.' in str(detail):
                     # Rate limit has been triggered need to sleep extra
                     print(
                         f'RocketReach requests have been throttled; '
-                        f'{result["detail"].split(" ", 3)[-1].replace("available", "availability")}'
+                        f'{str(detail).split(" ", 3)[-1].replace("available", "availability")}'
                     )
                     break
-                if 'profiles' in dict(result).keys():
-                    if len(result['profiles']) == 0:
-                        break
-                    for profile in result['profiles']:
-                        if 'linkedin_url' in dict(profile).keys():
-                            self.links.add(profile['linkedin_url'])
-                        if 'emails' in dict(profile).keys() and profile['emails']:
-                            for email in profile['emails']:
-                                if email.get('email'):
-                                    self.emails.add(email['email'])
-                if 'pagination' in dict(result).keys():
-                    next_page = result['pagination']['page'] + 1
-                    if next_page > result['pagination']['total_pages']:
-                        break
+
+                profiles = result.get('profiles', [])
+                if not profiles:
+                    break
+
+                for profile in profiles:
+                    if 'linkedin_url' in profile:
+                        self.links.add(profile['linkedin_url'])
+                    if 'emails' in profile and profile['emails']:
+                        for email in profile['emails']:
+                            if email.get('email'):
+                                self.emails.add(email['email'])
+
+                found = len(profiles)
+                remaining -= found
+                start += found
+
+                pagination = result.get('pagination', {})
+                total = pagination.get('total')
+                if isinstance(total, int) and start >= total:
+                    break
+                if found < page_size:
+                    break
 
             await asyncio.sleep(get_delay() + 5)
 
