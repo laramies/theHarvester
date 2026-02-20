@@ -62,7 +62,7 @@ class SearchRocketReach:
                 for profile in profiles:
                     if 'linkedin_url' in profile:
                         self.links.add(profile['linkedin_url'])
-                    if 'emails' in profile and profile['emails']:
+                    if profile.get('emails'):
                         for email in profile['emails']:
                             if email.get('email'):
                                 self.emails.add(email['email'])
