@@ -153,7 +153,9 @@ class SearchCriminalIP:
                 await asyncio.sleep(10 * get_delay())
             counter += 1
             if counter == 10:
-                print('Ten iterations have occurred in CriminalIP waiting for scan to finish, returning to prevent infinite loop.')
+                print(
+                    'Ten iterations have occurred in CriminalIP waiting for scan to finish, returning to prevent infinite loop.'
+                )
                 print(f'Verify results manually on CriminalIP dumping data: scan_response: {response} status_response: {status}')
                 return
 
