@@ -55,10 +55,10 @@ dev = [
     "types-chardet==5.0.4.6",
     "types-python-dateutil==2.9.0.20260124",
     "types-PyYAML==6.0.12.20250915",
-    "ruff==0.15.0",
+    "ruff==0.15.2",
     "types-ujson==5.10.0.20250822",
     "wheel==0.46.3",
-    "ty==0.0.15",
+    "ty==0.0.18",
 ]
 
 [project.scripts]
