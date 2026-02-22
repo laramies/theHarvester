@@ -1,4 +1,5 @@
 import asyncio
+from typing import Any
 from urllib.parse import urlparse
 
 from theHarvester.discovery.constants import MissingKey, get_delay
@@ -114,7 +115,7 @@ class SearchCriminalIP:
 
         scan_percentage = 0
         counter = 0
-        status = {}
+        status: dict[str, Any] = {}
         while scan_percentage != 100:
             status_url = f'https://api.criminalip.io/v1/domain/status/{scan_id}'
             status_response = await AsyncFetcher.fetch_all(

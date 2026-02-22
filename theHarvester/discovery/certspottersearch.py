@@ -16,9 +16,13 @@ class SearchCertspoter:
                 for dct in response:
                     for key, value in dct.items():
                         if key == 'dns_names':
-                            self.totalhosts.update({name for name in value if name})
+                            self.totalhosts.update({name for name in value if isinstance(name, str) and name})
             elif isinstance(response, dict):
-                self.totalhosts.update({response['dns_names'] if 'dns_names' in response.keys() else ''})  # type: ignore
+                dns_names = response.get('dns_names')
+                if isinstance(dns_names, list):
+                    self.totalhosts.update({name for name in dns_names if isinstance(name, str) and name})
+                elif isinstance(dns_names, str) and dns_names:
+                    self.totalhosts.add(dns_names)
             else:
                 self.totalhosts.update({''})
         except IndexError:

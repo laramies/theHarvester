@@ -11,7 +11,7 @@ if 'aiohttp_socks' not in sys.modules:
         def from_url(*_args, **_kwargs):
             return None
 
-    aiohttp_socks_stub.ProxyConnector = _ProxyConnector
+    setattr(aiohttp_socks_stub, 'ProxyConnector', _ProxyConnector)
     sys.modules['aiohttp_socks'] = aiohttp_socks_stub
 
 from theHarvester.discovery import rocketreach

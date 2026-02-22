@@ -386,7 +386,7 @@ class AsyncFetcher:
         cls,
         url,
         headers=None,
-        data: str | dict[str, str] = '',
+        data: str | dict[str, Any] = '',
         params: str = '',
         json: bool = False,
         proxy: bool = False,

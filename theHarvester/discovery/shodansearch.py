@@ -56,25 +56,37 @@ class SearchShodan:
 
             for key, value in results.items():
                 if key == 'asn':
-                    asn += value
+                    if isinstance(value, str):
+                        asn += value
+                    elif value is not None:
+                        asn += str(value)
                 if key == 'domains':
-                    value = list(value)
-                    value.sort()
-                    domains.extend(value)
+                    if isinstance(value, list):
+                        domain_values = [str(domain) for domain in value]
+                        domain_values.sort()
+                        domains.extend(domain_values)
                 if key == 'hostnames':
-                    value = [host.strip() for host in list(value)]
-                    value.sort()
-                    hostnames.extend(value)
+                    if isinstance(value, list):
+                        hostname_values = [str(host).strip() for host in value]
+                        hostname_values.sort()
+                        hostnames.extend(hostname_values)
                 if key == 'isp':
-                    isp += value
+                    if isinstance(value, str):
+                        isp += value
+                    elif value is not None:
+                        isp += str(value)
                 if key == 'org':
                     org += str(value)
                 if key == 'ports':
-                    value = list(value)
-                    value.sort()
-                    ports.extend(value)
+                    if isinstance(value, list):
+                        port_values = [int(port) for port in value if isinstance(port, int)]
+                        port_values.sort()
+                        ports.extend(port_values)
                 if key == 'product':
-                    product += value
+                    if isinstance(value, str):
+                        product += value
+                    elif isinstance(value, list):
+                        product += ', '.join(str(item) for item in value if item is not None)
 
             technologies = list(set(technologies))
 
