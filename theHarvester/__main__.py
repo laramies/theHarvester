@@ -259,32 +259,31 @@ async def start(rest_args: argparse.Namespace | None = None):
             with open(dnsresolve, encoding='UTF-8') as fp:
                 for line in fp:
                     line = line.strip()
+                    if len(line) == 0:
+                        continue
                     try:
-                        if len(line) > 0:
-                            _ = netaddr.IPAddress(line)
-                            final_dns_resolver_list.append(line)
+                        _ = netaddr.IPAddress(line)
+                        final_dns_resolver_list.append(line)
                     except Exception as e:
                         print(f'An exception has occurred while reading from: {dnsresolve}, {e}')
                         print(f'Current line: {line}')
-                        return None
         else:
-            try:
-                if ',' in dnsresolve:
-                    cleaned = dnsresolve.replace(' ', '')
-                    for item in cleaned.split(','):
-                        _ = netaddr.IPAddress(item)
-                        final_dns_resolver_list.append(item)
-                else:
-                    # Verify user passed in the actual IP address does not verify if the IP is a resolver just if an IP
-                    _ = netaddr.IPAddress(dnsresolve)
-                    final_dns_resolver_list.append(dnsresolve)
-            except Exception as e:
-                print(f'Passed in DNS resolvers are invalid double check, got error: {e}')
-                print(f'Dumping resolvers passed in: {e}')
-                sys.exit(0)
+            cleaned = dnsresolve.replace(' ', '')
+            resolver_candidates = cleaned.split(',') if ',' in cleaned else [cleaned]
+            for item in resolver_candidates:
+                if len(item) == 0:
+                    continue
+                try:
+                    # Verify user passed in an IP; this does not validate resolver behavior
+                    _ = netaddr.IPAddress(item)
+                    final_dns_resolver_list.append(item)
+                except Exception as e:
+                    print(f'Passed DNS resolver is invalid, skipping: {item} ({e})')
 
         # if for some reason, there are duplicates
         final_dns_resolver_list = list(set(final_dns_resolver_list))
+        if len(final_dns_resolver_list) == 0:
+            print('No valid DNS resolvers were parsed from --dns-resolve; continuing without custom resolvers.')
 
     engines: list = []
     # If the user specifies
@@ -404,19 +403,19 @@ async def start(rest_args: argparse.Namespace | None = None):
             links = await search_engine.get_links()
             linkedin_links_tracker.extend(links)
             if len(links) > 0:
-                await db.store_all(word, links, 'linkedinlinks', engineitem)
+                await db.store_all(word, links, 'linkedinlinks', source)
 
         if store_interestingurls:
             iurls = await search_engine.get_interestingurls()
             interesting_urls.extend(iurls)
             if len(iurls) > 0:
-                await db.store_all(word, iurls, 'interestingurls', engineitem)
+                await db.store_all(word, iurls, 'interestingurls', source)
 
         if store_asns:
             fasns = await search_engine.get_asns()
             total_asns.extend(fasns)
             if len(fasns) > 0:
-                await db.store_all(word, fasns, 'asns', engineitem)
+                await db.store_all(word, fasns, 'asns', source)
 
     stor_lst = []
     if args.source is not None:
