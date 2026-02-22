@@ -41,6 +41,7 @@ from theHarvester.discovery import (
     intelxsearch,
     leakix,
     leaklookup,
+    mojeek,
     netlas,
     onyphe,
     otxsearch,
@@ -196,7 +197,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         '--source',
         help="""baidu, bevigil, bitbucket, brave, bufferoverun,
                             builtwith, censys, certspotter, chaos, commoncrawl, criminalip, crtsh, dehashed, dnsdumpster, duckduckgo, fofa, fullhunt, github-code,
-                            gitlab, hackertarget, haveibeenpwned, hudsonrock, hunter, hunterhow, intelx, leakix, leaklookup, netlas, onyphe, otx, pentesttools,
+                            gitlab, hackertarget, haveibeenpwned, hudsonrock, hunter, hunterhow, intelx, leakix, leaklookup, mojeek, netlas, onyphe, otx, pentesttools,
                             projectdiscovery, rapiddns, robtex, rocketreach, securityscorecard, securityTrails, shodan, subdomaincenter,
                             subdomainfinderc99, thc, threatcrowd, tomba, urlscan, venacus, virustotal, waybackarchive, whoisxml, windvane, yahoo, zoomeye""",
     )
@@ -831,6 +832,23 @@ async def start(rest_args: argparse.Namespace | None = None):
                         else:
                             print(f'An exception has occurred in LeakLookup search: {e}')
 
+                elif engineitem == 'mojeek':
+                    try:
+                        mojeek_search = mojeek.SearchMojeek(word, limit)
+                        stor_lst.append(
+                            store(
+                                mojeek_search,
+                                engineitem,
+                                store_host=True,
+                                store_emails=True,
+                            )
+                        )
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            print(f'A Missing Key error occurred in Mojeek: {e}')
+                        else:
+                            print(f'An exception has occurred in Mojeek search: {e}')
+                            
                 elif engineitem == 'netlas':
                     try:
                         netlas_search = netlas.SearchNetlas(word, limit)
