@@ -1,6 +1,8 @@
 import json as _stdlib_json
 from types import ModuleType
 
+import aiohttp
+
 from theHarvester.lib.core import AsyncFetcher, Core
 
 json: ModuleType = _stdlib_json
@@ -10,7 +12,7 @@ try:
     json = _ujson
 except ImportError as e:
     print(f"'ujson' not available. Falling back to standard 'json' module. Reason: {e}")
-except Exception as e:
+except (AttributeError, OSError, RuntimeError, SystemError, ValueError) as e:
     print(f"Unexpected error while importing 'ujson'. Falling back to standard 'json'. Reason: {e}")
 
 
@@ -37,7 +39,7 @@ class SearchRobtex:
             if line.strip():
                 try:
                     results.append(json.loads(line))
-                except Exception:
+                except (TypeError, ValueError):
                     continue
         return results
 
@@ -55,7 +57,7 @@ class SearchRobtex:
 
             try:
                 data = self._safe_parse_json_lines(response[0])
-            except Exception as e:
+            except (TypeError, ValueError) as e:
                 print(f'Failed to parse JSON lines from Robtex response: {e}')
                 return
 
@@ -98,10 +100,10 @@ class SearchRobtex:
                             rrdata = record.get('rrdata', '')
                             if rrdata and (rrdata.endswith(self.word) or f'.{self.word}' in rrdata):
                                 self.totalhosts.add(rrdata.rstrip('.'))
-                except Exception as e:
+                except (TypeError, ValueError) as e:
                     print(f'Failed to parse reverse DNS data from Robtex: {e}')
 
-        except Exception as e:
+        except (aiohttp.ClientError, TimeoutError, OSError, TypeError, ValueError) as e:
             print(f'Robtex API error: {e}')
 
     async def get_hostnames(self) -> set:

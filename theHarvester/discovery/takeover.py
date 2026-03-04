@@ -14,7 +14,7 @@ class TakeOver:
         self.proxy = False
         self.fingerprints: dict[str, str] = dict()
         # https://stackoverflow.com/questions/33080869/python-how-to-create-a-dict-of-dict-of-list-with-defaultdict
-        self.results: defaultdict[str, list] = defaultdict()
+        self.results: defaultdict[str, list] = defaultdict(list)
 
     async def populate_fingerprints(self):
         # Thank you to https://github.com/EdOverflow/can-i-take-over-xyz for these fingerprints

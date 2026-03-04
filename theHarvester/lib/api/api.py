@@ -1,6 +1,7 @@
 import argparse
 import os
 import traceback
+from typing import Any, cast
 
 from fastapi import FastAPI, Header, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -49,7 +50,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # ty
 
 # Add CORS middleware
 app.add_middleware(
-    CORSMiddleware,
+    cast('Any', CORSMiddleware),
     allow_origins=['*'],
     allow_credentials=False,
     allow_methods=['GET', 'POST'],

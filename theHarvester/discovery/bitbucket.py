@@ -1,5 +1,6 @@
 import asyncio
 import random
+import re
 import urllib.parse as urlparse
 from typing import Any, NamedTuple
 
@@ -56,7 +57,7 @@ class SearchBitBucket:
                 for match in item.get('text_matches', [])
                 if match.get('fragment') is not None
             ]
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError) as e:
             print(f'Error extracting fragments: {e}')
             return []
 
@@ -68,7 +69,7 @@ class SearchBitBucket:
                 if page_param := urlparse.parse_qs(parsed.query).get('page', [None])[0]:
                     return int(page_param)
             return 0
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError) as e:
             print(f'Error parsing page response: {e}')
             return None
 
@@ -84,7 +85,7 @@ class SearchBitBucket:
             if status in (429, 403):
                 return RetryResult(60)
             return ErrorResult(status, json_data if isinstance(json_data, dict) else text)
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
             print(f'Error handling response: {e}')
             return ErrorResult(500, str(e))
 
@@ -101,7 +102,7 @@ class SearchBitBucket:
             async with aiohttp.ClientSession(headers=self.headers) as sess:
                 async with sess.get(url, proxy=random.choice(Core.proxy_list()) if self.proxy else None) as resp:
                     return await resp.text(), await resp.json(), resp.status, resp.links
-        except Exception as e:
+        except (aiohttp.ClientError, TimeoutError, ValueError, OSError) as e:
             print(f'Error performing search: {e}')
             return '', {}, 500, {}
 
@@ -141,17 +142,17 @@ class SearchBitBucket:
                         print(f'\tException occurred: status_code: {result.status_code} reason: {result.body}')
                         self.page = 0
                         break
-                except Exception as e:
+                except (aiohttp.ClientError, TimeoutError, ValueError, TypeError, AttributeError) as e:
                     print(f'Error processing page: {e}')
                     await asyncio.sleep(get_delay())
-        except Exception as e:
+        except (aiohttp.ClientError, TimeoutError, ValueError, TypeError, AttributeError) as e:
             print(f'An exception has occurred in bitbucket process: {e}')
 
     async def get_emails(self):
         try:
             rawres = myparser.Parser(self.total_results, self.word)
             return await rawres.emails()
-        except Exception as e:
+        except (AttributeError, TypeError, re.error) as e:
             print(f'Error getting emails: {e}')
             return []
 
@@ -159,6 +160,6 @@ class SearchBitBucket:
         try:
             rawres = myparser.Parser(self.total_results, self.word)
             return await rawres.hostnames()
-        except Exception as e:
+        except (AttributeError, TypeError, re.error) as e:
             print(f'Error getting hostnames: {e}')
             return []

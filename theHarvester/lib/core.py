@@ -391,7 +391,7 @@ class AsyncFetcher:
         cls,
         url,
         headers=None,
-        data: str | dict[str, str] = '',
+        data: str | dict[str, Any] = '',
         params: str = '',
         json: bool = False,
         proxy: bool = False,
@@ -437,7 +437,7 @@ class AsyncFetcher:
                     async with session.post(url, data=data, ssl=sslcontext, params=params) as resp:
                         await asyncio.sleep(3)
                         return await resp.text() if json is False else await resp.json()
-        except Exception:
+        except (aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, UnicodeDecodeError, ValueError):
             return ''
 
     @classmethod
@@ -478,7 +478,7 @@ class AsyncFetcher:
             elif isinstance(proxy, bool) and proxy:
                 try:
                     proxy_url, proxy_type = cls._get_random_proxy(cls().proxy_list)
-                except Exception:
+                except (IndexError, TypeError, ValueError):
                     proxy_url = None
                     proxy_type = None
 
@@ -520,7 +520,7 @@ class AsyncFetcher:
             finally:
                 if owns_session:
                     await session.close()
-        except Exception:
+        except (aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, UnicodeDecodeError, ValueError):
             return ''
 
     @staticmethod
@@ -551,7 +551,7 @@ class AsyncFetcher:
                 async with session.get(url, ssl=False) as response:
                     await asyncio.sleep(5)
                     return url, await response.text()
-        except Exception as e:
+        except (aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, UnicodeDecodeError, ValueError) as e:
             print(f'Takeover check error: {e}')
             return url, ''
 

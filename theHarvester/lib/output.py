@@ -7,9 +7,9 @@ T = TypeVar('T', bound=Hashable)
 
 
 def sorted_unique[T: Hashable](items: Iterable[T]) -> list[T]:
-    # `T` is only required to be hashable, not orderable.
-    # Sorting by `str` keeps output deterministic without requiring rich comparison support.
-    return list(sorted(set(items), key=str))
+    unique_items = list(dict.fromkeys(items))
+    unique_items.sort(key=lambda item: str(item))
+    return unique_items
 
 
 def print_section(header: str, items: Iterable[str], separator: str) -> None:

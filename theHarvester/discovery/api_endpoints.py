@@ -13,6 +13,8 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 from urllib.parse import urlparse
 
+import aiohttp
+
 from theHarvester.lib.core import AsyncFetcher, Core
 
 # Configure logging
@@ -443,7 +445,7 @@ class SearchApiEndpoints:
                 return 'https'
             else:
                 self.logger.info(f'[*] HTTPS request to {https_url} returned status: {getattr(response, "status", "No status")}')
-        except Exception as e:
+        except (aiohttp.ClientError, TimeoutError, OSError, TypeError, ValueError, AttributeError) as e:
             self.logger.error(f"Failed to fetch HTTPS URL '{https_url}': {e}")
 
         return 'http'  # Fallback to HTTP if HTTPS fails
@@ -473,7 +475,7 @@ class SearchApiEndpoints:
 
             return list(set(variations))  # Return unique endpoints
 
-        except Exception as e:
+        except OSError as e:
             self.logger.error(f'Error loading wordlist {self.wordlist}: {e}')
             return []
 
@@ -518,7 +520,7 @@ class SearchApiEndpoints:
             except TimeoutError:
                 self.logger.debug(f'Timeout for {method} {url}')
                 continue
-            except Exception as e:
+            except (aiohttp.ClientError, OSError, TypeError, ValueError, AttributeError) as e:
                 self.logger.debug(f'Error checking {method} {url}: {e!s}')
                 continue
 
@@ -559,13 +561,13 @@ class SearchApiEndpoints:
         # Get response headers safely
         try:
             headers = dict(getattr(response, 'headers', {}))
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError) as e:
             self.logger.error(f'Failed to get headers from response for URL {url}: {e}')
             headers = {}
 
         try:
             content = getattr(response, 'content', b'')
-        except Exception as e:
+        except (TypeError, AttributeError) as e:
             self.logger.error(f'Failed to get content from response for URL {url}: {e}')
             content = b''
 
@@ -580,7 +582,7 @@ class SearchApiEndpoints:
         if content:
             try:
                 content_preview = content.decode('utf-8', errors='ignore')[:200]
-            except Exception as e:
+            except (AttributeError, UnicodeDecodeError) as e:
                 self.logger.error(f'Failed to decode content for URL {url}: {e}')
 
         # Extract security headers
@@ -650,7 +652,7 @@ class SearchApiEndpoints:
 
                 except json.JSONDecodeError as e:
                     self.logger.error(f'Failed to parse JSON from response content: {e}')
-                except Exception as e:
+                except (TypeError, UnicodeDecodeError) as e:
                     self.logger.error(f'Unexpected error while extracting parameters from JSON: {e}')
 
         # Create result object
@@ -701,7 +703,7 @@ class SearchApiEndpoints:
                     self.logger.error(f'JSON at {url} is not a dictionary. Type: {type(schema).__name__}')
             except json.JSONDecodeError as e:
                 self.logger.error(f'Failed to parse JSON from {url}: {e}')
-            except Exception as e:
+            except (TypeError, UnicodeDecodeError) as e:
                 self.logger.error(f'Unexpected error while processing schema at {url}: {e}')
 
         return result
