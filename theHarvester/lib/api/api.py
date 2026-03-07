@@ -5,7 +5,7 @@ from typing import Any, cast
 
 from fastapi import FastAPI, Header, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, RedirectResponse, Response, UJSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -142,7 +142,7 @@ async def bot() -> Response:
 
     Returns a Star Wars reference when accessed.
     """
-    return UJSONResponse({'bot': 'These are not the droids you are looking for'})
+    return JSONResponse({'bot': 'These are not the droids you are looking for'})
 
 
 # Define Pydantic model for sources response
@@ -168,13 +168,13 @@ async def getsources(request: Request) -> Response:
     """
     try:
         sources = __main__.Core.get_supportedengines()
-        return UJSONResponse({'sources': sources})
+        return JSONResponse({'sources': sources})
     except Exception as e:
         # Log the error and return a detailed error response
         error_traceback = traceback.format_exc()
         print(f'Error in getsources endpoint: {e!s}\n{error_traceback}')
 
-        return UJSONResponse(
+        return JSONResponse(
             {
                 'detail': 'An error occurred while retrieving sources',
                 'error_type': type(e).__name__,
@@ -242,7 +242,7 @@ async def dnsbrute(
             )
         )
 
-        return UJSONResponse({'dns_bruteforce': dns_bruteforce})
+        return JSONResponse({'dns_bruteforce': dns_bruteforce})
 
     except HTTPException as e:
         # Re-raise HTTP exceptions
@@ -252,7 +252,7 @@ async def dnsbrute(
         error_traceback = traceback.format_exc()
         print(f'Error in dnsbrute endpoint: {e!s}\n{error_traceback}')
 
-        return UJSONResponse(
+        return JSONResponse(
             {
                 'detail': 'An error occurred while processing your request',
                 'error_type': type(e).__name__,
@@ -343,7 +343,7 @@ async def query(
         )
 
         # Return the results using the Pydantic model
-        return UJSONResponse(
+        return JSONResponse(
             {
                 'asns': asns,
                 'interesting_urls': iurls,
@@ -364,7 +364,7 @@ async def query(
         error_traceback = traceback.format_exc()
         print(f'Error in query endpoint: {e!s}\n{error_traceback}')
 
-        return UJSONResponse(
+        return JSONResponse(
             {
                 'detail': 'An error occurred while processing your request',
                 'error_type': type(e).__name__,
