@@ -177,6 +177,7 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * intelx - free account is very limited. Business acount $2900
 * leakix - free 25 results pages, 3000 API requests/month. Bounty Hunter $29
 * leaklookup - 20 credits $10, 50 credits $20, 140 credits $50, 300 credits $100
+* mojeek - 5000 free credits $6.50, $1.30 CPM (Personal), $2.60 CPM (Startup), $3.90 CPM (Business)
 * netlas - 50 free requests/day. 1k requests $49, 10k requests $249
 * onyphe - 10M results/month $587
 * pentesttools - 5 assets netsec $95/month, 5 assets webnetsec $140/month

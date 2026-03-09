@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import ast
 from pathlib import Path
 from typing import Any
 from unittest import mock
@@ -9,7 +8,7 @@ import pytest
 import yaml
 
 import theHarvester.lib.core as core_module
-from theHarvester.lib.core import CONFIG_DIRS, DATA_DIR, Core
+from theHarvester.lib.core import CONFIG_DIRS, DATA_DIR, AsyncFetcher, Core
 
 
 @pytest.fixture(autouse=True)
@@ -77,50 +76,68 @@ def test_read_config_copies_default_to_home(name: str, capsys):
     assert file.exists()
 
 
-def _extract_required_apikey_entries_from_core() -> dict[str, set[str]]:
-    tree = ast.parse(Path(core_module.__file__).read_text(encoding="utf-8"))
-    core_class = next((n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "Core"), None)
-    assert core_class is not None, "Unable to locate `class Core` in theHarvester.lib.core"
+class DummyResponse:
+    def __init__(self, text_value: str = 'response-text', json_value: Any = None):
+        self.text_value = text_value
+        self.json_value = {'ok': True} if json_value is None else json_value
 
-    required: dict[str, set[str]] = {}
-    for node in ast.walk(core_class):
-        if not isinstance(node, ast.Subscript):
-            continue
+    async def __aenter__(self):
+        return self
 
-        parts: list[str] = []
-        current: ast.AST = node
-        while isinstance(current, ast.Subscript):
-            sl = current.slice
-            if isinstance(sl, ast.Constant) and isinstance(sl.value, str):
-                parts.append(sl.value)
-                current = current.value
-                continue
-            break
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
 
-        if not parts or not isinstance(current, ast.Call):
-            continue
+    async def text(self):
+        return self.text_value
 
-        func = current.func
-        is_core_api_keys = (
-            isinstance(func, ast.Attribute)
-            and func.attr == "api_keys"
-            and isinstance(func.value, ast.Name)
-            and func.value.id == "Core"
-        )
-        if not is_core_api_keys:
-            continue
+    async def json(self):
+        return self.json_value
 
-        parts.reverse()
-        provider = parts[0]
-        required.setdefault(provider, set())
-        if len(parts) > 1:
-            required[provider].add(parts[1])
 
-    return required
+class DummySession:
+    instances: list['DummySession'] = []
+
+    def __init__(self, *, headers=None, timeout=None, connector=None):
+        self.headers = headers
+        self.timeout = timeout
+        self.connector = connector
+        self.closed = False
+        self.requests: list[tuple[str, str, dict[str, Any]]] = []
+        DummySession.instances.append(self)
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        await self.close()
+        return False
+
+    def request(self, method: str, url: str, **kwargs):
+        self.requests.append((method, url, kwargs))
+        return DummyResponse()
+
+    def get(self, url: str, **kwargs):
+        self.requests.append(('GET', url, kwargs))
+        return DummyResponse()
+
+    def post(self, url: str, **kwargs):
+        self.requests.append(('POST', url, kwargs))
+        return DummyResponse(json_value={'posted': True})
+
+    async def close(self):
+        self.closed = True
+
+
+def reset_dummy_sessions() -> None:
+    DummySession.instances.clear()
+
+
+async def fake_sleep(_seconds: float) -> None:
+    return None
 
 
 def test_api_keys_yaml_is_in_sync_with_core_accessors():
-    required = _extract_required_apikey_entries_from_core()
+    required = core_module.Core._API_KEY_FIELDS
     assert required, "No API-key references were detected in `Core`"
 
     config = yaml.safe_load((DATA_DIR / "api-keys.yaml").read_text(encoding="utf-8"))
@@ -136,3 +153,126 @@ def test_api_keys_yaml_is_in_sync_with_core_accessors():
                 missing_fields.setdefault(provider, []).append(field)
 
     assert not missing_fields, f"Missing fields in api-keys.yaml: {missing_fields}"
+
+
+@pytest.mark.parametrize(
+    ("accessor_name", "expected"),
+    [
+        ("bevigil_key", "bevigil-key"),
+        ("censys_key", ("censys-id", "censys-secret")),
+        ("fofa_key", ("fofa-key", "fofa-email")),
+        ("tomba_key", ("tomba-key", "tomba-secret")),
+    ],
+)
+def test_api_key_accessors_delegate_to_shared_mapping(monkeypatch, accessor_name: str, expected: Any):
+    monkeypatch.setattr(
+        Core,
+        'api_keys',
+        staticmethod(
+            lambda: {
+                'bevigil': {'key': 'bevigil-key'},
+                'censys': {'id': 'censys-id', 'secret': 'censys-secret'},
+                'fofa': {'key': 'fofa-key', 'email': 'fofa-email'},
+                'tomba': {'key': 'tomba-key', 'secret': 'tomba-secret'},
+            }
+        ),
+    )
+
+    accessor = getattr(Core, accessor_name)
+    assert accessor() == expected
+
+
+@pytest.mark.asyncio
+async def test_fetch_creates_session_with_default_headers(monkeypatch) -> None:
+    reset_dummy_sessions()
+    monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
+    monkeypatch.setattr(core_module.ssl, 'create_default_context', lambda cafile=None: 'ssl-context')
+    monkeypatch.setattr(core_module.certifi, 'where', lambda: '/tmp/cacert.pem')
+    monkeypatch.setattr(core_module.asyncio, 'sleep', fake_sleep)
+    monkeypatch.setattr(Core, 'get_user_agent', staticmethod(lambda: 'test-agent'))
+
+    result = await AsyncFetcher.fetch(url='https://example.com', follow_redirects=False)
+
+    assert result == 'response-text'
+    assert len(DummySession.instances) == 1
+    session = DummySession.instances[0]
+    assert session.headers == {'User-Agent': 'test-agent'}
+    assert session.closed is True
+    assert session.requests == [
+        ('GET', 'https://example.com', {'ssl': 'ssl-context', 'allow_redirects': False})
+    ]
+
+
+@pytest.mark.asyncio
+async def test_fetch_uses_http_proxy_when_enabled(monkeypatch) -> None:
+    reset_dummy_sessions()
+    monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
+    monkeypatch.setattr(core_module.ssl, 'create_default_context', lambda cafile=None: 'ssl-context')
+    monkeypatch.setattr(core_module.certifi, 'where', lambda: '/tmp/cacert.pem')
+    monkeypatch.setattr(core_module.asyncio, 'sleep', fake_sleep)
+    monkeypatch.setattr(AsyncFetcher, '_get_random_proxy', staticmethod(lambda proxy_dict: ('http://proxy.local:8080', 'http')))
+
+    async def fake_create_connector(proxy_url, proxy_type, ssl_context=None):
+        return 'connector'
+
+    monkeypatch.setattr(AsyncFetcher, '_create_connector', fake_create_connector)
+
+    result = await AsyncFetcher.fetch(url='https://example.com', proxy=True)
+
+    assert result == 'response-text'
+    session = DummySession.instances[0]
+    assert session.connector == 'connector'
+    assert session.requests == [
+        ('GET', 'https://example.com', {'ssl': 'ssl-context', 'proxy': 'http://proxy.local:8080'})
+    ]
+
+
+@pytest.mark.asyncio
+async def test_post_fetch_decodes_string_payload_and_posts_params(monkeypatch) -> None:
+    reset_dummy_sessions()
+    monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
+    monkeypatch.setattr(core_module.asyncio, 'sleep', fake_sleep)
+    monkeypatch.setattr(core_module.ssl, 'create_default_context', lambda cafile=None: 'ssl-context')
+    monkeypatch.setattr(core_module.certifi, 'where', lambda: '/tmp/cacert.pem')
+    monkeypatch.setattr(Core, 'get_user_agent', staticmethod(lambda: 'test-agent'))
+
+    result = await AsyncFetcher.post_fetch(
+        'https://example.com/api',
+        data='{"query": "example"}',
+        params={'page': 2},
+        json=True,
+    )
+
+    assert result == {'ok': True}
+    session = DummySession.instances[0]
+    assert session.headers == {'User-Agent': 'test-agent'}
+    assert session.requests == [
+        ('POST', 'https://example.com/api', {'data': {'query': 'example'}, 'ssl': 'ssl-context', 'params': {'page': 2}})
+    ]
+
+
+@pytest.mark.asyncio
+async def test_post_fetch_proxy_branch_uses_get_with_http_proxy(monkeypatch) -> None:
+    reset_dummy_sessions()
+    created_connectors = []
+    monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
+    monkeypatch.setattr(core_module.asyncio, 'sleep', fake_sleep)
+    monkeypatch.setattr(core_module.ssl, 'create_default_context', lambda cafile=None: 'ssl-context')
+    monkeypatch.setattr(core_module.certifi, 'where', lambda: '/tmp/cacert.pem')
+    monkeypatch.setattr(AsyncFetcher, '_get_random_proxy', staticmethod(lambda proxy_dict: ('http://proxy.local:8080', 'http')))
+
+    async def fake_create_connector(proxy_url, proxy_type, ssl_context=None):
+        created_connectors.append((proxy_url, proxy_type, ssl_context))
+        return 'connector'
+
+    monkeypatch.setattr(AsyncFetcher, '_create_connector', fake_create_connector)
+
+    result = await AsyncFetcher.post_fetch('https://example.com/resource', proxy=True)
+
+    assert result == 'response-text'
+    assert created_connectors == [('http://proxy.local:8080', 'http', 'ssl-context')]
+    session = DummySession.instances[0]
+    assert session.connector == 'connector'
+    assert session.requests == [
+        ('GET', 'https://example.com/resource', {'proxy': 'http://proxy.local:8080'})
+    ]
