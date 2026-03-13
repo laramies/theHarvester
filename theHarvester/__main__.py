@@ -850,7 +850,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                             print(f'A Missing Key error occurred in Mojeek: {e}')
                         else:
                             print(f'An exception has occurred in Mojeek search: {e}')
-                            
+
                 elif engineitem == 'netlas':
                     try:
                         netlas_search = netlas.SearchNetlas(word, limit)
