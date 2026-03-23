@@ -37,7 +37,7 @@ class SearchBuiltWith:
                 async with aiohttp.ClientSession(headers=self.headers) as session:
                     async with session.get(f'{self.base_url}?KEY={self.api_key}&LOOKUP={self.word}') as response:
                         if response.status == 200:
-                            data = await response.json()
+                            data = await response.json(content_type=None)
                             self.tech_stack = data
                             self._extract_data()
         except Exception as e:
