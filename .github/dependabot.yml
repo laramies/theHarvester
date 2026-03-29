@@ -15,3 +15,8 @@ updates:
   allow:
   - dependency-type: direct
   - dependency-type: indirect
+
+- package-ecosystem: docker
+  directory: /
+  schedule:
+    interval: daily
