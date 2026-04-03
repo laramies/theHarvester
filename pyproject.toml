@@ -40,7 +40,7 @@ dependencies = [
     "shodan==1.31.0",
     "slowapi==0.1.9",
     "ujson==5.12.0",
-    "uvicorn==0.42.0",
+    "uvicorn==0.43.0",
     "uvloop==0.22.1; platform_system != 'Windows'",
     "winloop==0.6.0; platform_system == 'Windows'",
 ]
