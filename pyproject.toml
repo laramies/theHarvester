@@ -30,7 +30,7 @@ dependencies = [
     "certifi==2026.2.25",
     "dnspython==2.8.0",
     "fastapi==0.136.0",
-    "lxml==6.0.4",
+    "lxml==6.1.0",
     "netaddr==1.3.0",
     "playwright==1.58.0",
     "PyYAML==6.0.3",
