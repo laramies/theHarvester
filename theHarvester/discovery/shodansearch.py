@@ -1,3 +1,4 @@
+import asyncio
 from collections import OrderedDict
 
 from shodan import Shodan, exception
@@ -13,16 +14,23 @@ class SearchShodan:
             raise MissingKey('Shodan')
         self.api = Shodan(self.key)
         self.hostdatarow: list = []
-        self.tracker: OrderedDict = OrderedDict()
 
     async def search_ip(self, ip) -> OrderedDict:
         try:
             ipaddress = ip
-            results = self.api.host(ipaddress)
+            # Run the synchronous Shodan API call in a thread pool to avoid
+            # blocking the async event loop. The shodan library does not provide
+            # native async support, so self.api.host() is a blocking HTTP call.
+            results = await asyncio.to_thread(self.api.host, ipaddress)
 
-            if not results or 'data' not in results or not results['data']:
+            if not results or not isinstance(results, dict):
                 print(f'Shodan: No data found for IP {ip}')
-                return OrderedDict()
+                return OrderedDict({ip: 'Not in Shodan'})
+
+            if 'data' not in results or not results['data']:
+                print(f'Shodan: No data found for IP {ip}')
+                return OrderedDict({ip: 'Not in Shodan'})
+
             asn = ''
             domains: list = list()
             hostnames: list = list()
@@ -35,24 +43,25 @@ class SearchShodan:
             product = ''
             technologies: list = list()
 
-            data_first_dict = dict(results['data'][0])
+            data_first_dict = results['data'][0] if isinstance(results['data'], list) and len(results['data']) > 0 else {}
 
-            if 'ip_str' in data_first_dict:
-                ip_str += data_first_dict['ip_str']
+            if isinstance(data_first_dict, dict):
+                if 'ip_str' in data_first_dict:
+                    ip_str += str(data_first_dict['ip_str'])
 
-            if 'http' in data_first_dict:
-                http_results_dict = dict(data_first_dict['http'])
-                if 'title' in http_results_dict:
-                    title_val = str(http_results_dict['title']).strip()
-                    if title_val != 'None':
-                        title += title_val
-                if 'components' in http_results_dict:
-                    for key in http_results_dict['components'].keys():
-                        technologies.append(key)
-                if 'server' in http_results_dict:
-                    server_val = str(http_results_dict['server']).strip()
-                    if server_val != 'None':
-                        server += server_val
+                if 'http' in data_first_dict and isinstance(data_first_dict['http'], dict):
+                    http_results_dict = data_first_dict['http']
+                    if 'title' in http_results_dict:
+                        title_val = str(http_results_dict['title']).strip()
+                        if title_val != 'None':
+                            title += title_val
+                    if 'components' in http_results_dict and isinstance(http_results_dict['components'], dict):
+                        for key in http_results_dict['components'].keys():
+                            technologies.append(key)
+                    if 'server' in http_results_dict:
+                        server_val = str(http_results_dict['server']).strip()
+                        if server_val != 'None':
+                            server += server_val
 
             for key, value in results.items():
                 if key == 'asn':
@@ -90,7 +99,8 @@ class SearchShodan:
 
             technologies = list(set(technologies))
 
-            self.tracker[ip] = {
+            result = OrderedDict()
+            result[ip] = {
                 'asn': asn.strip(),
                 'domains': domains,
                 'hostnames': hostnames,
@@ -104,12 +114,9 @@ class SearchShodan:
                 'title': title.strip(),
             }
 
-            return self.tracker
-        except exception.APIError:
-            print(f'{ip}: Not in Shodan')
-            self.tracker[ip] = 'Not in Shodan'
+            return result
+        except exception.APIError as e:
+            print(f'{ip}: Not in Shodan ({e})')
+            return OrderedDict({ip: f'Not in Shodan: {e}'})
         except Exception as e:
-            # print(f'Error occurred in the Shodan IP search module: {e}')
-            self.tracker[ip] = f'Error occurred in the Shodan IP search module: {e}'
-
-        return self.tracker
+            return OrderedDict({ip: f'Error occurred in the Shodan IP search module: {e}'})
