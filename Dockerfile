@@ -1,4 +1,4 @@
-FROM python:3.14-slim-trixie@sha256:5b3879b6f3cb77e712644d50262d05a7c146b7312d784a18eff7ff5462e77033
+FROM python:3.14-slim-trixie@sha256:33ef7446e8c14b21cb247e23afbcdc90e98853b70812ca46b2265e769a7dfb8b
 
 LABEL maintainer="@jay_townsend1 & @NotoriousRebel1"
 
