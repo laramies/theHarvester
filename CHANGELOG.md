@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.11.0] - 2026-05-23
+
+### Added
+- Added Mojeek search engine support, including module registration, API key configuration, and tests ([06d8fc48](https://github.com/laramies/theHarvester/commit/06d8fc48), [cbc1a48a](https://github.com/laramies/theHarvester/commit/cbc1a48a), [0d0adfce](https://github.com/laramies/theHarvester/commit/0d0adfce), [ee4f8707](https://github.com/laramies/theHarvester/commit/ee4f8707)).
+- Added Dymo API data verifier source with API key configuration and discovery tests ([131e2381](https://github.com/laramies/theHarvester/commit/131e2381)).
+- Added Shodan InternetDB as a discovery data source ([a379d54d](https://github.com/laramies/theHarvester/commit/a379d54d)).
+- Added Repology packaging status badge to the README ([912cfd5a](https://github.com/laramies/theHarvester/commit/912cfd5a)).
+
+### Changed
+- Replaced API `UJSONResponse` usage with `JSONResponse` and centralized API key field handling in `Core` ([acf099f6](https://github.com/laramies/theHarvester/commit/acf099f6)).
+- Expanded Ruff lint coverage and applied related formatting and lint fixes across the codebase ([ba0fd5df](https://github.com/laramies/theHarvester/commit/ba0fd5df), [cdda0d1c](https://github.com/laramies/theHarvester/commit/cdda0d1c), [f334c489](https://github.com/laramies/theHarvester/commit/f334c489), [40933a4f](https://github.com/laramies/theHarvester/commit/40933a4f), [31f9c932](https://github.com/laramies/theHarvester/commit/31f9c932)).
+- Updated README packaging/version layout and badge spacing ([4fa1431c](https://github.com/laramies/theHarvester/commit/4fa1431c), [b7e3ca27](https://github.com/laramies/theHarvester/commit/b7e3ca27), [255cd8b5](https://github.com/laramies/theHarvester/commit/255cd8b5)).
+- Updated the package version to `4.11.0` ([31dd70d5](https://github.com/laramies/theHarvester/commit/31dd70d5)).
+- Updated dependencies and CI actions, including `aiohttp`, `fastapi`, `lxml`, `mypy`, `playwright`, `requests`, `ruff`, `ty`, `uvicorn`, `winloop`, Docker actions, CodeQL, `setup-uv`, and StepSecurity Harden-Runner.
+
+### Removed
+- Removed `qwant` from the service list ([6370063f](https://github.com/laramies/theHarvester/commit/6370063f)).
+
+### Fixed
+- Fixed BuiltWith handling for `text/json` responses by passing `content_type=None` ([e4da0efa](https://github.com/laramies/theHarvester/commit/e4da0efa)).
+- Surfaced underlying worker exceptions when work items fail ([4fb1ad7e](https://github.com/laramies/theHarvester/commit/4fb1ad7e)).
+
+### Security
+- Hardened API authentication handling and fixed related type lint issues ([98dbda9a](https://github.com/laramies/theHarvester/commit/98dbda9a)).
+- Hardened GitHub Actions with StepSecurity remediation and follow-up Harden-Runner updates ([f108bf65](https://github.com/laramies/theHarvester/commit/f108bf65)).
+
 ## [4.10.1] - 2026-02-22
 
 ### Changed
@@ -49,6 +75,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Improve input sanitization and add security-focused tests ([3d7489c9](https://github.com/laramies/theHarvester/commit/3d7489c9)).
 
-[Unreleased]: https://github.com/laramies/theHarvester/compare/06520b40...master
+[Unreleased]: https://github.com/laramies/theHarvester/compare/4.11.0...master
+[4.11.0]: https://github.com/laramies/theHarvester/compare/4.10.1...4.11.0
 [4.10.1]: https://github.com/laramies/theHarvester/compare/4.10.0...06520b40
 [4.10.0]: https://github.com/laramies/theHarvester/compare/4.9.2...4.10.0
