@@ -131,6 +131,8 @@ Passive modules
 
 * securityTrails: Security Trails search engine, the world's largest repository of historical DNS data (https://securitytrails.com)
 
+* sherlockeye: Reverse Lookup & AI-Powered OSINT (https://sherlockeye.io)
+
 * -s, --shodan: Shodan search engine will search for ports and banners from discovered hosts (https://shodan.io)
 
 * subdomaincenter: A subdomain finder tool used to find subdomains of a given domain (https://www.subdomain.center)
@@ -192,6 +194,7 @@ Documentation to setup API keys can be found at - https://github.com/laramies/th
 * rocketreach - 100 email lookups/month $48, 250 email lookups/month $108
 * securityscorecard - requires a work email
 * securityTrails - 50 free queries/month. 20k queries/month $500
+* sherlockeye - Intermediate $46 month, Advanced $120 month. Enterprise available.
 * shodan - Freelancer $69 month, Small Business $359 month
 * tomba - 25 free searches/month. 1k searches/month $39, 5k searches/month $89
 * venacus - 1 free search/day. 10 searches/day $12, 30 searches/day $36

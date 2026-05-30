@@ -86,6 +86,9 @@ apikeys:
   securityTrails:
     key:
 
+  sherlockeye:
+    key:
+
   shodan:
     key:
 
