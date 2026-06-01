@@ -59,6 +59,7 @@ class Core:
         'rocketreach': ('key',),
         'securityscorecard': ('key',),
         'securityTrails': ('key',),
+        'sherlockeye': ('key',),
         'shodan': ('key',),
         'tomba': ('key', 'secret'),
         'venacus': ('key',),
@@ -212,6 +213,10 @@ class Core:
         return Core._api_key_value('securityTrails')
 
     @staticmethod
+    def sherlockeye_key() -> str:
+        return Core._api_key_value('sherlockeye')
+
+    @staticmethod
     def shodan_key() -> str:
         return Core._api_key_value('shodan')
 
@@ -315,6 +320,7 @@ class Core:
             'rocketreach',
             'securityscorecard',
             'securityTrails',
+            'sherlockeye',
             'shodan',
             'shodanInternetDB',
             'subdomaincenter',

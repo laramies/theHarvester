@@ -56,6 +56,7 @@ from theHarvester.discovery import (
     searchhunterhow,
     securityscorecard,
     securitytrailssearch,
+    sherlockeye,
     shodan_internetdb,
     shodansearch,
     subdomaincenter,
@@ -200,7 +201,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         help="""baidu, bevigil, bitbucket, brave, bufferoverun,
                             builtwith, censys, certspotter, chaos, commoncrawl, criminalip, crtsh, dehashed, dnsdumpster, duckduckgo, dymo, fofa, fullhunt, github-code,
                             gitlab, hackertarget, haveibeenpwned, hudsonrock, hunter, hunterhow, intelx, leakix, leaklookup, mojeek, netlas, onyphe, otx, pentesttools,
-                            projectdiscovery, rapiddns, robtex, rocketreach, securityscorecard, securityTrails, shodan, shodanInternetDB, subdomaincenter,
+                            projectdiscovery, rapiddns, robtex, rocketreach, securityscorecard, securityTrails, sherlockeye, shodan, shodanInternetDB, subdomaincenter,
                             subdomainfinderc99, thc, threatcrowd, tomba, urlscan, venacus, virustotal, waybackarchive, whoisxml, windvane, yahoo, zoomeye""",
     )
 
@@ -1035,6 +1036,25 @@ async def start(rest_args: argparse.Namespace | None = None):
                         if isinstance(e, MissingKey):
                             if not args.quiet:
                                 print(f'A Missing Key error occurred Security Trails: {e}')
+
+                elif engineitem == 'sherlockeye':
+                    try:
+                        sherlockeye_search = sherlockeye.SearchSherlockeye(word)
+                        stor_lst.append(
+                            store(
+                                sherlockeye_search,
+                                engineitem,
+                                store_host=True,
+                                store_ip=True,
+                                store_emails=True,
+                            )
+                        )
+                    except Exception as e:
+                        if isinstance(e, MissingKey):
+                            if not args.quiet:
+                                print(f'A Missing Key error occurred in sherlockeye: {e}')
+                        else:
+                            show_default_error_message(engineitem, word, e)
 
                 elif engineitem == 'shodan':
                     try:
