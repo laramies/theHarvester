@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.11.1] - 2026-06-03
+
+### Added
+- Added Sherlockeye reverse lookup and AI-powered OSINT support, including source registration, API key configuration, README documentation, and discovery tests ([2f5ba88b](https://github.com/laramies/theHarvester/commit/2f5ba88b)).
+
+### Changed
+- Updated runtime dependencies: `aiohttp` to `3.14.0`, `fastapi` to `0.136.3`, and `uvicorn` to `0.48.0`.
+- Updated development dependencies: `pytest-asyncio` to `1.4.0`, `ruff` to `0.15.15`, and `ty` to `0.0.42`.
+- Updated CI and container maintenance pins, including `actions/checkout`, `github/codeql-action`, Docker build/login/metadata actions, and the Python Docker base image digest.
+- Updated the package version to `4.11.1`.
+
 ## [4.11.0] - 2026-05-23
 
 ### Added
@@ -75,7 +86,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Improve input sanitization and add security-focused tests ([3d7489c9](https://github.com/laramies/theHarvester/commit/3d7489c9)).
 
-[Unreleased]: https://github.com/laramies/theHarvester/compare/4.11.0...master
+[Unreleased]: https://github.com/laramies/theHarvester/compare/4.11.1...master
+[4.11.1]: https://github.com/laramies/theHarvester/compare/4.11.0...4.11.1
 [4.11.0]: https://github.com/laramies/theHarvester/compare/4.10.1...4.11.0
 [4.10.1]: https://github.com/laramies/theHarvester/compare/4.10.0...06520b40
 [4.10.0]: https://github.com/laramies/theHarvester/compare/4.9.2...4.10.0
