@@ -39,8 +39,8 @@ class Checker:
     async def resolve_host(host: str, resolver: aiodns.DNSResolver) -> str:
         try:
             # TODO add check for ipv6 addrs as well
-            result = await resolver.gethostbyname(host, socket.AF_INET)
-            addresses_list = result.addresses
+            result = await resolver.getaddrinfo(host, socket.AF_INET)
+            addresses_list: list[str] = [r.addr[0] for r in result.nodes]
             if addresses_list == [] or addresses_list is None or result is None:
                 return f'{host}:'
             else:
