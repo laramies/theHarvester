@@ -39,6 +39,25 @@ Run theHarvester:
    ```bash
    uv run theHarvester
    ```
+### Alternative installation with pipx
+
+If you prefer an isolated installation without cloning the repository:
+
+```bash
+pipx install theHarvester
+```
+
+If your system default Python is older than 3.12:
+
+```bash
+pipx install --python python3.12 theHarvester
+```
+
+Verify the installation:
+
+```bash
+theHarvester -h
+```
 
 ## Development
 
