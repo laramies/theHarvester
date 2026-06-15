@@ -38,7 +38,7 @@ dependencies = [
     "httpx==0.28.1",
     "retrying==1.4.2",
     "shodan==1.31.0",
-    "slowapi==0.1.9",
+    "slowapi==0.1.10",
     "ujson==5.12.1",
     "uvicorn==0.49.0",
     "uvloop==0.22.1; platform_system != 'Windows'",
