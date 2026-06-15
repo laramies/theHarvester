@@ -216,6 +216,7 @@ async def start(rest_args: argparse.Namespace | None = None):
             dnsbrute = (rest_args.dns_brute, True)
         else:
             args = rest_args
+            dnsbrute = (args.dns_brute, False)
             # We need to make sure the filename is random as to not overwrite other files
             filename: str = args.filename
             alphabet = string.ascii_letters + string.digits
@@ -1931,6 +1932,19 @@ async def start(rest_args: argparse.Namespace | None = None):
                 else:
                     print(f'An exception has occurred in BuiltWith scanning: {e}')
 
+    if rest_args is not None:
+        all_hosts = sorted({host.replace('www.', '') for host in all_hosts})
+        return (
+            total_asns,
+            interesting_urls,
+            twitter_people_list_tracker,
+            linkedin_people_list_tracker,
+            linkedin_links_tracker,
+            all_urls,
+            all_ip,
+            all_emails,
+            all_hosts,
+        )
     sys.exit(0)
 
 
