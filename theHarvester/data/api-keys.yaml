@@ -19,6 +19,9 @@ apikeys:
     id:
     secret:
 
+  chaos:
+    key:
+
   criminalip:
     key:
 
