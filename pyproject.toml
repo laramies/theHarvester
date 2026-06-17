@@ -25,7 +25,7 @@ dependencies = [
     "aiohttp-socks==0.11.0",
     "aiomultiprocess==0.9.1",
     "aiosqlite==0.22.1",
-    "beautifulsoup4==4.14.3",
+    "beautifulsoup4==4.15.0",
     "censys==2.2.19",
     "certifi==2026.5.20",
     "dnspython==2.8.0",
