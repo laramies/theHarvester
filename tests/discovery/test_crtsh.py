@@ -32,7 +32,7 @@ class TestCrtshSearch:
         _patch_fetch(monkeypatch, [{'name_value': '*.example.com'}])
         search = crtsh.SearchCrtsh('example.com')
         await search.process()
-        assert 'example.com' in await search.get_hostnames()
+        assert set(await search.get_hostnames()) == {'example.com'}
 
     @pytest.mark.asyncio
     async def test_multiline_name_value_is_split(self, monkeypatch):
@@ -40,18 +40,15 @@ class TestCrtshSearch:
         _patch_fetch(monkeypatch, [{'name_value': 'a.example.com\nb.example.com'}])
         search = crtsh.SearchCrtsh('example.com')
         await search.process()
-        hostnames = await search.get_hostnames()
-        assert 'a.example.com' in hostnames
-        assert 'b.example.com' in hostnames
+        assert set(await search.get_hostnames()) == {'a.example.com', 'b.example.com'}
 
     @pytest.mark.asyncio
     async def test_numeric_prefixed_entries_are_filtered(self, monkeypatch):
         _patch_fetch(monkeypatch, [{'name_value': '1234.example.com'}, {'name_value': 'good.example.com'}])
         search = crtsh.SearchCrtsh('example.com')
         await search.process()
-        hostnames = await search.get_hostnames()
-        assert 'good.example.com' in hostnames
-        assert '1234.example.com' not in hostnames
+        # The numeric-prefixed entry is filtered out, leaving only the valid hostname.
+        assert set(await search.get_hostnames()) == {'good.example.com'}
 
     @pytest.mark.asyncio
     async def test_empty_response_returns_no_hostnames(self, monkeypatch):
