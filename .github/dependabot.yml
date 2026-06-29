@@ -1,17 +1,30 @@
 version: 2
+multi-ecosystem-groups:
+  all-dependencies:
+    schedule:
+      interval: daily
+      timezone: Europe/London
+    open-pull-requests-limit: 10
+    target-branch: master
 updates:
 - package-ecosystem: github-actions
   directory: "/"
   schedule:
     interval: daily
     timezone: Europe/London
+  cooldown:
+    default-days: 5
+  patterns: ["*"]
+  multi-ecosystem-group: all-dependencies
 - package-ecosystem: uv
   directory: "/"
   schedule:
     interval: daily
     timezone: Europe/London
-  open-pull-requests-limit: 10
-  target-branch: master
+  cooldown:
+    default-days: 5
+  patterns: ["*"]
+  multi-ecosystem-group: all-dependencies
   allow:
   - dependency-type: direct
   - dependency-type: indirect
@@ -20,3 +33,7 @@ updates:
   directory: /
   schedule:
     interval: daily
+  cooldown:
+    default-days: 5
+  patterns: ["*"]
+  multi-ecosystem-group: all-dependencies
