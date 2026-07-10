@@ -62,6 +62,18 @@ uv run ruff format
 
 To protect the optional `/additional/*` REST API routes, set `THEHARVESTER_API_KEY` and pass the same value in the `X-API-Key` header. Those routes return `503` when the key is not configured.
 
+## Filtering hostname results
+
+Use `--no-hosts` to keep non-host artifacts while disabling hostname retrieval, processing, storage, console output, and report export:
+
+```bash
+theHarvester -d example.com -b duckduckgo,hunter --no-hosts -f example-no-hosts
+```
+
+Directly returned emails, people, URLs, ASNs, and IP addresses remain available. Host-only sources are skipped. Some upstream services may return mixed data in a single response; in those cases, hostname artifacts are discarded locally.
+
+Because they require discovered hosts, `--no-hosts` cannot be combined with `--shodan`, `--dns-resolve`, `--dns-lookup`, `--dns-brute`, `--take-over`, or `--screenshot`. The REST `/query` endpoint exposes the same behavior with the `no_hosts` query parameter.
+
 Passive modules
 ---------------
 

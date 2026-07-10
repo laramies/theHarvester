@@ -77,6 +77,11 @@ from theHarvester.discovery import (
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib import hostchecker, stash
 from theHarvester.lib.core import DATA_DIR, Core, show_default_error_message
+from theHarvester.lib.host_collection import (
+    HostCollectionOptionError,
+    should_collect_hosts,
+    validate_host_collection_options,
+)
 from theHarvester.lib.output import print_linkedin_sections, print_section, sorted_unique
 from theHarvester.screenshot.screenshot import ScreenShotter
 
@@ -139,6 +144,12 @@ async def start(rest_args: argparse.Namespace | None = None):
         '-s',
         '--shodan',
         help='Use Shodan to query discovered hosts.',
+        default=False,
+        action='store_true',
+    )
+    parser.add_argument(
+        '--no-hosts',
+        help='Do not collect, process, display, or export discovered hostnames.',
         default=False,
         action='store_true',
     )
@@ -225,6 +236,14 @@ async def start(rest_args: argparse.Namespace | None = None):
         args = parser.parse_args()
         filename = args.filename
         dnsbrute = (args.dns_brute, False)
+    try:
+        validate_host_collection_options(args)
+    except HostCollectionOptionError as host_option_error:
+        if rest_args is not None:
+            raise
+        parser.error(str(host_option_error))
+
+    collect_hosts = should_collect_hosts(args)
     Core.quiet = getattr(args, 'quiet', False)
     try:
         db = stash.StashManager()
@@ -346,6 +365,21 @@ async def start(rest_args: argparse.Namespace | None = None):
         :param store_interestingurls: whether to store interesting urls
         :param store_asns: whether to store asns
         """
+        stores_non_host_results = any(
+            (
+                store_emails,
+                store_ip,
+                store_people,
+                store_links,
+                store_results,
+                store_interestingurls,
+                store_asns,
+            )
+        )
+        if store_host and not collect_hosts and not stores_non_host_results:
+            print(f'[*] Skipping {source[0].upper() + source[1:]} because host collection is disabled.')
+            return
+
         (
             await search_engine.process(use_proxy)
             if process_param is None
@@ -356,7 +390,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         if source:
             print(f'[*] Searching {source[0].upper() + source[1:]}. ')
 
-        if store_host:
+        if store_host and collect_hosts:
             host_names = list({host for host in await search_engine.get_hostnames() if f'.{word}' in host})
             host_names = list(host_names)
             if source != 'hackertarget' and source != 'pentesttools' and source != 'rapiddns':
@@ -394,10 +428,11 @@ async def start(rest_args: argparse.Namespace | None = None):
         if store_results:
             email_list, host_names, urls = await search_engine.get_results()
             all_emails.extend(email_list)
-            host_names = list({host for host in host_names if f'.{word}' in host})
             all_urls.extend(urls)
-            all_hosts.extend(host_names)
-            await db.store_all(word, all_hosts, 'host', source)
+            if collect_hosts:
+                host_names = list({host for host in host_names if f'.{word}' in host})
+                all_hosts.extend(host_names)
+                await db.store_all(word, all_hosts, 'host', source)
             await db.store_all(word, all_emails, 'email', source)
 
         if store_people:
@@ -1484,9 +1519,9 @@ async def start(rest_args: argparse.Namespace | None = None):
         for person in all_people:
             print(person)
 
-    if len(all_hosts) == 0:
+    if collect_hosts and len(all_hosts) == 0:
         print('\n[*] No hosts found.\n\n')
-    else:
+    elif collect_hosts:
         db = stash.StashManager()
         if dnsresolve is None or len(final_dns_resolver_list) > 0:
             temp = set()
@@ -1525,7 +1560,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                 print(host)
 
     # DNS brute force
-    if dnsbrute and dnsbrute[0] is True:
+    if collect_hosts and dnsbrute and dnsbrute[0] is True:
         print('\n[*] Starting DNS brute force.')
         dns_force = dnssearch.DnsForce(word, final_dns_resolver_list, verbose=True)
         resolved_pair, hosts, ips = await dns_force.run()
@@ -1562,7 +1597,7 @@ async def start(rest_args: argparse.Namespace | None = None):
 
     takeover_results = dict()
     # TakeOver Checking
-    if takeover_status:
+    if collect_hosts and takeover_status:
         print('\n[*] Performing subdomain takeover check')
         print('\n[*] Subdomain Takeover checking IS ACTIVE RECON')
         search_take = takeover.TakeOver(all_hosts)
@@ -1572,7 +1607,7 @@ async def start(rest_args: argparse.Namespace | None = None):
     # DNS reverse lookup
     dnsrev: list = []
     # print(f'DNSlookup: {dnslookup}')
-    if dnslookup is True:
+    if collect_hosts and dnslookup is True:
         print('\n[*] Starting active queries for DNSLookup.')
 
         # reverse each iprange in a separate task
@@ -1601,7 +1636,7 @@ async def start(rest_args: argparse.Namespace | None = None):
 
     # Screenshots
     screenshot_tups = []
-    if len(args.screenshot) > 0:
+    if collect_hosts and len(args.screenshot) > 0:
         screen_shotter = ScreenShotter(args.screenshot)
         path_exists = screen_shotter.verify_path()
         # Verify the path exists, if not create it or if user does not create it skips screenshot
@@ -1644,7 +1679,7 @@ async def start(rest_args: argparse.Namespace | None = None):
 
     # Shodan
     shodanres = []
-    if shodan is True:
+    if collect_hosts and shodan is True:
         print('[*] Searching Shodan. ')
         try:
             for ip in host_ip:
@@ -1693,22 +1728,24 @@ async def start(rest_args: argparse.Namespace | None = None):
                 await file.write('<cmd>' + ' '.join(sanitized_args) + '</cmd>')
                 for email in all_emails:
                     await file.write('<email>' + sanitize_for_xml(email) + '</email>')
-                for x in full:
-                    host, ip = x.split(':', 1) if ':' in x else (x, '')
-                    if ip and len(ip) > 3:
-                        await file.write(
-                            f'<host><ip>{sanitize_for_xml(ip)}</ip><hostname>{sanitize_for_xml(host)}</hostname></host>'
-                        )
-                    else:
-                        await file.write(f'<host>{sanitize_for_xml(host)}</host>')
-                for x in vhost:
-                    host, ip = x.split(':', 1) if ':' in x else (x, '')
-                    if ip and len(ip) > 3:
-                        await file.write(
-                            f'<vhost><ip>{sanitize_for_xml(ip)} </ip><hostname>{sanitize_for_xml(host)}</hostname></vhost>'
-                        )
-                    else:
-                        await file.write(f'<vhost>{sanitize_for_xml(host)}</vhost>')
+                if collect_hosts:
+                    for x in full:
+                        host, ip = x.split(':', 1) if ':' in x else (x, '')
+                        if ip and len(ip) > 3:
+                            await file.write(
+                                f'<host><ip>{sanitize_for_xml(ip)}</ip><hostname>{sanitize_for_xml(host)}</hostname></host>'
+                            )
+                        else:
+                            await file.write(f'<host>{sanitize_for_xml(host)}</host>')
+                if collect_hosts:
+                    for x in vhost:
+                        host, ip = x.split(':', 1) if ':' in x else (x, '')
+                        if ip and len(ip) > 3:
+                            await file.write(
+                                f'<vhost><ip>{sanitize_for_xml(ip)} </ip><hostname>{sanitize_for_xml(host)}</hostname></vhost>'
+                            )
+                        else:
+                            await file.write(f'<vhost>{sanitize_for_xml(host)}</vhost>')
                 # TODO add Shodan output into XML report
                 await file.write('</theHarvester>')
                 print('[*] XML File saved.')
@@ -1731,14 +1768,15 @@ async def start(rest_args: argparse.Namespace | None = None):
             if len(all_emails) > 0:
                 json_dict['emails'] = all_emails
 
-            if dnsresolve is None or (len(final_dns_resolver_list) > 0 and len(full) > 0):
-                json_dict['hosts'] = full
-            elif len(all_hosts) > 0:
-                json_dict['hosts'] = all_hosts
-            else:
-                json_dict['hosts'] = []
+            if collect_hosts:
+                if dnsresolve is None or (len(final_dns_resolver_list) > 0 and len(full) > 0):
+                    json_dict['hosts'] = full
+                elif len(all_hosts) > 0:
+                    json_dict['hosts'] = all_hosts
+                else:
+                    json_dict['hosts'] = []
 
-            if vhost and len(vhost) > 0:
+            if collect_hosts and vhost and len(vhost) > 0:
                 json_dict['vhosts'] = vhost
 
             if len(interesting_urls) > 0:
@@ -1885,7 +1923,7 @@ async def start(rest_args: argparse.Namespace | None = None):
             await securityscorecard_scanner.process(use_proxy)
 
             # Use the existing API to get results
-            hosts = await securityscorecard_scanner.get_hostnames()
+            hosts = await securityscorecard_scanner.get_hostnames() if collect_hosts else []
             if hosts:
                 print(f'\n[*] SecurityScorecard results: {len(hosts)} hosts found')
                 for host in hosts:
@@ -1909,7 +1947,7 @@ async def start(rest_args: argparse.Namespace | None = None):
             builtwith_scanner = builtwith.SearchBuiltWith(word)
             await builtwith_scanner.process(use_proxy)
 
-            hosts = await builtwith_scanner.get_hostnames()
+            hosts = await builtwith_scanner.get_hostnames() if collect_hosts else []
             if hosts:
                 print(f'\n[*] BuiltWith results: {len(hosts)} hosts found')
                 for host in hosts:
