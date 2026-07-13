@@ -5,11 +5,12 @@ from theHarvester.lib.core import AsyncFetcher, Core
 
 
 class SearchVirustotal:
-    def __init__(self, word) -> None:
+    def __init__(self, word, limit=500) -> None:
         self.key = Core.virustotal_key()
         if self.key is None:
             raise MissingKey('virustotal')
         self.word = word
+        self.limit = limit
         self.proxy = False
         self.hostnames: list = []
 
@@ -53,13 +54,15 @@ class SearchVirustotal:
                 data = jdata['data']
                 self.hostnames.extend(await self.parse_hostnames(data, self.word))
                 counter += 1
+                if len(set(self.hostnames)) >= self.limit:
+                    break
             await asyncio.sleep(16)
         self.hostnames = list(sorted(set(self.hostnames)))
         # verify domains such as x.x.com.multicdn.x.com are parsed properly
         self.hostnames = [
             host for host in self.hostnames if ((len(host.split('.')) >= 3) and host.split('.')[-2] == self.word.split('.')[-2])
         ]
-
+        self.hostnames = self.hostnames[:self.limit]
     async def get_hostnames(self) -> list:
         return self.hostnames
 
