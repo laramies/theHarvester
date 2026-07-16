@@ -82,6 +82,7 @@ from theHarvester.lib import hostchecker, stash
 from theHarvester.lib.core import DATA_DIR, Core, show_default_error_message
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.output import configure_logging, output_logger, print_linkedin_sections, print_section, sorted_unique
+from theHarvester.lib.run import LegacyHostnameSource, RunResult, SourceStatus, execute_run, legacy_hostnames
 from theHarvester.lib.source_catalog import ResultRoute, get_source_spec
 from theHarvester.screenshot.screenshot import ScreenShotter
 
@@ -342,30 +343,37 @@ async def start(rest_args: argparse.Namespace | None = None):
     async def store(
         search_engine: Any,
         source: str,
+        run_result: RunResult | None = None,
     ) -> None:
         """Process a source and persist its declared consolidated result routes.
 
         :param search_engine: search engine to fetch details from
         :param source: source against which the details (corresponding to the search engine) need to be persisted
+        :param run_result: optional completed evidence run for a migrated source
         """
-        logger.info(f'Source {source} started')
-        try:
-            await search_engine.process(use_proxy)
-        except Exception:
-            logger.exception(f'Source {source} failed')
-            raise
+        if run_result is None:
+            logger.info(f'Source {source} started')
+            try:
+                await search_engine.process(use_proxy)
+            except Exception:
+                logger.exception(f'Source {source} failed')
+                raise
         db_stash = stash.StashManager()
-        routes = get_source_spec(source).routes
+        source_spec = get_source_spec(source)
+        routes = source_spec.routes
 
         if source:
             output_logger.info(f'[*] Searching {source[0].upper() + source[1:]}. ')
 
         if ResultRoute.HOSTS in routes:
-            discovered_hosts = await search_engine.get_hostnames()
-            if source == 'intelx':
-                host_names = list(discovered_hosts)
+            if run_result is not None:
+                host_names = legacy_hostnames(run_result, source_spec.name)
             else:
-                host_names = list(_normalize_hosts_for_storage(discovered_hosts, word))
+                discovered_hosts = await search_engine.get_hostnames()
+                if source == 'intelx':
+                    host_names = list(discovered_hosts)
+                else:
+                    host_names = list(_normalize_hosts_for_storage(discovered_hosts, word))
             if source != 'hackertarget' and source != 'pentesttools' and source != 'rapiddns':
                 # If a source is inside this conditional, it means the hosts returned must be resolved to obtain ip
                 # This should only be checked if --dns-resolve has a wordlist
@@ -420,9 +428,19 @@ async def start(rest_args: argparse.Namespace | None = None):
             total_asns.extend(fasns)
             if len(fasns) > 0:
                 await db.store_all(word, fasns, 'asns', source)
-        logger.info(f'Source {source} completed')
+        if run_result is None:
+            logger.info(f'Source {source} completed')
 
     stor_lst = []
+    evidence_sources: list[LegacyHostnameSource] = []
+
+    async def store_evidence_sources() -> None:
+        run_result = await execute_run(word, tuple(evidence_sources))
+        executions = {execution.source: execution for execution in run_result.source_executions}
+        for evidence_source in evidence_sources:
+            if executions[evidence_source.name].status in (SourceStatus.SUCCEEDED, SourceStatus.EMPTY):
+                await store(evidence_source.search, evidence_source.legacy_name, run_result)
+
     if args.source is not None:
         engines = Core.expand_source_selection(args.source)
         # Iterate through search engines in order
@@ -596,7 +614,17 @@ async def start(rest_args: argparse.Namespace | None = None):
                 elif engineitem == 'crtsh':
                     try:
                         crtsh_search = crtsh.SearchCrtsh(word)
-                        stor_lst.append(store(crtsh_search, 'CRTsh'))
+                        source_spec = get_source_spec(engineitem)
+                        evidence_sources.append(
+                            LegacyHostnameSource(
+                                name=source_spec.name,
+                                legacy_name='CRTsh',
+                                # ponytail: move families into SourceSpec when a second evidence source migrates.
+                                family='certificate-transparency',
+                                search=crtsh_search,
+                                proxy=use_proxy,
+                            )
+                        )
                     except Exception as e:
                         output_logger.info(f'[!] A timeout occurred with crtsh, cannot find {args.domain}\n {e}')
 
@@ -1253,6 +1281,9 @@ async def start(rest_args: argparse.Namespace | None = None):
                         if isinstance(e, MissingKey):
                             if not args.quiet:
                                 output_logger.info(f'A Missing Key error occurred in zoomeye: {e}')
+
+            if evidence_sources:
+                stor_lst.append(store_evidence_sources())
 
         elif rest_args is not None:
             try:

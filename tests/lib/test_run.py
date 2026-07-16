@@ -1,0 +1,213 @@
+from __future__ import annotations
+
+from uuid import UUID
+
+import pytest
+
+from theHarvester.lib.run import (
+    Derivation,
+    ScopeClass,
+    SourceFinding,
+    SourceStatus,
+    execute_run,
+    legacy_hostnames,
+)
+
+
+class FakePassiveSource:
+    name = 'fixture'
+    family = 'certificate-transparency'
+
+    async def collect(self, target: str) -> list[SourceFinding]:
+        assert target == 'example.com'
+        return [
+            SourceFinding('WWW.Example.COM.', Derivation.PROVIDER),
+            SourceFinding('www.example.com', Derivation.PROVIDER),
+            SourceFinding('example.com.evil.test', Derivation.SCOPE_EXTENSION),
+            SourceFinding('cdn.vendor.test', Derivation.EXTERNAL_RELATIONSHIP),
+        ]
+
+
+@pytest.mark.asyncio
+async def test_execute_run_records_scoped_normalized_evidence_end_to_end() -> None:
+    result = await execute_run('Example.COM.', (FakePassiveSource(),))
+    next_result = await execute_run('example.com', (FakePassiveSource(),))
+
+    assert UUID(result.run_id)
+    assert result.run_id != next_result.run_id
+    assert result.target == 'example.com'
+    assert len(result.source_executions) == 1
+    execution = result.source_executions[0]
+    assert execution.status is SourceStatus.SUCCEEDED
+    assert execution.duration_ms >= 0
+    assert execution.result_count == 4
+    assert execution.observation_count == 4
+    assert execution.entity_count == 3
+
+    assert [(item.value, item.scope_class) for item in result.observations] == [
+        ('www.example.com', ScopeClass.IN_SCOPE),
+        ('www.example.com', ScopeClass.IN_SCOPE),
+        ('example.com.evil.test', ScopeClass.SCOPE_EXTENSION),
+        ('cdn.vendor.test', ScopeClass.EXTERNAL_RELATIONSHIP),
+    ]
+    assert all(item.target == 'example.com' for item in result.observations)
+    assert all(item.source == 'fixture' for item in result.observations)
+    assert all(item.source_family == 'certificate-transparency' for item in result.observations)
+    assert all(item.collected_at.tzinfo is not None for item in result.observations)
+    assert [item.derivation for item in result.observations] == [
+        Derivation.PROVIDER,
+        Derivation.PROVIDER,
+        Derivation.SCOPE_EXTENSION,
+        Derivation.EXTERNAL_RELATIONSHIP,
+    ]
+
+    merged = {item.value: item for item in result.entities}
+    assert len(merged['www.example.com'].observations) == 2
+    assert merged['www.example.com'].independent_corroboration_count == 1
+    assert merged['www.example.com'].scope_classes == (ScopeClass.IN_SCOPE,)
+    assert legacy_hostnames(result) == ['www.example.com']
+
+
+@pytest.mark.asyncio
+async def test_execute_run_does_not_persist_implicitly(monkeypatch: pytest.MonkeyPatch) -> None:
+    import theHarvester.lib.run as run_module
+
+    def fail_on_stash_access():
+        raise AssertionError('execute_run must remain an in-memory operation')
+
+    monkeypatch.setattr(run_module, 'StashManager', fail_on_stash_access, raising=False)
+
+    result = await execute_run('example.com', (FakePassiveSource(),))
+
+    assert result.target == 'example.com'
+
+
+class OutcomeSource:
+    name = 'outcome'
+    family = 'fixture-family'
+
+    def __init__(self, outcome: list[SourceFinding] | Exception) -> None:
+        self.outcome = outcome
+
+    async def collect(self, _target: str) -> list[SourceFinding]:
+        if isinstance(self.outcome, Exception):
+            raise self.outcome
+        return self.outcome
+
+
+@pytest.mark.parametrize(
+    ('outcome', 'expected'),
+    [
+        ([], SourceStatus.EMPTY),
+        (RuntimeError('provider failed'), SourceStatus.FAILED),
+    ],
+)
+@pytest.mark.asyncio
+async def test_execute_run_records_non_success_source_outcomes(
+    caplog: pytest.LogCaptureFixture,
+    outcome: list[SourceFinding] | Exception,
+    expected: SourceStatus,
+) -> None:
+    result = await execute_run('example.com', (OutcomeSource(outcome),))
+
+    assert len(result.source_executions) == 1
+    execution = result.source_executions[0]
+    assert execution.status is expected
+    assert execution.duration_ms >= 0
+    assert execution.result_count == 0
+    assert execution.observation_count == 0
+    assert execution.entity_count == 0
+    assert result.observations == ()
+    assert result.entities == ()
+    if expected is SourceStatus.FAILED:
+        assert 'Source outcome failed' in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_execute_run_groups_multiple_sources_under_one_run() -> None:
+    class CorroboratingSource:
+        name = 'corroborating'
+        family = 'passive-dns'
+
+        async def collect(self, _target: str) -> list[SourceFinding]:
+            return [SourceFinding('www.example.com'), SourceFinding('example.com'), SourceFinding('')]
+
+    result = await execute_run('example.com', (FakePassiveSource(), CorroboratingSource()))
+
+    assert [execution.source for execution in result.source_executions] == ['fixture', 'corroborating']
+    assert {execution.run_id for execution in result.source_executions} == {result.run_id}
+    assert {observation.run_id for observation in result.observations} == {result.run_id}
+    corroborating_execution = result.source_executions[1]
+    assert corroborating_execution.status is SourceStatus.SUCCEEDED
+    assert corroborating_execution.result_count == 3
+    assert corroborating_execution.observation_count == 2
+    merged = {entity.value: entity for entity in result.entities}
+    assert merged['www.example.com'].independent_corroboration_count == 2
+    assert legacy_hostnames(result) == ['www.example.com']
+
+
+@pytest.mark.asyncio
+async def test_crtsh_bridge_executes_once_and_feeds_legacy_consumers(monkeypatch: pytest.MonkeyPatch) -> None:
+    import argparse
+
+    import theHarvester.__main__ as main_module
+    import theHarvester.lib.run as run_module
+
+    process_calls: list[bool] = []
+
+    class FakeCrtshSearch:
+        def __init__(self, target: str) -> None:
+            assert target == 'example.com'
+
+        async def process(self, proxy: bool = False) -> None:
+            process_calls.append(proxy)
+
+        async def get_hostnames(self) -> list[str]:
+            return ['WWW.EXAMPLE.COM.', 'www.example.com', 'example.com.evil.test']
+
+    stored: list[tuple[str, tuple[str, ...], str, str]] = []
+
+    class FakeStashManager:
+        async def do_init(self) -> None:
+            return None
+
+        async def store_all(self, domain: str, items: list[str], result_type: str, source: str) -> None:
+            stored.append((domain, tuple(items), result_type, source))
+
+    captured: list[run_module.RunResult] = []
+
+    async def execute_with_temporary_store(target, sources):
+        result = await run_module.execute_run(target, sources)
+        captured.append(result)
+        return result
+
+    monkeypatch.setattr(main_module.crtsh, 'SearchCrtsh', FakeCrtshSearch)
+    monkeypatch.setattr(main_module.stash, 'StashManager', FakeStashManager)
+    monkeypatch.setattr(main_module, 'execute_run', execute_with_temporary_store, raising=True)
+
+    await main_module.start(
+        argparse.Namespace(
+            api_scan=False,
+            dns_brute=False,
+            dns_lookup=False,
+            dns_resolve='',
+            dns_server=None,
+            domain='example.com',
+            filename='',
+            limit=500,
+            proxies=False,
+            quiet=True,
+            shodan=False,
+            source='crtsh',
+            start=0,
+            take_over=False,
+            wordlist='',
+        )
+    )
+
+    assert process_calls == [False]
+    assert len(captured) == 1
+    assert captured[0].source_executions[0].status is SourceStatus.SUCCEEDED
+    assert captured[0].source_executions[0].source == 'crtsh'
+    assert legacy_hostnames(captured[0]) == ['www.example.com']
+    assert stored == [('example.com', ('www.example.com',), 'host', 'CRTsh')]
