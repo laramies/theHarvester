@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
+import textwrap
+from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
 import pytest
@@ -7,7 +12,6 @@ import yaml
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from pathlib import Path
     from types import ModuleType
 
     from theHarvester.lib.core import Core
@@ -17,6 +21,49 @@ class ConfigurationEnvironment(NamedTuple):
     core: type[Core]
     module: ModuleType
     directories: list[Path]
+
+
+def test_importing_core_does_not_access_configuration_files(tmp_path: Path) -> None:
+    script = textwrap.dedent(
+        """
+        import sys
+
+        configuration_accesses: list[str] = []
+
+        def record_configuration_access(event: str, arguments: tuple[object, ...]) -> None:
+            if event != 'open':
+                return
+            path = arguments[0]
+            if isinstance(path, str) and path.endswith(('api-keys.yaml', 'proxies.yaml')):
+                configuration_accesses.append(path)
+
+        sys.addaudithook(record_configuration_access)
+
+        import theHarvester.lib.core
+
+        assert configuration_accesses == [], configuration_accesses
+
+        first_proxy_list = theHarvester.lib.core.AsyncFetcher().proxy_list
+        access_count = len(configuration_accesses)
+        second_proxy_list = theHarvester.lib.core.AsyncFetcher().proxy_list
+
+        assert second_proxy_list is first_proxy_list
+        assert len(configuration_accesses) == access_count
+        """
+    )
+    environment = os.environ.copy()
+    environment['HOME'] = str(tmp_path)
+
+    result = subprocess.run(
+        [sys.executable, '-c', script],
+        capture_output=True,
+        check=False,
+        cwd=Path(__file__).parents[2],
+        env=environment,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
 
 
 @pytest.fixture
