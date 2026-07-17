@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING, NamedTuple
 import pytest
 import yaml
 
+from theHarvester.lib.configuration import FileSystemCredentialAdapter
+
 if TYPE_CHECKING:
     from collections.abc import Callable
     from types import ModuleType
@@ -89,7 +91,7 @@ def configuration_environment(
         ((2,), 'local-key'),
     ],
 )
-def test_api_keys_uses_first_available_configuration(
+def test_api_keys_and_filesystem_credentials_use_first_available_configuration(
     configuration_environment: ConfigurationEnvironment,
     present_indexes: tuple[int, ...],
     expected_key: str,
@@ -103,7 +105,10 @@ def test_api_keys_uses_first_available_configuration(
             encoding='utf-8',
         )
 
-    assert core.api_keys() == {'brave': {'key': expected_key}}
+    assert (core.api_keys(), FileSystemCredentialAdapter().get('brave')) == (
+        {'brave': {'key': expected_key}},
+        expected_key,
+    )
 
 
 def test_missing_api_keys_uses_and_creates_bundled_default(
@@ -156,12 +161,12 @@ def test_provider_accessors_return_single_and_multi_field_credentials(
     core = configuration_environment.core
     configuration_dirs = configuration_environment.directories
     (configuration_dirs[0] / 'api-keys.yaml').write_text(
-        'apikeys:\n  brave:\n    key: brave-key\n  censys:\n    id: censys-id\n    secret: censys-secret\n',
+        'apikeys:\n  bevigil:\n    key: bevigil-key\n  censys:\n    id: censys-id\n    secret: censys-secret\n',
         encoding='utf-8',
     )
 
-    assert (core.brave_key(), core.censys_key()) == (
-        'brave-key',
+    assert (core.bevigil_key(), core.censys_key()) == (
+        'bevigil-key',
         ('censys-id', 'censys-secret'),
     )
 
