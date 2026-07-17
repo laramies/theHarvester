@@ -1,0 +1,69 @@
+name: Feature request
+description: Propose an operator-facing improvement to theHarvester
+title: "[Feature]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the operator problem before proposing an implementation. Do not include credentials, private reconnaissance data, or real targets.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Operator problem
+      description: What is difficult or impossible today, and who would benefit from changing it?
+    validations:
+      required: true
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe the behavior an operator should be able to observe.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: affected-areas
+    attributes:
+      label: Affected areas
+      description: Select every surface the request is expected to change.
+      multiple: true
+      options:
+        - CLI
+        - REST API
+        - Discovery source
+        - DNS or active processing
+        - Output or export
+        - Installation or documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-behavior
+    attributes:
+      label: Proposed behavior
+      description: Explain your preferred behavior without requiring a particular implementation.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Describe any workarounds or other approaches you considered.
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add sanitized examples, mockups, or related issues when useful.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I searched existing issues for the same request.
+          required: true
+        - label: I removed credentials, private data, and real targets from this request.
+          required: true
