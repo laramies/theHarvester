@@ -1,3 +1,4 @@
+import logging
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
@@ -98,7 +99,7 @@ async def test_process_uses_unique_indexes_from_latest_catalog_year_window_and_s
 @pytest.mark.asyncio
 @pytest.mark.parametrize('broken_payload', ['not-json', ''])
 async def test_process_reports_failed_or_malformed_index_without_discarding_other_results(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], broken_payload: str
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, broken_payload: str
 ) -> None:
     broken_endpoint = 'https://index.commoncrawl.org/CC-MAIN-2026-30-index'
     good_endpoint = 'https://index.commoncrawl.org/CC-MAIN-2026-26-index'
@@ -127,9 +128,67 @@ async def test_process_reports_failed_or_malformed_index_without_discarding_othe
     monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
 
     search = commoncrawl.SearchCommoncrawl('example.com')
-    await search.process()
+    with caplog.at_level(logging.WARNING, logger=commoncrawl.__name__):
+        await search.process()
 
     assert await search.get_hostnames() == {'survivor.example.com'}
-    output = capsys.readouterr().out
-    assert 'CC-MAIN-BROKEN' in output
-    assert 'CC-MAIN-2026-30' in output
+    assert 'CC-MAIN-BROKEN' in caplog.text
+    assert 'CC-MAIN-2026-30' in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_process_reports_non_json_upstream_response(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    catalog = [
+        {
+            'id': 'CC-MAIN-2026-30',
+            'cdx-api': 'https://index.commoncrawl.org/CC-MAIN-2026-30-index',
+            'to': '2026-07-12T00:00:00',
+        }
+    ]
+
+    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[object]:
+        if urls == ['https://index.commoncrawl.org/collinfo.json']:
+            return [catalog]
+        if 'showNumPages=true' in urls[0]:
+            return ['{"pages": 1, "pageSize": 5, "blocks": 1}']
+        return ['<html><h1>504 Gateway Time-out</h1></html>']
+
+    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
+
+    with (
+        caplog.at_level(logging.WARNING, logger=commoncrawl.__name__),
+        pytest.raises(RuntimeError, match='all Common Crawl queries failed'),
+    ):
+        await commoncrawl.SearchCommoncrawl('example.com').process()
+
+    assert 'unexpected non-JSON response' in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_process_keeps_results_when_another_query_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    catalog = [
+        {
+            'id': 'CC-MAIN-2026-30',
+            'cdx-api': 'https://index.commoncrawl.org/CC-MAIN-2026-30-index',
+            'to': '2026-07-12T00:00:00',
+        }
+    ]
+
+    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[object]:
+        if urls == ['https://index.commoncrawl.org/collinfo.json']:
+            return [catalog]
+        query = parse_qs(urlsplit(urls[0]).query)
+        if query.get('showNumPages') == ['true']:
+            return ['{"pages": 1, "pageSize": 5, "blocks": 1}']
+        if query['url'] == ['*.example.com']:
+            return ['{"url":"https://api.example.com/v1"}']
+        return ['<html><h1>504 Gateway Time-out</h1></html>']
+
+    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    search = commoncrawl.SearchCommoncrawl('example.com')
+
+    await search.process()
+
+    assert await search.get_hostnames() == {'api.example.com'}
