@@ -86,7 +86,7 @@ class SearchDehashed:
         for entry in self.data:
             email = entry.get('email', '')
             username = entry.get('username', '')
-            password = entry.get('password', '')
+            password = '[REDACTED]' if entry.get('password') else ''
             phone = entry.get('phone', '')
             ip = entry.get('ip_address', '')
             source = entry.get('database_name', '')
