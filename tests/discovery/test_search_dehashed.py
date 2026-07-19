@@ -1,17 +1,18 @@
 import pytest
 
 from theHarvester.discovery.search_dehashed import SearchDehashed
-from theHarvester.lib.output import configure_logging
 
 
 @pytest.mark.asyncio
-async def test_csv_output_redacts_password(capsys) -> None:
-    configure_logging(verbose=False)
+async def test_process_does_not_output_credentials(monkeypatch, capsys) -> None:
     search = SearchDehashed.__new__(SearchDehashed)
     search.data = [{'email': 'user@example.com', 'password': 'secret-password'}]
 
-    await search.print_csv_results()
+    async def do_search() -> None:
+        return None
 
-    output = capsys.readouterr().out
-    assert 'secret-password' not in output
-    assert '[REDACTED]' in output
+    monkeypatch.setattr(search, 'do_search', do_search)
+    await search.process()
+
+    assert 'secret-password' not in capsys.readouterr().out
+    assert await search.get_emails() == {'user@example.com'}

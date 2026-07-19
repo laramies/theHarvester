@@ -6,7 +6,6 @@ import aiohttp
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import Core
-from theHarvester.lib.output import output_logger
 
 logger = logging.getLogger(__name__)
 
@@ -75,29 +74,9 @@ class SearchDehashed:
                 logger.info(f'\t[!] Dehashed error: {e}')
                 break
 
-    async def print_csv_results(self) -> None:
-        if not self.data:
-            logger.info('\t[!] No data found.')
-            return
-
-        output_logger.info('\n[Dehashed Results]')
-        output_logger.info('Email,Username,Password,Phone,IP,Source')
-
-        for entry in self.data:
-            email = entry.get('email', '')
-            username = entry.get('username', '')
-            password = '[REDACTED]'
-            phone = entry.get('phone', '')
-            ip = entry.get('ip_address', '')
-            source = entry.get('database_name', '')
-
-            csv_line = f'"{email}","{username}","{password}","{phone}","{ip}","{source}"'
-            output_logger.info(csv_line)
-
     async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_search()
-        await self.print_csv_results()
 
     async def get_emails(self) -> set:
         emails = set()
