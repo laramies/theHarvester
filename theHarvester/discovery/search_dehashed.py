@@ -56,8 +56,7 @@ class SearchDehashed:
                         try:
                             data = await response.json()
                         except Exception:
-                            text = await response.text()
-                            raise Exception(f'Unexpected response format: {text[:200]}')
+                            raise ValueError('Unexpected response format')
 
                 entries = data.get('entries', [])
                 if not entries:

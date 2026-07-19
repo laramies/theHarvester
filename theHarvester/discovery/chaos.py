@@ -67,7 +67,7 @@ class SearchChaos:
                     # Check for error messages
                     if 'error' in data:
                         error_msg = data.get('message', data.get('error', 'Unknown error'))
-                        logger.info(f'Chaos API error: {error_msg}')
+                        logger.info('Chaos API returned an error')
                         if 'unauthorized' in error_msg.lower():
                             raise MissingKey('Chaos (ProjectDiscovery)')
                         return

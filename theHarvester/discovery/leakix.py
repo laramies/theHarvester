@@ -72,7 +72,7 @@ class SearchLeakix:
                         or 'unauthorized' in response[0].lower()
                         or 'error' in response[0].lower()
                     ):
-                        logger.info(f'LeakIX API requires authentication: {response[0][:100]}')
+                        logger.info('LeakIX API requires authentication')
                         continue
 
                     try:

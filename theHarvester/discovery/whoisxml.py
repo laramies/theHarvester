@@ -1,9 +1,5 @@
-import logging
-
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import AsyncFetcher, Core
-
-logger = logging.getLogger(__name__)
 
 
 class SearchWhoisXML:
@@ -29,7 +25,6 @@ class SearchWhoisXML:
         # Parse the response according to the example JSON structure:
         # {"search":"example.com.com","result":{"count":10000,"records":[{"domain":"test.example.com","firstSeen":1678169400,"lastSeen":1678169400}]}}
         self.total_results = []
-        logger.info(response[0])
         if response and response[0]:
             # Extract domains from the records array
             if 'result' in response[0] and 'records' in response[0]['result']:

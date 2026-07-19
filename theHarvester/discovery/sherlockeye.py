@@ -97,8 +97,7 @@ class SearchSherlockeye:
 
     def _extract_response(self, response: dict[str, Any]) -> None:
         if response.get('success') is False:
-            message = response.get('message', 'Unknown Sherlockeye API error')
-            logger.info(f'Sherlockeye API error: {message}')
+            logger.info('Sherlockeye API error')
             return
 
         data = response.get('data')
@@ -130,8 +129,7 @@ class SearchSherlockeye:
                     proxy=self._proxy_url(),
                 ) as response:
                     if response.status != 200:
-                        error_body = await response.text()
-                        logger.info(f'Sherlockeye API error ({response.status}): {error_body[:200]}')
+                        logger.info('Sherlockeye API request failed with status %s', response.status)
                         return
 
                     response_data = await response.json()

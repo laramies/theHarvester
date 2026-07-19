@@ -102,15 +102,15 @@ class SearchCriminalIP:
         # Expected response format:
         # {'data': {'scan_id': scan_id}, 'message': 'api success', 'status': 200}
         if not isinstance(response, dict):
-            logger.info(f'An error has occurred searching criminalip dumping response: {response}')
+            logger.info('CriminalIP scan response has unexpected type: %s', type(response).__name__)
             return
         if response.get('status') != 200:
-            logger.info(f'An error has occurred searching criminalip dumping response: {response}')
+            logger.info('CriminalIP scan request failed with status %s', response.get('status'))
             return
 
         scan_id = response.get('data', {}).get('scan_id')
         if scan_id is None:
-            logger.info(f'CriminalIP did not return a scan_id, dumping response: {response}')
+            logger.info('CriminalIP scan response did not include a scan_id')
             return
 
         scan_percentage = 0
@@ -126,26 +126,25 @@ class SearchCriminalIP:
             )
             status = status_response[0] if isinstance(status_response, list) and len(status_response) > 0 else {}
             if not isinstance(status, dict):
-                logger.info(f'CriminalIP status response is malformed dumping data: {status_response}')
+                logger.info('CriminalIP status response has unexpected type: %s', type(status).__name__)
                 return
             if status.get('status') != 200:
-                logger.info(f'CriminalIP status check failed dumping data: status_response: {status}')
+                logger.info('CriminalIP status request failed with status %s', status.get('status'))
                 return
 
             # Expected format:
             # {"data": {"scan_percentage": 100}, "message": "api success", "status": 200}
             scan_percentage = status.get('data', {}).get('scan_percentage')
             if scan_percentage is None:
-                logger.info(f'CriminalIP status did not include scan_percentage dumping data: {status}')
+                logger.info('CriminalIP status response did not include scan_percentage')
                 return
             if scan_percentage == 100:
                 break
             if scan_percentage == -2:
                 logger.info(f'CriminalIP failed to scan: {self.word} does not exist, verify manually')
-                logger.info(f'Dumping data: scan_response: {response} status_response: {status}')
                 return
             if scan_percentage == -1:
-                logger.info(f'CriminalIP scan failed dumping data: scan_response: {response} status_response: {status}')
+                logger.info('CriminalIP scan failed with scan_percentage -1')
                 return
             # Wait for scan to finish
             if counter >= 5:
@@ -156,9 +155,6 @@ class SearchCriminalIP:
             if counter == 10:
                 logger.info(
                     'Ten iterations have occurred in CriminalIP waiting for scan to finish, returning to prevent infinite loop.'
-                )
-                logger.info(
-                    f'Verify results manually on CriminalIP dumping data: scan_response: {response} status_response: {status}'
                 )
                 return
 
@@ -171,25 +167,23 @@ class SearchCriminalIP:
         )
         scan = scan_response[0] if isinstance(scan_response, list) and len(scan_response) > 0 else {}
         if not isinstance(scan, dict):
-            logger.info(f'CriminalIP report response is malformed dumping data: {scan_response}')
+            logger.info('CriminalIP report response has unexpected type: %s', type(scan).__name__)
             return
         if scan.get('status') != 200:
-            logger.info(f'CriminalIP report request failed dumping data: {scan}')
+            logger.info('CriminalIP report request failed with status %s', scan.get('status'))
             return
 
         try:
             await self.parser(scan)
         except Exception as e:
-            logger.info(f'An exception occurred while parsing criminalip result: {e}')
-            logger.info('Dumping json: ')
-            logger.info(scan)
+            logger.info('CriminalIP report parsing failed with %s', type(e).__name__)
 
     async def parser(self, jlines):
         # TODO when new scope field is added to parse lines for potential new scope!
         # TODO map as_name to asn for asn data
         # TODO determine if worth storing interesting urls
         if not isinstance(jlines, dict) or 'data' not in jlines.keys() or not isinstance(jlines['data'], dict):
-            logger.info(f'Error with criminalip data, dumping: {jlines}')
+            logger.info('CriminalIP report has an unexpected structure')
             return
         data = jlines['data']
 
@@ -208,8 +202,7 @@ class SearchCriminalIP:
                 for sub in subdomains:
                     self._add_host(sub)
             except Exception as e:
-                logger.info(f'An exception has occurred: {e}')
-                logger.info(f'Main line: {connected_domain}')
+                logger.info('CriminalIP connected-domain parsing failed with %s', type(e).__name__)
 
         for ip_info in data.get('connected_ip_info', []):
             if not isinstance(ip_info, dict):

@@ -85,7 +85,7 @@ class SearchFofa:
                     # Check for errors
                     if data.get('error', False):
                         error_msg = data.get('errmsg', 'Unknown error')
-                        logger.info(f'Fofa API error: {error_msg}')
+                        logger.info('Fofa API returned an error')
                         if '账号无效' in error_msg or 'invalid' in error_msg.lower():
                             raise MissingKey('Fofa API (Invalid credentials)')
                         return

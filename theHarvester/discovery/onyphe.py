@@ -39,7 +39,7 @@ class SearchOnyphe:
         if isinstance(self.response, list):
             self.response = self.response[0]
         if not isinstance(self.response, dict):
-            raise Exception(f'An exception has occurred {self.response} is not a dict')
+            raise TypeError(f'Onyphe response has unexpected type: {type(self.response).__name__}')
         if self.response['text'] == 'Success':
             if 'results' in self.response.keys():
                 for result in self.response['results']:
@@ -83,7 +83,7 @@ class SearchOnyphe:
                     except Exception:
                         continue
         else:
-            logger.info(f'Onhyphe API query did not succeed dumping current response: {self.response}')
+            logger.info('Onyphe API query did not succeed')
 
     async def get_asns(self) -> set:
         return self.asns

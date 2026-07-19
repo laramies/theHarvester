@@ -67,7 +67,7 @@ class SearchBrave:
                             await asyncio.sleep(self.rate_limit_delay)
                             continue
                         elif 'quota' in error_msg.lower() or error_code == 'quota_exceeded':
-                            logger.info(f'API quota exceeded: {error_msg}')
+                            logger.info('Brave Search API quota exceeded')
                             break
                         else:
                             break

@@ -142,7 +142,7 @@ class SearchBitBucket:
                         await asyncio.sleep(sleepy_time)
                     else:
                         # On error, stop to avoid endless retries on a bad state
-                        logger.info(f'\tException occurred: status_code: {result.status_code} reason: {result.body}')
+                        logger.info('\tBitbucket API request failed with status %s', result.status_code)
                         self.page = 0
                         break
                 except (aiohttp.ClientError, TimeoutError, ValueError, TypeError, AttributeError) as e:

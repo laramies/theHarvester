@@ -49,7 +49,7 @@ class SearchIntelx:
                 async with session.post(f'{self.database}/phonebook/search', headers=headers, json=data) as total_resp:
                     search_data = await total_resp.json()
                     if not search_data['success']:
-                        logger.info(f'Error: {search_data["message"]}')
+                        logger.info('IntelX search request failed')
                         return
                     phonebook_id = search_data['id']
 
