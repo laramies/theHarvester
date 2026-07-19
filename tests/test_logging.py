@@ -53,3 +53,35 @@ except SystemExit:
     assert 'INFO theHarvester.__main__: Verbose logging enabled' not in normal.stderr
     assert 'INFO theHarvester.__main__: Verbose logging enabled' in verbose.stderr
     assert 'third-party info' not in verbose.stderr
+
+
+def test_cli_preserves_existing_root_handler(tmp_path: Path) -> None:
+    script = """import asyncio
+import logging
+from theHarvester.__main__ import start
+
+handler = logging.StreamHandler()
+logging.getLogger().addHandler(handler)
+
+try:
+    asyncio.run(start())
+except SystemExit:
+    print(handler in logging.getLogger().handlers)
+    raise
+"""
+    command = [
+        sys.executable,
+        '-c',
+        script,
+        '-d',
+        'example.com',
+        '-b',
+        'unsupported',
+        '--verbose',
+    ]
+    environment = {**os.environ, 'HOME': str(tmp_path)}
+
+    result = subprocess.run(command, capture_output=True, text=True, env=environment)
+
+    assert result.returncode == 1
+    assert result.stdout.splitlines()[-1] == 'True'
