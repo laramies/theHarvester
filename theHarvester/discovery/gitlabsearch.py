@@ -3,6 +3,7 @@ import re
 from types import ModuleType
 
 from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.output import output_logger
 
 json: ModuleType = _stdlib_json
 try:
@@ -128,10 +129,10 @@ class SearchGitlab:
                                 pass  # README might not exist or be accessible
 
                 except Exception as e:
-                    print(f'Failed to parse GitLab projects response: {e}')
+                    output_logger.info(f'Failed to parse GitLab projects response: {e}')
 
         except Exception as e:
-            print(f'GitLab API projects search error: {e}')
+            output_logger.info(f'GitLab API projects search error: {e}')
 
     async def search_users(self) -> None:
         """Search GitLab users for domain references"""
@@ -179,10 +180,10 @@ class SearchGitlab:
                         self.totalurls.add(web_url)
 
             except Exception as e:
-                print(f'Failed to parse GitLab users response: {e}')
+                output_logger.info(f'Failed to parse GitLab users response: {e}')
 
         except Exception as e:
-            print(f'GitLab API users search error: {e}')
+            output_logger.info(f'GitLab API users search error: {e}')
 
     async def do_search(self) -> None:
         await self.search_projects()

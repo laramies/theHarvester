@@ -2,6 +2,7 @@ import json as _stdlib_json
 from types import ModuleType
 
 from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.output import output_logger
 
 json: ModuleType = _stdlib_json
 try:
@@ -76,11 +77,11 @@ class SearchWindvane:
                 await self._search_emails(headers)
             else:
                 # Without API key, try alternative/limited approaches
-                print('[*] Windvane API key not found. Using limited unauthenticated access.')
+                output_logger.info('[*] Windvane API key not found. Using limited unauthenticated access.')
                 await self._search_subdomains_limited(headers)
 
         except Exception as e:
-            print(f'Windvane API error: {e}')
+            output_logger.info(f'Windvane API error: {e}')
 
     async def _search_subdomains(self, headers: dict) -> None:
         """Search for subdomains using /ListSubDomain endpoint"""
@@ -112,15 +113,15 @@ class SearchWindvane:
                         else:
                             # API error - stop pagination
                             if response_data.get('code') != 0:
-                                print(f'Windvane subdomain API error: {response_data.get("msg", "Unknown error")}')
+                                output_logger.info(f'Windvane subdomain API error: {response_data.get("msg", "Unknown error")}')
                             break
 
                 except Exception as e:
-                    print(f'Windvane subdomain request failed: {e}')
+                    output_logger.info(f'Windvane subdomain request failed: {e}')
                     break
 
         except Exception as e:
-            print(f'Windvane subdomain search error: {e}')
+            output_logger.info(f'Windvane subdomain search error: {e}')
 
     async def _search_dns_history(self, headers: dict) -> None:
         """Search DNS history using /ListDNS endpoint for additional subdomains and IPs"""
@@ -160,11 +161,11 @@ class SearchWindvane:
                             break
 
                 except Exception as e:
-                    print(f'Windvane DNS history request failed: {e}')
+                    output_logger.info(f'Windvane DNS history request failed: {e}')
                     break
 
         except Exception as e:
-            print(f'Windvane DNS history search error: {e}')
+            output_logger.info(f'Windvane DNS history search error: {e}')
 
     async def _search_emails(self, headers: dict) -> None:
         """Search for emails using /ListEmail endpoint"""
@@ -194,10 +195,10 @@ class SearchWindvane:
                                     self.totalhosts.add(domain.lower())
 
             except Exception as e:
-                print(f'Windvane email search request failed: {e}')
+                output_logger.info(f'Windvane email search request failed: {e}')
 
         except Exception as e:
-            print(f'Windvane email search error: {e}')
+            output_logger.info(f'Windvane email search error: {e}')
 
     async def _search_subdomains_limited(self, headers: dict) -> None:
         """Limited subdomain search without API key - tries simpler approaches"""
@@ -229,22 +230,22 @@ class SearchWindvane:
                                 if domain and domain.endswith(self.word):
                                     self.totalhosts.add(domain.lower())
 
-                        print(f'[*] Found {len(subdomains)} subdomains with limited access')
+                        output_logger.info(f'[*] Found {len(subdomains)} subdomains with limited access')
                     else:
                         # If API call fails, try fallback approaches
                         await self._fallback_search()
 
             except Exception as e:
-                print(f'Windvane limited API failed: {e}')
+                output_logger.info(f'Windvane limited API failed: {e}')
                 await self._fallback_search()
 
         except Exception as e:
-            print(f'Windvane limited search error: {e}')
+            output_logger.info(f'Windvane limited search error: {e}')
 
     async def _fallback_search(self) -> None:
         """Fallback search using common subdomain patterns when API is unavailable"""
         try:
-            print('[*] API unavailable, using fallback subdomain pattern search...')
+            output_logger.info('[*] API unavailable, using fallback subdomain pattern search...')
 
             # Common subdomain prefixes to try
             common_subdomains = [
@@ -296,12 +297,12 @@ class SearchWindvane:
                     continue
 
             if found_count > 0:
-                print(f'[*] Found {found_count} subdomains using DNS fallback')
+                output_logger.info(f'[*] Found {found_count} subdomains using DNS fallback')
             else:
-                print('[*] No additional subdomains found via fallback methods')
+                output_logger.info('[*] No additional subdomains found via fallback methods')
 
         except Exception as e:
-            print(f'Fallback search error: {e}')
+            output_logger.info(f'Fallback search error: {e}')
 
     def set_api_key(self, api_key: str) -> None:
         """Set the API key for authenticated requests

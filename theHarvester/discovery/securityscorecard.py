@@ -2,6 +2,7 @@ import aiohttp
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.output import output_logger
 
 
 class SearchSecurityScorecard:
@@ -36,7 +37,7 @@ class SearchSecurityScorecard:
                             data = await response.json()
                             self._extract_data(data)
         except Exception as e:
-            print(f'Error in SecurityScorecard search: {e}')
+            output_logger.info(f'Error in SecurityScorecard search: {e}')
 
     def _extract_data(self, data: dict) -> None:
         """Extract and categorize security scorecard information."""

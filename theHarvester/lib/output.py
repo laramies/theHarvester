@@ -1,9 +1,41 @@
 from __future__ import annotations
 
+import logging
+import sys
 from collections.abc import Hashable, Iterable, Sequence
 from typing import TypeVar
 
 T = TypeVar('T', bound=Hashable)
+
+
+class _OperatorOutputHandler(logging.Handler):
+    """Write operator-facing messages to the current stdout stream."""
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            sys.stdout.write(f'{self.format(record)}\n')
+        except Exception:
+            self.handleError(record)
+
+
+output_logger = logging.getLogger('theHarvester.output')
+output_logger.setLevel(logging.INFO)
+output_logger.propagate = False
+if not any(isinstance(handler, _OperatorOutputHandler) for handler in output_logger.handlers):
+    output_logger.addHandler(_OperatorOutputHandler())
+
+
+def configure_logging(*, verbose: bool) -> None:
+    """Configure CLI diagnostics without taking ownership from an embedding host."""
+    root_logger = logging.getLogger()
+    if not root_logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter('%(levelname)s %(name)s: %(message)s'))
+        root_logger.addHandler(handler)
+        root_logger.setLevel(logging.WARNING)
+
+    if verbose:
+        logging.getLogger('theHarvester').setLevel(logging.INFO)
 
 
 def sorted_unique[T: Hashable](items: Iterable[T]) -> list[T]:
@@ -13,25 +45,25 @@ def sorted_unique[T: Hashable](items: Iterable[T]) -> list[T]:
 
 
 def print_section(header: str, items: Iterable[str], separator: str) -> None:
-    print(header)
-    print(separator)
+    output_logger.info(header)
+    output_logger.info(separator)
     for item in sorted_unique(items):
-        print(item)
+        output_logger.info(item)
 
 
 def print_linkedin_sections(
     engines: Sequence[str], people: Sequence[str], links: Sequence[str], separator: str = '---------------------'
 ) -> None:
     if len(people) == 0 and 'linkedin' in engines:
-        print('\n[*] No LinkedIn users found.\n\n')
+        output_logger.info('\n[*] No LinkedIn users found.\n\n')
     elif len(people) >= 1:
-        print('\n[*] LinkedIn Users found: ' + str(len(people)))
-        print(separator)
+        output_logger.info('\n[*] LinkedIn Users found: ' + str(len(people)))
+        output_logger.info(separator)
         for usr in sorted_unique(people):
-            print(usr)
+            output_logger.info(usr)
 
     if 'linkedin' in engines or 'rocketreach' in engines:
-        print(f'\n[*] LinkedIn Links found: {len(links)}')
-        print(separator)
+        output_logger.info(f'\n[*] LinkedIn Links found: {len(links)}')
+        output_logger.info(separator)
         for link in sorted_unique(links):
-            print(link)
+            output_logger.info(link)

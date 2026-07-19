@@ -16,6 +16,7 @@ import yaml
 from aiohttp_socks import ProxyConnector
 
 from theHarvester import __version__
+from theHarvester.lib.output import output_logger
 
 if TYPE_CHECKING:
     from collections.abc import Sized
@@ -77,7 +78,7 @@ class Core:
                 file = path.expanduser() / filename
                 config = file.read_text()
                 if not Core.quiet:
-                    print(f'Read {filename} from {file}')
+                    output_logger.info(f'Read {filename} from {file}')
                 return config
 
         # Fallback to creating default in the user's home dir
@@ -85,7 +86,7 @@ class Core:
         dest = CONFIG_DIRS[0].expanduser() / filename
         dest.parent.mkdir(exist_ok=True)
         dest.write_text(default)
-        print(f'Created default {filename} at {dest}')
+        output_logger.info(f'Created default {filename} at {dest}')
         return default
 
     @staticmethod
@@ -259,19 +260,19 @@ class Core:
 
     @staticmethod
     def banner() -> None:
-        print('*******************************************************************')
-        print('*  _   _                                            _             *')
-        print(r'* | |_| |__   ___    /\  /\__ _ _ ____   _____  ___| |_ ___ _ __  *')
-        print(r"* | __|  _ \ / _ \  / /_/ / _` | '__\ \ / / _ \/ __| __/ _ \ '__| *")
-        print(r'* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *')
-        print(r'*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *')
-        print('*                                                                 *')
-        print('* theHarvester {version}{filler}*'.format(version=__version__, filler=' ' * (51 - len(__version__))))
-        print('* Coded by Christian Martorella                                   *')
-        print('* Edge-Security Research                                          *')
-        print('* cmartorella@edge-security.com                                   *')
-        print('*                                                                 *')
-        print('*******************************************************************')
+        output_logger.info('*******************************************************************')
+        output_logger.info('*  _   _                                            _             *')
+        output_logger.info(r'* | |_| |__   ___    /\  /\__ _ _ ____   _____  ___| |_ ___ _ __  *')
+        output_logger.info(r"* | __|  _ \ / _ \  / /_/ / _` | '__\ \ / / _ \/ __| __/ _ \ '__| *")
+        output_logger.info(r'* | |_| | | |  __/ / __  / (_| | |   \ V /  __/\__ \ ||  __/ |    *')
+        output_logger.info(r'*  \__|_| |_|\___| \/ /_/ \__,_|_|    \_/ \___||___/\__\___|_|    *')
+        output_logger.info('*                                                                 *')
+        output_logger.info('* theHarvester {version}{filler}*'.format(version=__version__, filler=' ' * (51 - len(__version__))))
+        output_logger.info('* Coded by Christian Martorella                                   *')
+        output_logger.info('* Edge-Security Research                                          *')
+        output_logger.info('* cmartorella@edge-security.com                                   *')
+        output_logger.info('*                                                                 *')
+        output_logger.info('*******************************************************************')
 
     @staticmethod
     def get_supportedengines() -> list[str]:
@@ -667,7 +668,7 @@ class AsyncFetcher:
                     await asyncio.sleep(5)
                     return url, await response.text()
         except (aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, UnicodeDecodeError, ValueError) as e:
-            print(f'Takeover check error: {e}')
+            output_logger.info(f'Takeover check error: {e}')
             return url, ''
 
     @classmethod
@@ -743,5 +744,5 @@ class AsyncFetcher:
 
 
 def show_default_error_message(engine_name: str, word: str, error) -> None:
-    print(f"Failed to process {engine_name} search for word: '{word}'")
-    print(f'Error Message: {error}')
+    output_logger.info(f"Failed to process {engine_name} search for word: '{word}'")
+    output_logger.info(f'Error Message: {error}')

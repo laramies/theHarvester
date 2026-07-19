@@ -3,6 +3,7 @@ from types import ModuleType
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.output import output_logger
 
 json: ModuleType = _stdlib_json
 try:
@@ -54,7 +55,7 @@ class SearchChaos:
             response = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
 
             if not response or not isinstance(response, list) or not response[0]:
-                print(f'No response from Chaos API for: {url}')
+                output_logger.info(f'No response from Chaos API for: {url}')
                 return
 
             try:
@@ -64,7 +65,7 @@ class SearchChaos:
                     # Check for error messages
                     if 'error' in data:
                         error_msg = data.get('message', data.get('error', 'Unknown error'))
-                        print(f'Chaos API error: {error_msg}')
+                        output_logger.info(f'Chaos API error: {error_msg}')
                         if 'unauthorized' in error_msg.lower():
                             raise MissingKey('Chaos (ProjectDiscovery)')
                         return
@@ -98,12 +99,12 @@ class SearchChaos:
                             self.totalhosts.add(full_domain.lower())
 
             except Exception as e:
-                print(f'Failed to parse Chaos response: {e}')
+                output_logger.info(f'Failed to parse Chaos response: {e}')
 
         except MissingKey:
             raise
         except Exception as e:
-            print(f'Chaos API error: {e}')
+            output_logger.info(f'Chaos API error: {e}')
 
     async def get_hostnames(self) -> set:
         return self.totalhosts

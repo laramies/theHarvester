@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 
 from theHarvester.discovery.constants import MissingKey, get_delay
 from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.output import output_logger
 
 
 class SearchCriminalIP:
@@ -88,7 +89,6 @@ class SearchCriminalIP:
         # https://www.criminalip.io/developer/api/get-v2-domain-report-id
         url = 'https://api.criminalip.io/v1/domain/scan'
         data = f'{{"query": "{self.word}"}}'
-        # print(f'Current key: {self.key}')
         user_agent = Core.get_user_agent()
         response = await AsyncFetcher.post_fetch(
             url,
@@ -97,19 +97,18 @@ class SearchCriminalIP:
             data=data,
             proxy=self.proxy,
         )
-        # print(f'My response: {response}')
         # Expected response format:
         # {'data': {'scan_id': scan_id}, 'message': 'api success', 'status': 200}
         if not isinstance(response, dict):
-            print(f'An error has occurred searching criminalip dumping response: {response}')
+            output_logger.info(f'An error has occurred searching criminalip dumping response: {response}')
             return
         if response.get('status') != 200:
-            print(f'An error has occurred searching criminalip dumping response: {response}')
+            output_logger.info(f'An error has occurred searching criminalip dumping response: {response}')
             return
 
         scan_id = response.get('data', {}).get('scan_id')
         if scan_id is None:
-            print(f'CriminalIP did not return a scan_id, dumping response: {response}')
+            output_logger.info(f'CriminalIP did not return a scan_id, dumping response: {response}')
             return
 
         scan_percentage = 0
@@ -125,26 +124,26 @@ class SearchCriminalIP:
             )
             status = status_response[0] if isinstance(status_response, list) and len(status_response) > 0 else {}
             if not isinstance(status, dict):
-                print(f'CriminalIP status response is malformed dumping data: {status_response}')
+                output_logger.info(f'CriminalIP status response is malformed dumping data: {status_response}')
                 return
             if status.get('status') != 200:
-                print(f'CriminalIP status check failed dumping data: status_response: {status}')
+                output_logger.info(f'CriminalIP status check failed dumping data: status_response: {status}')
                 return
 
             # Expected format:
             # {"data": {"scan_percentage": 100}, "message": "api success", "status": 200}
             scan_percentage = status.get('data', {}).get('scan_percentage')
             if scan_percentage is None:
-                print(f'CriminalIP status did not include scan_percentage dumping data: {status}')
+                output_logger.info(f'CriminalIP status did not include scan_percentage dumping data: {status}')
                 return
             if scan_percentage == 100:
                 break
             if scan_percentage == -2:
-                print(f'CriminalIP failed to scan: {self.word} does not exist, verify manually')
-                print(f'Dumping data: scan_response: {response} status_response: {status}')
+                output_logger.info(f'CriminalIP failed to scan: {self.word} does not exist, verify manually')
+                output_logger.info(f'Dumping data: scan_response: {response} status_response: {status}')
                 return
             if scan_percentage == -1:
-                print(f'CriminalIP scan failed dumping data: scan_response: {response} status_response: {status}')
+                output_logger.info(f'CriminalIP scan failed dumping data: scan_response: {response} status_response: {status}')
                 return
             # Wait for scan to finish
             if counter >= 5:
@@ -153,10 +152,12 @@ class SearchCriminalIP:
                 await asyncio.sleep(10 * get_delay())
             counter += 1
             if counter == 10:
-                print(
+                output_logger.info(
                     'Ten iterations have occurred in CriminalIP waiting for scan to finish, returning to prevent infinite loop.'
                 )
-                print(f'Verify results manually on CriminalIP dumping data: scan_response: {response} status_response: {status}')
+                output_logger.info(
+                    f'Verify results manually on CriminalIP dumping data: scan_response: {response} status_response: {status}'
+                )
                 return
 
         report_url = f'https://api.criminalip.io/v2/domain/report/{scan_id}'
@@ -168,32 +169,29 @@ class SearchCriminalIP:
         )
         scan = scan_response[0] if isinstance(scan_response, list) and len(scan_response) > 0 else {}
         if not isinstance(scan, dict):
-            print(f'CriminalIP report response is malformed dumping data: {scan_response}')
+            output_logger.info(f'CriminalIP report response is malformed dumping data: {scan_response}')
             return
         if scan.get('status') != 200:
-            print(f'CriminalIP report request failed dumping data: {scan}')
+            output_logger.info(f'CriminalIP report request failed dumping data: {scan}')
             return
 
-        # json_formatted_str = json.dumps(scan, indent=2)
-        # print(json_formatted_str)
         try:
             await self.parser(scan)
         except Exception as e:
-            print(f'An exception occurred while parsing criminalip result: {e}')
-            print('Dumping json: ')
-            print(scan)
+            output_logger.info(f'An exception occurred while parsing criminalip result: {e}')
+            output_logger.info('Dumping json: ')
+            output_logger.info(scan)
 
     async def parser(self, jlines):
         # TODO when new scope field is added to parse lines for potential new scope!
         # TODO map as_name to asn for asn data
         # TODO determine if worth storing interesting urls
         if not isinstance(jlines, dict) or 'data' not in jlines.keys() or not isinstance(jlines['data'], dict):
-            print(f'Error with criminalip data, dumping: {jlines}')
+            output_logger.info(f'Error with criminalip data, dumping: {jlines}')
             return
         data = jlines['data']
 
         for cert in data.get('certificates', []):
-            # print(f'Current cert: {cert}')
             if isinstance(cert, dict):
                 self._add_host(cert.get('subject'))
 
@@ -206,11 +204,10 @@ class SearchCriminalIP:
                     self._add_host(main_domain)
                 subdomains = [sub.get('domain') for sub in connected_domain.get('subdomains', []) if isinstance(sub, dict)]
                 for sub in subdomains:
-                    # print(f'Current sub: {sub}')
                     self._add_host(sub)
             except Exception as e:
-                print(f'An exception has occurred: {e}')
-                print(f'Main line: {connected_domain}')
+                output_logger.info(f'An exception has occurred: {e}')
+                output_logger.info(f'Main line: {connected_domain}')
 
         for ip_info in data.get('connected_ip_info', []):
             if not isinstance(ip_info, dict):
@@ -312,10 +309,6 @@ class SearchCriminalIP:
                     self._add_host_from_url(redirect.get('url'))
 
         self.totalhosts = {host.removeprefix('www.') for host in self.totalhosts if '*.' + self.word != host}
-
-        # print(f'hostnames: {self.totalhosts}')
-        # print(f'asns: {self.asns}')
-        # print(f'ips: {self.totalips}')
 
     async def get_asns(self) -> set:
         return self.asns

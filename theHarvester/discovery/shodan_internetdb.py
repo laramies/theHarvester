@@ -2,6 +2,7 @@ import asyncio
 import socket
 
 from theHarvester.lib.core import AsyncFetcher
+from theHarvester.lib.output import output_logger
 
 
 class SearchShodanInternetDB:
@@ -31,7 +32,7 @@ class SearchShodanInternetDB:
         try:
             addr_infos = await asyncio.to_thread(socket.getaddrinfo, self.word, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
         except socket.gaierror:
-            print(f'Shodan InternetDB: Could not resolve domain {self.word}')
+            output_logger.info(f'Shodan InternetDB: Could not resolve domain {self.word}')
             return
 
         # Deduplicate IPs from the resolution results
@@ -42,7 +43,7 @@ class SearchShodanInternetDB:
                 resolved_ips.add(ip)
 
         if not resolved_ips:
-            print(f'Shodan InternetDB: No IPs resolved for {self.word}')
+            output_logger.info(f'Shodan InternetDB: No IPs resolved for {self.word}')
             return
 
         # Query InternetDB for each resolved IP

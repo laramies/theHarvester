@@ -13,6 +13,8 @@ import certifi
 from aiohttp_socks import ProxyConnector
 from playwright.async_api import async_playwright
 
+from theHarvester.lib.output import output_logger
+
 
 class ScreenShotter:
     def __init__(self, output) -> None:
@@ -31,7 +33,7 @@ class ScreenShotter:
                     return False
             return True
         except Exception as e:
-            print(f"An exception has occurred while attempting to verify output path's existence: {e}")
+            output_logger.info(f"An exception has occurred while attempting to verify output path's existence: {e}")
             return False
 
     @staticmethod
@@ -41,9 +43,9 @@ class ScreenShotter:
             async with async_playwright() as p:
                 browser = await p.chromium.launch()
                 await browser.close()
-            print('Playwright and Chromium are successfully installed.')
+            output_logger.info('Playwright and Chromium are successfully installed.')
         except Exception as e:
-            print(f'An exception has occurred while attempting to verify installation: {e}')
+            output_logger.info(f'An exception has occurred while attempting to verify installation: {e}')
 
     @staticmethod
     def chunk_list(items: Collection, chunk_size: int) -> list:
@@ -86,13 +88,13 @@ class ScreenShotter:
                 text = await resp.text('UTF-8')
                 return f'http://{url}' if not url.startswith('http') else url, text
         except Exception as e:
-            print(f'An exception has occurred while attempting to visit {url} : {e}')
+            output_logger.info(f'An exception has occurred while attempting to visit {url} : {e}')
             return '', ''
 
     async def take_screenshot(self, url: str) -> None:
         url = f'http://{url}' if not url.startswith('http') else url
         url = url.replace('www.', '')
-        print(f'Attempting to take a screenshot of: {url}')
+        output_logger.info(f'Attempting to take a screenshot of: {url}')
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             # New browser context
@@ -106,10 +108,10 @@ class ScreenShotter:
                 await page.goto(url, timeout=35000)
                 await page.screenshot(path=path)
             except Exception as e:
-                print(f'An exception has occurred attempting to screenshot: {url} : {e}')
+                output_logger.info(f'An exception has occurred attempting to screenshot: {url} : {e}')
                 path = ''
             finally:
                 await page.close()
                 await context.close()
                 await browser.close()
-                print(date, url, path)
+                output_logger.info('%s %s %s', date, url, path)

@@ -17,6 +17,7 @@ from starlette.staticfiles import StaticFiles
 
 from theHarvester import __main__
 from theHarvester.lib.api.additional_endpoints import router as additional_router
+from theHarvester.lib.output import output_logger
 
 API_RATE_LIMIT = os.getenv('API_RATE_LIMIT', '5/minute')
 
@@ -185,7 +186,7 @@ async def getsources(request: Request) -> Response:
     except Exception as e:
         # Log the error and return a detailed error response
         error_traceback = traceback.format_exc()
-        print(f'Error in getsources endpoint: {e!s}\n{error_traceback}')
+        output_logger.info(f'Error in getsources endpoint: {e!s}\n{error_traceback}')
 
         return JSONResponse(
             {
@@ -264,7 +265,7 @@ async def dnsbrute(
     except Exception as e:
         # Log the error and return a detailed error response
         error_traceback = traceback.format_exc()
-        print(f'Error in dnsbrute endpoint: {e!s}\n{error_traceback}')
+        output_logger.info(f'Error in dnsbrute endpoint: {e!s}\n{error_traceback}')
 
         return JSONResponse(
             {
@@ -383,7 +384,7 @@ async def query(
     except Exception as e:
         # Log the error and return a detailed error response
         error_traceback = traceback.format_exc()
-        print(f'Error in query endpoint: {e!s}\n{error_traceback}')
+        output_logger.info(f'Error in query endpoint: {e!s}\n{error_traceback}')
 
         return JSONResponse(
             {

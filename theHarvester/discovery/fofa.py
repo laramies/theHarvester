@@ -4,6 +4,7 @@ from types import ModuleType
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.output import output_logger
 
 json: ModuleType = _stdlib_json
 try:
@@ -72,7 +73,7 @@ class SearchFofa:
             response = await AsyncFetcher.fetch_all([full_url], headers=headers, proxy=self.proxy)
 
             if not response or not isinstance(response, list) or not response[0]:
-                print(f'No response from Fofa API for: {self.word}')
+                output_logger.info(f'No response from Fofa API for: {self.word}')
                 return
 
             try:
@@ -82,7 +83,7 @@ class SearchFofa:
                     # Check for errors
                     if data.get('error', False):
                         error_msg = data.get('errmsg', 'Unknown error')
-                        print(f'Fofa API error: {error_msg}')
+                        output_logger.info(f'Fofa API error: {error_msg}')
                         if '账号无效' in error_msg or 'invalid' in error_msg.lower():
                             raise MissingKey('Fofa API (Invalid credentials)')
                         return
@@ -107,12 +108,12 @@ class SearchFofa:
                                     self.totalips.add(ip)
 
             except Exception as e:
-                print(f'Failed to parse Fofa response: {e}')
+                output_logger.info(f'Failed to parse Fofa response: {e}')
 
         except MissingKey:
             raise
         except Exception as e:
-            print(f'Fofa API error: {e}')
+            output_logger.info(f'Fofa API error: {e}')
 
     async def get_hostnames(self) -> set:
         return self.totalhosts

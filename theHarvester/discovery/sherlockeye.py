@@ -6,6 +6,7 @@ import aiohttp
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import Core
+from theHarvester.lib.output import output_logger
 
 
 class SearchSherlockeye:
@@ -95,7 +96,7 @@ class SearchSherlockeye:
     def _extract_response(self, response: dict[str, Any]) -> None:
         if response.get('success') is False:
             message = response.get('message', 'Unknown Sherlockeye API error')
-            print(f'Sherlockeye API error: {message}')
+            output_logger.info(f'Sherlockeye API error: {message}')
             return
 
         data = response.get('data')
@@ -128,14 +129,14 @@ class SearchSherlockeye:
                 ) as response:
                     if response.status != 200:
                         error_body = await response.text()
-                        print(f'Sherlockeye API error ({response.status}): {error_body[:200]}')
+                        output_logger.info(f'Sherlockeye API error ({response.status}): {error_body[:200]}')
                         return
 
                     response_data = await response.json()
                     if isinstance(response_data, dict):
                         self._extract_response(response_data)
         except Exception as error:
-            print(f'Sherlockeye API error: {error}')
+            output_logger.info(f'Sherlockeye API error: {error}')
 
     async def get_hostnames(self) -> set[str]:
         return self.totalhosts

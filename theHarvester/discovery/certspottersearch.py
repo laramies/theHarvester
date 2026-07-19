@@ -1,4 +1,5 @@
 from theHarvester.lib.core import AsyncFetcher
+from theHarvester.lib.output import output_logger
 
 
 class SearchCertspoter:
@@ -26,11 +27,11 @@ class SearchCertspoter:
             else:
                 self.totalhosts.update({''})
         except IndexError:
-            print('No data returned from Cert Spotter.')
+            output_logger.info('No data returned from Cert Spotter.')
         except ConnectionError:
-            print('Network connection failed.')
+            output_logger.info('Network connection failed.')
         except Exception as e:
-            print(f'Unexpected error occurred: {e}')
+            output_logger.info(f'Unexpected error occurred: {e}')
 
     async def get_hostnames(self) -> set:
         return self.totalhosts
@@ -38,4 +39,4 @@ class SearchCertspoter:
     async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_search()
-        print('\tSearching results.')
+        output_logger.info('\tSearching results.')

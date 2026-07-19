@@ -3,6 +3,7 @@ import re
 from types import ModuleType
 
 from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.output import output_logger
 
 json: ModuleType = _stdlib_json
 try:
@@ -79,7 +80,7 @@ class SearchCommoncrawl:
                     try:
                         data = self._safe_parse_json_lines(response[0])
                     except Exception as e:
-                        print(f'Failed to parse Common Crawl response for {index}: {e}')
+                        output_logger.info(f'Failed to parse Common Crawl response for {index}: {e}')
                         continue
 
                     # Extract domains from URLs
@@ -109,14 +110,14 @@ class SearchCommoncrawl:
                                         if domain.endswith(f'.{self.word}') or domain == self.word:
                                             self.totalhosts.add(domain)
                         except Exception as e:
-                            print(f'Failed to parse Common Crawl main domain response for {index}: {e}')
+                            output_logger.info(f'Failed to parse Common Crawl main domain response for {index}: {e}')
 
                 except Exception as e:
-                    print(f'Common Crawl API error for index {index}: {e}')
+                    output_logger.info(f'Common Crawl API error for index {index}: {e}')
                     continue
 
         except Exception as e:
-            print(f'Common Crawl API error: {e}')
+            output_logger.info(f'Common Crawl API error: {e}')
 
     async def get_hostnames(self) -> set:
         return self.totalhosts

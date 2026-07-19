@@ -78,7 +78,7 @@ from theHarvester.discovery import (
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib import hostchecker, stash
 from theHarvester.lib.core import DATA_DIR, Core, show_default_error_message
-from theHarvester.lib.output import print_linkedin_sections, print_section, sorted_unique
+from theHarvester.lib.output import configure_logging, output_logger, print_linkedin_sections, print_section, sorted_unique
 from theHarvester.screenshot.screenshot import ScreenShotter
 
 if TYPE_CHECKING:
@@ -229,12 +229,8 @@ async def start(rest_args: argparse.Namespace | None = None):
         args = parser.parse_args()
         filename = args.filename
         dnsbrute = (args.dns_brute, False)
-        logging.basicConfig(
-            level=logging.WARNING,
-            format='%(levelname)s %(name)s: %(message)s',
-        )
+        configure_logging(verbose=args.verbose)
         if args.verbose:
-            logging.getLogger('theHarvester').setLevel(logging.INFO)
             logger.info('Verbose logging enabled')
     Core.quiet = getattr(args, 'quiet', False)
     try:
@@ -242,7 +238,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         await db.do_init()
     except (AttributeError, OSError, RuntimeError, ValueError) as init_error:
         if not args.quiet:
-            print(f'Error initializing StashManager: {init_error}')
+            output_logger.info(f'Error initializing StashManager: {init_error}')
         raise ValueError('Failed to initialize StashManager')
 
     if len(filename) > 0:
@@ -283,8 +279,8 @@ async def start(rest_args: argparse.Namespace | None = None):
                         _ = netaddr.IPAddress(line)
                         final_dns_resolver_list.append(line)
                     except (netaddr.core.AddrFormatError, ValueError, TypeError) as e:
-                        print(f'An exception has occurred while reading from: {dnsresolve}, {e}')
-                        print(f'Current line: {line}')
+                        output_logger.info(f'An exception has occurred while reading from: {dnsresolve}, {e}')
+                        output_logger.info(f'Current line: {line}')
         else:
             cleaned = dnsresolve.replace(' ', '')
             resolver_candidates = cleaned.split(',') if ',' in cleaned else [cleaned]
@@ -296,12 +292,12 @@ async def start(rest_args: argparse.Namespace | None = None):
                     _ = netaddr.IPAddress(item)
                     final_dns_resolver_list.append(item)
                 except (netaddr.core.AddrFormatError, ValueError, TypeError) as e:
-                    print(f'Passed DNS resolver is invalid, skipping: {item} ({e})')
+                    output_logger.info(f'Passed DNS resolver is invalid, skipping: {item} ({e})')
 
         # if for some reason, there are duplicates
         final_dns_resolver_list = list(set(final_dns_resolver_list))
         if len(final_dns_resolver_list) == 0:
-            print('No valid DNS resolvers were parsed from --dns-resolve; continuing without custom resolvers.')
+            output_logger.info('No valid DNS resolvers were parsed from --dns-resolve; continuing without custom resolvers.')
 
     engines: list = []
     # If the user specifies
@@ -357,15 +353,20 @@ async def start(rest_args: argparse.Namespace | None = None):
         :param store_interestingurls: whether to store interesting urls
         :param store_asns: whether to store asns
         """
-        (
-            await search_engine.process(use_proxy)
-            if process_param is None
-            else await search_engine.process(process_param, use_proxy)
-        )
+        logger.info('Source %s started', source)
+        try:
+            (
+                await search_engine.process(use_proxy)
+                if process_param is None
+                else await search_engine.process(process_param, use_proxy)
+            )
+        except Exception:
+            logger.exception('Source %s failed', source)
+            raise
         db_stash = stash.StashManager()
 
         if source:
-            print(f'[*] Searching {source[0].upper() + source[1:]}. ')
+            output_logger.info(f'[*] Searching {source[0].upper() + source[1:]}. ')
 
         if store_host:
             host_names = list({host for host in await search_engine.get_hostnames() if f'.{word}' in host})
@@ -433,6 +434,7 @@ async def start(rest_args: argparse.Namespace | None = None):
             total_asns.extend(fasns)
             if len(fasns) > 0:
                 await db.store_all(word, fasns, 'asns', source)
+        logger.info('Source %s completed', source)
 
     stor_lst = []
     if args.source is not None:
@@ -442,7 +444,7 @@ async def start(rest_args: argparse.Namespace | None = None):
             engines = Core.get_supportedengines()
         # Iterate through search engines in order
         if set(engines).issubset(Core.get_supportedengines()):
-            print(f'\n[*] Target: {word} \n')
+            output_logger.info(f'\n[*] Target: {word} \n')
 
             for engineitem in engines:
                 if engineitem == 'baidu':
@@ -486,7 +488,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except Exception as ex:
                         if isinstance(ex, MissingKey):
-                            print(MissingKey('Bitbucket'))
+                            output_logger.info(MissingKey('Bitbucket'))
                         else:
                             show_default_error_message(engineitem, word, ex)
 
@@ -524,8 +526,8 @@ async def start(rest_args: argparse.Namespace | None = None):
                         stor_lst.append(store(builtwith_search, engineitem, store_host=True, store_interestingurls=True))
                     except Exception as e:
                         if isinstance(e, MissingKey):
-                            print(f"Failed to perform BuiltWith search for word: '{word}'")
-                            print(f'A Missing Key Error occurred in builtwith: {e}')
+                            output_logger.info(f"Failed to perform BuiltWith search for word: '{word}'")
+                            output_logger.info(f'A Missing Key Error occurred in builtwith: {e}')
                         else:
                             show_default_error_message(engineitem, word, e)
 
@@ -542,19 +544,19 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except MissingKey as mk:
                         if not args.quiet:
-                            print(f'Censys API key is missing or invalid: {mk}')
+                            output_logger.info(f'Censys API key is missing or invalid: {mk}')
                     except ConnectionError as ce:
                         if not args.quiet:
-                            print(f'Network error while querying Censys: {ce}')
+                            output_logger.info(f'Network error while querying Censys: {ce}')
                     except TimeoutError as te:
                         if not args.quiet:
-                            print(f'Timeout occurred while contacting Censys: {te}')
+                            output_logger.info(f'Timeout occurred while contacting Censys: {te}')
                     except ValueError as ve:
                         if not args.quiet:
-                            print(f'Censys returned unexpected data: {ve}')
+                            output_logger.info(f'Censys returned unexpected data: {ve}')
                     except Exception as e:
                         if not args.quiet:
-                            print(f'Unexpected error occurred in Censys module: {e}')
+                            output_logger.info(f'Unexpected error occurred in Censys module: {e}')
 
                 elif engineitem == 'certspotter':
                     try:
@@ -562,19 +564,19 @@ async def start(rest_args: argparse.Namespace | None = None):
                         stor_lst.append(store(certspotter_search, engineitem, None, store_host=True))
                     except ConnectionError as ce:
                         if not args.quiet:
-                            print(f'Network connection error while accessing Certspotter: {ce}')
+                            output_logger.info(f'Network connection error while accessing Certspotter: {ce}')
                     except TimeoutError as te:
                         if not args.quiet:
-                            print(f'Request to Certspotter timed out: {te}')
+                            output_logger.info(f'Request to Certspotter timed out: {te}')
                     except ValueError as ve:
                         if not args.quiet:
-                            print(f'Certspotter returned invalid data: {ve}')
+                            output_logger.info(f'Certspotter returned invalid data: {ve}')
                     except MissingKey as mk:
                         if not args.quiet:
-                            print(f'Unexpected response structure from Certspotter (missing key): {mk}')
+                            output_logger.info(f'Unexpected response structure from Certspotter (missing key): {mk}')
                     except Exception as e:
                         if not args.quiet:
-                            print(f'Unexpected error occurred in Certspotter module: {e}')
+                            output_logger.info(f'Unexpected error occurred in Certspotter module: {e}')
 
                 elif engineitem == 'chaos':
                     try:
@@ -589,7 +591,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(f'A Missing Key error occurred in Chaos: {e}')
+                                output_logger.info(f'A Missing Key error occurred in Chaos: {e}')
                         else:
                             show_default_error_message(engineitem, word, e)
 
@@ -621,7 +623,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(f'A Missing key error occurred in criminalip: {e}')
+                                output_logger.info(f'A Missing key error occurred in criminalip: {e}')
                         else:
                             show_default_error_message(engineitem, word, e)
 
@@ -630,7 +632,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         crtsh_search = crtsh.SearchCrtsh(word)
                         stor_lst.append(store(crtsh_search, 'CRTsh', store_host=True))
                     except Exception as e:
-                        print(f'[!] A timeout occurred with crtsh, cannot find {args.domain}\n {e}')
+                        output_logger.info(f'[!] A timeout occurred with crtsh, cannot find {args.domain}\n {e}')
 
                 elif engineitem == 'dehashed':
                     try:
@@ -646,7 +648,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(f'A Missing Key error occurred in dehashed: {e}')
+                                output_logger.info(f'A Missing Key error occurred in dehashed: {e}')
                         else:
                             show_default_error_message(engineitem, word, e)
 
@@ -663,7 +665,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except MissingKey as e:
                         if not args.quiet:
-                            print(e)
+                            output_logger.info(e)
                     except Exception as e:
                         show_default_error_message(engineitem, word, e)
 
@@ -685,7 +687,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(f'A Missing Key error occurred in dymo: {e}')
+                                output_logger.info(f'A Missing Key error occurred in dymo: {e}')
                         else:
                             show_default_error_message(engineitem, word, e)
 
@@ -703,7 +705,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(f'A Missing Key error occurred in Fofa: {e}')
+                                output_logger.info(f'A Missing Key error occurred in Fofa: {e}')
                         else:
                             show_default_error_message(engineitem, word, e)
 
@@ -714,7 +716,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(f'A Missing Key error occurred in fullhunt: {e}')
+                                output_logger.info(f'A Missing Key error occurred in fullhunt: {e}')
 
                 elif engineitem == 'github-code':
                     try:
@@ -729,7 +731,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except MissingKey as ex:
                         if not args.quiet:
-                            print(f'A Missing Key error occurred in github-code: {ex}')
+                            output_logger.info(f'A Missing Key error occurred in github-code: {ex}')
 
                 elif engineitem == 'gitlab':
                     try:
@@ -765,9 +767,9 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(MissingKey('HaveIBeenPwned'))
+                                output_logger.info(MissingKey('HaveIBeenPwned'))
                         else:
-                            print(f'An exception has occurred in HaveIBeenPwned search: {e}')
+                            output_logger.info(f'An exception has occurred in HaveIBeenPwned search: {e}')
 
                 elif engineitem == 'hudsonrock':
                     try:
@@ -782,7 +784,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                             )
                         )
                     except Exception as e:
-                        print(f'An exception has occurred in Hudson Rock search: {e}')
+                        output_logger.info(f'An exception has occurred in Hudson Rock search: {e}')
 
                 elif engineitem == 'hunter':
                     try:
@@ -798,7 +800,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(f'A Missing Key error occurred in Hunter: {e}')
+                                output_logger.info(f'A Missing Key error occurred in Hunter: {e}')
 
                 elif engineitem == 'hunterhow':
                     try:
@@ -807,9 +809,9 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(f'A Missing Key error occurred in Hunter How: {e}')
+                                output_logger.info(f'A Missing Key error occurred in Hunter How: {e}')
                         else:
-                            print(f'An exception has occurred in hunterhow search: {e}')
+                            output_logger.info(f'An exception has occurred in hunterhow search: {e}')
 
                 elif engineitem == 'intelx':
                     try:
@@ -825,9 +827,9 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(f'A Missing Key error occurred in intelx: {e}')
+                                output_logger.info(f'A Missing Key error occurred in intelx: {e}')
                         else:
-                            print(f'An exception has occurred in Intelx search: {e}')
+                            output_logger.info(f'An exception has occurred in Intelx search: {e}')
 
                 elif engineitem == 'leakix':
                     try:
@@ -855,9 +857,9 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
-                            print(f'A Missing Key error occurred in LeakLookup: {e}')
+                            output_logger.info(f'A Missing Key error occurred in LeakLookup: {e}')
                         else:
-                            print(f'An exception has occurred in LeakLookup search: {e}')
+                            output_logger.info(f'An exception has occurred in LeakLookup search: {e}')
 
                 elif engineitem == 'mojeek':
                     try:
@@ -872,9 +874,9 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
-                            print(f'A Missing Key error occurred in Mojeek: {e}')
+                            output_logger.info(f'A Missing Key error occurred in Mojeek: {e}')
                         else:
-                            print(f'An exception has occurred in Mojeek search: {e}')
+                            output_logger.info(f'An exception has occurred in Mojeek search: {e}')
 
                 elif engineitem == 'netlas':
                     try:
@@ -890,7 +892,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(f'A Missing Key error occurred in Netlas: {e}')
+                                output_logger.info(f'A Missing Key error occurred in Netlas: {e}')
 
                 elif engineitem == 'onyphe':
                     try:
@@ -906,19 +908,19 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except ConnectionError as ce:
                         if not args.quiet:
-                            print(f'Network connection error while accessing Onyphe: {ce}')
+                            output_logger.info(f'Network connection error while accessing Onyphe: {ce}')
                     except TimeoutError as te:
                         if not args.quiet:
-                            print(f'Request to Onyphe timed out: {te}')
+                            output_logger.info(f'Request to Onyphe timed out: {te}')
                     except ValueError as ve:
                         if not args.quiet:
-                            print(f'Onyphe returned invalid or unexpected data: {ve}')
+                            output_logger.info(f'Onyphe returned invalid or unexpected data: {ve}')
                     except KeyError as ke:
                         if not args.quiet:
-                            print(f'Unexpected response structure from Onyphe (missing key): {ke}')
+                            output_logger.info(f'Unexpected response structure from Onyphe (missing key): {ke}')
                     except Exception as e:
                         if not args.quiet:
-                            print(f'Unexpected error occurred in Onyphe module: {e}')
+                            output_logger.info(f'Unexpected error occurred in Onyphe module: {e}')
 
                 elif engineitem == 'otx':
                     try:
@@ -933,19 +935,19 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except ConnectionError as ce:
                         if not args.quiet:
-                            print(f'Network connection error while accessing OTX: {ce}')
+                            output_logger.info(f'Network connection error while accessing OTX: {ce}')
                     except TimeoutError as te:
                         if not args.quiet:
-                            print(f'Request to OTX timed out: {te}')
+                            output_logger.info(f'Request to OTX timed out: {te}')
                     except ValueError as ve:
                         if not args.quiet:
-                            print(f'OTX returned invalid or unexpected data: {ve}')
+                            output_logger.info(f'OTX returned invalid or unexpected data: {ve}')
                     except KeyError as ke:
                         if not args.quiet:
-                            print(f'Unexpected response structure from OTX (missing key): {ke}')
+                            output_logger.info(f'Unexpected response structure from OTX (missing key): {ke}')
                     except Exception as e:
                         if not args.quiet:
-                            print(f'Unexpected error occurred in OTX module: {e}')
+                            output_logger.info(f'Unexpected error occurred in OTX module: {e}')
 
                 elif engineitem == 'pentesttools':
                     try:
@@ -954,9 +956,9 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(f'A Missing Key error occurred in PentestTools search: {e}')
+                                output_logger.info(f'A Missing Key error occurred in PentestTools search: {e}')
                         else:
-                            print(f'An exception has occurred in PentestTools search: {e}')
+                            output_logger.info(f'An exception has occurred in PentestTools search: {e}')
 
                 elif engineitem == 'projectdiscovery':
                     try:
@@ -965,9 +967,9 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(f'A Missing Key error occurred in ProjectDiscovery: {e}')
+                                output_logger.info(f'A Missing Key error occurred in ProjectDiscovery: {e}')
                         else:
-                            print('An exception has occurred in ProjectDiscovery')
+                            output_logger.info('An exception has occurred in ProjectDiscovery')
 
                 elif engineitem == 'rapiddns':
                     try:
@@ -975,19 +977,19 @@ async def start(rest_args: argparse.Namespace | None = None):
                         stor_lst.append(store(rapiddns_search, engineitem, store_host=True))
                     except ConnectionError as ce:
                         if not args.quiet:
-                            print(f'Network connection error while accessing RapidDNS: {ce}')
+                            output_logger.info(f'Network connection error while accessing RapidDNS: {ce}')
                     except TimeoutError as te:
                         if not args.quiet:
-                            print(f'Request to RapidDNS timed out: {te}')
+                            output_logger.info(f'Request to RapidDNS timed out: {te}')
                     except ValueError as ve:
                         if not args.quiet:
-                            print(f'RapidDNS returned invalid or unexpected data: {ve}')
+                            output_logger.info(f'RapidDNS returned invalid or unexpected data: {ve}')
                     except KeyError as ke:
                         if not args.quiet:
-                            print(f'Unexpected response structure from RapidDNS (missing key): {ke}')
+                            output_logger.info(f'Unexpected response structure from RapidDNS (missing key): {ke}')
                     except Exception as e:
                         if not args.quiet:
-                            print(f'Unexpected error occurred in RapidDNS module: {e}')
+                            output_logger.info(f'Unexpected error occurred in RapidDNS module: {e}')
 
                 elif engineitem == 'robtex':
                     try:
@@ -1010,9 +1012,9 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(f'A Missing Key error occurred in RocketReach: {e}')
+                                output_logger.info(f'A Missing Key error occurred in RocketReach: {e}')
                         else:
-                            print(f'An exception has occurred in RocketReach: {e}')
+                            output_logger.info(f'An exception has occurred in RocketReach: {e}')
 
                 elif engineitem == 'securityscorecard':
                     try:
@@ -1029,9 +1031,9 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
-                            print(MissingKey('SecurityScorecard'))
+                            output_logger.info(MissingKey('SecurityScorecard'))
                         else:
-                            print(f'An exception has occurred in SecurityScorecard search: {e}')
+                            output_logger.info(f'An exception has occurred in SecurityScorecard search: {e}')
 
                 elif engineitem == 'securityTrails':
                     try:
@@ -1047,7 +1049,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(f'A Missing Key error occurred Security Trails: {e}')
+                                output_logger.info(f'A Missing Key error occurred Security Trails: {e}')
 
                 elif engineitem == 'sherlockeye':
                     try:
@@ -1064,7 +1066,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(f'A Missing Key error occurred in sherlockeye: {e}')
+                                output_logger.info(f'A Missing Key error occurred in sherlockeye: {e}')
                         else:
                             show_default_error_message(engineitem, word, e)
 
@@ -1085,7 +1087,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                                 try:
                                     # Resolve domain to IP and search in Shodan
                                     ip = socket.gethostbyname(self.word)
-                                    print(f'\tSearching Shodan for {ip}')
+                                    output_logger.info(f'\tSearching Shodan for {ip}')
                                     result = await self.shodan.search_ip(ip)
                                     if ip in result and isinstance(result[ip], dict):
                                         # Add the IP as a host for consistency with other modules
@@ -1094,11 +1096,11 @@ async def start(rest_args: argparse.Namespace | None = None):
                                         for host in result[ip].get('hostnames', []):
                                             self.hosts.add(host)
 
-                                        print(f'Found Shodan data for {ip}')
+                                        output_logger.info(f'Found Shodan data for {ip}')
                                     elif ip in result and isinstance(result[ip], str):
-                                        print(f'{ip}: {result[ip]}')
+                                        output_logger.info(f'{ip}: {result[ip]}')
                                 except Exception as e:
-                                    print(f'Error in Shodan search: {e}')
+                                    output_logger.info(f'Error in Shodan search: {e}')
 
                             async def get_hostnames(self):
                                 return list(self.hosts)
@@ -1108,9 +1110,9 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(f'A Missing Key error occurred in Shodan search: {e}')
+                                output_logger.info(f'A Missing Key error occurred in Shodan search: {e}')
                         else:
-                            print(f'An exception has occurred in Shodan search: {e}')
+                            output_logger.info(f'An exception has occurred in Shodan search: {e}')
 
                 elif engineitem == 'shodanInternetDB':
                     try:
@@ -1125,13 +1127,13 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except ConnectionError as ce:
                         if not args.quiet:
-                            print(f'Network connection error while accessing Shodan InternetDB: {ce}')
+                            output_logger.info(f'Network connection error while accessing Shodan InternetDB: {ce}')
                     except TimeoutError as te:
                         if not args.quiet:
-                            print(f'Request to Shodan InternetDB timed out: {te}')
+                            output_logger.info(f'Request to Shodan InternetDB timed out: {te}')
                     except Exception as e:
                         if not args.quiet:
-                            print(f'Unexpected error occurred in Shodan InternetDB module: {e}')
+                            output_logger.info(f'Unexpected error occurred in Shodan InternetDB module: {e}')
 
                 elif engineitem == 'subdomaincenter':
                     try:
@@ -1139,19 +1141,19 @@ async def start(rest_args: argparse.Namespace | None = None):
                         stor_lst.append(store(subdomaincenter_search, engineitem, store_host=True))
                     except ConnectionError as ce:
                         if not args.quiet:
-                            print(f'Network connection error while accessing SubdomainCenter: {ce}')
+                            output_logger.info(f'Network connection error while accessing SubdomainCenter: {ce}')
                     except TimeoutError as te:
                         if not args.quiet:
-                            print(f'Request to SubdomainCenter timed out: {te}')
+                            output_logger.info(f'Request to SubdomainCenter timed out: {te}')
                     except ValueError as ve:
                         if not args.quiet:
-                            print(f'SubdomainCenter returned invalid or unexpected data: {ve}')
+                            output_logger.info(f'SubdomainCenter returned invalid or unexpected data: {ve}')
                     except KeyError as ke:
                         if not args.quiet:
-                            print(f'Unexpected response structure from SubdomainCenter (missing key): {ke}')
+                            output_logger.info(f'Unexpected response structure from SubdomainCenter (missing key): {ke}')
                     except Exception as e:
                         if not args.quiet:
-                            print(f'Unexpected error occurred in SubdomainCenter module: {e}')
+                            output_logger.info(f'Unexpected error occurred in SubdomainCenter module: {e}')
 
                 elif engineitem == 'subdomainfinderc99':
                     try:
@@ -1160,9 +1162,9 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(f'A Missing Key error occurred in Subdomainfinderc99 search: {e}')
+                                output_logger.info(f'A Missing Key error occurred in Subdomainfinderc99 search: {e}')
                         else:
-                            print(f'An exception has occurred in Subdomainfinderc99 search: {e}')
+                            output_logger.info(f'An exception has occurred in Subdomainfinderc99 search: {e}')
 
                 elif engineitem == 'thc':
                     try:
@@ -1199,7 +1201,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(f'A Missing Key error occurred in Tomba: {e}')
+                                output_logger.info(f'A Missing Key error occurred in Tomba: {e}')
 
                 elif engineitem == 'urlscan':
                     try:
@@ -1216,19 +1218,19 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except ConnectionError as ce:
                         if not args.quiet:
-                            print(f'Network connection error while accessing Urlscan: {ce}')
+                            output_logger.info(f'Network connection error while accessing Urlscan: {ce}')
                     except TimeoutError as te:
                         if not args.quiet:
-                            print(f'Request to Urlscan timed out: {te}')
+                            output_logger.info(f'Request to Urlscan timed out: {te}')
                     except ValueError as ve:
                         if not args.quiet:
-                            print(f'Urlscan returned invalid or unexpected data: {ve}')
+                            output_logger.info(f'Urlscan returned invalid or unexpected data: {ve}')
                     except KeyError as ke:
                         if not args.quiet:
-                            print(f'Unexpected response structure from Urlscan (missing key): {ke}')
+                            output_logger.info(f'Unexpected response structure from Urlscan (missing key): {ke}')
                     except Exception as e:
                         if not args.quiet:
-                            print(f'Unexpected error occurred in Urlscan module: {e}')
+                            output_logger.info(f'Unexpected error occurred in Urlscan module: {e}')
 
                 elif engineitem == 'venacus':
                     try:
@@ -1246,9 +1248,9 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(f'A Missing Key error occurred in venacus search: {e}')
+                                output_logger.info(f'A Missing Key error occurred in venacus search: {e}')
                         else:
-                            print(f'An exception has occurred in venacus search: {e}')
+                            output_logger.info(f'An exception has occurred in venacus search: {e}')
 
                 elif engineitem == 'virustotal':
                     try:
@@ -1257,7 +1259,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(f'A Missing Key error occurred in virustotal search: {e}')
+                                output_logger.info(f'A Missing Key error occurred in virustotal search: {e}')
 
                 elif engineitem == 'waybackarchive':
                     try:
@@ -1279,9 +1281,9 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(f'A Missing Key error occurred in whoisxml search: {e}')
+                                output_logger.info(f'A Missing Key error occurred in whoisxml search: {e}')
                         else:
-                            print(f'An exception has occurred in WhoisXML search: {e}')
+                            output_logger.info(f'An exception has occurred in WhoisXML search: {e}')
 
                 elif engineitem == 'windvane':
                     try:
@@ -1311,19 +1313,19 @@ async def start(rest_args: argparse.Namespace | None = None):
                         )
                     except ConnectionError as ce:
                         if not args.quiet:
-                            print(f'Network connection error while accessing Yahoo: {ce}')
+                            output_logger.info(f'Network connection error while accessing Yahoo: {ce}')
                     except TimeoutError as te:
                         if not args.quiet:
-                            print(f'Request to Yahoo timed out: {te}')
+                            output_logger.info(f'Request to Yahoo timed out: {te}')
                     except ValueError as ve:
                         if not args.quiet:
-                            print(f'Yahoo returned invalid or unexpected data: {ve}')
+                            output_logger.info(f'Yahoo returned invalid or unexpected data: {ve}')
                     except KeyError as ke:
                         if not args.quiet:
-                            print(f'Unexpected response structure from Yahoo (missing key): {ke}')
+                            output_logger.info(f'Unexpected response structure from Yahoo (missing key): {ke}')
                     except Exception as e:
                         if not args.quiet:
-                            print(f'Unexpected error occurred in Yahoo module: {e}')
+                            output_logger.info(f'Unexpected error occurred in Yahoo module: {e}')
 
                 elif engineitem == 'zoomeye':
                     try:
@@ -1342,20 +1344,20 @@ async def start(rest_args: argparse.Namespace | None = None):
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             if not args.quiet:
-                                print(f'A Missing Key error occurred in zoomeye: {e}')
+                                output_logger.info(f'A Missing Key error occurred in zoomeye: {e}')
 
         elif rest_args is not None:
             try:
                 rest_args.dns_brute
             except AttributeError:
-                print('\n[!] Invalid source.\n')
+                output_logger.info('\n[!] Invalid source.\n')
                 sys.exit(1)
         else:
             # Print which engines aren't supported
             unsupported_engines = set(engines) - set(Core.get_supportedengines())
             if unsupported_engines:
-                print(f'The following engines are not supported: {unsupported_engines}')
-            print('\n[!] Invalid source.\n')
+                output_logger.info(f'The following engines are not supported: {unsupported_engines}')
+            output_logger.info('\n[!] Invalid source.\n')
             sys.exit(1)
 
     async def worker(queue):
@@ -1367,7 +1369,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                 queue.task_done()
                 # Notify the queue that the "work item" has been processed.
             except Exception as work_item_error:
-                print(
+                output_logger.info(
                     f'\n An error occurred while processing a "work item": {type(work_item_error).__name__}: {work_item_error}\n'
                 )
                 queue.task_done()
@@ -1416,12 +1418,12 @@ async def start(rest_args: argparse.Namespace | None = None):
     try:
         all_emails
     except NameError:
-        print('\n\n[!] No emails found because all_emails is not defined.\n\n ')
+        output_logger.info('\n\n[!] No emails found because all_emails is not defined.\n\n ')
         sys.exit(1)
     try:
         all_hosts
     except NameError:
-        print('\n\n[!] No hosts found because all_hosts is not defined.\n\n ')
+        output_logger.info('\n\n[!] No hosts found because all_hosts is not defined.\n\n ')
         sys.exit(1)
 
     # Results
@@ -1434,7 +1436,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         interesting_urls = sorted_unique(interesting_urls)
 
     if len(twitter_people_list_tracker) == 0 and 'twitter' in engines:
-        print('\n[*] No Twitter users found.\n\n')
+        output_logger.info('\n[*] No Twitter users found.\n\n')
     elif len(twitter_people_list_tracker) >= 1:
         print_section(
             '\n[*] Twitter Users found: ' + str(len(twitter_people_list_tracker)),
@@ -1450,17 +1452,17 @@ async def start(rest_args: argparse.Namespace | None = None):
     length_urls = len(all_urls)
     if length_urls == 0:
         if len(engines) >= 1 and 'trello' in engines:
-            print('\n[*] No Trello URLs found.')
+            output_logger.info('\n[*] No Trello URLs found.')
     else:
         total = length_urls
         print_section('\n[*] Trello URLs found: ' + str(total), all_urls, '--------------------')
         all_urls = sorted_unique(all_urls)
 
     if len(all_ip) == 0:
-        print('\n[*] No IPs found.')
+        output_logger.info('\n[*] No IPs found.')
     else:
-        print('\n[*] IPs found: ' + str(len(all_ip)))
-        print('-------------------')
+        output_logger.info('\n[*] IPs found: ' + str(len(all_ip)))
+        output_logger.info('-------------------')
         # use netaddr as the list may contain ipv4 and ipv6 addresses
         ip_list = []
         for ip in set(all_ip):
@@ -1472,31 +1474,31 @@ async def start(rest_args: argparse.Namespace | None = None):
                     else:
                         ip_list.append(str(netaddr.IPAddress(ip)))
             except (netaddr.core.AddrFormatError, ValueError, TypeError) as e:
-                print(f'An exception has occurred while adding: {ip} to ip_list: {e}')
+                output_logger.info(f'An exception has occurred while adding: {ip} to ip_list: {e}')
                 continue
         ip_list = list(sorted(ip_list))
-        print('\n'.join(map(str, ip_list)))
+        output_logger.info('\n'.join(map(str, ip_list)))
         # Populate host_ip from ip_list for DNS lookup, virtual hosts search, and Shodan search
         host_ip = ip_list
 
     if len(all_emails) == 0:
-        print('\n[*] No emails found.')
+        output_logger.info('\n[*] No emails found.')
     else:
-        print('\n[*] Emails found: ' + str(len(all_emails)))
-        print('----------------------')
+        output_logger.info('\n[*] Emails found: ' + str(len(all_emails)))
+        output_logger.info('----------------------')
         all_emails = sorted(list(set(all_emails)))
-        print('\n'.join(all_emails))
+        output_logger.info('\n'.join(all_emails))
 
     if len(all_people) == 0:
-        print('\n[*] No people found.')
+        output_logger.info('\n[*] No people found.')
     else:
-        print('\n[*] People found: ' + str(len(all_people)))
-        print('----------------------')
+        output_logger.info('\n[*] People found: ' + str(len(all_people)))
+        output_logger.info('----------------------')
         for person in all_people:
-            print(person)
+            output_logger.info(person)
 
     if len(all_hosts) == 0:
-        print('\n[*] No hosts found.\n\n')
+        output_logger.info('\n[*] No hosts found.\n\n')
     else:
         db = stash.StashManager()
         if dnsresolve is None or len(final_dns_resolver_list) > 0:
@@ -1516,28 +1518,28 @@ async def start(rest_args: argparse.Namespace | None = None):
                     temp.add(host)
             full = list(sorted(temp))
             full.sort(key=lambda el: el.split(':')[0])
-            print('\n[*] Hosts found: ' + str(len(full)))
-            print('---------------------')
+            output_logger.info('\n[*] Hosts found: ' + str(len(full)))
+            output_logger.info('---------------------')
             for host in full:
-                print(host)
+                output_logger.info(host)
                 try:
                     if ':' in host:
                         _, addr = host.split(':', 1)
                         await db.store(word, addr, 'ip', 'DNS-resolver')
                 except (OSError, RuntimeError, ValueError, TypeError) as e:
-                    print(f'An exception has occurred while attempting to insert: {host} IP into DB: {e}')
+                    output_logger.info(f'An exception has occurred while attempting to insert: {host} IP into DB: {e}')
                     continue
         else:
             all_hosts = [host.replace('www.', '') for host in all_hosts if host.replace('www.', '') in all_hosts]
             all_hosts = list(sorted(set(all_hosts)))
-            print('\n[*] Hosts found: ' + str(len(all_hosts)))
-            print('---------------------')
+            output_logger.info('\n[*] Hosts found: ' + str(len(all_hosts)))
+            output_logger.info('---------------------')
             for host in all_hosts:
-                print(host)
+                output_logger.info(host)
 
     # DNS brute force
     if dnsbrute and dnsbrute[0] is True:
-        print('\n[*] Starting DNS brute force.')
+        output_logger.info('\n[*] Starting DNS brute force.')
         dns_force = dnssearch.DnsForce(word, final_dns_resolver_list, verbose=True)
         resolved_pair, hosts, ips = await dns_force.run()
         # Check if Rest API is being used if so return found hosts
@@ -1566,32 +1568,31 @@ async def start(rest_args: argparse.Namespace | None = None):
                     temp.add(host)
                 if host not in all_hosts:
                     all_hosts.append(host)
-        print('\n[*] Hosts found after DNS brute force:')
+        output_logger.info('\n[*] Hosts found after DNS brute force:')
         for sub in temp:
-            print(sub)
+            output_logger.info(sub)
         await db.store_all(word, list(sorted(temp)), 'host', 'dns_bruteforce')
 
     takeover_results = dict()
     # TakeOver Checking
     if takeover_status:
-        print('\n[*] Performing subdomain takeover check')
-        print('\n[*] Subdomain Takeover checking IS ACTIVE RECON')
+        output_logger.info('\n[*] Performing subdomain takeover check')
+        output_logger.info('\n[*] Subdomain Takeover checking IS ACTIVE RECON')
         search_take = takeover.TakeOver(all_hosts)
         await search_take.populate_fingerprints()
         await search_take.process(proxy=use_proxy)
         takeover_results = await search_take.get_takeover_results()
     # DNS reverse lookup
     dnsrev: list = []
-    # print(f'DNSlookup: {dnslookup}')
     if dnslookup is True:
-        print('\n[*] Starting active queries for DNSLookup.')
+        output_logger.info('\n[*] Starting active queries for DNSLookup.')
 
         # reverse each iprange in a separate task
         __reverse_dns_tasks: dict = {}
         for entry in host_ip:
             __ip_range = dnssearch.serialize_ip_range(ip=entry, netmask='24')
             if __ip_range and __ip_range not in set(__reverse_dns_tasks.keys()):
-                print('\n[*] Performing reverse lookup on ' + __ip_range)
+                output_logger.info('\n[*] Performing reverse lookup on ' + __ip_range)
                 __reverse_dns_tasks[__ip_range] = asyncio.create_task(
                     dnssearch.reverse_all_ips_in_range(
                         iprange=__ip_range,
@@ -1605,10 +1606,10 @@ async def start(rest_args: argparse.Namespace | None = None):
 
         # run all the reversing tasks concurrently
         await asyncio.gather(*__reverse_dns_tasks.values())
-        print('\n[*] Hosts found after reverse lookup (in target domain):')
-        print('--------------------------------------------------------')
+        output_logger.info('\n[*] Hosts found after reverse lookup (in target domain):')
+        output_logger.info('--------------------------------------------------------')
         for xh in dnsrev:
-            print(xh)
+            output_logger.info(xh)
 
     # Screenshots
     screenshot_tups = []
@@ -1618,56 +1619,56 @@ async def start(rest_args: argparse.Namespace | None = None):
         # Verify the path exists, if not create it or if user does not create it skips screenshot
         if path_exists:
             await screen_shotter.verify_installation()
-            print(f'\nScreenshots can be found in: {screen_shotter.output}{screen_shotter.slash}')
+            output_logger.info(f'\nScreenshots can be found in: {screen_shotter.output}{screen_shotter.slash}')
             start_time = time.perf_counter()
-            print('Filtering domains for ones we can reach')
+            output_logger.info('Filtering domains for ones we can reach')
             if dnsresolve is None or len(final_dns_resolver_list) > 0:
                 unique_resolved_domains = {url.split(':')[0] for url in full if ':' in url and 'www.' not in url}
             else:
                 # Technically not resolved in this case, which is not ideal
                 # You should always use dns resolve when doing screenshotting
-                print('NOTE for future use cases you should only use screenshotting in tandem with DNS resolving')
+                output_logger.info('NOTE for future use cases you should only use screenshotting in tandem with DNS resolving')
                 unique_resolved_domains = set(all_hosts)
             if len(unique_resolved_domains) > 0:
                 # First filter out ones that didn't resolve
-                print('Attempting to visit unique resolved domains, this is ACTIVE RECON')
+                output_logger.info('Attempting to visit unique resolved domains, this is ACTIVE RECON')
                 async with Pool(10) as pool:
                     results = await pool.map(screen_shotter.visit, list(unique_resolved_domains))
                     # Filter out domains that we couldn't connect to
                     unique_resolved_domains_list = list(sorted({tup[0] for tup in results if len(tup[1]) > 0}))
                 async with Pool(3) as pool:
-                    print(f'Length of unique resolved domains: {len(unique_resolved_domains_list)} chunking now!\n')
+                    output_logger.info(f'Length of unique resolved domains: {len(unique_resolved_domains_list)} chunking now!\n')
                     # If you have the resources, you could make the function faster by increasing the chunk number
                     chunk_number = 14
                     for chunk in screen_shotter.chunk_list(unique_resolved_domains_list, chunk_number):
                         try:
                             screenshot_tups.extend(await pool.map(screen_shotter.take_screenshot, chunk))
                         except Exception as ee:
-                            print(f'An exception has occurred while mapping: {ee}')
+                            output_logger.info(f'An exception has occurred while mapping: {ee}')
             end = time.perf_counter()
             # There is probably an easier way to do this
             total = int(end - start_time)
             mon, sec = divmod(total, 60)
             hr, mon = divmod(mon, 60)
             total_time = f'{mon:02d}:{sec:02d}'
-            print(f'Finished taking screenshots in {total_time} seconds')
-            print('[+] Note there may be leftover chrome processes you may have to kill manually\n')
+            output_logger.info(f'Finished taking screenshots in {total_time} seconds')
+            output_logger.info('[+] Note there may be leftover chrome processes you may have to kill manually\n')
 
     # Shodan
     shodanres = []
     if shodan is True:
-        print('[*] Searching Shodan. ')
+        output_logger.info('[*] Searching Shodan. ')
         try:
             for ip in host_ip:
                 try:
-                    print('\tSearching for ' + ip)
+                    output_logger.info('\tSearching for ' + ip)
                     shodan_search = shodansearch.SearchShodan()
                     shodandict = await shodan_search.search_ip(ip)
                     await asyncio.sleep(5)
 
                     # Check if the result is a string (error message)
                     if isinstance(shodandict[ip], str):
-                        print(f'{ip}: {shodandict[ip]}')
+                        output_logger.info(f'{ip}: {shodandict[ip]}')
                         continue
 
                     # Process the results if it's a dictionary
@@ -1680,18 +1681,18 @@ async def start(rest_args: argparse.Namespace | None = None):
                                 value = ', '.join(map(str, value))
                             rowdata.append(value)
                         shodanres.append(rowdata)
-                        print(ujson.dumps(shodandict[ip], indent=4, sort_keys=True))
-                        print('\n')
+                        output_logger.info(ujson.dumps(shodandict[ip], indent=4, sort_keys=True))
+                        output_logger.info('\n')
                 except Exception as ip_error:
-                    print(f'[SHODAN-error] Error searching {ip}: {ip_error}')
+                    output_logger.info(f'[SHODAN-error] Error searching {ip}: {ip_error}')
                     continue
         except Exception as e:
-            print(f'[!] An error occurred with Shodan: {e} ')
+            output_logger.info(f'[!] An error occurred with Shodan: {e} ')
     else:
         pass
 
     if filename != '':
-        print('\n[*] Reporting started.')
+        output_logger.info('\n[*] Reporting started.')
         try:
             if len(rest_filename) == 0:
                 filename = filename.rsplit('.', 1)[0] + '.xml'
@@ -1722,9 +1723,9 @@ async def start(rest_args: argparse.Namespace | None = None):
                         await file.write(f'<vhost>{sanitize_for_xml(host)}</vhost>')
                 # TODO add Shodan output into XML report
                 await file.write('</theHarvester>')
-                print('[*] XML File saved.')
+                output_logger.info('[*] XML File saved.')
         except (OSError, ValueError, TypeError, UnicodeEncodeError) as error:
-            print(f'[!] An error occurred while saving the XML file: {error}')
+            output_logger.info(f'[!] An error occurred while saving the XML file: {error}')
 
         try:
             # JSON REPORT SECTION
@@ -1780,10 +1781,10 @@ async def start(rest_args: argparse.Namespace | None = None):
             async with await anyio.open_file(filename, 'w+') as fp:
                 dumped_json = ujson.dumps(json_dict, sort_keys=True)
                 await fp.write(dumped_json)
-            print('[*] JSON File saved.')
+            output_logger.info('[*] JSON File saved.')
         except (OSError, ValueError, TypeError, UnicodeEncodeError) as er:
-            print(f'[!] An error occurred while saving the JSON file: {er} ')
-        print('\n\n')
+            output_logger.info(f'[!] An error occurred while saving the JSON file: {er} ')
+        output_logger.info('\n\n')
 
     # Enhanced code block for API Endpoint scanning feature
     if args.api_scan or 'api_endpoints' in engines:
@@ -1792,8 +1793,8 @@ async def start(rest_args: argparse.Namespace | None = None):
             wordlist = args.wordlist or str(DATA_DIR / 'wordlists' / 'api_endpoints.txt')
 
             if not await anyio.Path(wordlist).exists():
-                print(f'\n[!] Wordlist not found: {wordlist}')
-                print('Creating a basic API wordlist for scanning...')
+                output_logger.info(f'\n[!] Wordlist not found: {wordlist}')
+                output_logger.info('Creating a basic API wordlist for scanning...')
                 # Create a default simple API endpoint list
                 basic_endpoints = [
                     '/api',
@@ -1820,43 +1821,43 @@ async def start(rest_args: argparse.Namespace | None = None):
                 async with await anyio.open_file(temp_wordlist, 'w') as f:
                     await f.write('\n'.join(basic_endpoints))
                 wordlist = temp_wordlist
-                print(f'Basic API wordlist created with {len(basic_endpoints)} endpoints.')
+                output_logger.info(f'Basic API wordlist created with {len(basic_endpoints)} endpoints.')
 
-            print(f'\n[*] Starting API endpoint scanning with wordlist: {wordlist}')
+            output_logger.info(f'\n[*] Starting API endpoint scanning with wordlist: {wordlist}')
             api_scanner = api_endpoints.SearchApiEndpoints(word=args.domain, wordlist=wordlist)
             await api_scanner.do_search()
 
             # Print results
             endpoints_found = api_scanner.get_found_endpoints()
-            print(f'\n[*] API Endpoints found: {len(endpoints_found)}')
+            output_logger.info(f'\n[*] API Endpoints found: {len(endpoints_found)}')
             for endpoint in endpoints_found:
-                print(f'    - {endpoint}')
+                output_logger.info(f'    - {endpoint}')
 
             interesting_endpoints = api_scanner.get_interesting_endpoints()
-            print(f'\n[*] Interesting endpoints (200, 201, 202): {len(interesting_endpoints)}')
+            output_logger.info(f'\n[*] Interesting endpoints (200, 201, 202): {len(interesting_endpoints)}')
             for endpoint in interesting_endpoints:
-                print(f'    - {endpoint}')
+                output_logger.info(f'    - {endpoint}')
 
             auth_required = api_scanner.get_auth_required()
-            print(f'\n[*] Endpoints requiring authentication: {len(auth_required)}')
+            output_logger.info(f'\n[*] Endpoints requiring authentication: {len(auth_required)}')
             for endpoint in auth_required:
-                print(f'    - {endpoint}')
+                output_logger.info(f'    - {endpoint}')
 
             api_versions = api_scanner.get_api_versions()
-            print(f'\n[*] Detected API versions: {len(api_versions)}')
+            output_logger.info(f'\n[*] Detected API versions: {len(api_versions)}')
             for version in api_versions:
-                print(f'    - {version}')
+                output_logger.info(f'    - {version}')
 
             rate_limits = api_scanner.get_rate_limits()
-            print(f'\n[*] Rate limited endpoints: {len(rate_limits)}')
+            output_logger.info(f'\n[*] Rate limited endpoints: {len(rate_limits)}')
             for endpoint, info in rate_limits.items():
-                print(f'    - {endpoint} ({info.method})')
+                output_logger.info(f'    - {endpoint} ({info.method})')
 
             methods = api_scanner.get_methods()
-            print(f'\n[*] HTTP methods used: {", ".join(methods)}')
+            output_logger.info(f'\n[*] HTTP methods used: {", ".join(methods)}')
 
             status_codes = api_scanner.get_status_codes()
-            print(f'\n[*] HTTP status codes encountered: {", ".join(map(str, status_codes))}')
+            output_logger.info(f'\n[*] HTTP status codes encountered: {", ".join(map(str, status_codes))}')
 
             # Add results to storage
             db = stash.StashManager()
@@ -1868,7 +1869,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                 db_storage = stash.StashManager()
                 await db_storage.store_all(word, endpoints_found, 'api_endpoint', 'api_scan')
             except AttributeError:
-                print('\n[*] No custom database functions found')
+                output_logger.info('\n[*] No custom database functions found')
 
             # Add to interesting URLs if any endpoints were found
             if interesting_endpoints:
@@ -1878,70 +1879,70 @@ async def start(rest_args: argparse.Namespace | None = None):
                 # Also add complete domain paths to the interesting_urls list
                 all_urls.extend(new_urls)
 
-            print('\n[+] API scanning completed successfully.')
+            output_logger.info('\n[+] API scanning completed successfully.')
 
         except MissingKey:
-            print('\n[!] API endpoint scanning requires a wordlist. Use -w to specify a wordlist file.')
-            print('    Creating a basic wordlist and trying again...')
+            output_logger.info('\n[!] API endpoint scanning requires a wordlist. Use -w to specify a wordlist file.')
+            output_logger.info('    Creating a basic wordlist and trying again...')
             # The wordlist creation code above could be used here
         except Exception as e:
-            print(f'\n[!] An exception has occurred in API Endpoints scanning: {e}')
-            print('    Continuing with the rest of the scan...')
+            output_logger.info(f'\n[!] An exception has occurred in API Endpoints scanning: {e}')
+            output_logger.info('    Continuing with the rest of the scan...')
             traceback.print_exc()  # More detailed error information for developers
 
     if 'securityscorecard' in engines:
         try:
-            print('\n[*] Performing SecurityScorecard scan...')
+            output_logger.info('\n[*] Performing SecurityScorecard scan...')
             securityscorecard_scanner = securityscorecard.SearchSecurityScorecard(word)
             await securityscorecard_scanner.process(use_proxy)
 
             # Use the existing API to get results
             hosts = await securityscorecard_scanner.get_hostnames()
             if hosts:
-                print(f'\n[*] SecurityScorecard results: {len(hosts)} hosts found')
+                output_logger.info(f'\n[*] SecurityScorecard results: {len(hosts)} hosts found')
                 for host in hosts:
-                    print(f'    - {host}')
+                    output_logger.info(f'    - {host}')
 
                 all_hosts.extend(hosts)
 
             ips = await securityscorecard_scanner.get_ips()
             if ips:
-                print(f'\n[*] SecurityScorecard IPs found: {len(ips)}')
+                output_logger.info(f'\n[*] SecurityScorecard IPs found: {len(ips)}')
                 for ip in ips:
-                    print(f'    - {ip}')
+                    output_logger.info(f'    - {ip}')
                 all_ip.extend(ips)
 
         except Exception as e:
-            print(f'An exception has occurred in SecurityScorecard scanning: {e}')
+            output_logger.info(f'An exception has occurred in SecurityScorecard scanning: {e}')
 
     if 'builtwith' in engines:
         try:
-            print('\n[*] Performing BuiltWith scan...')
+            output_logger.info('\n[*] Performing BuiltWith scan...')
             builtwith_scanner = builtwith.SearchBuiltWith(word)
             await builtwith_scanner.process(use_proxy)
 
             hosts = await builtwith_scanner.get_hostnames()
             if hosts:
-                print(f'\n[*] BuiltWith results: {len(hosts)} hosts found')
+                output_logger.info(f'\n[*] BuiltWith results: {len(hosts)} hosts found')
                 for host in hosts:
-                    print(f'    - {host}')
+                    output_logger.info(f'    - {host}')
 
                 # Add results to the main host list
                 all_hosts.extend(hosts)
 
             urls = list(await builtwith_scanner.get_interesting_urls())
             if urls:
-                print(f'\n[*] BuiltWith interesting URLs found: {len(urls)}')
+                output_logger.info(f'\n[*] BuiltWith interesting URLs found: {len(urls)}')
                 for url in urls:
-                    print(f'    - {url}')
+                    output_logger.info(f'    - {url}')
                 interesting_urls.extend(urls)
 
         except Exception as e:
             if isinstance(e, MissingKey):
                 if not args.quiet:
-                    print(MissingKey('BuiltWith'))
+                    output_logger.info(MissingKey('BuiltWith'))
                 else:
-                    print(f'An exception has occurred in BuiltWith scanning: {e}')
+                    output_logger.info(f'An exception has occurred in BuiltWith scanning: {e}')
 
     if rest_args is not None:
         all_hosts = sorted({host.replace('www.', '') for host in all_hosts})
@@ -1961,10 +1962,11 @@ async def start(rest_args: argparse.Namespace | None = None):
 
 async def entry_point() -> None:
     try:
+        configure_logging(verbose=False)
         Core.banner()
         await start()
     except KeyboardInterrupt:
-        print('\n\n[!] ctrl+c detected from user, quitting.\n\n ')
+        output_logger.info('\n\n[!] ctrl+c detected from user, quitting.\n\n ')
     except Exception as error_entry_point:
-        print(error_entry_point)
+        output_logger.info(error_entry_point)
         sys.exit(1)

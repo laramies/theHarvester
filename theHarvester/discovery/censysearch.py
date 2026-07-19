@@ -10,6 +10,7 @@ from censys.search import CensysCerts
 from theHarvester import __version__ as thehavester_version
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import Core
+from theHarvester.lib.output import output_logger
 
 
 class SearchCensys:
@@ -64,7 +65,7 @@ class SearchCensys:
                     self.emails.update(self._normalize_emails(email_address))
                     records_seen += 1
         except CensysRateLimitExceededException:
-            print('Censys rate limit exceeded')
+            output_logger.info('Censys rate limit exceeded')
 
     async def get_hostnames(self) -> set:
         return self.totalhosts

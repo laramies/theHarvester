@@ -6,6 +6,7 @@ from theHarvester.discovery.haveibeenpwned import SearchHaveIBeenPwned
 from theHarvester.discovery.leaklookup import SearchLeakLookup
 from theHarvester.discovery.securityscorecard import SearchSecurityScorecard
 from theHarvester.discovery.shodansearch import SearchShodan
+from theHarvester.lib.output import output_logger
 
 
 class AdditionalAPIs:
@@ -65,7 +66,7 @@ class AdditionalAPIs:
             self.hosts.update(self.haveibeenpwned.hosts)
             self.emails.update(self.haveibeenpwned.emails)
         except Exception as e:
-            print(f'Error processing HaveIBeenPwned: {e}')
+            output_logger.info(f'Error processing HaveIBeenPwned: {e}')
 
     async def _process_leaklookup(self, proxy: bool = False):
         """Process Leak-Lookup API."""
@@ -75,7 +76,7 @@ class AdditionalAPIs:
             self.hosts.update(self.leaklookup.hosts)
             self.emails.update(self.leaklookup.emails)
         except Exception as e:
-            print(f'Error processing Leak-Lookup: {e}')
+            output_logger.info(f'Error processing Leak-Lookup: {e}')
 
     async def _process_securityscorecard(self, proxy: bool = False):
         """Process SecurityScorecard API."""
@@ -89,7 +90,7 @@ class AdditionalAPIs:
             }
             self.hosts.update(self.securityscorecard.hosts)
         except Exception as e:
-            print(f'Error processing SecurityScorecard: {e}')
+            output_logger.info(f'Error processing SecurityScorecard: {e}')
 
     async def _process_builtwith(self, proxy: bool = False):
         """Process BuiltWith API."""
@@ -105,7 +106,7 @@ class AdditionalAPIs:
             }
             self.hosts.update(self.builtwith.hosts)
         except Exception as e:
-            print(f'Error processing BuiltWith: {e}')
+            output_logger.info(f'Error processing BuiltWith: {e}')
 
     async def _process_shodan(self, proxy: bool = False):
         """Process Shodan API for IP information."""
@@ -124,9 +125,9 @@ class AdditionalAPIs:
                 ip = socket.gethostbyname(self.domain)
                 ips_to_search.add(ip)
             except socket.gaierror as e:
-                print(f"Failed to resolve domain '{self.domain}': {e}")
+                output_logger.info(f"Failed to resolve domain '{self.domain}': {e}")
             except Exception as e:
-                print(f"Unexpected error while resolving domain '{self.domain}': {e}")
+                output_logger.info(f"Unexpected error while resolving domain '{self.domain}': {e}")
 
             # Add any IPs from other results
             for host in self.hosts:
@@ -141,21 +142,21 @@ class AdditionalAPIs:
             # Search each IP in Shodan
             for ip in ips_to_search:
                 try:
-                    print(f'\tSearching Shodan for {ip}')
+                    output_logger.info(f'\tSearching Shodan for {ip}')
                     shodan_result = await self.shodan.search_ip(ip)
 
                     if ip in shodan_result and isinstance(shodan_result[ip], dict):
                         self.shodan_data[ip] = shodan_result[ip]
                     elif ip in shodan_result and isinstance(shodan_result[ip], str):
-                        print(f'{ip}: {shodan_result[ip]}')
+                        output_logger.info(f'{ip}: {shodan_result[ip]}')
 
                     await asyncio.sleep(2)  # Rate limiting
                 except Exception as ip_error:
-                    print(f'Error searching Shodan for {ip}: {ip_error}')
+                    output_logger.info(f'Error searching Shodan for {ip}: {ip_error}')
                     continue
 
         except Exception as e:
-            print(f'Error processing Shodan: {e}')
+            output_logger.info(f'Error processing Shodan: {e}')
 
     @staticmethod
     def _is_valid_ip(ip_str: str) -> bool:

@@ -1,4 +1,5 @@
 from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.output import output_logger
 from theHarvester.parsers import myparser
 
 
@@ -17,9 +18,9 @@ class SearchMojeek:
             self.api_key = ''
 
         if self.api_key:
-            print('[*] Mojeek: API key detected.')
+            output_logger.info('[*] Mojeek: API key detected.')
         else:
-            print('[*] Mojeek: No API key found, using default scraping mode.')
+            output_logger.info('[*] Mojeek: No API key found, using default scraping mode.')
 
     async def do_search(self) -> None:
         headers = {'User-Agent': Core.get_user_agent()}
@@ -45,14 +46,14 @@ class SearchMojeek:
                             self.total_results += f' {url} {result.get("title", "")} {result.get("desc", "")} '
 
                 elif data and 'status' in data and 'denied' in data['status'].lower():
-                    print(f'[!] Mojeek API: Access denied ({data["status"]}).')
+                    output_logger.info(f'[!] Mojeek API: Access denied ({data["status"]}).')
                     break
 
             if api_success:
-                print('[*] Mojeek: API search completed successfully.')
+                output_logger.info('[*] Mojeek: API search completed successfully.')
                 return
             else:
-                print('[*] Mojeek: API returned no results, falling back to scraping...')
+                output_logger.info('[*] Mojeek: API returned no results, falling back to scraping...')
 
         urls = [f'https://{self.server}/search?q={self.word}&s={num}' for num in range(0, self.limit, 10)]
 

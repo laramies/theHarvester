@@ -15,6 +15,7 @@ from aiodns import DNSResolver
 
 from theHarvester.lib import hostchecker
 from theHarvester.lib.core import DATA_DIR
+from theHarvester.lib.output import output_logger
 
 #####################################################################
 # DNS FORCE
@@ -37,7 +38,7 @@ class DnsForce:
         self.list = [f'{word.strip()}.{self.domain}' for word in self.list]
 
     async def run(self):
-        print(f'Starting DNS brute forcing with {len(self.list)} words')
+        output_logger.info(f'Starting DNS brute forcing with {len(self.list)} words')
         checker = hostchecker.Checker(self.list, nameservers=self.dnsserver)
         resolved_pair, hosts, ips = await checker.check()
         return resolved_pair, hosts, ips
@@ -193,7 +194,7 @@ def log_result(host: str) -> None:
 
     """
     if host:
-        print(host)
+        output_logger.info(host)
 
 
 def generate_postprocessing_callback(target: str, **allhosts: list[str]) -> Callable:

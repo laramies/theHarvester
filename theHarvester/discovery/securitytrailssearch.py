@@ -2,6 +2,7 @@ import asyncio
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.output import output_logger
 from theHarvester.parsers import securitytrailsparser
 
 
@@ -27,7 +28,7 @@ class SearchSecuritytrail:
         auth_responses = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
         auth_responses = auth_responses[0]
         if 'False' in auth_responses or 'Invalid authentication' in auth_responses:
-            print('\tKey could not be authenticated exiting program.')
+            output_logger.info('\tKey could not be authenticated exiting program.')
         await asyncio.sleep(5)
 
     async def do_search(self) -> None:
@@ -42,7 +43,7 @@ class SearchSecuritytrail:
             if domain_response and isinstance(domain_response[0], dict | list):
                 self.domain_data = domain_response[0] if isinstance(domain_response[0], dict) else {}
             else:
-                print('SecurityTrails: No JSON response received for domain query')
+                output_logger.info('SecurityTrails: No JSON response received for domain query')
                 # keep legacy string totalresults for any downstream reliance
                 if domain_response and domain_response[0]:
                     self.results = str(domain_response[0])
@@ -57,12 +58,12 @@ class SearchSecuritytrail:
             if subdomain_response and isinstance(subdomain_response[0], dict | list):
                 self.subdomains_data = subdomain_response[0] if isinstance(subdomain_response[0], dict) else {}
             else:
-                print('SecurityTrails: No JSON response received for subdomain query')
+                output_logger.info('SecurityTrails: No JSON response received for subdomain query')
                 if subdomain_response and subdomain_response[0]:
                     self.results = str(subdomain_response[0])
                     self.totalresults += self.results
         except Exception as e:
-            print(f'SecurityTrails API error: {e}')
+            output_logger.info(f'SecurityTrails API error: {e}')
             return
 
     async def process(self, proxy: bool = False) -> None:

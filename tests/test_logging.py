@@ -1,28 +1,82 @@
 from __future__ import annotations
 
+import ast
 import logging
 import os
 import subprocess
 import sys
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from pathlib import Path
+import textwrap
+from pathlib import Path
 
 
-def test_import_does_not_configure_application_logging() -> None:
-    result = subprocess.run(
-        [
-            sys.executable,
-            '-c',
-            'import logging; import theHarvester.__main__; print(len(logging.getLogger().handlers))',
-        ],
+def run_python(script: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, '-c', textwrap.dedent(script)],
         check=True,
         capture_output=True,
         text=True,
     )
 
+
+def test_import_does_not_configure_application_logging() -> None:
+    result = run_python(
+        """
+        import logging
+        import sys
+        import theHarvester.__main__
+        sys.stdout.write(str(len(logging.getLogger().handlers)) + '\\n')
+        """
+    )
+
     assert result.stdout.splitlines()[-1] == '0'
+
+
+def test_operator_output_uses_stdout_without_verbose_logging() -> None:
+    result = run_python(
+        """
+        from theHarvester.lib.output import configure_logging, output_logger
+
+        configure_logging(verbose=False)
+        output_logger.info('operator result')
+        """
+    )
+
+    assert result.stdout == 'operator result\n'
+    assert result.stderr == ''
+
+
+def test_diagnostics_use_stderr_only_when_verbose() -> None:
+    result = run_python(
+        """
+        import logging
+        from theHarvester.lib.output import configure_logging
+
+        logger = logging.getLogger('theHarvester.discovery.example')
+        configure_logging(verbose=False)
+        logger.info('hidden diagnostic')
+        configure_logging(verbose=True)
+        logger.info('visible diagnostic')
+        """
+    )
+
+    assert result.stdout == ''
+    assert 'hidden diagnostic' not in result.stderr
+    assert 'INFO theHarvester.discovery.example: visible diagnostic' in result.stderr
+
+
+def test_production_code_has_no_print_calls() -> None:
+    package_root = Path(__file__).parents[1] / 'theHarvester'
+    print_calls = []
+
+    for path in package_root.rglob('*.py'):
+        tree = ast.parse(path.read_text())
+        print_calls.extend(
+            f'{path.relative_to(package_root)}:{node.lineno}'
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == 'print'
+        )
+
+    assert print_calls == []
 
 
 def test_verbose_enables_info_diagnostics(tmp_path: Path) -> None:

@@ -5,6 +5,7 @@ from dateutil.relativedelta import relativedelta
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.output import output_logger
 
 
 class SearchHunterHow:
@@ -40,11 +41,9 @@ class SearchHunterHow:
             proxy=self.proxy,
         )
         dct = response[0]
-        # print(f'json response: ')
-        # print(dct)
         if 'code' in dct.keys():
             if dct['code'] == 40001:
-                print(f'Code 40001 indicates for searchhunterhow: {dct["message"]}')
+                output_logger.info(f'Code 40001 indicates for searchhunterhow: {dct["message"]}')
                 return
         # total = dct['data']['total']
         # TODO determine if total is ever 100 how to get more subdomains?

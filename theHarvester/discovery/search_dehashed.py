@@ -5,6 +5,7 @@ import aiohttp
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import Core
+from theHarvester.lib.output import output_logger
 
 
 class SearchDehashed:
@@ -24,7 +25,7 @@ class SearchDehashed:
         self.proxy: bool = False
 
     async def do_search(self) -> None:
-        print(f'\t[+] Performing Dehashed search for: {self.word}')
+        output_logger.info(f'\t[+] Performing Dehashed search for: {self.word}')
         page = 1
         size = 100
         while True:
@@ -61,23 +62,23 @@ class SearchDehashed:
                     break
 
                 self.data.extend(entries)
-                print(f'\t[+] Page {page} - Retrieved {len(entries)} entries.')
+                output_logger.info(f'\t[+] Page {page} - Retrieved {len(entries)} entries.')
 
                 if len(entries) < size:
                     break
                 page += 1
                 await asyncio.sleep(0.5)
             except Exception as e:
-                print(f'\t[!] Dehashed error: {e}')
+                output_logger.info(f'\t[!] Dehashed error: {e}')
                 break
 
     async def print_csv_results(self) -> None:
         if not self.data:
-            print('\t[!] No data found.')
+            output_logger.info('\t[!] No data found.')
             return
 
-        print('\n[Dehashed Results]')
-        print('Email,Username,Password,Phone,IP,Source')
+        output_logger.info('\n[Dehashed Results]')
+        output_logger.info('Email,Username,Password,Phone,IP,Source')
 
         for entry in self.data:
             email = entry.get('email', '')
@@ -88,7 +89,7 @@ class SearchDehashed:
             source = entry.get('database_name', '')
 
             csv_line = f'"{email}","{username}","{password}","{phone}","{ip}","{source}"'
-            print(csv_line)
+            output_logger.info(csv_line)
 
     async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy

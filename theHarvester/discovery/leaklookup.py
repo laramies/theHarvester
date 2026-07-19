@@ -2,6 +2,7 @@ import aiohttp
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.output import output_logger
 
 
 class SearchLeakLookup:
@@ -37,10 +38,10 @@ class SearchLeakLookup:
                             self.leaks = await response.json()
                             self._extract_data()
                         elif response.status == 401:
-                            print('[!] Missing API key for Leak-Lookup.')
+                            output_logger.info('[!] Missing API key for Leak-Lookup.')
                             raise MissingKey('Leak-Lookup')
         except Exception as e:
-            print(f'Error in Leak-Lookup search: {e}')
+            output_logger.info(f'Error in Leak-Lookup search: {e}')
 
     def _extract_data(self) -> None:
         """Extract and categorize leak information."""
