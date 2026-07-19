@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import logging
 import os
 import re
 import secrets
@@ -82,6 +83,8 @@ from theHarvester.screenshot.screenshot import ScreenShotter
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable
+
+logger = logging.getLogger(__name__)
 
 
 def sanitize_for_xml(text: str) -> str:
@@ -195,6 +198,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         default=False,
         action='store_true',
     )
+    parser.add_argument('--verbose', help='Show informational diagnostic messages.', action='store_true')
     parser.add_argument(
         '-b',
         '--source',
@@ -225,6 +229,13 @@ async def start(rest_args: argparse.Namespace | None = None):
         args = parser.parse_args()
         filename = args.filename
         dnsbrute = (args.dns_brute, False)
+        logging.basicConfig(
+            level=logging.WARNING,
+            format='%(levelname)s %(name)s: %(message)s',
+            force=True,
+        )
+        logging.getLogger('theHarvester').setLevel(logging.INFO if args.verbose else logging.WARNING)
+        logger.info('Verbose logging enabled')
     Core.quiet = getattr(args, 'quiet', False)
     try:
         db = stash.StashManager()
