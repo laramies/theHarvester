@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import subprocess
 import sys
@@ -55,18 +56,21 @@ except SystemExit:
     assert 'third-party info' not in verbose.stderr
 
 
-def test_cli_preserves_existing_root_handler(tmp_path: Path) -> None:
+def test_cli_preserves_host_logging_unless_verbose_is_requested(tmp_path: Path) -> None:
     script = """import asyncio
 import logging
 from theHarvester.__main__ import start
 
+root_logger = logging.getLogger()
 handler = logging.StreamHandler()
-logging.getLogger().addHandler(handler)
+root_logger.addHandler(handler)
+package_logger = logging.getLogger('theHarvester')
+package_logger.setLevel(logging.ERROR)
 
 try:
     asyncio.run(start())
 except SystemExit:
-    print(handler in logging.getLogger().handlers)
+    print(handler in root_logger.handlers, package_logger.level)
     raise
 """
     command = [
@@ -77,11 +81,12 @@ except SystemExit:
         'example.com',
         '-b',
         'unsupported',
-        '--verbose',
     ]
     environment = {**os.environ, 'HOME': str(tmp_path)}
 
-    result = subprocess.run(command, capture_output=True, text=True, env=environment)
+    normal = subprocess.run(command, capture_output=True, text=True, env=environment)
+    verbose = subprocess.run([*command, '--verbose'], capture_output=True, text=True, env=environment)
 
-    assert result.returncode == 1
-    assert result.stdout.splitlines()[-1] == 'True'
+    assert normal.returncode == verbose.returncode == 1
+    assert normal.stdout.splitlines()[-1] == f'True {logging.ERROR}'
+    assert verbose.stdout.splitlines()[-1] == f'True {logging.INFO}'

@@ -233,8 +233,9 @@ async def start(rest_args: argparse.Namespace | None = None):
             level=logging.WARNING,
             format='%(levelname)s %(name)s: %(message)s',
         )
-        logging.getLogger('theHarvester').setLevel(logging.INFO if args.verbose else logging.WARNING)
-        logger.info('Verbose logging enabled')
+        if args.verbose:
+            logging.getLogger('theHarvester').setLevel(logging.INFO)
+            logger.info('Verbose logging enabled')
     Core.quiet = getattr(args, 'quiet', False)
     try:
         db = stash.StashManager()
