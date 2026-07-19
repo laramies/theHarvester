@@ -353,7 +353,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         :param store_interestingurls: whether to store interesting urls
         :param store_asns: whether to store asns
         """
-        logger.info('Source %s started', source)
+        logger.info(f'Source {source} started')
         try:
             (
                 await search_engine.process(use_proxy)
@@ -361,7 +361,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                 else await search_engine.process(process_param, use_proxy)
             )
         except Exception:
-            logger.exception('Source %s failed', source)
+            logger.exception(f'Source {source} failed')
             raise
         db_stash = stash.StashManager()
 
@@ -434,7 +434,7 @@ async def start(rest_args: argparse.Namespace | None = None):
             total_asns.extend(fasns)
             if len(fasns) > 0:
                 await db.store_all(word, fasns, 'asns', source)
-        logger.info('Source %s completed', source)
+        logger.info(f'Source {source} completed')
 
     stor_lst = []
     if args.source is not None:

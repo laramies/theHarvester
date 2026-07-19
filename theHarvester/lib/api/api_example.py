@@ -17,7 +17,7 @@ async def fetch_json(session, url):
             response.raise_for_status()  # Raise an exception for 4XX/5XX responses
             return await response.json()
     except Exception as e:
-        logger.info('Error fetching data from %s: %s', url, e)
+        logger.info(f'Error fetching data from {url}: {e}')
         return {}
 
 
@@ -27,7 +27,7 @@ async def fetch(session, url):
             response.raise_for_status()  # Raise an exception for 4XX/5XX responses
             return await response.text()
     except Exception as e:
-        logger.info('Error fetching data from %s: %s', url, e)
+        logger.info(f'Error fetching data from {url}: {e}')
         return ''
 
 

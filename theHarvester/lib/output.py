@@ -58,7 +58,7 @@ def print_linkedin_sections(
     if len(people) == 0 and 'linkedin' in engines:
         output_logger.info('\n[*] No LinkedIn users found.\n\n')
     elif len(people) >= 1:
-        output_logger.info('\n[*] LinkedIn Users found: ' + str(len(people)))
+        output_logger.info(f'\n[*] LinkedIn Users found: {len(people)}')
         output_logger.info(separator)
         for usr in sorted_unique(people):
             output_logger.info(usr)

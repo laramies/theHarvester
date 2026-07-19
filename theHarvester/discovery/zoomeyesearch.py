@@ -79,7 +79,7 @@ class SearchZoomEye:
                 # some responses put HTTP-like code here
                 return resp.get('status') in (0, 200)
         except Exception as e:
-            logger.info('ZoomEye response status parsing failed with %s', type(e).__name__)
+            logger.info(f'ZoomEye response status parsing failed with {type(e).__name__}')
             return False
 
         # If no explicit status, assume success and let parsing validate

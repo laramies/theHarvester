@@ -81,7 +81,7 @@ class Core:
                 file = path.expanduser() / filename
                 config = file.read_text()
                 if not Core.quiet:
-                    logger.info('Read %s from %s', filename, file)
+                    logger.info(f'Read {filename} from {file}')
                 return config
 
         # Fallback to creating default in the user's home dir
@@ -671,7 +671,7 @@ class AsyncFetcher:
                     await asyncio.sleep(5)
                     return url, await response.text()
         except (aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, UnicodeDecodeError, ValueError) as e:
-            logger.info('Takeover check error: %s', e)
+            logger.info(f'Takeover check error: {e}')
             return url, ''
 
     @classmethod

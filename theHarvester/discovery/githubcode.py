@@ -146,7 +146,7 @@ class SearchGithubCode:
                         await asyncio.sleep(sleepy_time)
                     else:
                         # On error, stop to avoid endless retries on a bad state
-                        logger.info('\tGitHub code API request failed with status %s', result.status_code)
+                        logger.info(f'\tGitHub code API request failed with status {result.status_code}')
                         self.page = 0
                         break
                 except Exception as e:

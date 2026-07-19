@@ -115,4 +115,4 @@ class ScreenShotter:
                 await page.close()
                 await context.close()
                 await browser.close()
-                logger.info('%s %s %s', date, url, path)
+                logger.info(f'{date} {url} {path}')

@@ -115,7 +115,7 @@ class SearchWindvane:
                         else:
                             # API error - stop pagination
                             if response_data.get('code') != 0:
-                                logger.info('Windvane subdomain API returned code %s', response_data.get('code'))
+                                logger.info(f'Windvane subdomain API returned code {response_data.get("code")}')
                             break
 
                 except Exception as e:

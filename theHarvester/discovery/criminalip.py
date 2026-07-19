@@ -102,10 +102,10 @@ class SearchCriminalIP:
         # Expected response format:
         # {'data': {'scan_id': scan_id}, 'message': 'api success', 'status': 200}
         if not isinstance(response, dict):
-            logger.info('CriminalIP scan response has unexpected type: %s', type(response).__name__)
+            logger.info(f'CriminalIP scan response has unexpected type: {type(response).__name__}')
             return
         if response.get('status') != 200:
-            logger.info('CriminalIP scan request failed with status %s', response.get('status'))
+            logger.info(f'CriminalIP scan request failed with status {response.get("status")}')
             return
 
         scan_id = response.get('data', {}).get('scan_id')
@@ -126,10 +126,10 @@ class SearchCriminalIP:
             )
             status = status_response[0] if isinstance(status_response, list) and len(status_response) > 0 else {}
             if not isinstance(status, dict):
-                logger.info('CriminalIP status response has unexpected type: %s', type(status).__name__)
+                logger.info(f'CriminalIP status response has unexpected type: {type(status).__name__}')
                 return
             if status.get('status') != 200:
-                logger.info('CriminalIP status request failed with status %s', status.get('status'))
+                logger.info(f'CriminalIP status request failed with status {status.get("status")}')
                 return
 
             # Expected format:
@@ -167,16 +167,16 @@ class SearchCriminalIP:
         )
         scan = scan_response[0] if isinstance(scan_response, list) and len(scan_response) > 0 else {}
         if not isinstance(scan, dict):
-            logger.info('CriminalIP report response has unexpected type: %s', type(scan).__name__)
+            logger.info(f'CriminalIP report response has unexpected type: {type(scan).__name__}')
             return
         if scan.get('status') != 200:
-            logger.info('CriminalIP report request failed with status %s', scan.get('status'))
+            logger.info(f'CriminalIP report request failed with status {scan.get("status")}')
             return
 
         try:
             await self.parser(scan)
         except Exception as e:
-            logger.info('CriminalIP report parsing failed with %s', type(e).__name__)
+            logger.info(f'CriminalIP report parsing failed with {type(e).__name__}')
 
     async def parser(self, jlines):
         # TODO when new scope field is added to parse lines for potential new scope!
@@ -202,7 +202,7 @@ class SearchCriminalIP:
                 for sub in subdomains:
                     self._add_host(sub)
             except Exception as e:
-                logger.info('CriminalIP connected-domain parsing failed with %s', type(e).__name__)
+                logger.info(f'CriminalIP connected-domain parsing failed with {type(e).__name__}')
 
         for ip_info in data.get('connected_ip_info', []):
             if not isinstance(ip_info, dict):

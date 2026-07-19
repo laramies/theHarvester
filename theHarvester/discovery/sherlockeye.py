@@ -129,7 +129,7 @@ class SearchSherlockeye:
                     proxy=self._proxy_url(),
                 ) as response:
                     if response.status != 200:
-                        logger.info('Sherlockeye API request failed with status %s', response.status)
+                        logger.info(f'Sherlockeye API request failed with status {response.status}')
                         return
 
                     response_data = await response.json()
