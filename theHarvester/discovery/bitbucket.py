@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import random
 import re
 import urllib.parse as urlparse
@@ -8,8 +9,9 @@ import aiohttp
 
 from theHarvester.discovery.constants import MissingKey, get_delay
 from theHarvester.lib.core import Core
-from theHarvester.lib.output import output_logger
 from theHarvester.parsers import myparser
+
+logger = logging.getLogger(__name__)
 
 
 class RetryResult(NamedTuple):
@@ -59,7 +61,7 @@ class SearchBitBucket:
                 if match.get('fragment') is not None
             ]
         except (AttributeError, TypeError, ValueError) as e:
-            output_logger.info(f'Error extracting fragments: {e}')
+            logger.info(f'Error extracting fragments: {e}')
             return []
 
     @staticmethod
@@ -71,7 +73,7 @@ class SearchBitBucket:
                     return int(page_param)
             return 0
         except (AttributeError, TypeError, ValueError) as e:
-            output_logger.info(f'Error parsing page response: {e}')
+            logger.info(f'Error parsing page response: {e}')
             return None
 
     async def handle_response(self, response: tuple[str, dict, int, Any]) -> ErrorResult | RetryResult | SuccessResult:
@@ -87,7 +89,7 @@ class SearchBitBucket:
                 return RetryResult(60)
             return ErrorResult(status, json_data if isinstance(json_data, dict) else text)
         except (TypeError, ValueError, KeyError, AttributeError) as e:
-            output_logger.info(f'Error handling response: {e}')
+            logger.info(f'Error handling response: {e}')
             return ErrorResult(500, str(e))
 
     @staticmethod
@@ -104,7 +106,7 @@ class SearchBitBucket:
                 async with sess.get(url, proxy=random.choice(Core.proxy_list()) if self.proxy else None) as resp:
                     return await resp.text(), await resp.json(), resp.status, resp.links
         except (aiohttp.ClientError, TimeoutError, ValueError, OSError) as e:
-            output_logger.info(f'Error performing search: {e}')
+            logger.info(f'Error performing search: {e}')
             return '', {}, 500, {}
 
     async def process(self, proxy: bool = False) -> None:
@@ -118,13 +120,13 @@ class SearchBitBucket:
                     if isinstance(result, SuccessResult):
                         # Reset retry counter on any successful response
                         self.retry_count = 0
-                        output_logger.info(f'\tSearching {self.counter} results.')
+                        logger.info(f'\tSearching {self.counter} results.')
                         self.total_results += ''.join(result.fragments)
                         self.counter += len(result.fragments)
                         next_or_last = result.next_page or result.last_page
                         # Break if pagination does not advance to avoid infinite loop
                         if next_or_last == self.page:
-                            output_logger.info('\tNo page advancement detected; exiting to avoid infinite loop.')
+                            logger.info('\tNo page advancement detected; exiting to avoid infinite loop.')
                             self.page = 0
                             break
                         self.page = next_or_last
@@ -132,29 +134,29 @@ class SearchBitBucket:
                     elif isinstance(result, RetryResult):
                         self.retry_count += 1
                         if self.retry_count > self.max_retries:
-                            output_logger.info('\tMaximum retries reached; exiting to avoid infinite loop.')
+                            logger.info('\tMaximum retries reached; exiting to avoid infinite loop.')
                             self.page = 0
                             break
                         sleepy_time = get_delay() + result.time
-                        output_logger.info(f'\tRetrying page in {sleepy_time} seconds...')
+                        logger.info(f'\tRetrying page in {sleepy_time} seconds...')
                         await asyncio.sleep(sleepy_time)
                     else:
                         # On error, stop to avoid endless retries on a bad state
-                        output_logger.info(f'\tException occurred: status_code: {result.status_code} reason: {result.body}')
+                        logger.info(f'\tException occurred: status_code: {result.status_code} reason: {result.body}')
                         self.page = 0
                         break
                 except (aiohttp.ClientError, TimeoutError, ValueError, TypeError, AttributeError) as e:
-                    output_logger.info(f'Error processing page: {e}')
+                    logger.info(f'Error processing page: {e}')
                     await asyncio.sleep(get_delay())
         except (aiohttp.ClientError, TimeoutError, ValueError, TypeError, AttributeError) as e:
-            output_logger.info(f'An exception has occurred in bitbucket process: {e}')
+            logger.info(f'An exception has occurred in bitbucket process: {e}')
 
     async def get_emails(self):
         try:
             rawres = myparser.Parser(self.total_results, self.word)
             return await rawres.emails()
         except (AttributeError, TypeError, re.error) as e:
-            output_logger.info(f'Error getting emails: {e}')
+            logger.info(f'Error getting emails: {e}')
             return []
 
     async def get_hostnames(self):
@@ -162,5 +164,5 @@ class SearchBitBucket:
             rawres = myparser.Parser(self.total_results, self.word)
             return await rawres.hostnames()
         except (AttributeError, TypeError, re.error) as e:
-            output_logger.info(f'Error getting hostnames: {e}')
+            logger.info(f'Error getting hostnames: {e}')
             return []

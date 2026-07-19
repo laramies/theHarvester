@@ -19,14 +19,15 @@ class _OperatorOutputHandler(logging.Handler):
 
 
 output_logger = logging.getLogger('theHarvester.output')
-output_logger.setLevel(logging.INFO)
-output_logger.propagate = False
-if not any(isinstance(handler, _OperatorOutputHandler) for handler in output_logger.handlers):
-    output_logger.addHandler(_OperatorOutputHandler())
 
 
 def configure_logging(*, verbose: bool) -> None:
     """Configure CLI diagnostics without taking ownership from an embedding host."""
+    if not any(isinstance(handler, _OperatorOutputHandler) for handler in output_logger.handlers):
+        output_logger.addHandler(_OperatorOutputHandler())
+    output_logger.setLevel(logging.INFO)
+    output_logger.propagate = False
+
     root_logger = logging.getLogger()
     if not root_logger.handlers:
         handler = logging.StreamHandler()

@@ -1,10 +1,12 @@
 import asyncio
+import logging
 from urllib.parse import quote
 
 from theHarvester.discovery.constants import MissingKey, get_delay
 from theHarvester.lib.core import AsyncFetcher, Core
-from theHarvester.lib.output import output_logger
 from theHarvester.parsers import myparser
+
+logger = logging.getLogger(__name__)
 
 
 class SearchBrave:
@@ -51,7 +53,7 @@ class SearchBrave:
 
                     # Handle API response
                     if resp is None:
-                        output_logger.info('No response received from Brave Search API')
+                        logger.info('No response received from Brave Search API')
                         break
 
                     # Check for API errors (rate limit, quota exceeded, etc.)
@@ -60,12 +62,12 @@ class SearchBrave:
                         error_code = resp.get('error', {}).get('code', 'unknown')
 
                         if 'rate limit' in error_msg.lower() or error_code == 'rate_limit_exceeded':
-                            output_logger.info(f'Rate limit exceeded. Increasing delay to {self.rate_limit_delay * 2} seconds')
+                            logger.info(f'Rate limit exceeded. Increasing delay to {self.rate_limit_delay * 2} seconds')
                             self.rate_limit_delay *= 2
                             await asyncio.sleep(self.rate_limit_delay)
                             continue
                         elif 'quota' in error_msg.lower() or error_code == 'quota_exceeded':
-                            output_logger.info(f'API quota exceeded: {error_msg}')
+                            logger.info(f'API quota exceeded: {error_msg}')
                             break
                         else:
                             break
@@ -93,7 +95,7 @@ class SearchBrave:
                         if len(self.results) >= self.limit:
                             break
                     else:
-                        output_logger.info('Unexpected response format from Brave Search API')
+                        logger.info('Unexpected response format from Brave Search API')
                         break
 
                     await asyncio.sleep(get_delay())
@@ -103,19 +105,17 @@ class SearchBrave:
 
                 # Handle specific API-related exceptions
                 if 'rate limit' in error_msg or '429' in error_msg:
-                    output_logger.info(
-                        f'Rate limit detected in exception. Increasing delay to {self.rate_limit_delay * 2} seconds'
-                    )
+                    logger.info(f'Rate limit detected in exception. Increasing delay to {self.rate_limit_delay * 2} seconds')
                     self.rate_limit_delay *= 2
                     await asyncio.sleep(self.rate_limit_delay)
                 elif 'quota' in error_msg or '403' in error_msg:
-                    output_logger.info(f'Quota exceeded or access denied: {e}')
+                    logger.info(f'Quota exceeded or access denied: {e}')
                     break
                 elif 'timeout' in error_msg:
-                    output_logger.info(f'Request timeout occurred: {e}')
+                    logger.info(f'Request timeout occurred: {e}')
                     await asyncio.sleep(get_delay() + 2)
                 else:
-                    output_logger.info(f'An exception has occurred in bravesearch: {e}')
+                    logger.info(f'An exception has occurred in bravesearch: {e}')
                     await asyncio.sleep(get_delay() + 5)
                 continue
 

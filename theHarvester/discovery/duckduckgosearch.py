@@ -1,8 +1,11 @@
+import logging
+
 import ujson
 
 from theHarvester.lib.core import AsyncFetcher, Core
-from theHarvester.lib.output import output_logger
 from theHarvester.parsers import myparser
+
+logger = logging.getLogger(__name__)
 
 
 class SearchDuckDuckGo:
@@ -71,7 +74,7 @@ class SearchDuckDuckGo:
                     tmp.add(url)
             return tmp
         except Exception as e:
-            output_logger.info(f'Exception occurred: {e}')
+            logger.info(f'Exception occurred: {e}')
             return set()
 
     async def get_emails(self):

@@ -1,11 +1,13 @@
+import logging
 from typing import Any
 
 import aiohttp
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import Core
-from theHarvester.lib.output import output_logger
 from theHarvester.parsers import venacusparser
+
+logger = logging.getLogger(__name__)
 
 
 class SearchVenacus:
@@ -49,7 +51,7 @@ class SearchVenacus:
                         current_results = search_data.get('data', [])
 
                         if not current_results:
-                            output_logger.info('No more results found.')
+                            logger.info('No more results found.')
                             break
 
                         total_results.extend(current_results)
@@ -62,10 +64,10 @@ class SearchVenacus:
 
                 self.results = total_results
                 if not self.results:
-                    output_logger.info('No results found.')
+                    logger.info('No results found.')
 
         except Exception as e:
-            output_logger.info(f'An exception has occurred in Venacus: {e}')
+            logger.info(f'An exception has occurred in Venacus: {e}')
 
     async def process(self, proxy: bool = False):
         self.proxy = proxy

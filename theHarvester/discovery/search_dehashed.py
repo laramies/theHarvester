@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import random
 
 import aiohttp
@@ -6,6 +7,8 @@ import aiohttp
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import Core
 from theHarvester.lib.output import output_logger
+
+logger = logging.getLogger(__name__)
 
 
 class SearchDehashed:
@@ -25,7 +28,7 @@ class SearchDehashed:
         self.proxy: bool = False
 
     async def do_search(self) -> None:
-        output_logger.info(f'\t[+] Performing Dehashed search for: {self.word}')
+        logger.info(f'\t[+] Performing Dehashed search for: {self.word}')
         page = 1
         size = 100
         while True:
@@ -62,19 +65,19 @@ class SearchDehashed:
                     break
 
                 self.data.extend(entries)
-                output_logger.info(f'\t[+] Page {page} - Retrieved {len(entries)} entries.')
+                logger.info(f'\t[+] Page {page} - Retrieved {len(entries)} entries.')
 
                 if len(entries) < size:
                     break
                 page += 1
                 await asyncio.sleep(0.5)
             except Exception as e:
-                output_logger.info(f'\t[!] Dehashed error: {e}')
+                logger.info(f'\t[!] Dehashed error: {e}')
                 break
 
     async def print_csv_results(self) -> None:
         if not self.data:
-            output_logger.info('\t[!] No data found.')
+            logger.info('\t[!] No data found.')
             return
 
         output_logger.info('\n[Dehashed Results]')

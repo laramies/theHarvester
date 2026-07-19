@@ -1,8 +1,10 @@
+import logging
 from urllib.parse import urlparse
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import AsyncFetcher, Core
-from theHarvester.lib.output import output_logger
+
+logger = logging.getLogger(__name__)
 
 # from theHarvester.parsers import myparser
 
@@ -81,7 +83,7 @@ class SearchOnyphe:
                     except Exception:
                         continue
         else:
-            output_logger.info(f'Onhyphe API query did not succeed dumping current response: {self.response}')
+            logger.info(f'Onhyphe API query did not succeed dumping current response: {self.response}')
 
     async def get_asns(self) -> set:
         return self.asns

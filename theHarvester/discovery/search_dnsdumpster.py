@@ -1,7 +1,10 @@
+import logging
+
 #!/usr/bin/env python3
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import AsyncFetcher, Core
-from theHarvester.lib.output import output_logger
+
+logger = logging.getLogger(__name__)
 
 
 class SearchDNSDumpster:
@@ -40,7 +43,7 @@ class SearchDNSDumpster:
                         self.ips.add(ip_info['ip'])
 
         except Exception as e:
-            output_logger.info(f'Error occurred in DNSDumpster search: {e}')
+            logger.info(f'Error occurred in DNSDumpster search: {e}')
 
     async def process(self, proxy: bool = False) -> None:
         await self.do_search()

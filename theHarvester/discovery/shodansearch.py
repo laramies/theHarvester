@@ -1,10 +1,12 @@
+import logging
 from collections import OrderedDict
 
 from shodan import Shodan, exception
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import Core
-from theHarvester.lib.output import output_logger
+
+logger = logging.getLogger(__name__)
 
 
 class SearchShodan:
@@ -22,7 +24,7 @@ class SearchShodan:
             results = self.api.host(ipaddress)
 
             if not results or 'data' not in results or not results['data']:
-                output_logger.info(f'Shodan: No data found for IP {ip}')
+                logger.info(f'Shodan: No data found for IP {ip}')
                 return OrderedDict()
             asn = ''
             domains: list = list()
@@ -107,7 +109,7 @@ class SearchShodan:
 
             return self.tracker
         except exception.APIError:
-            output_logger.info(f'{ip}: Not in Shodan')
+            logger.info(f'{ip}: Not in Shodan')
             self.tracker[ip] = 'Not in Shodan'
         except Exception as e:
             self.tracker[ip] = f'Error occurred in the Shodan IP search module: {e}'

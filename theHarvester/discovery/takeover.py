@@ -1,3 +1,4 @@
+import logging
 import re
 from collections import defaultdict
 from random import shuffle
@@ -6,6 +7,8 @@ import ujson
 
 from theHarvester.lib.core import AsyncFetcher, Core
 from theHarvester.lib.output import output_logger
+
+logger = logging.getLogger(__name__)
 
 
 class TakeOver:
@@ -33,7 +36,7 @@ class TakeOver:
                 if unparsed_fingerprint['status'] == 'Vulnerable' or unparsed_fingerprint['status'] == 'Edge case':
                     self.fingerprints[unparsed_fingerprint['fingerprint']] = unparsed_fingerprint['service']
         except Exception as e:
-            output_logger.info(f'An exception has occurred populating takeover fingerprints: {e}, defaulting to static list')
+            logger.info(f'An exception has occurred populating takeover fingerprints: {e}, defaulting to static list')
             self.fingerprints = {
                 "'Trying to access your account?'": 'Campaign Monitor',
                 '404 Not Found': 'Fly.io',
@@ -89,15 +92,15 @@ class TakeOver:
             else:
                 return
         except IndexError:
-            output_logger.info('Response was empty — possible network error or invalid URL.')
+            logger.info('Response was empty — possible network error or invalid URL.')
         except ujson.JSONDecodeError:
-            output_logger.info('Failed to parse JSON — cert fingerprints might be unavailable.')
+            logger.info('Failed to parse JSON — cert fingerprints might be unavailable.')
         except KeyError as ke:
-            output_logger.info(f'Missing expected field in fingerprint: {ke}')
+            logger.info(f'Missing expected field in fingerprint: {ke}')
         except TypeError as te:
-            output_logger.info(f'Invalid response structure: {te}')
+            logger.info(f'Invalid response structure: {te}')
         except Exception as e:
-            output_logger.info(f'Unexpected error: {e}')
+            logger.info(f'Unexpected error: {e}')
 
     async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy

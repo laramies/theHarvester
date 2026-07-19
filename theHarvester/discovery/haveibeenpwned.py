@@ -1,8 +1,11 @@
+import logging
+
 import aiohttp
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import AsyncFetcher, Core
-from theHarvester.lib.output import output_logger
+
+logger = logging.getLogger(__name__)
 
 
 class SearchHaveIBeenPwned:
@@ -38,7 +41,7 @@ class SearchHaveIBeenPwned:
                             self.breaches = await response.json()
                             self._extract_data()
         except Exception as e:
-            output_logger.info(f'Error in HaveIBeenPwned search: {e}')
+            logger.info(f'Error in HaveIBeenPwned search: {e}')
 
     def _extract_data(self) -> None:
         """Extract and categorize breach information."""

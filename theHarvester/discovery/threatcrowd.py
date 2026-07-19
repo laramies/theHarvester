@@ -1,8 +1,10 @@
 import json as _stdlib_json
+import logging
 from types import ModuleType
 
 from theHarvester.lib.core import AsyncFetcher, Core
-from theHarvester.lib.output import output_logger
+
+logger = logging.getLogger(__name__)
 
 json: ModuleType = _stdlib_json
 try:
@@ -46,7 +48,7 @@ class SearchThreatcrowd:
             response = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
 
             if not response or not isinstance(response, list) or not response[0]:
-                output_logger.info(f'No response from ThreatCrowd API for: {self.word}')
+                logger.info(f'No response from ThreatCrowd API for: {self.word}')
                 return
 
             try:
@@ -56,7 +58,7 @@ class SearchThreatcrowd:
                     # Check response code - '1' means success in ThreatCrowd API
                     response_code = data.get('response_code', '')
                     if response_code and response_code != '1':
-                        output_logger.info(f'ThreatCrowd API returned error code: {response_code}')
+                        logger.info(f'ThreatCrowd API returned error code: {response_code}')
                         return
 
                     # Extract subdomains - direct list in response
@@ -83,10 +85,10 @@ class SearchThreatcrowd:
                                     self.totalips.add(resolution.strip())
 
             except Exception as e:
-                output_logger.info(f'Failed to parse ThreatCrowd response: {e}')
+                logger.info(f'Failed to parse ThreatCrowd response: {e}')
 
         except Exception as e:
-            output_logger.info(f'ThreatCrowd API error: {e}')
+            logger.info(f'ThreatCrowd API error: {e}')
 
     async def get_hostnames(self) -> set:
         return self.totalhosts

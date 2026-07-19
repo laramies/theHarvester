@@ -1,8 +1,10 @@
 import asyncio
+import logging
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import AsyncFetcher, Core
-from theHarvester.lib.output import output_logger
+
+logger = logging.getLogger(__name__)
 
 
 class SearchHunter:
@@ -47,13 +49,11 @@ class SearchHunter:
             total_number_reqs = response[0]['data']['total'] // 100
             # Parse out meta field within initial JSON response to determine the total number of results
             if total_requests_avail < total_number_reqs:
-                output_logger.info('WARNING: account does not have enough requests to gather all emails')
-                output_logger.info(
+                logger.info('WARNING: account does not have enough requests to gather all emails')
+                logger.info(
                     f'Total requests available: {total_requests_avail}, total requests needed to be made: {total_number_reqs}'
                 )
-                output_logger.info(
-                    'RETURNING current results, if you would still like to run this module comment out the if request'
-                )
+                logger.info('RETURNING current results, if you would still like to run this module comment out the if request')
                 return
             self.limit = 100
             # max number of emails you can get per request is 100

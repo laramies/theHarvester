@@ -6,6 +6,7 @@ Explore the space around known hosts & ips for extra catches.
 """
 
 import asyncio
+import logging
 import re
 import sys
 from collections.abc import Callable
@@ -15,7 +16,8 @@ from aiodns import DNSResolver
 
 from theHarvester.lib import hostchecker
 from theHarvester.lib.core import DATA_DIR
-from theHarvester.lib.output import output_logger
+
+logger = logging.getLogger(__name__)
 
 #####################################################################
 # DNS FORCE
@@ -38,7 +40,7 @@ class DnsForce:
         self.list = [f'{word.strip()}.{self.domain}' for word in self.list]
 
     async def run(self):
-        output_logger.info(f'Starting DNS brute forcing with {len(self.list)} words')
+        logger.info(f'Starting DNS brute forcing with {len(self.list)} words')
         checker = hostchecker.Checker(self.list, nameservers=self.dnsserver)
         resolved_pair, hosts, ips = await checker.check()
         return resolved_pair, hosts, ips
@@ -194,7 +196,7 @@ def log_result(host: str) -> None:
 
     """
     if host:
-        output_logger.info(host)
+        logger.info(host)
 
 
 def generate_postprocessing_callback(target: str, **allhosts: list[str]) -> Callable:

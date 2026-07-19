@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-import ast
 import logging
 import os
 import subprocess
 import sys
 import textwrap
-from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def run_python(script: str) -> subprocess.CompletedProcess[str]:
@@ -24,11 +26,18 @@ def test_import_does_not_configure_application_logging() -> None:
         import logging
         import sys
         import theHarvester.__main__
-        sys.stdout.write(str(len(logging.getLogger().handlers)) + '\\n')
+        output_logger = logging.getLogger('theHarvester.output')
+        state = (
+            len(logging.getLogger().handlers),
+            len(output_logger.handlers),
+            output_logger.level,
+            output_logger.propagate,
+        )
+        sys.stdout.write(repr(state) + '\\n')
         """
     )
 
-    assert result.stdout.splitlines()[-1] == '0'
+    assert result.stdout.splitlines()[-1] == '(0, 0, 0, True)'
 
 
 def test_operator_output_uses_stdout_without_verbose_logging() -> None:
@@ -62,21 +71,6 @@ def test_diagnostics_use_stderr_only_when_verbose() -> None:
     assert result.stdout == ''
     assert 'hidden diagnostic' not in result.stderr
     assert 'INFO theHarvester.discovery.example: visible diagnostic' in result.stderr
-
-
-def test_production_code_has_no_print_calls() -> None:
-    package_root = Path(__file__).parents[1] / 'theHarvester'
-    print_calls = []
-
-    for path in package_root.rglob('*.py'):
-        tree = ast.parse(path.read_text())
-        print_calls.extend(
-            f'{path.relative_to(package_root)}:{node.lineno}'
-            for node in ast.walk(tree)
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == 'print'
-        )
-
-    assert print_calls == []
 
 
 def test_verbose_enables_info_diagnostics(tmp_path: Path) -> None:

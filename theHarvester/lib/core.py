@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 import random
 import ssl
 from pathlib import Path
@@ -20,6 +21,8 @@ from theHarvester.lib.output import output_logger
 
 if TYPE_CHECKING:
     from collections.abc import Sized
+
+logger = logging.getLogger(__name__)
 
 DATA_DIR = Path(__file__).parents[1] / 'data'
 CONFIG_DIRS = [
@@ -78,7 +81,7 @@ class Core:
                 file = path.expanduser() / filename
                 config = file.read_text()
                 if not Core.quiet:
-                    output_logger.info(f'Read {filename} from {file}')
+                    logger.info('Read %s from %s', filename, file)
                 return config
 
         # Fallback to creating default in the user's home dir
@@ -668,7 +671,7 @@ class AsyncFetcher:
                     await asyncio.sleep(5)
                     return url, await response.text()
         except (aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, UnicodeDecodeError, ValueError) as e:
-            output_logger.info(f'Takeover check error: {e}')
+            logger.info('Takeover check error: %s', e)
             return url, ''
 
     @classmethod

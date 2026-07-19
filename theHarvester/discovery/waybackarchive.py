@@ -1,7 +1,9 @@
+import logging
 import re
 
 from theHarvester.lib.core import AsyncFetcher, Core
-from theHarvester.lib.output import output_logger
+
+logger = logging.getLogger(__name__)
 
 
 class SearchWaybackarchive:
@@ -62,11 +64,11 @@ class SearchWaybackarchive:
                                 self.totalhosts.add(domain)
 
                 except Exception as e:
-                    output_logger.info(f'Wayback Archive API error for URL {url}: {e}')
+                    logger.info(f'Wayback Archive API error for URL {url}: {e}')
                     continue
 
         except Exception as e:
-            output_logger.info(f'Wayback Archive API error: {e}')
+            logger.info(f'Wayback Archive API error: {e}')
 
     async def get_hostnames(self) -> set:
         return self.totalhosts

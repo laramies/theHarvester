@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-
-from theHarvester.lib.output import print_linkedin_sections, sorted_unique
+from theHarvester.lib.output import configure_logging, print_linkedin_sections, sorted_unique
 
 
 def test_sorted_unique_sorts_and_deduplicates() -> None:
@@ -10,6 +9,7 @@ def test_sorted_unique_sorts_and_deduplicates() -> None:
 
 def test_print_linkedin_sections_prints_links_when_present(capsys) -> None:
     # Regression coverage: the CLI previously never printed LinkedIn links when the list was non-empty.
+    configure_logging(verbose=False)
     print_linkedin_sections(
         engines=["linkedin"],
         people=[],
@@ -24,6 +24,7 @@ def test_print_linkedin_sections_prints_links_when_present(capsys) -> None:
 
 
 def test_print_linkedin_sections_prints_people_and_links(capsys) -> None:
+    configure_logging(verbose=False)
     print_linkedin_sections(
         engines=["rocketreach"],
         people=["bob", "alice", "bob"],
