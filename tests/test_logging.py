@@ -54,6 +54,26 @@ def test_operator_output_uses_stdout_without_verbose_logging() -> None:
     assert result.stderr == ''
 
 
+def test_api_example_entry_point_configures_output_and_diagnostics() -> None:
+    result = run_python(
+        """
+        import logging
+        from theHarvester.lib.api import api_example
+        from theHarvester.lib.output import output_logger
+
+        async def fake_main():
+            output_logger.info('example result')
+            logging.getLogger(api_example.__name__).info('example diagnostic')
+
+        api_example.main = fake_main
+        api_example.entry_point()
+        """
+    )
+
+    assert result.stdout == 'example result\n'
+    assert 'INFO theHarvester.lib.api.api_example: example diagnostic' in result.stderr
+
+
 def test_diagnostics_use_stderr_only_when_verbose() -> None:
     result = run_python(
         """
@@ -107,6 +127,7 @@ except SystemExit:
 def test_cli_preserves_host_logging_unless_verbose_is_requested(tmp_path: Path) -> None:
     script = """import asyncio
 import logging
+import sys
 from theHarvester.__main__ import start
 
 root_logger = logging.getLogger()
@@ -118,7 +139,7 @@ package_logger.setLevel(logging.ERROR)
 try:
     asyncio.run(start())
 except SystemExit:
-    print(handler in root_logger.handlers, package_logger.level)
+    sys.stdout.write(f'{handler in root_logger.handlers} {package_logger.level}\\n')
     raise
 """
     command = [

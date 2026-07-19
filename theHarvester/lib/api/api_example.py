@@ -1,11 +1,14 @@
 """Example script to query theHarvester rest API, obtain results, and write out to stdout as well as an html"""
 
 import asyncio
+import logging
 
 import aiohttp
 import netaddr
 
-from theHarvester.lib.output import output_logger, print_section, sorted_unique
+from theHarvester.lib.output import configure_logging, output_logger, print_section, sorted_unique
+
+logger = logging.getLogger(__name__)
 
 
 async def fetch_json(session, url):
@@ -14,7 +17,7 @@ async def fetch_json(session, url):
             response.raise_for_status()  # Raise an exception for 4XX/5XX responses
             return await response.json()
     except Exception as e:
-        output_logger.info(f'Error fetching data from {url}: {e}')
+        logger.info('Error fetching data from %s: %s', url, e)
         return {}
 
 
@@ -24,7 +27,7 @@ async def fetch(session, url):
             response.raise_for_status()  # Raise an exception for 4XX/5XX responses
             return await response.text()
     except Exception as e:
-        output_logger.info(f'Error fetching data from {url}: {e}')
+        logger.info('Error fetching data from %s: %s', url, e)
         return ''
 
 
@@ -115,5 +118,10 @@ async def main() -> None:
         output_logger.info('\n'.join(hosts))
 
 
-if __name__ == '__main__':
+def entry_point() -> None:
+    configure_logging(verbose=True)
     asyncio.run(main())
+
+
+if __name__ == '__main__':
+    entry_point()
