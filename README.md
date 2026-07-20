@@ -1,224 +1,200 @@
-![theHarvester](https://github.com/laramies/theHarvester/blob/master/theHarvester-logo.webp)
+# theHarvester
 
-![TheHarvester CI](https://github.com/laramies/theHarvester/workflows/TheHarvester%20Python%20CI/badge.svg) ![TheHarvester Docker Image CI](https://github.com/laramies/theHarvester/workflows/TheHarvester%20Docker%20Image%20CI/badge.svg)
-[![Rawsec's CyberSecurity Inventory](https://inventory.raw.pm/img/badges/Rawsec-inventoried-FF5050_flat_without_logo.svg)](https://inventory.raw.pm/)
+![theHarvester logo](theHarvester-logo.webp)
 
+[![Python CI](https://github.com/laramies/theHarvester/actions/workflows/theHarvester.yml/badge.svg)](https://github.com/laramies/theHarvester/actions/workflows/theHarvester.yml)
+[![Docker CI](https://github.com/laramies/theHarvester/actions/workflows/dockerci.yml/badge.svg)](https://github.com/laramies/theHarvester/actions/workflows/dockerci.yml)
 
-About
------
-theHarvester is a simple to use, yet powerful tool designed to be used during the reconnaissance stage of a red
-team assessment or penetration test. It performs open source intelligence (OSINT) gathering to help determine
-a domain's external threat landscape. The tool gathers names, emails, IPs, subdomains, and URLs by using
-multiple public resources that include:
+theHarvester gathers open-source intelligence about a domain or organization from search engines, certificate transparency logs, DNS datasets, code repositories, threat-intelligence platforms, and other public sources.
 
-## Package versions
-[![Packaging status](https://repology.org/badge/vertical-allrepos/theharvester.svg)](https://repology.org/project/theharvester/versions)
+It is built for the early reconnaissance stage of authorized security assessments. Use it only on targets you own or have explicit permission to test.
 
-Install and dependencies
-------------------------
-* Python 3.12 or higher.
-* https://github.com/laramies/theHarvester/wiki/Installation
+## Why theHarvester
 
-Install uv:
-   ```bash
-   curl -LsSf https://astral.sh/uv/install.sh | sh
-   ```
+- **Broad discovery coverage:** combine many independent sources in one run instead of querying each provider manually.
+- **Useful result types:** collect hostnames, email addresses, IP addresses, URLs, ASNs, people, and source-specific metadata.
+- **Enrichment after discovery:** optionally resolve DNS, query Shodan, check for subdomain takeovers, brute-force DNS names, scan common API paths, and capture screenshots.
+- **CLI and browser-accessible API:** use the command line interactively or run the FastAPI service for automation and interactive Swagger/ReDoc documentation.
+- **Repeatable output:** print results, write JSON and XML reports, and retain host, email, and IP findings in a local SQLite database.
+- **Operational controls:** select individual sources, set result limits, use HTTP or SOCKS proxies, choose DNS resolvers, and suppress missing-key noise.
 
-Clone the repository:
-   ```bash
-   git clone https://github.com/laramies/theHarvester
-   cd theHarvester
-   ```
+Source availability, quotas, and response formats are controlled by third parties and can change independently of theHarvester.
 
-Install dependencies and create a virtual environment:
-   ```bash
-   uv sync
-   ```
+## Quick start
 
-Run theHarvester:
-   ```bash
-   uv run theHarvester
-   ```
+theHarvester requires Python 3.12 or newer and uses [uv](https://docs.astral.sh/uv/) for dependency management.
 
-## Development
-
-To install development dependencies:
 ```bash
-uv sync --all-groups
+curl -LsSf https://astral.sh/uv/install.sh | sh
+git clone https://github.com/laramies/theHarvester.git
+cd theHarvester
+uv sync
+uv run theHarvester -d example.com -b crtsh,certspotter
 ```
 
-To run tests:
+See the [installation guide](https://github.com/laramies/theHarvester/wiki/Installation) for platform-specific setup and packaged distributions.
+
+## Common workflows
+
+Query several passive sources:
+
 ```bash
-uv run pytest
+uv run theHarvester -d example.com -b crtsh,certspotter,commoncrawl
 ```
 
-To run linting and formatting:
+Save both JSON and XML reports:
+
 ```bash
-uv run ruff check
-```
-```bash
-uv run ruff format
+uv run theHarvester -d example.com -b crtsh,certspotter -f report
 ```
 
-To protect the optional `/additional/*` REST API routes, set `THEHARVESTER_API_KEY` and pass the same value in the `X-API-Key` header. Those routes return `503` when the key is not configured.
+Resolve discovered hosts with the default resolver list:
 
-Passive modules
----------------
+```bash
+uv run theHarvester -d example.com -b crtsh,certspotter -r
+```
 
-* baidu: Baidu search engine (https://www.baidu.com)
+List every option and its current behavior:
 
-* bevigil: CloudSEK BeVigil scans mobile application for OSINT assets (https://bevigil.com/osint-api)
+```bash
+uv run theHarvester -h
+```
 
-* brave: Brave search engine - now uses official Brave Search API (https://api-dashboard.search.brave.com)
+### Active features
 
-* bufferoverun: Fast domain name lookups for TLS certificates in IPv4 space (https://tls.bufferover.run)
+Options such as DNS brute force (`-c`), reverse DNS lookup (`-n`), takeover checks (`-t`), API endpoint scanning (`-a`), DNS resolution (`-r`), and screenshots (`--screenshot`) generate additional network activity. Use them only within an explicitly authorized scope.
 
-* builtwith: Find out what websites are built with (https://builtwith.com)
+Screenshot capture also requires a Playwright-compatible browser; see the installation guide for setup.
 
-* censys: Uses certificates searches to enumerate subdomains and gather emails (https://censys.io)
+## Browser interface and REST API
 
-* certspotter: Cert Spotter monitors Certificate Transparency logs (https://sslmate.com/certspotter)
+`restfulHarvest` starts a FastAPI service on `127.0.0.1:5000` by default:
 
-* criminalip: Specialized Cyber Threat Intelligence (CTI) search engine (https://www.criminalip.io)
+```bash
+uv run restfulHarvest
+```
 
-* crtsh: Comodo Certificate search (https://crt.sh)
+Open [http://127.0.0.1:5000/docs](http://127.0.0.1:5000/docs) for interactive Swagger documentation or [http://127.0.0.1:5000/redoc](http://127.0.0.1:5000/redoc) for ReDoc.
 
-* dehashed: Take your data security to the next level is (https://dehashed.com)
+| Route | Purpose |
+| --- | --- |
+| `GET /sources` | List registered discovery sources. |
+| `GET /query` | Return ASNs, interesting URLs, Twitter/LinkedIn fields, Trello URLs, IPs, emails, and hosts as JSON. |
+| `GET /dnsbrute` | Run DNS brute force for a domain. |
+| `POST /additional/breaches` | Return Have I Been Pwned breach data. |
+| `POST /additional/leaks` | Return Leak-Lookup data. |
+| `POST /additional/security-score` | Return SecurityScorecard data. |
+| `POST /additional/tech-stack` | Return BuiltWith technology data. |
+| `POST /additional/all` | Run all additional API lookups. |
 
-* dnsdumpster: Domain research tool that can discover hosts related to a domain (https://dnsdumpster.com)
+The service rate limit defaults to five requests per minute and can be changed with `--rate-limit`. The `/additional/*` routes require `THEHARVESTER_API_KEY` on the server and the same value in the `X-API-Key` request header.
 
-* duckduckgo: DuckDuckGo search engine (https://duckduckgo.com)
+The core `/query`, `/sources`, and `/dnsbrute` routes are not authenticated. Keep the service bound to localhost unless you place it behind appropriate authentication, access controls, and TLS. Docker Compose publishes port `5000` on every host interface unless you narrow the port mapping:
 
-* dymo: Dymo API data verifier - confirms domains, surfaces typo suggestions and MX/fraud signals (https://dymo.tpeoficial.com)
+```bash
+docker compose up --build
+```
 
-* fofa: FOFA search eingine (https://en.fofa.info)
+## Discovery sources
 
-* fullhunt: Next-generation attack surface security platform (https://fullhunt.io)
+Saved JSON reports expose separate fields for hosts, emails, IP addresses, ASNs, URLs or links, and people when those results are available. The matrix below reflects the current source-to-report wiring, not every field present in a provider response. Empty fields may be omitted, and reports do not retain per-source attribution.
 
-* github-code: GitHub code search engine (https://www.github.com)
+A checkmark means the current CLI can add that result type to its consolidated report. **Configured** means the repository provides an `api-keys.yaml` setting for that source; it does not guarantee that every provider request requires a paid key.
 
-* hackertarget: Online vulnerability scanners and network intelligence to help organizations (https://hackertarget.com)
+<details>
+<summary><strong>View the source and result matrix</strong></summary>
 
-* haveibeenpwned: Check if your email address is in a data breach (https://haveibeenpwned.com)
+| Source | Hosts | Emails | IPs | ASNs | URLs / links | People | Other exposed data | API key setting |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: | --- | :---: |
+| `baidu` | ✓ | ✓ | — | — | — | — | — | None |
+| `bevigil` | ✓ | — | — | — | ✓ | — | — | Configured |
+| `bitbucket` | ✓ | ✓ | — | — | — | — | — | Configured |
+| `bufferoverun` | ✓ | — | ✓ | — | — | — | — | Configured |
+| `builtwith` | ✓ | — | — | — | ✓ | — | Technology data through REST API | Configured |
+| `brave` | ✓ | ✓ | — | — | — | — | — | Configured |
+| `censys` | ✓ | ✓ | — | — | — | — | — | Configured |
+| `certspotter` | ✓ | — | — | — | — | — | — | None |
+| `chaos` | ✓ | — | — | — | — | — | — | Configured |
+| `commoncrawl` | ✓ | — | — | — | — | — | — | None |
+| `criminalip` | ✓ | — | ✓ | ✓ | — | — | — | Configured |
+| `crtsh` | ✓ | — | — | — | — | — | — | None |
+| `dehashed` | — | — | ✓ | — | — | — | — | Configured |
+| `dnsdumpster` | ✓ | — | ✓ | — | — | — | — | Configured |
+| `duckduckgo` | ✓ | ✓ | — | — | — | — | — | None |
+| `dymo` | ✓ | — | — | — | — | — | — | Configured |
+| `fofa` | ✓ | — | ✓ | — | — | — | — | Configured |
+| `fullhunt` | ✓ | — | — | — | — | — | — | Configured |
+| `github-code` | ✓ | ✓ | — | — | — | — | — | Configured |
+| `gitlab` | ✓ | ✓ | — | — | — | — | — | None |
+| `hackertarget` | ✓ | — | — | — | — | — | — | Configured |
+| `haveibeenpwned` | — | — | — | — | — | — | Breach data through REST API | Configured |
+| `hudsonrock` | ✓ | ✓ | ✓ | — | — | — | Infostealer exposure | None |
+| `hunter` | ✓ | ✓ | — | — | — | — | — | Configured |
+| `hunterhow` | ✓ | — | — | — | — | — | — | Configured |
+| `intelx` | — | ✓ | — | — | ✓ | — | — | Configured |
+| `leakix` | ✓ | ✓ | — | — | — | — | — | Configured |
+| `leaklookup` | — | ✓ | — | — | — | — | Leak data through REST API | Configured |
+| `mojeek` | ✓ | ✓ | — | — | — | — | — | Configured |
+| `netlas` | ✓ | — | — | — | — | — | — | Configured |
+| `onyphe` | ✓ | — | ✓ | ✓ | — | — | — | Configured |
+| `otx` | ✓ | — | ✓ | — | — | — | — | None |
+| `pentesttools` | ✓ | — | — | — | — | — | — | Configured |
+| `projectdiscovery` | ✓ | — | — | — | — | — | — | Configured |
+| `rapiddns` | ✓ | — | — | — | — | — | — | None |
+| `robtex` | ✓ | — | ✓ | — | — | — | — | None |
+| `rocketreach` | — | ✓ | — | — | ✓ | — | — | Configured |
+| `securityscorecard` | ✓ | — | ✓ | — | — | — | Score through REST API | Configured |
+| `securityTrails` | ✓ | — | ✓ | — | — | — | — | Configured |
+| `sherlockeye` | ✓ | ✓ | ✓ | — | — | — | — | Configured |
+| `shodan` | ✓ | — | — | — | — | — | Host intelligence; `-s` enriches discovered hosts | Configured |
+| `shodanInternetDB` | ✓ | — | ✓ | — | — | — | InternetDB host intelligence | None |
+| `subdomaincenter` | ✓ | — | — | — | — | — | — | None |
+| `subdomainfinderc99` | ✓ | — | — | — | — | — | — | None |
+| `thc` | ✓ | — | — | — | — | — | — | None |
+| `threatcrowd` | ✓ | — | ✓ | — | — | — | — | None |
+| `tomba` | ✓ | ✓ | — | — | — | — | — | Configured |
+| `urlscan` | ✓ | — | ✓ | ✓ | ✓ | — | — | None |
+| `venacus` | — | ✓ | ✓ | — | ✓ | ✓ | — | Configured |
+| `virustotal` | ✓ | — | — | — | — | — | — | Configured |
+| `waybackarchive` | ✓ | — | — | — | — | — | — | None |
+| `whoisxml` | ✓ | — | — | — | — | — | — | Configured |
+| `windvane` | ✓ | ✓ | ✓ | — | — | — | — | Configured |
+| `yahoo` | ✓ | ✓ | — | — | — | — | — | None |
+| `zoomeye` | ✓ | ✓ | ✓ | ✓ | ✓ | — | — | Configured |
 
-* hunter: Hunter search engine (https://hunter.io)
+</details>
 
-* hunterhow: Internet search engines for security researchers (https://hunter.how)
+Provider pricing is intentionally omitted because plans and quotas change frequently. See the [API-key installation guide](https://github.com/laramies/theHarvester/wiki/Installation#api-keys) and each provider's current documentation.
 
-* intelx: Intelx search engine (https://intelx.io)
+The runtime registry also reports the legacy identifiers `linkedin`, `linkedin_links`, `netcraft`, `omnisint`, `sublist3r`, and `zoomeyeapi`. They have no active CLI handlers in the current code and are therefore not presented as usable sources in this table.
 
-* leakix: LeakIX search engine (https://leakix.net)
+## Configuration
 
-* leaklookup: Data breach search engine (https://leak-lookup.com)
+On first use, theHarvester creates default configuration files under `~/.theHarvester/`. It also reads system configuration from `/etc/theHarvester/` and `/usr/local/etc/theHarvester/`.
 
-* mojeek: Mojeek search engine (https://www.mojeek.com)
+- `api-keys.yaml` stores provider credentials.
+- `proxies.yaml` configures HTTP and SOCKS5 proxies used with `-p`.
 
-* netlas: A Shodan or Censys competitor (https://app.netlas.io)
+Never commit populated configuration files, API keys, account details, or provider responses.
 
-* onyphe: Cyber defense search engine (https://www.onyphe.io)
+## Results and local data
 
-* otx: AlienVault open threat exchange (https://otx.alienvault.com)
+- Terminal output shows consolidated findings and source-specific enrichment.
+- `-f NAME` writes `NAME.json` and `NAME.xml`.
+- Screenshots are written to the directory passed to `--screenshot`.
+- Host, email, IP, and related scan records are stored in `~/.local/share/theHarvester/stash.sqlite`.
+- REST queries return JSON.
 
-* pentesttools: Cloud-based toolkit for offensive security testing, focused on web applications and network penetration testing (https://pentest-tools.com)
+Treat collected OSINT as potentially sensitive. Keep report files, screenshots, and the local database out of source control and share them only within the authorized engagement.
 
-* projecdiscovery: Actively collects and maintains internet-wide assets data, to enhance research and analyse changes around DNS for better insights (https://chaos.projectdiscovery.io)
+## Development and contributing
 
-* rapiddns: DNS query tool which make querying subdomains or sites of a same IP easy (https://rapiddns.io)
+Read [CONTRIBUTING.md](CONTRIBUTING.md) for the development setup, required checks, testing expectations, and pull-request process.
 
-* rocketreach: Access real-time verified personal/professional emails, phone numbers, and social media links (https://rocketreach.co)
+## Support and credits
 
-* securityscorecard: helps TPRM and SOC teams detect, prioritize, and remediate vendor risk across their entire supplier ecosystem at scale (https://securityscorecard.com)
-
-* securityTrails: Security Trails search engine, the world's largest repository of historical DNS data (https://securitytrails.com)
-
-* sherlockeye: Reverse Lookup & AI-Powered OSINT (https://sherlockeye.io)
-
-* -s, --shodan: Shodan search engine will search for ports and banners from discovered hosts (https://shodan.io)
-
-* subdomaincenter: A subdomain finder tool used to find subdomains of a given domain (https://www.subdomain.center)
-
-* subdomainfinderc99: A subdomain finder is a tool used to find the subdomains of a given domain (https://subdomainfinder.c99.nl)
-
-* thc: Free subdomain enumeration service with no API key required (https://ip.thc.org)
-
-* threatminer: Data mining for threat intelligence (https://www.threatminer.org)
-
-* tomba: Tomba search engine (https://tomba.io)
-
-* urlscan: A sandbox for the web that is a URL and website scanner (https://urlscan.io)
-
-* venacus: Venacus search engine (https://venacus.com)
-
-* virustotal: Domain search (https://www.virustotal.com)
-
-* whoisxml: Subdomain search (https://subdomains.whoisxmlapi.com/api/pricing)
-
-* yahoo: Yahoo search engine (https://www.yahoo.com)
-
-* windvane: Windvane search engine (https://windvane.lichoin.com)
-
-* zoomeye: China's version of Shodan (https://www.zoomeye.org)
-
-Active modules
---------------
-* DNS brute force: dictionary brute force enumeration
-* Screenshots: Take screenshots of subdomains that were found
-
-Modules that require an API key
--------------------------------
-Documentation to setup API keys can be found at - https://github.com/laramies/theHarvester/wiki/Installation#api-keys
-
-* bevigil - 50 free queries/month. 1k queries/month $50
-* brave - free plan available. Pro plans for higher limits
-* bufferoverun - 100 free queries/month. 10k/month $25
-* builtwith - 50 free queries ever. $2950/yr
-* censys - 500 credits $100
-* criminalip - 100 free queries/month. 700k/month $59
-* dehashed - 500 credts $15, 5k credits $150
-* dnsdumpster - 50 free querries/day, $49
-* dymo - free tier available, paid plans for higher limits
-* fofa - query credits 10,000/month. 100k results/month $25
-* fullhunt - 50 free queries. 200 queries $29/month, 500 queries $59 
-* github-code
-* haveibeenpwned - 10 email searches/min $4.50, 50 email searches/min $22
-* hunter - 50 free credits/month. 12k credits/yr $34
-* hunterhow - 10k free API results per 30 days. 50k API results per 30 days $10
-* intelx - free account is very limited. Business acount $2900
-* leakix - free 25 results pages, 3000 API requests/month. Bounty Hunter $29
-* leaklookup - 20 credits $10, 50 credits $20, 140 credits $50, 300 credits $100
-* mojeek - 5000 free credits $6.50, $1.30 CPM (Personal), $2.60 CPM (Startup), $3.90 CPM (Business)
-* netlas - 50 free requests/day. 1k requests $49, 10k requests $249
-* onyphe - 10M results/month $587
-* pentesttools - 5 assets netsec $95/month, 5 assets webnetsec $140/month
-* projecdiscovery - requires work email. Free monthly discovery and vulnerability scans on sign-up email domain, enterprise $
-* rocketreach - 100 email lookups/month $48, 250 email lookups/month $108
-* securityscorecard - requires a work email
-* securityTrails - 50 free queries/month. 20k queries/month $500
-* sherlockeye - Intermediate $46 month, Advanced $120 month. Enterprise available.
-* shodan - Freelancer $69 month, Small Business $359 month
-* tomba - 25 free searches/month. 1k searches/month $39, 5k searches/month $89
-* venacus - 1 free search/day. 10 searches/day $12, 30 searches/day $36
-* virustotal - 500 free lookups/day, 15.5k lookups/month. Busines accounts requires a work email
-* whoisxml - 2k queries $50, 5k queries $105
-* windvane - 100 free queries
-* zoomeye - 5 free results/day. 30/results/day $190/yr
-
-
-Comments, bugs, and requests
-----------------------------
-* [![Twitter Follow](https://img.shields.io/twitter/follow/laramies.svg?style=social&label=Follow)](https://twitter.com/laramies) Christian Martorella @laramies
-  cmartorella@edge-security.com
-* [![Twitter Follow](https://img.shields.io/twitter/follow/NotoriousRebel1.svg?style=social&label=Follow)](https://twitter.com/NotoriousRebel1) Matthew Brown @NotoriousRebel1
-* [![Twitter Follow](https://img.shields.io/twitter/follow/jay_townsend1.svg?style=social&label=Follow)](https://twitter.com/jay_townsend1) Jay "L1ghtn1ng" Townsend @jay_townsend1
-
-Main contributors
------------------
-* [![Twitter Follow](https://img.shields.io/twitter/follow/NotoriousRebel1.svg?style=social&label=Follow)](https://twitter.com/NotoriousRebel1) Matthew Brown @NotoriousRebel1
-* [![Twitter Follow](https://img.shields.io/twitter/follow/jay_townsend1.svg?style=social&label=Follow)](https://twitter.com/jay_townsend1) Jay "L1ghtn1ng" Townsend @jay_townsend1
-* [![Twitter Follow](https://img.shields.io/twitter/follow/discoverscripts.svg?style=social&label=Follow)](https://twitter.com/discoverscripts) Lee Baird @discoverscripts
-
-
-Thanks
-------
-* John Matherly - Shodan project
-* Ahmed Aboul Ela - subdomain names dictionaries (big and small)
+- Use [GitHub Issues](https://github.com/laramies/theHarvester/issues) for reproducible bugs and focused feature requests.
+- Christian Martorella created theHarvester.
+- Jay Townsend and Matthew Brown maintain and develop the project.
+- Lee Baird is a main contributor.
+- Thanks to John Matherly for Shodan and Ahmed Aboul Ela for the bundled subdomain dictionaries.
