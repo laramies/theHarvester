@@ -99,68 +99,68 @@ docker compose up --build
 
 Saved JSON reports expose separate fields for hosts, emails, IP addresses, ASNs, URLs or links, and people when those results are available. The result-type columns below describe only that consolidated CLI report. They do not include every field parsed from a provider response. Empty fields may be omitted, and reports do not retain per-source attribution.
 
-A checkmark means the current CLI can add that result type to its consolidated report. The **Separate output** column identifies REST endpoints or optional actions whose results are not part of those source columns. **Configured** means the repository provides an `api-keys.yaml` setting for that source; it does not guarantee that every provider request requires a paid key.
+A checkmark means the current CLI can add that result type to its consolidated report. The **Separate output** column identifies REST endpoints or optional actions whose results are not part of those source columns. In the **API key** column, **✓** means credentials are required, **Optional** means a key can unlock additional access, and **—** means the source has no key setting.
 
 <details>
 <summary><strong>View the source and result matrix</strong></summary>
 
-| Source | Hosts | Emails | IPs | ASNs | URLs / links | People | Separate REST/action output (not consolidated report) | API key setting |
+| Source | Hosts | Emails | IPs | ASNs | URLs / links | People | Separate REST/action output (not consolidated report) | API key |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | --- | :---: |
-| `baidu` | ✓ | ✓ | — | — | — | — | — | None |
-| `bevigil` | ✓ | — | — | — | ✓ | — | — | Configured |
-| `bitbucket` | ✓ | ✓ | — | — | — | — | — | Configured |
-| `bufferoverun` | ✓ | — | ✓ | — | — | — | — | Configured |
-| `builtwith` | ✓ | — | — | — | ✓ | — | `POST /additional/tech-stack` response | Configured |
-| `brave` | ✓ | ✓ | — | — | — | — | — | Configured |
-| `censys` | ✓ | ✓ | — | — | — | — | — | Configured |
-| `certspotter` | ✓ | — | — | — | — | — | — | None |
-| `chaos` | ✓ | — | — | — | — | — | — | Configured |
-| `commoncrawl` | ✓ | — | — | — | — | — | — | None |
-| `criminalip` | ✓ | — | ✓ | ✓ | — | — | — | Configured |
-| `crtsh` | ✓ | — | — | — | — | — | — | None |
-| `dehashed` | — | — | ✓ | — | — | — | — | Configured |
-| `dnsdumpster` | ✓ | — | ✓ | — | — | — | — | Configured |
-| `duckduckgo` | ✓ | ✓ | — | — | — | — | — | None |
-| `dymo` | ✓ | — | — | — | — | — | — | Configured |
-| `fofa` | ✓ | — | ✓ | — | — | — | — | Configured |
-| `fullhunt` | ✓ | — | — | — | — | — | — | Configured |
-| `github-code` | ✓ | ✓ | — | — | — | — | — | Configured |
-| `gitlab` | ✓ | ✓ | — | — | — | — | — | None |
-| `hackertarget` | ✓ | — | — | — | — | — | — | Configured |
-| `haveibeenpwned` | — | — | — | — | — | — | `POST /additional/breaches` response | Configured |
-| `hudsonrock` | ✓ | ✓ | ✓ | — | — | — | — | None |
-| `hunter` | ✓ | ✓ | — | — | — | — | — | Configured |
-| `hunterhow` | ✓ | — | — | — | — | — | — | Configured |
-| `intelx` | — | ✓ | — | — | ✓ | — | — | Configured |
-| `leakix` | ✓ | ✓ | — | — | — | — | — | Configured |
-| `leaklookup` | — | ✓ | — | — | — | — | `POST /additional/leaks` response | Configured |
-| `mojeek` | ✓ | ✓ | — | — | — | — | — | Configured |
-| `netlas` | ✓ | — | — | — | — | — | — | Configured |
-| `onyphe` | ✓ | — | ✓ | ✓ | — | — | — | Configured |
-| `otx` | ✓ | — | ✓ | — | — | — | — | None |
-| `pentesttools` | ✓ | — | — | — | — | — | — | Configured |
-| `projectdiscovery` | ✓ | — | — | — | — | — | — | Configured |
-| `rapiddns` | ✓ | — | — | — | — | — | — | None |
-| `robtex` | ✓ | — | ✓ | — | — | — | — | None |
-| `rocketreach` | — | ✓ | — | — | ✓ | — | — | Configured |
-| `securityscorecard` | ✓ | — | ✓ | — | — | — | `POST /additional/security-score` response | Configured |
-| `securityTrails` | ✓ | — | ✓ | — | — | — | — | Configured |
-| `sherlockeye` | ✓ | ✓ | ✓ | — | — | — | — | Configured |
-| `shodan` | ✓ | — | — | — | — | — | `-s` / `--shodan` host-enrichment output | Configured |
-| `shodanInternetDB` | ✓ | — | ✓ | — | — | — | — | None |
-| `subdomaincenter` | ✓ | — | — | — | — | — | — | None |
-| `subdomainfinderc99` | ✓ | — | — | — | — | — | — | None |
-| `thc` | ✓ | — | — | — | — | — | — | None |
-| `threatcrowd` | ✓ | — | ✓ | — | — | — | — | None |
-| `tomba` | ✓ | ✓ | — | — | — | — | — | Configured |
-| `urlscan` | ✓ | — | ✓ | ✓ | ✓ | — | — | None |
-| `venacus` | — | ✓ | ✓ | — | ✓ | ✓ | — | Configured |
-| `virustotal` | ✓ | — | — | — | — | — | — | Configured |
-| `waybackarchive` | ✓ | — | — | — | — | — | — | None |
-| `whoisxml` | ✓ | — | — | — | — | — | — | Configured |
-| `windvane` | ✓ | ✓ | ✓ | — | — | — | — | Configured |
-| `yahoo` | ✓ | ✓ | — | — | — | — | — | None |
-| `zoomeye` | ✓ | ✓ | ✓ | ✓ | ✓ | — | — | Configured |
+| `baidu` | ✓ | ✓ | — | — | — | — | — | — |
+| `bevigil` | ✓ | — | — | — | ✓ | — | — | ✓ |
+| `bitbucket` | ✓ | ✓ | — | — | — | — | — | ✓ |
+| `bufferoverun` | ✓ | — | ✓ | — | — | — | — | ✓ |
+| `builtwith` | ✓ | — | — | — | ✓ | — | `POST /additional/tech-stack` response | ✓ |
+| `brave` | ✓ | ✓ | — | — | — | — | — | ✓ |
+| `censys` | ✓ | ✓ | — | — | — | — | — | ✓ |
+| `certspotter` | ✓ | — | — | — | — | — | — | — |
+| `chaos` | ✓ | — | — | — | — | — | — | ✓ |
+| `commoncrawl` | ✓ | — | — | — | — | — | — | — |
+| `criminalip` | ✓ | — | ✓ | ✓ | — | — | — | ✓ |
+| `crtsh` | ✓ | — | — | — | — | — | — | — |
+| `dehashed` | — | — | ✓ | — | — | — | — | ✓ |
+| `dnsdumpster` | ✓ | — | ✓ | — | — | — | — | ✓ |
+| `duckduckgo` | ✓ | ✓ | — | — | — | — | — | — |
+| `dymo` | ✓ | — | — | — | — | — | — | ✓ |
+| `fofa` | ✓ | — | ✓ | — | — | — | — | ✓ |
+| `fullhunt` | ✓ | — | — | — | — | — | — | ✓ |
+| `github-code` | ✓ | ✓ | — | — | — | — | — | ✓ |
+| `gitlab` | ✓ | ✓ | — | — | — | — | — | — |
+| `hackertarget` | ✓ | — | — | — | — | — | — | Optional |
+| `haveibeenpwned` | — | — | — | — | — | — | `POST /additional/breaches` response | ✓ |
+| `hudsonrock` | ✓ | ✓ | ✓ | — | — | — | — | — |
+| `hunter` | ✓ | ✓ | — | — | — | — | — | ✓ |
+| `hunterhow` | ✓ | — | — | — | — | — | — | ✓ |
+| `intelx` | — | ✓ | — | — | ✓ | — | — | ✓ |
+| `leakix` | ✓ | ✓ | — | — | — | — | — | Optional |
+| `leaklookup` | — | ✓ | — | — | — | — | `POST /additional/leaks` response | ✓ |
+| `mojeek` | ✓ | ✓ | — | — | — | — | — | Optional |
+| `netlas` | ✓ | — | — | — | — | — | — | ✓ |
+| `onyphe` | ✓ | — | ✓ | ✓ | — | — | — | ✓ |
+| `otx` | ✓ | — | ✓ | — | — | — | — | — |
+| `pentesttools` | ✓ | — | — | — | — | — | — | ✓ |
+| `projectdiscovery` | ✓ | — | — | — | — | — | — | ✓ |
+| `rapiddns` | ✓ | — | — | — | — | — | — | — |
+| `robtex` | ✓ | — | ✓ | — | — | — | — | — |
+| `rocketreach` | — | ✓ | — | — | ✓ | — | — | ✓ |
+| `securityscorecard` | ✓ | — | ✓ | — | — | — | `POST /additional/security-score` response | ✓ |
+| `securityTrails` | ✓ | — | ✓ | — | — | — | — | ✓ |
+| `sherlockeye` | ✓ | ✓ | ✓ | — | — | — | — | ✓ |
+| `shodan` | ✓ | — | — | — | — | — | `-s` / `--shodan` host-enrichment output | ✓ |
+| `shodanInternetDB` | ✓ | — | ✓ | — | — | — | — | — |
+| `subdomaincenter` | ✓ | — | — | — | — | — | — | — |
+| `subdomainfinderc99` | ✓ | — | — | — | — | — | — | — |
+| `thc` | ✓ | — | — | — | — | — | — | — |
+| `threatcrowd` | ✓ | — | ✓ | — | — | — | — | — |
+| `tomba` | ✓ | ✓ | — | — | — | — | — | ✓ |
+| `urlscan` | ✓ | — | ✓ | ✓ | ✓ | — | — | — |
+| `venacus` | — | ✓ | ✓ | — | ✓ | ✓ | — | ✓ |
+| `virustotal` | ✓ | — | — | — | — | — | — | ✓ |
+| `waybackarchive` | ✓ | — | — | — | — | — | — | — |
+| `whoisxml` | ✓ | — | — | — | — | — | — | ✓ |
+| `windvane` | ✓ | ✓ | ✓ | — | — | — | — | Optional |
+| `yahoo` | ✓ | ✓ | — | — | — | — | — | — |
+| `zoomeye` | ✓ | ✓ | ✓ | ✓ | ✓ | — | — | ✓ |
 
 </details>
 
@@ -187,6 +187,51 @@ Never commit populated configuration files, API keys, account details, or provid
 
 Treat collected OSINT as potentially sensitive. Keep report files, screenshots, and the local database out of source control and share them only within the authorized engagement.
 
+### Report formats
+
+The JSON report is a single object and is the more complete format for automation. Host entries may be plain hostnames or `hostname:IP` pairs when DNS resolution is enabled.
+
+| Field | Availability | Contents |
+| --- | --- | --- |
+| `cmd` | Always | Command-line arguments used for the run. |
+| `hosts` | Always | Discovered hosts; an empty array when none are found. |
+| `shodan` | Always | Shodan enrichment rows; an empty array when Shodan is not used. |
+| `ips`, `emails`, `vhosts`, `asns` | When non-empty | Network and contact findings. |
+| `interesting_urls`, `trello_urls`, `linkedin_links` | When non-empty | Discovered links and URLs. |
+| `people`, `twitter_people`, `linkedin_people` | When non-empty | People and profile findings. |
+| `takeover_results` | When non-empty | Optional takeover-check results. |
+
+The XML report contains the command, emails, hosts, and virtual hosts. Use JSON when you need the additional result types above.
+
+List discovered hosts with [`jq`](https://jqlang.org/):
+
+```bash
+jq -r '.hosts[]?' report.json
+```
+
+Count common result types while safely handling omitted fields:
+
+```bash
+jq '{
+  hosts: (.hosts // [] | length),
+  emails: (.emails // [] | length),
+  ips: (.ips // [] | length),
+  asns: (.asns // [] | length)
+}' report.json
+```
+
+Export common findings as tab-separated values:
+
+```bash
+jq -r '(
+  ["type", "value"],
+  (.hosts[]? | ["host", .]),
+  (.emails[]? | ["email", .]),
+  (.ips[]? | ["ip", .]),
+  (.asns[]? | ["asn", .])
+) | @tsv' report.json > findings.tsv
+```
+
 ## Development and contributing
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) for the development setup, required checks, testing expectations, and pull-request process.
@@ -196,6 +241,6 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) for the development setup, required chec
 - Use [GitHub Issues](https://github.com/laramies/theHarvester/issues) for reproducible bugs and focused feature requests.
 - Report suspected vulnerabilities according to [SECURITY.md](SECURITY.md), not in public issues.
 - Christian Martorella created theHarvester.
-- Jay Townsend and Matthew Brown maintain and develop the project.
+- Jay Townsend and Matt Brown maintain and develop the project.
 - Lee Baird is a main contributor.
 - Thanks to John Matherly for Shodan and Ahmed Aboul Ela for the bundled subdomain dictionaries.

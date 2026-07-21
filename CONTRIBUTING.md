@@ -91,4 +91,4 @@ Use a draft pull request when work is incomplete or verification is still pendin
 
 ## Security-sensitive reports
 
-Do not disclose suspected vulnerabilities in theHarvester, exploit details, credentials, or sensitive collected data in a public issue. Until the project publishes a private reporting channel, open a minimal issue asking the maintainers how to report the problem privately without including vulnerability details.
+Follow [SECURITY.md](SECURITY.md) when reporting a suspected vulnerability. Do not include vulnerability details, credentials, or sensitive collected data in a public issue or pull request.

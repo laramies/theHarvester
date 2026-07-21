@@ -3,6 +3,8 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+import yaml
+
 RESULT_COLUMNS = ('Hosts', 'Emails', 'IPs', 'ASNs', 'URLs / links', 'People')
 STORE_RESULT_COLUMNS = {
     'store_host': {'Hosts'},
@@ -19,6 +21,12 @@ UNAVAILABLE_STORE_RESULTS = {
     'haveibeenpwned': {'Emails'},  # The adapter never populates its email set.
     'netlas': {'IPs'},  # The adapter has no get_ips() method.
     'securityscorecard': {'ASNs', 'URLs / links'},  # The adapter has neither getter.
+}
+OPTIONAL_API_KEY_SOURCES = {'hackertarget', 'leakix', 'mojeek', 'windvane'}
+API_KEY_SOURCE_ALIASES = {
+    'github': {'github-code'},
+    'pentestTools': {'pentesttools'},
+    'projectDiscovery': {'chaos', 'projectdiscovery'},
 }
 
 
@@ -62,18 +70,32 @@ def _executable_source_contracts() -> dict[str, set[str]]:
     return contracts
 
 
-def _documented_source_contracts(readme: str) -> dict[str, set[str]]:
+def _documented_source_rows(readme: str) -> dict[str, list[str]]:
     matrix = readme.split('<summary><strong>View the source and result matrix</strong></summary>', 1)[1].split('</details>', 1)[0]
-    contracts: dict[str, set[str]] = {}
+    rows: dict[str, list[str]] = {}
     for line in matrix.splitlines():
-        if not line.startswith('| `'):
-            continue
-        cells = [cell.strip() for cell in line.strip('|').split('|')]
-        source = cells[0].strip('`')
-        markers = cells[1:7]
+        if line.startswith('| `'):
+            cells = [cell.strip() for cell in line.strip('|').split('|')]
+            rows[cells[0].strip('`')] = cells[1:]
+    return rows
+
+
+def _documented_source_contracts(readme: str) -> dict[str, set[str]]:
+    contracts: dict[str, set[str]] = {}
+    for source, cells in _documented_source_rows(readme).items():
+        markers = cells[:6]
         assert set(markers) <= {'✓', '—'}
         contracts[source] = {column for column, marker in zip(RESULT_COLUMNS, markers, strict=True) if marker == '✓'}
     return contracts
+
+
+def _documented_api_key_requirements(readme: str) -> dict[str, str]:
+    return {source: cells[-1] for source, cells in _documented_source_rows(readme).items()}
+
+
+def _configured_api_key_sources() -> set[str]:
+    configured = yaml.safe_load(Path('theHarvester/data/api-keys.yaml').read_text())['apikeys']
+    return set().union(*(API_KEY_SOURCE_ALIASES.get(source, {source}) for source in configured))
 
 
 def test_readme_matches_executable_source_contracts() -> None:
@@ -85,3 +107,11 @@ def test_readme_matches_executable_source_contracts() -> None:
     assert len(documented) == 55
     assert documented == executable
     assert {'securitytrails', 'shodaninternetdb'}.isdisjoint(documented)
+
+
+def test_readme_api_key_markers_match_configuration() -> None:
+    requirements = _documented_api_key_requirements(Path('README.md').read_text())
+
+    assert set(requirements.values()) <= {'✓', 'Optional', '—'}
+    assert {source for source, marker in requirements.items() if marker != '—'} == _configured_api_key_sources()
+    assert {source for source, marker in requirements.items() if marker == 'Optional'} == OPTIONAL_API_KEY_SOURCES
