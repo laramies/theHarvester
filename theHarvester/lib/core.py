@@ -409,6 +409,8 @@ class AsyncFetcher:
 
     @property
     def proxy_list(self) -> dict:
+        """Load and cache proxies on first use instead of during module import."""
+
         proxy_list = self.__class__._proxy_list
         if proxy_list is None:
             proxy_list = Core.proxy_list()

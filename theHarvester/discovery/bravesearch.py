@@ -9,6 +9,15 @@ from theHarvester.parsers import myparser
 
 
 class SearchBrave:
+    """Search Brave while allowing credentials to be supplied without file access.
+
+    Provider API:
+    https://api-dashboard.search.brave.com/app/documentation/web-search/query
+
+    Filesystem credentials remain the production default; injection keeps tests and
+    embedded use independent of operator configuration files.
+    """
+
     def __init__(self, word: str, limit: int, credential_adapter: CredentialAdapter | None = None) -> None:
         self.word = word
         self.results: list[dict[str, Any]] = []
