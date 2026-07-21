@@ -31,16 +31,16 @@ Use a short branch name that describes the change, such as `fix/certspotter-pagi
 ## Make a focused change
 
 - Match the surrounding code and reuse existing configuration, transport, parsing, and result-normalization helpers.
-- Add a regression test for a bug fix and focused tests for new behavior.
+- Tests are especially helpful for bug fixes and new behavior, but they are not required for every contribution. If you can add one, start with the nearest existing test.
 - Use descriptive names and type annotations where they improve the changed code.
 - Do not add dependencies or configuration options unless the change requires them.
 - You are responsible for every submitted change, including AI-assisted code. Read it, understand it, and test it before opening a pull request.
 
 ### Discovery providers
 
-New or changed discovery providers need focused pytest coverage with mocked HTTP, DNS, and provider responses. Tests must not require API keys or external network access.
+If you can add coverage for a new or changed discovery provider, keep it focused and mock HTTP, DNS, and provider responses. Tests must not require API keys or external network access. [The Baidu discovery tests](tests/discovery/test_baidusearch.py) are a small example you can copy and adapt.
 
-Cover the behavior relevant to the change, including:
+Useful cases include:
 
 - missing credentials and configuration;
 - non-success responses, timeouts, and malformed or empty data;
