@@ -194,6 +194,7 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) for the development setup, required chec
 ## Support and credits
 
 - Use [GitHub Issues](https://github.com/laramies/theHarvester/issues) for reproducible bugs and focused feature requests.
+- Report suspected vulnerabilities according to [SECURITY.md](SECURITY.md), not in public issues.
 - Christian Martorella created theHarvester.
 - Jay Townsend and Matthew Brown maintain and develop the project.
 - Lee Baird is a main contributor.
