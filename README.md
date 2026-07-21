@@ -12,7 +12,7 @@ It is built for the early reconnaissance stage of authorized security assessment
 ## Why theHarvester
 
 - **Broad discovery coverage:** combine many independent sources in one run instead of querying each provider manually.
-- **Useful result types:** collect hostnames, email addresses, IP addresses, URLs, ASNs, people, and source-specific metadata.
+- **Useful result types:** collect hostnames, email addresses, IP addresses, URLs, ASNs, and people.
 - **Enrichment after discovery:** optionally resolve DNS, query Shodan, check for subdomain takeovers, brute-force DNS names, scan common API paths, and capture screenshots.
 - **CLI and browser-accessible API:** use the command line interactively or run the FastAPI service for automation and interactive Swagger/ReDoc documentation.
 - **Repeatable output:** print results, write JSON and XML reports, and retain host, email, and IP findings in a local SQLite database.
@@ -97,20 +97,20 @@ docker compose up --build
 
 ## Discovery sources
 
-Saved JSON reports expose separate fields for hosts, emails, IP addresses, ASNs, URLs or links, and people when those results are available. The matrix below reflects the current source-to-report wiring, not every field present in a provider response. Empty fields may be omitted, and reports do not retain per-source attribution.
+Saved JSON reports expose separate fields for hosts, emails, IP addresses, ASNs, URLs or links, and people when those results are available. The result-type columns below describe only that consolidated CLI report. They do not include every field parsed from a provider response. Empty fields may be omitted, and reports do not retain per-source attribution.
 
-A checkmark means the current CLI can add that result type to its consolidated report. **Configured** means the repository provides an `api-keys.yaml` setting for that source; it does not guarantee that every provider request requires a paid key.
+A checkmark means the current CLI can add that result type to its consolidated report. The **Separate output** column identifies REST endpoints or optional actions whose results are not part of those source columns. **Configured** means the repository provides an `api-keys.yaml` setting for that source; it does not guarantee that every provider request requires a paid key.
 
 <details>
 <summary><strong>View the source and result matrix</strong></summary>
 
-| Source | Hosts | Emails | IPs | ASNs | URLs / links | People | Other exposed data | API key setting |
+| Source | Hosts | Emails | IPs | ASNs | URLs / links | People | Separate REST/action output (not consolidated report) | API key setting |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | --- | :---: |
 | `baidu` | ✓ | ✓ | — | — | — | — | — | None |
 | `bevigil` | ✓ | — | — | — | ✓ | — | — | Configured |
 | `bitbucket` | ✓ | ✓ | — | — | — | — | — | Configured |
 | `bufferoverun` | ✓ | — | ✓ | — | — | — | — | Configured |
-| `builtwith` | ✓ | — | — | — | ✓ | — | Technology data through REST API | Configured |
+| `builtwith` | ✓ | — | — | — | ✓ | — | `POST /additional/tech-stack` response | Configured |
 | `brave` | ✓ | ✓ | — | — | — | — | — | Configured |
 | `censys` | ✓ | ✓ | — | — | — | — | — | Configured |
 | `certspotter` | ✓ | — | — | — | — | — | — | None |
@@ -127,13 +127,13 @@ A checkmark means the current CLI can add that result type to its consolidated r
 | `github-code` | ✓ | ✓ | — | — | — | — | — | Configured |
 | `gitlab` | ✓ | ✓ | — | — | — | — | — | None |
 | `hackertarget` | ✓ | — | — | — | — | — | — | Configured |
-| `haveibeenpwned` | — | — | — | — | — | — | Breach data through REST API | Configured |
-| `hudsonrock` | ✓ | ✓ | ✓ | — | — | — | Infostealer exposure | None |
+| `haveibeenpwned` | — | — | — | — | — | — | `POST /additional/breaches` response | Configured |
+| `hudsonrock` | ✓ | ✓ | ✓ | — | — | — | — | None |
 | `hunter` | ✓ | ✓ | — | — | — | — | — | Configured |
 | `hunterhow` | ✓ | — | — | — | — | — | — | Configured |
 | `intelx` | — | ✓ | — | — | ✓ | — | — | Configured |
 | `leakix` | ✓ | ✓ | — | — | — | — | — | Configured |
-| `leaklookup` | — | ✓ | — | — | — | — | Leak data through REST API | Configured |
+| `leaklookup` | — | ✓ | — | — | — | — | `POST /additional/leaks` response | Configured |
 | `mojeek` | ✓ | ✓ | — | — | — | — | — | Configured |
 | `netlas` | ✓ | — | — | — | — | — | — | Configured |
 | `onyphe` | ✓ | — | ✓ | ✓ | — | — | — | Configured |
@@ -143,11 +143,11 @@ A checkmark means the current CLI can add that result type to its consolidated r
 | `rapiddns` | ✓ | — | — | — | — | — | — | None |
 | `robtex` | ✓ | — | ✓ | — | — | — | — | None |
 | `rocketreach` | — | ✓ | — | — | ✓ | — | — | Configured |
-| `securityscorecard` | ✓ | — | ✓ | — | — | — | Score through REST API | Configured |
+| `securityscorecard` | ✓ | — | ✓ | — | — | — | `POST /additional/security-score` response | Configured |
 | `securityTrails` | ✓ | — | ✓ | — | — | — | — | Configured |
 | `sherlockeye` | ✓ | ✓ | ✓ | — | — | — | — | Configured |
-| `shodan` | ✓ | — | — | — | — | — | Host intelligence; `-s` enriches discovered hosts | Configured |
-| `shodanInternetDB` | ✓ | — | ✓ | — | — | — | InternetDB host intelligence | None |
+| `shodan` | ✓ | — | — | — | — | — | `-s` / `--shodan` host-enrichment output | Configured |
+| `shodanInternetDB` | ✓ | — | ✓ | — | — | — | — | None |
 | `subdomaincenter` | ✓ | — | — | — | — | — | — | None |
 | `subdomainfinderc99` | ✓ | — | — | — | — | — | — | None |
 | `thc` | ✓ | — | — | — | — | — | — | None |
@@ -179,7 +179,7 @@ Never commit populated configuration files, API keys, account details, or provid
 
 ## Results and local data
 
-- Terminal output shows consolidated findings and source-specific enrichment.
+- Terminal output shows consolidated findings. Separately selected actions, such as `-s` / `--shodan`, may print their own enrichment.
 - `-f NAME` writes `NAME.json` and `NAME.xml`.
 - Screenshots are written to the directory passed to `--screenshot`.
 - Host, email, IP, and related scan records are stored in `~/.local/share/theHarvester/stash.sqlite`.
