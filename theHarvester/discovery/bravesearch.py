@@ -1,17 +1,29 @@
 import asyncio
+from typing import Any
 from urllib.parse import quote
 
 from theHarvester.discovery.constants import MissingKey, get_delay
-from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.configuration import CredentialAdapter, FileSystemCredentialAdapter
+from theHarvester.lib.core import AsyncFetcher
 from theHarvester.parsers import myparser
 
 
 class SearchBrave:
-    def __init__(self, word, limit):
+    """Search Brave while allowing credentials to be supplied without file access.
+
+    Provider API:
+    https://api-dashboard.search.brave.com/app/documentation/web-search/query
+
+    Filesystem credentials remain the production default; injection keeps tests and
+    embedded use independent of operator configuration files.
+    """
+
+    def __init__(self, word: str, limit: int, credential_adapter: CredentialAdapter | None = None) -> None:
         self.word = word
-        self.results = []
+        self.results: list[dict[str, Any]] = []
         self.totalresults = ''
-        self.api_key = Core.brave_key()
+        credentials = credential_adapter if credential_adapter is not None else FileSystemCredentialAdapter()
+        self.api_key = credentials.get('brave')
         if self.api_key is None or self.api_key == '':
             raise MissingKey('Brave Search')
         self.server = 'https://api.search.brave.com/res/v1/web/search'

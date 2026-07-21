@@ -109,10 +109,6 @@ class Core:
         return Core._api_key_value('bitbucket')
 
     @staticmethod
-    def brave_key() -> str:
-        return Core._api_key_value('brave')
-
-    @staticmethod
     def bufferoverun_key() -> str:
         return Core._api_key_value('bufferoverun')
 
@@ -409,7 +405,17 @@ class Core:
 
 
 class AsyncFetcher:
-    proxy_list = Core.proxy_list()
+    _proxy_list: ClassVar[dict | None] = None
+
+    @property
+    def proxy_list(self) -> dict:
+        """Load and cache proxies on first use instead of during module import."""
+
+        proxy_list = self.__class__._proxy_list
+        if proxy_list is None:
+            proxy_list = Core.proxy_list()
+            self.__class__._proxy_list = proxy_list
+        return proxy_list
 
     @staticmethod
     def _default_headers(headers: dict[str, str] | None = None) -> dict[str, str]:
