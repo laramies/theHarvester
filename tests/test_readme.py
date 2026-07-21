@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import re
 from pathlib import Path
 
 import yaml
@@ -27,6 +28,22 @@ API_KEY_SOURCE_ALIASES = {
     'github': {'github-code'},
     'pentestTools': {'pentesttools'},
     'projectDiscovery': {'chaos', 'projectdiscovery'},
+}
+WIKI_PAGES = {
+    'Configuration-and-API-Keys.md',
+    'Contributing-and-Security.md',
+    'Home.md',
+    'How-to-add-a-new-module.md',
+    'Installation.md',
+    'Operator-Workflows.md',
+    'Quick-Start.md',
+    'Responsible-Use-and-Scope.md',
+    'Rest-API.md',
+    'Results-and-Local-Data.md',
+    'Roadmap.md',
+    'Troubleshooting.md',
+    '_Footer.md',
+    '_Sidebar.md',
 }
 
 
@@ -115,3 +132,21 @@ def test_readme_api_key_markers_match_configuration() -> None:
     assert set(requirements.values()) <= {'✓', 'Optional', '—'}
     assert {source for source, marker in requirements.items() if marker != '—'} == _configured_api_key_sources()
     assert {source for source, marker in requirements.items() if marker == 'Optional'} == OPTIONAL_API_KEY_SOURCES
+
+
+def test_wiki_navigation_and_readme_links_resolve() -> None:
+    wiki_dir = Path('docs/wiki')
+    assert {path.name for path in wiki_dir.glob('*.md')} == WIKI_PAGES
+
+    for page in wiki_dir.glob('*.md'):
+        local_links = {
+            target.split('#', 1)[0]
+            for target in re.findall(r'\]\(([^)]+)\)', page.read_text())
+            if '://' not in target and not target.startswith('mailto:')
+        }
+        assert {f'{target}.md' for target in local_links} <= WIKI_PAGES
+
+    readme = Path('README.md').read_text()
+    readme_wiki_links = re.findall(r'\]\((docs/wiki/[^)]+)\)', readme)
+    assert readme_wiki_links
+    assert all(Path(target).is_file() for target in readme_wiki_links)

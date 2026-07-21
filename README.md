@@ -32,7 +32,7 @@ uv sync
 uv run theHarvester -d example.com -b crtsh,certspotter
 ```
 
-See the [installation guide](https://github.com/laramies/theHarvester/wiki/Installation) for platform-specific setup and packaged distributions.
+See the [installation guide](docs/wiki/Installation.md) for platform-specific setup and packaged distributions.
 
 ## Common workflows
 
@@ -48,10 +48,11 @@ Save both JSON and XML reports:
 uv run theHarvester -d example.com -b crtsh,certspotter -f report
 ```
 
-Resolve discovered hosts with the default resolver list:
+Resolve discovered hosts for an authorized domain with the default resolver list:
 
 ```bash
-uv run theHarvester -d example.com -b crtsh,certspotter -r
+AUTHORIZED_DOMAIN='replace-with-a-domain-you-control'
+uv run theHarvester -d "$AUTHORIZED_DOMAIN" -b crtsh,certspotter -r
 ```
 
 List every option and its current behavior:
@@ -164,7 +165,7 @@ A checkmark means the current CLI can add that result type to its consolidated r
 
 </details>
 
-Provider pricing is intentionally omitted because plans and quotas change frequently. See the [API-key installation guide](https://github.com/laramies/theHarvester/wiki/Installation#api-keys) and each provider's current documentation.
+Provider pricing is intentionally omitted because plans and quotas change frequently. See [Configuration and API Keys](docs/wiki/Configuration-and-API-Keys.md) and each provider's current documentation.
 
 The runtime registry also reports the legacy identifiers `linkedin`, `linkedin_links`, `netcraft`, `omnisint`, `sublist3r`, and `zoomeyeapi`. They have no active CLI handlers in the current code and are therefore not presented as usable sources in this table.
 
