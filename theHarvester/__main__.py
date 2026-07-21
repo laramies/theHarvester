@@ -1241,7 +1241,7 @@ async def start(rest_args: argparse.Namespace | None = None):
 
                 elif engineitem == 'virustotal':
                     try:
-                        virustotal_search = virustotal.SearchVirustotal(word)
+                        virustotal_search = virustotal.SearchVirustotal(word, limit)
                         stor_lst.append(store(virustotal_search, engineitem, store_host=True))
                     except Exception as e:
                         if isinstance(e, MissingKey):
