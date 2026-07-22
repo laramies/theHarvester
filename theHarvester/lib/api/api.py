@@ -4,7 +4,6 @@ import ipaddress
 import logging
 import os
 import socket
-import traceback
 from typing import Annotated, Any, cast
 
 from fastapi import FastAPI, Header, HTTPException, Query, Request, status
@@ -186,9 +185,7 @@ async def getsources(request: Request) -> Response:
         sources = __main__.Core.get_supportedengines()
         return JSONResponse({'sources': sources})
     except Exception as e:
-        # Log the error and return a detailed error response
-        error_traceback = traceback.format_exc()
-        logger.info(f'Error in getsources endpoint: {e!s}\n{error_traceback}')
+        logger.exception('Error in getsources endpoint')
 
         return JSONResponse(
             {
@@ -265,9 +262,7 @@ async def dnsbrute(
         # Re-raise HTTP exceptions
         raise e
     except Exception as e:
-        # Log the error and return a detailed error response
-        error_traceback = traceback.format_exc()
-        logger.info(f'Error in dnsbrute endpoint: {e!s}\n{error_traceback}')
+        logger.exception('Error in dnsbrute endpoint')
 
         return JSONResponse(
             {
@@ -384,9 +379,7 @@ async def query(
         # Re-raise HTTP exceptions
         raise e
     except Exception as e:
-        # Log the error and return a detailed error response
-        error_traceback = traceback.format_exc()
-        logger.info(f'Error in query endpoint: {e!s}\n{error_traceback}')
+        logger.exception('Error in query endpoint')
 
         return JSONResponse(
             {

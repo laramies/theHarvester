@@ -19,10 +19,13 @@ class _OperatorOutputHandler(logging.Handler):
 
 
 output_logger = logging.getLogger('theHarvester.output')
+_package_logger_level_before_verbose: int | None = None
 
 
 def configure_logging(*, verbose: bool) -> None:
     """Configure CLI diagnostics without taking ownership from an embedding host."""
+    global _package_logger_level_before_verbose
+
     if not any(isinstance(handler, _OperatorOutputHandler) for handler in output_logger.handlers):
         output_logger.addHandler(_OperatorOutputHandler())
     output_logger.setLevel(logging.INFO)
@@ -35,8 +38,15 @@ def configure_logging(*, verbose: bool) -> None:
         root_logger.addHandler(handler)
         root_logger.setLevel(logging.WARNING)
 
-    if verbose:
-        logging.getLogger('theHarvester').setLevel(logging.INFO)
+    package_logger = logging.getLogger('theHarvester')
+    if verbose and package_logger.level != logging.INFO:
+        if _package_logger_level_before_verbose is None:
+            _package_logger_level_before_verbose = package_logger.level
+        package_logger.setLevel(logging.INFO)
+    elif not verbose and _package_logger_level_before_verbose is not None:
+        if package_logger.level == logging.INFO:
+            package_logger.setLevel(_package_logger_level_before_verbose)
+        _package_logger_level_before_verbose = None
 
 
 def sorted_unique[T: Hashable](items: Iterable[T]) -> list[T]:

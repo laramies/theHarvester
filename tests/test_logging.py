@@ -93,6 +93,80 @@ def test_diagnostics_use_stderr_only_when_verbose() -> None:
     assert 'INFO theHarvester.discovery.example: visible diagnostic' in result.stderr
 
 
+def test_verbose_logging_restores_the_package_level() -> None:
+    result = run_python(
+        """
+        import logging
+        import sys
+        from theHarvester.lib.output import configure_logging
+
+        package_logger = logging.getLogger('theHarvester')
+        configure_logging(verbose=False)
+        levels = [package_logger.getEffectiveLevel()]
+        configure_logging(verbose=True)
+        levels.append(package_logger.getEffectiveLevel())
+        configure_logging(verbose=False)
+        levels.append(package_logger.getEffectiveLevel())
+        sys.stdout.write(repr(levels) + '\\n')
+        """
+    )
+
+    assert result.stdout == f'[{logging.WARNING}, {logging.INFO}, {logging.WARNING}]\n'
+
+
+def test_verbose_logging_does_not_overwrite_a_later_host_level() -> None:
+    result = run_python(
+        """
+        import logging
+        import sys
+        from theHarvester.lib.output import configure_logging
+
+        package_logger = logging.getLogger('theHarvester')
+        configure_logging(verbose=True)
+        package_logger.setLevel(logging.ERROR)
+        configure_logging(verbose=False)
+        sys.stdout.write(str(package_logger.level) + '\\n')
+        """
+    )
+
+    assert result.stdout == f'{logging.ERROR}\n'
+
+
+def test_rest_errors_are_visible_with_uvicorn_logging() -> None:
+    result = run_python(
+        """
+        import logging.config
+        import sys
+        from unittest.mock import AsyncMock, patch
+
+        from fastapi.testclient import TestClient
+        from uvicorn.config import LOGGING_CONFIG
+
+        logging.config.dictConfig(LOGGING_CONFIG)
+
+        from theHarvester.lib.api import api
+
+        client = TestClient(api.app)
+        statuses = []
+        with patch.object(api.__main__.Core, 'get_supportedengines', side_effect=RuntimeError('sources failure')):
+            statuses.append(client.get('/sources').status_code)
+        with patch.object(api.__main__, 'start', AsyncMock(side_effect=RuntimeError('dnsbrute failure'))):
+            statuses.append(client.get('/dnsbrute?domain=example.com').status_code)
+        with (
+            patch.object(api.__main__.Core, 'get_supportedengines', return_value=['baidu']),
+            patch.object(api.__main__, 'start', AsyncMock(side_effect=RuntimeError('query failure'))),
+        ):
+            statuses.append(client.get('/query?domain=example.com&source=baidu').status_code)
+        sys.stdout.write(repr(statuses) + '\\n')
+        """
+    )
+
+    assert result.stdout == '[500, 500, 500]\n'
+    assert 'Error in getsources endpoint' in result.stderr
+    assert 'Error in dnsbrute endpoint' in result.stderr
+    assert 'Error in query endpoint' in result.stderr
+
+
 def test_verbose_enables_info_diagnostics(tmp_path: Path) -> None:
     script = """import asyncio
 import logging
