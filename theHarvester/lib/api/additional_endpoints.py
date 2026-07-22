@@ -17,7 +17,7 @@ class DomainRequest(BaseModel):
 
 
 def _raise_processing_error(endpoint: str, exc: Exception) -> NoReturn:
-    logger.exception('Error processing additional API endpoint %s', endpoint)
+    logger.exception(f'Error processing additional API endpoint {endpoint}')
     raise HTTPException(status_code=500, detail='An error occurred while processing your request') from exc
 
 

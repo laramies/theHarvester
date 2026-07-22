@@ -1,8 +1,11 @@
+import logging
 from typing import Any, ClassVar
 from urllib.parse import quote
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import AsyncFetcher, Core
+
+logger = logging.getLogger(__name__)
 
 
 class SearchFullHunt:
@@ -391,7 +394,7 @@ class SearchFullHunt:
                 await self.extract_data_from_search_results(search_results)
 
         except Exception as e:
-            print(f'Error during FullHunt search: {e}')
+            logger.info(f'Error during FullHunt search: {e}')
 
     async def get_hostnames(self) -> list[str]:
         """Return list of discovered subdomains"""

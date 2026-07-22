@@ -1,7 +1,11 @@
+import logging
+
 from bs4 import BeautifulSoup
 from bs4.element import Tag
 
 from theHarvester.lib.core import AsyncFetcher, Core
+
+logger = logging.getLogger(__name__)
 
 
 class SearchRapidDns:
@@ -42,7 +46,7 @@ class SearchRapidDns:
                             self.total_results.append(f'{subdomain}:{str(cells[1].get_text()).strip()}')
                 self.total_results = list({domain for domain in self.total_results})
         except Exception as e:
-            print(f'An exception has occurred: {e!s}')
+            logger.info(f'An exception has occurred: {e!s}')
 
     async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy

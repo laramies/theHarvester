@@ -30,16 +30,7 @@ class SearchSubdomainfinderc99:
         await asyncio.sleep(get_delay())
         second_resp = await AsyncFetcher.post_fetch(self.server, headers=headers, proxy=self.proxy, data=ujson.dumps(data))
 
-        # print(second_resp)
         self.totalresults += second_resp
-        # y = await self.get_hostnames()
-        # print(list(sorted(y)))
-        # print(f'Found: {len(y)} subdomains')
-
-        # regex = r"value='(https://subdomainfinder\.c99\.nl/scans/\d{4}-\d{2}-\d{2}/" + self.word + r")'"
-        # match = re.search(regex, second_resp)
-        # if match:
-        #     print(match.group(1))
 
     async def get_hostnames(self):
         rawres = myparser.Parser(self.totalresults, self.word)

@@ -1,7 +1,10 @@
 import asyncio
+import logging
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import AsyncFetcher, Core
+
+logger = logging.getLogger(__name__)
 
 
 class SearchTomba:
@@ -53,9 +56,11 @@ class SearchTomba:
             total_number_reqs = response[0]['data']['total'] // 100
             # Parse out meta field within initial JSON response to determine the total number of results
             if total_requests_avail < total_number_reqs:
-                print('WARNING: The account does not have enough requests to gather all the emails.')
-                print(f'Total requests available: {total_requests_avail}, total requests needed to be made: {total_number_reqs}')
-                print(
+                logger.info('WARNING: The account does not have enough requests to gather all the emails.')
+                logger.info(
+                    f'Total requests available: {total_requests_avail}, total requests needed to be made: {total_number_reqs}'
+                )
+                logger.info(
                     'RETURNING current results, If you still wish to run this module despite the current results, please comment out the "if request" line.'
                 )
                 return

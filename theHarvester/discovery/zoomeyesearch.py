@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import math
 import re
 from collections.abc import Iterable
@@ -7,6 +8,8 @@ from typing import Any
 from theHarvester.discovery.constants import MissingKey, get_delay
 from theHarvester.lib.core import AsyncFetcher, Core
 from theHarvester.parsers import myparser
+
+logger = logging.getLogger(__name__)
 
 
 class SearchZoomEye:
@@ -76,7 +79,7 @@ class SearchZoomEye:
                 # some responses put HTTP-like code here
                 return resp.get('status') in (0, 200)
         except Exception as e:
-            print(f'An error occurred while trying to parse {resp} : {e}')
+            logger.info(f'ZoomEye response status parsing failed with {type(e).__name__}')
             return False
 
         # If no explicit status, assume success and let parsing validate
@@ -95,9 +98,9 @@ class SearchZoomEye:
             try:
                 return int(payload['available'])
             except ValueError:
-                print('Payload availablity is not a integer')
+                logger.info('Payload availablity is not a integer')
             except Exception as e:
-                print(f'An error occurred in page_total_from_payload : {e}')
+                logger.info(f'An error occurred in page_total_from_payload : {e}')
         total_results = payload.get('total') or payload.get('count') or payload.get('total_count')
         if isinstance(total_results, int) and total_results >= 0:
             size = payload.get('size') or page_size
@@ -350,7 +353,7 @@ class SearchZoomEye:
 
             except Exception as e:
                 # Continue processing other matches instead of failing completely
-                print(f'ZoomEye parsing error: {e}')
+                logger.info(f'ZoomEye parsing error: {e}')
 
         return hostnames, emails, ips, asns, iurls
 

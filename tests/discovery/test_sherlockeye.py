@@ -1,3 +1,4 @@
+import logging
 import sys
 import types
 
@@ -99,14 +100,14 @@ async def test_process_extracts_domain_intelligence(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_process_handles_api_error(monkeypatch) -> None:
+async def test_process_handles_api_error(monkeypatch, caplog) -> None:
     monkeypatch.setattr(sherlockeye.Core, 'sherlockeye_key', lambda: 'dummy-key')
 
     class _FakeResponse:
         status = 401
 
         async def text(self):
-            return '{"success":false,"errorCode":"UNAUTHORIZED","message":"Invalid bearer token"}'
+            return 'provider-secret-payload'
 
         async def __aenter__(self):
             return self
@@ -128,6 +129,7 @@ async def test_process_handles_api_error(monkeypatch) -> None:
             pass
 
     monkeypatch.setattr(sherlockeye.aiohttp, 'ClientSession', _FakeSession)
+    caplog.set_level(logging.INFO, logger=sherlockeye.__name__)
 
     search = sherlockeye.SearchSherlockeye('example.com')
     await search.process()
@@ -135,3 +137,43 @@ async def test_process_handles_api_error(monkeypatch) -> None:
     assert await search.get_hostnames() == set()
     assert await search.get_emails() == set()
     assert await search.get_ips() == set()
+    assert 'provider-secret-payload' not in caplog.text
+    assert '401' in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_process_does_not_log_provider_error_message(monkeypatch, caplog) -> None:
+    monkeypatch.setattr(sherlockeye.Core, 'sherlockeye_key', lambda: 'dummy-key')
+
+    class _FakeResponse:
+        status = 200
+
+        async def json(self):
+            return {'success': False, 'message': 'provider-secret-payload'}
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            pass
+
+    class _FakeSession:
+        def __init__(self, **_kwargs):
+            pass
+
+        def post(self, *_args, **_kwargs):
+            return _FakeResponse()
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            pass
+
+    monkeypatch.setattr(sherlockeye.aiohttp, 'ClientSession', _FakeSession)
+    caplog.set_level(logging.INFO, logger=sherlockeye.__name__)
+
+    await sherlockeye.SearchSherlockeye('example.com').process()
+
+    assert 'provider-secret-payload' not in caplog.text
+    assert 'API error' in caplog.text

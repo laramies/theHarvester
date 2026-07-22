@@ -61,7 +61,6 @@ async def search(text: str) -> bool:
             or 'http://www.google.com/sorry/index' in line
             or 'https://www.google.com/sorry/index' in line
         ):
-            # print('\tGoogle is blocking your IP due to too many automated requests, wait or change your IP')
             return True
     return False
 

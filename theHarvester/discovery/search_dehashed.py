@@ -1,10 +1,13 @@
 import asyncio
+import logging
 import random
 
 import aiohttp
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import Core
+
+logger = logging.getLogger(__name__)
 
 
 class SearchDehashed:
@@ -24,7 +27,7 @@ class SearchDehashed:
         self.proxy: bool = False
 
     async def do_search(self) -> None:
-        print(f'\t[+] Performing Dehashed search for: {self.word}')
+        logger.info(f'\t[+] Performing Dehashed search for: {self.word}')
         page = 1
         size = 100
         while True:
@@ -53,47 +56,26 @@ class SearchDehashed:
                         try:
                             data = await response.json()
                         except Exception:
-                            text = await response.text()
-                            raise Exception(f'Unexpected response format: {text[:200]}')
+                            raise ValueError('Unexpected response format')
 
                 entries = data.get('entries', [])
                 if not entries:
                     break
 
                 self.data.extend(entries)
-                print(f'\t[+] Page {page} - Retrieved {len(entries)} entries.')
+                logger.info(f'\t[+] Page {page} - Retrieved {len(entries)} entries.')
 
                 if len(entries) < size:
                     break
                 page += 1
                 await asyncio.sleep(0.5)
             except Exception as e:
-                print(f'\t[!] Dehashed error: {e}')
+                logger.info(f'\t[!] Dehashed error: {e}')
                 break
-
-    async def print_csv_results(self) -> None:
-        if not self.data:
-            print('\t[!] No data found.')
-            return
-
-        print('\n[Dehashed Results]')
-        print('Email,Username,Password,Phone,IP,Source')
-
-        for entry in self.data:
-            email = entry.get('email', '')
-            username = entry.get('username', '')
-            password = entry.get('password', '')
-            phone = entry.get('phone', '')
-            ip = entry.get('ip_address', '')
-            source = entry.get('database_name', '')
-
-            csv_line = f'"{email}","{username}","{password}","{phone}","{ip}","{source}"'
-            print(csv_line)
 
     async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_search()
-        await self.print_csv_results()
 
     async def get_emails(self) -> set:
         emails = set()

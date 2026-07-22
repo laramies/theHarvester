@@ -1,9 +1,12 @@
 import json as _stdlib_json
+import logging
 from types import ModuleType
 
 import aiohttp
 
 from theHarvester.lib.core import AsyncFetcher, Core
+
+logger = logging.getLogger(__name__)
 
 json: ModuleType = _stdlib_json
 try:
@@ -11,9 +14,9 @@ try:
 
     json = _ujson
 except ImportError as e:
-    print(f"'ujson' not available. Falling back to standard 'json' module. Reason: {e}")
+    logger.info(f"'ujson' not available. Falling back to standard 'json' module. Reason: {e}")
 except (AttributeError, OSError, RuntimeError, SystemError, ValueError) as e:
-    print(f"Unexpected error while importing 'ujson'. Falling back to standard 'json'. Reason: {e}")
+    logger.info(f"Unexpected error while importing 'ujson'. Falling back to standard 'json'. Reason: {e}")
 
 
 class SearchRobtex:
@@ -50,13 +53,13 @@ class SearchRobtex:
             response = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
 
             if not response or not isinstance(response, list) or not response[0]:
-                print(f'No response from Robtex API for: {url}')
+                logger.info(f'No response from Robtex API for: {url}')
                 return
 
             try:
                 data = self._safe_parse_json_lines(response[0])
             except (TypeError, ValueError) as e:
-                print(f'Failed to parse JSON lines from Robtex response: {e}')
+                logger.info(f'Failed to parse JSON lines from Robtex response: {e}')
                 return
 
             # Extract subdomains from DNS records
@@ -99,10 +102,10 @@ class SearchRobtex:
                             if rrdata and (rrdata.endswith(self.word) or f'.{self.word}' in rrdata):
                                 self.totalhosts.add(rrdata.rstrip('.'))
                 except (TypeError, ValueError) as e:
-                    print(f'Failed to parse reverse DNS data from Robtex: {e}')
+                    logger.info(f'Failed to parse reverse DNS data from Robtex: {e}')
 
         except (aiohttp.ClientError, TimeoutError, OSError, TypeError, ValueError) as e:
-            print(f'Robtex API error: {e}')
+            logger.info(f'Robtex API error: {e}')
 
     async def get_hostnames(self) -> set:
         return self.totalhosts

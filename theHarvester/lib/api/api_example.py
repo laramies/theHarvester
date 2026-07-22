@@ -1,11 +1,14 @@
 """Example script to query theHarvester rest API, obtain results, and write out to stdout as well as an html"""
 
 import asyncio
+import logging
 
 import aiohttp
 import netaddr
 
-from theHarvester.lib.output import print_section, sorted_unique
+from theHarvester.lib.output import configure_logging, output_logger, print_section, sorted_unique
+
+logger = logging.getLogger(__name__)
 
 
 async def fetch_json(session, url):
@@ -14,7 +17,7 @@ async def fetch_json(session, url):
             response.raise_for_status()  # Raise an exception for 4XX/5XX responses
             return await response.json()
     except Exception as e:
-        print(f'Error fetching data from {url}: {e}')
+        logger.info(f'Error fetching data from {url}: {e}')
         return {}
 
 
@@ -24,7 +27,7 @@ async def fetch(session, url):
             response.raise_for_status()  # Raise an exception for 4XX/5XX responses
             return await response.text()
     except Exception as e:
-        print(f'Error fetching data from {url}: {e}')
+        logger.info(f'Error fetching data from {url}: {e}')
         return ''
 
 
@@ -57,7 +60,7 @@ async def main() -> None:
         interesting_urls = sorted_unique(interesting_urls)
 
     if len(twitter_people_list_tracker) == 0:
-        print('\n[*] No Twitter users found.')
+        output_logger.info('\n[*] No Twitter users found.')
     elif len(twitter_people_list_tracker) >= 1:
         print_section(
             '\n[*] Twitter Users found: ' + str(len(twitter_people_list_tracker)),
@@ -67,7 +70,7 @@ async def main() -> None:
         twitter_people_list_tracker = sorted_unique(twitter_people_list_tracker)
 
     if len(linkedin_people_list_tracker) == 0:
-        print('\n[*] No LinkedIn users found.')
+        output_logger.info('\n[*] No LinkedIn users found.')
     elif len(linkedin_people_list_tracker) >= 1:
         print_section(
             '\n[*] LinkedIn Users found: ' + str(len(linkedin_people_list_tracker)),
@@ -77,7 +80,7 @@ async def main() -> None:
         linkedin_people_list_tracker = sorted_unique(linkedin_people_list_tracker)
 
     if len(linkedin_links_tracker) == 0:
-        print('\n[*] No LinkedIn links found.')
+        output_logger.info('\n[*] No LinkedIn links found.')
     else:
         print_section(
             f'\n[*] LinkedIn Links found: {len(linkedin_links_tracker)}', linkedin_links_tracker, '---------------------'
@@ -86,34 +89,39 @@ async def main() -> None:
 
     length_urls = len(trello_urls)
     if length_urls == 0:
-        print('\n[*] No Trello URLs found.')
+        output_logger.info('\n[*] No Trello URLs found.')
     else:
         print_section('\n[*] Trello URLs found: ' + str(length_urls), trello_urls, '--------------------')
 
     if len(ips) == 0:
-        print('\n[*] No IPs found.')
+        output_logger.info('\n[*] No IPs found.')
     else:
-        print('\n[*] IPs found: ' + str(len(ips)))
-        print('-------------------')
+        output_logger.info('\n[*] IPs found: ' + str(len(ips)))
+        output_logger.info('-------------------')
         # use netaddr as the list may contain ipv4 and ipv6 addresses
         ip_list = sorted([netaddr.IPAddress(ip.strip()) for ip in set(ips)])
-        print('\n'.join(map(str, ip_list)))
+        output_logger.info('\n'.join(map(str, ip_list)))
 
     if len(emails) == 0:
-        print('\n[*] No emails found.')
+        output_logger.info('\n[*] No emails found.')
     else:
-        print('\n[*] Emails found: ' + str(len(emails)))
-        print('----------------------')
+        output_logger.info('\n[*] Emails found: ' + str(len(emails)))
+        output_logger.info('----------------------')
         all_emails = sorted_unique(emails)
-        print('\n'.join(all_emails))
+        output_logger.info('\n'.join(all_emails))
 
     if len(hosts) == 0:
-        print('\n[*] No hosts found.\n\n')
+        output_logger.info('\n[*] No hosts found.\n\n')
     else:
-        print('\n[*] Hosts found: ' + str(len(hosts)))
-        print('---------------------')
-        print('\n'.join(hosts))
+        output_logger.info('\n[*] Hosts found: ' + str(len(hosts)))
+        output_logger.info('---------------------')
+        output_logger.info('\n'.join(hosts))
+
+
+def entry_point() -> None:
+    configure_logging(verbose=True)
+    asyncio.run(main())
 
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    entry_point()

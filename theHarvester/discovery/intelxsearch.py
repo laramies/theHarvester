@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from typing import Any
 from urllib.parse import urlparse
 
@@ -7,6 +8,8 @@ import aiohttp
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import Core
 from theHarvester.parsers import intelxparser
+
+logger = logging.getLogger(__name__)
 
 
 class SearchIntelx:
@@ -46,7 +49,7 @@ class SearchIntelx:
                 async with session.post(f'{self.database}/phonebook/search', headers=headers, json=data) as total_resp:
                     search_data = await total_resp.json()
                     if not search_data['success']:
-                        print(f'Error: {search_data["message"]}')
+                        logger.info('IntelX search request failed')
                         return
                     phonebook_id = search_data['id']
 
@@ -59,7 +62,7 @@ class SearchIntelx:
                     self.results = await resp.json()
 
         except Exception as e:
-            print(f'An exception has occurred in Intelx: {e}')
+            logger.info(f'An exception has occurred in Intelx: {e}')
 
     async def process(self, proxy: bool = False):
         self.proxy = proxy

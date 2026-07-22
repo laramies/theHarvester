@@ -16,9 +16,7 @@ import aiohttp
 
 from theHarvester.lib.core import AsyncFetcher, Core
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger('api_endpoints')
+logger = logging.getLogger(__name__)
 
 
 @dataclass
