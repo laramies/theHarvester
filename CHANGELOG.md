@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Added `--no-hosts` and the REST `no_hosts` query parameter to disable hostname retrieval, processing, storage, console output, and report export while preserving other result types.
+
 ## [4.11.1] - 2026-06-03
 
 ### Added

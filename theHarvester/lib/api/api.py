@@ -17,6 +17,7 @@ from starlette.staticfiles import StaticFiles
 
 from theHarvester import __main__
 from theHarvester.lib.api.additional_endpoints import router as additional_router
+from theHarvester.lib.host_collection import HostCollectionOptionError
 
 API_RATE_LIMIT = os.getenv('API_RATE_LIMIT', '5/minute')
 
@@ -299,6 +300,7 @@ async def query(
     filename: Annotated[str, Query(description='Save the results to an XML and JSON file')] = '',
     proxies: Annotated[bool, Query(description='Use proxies for requests')] = False,
     shodan: Annotated[bool, Query(description='Use Shodan to query discovered hosts')] = False,
+    no_hosts: Annotated[bool, Query(description='Do not collect, process, display, or export discovered hostnames')] = False,
     take_over: Annotated[bool, Query(description='Check for takeovers')] = False,
     wordlist: Annotated[str, Query(description='Specify a wordlist for API endpoint scanning')] = '',
     api_scan: Annotated[bool, Query(description='Scan for API endpoints')] = False,
@@ -352,6 +354,7 @@ async def query(
                 limit=limit,
                 proxies=proxies,
                 shodan=shodan,
+                no_hosts=no_hosts,
                 source=','.join(source),
                 start=start,
                 take_over=take_over,
@@ -380,6 +383,8 @@ async def query(
     except HTTPException as e:
         # Re-raise HTTP exceptions
         raise e
+    except HostCollectionOptionError as host_option_error:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(host_option_error)) from host_option_error
     except Exception as e:
         # Log the error and return a detailed error response
         error_traceback = traceback.format_exc()
