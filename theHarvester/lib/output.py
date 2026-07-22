@@ -19,13 +19,10 @@ class _OperatorOutputHandler(logging.Handler):
 
 
 output_logger = logging.getLogger('theHarvester.output')
-_package_logger_level_before_verbose: int | None = None
 
 
 def configure_logging(*, verbose: bool) -> None:
     """Configure CLI diagnostics without taking ownership from an embedding host."""
-    global _package_logger_level_before_verbose
-
     if not any(isinstance(handler, _OperatorOutputHandler) for handler in output_logger.handlers):
         output_logger.addHandler(_OperatorOutputHandler())
     output_logger.setLevel(logging.INFO)
@@ -39,14 +36,14 @@ def configure_logging(*, verbose: bool) -> None:
         root_logger.setLevel(logging.WARNING)
 
     package_logger = logging.getLogger('theHarvester')
+    logger_state = package_logger.__dict__
     if verbose and package_logger.level != logging.INFO:
-        if _package_logger_level_before_verbose is None:
-            _package_logger_level_before_verbose = package_logger.level
+        logger_state.setdefault('_theharvester_level_before_verbose', package_logger.level)
         package_logger.setLevel(logging.INFO)
-    elif not verbose and _package_logger_level_before_verbose is not None:
+    elif not verbose and '_theharvester_level_before_verbose' in logger_state:
+        previous_level = logger_state.pop('_theharvester_level_before_verbose')
         if package_logger.level == logging.INFO:
-            package_logger.setLevel(_package_logger_level_before_verbose)
-        _package_logger_level_before_verbose = None
+            package_logger.setLevel(previous_level)
 
 
 def sorted_unique[T: Hashable](items: Iterable[T]) -> list[T]:
