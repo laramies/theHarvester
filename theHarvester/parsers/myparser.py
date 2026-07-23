@@ -1,6 +1,8 @@
 import re
 from collections.abc import Set
 
+from theHarvester.lib.hostnames import normalize_scoped_hostname
+
 
 class Parser:
     def __init__(self, results, word) -> None:
@@ -46,19 +48,14 @@ class Parser:
         await self.generic_clean()
         # Local part is required, charset is flexible.
         # https://tools.ietf.org/html/rfc6531 (removed * and () as they provide FP mostly)
-        reg_emails = re.compile(r'[a-zA-Z0-9.\-_+#~!$&\',;=:]+' + '@' + '[a-zA-Z0-9.-]*' + self.word.replace('www.', ''))
-        self.temp = reg_emails.findall(self.results)
-        emails = await self.unique()
-        true_emails = {
-            (
-                str(email)[1:].lower().strip()
-                if len(str(email)) > 1 and str(email)[0] == '.'
-                else len(str(email)) > 1 and str(email).lower().strip()
-            )
-            for email in emails
-        }
-        # if email starts with dot shift email string and make sure all emails are lowercase
-        return true_emails
+        candidates = re.findall(r"[a-zA-Z0-9.\-_+#~!$&']+@[a-zA-Z0-9.-]+", self.results)
+        target = self.word.removeprefix('www.')
+        emails: set[str] = set()
+        for candidate in candidates:
+            local_part, domain = candidate.lstrip('.').lower().split('@', maxsplit=1)
+            if normalized_domain := normalize_scoped_hostname(domain, target):
+                emails.add(f'{local_part}@{normalized_domain}')
+        return emails
 
     async def fileurls(self, file) -> list:
         urls: list = []
@@ -73,19 +70,13 @@ class Parser:
         return urls
 
     async def hostnames(self):
-        # should check both www. and not www.
-        hostnames = []
         await self.generic_clean()
-        reg_hosts = re.compile(r'[a-zA-Z0-9.-]*\.' + self.word)
-        first_hostnames = reg_hosts.findall(self.results)
-        hostnames.extend(first_hostnames)
-        # TODO determine if necessary below or if only pass through is fine
-        reg_hosts = re.compile(r'[a-zA-Z0-9.-]*\.' + self.word.replace('www.', ''))
-        # reg_hosts = re.compile(r'www\.[a-zA-Z0-9.-]*\.' + 'www.' + self.word)
-        # reg_hosts = re.compile(r'www\.[a-zA-Z0-9.-]*\.(?:' + 'www.' + self.word + ')?')
-        second_hostnames = reg_hosts.findall(self.results)
-        hostnames.extend(second_hostnames)
-        return list(set(hostnames))
+        target = self.word.removeprefix('www.')
+        candidates = re.findall(r'[a-zA-Z0-9.-]+', self.results)
+        hostnames = {
+            normalized for candidate in candidates if (normalized := normalize_scoped_hostname(candidate.strip('.'), target))
+        }
+        return sorted(hostnames)
 
     async def hostnames_all(self):
         reg_hosts = re.compile('<cite>(.*?)</cite>')
