@@ -41,14 +41,16 @@ class SearchBrave:
         queries = [f'"{self.word}"', f'site:{self.word}']
 
         for query in queries:
+            if len(self.results) >= self.limit:
+                break
             try:
-                # Calculate number of pages based on limit (20 results per page)
-                pages = min((self.limit // 20) + 1, 5)  # Maximum 5 pages
-
-                for offset in range(0, pages * 20, 20):
+                for offset in range(10):
+                    remaining = self.limit - len(self.results)
+                    if remaining <= 0:
+                        break
                     params = {
                         'q': query,
-                        'count': min(20, self.limit - len(self.results)),
+                        'count': min(20, remaining),
                         'offset': offset,
                         'safesearch': 'off',
                         'freshness': 'all',
@@ -77,7 +79,7 @@ class SearchBrave:
                             logger.info(f'Rate limit exceeded. Increasing delay to {self.rate_limit_delay * 2} seconds')
                             self.rate_limit_delay *= 2
                             await asyncio.sleep(self.rate_limit_delay)
-                            continue
+                            break
                         elif 'quota' in error_msg.lower() or error_code == 'quota_exceeded':
                             logger.info('Brave Search API quota exceeded')
                             break
@@ -85,7 +87,7 @@ class SearchBrave:
                             break
 
                     if 'web' in resp and 'results' in resp['web']:
-                        results = resp['web']['results']
+                        results = resp['web']['results'][:remaining]
                         if not results:
                             break
 
@@ -105,6 +107,8 @@ class SearchBrave:
 
                         # Stop if we've reached our limit
                         if len(self.results) >= self.limit:
+                            break
+                        if not resp.get('query', {}).get('more_results_available', False):
                             break
                     else:
                         logger.info('Unexpected response format from Brave Search API')
