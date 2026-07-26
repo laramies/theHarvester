@@ -90,6 +90,7 @@ check_untyped_defs = true
 
 [tool.uv]
 python-preference = "managed"
+exclude-newer = "7 days"
 
 [tool.uv.pip]
 python-version = "3.13"
