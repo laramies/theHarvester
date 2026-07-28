@@ -1,8 +1,27 @@
 #!/usr/bin/env python3
 # coding=utf-8
+import logging
+
 import pytest
 
 from theHarvester.discovery import criminalip
+
+
+@pytest.mark.asyncio
+async def test_failed_response_body_is_not_logged(monkeypatch, caplog) -> None:
+    monkeypatch.setattr(criminalip.Core, 'criminalip_key', lambda: 'test-key')
+    monkeypatch.setattr(criminalip.Core, 'get_user_agent', lambda: 'test-agent')
+
+    async def fake_post_fetch(*args, **kwargs):
+        return {'status': 500, 'secret': 'provider-secret-payload'}
+
+    monkeypatch.setattr(criminalip.AsyncFetcher, 'post_fetch', fake_post_fetch)
+    caplog.set_level(logging.INFO, logger=criminalip.__name__)
+
+    await criminalip.SearchCriminalIP('example.com').process()
+
+    assert 'provider-secret-payload' not in caplog.text
+    assert '500' in caplog.text
 
 
 @pytest.mark.asyncio

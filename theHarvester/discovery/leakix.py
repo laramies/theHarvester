@@ -1,7 +1,10 @@
 import json as _stdlib_json
+import logging
 from types import ModuleType
 
 from theHarvester.lib.core import AsyncFetcher, Core
+
+logger = logging.getLogger(__name__)
 
 json: ModuleType = _stdlib_json
 try:
@@ -69,7 +72,7 @@ class SearchLeakix:
                         or 'unauthorized' in response[0].lower()
                         or 'error' in response[0].lower()
                     ):
-                        print(f'LeakIX API requires authentication: {response[0][:100]}')
+                        logger.info('LeakIX API requires authentication')
                         continue
 
                     try:
@@ -95,14 +98,14 @@ class SearchLeakix:
                                             self.totalhosts.add(value.lower())
 
                     except Exception as e:
-                        print(f'Failed to parse LeakIX response: {e}')
+                        logger.info(f'Failed to parse LeakIX response: {e}')
 
                 except Exception as e:
-                    print(f'LeakIX API error for {query_url}: {e}')
+                    logger.info(f'LeakIX API error for {query_url}: {e}')
                     continue
 
         except Exception as e:
-            print(f'LeakIX API error: {e}')
+            logger.info(f'LeakIX API error: {e}')
 
     async def get_hostnames(self) -> set:
         return self.totalhosts

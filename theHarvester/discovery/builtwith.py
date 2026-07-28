@@ -1,9 +1,12 @@
+import logging
 from typing import Any
 
 import aiohttp
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import AsyncFetcher, Core
+
+logger = logging.getLogger(__name__)
 
 
 class SearchBuiltWith:
@@ -41,7 +44,7 @@ class SearchBuiltWith:
                             self.tech_stack = data
                             self._extract_data()
         except Exception as e:
-            print(f'Error in BuiltWith search: {e}')
+            logger.info(f'Error in BuiltWith search: {e}')
 
     def _extract_data(self) -> None:
         """Extract and categorize technology information."""

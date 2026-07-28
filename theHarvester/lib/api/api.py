@@ -1,9 +1,9 @@
 import argparse
 import asyncio
 import ipaddress
+import logging
 import os
 import socket
-import traceback
 from typing import Annotated, Any, cast
 
 from fastapi import FastAPI, Header, HTTPException, Query, Request, status
@@ -17,6 +17,8 @@ from starlette.staticfiles import StaticFiles
 
 from theHarvester import __main__
 from theHarvester.lib.api.additional_endpoints import router as additional_router
+
+logger = logging.getLogger(__name__)
 
 API_RATE_LIMIT = os.getenv('API_RATE_LIMIT', '5/minute')
 
@@ -183,9 +185,7 @@ async def getsources(request: Request) -> Response:
         sources = __main__.Core.get_supportedengines()
         return JSONResponse({'sources': sources})
     except Exception as e:
-        # Log the error and return a detailed error response
-        error_traceback = traceback.format_exc()
-        print(f'Error in getsources endpoint: {e!s}\n{error_traceback}')
+        logger.exception('Error in getsources endpoint')
 
         return JSONResponse(
             {
@@ -262,9 +262,7 @@ async def dnsbrute(
         # Re-raise HTTP exceptions
         raise e
     except Exception as e:
-        # Log the error and return a detailed error response
-        error_traceback = traceback.format_exc()
-        print(f'Error in dnsbrute endpoint: {e!s}\n{error_traceback}')
+        logger.exception('Error in dnsbrute endpoint')
 
         return JSONResponse(
             {
@@ -381,9 +379,7 @@ async def query(
         # Re-raise HTTP exceptions
         raise e
     except Exception as e:
-        # Log the error and return a detailed error response
-        error_traceback = traceback.format_exc()
-        print(f'Error in query endpoint: {e!s}\n{error_traceback}')
+        logger.exception('Error in query endpoint')
 
         return JSONResponse(
             {

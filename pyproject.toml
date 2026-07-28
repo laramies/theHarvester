@@ -139,7 +139,8 @@ select = ["E",
     "PT",
     "TC",
     "FURB",
-    "ASYNC"
+    "ASYNC",
+    "T20"
     ]
 ignore = [
     "B018",

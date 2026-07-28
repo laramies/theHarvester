@@ -1,4 +1,8 @@
+import logging
+
 from theHarvester.lib.core import AsyncFetcher, Core
+
+logger = logging.getLogger(__name__)
 
 
 class SubdomainCenter:
@@ -16,7 +20,7 @@ class SubdomainCenter:
             self.results = resp[0]
             self.results = {sub[4:] if sub[:4] == 'www.' and sub[4:] else sub for sub in self.results}
         except Exception as e:
-            print(f'An exception has occurred in SubdomainCenter on : {e}')
+            logger.info(f'An exception has occurred in SubdomainCenter on : {e}')
 
     async def get_hostnames(self):
         return self.results

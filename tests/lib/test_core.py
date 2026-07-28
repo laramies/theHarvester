@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 from unittest import mock
@@ -38,8 +39,9 @@ def mock_read_text(mocked: dict[Path, str | Exception]):
 )
 @pytest.mark.parametrize("dir", CONFIG_DIRS)
 def test_read_config_searches_config_dirs(
-    name: str, contents: str, expected: Any, dir: Path, capsys
+    name: str, contents: str, expected: Any, dir: Path, caplog
 ):
+    caplog.set_level(logging.INFO, logger=core_module.__name__)
     file = dir.expanduser() / f"{name}.yaml"
     config_files = [d.expanduser() / file.name for d in CONFIG_DIRS]
     side_effect = mock_read_text(
@@ -50,7 +52,7 @@ def test_read_config_searches_config_dirs(
         got = Core.api_keys() if name == "api-keys" else Core.proxy_list()
 
     assert got == expected
-    assert f"Read {file.name} from {file}" in capsys.readouterr().out
+    assert f"Read {file.name} from {file}" in caplog.messages
 
 
 @pytest.mark.parametrize("name", ("api-keys", "proxies"))
@@ -95,7 +97,7 @@ class DummyResponse:
 
 
 class DummySession:
-    instances: list['DummySession'] = []
+    instances: list[DummySession] = []
 
     def __init__(self, *, headers=None, timeout=None, connector=None):
         self.headers = headers
