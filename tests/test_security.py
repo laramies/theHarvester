@@ -2,6 +2,7 @@ import os
 import re
 import tempfile
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -162,10 +163,15 @@ class TestInformationDisclosure:
             assert 'Traceback' not in str(response_data), 'Traceback text found in response'
             assert 'File "' not in str(response_data), 'File paths exposed in response'
 
-    def test_error_responses_do_not_leak_internal_paths(self, client):
+    def test_error_responses_do_not_leak_internal_paths(self, client, monkeypatch):
         """
         Security Test: Error messages should not reveal internal file paths.
         """
+        start = AsyncMock(return_value=([], [], [], [], [], [], [], [], []))
+        fetch_all = AsyncMock(side_effect=AssertionError('API security test attempted a provider request'))
+        monkeypatch.setattr('theHarvester.lib.api.api.__main__.start', start)
+        monkeypatch.setattr('theHarvester.lib.core.AsyncFetcher.fetch_all', fetch_all)
+
         # Try various endpoints
         endpoints = ['/sources', '/dnsbrute?domain=test', '/query?domain=test&source=baidu']
 
@@ -186,6 +192,9 @@ class TestInformationDisclosure:
             for pattern in path_patterns:
                 matches = re.findall(pattern, response_text)
                 assert not matches, f'Internal path leaked in {endpoint}: {matches}'
+
+        assert start.await_count == 2
+        fetch_all.assert_not_awaited()
 
     def test_debug_mode_does_not_expose_sensitive_info(self, client, monkeypatch):
         """
