@@ -171,6 +171,19 @@ def test_provider_accessors_return_single_and_multi_field_credentials(
     )
 
 
+def test_brave_key_returns_configured_value(
+    configuration_environment: ConfigurationEnvironment,
+) -> None:
+    core = configuration_environment.core
+    configuration_dirs = configuration_environment.directories
+    (configuration_dirs[0] / 'api-keys.yaml').write_text(
+        'apikeys:\n  brave:\n    key: brave-key\n',
+        encoding='utf-8',
+    )
+
+    assert core.brave_key() == 'brave-key'
+
+
 @pytest.mark.parametrize(
     ('contents', 'expected'),
     [
