@@ -132,7 +132,7 @@ A checkmark means the current CLI can add that result type to its consolidated r
 | `hudsonrock` | ✓ | ✓ | ✓ | — | — | — | — | — |
 | `hunter` | ✓ | ✓ | — | — | — | — | — | ✓ |
 | `hunterhow` | ✓ | — | — | — | — | — | — | ✓ |
-| `intelx` | — | ✓ | — | — | ✓ | — | — | ✓ |
+| `intelx` | ✓ | ✓ | — | — | ✓ | — | — | ✓ |
 | `leakix` | ✓ | ✓ | — | — | — | — | — | Optional |
 | `leaklookup` | — | ✓ | — | — | — | — | `POST /additional/leaks` response | ✓ |
 | `mojeek` | ✓ | ✓ | — | — | — | — | — | Optional |

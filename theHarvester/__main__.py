@@ -820,6 +820,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                             store(
                                 intelx_search,
                                 engineitem,
+                                store_host=True,
                                 store_interestingurls=True,
                                 store_emails=True,
                             )
