@@ -10,13 +10,16 @@ from theHarvester.discovery import waybackarchive
 async def test_process_collects_more_than_one_cdx_page(monkeypatch: pytest.MonkeyPatch) -> None:
     first_page = '\n'.join(f'https://host-{index}.example.com/path' for index in range(100))
     second_page = '\n'.join(f'https://host-{index}.example.com/path' for index in range(100, 125))
+    resume_key = 'com%2Cexample%29%2F+20260101000000%21'
     requests: list[dict[str, list[str]]] = []
+    requested_urls: list[str] = []
 
     async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[str]:
+        requested_urls.extend(urls)
         query = parse_qs(urlparse(urls[0]).query)
         requests.append(query)
         if query['url'] == ['*.example.com']:
-            return [f'{first_page}\n\nnext-page'] if 'resumeKey' not in query else [second_page]
+            return [f'{first_page}\n\n{resume_key}'] if 'resumeKey' not in query else [second_page]
         return ['']
 
     monkeypatch.setattr(waybackarchive.AsyncFetcher, 'fetch_all', fake_fetch_all)
@@ -25,7 +28,11 @@ async def test_process_collects_more_than_one_cdx_page(monkeypatch: pytest.Monke
     await search.process()
 
     assert await search.get_hostnames() == {f'host-{index}.example.com' for index in range(125)}
-    assert [query.get('resumeKey') for query in requests if query['url'] == ['*.example.com']] == [None, ['next-page']]
+    assert [query.get('resumeKey') for query in requests if query['url'] == ['*.example.com']] == [
+        None,
+        ['com,example)/ 20260101000000!'],
+    ]
+    assert f'resumeKey={resume_key}' in requested_urls[1]
     assert all(query['showResumeKey'] == ['true'] for query in requests)
 
 

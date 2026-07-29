@@ -1,5 +1,5 @@
 import logging
-from urllib.parse import urlencode, urlsplit
+from urllib.parse import unquote_plus, urlencode, urlsplit
 
 from theHarvester.lib.core import AsyncFetcher, Core
 
@@ -66,7 +66,7 @@ class SearchWaybackarchive:
                 'showResumeKey': 'true',
             }
             if resume_key is not None:
-                query['resumeKey'] = resume_key
+                query['resumeKey'] = unquote_plus(resume_key)
 
             url = f'{self.hostname}/cdx/search/cdx?{urlencode(query)}'
             response = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
