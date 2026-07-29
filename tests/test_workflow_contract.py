@@ -5,7 +5,6 @@ from typing import Any
 
 import yaml
 
-
 WORKFLOW_DIR = Path(__file__).parents[1] / '.github' / 'workflows'
 CI_WORKFLOW_PATH = WORKFLOW_DIR / 'theHarvester.yml'
 SMOKE_WORKFLOW_PATH = WORKFLOW_DIR / 'provider-smoke.yml'
@@ -18,7 +17,7 @@ def _workflow(path: Path) -> dict[str, Any]:
 def test_routine_ci_is_read_only_and_offline() -> None:
     workflow = _workflow(CI_WORKFLOW_PATH)
     assert workflow['permissions'] == {'contents': 'read'}
-    assert set(workflow['on']) == {'push', 'pull_request', 'workflow_dispatch'}
+    assert set(workflow['on']) == {'push', 'pull_request'}
 
     routine_job = workflow['jobs']['Python']
     commands = '\n'.join(step.get('run', '') for step in routine_job['steps'])
