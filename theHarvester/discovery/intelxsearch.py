@@ -1,5 +1,7 @@
 import asyncio
 import logging
+from email.errors import HeaderParseError
+from email.headerregistry import Address
 from typing import Any
 from urllib.parse import urlparse
 
@@ -35,7 +37,9 @@ class SearchIntelx:
             raise MissingKey('Intelx')
         self.database = 'https://2.intelx.io'
         self.results: dict[str, Any] = {}
-        self.info: tuple[list[str], list[str], list[str]] = ([], [], [])
+        self.emails: list[str] = []
+        self.hostnames: list[str] = []
+        self.interesting_urls: list[str] = []
         self.limit: int = 10000
         self.proxy = False
         self.offset = 0
@@ -91,9 +95,12 @@ class SearchIntelx:
         for email in raw_emails:
             if email.count('@') != 1:
                 continue
-            local_part, domain = email.lower().rsplit('@', maxsplit=1)
-            if local_part and (normalized_domain := _normalize_scoped_hostname(domain, self.word)):
-                emails.add(f'{local_part}@{normalized_domain}')
+            try:
+                address = Address(addr_spec=email.strip().lower())
+            except (HeaderParseError, ValueError):
+                continue
+            if address.username and (normalized_domain := _normalize_scoped_hostname(address.domain, self.word)):
+                emails.add(f'{address.username}@{normalized_domain}')
 
         for selector in raw_selectors:
             try:
@@ -104,13 +111,15 @@ class SearchIntelx:
             if normalized_hostname := _normalize_scoped_hostname(parsed.hostname, self.word):
                 hostnames.add(normalized_hostname)
 
-        self.info = sorted(emails), sorted(interesting_urls), sorted(hostnames)
+        self.emails = sorted(emails)
+        self.interesting_urls = sorted(interesting_urls)
+        self.hostnames = sorted(hostnames)
 
     async def get_emails(self) -> list[str]:
-        return self.info[0]
+        return self.emails
 
     async def get_hostnames(self) -> list[str]:
-        return self.info[2]
+        return self.hostnames
 
     async def get_interestingurls(self) -> list[str]:
-        return self.info[1]
+        return self.interesting_urls

@@ -14,17 +14,17 @@ class Parser:
         if not isinstance(selectors, list):
             return self.emails, self.selectors
 
-        for dictionary in selectors:
-            if not isinstance(dictionary, dict):
+        for selector in selectors:
+            if not isinstance(selector, dict):
                 continue
-            field = dictionary.get('selectorvalue')
-            if not isinstance(field, str):
+            selector_value = selector.get('selectorvalue')
+            if not isinstance(selector_value, str):
                 continue
-            field = field.strip().rstrip('),')
-            if not field:
+            selector_value = selector_value.strip().rstrip('),')
+            if not selector_value:
                 continue
-            if '@' in field and '://' not in field:
-                self.emails.add(field)
+            if '@' in selector_value and '://' not in selector_value:
+                self.emails.add(selector_value)
             else:
-                self.selectors.add(field)
+                self.selectors.add(selector_value)
         return self.emails, self.selectors

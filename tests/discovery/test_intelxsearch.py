@@ -1,5 +1,8 @@
+from argparse import Namespace
+
 import pytest
 
+from theHarvester import __main__ as theharvester_main
 from theHarvester.discovery import intelxsearch
 from theHarvester.discovery.constants import MissingKey
 
@@ -48,6 +51,8 @@ async def test_process_exposes_flat_normalized_in_scope_results(monkeypatch: pyt
     result = {
         'selectors': [
             {'selectorvalue': 'ADMIN@Example.COM'},
+            {'selectorvalue': 'bad local@example.com'},
+            {'selectorvalue': '<>@example.com'},
             {'selectorvalue': 'outsider@notexample.com'},
             {'selectorvalue': 'not@an@email@example.com'},
             {'selectorvalue': 'https://portal.example.com/path'},
@@ -107,3 +112,56 @@ async def test_process_treats_denied_and_malformed_responses_as_empty(
     assert await search.get_emails() == []
     assert await search.get_hostnames() == []
     assert await search.get_interestingurls() == []
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_stores_intelx_hostnames(monkeypatch: pytest.MonkeyPatch) -> None:
+    stored_hosts: list[set[str]] = []
+
+    class _Stash:
+        async def do_init(self) -> None:
+            return None
+
+        async def store_all(self, _domain: str, values: list[str], result_type: str, _source: str) -> None:
+            if result_type == 'host':
+                stored_hosts.append(set(values))
+
+    class _Intelx:
+        def __init__(self, _domain: str) -> None:
+            pass
+
+        async def process(self, _proxy: bool) -> None:
+            return None
+
+        async def get_hostnames(self) -> list[str]:
+            return ['example.com', 'api.example.com']
+
+        async def get_emails(self) -> list[str]:
+            return []
+
+        async def get_interestingurls(self) -> list[str]:
+            return []
+
+    monkeypatch.setattr(theharvester_main.stash, 'StashManager', _Stash)
+    monkeypatch.setattr(intelxsearch, 'SearchIntelx', _Intelx)
+
+    results = await theharvester_main.start(
+        Namespace(
+            source='intelx',
+            dns_brute=False,
+            filename='',
+            quiet=True,
+            dns_lookup=False,
+            dns_server=None,
+            dns_resolve='',
+            limit=500,
+            shodan=False,
+            start=0,
+            domain='Example.COM',
+            take_over=False,
+            proxies=False,
+        )
+    )
+
+    assert results[-1] == ['api.example.com', 'example.com']
+    assert stored_hosts == [{'api.example.com', 'example.com'}]
