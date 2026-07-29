@@ -166,23 +166,44 @@ class TestCertspotterSearch(object):
         assert calls == 2
 
     @pytest.mark.asyncio
-    async def test_search_reports_safety_cap_as_incomplete(
-        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        monkeypatch.setattr(certspottersearch.SearchCertspoter, 'MAX_PAGES', 2)
+    async def test_search_continues_until_empty_page(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        pages = [
+            [{'id': str(page_number), 'dns_names': [f'page-{page_number}.example.com']}]
+            for page_number in range(1, 12)
+        ]
+        pages.append([])
         calls = 0
 
         async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[list[dict[str, Any]]]:
             nonlocal calls
             calls += 1
-            return [[{'id': str(calls), 'dns_names': [f'page-{calls}.example.com']}]]
+            return [pages.pop(0)]
+
+        monkeypatch.setattr(certspottersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+        search = certspottersearch.SearchCertspoter(TestCertspotter.domain())
+        await search.process()
+
+        assert await search.get_hostnames() == {f'page-{page_number}.example.com' for page_number in range(1, 12)}
+        assert calls == 12
+
+    @pytest.mark.asyncio
+    async def test_search_reports_missing_cursor_as_incomplete(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        calls = 0
+
+        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[list[dict[str, Any]]]:
+            nonlocal calls
+            calls += 1
+            return [[{'dns_names': ['first.example.com']}]]
 
         monkeypatch.setattr(certspottersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = certspottersearch.SearchCertspoter(TestCertspotter.domain())
         with caplog.at_level(logging.WARNING, logger=certspottersearch.__name__):
             await search.process()
 
-        assert await search.get_hostnames() == {'page-1.example.com', 'page-2.example.com'}
+        assert await search.get_hostnames() == {'first.example.com'}
+        assert calls == 1
         assert 'results may be incomplete' in caplog.text
 
 

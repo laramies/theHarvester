@@ -7,7 +7,10 @@ logger = logging.getLogger(__name__)
 
 
 class SearchCertspoter:
-    MAX_PAGES = 10
+    """Search the SSLMate Cert Spotter CT Search API.
+
+    API reference: https://sslmate.com/help/reference/ct_search_api_v1
+    """
 
     def __init__(self, word) -> None:
         self.word = word.strip().lower().rstrip('.')
@@ -19,7 +22,7 @@ class SearchCertspoter:
         cursor = None
         seen_cursors: set[str] = set()
         try:
-            for _ in range(self.MAX_PAGES):
+            while True:
                 params = {
                     'domain': self.word,
                     'include_subdomains': 'true',
@@ -74,12 +77,19 @@ class SearchCertspoter:
 
                 last_issuance = page[-1]
                 next_cursor = last_issuance.get('id') if isinstance(last_issuance, dict) else None
-                if not isinstance(next_cursor, str) or not next_cursor or next_cursor in seen_cursors:
+                if not isinstance(next_cursor, str) or not next_cursor:
+                    logger.warning(
+                        'Cert Spotter stopped early because the response did not provide a valid cursor; '
+                        'results may be incomplete.'
+                    )
+                    break
+                if next_cursor in seen_cursors:
+                    logger.warning(
+                        'Cert Spotter stopped early because the response repeated a cursor; results may be incomplete.'
+                    )
                     break
                 seen_cursors.add(next_cursor)
                 cursor = next_cursor
-            else:
-                logger.warning(f'Cert Spotter stopped after {self.MAX_PAGES} pages; results may be incomplete.')
         except ConnectionError:
             logger.info('Network connection failed.')
         except Exception as e:
