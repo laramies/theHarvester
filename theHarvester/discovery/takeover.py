@@ -92,9 +92,9 @@ class TakeOver:
             else:
                 return
         except IndexError:
-            logger.info('Response was empty — possible network error or invalid URL.')
+            logger.info('Response was empty: possible network error or invalid URL.')
         except ujson.JSONDecodeError:
-            logger.info('Failed to parse JSON — cert fingerprints might be unavailable.')
+            logger.info('Failed to parse JSON: cert fingerprints might be unavailable.')
         except KeyError as ke:
             logger.info(f'Missing expected field in fingerprint: {ke}')
         except TypeError as te:
