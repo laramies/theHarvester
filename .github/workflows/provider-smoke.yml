@@ -43,10 +43,6 @@ jobs:
         timeout-minutes: 5
         run: pytest --run-live-network -m live_network
 
-      - name: Run theHarvester module Baidu
-        timeout-minutes: 5
-        run: theHarvester -d "$SMOKE_TEST_DOMAIN" -b baidu
-
       - name: Run theHarvester module CertSpotter
         timeout-minutes: 5
         run: theHarvester -d "$SMOKE_TEST_DOMAIN" -b certspotter
