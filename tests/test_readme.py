@@ -101,7 +101,7 @@ def _documented_source_contracts(readme: str) -> dict[str, set[str]]:
     contracts: dict[str, set[str]] = {}
     for source, cells in _documented_source_rows(readme).items():
         markers = cells[:6]
-        assert set(markers) <= {'✓', '—'}
+        assert set(markers) <= {'✓', 'No'}
         contracts[source] = {column for column, marker in zip(RESULT_COLUMNS, markers, strict=True) if marker == '✓'}
     return contracts
 
@@ -129,8 +129,8 @@ def test_readme_matches_executable_source_contracts() -> None:
 def test_readme_api_key_markers_match_configuration() -> None:
     requirements = _documented_api_key_requirements(Path('README.md').read_text())
 
-    assert set(requirements.values()) <= {'✓', 'Optional', '—'}
-    assert {source for source, marker in requirements.items() if marker != '—'} == _configured_api_key_sources()
+    assert set(requirements.values()) <= {'✓', 'Optional', 'No'}
+    assert {source for source, marker in requirements.items() if marker != 'No'} == _configured_api_key_sources()
     assert {source for source, marker in requirements.items() if marker == 'Optional'} == OPTIONAL_API_KEY_SOURCES
 
 
