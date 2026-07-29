@@ -1,8 +1,10 @@
 # theHarvester wiki
 
-theHarvester gathers open-source intelligence about a domain or organization from search engines, certificate transparency logs, DNS datasets, code repositories, threat-intelligence platforms, and other public sources.
+theHarvester gathers open-source intelligence about a domain or organization. It queries search engines, certificate transparency logs, DNS datasets, code repositories, threat-intelligence platforms, and other public sources.
 
-Use it for the early reconnaissance stage of an authorized security assessment. Passive providers still receive the search target, while DNS brute force, DNS resolution, takeover checks, screenshots, and API-path scanning create additional network activity. Use those features only on systems you own or are explicitly authorized to test.
+Use it during the early reconnaissance stage of an authorized security assessment. Passive providers still receive the search target.
+
+DNS brute force, DNS resolution, takeover checks, screenshots, and API-path scanning create additional network activity. Use these features only on systems you own or are explicitly authorized to test.
 
 ## Start here
 

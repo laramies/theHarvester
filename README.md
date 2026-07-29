@@ -90,7 +90,9 @@ Open [http://127.0.0.1:5000/docs](http://127.0.0.1:5000/docs) for interactive Sw
 
 The service rate limit defaults to five requests per minute and can be changed with `--rate-limit`. The `/additional/*` routes require `THEHARVESTER_API_KEY` on the server and the same value in the `X-API-Key` request header.
 
-The core `/query`, `/sources`, and `/dnsbrute` routes are not authenticated. Keep the service bound to localhost unless you place it behind appropriate authentication, access controls, and TLS. Docker Compose publishes port `5000` on every host interface unless you narrow the port mapping:
+The core `/query`, `/sources`, and `/dnsbrute` routes do not require authentication. Keep the service bound to localhost. If you require remote access, add authentication, access controls, and TLS.
+
+Docker Compose publishes port `5000` on every host interface unless you narrow the port mapping:
 
 ```bash
 docker compose up --build
@@ -98,76 +100,84 @@ docker compose up --build
 
 ## Discovery sources
 
-Saved JSON reports expose separate fields for hosts, emails, IP addresses, ASNs, URLs or links, and people when those results are available. The result-type columns below describe only that consolidated CLI report. They do not include every field parsed from a provider response. Empty fields may be omitted, and reports do not retain per-source attribution.
+The table shows which result types each source can add to the JSON report. It covers the consolidated CLI report only. Some adapters parse fields that the report does not store.
 
-A checkmark means the current CLI can add that result type to its consolidated report. The **Separate output** column identifies REST endpoints or optional actions whose results are not part of those source columns. In the **API key** column, **✓** means credentials are required, **Optional** means a key can unlock additional access, and **—** means the source has no key setting.
+The report groups findings by result type. It does not record which source found each item. Empty optional fields may be omitted.
+
+A checkmark means the source can add that result type. The **Separate output** column lists REST endpoints and optional actions that return other data.
+
+Read the **API key** column as follows:
+
+- **✓**: credentials are required.
+- **Optional**: a key can provide additional access.
+- **No**: the source has no key setting.
 
 <details>
 <summary><strong>View the source and result matrix</strong></summary>
 
 | Source | Hosts | Emails | IPs | ASNs | URLs / links | People | Separate REST/action output (not consolidated report) | API key |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | --- | :---: |
-| `baidu` | ✓ | ✓ | — | — | — | — | — | — |
-| `bevigil` | ✓ | — | — | — | ✓ | — | — | ✓ |
-| `bitbucket` | ✓ | ✓ | — | — | — | — | — | ✓ |
-| `bufferoverun` | ✓ | — | ✓ | — | — | — | — | ✓ |
-| `builtwith` | ✓ | — | — | — | ✓ | — | `POST /additional/tech-stack` response | ✓ |
-| `brave` | ✓ | ✓ | — | — | — | — | — | ✓ |
-| `censys` | ✓ | ✓ | — | — | — | — | — | ✓ |
-| `certspotter` | ✓ | — | — | — | — | — | — | — |
-| `chaos` | ✓ | — | — | — | — | — | — | ✓ |
-| `commoncrawl` | ✓ | — | — | — | — | — | — | — |
-| `criminalip` | ✓ | — | ✓ | ✓ | — | — | — | ✓ |
-| `crtsh` | ✓ | — | — | — | — | — | — | — |
-| `dehashed` | — | — | ✓ | — | — | — | — | ✓ |
-| `dnsdumpster` | ✓ | — | ✓ | — | — | — | — | ✓ |
-| `duckduckgo` | ✓ | ✓ | — | — | — | — | — | — |
-| `dymo` | ✓ | — | — | — | — | — | — | ✓ |
-| `fofa` | ✓ | — | ✓ | — | — | — | — | ✓ |
-| `fullhunt` | ✓ | — | — | — | — | — | — | ✓ |
-| `github-code` | ✓ | ✓ | — | — | — | — | — | ✓ |
-| `gitlab` | ✓ | ✓ | — | — | — | — | — | — |
-| `hackertarget` | ✓ | — | — | — | — | — | — | Optional |
-| `haveibeenpwned` | — | — | — | — | — | — | `POST /additional/breaches` response | ✓ |
-| `hudsonrock` | ✓ | ✓ | ✓ | — | — | — | — | — |
-| `hunter` | ✓ | ✓ | — | — | — | — | — | ✓ |
-| `hunterhow` | ✓ | — | — | — | — | — | — | ✓ |
-| `intelx` | ✓ | ✓ | — | — | ✓ | — | — | ✓ |
-| `leakix` | ✓ | ✓ | — | — | — | — | — | Optional |
-| `leaklookup` | — | ✓ | — | — | — | — | `POST /additional/leaks` response | ✓ |
-| `mojeek` | ✓ | ✓ | — | — | — | — | — | Optional |
-| `netlas` | ✓ | — | — | — | — | — | — | ✓ |
-| `onyphe` | ✓ | — | ✓ | ✓ | — | — | — | ✓ |
-| `otx` | ✓ | — | ✓ | — | — | — | — | — |
-| `pentesttools` | ✓ | — | — | — | — | — | — | ✓ |
-| `projectdiscovery` | ✓ | — | — | — | — | — | — | ✓ |
-| `rapiddns` | ✓ | — | — | — | — | — | — | — |
-| `robtex` | ✓ | — | ✓ | — | — | — | — | — |
-| `rocketreach` | — | ✓ | — | — | ✓ | — | — | ✓ |
-| `securityscorecard` | ✓ | — | ✓ | — | — | — | `POST /additional/security-score` response | ✓ |
-| `securityTrails` | ✓ | — | ✓ | — | — | — | — | ✓ |
-| `sherlockeye` | ✓ | ✓ | ✓ | — | — | — | — | ✓ |
-| `shodan` | ✓ | — | — | — | — | — | `-s` / `--shodan` host-enrichment output | ✓ |
-| `shodanInternetDB` | ✓ | — | ✓ | — | — | — | — | — |
-| `subdomaincenter` | ✓ | — | — | — | — | — | — | — |
-| `subdomainfinderc99` | ✓ | — | — | — | — | — | — | — |
-| `thc` | ✓ | — | — | — | — | — | — | — |
-| `threatcrowd` | ✓ | — | ✓ | — | — | — | — | — |
-| `tomba` | ✓ | ✓ | — | — | — | — | — | ✓ |
-| `urlscan` | ✓ | — | ✓ | ✓ | ✓ | — | — | — |
-| `venacus` | — | ✓ | ✓ | — | ✓ | ✓ | — | ✓ |
-| `virustotal` | ✓ | — | — | — | — | — | — | ✓ |
-| `waybackarchive` | ✓ | — | — | — | — | — | — | — |
-| `whoisxml` | ✓ | — | — | — | — | — | — | ✓ |
-| `windvane` | ✓ | ✓ | ✓ | — | — | — | — | Optional |
-| `yahoo` | ✓ | ✓ | — | — | — | — | — | — |
-| `zoomeye` | ✓ | ✓ | ✓ | ✓ | ✓ | — | — | ✓ |
+| `baidu` | ✓ | ✓ | No | No | No | No | No | No |
+| `bevigil` | ✓ | No | No | No | ✓ | No | No | ✓ |
+| `bitbucket` | ✓ | ✓ | No | No | No | No | No | ✓ |
+| `bufferoverun` | ✓ | No | ✓ | No | No | No | No | ✓ |
+| `builtwith` | ✓ | No | No | No | ✓ | No | `POST /additional/tech-stack` response | ✓ |
+| `brave` | ✓ | ✓ | No | No | No | No | No | ✓ |
+| `censys` | ✓ | ✓ | No | No | No | No | No | ✓ |
+| `certspotter` | ✓ | No | No | No | No | No | No | No |
+| `chaos` | ✓ | No | No | No | No | No | No | ✓ |
+| `commoncrawl` | ✓ | No | No | No | No | No | No | No |
+| `criminalip` | ✓ | No | ✓ | ✓ | No | No | No | ✓ |
+| `crtsh` | ✓ | No | No | No | No | No | No | No |
+| `dehashed` | No | No | ✓ | No | No | No | No | ✓ |
+| `dnsdumpster` | ✓ | No | ✓ | No | No | No | No | ✓ |
+| `duckduckgo` | ✓ | ✓ | No | No | No | No | No | No |
+| `dymo` | ✓ | No | No | No | No | No | No | ✓ |
+| `fofa` | ✓ | No | ✓ | No | No | No | No | ✓ |
+| `fullhunt` | ✓ | No | No | No | No | No | No | ✓ |
+| `github-code` | ✓ | ✓ | No | No | No | No | No | ✓ |
+| `gitlab` | ✓ | ✓ | No | No | No | No | No | No |
+| `hackertarget` | ✓ | No | No | No | No | No | No | Optional |
+| `haveibeenpwned` | No | No | No | No | No | No | `POST /additional/breaches` response | ✓ |
+| `hudsonrock` | ✓ | ✓ | ✓ | No | No | No | No | No |
+| `hunter` | ✓ | ✓ | No | No | No | No | No | ✓ |
+| `hunterhow` | ✓ | No | No | No | No | No | No | ✓ |
+| `intelx` | ✓ | ✓ | No | No | ✓ | No | No | ✓ |
+| `leakix` | ✓ | ✓ | No | No | No | No | No | Optional |
+| `leaklookup` | No | ✓ | No | No | No | No | `POST /additional/leaks` response | ✓ |
+| `mojeek` | ✓ | ✓ | No | No | No | No | No | Optional |
+| `netlas` | ✓ | No | No | No | No | No | No | ✓ |
+| `onyphe` | ✓ | No | ✓ | ✓ | No | No | No | ✓ |
+| `otx` | ✓ | No | ✓ | No | No | No | No | No |
+| `pentesttools` | ✓ | No | No | No | No | No | No | ✓ |
+| `projectdiscovery` | ✓ | No | No | No | No | No | No | ✓ |
+| `rapiddns` | ✓ | No | No | No | No | No | No | No |
+| `robtex` | ✓ | No | ✓ | No | No | No | No | No |
+| `rocketreach` | No | ✓ | No | No | ✓ | No | No | ✓ |
+| `securityscorecard` | ✓ | No | ✓ | No | No | No | `POST /additional/security-score` response | ✓ |
+| `securityTrails` | ✓ | No | ✓ | No | No | No | No | ✓ |
+| `sherlockeye` | ✓ | ✓ | ✓ | No | No | No | No | ✓ |
+| `shodan` | ✓ | No | No | No | No | No | `-s` / `--shodan` host-enrichment output | ✓ |
+| `shodanInternetDB` | ✓ | No | ✓ | No | No | No | No | No |
+| `subdomaincenter` | ✓ | No | No | No | No | No | No | No |
+| `subdomainfinderc99` | ✓ | No | No | No | No | No | No | No |
+| `thc` | ✓ | No | No | No | No | No | No | No |
+| `threatcrowd` | ✓ | No | ✓ | No | No | No | No | No |
+| `tomba` | ✓ | ✓ | No | No | No | No | No | ✓ |
+| `urlscan` | ✓ | No | ✓ | ✓ | ✓ | No | No | No |
+| `venacus` | No | ✓ | ✓ | No | ✓ | ✓ | No | ✓ |
+| `virustotal` | ✓ | No | No | No | No | No | No | ✓ |
+| `waybackarchive` | ✓ | No | No | No | No | No | No | No |
+| `whoisxml` | ✓ | No | No | No | No | No | No | ✓ |
+| `windvane` | ✓ | ✓ | ✓ | No | No | No | No | Optional |
+| `yahoo` | ✓ | ✓ | No | No | No | No | No | No |
+| `zoomeye` | ✓ | ✓ | ✓ | ✓ | ✓ | No | No | ✓ |
 
 </details>
 
 Provider pricing is intentionally omitted because plans and quotas change frequently. See [Configuration and API Keys](docs/wiki/Configuration-and-API-Keys.md) and each provider's current documentation.
 
-The runtime registry also reports the legacy identifiers `linkedin`, `linkedin_links`, `netcraft`, `omnisint`, `sublist3r`, and `zoomeyeapi`. They have no active CLI handlers in the current code and are therefore not presented as usable sources in this table.
+The runtime registry also reports the legacy identifiers `linkedin`, `linkedin_links`, `netcraft`, `omnisint`, `sublist3r`, and `zoomeyeapi`. These identifiers have no active CLI handlers. The table does not present them as usable sources.
 
 ## Configuration
 
@@ -241,7 +251,7 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) for the development setup, required chec
 
 - Use [GitHub Issues](https://github.com/laramies/theHarvester/issues) for reproducible bugs and focused feature requests.
 - Report suspected vulnerabilities according to [SECURITY.md](SECURITY.md), not in public issues.
-- [Christian Martorella (@laramies)](https://twitter.com/laramies) created theHarvester — [cmartorella@edge-security.com](mailto:cmartorella@edge-security.com).
+- [Christian Martorella (@laramies)](https://twitter.com/laramies) created theHarvester No [cmartorella@edge-security.com](mailto:cmartorella@edge-security.com).
 - [Matt Brown (@NotoriousRebel1)](https://twitter.com/NotoriousRebel1) and [Jay "L1ghtn1ng" Townsend (@jay_townsend1)](https://twitter.com/jay_townsend1) maintain and develop the project.
 - [Lee Baird (@discoverscripts)](https://twitter.com/discoverscripts) is a main contributor.
 - Thanks to John Matherly for Shodan and Ahmed Aboul Ela for the bundled subdomain dictionaries.
