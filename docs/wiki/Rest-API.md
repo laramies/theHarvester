@@ -86,4 +86,6 @@ These routes may also require provider credentials in the request body or local 
 
 `THEHARVESTER_API_KEY` protects only `/additional/*`. It does not authenticate `/query`, `/sources`, or `/dnsbrute`.
 
-Keep the default localhost binding. If remote access is required, place the service behind authentication, network allowlists, TLS, request logging, and an appropriate rate limit. The supplied Docker Compose configuration binds host port `5000` on every interface unless you narrow the mapping.
+Keep the default localhost binding. If you require remote access, add authentication, network allowlists, TLS, request logging, and an appropriate rate limit.
+
+The supplied Docker Compose configuration binds host port `5000` on every interface unless you narrow the mapping.

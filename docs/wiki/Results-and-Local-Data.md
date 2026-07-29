@@ -4,7 +4,7 @@ theHarvester can print findings, write reports, retain selected records in SQLit
 
 ## Terminal output
 
-The CLI prints consolidated result sections plus separately selected enrichment such as Shodan. Terminal output is intended for operators, not as a stable machine-readable contract.
+The CLI groups findings by result type. It can also print separate enrichment, such as Shodan output. Use terminal output for operators, not as a stable automation interface.
 
 ## JSON and XML reports
 
@@ -18,9 +18,11 @@ This creates `report.json` and `report.xml`.
 
 - **JSON** is one object and contains the broader result set. `cmd`, `hosts`, and `shodan` are always present; other fields appear when non-empty.
 - **XML** contains the command, emails, hosts, and virtual hosts. Use JSON for other result types.
-- Consolidated reports do not retain per-source attribution.
+- Current JSON and XML reports do not record which source found each item.
 
-Host values may be plain hostnames or `hostname:IP` pairs when DNS resolution is enabled. The repository [README output section](https://github.com/laramies/theHarvester/blob/dev/README.md#report-formats) documents the current fields and provides copyable `jq` examples.
+Host values may be plain hostnames. When DNS resolution is enabled, they can also use the `hostname:IP` form.
+
+The repository [README output section](https://github.com/laramies/theHarvester/blob/dev/README.md#report-formats) documents the current fields and provides copyable `jq` examples.
 
 ## SQLite database
 
