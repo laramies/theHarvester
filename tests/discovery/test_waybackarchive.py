@@ -124,21 +124,38 @@ async def test_process_keeps_partial_results_when_a_later_page_times_out(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('payload', ['', '<html>provider error</html>', {'unexpected': 'shape'}])
-async def test_process_ignores_empty_html_and_non_text_responses(monkeypatch: pytest.MonkeyPatch, payload: object) -> None:
+@pytest.mark.parametrize(
+    ('payload', 'expected_log'),
+    [
+        ('', 'returned no page data'),
+        ('<html>provider error</html>', 'returned invalid page data'),
+        ({'unexpected': 'shape'}, 'returned invalid page data'),
+    ],
+)
+async def test_process_ignores_empty_html_and_non_text_responses(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    payload: object,
+    expected_log: str,
+) -> None:
     async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[object]:
         return [payload]
 
     monkeypatch.setattr(waybackarchive.AsyncFetcher, 'fetch_all', fake_fetch_all)
 
     search = waybackarchive.SearchWaybackarchive('example.com')
-    await search.process()
+    with caplog.at_level(logging.INFO, logger=waybackarchive.__name__):
+        await search.process()
 
     assert await search.get_hostnames() == set()
+    assert expected_log in caplog.text
 
 
 @pytest.mark.asyncio
-async def test_process_respects_the_per_query_page_bound(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_process_respects_the_per_query_page_bound(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     wildcard_requests = 0
 
     async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[str]:
@@ -153,7 +170,9 @@ async def test_process_respects_the_per_query_page_bound(monkeypatch: pytest.Mon
     monkeypatch.setattr(waybackarchive.SearchWaybackarchive, 'MAX_PAGES_PER_QUERY', 2)
 
     search = waybackarchive.SearchWaybackarchive('example.com')
-    await search.process()
+    with caplog.at_level(logging.INFO, logger=waybackarchive.__name__):
+        await search.process()
 
     assert wildcard_requests == 2
     assert await search.get_hostnames() == {'host-1.example.com', 'host-2.example.com'}
+    assert 'Wayback Archive page limit reached for pattern *.example.com; results may be incomplete' in caplog.text

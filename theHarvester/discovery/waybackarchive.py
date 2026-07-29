@@ -43,9 +43,9 @@ class SearchWaybackarchive:
         return hostname
 
     @staticmethod
-    def _parse_page(payload: str) -> tuple[list[str], str | None]:
+    def _parse_page(payload: object) -> tuple[list[str], str | None] | None:
         if not isinstance(payload, str) or payload.lstrip().startswith('<'):
-            return [], None
+            return None
 
         body, separator, continuation = payload.replace('\r\n', '\n').rpartition('\n\n')
         if not separator:
@@ -70,10 +70,18 @@ class SearchWaybackarchive:
 
             url = f'{self.hostname}/cdx/search/cdx?{urlencode(query)}'
             response = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
-            if not response or not isinstance(response, list) or not response[0]:
+            if not response or not isinstance(response, list):
+                logger.info(f'Wayback Archive returned an invalid response container for pattern {pattern}')
+                return
+            if not response[0]:
+                logger.info(f'Wayback Archive returned no page data for pattern {pattern}')
                 return
 
-            lines, next_resume_key = self._parse_page(response[0])
+            page = self._parse_page(response[0])
+            if page is None:
+                logger.info(f'Wayback Archive returned invalid page data for pattern {pattern}; stopping pagination')
+                return
+            lines, next_resume_key = page
             for line in lines:
                 if not line:
                     continue
@@ -85,6 +93,7 @@ class SearchWaybackarchive:
                 return
             seen_resume_keys.add(next_resume_key)
             resume_key = next_resume_key
+        logger.info(f'Wayback Archive page limit reached for pattern {pattern}; results may be incomplete')
 
     async def do_search(self) -> None:
         try:
