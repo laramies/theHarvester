@@ -17,7 +17,7 @@ _connect = socket.socket.connect
 _connect_ex = socket.socket.connect_ex
 _sendto = socket.socket.sendto
 
-_ERROR = (
+_NETWORK_GUARD_ERROR = (
     'External networking through Python socket APIs is disabled in routine tests. '
     'Mock the boundary or mark the test with @pytest.mark.live_network and pass '
     '--run-live-network -m live_network.'
@@ -99,48 +99,48 @@ def _is_loopback_address(family: int, address: object) -> bool:
 
 def _guarded_getaddrinfo(host: bytes | str | None, *args: Any, **kwargs: Any) -> list[tuple[Any, ...]]:
     if not _is_loopback_host(host):
-        raise AssertionError(f'{_ERROR} Attempted host: {host!r}.')
+        raise AssertionError(f'{_NETWORK_GUARD_ERROR} Attempted host: {host!r}.')
     return _getaddrinfo(host, *args, **kwargs)
 
 
 def _guarded_gethostbyaddr(host: str) -> tuple[str, list[str], list[str]]:
     if not _is_loopback_host(host):
-        raise AssertionError(f'{_ERROR} Attempted host: {host!r}.')
+        raise AssertionError(f'{_NETWORK_GUARD_ERROR} Attempted host: {host!r}.')
     return _gethostbyaddr(host)
 
 
 def _guarded_gethostbyname(host: str) -> str:
     if not _is_loopback_host(host):
-        raise AssertionError(f'{_ERROR} Attempted host: {host!r}.')
+        raise AssertionError(f'{_NETWORK_GUARD_ERROR} Attempted host: {host!r}.')
     return _gethostbyname(host)
 
 
 def _guarded_gethostbyname_ex(host: str) -> tuple[str, list[str], list[str]]:
     if not _is_loopback_host(host):
-        raise AssertionError(f'{_ERROR} Attempted host: {host!r}.')
+        raise AssertionError(f'{_NETWORK_GUARD_ERROR} Attempted host: {host!r}.')
     return _gethostbyname_ex(host)
 
 
 def _guarded_getnameinfo(address: tuple[Any, ...], flags: int) -> tuple[str, str]:
     if not address or not _is_loopback_host(address[0]):
-        raise AssertionError(f'{_ERROR} Attempted address: {address!r}.')
+        raise AssertionError(f'{_NETWORK_GUARD_ERROR} Attempted address: {address!r}.')
     return _getnameinfo(address, flags)
 
 
 def _guarded_connect(sock: socket.socket, address: object) -> None:
     if not _is_loopback_address(sock.family, address):
-        raise AssertionError(f'{_ERROR} Attempted address: {address!r}.')
+        raise AssertionError(f'{_NETWORK_GUARD_ERROR} Attempted address: {address!r}.')
     _connect(sock, address)  # type: ignore[arg-type]
 
 
 def _guarded_connect_ex(sock: socket.socket, address: object) -> int:
     if not _is_loopback_address(sock.family, address):
-        raise AssertionError(f'{_ERROR} Attempted address: {address!r}.')
+        raise AssertionError(f'{_NETWORK_GUARD_ERROR} Attempted address: {address!r}.')
     return _connect_ex(sock, address)  # type: ignore[arg-type]
 
 
 def _guarded_sendto(sock: socket.socket, data: bytes, *args: Any) -> int:
     address = args[-1] if args else None
     if not _is_loopback_address(sock.family, address):
-        raise AssertionError(f'{_ERROR} Attempted address: {address!r}.')
+        raise AssertionError(f'{_NETWORK_GUARD_ERROR} Attempted address: {address!r}.')
     return _sendto(sock, data, *args)
