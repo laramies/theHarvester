@@ -1,5 +1,5 @@
 import logging
-import re
+from urllib.parse import urlencode, urlsplit
 
 from theHarvester.lib.core import AsyncFetcher, Core
 
@@ -7,10 +7,17 @@ logger = logging.getLogger(__name__)
 
 
 class SearchWaybackarchive:
-    """Class uses Internet Archive's Wayback Machine CDX API to find historical subdomains"""
+    """Use the Internet Archive Wayback CDX API to find historical subdomains.
+
+    API documentation: https://github.com/internetarchive/wayback/tree/master/wayback-cdx-server
+    """
+
+    PAGE_SIZE = 1000
+    # ponytail: hard cap protects against endless cursors; raise only if real targets exceed one million rows.
+    MAX_PAGES_PER_QUERY = 1000
 
     def __init__(self, word) -> None:
-        self.word = word
+        self.word = word.strip().rstrip('.').lower()
         self.totalhosts: set = set()
         self.proxy = False
         self.hostname = 'https://web.archive.org'
@@ -19,52 +26,76 @@ class SearchWaybackarchive:
         """Extract domain from URL"""
         if not url:
             return ''
+        try:
+            parsed = urlsplit(url if '://' in url else f'//{url}')
+            hostname = (parsed.hostname or '').rstrip('.').lower()
+        except ValueError:
+            return ''
+        if len(hostname) > 253 or any(
+            not label
+            or len(label) > 63
+            or label.startswith('-')
+            or label.endswith('-')
+            or not all(character.isascii() and (character.isalnum() or character == '-') for character in label)
+            for label in hostname.split('.')
+        ):
+            return ''
+        return hostname
 
-        # Remove protocol
-        url = re.sub(r'^https?://', '', url)
+    @staticmethod
+    def _parse_page(payload: str) -> tuple[list[str], str | None]:
+        if not isinstance(payload, str) or payload.lstrip().startswith('<'):
+            return [], None
 
-        # Extract domain part (before first /)
-        domain = url.split('/')[0]
+        body, separator, continuation = payload.replace('\r\n', '\n').rpartition('\n\n')
+        if not separator:
+            return payload.splitlines(), None
 
-        # Remove port if present
-        domain = domain.split(':')[0]
+        continuation_lines = [line.strip() for line in continuation.splitlines() if line.strip()]
+        return body.splitlines(), continuation_lines[0] if len(continuation_lines) == 1 else None
 
-        return domain.lower()
+    async def _search_pattern(self, pattern: str, headers: dict[str, str]) -> None:
+        resume_key: str | None = None
+        seen_resume_keys: set[str] = set()
+        for _ in range(self.MAX_PAGES_PER_QUERY):
+            query = {
+                'url': pattern,
+                'fl': 'original',
+                'collapse': 'urlkey',
+                'limit': self.PAGE_SIZE,
+                'showResumeKey': 'true',
+            }
+            if resume_key is not None:
+                query['resumeKey'] = resume_key
+
+            url = f'{self.hostname}/cdx/search/cdx?{urlencode(query)}'
+            response = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
+            if not response or not isinstance(response, list) or not response[0]:
+                return
+
+            lines, next_resume_key = self._parse_page(response[0])
+            for line in lines:
+                if not line:
+                    continue
+                domain = self._extract_domain_from_url(line.strip())
+                if domain.endswith(f'.{self.word}') or domain == self.word:
+                    self.totalhosts.add(domain)
+
+            if next_resume_key is None or next_resume_key in seen_resume_keys:
+                return
+            seen_resume_keys.add(next_resume_key)
+            resume_key = next_resume_key
 
     async def do_search(self) -> None:
         try:
             headers = {'User-agent': Core.get_user_agent()}
 
-            # Search for subdomains in wayback machine
-            # Using different approaches due to API timeout issues
-
-            # Method 1: Search for wildcard subdomains (limited results to avoid timeout)
-            urls_to_try = [
-                f'{self.hostname}/cdx/search/cdx?url=*.{self.word}&fl=original&collapse=urlkey&limit=100',
-                f'{self.hostname}/cdx/search/cdx?url={self.word}/*&fl=original&collapse=urlkey&limit=50',
-            ]
-
-            for url in urls_to_try:
+            for pattern in (f'*.{self.word}', f'{self.word}/*'):
                 try:
-                    response = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
-
-                    if not response or not isinstance(response, list) or not response[0]:
-                        continue
-
-                    # Parse line-by-line response (not JSON)
-                    lines = response[0].strip().split('\n') if isinstance(response[0], str) else []
-
-                    for line in lines:
-                        if line and not line.startswith('<'):  # Skip HTML error messages
-                            # Each line is a URL
-                            domain = self._extract_domain_from_url(line.strip())
-
-                            # Check if it's a subdomain of our target
-                            if domain.endswith(f'.{self.word}') or domain == self.word:
-                                self.totalhosts.add(domain)
+                    await self._search_pattern(pattern, headers)
 
                 except Exception as e:
-                    logger.info(f'Wayback Archive API error for URL {url}: {e}')
+                    logger.info(f'Wayback Archive API error for pattern {pattern}: {e}')
                     continue
 
         except Exception as e:
