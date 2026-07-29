@@ -89,21 +89,6 @@ class SearchRobtex:
                         except (ValueError, TypeError):
                             pass
 
-            # Also try reverse DNS lookup for additional data
-            reverse_url = f'{self.hostname}/pdns/reverse/{self.word}'
-            reverse_response = await AsyncFetcher.fetch_all([reverse_url], headers=headers, proxy=self.proxy)
-
-            if reverse_response and isinstance(reverse_response, list) and reverse_response[0]:
-                try:
-                    reverse_data = self._safe_parse_json_lines(reverse_response[0])
-                    for record in reverse_data:
-                        if isinstance(record, dict):
-                            rrdata = record.get('rrdata', '')
-                            if rrdata and (rrdata.endswith(self.word) or f'.{self.word}' in rrdata):
-                                self.totalhosts.add(rrdata.rstrip('.'))
-                except (TypeError, ValueError) as e:
-                    logger.info(f'Failed to parse reverse DNS data from Robtex: {e}')
-
         except (aiohttp.ClientError, TimeoutError, OSError, TypeError, ValueError) as e:
             logger.info(f'Robtex API error: {e}')
 
