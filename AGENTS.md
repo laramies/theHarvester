@@ -6,7 +6,7 @@ theHarvester is a Python OSINT reconnaissance tool for collecting public informa
 
 - The project requires Python 3.12 or newer and uses `uv` for environments and commands.
 - Install development dependencies with `uv sync --all-groups`.
-- For code changes, follow [README/CONTRIBUTING.md](README/CONTRIBUTING.md).
+- For code changes, follow [CONTRIBUTING.md](CONTRIBUTING.md).
 - Make the smallest requested change, reuse existing code, and preserve unrelated worktree changes.
 
 ## Domain language
