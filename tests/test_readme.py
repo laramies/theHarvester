@@ -150,3 +150,18 @@ def test_wiki_navigation_and_readme_links_resolve() -> None:
     readme_wiki_links = re.findall(r'\]\((docs/wiki/[^)]+)\)', readme)
     assert readme_wiki_links
     assert all(Path(target).is_file() for target in readme_wiki_links)
+
+
+def test_readme_preserves_project_social_attribution() -> None:
+    readme = Path('README.md').read_text()
+    profiles = {
+        'Christian Martorella': 'laramies',
+        'Matt Brown': 'NotoriousRebel1',
+        'Jay "L1ghtn1ng" Townsend': 'jay_townsend1',
+        'Lee Baird': 'discoverscripts',
+    }
+
+    for name, handle in profiles.items():
+        assert name in readme
+        assert f'https://twitter.com/{handle}' in readme
+        assert f'@{handle}' in readme

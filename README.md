@@ -242,6 +242,6 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) for the development setup, required chec
 - Use [GitHub Issues](https://github.com/laramies/theHarvester/issues) for reproducible bugs and focused feature requests.
 - Report suspected vulnerabilities according to [SECURITY.md](SECURITY.md), not in public issues.
 - [Christian Martorella (@laramies)](https://twitter.com/laramies) created theHarvester — [cmartorella@edge-security.com](mailto:cmartorella@edge-security.com).
-- Jay Townsend and Matt Brown maintain and develop the project.
-- Lee Baird is a main contributor.
+- [Matt Brown (@NotoriousRebel1)](https://twitter.com/NotoriousRebel1) and [Jay "L1ghtn1ng" Townsend (@jay_townsend1)](https://twitter.com/jay_townsend1) maintain and develop the project.
+- [Lee Baird (@discoverscripts)](https://twitter.com/discoverscripts) is a main contributor.
 - Thanks to John Matherly for Shodan and Ahmed Aboul Ela for the bundled subdomain dictionaries.
