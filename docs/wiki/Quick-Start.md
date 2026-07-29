@@ -46,6 +46,8 @@ uv run theHarvester -d "$AUTHORIZED_DOMAIN" -b crtsh -r resolvers.txt
 
 The [README source matrix](https://github.com/laramies/theHarvester/blob/dev/README.md#discovery-sources) shows the result types and credential requirements for every current source.
 
-Avoid starting with `-b all`. It contacts many independent services, increases runtime, consumes quotas, and makes provider-specific failures harder to diagnose. Add sources in small groups that match the result types you need.
+Do not start with `-b all`. It contacts many independent services and can consume quotas. It also increases runtime and makes provider failures harder to isolate.
+
+Choose a small group of sources that provides the result types you need.
 
 Use `theHarvester -h` for the current option and source list.

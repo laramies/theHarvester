@@ -1,0 +1,95 @@
+name: Bug report
+description: Something went wrong while running theHarvester
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. The details below help us reproduce and diagnose it.
+
+        Before posting, remove credentials, API keys, account details, and private reconnaissance data. Replace private domains or IP addresses with `example.com` or `192.0.2.1` whenever possible.
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: What happened?
+      description: Describe the problem and include the error message if one appeared.
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Command you ran
+      description: Paste the exact command, replacing any private domain or IP address with `example.com` or `192.0.2.1` and removing credentials.
+      placeholder: "uv run theHarvester -d example.com -b certspotter"
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: What did you expect to happen?
+      description: Describe the result you expected instead.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: installation-method
+    attributes:
+      label: How did you install theHarvester?
+      description: Android installations are not supported. See the [installation guide](https://github.com/laramies/theHarvester/wiki/Installation) for supported options.
+      options:
+        - Source checkout with uv
+        - pipx
+        - Docker
+        - Operating-system package
+        - Other or not sure
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: theHarvester version
+      description: Copy the version shown in the startup banner. If you run from source, a commit hash is helpful but optional.
+      placeholder: "Example: 4.11.1"
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Add your operating system and Python version. Find the OS version in Windows Settings, About This Mac, or `/etc/os-release` on Linux. Use `python --version`, `pipx list`, or `uv run python --version` as appropriate.
+      placeholder: |
+        Operating system: Ubuntu 24.04
+        Python version: 3.13.5
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error output or screenshot
+      description: Add only the output needed to diagnose the problem. Redact credentials, real targets, account details, and any sensitive or unrelated data from API responses.
+
+  - type: dropdown
+    id: regression
+    attributes:
+      label: Did this work before?
+      options:
+        - "Yes"
+        - "No"
+        - Unknown
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I searched existing issues for the same problem.
+          required: true
+        - label: I removed credentials, account details, private targets, and other sensitive data from this report.
+          required: true

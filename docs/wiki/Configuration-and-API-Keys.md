@@ -35,7 +35,9 @@ apikeys:
 
 Do not commit populated configuration files. Prefer provider credentials scoped to the minimum access the provider supports.
 
-The [README source matrix](https://github.com/laramies/theHarvester/blob/dev/README.md#discovery-sources) is the canonical list of current sources and whether a key is required, optional, or unused. Provider pricing, quotas, and terms change frequently; use each provider's documentation rather than copying those values into this wiki.
+The [README source matrix](https://github.com/laramies/theHarvester/blob/dev/README.md#discovery-sources) is the canonical source list. It shows whether each source requires a key, accepts an optional key, or has no key setting.
+
+Provider pricing, quotas, and terms change frequently. Check the provider's current documentation for these details.
 
 ## Proxies
 

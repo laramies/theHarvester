@@ -1,6 +1,6 @@
 # Responsible use and scope
 
-Use theHarvester only on targets you own or are explicitly authorized to assess. Authorization should identify the target, permitted techniques, time window, data handling rules, and any third-party restrictions.
+Use theHarvester only on targets you own or are explicitly authorized to assess. The authorization should name the target, permitted techniques, time window, data-handling rules, and third-party restrictions.
 
 ## Passive does not mean invisible
 
@@ -35,4 +35,6 @@ Results may contain private infrastructure, employee addresses, account identifi
 
 ## Service exposure
 
-`restfulHarvest` core query routes are not authenticated. The optional `/additional/*` routes use `THEHARVESTER_API_KEY`, but that does not protect `/query`, `/sources`, or `/dnsbrute`. Keep the service on localhost or place it behind appropriate authentication, network controls, and TLS.
+The `restfulHarvest` core query routes do not require authentication. `THEHARVESTER_API_KEY` protects the optional `/additional/*` routes only. It does not protect `/query`, `/sources`, or `/dnsbrute`.
+
+Keep the service on localhost. If you require remote access, add authentication, network controls, and TLS.
