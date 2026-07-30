@@ -20,7 +20,11 @@ except Exception:
 
 
 class SearchCommoncrawl:
-    """Gather subdomains from every crawl ending within one year of the newest catalog entry."""
+    """Gather subdomains from every crawl ending within one year of the newest catalog entry.
+
+    API docs: https://commoncrawl.org/get-started
+    Index catalog: https://index.commoncrawl.org/collinfo.json
+    """
 
     INDEX_LOOKBACK = timedelta(days=365)
     PAGE_SIZE = 5
