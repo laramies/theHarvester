@@ -12,6 +12,9 @@ class SearchCertspoter:
     API reference: https://sslmate.com/help/reference/ct_search_api_v1
     """
 
+    # ponytail: hard cap protects against endless unique cursors; raise only if real targets exceed 1,000 pages.
+    MAX_PAGES = 1000
+
     def __init__(self, word) -> None:
         self.word = word.strip().lower().rstrip('.')
         self.totalhosts: set = set()
@@ -22,7 +25,7 @@ class SearchCertspoter:
         cursor = None
         seen_cursors: set[str] = set()
         try:
-            while True:
+            for _ in range(self.MAX_PAGES):
                 params = {
                     'domain': self.word,
                     'include_subdomains': 'true',
@@ -102,6 +105,8 @@ class SearchCertspoter:
                     break
                 seen_cursors.add(next_cursor)
                 cursor = next_cursor
+            else:
+                logger.warning('Cert Spotter page limit reached; results may be incomplete.')
         except ConnectionError:
             logger.warning('Cert Spotter network connection failed; results may be incomplete.')
         except Exception:
