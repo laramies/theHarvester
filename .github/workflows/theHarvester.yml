@@ -9,6 +9,9 @@ on:
     branches:
       - '*'
 
+permissions:
+  contents: read
+
 jobs:
   Python:
     runs-on: ${{ matrix.os }}
@@ -45,64 +48,13 @@ jobs:
       - name: Lint with ruff
         uses: astral-sh/ruff-action@278981a28ce3188b1e39527901f38254bf3aac89 # v4.1.0
         with:
-          args: check --fix
+          args: check
 
       - name: Format with ruff
         uses: astral-sh/ruff-action@278981a28ce3188b1e39527901f38254bf3aac89 # v4.1.0
         with:
-          args: format
-
-      - name: Commit changes for ruff formating and linting
-        if: github.event_name == 'push'
-        run: |
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-          git add .
-          git commit -m "Apply ruff fixes and formatting" || true # Use || true to prevent failure if no changes
-          git push origin HEAD:${{ github.ref_name }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          args: format --check
 
       - name: Test with pytest
         run: |
-          pytest tests/**
-
-      - name: Run theHarvester module Baidu
-        run: |
-          theHarvester -d yale.edu -b baidu
-
-      - name: Run theHarvester module CertSpotter
-        run: |
-          theHarvester -d yale.edu -b certspotter
-
-      - name: Run theHarvester module Crtsh
-        run: |
-          theHarvester -d hcl.com -b crtsh
-
-      - name: Run theHarvester module DuckDuckGo
-        run: |
-          theHarvester -d yale.edu -b duckduckgo
-
-      - name: Run theHarvester module HackerTarget
-        run: |
-          theHarvester -d yale.edu -b hackertarget
-
-      - name: Run theHarvester module Otx
-        run: |
-          theHarvester -d yale.edu -b otx
-
-      - name: Run theHarvester module RapidDns
-        run: |
-          theHarvester -d yale.edu -b rapiddns
-
-      - name: Run theHarvester module Urlscan
-        run: |
-          theHarvester -d yale.edu -b urlscan
-
-      - name: Run theHarvester module Yahoo
-        run: |
-          theHarvester -d yale.edu -b yahoo
-
-      - name: Run theHarvester module DNS brute force
-        run: |
-          theHarvester -d yale.edu -c
+          pytest

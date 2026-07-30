@@ -143,7 +143,7 @@ Read the **API key** column as follows:
 | `hudsonrock` | ✓ | ✓ | ✓ | No | No | No | No | No |
 | `hunter` | ✓ | ✓ | No | No | No | No | No | ✓ |
 | `hunterhow` | ✓ | No | No | No | No | No | No | ✓ |
-| `intelx` | No | ✓ | No | No | ✓ | No | No | ✓ |
+| `intelx` | ✓ | ✓ | No | No | ✓ | No | No | ✓ |
 | `leakix` | ✓ | ✓ | No | No | No | No | No | Optional |
 | `leaklookup` | No | ✓ | No | No | No | No | `POST /additional/leaks` response | ✓ |
 | `mojeek` | ✓ | ✓ | No | No | No | No | No | Optional |
