@@ -55,6 +55,46 @@ def test_source_specs_describe_consolidated_routes_not_getter_presence() -> None
     )
 
 
+def test_source_specs_classify_provider_descendant_queries() -> None:
+    expected = {
+        'baidu',
+        'bevigil',
+        'brave',
+        'bufferoverun',
+        'certspotter',
+        'chaos',
+        'commoncrawl',
+        'criminalip',
+        'crtsh',
+        'dnsdb',
+        'dnsdumpster',
+        'fofa',
+        'fullhunt',
+        'hackertarget',
+        'hunterhow',
+        'leakix',
+        'netlas',
+        'otx',
+        'pentesttools',
+        'projectdiscovery',
+        'rapiddns',
+        'robtex',
+        'securityTrails',
+        'subdomaincenter',
+        'subdomainfinderc99',
+        'thc',
+        'threatcrowd',
+        'urlscan',
+        'virustotal',
+        'waybackarchive',
+        'whoisxml',
+        'windvane',
+        'zoomeye',
+    }
+
+    assert {spec.name for spec in SOURCE_SPECS.values() if spec.queries_provider_descendants} == expected
+
+
 def test_capability_selection_preserves_every_declared_route() -> None:
     assert 'venacus' in Core.expand_source_selection('emails')
     assert get_source_spec('venacus').routes == frozenset(
