@@ -13,7 +13,7 @@ COPY . /app
 # Create and sync environment using uv
 # Compile bytecode for faster startup and install to system site-packages
 RUN --mount=from=ghcr.io/astral-sh/uv,source=/uv,target=/bin/uv \
-    UV_PROJECT_ENVIRONMENT=/usr/local uv sync --locked --no-dev --no-cache --compile-bytecode
+    UV_PROJECT_ENVIRONMENT=/usr/local uv sync --no-dev --no-cache --compile-bytecode
 
 # Use non-root user
 USER theharvester
