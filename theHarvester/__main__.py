@@ -369,7 +369,11 @@ async def start(rest_args: argparse.Namespace | None = None):
             output_logger.info(f'[*] Searching {source[0].upper() + source[1:]}. ')
 
         if store_host:
-            host_names = list({host for host in await search_engine.get_hostnames() if f'.{word}' in host})
+            discovered_hosts = await search_engine.get_hostnames()
+            if source == 'intelx':
+                host_names = list(discovered_hosts)
+            else:
+                host_names = list({host for host in discovered_hosts if f'.{word}' in host})
             host_names = list(host_names)
             if source != 'hackertarget' and source != 'pentesttools' and source != 'rapiddns':
                 # If a source is inside this conditional, it means the hosts returned must be resolved to obtain ip
@@ -820,6 +824,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                             store(
                                 intelx_search,
                                 engineitem,
+                                store_host=True,
                                 store_interestingurls=True,
                                 store_emails=True,
                             )
