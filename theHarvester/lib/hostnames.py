@@ -4,6 +4,8 @@ def normalize_scoped_hostname(value: object, target: str) -> str | None:
         return None
     hostname = value.strip().lower().rstrip('.')
     normalized_target = target.strip().lower().rstrip('.')
+    if not normalized_target:
+        return None
     if hostname == normalized_target or hostname.endswith(f'.{normalized_target}'):
         return hostname
     return None

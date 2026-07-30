@@ -9,19 +9,10 @@ import aiohttp
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import Core
+from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.parsers import intelxparser
 
 logger = logging.getLogger(__name__)
-
-
-def _normalize_scoped_hostname(value: object, target: str) -> str | None:
-    if not isinstance(value, str):
-        return None
-    hostname = value.strip().lower().rstrip('.')
-    normalized_target = target.strip().lower().rstrip('.')
-    if hostname == normalized_target or hostname.endswith(f'.{normalized_target}'):
-        return hostname
-    return None
 
 
 class SearchIntelx:
@@ -99,7 +90,7 @@ class SearchIntelx:
                 address = Address(addr_spec=email.strip().lower())
             except (HeaderParseError, ValueError):
                 continue
-            if address.username and (normalized_domain := _normalize_scoped_hostname(address.domain, self.word)):
+            if address.username and (normalized_domain := normalize_scoped_hostname(address.domain, self.word)):
                 emails.add(f'{address.username}@{normalized_domain}')
 
         for selector in raw_selectors:
@@ -108,7 +99,7 @@ class SearchIntelx:
             except ValueError:
                 continue
             interesting_urls.add(selector)
-            if normalized_hostname := _normalize_scoped_hostname(parsed.hostname, self.word):
+            if normalized_hostname := normalize_scoped_hostname(parsed.hostname, self.word):
                 hostnames.add(normalized_hostname)
 
         self.emails = sorted(emails)
