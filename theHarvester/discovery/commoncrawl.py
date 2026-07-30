@@ -24,6 +24,7 @@ class SearchCommoncrawl:
 
     INDEX_LOOKBACK = timedelta(days=365)
     PAGE_SIZE = 5
+    PAGE_BATCH_SIZE = 10
 
     def __init__(self, word) -> None:
         self.word = word.lower().rstrip('.')
@@ -35,6 +36,7 @@ class SearchCommoncrawl:
     def _safe_parse_json_lines(payload: str) -> list:
         """Parse JSON lines format"""
         results: list = []
+        malformed = False
         if not payload:
             return results
         if payload.lstrip().startswith('<'):
@@ -44,8 +46,12 @@ class SearchCommoncrawl:
             if line.strip():
                 try:
                     results.append(json.loads(line))
-                except Exception as error:
-                    raise ValueError('malformed JSON line') from error
+                except Exception:
+                    malformed = True
+        if malformed:
+            if not results:
+                raise ValueError('malformed JSON line')
+            logger.warning('Common Crawl response contained a malformed JSON line; valid records were preserved')
         return results
 
     def _extract_domain_from_url(self, url: str) -> str:
@@ -64,7 +70,19 @@ class SearchCommoncrawl:
                 logger.warning('Common Crawl API error for index unknown: invalid catalog entry')
                 continue
             index_id = entry.get('id', 'unknown')
-            if not isinstance(entry.get('cdx-api'), str):
+            endpoint = entry.get('cdx-api')
+            if not isinstance(endpoint, str):
+                logger.warning(f'Common Crawl API error for index {index_id}: invalid catalog entry')
+                continue
+            parsed_endpoint = urlsplit(endpoint)
+            if (
+                parsed_endpoint.scheme != 'https'
+                or parsed_endpoint.netloc != 'index.commoncrawl.org'
+                or not parsed_endpoint.path.startswith('/CC-MAIN-')
+                or not parsed_endpoint.path.endswith('-index')
+                or parsed_endpoint.query
+                or parsed_endpoint.fragment
+            ):
                 logger.warning(f'Common Crawl API error for index {index_id}: invalid catalog entry')
                 continue
             try:
@@ -109,25 +127,41 @@ class SearchCommoncrawl:
                     try:
                         count_url = f'{endpoint}?{urlencode({"url": query, "output": "json", "pageSize": self.PAGE_SIZE, "showNumPages": "true"})}'
                         count_response = await AsyncFetcher.fetch_all([count_url], headers=headers, proxy=self.proxy)
-                        page_count = json.loads(count_response[0])['pages']
-                        page_urls = [
-                            f'{endpoint}?{urlencode({"url": query, "output": "json", "pageSize": self.PAGE_SIZE, "page": page})}'
-                            for page in range(page_count)
-                        ]
-                        responses = await AsyncFetcher.fetch_all(page_urls, headers=headers, proxy=self.proxy)
-                        for response in responses:
-                            if not response:
-                                raise ValueError('empty page response')
-                            for record in self._safe_parse_json_lines(response):
-                                if isinstance(record, dict):
-                                    domain = self._extract_domain_from_url(record.get('url', ''))
-                                    if domain.endswith(f'.{self.word}') or domain == self.word:
-                                        self.totalhosts.add(domain)
-                        successful_queries += 1
+                        count_payload = json.loads(count_response[0])
+                        page_count = count_payload.get('pages') if isinstance(count_payload, dict) else None
+                        if isinstance(page_count, bool) or not isinstance(page_count, int) or page_count < 0:
+                            raise ValueError('invalid page count')
+                        query_succeeded = page_count == 0
+                        for first_page in range(0, page_count, self.PAGE_BATCH_SIZE):
+                            page_urls = [
+                                f'{endpoint}?{urlencode({"url": query, "output": "json", "pageSize": self.PAGE_SIZE, "page": page})}'
+                                for page in range(first_page, min(first_page + self.PAGE_BATCH_SIZE, page_count))
+                            ]
+                            responses = await AsyncFetcher.fetch_all(page_urls, headers=headers, proxy=self.proxy)
+                            if not isinstance(responses, list) or not responses:
+                                raise ValueError('invalid page batch')
+                            for response in responses:
+                                try:
+                                    if not response:
+                                        raise ValueError('empty page response')
+                                    for record in self._safe_parse_json_lines(response):
+                                        if isinstance(record, dict):
+                                            domain = self._extract_domain_from_url(record.get('url', ''))
+                                            if domain.endswith(f'.{self.word}') or domain == self.word:
+                                                self.totalhosts.add(domain)
+                                    query_succeeded = True
+                                except ValueError as error:
+                                    logger.warning(f'Common Crawl page error for index {index.get("id", "unknown")}: {error}')
+                                except Exception:
+                                    logger.warning(
+                                        f'Common Crawl page error for index {index.get("id", "unknown")}: unexpected page failure'
+                                    )
+                        if query_succeeded:
+                            successful_queries += 1
                     except Exception as error:
                         logger.warning(f'Common Crawl API error for index {index.get("id", "unknown")}: {error}')
 
-            if not successful_queries:
+            if not successful_queries and not self.totalhosts:
                 raise RuntimeError('all Common Crawl queries failed')
 
         except RuntimeError:
