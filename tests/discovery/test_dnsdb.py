@@ -13,6 +13,7 @@ def _install_response(
     lines: tuple[bytes, ...],
     *,
     status: int = 200,
+    stream_error: Exception | None = None,
 ) -> dict[str, object]:
     requested: dict[str, object] = {}
     lines_left = list(lines)
@@ -23,6 +24,8 @@ def _install_response(
 
         async def __anext__(self) -> bytes:
             if not lines_left:
+                if stream_error is not None:
+                    raise stream_error
                 raise StopAsyncIteration
             return lines_left.pop(0)
 
@@ -39,9 +42,6 @@ def _install_response(
             return None
 
     class FakeSession:
-        def __init__(self, **kwargs: object) -> None:
-            requested['session'] = kwargs
-
         def get(self, url: str, **kwargs: object) -> FakeResponse:
             requested['url'] = url
             requested['request'] = kwargs
@@ -53,7 +53,21 @@ def _install_response(
         async def __aexit__(self, *_args: object) -> None:
             return None
 
-    monkeypatch.setattr(dnsdb.aiohttp, 'ClientSession', FakeSession)
+    async def fake_build_session(
+        headers: dict[str, str],
+        timeout: object,
+        proxy_url: str | None = None,
+        proxy_type: str | None = None,
+    ) -> FakeSession:
+        requested['session'] = {
+            'headers': headers,
+            'timeout': timeout,
+            'proxy_url': proxy_url,
+            'proxy_type': proxy_type,
+        }
+        return FakeSession()
+
+    monkeypatch.setattr(dnsdb.AsyncFetcher, '_build_session', fake_build_session)
     return requested
 
 
@@ -84,11 +98,37 @@ async def test_process_collects_normalized_in_scope_rrset_owners(monkeypatch: py
 
     assert await search.get_hostnames() == {'api.example.com'}
     assert requested['url'] == 'https://api.dnsdb.info/dnsdb/v2/lookup/rrset/name/*.example.com?limit=0'
-    assert requested['session']['headers'] == {
+    session_options = requested['session']
+    assert isinstance(session_options, dict)
+    assert session_options['headers'] == {
         'Accept': 'application/x-ndjson',
         'User-Agent': f'theHarvester/{dnsdb.__version__}',
         'X-API-Key': 'dnsdb-test-key',
     }
+
+
+@pytest.mark.asyncio
+async def test_process_uses_configured_proxy_when_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(dnsdb.Core, 'dnsdb_key', lambda: 'dnsdb-test-key')
+    monkeypatch.setattr(
+        dnsdb.Core,
+        'proxy_list',
+        lambda: {'http': ['http://proxy.example:8080'], 'socks5': []},
+    )
+    monkeypatch.setattr(dnsdb.AsyncFetcher, '_proxy_list', None)
+    requested = _install_response(
+        monkeypatch,
+        (
+            b'{"cond":"begin"}\n',
+            b'{"cond":"succeeded"}\n',
+        ),
+    )
+
+    await dnsdb.SearchDNSDB('example.com').process(True)
+
+    request_options = requested['request']
+    assert isinstance(request_options, dict)
+    assert request_options['proxy'] == 'http://proxy.example:8080'
 
 
 @pytest.mark.asyncio
@@ -121,6 +161,29 @@ async def test_process_preserves_partial_results(
 
     assert await search.get_hostnames() == {'first.example.com'}
     assert any(expected_message in message for message in caplog.messages)
+
+
+@pytest.mark.asyncio
+async def test_process_preserves_partial_results_on_midstream_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO, logger=dnsdb.__name__)
+    monkeypatch.setattr(dnsdb.Core, 'dnsdb_key', lambda: 'dnsdb-test-key')
+    _install_response(
+        monkeypatch,
+        (
+            b'{"cond":"begin"}\n',
+            b'{"obj":{"rrname":"first.example.com."}}\n',
+        ),
+        stream_error=TimeoutError(),
+    )
+
+    search = dnsdb.SearchDNSDB('example.com')
+    await search.process()
+
+    assert await search.get_hostnames() == {'first.example.com'}
+    assert any('request failed' in message for message in caplog.messages)
 
 
 @pytest.mark.asyncio

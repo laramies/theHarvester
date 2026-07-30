@@ -8,7 +8,7 @@ import aiohttp
 
 from theHarvester import __version__
 from theHarvester.discovery.constants import MissingKey
-from theHarvester.lib.core import Core
+from theHarvester.lib.core import AsyncFetcher, Core
 
 logger = logging.getLogger(__name__)
 
@@ -54,10 +54,10 @@ class SearchDNSDB:
             'X-API-Key': self.key,
         }
         timeout = aiohttp.ClientTimeout(total=120)
-        proxy_url = self.proxy if isinstance(self.proxy, str) and self.proxy else None
+        proxy_url, proxy_type = AsyncFetcher._resolve_proxy(self.proxy)
 
-        async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
-            async with session.get(url, proxy=proxy_url) as response:
+        async with await AsyncFetcher._build_session(headers, timeout, proxy_url, proxy_type) as session:
+            async with session.get(url, proxy=proxy_url if proxy_type == 'http' else None) as response:
                 if response.status == 429:
                     raise ConnectionError('DNSDB rate limit reached')
                 if response.status in {401, 403}:
@@ -100,4 +100,7 @@ class SearchDNSDB:
 
     async def process(self, proxy: bool | str = False) -> None:
         self.proxy = proxy
-        await self.do_search()
+        try:
+            await self.do_search()
+        except (aiohttp.ClientError, TimeoutError) as error:
+            logger.info(f'DNSDB request failed with {type(error).__name__}; partial results were preserved.')
