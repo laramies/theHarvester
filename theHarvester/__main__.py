@@ -29,6 +29,7 @@ from theHarvester.discovery import (
     commoncrawl,
     criminalip,
     crtsh,
+    dnsdb,
     dnssearch,
     duckduckgosearch,
     dymosearch,
@@ -651,6 +652,16 @@ async def start(rest_args: argparse.Namespace | None = None):
                                 output_logger.info(f'A Missing Key error occurred in dehashed: {e}')
                         else:
                             show_default_error_message(engineitem, word, e)
+
+                elif engineitem == 'dnsdb':
+                    try:
+                        dnsdb_search = dnsdb.SearchDNSDB(word)
+                        stor_lst.append(store(dnsdb_search, engineitem, store_host=True))
+                    except MissingKey as e:
+                        if not args.quiet:
+                            output_logger.info(e)
+                    except Exception as e:
+                        show_default_error_message(engineitem, word, e)
 
                 elif engineitem == 'dnsdumpster':
                     try:

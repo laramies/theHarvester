@@ -43,6 +43,7 @@ class Core:
         'censys': ('id', 'secret'),
         'criminalip': ('key',),
         'dehashed': ('key',),
+        'dnsdb': ('key',),
         'dnsdumpster': ('key',),
         'dymo': ('key',),
         'fofa': ('key', 'email'),
@@ -135,6 +136,10 @@ class Core:
     @staticmethod
     def dehashed_key() -> str:
         return Core._api_key_value('dehashed')
+
+    @staticmethod
+    def dnsdb_key() -> str:
+        return Core._api_key_value('dnsdb')
 
     @staticmethod
     def dnsdumpster_key() -> str:
@@ -294,6 +299,7 @@ class Core:
             'criminalip',
             'crtsh',
             'dehashed',
+            'dnsdb',
             'dnsdumpster',
             'duckduckgo',
             'dymo',

@@ -120,8 +120,8 @@ def test_readme_matches_executable_source_contracts() -> None:
     documented = _documented_source_contracts(readme)
     executable = _executable_source_contracts()
 
-    assert len(executable) == 55
-    assert len(documented) == 55
+    assert len(executable) == 56
+    assert len(documented) == 56
     assert documented == executable
     assert {'securitytrails', 'shodaninternetdb'}.isdisjoint(documented)
 

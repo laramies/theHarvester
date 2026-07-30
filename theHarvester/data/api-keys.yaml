@@ -25,6 +25,9 @@ apikeys:
   dehashed:
     key:
 
+  dnsdb:
+    key:
+
   dnsdumpster:
     key:
 
