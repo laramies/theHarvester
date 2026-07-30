@@ -17,6 +17,58 @@ def mock_environ(monkeypatch, tmp_path: Path):
     monkeypatch.setenv("HOME", str(tmp_path))
 
 
+def test_email_capability_expands_to_email_sources() -> None:
+    assert Core.expand_source_selection("emails") == [
+        "baidu",
+        "bitbucket",
+        "brave",
+        "censys",
+        "duckduckgo",
+        "github-code",
+        "gitlab",
+        "hudsonrock",
+        "hunter",
+        "intelx",
+        "leakix",
+        "leaklookup",
+        "mojeek",
+        "rocketreach",
+        "sherlockeye",
+        "tomba",
+        "venacus",
+        "windvane",
+        "yahoo",
+        "zoomeye",
+    ]
+
+
+def test_capabilities_and_explicit_sources_form_a_union() -> None:
+    assert Core.expand_source_selection("certspotter, urls") == [
+        "bevigil",
+        "builtwith",
+        "certspotter",
+        "intelx",
+        "rocketreach",
+        "urlscan",
+        "venacus",
+        "zoomeye",
+    ]
+
+
+def test_multiple_capabilities_form_a_union() -> None:
+    assert Core.expand_source_selection("asns,people") == [
+        "criminalip",
+        "onyphe",
+        "urlscan",
+        "venacus",
+        "zoomeye",
+    ]
+
+
+def test_all_preserves_every_supported_source() -> None:
+    assert Core.expand_source_selection("ALL") == Core.get_supportedengines()
+
+
 def mock_read_text(mocked: dict[Path, str | Exception]):
     read_text = Path.read_text
 

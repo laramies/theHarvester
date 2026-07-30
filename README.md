@@ -42,6 +42,20 @@ Query several passive sources:
 uv run theHarvester -d example.com -b crtsh,certspotter,commoncrawl
 ```
 
+Run every source that can contribute subdomains:
+
+```bash
+uv run theHarvester -d example.com -b subdomains
+```
+
+Combine capability selectors, or mix them with explicit source names:
+
+```bash
+uv run theHarvester -d example.com -b emails,urls,certspotter
+```
+
+Capability selectors form a union and choose which sources run. They do not discard other result types returned by those sources. Available selectors are `subdomains`, `emails`, `ips`, `asns`, `urls`, and `people`. `-b all` continues to run every registered source.
+
 Save both JSON and XML reports:
 
 ```bash
