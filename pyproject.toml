@@ -69,7 +69,10 @@ restfulHarvest = "theHarvester.restfulHarvest:main"
 minversion = "8.3.3"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-addopts = "--no-header"
+addopts = "--no-header --strict-markers"
+markers = [
+    "live_network: contacts an external service and runs only with --run-live-network",
+]
 testpaths = ["tests"]
 
 [build-system]
