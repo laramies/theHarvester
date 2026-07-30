@@ -18,6 +18,7 @@ from aiohttp_socks import ProxyConnector
 
 from theHarvester import __version__
 from theHarvester.lib.output import output_logger
+from theHarvester.lib.source_catalog import SOURCE_SPECS
 
 if TYPE_CHECKING:
     from collections.abc import Sized
@@ -34,63 +35,6 @@ CONFIG_DIRS = [
 
 class Core:
     quiet: bool = False
-    _SOURCE_CAPABILITIES: ClassVar[dict[str, tuple[str, ...]]] = {
-        'baidu': ('subdomains', 'emails'),
-        'bevigil': ('subdomains', 'urls'),
-        'bitbucket': ('subdomains', 'emails'),
-        'brave': ('subdomains', 'emails'),
-        'bufferoverun': ('subdomains', 'ips'),
-        'builtwith': ('subdomains', 'urls'),
-        'censys': ('subdomains', 'emails'),
-        'certspotter': ('subdomains',),
-        'chaos': ('subdomains',),
-        'commoncrawl': ('subdomains',),
-        'criminalip': ('subdomains', 'ips', 'asns'),
-        'crtsh': ('subdomains',),
-        'dehashed': ('ips',),
-        'dnsdumpster': ('subdomains', 'ips'),
-        'duckduckgo': ('subdomains', 'emails'),
-        'dymo': ('subdomains',),
-        'fofa': ('subdomains', 'ips'),
-        'fullhunt': ('subdomains',),
-        'github-code': ('subdomains', 'emails'),
-        'gitlab': ('subdomains', 'emails'),
-        'hackertarget': ('subdomains',),
-        'haveibeenpwned': (),
-        'hudsonrock': ('subdomains', 'emails', 'ips'),
-        'hunter': ('subdomains', 'emails'),
-        'hunterhow': ('subdomains',),
-        'intelx': ('subdomains', 'emails', 'urls'),
-        'leakix': ('subdomains', 'emails'),
-        'leaklookup': ('emails',),
-        'mojeek': ('subdomains', 'emails'),
-        'netlas': ('subdomains',),
-        'onyphe': ('subdomains', 'ips', 'asns'),
-        'otx': ('subdomains', 'ips'),
-        'pentesttools': ('subdomains',),
-        'projectdiscovery': ('subdomains',),
-        'rapiddns': ('subdomains',),
-        'robtex': ('subdomains', 'ips'),
-        'rocketreach': ('emails', 'urls'),
-        'securityTrails': ('subdomains', 'ips'),
-        'securityscorecard': ('subdomains', 'ips'),
-        'sherlockeye': ('subdomains', 'emails', 'ips'),
-        'shodan': ('subdomains',),
-        'shodanInternetDB': ('subdomains', 'ips'),
-        'subdomaincenter': ('subdomains',),
-        'subdomainfinderc99': ('subdomains',),
-        'thc': ('subdomains',),
-        'threatcrowd': ('subdomains', 'ips'),
-        'tomba': ('subdomains', 'emails'),
-        'urlscan': ('subdomains', 'ips', 'asns', 'urls'),
-        'venacus': ('emails', 'ips', 'urls', 'people'),
-        'virustotal': ('subdomains',),
-        'waybackarchive': ('subdomains',),
-        'whoisxml': ('subdomains',),
-        'windvane': ('subdomains', 'emails', 'ips'),
-        'yahoo': ('subdomains', 'emails'),
-        'zoomeye': ('subdomains', 'emails', 'ips', 'asns', 'urls'),
-    }
     _API_KEY_FIELDS: ClassVar[dict[str, tuple[str, ...]]] = {
         'bevigil': ('key',),
         'bitbucket': ('key',),
@@ -412,20 +356,14 @@ class Core:
         """Expand result capability selectors into source names."""
         if selection.lower() == 'all':
             return cls.get_supportedengines()
-        source_capabilities = cls.get_source_capabilities()
-        capabilities = {capability for source_capability in source_capabilities.values() for capability in source_capability}
+        capabilities = {capability for spec in SOURCE_SPECS.values() for capability in spec.capabilities}
         selected: set[str] = set()
         for token in map(str.strip, selection.split(',')):
             if token in capabilities:
-                selected.update(source for source, source_capability in source_capabilities.items() if token in source_capability)
+                selected.update(spec.name for spec in SOURCE_SPECS.values() if token in spec.capabilities)
             else:
                 selected.add(token)
         return sorted(selected)
-
-    @classmethod
-    def get_source_capabilities(cls) -> dict[str, frozenset[str]]:
-        """Return the consolidated result capabilities for each supported source."""
-        return {source: frozenset(cls._SOURCE_CAPABILITIES.get(source, ())) for source in cls.get_supportedengines()}
 
     @staticmethod
     def get_user_agent() -> str:
