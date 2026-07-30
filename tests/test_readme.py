@@ -6,7 +6,17 @@ from pathlib import Path
 
 import yaml
 
+from theHarvester.lib.core import Core
+
 RESULT_COLUMNS = ('Hosts', 'Emails', 'IPs', 'ASNs', 'URLs / links', 'People')
+CAPABILITY_COLUMNS = {
+    'Hosts': 'subdomains',
+    'Emails': 'emails',
+    'IPs': 'ips',
+    'ASNs': 'asns',
+    'URLs / links': 'urls',
+    'People': 'people',
+}
 STORE_RESULT_COLUMNS = {
     'store_host': {'Hosts'},
     'store_emails': {'Emails'},
@@ -124,6 +134,18 @@ def test_readme_matches_executable_source_contracts() -> None:
     assert len(documented) == 56
     assert documented == executable
     assert {'securitytrails', 'shodaninternetdb'}.isdisjoint(documented)
+
+
+def test_runtime_source_capabilities_match_executable_contracts() -> None:
+    executable = _executable_source_contracts()
+    expected = {
+        source: frozenset(CAPABILITY_COLUMNS[column] for column in columns)
+        for source, columns in executable.items()
+    }
+    runtime = Core.get_source_capabilities()
+
+    assert {source: runtime[source] for source in executable} == expected
+    assert {source for source, capabilities in runtime.items() if capabilities} <= set(executable)
 
 
 def test_readme_api_key_markers_match_configuration() -> None:

@@ -214,7 +214,8 @@ async def start(rest_args: argparse.Namespace | None = None):
     parser.add_argument(
         '-b',
         '--source',
-        help="""baidu, bevigil, bitbucket, brave, bufferoverun,
+        help="""Comma-separated sources or capability selectors: subdomains, emails, ips, asns, urls, people, or all.
+                            Sources: baidu, bevigil, bitbucket, brave, bufferoverun,
                             builtwith, censys, certspotter, chaos, commoncrawl, criminalip, crtsh, dehashed, dnsdumpster, duckduckgo, dymo, fofa, fullhunt, github-code,
                             gitlab, hackertarget, haveibeenpwned, hudsonrock, hunter, hunterhow, intelx, leakix, leaklookup, mojeek, netlas, onyphe, otx, pentesttools,
                             projectdiscovery, rapiddns, robtex, rocketreach, securityscorecard, securityTrails, sherlockeye, shodan, shodanInternetDB, subdomaincenter,
@@ -453,10 +454,7 @@ async def start(rest_args: argparse.Namespace | None = None):
 
     stor_lst = []
     if args.source is not None:
-        if args.source.lower() != 'all':
-            engines = sorted(set(map(str.strip, args.source.split(','))))
-        else:
-            engines = Core.get_supportedengines()
+        engines = Core.expand_source_selection(args.source)
         # Iterate through search engines in order
         if set(engines).issubset(Core.get_supportedengines()):
             output_logger.info(f'\n[*] Target: {word} \n')
