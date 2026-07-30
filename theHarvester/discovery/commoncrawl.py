@@ -96,7 +96,7 @@ class SearchCommoncrawl:
                 logger.warning(f'Common Crawl API error for index {index_id}: invalid catalog entry')
                 continue
             try:
-                timestamp = datetime.fromisoformat(str(entry['to'])).replace(tzinfo=None)
+                timestamp = datetime.fromisoformat(str(entry.get('to'))).replace(tzinfo=None)
             except (KeyError, ValueError):
                 logger.warning(f'Common Crawl API error for index {index_id}: invalid catalog entry')
                 continue
