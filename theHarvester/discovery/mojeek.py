@@ -37,22 +37,50 @@ class SearchMojeek:
             responses = await AsyncFetcher.fetch_all(urls, headers=headers, proxy=self.proxy, json=True)
 
             api_success = False
+            api_unusable = False
+            api_text_parts: list[str] = []
             for response in responses:
+                if not isinstance(response, dict):
+                    api_unusable = True
+                    continue
+
                 data = response.get('response', response)
+                if not isinstance(data, dict):
+                    api_unusable = True
+                    continue
 
-                if data and 'results' in data:
-                    results = data['results']
-                    if len(results) > 0:
+                results = data.get('results')
+                if isinstance(results, list):
+                    for result in results:
+                        if not isinstance(result, dict):
+                            api_unusable = True
+                            continue
+                        url_value = result.get('url')
+                        title_value = result.get('title')
+                        description_value = result.get('desc')
+                        url = url_value.replace('\\/', '/') if isinstance(url_value, str) else ''
+                        title = title_value if isinstance(title_value, str) else ''
+                        description = description_value if isinstance(description_value, str) else ''
+                        if not any((url, title, description)):
+                            api_unusable = True
+                            continue
                         api_success = True
-                        for result in results:
-                            url = result.get('url', '').replace('\\/', '/')
-                            self.total_results += f' {url} {result.get("title", "")} {result.get("desc", "")} '
+                        api_text_parts.append(f' {url} {title} {description} ')
+                elif 'results' in data:
+                    api_unusable = True
 
-                elif data and 'status' in data and 'denied' in data['status'].lower():
-                    logger.info(f'[!] Mojeek API: Access denied ({data["status"]}).')
+                status = data.get('status')
+                if isinstance(status, str) and 'denied' in status.lower():
+                    api_unusable = True
+                    logger.info(f'[!] Mojeek API: Access denied ({status}).')
                     break
+                if 'status' in data and not isinstance(status, str):
+                    api_unusable = True
+                if 'results' not in data and 'status' not in data:
+                    api_unusable = True
 
-            if api_success:
+            if api_success and not api_unusable:
+                self.total_results += ''.join(api_text_parts)
                 logger.info('[*] Mojeek: API search completed successfully.')
                 return
             else:
