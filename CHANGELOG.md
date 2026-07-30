@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Added DNSDB passive DNS discovery with API key configuration, shared transport handling, result parsing, and offline tests ([9b41b78e](https://github.com/laramies/theHarvester/commit/9b41b78e), [aba9fec6](https://github.com/laramies/theHarvester/commit/aba9fec6)).
+- Added `--verbose` diagnostic logging while keeping normal operator output available at the default log level ([8a7b8b71](https://github.com/laramies/theHarvester/commit/8a7b8b71)).
+- Added an opt-in passive-provider smoke workflow and a network guard that keeps routine tests offline by default ([72e5820f](https://github.com/laramies/theHarvester/commit/72e5820f)).
+- Added root contributor and security policies, structured issue forms, repository agent guidance, discovery terminology, and an operator-focused documentation wiki ([d090a29a](https://github.com/laramies/theHarvester/commit/d090a29a), [7c491ef5](https://github.com/laramies/theHarvester/commit/7c491ef5), [8b9d420b](https://github.com/laramies/theHarvester/commit/8b9d420b)).
+
+### Changed
+- Expanded Common Crawl discovery to use every unique crawl ending within one year of the newest catalog entry, validate catalog endpoints, batch requests, cap each query at 100 pages, and enforce the CLI result limit across page requests ([249ce64b](https://github.com/laramies/theHarvester/commit/249ce64b), [70470cd8](https://github.com/laramies/theHarvester/commit/70470cd8)).
+- Completed bounded pagination for Wayback Archive and Cert Spotter, including continuation handling, truncation diagnostics, and preservation of partial results on provider failures ([df6ff2c9](https://github.com/laramies/theHarvester/commit/df6ff2c9), [f85a08ff](https://github.com/laramies/theHarvester/commit/f85a08ff)).
+- Routed operator messages and diagnostics through logging, preserved host logging policy and existing handlers, and configured logging for the standalone API example ([8a7b8b71](https://github.com/laramies/theHarvester/commit/8a7b8b71)).
+- Added credential configuration adapters, deferred proxy configuration loading until required, and retained compatibility accessors such as `Core.brave_key()` ([ccd91176](https://github.com/laramies/theHarvester/commit/ccd91176)).
+- Centralized hostname scope normalization for parser and storage boundaries, including case-insensitive targets, trailing dots, optional `www.` prefixes, and exact DNS-label matching ([c0a0b653](https://github.com/laramies/theHarvester/commit/c0a0b653), [a474f086](https://github.com/laramies/theHarvester/commit/a474f086), [70470cd8](https://github.com/laramies/theHarvester/commit/70470cd8)).
+- Replaced deprecated hostname resolution with `getaddrinfo`-based handling ([6a847435](https://github.com/laramies/theHarvester/commit/6a847435)).
+- Reworked routine CI to use read-only permissions, non-mutating Ruff checks, offline tests, and explicit opt-in live provider checks ([72e5820f](https://github.com/laramies/theHarvester/commit/72e5820f)).
+- Grouped GitHub Actions, Python, and Docker Dependabot updates with a seven-day cooldown, and added a seven-day `uv` dependency freshness window ([7a947b66](https://github.com/laramies/theHarvester/commit/7a947b66), [52a79cdb](https://github.com/laramies/theHarvester/commit/52a79cdb)).
+- Updated runtime dependencies: `aiohttp` to `3.14.1`, `beautifulsoup4` to `4.15.0`, `certifi` to `2026.6.17`, `fastapi` to `0.138.1`, `slowapi` to `0.1.10`, `ujson` to `5.13.0`, and `uvicorn` to `0.49.0`.
+- Updated development dependencies: `pytest` to `9.1.1`, `ruff` to `0.15.20`, and `ty` to `0.0.54`.
+- Updated CI and container maintenance pins, including `actions/checkout`, `astral-sh/setup-uv`, `astral-sh/ruff-action`, `github/codeql-action`, StepSecurity Harden-Runner, Docker actions, and the Python base image.
+- Expanded offline regression coverage for discovery providers, configuration contracts, logging, output, documentation, workflow policy, and scope boundaries.
+
+### Fixed
+- Fixed REST `/query` requests with a filename so they no longer fail with an unbound local value and HTTP 500 response ([c358df80](https://github.com/laramies/theHarvester/commit/c358df80)).
+- Fixed Brave result limits, malformed Mojeek responses, DuckDuckGo provider and parser boundaries, Baidu verification status reporting, invalid Robtex reverse lookups, and transient crt.sh failures ([72c0d9eb](https://github.com/laramies/theHarvester/commit/72c0d9eb), [48be3ccd](https://github.com/laramies/theHarvester/commit/48be3ccd), [6e7945b5](https://github.com/laramies/theHarvester/commit/6e7945b5), [48f959cc](https://github.com/laramies/theHarvester/commit/48f959cc), [1d56dc78](https://github.com/laramies/theHarvester/commit/1d56dc78), [e8d5278b](https://github.com/laramies/theHarvester/commit/e8d5278b), [26adbc49](https://github.com/laramies/theHarvester/commit/26adbc49)).
+- Fixed IntelX hostname, email, IP, and URL result normalization and kept its routing source-scoped ([281f6d45](https://github.com/laramies/theHarvester/commit/281f6d45)).
+- Fixed Wayback resume-key encoding and made page-limit truncation visible without discarding collected results ([df6ff2c9](https://github.com/laramies/theHarvester/commit/df6ff2c9)).
+- Fixed Cert Spotter pagination termination, malformed response handling, provider error reporting, and partial-result preservation ([f85a08ff](https://github.com/laramies/theHarvester/commit/f85a08ff)).
+- Fixed Common Crawl handling for malformed JSON lines, malformed or non-string record URLs, invalid page counts, oversized provider pagination, and result-limit accounting; also resolved the associated `ty` catalog access diagnostic ([249ce64b](https://github.com/laramies/theHarvester/commit/249ce64b), [70470cd8](https://github.com/laramies/theHarvester/commit/70470cd8), [d634d835](https://github.com/laramies/theHarvester/commit/d634d835)).
+- Fixed parser scope edge cases and uppercase encoded slashes so normalized in-scope hosts and emails are retained without admitting lookalike domains ([c0a0b653](https://github.com/laramies/theHarvester/commit/c0a0b653), [6d4f196c](https://github.com/laramies/theHarvester/commit/6d4f196c)).
+- Fixed verbose logging state restoration, handler preservation, diagnostic visibility, and separation from operator-facing output ([8a7b8b71](https://github.com/laramies/theHarvester/commit/8a7b8b71)).
+
+### Security
+- Removed Dehashed credential rows and passwords from operator output and prevented secrets or raw provider payloads from flowing into verbose logs ([8a7b8b71](https://github.com/laramies/theHarvester/commit/8a7b8b71)).
+- Hardened GitHub Actions with least-privilege permissions, immutable action pins, disabled checkout credential persistence, non-mutating CI, and isolation of live reconnaissance from routine tests ([6e233db0](https://github.com/laramies/theHarvester/commit/6e233db0), [72e5820f](https://github.com/laramies/theHarvester/commit/72e5820f)).
+
 ## [4.11.1] - 2026-06-03
 
 ### Added
