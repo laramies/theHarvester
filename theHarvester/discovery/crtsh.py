@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from theHarvester.lib.core import AsyncFetcher
@@ -13,14 +14,24 @@ class SearchCrtsh:
 
     async def do_search(self) -> list:
         data: set = set()
+        url = f'https://crt.sh/?q=%25.{self.word}&exclude=expired&deduplicate=Y&output=json'
+        response = None
         try:
-            url = f'https://crt.sh/?q=%25.{self.word}&exclude=expired&deduplicate=Y&output=json'
-            response = await AsyncFetcher.fetch_all([url], json=True, proxy=self.proxy)
-            response = response[0]
+            max_attempts = 3
+            for attempt in range(max_attempts):
+                responses = await AsyncFetcher.fetch_all([url], json=True, proxy=self.proxy)
+                if responses and isinstance(responses[0], list):
+                    response = responses[0]
+                    break
+                if attempt < max_attempts - 1:
+                    await asyncio.sleep(2)
+
+            if response is None:
+                logger.info(f'No valid response from crt.sh after {max_attempts} attempts.')
+                return []
+
             data = set([(dct['name_value'][2:] if dct['name_value'][:2] == '*.' else dct['name_value']) for dct in response])
             data = {domain for domain in data if (domain[0] != '*' and str(domain[0:4]).isnumeric() is False)}
-        except IndexError:
-            logger.info('No response from crt.sh or malformed list.')
         except KeyError as ke:
             logger.info(f'Missing expected key in response: {ke}')
         except Exception as e:
