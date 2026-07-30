@@ -8,6 +8,7 @@ import string
 import sys
 import time
 import traceback
+from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any
 
 import anyio
@@ -79,6 +80,7 @@ from theHarvester.discovery import (
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib import hostchecker, stash
 from theHarvester.lib.core import DATA_DIR, Core, show_default_error_message
+from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.output import configure_logging, output_logger, print_linkedin_sections, print_section, sorted_unique
 from theHarvester.screenshot.screenshot import ScreenShotter
 
@@ -86,6 +88,15 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_hosts_for_storage(discovered_hosts: Iterable[object], target: str) -> set[str]:
+    normalized_target = target.strip().lower().removeprefix('www.').rstrip('.')
+    return {
+        normalized
+        for host in discovered_hosts
+        if (normalized := normalize_scoped_hostname(host, normalized_target)) and normalized != normalized_target
+    }
 
 
 def sanitize_for_xml(text: str) -> str:
@@ -374,8 +385,7 @@ async def start(rest_args: argparse.Namespace | None = None):
             if source == 'intelx':
                 host_names = list(discovered_hosts)
             else:
-                host_names = list({host for host in discovered_hosts if f'.{word}' in host})
-            host_names = list(host_names)
+                host_names = list(_normalize_hosts_for_storage(discovered_hosts, word))
             if source != 'hackertarget' and source != 'pentesttools' and source != 'rapiddns':
                 # If a source is inside this conditional, it means the hosts returned must be resolved to obtain ip
                 # This should only be checked if --dns-resolve has a wordlist
@@ -602,7 +612,7 @@ async def start(rest_args: argparse.Namespace | None = None):
 
                 elif engineitem == 'commoncrawl':
                     try:
-                        commoncrawl_search = commoncrawl.SearchCommoncrawl(word)
+                        commoncrawl_search = commoncrawl.SearchCommoncrawl(word, limit)
                         stor_lst.append(
                             store(
                                 commoncrawl_search,

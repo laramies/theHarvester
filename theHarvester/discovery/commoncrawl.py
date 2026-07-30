@@ -29,9 +29,12 @@ class SearchCommoncrawl:
     INDEX_LOOKBACK = timedelta(days=365)
     PAGE_SIZE = 5
     PAGE_BATCH_SIZE = 10
+    # Protect the shared index service even when its page count is unexpectedly large.
+    MAX_PAGES_PER_QUERY = 100
 
-    def __init__(self, word) -> None:
+    def __init__(self, word, limit: int = 500) -> None:
         self.word = word.lower().rstrip('.')
+        self.limit = max(limit, 0)
         self.totalhosts: set[str] = set()
         self.proxy = False
         self.hostname = 'https://index.commoncrawl.org'
@@ -58,13 +61,16 @@ class SearchCommoncrawl:
             logger.warning('Common Crawl response contained a malformed JSON line; valid records were preserved')
         return results
 
-    def _extract_domain_from_url(self, url: str) -> str:
+    def _extract_domain_from_url(self, url: object) -> str:
         """Extract domain from URL"""
-        if not url:
+        if not isinstance(url, str) or not url:
             return ''
 
-        parsed = urlsplit(url if '://' in url else f'//{url}')
-        return (parsed.hostname or '').lower().rstrip('.')
+        try:
+            parsed = urlsplit(url if '://' in url else f'//{url}')
+            return (parsed.hostname or '').lower().rstrip('.')
+        except ValueError:
+            return ''
 
     @classmethod
     def _select_indexes(cls, catalog: list[object]) -> list[dict]:
@@ -111,6 +117,9 @@ class SearchCommoncrawl:
 
     async def do_search(self) -> None:
         try:
+            if self.limit == 0:
+                return
+
             headers = {'User-agent': Core.get_user_agent()}
             catalog_response = await AsyncFetcher.fetch_all(
                 [f'{self.hostname}/collinfo.json'], headers=headers, proxy=self.proxy, json=True
@@ -124,6 +133,7 @@ class SearchCommoncrawl:
                 logger.error('Common Crawl API error: index catalog contains no usable entries')
                 return
 
+            records_seen = 0
             successful_queries = 0
             for index in indexes:
                 endpoint = index['cdx-api']
@@ -136,10 +146,16 @@ class SearchCommoncrawl:
                         if isinstance(page_count, bool) or not isinstance(page_count, int) or page_count < 0:
                             raise ValueError('invalid page count')
                         query_succeeded = page_count == 0
-                        for first_page in range(0, page_count, self.PAGE_BATCH_SIZE):
+                        page_limit = min(page_count, self.MAX_PAGES_PER_QUERY)
+                        for first_page in range(0, page_limit, self.PAGE_BATCH_SIZE):
+                            remaining = self.limit - records_seen
+                            if remaining == 0:
+                                return
+                            pages_in_batch = min(self.PAGE_BATCH_SIZE, page_limit - first_page, remaining)
+                            per_page_limit, pages_with_extra_result = divmod(remaining, pages_in_batch)
                             page_urls = [
-                                f'{endpoint}?{urlencode({"url": query, "output": "json", "pageSize": self.PAGE_SIZE, "page": page})}'
-                                for page in range(first_page, min(first_page + self.PAGE_BATCH_SIZE, page_count))
+                                f'{endpoint}?{urlencode({"url": query, "output": "json", "pageSize": self.PAGE_SIZE, "page": page, "limit": per_page_limit + (page - first_page < pages_with_extra_result)})}'
+                                for page in range(first_page, first_page + pages_in_batch)
                             ]
                             responses = await AsyncFetcher.fetch_all(page_urls, headers=headers, proxy=self.proxy)
                             if not isinstance(responses, list) or not responses:
@@ -149,6 +165,9 @@ class SearchCommoncrawl:
                                     if not response:
                                         raise ValueError('empty page response')
                                     for record in self._safe_parse_json_lines(response):
+                                        if records_seen >= self.limit:
+                                            return
+                                        records_seen += 1
                                         if isinstance(record, dict):
                                             domain = self._extract_domain_from_url(record.get('url', ''))
                                             if domain.endswith(f'.{self.word}') or domain == self.word:
@@ -160,6 +179,11 @@ class SearchCommoncrawl:
                                     logger.warning(
                                         f'Common Crawl page error for index {index.get("id", "unknown")}: unexpected page failure'
                                     )
+                        if page_count > page_limit:
+                            logger.warning(
+                                f'Common Crawl page limit reached for index {index.get("id", "unknown")}; '
+                                'results may be incomplete'
+                            )
                         if query_succeeded:
                             successful_queries += 1
                     except Exception as error:

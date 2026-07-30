@@ -160,6 +160,75 @@ async def test_process_batches_provider_page_counts(monkeypatch: pytest.MonkeyPa
 
 
 @pytest.mark.asyncio
+async def test_process_caps_provider_page_counts_and_reports_truncation(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    catalog = [
+        {
+            'id': 'CC-MAIN-2026-30',
+            'cdx-api': 'https://index.commoncrawl.org/CC-MAIN-2026-30-index',
+            'to': '2026-07-12T00:00:00',
+        }
+    ]
+    requested_pages: list[int] = []
+
+    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[object]:
+        if urls == ['https://index.commoncrawl.org/collinfo.json']:
+            return [catalog]
+        query = parse_qs(urlsplit(urls[0]).query)
+        if query.get('showNumPages') == ['true']:
+            return ['{"pages": 1000000, "pageSize": 5, "blocks": 5000000}']
+        requested_pages.extend(int(parse_qs(urlsplit(url).query)['page'][0]) for url in urls)
+        return ['{"url":"https://api.example.com/"}' for _url in urls]
+
+    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    monkeypatch.setattr(commoncrawl.SearchCommoncrawl, 'MAX_PAGES_PER_QUERY', 2)
+
+    with caplog.at_level(logging.WARNING, logger=commoncrawl.__name__):
+        await commoncrawl.SearchCommoncrawl('example.com', limit=50).process()
+
+    assert requested_pages == [0, 1, 0, 1]
+    assert 'Common Crawl page limit reached for index CC-MAIN-2026-30; results may be incomplete' in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_process_respects_the_result_limit_across_page_requests(monkeypatch: pytest.MonkeyPatch) -> None:
+    catalog = [
+        {
+            'id': 'CC-MAIN-2026-30',
+            'cdx-api': 'https://index.commoncrawl.org/CC-MAIN-2026-30-index',
+            'to': '2026-07-12T00:00:00',
+        }
+    ]
+    requested_limits: list[int] = []
+
+    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[object]:
+        if urls == ['https://index.commoncrawl.org/collinfo.json']:
+            return [catalog]
+        query = parse_qs(urlsplit(urls[0]).query)
+        if query.get('showNumPages') == ['true']:
+            return ['{"pages": 100, "pageSize": 5, "blocks": 500}']
+
+        responses: list[object] = []
+        for url in urls:
+            page_query = parse_qs(urlsplit(url).query)
+            page = int(page_query['page'][0])
+            page_limit = int(page_query['limit'][0])
+            requested_limits.append(page_limit)
+            responses.append('\n'.join(f'{{"url":"https://host-{page}-{result}.example.com/"}}' for result in range(page_limit)))
+        return responses
+
+    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
+
+    search = commoncrawl.SearchCommoncrawl('example.com', limit=3)
+    await search.process()
+
+    assert requested_limits == [1, 1, 1]
+    assert len(await search.get_hostnames()) == 3
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize('broken_payload', ['not-json', ''])
 async def test_process_reports_failed_or_malformed_index_without_discarding_other_results(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, broken_payload: str
@@ -264,6 +333,34 @@ async def test_process_keeps_later_valid_page_after_malformed_page(
 
     assert await search.get_hostnames() == {'api.example.com'}
     assert 'malformed JSON line' in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_process_isolates_malformed_urls_within_a_page(monkeypatch: pytest.MonkeyPatch) -> None:
+    catalog = [
+        {
+            'id': 'CC-MAIN-2026-30',
+            'cdx-api': 'https://index.commoncrawl.org/CC-MAIN-2026-30-index',
+            'to': '2026-07-12T00:00:00',
+        }
+    ]
+
+    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[object]:
+        if urls == ['https://index.commoncrawl.org/collinfo.json']:
+            return [catalog]
+        query = parse_qs(urlsplit(urls[0]).query)
+        if query.get('showNumPages') == ['true']:
+            return ['{"pages": 1, "pageSize": 5, "blocks": 1}']
+        return [
+            '{"url":"http://[bad"}\n{"url":123}\n{"url":"https://api.example.com/v1"}\n{"url":"https://mail.example.com/inbox"}'
+        ]
+
+    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
+
+    search = commoncrawl.SearchCommoncrawl('example.com')
+    await search.process()
+
+    assert await search.get_hostnames() == {'api.example.com', 'mail.example.com'}
 
 
 @pytest.mark.asyncio
