@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 
 from theHarvester.discovery import crtsh
@@ -6,10 +8,24 @@ from theHarvester.discovery import crtsh
 def _patch_fetch(monkeypatch, payload):
     import theHarvester.lib.core as core_module
 
+    calls = []
+
     async def fake_fetch_all(urls, headers=None, proxy=False, json=False):
+        calls.append(urls)
         return [payload]
 
     monkeypatch.setattr(core_module.AsyncFetcher, 'fetch_all', staticmethod(fake_fetch_all), raising=True)
+    return calls
+
+
+def _patch_sleep(monkeypatch):
+    delays = []
+
+    async def fake_sleep(delay):
+        delays.append(delay)
+
+    monkeypatch.setattr(asyncio, 'sleep', fake_sleep)
+    return delays
 
 
 class TestCrtshSearch:
@@ -52,21 +68,46 @@ class TestCrtshSearch:
 
     @pytest.mark.asyncio
     async def test_empty_response_returns_no_hostnames(self, monkeypatch):
-        import theHarvester.lib.core as core_module
-
-        async def fake_fetch_all(urls, headers=None, proxy=False, json=False):
-            return []
-
-        monkeypatch.setattr(core_module.AsyncFetcher, 'fetch_all', staticmethod(fake_fetch_all), raising=True)
+        fetches = _patch_fetch(monkeypatch, [])
+        delays = _patch_sleep(monkeypatch)
         search = crtsh.SearchCrtsh('example.com')
         await search.process()
+
+        assert len(fetches) == 1
+        assert delays == []
         assert await search.get_hostnames() == []
 
     @pytest.mark.asyncio
-    async def test_missing_name_value_key_is_handled(self, monkeypatch):
-        _patch_fetch(monkeypatch, [{'issuer_ca_id': 1}])
+    async def test_failed_fetches_are_retried_with_delay(self, monkeypatch):
+        import theHarvester.lib.core as core_module
+
+        payloads = iter(['', '', [{'name_value': 'api.example.com'}]])
+        fetch_count = 0
+
+        async def fake_fetch_all(urls, headers=None, proxy=False, json=False):
+            nonlocal fetch_count
+            fetch_count += 1
+            return [next(payloads)]
+
+        monkeypatch.setattr(core_module.AsyncFetcher, 'fetch_all', staticmethod(fake_fetch_all), raising=True)
+        delays = _patch_sleep(monkeypatch)
+
         search = crtsh.SearchCrtsh('example.com')
         await search.process()
+
+        assert fetch_count == 3
+        assert delays == [2, 2]
+        assert await search.get_hostnames() == ['api.example.com']
+
+    @pytest.mark.asyncio
+    async def test_missing_name_value_key_is_handled(self, monkeypatch):
+        fetches = _patch_fetch(monkeypatch, [{'issuer_ca_id': 1}])
+        delays = _patch_sleep(monkeypatch)
+        search = crtsh.SearchCrtsh('example.com')
+        await search.process()
+
+        assert len(fetches) == 1
+        assert delays == []
         assert await search.get_hostnames() == []
 
 
