@@ -31,5 +31,5 @@ async def test_duckduckgo_does_not_fetch_provider_returned_urls(monkeypatch: pyt
     await search.process(proxy=True)
 
     assert requests == [(['https://api.duckduckgo.com/?q=example.com&format=json&pretty=1'], True)]
-    assert await search.get_hostnames() == ['api.example.com']
+    assert await search.get_hostnames() == ['api.example.com', 'example.com']
     assert await search.get_emails() == {'admin@example.com'}
