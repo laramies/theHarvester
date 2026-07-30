@@ -22,6 +22,12 @@ class TestMyParser(object):
         assert set(await parse.hostnames()) == {"api.example.com", "example.com", "sub.example.com"}
 
     @pytest.mark.asyncio
+    async def test_hostnames_remove_uppercase_encoded_slash(self) -> None:
+        parse = myparser.Parser('%2Fencrypted.google.com', 'google.com')
+
+        assert await parse.hostnames() == ['encrypted.google.com']
+
+    @pytest.mark.asyncio
     async def test_empty_target_fails_closed(self) -> None:
         parse = myparser.Parser('admin@example.com api.example.com', '')
 
