@@ -1,3 +1,5 @@
+from urllib.parse import urlencode
+
 from theHarvester.lib.core import AsyncFetcher, Core
 from theHarvester.parsers import myparser
 
@@ -13,10 +15,20 @@ class SearchBaidu:
 
     async def do_search(self) -> None:
         headers = {'Host': self.hostname, 'User-agent': Core.get_user_agent()}
-        base_url = f'https://{self.server}/s?wd=%40{self.word}&pn=xx&oq={self.word}'
-        urls = [base_url.replace('xx', str(num)) for num in range(0, self.limit, 10) if num <= self.limit]
+        base_url = f'https://{self.server}/s'
+        urls = [
+            f'{base_url}?{urlencode({"wd": f"site:{self.word}", "pn": num})}'
+            for num in range(0, self.limit, 10)
+            if num <= self.limit
+        ]
         responses = await AsyncFetcher.fetch_all(urls, headers=headers, proxy=self.proxy)
+        if not responses or all(not response for response in responses):
+            raise RuntimeError('Baidu returned an empty response')
         for response in responses:
+            if not response:
+                continue
+            if '百度安全验证' in response or 'wappass.baidu.com/static/captcha' in response:
+                raise RuntimeError('Baidu returned a security verification page')
             self.total_results += response
 
     async def process(self, proxy: bool = False) -> None:
