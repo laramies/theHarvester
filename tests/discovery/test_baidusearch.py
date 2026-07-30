@@ -5,6 +5,40 @@ from theHarvester.discovery import baidusearch
 
 class TestBaiduSearch:
     @pytest.mark.asyncio
+    async def test_empty_fetch_response_is_reported(self, monkeypatch):
+        async def fake_fetch_all(urls, headers=None, proxy=False):
+            return ['']
+
+        monkeypatch.setattr(baidusearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+        search = baidusearch.SearchBaidu(word='example.com', limit=10)
+
+        with pytest.raises(RuntimeError, match='empty response'):
+            await search.process()
+
+    @pytest.mark.asyncio
+    async def test_partial_empty_fetch_response_is_ignored(self, monkeypatch):
+        async def fake_fetch_all(urls, headers=None, proxy=False):
+            return ['', 'a.example.com']
+
+        monkeypatch.setattr(baidusearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+        search = baidusearch.SearchBaidu(word='example.com', limit=20)
+
+        await search.process()
+
+        assert await search.get_hostnames() == ['a.example.com']
+
+    @pytest.mark.asyncio
+    async def test_security_verification_is_reported(self, monkeypatch):
+        async def fake_fetch_all(urls, headers=None, proxy=False):
+            return ['<html><title>百度安全验证</title></html>']
+
+        monkeypatch.setattr(baidusearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+        search = baidusearch.SearchBaidu(word='example.com', limit=10)
+
+        with pytest.raises(RuntimeError, match='security verification'):
+            await search.process()
+
+    @pytest.mark.asyncio
     async def test_process_and_parsing(self, monkeypatch):
         called = {}
 
@@ -29,9 +63,9 @@ class TestBaiduSearch:
         await search.process(proxy=True)
 
         expected_urls = [
-            "https://www.baidu.com/s?wd=%40example.com&pn=0&oq=example.com",
-            "https://www.baidu.com/s?wd=%40example.com&pn=10&oq=example.com",
-            "https://www.baidu.com/s?wd=%40example.com&pn=20&oq=example.com",
+            "https://www.baidu.com/s?wd=site%3Aexample.com&pn=0",
+            "https://www.baidu.com/s?wd=site%3Aexample.com&pn=10",
+            "https://www.baidu.com/s?wd=site%3Aexample.com&pn=20",
         ]
         assert called["urls"] == expected_urls
         assert called["proxy"] is True
@@ -52,7 +86,7 @@ class TestBaiduSearch:
 
         async def fake_fetch_all(urls, headers=None, proxy=False):
             captured["urls"] = urls
-            return [""] * len(urls)
+            return ["<html></html>"] * len(urls)
 
         import theHarvester.lib.core as core_module
 
@@ -64,6 +98,6 @@ class TestBaiduSearch:
 
         # For limit=20, range(0, 20, 10) yields 0 and 10 only (20 is excluded)
         assert captured["urls"] == [
-            "https://www.baidu.com/s?wd=%40example.com&pn=0&oq=example.com",
-            "https://www.baidu.com/s?wd=%40example.com&pn=10&oq=example.com",
+            "https://www.baidu.com/s?wd=site%3Aexample.com&pn=0",
+            "https://www.baidu.com/s?wd=site%3Aexample.com&pn=10",
         ]
