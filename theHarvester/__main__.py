@@ -370,22 +370,32 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
         started: float,
         findings: list[StageFinding] | tuple[StageFinding, ...] = (),
         error: Exception | None = None,
+        *,
+        source_family: str | None = None,
+        execution: Any | None = None,
+        is_action: bool = True,
     ) -> None:
         unique_findings = tuple(dict.fromkeys(findings))
         stage_results.append(
             StageResult(
                 source=source,
                 status=(
-                    SourceStatus.FAILED
+                    execution.status
+                    if execution is not None
+                    else SourceStatus.FAILED
                     if error is not None
                     else SourceStatus.SUCCEEDED
                     if unique_findings
                     else SourceStatus.EMPTY
                 ),
                 duration_ms=(time.perf_counter() - started) * 1000,
-                result_count=len(findings),
+                result_count=execution.result_count if execution is not None else len(findings),
                 findings=unique_findings,
-                error_type=type(error).__name__ if error is not None else None,
+                source_family=source_family,
+                error_type=(
+                    execution.error_type if execution is not None else type(error).__name__ if error is not None else None
+                ),
+                is_action=is_action,
             )
         )
 
@@ -524,24 +534,14 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
                 raise
             finally:
                 source_spec = get_source_spec(source)
-                stage_results.append(
-                    StageResult(
-                        source=source_spec.name,
-                        source_family=source_spec.family,
-                        status=(
-                            execution.status
-                            if execution is not None
-                            else SourceStatus.FAILED
-                            if error is not None
-                            else SourceStatus.SUCCEEDED
-                            if findings
-                            else SourceStatus.EMPTY
-                        ),
-                        duration_ms=(time.perf_counter() - started) * 1000,
-                        result_count=execution.result_count if execution is not None else len(findings),
-                        findings=tuple(dict.fromkeys(findings)),
-                        error_type=execution.error_type if execution is not None else type(error).__name__ if error else None,
-                    )
+                record_stage_result(
+                    source_spec.name,
+                    started,
+                    findings,
+                    error,
+                    source_family=source_spec.family,
+                    execution=execution,
+                    is_action=False,
                 )
 
         return run_stage()
@@ -1199,8 +1199,10 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
                                         output_logger.info(f'Found Shodan data for {ip}')
                                     elif ip in result and isinstance(result[ip], str):
                                         output_logger.info(f'{ip}: {result[ip]}')
+                                        raise RuntimeError(result[ip])
                                 except Exception as e:
                                     output_logger.info(f'Error in Shodan search: {e}')
+                                    raise
 
                             async def get_hostnames(self):
                                 return list(self.hosts)
@@ -1604,16 +1606,19 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
                 # nameservers=list(map(str, dnsserver.split(','))) if dnsserver else None))
 
         # run all the reversing tasks concurrently
-        try:
-            await asyncio.gather(*__reverse_dns_tasks.values())
-            record_stage_result(
-                'action:dns-lookup',
-                stage_started,
-                [StageFinding(StageFindingKind.HOSTNAME, host) for host in dnsrev],
-            )
-        except Exception as error:
-            record_stage_result('action:dns-lookup', stage_started, error=error)
-            output_logger.info(f'[!] Reverse DNS lookup failed: {error}')
+        results = await asyncio.gather(*__reverse_dns_tasks.values(), return_exceptions=True)
+        for result in results:
+            if isinstance(result, asyncio.CancelledError):
+                raise result
+        reverse_error = next((result for result in results if isinstance(result, Exception)), None)
+        record_stage_result(
+            'action:dns-lookup',
+            stage_started,
+            [StageFinding(StageFindingKind.HOSTNAME, host) for host in dnsrev],
+            reverse_error,
+        )
+        if reverse_error is not None:
+            output_logger.info(f'[!] Reverse DNS lookup failed: {reverse_error}')
 
     takeover_results = dict()
     # TakeOver Checking
@@ -1648,50 +1653,61 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
     screenshot_path = getattr(args, 'screenshot', '')
     if len(screenshot_path) > 0:
         stage_started = time.perf_counter()
-        screen_shotter = ScreenShotter(screenshot_path)
-        path_exists = screen_shotter.verify_path()
-        # Verify the path exists, if not create it or if user does not create it skips screenshot
-        if path_exists:
-            await screen_shotter.verify_installation()
-            output_logger.info(f'\nScreenshots can be found in: {screen_shotter.output}{screen_shotter.slash}')
-            start_time = time.perf_counter()
-            output_logger.info('Filtering domains for ones we can reach')
-            if dnsresolve is None or len(final_dns_resolver_list) > 0:
-                unique_resolved_domains = {url.split(':')[0] for url in full if ':' in url and 'www.' not in url}
-            else:
-                # Technically not resolved in this case, which is not ideal
-                # You should always use dns resolve when doing screenshotting
-                output_logger.info('NOTE for future use cases you should only use screenshotting in tandem with DNS resolving')
-                unique_resolved_domains = set(all_hosts)
-            if len(unique_resolved_domains) > 0:
-                # First filter out ones that didn't resolve
-                output_logger.info('Attempting to visit unique resolved domains, this is ACTIVE RECON')
-                async with Pool(10) as pool:
-                    results = await pool.map(screen_shotter.visit, list(unique_resolved_domains))
-                    # Filter out domains that we couldn't connect to
-                    unique_resolved_domains_list = list(sorted({tup[0] for tup in results if len(tup[1]) > 0}))
-                    screenshot_hosts.extend(unique_resolved_domains_list)
-                async with Pool(3) as pool:
-                    output_logger.info(f'Length of unique resolved domains: {len(unique_resolved_domains_list)} chunking now!\n')
-                    # If you have the resources, you could make the function faster by increasing the chunk number
-                    chunk_number = 14
-                    for chunk in screen_shotter.chunk_list(unique_resolved_domains_list, chunk_number):
-                        try:
-                            screenshot_tups.extend(await pool.map(screen_shotter.take_screenshot, chunk))
-                        except Exception as ee:
-                            output_logger.info(f'An exception has occurred while mapping: {ee}')
-            end = time.perf_counter()
-            # There is probably an easier way to do this
-            total = int(end - start_time)
-            mon, sec = divmod(total, 60)
-            hr, mon = divmod(mon, 60)
-            total_time = f'{mon:02d}:{sec:02d}'
-            output_logger.info(f'Finished taking screenshots in {total_time} seconds')
-            output_logger.info('[+] Note there may be leftover chrome processes you may have to kill manually\n')
+        screenshot_error: Exception | None = None
+        try:
+            screen_shotter = ScreenShotter(screenshot_path)
+            path_exists = screen_shotter.verify_path()
+            # Verify the path exists, if not create it or if user does not create it skips screenshot
+            if path_exists:
+                await screen_shotter.verify_installation()
+                output_logger.info(f'\nScreenshots can be found in: {screen_shotter.output}{screen_shotter.slash}')
+                start_time = time.perf_counter()
+                output_logger.info('Filtering domains for ones we can reach')
+                if dnsresolve is None or len(final_dns_resolver_list) > 0:
+                    unique_resolved_domains = {url.split(':')[0] for url in full if ':' in url and 'www.' not in url}
+                else:
+                    # Technically not resolved in this case, which is not ideal
+                    # You should always use dns resolve when doing screenshotting
+                    output_logger.info(
+                        'NOTE for future use cases you should only use screenshotting in tandem with DNS resolving'
+                    )
+                    unique_resolved_domains = set(all_hosts)
+                if len(unique_resolved_domains) > 0:
+                    # First filter out ones that didn't resolve
+                    output_logger.info('Attempting to visit unique resolved domains, this is ACTIVE RECON')
+                    async with Pool(10) as pool:
+                        results = await pool.map(screen_shotter.visit, list(unique_resolved_domains))
+                        # Filter out domains that we couldn't connect to
+                        unique_resolved_domains_list = list(sorted({tup[0] for tup in results if len(tup[1]) > 0}))
+                    async with Pool(3) as pool:
+                        output_logger.info(
+                            f'Length of unique resolved domains: {len(unique_resolved_domains_list)} chunking now!\n'
+                        )
+                        # If you have the resources, you could make the function faster by increasing the chunk number
+                        chunk_number = 14
+                        for chunk in screen_shotter.chunk_list(unique_resolved_domains_list, chunk_number):
+                            try:
+                                screenshot_tups.extend(await pool.map(screen_shotter.take_screenshot, chunk))
+                                screenshot_hosts.extend(chunk)
+                            except Exception as ee:
+                                screenshot_error = ee
+                                output_logger.info(f'An exception has occurred while mapping: {ee}')
+                end = time.perf_counter()
+                # There is probably an easier way to do this
+                total = int(end - start_time)
+                mon, sec = divmod(total, 60)
+                hr, mon = divmod(mon, 60)
+                total_time = f'{mon:02d}:{sec:02d}'
+                output_logger.info(f'Finished taking screenshots in {total_time} seconds')
+                output_logger.info('[+] Note there may be leftover chrome processes you may have to kill manually\n')
+        except Exception as error:
+            screenshot_error = error
+            output_logger.info(f'[!] Screenshot stage failed: {error}')
         record_stage_result(
             'action:screenshot',
             stage_started,
             [StageFinding(StageFindingKind.SCREENSHOT, host) for host in screenshot_hosts],
+            screenshot_error,
         )
 
     # Shodan
@@ -1712,6 +1728,7 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
                     # Check if the result is a string (error message)
                     if isinstance(shodandict[ip], str):
                         output_logger.info(f'{ip}: {shodandict[ip]}')
+                        shodan_errors.append(RuntimeError(shodandict[ip]))
                         continue
 
                     # Process the results if it's a dictionary
@@ -1730,8 +1747,6 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
                                 ip,
                             )
                         )
-                        output_logger.info(ujson.dumps(shodandict[ip], indent=4, sort_keys=True))
-                        output_logger.info('\n')
                 except Exception as ip_error:
                     shodan_errors.append(ip_error)
                     output_logger.info(f'[SHODAN-error] Error searching {ip}: {ip_error}')
@@ -1790,37 +1805,13 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
             api_scanner = api_endpoints.SearchApiEndpoints(word=args.domain, wordlist=wordlist)
             await api_scanner.do_search()
 
-            # Print results
             endpoints_found = api_scanner.get_found_endpoints()
-            output_logger.info(f'\n[*] API Endpoints found: {len(endpoints_found)}')
-            for endpoint in endpoints_found:
-                output_logger.info(f'    - {endpoint}')
-
             interesting_endpoints = api_scanner.get_interesting_endpoints()
-            output_logger.info(f'\n[*] Interesting endpoints (200, 201, 202): {len(interesting_endpoints)}')
-            for endpoint in interesting_endpoints:
-                output_logger.info(f'    - {endpoint}')
-
             auth_required = api_scanner.get_auth_required()
-            output_logger.info(f'\n[*] Endpoints requiring authentication: {len(auth_required)}')
-            for endpoint in auth_required:
-                output_logger.info(f'    - {endpoint}')
-
             api_versions = api_scanner.get_api_versions()
-            output_logger.info(f'\n[*] Detected API versions: {len(api_versions)}')
-            for version in api_versions:
-                output_logger.info(f'    - {version}')
-
             rate_limits = api_scanner.get_rate_limits()
-            output_logger.info(f'\n[*] Rate limited endpoints: {len(rate_limits)}')
-            for endpoint, info in rate_limits.items():
-                output_logger.info(f'    - {endpoint} ({info.method})')
-
             methods = api_scanner.get_methods()
-            output_logger.info(f'\n[*] HTTP methods used: {", ".join(methods)}')
-
             status_codes = api_scanner.get_status_codes()
-            output_logger.info(f'\n[*] HTTP status codes encountered: {", ".join(map(str, status_codes))}')
 
             # Add results to storage
             db = stash.StashManager()
@@ -1846,8 +1837,25 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
                 'action:api-scan',
                 stage_started,
                 [
-                    StageFinding(StageFindingKind.API_ENDPOINT, endpoint, str(result.status_code))
-                    for endpoint, result in endpoints_found.items()
+                    *(
+                        StageFinding(StageFindingKind.API_ENDPOINT, endpoint, str(result.status_code))
+                        for endpoint, result in endpoints_found.items()
+                    ),
+                    *(
+                        StageFinding(StageFindingKind.INTERESTING_URL, endpoint, str(result.status_code))
+                        for endpoint, result in interesting_endpoints.items()
+                    ),
+                    *(
+                        StageFinding(StageFindingKind.API_AUTH_REQUIRED, endpoint, str(result.status_code))
+                        for endpoint, result in auth_required.items()
+                    ),
+                    *(StageFinding(StageFindingKind.API_VERSION, version) for version in sorted(api_versions)),
+                    *(
+                        StageFinding(StageFindingKind.API_RATE_LIMIT, endpoint, result.method)
+                        for endpoint, result in rate_limits.items()
+                    ),
+                    *(StageFinding(StageFindingKind.HTTP_METHOD, method) for method in sorted(methods)),
+                    *(StageFinding(StageFindingKind.HTTP_STATUS_CODE, str(status_code)) for status_code in sorted(status_codes)),
                 ],
             )
             output_logger.info('\n[+] API scanning completed successfully.')
@@ -1936,6 +1944,8 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
         output_logger.info('\n\n')
 
     if rest_args is not None:
+        if not rest_args.source and rest_args.dns_brute:
+            return (resolved_pair, completed_run_result) if return_evidence_run else resolved_pair
         all_hosts = sorted({host.replace('www.', '') for host in all_hosts})
         response = (
             total_asns,
@@ -1948,8 +1958,6 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
             all_emails,
             all_hosts,
         )
-        if not rest_args.source and rest_args.dns_brute and not return_evidence_run:
-            return resolved_pair
         return (*response, completed_run_result) if return_evidence_run else response
     sys.exit(0)
 
