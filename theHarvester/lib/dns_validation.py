@@ -1,10 +1,16 @@
 """DNS consensus evidence for current addressability.
 
-Discovery providers can report historical, stale, or wildcard-backed names. This
-module therefore preserves each DNS answer as evidence instead of treating one
-resolver lookup as truth. Every candidate and synthetic wildcard control is
-queried through exactly three distinct resolver vantages; two matching vantages
-form the quorum used for an addressability classification.
+Discovery providers can report historical, stale, or wildcard-backed names, so
+one provider hit is not proof that a name is currently addressable. This module
+retains each DNS answer instead of treating one resolver lookup as truth. Every
+candidate and synthetic wildcard control is queried through exactly three
+distinct resolver vantages. Two vantages must agree on address presence for the
+current-addressability quorum; their exact A or AAAA values may differ because
+of load balancing, geolocation, or normal DNS rotation.
+
+Synthetic controls prevent a wildcard response from making an invented label
+look like an exact DNS node. Failed and disagreeing resolver answers are kept so
+operators can distinguish absent names from incomplete or disputed evidence.
 """
 
 from __future__ import annotations
@@ -201,6 +207,8 @@ def _signature(observation: DnsValidationObservation) -> tuple[object, ...]:
 
 
 def _record_presence_signature(observation: DnsValidationObservation) -> tuple[object, ...]:
+    """Describe record presence without requiring resolver answers to match byte for byte."""
+
     return (
         observation.rcode,
         bool(observation.ipv4),
@@ -232,6 +240,13 @@ def _classify(
     *,
     deterministic_exact: bool,
 ) -> Addressability:
+    """Classify one candidate from wildcard controls and a two-of-three presence quorum.
+
+    Resolver answers do not need identical addresses. Large domains commonly
+    rotate or geolocate A and AAAA records, while agreement that an address is
+    present still supplies independent evidence of current addressability.
+    """
+
     if not deterministic_exact and _overlaps_wildcard(candidate_observations, controls):
         return Addressability.WILDCARD_INDISTINGUISHABLE
     addressable = sum(
@@ -254,10 +269,11 @@ def _classify(
 class DnsValidator:
     """Classify candidates with three resolver views and wildcard controls.
 
-    A two-of-three quorum limits the effect of one resolver's cache, filtering,
-    outage, or inconsistent delegation view. Synthetic high-entropy names probe
-    the closest enclosing domain for wildcard behavior so a wildcard answer is
-    not promoted as evidence that the candidate exists as an exact DNS node.
+    A two-of-three address-presence quorum limits the effect of one resolver's
+    cache, filtering, outage, or inconsistent delegation view without rejecting
+    legitimate load-balanced answers. Synthetic high-entropy names probe the
+    closest enclosing domain for wildcard behavior so a wildcard answer is not
+    promoted as evidence that the candidate exists as an exact DNS node.
     """
 
     def __init__(

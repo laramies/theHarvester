@@ -271,7 +271,11 @@ class MergedEntity:
 
     @property
     def independent_corroboration_count(self) -> int:
-        """Count independent datasets, not adapters backed by the same data."""
+        """Count independent datasets, not the number of reporting adapters.
+
+        Two adapters backed by one provider can corroborate transport or parser
+        behavior, but they cannot independently corroborate the discovered name.
+        """
 
         return len({observation.source_family for observation in self.observations})
 

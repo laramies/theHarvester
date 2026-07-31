@@ -25,10 +25,12 @@ _ROUTE_CAPABILITIES = {
 
 @dataclass(frozen=True)
 class SourceSpec:
-    """Discovery routes and the independent evidence family for one source.
+    """Discovery routes and the corroboration dependency for one source.
 
-    Sources sharing an upstream dataset share a family. For example, ``shodan``
-    and ``shodanInternetDB`` are separate adapters but not independent evidence.
+    ``family`` is used only to count independent evidence. Sources sharing an
+    upstream dataset share a value so adapter count cannot inflate confidence.
+    For example, ``shodan`` and ``shodanInternetDB`` are separate adapters over
+    Shodan-backed data and therefore represent one corroborating source.
     """
 
     name: str
@@ -95,6 +97,7 @@ _SPECS = (
     _spec('securityscorecard', ResultRoute.HOSTS, ResultRoute.IPS),
     _spec('sherlockeye', ResultRoute.HOSTS, ResultRoute.EMAILS, ResultRoute.IPS),
     _spec('shodan', ResultRoute.HOSTS),
+    # InternetDB is another Shodan-backed view, not an independent witness.
     _spec('shodanInternetDB', ResultRoute.HOSTS, ResultRoute.IPS, family='shodan'),
     _spec('subdomaincenter', ResultRoute.HOSTS),
     _spec('subdomainfinderc99', ResultRoute.HOSTS),
