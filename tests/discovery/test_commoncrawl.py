@@ -8,6 +8,28 @@ from theHarvester.lib.run import SourcePartialError
 
 
 @pytest.mark.asyncio
+async def test_process_reports_an_invalid_catalog_as_failed(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def fake_fetch_all(_urls: list[str], **_kwargs: object) -> list[object]:
+        return []
+
+    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
+
+    with pytest.raises(RuntimeError, match='invalid index catalog'):
+        await commoncrawl.SearchCommoncrawl('example.com').process()
+
+
+@pytest.mark.asyncio
+async def test_process_reports_a_catalog_request_error_as_failed(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def fake_fetch_all(_urls: list[str], **_kwargs: object) -> list[object]:
+        raise OSError('provider unavailable')
+
+    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
+
+    with pytest.raises(RuntimeError, match='Common Crawl request failed'):
+        await commoncrawl.SearchCommoncrawl('example.com').process()
+
+
+@pytest.mark.asyncio
 async def test_process_exhausts_current_catalog_index_pages(monkeypatch: pytest.MonkeyPatch) -> None:
     catalog = [
         {
@@ -230,6 +252,40 @@ async def test_process_respects_the_result_limit_across_page_requests(monkeypatc
 
     assert requested_limits == [1, 1, 1]
     assert len(await search.get_hostnames()) == 3
+
+
+@pytest.mark.asyncio
+async def test_process_preserves_partial_status_when_the_result_limit_is_reached(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    catalog = [
+        {
+            'id': 'CC-MAIN-2026-30',
+            'cdx-api': 'https://index.commoncrawl.org/CC-MAIN-2026-30-index',
+            'to': '2026-07-12T00:00:00',
+        }
+    ]
+
+    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[object]:
+        if urls == ['https://index.commoncrawl.org/collinfo.json']:
+            return [catalog]
+        query = parse_qs(urlsplit(urls[0]).query)
+        if query.get('showNumPages') == ['true']:
+            return ['{"pages": 1, "pageSize": 5, "blocks": 1}']
+        if query['url'] == ['*.example.com']:
+            return ['not-json']
+        return [
+            '{"url":"https://api.example.com/v1"}\n'
+            '{"url":"https://mail.example.com/inbox"}'
+        ]
+
+    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    search = commoncrawl.SearchCommoncrawl('example.com', limit=1)
+
+    with pytest.raises(SourcePartialError) as error:
+        await search.process()
+
+    assert {finding.value for finding in error.value.findings} == {'api.example.com'}
 
 
 @pytest.mark.asyncio

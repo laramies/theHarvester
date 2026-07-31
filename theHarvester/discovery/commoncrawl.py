@@ -126,17 +126,23 @@ class SearchCommoncrawl:
                 [f'{self.hostname}/collinfo.json'], headers=headers, proxy=self.proxy, json=True
             )
             if not catalog_response or not isinstance(catalog_response[0], list) or not catalog_response[0]:
-                logger.error('Common Crawl API error: invalid index catalog')
-                return
+                raise RuntimeError('invalid index catalog')
 
             indexes = self._select_indexes(catalog_response[0])
             if not indexes:
-                logger.error('Common Crawl API error: index catalog contains no usable entries')
-                return
+                raise RuntimeError('Common Crawl index catalog contains no usable entries')
 
             records_seen = 0
             successful_queries = 0
             incomplete = False
+
+            def raise_if_incomplete() -> None:
+                if incomplete:
+                    raise SourcePartialError(
+                        'some Common Crawl queries failed',
+                        findings=tuple(SourceFinding(host) for host in sorted(self.totalhosts)),
+                    )
+
             for index in indexes:
                 endpoint = index['cdx-api']
                 for query in (f'*.{self.word}', f'{self.word}/*'):
@@ -152,6 +158,7 @@ class SearchCommoncrawl:
                         for first_page in range(0, page_limit, self.PAGE_BATCH_SIZE):
                             remaining = self.limit - records_seen
                             if remaining == 0:
+                                raise_if_incomplete()
                                 return
                             pages_in_batch = min(self.PAGE_BATCH_SIZE, page_limit - first_page, remaining)
                             per_page_limit, pages_with_extra_result = divmod(remaining, pages_in_batch)
@@ -168,6 +175,7 @@ class SearchCommoncrawl:
                                         raise ValueError('empty page response')
                                     for record in self._safe_parse_json_lines(response):
                                         if records_seen >= self.limit:
+                                            raise_if_incomplete()
                                             return
                                         records_seen += 1
                                         if isinstance(record, dict):
@@ -197,16 +205,13 @@ class SearchCommoncrawl:
 
             if not successful_queries and not self.totalhosts:
                 raise RuntimeError('all Common Crawl queries failed')
-            if incomplete:
-                raise SourcePartialError(
-                    'some Common Crawl queries failed',
-                    findings=tuple(SourceFinding(host) for host in sorted(self.totalhosts)),
-                )
+            raise_if_incomplete()
 
         except (RuntimeError, SourcePartialError):
             raise
         except Exception as error:
             logger.error(f'Common Crawl API error: {error}')
+            raise RuntimeError(f'Common Crawl request failed: {error}') from error
 
     async def get_hostnames(self) -> set:
         return self.totalhosts
