@@ -33,6 +33,11 @@ class FakePassiveSource:
         ]
 
 
+class NoopRunStore:
+    async def save(self, _result) -> None:
+        return None
+
+
 @pytest.mark.asyncio
 async def test_execute_run_propagates_cancellation() -> None:
     class CancelledSource:
@@ -200,9 +205,7 @@ async def test_execute_run_classifies_once_and_bridges_current_dns_results() -> 
         [candidate],
         ['192.0.2.10', '192.0.2.11', '192.0.2.12'],
     )
-    control_names = {
-        observation.query_name for observation in result.dns_validations if observation.is_wildcard_control
-    }
+    control_names = {observation.query_name for observation in result.dns_validations if observation.is_wildcard_control}
     assert not control_names.intersection(observation.value for observation in result.observations)
     assert not control_names.intersection(entity.value for entity in result.entities)
 
@@ -244,6 +247,7 @@ async def test_crtsh_bridge_executes_once_and_feeds_legacy_consumers(monkeypatch
 
     monkeypatch.setattr(main_module.crtsh, 'SearchCrtsh', FakeCrtshSearch)
     monkeypatch.setattr(main_module.stash, 'StashManager', FakeStashManager)
+    monkeypatch.setattr(main_module, 'SQLiteRunStore', NoopRunStore)
     monkeypatch.setattr(main_module, 'execute_run', execute_with_temporary_store, raising=True)
     crtsh_spec = main_module.get_source_spec('crtsh')
     monkeypatch.setattr(
@@ -340,6 +344,7 @@ async def test_crtsh_bridge_uses_three_resolvers_without_legacy_requery(
     monkeypatch.setattr(main_module, 'AioDnsResolverVantage', FakeVantage, raising=False)
     monkeypatch.setattr(main_module.hostchecker, 'Checker', FailOnLegacyChecker)
     monkeypatch.setattr(main_module.stash, 'StashManager', FakeStashManager)
+    monkeypatch.setattr(main_module, 'SQLiteRunStore', NoopRunStore)
     monkeypatch.setattr(main_module, 'execute_run', capture_run, raising=True)
     monkeypatch.setattr(main_module.output_logger, 'info', output.append)
 
@@ -364,8 +369,9 @@ async def test_crtsh_bridge_uses_three_resolvers_without_legacy_requery(
     assert set(created) == {'192.0.2.53', '192.0.2.54', '192.0.2.55'}
     assert set(closed) == set(created)
     assert captured[0].entities[0].addressability is Addressability.CURRENT
-    assert output.count(f'{candidate}:192.0.2.10') == 1
-    assert candidate not in output
+    terminal = '\n'.join(map(str, output))
+    assert terminal.count(candidate) == 1
+    assert 'status=currently-addressable; sources=crtsh' in terminal
 
 
 @pytest.mark.asyncio
@@ -406,6 +412,7 @@ async def test_dnsdb_bridge_preserves_partial_results_and_status(monkeypatch: py
 
     monkeypatch.setattr(main_module.dnsdb, 'SearchDNSDB', FakeDNSDBSearch)
     monkeypatch.setattr(main_module.stash, 'StashManager', FakeStashManager)
+    monkeypatch.setattr(main_module, 'SQLiteRunStore', NoopRunStore)
     monkeypatch.setattr(main_module, 'execute_run', capture_run, raising=True)
 
     await main_module.start(

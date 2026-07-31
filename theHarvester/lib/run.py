@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import json
 import logging
 import time
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from enum import StrEnum
+from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 from uuid import uuid4
+
+import aiosqlite
 
 from theHarvester.lib.dns_validation import (
     Addressability,
@@ -40,10 +44,50 @@ class SourceStatus(StrEnum):
     RATE_LIMITED = 'rate-limited'
 
 
+class RunStatus(StrEnum):
+    COMPLETE = 'complete'
+    PARTIAL = 'partial'
+    FAILED = 'failed'
+
+
 @dataclass(frozen=True)
 class SourceFinding:
     value: str
     derivation: Derivation = Derivation.PROVIDER
+    observed_at: datetime | None = None
+
+
+class StageFindingKind(StrEnum):
+    HOSTNAME = 'hostname'
+    EMAIL = 'email'
+    IP_ADDRESS = 'ip-address'
+    PERSON = 'person'
+    URL = 'url'
+    INTERESTING_URL = 'interesting-url'
+    ASN = 'asn'
+    TAKEOVER = 'takeover'
+    API_ENDPOINT = 'api-endpoint'
+    SCREENSHOT = 'screenshot'
+    SHODAN_RESULT = 'shodan-result'
+
+
+@dataclass(frozen=True)
+class StageFinding:
+    kind: StageFindingKind
+    value: str
+    detail: str | None = None
+    derivation: Derivation = Derivation.PROVIDER
+
+
+@dataclass(frozen=True)
+class StageResult:
+    source: str
+    status: SourceStatus
+    duration_ms: float
+    result_count: int
+    findings: tuple[StageFinding, ...] = ()
+    source_family: str | None = None
+    error_type: str | None = None
 
 
 class SourceIncompleteError(Exception):
@@ -97,6 +141,22 @@ class DiscoveryObservation:
     derivation: Derivation
     collected_at: datetime
     scope_class: ScopeClass
+    provider_observed_at: datetime | None = None
+
+    def to_dict(self) -> dict[str, object]:
+        result: dict[str, object] = {
+            'run_id': self.run_id,
+            'target': self.target,
+            'value': self.value,
+            'source': self.source,
+            'source_family': self.source_family,
+            'derivation': self.derivation,
+            'collected_at': self.collected_at.isoformat(),
+            'scope_class': self.scope_class,
+        }
+        if self.provider_observed_at is not None:
+            result['provider_observed_at'] = self.provider_observed_at.isoformat()
+        return result
 
 
 @dataclass(frozen=True)
@@ -110,6 +170,41 @@ class SourceExecution:
     observation_count: int
     entity_count: int
     error_type: str | None = None
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            'run_id': self.run_id,
+            'source': self.source,
+            'source_family': self.source_family,
+            'status': self.status,
+            'duration_ms': self.duration_ms,
+            'result_count': self.result_count,
+            'observation_count': self.observation_count,
+            'entity_count': self.entity_count,
+            'error_type': self.error_type,
+        }
+
+
+@dataclass(frozen=True)
+class SelectedObservation:
+    run_id: str
+    source: str
+    kind: StageFindingKind
+    value: str
+    detail: str | None
+    derivation: Derivation
+    collected_at: datetime
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            'run_id': self.run_id,
+            'source': self.source,
+            'kind': self.kind,
+            'value': self.value,
+            'detail': self.detail,
+            'derivation': self.derivation,
+            'collected_at': self.collected_at.isoformat(),
+        }
 
 
 @dataclass(frozen=True)
@@ -126,6 +221,15 @@ class MergedEntity:
     def independent_corroboration_count(self) -> int:
         return len({observation.source_family for observation in self.observations})
 
+    def to_dict(self) -> dict[str, object]:
+        return {
+            'value': self.value,
+            'addressability': self.addressability,
+            'scope_classes': list(self.scope_classes),
+            'independent_corroboration_count': self.independent_corroboration_count,
+            'observations': [observation.to_dict() for observation in self.observations],
+        }
+
 
 @dataclass(frozen=True)
 class RunResult:
@@ -137,6 +241,87 @@ class RunResult:
     observations: tuple[DiscoveryObservation, ...]
     entities: tuple[MergedEntity, ...]
     dns_validations: tuple[DnsValidationObservation, ...] = ()
+    selected_observations: tuple[SelectedObservation, ...] = ()
+
+    @property
+    def status(self) -> RunStatus:
+        incomplete = {SourceStatus.FAILED, SourceStatus.RATE_LIMITED}
+        if self.source_executions and all(execution.status is SourceStatus.FAILED for execution in self.source_executions):
+            return RunStatus.FAILED
+        if any(execution.status in incomplete for execution in self.source_executions):
+            return RunStatus.PARTIAL
+        return RunStatus.COMPLETE
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            'run_id': self.run_id,
+            'target': self.target,
+            'started_at': self.started_at.isoformat(),
+            'completed_at': self.completed_at.isoformat(),
+            'status': self.status,
+            'source_executions': [execution.to_dict() for execution in self.source_executions],
+            'observations': [observation.to_dict() for observation in self.observations],
+            'dns_validations': [
+                {
+                    'run_id': observation.run_id,
+                    'candidate': observation.candidate,
+                    'query_name': observation.query_name,
+                    'resolver': observation.resolver,
+                    'queried_at': observation.queried_at.isoformat(),
+                    'ipv4': list(observation.ipv4),
+                    'ipv6': list(observation.ipv6),
+                    'cnames': list(observation.cnames),
+                    'rcode': observation.rcode,
+                    'ttl': observation.ttl,
+                    'cname_chain': list(observation.cname_chain),
+                    'latency_ms': observation.latency_ms,
+                    'error': observation.error,
+                    'is_wildcard_control': observation.is_wildcard_control,
+                    'wildcard_depth': observation.wildcard_depth,
+                }
+                for observation in self.dns_validations
+            ],
+            'entities': [entity.to_dict() for entity in self.entities],
+            'selected_observations': [observation.to_dict() for observation in self.selected_observations],
+        }
+
+
+class SQLiteRunStore:
+    def __init__(self, database: str | Path | None = None) -> None:
+        self.database = Path(database) if database is not None else Path('~/.local/share/theHarvester/stash.sqlite').expanduser()
+
+    async def save(self, result: RunResult) -> None:
+        self.database.parent.mkdir(parents=True, exist_ok=True)
+        async with aiosqlite.connect(self.database) as database:
+            await database.execute(
+                """
+                CREATE TABLE IF NOT EXISTS evidence_runs (
+                    run_id TEXT PRIMARY KEY,
+                    target TEXT NOT NULL,
+                    completed_at TEXT NOT NULL,
+                    evidence_json TEXT NOT NULL
+                )
+                """
+            )
+            await database.execute(
+                'INSERT INTO evidence_runs (run_id, target, completed_at, evidence_json) VALUES (?, ?, ?, ?)',
+                (
+                    result.run_id,
+                    result.target,
+                    result.completed_at.isoformat(),
+                    json.dumps(result.to_dict()),
+                ),
+            )
+            await database.commit()
+
+    async def load(self, run_id: str) -> dict[str, object] | None:
+        async with aiosqlite.connect(self.database) as database:
+            cursor = await database.execute(
+                'SELECT evidence_json FROM evidence_runs WHERE run_id = ?',
+                (run_id,),
+            )
+            row = await cursor.fetchone()
+        return json.loads(row[0]) if row is not None else None
 
 
 def _classify_scope(target: str, value: str, derivation: Derivation) -> ScopeClass:
@@ -207,6 +392,7 @@ async def execute_run(
                         derivation=finding.derivation,
                         collected_at=collected_at,
                         scope_class=_classify_scope(normalized_target, value, finding.derivation),
+                        provider_observed_at=finding.observed_at,
                     )
                 )
             source_observations = tuple(normalized_observations)
@@ -289,3 +475,95 @@ def legacy_dns_results(result: RunResult, source: str | None = None) -> tuple[li
     addresses = sorted({address for values in addresses_by_host.values() for address in values})
     resolved = [f'{host}:{",".join(sorted(addresses_by_host[host]))}' if addresses_by_host[host] else host for host in hosts]
     return resolved, hosts, addresses
+
+
+def complete_run(result: RunResult, stage_results: Sequence[StageResult] = ()) -> RunResult:
+    """Merge selected stage results once and close the run."""
+    collected_at = datetime.now(UTC)
+    stage_findings = tuple((stage, finding) for stage in stage_results for finding in dict.fromkeys(stage.findings))
+    existing = {(item.source, item.value, item.derivation) for item in result.observations}
+    added: list[DiscoveryObservation] = []
+    for stage, finding in stage_findings:
+        if finding.kind is not StageFindingKind.HOSTNAME:
+            continue
+        value = normalize_hostname(finding.value.split(':', 1)[0])
+        if value is None or (stage.source, value, finding.derivation) in existing:
+            continue
+        added.append(
+            DiscoveryObservation(
+                run_id=result.run_id,
+                target=result.target,
+                value=value,
+                source=stage.source,
+                source_family=stage.source_family or stage.source,
+                derivation=finding.derivation,
+                collected_at=collected_at,
+                scope_class=_classify_scope(result.target, value, finding.derivation),
+            )
+        )
+        existing.add((stage.source, value, finding.derivation))
+
+    previous_entities = {entity.value: entity for entity in result.entities}
+    entities = tuple(
+        replace(entity, addressability=previous.addressability)
+        if (previous := previous_entities.get(entity.value)) is not None
+        else entity
+        for entity in _merge_observations((*result.observations, *added))
+    )
+    selected = tuple(
+        SelectedObservation(
+            run_id=result.run_id,
+            source=stage.source,
+            kind=finding.kind,
+            value=finding.value,
+            detail=finding.detail,
+            derivation=finding.derivation,
+            collected_at=collected_at,
+        )
+        for stage, finding in stage_findings
+        if finding.kind is not StageFindingKind.HOSTNAME
+    )
+    executions = list(result.source_executions)
+    recorded_sources = {execution.source.casefold(): index for index, execution in enumerate(executions)}
+    for stage in stage_results:
+        source_key = stage.source.casefold()
+        if source_key in recorded_sources:
+            index = recorded_sources[source_key]
+            execution = executions[index]
+            executions[index] = replace(
+                execution,
+                status=stage.status,
+                duration_ms=execution.duration_ms + stage.duration_ms,
+                error_type=stage.error_type or execution.error_type,
+            )
+            continue
+        findings = tuple(dict.fromkeys(stage.findings))
+        executions.append(
+            SourceExecution(
+                run_id=result.run_id,
+                source=stage.source,
+                source_family=stage.source_family or stage.source,
+                status=stage.status,
+                duration_ms=stage.duration_ms,
+                result_count=stage.result_count,
+                observation_count=len(findings),
+                entity_count=len(
+                    {
+                        value
+                        for finding in findings
+                        if finding.kind is StageFindingKind.HOSTNAME
+                        and (value := normalize_hostname(finding.value.split(':', 1)[0])) is not None
+                    }
+                ),
+                error_type=stage.error_type,
+            )
+        )
+        recorded_sources[source_key] = len(executions) - 1
+    return replace(
+        result,
+        completed_at=datetime.now(UTC),
+        source_executions=tuple(executions),
+        observations=(*result.observations, *added),
+        entities=entities,
+        selected_observations=(*result.selected_observations, *selected),
+    )

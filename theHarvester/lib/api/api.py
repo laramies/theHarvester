@@ -17,6 +17,7 @@ from starlette.staticfiles import StaticFiles
 
 from theHarvester import __main__
 from theHarvester.lib.api.additional_endpoints import router as additional_router
+from theHarvester.lib.output import legacy_json_result
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,7 @@ class QueryResponse(BaseModel):
     ips: list[str] = Field(default_factory=list, description='List of IPs')
     emails: list[str] = Field(default_factory=list, description='List of emails')
     hosts: list[str] = Field(default_factory=list, description='List of hosts')
+    evidence_run: dict[str, Any] | None = Field(None, description='Completed evidence run summary')
 
 
 class ErrorResponse(BaseModel):
@@ -340,6 +342,7 @@ async def query(
             aips,
             aemails,
             ahosts,
+            evidence_run,
         ) = await __main__.start(
             argparse.Namespace(
                 dns_brute=dns_brute,
@@ -358,23 +361,23 @@ async def query(
                 dns_resolve=dns_resolve,
                 quiet=False,
                 screenshot='',
-            )
+            ),
+            return_evidence_run=True,
         )
 
         # Return the results using the Pydantic model
-        return JSONResponse(
-            {
-                'asns': asns,
-                'interesting_urls': iurls,
-                'twitter_people': twitter_people_list,
-                'linkedin_people': linkedin_people_list,
-                'linkedin_links': linkedin_links,
-                'trello_urls': aurls,
-                'ips': aips,
-                'emails': aemails,
-                'hosts': ahosts,
-            }
-        )
+        response_data = {
+            'asns': asns,
+            'interesting_urls': iurls,
+            'twitter_people': twitter_people_list,
+            'linkedin_people': linkedin_people_list,
+            'linkedin_links': linkedin_links,
+            'trello_urls': aurls,
+            'ips': aips,
+            'emails': aemails,
+            'hosts': ahosts,
+        }
+        return JSONResponse(legacy_json_result(evidence_run, response_data))
     except HTTPException as e:
         # Re-raise HTTP exceptions
         raise e
