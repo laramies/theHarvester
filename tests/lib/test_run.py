@@ -9,10 +9,16 @@ import pytest
 from theHarvester.lib.dns_validation import Addressability, DnsResponse, DnsValidator
 from theHarvester.lib.run import (
     Derivation,
+    RunStatus,
     ScopeClass,
     SourceFinding,
     SourceRateLimitedError,
     SourceStatus,
+    SQLiteRunStore,
+    StageFinding,
+    StageFindingKind,
+    StageResult,
+    complete_run,
     execute_run,
     legacy_dns_results,
     legacy_hostnames,
@@ -31,6 +37,39 @@ class FakePassiveSource:
             SourceFinding('example.com.evil.test', Derivation.SCOPE_EXTENSION),
             SourceFinding('cdn.vendor.test', Derivation.EXTERNAL_RELATIONSHIP),
         ]
+
+
+@pytest.mark.asyncio
+async def test_complete_run_retains_late_evidence_status_and_persistence(tmp_path) -> None:
+    result = await execute_run('example.com', (FakePassiveSource(),))
+    completed = complete_run(
+        result,
+        (
+            StageResult(
+                'action:dns-brute',
+                SourceStatus.SUCCEEDED,
+                1,
+                1,
+                (StageFinding(StageFindingKind.HOSTNAME, 'late.example.com'),),
+            ),
+            StageResult(
+                'action:take-over',
+                SourceStatus.FAILED,
+                1,
+                1,
+                (StageFinding(StageFindingKind.TAKEOVER, 'www.example.com', 'provider failed'),),
+                error_type='RuntimeError',
+            ),
+        ),
+    )
+    store = SQLiteRunStore(tmp_path / 'evidence.sqlite')
+
+    await store.save(completed)
+
+    assert completed.status is RunStatus.PARTIAL
+    assert {entity.value for entity in completed.entities} >= {'www.example.com', 'late.example.com'}
+    assert completed.selected_observations[0].detail == 'provider failed'
+    assert await store.load(completed.run_id) == completed.to_dict()
 
 
 @pytest.mark.asyncio
