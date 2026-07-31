@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, TypeVar, cast
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 from theHarvester.lib.dns_validation import Addressability
-from theHarvester.lib.run import ScopeClass, legacy_hostnames
+from theHarvester.lib.run import ScopeClass, StageFindingKind, legacy_hostnames
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -90,7 +90,13 @@ def print_linkedin_sections(
 def _entity_line(entity: MergedEntity, selected: Sequence[SelectedObservation] = ()) -> str:
     sources = ','.join(sorted({observation.source for observation in entity.observations}))
     selected_status = ''.join(f'; {observation.kind}={observation.detail or "observed"}' for observation in selected)
-    return f'{entity.value} [status={entity.addressability}; sources={sources}{selected_status}]'
+    status = (
+        entity.addressability
+        or ('scope-extension-candidate' if ScopeClass.SCOPE_EXTENSION in entity.scope_classes else None)
+        or ('external-relationship' if ScopeClass.EXTERNAL_RELATIONSHIP in entity.scope_classes else None)
+        or 'needs-review'
+    )
+    return f'{entity.value} [status={status}; sources={sources}{selected_status}]'
 
 
 def format_run_terminal(result: RunResult) -> str:
@@ -122,6 +128,31 @@ def format_run_terminal(result: RunResult) -> str:
         for value in entity_values
     }
     standalone_selected = [observation for observation in result.selected_observations if observation.value not in entity_values]
+    selected_sections: list[str] = []
+    for kind, title in (
+        (StageFindingKind.EMAIL, 'Emails found'),
+        (StageFindingKind.IP_ADDRESS, 'IPs found'),
+        (StageFindingKind.ASN, 'ASNS found'),
+        (StageFindingKind.PERSON, 'People found'),
+        (StageFindingKind.URL, 'URLs found'),
+        (StageFindingKind.INTERESTING_URL, 'Interesting Urls found'),
+        (StageFindingKind.TAKEOVER, 'Takeover results'),
+        (StageFindingKind.SCREENSHOT, 'Screenshots captured'),
+        (StageFindingKind.SHODAN_RESULT, 'Shodan results'),
+        (StageFindingKind.API_ENDPOINT, 'API Endpoints found'),
+        (StageFindingKind.API_AUTH_REQUIRED, 'Endpoints requiring authentication'),
+        (StageFindingKind.API_VERSION, 'Detected API versions'),
+        (StageFindingKind.API_RATE_LIMIT, 'Rate limited endpoints'),
+        (StageFindingKind.HTTP_METHOD, 'HTTP methods used'),
+        (StageFindingKind.HTTP_STATUS_CODE, 'HTTP status codes encountered'),
+    ):
+        observations = [observation for observation in standalone_selected if observation.kind is kind]
+        if not observations:
+            continue
+        selected_sections.append(f'[*] {title}: {len(observations)}')
+        for observation in observations:
+            detail = f'; detail={observation.detail}' if observation.detail is not None else ''
+            selected_sections.append(f'{observation.value} [status=observed; sources={observation.source}{detail}]')
     sections = [
         f'[*] Run status: {result.status}',
         f'[*] Currently addressable subdomains ({len(primary)})',
@@ -130,16 +161,18 @@ def format_run_terminal(result: RunResult) -> str:
         *(_entity_line(entity, selected_by_entity[entity.value]) for entity in secondary),
         f'[*] Scope-extension candidates ({len(scope_extensions)})',
         *(_entity_line(entity, selected_by_entity[entity.value]) for entity in scope_extensions),
-        f'[*] Selected stage observations ({len(standalone_selected)})',
-        *(
-            f'{observation.value} [{observation.kind}={observation.detail or "observed"}; source={observation.source}]'
-            for observation in standalone_selected
-        ),
+        *selected_sections,
         '[*] Source executions',
         *(
             f'{execution.source} [status={execution.status}; results={execution.result_count}; '
             f'observations={execution.observation_count}]'
             for execution in result.source_executions
+        ),
+        '[*] Selected stage executions',
+        *(
+            f'{execution.stage} [status={execution.status}; results={execution.result_count}; '
+            f'observations={execution.observation_count}]'
+            for execution in result.stage_executions
         ),
     ]
     return '\n'.join(sections)
@@ -150,6 +183,7 @@ def run_result_jsonl(result: RunResult) -> str:
     serialized = result.to_dict()
     records: list[tuple[str, dict[str, Any]]] = [('run', _run_record(result))]
     records.extend(('source_execution', item) for item in cast('list[dict[str, Any]]', serialized['source_executions']))
+    records.extend(('stage_execution', item) for item in cast('list[dict[str, Any]]', serialized['stage_executions']))
     records.extend(('discovery_observation', item) for item in cast('list[dict[str, Any]]', serialized['observations']))
     for item in cast('list[dict[str, Any]]', serialized['dns_validations']):
         validation = dict(item)
@@ -183,6 +217,7 @@ def _run_record(result: RunResult) -> dict[str, object]:
         'completed_at': result.completed_at.isoformat(),
         'record_counts': {
             'source_executions': len(result.source_executions),
+            'stage_executions': len(result.stage_executions),
             'discovery_observations': len(result.observations),
             'dns_validation_observations': len(result.dns_validations),
             'merged_results': len(result.entities),
@@ -199,6 +234,8 @@ def legacy_json_result(result: RunResult, existing: Mapping[str, object] | None 
     adapted['evidence_run'] = {
         **_run_record(result),
         'source_executions': [execution.to_dict() for execution in result.source_executions],
+        'stage_executions': [execution.to_dict() for execution in result.stage_executions],
+        'merged_results': [entity.to_dict() for entity in result.entities],
         'selected_observations': [observation.to_dict() for observation in result.selected_observations],
     }
     return adapted
@@ -208,6 +245,17 @@ def evidence_xml_fragment(result: RunResult) -> str:
     evidence_run = Element('evidence_run', run_id=result.run_id, status=result.status)
     for execution in result.source_executions:
         SubElement(evidence_run, 'source', name=execution.source, status=execution.status)
+    for stage_execution in result.stage_executions:
+        SubElement(evidence_run, 'stage', name=stage_execution.stage, status=stage_execution.status)
+    for entity in result.entities:
+        attributes = {
+            'value': entity.value,
+            'scope_classes': ','.join(sorted(entity.scope_classes)),
+            'sources': ','.join(sorted({observation.source for observation in entity.observations})),
+        }
+        if entity.addressability is not None:
+            attributes['addressability'] = entity.addressability
+        SubElement(evidence_run, 'merged_result', attributes)
     for observation in result.selected_observations:
         attributes = {
             'source': observation.source,

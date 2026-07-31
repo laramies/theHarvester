@@ -201,6 +201,7 @@ async def getsources(request: Request) -> Response:
 # Define Pydantic model for DNS brute force response
 class DnsBruteResponse(BaseModel):
     dns_bruteforce: list[str] = Field(default_factory=list, description='List of DNS brute force results')
+    evidence_run: dict[str, Any] | None = None
 
 
 @app.get(
@@ -237,7 +238,7 @@ async def dnsbrute(
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Domain must be at least 3 characters long')
 
         # Call the main function with the provided parameters
-        dns_bruteforce = await __main__.start(
+        dns_bruteforce, evidence_run = await __main__.start(
             argparse.Namespace(
                 dns_brute=True,
                 dns_lookup=False,
@@ -255,10 +256,17 @@ async def dnsbrute(
                 wordlist='',
                 api_scan=False,
                 dns_resolve=dns_resolve,
-            )
+            ),
+            return_evidence_run=True,
         )
 
-        return JSONResponse({'dns_bruteforce': dns_bruteforce})
+        adapted = legacy_json_result(evidence_run, {'dns_bruteforce': dns_bruteforce})
+        return JSONResponse(
+            {
+                'dns_bruteforce': dns_bruteforce,
+                'evidence_run': adapted['evidence_run'],
+            }
+        )
 
     except HTTPException as e:
         # Re-raise HTTP exceptions

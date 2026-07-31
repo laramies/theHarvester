@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import time
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
@@ -69,6 +69,11 @@ class StageFindingKind(StrEnum):
     API_ENDPOINT = 'api-endpoint'
     SCREENSHOT = 'screenshot'
     SHODAN_RESULT = 'shodan-result'
+    API_AUTH_REQUIRED = 'api-auth-required'
+    API_VERSION = 'api-version'
+    API_RATE_LIMIT = 'api-rate-limit'
+    HTTP_METHOD = 'http-method'
+    HTTP_STATUS_CODE = 'http-status-code'
 
 
 @dataclass(frozen=True)
@@ -88,6 +93,8 @@ class StageResult:
     findings: tuple[StageFinding, ...] = ()
     source_family: str | None = None
     error_type: str | None = None
+    is_action: bool = False
+    completed_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 class SourceIncompleteError(Exception):
@@ -186,6 +193,32 @@ class SourceExecution:
 
 
 @dataclass(frozen=True)
+class StageExecution:
+    run_id: str
+    stage: str
+    status: SourceStatus
+    duration_ms: float
+    result_count: int
+    observation_count: int
+    entity_count: int
+    completed_at: datetime
+    error_type: str | None = None
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            'run_id': self.run_id,
+            'stage': self.stage,
+            'status': self.status,
+            'duration_ms': self.duration_ms,
+            'result_count': self.result_count,
+            'observation_count': self.observation_count,
+            'entity_count': self.entity_count,
+            'completed_at': self.completed_at.isoformat(),
+            'error_type': self.error_type,
+        }
+
+
+@dataclass(frozen=True)
 class SelectedObservation:
     run_id: str
     source: str
@@ -242,13 +275,18 @@ class RunResult:
     entities: tuple[MergedEntity, ...]
     dns_validations: tuple[DnsValidationObservation, ...] = ()
     selected_observations: tuple[SelectedObservation, ...] = ()
+    stage_executions: tuple[StageExecution, ...] = ()
 
     @property
     def status(self) -> RunStatus:
+        statuses = [
+            *(execution.status for execution in self.source_executions),
+            *(execution.status for execution in self.stage_executions),
+        ]
         incomplete = {SourceStatus.FAILED, SourceStatus.RATE_LIMITED}
-        if self.source_executions and all(execution.status is SourceStatus.FAILED for execution in self.source_executions):
+        if statuses and all(status is SourceStatus.FAILED for status in statuses):
             return RunStatus.FAILED
-        if any(execution.status in incomplete for execution in self.source_executions):
+        if any(status in incomplete for status in statuses):
             return RunStatus.PARTIAL
         return RunStatus.COMPLETE
 
@@ -260,6 +298,7 @@ class RunResult:
             'completed_at': self.completed_at.isoformat(),
             'status': self.status,
             'source_executions': [execution.to_dict() for execution in self.source_executions],
+            'stage_executions': [execution.to_dict() for execution in self.stage_executions],
             'observations': [observation.to_dict() for observation in self.observations],
             'dns_validations': [
                 {
@@ -479,7 +518,6 @@ def legacy_dns_results(result: RunResult, source: str | None = None) -> tuple[li
 
 def complete_run(result: RunResult, stage_results: Sequence[StageResult] = ()) -> RunResult:
     """Merge selected stage results once and close the run."""
-    collected_at = datetime.now(UTC)
     stage_findings = tuple((stage, finding) for stage in stage_results for finding in dict.fromkeys(stage.findings))
     existing = {(item.source, item.value, item.derivation) for item in result.observations}
     added: list[DiscoveryObservation] = []
@@ -497,7 +535,7 @@ def complete_run(result: RunResult, stage_results: Sequence[StageResult] = ()) -
                 source=stage.source,
                 source_family=stage.source_family or stage.source,
                 derivation=finding.derivation,
-                collected_at=collected_at,
+                collected_at=stage.completed_at,
                 scope_class=_classify_scope(result.target, value, finding.derivation),
             )
         )
@@ -518,15 +556,44 @@ def complete_run(result: RunResult, stage_results: Sequence[StageResult] = ()) -
             value=finding.value,
             detail=finding.detail,
             derivation=finding.derivation,
-            collected_at=collected_at,
+            collected_at=stage.completed_at,
         )
         for stage, finding in stage_findings
         if finding.kind is not StageFindingKind.HOSTNAME
     )
     executions = list(result.source_executions)
+    stage_executions = list(result.stage_executions)
     recorded_sources = {execution.source.casefold(): index for index, execution in enumerate(executions)}
+    recorded_stages = {execution.stage.casefold(): index for index, execution in enumerate(stage_executions)}
     for stage in stage_results:
         source_key = stage.source.casefold()
+        findings = tuple(dict.fromkeys(stage.findings))
+        entity_count = len(
+            {
+                value
+                for finding in findings
+                if finding.kind is StageFindingKind.HOSTNAME
+                and (value := normalize_hostname(finding.value.split(':', 1)[0])) is not None
+            }
+        )
+        if stage.is_action:
+            stage_execution = StageExecution(
+                run_id=result.run_id,
+                stage=stage.source,
+                status=stage.status,
+                duration_ms=stage.duration_ms,
+                result_count=stage.result_count,
+                observation_count=len(findings),
+                entity_count=entity_count,
+                completed_at=stage.completed_at,
+                error_type=stage.error_type,
+            )
+            if source_key in recorded_stages:
+                stage_executions[recorded_stages[source_key]] = stage_execution
+            else:
+                recorded_stages[source_key] = len(stage_executions)
+                stage_executions.append(stage_execution)
+            continue
         if source_key in recorded_sources:
             index = recorded_sources[source_key]
             execution = executions[index]
@@ -537,7 +604,6 @@ def complete_run(result: RunResult, stage_results: Sequence[StageResult] = ()) -
                 error_type=stage.error_type or execution.error_type,
             )
             continue
-        findings = tuple(dict.fromkeys(stage.findings))
         executions.append(
             SourceExecution(
                 run_id=result.run_id,
@@ -547,14 +613,7 @@ def complete_run(result: RunResult, stage_results: Sequence[StageResult] = ()) -
                 duration_ms=stage.duration_ms,
                 result_count=stage.result_count,
                 observation_count=len(findings),
-                entity_count=len(
-                    {
-                        value
-                        for finding in findings
-                        if finding.kind is StageFindingKind.HOSTNAME
-                        and (value := normalize_hostname(finding.value.split(':', 1)[0])) is not None
-                    }
-                ),
+                entity_count=entity_count,
                 error_type=stage.error_type,
             )
         )
@@ -563,6 +622,7 @@ def complete_run(result: RunResult, stage_results: Sequence[StageResult] = ()) -
         result,
         completed_at=datetime.now(UTC),
         source_executions=tuple(executions),
+        stage_executions=tuple(stage_executions),
         observations=(*result.observations, *added),
         entities=entities,
         selected_observations=(*result.selected_observations, *selected),
