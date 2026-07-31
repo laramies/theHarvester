@@ -2,6 +2,7 @@ import logging
 from urllib.parse import urlencode
 
 from theHarvester.lib.core import AsyncFetcher
+from theHarvester.lib.run import SourceFinding, SourceIncompleteError, SourcePartialError, SourceRateLimitedError
 
 logger = logging.getLogger(__name__)
 
@@ -20,10 +21,16 @@ class SearchCertspoter:
         self.totalhosts: set = set()
         self.proxy = False
 
+    def _incomplete_error(self, message: str) -> SourceIncompleteError:
+        findings = tuple(SourceFinding(host) for host in sorted(self.totalhosts))
+        error_type = SourcePartialError if findings else SourceIncompleteError
+        return error_type(message, findings=findings)
+
     async def do_search(self) -> None:
         base_url = 'https://api.certspotter.com/v1/issuances'
         cursor = None
         seen_cursors: set[str] = set()
+        incomplete = False
         try:
             for _ in range(self.MAX_PAGES):
                 params = {
@@ -37,20 +44,27 @@ class SearchCertspoter:
                 responses = await AsyncFetcher.fetch_all([f'{base_url}?{urlencode(params)}'], json=True, proxy=self.proxy)
                 if not responses:
                     logger.warning('Cert Spotter stopped early; results may be incomplete.')
-                    break
+                    raise self._incomplete_error('Cert Spotter returned no response')
 
                 page = responses[0]
                 if isinstance(page, dict):
                     code = page.get('code')
                     if isinstance(code, str):
                         logger.warning(f'Cert Spotter stopped early ({code}); results may be incomplete.')
+                        if code == 'rate_limited':
+                            raise SourceRateLimitedError(
+                                'Cert Spotter rate limit reached',
+                                findings=tuple(SourceFinding(host) for host in sorted(self.totalhosts)),
+                            )
                     else:
                         logger.warning('Cert Spotter stopped early; results may be incomplete.')
-                    break
+                    raise self._incomplete_error('Cert Spotter returned an error response')
                 if not isinstance(page, list):
                     logger.warning('Cert Spotter stopped early; results may be incomplete.')
-                    break
+                    raise self._incomplete_error('Cert Spotter returned an invalid response')
                 if not page:
+                    if incomplete:
+                        raise self._incomplete_error('Cert Spotter returned malformed issuance data')
                     break
 
                 malformed_issuance = False
@@ -86,6 +100,7 @@ class SearchCertspoter:
                         ):
                             self.totalhosts.add(name)
                 if malformed_issuance:
+                    incomplete = True
                     logger.warning('Cert Spotter ignored malformed issuance data; results may be incomplete.')
 
                 last_issuance = page[-1]
@@ -97,20 +112,25 @@ class SearchCertspoter:
                         'Cert Spotter stopped early because the response did not provide a valid cursor; '
                         'results may be incomplete.'
                     )
-                    break
+                    raise self._incomplete_error('Cert Spotter response did not provide a valid cursor')
                 if next_cursor in seen_cursors:
                     logger.warning(
                         'Cert Spotter stopped early because the response repeated a cursor; results may be incomplete.'
                     )
-                    break
+                    raise self._incomplete_error('Cert Spotter response repeated a cursor')
                 seen_cursors.add(next_cursor)
                 cursor = next_cursor
             else:
                 logger.warning('Cert Spotter page limit reached; results may be incomplete.')
+                raise self._incomplete_error('Cert Spotter page limit reached')
+        except SourceIncompleteError:
+            raise
         except ConnectionError:
             logger.warning('Cert Spotter network connection failed; results may be incomplete.')
+            raise self._incomplete_error('Cert Spotter network connection failed') from None
         except Exception:
             logger.warning('Cert Spotter stopped after an unexpected error; results may be incomplete.')
+            raise self._incomplete_error('Cert Spotter stopped after an unexpected error') from None
 
     async def get_hostnames(self) -> set:
         return self.totalhosts

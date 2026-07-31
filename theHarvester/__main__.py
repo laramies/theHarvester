@@ -695,7 +695,16 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
                 elif engineitem == 'certspotter':
                     try:
                         certspotter_search = certspottersearch.SearchCertspoter(word)
-                        stor_lst.append(store(certspotter_search, engineitem))
+                        source_spec = get_source_spec(engineitem)
+                        evidence_sources.append(
+                            LegacyHostnameSource(
+                                name=source_spec.name,
+                                legacy_name=source_spec.name,
+                                family=source_spec.family,
+                                search=certspotter_search,
+                                proxy=use_proxy,
+                            )
+                        )
                     except ConnectionError as ce:
                         if not args.quiet:
                             output_logger.info(f'Network connection error while accessing Certspotter: {ce}')

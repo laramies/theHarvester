@@ -9,6 +9,7 @@ import pytest
 
 from theHarvester.discovery import certspottersearch
 from theHarvester.lib.core import Core
+from theHarvester.lib.run import SourceIncompleteError, SourcePartialError, SourceRateLimitedError
 
 
 class TestCertspotter(object):
@@ -30,8 +31,10 @@ class TestCertspotterSearch(object):
 
     @pytest.mark.asyncio
     async def test_search(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[list[dict[str, list[str]]]]:
-            return [[{'dns_names': ['api.example.com', 'www.example.com']}]]
+        pages = [[{'id': '1', 'dns_names': ['api.example.com', 'www.example.com']}], []]
+
+        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[list[dict[str, Any]]]:
+            return [pages.pop(0)]
 
         monkeypatch.setattr(certspottersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = certspottersearch.SearchCertspoter(TestCertspotter.domain())
@@ -91,11 +94,18 @@ class TestCertspotterSearch(object):
         monkeypatch.setattr(certspottersearch.SearchCertspoter, 'MAX_PAGES', 2, raising=False)
 
         search = certspottersearch.SearchCertspoter(TestCertspotter.domain())
-        with caplog.at_level(logging.WARNING, logger=certspottersearch.__name__):
+        with (
+            caplog.at_level(logging.WARNING, logger=certspottersearch.__name__),
+            pytest.raises(SourcePartialError) as error,
+        ):
             await search.process()
 
         assert requests == 2
         assert await search.get_hostnames() == {'host-1.example.com', 'host-2.example.com'}
+        assert {finding.value for finding in error.value.findings} == {
+            'host-1.example.com',
+            'host-2.example.com',
+        }
         assert 'page limit reached; results may be incomplete' in caplog.text
 
     @pytest.mark.asyncio
@@ -113,7 +123,6 @@ class TestCertspotterSearch(object):
                         '.example.com',
                         'bad..example.com',
                         '-bad.example.com',
-                        None,
                     ],
                 }
             ],
@@ -143,10 +152,14 @@ class TestCertspotterSearch(object):
 
         monkeypatch.setattr(certspottersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = certspottersearch.SearchCertspoter(TestCertspotter.domain())
-        with caplog.at_level(logging.WARNING, logger=certspottersearch.__name__):
+        with (
+            caplog.at_level(logging.WARNING, logger=certspottersearch.__name__),
+            pytest.raises(SourceRateLimitedError) as error,
+        ):
             await search.process()
 
         assert await search.get_hostnames() == {'first.example.com'}
+        assert {finding.value for finding in error.value.findings} == {'first.example.com'}
         assert 'rate_limited' in caplog.text
         assert 'results may be incomplete' in caplog.text
         assert 'provider details must not be logged' not in caplog.text
@@ -165,10 +178,14 @@ class TestCertspotterSearch(object):
 
         monkeypatch.setattr(certspottersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = certspottersearch.SearchCertspoter(TestCertspotter.domain())
-        with caplog.at_level(logging.WARNING, logger=certspottersearch.__name__):
+        with (
+            caplog.at_level(logging.WARNING, logger=certspottersearch.__name__),
+            pytest.raises(SourcePartialError) as error,
+        ):
             await search.process()
 
         assert await search.get_hostnames() == {'first.example.com'}
+        assert {finding.value for finding in error.value.findings} == {'first.example.com'}
         assert 'results may be incomplete' in caplog.text
 
     @pytest.mark.asyncio
@@ -181,7 +198,10 @@ class TestCertspotterSearch(object):
 
         monkeypatch.setattr(certspottersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = certspottersearch.SearchCertspoter(TestCertspotter.domain())
-        with caplog.at_level(logging.WARNING, logger=certspottersearch.__name__):
+        with (
+            caplog.at_level(logging.WARNING, logger=certspottersearch.__name__),
+            pytest.raises(SourceIncompleteError),
+        ):
             await search.process()
 
         assert await search.get_hostnames() == set()
@@ -201,10 +221,14 @@ class TestCertspotterSearch(object):
 
         monkeypatch.setattr(certspottersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = certspottersearch.SearchCertspoter(TestCertspotter.domain())
-        with caplog.at_level(logging.WARNING, logger=certspottersearch.__name__):
+        with (
+            caplog.at_level(logging.WARNING, logger=certspottersearch.__name__),
+            pytest.raises(SourcePartialError) as error,
+        ):
             await search.process()
 
         assert await search.get_hostnames() == {'first.example.com'}
+        assert {finding.value for finding in error.value.findings} == {'first.example.com'}
         assert 'results may be incomplete' in caplog.text
 
     @pytest.mark.asyncio
@@ -231,10 +255,14 @@ class TestCertspotterSearch(object):
 
         monkeypatch.setattr(certspottersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = certspottersearch.SearchCertspoter(TestCertspotter.domain())
-        with caplog.at_level(logging.WARNING, logger=certspottersearch.__name__):
+        with (
+            caplog.at_level(logging.WARNING, logger=certspottersearch.__name__),
+            pytest.raises(SourcePartialError) as incomplete,
+        ):
             await search.process()
 
         assert await search.get_hostnames() == {'first.example.com'}
+        assert {finding.value for finding in incomplete.value.findings} == {'first.example.com'}
         assert 'results may be incomplete' in caplog.text
         assert str(error) not in caplog.text
 
@@ -255,10 +283,17 @@ class TestCertspotterSearch(object):
 
         monkeypatch.setattr(certspottersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = certspottersearch.SearchCertspoter(TestCertspotter.domain())
-        with caplog.at_level(logging.WARNING, logger=certspottersearch.__name__):
+        with (
+            caplog.at_level(logging.WARNING, logger=certspottersearch.__name__),
+            pytest.raises(SourcePartialError) as error,
+        ):
             await search.process()
 
         assert await search.get_hostnames() == {'first.example.com', 'second.example.com'}
+        assert {finding.value for finding in error.value.findings} == {
+            'first.example.com',
+            'second.example.com',
+        }
         assert calls == 2
         assert 'results may be incomplete' in caplog.text
 
@@ -306,10 +341,14 @@ class TestCertspotterSearch(object):
 
         monkeypatch.setattr(certspottersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = certspottersearch.SearchCertspoter(TestCertspotter.domain())
-        with caplog.at_level(logging.WARNING, logger=certspottersearch.__name__):
+        with (
+            caplog.at_level(logging.WARNING, logger=certspottersearch.__name__),
+            pytest.raises(SourcePartialError) as error,
+        ):
             await search.process()
 
         assert await search.get_hostnames() == {'first.example.com'}
+        assert {finding.value for finding in error.value.findings} == {'first.example.com'}
         assert calls == 1
         assert 'results may be incomplete' in caplog.text
 
