@@ -39,6 +39,7 @@ class ScopeClass(StrEnum):
 
 class SourceStatus(StrEnum):
     SUCCEEDED = 'succeeded'
+    PARTIAL = 'partial'
     EMPTY = 'empty'
     FAILED = 'failed'
     RATE_LIMITED = 'rate-limited'
@@ -107,6 +108,10 @@ class SourceIncompleteError(Exception):
 
 class SourceRateLimitedError(SourceIncompleteError):
     status = SourceStatus.RATE_LIMITED
+
+
+class SourcePartialError(SourceIncompleteError):
+    status = SourceStatus.PARTIAL
 
 
 class PassiveSource(Protocol):
@@ -289,7 +294,7 @@ class RunResult:
             *(execution.status for execution in self.source_executions),
             *(execution.status for execution in self.stage_executions),
         ]
-        incomplete = {SourceStatus.FAILED, SourceStatus.RATE_LIMITED}
+        incomplete = {SourceStatus.PARTIAL, SourceStatus.FAILED, SourceStatus.RATE_LIMITED}
         if statuses and all(status is SourceStatus.FAILED for status in statuses):
             return RunStatus.FAILED
         if any(status in incomplete for status in statuses):

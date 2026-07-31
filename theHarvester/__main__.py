@@ -728,10 +728,14 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
                 elif engineitem == 'commoncrawl':
                     try:
                         commoncrawl_search = commoncrawl.SearchCommoncrawl(word, limit)
-                        stor_lst.append(
-                            store(
-                                commoncrawl_search,
-                                engineitem,
+                        source_spec = get_source_spec(engineitem)
+                        evidence_sources.append(
+                            LegacyHostnameSource(
+                                name=source_spec.name,
+                                legacy_name=source_spec.name,
+                                family=source_spec.family,
+                                search=commoncrawl_search,
+                                proxy=use_proxy,
                             )
                         )
                     except Exception as e:

@@ -5,6 +5,7 @@ from types import ModuleType
 from urllib.parse import urlencode, urlsplit
 
 from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.run import SourceFinding, SourcePartialError
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +136,7 @@ class SearchCommoncrawl:
 
             records_seen = 0
             successful_queries = 0
+            incomplete = False
             for index in indexes:
                 endpoint = index['cdx-api']
                 for query in (f'*.{self.word}', f'{self.word}/*'):
@@ -174,12 +176,15 @@ class SearchCommoncrawl:
                                                 self.totalhosts.add(domain)
                                     query_succeeded = True
                                 except ValueError as error:
+                                    incomplete = True
                                     logger.warning(f'Common Crawl page error for index {index.get("id", "unknown")}: {error}')
                                 except Exception:
+                                    incomplete = True
                                     logger.warning(
                                         f'Common Crawl page error for index {index.get("id", "unknown")}: unexpected page failure'
                                     )
                         if page_count > page_limit:
+                            incomplete = True
                             logger.warning(
                                 f'Common Crawl page limit reached for index {index.get("id", "unknown")}; '
                                 'results may be incomplete'
@@ -187,12 +192,18 @@ class SearchCommoncrawl:
                         if query_succeeded:
                             successful_queries += 1
                     except Exception as error:
+                        incomplete = True
                         logger.warning(f'Common Crawl API error for index {index.get("id", "unknown")}: {error}')
 
             if not successful_queries and not self.totalhosts:
                 raise RuntimeError('all Common Crawl queries failed')
+            if incomplete:
+                raise SourcePartialError(
+                    'some Common Crawl queries failed',
+                    findings=tuple(SourceFinding(host) for host in sorted(self.totalhosts)),
+                )
 
-        except RuntimeError:
+        except (RuntimeError, SourcePartialError):
             raise
         except Exception as error:
             logger.error(f'Common Crawl API error: {error}')

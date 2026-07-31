@@ -21,6 +21,7 @@ from theHarvester.lib.run import (
     Derivation,
     RunStatus,
     SourceFinding,
+    SourcePartialError,
     SourceRateLimitedError,
     SourceStatus,
     SQLiteRunStore,
@@ -759,6 +760,67 @@ async def test_cli_preserves_the_actual_provider_failure(monkeypatch: pytest.Mon
     execution = response[-1].source_executions[0]
     assert execution.status is SourceStatus.FAILED
     assert execution.error_type == 'RuntimeError'
+
+
+@pytest.mark.asyncio
+async def test_cli_serializes_partial_commoncrawl_findings(monkeypatch: pytest.MonkeyPatch) -> None:
+    import theHarvester.__main__ as main_module
+
+    class PartialCommonCrawlSearch:
+        def __init__(self, _target: str, _limit: int) -> None:
+            return None
+
+        async def process(self, _proxy: bool = False) -> None:
+            raise SourcePartialError(
+                'one page failed',
+                findings=(SourceFinding('survivor.example.com'),),
+            )
+
+        async def get_hostnames(self) -> list[str]:
+            raise AssertionError('partial findings must come from the incomplete source result')
+
+    class FakeStashManager:
+        async def do_init(self) -> None:
+            return None
+
+        async def store_all(self, *_args) -> None:
+            return None
+
+    class FakeRunStore:
+        async def save(self, _result) -> None:
+            return None
+
+    monkeypatch.setattr(main_module.commoncrawl, 'SearchCommoncrawl', PartialCommonCrawlSearch)
+    monkeypatch.setattr(main_module.stash, 'StashManager', FakeStashManager)
+    monkeypatch.setattr(main_module, 'SQLiteRunStore', FakeRunStore)
+
+    response = await main_module.start(
+        SimpleNamespace(
+            api_scan=False,
+            dns_brute=False,
+            dns_lookup=False,
+            dns_resolve='',
+            dns_server=None,
+            domain='example.com',
+            filename='',
+            limit=500,
+            proxies=False,
+            quiet=False,
+            screenshot='',
+            shodan=False,
+            source='commoncrawl',
+            start=0,
+            take_over=False,
+            wordlist='',
+        ),
+        return_evidence_run=True,
+    )
+
+    result = response[-1]
+    assert result.status is RunStatus.PARTIAL
+    assert result.source_executions[0].status is SourceStatus.PARTIAL
+    records = [json.loads(line) for line in run_result_jsonl(result).splitlines()]
+    assert any(record['data'].get('value') == 'survivor.example.com' for record in records)
 
 
 @pytest.mark.asyncio

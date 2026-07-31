@@ -4,6 +4,7 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 
 from theHarvester.discovery import commoncrawl
+from theHarvester.lib.run import SourcePartialError
 
 
 @pytest.mark.asyncio
@@ -185,7 +186,10 @@ async def test_process_caps_provider_page_counts_and_reports_truncation(
     monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
     monkeypatch.setattr(commoncrawl.SearchCommoncrawl, 'MAX_PAGES_PER_QUERY', 2)
 
-    with caplog.at_level(logging.WARNING, logger=commoncrawl.__name__):
+    with (
+        caplog.at_level(logging.WARNING, logger=commoncrawl.__name__),
+        pytest.raises(SourcePartialError),
+    ):
         await commoncrawl.SearchCommoncrawl('example.com', limit=50).process()
 
     assert requested_pages == [0, 1, 0, 1]
@@ -260,10 +264,14 @@ async def test_process_reports_failed_or_malformed_index_without_discarding_othe
     monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
 
     search = commoncrawl.SearchCommoncrawl('example.com')
-    with caplog.at_level(logging.WARNING, logger=commoncrawl.__name__):
+    with (
+        caplog.at_level(logging.WARNING, logger=commoncrawl.__name__),
+        pytest.raises(SourcePartialError) as error,
+    ):
         await search.process()
 
     assert await search.get_hostnames() == {'survivor.example.com'}
+    assert {finding.value for finding in error.value.findings} == {'survivor.example.com'}
     assert 'CC-MAIN-BROKEN' in caplog.text
     assert 'CC-MAIN-2026-30' in caplog.text
 
@@ -328,10 +336,14 @@ async def test_process_keeps_later_valid_page_after_malformed_page(
     monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = commoncrawl.SearchCommoncrawl('example.com')
 
-    with caplog.at_level(logging.WARNING, logger=commoncrawl.__name__):
+    with (
+        caplog.at_level(logging.WARNING, logger=commoncrawl.__name__),
+        pytest.raises(SourcePartialError) as error,
+    ):
         await search.process()
 
     assert await search.get_hostnames() == {'api.example.com'}
+    assert {finding.value for finding in error.value.findings} == {'api.example.com'}
     assert 'malformed JSON line' in caplog.text
 
 
@@ -386,6 +398,8 @@ async def test_process_keeps_results_when_another_query_fails(monkeypatch: pytes
     monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = commoncrawl.SearchCommoncrawl('example.com')
 
-    await search.process()
+    with pytest.raises(SourcePartialError) as error:
+        await search.process()
 
     assert await search.get_hostnames() == {'api.example.com'}
+    assert {finding.value for finding in error.value.findings} == {'api.example.com'}
