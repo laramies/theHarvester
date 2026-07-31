@@ -230,7 +230,9 @@ def legacy_json_result(result: RunResult, existing: Mapping[str, object] | None 
     adapted = dict(existing or {})
     existing_hosts = adapted.get('hosts', [])
     hosts = list(existing_hosts) if isinstance(existing_hosts, list) else []
-    adapted['hosts'] = list(dict.fromkeys([*hosts, *legacy_hostnames(result)]))
+    represented_hosts = {host.split(':', 1)[0] for host in hosts if isinstance(host, str)}
+    hosts.extend(host for host in legacy_hostnames(result) if host not in represented_hosts)
+    adapted['hosts'] = list(dict.fromkeys(hosts))
     adapted['evidence_run'] = {
         **_run_record(result),
         'source_executions': [execution.to_dict() for execution in result.source_executions],

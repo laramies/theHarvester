@@ -3,6 +3,7 @@ import asyncio
 import pytest
 
 from theHarvester.discovery import crtsh
+from theHarvester.lib.run import SourceIncompleteError
 
 
 def _patch_fetch(monkeypatch, payload):
@@ -100,15 +101,28 @@ class TestCrtshSearch:
         assert await search.get_hostnames() == ['api.example.com']
 
     @pytest.mark.asyncio
-    async def test_missing_name_value_key_is_handled(self, monkeypatch):
+    async def test_invalid_responses_report_failure(self, monkeypatch):
+        fetches = _patch_fetch(monkeypatch, '')
+        delays = _patch_sleep(monkeypatch)
+        search = crtsh.SearchCrtsh('example.com')
+
+        with pytest.raises(SourceIncompleteError):
+            await search.process()
+
+        assert len(fetches) == 3
+        assert delays == [2, 2]
+
+    @pytest.mark.asyncio
+    async def test_missing_name_value_key_reports_failure(self, monkeypatch):
         fetches = _patch_fetch(monkeypatch, [{'issuer_ca_id': 1}])
         delays = _patch_sleep(monkeypatch)
         search = crtsh.SearchCrtsh('example.com')
-        await search.process()
+
+        with pytest.raises(SourceIncompleteError):
+            await search.process()
 
         assert len(fetches) == 1
         assert delays == []
-        assert await search.get_hostnames() == []
 
 
 class TestCrtshIntegration:

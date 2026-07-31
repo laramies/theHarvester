@@ -378,6 +378,36 @@ def _merge_observations(observations: Sequence[DiscoveryObservation]) -> tuple[M
     return tuple(MergedEntity(value, tuple(supporting)) for value, supporting in grouped.items())
 
 
+async def validate_run(
+    result: RunResult,
+    dns_validator: DnsValidator,
+    *,
+    deterministic_exact_dns_names: tuple[str, ...] = (),
+) -> RunResult:
+    candidates = tuple(
+        entity.value
+        for entity in result.entities
+        if ScopeClass.IN_SCOPE in entity.scope_classes and entity.addressability is None
+    )
+    if not candidates:
+        return result
+    validation = await dns_validator.validate(
+        result.run_id,
+        result.target,
+        candidates,
+        deterministic_exact_names=deterministic_exact_dns_names,
+    )
+    classifications = {classification.candidate: classification.addressability for classification in validation.classifications}
+    return replace(
+        result,
+        completed_at=datetime.now(UTC),
+        entities=tuple(
+            replace(entity, addressability=classifications.get(entity.value, entity.addressability)) for entity in result.entities
+        ),
+        dns_validations=(*result.dns_validations, *validation.observations),
+    )
+
+
 async def execute_run(
     target: str,
     sources: Sequence[PassiveSource],
@@ -462,20 +492,6 @@ async def execute_run(
 
     merged_observations = tuple(observations)
     entities = _merge_observations(merged_observations)
-    dns_validations: tuple[DnsValidationObservation, ...] = ()
-    if dns_validator is not None:
-        validation = await dns_validator.validate(
-            run_id,
-            normalized_target,
-            tuple(entity.value for entity in entities if ScopeClass.IN_SCOPE in entity.scope_classes),
-            deterministic_exact_names=deterministic_exact_dns_names,
-        )
-        classifications = {
-            classification.candidate: classification.addressability for classification in validation.classifications
-        }
-        entities = tuple(replace(entity, addressability=classifications.get(entity.value)) for entity in entities)
-        dns_validations = validation.observations
-
     result = RunResult(
         run_id=run_id,
         target=normalized_target,
@@ -484,9 +500,16 @@ async def execute_run(
         source_executions=tuple(executions),
         observations=merged_observations,
         entities=entities,
-        dns_validations=dns_validations,
     )
-    return result
+    return (
+        await validate_run(
+            result,
+            dns_validator,
+            deterministic_exact_dns_names=deterministic_exact_dns_names,
+        )
+        if dns_validator is not None
+        else result
+    )
 
 
 def legacy_hostnames(result: RunResult, source: str | None = None) -> list[str]:

@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 from theHarvester.lib.core import AsyncFetcher
+from theHarvester.lib.run import SourceIncompleteError
 
 logger = logging.getLogger(__name__)
 
@@ -27,15 +28,16 @@ class SearchCrtsh:
                     await asyncio.sleep(2)
 
             if response is None:
-                logger.info(f'No valid response from crt.sh after {max_attempts} attempts.')
-                return []
+                raise SourceIncompleteError(f'No valid response from crt.sh after {max_attempts} attempts.')
 
             data = set([(dct['name_value'][2:] if dct['name_value'][:2] == '*.' else dct['name_value']) for dct in response])
             data = {domain for domain in data if (domain[0] != '*' and str(domain[0:4]).isnumeric() is False)}
-        except KeyError as ke:
-            logger.info(f'Missing expected key in response: {ke}')
-        except Exception as e:
-            logger.info(f'Unexpected error: {e}')
+        except SourceIncompleteError:
+            raise
+        except KeyError as error:
+            raise SourceIncompleteError(f'Missing expected key in crt.sh response: {error}') from error
+        except Exception as error:
+            raise SourceIncompleteError(f'Unexpected crt.sh error: {error}') from error
         clean: list = []
         for x in data:
             pre = x.split()
