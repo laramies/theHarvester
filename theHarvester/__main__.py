@@ -104,6 +104,7 @@ from theHarvester.lib.run import (
     execute_run,
     legacy_dns_results,
     legacy_hostnames,
+    validate_run,
 )
 from theHarvester.lib.source_catalog import ResultRoute, get_source_spec
 from theHarvester.screenshot.screenshot import ScreenShotter
@@ -440,7 +441,9 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
                 else:
                     host_names = list(_normalize_hosts_for_storage(discovered_hosts, word))
             if not has_dns_validation:
-                if source != 'hackertarget' and source != 'pentesttools' and source != 'rapiddns':
+                if len(final_dns_resolver_list) == 3:
+                    full.extend(host_names)
+                elif source != 'hackertarget' and source != 'pentesttools' and source != 'rapiddns':
                     # If a source is inside this conditional, it means the hosts returned must be resolved to obtain ip
                     # This should only be checked if --dns-resolve has a wordlist
                     if dnsresolve is None or len(final_dns_resolver_list) > 0:
@@ -551,26 +554,24 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
 
     async def store_evidence_sources() -> None:
         nonlocal completed_run_result
+        run_result = await execute_run(word, tuple(evidence_sources))
+        completed_run_result = run_result
+        executions = {execution.source: execution for execution in run_result.source_executions}
+        for evidence_source in evidence_sources:
+            execution = executions[evidence_source.name]
+            if execution.status in (SourceStatus.SUCCEEDED, SourceStatus.EMPTY) or execution.observation_count:
+                await store(evidence_source.search, evidence_source.legacy_name, run_result)
+
+    async def validate_completed_run(result: RunResult) -> RunResult:
+        if len(final_dns_resolver_list) != 3 or not any(entity.addressability is None for entity in result.entities):
+            return result
         async with AsyncExitStack() as resolver_stack:
-            dns_validator = None
-            if len(final_dns_resolver_list) == 3:
-                vantages = []
-                for nameserver in final_dns_resolver_list:
-                    vantage = AioDnsResolverVantage(nameserver)
-                    vantages.append(vantage)
-                    resolver_stack.push_async_callback(vantage.close)
-                dns_validator = DnsValidator(tuple(vantages))
-            run_result = (
-                await execute_run(word, tuple(evidence_sources), dns_validator=dns_validator)
-                if dns_validator is not None
-                else await execute_run(word, tuple(evidence_sources))
-            )
-            completed_run_result = run_result
-            executions = {execution.source: execution for execution in run_result.source_executions}
-            for evidence_source in evidence_sources:
-                execution = executions[evidence_source.name]
-                if execution.status in (SourceStatus.SUCCEEDED, SourceStatus.EMPTY) or execution.observation_count:
-                    await store(evidence_source.search, evidence_source.legacy_name, run_result)
+            vantages = []
+            for nameserver in final_dns_resolver_list:
+                vantage = AioDnsResolverVantage(nameserver)
+                vantages.append(vantage)
+                resolver_stack.push_async_callback(vantage.close)
+            return await validate_run(result, DnsValidator(tuple(vantages)))
 
     if args.source is not None:
         engines = Core.expand_source_selection(args.source)
@@ -1492,6 +1493,12 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
                     error_type='SourceDidNotStart',
                 )
             )
+    provider_stage_count = len(stage_results)
+    completed_run_result = complete_run(completed_run_result, stage_results)
+    completed_run_result = await validate_completed_run(completed_run_result)
+    if completed_run_result.dns_validations:
+        full, all_hosts, validated_ips = legacy_dns_results(completed_run_result)
+        all_ip.extend(validated_ips)
     total_asns = sorted_unique(total_asns)
     interesting_urls = sorted_unique(interesting_urls)
     twitter_people_list_tracker = sorted_unique(twitter_people_list_tracker)
@@ -1871,7 +1878,12 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
             output_logger.info('    Continuing with the rest of the scan...')
             traceback.print_exc()  # More detailed error information for developers
 
-    completed_run_result = complete_run(completed_run_result, stage_results)
+    completed_run_result = complete_run(completed_run_result, stage_results[provider_stage_count:])
+    completed_run_result = await validate_completed_run(completed_run_result)
+    if completed_run_result.dns_validations:
+        full, all_hosts, validated_ips = legacy_dns_results(completed_run_result)
+        all_ip.extend(validated_ips)
+        ip_list = sorted(set([*ip_list, *validated_ips]))
     await SQLiteRunStore().save(completed_run_result)
     output_logger.info(format_run_terminal(completed_run_result))
 

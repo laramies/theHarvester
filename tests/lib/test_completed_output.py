@@ -551,6 +551,97 @@ async def test_cli_finishes_selected_stages_before_persisting_and_reporting(
 
 
 @pytest.mark.asyncio
+async def test_cli_dns_validates_legacy_source_before_reporting(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    import theHarvester.__main__ as main_module
+
+    candidate = 'www.example.com'
+    report = tmp_path / 'legacy-source'
+
+    class FakeCertSpotter:
+        def __init__(self, target: str) -> None:
+            assert target == 'example.com'
+
+        async def process(self, _proxy: bool = False) -> None:
+            return None
+
+        async def get_hostnames(self) -> list[str]:
+            return [candidate]
+
+    class FakeVantage:
+        def __init__(self, nameserver: str) -> None:
+            self.name = nameserver
+
+        async def query(self, hostname: str) -> DnsResponse:
+            return DnsResponse(ipv4=('192.0.2.10',)) if hostname == candidate else DnsResponse(rcode='NXDOMAIN')
+
+        async def close(self) -> None:
+            return None
+
+    class FakeHostChecker:
+        def __init__(self, *_args: object) -> None:
+            raise AssertionError('consensus validation must replace the legacy resolver path')
+
+    class FakeStashManager:
+        async def do_init(self) -> None:
+            return None
+
+        async def store_all(self, *_args: object) -> None:
+            return None
+
+        async def store(self, *_args: object) -> None:
+            return None
+
+    class FakeRunStore:
+        saved: ClassVar[list] = []
+
+        async def save(self, result) -> None:
+            self.saved.append(result)
+
+    terminal_messages: list[str] = []
+    monkeypatch.setattr(main_module.certspottersearch, 'SearchCertspoter', FakeCertSpotter)
+    monkeypatch.setattr(main_module, 'AioDnsResolverVantage', FakeVantage, raising=False)
+    monkeypatch.setattr(main_module.hostchecker, 'Checker', FakeHostChecker)
+    monkeypatch.setattr(main_module.stash, 'StashManager', FakeStashManager)
+    monkeypatch.setattr(main_module, 'SQLiteRunStore', FakeRunStore, raising=False)
+    monkeypatch.setattr(main_module.output_logger, 'info', lambda message, *_args: terminal_messages.append(str(message)))
+
+    monkeypatch.setattr(
+        main_module.sys,
+        'argv',
+        [
+            'theHarvester',
+            '-d',
+            'example.com',
+            '-b',
+            'certspotter',
+            '-r',
+            '192.0.2.53,192.0.2.54,192.0.2.55',
+            '-f',
+            str(report),
+            '-q',
+        ],
+    )
+
+    with pytest.raises(SystemExit) as exit_info:
+        await main_module.start()
+
+    assert exit_info.value.code == 0
+    result = FakeRunStore.saved[0]
+    legacy_json = json.loads(report.with_suffix('.json').read_text())
+    evidence_xml = ElementTree.parse(report.with_suffix('.xml')).getroot().find('evidence_run')
+
+    assert len(result.dns_validations) == 12
+    assert result.entities[0].addressability == 'currently-addressable'
+    assert legacy_json['hosts'] == [f'{candidate}:192.0.2.10']
+    assert [item.attrib['value'] for item in evidence_xml.findall('merged_result')] == [candidate]
+    assert '\n'.join(terminal_messages).count(f'{candidate} [status=currently-addressable') == 1
+    assert FakeRunStore.saved == [result]
+
+
+@pytest.mark.asyncio
 async def test_cli_records_provider_people_in_the_completed_run(monkeypatch: pytest.MonkeyPatch) -> None:
     import theHarvester.__main__ as main_module
 

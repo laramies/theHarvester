@@ -40,7 +40,9 @@ class Checker:
         try:
             # TODO add check for ipv6 addrs as well
             result = await resolver.getaddrinfo(host, socket.AF_INET)
-            addresses_list: list[str] = [r.addr[0] for r in result.nodes]
+            addresses_list = [
+                address.decode('ascii') if isinstance(address, bytes) else address for r in result.nodes if (address := r.addr[0])
+            ]
             if addresses_list == [] or addresses_list is None or result is None:
                 return f'{host}:'
             else:

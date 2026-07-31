@@ -376,17 +376,15 @@ async def test_crtsh_bridge_uses_three_resolvers_without_legacy_requery(
     captured: list[run_module.RunResult] = []
     output: list[object] = []
 
-    async def capture_run(target, sources, **kwargs):
-        result = await run_module.execute_run(target, sources, **kwargs)
-        captured.append(result)
-        return result
+    class CaptureRunStore:
+        async def save(self, result: run_module.RunResult) -> None:
+            captured.append(result)
 
     monkeypatch.setattr(main_module.crtsh, 'SearchCrtsh', FakeCrtshSearch)
     monkeypatch.setattr(main_module, 'AioDnsResolverVantage', FakeVantage, raising=False)
     monkeypatch.setattr(main_module.hostchecker, 'Checker', FailOnLegacyChecker)
     monkeypatch.setattr(main_module.stash, 'StashManager', FakeStashManager)
-    monkeypatch.setattr(main_module, 'SQLiteRunStore', NoopRunStore)
-    monkeypatch.setattr(main_module, 'execute_run', capture_run, raising=True)
+    monkeypatch.setattr(main_module, 'SQLiteRunStore', CaptureRunStore)
     monkeypatch.setattr(main_module.output_logger, 'info', output.append)
 
     monkeypatch.setattr(
