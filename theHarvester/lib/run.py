@@ -101,7 +101,12 @@ class StageResult:
     source_family: str | None = None
     error_type: str | None = None
     is_action: bool = False
+    activity_class: ActivityClass | None = None
     completed_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+    def __post_init__(self) -> None:
+        if self.is_action and self.activity_class is None:
+            raise ValueError('action stages require an explicit activity class')
 
 
 class SourceIncompleteError(Exception):
@@ -643,13 +648,7 @@ def complete_run(result: RunResult, stage_results: Sequence[StageResult] = ()) -
                 observation_count=len(findings),
                 entity_count=entity_count,
                 completed_at=stage.completed_at,
-                activity_class=(
-                    ActivityClass.DNS
-                    if stage.source in {'action:dns-brute', 'action:dns-lookup'}
-                    else ActivityClass.DIRECT
-                    if stage.source in {'action:api-scan', 'action:screenshot', 'action:take-over'}
-                    else ActivityClass.PASSIVE
-                ),
+                activity_class=stage.activity_class or ActivityClass.PASSIVE,
                 error_type=stage.error_type,
             )
             if source_key in recorded_stages:

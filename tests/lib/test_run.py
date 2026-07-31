@@ -44,6 +44,11 @@ class NoopRunStore:
         return None
 
 
+def test_action_stage_requires_an_explicit_activity_class() -> None:
+    with pytest.raises(ValueError, match='activity class'):
+        StageResult('action:future', SourceStatus.EMPTY, 0, 0, is_action=True)
+
+
 @pytest.mark.asyncio
 async def test_complete_run_retains_late_evidence_status_and_persistence(tmp_path) -> None:
     result = await execute_run('example.com', (FakePassiveSource(),))

@@ -95,6 +95,7 @@ from theHarvester.lib.output import (
     sorted_unique,
 )
 from theHarvester.lib.run import (
+    ActivityClass,
     LegacyHostnameSource,
     RunResult,
     SourceStatus,
@@ -378,6 +379,7 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
         source_family: str | None = None,
         execution: Any | None = None,
         is_action: bool = True,
+        activity_class: ActivityClass | None = None,
     ) -> None:
         unique_findings = tuple(dict.fromkeys(findings))
         stage_results.append(
@@ -400,6 +402,7 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
                     execution.error_type if execution is not None else type(error).__name__ if error is not None else None
                 ),
                 is_action=is_action,
+                activity_class=activity_class,
             )
         )
 
@@ -1574,9 +1577,10 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
                 'action:dns-brute',
                 stage_started,
                 [StageFinding(StageFindingKind.HOSTNAME, host) for host in resolved_pair],
+                activity_class=ActivityClass.DNS,
             )
         except Exception as error:
-            record_stage_result('action:dns-brute', stage_started, error=error)
+            record_stage_result('action:dns-brute', stage_started, error=error, activity_class=ActivityClass.DNS)
             output_logger.info(f'[!] DNS brute force failed: {error}')
         db = stash.StashManager()
         temp = set()
@@ -1637,6 +1641,7 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
             stage_started,
             [StageFinding(StageFindingKind.HOSTNAME, host) for host in dnsrev],
             reverse_error,
+            activity_class=ActivityClass.DNS,
         )
         if reverse_error is not None:
             output_logger.info(f'[!] Reverse DNS lookup failed: {reverse_error}')
@@ -1663,9 +1668,10 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
                     )
                     for host, result in takeover_results.items()
                 ],
+                activity_class=ActivityClass.DIRECT,
             )
         except Exception as error:
-            record_stage_result('action:take-over', stage_started, error=error)
+            record_stage_result('action:take-over', stage_started, error=error, activity_class=ActivityClass.DIRECT)
             output_logger.info(f'[!] Takeover check failed: {error}')
 
     # Screenshots
@@ -1729,6 +1735,7 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
             stage_started,
             [StageFinding(StageFindingKind.SCREENSHOT, host) for host in screenshot_hosts],
             screenshot_error,
+            activity_class=ActivityClass.DIRECT,
         )
 
     # Shodan
@@ -1780,6 +1787,7 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
             stage_started,
             shodan_findings,
             shodan_errors[0] if shodan_errors else None,
+            activity_class=ActivityClass.PASSIVE,
         )
     else:
         pass
@@ -1878,16 +1886,17 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
                     *(StageFinding(StageFindingKind.HTTP_METHOD, method) for method in sorted(methods)),
                     *(StageFinding(StageFindingKind.HTTP_STATUS_CODE, str(status_code)) for status_code in sorted(status_codes)),
                 ],
+                activity_class=ActivityClass.DIRECT,
             )
             output_logger.info('\n[+] API scanning completed successfully.')
 
         except MissingKey as error:
-            record_stage_result('action:api-scan', stage_started, error=error)
+            record_stage_result('action:api-scan', stage_started, error=error, activity_class=ActivityClass.DIRECT)
             output_logger.info('\n[!] API endpoint scanning requires a wordlist. Use -w to specify a wordlist file.')
             output_logger.info('    Creating a basic wordlist and trying again...')
             # The wordlist creation code above could be used here
         except Exception as e:
-            record_stage_result('action:api-scan', stage_started, error=e)
+            record_stage_result('action:api-scan', stage_started, error=e, activity_class=ActivityClass.DIRECT)
             output_logger.info(f'\n[!] An exception has occurred in API Endpoints scanning: {e}')
             output_logger.info('    Continuing with the rest of the scan...')
             traceback.print_exc()  # More detailed error information for developers

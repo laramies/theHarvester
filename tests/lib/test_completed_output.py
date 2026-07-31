@@ -18,6 +18,7 @@ from theHarvester.lib.output import (
     run_result_jsonl,
 )
 from theHarvester.lib.run import (
+    ActivityClass,
     Derivation,
     RunStatus,
     SourceFinding,
@@ -88,6 +89,7 @@ async def test_complete_run_merges_late_and_direct_stage_results() -> None:
                 1,
                 (StageFinding(StageFindingKind.HOSTNAME, 'late.example.com:192.0.2.11'),),
                 is_action=True,
+                activity_class=ActivityClass.DNS,
                 completed_at=dns_completed_at,
             ),
             StageResult(
@@ -97,6 +99,7 @@ async def test_complete_run_merges_late_and_direct_stage_results() -> None:
                 1,
                 (StageFinding(StageFindingKind.TAKEOVER, 'api.example.com', 'not vulnerable'),),
                 is_action=True,
+                activity_class=ActivityClass.DIRECT,
                 completed_at=direct_completed_at,
             ),
         ),
@@ -156,6 +159,7 @@ async def test_terminal_reports_each_hostname_once_with_status_and_sources() -> 
                 1,
                 (StageFinding(StageFindingKind.TAKEOVER, 'api.example.com', 'not vulnerable'),),
                 is_action=True,
+                activity_class=ActivityClass.DIRECT,
             ),
         ),
     )
@@ -181,8 +185,22 @@ async def test_activity_classes_are_serialized_and_summarized() -> None:
     result = complete_run(
         result,
         (
-            StageResult('action:dns-brute', SourceStatus.EMPTY, 1, 0, is_action=True),
-            StageResult('action:take-over', SourceStatus.EMPTY, 1, 0, is_action=True),
+            StageResult(
+                'action:dns-brute',
+                SourceStatus.EMPTY,
+                1,
+                0,
+                is_action=True,
+                activity_class=ActivityClass.DNS,
+            ),
+            StageResult(
+                'action:take-over',
+                SourceStatus.EMPTY,
+                1,
+                0,
+                is_action=True,
+                activity_class=ActivityClass.DIRECT,
+            ),
         ),
     )
 
@@ -965,6 +983,7 @@ def test_rest_dnsbrute_keeps_legacy_results_and_failed_stage_status(monkeypatch:
                 0,
                 error_type='RuntimeError',
                 is_action=True,
+                activity_class=ActivityClass.DNS,
             ),
         ),
     )
