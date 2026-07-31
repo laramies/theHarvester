@@ -27,79 +27,79 @@ _ROUTE_CAPABILITIES = {
 class SourceSpec:
     """Describe a source's output and provider-side query behavior.
 
-    ``queries_provider_descendants`` means the adapter asks its existing
-    provider or dataset for names beneath the supplied parent. For example, a
-    certificate-transparency query for ``example.com`` may return
-    ``api.example.com``. This metadata does not mean theHarvester resolves that
-    name or recursively queries returned descendants. DNS resolution and
-    recursive DNS discovery are separate, explicitly selected activities.
+    ``queries_subdomains`` means the adapter deliberately asks its existing
+    provider or dataset for subdomains of the target. For example, a crt.sh
+    query for ``example.com`` may return ``api.example.com``. A source that
+    merely finds a hostname incidentally is not marked as querying subdomains.
+    This metadata does not enable DNS resolution, brute forcing, or recursive
+    searches of discovered names; those are separate, opt-in activities.
     """
 
     name: str
     routes: frozenset[ResultRoute]
-    queries_provider_descendants: bool = False
+    queries_subdomains: bool = False
 
     @property
     def capabilities(self) -> frozenset[str]:
         return frozenset(_ROUTE_CAPABILITIES[route] for route in self.routes)
 
 
-def _spec(name: str, *routes: ResultRoute, queries_provider_descendants: bool = False) -> SourceSpec:
+def _spec(name: str, *routes: ResultRoute, queries_subdomains: bool = False) -> SourceSpec:
     return SourceSpec(
         name=name,
         routes=frozenset(routes),
-        queries_provider_descendants=queries_provider_descendants,
+        queries_subdomains=queries_subdomains,
     )
 
 
 _SPECS = (
-    _spec('baidu', ResultRoute.HOSTS, ResultRoute.EMAILS, queries_provider_descendants=True),
-    _spec('bevigil', ResultRoute.HOSTS, ResultRoute.INTERESTING_URLS, queries_provider_descendants=True),
+    _spec('baidu', ResultRoute.HOSTS, ResultRoute.EMAILS, queries_subdomains=True),
+    _spec('bevigil', ResultRoute.HOSTS, ResultRoute.INTERESTING_URLS, queries_subdomains=True),
     _spec('bitbucket', ResultRoute.HOSTS, ResultRoute.EMAILS),
-    _spec('brave', ResultRoute.HOSTS, ResultRoute.EMAILS, queries_provider_descendants=True),
-    _spec('bufferoverun', ResultRoute.HOSTS, ResultRoute.IPS, queries_provider_descendants=True),
+    _spec('brave', ResultRoute.HOSTS, ResultRoute.EMAILS, queries_subdomains=True),
+    _spec('bufferoverun', ResultRoute.HOSTS, ResultRoute.IPS, queries_subdomains=True),
     _spec('builtwith', ResultRoute.HOSTS, ResultRoute.INTERESTING_URLS),
     _spec('censys', ResultRoute.HOSTS, ResultRoute.EMAILS),
-    _spec('certspotter', ResultRoute.HOSTS, queries_provider_descendants=True),
-    _spec('chaos', ResultRoute.HOSTS, queries_provider_descendants=True),
-    _spec('commoncrawl', ResultRoute.HOSTS, queries_provider_descendants=True),
-    _spec('criminalip', ResultRoute.HOSTS, ResultRoute.IPS, ResultRoute.ASNS, queries_provider_descendants=True),
-    _spec('crtsh', ResultRoute.HOSTS, queries_provider_descendants=True),
+    _spec('certspotter', ResultRoute.HOSTS, queries_subdomains=True),
+    _spec('chaos', ResultRoute.HOSTS, queries_subdomains=True),
+    _spec('commoncrawl', ResultRoute.HOSTS, queries_subdomains=True),
+    _spec('criminalip', ResultRoute.HOSTS, ResultRoute.IPS, ResultRoute.ASNS, queries_subdomains=True),
+    _spec('crtsh', ResultRoute.HOSTS, queries_subdomains=True),
     _spec('dehashed', ResultRoute.IPS),
-    _spec('dnsdb', ResultRoute.HOSTS, queries_provider_descendants=True),
-    _spec('dnsdumpster', ResultRoute.HOSTS, ResultRoute.IPS, queries_provider_descendants=True),
+    _spec('dnsdb', ResultRoute.HOSTS, queries_subdomains=True),
+    _spec('dnsdumpster', ResultRoute.HOSTS, ResultRoute.IPS, queries_subdomains=True),
     _spec('duckduckgo', ResultRoute.HOSTS, ResultRoute.EMAILS),
     _spec('dymo', ResultRoute.HOSTS),
-    _spec('fofa', ResultRoute.HOSTS, ResultRoute.IPS, queries_provider_descendants=True),
-    _spec('fullhunt', ResultRoute.HOSTS, queries_provider_descendants=True),
+    _spec('fofa', ResultRoute.HOSTS, ResultRoute.IPS, queries_subdomains=True),
+    _spec('fullhunt', ResultRoute.HOSTS, queries_subdomains=True),
     _spec('github-code', ResultRoute.HOSTS, ResultRoute.EMAILS),
     _spec('gitlab', ResultRoute.HOSTS, ResultRoute.EMAILS),
-    _spec('hackertarget', ResultRoute.HOSTS, queries_provider_descendants=True),
+    _spec('hackertarget', ResultRoute.HOSTS, queries_subdomains=True),
     _spec('haveibeenpwned'),
     _spec('hudsonrock', ResultRoute.HOSTS, ResultRoute.EMAILS, ResultRoute.IPS),
     _spec('hunter', ResultRoute.HOSTS, ResultRoute.EMAILS),
-    _spec('hunterhow', ResultRoute.HOSTS, queries_provider_descendants=True),
+    _spec('hunterhow', ResultRoute.HOSTS, queries_subdomains=True),
     _spec('intelx', ResultRoute.HOSTS, ResultRoute.EMAILS, ResultRoute.INTERESTING_URLS),
-    _spec('leakix', ResultRoute.HOSTS, ResultRoute.EMAILS, queries_provider_descendants=True),
+    _spec('leakix', ResultRoute.HOSTS, ResultRoute.EMAILS, queries_subdomains=True),
     _spec('leaklookup', ResultRoute.EMAILS),
     _spec('mojeek', ResultRoute.HOSTS, ResultRoute.EMAILS),
-    _spec('netlas', ResultRoute.HOSTS, queries_provider_descendants=True),
+    _spec('netlas', ResultRoute.HOSTS, queries_subdomains=True),
     _spec('onyphe', ResultRoute.HOSTS, ResultRoute.IPS, ResultRoute.ASNS),
-    _spec('otx', ResultRoute.HOSTS, ResultRoute.IPS, queries_provider_descendants=True),
-    _spec('pentesttools', ResultRoute.HOSTS, queries_provider_descendants=True),
-    _spec('projectdiscovery', ResultRoute.HOSTS, queries_provider_descendants=True),
-    _spec('rapiddns', ResultRoute.HOSTS, queries_provider_descendants=True),
-    _spec('robtex', ResultRoute.HOSTS, ResultRoute.IPS, queries_provider_descendants=True),
+    _spec('otx', ResultRoute.HOSTS, ResultRoute.IPS, queries_subdomains=True),
+    _spec('pentesttools', ResultRoute.HOSTS, queries_subdomains=True),
+    _spec('projectdiscovery', ResultRoute.HOSTS, queries_subdomains=True),
+    _spec('rapiddns', ResultRoute.HOSTS, queries_subdomains=True),
+    _spec('robtex', ResultRoute.HOSTS, ResultRoute.IPS, queries_subdomains=True),
     _spec('rocketreach', ResultRoute.EMAILS, ResultRoute.LINKS),
-    _spec('securityTrails', ResultRoute.HOSTS, ResultRoute.IPS, queries_provider_descendants=True),
+    _spec('securityTrails', ResultRoute.HOSTS, ResultRoute.IPS, queries_subdomains=True),
     _spec('securityscorecard', ResultRoute.HOSTS, ResultRoute.IPS),
     _spec('sherlockeye', ResultRoute.HOSTS, ResultRoute.EMAILS, ResultRoute.IPS),
     _spec('shodan', ResultRoute.HOSTS),
     _spec('shodanInternetDB', ResultRoute.HOSTS, ResultRoute.IPS),
-    _spec('subdomaincenter', ResultRoute.HOSTS, queries_provider_descendants=True),
-    _spec('subdomainfinderc99', ResultRoute.HOSTS, queries_provider_descendants=True),
-    _spec('thc', ResultRoute.HOSTS, queries_provider_descendants=True),
-    _spec('threatcrowd', ResultRoute.HOSTS, ResultRoute.IPS, queries_provider_descendants=True),
+    _spec('subdomaincenter', ResultRoute.HOSTS, queries_subdomains=True),
+    _spec('subdomainfinderc99', ResultRoute.HOSTS, queries_subdomains=True),
+    _spec('thc', ResultRoute.HOSTS, queries_subdomains=True),
+    _spec('threatcrowd', ResultRoute.HOSTS, ResultRoute.IPS, queries_subdomains=True),
     _spec('tomba', ResultRoute.HOSTS, ResultRoute.EMAILS),
     _spec(
         'urlscan',
@@ -107,13 +107,13 @@ _SPECS = (
         ResultRoute.IPS,
         ResultRoute.ASNS,
         ResultRoute.INTERESTING_URLS,
-        queries_provider_descendants=True,
+        queries_subdomains=True,
     ),
     _spec('venacus', ResultRoute.EMAILS, ResultRoute.IPS, ResultRoute.PEOPLE, ResultRoute.INTERESTING_URLS),
-    _spec('virustotal', ResultRoute.HOSTS, queries_provider_descendants=True),
-    _spec('waybackarchive', ResultRoute.HOSTS, queries_provider_descendants=True),
-    _spec('whoisxml', ResultRoute.HOSTS, queries_provider_descendants=True),
-    _spec('windvane', ResultRoute.HOSTS, ResultRoute.EMAILS, ResultRoute.IPS, queries_provider_descendants=True),
+    _spec('virustotal', ResultRoute.HOSTS, queries_subdomains=True),
+    _spec('waybackarchive', ResultRoute.HOSTS, queries_subdomains=True),
+    _spec('whoisxml', ResultRoute.HOSTS, queries_subdomains=True),
+    _spec('windvane', ResultRoute.HOSTS, ResultRoute.EMAILS, ResultRoute.IPS, queries_subdomains=True),
     _spec('yahoo', ResultRoute.HOSTS, ResultRoute.EMAILS),
     _spec(
         'zoomeye',
@@ -122,7 +122,7 @@ _SPECS = (
         ResultRoute.IPS,
         ResultRoute.ASNS,
         ResultRoute.INTERESTING_URLS,
-        queries_provider_descendants=True,
+        queries_subdomains=True,
     ),
 )
 
