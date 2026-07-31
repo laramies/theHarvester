@@ -245,6 +245,13 @@ async def test_terminal_keeps_recognizable_non_host_sections() -> None:
                     StageFinding(StageFindingKind.INTERESTING_URL, 'https://example.com/status'),
                 ),
             ),
+            StageResult(
+                'second-fixture',
+                SourceStatus.SUCCEEDED,
+                1,
+                1,
+                (StageFinding(StageFindingKind.IP_ADDRESS, '192.0.2.10'),),
+            ),
         ),
     )
 
@@ -256,6 +263,7 @@ async def test_terminal_keeps_recognizable_non_host_sections() -> None:
     assert '[*] People found: 1' in terminal
     assert '[*] Interesting Urls found: 1' in terminal
     assert 'ops@example.com [status=observed; sources=fixture]' in terminal
+    assert terminal.count('192.0.2.10 [status=observed; sources=fixture,second-fixture]') == 1
 
 
 @pytest.mark.asyncio

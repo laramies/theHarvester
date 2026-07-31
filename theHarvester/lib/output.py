@@ -164,10 +164,15 @@ def format_run_terminal(result: RunResult) -> str:
         observations = [observation for observation in standalone_selected if observation.kind is kind]
         if not observations:
             continue
-        selected_sections.append(f'[*] {title}: {len(observations)}')
+        by_value: dict[str, list[SelectedObservation]] = {}
         for observation in observations:
-            detail = f'; detail={observation.detail}' if observation.detail is not None else ''
-            selected_sections.append(f'{observation.value} [status=observed; sources={observation.source}{detail}]')
+            by_value.setdefault(observation.value, []).append(observation)
+        selected_sections.append(f'[*] {title}: {len(by_value)}')
+        for value, value_observations in sorted(by_value.items()):
+            sources = ','.join(sorted({observation.source for observation in value_observations}))
+            details = ', '.join(sorted({observation.detail for observation in value_observations if observation.detail}))
+            detail = f'; detail={details}' if details else ''
+            selected_sections.append(f'{value} [status=observed; sources={sources}{detail}]')
     sections = [
         f'[*] Run status: {result.status}',
         activity_summary,
