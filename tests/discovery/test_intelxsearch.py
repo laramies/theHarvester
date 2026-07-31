@@ -142,7 +142,12 @@ async def test_orchestrator_stores_intelx_hostnames(monkeypatch: pytest.MonkeyPa
         async def get_interestingurls(self) -> list[str]:
             return []
 
+    class _RunStore:
+        async def save(self, _result) -> None:
+            return None
+
     monkeypatch.setattr(theharvester_main.stash, 'StashManager', _Stash)
+    monkeypatch.setattr(theharvester_main, 'SQLiteRunStore', _RunStore)
     monkeypatch.setattr(intelxsearch, 'SearchIntelx', _Intelx)
 
     results = await theharvester_main.start(

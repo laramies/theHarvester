@@ -22,7 +22,12 @@ class TestShodanEngine:
             async def store_all(self, domain, all, res_type, source) -> None:  # noqa: A002
                 return None
 
+        class DummyRunStore:
+            async def save(self, _result) -> None:
+                return None
+
         monkeypatch.setattr(main_module.stash, "StashManager", DummyStashManager, raising=True)
+        monkeypatch.setattr(main_module, "SQLiteRunStore", DummyRunStore, raising=True)
 
         # Stub Shodan search to avoid network and API key requirements.
         class DummySearchShodan:
