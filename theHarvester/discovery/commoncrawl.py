@@ -183,6 +183,8 @@ class SearchCommoncrawl:
                                             if domain.endswith(f'.{self.word}') or domain == self.word:
                                                 self.totalhosts.add(domain)
                                     query_succeeded = True
+                                except SourcePartialError:
+                                    raise
                                 except ValueError as error:
                                     incomplete = True
                                     logger.warning(f'Common Crawl page error for index {index.get("id", "unknown")}: {error}')
@@ -199,6 +201,8 @@ class SearchCommoncrawl:
                             )
                         if query_succeeded:
                             successful_queries += 1
+                    except SourcePartialError:
+                        raise
                     except Exception as error:
                         incomplete = True
                         logger.warning(f'Common Crawl API error for index {index.get("id", "unknown")}: {error}')

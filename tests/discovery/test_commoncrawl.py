@@ -263,12 +263,19 @@ async def test_process_preserves_partial_status_when_the_result_limit_is_reached
             'id': 'CC-MAIN-2026-30',
             'cdx-api': 'https://index.commoncrawl.org/CC-MAIN-2026-30-index',
             'to': '2026-07-12T00:00:00',
-        }
+        },
+        {
+            'id': 'CC-MAIN-2026-25',
+            'cdx-api': 'https://index.commoncrawl.org/CC-MAIN-2026-25-index',
+            'to': '2026-06-12T00:00:00',
+        },
     ]
+    requested_urls: list[str] = []
 
     async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[object]:
         if urls == ['https://index.commoncrawl.org/collinfo.json']:
             return [catalog]
+        requested_urls.extend(urls)
         query = parse_qs(urlsplit(urls[0]).query)
         if query.get('showNumPages') == ['true']:
             return ['{"pages": 1, "pageSize": 5, "blocks": 1}']
@@ -286,6 +293,7 @@ async def test_process_preserves_partial_status_when_the_result_limit_is_reached
         await search.process()
 
     assert {finding.value for finding in error.value.findings} == {'api.example.com'}
+    assert all('CC-MAIN-2026-25-index' not in url for url in requested_urls)
 
 
 @pytest.mark.asyncio
