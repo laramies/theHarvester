@@ -619,8 +619,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                             LegacyHostnameSource(
                                 name=source_spec.name,
                                 legacy_name='CRTsh',
-                                # ponytail: move families into SourceSpec when a second evidence source migrates.
-                                family='certificate-transparency',
+                                family=source_spec.family,
                                 search=crtsh_search,
                                 proxy=use_proxy,
                             )

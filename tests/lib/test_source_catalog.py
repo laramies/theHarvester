@@ -37,9 +37,24 @@ def test_source_capabilities_are_derived_from_result_routes() -> None:
                 ResultRoute.INTERESTING_URLS,
             }
         ),
+        family='example',
     )
 
     assert spec.capabilities == frozenset({'subdomains', 'urls'})
+
+
+def test_source_specs_define_evidence_families() -> None:
+    shared_families = {
+        'certspotter': 'certificate-transparency',
+        'chaos': 'projectdiscovery',
+        'crtsh': 'certificate-transparency',
+        'projectdiscovery': 'projectdiscovery',
+        'shodan': 'shodan',
+        'shodanInternetDB': 'shodan',
+    }
+    expected = {name: shared_families.get(name, name) for name in SOURCE_SPECS}
+
+    assert {name: spec.family for name, spec in SOURCE_SPECS.items()} == expected
 
 
 def test_source_specs_describe_consolidated_routes_not_getter_presence() -> None:

@@ -27,14 +27,23 @@ _ROUTE_CAPABILITIES = {
 class SourceSpec:
     name: str
     routes: frozenset[ResultRoute]
+    family: str
 
     @property
     def capabilities(self) -> frozenset[str]:
         return frozenset(_ROUTE_CAPABILITIES[route] for route in self.routes)
 
 
-def _spec(name: str, *routes: ResultRoute) -> SourceSpec:
-    return SourceSpec(name=name, routes=frozenset(routes))
+def _spec(
+    name: str,
+    *routes: ResultRoute,
+    family: str | None = None,
+) -> SourceSpec:
+    return SourceSpec(
+        name=name,
+        routes=frozenset(routes),
+        family=family if family is not None else name,
+    )
 
 
 _SPECS = (
@@ -45,11 +54,11 @@ _SPECS = (
     _spec('bufferoverun', ResultRoute.HOSTS, ResultRoute.IPS),
     _spec('builtwith', ResultRoute.HOSTS, ResultRoute.INTERESTING_URLS),
     _spec('censys', ResultRoute.HOSTS, ResultRoute.EMAILS),
-    _spec('certspotter', ResultRoute.HOSTS),
-    _spec('chaos', ResultRoute.HOSTS),
+    _spec('certspotter', ResultRoute.HOSTS, family='certificate-transparency'),
+    _spec('chaos', ResultRoute.HOSTS, family='projectdiscovery'),
     _spec('commoncrawl', ResultRoute.HOSTS),
     _spec('criminalip', ResultRoute.HOSTS, ResultRoute.IPS, ResultRoute.ASNS),
-    _spec('crtsh', ResultRoute.HOSTS),
+    _spec('crtsh', ResultRoute.HOSTS, family='certificate-transparency'),
     _spec('dehashed', ResultRoute.IPS),
     _spec('dnsdb', ResultRoute.HOSTS),
     _spec('dnsdumpster', ResultRoute.HOSTS, ResultRoute.IPS),
@@ -80,7 +89,7 @@ _SPECS = (
     _spec('securityscorecard', ResultRoute.HOSTS, ResultRoute.IPS),
     _spec('sherlockeye', ResultRoute.HOSTS, ResultRoute.EMAILS, ResultRoute.IPS),
     _spec('shodan', ResultRoute.HOSTS),
-    _spec('shodanInternetDB', ResultRoute.HOSTS, ResultRoute.IPS),
+    _spec('shodanInternetDB', ResultRoute.HOSTS, ResultRoute.IPS, family='shodan'),
     _spec('subdomaincenter', ResultRoute.HOSTS),
     _spec('subdomainfinderc99', ResultRoute.HOSTS),
     _spec('thc', ResultRoute.HOSTS),

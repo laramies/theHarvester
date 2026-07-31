@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from uuid import UUID
 
 import pytest
@@ -184,6 +185,12 @@ async def test_crtsh_bridge_executes_once_and_feeds_legacy_consumers(monkeypatch
     monkeypatch.setattr(main_module.crtsh, 'SearchCrtsh', FakeCrtshSearch)
     monkeypatch.setattr(main_module.stash, 'StashManager', FakeStashManager)
     monkeypatch.setattr(main_module, 'execute_run', execute_with_temporary_store, raising=True)
+    crtsh_spec = main_module.get_source_spec('crtsh')
+    monkeypatch.setattr(
+        main_module,
+        'get_source_spec',
+        lambda _name: replace(crtsh_spec, family='catalog-family'),
+    )
 
     await main_module.start(
         argparse.Namespace(
@@ -209,5 +216,6 @@ async def test_crtsh_bridge_executes_once_and_feeds_legacy_consumers(monkeypatch
     assert len(captured) == 1
     assert captured[0].source_executions[0].status is SourceStatus.SUCCEEDED
     assert captured[0].source_executions[0].source == 'crtsh'
+    assert {observation.source_family for observation in captured[0].observations} == {'catalog-family'}
     assert legacy_hostnames(captured[0]) == ['www.example.com']
     assert stored == [('example.com', ('www.example.com',), 'host', 'CRTsh')]
