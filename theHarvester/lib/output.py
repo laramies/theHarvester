@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, TypeVar, cast
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 from theHarvester.lib.dns_validation import Addressability
-from theHarvester.lib.run import ScopeClass, StageFindingKind, legacy_hostnames
+from theHarvester.lib.run import ActivityClass, ScopeClass, StageFindingKind, legacy_hostnames
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -128,6 +128,21 @@ def format_run_terminal(result: RunResult) -> str:
         for value in entity_values
     }
     standalone_selected = [observation for observation in result.selected_observations if observation.value not in entity_values]
+    passive_stages = [stage.stage for stage in result.stage_executions if stage.activity_class is ActivityClass.PASSIVE]
+    dns_activities = [
+        *(['dns-consensus'] if result.dns_validations else []),
+        *(stage.stage for stage in result.stage_executions if stage.activity_class is ActivityClass.DNS),
+    ]
+    direct_activities = [stage.stage for stage in result.stage_executions if stage.activity_class is ActivityClass.DIRECT]
+    source_count = len(result.source_executions)
+    passive_summary = f'{source_count} source{"s" if source_count != 1 else ""}'
+    if passive_stages:
+        passive_summary = f'{passive_summary}, {", ".join(passive_stages)}'
+    activity_summary = (
+        f'[*] Activity summary: {ActivityClass.PASSIVE}={passive_summary}; '
+        f'{ActivityClass.DNS}={", ".join(dns_activities) or "none"}; '
+        f'{ActivityClass.DIRECT}={", ".join(direct_activities) or "none"}'
+    )
     selected_sections: list[str] = []
     for kind, title in (
         (StageFindingKind.EMAIL, 'Emails found'),
@@ -155,6 +170,7 @@ def format_run_terminal(result: RunResult) -> str:
             selected_sections.append(f'{observation.value} [status=observed; sources={observation.source}{detail}]')
     sections = [
         f'[*] Run status: {result.status}',
+        activity_summary,
         f'[*] Currently addressable subdomains ({len(primary)})',
         *(_entity_line(entity, selected_by_entity[entity.value]) for entity in primary),
         f'[*] Secondary evidence / needs review ({len(secondary)})',
@@ -246,9 +262,21 @@ def legacy_json_result(result: RunResult, existing: Mapping[str, object] | None 
 def evidence_xml_fragment(result: RunResult) -> str:
     evidence_run = Element('evidence_run', run_id=result.run_id, status=result.status)
     for execution in result.source_executions:
-        SubElement(evidence_run, 'source', name=execution.source, status=execution.status)
+        SubElement(
+            evidence_run,
+            'source',
+            name=execution.source,
+            status=execution.status,
+            activity_class=execution.activity_class,
+        )
     for stage_execution in result.stage_executions:
-        SubElement(evidence_run, 'stage', name=stage_execution.stage, status=stage_execution.status)
+        SubElement(
+            evidence_run,
+            'stage',
+            name=stage_execution.stage,
+            status=stage_execution.status,
+            activity_class=stage_execution.activity_class,
+        )
     for entity in result.entities:
         attributes = {
             'value': entity.value,

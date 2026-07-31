@@ -51,6 +51,12 @@ class RunStatus(StrEnum):
     FAILED = 'failed'
 
 
+class ActivityClass(StrEnum):
+    PASSIVE = 'P0 passive collection'
+    DNS = 'P1 DNS interaction'
+    DIRECT = 'P2 direct interaction'
+
+
 @dataclass(frozen=True)
 class SourceFinding:
     value: str
@@ -185,6 +191,7 @@ class SourceExecution:
     result_count: int
     observation_count: int
     entity_count: int
+    activity_class: ActivityClass = ActivityClass.PASSIVE
     error_type: str | None = None
 
     def to_dict(self) -> dict[str, object]:
@@ -197,6 +204,7 @@ class SourceExecution:
             'result_count': self.result_count,
             'observation_count': self.observation_count,
             'entity_count': self.entity_count,
+            'activity_class': self.activity_class,
             'error_type': self.error_type,
         }
 
@@ -211,6 +219,7 @@ class StageExecution:
     observation_count: int
     entity_count: int
     completed_at: datetime
+    activity_class: ActivityClass
     error_type: str | None = None
 
     def to_dict(self) -> dict[str, object]:
@@ -223,6 +232,7 @@ class StageExecution:
             'observation_count': self.observation_count,
             'entity_count': self.entity_count,
             'completed_at': self.completed_at.isoformat(),
+            'activity_class': self.activity_class,
             'error_type': self.error_type,
         }
 
@@ -328,6 +338,7 @@ class RunResult:
                     'error': observation.error,
                     'is_wildcard_control': observation.is_wildcard_control,
                     'wildcard_depth': observation.wildcard_depth,
+                    'activity_class': ActivityClass.DNS,
                 }
                 for observation in self.dns_validations
             ],
@@ -628,6 +639,13 @@ def complete_run(result: RunResult, stage_results: Sequence[StageResult] = ()) -
                 observation_count=len(findings),
                 entity_count=entity_count,
                 completed_at=stage.completed_at,
+                activity_class=(
+                    ActivityClass.DNS
+                    if stage.source in {'action:dns-brute', 'action:dns-lookup'}
+                    else ActivityClass.DIRECT
+                    if stage.source in {'action:api-scan', 'action:screenshot', 'action:take-over'}
+                    else ActivityClass.PASSIVE
+                ),
                 error_type=stage.error_type,
             )
             if source_key in recorded_stages:

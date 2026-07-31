@@ -175,6 +175,40 @@ async def test_terminal_reports_each_hostname_once_with_status_and_sources() -> 
 
 
 @pytest.mark.asyncio
+async def test_activity_classes_are_serialized_and_summarized() -> None:
+    validator = DnsValidator(tuple(TerminalResolver(f'resolver-{index}') for index in range(3)))
+    result = await execute_run('example.com', (CompletedRunSource(),), dns_validator=validator)
+    result = complete_run(
+        result,
+        (
+            StageResult('action:dns-brute', SourceStatus.EMPTY, 1, 0, is_action=True),
+            StageResult('action:take-over', SourceStatus.EMPTY, 1, 0, is_action=True),
+        ),
+    )
+
+    records = [json.loads(line) for line in run_result_jsonl(result).splitlines()]
+    source = next(record['data'] for record in records if record['record_type'] == 'source_execution')
+    stages = {
+        record['data']['stage']: record['data']['activity_class']
+        for record in records
+        if record['record_type'] == 'stage_execution'
+    }
+    validations = [record['data'] for record in records if record['record_type'] == 'dns_validation_observation']
+
+    assert source['activity_class'] == 'P0 passive collection'
+    assert stages == {
+        'action:dns-brute': 'P1 DNS interaction',
+        'action:take-over': 'P2 direct interaction',
+    }
+    assert {record['activity_class'] for record in validations} == {'P1 DNS interaction'}
+    terminal = format_run_terminal(result)
+    assert terminal.count('[*] Activity summary:') == 1
+    assert 'P0 passive collection=1 source' in terminal
+    assert 'P1 DNS interaction=dns-consensus, action:dns-brute' in terminal
+    assert 'P2 direct interaction=action:take-over' in terminal
+
+
+@pytest.mark.asyncio
 async def test_terminal_keeps_recognizable_non_host_sections() -> None:
     result = await execute_run('example.com', (CompletedRunSource(),))
     result = complete_run(
