@@ -1,6 +1,51 @@
 from __future__ import annotations
 
-from theHarvester.lib.output import configure_logging, print_linkedin_sections, sorted_unique
+import json
+from datetime import UTC, datetime
+from xml.etree import ElementTree
+
+import pytest
+
+from theHarvester.lib.output import (
+    configure_logging,
+    evidence_xml_fragment,
+    format_run_terminal,
+    legacy_json_result,
+    print_linkedin_sections,
+    run_result_jsonl,
+    sorted_unique,
+)
+from theHarvester.lib.run import SourceFinding, execute_run
+
+
+class CompletedOutputSource:
+    name = 'fixture'
+    family = 'fixture'
+
+    async def collect(self, _target: str) -> list[SourceFinding]:
+        return [SourceFinding('api.example.com', observed_at=datetime(2026, 7, 31, tzinfo=UTC))]
+
+
+@pytest.mark.asyncio
+async def test_completed_run_adapters_share_one_versioned_result() -> None:
+    result = await execute_run('example.com', (CompletedOutputSource(),))
+
+    records = [json.loads(line) for line in run_result_jsonl(result).splitlines()]
+    legacy = legacy_json_result(result, {'emails': ['ops@example.com']})
+    evidence_xml = ElementTree.fromstring(evidence_xml_fragment(result))
+    terminal = format_run_terminal(result)
+
+    assert {record['record_type'] for record in records} == {
+        'run',
+        'source_execution',
+        'discovery_observation',
+        'merged_result',
+    }
+    assert all(record['schema_version'] == 'theharvester-evidence-v1' for record in records)
+    assert legacy['emails'] == ['ops@example.com']
+    assert legacy['hosts'] == ['api.example.com']
+    assert evidence_xml.attrib['run_id'] == result.run_id
+    assert terminal.count('api.example.com') == 1
 
 
 def test_sorted_unique_sorts_and_deduplicates() -> None:
