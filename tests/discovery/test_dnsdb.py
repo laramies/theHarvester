@@ -1,11 +1,19 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 
 import pytest
 
 from theHarvester.discovery import dnsdb
 from theHarvester.discovery.constants import MissingKey
+from theHarvester.lib.run import (
+    LegacyHostnameSource,
+    SourceIncompleteError,
+    SourceRateLimitedError,
+    SourceStatus,
+    execute_run,
+)
 
 
 def _install_response(
@@ -13,7 +21,7 @@ def _install_response(
     lines: tuple[bytes, ...],
     *,
     status: int = 200,
-    stream_error: Exception | None = None,
+    stream_error: BaseException | None = None,
 ) -> dict[str, object]:
     requested: dict[str, object] = {}
     lines_left = list(lines)
@@ -133,10 +141,10 @@ async def test_process_uses_configured_proxy_when_enabled(monkeypatch: pytest.Mo
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ('last_line', 'expected_message'),
+    ('last_line', 'expected_message', 'expected_error'),
     [
-        (b'{"cond":"limited"}\n', 'ended with limited'),
-        (b'not-json\n', 'malformed NDJSON'),
+        (b'{"cond":"limited"}\n', 'ended with limited', SourceRateLimitedError),
+        (b'not-json\n', 'malformed NDJSON', SourceIncompleteError),
     ],
 )
 async def test_process_preserves_partial_results(
@@ -144,6 +152,7 @@ async def test_process_preserves_partial_results(
     caplog: pytest.LogCaptureFixture,
     last_line: bytes,
     expected_message: str,
+    expected_error: type[Exception],
 ) -> None:
     caplog.set_level(logging.INFO, logger=dnsdb.__name__)
     monkeypatch.setattr(dnsdb.Core, 'dnsdb_key', lambda: 'dnsdb-test-key')
@@ -157,10 +166,91 @@ async def test_process_preserves_partial_results(
     )
 
     search = dnsdb.SearchDNSDB('example.com')
-    await search.process()
+    with pytest.raises(expected_error):
+        await search.process()
 
     assert await search.get_hostnames() == {'first.example.com'}
     assert any(expected_message in message for message in caplog.messages)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('lines', 'expected_message'),
+    [
+        (
+            (
+                b'{"cond":"begin"}\n',
+                b'{"obj":{"rrname":"first.example.com."}}\n',
+                b'{"obj":[]}\n',
+                b'{"cond":"succeeded"}\n',
+            ),
+            'invalid stream record',
+        ),
+        (
+            (
+                b'{"cond":"begin"}\n',
+                b'{"obj":{"rrname":"first.example.com."}}\n',
+            ),
+            'without a terminal condition',
+        ),
+    ],
+)
+async def test_process_rejects_incomplete_stream_shapes(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    lines: tuple[bytes, ...],
+    expected_message: str,
+) -> None:
+    caplog.set_level(logging.INFO, logger=dnsdb.__name__)
+    monkeypatch.setattr(dnsdb.Core, 'dnsdb_key', lambda: 'dnsdb-test-key')
+    _install_response(monkeypatch, lines)
+    search = dnsdb.SearchDNSDB('example.com')
+
+    with pytest.raises(SourceIncompleteError):
+        await search.process()
+
+    assert await search.get_hostnames() == {'first.example.com'}
+    assert any(expected_message in message for message in caplog.messages)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('last_line', 'expected_status'),
+    [
+        (b'{"cond":"limited"}\n', SourceStatus.RATE_LIMITED),
+        (b'{"cond":"failed"}\n', SourceStatus.FAILED),
+    ],
+)
+async def test_incomplete_stream_status_keeps_partial_results_in_run(
+    monkeypatch: pytest.MonkeyPatch,
+    last_line: bytes,
+    expected_status: SourceStatus,
+) -> None:
+    monkeypatch.setattr(dnsdb.Core, 'dnsdb_key', lambda: 'dnsdb-test-key')
+    _install_response(
+        monkeypatch,
+        (
+            b'{"cond":"begin"}\n',
+            b'{"obj":{"rrname":"first.example.com."}}\n',
+            last_line,
+        ),
+    )
+    search = dnsdb.SearchDNSDB('example.com')
+
+    result = await execute_run(
+        'example.com',
+        (
+            LegacyHostnameSource(
+                name='dnsdb',
+                legacy_name='dnsdb',
+                family='dnsdb',
+                search=search,
+            ),
+        ),
+    )
+
+    assert {observation.value for observation in result.observations} == {'first.example.com'}
+    assert result.source_executions[0].status is expected_status
 
 
 @pytest.mark.asyncio
@@ -180,10 +270,24 @@ async def test_process_preserves_partial_results_on_midstream_timeout(
     )
 
     search = dnsdb.SearchDNSDB('example.com')
-    await search.process()
+    with pytest.raises(SourceIncompleteError):
+        await search.process()
 
     assert await search.get_hostnames() == {'first.example.com'}
     assert any('request failed' in message for message in caplog.messages)
+
+
+@pytest.mark.asyncio
+async def test_process_propagates_cancellation(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(dnsdb.Core, 'dnsdb_key', lambda: 'dnsdb-test-key')
+    _install_response(
+        monkeypatch,
+        (b'{"cond":"begin"}\n',),
+        stream_error=asyncio.CancelledError(),
+    )
+
+    with pytest.raises(asyncio.CancelledError):
+        await dnsdb.SearchDNSDB('example.com').process()
 
 
 @pytest.mark.asyncio
@@ -191,7 +295,7 @@ async def test_process_preserves_partial_results_on_midstream_timeout(
     ('status', 'expected_error'),
     [
         (401, PermissionError),
-        (429, ConnectionError),
+        (429, SourceRateLimitedError),
         (503, ConnectionError),
     ],
 )

@@ -11,7 +11,7 @@ from uuid import uuid4
 from theHarvester.lib.hostnames import normalize_hostname
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Collection, Sequence
 
 logger = logging.getLogger(__name__)
 
@@ -32,12 +32,25 @@ class SourceStatus(StrEnum):
     SUCCEEDED = 'succeeded'
     EMPTY = 'empty'
     FAILED = 'failed'
+    RATE_LIMITED = 'rate-limited'
 
 
 @dataclass(frozen=True)
 class SourceFinding:
     value: str
     derivation: Derivation = Derivation.PROVIDER
+
+
+class SourceIncompleteError(Exception):
+    status = SourceStatus.FAILED
+
+    def __init__(self, message: str = '', *, findings: Sequence[SourceFinding] = ()) -> None:
+        super().__init__(message)
+        self.findings = tuple(findings)
+
+
+class SourceRateLimitedError(SourceIncompleteError):
+    status = SourceStatus.RATE_LIMITED
 
 
 class PassiveSource(Protocol):
@@ -53,7 +66,7 @@ class PassiveSource(Protocol):
 class LegacyHostnameSearch(Protocol):
     async def process(self, proxy: bool = False) -> None: ...
 
-    async def get_hostnames(self) -> Sequence[str]: ...
+    async def get_hostnames(self) -> Collection[str]: ...
 
 
 @dataclass(frozen=True)
@@ -153,10 +166,21 @@ async def execute_run(
         status = SourceStatus.FAILED
         result_count = 0
         error_type: str | None = None
+        findings: tuple[SourceFinding, ...] = ()
 
         try:
             findings = tuple(await source.collect(normalized_target))
-            result_count = len(findings)
+            status = SourceStatus.SUCCEEDED
+        except SourceIncompleteError as error:
+            findings = error.findings
+            status = error.status
+            error_type = type(error).__name__
+        except Exception as error:
+            error_type = type(error).__name__
+            logger.exception(f'Source {source.name} failed')
+
+        result_count = len(findings)
+        try:
             collected_at = datetime.now(UTC)
             normalized_observations = []
             for finding in findings:
@@ -176,8 +200,11 @@ async def execute_run(
                     )
                 )
             source_observations = tuple(normalized_observations)
-            status = SourceStatus.SUCCEEDED if source_observations else SourceStatus.EMPTY
+            if status is SourceStatus.SUCCEEDED and not source_observations:
+                status = SourceStatus.EMPTY
         except Exception as error:
+            source_observations = ()
+            status = SourceStatus.FAILED
             error_type = type(error).__name__
             logger.exception(f'Source {source.name} failed')
 
