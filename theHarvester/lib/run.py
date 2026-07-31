@@ -639,6 +639,7 @@ def complete_run(result: RunResult, stage_results: Sequence[StageResult] = ()) -
             }
         )
         if stage.is_action:
+            assert stage.activity_class is not None
             stage_execution = StageExecution(
                 run_id=result.run_id,
                 stage=stage.source,
@@ -648,7 +649,7 @@ def complete_run(result: RunResult, stage_results: Sequence[StageResult] = ()) -
                 observation_count=len(findings),
                 entity_count=entity_count,
                 completed_at=stage.completed_at,
-                activity_class=stage.activity_class or ActivityClass.PASSIVE,
+                activity_class=stage.activity_class,
                 error_type=stage.error_type,
             )
             if source_key in recorded_stages:
