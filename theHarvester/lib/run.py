@@ -2,12 +2,17 @@ from __future__ import annotations
 
 import logging
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING, Protocol
 from uuid import uuid4
 
+from theHarvester.lib.dns_validation import (
+    Addressability,
+    DnsValidationObservation,
+    DnsValidator,
+)
 from theHarvester.lib.hostnames import normalize_hostname
 
 if TYPE_CHECKING:
@@ -111,6 +116,7 @@ class SourceExecution:
 class MergedEntity:
     value: str
     observations: tuple[DiscoveryObservation, ...]
+    addressability: Addressability | None = None
 
     @property
     def scope_classes(self) -> tuple[ScopeClass, ...]:
@@ -130,6 +136,7 @@ class RunResult:
     source_executions: tuple[SourceExecution, ...]
     observations: tuple[DiscoveryObservation, ...]
     entities: tuple[MergedEntity, ...]
+    dns_validations: tuple[DnsValidationObservation, ...] = ()
 
 
 def _classify_scope(target: str, value: str, derivation: Derivation) -> ScopeClass:
@@ -150,6 +157,9 @@ def _merge_observations(observations: Sequence[DiscoveryObservation]) -> tuple[M
 async def execute_run(
     target: str,
     sources: Sequence[PassiveSource],
+    *,
+    dns_validator: DnsValidator | None = None,
+    deterministic_exact_dns_names: tuple[str, ...] = (),
 ) -> RunResult:
     normalized_target = normalize_hostname(target)
     if normalized_target is None:
@@ -226,6 +236,21 @@ async def execute_run(
         logger.info(f'Source {source.name} completed with status {status}')
 
     merged_observations = tuple(observations)
+    entities = _merge_observations(merged_observations)
+    dns_validations: tuple[DnsValidationObservation, ...] = ()
+    if dns_validator is not None:
+        validation = await dns_validator.validate(
+            run_id,
+            normalized_target,
+            tuple(entity.value for entity in entities if ScopeClass.IN_SCOPE in entity.scope_classes),
+            deterministic_exact_names=deterministic_exact_dns_names,
+        )
+        classifications = {
+            classification.candidate: classification.addressability for classification in validation.classifications
+        }
+        entities = tuple(replace(entity, addressability=classifications.get(entity.value)) for entity in entities)
+        dns_validations = validation.observations
+
     result = RunResult(
         run_id=run_id,
         target=normalized_target,
@@ -233,13 +258,15 @@ async def execute_run(
         completed_at=datetime.now(UTC),
         source_executions=tuple(executions),
         observations=merged_observations,
-        entities=_merge_observations(merged_observations),
+        entities=entities,
+        dns_validations=dns_validations,
     )
     return result
 
 
 def legacy_hostnames(result: RunResult, source: str | None = None) -> list[str]:
     """Return the host list consumed by the existing CLI, REST, file, and stash paths."""
+    validated_hosts = {entity.value for entity in result.entities if entity.addressability is Addressability.CURRENT}
     return sorted(
         {
             observation.value
@@ -247,5 +274,18 @@ def legacy_hostnames(result: RunResult, source: str | None = None) -> list[str]:
             if observation.value != result.target
             and observation.scope_class is ScopeClass.IN_SCOPE
             and (source is None or observation.source == source)
+            and (not result.dns_validations or observation.value in validated_hosts)
         }
     )
+
+
+def legacy_dns_results(result: RunResult, source: str | None = None) -> tuple[list[str], list[str], list[str]]:
+    hosts = legacy_hostnames(result, source)
+    host_set = set(hosts)
+    addresses_by_host: dict[str, set[str]] = {host: set() for host in hosts}
+    for observation in result.dns_validations:
+        if not observation.is_wildcard_control and observation.candidate in host_set:
+            addresses_by_host[observation.candidate].update((*observation.ipv4, *observation.ipv6))
+    addresses = sorted({address for values in addresses_by_host.values() for address in values})
+    resolved = [f'{host}:{",".join(sorted(addresses_by_host[host]))}' if addresses_by_host[host] else host for host in hosts]
+    return resolved, hosts, addresses
