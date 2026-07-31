@@ -14,7 +14,6 @@ class SearchCrtsh:
         self.proxy = False
 
     async def do_search(self) -> list:
-        data: set = set()
         url = f'https://crt.sh/?q=%25.{self.word}&exclude=expired&deduplicate=Y&output=json'
         response = None
         try:
@@ -30,20 +29,19 @@ class SearchCrtsh:
             if response is None:
                 raise SourceIncompleteError(f'No valid response from crt.sh after {max_attempts} attempts.')
 
-            data = set([(dct['name_value'][2:] if dct['name_value'][:2] == '*.' else dct['name_value']) for dct in response])
-            data = {domain for domain in data if (domain[0] != '*' and str(domain[0:4]).isnumeric() is False)}
+            clean: set[str] = set()
+            for item in response:
+                for name in item['name_value'].split():
+                    name = name.removeprefix('*.')
+                    if name and not name.startswith('*') and not name[:4].isnumeric():
+                        clean.add(name)
         except SourceIncompleteError:
             raise
         except KeyError as error:
             raise SourceIncompleteError(f'Missing expected key in crt.sh response: {error}') from error
         except Exception as error:
             raise SourceIncompleteError(f'Unexpected crt.sh error: {error}') from error
-        clean: list = []
-        for x in data:
-            pre = x.split()
-            for y in pre:
-                clean.append(y)
-        return clean
+        return list(clean)
 
     async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy

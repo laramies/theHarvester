@@ -60,6 +60,15 @@ class TestCrtshSearch:
         assert set(await search.get_hostnames()) == {'a.example.com', 'b.example.com'}
 
     @pytest.mark.asyncio
+    async def test_multiline_wildcard_prefix_is_stripped(self, monkeypatch):
+        _patch_fetch(monkeypatch, [{'name_value': 'a.example.com\n*.b.example.com'}])
+        search = crtsh.SearchCrtsh('example.com')
+
+        await search.process()
+
+        assert set(await search.get_hostnames()) == {'a.example.com', 'b.example.com'}
+
+    @pytest.mark.asyncio
     async def test_numeric_prefixed_entries_are_filtered(self, monkeypatch):
         _patch_fetch(monkeypatch, [{'name_value': '1234.example.com'}, {'name_value': 'good.example.com'}])
         search = crtsh.SearchCrtsh('example.com')
