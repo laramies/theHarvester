@@ -8,7 +8,12 @@ The definitions state intended semantics; they do not imply that every discovery
 
 **Currently addressable subdomain**:
 A normalized, in-scope subdomain with current resolver consensus evidence of an A or AAAA record, or a permitted CNAME chain ending in one, that is neither wildcard-indistinguishable nor resolver-disputed.
+A candidate backed by deterministic exact-node evidence is distinguishable even when its DNS response overlaps the learned wildcard distribution.
 _Avoid_: Valid subdomain, live host, resolved host
+
+**Not currently addressable**:
+An in-scope candidate for which resolver consensus within one validation window reports no A or AAAA address and no CNAME chain ending in one. It remains secondary subdomain evidence.
+_Avoid_: Invalid subdomain, dead host
 
 **Secondary subdomain evidence**:
 An in-scope DNS-existing, historical, dangling-alias, or indeterminate name observation retained for defensive and investigative use but excluded from the primary currently addressable yield count.

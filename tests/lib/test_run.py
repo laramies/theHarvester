@@ -6,6 +6,7 @@ from uuid import UUID
 
 import pytest
 
+from theHarvester.lib.dns_validation import Addressability, DnsResponse, DnsValidator
 from theHarvester.lib.run import (
     Derivation,
     ScopeClass,
@@ -13,6 +14,7 @@ from theHarvester.lib.run import (
     SourceRateLimitedError,
     SourceStatus,
     execute_run,
+    legacy_dns_results,
     legacy_hostnames,
 )
 
@@ -163,6 +165,49 @@ async def test_execute_run_groups_multiple_sources_under_one_run() -> None:
 
 
 @pytest.mark.asyncio
+async def test_execute_run_classifies_once_and_bridges_current_dns_results() -> None:
+    candidate = 'api.example.com'
+
+    class CandidateSource:
+        name = 'fixture'
+        family = 'fixture'
+
+        async def collect(self, _target: str) -> list[SourceFinding]:
+            return [SourceFinding(candidate)]
+
+    class Vantage:
+        def __init__(self, name: str, address: str) -> None:
+            self.name = name
+            self.address = address
+
+        async def query(self, hostname: str) -> DnsResponse:
+            return DnsResponse(ipv4=(self.address,)) if hostname == candidate else DnsResponse(rcode='NXDOMAIN')
+
+    validator = DnsValidator(
+        (
+            Vantage('resolver-a', '192.0.2.10'),
+            Vantage('resolver-b', '192.0.2.11'),
+            Vantage('resolver-c', '192.0.2.12'),
+        )
+    )
+
+    result = await execute_run('example.com', (CandidateSource(),), dns_validator=validator)
+
+    assert result.entities[0].addressability is Addressability.CURRENT
+    assert legacy_hostnames(result, 'fixture') == [candidate]
+    assert legacy_dns_results(result, 'fixture') == (
+        ['api.example.com:192.0.2.10,192.0.2.11,192.0.2.12'],
+        [candidate],
+        ['192.0.2.10', '192.0.2.11', '192.0.2.12'],
+    )
+    control_names = {
+        observation.query_name for observation in result.dns_validations if observation.is_wildcard_control
+    }
+    assert not control_names.intersection(observation.value for observation in result.observations)
+    assert not control_names.intersection(entity.value for entity in result.entities)
+
+
+@pytest.mark.asyncio
 async def test_crtsh_bridge_executes_once_and_feeds_legacy_consumers(monkeypatch: pytest.MonkeyPatch) -> None:
     import argparse
 
@@ -234,6 +279,93 @@ async def test_crtsh_bridge_executes_once_and_feeds_legacy_consumers(monkeypatch
     assert {observation.source_family for observation in captured[0].observations} == {'catalog-family'}
     assert legacy_hostnames(captured[0]) == ['www.example.com']
     assert stored == [('example.com', ('www.example.com',), 'host', 'CRTsh')]
+
+
+@pytest.mark.asyncio
+async def test_crtsh_bridge_uses_three_resolvers_without_legacy_requery(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import theHarvester.__main__ as main_module
+    import theHarvester.lib.run as run_module
+
+    candidate = 'www.example.com'
+
+    class FakeCrtshSearch:
+        def __init__(self, target: str) -> None:
+            assert target == 'example.com'
+
+        async def process(self, _proxy: bool = False) -> None:
+            return None
+
+        async def get_hostnames(self) -> list[str]:
+            return [candidate]
+
+    created: list[str] = []
+    closed: list[str] = []
+
+    class FakeVantage:
+        def __init__(self, nameserver: str) -> None:
+            self.name = nameserver
+            created.append(nameserver)
+
+        async def query(self, hostname: str) -> DnsResponse:
+            return DnsResponse(ipv4=('192.0.2.10',)) if hostname == candidate else DnsResponse(rcode='NXDOMAIN')
+
+        async def close(self) -> None:
+            closed.append(self.name)
+
+    class FailOnLegacyChecker:
+        def __init__(self, *_args, **_kwargs) -> None:
+            raise AssertionError('validated evidence must not be queried again')
+
+    class FakeStashManager:
+        async def do_init(self) -> None:
+            return None
+
+        async def store_all(self, *_args: object) -> None:
+            return None
+
+        async def store(self, *_args: object) -> None:
+            return None
+
+    captured: list[run_module.RunResult] = []
+    output: list[object] = []
+
+    async def capture_run(target, sources, **kwargs):
+        result = await run_module.execute_run(target, sources, **kwargs)
+        captured.append(result)
+        return result
+
+    monkeypatch.setattr(main_module.crtsh, 'SearchCrtsh', FakeCrtshSearch)
+    monkeypatch.setattr(main_module, 'AioDnsResolverVantage', FakeVantage, raising=False)
+    monkeypatch.setattr(main_module.hostchecker, 'Checker', FailOnLegacyChecker)
+    monkeypatch.setattr(main_module.stash, 'StashManager', FakeStashManager)
+    monkeypatch.setattr(main_module, 'execute_run', capture_run, raising=True)
+    monkeypatch.setattr(main_module.output_logger, 'info', output.append)
+
+    monkeypatch.setattr(
+        main_module.sys,
+        'argv',
+        [
+            'theHarvester',
+            '-d',
+            'example.com',
+            '-b',
+            'crtsh',
+            '-r',
+            '192.0.2.53,192.0.2.54,192.0.2.55',
+        ],
+    )
+
+    with pytest.raises(SystemExit) as exit_info:
+        await main_module.start()
+
+    assert exit_info.value.code == 0
+    assert set(created) == {'192.0.2.53', '192.0.2.54', '192.0.2.55'}
+    assert set(closed) == set(created)
+    assert captured[0].entities[0].addressability is Addressability.CURRENT
+    assert output.count(f'{candidate}:192.0.2.10') == 1
+    assert candidate not in output
 
 
 @pytest.mark.asyncio

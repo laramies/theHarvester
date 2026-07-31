@@ -9,6 +9,7 @@ import sys
 import time
 import traceback
 from collections.abc import Iterable
+from contextlib import AsyncExitStack
 from typing import TYPE_CHECKING, Any
 
 import anyio
@@ -80,9 +81,17 @@ from theHarvester.discovery import (
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib import hostchecker, stash
 from theHarvester.lib.core import DATA_DIR, Core, show_default_error_message
+from theHarvester.lib.dns_validation import AioDnsResolverVantage, DnsValidator
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.output import configure_logging, output_logger, print_linkedin_sections, print_section, sorted_unique
-from theHarvester.lib.run import LegacyHostnameSource, RunResult, SourceStatus, execute_run, legacy_hostnames
+from theHarvester.lib.run import (
+    LegacyHostnameSource,
+    RunResult,
+    SourceStatus,
+    execute_run,
+    legacy_dns_results,
+    legacy_hostnames,
+)
 from theHarvester.lib.source_catalog import ResultRoute, get_source_spec
 from theHarvester.screenshot.screenshot import ScreenShotter
 
@@ -177,7 +186,10 @@ async def start(rest_args: argparse.Namespace | None = None):
     parser.add_argument(
         '-r',
         '--dns-resolve',
-        help='Perform DNS resolution on subdomains with a resolver list or passed in resolvers, default False.',
+        help=(
+            'Perform DNS resolution on subdomains with a resolver list or passed in resolvers. '
+            'Exactly three distinct resolvers enable consensus and wildcard validation for migrated sources.'
+        ),
         default='',
         type=str,
         nargs='?',
@@ -310,7 +322,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     output_logger.info(f'Passed DNS resolver is invalid, skipping: {item} ({e})')
 
         # if for some reason, there are duplicates
-        final_dns_resolver_list = list(set(final_dns_resolver_list))
+        final_dns_resolver_list = list(dict.fromkeys(final_dns_resolver_list))
         if len(final_dns_resolver_list) == 0:
             output_logger.info('No valid DNS resolvers were parsed from --dns-resolve; continuing without custom resolvers.')
 
@@ -366,7 +378,12 @@ async def start(rest_args: argparse.Namespace | None = None):
             output_logger.info(f'[*] Searching {source[0].upper() + source[1:]}. ')
 
         if ResultRoute.HOSTS in routes:
-            if run_result is not None:
+            has_dns_validation = run_result is not None and bool(run_result.dns_validations)
+            if run_result is not None and run_result.dns_validations:
+                resolved_pair, host_names, temp_ips = legacy_dns_results(run_result, source_spec.name)
+                all_ip.extend(temp_ips)
+                full.extend(resolved_pair)
+            elif run_result is not None:
                 host_names = legacy_hostnames(run_result, source_spec.name)
             else:
                 discovered_hosts = await search_engine.get_hostnames()
@@ -374,25 +391,26 @@ async def start(rest_args: argparse.Namespace | None = None):
                     host_names = list(discovered_hosts)
                 else:
                     host_names = list(_normalize_hosts_for_storage(discovered_hosts, word))
-            if source != 'hackertarget' and source != 'pentesttools' and source != 'rapiddns':
-                # If a source is inside this conditional, it means the hosts returned must be resolved to obtain ip
-                # This should only be checked if --dns-resolve has a wordlist
-                if dnsresolve is None or len(final_dns_resolver_list) > 0:
-                    # indicates that -r was passed in if dnsresolve is None
-                    full_hosts_checker = hostchecker.Checker(host_names, final_dns_resolver_list)
-                    # If full, this is only getting resolved hosts
-                    (
-                        resolved_pair,
-                        _temp_hosts,
-                        temp_ips,
-                    ) = await full_hosts_checker.check()
-                    all_ip.extend(temp_ips)
-                    full.extend(resolved_pair)
-                    # full.extend(temp_hosts)
+            if not has_dns_validation:
+                if source != 'hackertarget' and source != 'pentesttools' and source != 'rapiddns':
+                    # If a source is inside this conditional, it means the hosts returned must be resolved to obtain ip
+                    # This should only be checked if --dns-resolve has a wordlist
+                    if dnsresolve is None or len(final_dns_resolver_list) > 0:
+                        # indicates that -r was passed in if dnsresolve is None
+                        full_hosts_checker = hostchecker.Checker(host_names, final_dns_resolver_list)
+                        # If full, this is only getting resolved hosts
+                        (
+                            resolved_pair,
+                            _temp_hosts,
+                            temp_ips,
+                        ) = await full_hosts_checker.check()
+                        all_ip.extend(temp_ips)
+                        full.extend(resolved_pair)
+                        # full.extend(temp_hosts)
+                    else:
+                        full.extend(host_names)
                 else:
                     full.extend(host_names)
-            else:
-                full.extend(host_names)
             all_hosts.extend(host_names)
             await db_stash.store_all(word, all_hosts, 'host', source)
 
@@ -435,12 +453,25 @@ async def start(rest_args: argparse.Namespace | None = None):
     evidence_sources: list[LegacyHostnameSource] = []
 
     async def store_evidence_sources() -> None:
-        run_result = await execute_run(word, tuple(evidence_sources))
-        executions = {execution.source: execution for execution in run_result.source_executions}
-        for evidence_source in evidence_sources:
-            execution = executions[evidence_source.name]
-            if execution.status in (SourceStatus.SUCCEEDED, SourceStatus.EMPTY) or execution.observation_count:
-                await store(evidence_source.search, evidence_source.legacy_name, run_result)
+        async with AsyncExitStack() as resolver_stack:
+            dns_validator = None
+            if len(final_dns_resolver_list) == 3:
+                vantages = []
+                for nameserver in final_dns_resolver_list:
+                    vantage = AioDnsResolverVantage(nameserver)
+                    vantages.append(vantage)
+                    resolver_stack.push_async_callback(vantage.close)
+                dns_validator = DnsValidator(tuple(vantages))
+            run_result = (
+                await execute_run(word, tuple(evidence_sources), dns_validator=dns_validator)
+                if dns_validator is not None
+                else await execute_run(word, tuple(evidence_sources))
+            )
+            executions = {execution.source: execution for execution in run_result.source_executions}
+            for evidence_source in evidence_sources:
+                execution = executions[evidence_source.name]
+                if execution.status in (SourceStatus.SUCCEEDED, SourceStatus.EMPTY) or execution.observation_count:
+                    await store(evidence_source.search, evidence_source.legacy_name, run_result)
 
     if args.source is not None:
         engines = Core.expand_source_selection(args.source)
