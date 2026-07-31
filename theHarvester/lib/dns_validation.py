@@ -1,3 +1,12 @@
+"""DNS consensus evidence for current addressability.
+
+Discovery providers can report historical, stale, or wildcard-backed names. This
+module therefore preserves each DNS answer as evidence instead of treating one
+resolver lookup as truth. Every candidate and synthetic wildcard control is
+queried through exactly three distinct resolver vantages; two matching vantages
+form the quorum used for an addressability classification.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -20,6 +29,8 @@ _DEFAULT_QUERY_TIMEOUT_SECONDS = 10.0
 
 
 class Addressability(StrEnum):
+    """Operator-facing classification derived from resolver consensus."""
+
     CURRENT = 'currently-addressable'
     NOT_CURRENT = 'not-currently-addressable'
     RESOLVER_DISPUTED = 'resolver-disputed'
@@ -28,6 +39,8 @@ class Addressability(StrEnum):
 
 @dataclass(frozen=True)
 class DnsResponse:
+    """Normalized A, AAAA, and CNAME evidence returned by one resolver."""
+
     ipv4: tuple[str, ...] = ()
     ipv6: tuple[str, ...] = ()
     cnames: tuple[str, ...] = ()
@@ -38,12 +51,16 @@ class DnsResponse:
 
 
 class ResolverVantage(Protocol):
+    """One independently configured DNS view used in the quorum."""
+
     name: str
 
     async def query(self, hostname: str) -> DnsResponse: ...
 
 
 class AioDnsResolverVantage:
+    """Adapt one explicit nameserver to the resolver-vantage contract."""
+
     def __init__(self, nameserver: str) -> None:
         self.name = nameserver
         self._resolver = aiodns.DNSResolver(nameservers=[nameserver])
@@ -117,6 +134,8 @@ class AioDnsResolverVantage:
 
 @dataclass(frozen=True)
 class DnsValidationObservation:
+    """One retained resolver answer, including failures and wildcard controls."""
+
     run_id: str
     candidate: str | None
     query_name: str
@@ -142,6 +161,8 @@ class CandidateClassification:
 
 @dataclass(frozen=True)
 class ValidationResult:
+    """Raw DNS observations plus one consensus classification per candidate."""
+
     observations: tuple[DnsValidationObservation, ...]
     classifications: tuple[CandidateClassification, ...]
 
@@ -231,6 +252,14 @@ def _classify(
 
 
 class DnsValidator:
+    """Classify candidates with three resolver views and wildcard controls.
+
+    A two-of-three quorum limits the effect of one resolver's cache, filtering,
+    outage, or inconsistent delegation view. Synthetic high-entropy names probe
+    the closest enclosing domain for wildcard behavior so a wildcard answer is
+    not promoted as evidence that the candidate exists as an exact DNS node.
+    """
+
     def __init__(
         self,
         vantages: tuple[ResolverVantage, ...],
@@ -288,7 +317,12 @@ class DnsValidator:
         *,
         deterministic_exact_names: tuple[str, ...] = (),
     ) -> ValidationResult:
-        """Trust deterministic_exact_names only as caller-supplied exact-node evidence."""
+        """Validate normalized in-scope candidates and retain every DNS query.
+
+        ``deterministic_exact_names`` is a narrow escape from wildcard comparison
+        for names already proven to be exact nodes by caller-supplied evidence.
+        It does not bypass the three-resolver addressability quorum.
+        """
         normalized_target = normalize_hostname(target)
         if normalized_target is None:
             raise ValueError('target must be a hostname')

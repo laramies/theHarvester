@@ -25,6 +25,12 @@ _ROUTE_CAPABILITIES = {
 
 @dataclass(frozen=True)
 class SourceSpec:
+    """Discovery routes and the independent evidence family for one source.
+
+    Sources sharing an upstream dataset share a family. For example, ``shodan``
+    and ``shodanInternetDB`` are separate adapters but not independent evidence.
+    """
+
     name: str
     routes: frozenset[ResultRoute]
     family: str

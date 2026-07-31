@@ -89,6 +89,8 @@ class LegacyHostnameSource:
 
 @dataclass(frozen=True)
 class DiscoveryObservation:
+    """One normalized source assertion retained before entity merging."""
+
     run_id: str
     target: str
     value: str
@@ -101,6 +103,8 @@ class DiscoveryObservation:
 
 @dataclass(frozen=True)
 class SourceExecution:
+    """Completion status and counts for one source attempt in a run."""
+
     run_id: str
     source: str
     source_family: str
@@ -124,6 +128,8 @@ class MergedEntity:
 
     @property
     def independent_corroboration_count(self) -> int:
+        """Count independent datasets, not adapters backed by the same data."""
+
         return len({observation.source_family for observation in self.observations})
 
 
@@ -161,6 +167,14 @@ async def execute_run(
     dns_validator: DnsValidator | None = None,
     deterministic_exact_dns_names: tuple[str, ...] = (),
 ) -> RunResult:
+    """Collect, normalize, scope, merge, and optionally DNS-validate one run.
+
+    DNS validation is intentionally downstream of provider collection: provider
+    observations remain intact even when current DNS disagrees or fails. The
+    merged entity receives the consensus classification, while the underlying
+    per-resolver answers stay available for audit and later reinterpretation.
+    """
+
     normalized_target = normalize_hostname(target)
     if normalized_target is None:
         raise ValueError('target must be a hostname')
