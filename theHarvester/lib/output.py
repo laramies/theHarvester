@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, TypeVar
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 from theHarvester.lib.dns_validation import Addressability
-from theHarvester.lib.run import ActivityClass, ScopeClass, StageFindingKind, legacy_hostnames
+from theHarvester.lib.run import ActivityClass, ScopeClass, StageFindingKind, legacy_dns_results, legacy_hostnames
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -214,9 +214,8 @@ def run_result_jsonl(result: RunResult) -> str:
         details = selected.setdefault((str(observation.kind), observation.value), set())
         if observation.detail:
             details.add(observation.detail)
-    for dns_observation in result.dns_validations:
-        for address in (*dns_observation.ipv4, *dns_observation.ipv6):
-            selected.setdefault((str(StageFindingKind.IP_ADDRESS), address), set())
+    for address in legacy_dns_results(result)[2]:
+        selected.setdefault((str(StageFindingKind.IP_ADDRESS), address), set())
     for (kind, value), details in sorted(selected.items()):
         record: dict[str, object] = {'type': kind, 'value': value}
         if details:

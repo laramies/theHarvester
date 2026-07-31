@@ -264,7 +264,15 @@ async def test_terminal_keeps_recognizable_non_host_sections() -> None:
 
 @pytest.mark.asyncio
 async def test_jsonl_is_a_compact_result_first_export() -> None:
-    validator = DnsValidator(tuple(TerminalResolver(f'resolver-{index}') for index in range(3)))
+    class ResultResolver(TerminalResolver):
+        async def query(self, hostname: str) -> DnsResponse:
+            if hostname == 'api.example.com':
+                return DnsResponse(ipv4=('192.0.2.10',))
+            if hostname == 'old.example.com':
+                return DnsResponse(rcode='NXDOMAIN')
+            return DnsResponse(ipv4=('198.51.100.99',))
+
+    validator = DnsValidator(tuple(ResultResolver(f'resolver-{index}') for index in range(3)))
     result = await execute_run('example.com', (CompletedRunSource(),), dns_validator=validator)
     result = complete_run(
         result,
@@ -297,6 +305,7 @@ async def test_jsonl_is_a_compact_result_first_export() -> None:
         {'type': 'ip-address', 'value': '192.0.2.10'},
     ]
     assert all('run_id' not in record and 'source' not in record for record in records)
+    assert all(record.get('value') != '198.51.100.99' for record in records)
 
 
 @pytest.mark.asyncio
