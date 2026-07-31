@@ -10,6 +10,8 @@ import time
 import traceback
 from collections.abc import Awaitable, Iterable
 from contextlib import AsyncExitStack
+from dataclasses import replace
+from datetime import UTC, datetime
 from typing import Any
 
 import anyio
@@ -349,6 +351,7 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
     all_urls: list = []
     vhost: list = []
     word: str = args.domain.rstrip('\n')
+    run_started_at = datetime.now(UTC)
     takeover_status = args.take_over
     use_proxy = args.proxies
     linkedin_people_list_tracker: list = []
@@ -1485,6 +1488,7 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
     await handler(lst=stor_lst)
     if completed_run_result is None:
         completed_run_result = await execute_run(word, ())
+    completed_run_result = replace(completed_run_result, started_at=run_started_at)
     recorded_sources = {result.source.casefold() for result in stage_results}
     recorded_sources.update(execution.source.casefold() for execution in completed_run_result.source_executions)
     for engine in engines:

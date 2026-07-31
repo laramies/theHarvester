@@ -701,9 +701,11 @@ async def test_cli_records_provider_people_in_the_completed_run(monkeypatch: pyt
         return_evidence_run=True,
     )
 
-    assert {(item.kind, item.value) for item in response[-1].selected_observations} == {
+    result = response[-1]
+    assert {(item.kind, item.value) for item in result.selected_observations} == {
         (StageFindingKind.PERSON, '{"name":"Alice"}')
     }
+    assert all(item.collected_at >= result.started_at for item in result.selected_observations)
 
 
 @pytest.mark.asyncio
