@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import replace
 from uuid import UUID
 
@@ -9,6 +10,7 @@ from theHarvester.lib.run import (
     Derivation,
     ScopeClass,
     SourceFinding,
+    SourceRateLimitedError,
     SourceStatus,
     execute_run,
     legacy_hostnames,
@@ -27,6 +29,19 @@ class FakePassiveSource:
             SourceFinding('example.com.evil.test', Derivation.SCOPE_EXTENSION),
             SourceFinding('cdn.vendor.test', Derivation.EXTERNAL_RELATIONSHIP),
         ]
+
+
+@pytest.mark.asyncio
+async def test_execute_run_propagates_cancellation() -> None:
+    class CancelledSource:
+        name = 'cancelled'
+        family = 'cancelled'
+
+        async def collect(self, _target: str) -> list[SourceFinding]:
+            raise asyncio.CancelledError
+
+    with pytest.raises(asyncio.CancelledError):
+        await execute_run('example.com', (CancelledSource(),))
 
 
 @pytest.mark.asyncio
@@ -219,3 +234,69 @@ async def test_crtsh_bridge_executes_once_and_feeds_legacy_consumers(monkeypatch
     assert {observation.source_family for observation in captured[0].observations} == {'catalog-family'}
     assert legacy_hostnames(captured[0]) == ['www.example.com']
     assert stored == [('example.com', ('www.example.com',), 'host', 'CRTsh')]
+
+
+@pytest.mark.asyncio
+async def test_dnsdb_bridge_preserves_partial_results_and_status(monkeypatch: pytest.MonkeyPatch) -> None:
+    import argparse
+
+    import theHarvester.__main__ as main_module
+    import theHarvester.lib.run as run_module
+
+    class FakeDNSDBSearch:
+        def __init__(self, target: str) -> None:
+            assert target == 'example.com'
+
+        async def process(self, _proxy: bool = False) -> None:
+            raise SourceRateLimitedError(
+                'DNSDB result limit reached',
+                findings=(SourceFinding('partial.example.com'),),
+            )
+
+        async def get_hostnames(self) -> list[str]:
+            raise AssertionError('partial findings must come from the incomplete source result')
+
+    stored: list[tuple[str, tuple[str, ...], str, str]] = []
+
+    class FakeStashManager:
+        async def do_init(self) -> None:
+            return None
+
+        async def store_all(self, domain: str, items: list[str], result_type: str, source: str) -> None:
+            stored.append((domain, tuple(items), result_type, source))
+
+    captured: list[run_module.RunResult] = []
+
+    async def capture_run(target, sources):
+        result = await run_module.execute_run(target, sources)
+        captured.append(result)
+        return result
+
+    monkeypatch.setattr(main_module.dnsdb, 'SearchDNSDB', FakeDNSDBSearch)
+    monkeypatch.setattr(main_module.stash, 'StashManager', FakeStashManager)
+    monkeypatch.setattr(main_module, 'execute_run', capture_run, raising=True)
+
+    await main_module.start(
+        argparse.Namespace(
+            api_scan=False,
+            dns_brute=False,
+            dns_lookup=False,
+            dns_resolve='',
+            dns_server=None,
+            domain='example.com',
+            filename='',
+            limit=500,
+            proxies=False,
+            quiet=True,
+            shodan=False,
+            source='dnsdb',
+            start=0,
+            take_over=False,
+            wordlist='',
+        )
+    )
+
+    assert len(captured) == 1
+    assert captured[0].source_executions[0].status is SourceStatus.RATE_LIMITED
+    assert {observation.value for observation in captured[0].observations} == {'partial.example.com'}
+    assert stored == [('example.com', ('partial.example.com',), 'host', 'dnsdb')]

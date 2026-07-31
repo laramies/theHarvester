@@ -438,7 +438,8 @@ async def start(rest_args: argparse.Namespace | None = None):
         run_result = await execute_run(word, tuple(evidence_sources))
         executions = {execution.source: execution for execution in run_result.source_executions}
         for evidence_source in evidence_sources:
-            if executions[evidence_source.name].status in (SourceStatus.SUCCEEDED, SourceStatus.EMPTY):
+            execution = executions[evidence_source.name]
+            if execution.status in (SourceStatus.SUCCEEDED, SourceStatus.EMPTY) or execution.observation_count:
                 await store(evidence_source.search, evidence_source.legacy_name, run_result)
 
     if args.source is not None:
@@ -646,7 +647,16 @@ async def start(rest_args: argparse.Namespace | None = None):
                 elif engineitem == 'dnsdb':
                     try:
                         dnsdb_search = dnsdb.SearchDNSDB(word)
-                        stor_lst.append(store(dnsdb_search, engineitem))
+                        source_spec = get_source_spec(engineitem)
+                        evidence_sources.append(
+                            LegacyHostnameSource(
+                                name=source_spec.name,
+                                legacy_name='dnsdb',
+                                family=source_spec.family,
+                                search=dnsdb_search,
+                                proxy=use_proxy,
+                            )
+                        )
                     except MissingKey as e:
                         if not args.quiet:
                             output_logger.info(e)
