@@ -18,6 +18,7 @@ from aiohttp_socks import ProxyConnector
 
 from theHarvester import __version__
 from theHarvester.lib.output import output_logger
+from theHarvester.lib.source_catalog import SOURCE_SPECS
 
 if TYPE_CHECKING:
     from collections.abc import Sized
@@ -349,6 +350,20 @@ class Core:
             'zoomeye',
             'zoomeyeapi',
         ]
+
+    @classmethod
+    def expand_source_selection(cls, selection: str) -> list[str]:
+        """Expand result capability selectors into source names."""
+        if selection.lower() == 'all':
+            return cls.get_supportedengines()
+        capabilities = {capability for spec in SOURCE_SPECS.values() for capability in spec.capabilities}
+        selected: set[str] = set()
+        for token in map(str.strip, selection.split(',')):
+            if token in capabilities:
+                selected.update(spec.name for spec in SOURCE_SPECS.values() if token in spec.capabilities)
+            else:
+                selected.add(token)
+        return sorted(selected)
 
     @staticmethod
     def get_user_agent() -> str:
