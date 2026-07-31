@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import secrets
+import shlex
 import string
 import sys
 import time
@@ -225,7 +226,7 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
     parser.add_argument(
         '-f',
         '--filename',
-        help='Save XML, legacy JSON, and normalized JSONL reports.',
+        help='Save XML, legacy JSON, and compact JSONL result reports.',
         default='',
         type=str,
     )
@@ -590,7 +591,32 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
         engines = Core.expand_source_selection(args.source)
         # Iterate through search engines in order
         if set(engines).issubset(Core.get_supportedengines()):
-            output_logger.info(f'\n[*] Target: {word} \n')
+            if dnsresolve == '':
+                dns_resolution = 'off'
+            elif dnsresolve is None:
+                dns_resolution = 'on (system resolver)'
+            elif final_dns_resolver_list:
+                dns_resolution = f'on ({",".join(final_dns_resolver_list)})'
+            else:
+                dns_resolution = 'off (no valid resolvers)'
+            output_logger.info(
+                '\n'.join(
+                    (
+                        '\n[*] Run configuration',
+                        *((f'Command: {shlex.join(sys.argv)}',) if rest_args is None else ()),
+                        f'Target (-d): {word}',
+                        f'Sources (-b): {",".join(engines)}',
+                        f'Search: start (-S)={start}; limit (-l)={limit}; proxies (-p)={"on" if use_proxy else "off"}',
+                        f'DNS: resolve (-r)={dns_resolution}; lookup (-n)={"on" if dnslookup else "off"}; '
+                        f'brute force (-c)={"on" if dnsbrute[0] else "off"}',
+                        f'Actions: Shodan (-s)={"on" if shodan else "off"}; '
+                        f'takeover (-t)={"on" if takeover_status else "off"}; '
+                        f'screenshots (--screenshot)={getattr(args, "screenshot", "") or "off"}; '
+                        f'API scan (-a)={"on" if getattr(args, "api_scan", False) else "off"}',
+                        f'Output (-f): {filename or "terminal only"}',
+                    )
+                )
+            )
 
             for engineitem in engines:
                 if engineitem == 'baidu':

@@ -204,14 +204,10 @@ async def test_activity_classes_are_serialized_and_summarized() -> None:
         ),
     )
 
-    records = [json.loads(line) for line in run_result_jsonl(result).splitlines()]
-    source = next(record['data'] for record in records if record['record_type'] == 'source_execution')
-    stages = {
-        record['data']['stage']: record['data']['activity_class']
-        for record in records
-        if record['record_type'] == 'stage_execution'
-    }
-    validations = [record['data'] for record in records if record['record_type'] == 'dns_validation_observation']
+    serialized = result.to_dict()
+    source = serialized['source_executions'][0]
+    stages = {record['stage']: record['activity_class'] for record in serialized['stage_executions']}
+    validations = serialized['dns_validations']
 
     assert source['activity_class'] == 'P0 passive collection'
     assert stages == {
@@ -267,30 +263,40 @@ async def test_terminal_keeps_recognizable_non_host_sections() -> None:
 
 
 @pytest.mark.asyncio
-async def test_jsonl_preserves_typed_records_provenance_and_timestamps() -> None:
+async def test_jsonl_is_a_compact_result_first_export() -> None:
     validator = DnsValidator(tuple(TerminalResolver(f'resolver-{index}') for index in range(3)))
     result = await execute_run('example.com', (CompletedRunSource(),), dns_validator=validator)
+    result = complete_run(
+        result,
+        (
+            StageResult(
+                'fixture-results',
+                SourceStatus.SUCCEEDED,
+                1,
+                1,
+                (StageFinding(StageFindingKind.EMAIL, 'ops@example.com'),),
+            ),
+        ),
+    )
 
     records = [json.loads(line) for line in run_result_jsonl(result).splitlines()]
 
-    assert {record['record_type'] for record in records} == {
-        'run',
-        'source_execution',
-        'discovery_observation',
-        'dns_validation_observation',
-        'merged_result',
+    assert records[0] == {
+        'schema_version': 'theharvester-results-v1',
+        'type': 'summary',
+        'target': 'example.com',
+        'status': 'complete',
+        'started_at': result.started_at.isoformat(),
+        'completed_at': result.completed_at.isoformat(),
+        'counts': {'email': 1, 'hostname': 2, 'ip-address': 1},
     }
-    assert all(record['schema_version'] == 'theharvester-evidence-v1' for record in records)
-    assert all(record['run_id'] == result.run_id for record in records)
-    discovery = [record['data'] for record in records if record['record_type'] == 'discovery_observation']
-    assert all(record['collected_at'] for record in discovery)
-    assert discovery[0]['provider_observed_at'] == '2026-07-15T12:00:00+00:00'
-    assert 'provider_observed_at' not in discovery[1]
-    validations = [record['data'] for record in records if record['record_type'] == 'dns_validation_observation']
-    assert all(record['validated_at'] for record in validations)
-    assert all('queried_at' not in record for record in validations)
-    merged = [record['data'] for record in records if record['record_type'] == 'merged_result']
-    assert all(record['provenance'] for record in merged)
+    assert records[1:] == [
+        {'type': 'hostname', 'value': 'api.example.com', 'status': 'currently-addressable'},
+        {'type': 'hostname', 'value': 'old.example.com', 'status': 'not-currently-addressable'},
+        {'type': 'email', 'value': 'ops@example.com'},
+        {'type': 'ip-address', 'value': '192.0.2.10'},
+    ]
+    assert all('run_id' not in record and 'source' not in record for record in records)
 
 
 @pytest.mark.asyncio
@@ -567,7 +573,10 @@ async def test_cli_finishes_selected_stages_before_persisting_and_reporting(
     jsonl = [json.loads(line) for line in report.with_suffix('.jsonl').read_text().splitlines()]
     assert legacy_json['evidence_run']['run_id'] == result.run_id
     assert evidence_xml.attrib['run_id'] == result.run_id
-    assert {record['record_type'] for record in jsonl} >= {'run', 'stage_execution', 'selected_observation'}
+    assert jsonl[0]['type'] == 'summary'
+    assert jsonl[0]['status'] == result.status
+    assert {record['type'] for record in jsonl[1:]} >= {'hostname', 'takeover', 'api-endpoint'}
+    assert all('run_id' not in record and 'source' not in record for record in jsonl)
     assert terminal.count('https://example.com/v1/status') == 1
     assert 'raw-provider-secret' not in terminal
     assert '[*] Interesting Urls found: 1' in terminal
@@ -698,12 +707,18 @@ async def test_cli_dns_validates_legacy_source_before_reporting(
     assert result.entities[0].addressability == 'currently-addressable'
     assert legacy_json['hosts'] == [f'{candidate}:192.0.2.10']
     assert [item.attrib['value'] for item in evidence_xml.findall('merged_result')] == [candidate]
-    assert '\n'.join(terminal_messages).count(f'{candidate} [status=currently-addressable') == 1
+    terminal = '\n'.join(terminal_messages)
+    assert terminal.count(f'{candidate} [status=currently-addressable') == 1
+    assert (
+        f'Command: theHarvester -d example.com -b certspotter -r 192.0.2.53,192.0.2.54,192.0.2.55 '
+        f'-f {report} -q'
+    ) in terminal
+    assert 'DNS: resolve (-r)=on (192.0.2.53,192.0.2.54,192.0.2.55); lookup (-n)=off; brute force (-c)=off' in terminal
     assert FakeRunStore.saved == [result]
 
 
 @pytest.mark.asyncio
-async def test_cli_records_provider_people_in_the_completed_run(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_cli_reports_effective_options_and_keeps_dns_off_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     import theHarvester.__main__ as main_module
 
     class FakeVenacusSearch:
@@ -736,9 +751,17 @@ async def test_cli_records_provider_people_in_the_completed_run(monkeypatch: pyt
         async def save(self, _result) -> None:
             return None
 
+    class UnexpectedDns:
+        def __init__(self, *_args) -> None:
+            raise AssertionError('DNS must remain off unless -r is supplied')
+
+    terminal_messages: list[str] = []
     monkeypatch.setattr(main_module.venacussearch, 'SearchVenacus', FakeVenacusSearch)
+    monkeypatch.setattr(main_module, 'AioDnsResolverVantage', UnexpectedDns)
+    monkeypatch.setattr(main_module.hostchecker, 'Checker', UnexpectedDns)
     monkeypatch.setattr(main_module.stash, 'StashManager', FakeStashManager)
     monkeypatch.setattr(main_module, 'SQLiteRunStore', FakeRunStore)
+    monkeypatch.setattr(main_module.output_logger, 'info', lambda message, *_args: terminal_messages.append(str(message)))
 
     response = await main_module.start(
         SimpleNamespace(
@@ -767,6 +790,14 @@ async def test_cli_records_provider_people_in_the_completed_run(monkeypatch: pyt
         (StageFindingKind.PERSON, '{"name":"Alice"}')
     }
     assert all(item.collected_at >= result.started_at for item in result.selected_observations)
+    terminal = '\n'.join(terminal_messages)
+    assert '[*] Run configuration' in terminal
+    assert 'Target (-d): example.com' in terminal
+    assert 'Sources (-b): venacus' in terminal
+    assert 'Search: start (-S)=0; limit (-l)=500; proxies (-p)=off' in terminal
+    assert 'DNS: resolve (-r)=off; lookup (-n)=off; brute force (-c)=off' in terminal
+    assert 'Actions: Shodan (-s)=off; takeover (-t)=off; screenshots (--screenshot)=off; API scan (-a)=off' in terminal
+    assert 'Output (-f): terminal only' in terminal
 
 
 @pytest.mark.asyncio
@@ -903,7 +934,7 @@ async def test_cli_serializes_incomplete_provider_findings(
     assert result.status is RunStatus.PARTIAL
     assert result.source_executions[0].status is expected_status
     records = [json.loads(line) for line in run_result_jsonl(result).splitlines()]
-    assert any(record['data'].get('value') == 'survivor.example.com' for record in records)
+    assert any(record.get('value') == 'survivor.example.com' for record in records)
 
 
 @pytest.mark.asyncio
@@ -1055,7 +1086,7 @@ async def test_incomplete_source_states_remain_visible_on_every_output(
 
     assert f'Run status: {expected_run_status}' in terminal
     assert f'fixture [status={expected_source_status}' in terminal
-    assert records[0]['data']['status'] == expected_run_status
+    assert records[0]['status'] == expected_run_status
     assert legacy['evidence_run']['status'] == expected_run_status
     assert evidence_xml.attrib['status'] == expected_run_status
 

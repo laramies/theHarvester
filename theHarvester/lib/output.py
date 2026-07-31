@@ -4,7 +4,7 @@ import json
 import logging
 import sys
 from collections.abc import Hashable, Iterable, Sequence
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import TYPE_CHECKING, TypeVar
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 from theHarvester.lib.dns_validation import Addressability
@@ -87,15 +87,19 @@ def print_linkedin_sections(
             output_logger.info(link)
 
 
-def _entity_line(entity: MergedEntity, selected: Sequence[SelectedObservation] = ()) -> str:
-    sources = ','.join(sorted({observation.source for observation in entity.observations}))
-    selected_status = ''.join(f'; {observation.kind}={observation.detail or "observed"}' for observation in selected)
-    status = (
+def _entity_status(entity: MergedEntity) -> str:
+    return str(
         entity.addressability
         or ('scope-extension-candidate' if ScopeClass.SCOPE_EXTENSION in entity.scope_classes else None)
         or ('external-relationship' if ScopeClass.EXTERNAL_RELATIONSHIP in entity.scope_classes else None)
         or 'needs-review'
     )
+
+
+def _entity_line(entity: MergedEntity, selected: Sequence[SelectedObservation] = ()) -> str:
+    sources = ','.join(sorted({observation.source for observation in entity.observations}))
+    selected_status = ''.join(f'; {observation.kind}={observation.detail or "observed"}' for observation in selected)
+    status = _entity_status(entity)
     return f'{entity.value} [status={status}; sources={sources}{selected_status}]'
 
 
@@ -200,33 +204,39 @@ def format_run_terminal(result: RunResult) -> str:
 
 
 def run_result_jsonl(result: RunResult) -> str:
-    """Serialize a completed run as versioned, normalized evidence records."""
-    serialized = result.to_dict()
-    records: list[tuple[str, dict[str, Any]]] = [('run', _run_record(result))]
-    records.extend(('source_execution', item) for item in cast('list[dict[str, Any]]', serialized['source_executions']))
-    records.extend(('stage_execution', item) for item in cast('list[dict[str, Any]]', serialized['stage_executions']))
-    records.extend(('discovery_observation', item) for item in cast('list[dict[str, Any]]', serialized['observations']))
-    for item in cast('list[dict[str, Any]]', serialized['dns_validations']):
-        validation = dict(item)
-        validation['validated_at'] = validation.pop('queried_at')
-        records.append(('dns_validation_observation', validation))
-    for item in cast('list[dict[str, Any]]', serialized['entities']):
-        merged = dict(item)
-        merged['provenance'] = merged.pop('observations')
-        records.append(('merged_result', merged))
-    records.extend(('selected_observation', item) for item in cast('list[dict[str, Any]]', serialized['selected_observations']))
-    return '\n'.join(
-        json.dumps(
-            {
-                'schema_version': 'theharvester-evidence-v1',
-                'run_id': result.run_id,
-                'target': result.target,
-                'record_type': record_type,
-                'data': data,
-            }
-        )
-        for record_type, data in records
-    )
+    """Serialize one summary followed by deduplicated operator results."""
+    result_records: list[dict[str, object]] = [
+        {'type': 'hostname', 'value': entity.value, 'status': _entity_status(entity)}
+        for entity in sorted(result.entities, key=lambda entity: entity.value)
+    ]
+    selected: dict[tuple[str, str], set[str]] = {}
+    for observation in result.selected_observations:
+        details = selected.setdefault((str(observation.kind), observation.value), set())
+        if observation.detail:
+            details.add(observation.detail)
+    for dns_observation in result.dns_validations:
+        for address in (*dns_observation.ipv4, *dns_observation.ipv6):
+            selected.setdefault((str(StageFindingKind.IP_ADDRESS), address), set())
+    for (kind, value), details in sorted(selected.items()):
+        record: dict[str, object] = {'type': kind, 'value': value}
+        if details:
+            record['details'] = sorted(details)
+        result_records.append(record)
+
+    counts: dict[str, int] = {}
+    for record in result_records:
+        kind = str(record['type'])
+        counts[kind] = counts.get(kind, 0) + 1
+    summary = {
+        'schema_version': 'theharvester-results-v1',
+        'type': 'summary',
+        'target': result.target,
+        'status': result.status,
+        'started_at': result.started_at.isoformat(),
+        'completed_at': result.completed_at.isoformat(),
+        'counts': dict(sorted(counts.items())),
+    }
+    return '\n'.join(json.dumps(record) for record in (summary, *result_records))
 
 
 def _run_record(result: RunResult) -> dict[str, object]:

@@ -27,7 +27,7 @@ class CompletedOutputSource:
 
 
 @pytest.mark.asyncio
-async def test_completed_run_adapters_share_one_versioned_result() -> None:
+async def test_completed_run_adapters_share_one_result() -> None:
     result = await execute_run('example.com', (CompletedOutputSource(),))
 
     records = [json.loads(line) for line in run_result_jsonl(result).splitlines()]
@@ -35,13 +35,10 @@ async def test_completed_run_adapters_share_one_versioned_result() -> None:
     evidence_xml = ElementTree.fromstring(evidence_xml_fragment(result))
     terminal = format_run_terminal(result)
 
-    assert {record['record_type'] for record in records} == {
-        'run',
-        'source_execution',
-        'discovery_observation',
-        'merged_result',
-    }
-    assert all(record['schema_version'] == 'theharvester-evidence-v1' for record in records)
+    assert records[0]['schema_version'] == 'theharvester-results-v1'
+    assert records[0]['counts'] == {'hostname': 1}
+    assert records[1] == {'type': 'hostname', 'value': 'api.example.com', 'status': 'needs-review'}
+    assert all('run_id' not in record and 'source' not in record for record in records)
     assert legacy['emails'] == ['ops@example.com']
     assert legacy['hosts'] == ['api.example.com']
     assert evidence_xml.attrib['run_id'] == result.run_id
