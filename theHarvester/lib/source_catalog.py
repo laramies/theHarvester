@@ -25,6 +25,16 @@ _ROUTE_CAPABILITIES = {
 
 @dataclass(frozen=True)
 class SourceSpec:
+    """Describe a source's output and provider-side query behavior.
+
+    ``queries_provider_descendants`` means the adapter asks its existing
+    provider or dataset for names beneath the supplied parent. For example, a
+    certificate-transparency query for ``example.com`` may return
+    ``api.example.com``. This metadata does not mean theHarvester resolves that
+    name or recursively queries returned descendants. DNS resolution and
+    recursive DNS discovery are separate, explicitly selected activities.
+    """
+
     name: str
     routes: frozenset[ResultRoute]
     queries_provider_descendants: bool = False
