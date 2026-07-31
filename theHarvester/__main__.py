@@ -573,11 +573,11 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
                 resolver_stack.push_async_callback(vantage.close)
             return await validate_run(result, DnsValidator(tuple(vantages)))
 
-    async def finish_run(
+    async def merge_validate_and_adapt_run(
         result: RunResult,
-        results: list[StageResult],
+        new_stage_results: list[StageResult],
     ) -> tuple[RunResult, tuple[list[str], list[str], list[str]] | None]:
-        result = await validate_completed_run(complete_run(result, results))
+        result = await validate_completed_run(complete_run(result, new_stage_results))
         return result, legacy_dns_results(result) if result.dns_validations else None
 
     if args.source is not None:
@@ -1501,7 +1501,7 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
                 )
             )
     provider_stage_count = len(stage_results)
-    completed_run_result, legacy_results = await finish_run(completed_run_result, stage_results)
+    completed_run_result, legacy_results = await merge_validate_and_adapt_run(completed_run_result, stage_results)
     if legacy_results is not None:
         full, all_hosts, validated_ips = legacy_results
         all_ip.extend(validated_ips)
@@ -1884,7 +1884,7 @@ async def start(rest_args: argparse.Namespace | None = None, *, return_evidence_
             output_logger.info('    Continuing with the rest of the scan...')
             traceback.print_exc()  # More detailed error information for developers
 
-    completed_run_result, legacy_results = await finish_run(
+    completed_run_result, legacy_results = await merge_validate_and_adapt_run(
         completed_run_result,
         stage_results[provider_stage_count:],
     )
