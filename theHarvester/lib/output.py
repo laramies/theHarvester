@@ -205,10 +205,16 @@ def format_run_terminal(result: RunResult) -> str:
 
 def run_result_jsonl(result: RunResult) -> str:
     """Serialize one summary followed by deduplicated operator results."""
-    result_records: list[dict[str, object]] = [
-        {'type': 'hostname', 'value': entity.value, 'status': _entity_status(entity)}
-        for entity in sorted(result.entities, key=lambda entity: entity.value)
-    ]
+    result_records: list[dict[str, object]] = []
+    for entity in sorted(result.entities, key=lambda entity: entity.value):
+        if entity.value == result.target:
+            continue
+        result_type = str(StageFindingKind.HOSTNAME)
+        if ScopeClass.SCOPE_EXTENSION in entity.scope_classes:
+            result_type = str(ScopeClass.SCOPE_EXTENSION)
+        elif ScopeClass.EXTERNAL_RELATIONSHIP in entity.scope_classes:
+            result_type = str(ScopeClass.EXTERNAL_RELATIONSHIP)
+        result_records.append({'type': result_type, 'value': entity.value, 'status': _entity_status(entity)})
     selected: dict[tuple[str, str], set[str]] = {}
     for observation in result.selected_observations:
         details = selected.setdefault((str(observation.kind), observation.value), set())

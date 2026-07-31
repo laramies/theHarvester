@@ -264,6 +264,10 @@ async def test_terminal_keeps_recognizable_non_host_sections() -> None:
 
 @pytest.mark.asyncio
 async def test_jsonl_is_a_compact_result_first_export() -> None:
+    class JsonlRunSource(TerminalRunSource):
+        async def collect(self, target: str) -> list[SourceFinding]:
+            return [*await super().collect(target), SourceFinding(target)]
+
     class ResultResolver(TerminalResolver):
         async def query(self, hostname: str) -> DnsResponse:
             if hostname == 'api.example.com':
@@ -273,7 +277,7 @@ async def test_jsonl_is_a_compact_result_first_export() -> None:
             return DnsResponse(ipv4=('198.51.100.99',))
 
     validator = DnsValidator(tuple(ResultResolver(f'resolver-{index}') for index in range(3)))
-    result = await execute_run('example.com', (CompletedRunSource(),), dns_validator=validator)
+    result = await execute_run('example.com', (JsonlRunSource(),), dns_validator=validator)
     result = complete_run(
         result,
         (
@@ -296,15 +300,28 @@ async def test_jsonl_is_a_compact_result_first_export() -> None:
         'status': 'complete',
         'started_at': result.started_at.isoformat(),
         'completed_at': result.completed_at.isoformat(),
-        'counts': {'email': 1, 'hostname': 2, 'ip-address': 1},
+        'counts': {
+            'email': 1,
+            'external-relationship': 1,
+            'hostname': 2,
+            'ip-address': 1,
+            'scope-extension': 1,
+        },
     }
     assert records[1:] == [
         {'type': 'hostname', 'value': 'api.example.com', 'status': 'currently-addressable'},
+        {'type': 'external-relationship', 'value': 'cdn.vendor.test', 'status': 'external-relationship'},
         {'type': 'hostname', 'value': 'old.example.com', 'status': 'not-currently-addressable'},
+        {'type': 'scope-extension', 'value': 'related.example.net', 'status': 'scope-extension-candidate'},
         {'type': 'email', 'value': 'ops@example.com'},
         {'type': 'ip-address', 'value': '192.0.2.10'},
     ]
+    assert [record['value'] for record in records if record['type'] == 'hostname'] == [
+        'api.example.com',
+        'old.example.com',
+    ]
     assert all('run_id' not in record and 'source' not in record for record in records)
+    assert all(record.get('value') != result.target for record in records)
     assert all(record.get('value') != '198.51.100.99' for record in records)
 
 

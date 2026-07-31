@@ -92,6 +92,15 @@ def test_readme_api_key_markers_match_configuration() -> None:
     assert {source for source, marker in requirements.items() if marker == 'Optional'} == OPTIONAL_API_KEY_SOURCES
 
 
+def test_readme_documents_flat_jsonl_result_filters() -> None:
+    readme = Path('README.md').read_text()
+
+    assert '`NAME.jsonl`' in readme
+    assert "select(.type == \"hostname\") | .value" in readme
+    assert "select(.type == \"asn\") | .value" in readme
+    assert "select(.type == \"ip-address\") | .value" in readme
+
+
 def test_wiki_navigation_and_readme_links_resolve() -> None:
     wiki_dir = Path('docs/wiki')
     assert {path.name for path in wiki_dir.glob('*.md')} == WIKI_PAGES

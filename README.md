@@ -206,7 +206,7 @@ Never commit populated configuration files, API keys, account details, or provid
 ## Results and local data
 
 - Terminal output shows consolidated findings. Separately selected actions, such as `-s` / `--shodan`, may print their own enrichment.
-- `-f NAME` writes `NAME.json` and `NAME.xml`.
+- `-f NAME` writes `NAME.json`, `NAME.xml`, and `NAME.jsonl`.
 - Screenshots are written to the directory passed to `--screenshot`.
 - Host, email, IP, and related scan records are stored in `~/.local/share/theHarvester/stash.sqlite`.
 - REST queries return JSON.
@@ -228,6 +228,27 @@ The JSON report is a single object and is the more complete format for automatio
 | `takeover_results` | When non-empty | Optional takeover-check results. |
 
 The XML report contains the command, emails, hosts, and virtual hosts. Use JSON when you need the additional result types above.
+
+The JSONL report is a compact result stream. Its first line is a run summary;
+every remaining line is a flat result with a `type` and `value`. Common result
+types are `hostname`, `email`, `ip-address`, `asn`, `person`, `url`, and
+`interesting-url`. The `hostname` type is reserved for in-scope names beneath
+the target; the target itself appears only in the summary. Out-of-scope records
+use `scope-extension` or `external-relationship`.
+
+Extract subdomains, ASNs, or IP addresses directly:
+
+```bash
+jq -r 'select(.type == "hostname") | .value' report.jsonl
+jq -r 'select(.type == "asn") | .value' report.jsonl
+jq -r 'select(.type == "ip-address") | .value' report.jsonl
+```
+
+Export every result as tab-separated type and value columns:
+
+```bash
+jq -r 'select(.type != "summary") | [.type, .value] | @tsv' report.jsonl
+```
 
 List discovered hosts with [`jq`](https://jqlang.org/):
 
