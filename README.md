@@ -129,7 +129,7 @@ Read the **API key** column as follows:
 <details>
 <summary><strong>View the source and result matrix</strong></summary>
 
-| Source | Hosts | Emails | IPs | ASNs | URLs / links | People | Separate REST/action output (not consolidated report) | API key |
+| Source | Subdomains | Emails | IPs | ASNs | URLs / links | People | Separate REST/action output (not consolidated report) | API key |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | --- | :---: |
 | `baidu` | ✓ | ✓ | No | No | No | No | No | No |
 | `bevigil` | ✓ | No | No | No | ✓ | No | No | ✓ |

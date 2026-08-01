@@ -27,12 +27,12 @@ def test_source_specs_cover_supported_sources() -> None:
     assert set(SOURCE_SPECS) <= set(Core.get_supportedengines())
 
 
-def test_source_capabilities_are_derived_from_result_routes() -> None:
+def test_subdomain_route_drives_subdomain_capability() -> None:
     spec = SourceSpec(
         name='example',
         routes=frozenset(
             {
-                ResultRoute.HOSTS,
+                ResultRoute.SUBDOMAINS,
                 ResultRoute.LINKS,
                 ResultRoute.INTERESTING_URLS,
             }
@@ -43,11 +43,11 @@ def test_source_capabilities_are_derived_from_result_routes() -> None:
 
 
 def test_source_specs_describe_consolidated_routes_not_getter_presence() -> None:
-    assert SOURCE_SPECS['gitlab'].routes == frozenset({ResultRoute.HOSTS, ResultRoute.EMAILS})
+    assert SOURCE_SPECS['gitlab'].routes == frozenset({ResultRoute.SUBDOMAINS, ResultRoute.EMAILS})
     assert SOURCE_SPECS['haveibeenpwned'].routes == frozenset()
     assert SOURCE_SPECS['urlscan'].routes == frozenset(
         {
-            ResultRoute.HOSTS,
+            ResultRoute.SUBDOMAINS,
             ResultRoute.IPS,
             ResultRoute.ASNS,
             ResultRoute.INTERESTING_URLS,
