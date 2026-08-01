@@ -115,7 +115,7 @@ async def test_process_treats_denied_and_malformed_responses_as_empty(
 
 
 @pytest.mark.asyncio
-async def test_orchestrator_stores_intelx_hostnames(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_orchestrator_stores_intelx_subdomains_without_dns(monkeypatch: pytest.MonkeyPatch) -> None:
     stored_hosts: list[set[str]] = []
 
     class _Stash:
@@ -142,7 +142,12 @@ async def test_orchestrator_stores_intelx_hostnames(monkeypatch: pytest.MonkeyPa
         async def get_interestingurls(self) -> list[str]:
             return []
 
+    class _UnexpectedChecker:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            raise AssertionError('DNS resolution requires the explicit --dns-resolve flag')
+
     monkeypatch.setattr(theharvester_main.stash, 'StashManager', _Stash)
+    monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', _UnexpectedChecker)
     monkeypatch.setattr(intelxsearch, 'SearchIntelx', _Intelx)
 
     results = await theharvester_main.start(
@@ -163,5 +168,5 @@ async def test_orchestrator_stores_intelx_hostnames(monkeypatch: pytest.MonkeyPa
         )
     )
 
-    assert results[-1] == ['api.example.com', 'example.com']
-    assert stored_hosts == [{'api.example.com', 'example.com'}]
+    assert results[-1] == ['api.example.com']
+    assert stored_hosts == [{'api.example.com'}]

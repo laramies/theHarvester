@@ -360,12 +360,9 @@ async def start(rest_args: argparse.Namespace | None = None):
         if source:
             output_logger.info(f'[*] Searching {source[0].upper() + source[1:]}. ')
 
-        if ResultRoute.HOSTS in routes:
+        if ResultRoute.SUBDOMAINS in routes:
             discovered_hosts = await search_engine.get_hostnames()
-            if source == 'intelx':
-                host_names = list(discovered_hosts)
-            else:
-                host_names = list(_normalize_hosts_for_storage(discovered_hosts, word))
+            host_names = list(_normalize_hosts_for_storage(discovered_hosts, word))
             if source != 'hackertarget' and source != 'pentesttools' and source != 'rapiddns':
                 # If a source is inside this conditional, it means the hosts returned must be resolved to obtain ip
                 # This should only be checked if --dns-resolve has a wordlist
