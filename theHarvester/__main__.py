@@ -8,7 +8,6 @@ import string
 import sys
 import time
 import traceback
-from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any
 
 import anyio
@@ -80,8 +79,8 @@ from theHarvester.discovery import (
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib import hostchecker, stash
 from theHarvester.lib.core import DATA_DIR, Core, show_default_error_message
-from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.output import configure_logging, output_logger, print_linkedin_sections, print_section, sorted_unique
+from theHarvester.lib.run import LegacyHostnameSource, SourceStatus, execute_collection, legacy_subdomains
 from theHarvester.lib.source_catalog import ResultRoute, get_source_spec
 from theHarvester.screenshot.screenshot import ScreenShotter
 
@@ -89,15 +88,6 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable
 
 logger = logging.getLogger(__name__)
-
-
-def _normalize_hosts_for_storage(discovered_hosts: Iterable[object], target: str) -> set[str]:
-    normalized_target = target.strip().lower().removeprefix('www.').rstrip('.')
-    return {
-        normalized
-        for host in discovered_hosts
-        if (normalized := normalize_scoped_hostname(host, normalized_target)) and normalized != normalized_target
-    }
 
 
 def sanitize_for_xml(text: str) -> str:
@@ -348,21 +338,35 @@ async def start(rest_args: argparse.Namespace | None = None):
         :param search_engine: search engine to fetch details from
         :param source: source against which the details (corresponding to the search engine) need to be persisted
         """
-        logger.info(f'Source {source} started')
-        try:
-            await search_engine.process(use_proxy)
-        except Exception:
-            logger.exception(f'Source {source} failed')
-            raise
-        db_stash = stash.StashManager()
         routes = get_source_spec(source).routes
+        logger.info(f'Source {source} started')
+        collection_result = None
+        if ResultRoute.SUBDOMAINS in routes:
+            collection_result = await execute_collection(
+                word,
+                LegacyHostnameSource(get_source_spec(source).name, search_engine, use_proxy),
+            )
+            if collection_result.outcome.status is SourceStatus.FAILED:
+                if collection_result.outcome.process_succeeded:
+                    output_logger.info(
+                        f'\n[!] Source {source} subdomain collection failed: {collection_result.outcome.error_type}\n'
+                    )
+                else:
+                    output_logger.info(f'\n[!] Source {source} failed: {collection_result.outcome.error_type}\n')
+                    return
+        else:
+            try:
+                await search_engine.process(use_proxy)
+            except Exception:
+                logger.exception(f'Source {source} failed')
+                raise
+        db_stash = stash.StashManager()
 
         if source:
             output_logger.info(f'[*] Searching {source[0].upper() + source[1:]}. ')
 
-        if ResultRoute.SUBDOMAINS in routes:
-            discovered_hosts = await search_engine.get_hostnames()
-            host_names = list(_normalize_hosts_for_storage(discovered_hosts, word))
+        if collection_result is not None and collection_result.outcome.status is not SourceStatus.FAILED:
+            host_names = legacy_subdomains(collection_result)
             if source != 'hackertarget' and source != 'pentesttools' and source != 'rapiddns':
                 # If a source is inside this conditional, it means the hosts returned must be resolved to obtain ip
                 # This should only be checked if --dns-resolve has a wordlist
