@@ -17,7 +17,7 @@ from playwright.async_api import async_playwright
 class ScreenShotter:
     def __init__(self, output) -> None:
         self.output = output
-        self.slash = '\\' if 'win' in sys.platform else '/'
+        self.slash = '\\' if sys.platform.startswith('win') else '/'
         self.slash = '' if (self.output[-1] == '\\' or self.output[-1] == '/') else self.slash
 
     def verify_path(self) -> bool:
