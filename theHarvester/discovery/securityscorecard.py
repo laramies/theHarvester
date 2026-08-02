@@ -1,11 +1,7 @@
-import logging
-
 import aiohttp
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import AsyncFetcher, Core
-
-logger = logging.getLogger(__name__)
 
 
 class SearchSecurityScorecard:
@@ -26,21 +22,20 @@ class SearchSecurityScorecard:
 
     async def process(self, proxy: bool = False) -> None:
         """Get security scorecard information for a domain."""
-        try:
-            if proxy:
-                response = await AsyncFetcher.fetch(
-                    session=None, url=f'{self.base_url}/companies/{self.word}', headers=self.headers, proxy=proxy
-                )
-                if response:
-                    self._extract_data(response)
-            else:
-                async with aiohttp.ClientSession(headers=self.headers) as session:
-                    async with session.get(f'{self.base_url}/companies/{self.word}') as response:
-                        if response.status == 200:
-                            data = await response.json()
-                            self._extract_data(data)
-        except Exception as e:
-            logger.info(f'Error in SecurityScorecard search: {e}')
+        if proxy:
+            response = await AsyncFetcher.fetch(
+                session=None, url=f'{self.base_url}/companies/{self.word}', headers=self.headers, proxy=proxy
+            )
+            if response is None:
+                raise RuntimeError('SecurityScorecard returned no response')
+            self._extract_data(response)
+            return
+
+        async with aiohttp.ClientSession(headers=self.headers) as session:
+            async with session.get(f'{self.base_url}/companies/{self.word}') as response:
+                if response.status != 200:
+                    raise RuntimeError(f'SecurityScorecard returned HTTP {response.status}')
+                self._extract_data(await response.json())
 
     def _extract_data(self, data: dict) -> None:
         """Extract and categorize security scorecard information."""

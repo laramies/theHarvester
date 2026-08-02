@@ -1,12 +1,9 @@
-import logging
 from typing import Any
 
 import aiohttp
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import AsyncFetcher, Core
-
-logger = logging.getLogger(__name__)
 
 
 class SearchBuiltWith:
@@ -28,23 +25,22 @@ class SearchBuiltWith:
 
     async def process(self, proxy: bool = False) -> None:
         """Get technology stack information for a domain."""
-        try:
-            if proxy:
-                response = await AsyncFetcher.fetch(
-                    session=None, url=f'{self.base_url}?KEY={self.api_key}&LOOKUP={self.word}', headers=self.headers, proxy=proxy
-                )
-                if response:
-                    self.tech_stack = response
-                    self._extract_data()
-            else:
-                async with aiohttp.ClientSession(headers=self.headers) as session:
-                    async with session.get(f'{self.base_url}?KEY={self.api_key}&LOOKUP={self.word}') as response:
-                        if response.status == 200:
-                            data = await response.json(content_type=None)
-                            self.tech_stack = data
-                            self._extract_data()
-        except Exception as e:
-            logger.info(f'Error in BuiltWith search: {e}')
+        if proxy:
+            response = await AsyncFetcher.fetch(
+                session=None, url=f'{self.base_url}?KEY={self.api_key}&LOOKUP={self.word}', headers=self.headers, proxy=proxy
+            )
+            if response is None:
+                raise RuntimeError('BuiltWith returned no response')
+            self.tech_stack = response
+            self._extract_data()
+            return
+
+        async with aiohttp.ClientSession(headers=self.headers) as session:
+            async with session.get(f'{self.base_url}?KEY={self.api_key}&LOOKUP={self.word}') as response:
+                if response.status != 200:
+                    raise RuntimeError(f'BuiltWith returned HTTP {response.status}')
+                self.tech_stack = await response.json(content_type=None)
+                self._extract_data()
 
     def _extract_data(self) -> None:
         """Extract and categorize technology information."""
@@ -74,7 +70,11 @@ class SearchBuiltWith:
     async def get_tech_stack(self) -> dict:
         return self.tech_stack
 
+    async def get_interestingurls(self) -> set[str]:
+        return self.interesting_urls
+
     async def get_interesting_urls(self) -> set[str]:
+        """Return interesting URLs for existing direct consumers."""
         return self.interesting_urls
 
     async def get_frameworks(self) -> set[str]:

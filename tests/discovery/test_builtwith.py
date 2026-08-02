@@ -79,6 +79,7 @@ async def test_process_accepts_text_json_content_type(monkeypatch) -> None:
     await search.process()
 
     assert await search.get_hostnames() == {'sub.example.com'}
+    assert await search.get_interestingurls() == {'https://example.com/login'}
     assert await search.get_interesting_urls() == {'https://example.com/login'}
     assert await search.get_frameworks() == {'Django'}
     assert await search.get_languages() == {'Python'}
@@ -88,7 +89,7 @@ async def test_process_accepts_text_json_content_type(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_process_handles_non_200_status(monkeypatch) -> None:
+async def test_process_reports_non_200_status(monkeypatch) -> None:
     monkeypatch.setattr(builtwith.Core, 'builtwith_key', lambda: 'dummy-key')
 
     class _FakeResponse:
@@ -116,7 +117,5 @@ async def test_process_handles_non_200_status(monkeypatch) -> None:
     monkeypatch.setattr(builtwith.aiohttp, 'ClientSession', _FakeSession)
 
     search = builtwith.SearchBuiltWith('example.com')
-    await search.process()
-
-    assert await search.get_hostnames() == set()
-    assert await search.get_tech_stack() == {}
+    with pytest.raises(RuntimeError, match='BuiltWith returned HTTP 403'):
+        await search.process()

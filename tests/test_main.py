@@ -1,5 +1,6 @@
 import argparse
 import logging
+import sys
 
 import pytest
 
@@ -116,3 +117,55 @@ async def test_invalid_subdomains_do_not_suppress_other_source_routes(monkeypatc
 
     assert process_calls == [False]
     assert stored == [('example.com', ('ops@example.com',), 'email', 'baidu')]
+
+
+@pytest.mark.asyncio
+async def test_selected_sources_execute_once_through_central_routes(monkeypatch: pytest.MonkeyPatch) -> None:
+    process_calls = {'builtwith': 0, 'securityscorecard': 0}
+    stored: list[tuple[str, tuple[str, ...], str, str]] = []
+
+    class FakeBuiltWithSearch:
+        def __init__(self, target: str) -> None:
+            assert target == 'example.com'
+
+        async def process(self, proxy: bool = False) -> None:
+            assert proxy is False
+            process_calls['builtwith'] += 1
+
+        async def get_hostnames(self) -> list[str]:
+            return ['app.example.com']
+
+        async def get_interestingurls(self) -> list[str]:
+            return ['https://example.com/login']
+
+    class FakeSecurityScorecardSearch:
+        def __init__(self, target: str) -> None:
+            assert target == 'example.com'
+
+        async def process(self, proxy: bool = False) -> None:
+            assert proxy is False
+            process_calls['securityscorecard'] += 1
+
+        async def get_hostnames(self) -> list[str]:
+            return ['score.example.com']
+
+        async def get_ips(self) -> list[str]:
+            return ['192.0.2.10']
+
+    monkeypatch.setattr(theharvester_main.builtwith, 'SearchBuiltWith', FakeBuiltWithSearch)
+    monkeypatch.setattr(theharvester_main.securityscorecard, 'SearchSecurityScorecard', FakeSecurityScorecardSearch)
+    _patch_stash(monkeypatch, stored)
+
+    monkeypatch.setattr(
+        sys,
+        'argv',
+        ['theHarvester', '-d', 'example.com', '-b', 'builtwith,securityscorecard', '--quiet'],
+    )
+
+    with pytest.raises(SystemExit) as exit_info:
+        await theharvester_main.start()
+
+    assert exit_info.value.code == 0
+    assert process_calls == {'builtwith': 1, 'securityscorecard': 1}
+    assert ('example.com', ('https://example.com/login',), 'interestingurls', 'builtwith') in stored
+    assert ('example.com', ('192.0.2.10',), 'ip', 'securityscorecard') in stored

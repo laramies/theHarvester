@@ -1799,60 +1799,6 @@ async def start(rest_args: argparse.Namespace | None = None):
             output_logger.info('    Continuing with the rest of the scan...')
             traceback.print_exc()  # More detailed error information for developers
 
-    if 'securityscorecard' in engines:
-        try:
-            output_logger.info('\n[*] Performing SecurityScorecard scan...')
-            securityscorecard_scanner = securityscorecard.SearchSecurityScorecard(word)
-            await securityscorecard_scanner.process(use_proxy)
-
-            # Use the existing API to get results
-            hosts = await securityscorecard_scanner.get_hostnames()
-            if hosts:
-                output_logger.info(f'\n[*] SecurityScorecard results: {len(hosts)} hosts found')
-                for host in hosts:
-                    output_logger.info(f'    - {host}')
-
-                all_hosts.extend(hosts)
-
-            ips = await securityscorecard_scanner.get_ips()
-            if ips:
-                output_logger.info(f'\n[*] SecurityScorecard IPs found: {len(ips)}')
-                for ip in ips:
-                    output_logger.info(f'    - {ip}')
-                all_ip.extend(ips)
-
-        except Exception as e:
-            output_logger.info(f'An exception has occurred in SecurityScorecard scanning: {e}')
-
-    if 'builtwith' in engines:
-        try:
-            output_logger.info('\n[*] Performing BuiltWith scan...')
-            builtwith_scanner = builtwith.SearchBuiltWith(word)
-            await builtwith_scanner.process(use_proxy)
-
-            hosts = await builtwith_scanner.get_hostnames()
-            if hosts:
-                output_logger.info(f'\n[*] BuiltWith results: {len(hosts)} hosts found')
-                for host in hosts:
-                    output_logger.info(f'    - {host}')
-
-                # Add results to the main host list
-                all_hosts.extend(hosts)
-
-            urls = list(await builtwith_scanner.get_interesting_urls())
-            if urls:
-                output_logger.info(f'\n[*] BuiltWith interesting URLs found: {len(urls)}')
-                for url in urls:
-                    output_logger.info(f'    - {url}')
-                interesting_urls.extend(urls)
-
-        except Exception as e:
-            if isinstance(e, MissingKey):
-                if not args.quiet:
-                    output_logger.info(MissingKey('BuiltWith'))
-                else:
-                    output_logger.info(f'An exception has occurred in BuiltWith scanning: {e}')
-
     if rest_args is not None:
         all_hosts = sorted({host.replace('www.', '') for host in all_hosts})
         return (
