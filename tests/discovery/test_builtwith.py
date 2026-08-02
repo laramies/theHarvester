@@ -1,3 +1,4 @@
+import json
 import sys
 import types
 
@@ -28,8 +29,7 @@ async def test_missing_key_raises(monkeypatch) -> None:
 
 @pytest.mark.asyncio
 async def test_process_accepts_text_json_content_type(monkeypatch) -> None:
-    """BuiltWith API returns 'text/json' content-type; response.json(content_type=None)
-    must be used so aiohttp does not raise a ContentTypeError."""
+    """BuiltWith text/json payloads must be decoded without MIME enforcement."""
     monkeypatch.setattr(builtwith.Core, 'builtwith_key', lambda: 'dummy-key')
 
     api_payload = {
@@ -44,39 +44,16 @@ async def test_process_accepts_text_json_content_type(monkeypatch) -> None:
         ],
     }
 
-    class _FakeResponse:
-        status = 200
+    async def fake_fetch(**kwargs):
+        assert kwargs['json'] is False
+        assert kwargs['fail_on_http_error'] is True
+        assert kwargs['follow_redirects'] is False
+        return json.dumps(api_payload)
 
-        async def json(self, **kwargs):
-            # Simulate aiohttp accepting content_type=None for 'text/json' responses
-            assert kwargs.get('content_type') is None, (
-                'content_type=None must be passed to accept non-standard MIME types like text/json'
-            )
-            return api_payload
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args):
-            pass
-
-    class _FakeSession:
-        def __init__(self, **_kwargs):
-            pass
-
-        def get(self, *_args, **_kwargs):
-            return _FakeResponse()
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args):
-            pass
-
-    monkeypatch.setattr(builtwith.aiohttp, 'ClientSession', _FakeSession)
+    monkeypatch.setattr(builtwith.AsyncFetcher, 'fetch', fake_fetch)
 
     search = builtwith.SearchBuiltWith('example.com')
-    await search.process()
+    await search.process(proxy=True)
 
     assert await search.get_hostnames() == {'sub.example.com'}
     assert await search.get_interestingurls() == {'https://example.com/login'}
@@ -92,30 +69,42 @@ async def test_process_accepts_text_json_content_type(monkeypatch) -> None:
 async def test_process_reports_non_200_status(monkeypatch) -> None:
     monkeypatch.setattr(builtwith.Core, 'builtwith_key', lambda: 'dummy-key')
 
-    class _FakeResponse:
-        status = 403
+    async def fake_fetch(**_kwargs):
+        raise RuntimeError('HTTP 403')
 
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args):
-            pass
-
-    class _FakeSession:
-        def __init__(self, **_kwargs):
-            pass
-
-        def get(self, *_args, **_kwargs):
-            return _FakeResponse()
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args):
-            pass
-
-    monkeypatch.setattr(builtwith.aiohttp, 'ClientSession', _FakeSession)
+    monkeypatch.setattr(builtwith.AsyncFetcher, 'fetch', fake_fetch)
 
     search = builtwith.SearchBuiltWith('example.com')
     with pytest.raises(RuntimeError, match='BuiltWith returned HTTP 403'):
+        await search.process()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('payload', ['', '{"error": "unauthorized"}'])
+async def test_proxy_failure_is_not_reported_as_empty(monkeypatch, payload) -> None:
+    monkeypatch.setattr(builtwith.Core, 'builtwith_key', lambda: 'dummy-key')
+
+    async def fake_fetch(**kwargs):
+        assert kwargs['fail_on_http_error'] is True
+        assert kwargs['json'] is False
+        return payload
+
+    monkeypatch.setattr(builtwith.AsyncFetcher, 'fetch', fake_fetch)
+
+    search = builtwith.SearchBuiltWith('example.com')
+    with pytest.raises(ValueError, match='BuiltWith returned an invalid payload'):
+        await search.process(proxy=True)
+
+
+@pytest.mark.asyncio
+async def test_malformed_payload_is_not_reported_as_empty(monkeypatch) -> None:
+    monkeypatch.setattr(builtwith.Core, 'builtwith_key', lambda: 'dummy-key')
+
+    async def fake_fetch(**_kwargs):
+        return '[]'
+
+    monkeypatch.setattr(builtwith.AsyncFetcher, 'fetch', fake_fetch)
+
+    search = builtwith.SearchBuiltWith('example.com')
+    with pytest.raises(ValueError, match='BuiltWith returned an invalid payload'):
         await search.process()

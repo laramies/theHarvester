@@ -1,5 +1,3 @@
-import aiohttp
-
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import AsyncFetcher, Core
 
@@ -22,23 +20,38 @@ class SearchSecurityScorecard:
 
     async def process(self, proxy: bool = False) -> None:
         """Get security scorecard information for a domain."""
-        if proxy:
-            response = await AsyncFetcher.fetch(
-                session=None, url=f'{self.base_url}/companies/{self.word}', headers=self.headers, proxy=proxy
+        try:
+            payload = await AsyncFetcher.fetch(
+                session=None,
+                url=f'{self.base_url}/companies/{self.word}',
+                headers=self.headers,
+                proxy=proxy,
+                json=True,
+                fail_on_http_error=True,
+                follow_redirects=False,
             )
-            if response is None:
-                raise RuntimeError('SecurityScorecard returned no response')
-            self._extract_data(response)
-            return
-
-        async with aiohttp.ClientSession(headers=self.headers) as session:
-            async with session.get(f'{self.base_url}/companies/{self.word}') as response:
-                if response.status != 200:
-                    raise RuntimeError(f'SecurityScorecard returned HTTP {response.status}')
-                self._extract_data(await response.json())
+        except RuntimeError as error:
+            raise RuntimeError(f'SecurityScorecard returned {error}') from error
+        if not isinstance(payload, dict):
+            raise ValueError('SecurityScorecard returned an invalid payload')
+        self._extract_data(payload)
 
     def _extract_data(self, data: dict) -> None:
         """Extract and categorize security scorecard information."""
+        if data.keys().isdisjoint(
+            {
+                'grade',
+                'factor_grades',
+                'issues',
+                'recommendations',
+                'history',
+                'domains',
+                'ips',
+                'ip_addresses',
+                'associated_ips',
+            }
+        ):
+            raise ValueError('SecurityScorecard returned an invalid payload')
         if 'grade' in data:
             self.score = data.get('grade', 0)
 

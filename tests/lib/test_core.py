@@ -131,9 +131,10 @@ def test_read_config_copies_default_to_home(name: str, capsys):
 
 
 class DummyResponse:
-    def __init__(self, text_value: str = 'response-text', json_value: Any = None):
+    def __init__(self, text_value: str = 'response-text', json_value: Any = None, status: int = 200):
         self.text_value = text_value
         self.json_value = {'ok': True} if json_value is None else json_value
+        self.status = status
 
     async def __aenter__(self):
         return self
@@ -279,6 +280,24 @@ async def test_fetch_uses_http_proxy_when_enabled(monkeypatch) -> None:
     assert session.requests == [
         ('GET', 'https://example.com', {'ssl': 'ssl-context', 'proxy': 'http://proxy.local:8080'})
     ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('status', [302, 503])
+async def test_fetch_can_report_http_errors(monkeypatch, status: int) -> None:
+    class ErrorSession(DummySession):
+        def request(self, method: str, url: str, **kwargs):
+            self.requests.append((method, url, kwargs))
+            return DummyResponse(status=status)
+
+    reset_dummy_sessions()
+    monkeypatch.setattr(core_module.aiohttp, 'ClientSession', ErrorSession)
+    monkeypatch.setattr(core_module.ssl, 'create_default_context', lambda cafile=None: 'ssl-context')
+    monkeypatch.setattr(core_module.certifi, 'where', lambda: '/tmp/cacert.pem')
+    monkeypatch.setattr(core_module.asyncio, 'sleep', fake_sleep)
+
+    with pytest.raises(RuntimeError, match=f'HTTP {status}'):
+        await AsyncFetcher.fetch(url='https://example.com', fail_on_http_error=True)
 
 
 @pytest.mark.asyncio

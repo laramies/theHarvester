@@ -1,6 +1,5 @@
+import json
 from typing import Any
-
-import aiohttp
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import AsyncFetcher, Core
@@ -25,25 +24,31 @@ class SearchBuiltWith:
 
     async def process(self, proxy: bool = False) -> None:
         """Get technology stack information for a domain."""
-        if proxy:
+        try:
             response = await AsyncFetcher.fetch(
-                session=None, url=f'{self.base_url}?KEY={self.api_key}&LOOKUP={self.word}', headers=self.headers, proxy=proxy
+                session=None,
+                url=f'{self.base_url}?KEY={self.api_key}&LOOKUP={self.word}',
+                headers=self.headers,
+                proxy=proxy,
+                json=False,
+                fail_on_http_error=True,
+                follow_redirects=False,
             )
-            if response is None:
-                raise RuntimeError('BuiltWith returned no response')
-            self.tech_stack = response
-            self._extract_data()
-            return
-
-        async with aiohttp.ClientSession(headers=self.headers) as session:
-            async with session.get(f'{self.base_url}?KEY={self.api_key}&LOOKUP={self.word}') as response:
-                if response.status != 200:
-                    raise RuntimeError(f'BuiltWith returned HTTP {response.status}')
-                self.tech_stack = await response.json(content_type=None)
-                self._extract_data()
+        except RuntimeError as error:
+            raise RuntimeError(f'BuiltWith returned {error}') from error
+        try:
+            payload = json.loads(response)
+        except (json.JSONDecodeError, TypeError) as error:
+            raise ValueError('BuiltWith returned an invalid payload') from error
+        if not isinstance(payload, dict):
+            raise ValueError('BuiltWith returned an invalid payload')
+        self.tech_stack = payload
+        self._extract_data()
 
     def _extract_data(self) -> None:
         """Extract and categorize technology information."""
+        if self.tech_stack.keys().isdisjoint({'domains', 'paths', 'technologies'}):
+            raise ValueError('BuiltWith returned an invalid payload')
         if 'domains' in self.tech_stack:
             self.hosts.update(self.tech_stack['domains'])
         if 'paths' in self.tech_stack:
