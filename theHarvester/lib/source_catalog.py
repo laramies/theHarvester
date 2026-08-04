@@ -80,7 +80,7 @@ _SPECS = (
     _spec('otx', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
     _spec('pentesttools', ResultRoute.SUBDOMAINS),
     _spec('projectdiscovery', ResultRoute.SUBDOMAINS),
-    _spec('rapiddns', ResultRoute.SUBDOMAINS),
+    _spec('rapiddns', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
     _spec('robtex', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
     _spec('rocketreach', ResultRoute.EMAILS, ResultRoute.LINKS),
     _spec('securityTrails', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
