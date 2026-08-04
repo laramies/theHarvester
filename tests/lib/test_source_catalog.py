@@ -55,6 +55,10 @@ def test_source_specs_describe_consolidated_routes_not_getter_presence() -> None
     )
 
 
+def test_rapiddns_declares_separate_subdomain_and_ip_routes() -> None:
+    assert SOURCE_SPECS['rapiddns'].routes == frozenset({ResultRoute.SUBDOMAINS, ResultRoute.IPS})
+
+
 def test_capability_selection_preserves_every_declared_route() -> None:
     assert 'venacus' in Core.expand_source_selection('emails')
     assert get_source_spec('venacus').routes == frozenset(

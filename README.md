@@ -166,7 +166,7 @@ Read the **API key** column as follows:
 | `otx` | ✓ | No | ✓ | No | No | No | No | No |
 | `pentesttools` | ✓ | No | No | No | No | No | No | ✓ |
 | `projectdiscovery` | ✓ | No | No | No | No | No | No | ✓ |
-| `rapiddns` | ✓ | No | No | No | No | No | No | No |
+| `rapiddns` | ✓ | No | ✓ | No | No | No | No | No |
 | `robtex` | ✓ | No | ✓ | No | No | No | No | No |
 | `rocketreach` | No | ✓ | No | No | ✓ | No | No | ✓ |
 | `securityscorecard` | ✓ | No | ✓ | No | No | No | `POST /additional/security-score` response | ✓ |

@@ -316,6 +316,7 @@ async def start(rest_args: argparse.Namespace | None = None):
     engines: list = []
     # If the user specifies
     full: list = []
+    reported_host_ip_pairs: set[tuple[str, str]] = set()
     ips: list = []
     host_ip: list = []
     limit: int = args.limit
@@ -363,7 +364,13 @@ async def start(rest_args: argparse.Namespace | None = None):
         if ResultRoute.SUBDOMAINS in routes:
             discovered_hosts = await search_engine.get_hostnames()
             host_names = list(_normalize_hosts_for_storage(discovered_hosts, word))
-            if source != 'hackertarget' and source != 'pentesttools' and source != 'rapiddns':
+            if source == 'rapiddns':
+                for host, address in await search_engine.get_host_ip_pairs():
+                    normalized = normalize_scoped_hostname(host, word)
+                    if normalized and normalized in host_names:
+                        reported_host_ip_pairs.add((normalized, address))
+                full.extend(host_names)
+            elif source != 'hackertarget' and source != 'pentesttools':
                 # If a source is inside this conditional, it means the hosts returned must be resolved to obtain ip
                 # This should only be checked if --dns-resolve has a wordlist
                 if dnsresolve is None or len(final_dns_resolver_list) > 0:
@@ -393,7 +400,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         if ResultRoute.IPS in routes:
             ips_list = await search_engine.get_ips()
             all_ip.extend(ips_list)
-            await db_stash.store_all(word, all_ip, 'ip', source)
+            await db_stash.store_all(word, ips_list, 'ip', source)
 
         if ResultRoute.PEOPLE in routes:
             people_list = await search_engine.get_people()
@@ -1610,7 +1617,12 @@ async def start(rest_args: argparse.Namespace | None = None):
                 await file.write('<cmd>' + ' '.join(sanitized_args) + '</cmd>')
                 for email in all_emails:
                     await file.write('<email>' + sanitize_for_xml(email) + '</email>')
+                paired_hosts = {host for host, _ip in reported_host_ip_pairs}
+                for host, ip in sorted(reported_host_ip_pairs):
+                    await file.write(f'<host><ip>{sanitize_for_xml(ip)}</ip><hostname>{sanitize_for_xml(host)}</hostname></host>')
                 for x in full:
+                    if x in paired_hosts:
+                        continue
                     host, ip = x.split(':', 1) if ':' in x else (x, '')
                     if ip and len(ip) > 3:
                         await file.write(
