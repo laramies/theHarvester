@@ -15,7 +15,7 @@ It is built for the early reconnaissance stage of authorized security assessment
 - **Useful result types:** collect hostnames, email addresses, IP addresses, URLs, ASNs, and people.
 - **Enrichment after discovery:** optionally resolve DNS, query Shodan, check for subdomain takeovers, brute-force DNS names, scan common API paths, and capture screenshots.
 - **CLI and browser-accessible API:** use the command line interactively or run the FastAPI service for automation and interactive Swagger/ReDoc documentation.
-- **Repeatable output:** print results, write JSON and XML reports, and retain host, email, and IP findings in a local SQLite database.
+- **Repeatable output:** print results, write JSON, XML, and JSONL reports, and retain host, email, and IP findings in a local SQLite database.
 - **Operational controls:** select individual sources, set result limits, use HTTP or SOCKS proxies, choose DNS resolvers, and suppress missing-key noise.
 
 Source availability, quotas, and response formats are controlled by third parties and can change independently of theHarvester.
@@ -56,7 +56,7 @@ uv run theHarvester -d example.com -b emails,urls,certspotter
 
 Capability selectors form a union and choose which sources run. They do not discard other result types returned by those sources. Available selectors are `subdomains`, `emails`, `ips`, `asns`, `urls`, and `people`. `-b all` continues to run every registered source.
 
-Save both JSON and XML reports:
+Save JSON, XML, and JSONL reports:
 
 ```bash
 uv run theHarvester -d example.com -b crtsh,certspotter -f report
@@ -206,7 +206,7 @@ Never commit populated configuration files, API keys, account details, or provid
 ## Results and local data
 
 - Terminal output shows consolidated findings. Separately selected actions, such as `-s` / `--shodan`, may print their own enrichment.
-- `-f NAME` writes `NAME.json` and `NAME.xml`.
+- `-f NAME` writes `NAME.json`, `NAME.xml`, and `NAME.jsonl`.
 - Screenshots are written to the directory passed to `--screenshot`.
 - Host, email, IP, and related scan records are stored in `~/.local/share/theHarvester/stash.sqlite`.
 - REST queries return JSON.
@@ -228,6 +228,14 @@ The JSON report is a single object and is the more complete format for automatio
 | `takeover_results` | When non-empty | Optional takeover-check results. |
 
 The XML report contains the command, emails, hosts, and virtual hosts. Use JSON when you need the additional result types above.
+
+The JSONL report is finalized after the selected one-shot actions finish. Its first line is a summary with an independent run UUID, the target, UTC timestamps, counts, and schema version. Each remaining line is one deterministic, deduplicated string finding. The format does not claim provider success or record source attribution.
+
+List every JSONL finding as tab-separated type and value columns:
+
+```bash
+jq -r 'select(.type != "summary") | [.type, .value] | @tsv' report.jsonl
+```
 
 List discovered hosts with [`jq`](https://jqlang.org/):
 

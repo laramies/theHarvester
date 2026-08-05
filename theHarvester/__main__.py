@@ -9,6 +9,8 @@ import sys
 import time
 import traceback
 from collections.abc import Iterable
+from datetime import UTC, datetime
+from ipaddress import ip_address
 from typing import TYPE_CHECKING, Any
 
 import anyio
@@ -79,6 +81,7 @@ from theHarvester.discovery import (
 )
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib import hostchecker, stash
+from theHarvester.lib.completed_result import CompletedResult, ResultKind
 from theHarvester.lib.core import DATA_DIR, Core, show_default_error_message
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.output import configure_logging, output_logger, print_linkedin_sections, print_section, sorted_unique
@@ -98,6 +101,18 @@ def _normalize_hosts_for_storage(discovered_hosts: Iterable[object], target: str
         for host in discovered_hosts
         if (normalized := normalize_scoped_hostname(host, normalized_target)) and normalized != normalized_target
     }
+
+
+def _normalize_ip_addresses(values: Iterable[object]) -> set[str]:
+    addresses: set[str] = set()
+    for value in values:
+        if not isinstance(value, str):
+            continue
+        try:
+            addresses.add(str(ip_address(value.strip())))
+        except ValueError:
+            continue
+    return addresses
 
 
 def sanitize_for_xml(text: str) -> str:
@@ -198,7 +213,7 @@ async def start(rest_args: argparse.Namespace | None = None):
     parser.add_argument(
         '-f',
         '--filename',
-        help='Save the results to an XML and JSON file.',
+        help='Save the results to XML, JSON, and JSONL files.',
         default='',
         type=str,
     )
@@ -269,6 +284,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         else:
             # For relative paths, sanitize the entire filename
             filename = sanitize_filename(filename)
+    report_started_at = datetime.now(UTC) if filename else None
 
     all_emails: list = []
     all_hosts: list = []
@@ -1860,6 +1876,33 @@ async def start(rest_args: argparse.Namespace | None = None):
                     output_logger.info(MissingKey('BuiltWith'))
                 else:
                     output_logger.info(f'An exception has occurred in BuiltWith scanning: {e}')
+
+    if filename and report_started_at is not None:
+        try:
+            groups: dict[ResultKind, Iterable[str]] = {
+                'asn': map(str, total_asns),
+                'email': map(str, all_emails),
+                'hostname': _normalize_hosts_for_storage((*all_hosts, *dnsrev), word),
+                'interesting-url': map(str, interesting_urls),
+                'ip-address': _normalize_ip_addresses(all_ip),
+                'linkedin-link': map(str, linkedin_links_tracker),
+                'linkedin-person': map(str, linkedin_people_list_tracker),
+                'twitter-person': map(str, twitter_people_list_tracker),
+                'url': map(str, all_urls),
+                'vhost': map(str, vhost),
+            }
+            completed_result = CompletedResult.finish(
+                target=word,
+                started_at=report_started_at,
+                completed_at=datetime.now(UTC),
+                groups=groups,
+            )
+            jsonl_filename = filename.rsplit('.', 1)[0] + '.jsonl'
+            async with await anyio.open_file(jsonl_filename, 'w+', encoding='UTF-8') as fp:
+                await fp.write(completed_result.jsonl())
+            output_logger.info('[*] JSONL File saved.')
+        except (OSError, ValueError, TypeError, UnicodeEncodeError) as error:
+            output_logger.info(f'[!] An error occurred while saving the JSONL file: {error}')
 
     if rest_args is not None:
         all_hosts = sorted({host.replace('www.', '') for host in all_hosts})
