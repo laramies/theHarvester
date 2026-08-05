@@ -55,7 +55,7 @@ class SearchRapidDns:
                     self.totalips.add(address)
                     self.host_ip_pairs.add((subdomain, address))
         except Exception as e:
-            logger.info(f'An exception has occurred: {e!s}')
+            logger.info(f'RapidDNS error: {e!s}')
 
     async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy

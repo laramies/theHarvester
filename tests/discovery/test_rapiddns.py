@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import sys
 import xml.etree.ElementTree as ElementTree
 from argparse import Namespace
@@ -44,6 +45,44 @@ async def test_rapiddns_separates_hostnames_ips_and_associations(monkeypatch: py
     }
     assert await search.get_ips() == {'192.0.2.1'}
     assert await search.get_host_ip_pairs() == {('api.example.com', '192.0.2.1')}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('payload', ['', '<html><p>no results</p></html>'])
+async def test_rapiddns_handles_empty_or_malformed_html(
+    monkeypatch: pytest.MonkeyPatch,
+    payload: str,
+) -> None:
+    async def fake_response(*_args: Any, **_kwargs: Any) -> list[str]:
+        return [payload]
+
+    monkeypatch.setattr(rapiddns.AsyncFetcher, 'fetch_all', fake_response)
+    search = rapiddns.SearchRapidDns('example.com')
+
+    await search.process()
+
+    assert await search.get_hostnames() == []
+    assert await search.get_ips() == set()
+    assert await search.get_host_ip_pairs() == set()
+
+
+@pytest.mark.asyncio
+async def test_rapiddns_attributes_provider_failures(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    async def failed_fetch(*_args: Any, **_kwargs: Any) -> list[str]:
+        raise OSError('provider unavailable')
+
+    monkeypatch.setattr(rapiddns.AsyncFetcher, 'fetch_all', failed_fetch)
+    search = rapiddns.SearchRapidDns('example.com')
+
+    with caplog.at_level(logging.INFO, logger=rapiddns.__name__):
+        await search.process()
+
+    assert await search.get_hostnames() == []
+    assert await search.get_ips() == set()
+    assert 'RapidDNS error' in caplog.text
 
 
 @pytest.mark.asyncio

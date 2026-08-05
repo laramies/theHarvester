@@ -1,7 +1,10 @@
+import logging
 from ipaddress import ip_address
 from typing import Any
 
 from theHarvester.lib.core import AsyncFetcher
+
+logger = logging.getLogger(__name__)
 
 
 class SearchOtx:
@@ -18,6 +21,7 @@ class SearchOtx:
         except (OSError, RuntimeError, ValueError):
             self.totalhosts = set()
             self.totalips = set()
+            logger.info('OTX request failed')
             return
 
         # Expect a list with one JSON-decoded dict
