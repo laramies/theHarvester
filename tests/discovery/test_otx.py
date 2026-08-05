@@ -7,7 +7,7 @@ import httpx
 import pytest
 
 from theHarvester.discovery import otxsearch
-from theHarvester.lib.core import Core
+from theHarvester.lib.core import Core, FetcherResponse
 
 
 class TestOtx(object):
@@ -25,17 +25,21 @@ class TestOtx(object):
 
     @pytest.mark.asyncio
     async def test_search(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[dict[str, list[dict[str, Any]]]]:
+        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[FetcherResponse]:
             return [
-                {
-                    'passive_dns': [
-                        {'hostname': 'api.example.com', 'address': '192.0.2.1'},
-                        {'hostname': 'api.example.com', 'address': '2001:0db8::1'},
-                        {'hostname': 'api.example.com', 'address': '999.0.0.1'},
-                        {'hostname': 'www.example.com', 'address': 'NXDOMAIN'},
-                        {'hostname': 'www.example.com', 'address': 1234},
-                    ]
-                }
+                FetcherResponse(
+                    body={
+                        'passive_dns': [
+                            {'hostname': 'api.example.com', 'address': '192.0.2.1'},
+                            {'hostname': 'api.example.com', 'address': '2001:0db8::1'},
+                            {'hostname': 'api.example.com', 'address': '999.0.0.1'},
+                            {'hostname': 'www.example.com', 'address': 'NXDOMAIN'},
+                            {'hostname': 'www.example.com', 'address': 1234},
+                        ]
+                    },
+                    status=200,
+                    headers={},
+                )
             ]
 
         monkeypatch.setattr(otxsearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
@@ -51,8 +55,8 @@ class TestOtx(object):
         monkeypatch: pytest.MonkeyPatch,
         payload: Any,
     ) -> None:
-        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[Any]:
-            return [payload]
+        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[FetcherResponse]:
+            return [FetcherResponse(body=payload, status=200, headers={})]
 
         monkeypatch.setattr(otxsearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = otxsearch.SearchOtx(TestOtx.domain())
@@ -81,6 +85,75 @@ class TestOtx(object):
         assert await search.get_ips() == set()
         assert 'OTX request failed' in caplog.text
 
+    @pytest.mark.asyncio
+    async def test_rate_limit_waits_once_then_returns_evidence(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        responses = [
+            FetcherResponse(body={'error': 'rate limited'}, status=429, headers={'retry-after': '2'}),
+            FetcherResponse(
+                body={'passive_dns': [{'hostname': 'api.example.com', 'address': '192.0.2.1'}]},
+                status=200,
+                headers={},
+            ),
+        ]
+        waits: list[float] = []
 
-if __name__ == "__main__":
+        async def fake_fetch_all(*_args: Any, **kwargs: Any) -> list[FetcherResponse]:
+            assert kwargs['include_metadata'] is True
+            return [responses.pop(0)]
+
+        async def fake_sleep(seconds: float) -> None:
+            waits.append(seconds)
+
+        monkeypatch.setattr(otxsearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+        monkeypatch.setattr(otxsearch.asyncio, 'sleep', fake_sleep)
+        search = otxsearch.SearchOtx(TestOtx.domain())
+
+        await search.process()
+
+        assert waits == [2]
+        assert await search.get_hostnames() == {'api.example.com'}
+        assert await search.get_ips() == {'192.0.2.1'}
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ('retry_after', 'expected_waits', 'response_count'),
+        [
+            (None, [5], 2),
+            ('invalid', [5], 2),
+            ('61', [], 1),
+        ],
+    )
+    async def test_rate_limit_retry_is_bounded(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+        retry_after: str | None,
+        expected_waits: list[int],
+        response_count: int,
+    ) -> None:
+        headers = {} if retry_after is None else {'retry-after': retry_after}
+        responses = [FetcherResponse(body={}, status=429, headers=headers) for _ in range(response_count)]
+        waits: list[float] = []
+
+        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[FetcherResponse]:
+            return [responses.pop(0)]
+
+        async def fake_sleep(seconds: float) -> None:
+            waits.append(seconds)
+
+        monkeypatch.setattr(otxsearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+        monkeypatch.setattr(otxsearch.asyncio, 'sleep', fake_sleep)
+        search = otxsearch.SearchOtx(TestOtx.domain())
+
+        with caplog.at_level(logging.INFO, logger=otxsearch.__name__):
+            await search.process()
+
+        assert responses == []
+        assert waits == expected_waits
+        assert await search.get_hostnames() == set()
+        assert await search.get_ips() == set()
+        assert 'OTX request failed with HTTP 429' in caplog.text
+
+
+if __name__ == '__main__':
     pytest.main()
