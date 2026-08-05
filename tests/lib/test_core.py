@@ -9,7 +9,7 @@ import pytest
 import yaml
 
 import theHarvester.lib.core as core_module
-from theHarvester.lib.core import CONFIG_DIRS, DATA_DIR, AsyncFetcher, Core
+from theHarvester.lib.core import CONFIG_DIRS, DATA_DIR, AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.output import configure_logging
 
 
@@ -132,10 +132,21 @@ def test_read_config_copies_default_to_home(name: str, capsys):
     assert file.exists()
 
 
+_DEFAULT_JSON = object()
+
+
 class DummyResponse:
-    def __init__(self, text_value: str = 'response-text', json_value: Any = None):
+    def __init__(
+        self,
+        text_value: str = 'response-text',
+        json_value: Any = _DEFAULT_JSON,
+        status: int = 200,
+        headers: dict[str, str] | None = None,
+    ):
         self.text_value = text_value
-        self.json_value = {'ok': True} if json_value is None else json_value
+        self.json_value = {'ok': True} if json_value is _DEFAULT_JSON else json_value
+        self.status = status
+        self.headers = headers or {}
 
     async def __aenter__(self):
         return self
@@ -147,6 +158,8 @@ class DummyResponse:
         return self.text_value
 
     async def json(self):
+        if isinstance(self.json_value, Exception):
+            raise self.json_value
         return self.json_value
 
 
@@ -260,6 +273,108 @@ async def test_fetch_creates_session_with_default_headers(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
+async def test_fetch_can_include_buffered_response_metadata(monkeypatch) -> None:
+    reset_dummy_sessions()
+    monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
+    monkeypatch.setattr(core_module.ssl, 'create_default_context', lambda cafile=None: 'ssl-context')
+    monkeypatch.setattr(core_module.certifi, 'where', lambda: '/tmp/cacert.pem')
+    monkeypatch.setattr(core_module.asyncio, 'sleep', fake_sleep)
+
+    def request_with_metadata(self, method: str, url: str, **kwargs):
+        self.requests.append((method, url, kwargs))
+        return DummyResponse(
+            text_value='rate limited',
+            status=429,
+            headers={'Retry-After': '60', 'X-RateLimit-Remaining': '0'},
+        )
+
+    monkeypatch.setattr(DummySession, 'request', request_with_metadata)
+
+    result = await AsyncFetcher.fetch(url='https://example.com', include_metadata=True)
+
+    assert result == FetcherResponse(
+        body='rate limited',
+        status=429,
+        headers={'retry-after': '60', 'x-ratelimit-remaining': '0'},
+    )
+
+
+@pytest.mark.asyncio
+async def test_fetch_metadata_distinguishes_transport_failure(monkeypatch) -> None:
+    async def failed_request(*_args: Any, **_kwargs: Any) -> str:
+        raise OSError('network unavailable')
+
+    monkeypatch.setattr(AsyncFetcher, '_request', failed_request)
+
+    result = await AsyncFetcher.fetch(session=DummySession(), url='https://example.com', include_metadata=True)
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_fetch_metadata_preserves_non_json_error_body(monkeypatch) -> None:
+    reset_dummy_sessions()
+    monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
+    monkeypatch.setattr(core_module.ssl, 'create_default_context', lambda cafile=None: 'ssl-context')
+    monkeypatch.setattr(core_module.certifi, 'where', lambda: '/tmp/cacert.pem')
+    monkeypatch.setattr(core_module.asyncio, 'sleep', fake_sleep)
+
+    def request_with_invalid_json(self, method: str, url: str, **kwargs):
+        self.requests.append((method, url, kwargs))
+        return DummyResponse(text_value='upstream error', json_value=ValueError(), status=502)
+
+    monkeypatch.setattr(DummySession, 'request', request_with_invalid_json)
+
+    result = await AsyncFetcher.fetch(url='https://example.com', json=True, include_metadata=True)
+
+    assert result == FetcherResponse(body='upstream error', status=502, headers={})
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('text_value', 'expected_body'),
+    [('', ''), ('null', None)],
+)
+async def test_fetch_metadata_distinguishes_empty_json_from_null(
+    monkeypatch,
+    text_value: str,
+    expected_body: Any,
+) -> None:
+    reset_dummy_sessions()
+    monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
+    monkeypatch.setattr(core_module.ssl, 'create_default_context', lambda cafile=None: 'ssl-context')
+    monkeypatch.setattr(core_module.certifi, 'where', lambda: '/tmp/cacert.pem')
+    monkeypatch.setattr(core_module.asyncio, 'sleep', fake_sleep)
+
+    def request_with_json(self, method: str, url: str, **kwargs):
+        self.requests.append((method, url, kwargs))
+        return DummyResponse(text_value=text_value, json_value=None)
+
+    monkeypatch.setattr(DummySession, 'request', request_with_json)
+
+    result = await AsyncFetcher.fetch(url='https://example.com', json=True, include_metadata=True)
+
+    assert result == FetcherResponse(body=expected_body, status=200, headers={})
+
+
+@pytest.mark.asyncio
+async def test_fetch_all_propagates_metadata_opt_in(monkeypatch) -> None:
+    seen: list[bool] = []
+
+    async def fake_fetch(*_args: Any, include_metadata: bool = False, **_kwargs: Any) -> FetcherResponse:
+        seen.append(include_metadata)
+        return FetcherResponse(body='limited', status=429, headers={'retry-after': '60'})
+
+    monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
+    monkeypatch.setattr(AsyncFetcher, 'fetch', fake_fetch)
+
+    results = await AsyncFetcher.fetch_all(['https://one.example', 'https://two.example'], include_metadata=True)
+
+    assert seen == [True, True]
+    assert [result.status for result in results] == [429, 429]
+
+
+@pytest.mark.asyncio
 async def test_fetch_uses_http_proxy_when_enabled(monkeypatch) -> None:
     reset_dummy_sessions()
     monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
@@ -305,6 +420,23 @@ async def test_post_fetch_decodes_string_payload_and_posts_params(monkeypatch) -
     assert session.requests == [
         ('POST', 'https://example.com/api', {'data': {'query': 'example'}, 'ssl': 'ssl-context', 'params': {'page': 2}})
     ]
+
+
+@pytest.mark.asyncio
+async def test_post_fetch_can_include_response_metadata(monkeypatch) -> None:
+    reset_dummy_sessions()
+    monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
+    monkeypatch.setattr(core_module.asyncio, 'sleep', fake_sleep)
+
+    def request_with_metadata(self, method: str, url: str, **kwargs):
+        self.requests.append((method, url, kwargs))
+        return DummyResponse(text_value='unavailable', status=503, headers={'Retry-After': '30'})
+
+    monkeypatch.setattr(DummySession, 'request', request_with_metadata)
+
+    result = await AsyncFetcher.post_fetch('https://example.com/api', data='{}', include_metadata=True)
+
+    assert result == FetcherResponse(body='unavailable', status=503, headers={'retry-after': '30'})
 
 
 @pytest.mark.asyncio
