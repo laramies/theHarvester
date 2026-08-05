@@ -14,6 +14,7 @@ ResultKind = Literal[
     'ip-address',
     'linkedin-link',
     'linkedin-person',
+    'person',
     'twitter-person',
     'url',
     'vhost',
