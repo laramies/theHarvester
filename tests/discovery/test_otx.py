@@ -24,12 +24,15 @@ class TestOtx(object):
 
     @pytest.mark.asyncio
     async def test_search(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[dict[str, list[dict[str, str]]]]:
+        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[dict[str, list[dict[str, Any]]]]:
             return [
                 {
                     'passive_dns': [
                         {'hostname': 'api.example.com', 'address': '192.0.2.1'},
+                        {'hostname': 'api.example.com', 'address': '2001:0db8::1'},
+                        {'hostname': 'api.example.com', 'address': '999.0.0.1'},
                         {'hostname': 'www.example.com', 'address': 'NXDOMAIN'},
+                        {'hostname': 'www.example.com', 'address': 1234},
                     ]
                 }
             ]
@@ -38,7 +41,7 @@ class TestOtx(object):
         search = otxsearch.SearchOtx(TestOtx.domain())
         await search.process()
         assert await search.get_hostnames() == {'api.example.com', 'www.example.com'}
-        assert await search.get_ips() == {'192.0.2.1'}
+        assert await search.get_ips() == {'192.0.2.1', '2001:db8::1'}
 
 
 if __name__ == "__main__":

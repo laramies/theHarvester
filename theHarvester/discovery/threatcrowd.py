@@ -1,5 +1,6 @@
 import json as _stdlib_json
 import logging
+from ipaddress import ip_address
 from types import ModuleType
 
 from theHarvester.lib.core import AsyncFetcher, Core
@@ -76,13 +77,17 @@ class SearchThreatcrowd:
                     if isinstance(resolutions, list):
                         for resolution in resolutions:
                             if isinstance(resolution, dict):
-                                ip = resolution.get('ip_address', '')
-                                if ip and ip.strip():
-                                    self.totalips.add(ip.strip())
+                                value = resolution.get('ip_address')
                             elif isinstance(resolution, str):
-                                # Sometimes IPs are directly in the list
-                                if resolution.strip():
-                                    self.totalips.add(resolution.strip())
+                                value = resolution
+                            else:
+                                continue
+                            if not isinstance(value, str):
+                                continue
+                            try:
+                                self.totalips.add(str(ip_address(value.strip())))
+                            except ValueError:
+                                continue
 
             except Exception as e:
                 logger.info(f'Failed to parse ThreatCrowd response: {e}')
