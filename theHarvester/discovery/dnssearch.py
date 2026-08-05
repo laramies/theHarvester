@@ -31,6 +31,7 @@ class DnsForce:
         self.domain = domain
         self.subdo = False
         self.verbose = verbose
+        self.records: dict[str, hostchecker.HostDnsRecords] = {}
         # self.dnsserver = [dnsserver] if isinstance(dnsserver, str) else dnsserver
         # self.dnsserver = list(map(str, dnsserver.split(','))) if isinstance(dnsserver, str) else dnsserver
         self.dnsserver = dnsserver
@@ -43,6 +44,7 @@ class DnsForce:
         logger.info(f'Starting DNS brute forcing with {len(self.list)} words')
         checker = hostchecker.Checker(self.list, nameservers=self.dnsserver)
         resolved_pair, hosts, ips = await checker.check()
+        self.records = checker.records
         return resolved_pair, hosts, ips
 
 

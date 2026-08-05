@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Expanded offline regression coverage for discovery providers, configuration contracts, logging, output, documentation, workflow policy, and scope boundaries.
 
 ### Fixed
+- Fixed DNS candidate validation to omit names without usable A, AAAA, or CNAME evidence, normalize and deduplicate IPv4, IPv6, and canonical-name records, and preserve the existing `Checker.check()` and `DnsForce.run()` return shape.
 - Fixed REST `/query` requests with a filename so they no longer fail with an unbound local value and HTTP 500 response ([c358df80](https://github.com/laramies/theHarvester/commit/c358df80)).
 - Fixed Brave result limits, malformed Mojeek responses, DuckDuckGo provider and parser boundaries, Baidu verification status reporting, invalid Robtex reverse lookups, and transient crt.sh failures ([72c0d9eb](https://github.com/laramies/theHarvester/commit/72c0d9eb), [48be3ccd](https://github.com/laramies/theHarvester/commit/48be3ccd), [6e7945b5](https://github.com/laramies/theHarvester/commit/6e7945b5), [48f959cc](https://github.com/laramies/theHarvester/commit/48f959cc), [1d56dc78](https://github.com/laramies/theHarvester/commit/1d56dc78), [e8d5278b](https://github.com/laramies/theHarvester/commit/e8d5278b), [26adbc49](https://github.com/laramies/theHarvester/commit/26adbc49)).
 - Fixed IntelX hostname, email, IP, and URL result normalization and kept its routing source-scoped ([281f6d45](https://github.com/laramies/theHarvester/commit/281f6d45)).
