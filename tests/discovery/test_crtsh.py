@@ -59,12 +59,11 @@ class TestCrtshSearch:
         assert set(await search.get_hostnames()) == {'a.example.com', 'b.example.com'}
 
     @pytest.mark.asyncio
-    async def test_numeric_prefixed_entries_are_filtered(self, monkeypatch):
+    async def test_numeric_prefixed_entries_are_preserved(self, monkeypatch):
         _patch_fetch(monkeypatch, [{'name_value': '1234.example.com'}, {'name_value': 'good.example.com'}])
         search = crtsh.SearchCrtsh('example.com')
         await search.process()
-        # The numeric-prefixed entry is filtered out, leaving only the valid hostname.
-        assert set(await search.get_hostnames()) == {'good.example.com'}
+        assert set(await search.get_hostnames()) == {'1234.example.com', 'good.example.com'}
 
     @pytest.mark.asyncio
     async def test_empty_response_returns_no_hostnames(self, monkeypatch):

@@ -31,7 +31,7 @@ class SearchCrtsh:
                 return []
 
             data = set([(dct['name_value'][2:] if dct['name_value'][:2] == '*.' else dct['name_value']) for dct in response])
-            data = {domain for domain in data if (domain[0] != '*' and str(domain[0:4]).isnumeric() is False)}
+            data = {domain for domain in data if domain[0] != '*'}
         except KeyError as ke:
             logger.info(f'Missing expected key in response: {ke}')
         except Exception as e:
