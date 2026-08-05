@@ -7,16 +7,21 @@ from typing import Literal, Self, get_args
 from uuid import UUID, uuid4
 
 ResultKind = Literal[
+    'analytics',
     'asn',
     'breach',
+    'cms',
     'email',
+    'framework',
     'hostname',
     'infostealer',
     'interesting-url',
     'ip-address',
+    'language',
     'linkedin-link',
     'linkedin-person',
     'person',
+    'server',
     'twitter-person',
     'url',
     'vhost',

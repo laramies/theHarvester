@@ -54,7 +54,7 @@ Combine capability selectors, or mix them with explicit source names:
 uv run theHarvester -d example.com -b emails,urls,certspotter
 ```
 
-Capability selectors form a union and choose which sources run. They do not discard other result types returned by those sources. Available selectors are `subdomains`, `emails`, `ips`, `asns`, `urls`, `people`, and `breaches`. `-b all` continues to run every registered source.
+Capability selectors form a union and choose which sources run. They do not discard other result types returned by those sources. Available selectors are `subdomains`, `emails`, `ips`, `asns`, `urls`, `people`, and `breaches`. `-b all` runs every cataloged P0 passive source. P1 DNS and P2 direct sources require explicit selection.
 
 Save JSON, XML, and JSONL reports:
 
@@ -117,6 +117,7 @@ docker compose up --build
 The table shows which result types each source can add to consolidated CLI results. Legacy JSON and XML keep their existing schemas; breach names are retained in JSONL and SQLite. Some adapters parse fields that the reports do not store.
 
 The report groups findings by result type. It does not record which source found each item. Empty optional fields may be omitted.
+BuiltWith's normalized frameworks, languages, servers, CMS products, and analytics products are retained in JSONL and completed-result SQLite rows.
 
 A checkmark means the source can add that result type. The **Separate output** column lists REST endpoints and optional actions that return other data.
 
@@ -234,7 +235,7 @@ The JSON report is a single object and is the more complete format for automatio
 
 The XML report contains the command, emails, hosts, and virtual hosts. Use JSON when you need the additional result types above.
 
-The JSONL report is finalized after the selected one-shot actions finish. Its first line is a summary with an independent run UUID, the target, UTC timestamps, counts, and schema version. Each remaining line is one deterministic, deduplicated string finding, including stable Have I Been Pwned breach names as `breach` records. The format does not claim provider success or record source attribution.
+The JSONL report is finalized after the selected one-shot actions finish. Its first line is a summary with an independent run UUID, the target, UTC timestamps, counts, and schema version. Each remaining line is one deterministic, deduplicated string finding, including stable Have I Been Pwned breach names as `breach` records and normalized BuiltWith findings as `framework`, `language`, `server`, `cms`, or `analytics` records. The format does not claim provider success or record source attribution.
 
 List every JSONL finding as tab-separated type and value columns:
 
