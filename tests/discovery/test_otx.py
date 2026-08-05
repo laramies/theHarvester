@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # coding=utf-8
+import logging
 from typing import Any
 
 import httpx
@@ -42,6 +43,43 @@ class TestOtx(object):
         await search.process()
         assert await search.get_hostnames() == {'api.example.com', 'www.example.com'}
         assert await search.get_ips() == {'192.0.2.1', '2001:db8::1'}
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize('payload', [None, [], {}, {'passive_dns': None}])
+    async def test_malformed_results_return_no_evidence(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        payload: Any,
+    ) -> None:
+        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[Any]:
+            return [payload]
+
+        monkeypatch.setattr(otxsearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+        search = otxsearch.SearchOtx(TestOtx.domain())
+
+        await search.process()
+
+        assert await search.get_hostnames() == set()
+        assert await search.get_ips() == set()
+
+    @pytest.mark.asyncio
+    async def test_provider_failures_are_attributed(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        async def failed_fetch(*_args: Any, **_kwargs: Any) -> list[Any]:
+            raise OSError('provider unavailable')
+
+        monkeypatch.setattr(otxsearch.AsyncFetcher, 'fetch_all', failed_fetch)
+        search = otxsearch.SearchOtx(TestOtx.domain())
+
+        with caplog.at_level(logging.INFO, logger=otxsearch.__name__):
+            await search.process()
+
+        assert await search.get_hostnames() == set()
+        assert await search.get_ips() == set()
+        assert 'OTX request failed' in caplog.text
 
 
 if __name__ == "__main__":
