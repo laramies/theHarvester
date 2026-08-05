@@ -90,7 +90,7 @@ class SearchMojeek:
 
         responses = await AsyncFetcher.fetch_all(urls, headers=headers, proxy=self.proxy)
         for response in responses:
-            self.total_results += str(response)
+            self.total_results += f' {response}'
 
     async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy

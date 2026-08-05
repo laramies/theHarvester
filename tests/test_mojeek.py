@@ -39,6 +39,26 @@ def _patch_mojeek(
 
 class TestMojeekSearch:
     @pytest.mark.asyncio
+    async def test_scraped_pages_are_separated_before_normalizing_evidence(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        _patch_mojeek(
+            monkeypatch,
+            api_key='',
+            scrape_responses=[
+                'Contact Admin@Example.COM. at Blog.Example.COM.',
+                'Ignore outsider@example.net',
+            ],
+        )
+        search = mojeek.SearchMojeek(word='example.com', limit=20)
+
+        await search.process()
+
+        assert await search.get_emails() == {'admin@example.com'}
+        assert await search.get_hostnames() == ['blog.example.com', 'example.com']
+
+    @pytest.mark.asyncio
     async def test_keyless_mode_uses_scraping_without_json(self, monkeypatch: pytest.MonkeyPatch) -> None:
         requests = _patch_mojeek(
             monkeypatch,
@@ -73,9 +93,9 @@ class TestMojeekSearch:
                     'response': {
                         'results': [
                             {
-                                'url': 'https:\\/\\/blog.example.com\\/contact',
-                                'title': 'Contact admin@example.com',
-                                'desc': 'API docs at api.example.com',
+                                'url': 'https:\\/\\/Blog.Example.COM.\\/contact',
+                                'title': 'Contact Admin@Example.COM.',
+                                'desc': 'API docs at api.example.com; ignore outsider@example.net',
                             }
                         ]
                     }
