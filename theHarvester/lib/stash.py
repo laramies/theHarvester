@@ -3,8 +3,12 @@ import logging
 import os
 from collections.abc import Iterable
 from sqlite3.dbapi2 import Row
+from typing import cast
+from uuid import UUID
 
 import aiosqlite
+
+from theHarvester.lib.completed_result import CompletedResult, ResultKind
 
 logger = logging.getLogger(__name__)
 
@@ -41,10 +45,77 @@ class StashManager:
 
     async def do_init(self) -> None:
         async with aiosqlite.connect(self.db) as db:
+            await db.execute('PRAGMA foreign_keys = ON')
             await db.execute(
                 'CREATE TABLE IF NOT EXISTS results (domain text, resource text, type text, find_date date, source text)'
             )
+            await db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS completed_results (
+                    run_id TEXT PRIMARY KEY,
+                    target TEXT NOT NULL,
+                    started_at TEXT NOT NULL,
+                    completed_at TEXT NOT NULL
+                )
+                """
+            )
+            await db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS completed_result_items (
+                    run_id TEXT NOT NULL REFERENCES completed_results(run_id) ON DELETE CASCADE,
+                    position INTEGER NOT NULL,
+                    kind TEXT NOT NULL,
+                    value TEXT NOT NULL,
+                    PRIMARY KEY (run_id, position),
+                    UNIQUE (run_id, kind, value)
+                )
+                """
+            )
             await db.commit()
+
+    async def store_completed_result(self, result: CompletedResult) -> None:
+        async with aiosqlite.connect(self.db, timeout=30) as db:
+            await db.execute('PRAGMA foreign_keys = ON')
+            try:
+                await db.execute(
+                    'INSERT INTO completed_results (run_id, target, started_at, completed_at) VALUES (?, ?, ?, ?)',
+                    (
+                        str(result.run_id),
+                        result.target,
+                        result.started_at.isoformat(),
+                        result.completed_at.isoformat(),
+                    ),
+                )
+                await db.executemany(
+                    'INSERT INTO completed_result_items (run_id, position, kind, value) VALUES (?, ?, ?, ?)',
+                    [(str(result.run_id), position, kind, value) for position, (kind, value) in enumerate(result.results)],
+                )
+                await db.commit()
+            except Exception:
+                await db.rollback()
+                raise
+
+    async def load_completed_result(self, run_id: UUID) -> CompletedResult:
+        async with aiosqlite.connect(self.db, timeout=30) as db:
+            cursor = await db.execute(
+                'SELECT run_id, target, started_at, completed_at FROM completed_results WHERE run_id = ?',
+                (str(run_id),),
+            )
+            parent = await cursor.fetchone()
+            if parent is None:
+                raise LookupError(f'completed result not found: {run_id}')
+            cursor = await db.execute(
+                'SELECT kind, value FROM completed_result_items WHERE run_id = ? ORDER BY position',
+                (str(run_id),),
+            )
+            rows = await cursor.fetchall()
+        return CompletedResult(
+            run_id=UUID(parent[0]),
+            target=parent[1],
+            started_at=datetime.datetime.fromisoformat(parent[2]),
+            completed_at=datetime.datetime.fromisoformat(parent[3]),
+            results=tuple((cast('ResultKind', kind), value) for kind, value in rows),
+        )
 
     async def store(self, domain, resource, res_type, source) -> None:
         self.domain = domain
