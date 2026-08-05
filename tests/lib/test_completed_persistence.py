@@ -17,6 +17,7 @@ def completed_result(run_id: str = 'f047261c-0afb-4e18-89d5-28a7d977f51f') -> Co
         groups={
             'hostname': ['api.example.com'],
             'ip-address': ['192.0.2.1'],
+            'person': ['{"firstname":"Ada","lastname":"Lovelace"}'],
         },
     )
 
@@ -68,4 +69,4 @@ async def test_completed_result_write_is_atomic_and_rejects_duplicate_run_id(tmp
     async with aiosqlite.connect(manager.db) as db:
         parent_count = (await db.execute_fetchall('SELECT COUNT(*) FROM completed_results'))[0][0]
         item_count = (await db.execute_fetchall('SELECT COUNT(*) FROM completed_result_items'))[0][0]
-    assert (parent_count, item_count) == (1, 2)
+    assert (parent_count, item_count) == (1, 3)

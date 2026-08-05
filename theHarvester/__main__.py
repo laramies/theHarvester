@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import json
 import logging
 import os
 import re
@@ -1876,6 +1877,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         'ip-address': _normalize_ip_addresses(all_ip),
         'linkedin-link': map(str, linkedin_links_tracker),
         'linkedin-person': map(str, linkedin_people_list_tracker),
+        'person': (json.dumps(person, ensure_ascii=False, separators=(',', ':'), sort_keys=True) for person in all_people),
         'twitter-person': map(str, twitter_people_list_tracker),
         'url': map(str, all_urls),
         'vhost': map(str, vhost),
