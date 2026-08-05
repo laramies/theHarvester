@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class ScreenShotter:
     def __init__(self, output) -> None:
         self.output = output
-        self.slash = '\\' if 'win' in sys.platform else '/'
+        self.slash = '\\' if sys.platform.startswith('win') else '/'
         self.slash = '' if (self.output[-1] == '\\' or self.output[-1] == '/') else self.slash
 
     def verify_path(self) -> bool:
@@ -57,12 +57,7 @@ class ScreenShotter:
     async def visit(url: str, proxy: str | None = None) -> tuple[str, str]:
         try:
             timeout = aiohttp.ClientTimeout(total=35)
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) '
-                'Chrome/122.0.0.0 Safari/537.36'
-            }
-            url = f'http://{url}' if not url.startswith('http') else url
-            url = url.replace('www.', '')
+            urls = (url,) if url.startswith(('http://', 'https://')) else (f'https://{url}', f'http://{url}')
             sslcontext = ssl.create_default_context(cafile=certifi.where())
 
             # Create connector based on proxy type
@@ -78,23 +73,21 @@ class ScreenShotter:
             else:
                 connector = aiohttp.TCPConnector(ssl=sslcontext)
 
-            async with (
-                aiohttp.ClientSession(
-                    timeout=timeout,
-                    headers=headers,
-                    connector=connector,
-                ) as session,
-                session.get(url, ssl=False, proxy=proxy_param) as resp,
-            ):
-                text = await resp.text('UTF-8')
-                return f'http://{url}' if not url.startswith('http') else url, text
+            async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
+                for candidate in urls:
+                    try:
+                        async with session.get(candidate, proxy=proxy_param) as resp:
+                            text = await resp.text('UTF-8')
+                            return str(resp.url), text
+                    except (aiohttp.ClientError, TimeoutError) as e:
+                        logger.info(f'An exception has occurred while attempting to visit {candidate} : {e}')
+            return '', ''
         except Exception as e:
             logger.info(f'An exception has occurred while attempting to visit {url} : {e}')
             return '', ''
 
     async def take_screenshot(self, url: str) -> None:
-        url = f'http://{url}' if not url.startswith('http') else url
-        url = url.replace('www.', '')
+        url = f'https://{url}' if not url.startswith(('http://', 'https://')) else url
         logger.info(f'Attempting to take a screenshot of: {url}')
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
