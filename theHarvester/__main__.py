@@ -86,7 +86,7 @@ from theHarvester.lib.completed_result import CompletedResult, ResultKind
 from theHarvester.lib.core import DATA_DIR, Core, show_default_error_message
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.output import configure_logging, output_logger, print_linkedin_sections, print_section, sorted_unique
-from theHarvester.lib.source_catalog import ResultRoute, get_source_spec
+from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass, ResultRoute, get_source_spec
 from theHarvester.screenshot.screenshot import ScreenShotter
 
 if TYPE_CHECKING:
@@ -231,12 +231,10 @@ async def start(rest_args: argparse.Namespace | None = None, *, persist_complete
     parser.add_argument(
         '-b',
         '--source',
-        help="""Comma-separated sources or capability selectors: subdomains, emails, ips, asns, urls, people, breaches, or all.
-                            Sources: baidu, bevigil, brave, bufferoverun,
-                            builtwith, censys, certspotter, chaos, commoncrawl, criminalip, crtsh, dehashed, dnsdumpster, duckduckgo, dymo, fofa, fullhunt, github-code,
-                            gitlab, hackertarget, haveibeenpwned, hibpverified, hudsonrock, hunter, hunterhow, intelx, leakix, leaklookup, mojeek, netlas, onyphe, otx, pentesttools,
-                            projectdiscovery, rapiddns, robtex, rocketreach, securityscorecard, securityTrails, sherlockeye, shodan, shodanct, shodanInternetDB, subdomaincenter,
-                            subdomainfinderc99, thc, tomba, urlscan, venacus, virustotal, waybackarchive, whoisxml, windvane, yahoo, zoomeye""",
+        help=(
+            'Comma-separated sources or capability selectors: subdomains, emails, ips, asns, urls, people, '
+            f'breaches, or all. Sources: {", ".join(sorted(SOURCE_SPECS, key=str.casefold))}'
+        ),
     )
 
     # determines if the filename is coming from rest api or user
@@ -454,6 +452,22 @@ async def start(rest_args: argparse.Namespace | None = None, *, persist_complete
     stor_lst = []
     if args.source is not None:
         engines = Core.expand_source_selection(args.source)
+    activities = {get_source_spec(engine).activity for engine in engines if engine in SOURCE_SPECS}
+    if shodan:
+        activities.add(ActivityClass.PASSIVE)
+    if dnslookup or dnsbrute[0] or dnsresolve != '':
+        activities.add(ActivityClass.DNS)
+    if takeover_status or getattr(args, 'screenshot', '') or getattr(args, 'api_scan', False):
+        activities.add(ActivityClass.DIRECT)
+    if activities:
+        activity_labels = {
+            ActivityClass.PASSIVE: 'P0 passive collection',
+            ActivityClass.DNS: 'P1 DNS interaction',
+            ActivityClass.DIRECT: 'P2 direct interaction',
+        }
+        output_logger.info(f'[*] Activity: {", ".join(activity_labels[item] for item in ActivityClass if item in activities)}')
+
+    if args.source is not None:
         # Iterate through search engines in order
         if set(engines).issubset(Core.get_supportedengines()):
             output_logger.info(f'\n[*] Target: {word} \n')
@@ -1852,60 +1866,6 @@ async def start(rest_args: argparse.Namespace | None = None, *, persist_complete
             output_logger.info(f'\n[!] An exception has occurred in API Endpoints scanning: {e}')
             output_logger.info('    Continuing with the rest of the scan...')
             traceback.print_exc()  # More detailed error information for developers
-
-    if 'securityscorecard' in engines:
-        try:
-            output_logger.info('\n[*] Performing SecurityScorecard scan...')
-            securityscorecard_scanner = securityscorecard.SearchSecurityScorecard(word)
-            await securityscorecard_scanner.process(use_proxy)
-
-            # Use the existing API to get results
-            hosts = await securityscorecard_scanner.get_hostnames()
-            if hosts:
-                output_logger.info(f'\n[*] SecurityScorecard results: {len(hosts)} hosts found')
-                for host in hosts:
-                    output_logger.info(f'    - {host}')
-
-                all_hosts.extend(hosts)
-
-            ips = await securityscorecard_scanner.get_ips()
-            if ips:
-                output_logger.info(f'\n[*] SecurityScorecard IPs found: {len(ips)}')
-                for ip in ips:
-                    output_logger.info(f'    - {ip}')
-                all_ip.extend(ips)
-
-        except Exception as e:
-            output_logger.info(f'An exception has occurred in SecurityScorecard scanning: {e}')
-
-    if 'builtwith' in engines:
-        try:
-            output_logger.info('\n[*] Performing BuiltWith scan...')
-            builtwith_scanner = builtwith.SearchBuiltWith(word)
-            await builtwith_scanner.process(use_proxy)
-
-            hosts = await builtwith_scanner.get_hostnames()
-            if hosts:
-                output_logger.info(f'\n[*] BuiltWith results: {len(hosts)} hosts found')
-                for host in hosts:
-                    output_logger.info(f'    - {host}')
-
-                # Add results to the main host list
-                all_hosts.extend(hosts)
-
-            urls = list(await builtwith_scanner.get_interesting_urls())
-            if urls:
-                output_logger.info(f'\n[*] BuiltWith interesting URLs found: {len(urls)}')
-                for url in urls:
-                    output_logger.info(f'    - {url}')
-                interesting_urls.extend(urls)
-
-        except Exception as e:
-            if isinstance(e, MissingKey):
-                if not args.quiet:
-                    output_logger.info(MissingKey('BuiltWith'))
-                else:
-                    output_logger.info(f'An exception has occurred in BuiltWith scanning: {e}')
 
     completed_result = finish_completed_result(extra_hostnames=dnsrev, virtual_hosts=vhost)
 

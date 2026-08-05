@@ -11,6 +11,7 @@ import yaml
 import theHarvester.lib.core as core_module
 from theHarvester.lib.core import CONFIG_DIRS, DATA_DIR, AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.output import configure_logging
+from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass
 
 
 @pytest.fixture(autouse=True)
@@ -73,10 +74,22 @@ def test_explicit_only_source_can_be_combined_with_a_capability() -> None:
     assert Core.expand_source_selection('breaches,hibpverified') == ['haveibeenpwned', 'hibpverified']
 
 
-def test_all_preserves_every_supported_source() -> None:
-    assert Core.expand_source_selection("ALL") == [
-        source for source in Core.get_supportedengines() if source != 'hibpverified'
-    ]
+def test_all_selects_only_passive_catalog_sources() -> None:
+    assert Core.expand_source_selection("ALL") == sorted(
+        spec.name
+        for spec in SOURCE_SPECS.values()
+        if spec.activity is ActivityClass.PASSIVE and not spec.requires_explicit_selection
+    )
+    assert {
+        name: spec.activity for name, spec in SOURCE_SPECS.items() if spec.activity is not ActivityClass.PASSIVE
+    } == {
+        "criminalip": ActivityClass.DIRECT,
+        "pentesttools": ActivityClass.DNS,
+        "shodan": ActivityClass.DNS,
+        "shodanInternetDB": ActivityClass.DNS,
+        "subdomainfinderc99": ActivityClass.DNS,
+        "windvane": ActivityClass.DNS,
+    }
 
 
 def mock_read_text(mocked: dict[Path, str | Exception]):

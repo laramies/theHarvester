@@ -80,6 +80,7 @@ async def test_process_accepts_text_json_content_type(monkeypatch) -> None:
 
     assert await search.get_hostnames() == {'sub.example.com'}
     assert await search.get_interesting_urls() == {'https://example.com/login'}
+    assert await search.get_interestingurls() == {'https://example.com/login'}
     assert await search.get_frameworks() == {'Django'}
     assert await search.get_languages() == {'Python'}
     assert await search.get_servers() == {'nginx'}

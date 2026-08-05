@@ -77,6 +77,9 @@ class SearchBuiltWith:
     async def get_interesting_urls(self) -> set[str]:
         return self.interesting_urls
 
+    async def get_interestingurls(self) -> set[str]:
+        return await self.get_interesting_urls()
+
     async def get_frameworks(self) -> set[str]:
         return self.frameworks
 

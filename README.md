@@ -54,7 +54,7 @@ Combine capability selectors, or mix them with explicit source names:
 uv run theHarvester -d example.com -b emails,urls,certspotter
 ```
 
-Capability selectors form a union and choose which sources run. They do not discard other result types returned by those sources. Available selectors are `subdomains`, `emails`, `ips`, `asns`, `urls`, `people`, and `breaches`. `-b all` continues to run every registered source.
+Capability selectors form a union and choose which sources run. They do not discard other result types returned by those sources. Available selectors are `subdomains`, `emails`, `ips`, `asns`, `urls`, `people`, and `breaches`. `-b all` runs every cataloged P0 passive source. P1 DNS and P2 direct sources require explicit selection.
 
 Save JSON, XML, and JSONL reports:
 

@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Allowed REST `/query` requests to select discovery sources by result capability, matching the CLI's union semantics while preserving explicit source selection.
+- Changed `-b all` to select every cataloged P0 passive source once while leaving P1 DNS and P2 direct sources available through explicit selection.
 - Expanded Common Crawl discovery to use every unique crawl ending within one year of the newest catalog entry, validate catalog endpoints, batch requests, cap each query at 100 pages, and enforce the CLI result limit across page requests ([249ce64b](https://github.com/laramies/theHarvester/commit/249ce64b), [70470cd8](https://github.com/laramies/theHarvester/commit/70470cd8)).
 - Completed bounded pagination for Wayback Archive and Cert Spotter, including continuation handling, truncation diagnostics, and preservation of partial results on provider failures ([df6ff2c9](https://github.com/laramies/theHarvester/commit/df6ff2c9), [f85a08ff](https://github.com/laramies/theHarvester/commit/f85a08ff)).
 - Routed operator messages and diagnostics through logging, preserved host logging policy and existing handlers, and configured logging for the standalone API example ([8a7b8b71](https://github.com/laramies/theHarvester/commit/8a7b8b71)).

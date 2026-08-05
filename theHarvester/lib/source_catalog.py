@@ -1,5 +1,11 @@
 from dataclasses import dataclass
-from enum import Enum, auto
+from enum import Enum, StrEnum, auto
+
+
+class ActivityClass(StrEnum):
+    PASSIVE = 'P0'
+    DNS = 'P1'
+    DIRECT = 'P2'
 
 
 class ResultRoute(Enum):
@@ -37,17 +43,24 @@ class SourceSpec:
     name: str
     routes: frozenset[ResultRoute]
     requires_explicit_selection: bool = False
+    activity: ActivityClass = ActivityClass.PASSIVE
 
     @property
     def capabilities(self) -> frozenset[str]:
         return frozenset(_ROUTE_CAPABILITIES[route] for route in self.routes)
 
 
-def _spec(name: str, *routes: ResultRoute, requires_explicit_selection: bool = False) -> SourceSpec:
+def _spec(
+    name: str,
+    *routes: ResultRoute,
+    requires_explicit_selection: bool = False,
+    activity: ActivityClass = ActivityClass.PASSIVE,
+) -> SourceSpec:
     return SourceSpec(
         name=name,
         routes=frozenset(routes),
         requires_explicit_selection=requires_explicit_selection,
+        activity=activity,
     )
 
 
@@ -61,7 +74,13 @@ _SPECS = (
     _spec('certspotter', ResultRoute.SUBDOMAINS),
     _spec('chaos', ResultRoute.SUBDOMAINS),
     _spec('commoncrawl', ResultRoute.SUBDOMAINS),
-    _spec('criminalip', ResultRoute.SUBDOMAINS, ResultRoute.IPS, ResultRoute.ASNS),
+    _spec(
+        'criminalip',
+        ResultRoute.SUBDOMAINS,
+        ResultRoute.IPS,
+        ResultRoute.ASNS,
+        activity=ActivityClass.DIRECT,
+    ),
     _spec('crtsh', ResultRoute.SUBDOMAINS),
     _spec('dehashed', ResultRoute.IPS),
     _spec('dnsdb', ResultRoute.SUBDOMAINS),
@@ -90,7 +109,7 @@ _SPECS = (
     _spec('netlas', ResultRoute.SUBDOMAINS),
     _spec('onyphe', ResultRoute.SUBDOMAINS, ResultRoute.IPS, ResultRoute.ASNS),
     _spec('otx', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
-    _spec('pentesttools', ResultRoute.SUBDOMAINS),
+    _spec('pentesttools', ResultRoute.SUBDOMAINS, activity=ActivityClass.DNS),
     _spec('projectdiscovery', ResultRoute.SUBDOMAINS),
     _spec('rapiddns', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
     _spec('robtex', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
@@ -98,11 +117,16 @@ _SPECS = (
     _spec('securityTrails', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
     _spec('securityscorecard', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
     _spec('sherlockeye', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS, ResultRoute.IPS),
-    _spec('shodan', ResultRoute.SUBDOMAINS),
-    _spec('shodanInternetDB', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
+    _spec('shodan', ResultRoute.SUBDOMAINS, activity=ActivityClass.DNS),
+    _spec(
+        'shodanInternetDB',
+        ResultRoute.SUBDOMAINS,
+        ResultRoute.IPS,
+        activity=ActivityClass.DNS,
+    ),
     _spec('shodanct', ResultRoute.SUBDOMAINS),
     _spec('subdomaincenter', ResultRoute.SUBDOMAINS),
-    _spec('subdomainfinderc99', ResultRoute.SUBDOMAINS),
+    _spec('subdomainfinderc99', ResultRoute.SUBDOMAINS, activity=ActivityClass.DNS),
     _spec('thc', ResultRoute.SUBDOMAINS),
     _spec('tomba', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec('urlscan', ResultRoute.SUBDOMAINS, ResultRoute.IPS, ResultRoute.ASNS, ResultRoute.INTERESTING_URLS),
@@ -110,7 +134,13 @@ _SPECS = (
     _spec('virustotal', ResultRoute.SUBDOMAINS),
     _spec('waybackarchive', ResultRoute.SUBDOMAINS),
     _spec('whoisxml', ResultRoute.SUBDOMAINS),
-    _spec('windvane', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS, ResultRoute.IPS),
+    _spec(
+        'windvane',
+        ResultRoute.SUBDOMAINS,
+        ResultRoute.EMAILS,
+        ResultRoute.IPS,
+        activity=ActivityClass.DNS,
+    ),
     _spec('yahoo', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec(
         'zoomeye',
