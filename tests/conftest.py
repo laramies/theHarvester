@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ipaddress
+import os
 import socket
 from typing import Any
 
@@ -31,6 +32,11 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=False,
         help='run tests that contact external services',
     )
+
+
+@pytest.fixture
+def live_test_domain() -> str:
+    return os.environ.get('SMOKE_TEST_DOMAIN', 'mozilla.org')
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:

@@ -45,3 +45,9 @@ def test_loopback_network_remains_available(tmp_path: Path) -> None:
     if hasattr(socket, 'AF_UNIX'):
         with socket.socket(socket.AF_UNIX) as unix_client, suppress(OSError):
             unix_client.connect(str(tmp_path / 'missing.sock'))
+
+
+def test_live_test_domain_defaults_to_mozilla(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> None:
+    monkeypatch.delenv('SMOKE_TEST_DOMAIN', raising=False)
+
+    assert request.getfixturevalue('live_test_domain') == 'mozilla.org'

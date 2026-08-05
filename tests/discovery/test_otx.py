@@ -15,8 +15,8 @@ class TestOtx(object):
         return 'example.com'
 
     @pytest.mark.live_network
-    def test_api(self) -> None:
-        url = f'https://otx.alienvault.com/api/v1/indicators/domain/{self.domain()}/passive_dns'
+    def test_api(self, live_test_domain: str) -> None:
+        url = f'https://otx.alienvault.com/api/v1/indicators/domain/{live_test_domain}/passive_dns'
         response = httpx.get(url, headers={'User-Agent': Core.get_user_agent()}, timeout=30)
 
         assert response.status_code == 200
