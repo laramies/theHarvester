@@ -426,22 +426,20 @@ class SearchApiEndpoints:
 
     async def _detect_schema(self) -> str:
         """Detect if the domain supports HTTPS or fall back to HTTP."""
+        https_url = f'https://{self.word}'
         try:
-            https_url = f'https://{self.word}'
-            headers = self._get_headers()
-
-            response = await AsyncFetcher.fetch(
-                url=https_url, headers=headers, proxy=self.proxy, verify=self.verify_ssl, request_timeout=self.timeout
-            )
-
-            if response and getattr(response, 'status', 0) < 400:
-                return 'https'
-            else:
-                self.logger.info(f'[*] HTTPS request to {https_url} returned status: {getattr(response, "status", "No status")}')
-        except (aiohttp.ClientError, TimeoutError, OSError, TypeError, ValueError, AttributeError) as e:
-            self.logger.error(f"Failed to fetch HTTPS URL '{https_url}': {e}")
-
-        return 'http'  # Fallback to HTTP if HTTPS fails
+            timeout = aiohttp.ClientTimeout(total=self.timeout)
+            async with aiohttp.ClientSession(headers=self._get_headers(), timeout=timeout) as session:
+                async with session.get(
+                    https_url,
+                    proxy=self.proxy,
+                    ssl=self.verify_ssl,
+                    allow_redirects=self.follow_redirects,
+                ):
+                    return 'https'
+        except (aiohttp.ClientConnectionError, TimeoutError) as error:
+            self.logger.error(f"Failed to connect to HTTPS URL '{https_url}': {error}")
+            return 'http'
 
     async def _check_endpoint_with_semaphore(self, url: str) -> EndpointResult | None:
         """Execute endpoint check with semaphore for controlled concurrency."""
