@@ -4,7 +4,7 @@ from types import ModuleType
 
 import aiohttp
 
-from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 
 logger = logging.getLogger(__name__)
 
@@ -50,14 +50,25 @@ class SearchRobtex:
 
             # Use passive DNS forward lookup to get subdomains
             url = f'{self.hostname}/pdns/forward/{self.word}'
-            response = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
-
-            if not response or not isinstance(response, list) or not response[0]:
+            responses: list[FetcherResponse | None] = await AsyncFetcher.fetch_all(
+                [url],
+                headers=headers,
+                proxy=self.proxy,
+                include_metadata=True,
+            )
+            response = responses[0] if responses else None
+            if response is None:
+                logger.info(f'No response from Robtex API for: {url}')
+                return
+            if not 200 <= response.status < 300:
+                logger.info(f'Robtex request failed with HTTP {response.status}')
+                return
+            if not isinstance(response.body, str) or not response.body:
                 logger.info(f'No response from Robtex API for: {url}')
                 return
 
             try:
-                data = self._safe_parse_json_lines(response[0])
+                data = self._safe_parse_json_lines(response.body)
             except (TypeError, ValueError) as e:
                 logger.info(f'Failed to parse JSON lines from Robtex response: {e}')
                 return

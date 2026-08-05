@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Expanded offline regression coverage for discovery providers, configuration contracts, logging, output, documentation, workflow policy, and scope boundaries.
 
 ### Fixed
+- Made RapidDNS, Robtex, and Subdomain Center HTTP failures report the source and response status before parsing.
 - Fixed GitHub code-search fragment limits, boundary separation, and malformed-page termination with offline provider tests.
 - Fixed GitLab public discovery scope normalization, request bounds, and default-branch README requests.
 - Fixed Baidu, Mojeek, and Yahoo page-response separation and Brave missing-credential reporting, with offline web-search provider contract coverage.
