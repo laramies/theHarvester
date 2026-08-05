@@ -10,6 +10,7 @@ import yaml
 
 import theHarvester.lib.core as core_module
 from theHarvester.lib.core import CONFIG_DIRS, DATA_DIR, AsyncFetcher, Core
+from theHarvester.lib.output import configure_logging
 
 
 @pytest.fixture(autouse=True)
@@ -109,6 +110,7 @@ def test_read_config_searches_config_dirs(
 
 @pytest.mark.parametrize("name", ("api-keys", "proxies"))
 def test_read_config_copies_default_to_home(name: str, capsys):
+    configure_logging(verbose=False)
     file = Path(f"~/.theHarvester/{name}.yaml").expanduser()
     config_files = [d.expanduser() / file.name for d in CONFIG_DIRS]
     side_effect = mock_read_text({f: FileNotFoundError() for f in config_files})
