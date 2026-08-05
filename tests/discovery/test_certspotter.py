@@ -19,8 +19,8 @@ class TestCertspotter(object):
 
 class TestCertspotterSearch(object):
     @pytest.mark.live_network
-    def test_api(self) -> None:
-        base_url = f"https://api.certspotter.com/v1/issuances?domain={TestCertspotter.domain()}&expand=dns_names"
+    def test_api(self, live_test_domain: str) -> None:
+        base_url = f'https://api.certspotter.com/v1/issuances?domain={live_test_domain}&expand=dns_names'
         headers = {"User-Agent": Core.get_user_agent()}
         request = httpx.get(base_url, headers=headers, timeout=30)
         assert request.status_code == 200

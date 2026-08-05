@@ -75,31 +75,31 @@ def fake_thc_session(monkeypatch: pytest.MonkeyPatch) -> None:
 class TestThcApi:
     """Tests to validate that the THC API responds correctly."""
 
-    def test_api_subdomains_download_endpoint_responds(self) -> None:
+    def test_api_subdomains_download_endpoint_responds(self, live_test_domain: str) -> None:
         """Verify that the subdomain download endpoint responds."""
-        url = 'https://ip.thc.org/api/v1/subdomains/download?domain=example.com&limit=10&hide_header=true'
+        url = f'https://ip.thc.org/api/v1/subdomains/download?domain={live_test_domain}&limit=10&hide_header=true'
         headers = {'User-Agent': Core.get_user_agent()}
         response = httpx.get(url, headers=headers, timeout=30)
         assert response.status_code == 200
 
-    def test_api_subdomains_returns_text_format(self) -> None:
+    def test_api_subdomains_returns_text_format(self, live_test_domain: str) -> None:
         """Verify that the response is plain text."""
-        url = 'https://ip.thc.org/api/v1/subdomains/download?domain=example.com&limit=5&hide_header=true'
+        url = f'https://ip.thc.org/api/v1/subdomains/download?domain={live_test_domain}&limit=5&hide_header=true'
         headers = {'User-Agent': Core.get_user_agent()}
         response = httpx.get(url, headers=headers, timeout=30)
         content_type = response.headers.get('content-type', '')
         assert 'text' in content_type or 'octet-stream' in content_type
 
-    def test_api_cli_subdomain_endpoint(self) -> None:
+    def test_api_cli_subdomain_endpoint(self, live_test_domain: str) -> None:
         """Verify CLI endpoint /sb/{domain}."""
-        url = 'https://ip.thc.org/sb/example.com?l=5&noheader'
+        url = f'https://ip.thc.org/sb/{live_test_domain}?l=5&noheader'
         headers = {'User-Agent': Core.get_user_agent()}
         response = httpx.get(url, headers=headers, timeout=30)
         assert response.status_code == 200
 
-    def test_api_returns_rate_limit_headers(self) -> None:
+    def test_api_returns_rate_limit_headers(self, live_test_domain: str) -> None:
         """Verify that the API returns rate limit headers."""
-        url = 'https://ip.thc.org/api/v1/subdomains/download?domain=example.com&limit=1&hide_header=true'
+        url = f'https://ip.thc.org/api/v1/subdomains/download?domain={live_test_domain}&limit=1&hide_header=true'
         headers = {'User-Agent': Core.get_user_agent()}
         response = httpx.get(url, headers=headers, timeout=30)
         assert 'x-ratelimit-limit' in response.headers

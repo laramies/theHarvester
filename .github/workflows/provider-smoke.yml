@@ -11,8 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      # IANA-reserved test data; keep this job passive.
-      SMOKE_TEST_DOMAIN: example.com
+      # Mozilla publishes a bug bounty and safe harbor; keep this job passive.
+      SMOKE_TEST_DOMAIN: mozilla.org
 
     steps:
       - name: Harden the runner (Audit all outbound calls)

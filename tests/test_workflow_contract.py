@@ -33,5 +33,5 @@ def test_live_provider_smoke_requires_manual_dispatch() -> None:
 
     assert set(workflow['on']) == {'workflow_dispatch'}
     assert workflow['permissions'] == {'contents': 'read'}
-    assert smoke_job['env']['SMOKE_TEST_DOMAIN'] == 'example.com'
+    assert smoke_job['env']['SMOKE_TEST_DOMAIN'] == 'mozilla.org'
     assert 'pytest --run-live-network -m live_network' in commands
