@@ -11,6 +11,7 @@ import pytest
 
 import theHarvester.__main__ as theharvester_main
 from theHarvester.discovery import rapiddns
+from theHarvester.lib.completed_result import CompletedResult
 from theHarvester.lib.output import configure_logging
 
 RAPID_DNS_HTML = """
@@ -52,8 +53,11 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     stored: list[tuple[str, tuple[str, ...], str]] = []
+    completed_results: list[CompletedResult] = []
 
     class FakeStash:
+        fail_completed_write = False
+
         async def do_init(self) -> None:
             return None
 
@@ -62,6 +66,11 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
 
         async def store(self, _domain: str, value: str, result_type: str, source: str) -> None:
             stored.append((result_type, (value,), source))
+
+        async def store_completed_result(self, result: CompletedResult) -> None:
+            if self.fail_completed_write:
+                raise OSError('forced completed-result failure')
+            completed_results.append(result)
 
     class UnexpectedChecker:
         def __init__(self, *_args: object, **_kwargs: object) -> None:
@@ -175,6 +184,7 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
     assert jsonl_records[0]['type'] == 'summary'
     assert jsonl_records[0]['target'] == 'example.com'
     UUID(jsonl_records[0]['run_id'])
+    assert [str(result.run_id) for result in completed_results] == [jsonl_records[0]['run_id']]
     assert {'type': 'interesting-url', 'value': 'https://example.com/health'} in jsonl_records
     assert {'type': 'url', 'value': 'https://example.com/health'} in jsonl_records
     assert {'type': 'hostname', 'value': 'reverse.example.com'} in jsonl_records
@@ -221,3 +231,18 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
         ('host', ('alias.example.com', 'api.example.com', 'broken.example.com'), 'rapiddns'),
         ('ip', ('192.0.2.1',), 'rapiddns'),
     ]
+    assert len(completed_results) == 1
+
+    monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.com', '-b', 'rapiddns'])
+    with pytest.raises(SystemExit) as no_file_exit:
+        await theharvester_main.start()
+    assert no_file_exit.value.code == 0
+    assert len(completed_results) == 2
+    assert completed_results[1].target == 'example.com'
+
+    FakeStash.fail_completed_write = True
+    with pytest.raises(SystemExit) as failed_write_exit:
+        await theharvester_main.start()
+    assert failed_write_exit.value.code == 0
+    assert len(completed_results) == 2
+    assert 'forced completed-result failure' in capsys.readouterr().out

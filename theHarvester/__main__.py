@@ -284,7 +284,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         else:
             # For relative paths, sanitize the entire filename
             filename = sanitize_filename(filename)
-    report_started_at = datetime.now(UTC) if filename else None
+    run_started_at = datetime.now(UTC)
 
     all_emails: list = []
     all_hosts: list = []
@@ -1868,32 +1868,44 @@ async def start(rest_args: argparse.Namespace | None = None):
                 else:
                     output_logger.info(f'An exception has occurred in BuiltWith scanning: {e}')
 
-    if filename and report_started_at is not None:
+    groups: dict[ResultKind, Iterable[str]] = {
+        'asn': map(str, total_asns),
+        'email': map(str, all_emails),
+        'hostname': _normalize_hosts_for_storage((*all_hosts, *dnsrev), word),
+        'interesting-url': map(str, interesting_urls),
+        'ip-address': _normalize_ip_addresses(all_ip),
+        'linkedin-link': map(str, linkedin_links_tracker),
+        'linkedin-person': map(str, linkedin_people_list_tracker),
+        'twitter-person': map(str, twitter_people_list_tracker),
+        'url': map(str, all_urls),
+        'vhost': map(str, vhost),
+    }
+    try:
+        completed_result = CompletedResult.finish(
+            target=word,
+            started_at=run_started_at,
+            completed_at=datetime.now(UTC),
+            groups=groups,
+        )
+    except (ValueError, TypeError) as error:
+        completed_result = None
+        output_logger.info(f'[!] An error occurred while completing the result: {error}')
+
+    if filename and completed_result is not None:
         try:
-            groups: dict[ResultKind, Iterable[str]] = {
-                'asn': map(str, total_asns),
-                'email': map(str, all_emails),
-                'hostname': _normalize_hosts_for_storage((*all_hosts, *dnsrev), word),
-                'interesting-url': map(str, interesting_urls),
-                'ip-address': _normalize_ip_addresses(all_ip),
-                'linkedin-link': map(str, linkedin_links_tracker),
-                'linkedin-person': map(str, linkedin_people_list_tracker),
-                'twitter-person': map(str, twitter_people_list_tracker),
-                'url': map(str, all_urls),
-                'vhost': map(str, vhost),
-            }
-            completed_result = CompletedResult.finish(
-                target=word,
-                started_at=report_started_at,
-                completed_at=datetime.now(UTC),
-                groups=groups,
-            )
             jsonl_filename = filename.rsplit('.', 1)[0] + '.jsonl'
             async with await anyio.open_file(jsonl_filename, 'w+', encoding='UTF-8') as fp:
                 await fp.write(completed_result.jsonl())
             output_logger.info('[*] JSONL File saved.')
         except (OSError, ValueError, TypeError, UnicodeEncodeError) as error:
             output_logger.info(f'[!] An error occurred while saving the JSONL file: {error}')
+
+    if completed_result is not None:
+        try:
+            completed_db = stash.StashManager()
+            await completed_db.store_completed_result(completed_result)
+        except Exception as error:
+            output_logger.info(f'[!] An error occurred while storing the completed result: {error}')
 
     if rest_args is not None:
         all_hosts = sorted_unique(all_hosts)
