@@ -5,6 +5,7 @@ import xml.etree.ElementTree as ElementTree
 from argparse import Namespace
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 import pytest
 
@@ -76,15 +77,84 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
         async def get_ips(self) -> set[str]:
             return {'198.51.100.2'}
 
+    class FakeApiEndpoints:
+        def __init__(self, *, word: str, wordlist: str) -> None:
+            assert word == 'example.com'
+            assert wordlist.endswith('api_endpoints.txt')
+
+        async def do_search(self) -> None:
+            return None
+
+        def get_found_endpoints(self) -> dict[str, object]:
+            return {'/health': object()}
+
+        def get_interesting_endpoints(self) -> dict[str, object]:
+            return {'/health': object()}
+
+        def get_auth_required(self) -> dict[str, object]:
+            return {}
+
+        def get_api_versions(self) -> set[str]:
+            return set()
+
+        def get_rate_limits(self) -> dict[str, object]:
+            return {}
+
+        def get_methods(self) -> set[str]:
+            return {'GET'}
+
+        def get_status_codes(self) -> set[int]:
+            return {200}
+
+    class FakeSecurityScorecard:
+        created = 0
+
+        def __init__(self, _domain: str) -> None:
+            self.is_late_action = self.created > 0
+            type(self).created += 1
+
+        async def process(self, _proxy: bool) -> None:
+            return None
+
+        async def get_hostnames(self) -> set[str]:
+            return set()
+
+        async def get_ips(self) -> set[str]:
+            if self.is_late_action:
+                return {'2001:0DB8::1', '198.51.100.9', 'not-an-ip'}
+            return set()
+
+    async def fake_reverse_all_ips_in_range(
+        iprange: str,
+        callback: Any,
+        nameservers: list[str] | None = None,
+    ) -> None:
+        assert iprange in {'192.0.2.0/24', '198.51.100.0/24'}
+        assert nameservers is None
+        callback('reverse.example.com')
+
     report = tmp_path / 'rapiddns-report'
     monkeypatch.setattr(rapiddns.AsyncFetcher, 'fetch_all', fake_fetch_all)
     monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
     monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', UnexpectedChecker)
     monkeypatch.setattr(theharvester_main.search_dehashed, 'SearchDehashed', FakeDehashed)
+    monkeypatch.setattr(theharvester_main.api_endpoints, 'SearchApiEndpoints', FakeApiEndpoints)
+    monkeypatch.setattr(theharvester_main.securityscorecard, 'SearchSecurityScorecard', FakeSecurityScorecard)
+    monkeypatch.setattr(theharvester_main.dnssearch, 'reverse_all_ips_in_range', fake_reverse_all_ips_in_range)
     monkeypatch.setattr(
         sys,
         'argv',
-        ['theHarvester', '-d', 'example.com', '-b', 'rapiddns', '-f', str(report)],
+        [
+            'theHarvester',
+            '-d',
+            'example.com',
+            '-b',
+            'rapiddns,securityscorecard',
+            '-a',
+            '-n',
+            '-f',
+            str(report),
+        ],
     )
     configure_logging(verbose=False)
 
@@ -92,14 +162,25 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
         await theharvester_main.start()
 
     assert exit_info.value.code == 0
-    assert stored == [
-        ('host', ('alias.example.com', 'api.example.com', 'broken.example.com'), 'rapiddns'),
-        ('ip', ('192.0.2.1',), 'rapiddns'),
-    ]
+    assert ('host', ('alias.example.com', 'api.example.com', 'broken.example.com'), 'rapiddns') in stored
+    assert ('ip', ('192.0.2.1',), 'rapiddns') in stored
+    assert stored.count(('api_endpoint', ('/health',), 'api_scan')) == 2
 
     report_json = json.loads(report.with_suffix('.json').read_text())
     assert report_json['hosts'] == ['alias.example.com', 'api.example.com', 'broken.example.com']
     assert report_json['ips'] == ['192.0.2.1']
+    assert 'interesting_urls' not in report_json
+
+    jsonl_records = [json.loads(line) for line in report.with_suffix('.jsonl').read_text().splitlines()]
+    assert jsonl_records[0]['type'] == 'summary'
+    assert jsonl_records[0]['target'] == 'example.com'
+    UUID(jsonl_records[0]['run_id'])
+    assert {'type': 'interesting-url', 'value': 'https://example.com/health'} in jsonl_records
+    assert {'type': 'url', 'value': 'https://example.com/health'} in jsonl_records
+    assert {'type': 'hostname', 'value': 'reverse.example.com'} in jsonl_records
+    assert {'type': 'ip-address', 'value': '198.51.100.9'} in jsonl_records
+    assert {'type': 'ip-address', 'value': '2001:db8::1'} in jsonl_records
+    assert not any(record.get('value') == 'not-an-ip' for record in jsonl_records)
 
     xml_hosts = {
         (element.findtext('hostname') or (element.text or '').strip(), element.findtext('ip'))
@@ -109,11 +190,13 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
         ('alias.example.com', None),
         ('api.example.com', '192.0.2.1'),
         ('broken.example.com', None),
+        ('reverse.example.com', None),
     }
 
     console = capsys.readouterr().out
     assert {'alias.example.com', 'api.example.com', 'broken.example.com', '192.0.2.1'} <= set(console.splitlines())
 
+    stored_before_rest = len(stored)
     rest_results = await theharvester_main.start(
         Namespace(
             source='dehashed,rapiddns',
@@ -133,7 +216,7 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
     )
     assert set(rest_results[6]) == {'192.0.2.1', '198.51.100.2'}
     assert rest_results[8] == ['alias.example.com', 'api.example.com', 'broken.example.com']
-    assert stored[2:] == [
+    assert stored[stored_before_rest:] == [
         ('ip', ('198.51.100.2',), 'dehashed'),
         ('host', ('alias.example.com', 'api.example.com', 'broken.example.com'), 'rapiddns'),
         ('ip', ('192.0.2.1',), 'rapiddns'),
