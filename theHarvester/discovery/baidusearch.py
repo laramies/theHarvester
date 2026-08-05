@@ -29,7 +29,7 @@ class SearchBaidu:
                 continue
             if '百度安全验证' in response or 'wappass.baidu.com/static/captcha' in response:
                 raise RuntimeError('Baidu returned a security verification page')
-            self.total_results += response
+            self.total_results += f' {response}'
 
     async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy

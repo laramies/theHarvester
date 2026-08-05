@@ -16,7 +16,7 @@ class SearchYahoo:
         urls = [base_url.replace('xx', str(num)) for num in range(0, self.limit, 10) if num <= self.limit]
         responses = await AsyncFetcher.fetch_all(urls, headers=headers, proxy=self.proxy)
         for response in responses:
-            self.total_results += response
+            self.total_results += f' {response}'
 
     async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy

@@ -26,7 +26,10 @@ class SearchBrave:
         self.results: list[dict[str, Any]] = []
         self.totalresults = ''
         credentials = credential_adapter if credential_adapter is not None else FileSystemCredentialAdapter()
-        self.api_key = credentials.get('brave')
+        try:
+            self.api_key = credentials.get('brave')
+        except KeyError:
+            raise MissingKey('Brave Search') from None
         if self.api_key is None or self.api_key == '':
             raise MissingKey('Brave Search')
         self.server = 'https://api.search.brave.com/res/v1/web/search'

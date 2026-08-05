@@ -5,6 +5,19 @@ from theHarvester.discovery import baidusearch
 
 class TestBaiduSearch:
     @pytest.mark.asyncio
+    async def test_page_responses_are_separated_before_normalizing_evidence(self, monkeypatch):
+        async def fake_fetch_all(urls, headers=None, proxy=False):
+            return ['Contact Admin@Example.COM. at Blog.Example.COM.', 'Ignore outsider@example.net']
+
+        monkeypatch.setattr(baidusearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+        search = baidusearch.SearchBaidu(word='example.com', limit=20)
+
+        await search.process()
+
+        assert await search.get_emails() == {'admin@example.com'}
+        assert await search.get_hostnames() == ['blog.example.com', 'example.com']
+
+    @pytest.mark.asyncio
     async def test_empty_fetch_response_is_reported(self, monkeypatch):
         async def fake_fetch_all(urls, headers=None, proxy=False):
             return ['']
