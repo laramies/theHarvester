@@ -1542,7 +1542,7 @@ async def start(rest_args: argparse.Namespace | None = None):
             start_time = time.perf_counter()
             output_logger.info('Filtering domains for ones we can reach')
             if dnsresolve is None or len(final_dns_resolver_list) > 0:
-                unique_resolved_domains = {url.split(':')[0] for url in full if ':' in url and 'www.' not in url}
+                unique_resolved_domains = {url.split(':')[0] for url in full if ':' in url}
             else:
                 # Technically not resolved in this case, which is not ideal
                 # You should always use dns resolve when doing screenshotting
