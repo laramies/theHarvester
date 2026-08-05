@@ -332,6 +332,7 @@ async def start(rest_args: argparse.Namespace | None = None):
     engines: list = []
     # If the user specifies
     full: list = []
+    resolved_screenshot_hosts: set[str] = set()
     reported_host_ip_pairs: set[tuple[str, str]] = set()
     ips: list = []
     host_ip: list = []
@@ -395,12 +396,12 @@ async def start(rest_args: argparse.Namespace | None = None):
                     # If full, this is only getting resolved hosts
                     (
                         resolved_pair,
-                        _temp_hosts,
+                        resolved_hosts,
                         temp_ips,
                     ) = await full_hosts_checker.check()
                     all_ip.extend(temp_ips)
                     full.extend(resolved_pair)
-                    # full.extend(temp_hosts)
+                    resolved_screenshot_hosts.update(resolved_hosts)
                 else:
                     full.extend(host_names)
             else:
@@ -1464,6 +1465,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         output_logger.info('\n[*] Starting DNS brute force.')
         dns_force = dnssearch.DnsForce(word, final_dns_resolver_list, verbose=True)
         resolved_pair, hosts, ips = await dns_force.run()
+        resolved_screenshot_hosts.update(hosts)
         # Check if Rest API is being used if so return found hosts
         if dnsbrute[1]:
             return resolved_pair
@@ -1542,7 +1544,7 @@ async def start(rest_args: argparse.Namespace | None = None):
             start_time = time.perf_counter()
             output_logger.info('Filtering domains for ones we can reach')
             if dnsresolve is None or len(final_dns_resolver_list) > 0:
-                unique_resolved_domains = {url.split(':')[0] for url in full if ':' in url}
+                unique_resolved_domains = resolved_screenshot_hosts
             else:
                 # Technically not resolved in this case, which is not ideal
                 # You should always use dns resolve when doing screenshotting
