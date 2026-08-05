@@ -2,8 +2,10 @@ import json as _stdlib_json
 import logging
 import re
 from types import ModuleType
+from urllib.parse import quote
 
 from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.hostnames import normalize_scoped_hostname
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +21,7 @@ except Exception:
 
 
 class SearchGitlab:
-    """Class uses GitLab API to search for domain references in projects and code"""
+    """Search public GitLab project metadata, README files, and user profiles."""
 
     def __init__(self, word) -> None:
         self.word = word
@@ -30,9 +32,9 @@ class SearchGitlab:
         self.hostname = 'https://gitlab.com'
 
     @staticmethod
-    def _safe_parse_json(payload: object) -> dict:
-        # If already a dict, return it; if string, try parse; else return {}
-        if isinstance(payload, dict):
+    def _safe_parse_json(payload: object) -> dict | list:
+        # If already decoded, return it; if string, try parse; else return {}
+        if isinstance(payload, (dict, list)):
             return payload
         if isinstance(payload, str):
             try:
@@ -47,14 +49,8 @@ class SearchGitlab:
         if not text:
             return domains
 
-        # Look for subdomains of our target domain
-        pattern = rf'[a-zA-Z0-9.-]*\.{re.escape(self.word)}'
-        matches = re.findall(pattern, text, re.IGNORECASE)
-
-        for match in matches:
-            # Clean up the match
-            domain = match.lower().strip('.')
-            if domain.endswith(self.word) and domain != self.word:
+        for candidate in re.findall(r'[a-zA-Z0-9.-]+', text):
+            if domain := normalize_scoped_hostname(candidate.strip('.'), self.word):
                 domains.add(domain)
 
         return domains
@@ -65,13 +61,10 @@ class SearchGitlab:
         if not text:
             return emails
 
-        email_pattern = rf'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]*\.?{re.escape(self.word)}'
-        matches = re.findall(email_pattern, text, re.IGNORECASE)
-
-        for match in matches:
-            email = match.lower()
-            if self.word in email:
-                emails.add(email)
+        for candidate in re.findall(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+', text):
+            local_part, domain = candidate.lower().split('@', maxsplit=1)
+            if normalized_domain := normalize_scoped_hostname(domain, self.word):
+                emails.add(f'{local_part}@{normalized_domain}')
 
         return emails
 
@@ -85,7 +78,7 @@ class SearchGitlab:
 
             for term in search_terms:
                 # Search projects
-                projects_url = f'{self.hostname}/api/v4/projects?search={term}&per_page=100'
+                projects_url = f'{self.hostname}/api/v4/projects?search={term}&per_page=20'
                 response = await AsyncFetcher.fetch_all([projects_url], headers=headers, proxy=self.proxy)
 
                 if not response or not isinstance(response, list) or not response[0]:
@@ -96,7 +89,7 @@ class SearchGitlab:
                     if not isinstance(projects, list):
                         continue
 
-                    for project in projects[:20]:  # Limit to first 20 projects
+                    for project in projects:
                         if not isinstance(project, dict):
                             continue
 
@@ -117,8 +110,12 @@ class SearchGitlab:
 
                         # Try to get README content for more detailed search
                         project_id = project.get('id')
-                        if project_id:
-                            readme_url = f'{self.hostname}/api/v4/projects/{project_id}/repository/files/README.md/raw?ref=main'
+                        default_branch = project.get('default_branch')
+                        if project_id and isinstance(default_branch, str) and default_branch:
+                            readme_url = (
+                                f'{self.hostname}/api/v4/projects/{quote(str(project_id), safe="")}'
+                                f'/repository/files/README.md/raw?ref={quote(default_branch, safe="")}'
+                            )
                             try:
                                 readme_response = await AsyncFetcher.fetch_all([readme_url], headers=headers, proxy=self.proxy)
                                 if readme_response and readme_response[0]:
@@ -142,7 +139,7 @@ class SearchGitlab:
             headers = {'User-agent': Core.get_user_agent()}
 
             # Search for users mentioning our domain
-            users_url = f'{self.hostname}/api/v4/users?search={self.word}&per_page=50'
+            users_url = f'{self.hostname}/api/v4/users?search={self.word}&per_page=10'
             response = await AsyncFetcher.fetch_all([users_url], headers=headers, proxy=self.proxy)
 
             if not response or not isinstance(response, list) or not response[0]:
@@ -153,7 +150,7 @@ class SearchGitlab:
                 if not isinstance(users, list):
                     return
 
-                for user in users[:10]:  # Limit to first 10 users
+                for user in users:
                     if not isinstance(user, dict):
                         continue
 
@@ -170,8 +167,8 @@ class SearchGitlab:
                     self.totalhosts.update(self._extract_domains_from_text(all_text))
 
                     # Check email
-                    if public_email and self.word in public_email:
-                        self.totalemails.add(public_email)
+                    if public_email:
+                        self.totalemails.update(self._extract_emails_from_text(public_email))
 
                     # Check website URL
                     if website_url and self.word in website_url:
