@@ -215,7 +215,9 @@ Treat collected OSINT as potentially sensitive. Keep report files, screenshots, 
 
 ### Report formats
 
-The JSON report is a single object and is the more complete format for automation. Host entries may be plain hostnames or `hostname:IP` pairs when DNS resolution is enabled.
+The JSON report is a single object and is the more complete format for automation. Host entries remain plain hostnames or `hostname:address[,address...]` values when DNS resolution is enabled. DNS resolution and DNS brute force retain candidates only when A, AAAA, or CNAME evidence is available; CNAME-only candidates remain plain hostnames in existing CLI, REST, JSON, and XML output.
+
+`Checker.check()` and `DnsForce.run()` retain their existing `(resolved, hosts, addresses)` return shape. Normalized A, AAAA, and CNAME values are available through each object's `records` mapping.
 
 | Field | Availability | Contents |
 | --- | --- | --- |
