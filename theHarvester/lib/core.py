@@ -5,6 +5,7 @@ import contextlib
 import logging
 import random
 import ssl
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -31,6 +32,13 @@ CONFIG_DIRS = [
     Path('/etc/theHarvester/'),
     Path('/usr/local/etc/theHarvester/'),
 ]
+
+
+@dataclass(frozen=True)
+class FetcherResponse:
+    body: Any
+    status: int
+    headers: dict[str, str]
 
 
 class Core:
@@ -490,9 +498,34 @@ class AsyncFetcher:
         return aiohttp.ClientSession(headers=headers, timeout=client_timeout, connector=connector)
 
     @staticmethod
-    async def _read_response(response: aiohttp.ClientResponse, *, json: bool, delay: int) -> Any:
+    async def _read_response(
+        response: aiohttp.ClientResponse,
+        *,
+        json: bool,
+        delay: int,
+        include_metadata: bool = False,
+    ) -> Any:
         await asyncio.sleep(delay)
-        return await response.text() if json is False else await response.json()
+        if json is False:
+            body = await response.text()
+        elif include_metadata:
+            text_body = await response.text()
+            if not text_body.strip():
+                body = text_body
+            else:
+                try:
+                    body = await response.json()
+                except (aiohttp.ContentTypeError, ValueError):
+                    body = text_body
+        else:
+            body = await response.json()
+        if not include_metadata:
+            return body
+        return FetcherResponse(
+            body=body,
+            status=response.status,
+            headers={name.lower(): value for name, value in response.headers.items()},
+        )
 
     @classmethod
     async def _request(
@@ -504,15 +537,26 @@ class AsyncFetcher:
         json: bool = False,
         delay: int = 5,
         request_timeout: int | None = None,
+        include_metadata: bool = False,
         **request_kwargs: Any,
     ) -> Any:
         if request_timeout:
             async with asyncio.timeout(request_timeout):
                 async with session.request(method.upper(), url, **request_kwargs) as response:
-                    return await cls._read_response(response, json=json, delay=delay)
+                    return await cls._read_response(
+                        response,
+                        json=json,
+                        delay=delay,
+                        include_metadata=include_metadata,
+                    )
 
         async with session.request(method.upper(), url, **request_kwargs) as response:
-            return await cls._read_response(response, json=json, delay=delay)
+            return await cls._read_response(
+                response,
+                json=json,
+                delay=delay,
+                include_metadata=include_metadata,
+            )
 
     @staticmethod
     def _get_random_proxy(proxy_dict: dict) -> tuple[str | None, str | None]:
@@ -555,6 +599,7 @@ class AsyncFetcher:
         params: Sized = '',
         json: bool = False,
         proxy: bool = False,
+        include_metadata: bool = False,
     ):
         headers = cls._default_headers(headers)
         timeout = cls._request_timeout(720)
@@ -575,6 +620,7 @@ class AsyncFetcher:
                             proxy=proxy_url if proxy_type == 'http' else None,
                             json=json,
                             delay=5,
+                            include_metadata=include_metadata,
                         )
                 else:
                     async with await cls._build_session(headers, timeout, proxy_url, proxy_type, sslcontext) as session:
@@ -585,6 +631,7 @@ class AsyncFetcher:
                             proxy=proxy_url if proxy_type == 'http' else None,
                             json=json,
                             delay=5,
+                            include_metadata=include_metadata,
                         )
             elif params == '':
                 async with await cls._build_session(headers, timeout) as session:
@@ -595,6 +642,7 @@ class AsyncFetcher:
                         data=cls._normalize_data(data),
                         json=json,
                         delay=3,
+                        include_metadata=include_metadata,
                     )
             else:
                 async with await cls._build_session(headers, timeout) as session:
@@ -607,9 +655,10 @@ class AsyncFetcher:
                         params=params,
                         json=json,
                         delay=3,
+                        include_metadata=include_metadata,
                     )
         except (aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, UnicodeDecodeError, ValueError):
-            return ''
+            return None if include_metadata else ''
 
     @classmethod
     async def fetch(
@@ -624,6 +673,7 @@ class AsyncFetcher:
         verify: bool | None = None,
         follow_redirects: bool | None = None,
         request_timeout: int | None = None,
+        include_metadata: bool = False,
     ) -> Any:
         """Generic HTTP request helper.
         - If a session is not provided, one will be created and closed automatically.
@@ -665,13 +715,14 @@ class AsyncFetcher:
                     json=json,
                     delay=5,
                     request_timeout=request_timeout,
+                    include_metadata=include_metadata,
                     **request_kwargs,
                 )
             finally:
                 if owns_session:
                     await session.close()
         except (aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, UnicodeDecodeError, ValueError):
-            return ''
+            return None if include_metadata else ''
 
     @staticmethod
     async def takeover_fetch(session, url: str, proxy: str | None = None) -> tuple[Any, Any] | str:
@@ -714,6 +765,7 @@ class AsyncFetcher:
         json: bool = False,
         takeover: bool = False,
         proxy: bool = False,
+        include_metadata: bool = False,
     ) -> list:
         # By default, timeout is 5 minutes; 60 seconds should suffice
         headers = cls._default_headers(headers)
@@ -747,13 +799,18 @@ class AsyncFetcher:
                                     url,
                                     json=json,
                                     proxy=proxy_url,
+                                    include_metadata=include_metadata,
                                 )
                                 for url, (proxy_url, proxy_type) in zip(urls, proxy_data, strict=False)
                             ]
                         )
                     )
                 else:
-                    return list(await asyncio.gather(*[AsyncFetcher.fetch(session, url, json=json) for url in urls]))
+                    return list(
+                        await asyncio.gather(
+                            *[AsyncFetcher.fetch(session, url, json=json, include_metadata=include_metadata) for url in urls]
+                        )
+                    )
         else:
             # Indicates the request has certain params
             async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
@@ -768,13 +825,18 @@ class AsyncFetcher:
                                     params,
                                     json,
                                     proxy=proxy_url,
+                                    include_metadata=include_metadata,
                                 )
                                 for url, (proxy_url, proxy_type) in zip(urls, proxy_data, strict=False)
                             ]
                         )
                     )
                 else:
-                    return list(await asyncio.gather(*[AsyncFetcher.fetch(session, url, params, json) for url in urls]))
+                    return list(
+                        await asyncio.gather(
+                            *[AsyncFetcher.fetch(session, url, params, json, include_metadata=include_metadata) for url in urls]
+                        )
+                    )
 
 
 def show_default_error_message(engine_name: str, word: str, error) -> None:
