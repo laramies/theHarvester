@@ -17,8 +17,7 @@ class SubdomainCenter:
         try:
             current_url = f'{self.server}{self.word}'
             resp = await AsyncFetcher.fetch_all([current_url], headers=headers, proxy=self.proxy, json=True)
-            self.results = resp[0]
-            self.results = {sub[4:] if sub[:4] == 'www.' and sub[4:] else sub for sub in self.results}
+            self.results = set(resp[0])
         except Exception as e:
             logger.info(f'An exception has occurred in SubdomainCenter on : {e}')
 

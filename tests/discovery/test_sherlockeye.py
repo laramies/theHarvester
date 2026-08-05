@@ -94,7 +94,7 @@ async def test_process_extracts_domain_intelligence(monkeypatch) -> None:
     search = sherlockeye.SearchSherlockeye('example.com')
     await search.process()
 
-    assert await search.get_hostnames() == {'sub.example.com', 'example.com', 'api.example.com'}
+    assert await search.get_hostnames() == {'sub.example.com', 'www.example.com', 'api.example.com'}
     assert await search.get_emails() == {'user@example.com'}
     assert await search.get_ips() == {'203.0.113.10'}
 

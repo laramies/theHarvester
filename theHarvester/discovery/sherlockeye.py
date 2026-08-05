@@ -55,7 +55,7 @@ class SearchSherlockeye:
         return None
 
     def _add_hostname(self, hostname: str) -> None:
-        hostname = hostname.strip().lower().removeprefix('www.')
+        hostname = hostname.strip().lower()
         if hostname.endswith(f'.{self.word}') or hostname == self.word:
             self.totalhosts.add(hostname)
 
