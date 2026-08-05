@@ -67,19 +67,15 @@ class SearchVirustotal:
     async def parse_hostnames(data, word):
         total_subdomains: set[str] = set()
         for attribute in data:
-            total_subdomains.add(attribute['id'].replace('"', '').replace('www.', ''))
+            total_subdomains.add(attribute['id'].replace('"', ''))
             attributes = attribute['attributes']
             total_subdomains.update(
-                {
-                    value['value'].replace('"', '').replace('www.', '')
-                    for value in attributes['last_dns_records']
-                    if word in value['value']
-                }
+                {value['value'].replace('"', '') for value in attributes['last_dns_records'] if word in value['value']}
             )
             if 'last_https_certificate' in attributes:
                 total_subdomains.update(
                     {
-                        value.replace('"', '').replace('www.', '')
+                        value.replace('"', '')
                         for value in attributes['last_https_certificate']['extensions']['subject_alternative_name']
                         if word in value
                     }

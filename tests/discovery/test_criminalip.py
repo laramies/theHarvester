@@ -63,7 +63,14 @@ async def test_parser_handles_missing_legacy_fields(monkeypatch) -> None:
     ips = await search.get_ips()
     asns = await search.get_asns()
 
-    assert {'api.example.com', 'blog.example.com', 'cdn.example.com', 'docs.example.com', 'login.example.com'}.issubset(hostnames)
+    assert {
+        'api.example.com',
+        'blog.example.com',
+        'cdn.example.com',
+        'docs.example.com',
+        'login.example.com',
+        'www.example.com',
+    }.issubset(hostnames)
     assert {'93.184.216.34', '198.51.100.10', '203.0.113.10'}.issubset(ips)
     assert {'15133', '64500'}.issubset(asns)
 

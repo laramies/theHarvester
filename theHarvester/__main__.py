@@ -1313,8 +1313,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         # cast to string so Rest API can understand the type
         return_ips.extend([str(ip) for ip in sorted([netaddr.IPAddress(ip.strip()) for ip in set(all_ip)])])
         # return list(set(all_emails)), return_ips, full, '', ''
-        all_hosts = [host.replace('www.', '') for host in all_hosts if host.replace('www.', '') in all_hosts]
-        all_hosts = list(sorted(set(all_hosts)))
+        all_hosts = sorted_unique(all_hosts)
         return (
             total_asns,
             interesting_urls,
@@ -1423,12 +1422,8 @@ async def start(rest_args: argparse.Namespace | None = None):
                         temp.add(subdomain + ':' + addr)
                         continue
                 if host.endswith(word):
-                    if host[:4] == 'www.':
-                        if host[4:] in all_hosts or host[4:] in full:
-                            temp.add(host[4:])
-                            continue
                     temp.add(host)
-            full = list(sorted(temp))
+            full = sorted_unique(temp)
             full.sort(key=lambda el: el.split(':')[0])
             output_logger.info('\n[*] Hosts found: ' + str(len(full)))
             output_logger.info('---------------------')
@@ -1442,8 +1437,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     output_logger.info(f'An exception has occurred while attempting to insert: {host} IP into DB: {e}')
                     continue
         else:
-            all_hosts = [host.replace('www.', '') for host in all_hosts if host.replace('www.', '') in all_hosts]
-            all_hosts = list(sorted(set(all_hosts)))
+            all_hosts = sorted_unique(all_hosts)
             output_logger.info('\n[*] Hosts found: ' + str(len(all_hosts)))
             output_logger.info('---------------------')
             for host in all_hosts:
@@ -1472,9 +1466,6 @@ async def start(rest_args: argparse.Namespace | None = None):
                         all_hosts.append(host)
                     continue
             if host.endswith(word):
-                if host[:4] == 'www.':
-                    if host[4:] in all_hosts or host[4:] in full:
-                        continue
                 if host not in full:
                     full.append(host)
                     temp.add(host)
@@ -1862,7 +1853,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                     output_logger.info(f'An exception has occurred in BuiltWith scanning: {e}')
 
     if rest_args is not None:
-        all_hosts = sorted({host.replace('www.', '') for host in all_hosts})
+        all_hosts = sorted_unique(all_hosts)
         return (
             total_asns,
             interesting_urls,
