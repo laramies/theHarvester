@@ -57,16 +57,24 @@ class SearchGithubCode:
 
     @staticmethod
     async def fragments_from_response(json_data: dict) -> list[str]:
-        try:
-            return [
-                match['fragment']
-                for item in json_data.get('items', [])
-                for match in item.get('text_matches', [])
-                if match.get('fragment') is not None
-            ]
-        except Exception as e:
-            logger.info(f'Error extracting fragments: {e}')
+        items = json_data.get('items', [])
+        if not isinstance(items, list):
             return []
+
+        fragments: list[str] = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            text_matches = item.get('text_matches', [])
+            if not isinstance(text_matches, list):
+                continue
+            for match in text_matches:
+                if not isinstance(match, dict):
+                    continue
+                fragment = match.get('fragment')
+                if isinstance(fragment, str) and fragment:
+                    fragments.append(fragment)
+        return fragments
 
     @staticmethod
     async def page_from_response(page: str, links) -> int | None:
@@ -116,7 +124,7 @@ class SearchGithubCode:
     async def process(self, proxy: bool = False) -> None:
         try:
             self.proxy = proxy
-            while self.counter <= self.limit and self.page != 0:
+            while self.counter < self.limit and self.page != 0:
                 try:
                     api_response = await self.do_search(self.page)
                     result = await self.handle_response(api_response)
@@ -125,8 +133,16 @@ class SearchGithubCode:
                         # Reset retry counter on any successful response
                         self.retry_count = 0
                         logger.info(f'\tSearching {self.counter} results.')
-                        self.total_results += ''.join(result.fragments)
-                        self.counter += len(result.fragments)
+                        remaining = self.limit - self.counter
+                        fragments = result.fragments[:remaining]
+                        if not fragments:
+                            self.page = 0
+                            break
+                        self.total_results += f'{" ".join(fragments)} '
+                        self.counter += len(fragments)
+                        if self.counter >= self.limit:
+                            self.page = 0
+                            break
                         next_or_last = result.next_page or result.last_page
                         # Break if pagination does not advance to avoid infinite loop
                         if next_or_last == self.page:

@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Expanded offline regression coverage for discovery providers, configuration contracts, logging, output, documentation, workflow policy, and scope boundaries.
 
 ### Fixed
+- Fixed GitHub code-search fragment limits, boundary separation, and malformed-page termination with offline provider tests.
 - Fixed Baidu, Mojeek, and Yahoo page-response separation and Brave missing-credential reporting, with offline web-search provider contract coverage.
 - Fixed DNS candidate validation to omit names without usable A, AAAA, or CNAME evidence, normalize and deduplicate IPv4, IPv6, and canonical-name records, and preserve the existing `Checker.check()` and `DnsForce.run()` return shape.
 - Fixed REST `/query` requests with a filename so they no longer fail with an unbound local value and HTTP 500 response ([c358df80](https://github.com/laramies/theHarvester/commit/c358df80)).
