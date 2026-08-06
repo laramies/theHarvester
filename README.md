@@ -94,7 +94,7 @@ Open [http://127.0.0.1:5000/docs](http://127.0.0.1:5000/docs) for interactive Sw
 | Route | Purpose |
 | --- | --- |
 | `GET /sources` | List registered discovery sources. |
-| `GET /query` | Return ASNs, interesting URLs, Twitter/LinkedIn fields, Trello URLs, IPs, emails, and hosts as JSON. |
+| `GET /query` | Return consolidated discovery results, including emails and breach names, as JSON. |
 | `GET /dnsbrute` | Run DNS brute force for a domain. |
 | `POST /additional/breaches` | Return Have I Been Pwned breach data. |
 | `POST /additional/leaks` | Return Leak-Lookup data. |
@@ -104,7 +104,7 @@ Open [http://127.0.0.1:5000/docs](http://127.0.0.1:5000/docs) for interactive Sw
 
 The service rate limit defaults to five requests per minute and can be changed with `--rate-limit`. The `/additional/*` routes require `THEHARVESTER_API_KEY` on the server and the same value in the `X-API-Key` request header.
 
-The core `/query`, `/sources`, and `/dnsbrute` routes do not require authentication. Keep the service bound to localhost. If you require remote access, add authentication, access controls, and TLS.
+The core `/query`, `/sources`, and `/dnsbrute` routes do not normally require authentication. When a `/query` selection includes `hibpverified` and its provider key is configured, the request requires `THEHARVESTER_API_KEY` in the `X-API-Key` header because it can access verified-domain account data. Keep the service bound to localhost. If you require remote access, add authentication, access controls, and TLS.
 
 Docker Compose publishes port `5000` on every host interface unless you narrow the port mapping:
 
@@ -153,6 +153,7 @@ Read the **API key** column as follows:
 | `gitlab` | ✓ | ✓ | No | No | No | No | No | No | No |
 | `hackertarget` | ✓ | No | No | No | No | No | No | No | Optional |
 | `haveibeenpwned` | No | No | No | No | No | No | ✓ | `POST /additional/breaches` response | No |
+| `hibpverified` | No | ✓ | No | No | No | No | ✓ | No | ✓ |
 | `hudsonrock` | ✓ | ✓ | ✓ | No | No | No | No | No | No |
 | `hunter` | ✓ | ✓ | No | No | No | No | No | No | ✓ |
 | `hunterhow` | ✓ | No | No | No | No | No | No | No | ✓ |
@@ -190,6 +191,8 @@ Read the **API key** column as follows:
 </details>
 
 Provider pricing is intentionally omitted because plans and quotas change frequently. See [Configuration and API Keys](docs/wiki/Configuration-and-API-Keys.md) and each provider's current documentation.
+
+`haveibeenpwned` remains the keyless public breach catalogue. `hibpverified` is a separate authenticated source for HIBP's `breachedDomain` endpoint. It participates in `all` and matching capability selectors just like every other P0 source, and skips normally when its provider key is absent. REST selections that include it require the operator `X-API-Key` when the provider key is configured and return normalized emails plus stable breach names. A live run requires a user-owned paid HIBP API key and a user-owned domain verified in that account; routine tests use offline responses.
 
 The runtime registry also reports the legacy identifiers `linkedin`, `linkedin_links`, `netcraft`, `omnisint`, `sublist3r`, and `zoomeyeapi`. These identifiers have no active CLI handlers. The table does not present them as usable sources.
 

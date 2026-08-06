@@ -8,9 +8,15 @@ from theHarvester.lib.api import api
 def test_query_requests_completed_result_persistence(monkeypatch) -> None:
     persistence_flags: list[bool] = []
 
-    async def fake_start(args: Namespace, *, persist_completed_result: bool = False):
+    async def fake_start(
+        args: Namespace,
+        *,
+        persist_completed_result: bool = False,
+        include_breaches: bool = False,
+    ):
         persistence_flags.append(persist_completed_result)
-        return ([], [], [], [], [], [], [], [], [])
+        assert include_breaches is True
+        return ([], [], [], [], [], [], [], [], [], [])
 
     monkeypatch.setattr(api.__main__, 'start', fake_start)
 

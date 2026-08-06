@@ -42,6 +42,7 @@ from theHarvester.discovery import (
     gitlabsearch,
     hackertarget,
     haveibeenpwned,
+    hibpverified,
     hudsonrocksearch,
     huntersearch,
     intelxsearch,
@@ -139,7 +140,12 @@ def sanitize_filename(filename: str) -> str:
     return filename
 
 
-async def start(rest_args: argparse.Namespace | None = None, *, persist_completed_result: bool = False):
+async def start(
+    rest_args: argparse.Namespace | None = None,
+    *,
+    persist_completed_result: bool = False,
+    include_breaches: bool = False,
+):
     """Main program function"""
     parser = argparse.ArgumentParser(
         description='theHarvester is used to gather open source intelligence (OSINT) on a company or domain.'
@@ -233,7 +239,7 @@ async def start(rest_args: argparse.Namespace | None = None, *, persist_complete
         help="""Comma-separated sources or capability selectors: subdomains, emails, ips, asns, urls, people, breaches, or all.
                             Sources: baidu, bevigil, brave, bufferoverun,
                             builtwith, censys, certspotter, chaos, commoncrawl, criminalip, crtsh, dehashed, dnsdumpster, duckduckgo, dymo, fofa, fullhunt, github-code,
-                            gitlab, hackertarget, haveibeenpwned, hudsonrock, hunter, hunterhow, intelx, leakix, leaklookup, mojeek, netlas, onyphe, otx, pentesttools,
+                            gitlab, hackertarget, haveibeenpwned, hibpverified, hudsonrock, hunter, hunterhow, intelx, leakix, leaklookup, mojeek, netlas, onyphe, otx, pentesttools,
                             projectdiscovery, rapiddns, robtex, rocketreach, securityscorecard, securityTrails, sherlockeye, shodan, shodanct, shodanInternetDB, subdomaincenter,
                             subdomainfinderc99, thc, tomba, urlscan, venacus, virustotal, waybackarchive, whoisxml, windvane, yahoo, zoomeye""",
     )
@@ -742,6 +748,16 @@ async def start(rest_args: argparse.Namespace | None = None, *, persist_complete
                         )
                     except Exception as e:
                         show_default_error_message(engineitem, word, e)
+
+                elif engineitem == 'hibpverified':
+                    try:
+                        hibp_search = hibpverified.SearchHibpVerified(word)
+                        stor_lst.append(store(hibp_search, engineitem))
+                    except MissingKey as error:
+                        if not args.quiet:
+                            output_logger.info(f'A Missing Key error occurred in hibpverified: {error}')
+                    except Exception as error:
+                        show_default_error_message(engineitem, word, error)
 
                 elif engineitem == 'hudsonrock':
                     try:
@@ -1357,7 +1373,7 @@ async def start(rest_args: argparse.Namespace | None = None, *, persist_complete
         all_hosts = sorted_unique(all_hosts)
         if persist_completed_result:
             await persist_result(finish_completed_result())
-        return (
+        result = (
             total_asns,
             interesting_urls,
             twitter_people_list_tracker,
@@ -1368,6 +1384,7 @@ async def start(rest_args: argparse.Namespace | None = None, *, persist_complete
             all_emails,
             all_hosts,
         )
+        return (*result, sorted_unique(all_breaches)) if include_breaches else result
     # Check to see if all_emails and all_hosts are defined.
     try:
         all_emails
@@ -1911,7 +1928,7 @@ async def start(rest_args: argparse.Namespace | None = None, *, persist_complete
 
     if rest_args is not None:
         all_hosts = sorted_unique(all_hosts)
-        return (
+        result = (
             total_asns,
             interesting_urls,
             twitter_people_list_tracker,
@@ -1922,6 +1939,7 @@ async def start(rest_args: argparse.Namespace | None = None, *, persist_complete
             all_emails,
             all_hosts,
         )
+        return (*result, sorted_unique(all_breaches)) if include_breaches else result
     sys.exit(0)
 
 

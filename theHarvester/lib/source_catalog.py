@@ -43,7 +43,10 @@ class SourceSpec:
 
 
 def _spec(name: str, *routes: ResultRoute) -> SourceSpec:
-    return SourceSpec(name=name, routes=frozenset(routes))
+    return SourceSpec(
+        name=name,
+        routes=frozenset(routes),
+    )
 
 
 _SPECS = (
@@ -69,6 +72,7 @@ _SPECS = (
     _spec('gitlab', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec('hackertarget', ResultRoute.SUBDOMAINS),
     _spec('haveibeenpwned', ResultRoute.BREACHES),
+    _spec('hibpverified', ResultRoute.EMAILS, ResultRoute.BREACHES),
     _spec('hudsonrock', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS, ResultRoute.IPS),
     _spec('hunter', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec('hunterhow', ResultRoute.SUBDOMAINS),
