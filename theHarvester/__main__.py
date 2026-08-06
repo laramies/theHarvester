@@ -393,18 +393,22 @@ async def start(
         if ResultRoute.SUBDOMAINS in routes:
             discovered_hosts = await search_engine.get_hostnames()
             host_names = list(_normalize_hosts_for_storage(discovered_hosts, word))
+            paired_hosts: set[str] = set()
             if source == 'rapiddns':
                 for host, address in await search_engine.get_host_ip_pairs():
                     normalized = normalize_scoped_hostname(host, word)
                     if normalized and normalized in host_names:
+                        paired_hosts.add(normalized)
                         reported_host_ip_pairs.add((normalized, address))
-                full.extend(host_names)
-            elif source != 'hackertarget' and source != 'pentesttools':
+
+            if source != 'hackertarget' and source != 'pentesttools':
                 # If a source is inside this conditional, it means the hosts returned must be resolved to obtain ip
                 # This should only be checked if --dns-resolve has a wordlist
                 if dnsresolve is None or len(final_dns_resolver_list) > 0:
                     # indicates that -r was passed in if dnsresolve is None
-                    full_hosts_checker = hostchecker.Checker(host_names, final_dns_resolver_list)
+                    full_hosts_checker = hostchecker.Checker(
+                        [host for host in host_names if host not in paired_hosts], final_dns_resolver_list
+                    )
                     # If full, this is only getting resolved hosts
                     (
                         resolved_pair,
@@ -413,6 +417,8 @@ async def start(
                     ) = await full_hosts_checker.check()
                     all_ip.extend(temp_ips)
                     full.extend(resolved_pair)
+                    if source == 'rapiddns':
+                        full.extend(host for host in host_names if host not in resolved_hosts)
                     resolved_screenshot_hosts.update(resolved_hosts)
                 else:
                     full.extend(host_names)
