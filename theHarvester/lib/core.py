@@ -346,7 +346,6 @@ class Core:
             'subdomainfinderc99',
             'sublist3r',
             'thc',
-            'threatcrowd',
             'tomba',
             'urlscan',
             'venacus',

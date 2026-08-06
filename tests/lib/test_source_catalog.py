@@ -27,6 +27,12 @@ def test_source_specs_cover_supported_sources() -> None:
     assert set(SOURCE_SPECS) <= set(Core.get_supportedengines())
 
 
+def test_dead_threatcrowd_source_is_not_selectable() -> None:
+    assert 'threatcrowd' not in Core.get_supportedengines()
+    assert 'threatcrowd' not in SOURCE_SPECS
+    assert 'threatcrowd' not in _scheduled_source_names()
+
+
 def test_subdomain_route_drives_subdomain_capability() -> None:
     spec = SourceSpec(
         name='example',
