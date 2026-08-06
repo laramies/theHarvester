@@ -285,7 +285,10 @@ async def dnsbrute(
 @limiter.limit(API_RATE_LIMIT)
 async def query(
     request: Request,
-    source: Annotated[list[str], Query(description='Data sources to query (comma separated with no space)')],
+    source: Annotated[
+        list[str],
+        Query(description='Data sources or capability selectors to query; repeated values form a union'),
+    ],
     domain: Annotated[str, Query(min_length=3, description='Domain to be harvested')],
     dns_server: Annotated[str, Query(description='DNS server to use for lookup')] = '',
     user_agent: Annotated[str | None, Header()] = None,
@@ -315,8 +318,9 @@ async def query(
 
     try:
         # Validate sources
+        selected_sources = __main__.Core.expand_source_selection(','.join(source))
         supported_engines = __main__.Core.get_supportedengines()
-        for s in source:
+        for s in selected_sources:
             if s not in supported_engines:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -350,7 +354,7 @@ async def query(
                 limit=limit,
                 proxies=proxies,
                 shodan=shodan,
-                source=','.join(source),
+                source=','.join(selected_sources),
                 start=start,
                 take_over=take_over,
                 wordlist=wordlist,
