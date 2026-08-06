@@ -153,6 +153,7 @@ Read the **API key** column as follows:
 | `gitlab` | ✓ | ✓ | No | No | No | No | No | No | No |
 | `hackertarget` | ✓ | No | No | No | No | No | No | No | Optional |
 | `haveibeenpwned` | No | No | No | No | No | No | ✓ | `POST /additional/breaches` response | No |
+| `hibpverified` | No | ✓ | No | No | No | No | ✓ | No | ✓ |
 | `hudsonrock` | ✓ | ✓ | ✓ | No | No | No | No | No | No |
 | `hunter` | ✓ | ✓ | No | No | No | No | No | No | ✓ |
 | `hunterhow` | ✓ | No | No | No | No | No | No | No | ✓ |
@@ -190,6 +191,8 @@ Read the **API key** column as follows:
 </details>
 
 Provider pricing is intentionally omitted because plans and quotas change frequently. See [Configuration and API Keys](docs/wiki/Configuration-and-API-Keys.md) and each provider's current documentation.
+
+`haveibeenpwned` remains the keyless public breach catalogue. `hibpverified` is a separate, CLI-only source for HIBP's authenticated `breachedDomain` endpoint. It runs only when explicitly named, either alone or in a combination such as `breaches,hibpverified`; capability selectors and `all` exclude it. A live run requires a user-owned paid HIBP API key and a user-owned domain verified in that account; routine tests use offline responses.
 
 The runtime registry also reports the legacy identifiers `linkedin`, `linkedin_links`, `netcraft`, `omnisint`, `sublist3r`, and `zoomeyeapi`. These identifiers have no active CLI handlers. The table does not present them as usable sources.
 

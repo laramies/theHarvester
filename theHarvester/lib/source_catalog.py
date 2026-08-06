@@ -36,14 +36,19 @@ _ROUTE_CAPABILITIES = {
 class SourceSpec:
     name: str
     routes: frozenset[ResultRoute]
+    requires_explicit_selection: bool = False
 
     @property
     def capabilities(self) -> frozenset[str]:
         return frozenset(_ROUTE_CAPABILITIES[route] for route in self.routes)
 
 
-def _spec(name: str, *routes: ResultRoute) -> SourceSpec:
-    return SourceSpec(name=name, routes=frozenset(routes))
+def _spec(name: str, *routes: ResultRoute, requires_explicit_selection: bool = False) -> SourceSpec:
+    return SourceSpec(
+        name=name,
+        routes=frozenset(routes),
+        requires_explicit_selection=requires_explicit_selection,
+    )
 
 
 _SPECS = (
@@ -69,6 +74,12 @@ _SPECS = (
     _spec('gitlab', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec('hackertarget', ResultRoute.SUBDOMAINS),
     _spec('haveibeenpwned', ResultRoute.BREACHES),
+    _spec(
+        'hibpverified',
+        ResultRoute.EMAILS,
+        ResultRoute.BREACHES,
+        requires_explicit_selection=True,
+    ),
     _spec('hudsonrock', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS, ResultRoute.IPS),
     _spec('hunter', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec('hunterhow', ResultRoute.SUBDOMAINS),

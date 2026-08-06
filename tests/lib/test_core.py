@@ -65,12 +65,18 @@ def test_multiple_capabilities_form_a_union() -> None:
     ]
 
 
-def test_breach_capability_selects_haveibeenpwned() -> None:
+def test_capability_selectors_exclude_explicit_only_sources() -> None:
     assert Core.expand_source_selection('breaches') == ['haveibeenpwned']
 
 
+def test_explicit_only_source_can_be_combined_with_a_capability() -> None:
+    assert Core.expand_source_selection('breaches,hibpverified') == ['haveibeenpwned', 'hibpverified']
+
+
 def test_all_preserves_every_supported_source() -> None:
-    assert Core.expand_source_selection("ALL") == Core.get_supportedengines()
+    assert Core.expand_source_selection("ALL") == [
+        source for source in Core.get_supportedengines() if source != 'hibpverified'
+    ]
 
 
 def mock_read_text(mocked: dict[Path, str | Exception]):

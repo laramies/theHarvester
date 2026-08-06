@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Added authenticated REST routes for listing completed enumeration runs and retrieving their normalized evidence.
+- Added an explicit authenticated HIBP verified-domain source that retains normalized account emails and stable breach names without retaining the raw account mapping.
 - Added keyless Shodan Certificate Transparency hostname discovery with bounded requests and offline response contracts.
 - Added transactional SQLite storage and loading for completed full-pipeline runs without changing legacy result rows.
 - Added deterministic JSONL report companions finalized after selected one-shot actions complete.

@@ -42,6 +42,7 @@ from theHarvester.discovery import (
     gitlabsearch,
     hackertarget,
     haveibeenpwned,
+    hibpverified,
     hudsonrocksearch,
     huntersearch,
     intelxsearch,
@@ -233,7 +234,7 @@ async def start(rest_args: argparse.Namespace | None = None, *, persist_complete
         help="""Comma-separated sources or capability selectors: subdomains, emails, ips, asns, urls, people, breaches, or all.
                             Sources: baidu, bevigil, brave, bufferoverun,
                             builtwith, censys, certspotter, chaos, commoncrawl, criminalip, crtsh, dehashed, dnsdumpster, duckduckgo, dymo, fofa, fullhunt, github-code,
-                            gitlab, hackertarget, haveibeenpwned, hudsonrock, hunter, hunterhow, intelx, leakix, leaklookup, mojeek, netlas, onyphe, otx, pentesttools,
+                            gitlab, hackertarget, haveibeenpwned, hibpverified, hudsonrock, hunter, hunterhow, intelx, leakix, leaklookup, mojeek, netlas, onyphe, otx, pentesttools,
                             projectdiscovery, rapiddns, robtex, rocketreach, securityscorecard, securityTrails, sherlockeye, shodan, shodanct, shodanInternetDB, subdomaincenter,
                             subdomainfinderc99, thc, tomba, urlscan, venacus, virustotal, waybackarchive, whoisxml, windvane, yahoo, zoomeye""",
     )
@@ -742,6 +743,16 @@ async def start(rest_args: argparse.Namespace | None = None, *, persist_complete
                         )
                     except Exception as e:
                         show_default_error_message(engineitem, word, e)
+
+                elif engineitem == 'hibpverified':
+                    try:
+                        hibp_search = hibpverified.SearchHibpVerified(word)
+                        stor_lst.append(store(hibp_search, engineitem))
+                    except MissingKey as error:
+                        if not args.quiet:
+                            output_logger.info(f'A Missing Key error occurred in hibpverified: {error}')
+                    except Exception as error:
+                        show_default_error_message(engineitem, word, error)
 
                 elif engineitem == 'hudsonrock':
                     try:

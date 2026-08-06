@@ -58,6 +58,7 @@ class Core:
         'fullhunt': ('key',),
         'github': ('key',),
         'hackertarget': ('key',),
+        'hibpverified': ('key',),
         'hunter': ('key',),
         'hunterhow': ('key',),
         'intelx': ('key',),
@@ -167,6 +168,10 @@ class Core:
     @staticmethod
     def hackertarget_key() -> str:
         return Core._api_key_value('hackertarget')
+
+    @staticmethod
+    def hibpverified_key() -> str | None:
+        return Core.api_keys().get('hibpverified', {}).get('key')
 
     @staticmethod
     def hunter_key() -> str:
@@ -307,6 +312,7 @@ class Core:
             'gitlab',
             'hackertarget',
             'haveibeenpwned',
+            'hibpverified',
             'hudsonrock',
             'hunter',
             'hunterhow',
@@ -352,12 +358,17 @@ class Core:
     def expand_source_selection(cls, selection: str) -> list[str]:
         """Expand result capability selectors into source names."""
         if selection.lower() == 'all':
-            return cls.get_supportedengines()
+            explicit_only = {spec.name for spec in SOURCE_SPECS.values() if spec.requires_explicit_selection}
+            return [source for source in cls.get_supportedengines() if source not in explicit_only]
         capabilities = {capability for spec in SOURCE_SPECS.values() for capability in spec.capabilities}
         selected: set[str] = set()
         for token in map(str.strip, selection.split(',')):
             if token in capabilities:
-                selected.update(spec.name for spec in SOURCE_SPECS.values() if token in spec.capabilities)
+                selected.update(
+                    spec.name
+                    for spec in SOURCE_SPECS.values()
+                    if token in spec.capabilities and not spec.requires_explicit_selection
+                )
             else:
                 selected.add(token)
         return sorted(selected)

@@ -204,7 +204,7 @@ async def getsources(request: Request) -> Response:
     Rate limit is configurable via CLI argument (default: 5 requests per minute).
     """
     try:
-        sources = __main__.Core.get_supportedengines()
+        sources = [source for source in __main__.Core.get_supportedengines() if source != 'hibpverified']
         return JSONResponse({'sources': sources})
     except Exception as e:
         logger.exception('Error in getsources endpoint')
@@ -388,7 +388,14 @@ async def query(
 
     try:
         # Validate sources
+        requested_sources = {token.casefold() for value in source for token in map(str.strip, value.split(',')) if token}
+        if 'hibpverified' in requested_sources:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Source 'hibpverified' is available only through the CLI",
+            )
         selected_sources = __main__.Core.expand_source_selection(','.join(source))
+        selected_sources = [selected_source for selected_source in selected_sources if selected_source != 'hibpverified']
         supported_engines = __main__.Core.get_supportedengines()
         for s in selected_sources:
             if s not in supported_engines:

@@ -28,6 +28,9 @@ apikeys:
   github:
     key: your-github-token
 
+  hibpverified:
+    key: your-hibp-api-key
+
   tomba:
     key: your-tomba-key
     secret: your-tomba-secret
@@ -38,6 +41,8 @@ Do not commit populated configuration files. Prefer provider credentials scoped 
 The [README source matrix](https://github.com/laramies/theHarvester/blob/dev/README.md#discovery-sources) is the canonical source list. It shows whether each source requires a key, accepts an optional key, or has no key setting.
 
 Provider pricing, quotas, and terms change frequently. Check the provider's current documentation for these details.
+
+`hibpverified` queries [HIBP's authenticated verified-domain endpoint](https://haveibeenpwned.com/API/v3#BreachedDomain) only when explicitly named, either alone or in a combination such as `breaches,hibpverified`. Capability selectors and `all` exclude it. Live use requires a user-owned paid HIBP API key and a user-owned domain verified in that account. The unauthenticated REST `/query` route excludes it, and the keyless `haveibeenpwned` source continues to query only the public breach catalogue.
 
 ## Proxies
 
