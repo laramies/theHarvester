@@ -13,6 +13,7 @@ class SearchHaveIBeenPwned:
         self.hosts: set[str] = set()
         self.emails: set[str] = set()
         self.breaches: list[dict] = []
+        self.breach_names: set[str] = set()
         self.pastes: list[dict] = []
         self.breach_dates: set[str] = set()
         self.breach_types: set[str] = set()
@@ -49,6 +50,8 @@ class SearchHaveIBeenPwned:
     def _extract_data(self) -> None:
         """Extract and categorize breach information."""
         for breach in self.breaches:
+            if isinstance(name := breach.get('Name'), str) and name.strip():
+                self.breach_names.add(name.strip())
             if isinstance(domain := breach.get('Domain'), str):
                 self.hosts.add(domain)
             if isinstance(breach_date := breach.get('BreachDate'), str):
@@ -66,6 +69,9 @@ class SearchHaveIBeenPwned:
 
     async def get_breaches(self) -> list[dict]:
         return self.breaches
+
+    async def get_breach_names(self) -> set[str]:
+        return self.breach_names
 
     async def get_pastes(self) -> list[dict]:
         return self.pastes

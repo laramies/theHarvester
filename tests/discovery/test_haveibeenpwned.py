@@ -1,10 +1,15 @@
+import json
 import logging
+import sys
+from pathlib import Path
 from typing import Any
 
 import pytest
 
 from theHarvester.discovery import haveibeenpwned
+from theHarvester import __main__ as theharvester_main
 from theHarvester.lib.api import additional_endpoints
+from theHarvester.lib.completed_result import CompletedResult
 from theHarvester.lib.core import FetcherResponse
 
 
@@ -24,6 +29,7 @@ async def test_public_breach_catalog_preserves_metadata(monkeypatch: pytest.Monk
             FetcherResponse(
                 body=[
                     {
+                        'Name': 'ExampleBreach',
                         'Domain': 'example.com',
                         'BreachDate': '2024-01-02',
                         'DataClasses': ['Email addresses', 'Passwords'],
@@ -40,6 +46,7 @@ async def test_public_breach_catalog_preserves_metadata(monkeypatch: pytest.Monk
     await search.process()
 
     assert await search.get_hostnames() == {'example.com'}
+    assert await search.get_breach_names() == {'ExampleBreach'}
     assert await search.get_breach_dates() == {'2024-01-02'}
     assert await search.get_affected_data() == {'Email addresses', 'Passwords'}
     assert await search.get_emails() == set()
@@ -47,11 +54,25 @@ async def test_public_breach_catalog_preserves_metadata(monkeypatch: pytest.Monk
     assert await search.get_breach_types() == set()
     assert await search.get_breaches() == [
         {
+            'Name': 'ExampleBreach',
             'Domain': 'example.com',
             'BreachDate': '2024-01-02',
             'DataClasses': ['Email addresses', 'Passwords'],
         }
     ]
+
+
+@pytest.mark.asyncio
+async def test_public_breach_catalog_ignores_blank_names(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[FetcherResponse]:
+        return [FetcherResponse(body=[{'Name': '  '}, {'Name': 'ExampleBreach'}], status=200, headers={})]
+
+    monkeypatch.setattr(haveibeenpwned.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    search = haveibeenpwned.SearchHaveIBeenPwned('example.com')
+
+    await search.process()
+
+    assert await search.get_breach_names() == {'ExampleBreach'}
 
 
 @pytest.mark.asyncio
@@ -105,3 +126,52 @@ async def test_breach_rest_handler_does_not_initialize_unrelated_providers(monke
     )
 
     assert result == {'status': 'success', 'data': [{'Domain': 'example.com'}]}
+
+
+@pytest.mark.asyncio
+async def test_public_breach_names_reach_completed_result_and_jsonl(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    completed_results: list[CompletedResult] = []
+
+    class FakeStash:
+        async def do_init(self) -> None:
+            return None
+
+        async def store_all(self, *_args: object) -> None:
+            return None
+
+        async def store_completed_result(self, result: CompletedResult) -> None:
+            completed_results.append(result)
+
+    class FakeHaveIBeenPwned:
+        def __init__(self, domain: str) -> None:
+            assert domain == 'example.com'
+
+        async def process(self, _proxy: bool) -> None:
+            return None
+
+        async def get_breach_names(self) -> set[str]:
+            return {'Adobe', 'ExampleBreach'}
+
+    report = tmp_path / 'hibp-report'
+    monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
+    monkeypatch.setattr(theharvester_main.haveibeenpwned, 'SearchHaveIBeenPwned', FakeHaveIBeenPwned)
+    monkeypatch.setattr(
+        sys,
+        'argv',
+        ['theHarvester', '-d', 'example.com', '-b', 'haveibeenpwned', '-f', str(report)],
+    )
+
+    with pytest.raises(SystemExit) as exit_info:
+        await theharvester_main.start()
+
+    assert exit_info.value.code == 0
+    assert completed_results[0].results == (
+        ('breach', 'Adobe'),
+        ('breach', 'ExampleBreach'),
+    )
+    records = [json.loads(line) for line in report.with_suffix('.jsonl').read_text().splitlines()]
+    assert {'type': 'breach', 'value': 'Adobe'} in records
+    assert {'type': 'breach', 'value': 'ExampleBreach'} in records

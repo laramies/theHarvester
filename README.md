@@ -54,7 +54,7 @@ Combine capability selectors, or mix them with explicit source names:
 uv run theHarvester -d example.com -b emails,urls,certspotter
 ```
 
-Capability selectors form a union and choose which sources run. They do not discard other result types returned by those sources. Available selectors are `subdomains`, `emails`, `ips`, `asns`, `urls`, and `people`. `-b all` continues to run every registered source.
+Capability selectors form a union and choose which sources run. They do not discard other result types returned by those sources. Available selectors are `subdomains`, `emails`, `ips`, `asns`, `urls`, `people`, and `breaches`. `-b all` continues to run every registered source.
 
 Save JSON, XML, and JSONL reports:
 
@@ -114,7 +114,7 @@ docker compose up --build
 
 ## Discovery sources
 
-The table shows which result types each source can add to the JSON report. It covers the consolidated CLI report only. Some adapters parse fields that the report does not store.
+The table shows which result types each source can add to consolidated CLI results. Legacy JSON and XML keep their existing schemas; breach names are retained in JSONL and SQLite. Some adapters parse fields that the reports do not store.
 
 The report groups findings by result type. It does not record which source found each item. Empty optional fields may be omitted.
 
@@ -129,62 +129,62 @@ Read the **API key** column as follows:
 <details>
 <summary><strong>View the source and result matrix</strong></summary>
 
-| Source | Subdomains | Emails | IPs | ASNs | URLs / links | People | Separate REST/action output (not consolidated report) | API key |
-| --- | :---: | :---: | :---: | :---: | :---: | :---: | --- | :---: |
-| `baidu` | ✓ | ✓ | No | No | No | No | No | No |
-| `bevigil` | ✓ | No | No | No | ✓ | No | No | ✓ |
-| `bufferoverun` | ✓ | No | ✓ | No | No | No | No | ✓ |
-| `builtwith` | ✓ | No | No | No | ✓ | No | `POST /additional/tech-stack` response | ✓ |
-| `brave` | ✓ | ✓ | No | No | No | No | No | ✓ |
-| `censys` | ✓ | ✓ | No | No | No | No | No | ✓ |
-| `certspotter` | ✓ | No | No | No | No | No | No | No |
-| `chaos` | ✓ | No | No | No | No | No | No | ✓ |
-| `commoncrawl` | ✓ | No | No | No | No | No | No | No |
-| `criminalip` | ✓ | No | ✓ | ✓ | No | No | No | ✓ |
-| `crtsh` | ✓ | No | No | No | No | No | No | No |
-| `dehashed` | No | No | ✓ | No | No | No | No | ✓ |
-| `dnsdb` | ✓ | No | No | No | No | No | No | ✓ |
-| `dnsdumpster` | ✓ | No | ✓ | No | No | No | No | ✓ |
-| `duckduckgo` | ✓ | ✓ | No | No | No | No | No | No |
-| `dymo` | ✓ | No | No | No | No | No | No | ✓ |
-| `fofa` | ✓ | No | ✓ | No | No | No | No | ✓ |
-| `fullhunt` | ✓ | No | No | No | No | No | No | ✓ |
-| `github-code` | ✓ | ✓ | No | No | No | No | No | ✓ |
-| `gitlab` | ✓ | ✓ | No | No | No | No | No | No |
-| `hackertarget` | ✓ | No | No | No | No | No | No | Optional |
-| `haveibeenpwned` | No | No | No | No | No | No | `POST /additional/breaches` response | No |
-| `hudsonrock` | ✓ | ✓ | ✓ | No | No | No | No | No |
-| `hunter` | ✓ | ✓ | No | No | No | No | No | ✓ |
-| `hunterhow` | ✓ | No | No | No | No | No | No | ✓ |
-| `intelx` | ✓ | ✓ | No | No | ✓ | No | No | ✓ |
-| `leakix` | ✓ | ✓ | No | No | No | No | No | Optional |
-| `leaklookup` | No | ✓ | No | No | No | No | `POST /additional/leaks` response | ✓ |
-| `mojeek` | ✓ | ✓ | No | No | No | No | No | Optional |
-| `netlas` | ✓ | No | No | No | No | No | No | ✓ |
-| `onyphe` | ✓ | No | ✓ | ✓ | No | No | No | ✓ |
-| `otx` | ✓ | No | ✓ | No | No | No | No | No |
-| `pentesttools` | ✓ | No | No | No | No | No | No | ✓ |
-| `projectdiscovery` | ✓ | No | No | No | No | No | No | ✓ |
-| `rapiddns` | ✓ | No | ✓ | No | No | No | No | No |
-| `robtex` | ✓ | No | ✓ | No | No | No | No | No |
-| `rocketreach` | No | ✓ | No | No | ✓ | No | No | ✓ |
-| `securityscorecard` | ✓ | No | ✓ | No | No | No | `POST /additional/security-score` response | ✓ |
-| `securityTrails` | ✓ | No | ✓ | No | No | No | No | ✓ |
-| `sherlockeye` | ✓ | ✓ | ✓ | No | No | No | No | ✓ |
-| `shodan` | ✓ | No | No | No | No | No | `-s` / `--shodan` host-enrichment output | ✓ |
-| `shodanInternetDB` | ✓ | No | ✓ | No | No | No | No | No |
-| `subdomaincenter` | ✓ | No | No | No | No | No | No | No |
-| `subdomainfinderc99` | ✓ | No | No | No | No | No | No | No |
-| `thc` | ✓ | No | No | No | No | No | No | No |
-| `tomba` | ✓ | ✓ | No | No | No | No | No | ✓ |
-| `urlscan` | ✓ | No | ✓ | ✓ | ✓ | No | No | No |
-| `venacus` | No | ✓ | ✓ | No | ✓ | ✓ | No | ✓ |
-| `virustotal` | ✓ | No | No | No | No | No | No | ✓ |
-| `waybackarchive` | ✓ | No | No | No | No | No | No | No |
-| `whoisxml` | ✓ | No | No | No | No | No | No | ✓ |
-| `windvane` | ✓ | ✓ | ✓ | No | No | No | No | Optional |
-| `yahoo` | ✓ | ✓ | No | No | No | No | No | No |
-| `zoomeye` | ✓ | ✓ | ✓ | ✓ | ✓ | No | No | ✓ |
+| Source | Subdomains | Emails | IPs | ASNs | URLs / links | People | Breaches | Separate REST/action output (not consolidated report) | API key |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | --- | :---: |
+| `baidu` | ✓ | ✓ | No | No | No | No | No | No | No |
+| `bevigil` | ✓ | No | No | No | ✓ | No | No | No | ✓ |
+| `bufferoverun` | ✓ | No | ✓ | No | No | No | No | No | ✓ |
+| `builtwith` | ✓ | No | No | No | ✓ | No | No | `POST /additional/tech-stack` response | ✓ |
+| `brave` | ✓ | ✓ | No | No | No | No | No | No | ✓ |
+| `censys` | ✓ | ✓ | No | No | No | No | No | No | ✓ |
+| `certspotter` | ✓ | No | No | No | No | No | No | No | No |
+| `chaos` | ✓ | No | No | No | No | No | No | No | ✓ |
+| `commoncrawl` | ✓ | No | No | No | No | No | No | No | No |
+| `criminalip` | ✓ | No | ✓ | ✓ | No | No | No | No | ✓ |
+| `crtsh` | ✓ | No | No | No | No | No | No | No | No |
+| `dehashed` | No | No | ✓ | No | No | No | No | No | ✓ |
+| `dnsdb` | ✓ | No | No | No | No | No | No | No | ✓ |
+| `dnsdumpster` | ✓ | No | ✓ | No | No | No | No | No | ✓ |
+| `duckduckgo` | ✓ | ✓ | No | No | No | No | No | No | No |
+| `dymo` | ✓ | No | No | No | No | No | No | No | ✓ |
+| `fofa` | ✓ | No | ✓ | No | No | No | No | No | ✓ |
+| `fullhunt` | ✓ | No | No | No | No | No | No | No | ✓ |
+| `github-code` | ✓ | ✓ | No | No | No | No | No | No | ✓ |
+| `gitlab` | ✓ | ✓ | No | No | No | No | No | No | No |
+| `hackertarget` | ✓ | No | No | No | No | No | No | No | Optional |
+| `haveibeenpwned` | No | No | No | No | No | No | ✓ | `POST /additional/breaches` response | No |
+| `hudsonrock` | ✓ | ✓ | ✓ | No | No | No | No | No | No |
+| `hunter` | ✓ | ✓ | No | No | No | No | No | No | ✓ |
+| `hunterhow` | ✓ | No | No | No | No | No | No | No | ✓ |
+| `intelx` | ✓ | ✓ | No | No | ✓ | No | No | No | ✓ |
+| `leakix` | ✓ | ✓ | No | No | No | No | No | No | Optional |
+| `leaklookup` | No | ✓ | No | No | No | No | No | `POST /additional/leaks` response | ✓ |
+| `mojeek` | ✓ | ✓ | No | No | No | No | No | No | Optional |
+| `netlas` | ✓ | No | No | No | No | No | No | No | ✓ |
+| `onyphe` | ✓ | No | ✓ | ✓ | No | No | No | No | ✓ |
+| `otx` | ✓ | No | ✓ | No | No | No | No | No | No |
+| `pentesttools` | ✓ | No | No | No | No | No | No | No | ✓ |
+| `projectdiscovery` | ✓ | No | No | No | No | No | No | No | ✓ |
+| `rapiddns` | ✓ | No | ✓ | No | No | No | No | No | No |
+| `robtex` | ✓ | No | ✓ | No | No | No | No | No | No |
+| `rocketreach` | No | ✓ | No | No | ✓ | No | No | No | ✓ |
+| `securityscorecard` | ✓ | No | ✓ | No | No | No | No | `POST /additional/security-score` response | ✓ |
+| `securityTrails` | ✓ | No | ✓ | No | No | No | No | No | ✓ |
+| `sherlockeye` | ✓ | ✓ | ✓ | No | No | No | No | No | ✓ |
+| `shodan` | ✓ | No | No | No | No | No | No | `-s` / `--shodan` host-enrichment output | ✓ |
+| `shodanInternetDB` | ✓ | No | ✓ | No | No | No | No | No | No |
+| `subdomaincenter` | ✓ | No | No | No | No | No | No | No | No |
+| `subdomainfinderc99` | ✓ | No | No | No | No | No | No | No | No |
+| `thc` | ✓ | No | No | No | No | No | No | No | No |
+| `tomba` | ✓ | ✓ | No | No | No | No | No | No | ✓ |
+| `urlscan` | ✓ | No | ✓ | ✓ | ✓ | No | No | No | No |
+| `venacus` | No | ✓ | ✓ | No | ✓ | ✓ | No | No | ✓ |
+| `virustotal` | ✓ | No | No | No | No | No | No | No | ✓ |
+| `waybackarchive` | ✓ | No | No | No | No | No | No | No | No |
+| `whoisxml` | ✓ | No | No | No | No | No | No | No | ✓ |
+| `windvane` | ✓ | ✓ | ✓ | No | No | No | No | No | Optional |
+| `yahoo` | ✓ | ✓ | No | No | No | No | No | No | No |
+| `zoomeye` | ✓ | ✓ | ✓ | ✓ | ✓ | No | No | No | ✓ |
 
 </details>
 
@@ -230,7 +230,7 @@ The JSON report is a single object and is the more complete format for automatio
 
 The XML report contains the command, emails, hosts, and virtual hosts. Use JSON when you need the additional result types above.
 
-The JSONL report is finalized after the selected one-shot actions finish. Its first line is a summary with an independent run UUID, the target, UTC timestamps, counts, and schema version. Each remaining line is one deterministic, deduplicated string finding. The format does not claim provider success or record source attribution.
+The JSONL report is finalized after the selected one-shot actions finish. Its first line is a summary with an independent run UUID, the target, UTC timestamps, counts, and schema version. Each remaining line is one deterministic, deduplicated string finding, including stable Have I Been Pwned breach names as `breach` records. The format does not claim provider success or record source attribution.
 
 List every JSONL finding as tab-separated type and value columns:
 

@@ -229,7 +229,7 @@ async def start(rest_args: argparse.Namespace | None = None):
     parser.add_argument(
         '-b',
         '--source',
-        help="""Comma-separated sources or capability selectors: subdomains, emails, ips, asns, urls, people, or all.
+        help="""Comma-separated sources or capability selectors: subdomains, emails, ips, asns, urls, people, breaches, or all.
                             Sources: baidu, bevigil, brave, bufferoverun,
                             builtwith, censys, certspotter, chaos, commoncrawl, criminalip, crtsh, dehashed, dnsdumpster, duckduckgo, dymo, fofa, fullhunt, github-code,
                             gitlab, hackertarget, haveibeenpwned, hudsonrock, hunter, hunterhow, intelx, leakix, leaklookup, mojeek, netlas, onyphe, otx, pentesttools,
@@ -348,6 +348,7 @@ async def start(rest_args: argparse.Namespace | None = None):
     twitter_people_list_tracker: list = []
     interesting_urls: list = []
     total_asns: list = []
+    all_breaches: list[str] = []
 
     linkedin_people_list_tracker = []
     linkedin_links_tracker = []
@@ -440,6 +441,9 @@ async def start(rest_args: argparse.Namespace | None = None):
             total_asns.extend(fasns)
             if len(fasns) > 0:
                 await db.store_all(word, fasns, 'asns', source)
+
+        if ResultRoute.BREACHES in routes:
+            all_breaches.extend(await search_engine.get_breach_names())
         logger.info(f'Source {source} completed')
 
     stor_lst = []
@@ -1840,6 +1844,7 @@ async def start(rest_args: argparse.Namespace | None = None):
 
     groups: dict[ResultKind, Iterable[str]] = {
         'asn': map(str, total_asns),
+        'breach': map(str, all_breaches),
         'email': map(str, all_emails),
         'hostname': _normalize_hosts_for_storage((*all_hosts, *dnsrev), word),
         'interesting-url': map(str, interesting_urls),

@@ -8,6 +8,7 @@ from uuid import UUID, uuid4
 
 ResultKind = Literal[
     'asn',
+    'breach',
     'email',
     'hostname',
     'interesting-url',

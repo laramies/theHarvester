@@ -7,7 +7,7 @@ import yaml
 
 from theHarvester.lib.source_catalog import SOURCE_SPECS, ResultRoute
 
-RESULT_COLUMNS = ('Subdomains', 'Emails', 'IPs', 'ASNs', 'URLs / links', 'People')
+RESULT_COLUMNS = ('Subdomains', 'Emails', 'IPs', 'ASNs', 'URLs / links', 'People', 'Breaches')
 ROUTE_COLUMNS = {
     ResultRoute.SUBDOMAINS: 'Subdomains',
     ResultRoute.EMAILS: 'Emails',
@@ -16,6 +16,7 @@ ROUTE_COLUMNS = {
     ResultRoute.LINKS: 'URLs / links',
     ResultRoute.INTERESTING_URLS: 'URLs / links',
     ResultRoute.PEOPLE: 'People',
+    ResultRoute.BREACHES: 'Breaches',
 }
 OPTIONAL_API_KEY_SOURCES = {'hackertarget', 'leakix', 'mojeek', 'windvane'}
 API_KEY_SOURCE_ALIASES = {
@@ -58,7 +59,7 @@ def _documented_source_rows(readme: str) -> dict[str, list[str]]:
 def _documented_source_contracts(readme: str) -> dict[str, set[str]]:
     contracts: dict[str, set[str]] = {}
     for source, cells in _documented_source_rows(readme).items():
-        markers = cells[:6]
+        markers = cells[:7]
         assert set(markers) <= {'✓', 'No'}
         contracts[source] = {column for column, marker in zip(RESULT_COLUMNS, markers, strict=True) if marker == '✓'}
     return contracts
@@ -78,7 +79,7 @@ def test_readme_matches_declared_source_contracts() -> None:
     documented = _documented_source_contracts(readme)
     declared = _declared_source_contracts()
 
-    assert '| Source | Subdomains | Emails | IPs | ASNs | URLs / links | People |' in readme
+    assert '| Source | Subdomains | Emails | IPs | ASNs | URLs / links | People | Breaches |' in readme
     assert len(declared) == 54
     assert len(documented) == 54
     assert documented == declared
