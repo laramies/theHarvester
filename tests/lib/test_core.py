@@ -21,7 +21,6 @@ def mock_environ(monkeypatch, tmp_path: Path):
 def test_email_capability_expands_to_email_sources() -> None:
     assert Core.expand_source_selection("emails") == [
         "baidu",
-        "bitbucket",
         "brave",
         "censys",
         "duckduckgo",

@@ -133,7 +133,6 @@ Read the **API key** column as follows:
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | --- | :---: |
 | `baidu` | ✓ | ✓ | No | No | No | No | No | No |
 | `bevigil` | ✓ | No | No | No | ✓ | No | No | ✓ |
-| `bitbucket` | ✓ | ✓ | No | No | No | No | No | ✓ |
 | `bufferoverun` | ✓ | No | ✓ | No | No | No | No | ✓ |
 | `builtwith` | ✓ | No | No | No | ✓ | No | `POST /additional/tech-stack` response | ✓ |
 | `brave` | ✓ | ✓ | No | No | No | No | No | ✓ |
