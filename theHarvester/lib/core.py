@@ -331,6 +331,7 @@ class Core:
             'sherlockeye',
             'shodan',
             'shodanInternetDB',
+            'shodanct',
             'subdomaincenter',
             'subdomainfinderc99',
             'sublist3r',
