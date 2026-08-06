@@ -233,7 +233,7 @@ async def start(
     )
     parser.add_argument(
         '--dns-recursive-query-limit',
-        help='Maximum resolver-vantage queries for recursive DNS discovery.',
+        help='Maximum DNS record queries across resolver vantages for recursive DNS discovery.',
         default=DEFAULT_RECURSIVE_DNS_QUERY_LIMIT,
         type=int,
     )
