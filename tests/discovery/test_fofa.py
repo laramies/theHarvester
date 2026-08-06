@@ -34,6 +34,46 @@ async def test_http_failure_is_reported_without_results(
     assert 'Fofa request failed with HTTP 429' in caplog.text
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize('error_message', ['Invalid credentials', '账号无效'])
+async def test_provider_body_authentication_failure_is_actionable(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    error_message: str,
+) -> None:
+    monkeypatch.setattr(fofa.Core, 'fofa_key', lambda: ('test-key', 'operator@example.com'))
+
+    async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[FetcherResponse]:
+        return [FetcherResponse(body={'error': True, 'errmsg': error_message}, status=200, headers={})]
+
+    monkeypatch.setattr(fofa.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    search = fofa.SearchFofa('example.com')
+
+    with caplog.at_level(logging.INFO, logger=fofa.__name__):
+        await search.process()
+
+    assert 'Fofa API rejected the configured credentials' in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_provider_body_quota_failure_is_actionable(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    monkeypatch.setattr(fofa.Core, 'fofa_key', lambda: ('test-key', 'operator@example.com'))
+
+    async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[FetcherResponse]:
+        return [FetcherResponse(body={'error': True, 'errmsg': 'Query quota exhausted'}, status=200, headers={})]
+
+    monkeypatch.setattr(fofa.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    search = fofa.SearchFofa('example.com')
+
+    with caplog.at_level(logging.INFO, logger=fofa.__name__):
+        await search.process()
+
+    assert 'Fofa API quota or plan limit was reached' in caplog.text
+
+
 @pytest.mark.parametrize(
     'credentials',
     [('', 'operator@example.com'), ('test-key', '   ')],

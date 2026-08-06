@@ -79,7 +79,14 @@ class SearchFofa:
 
                 # Check for errors
                 if data.get('error', False):
-                    logger.info('Fofa API returned an error')
+                    error_message = data.get('errmsg')
+                    normalized_error = error_message.casefold() if isinstance(error_message, str) else ''
+                    if 'invalid' in normalized_error or '账号无效' in normalized_error:
+                        logger.info('Fofa API rejected the configured credentials')
+                    elif any(term in normalized_error for term in ('quota', 'limit', 'plan')):
+                        logger.info('Fofa API quota or plan limit was reached')
+                    else:
+                        logger.info('Fofa API returned an error')
                     return
 
                 # Extract results
