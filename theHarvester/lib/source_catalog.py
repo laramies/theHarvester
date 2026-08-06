@@ -17,6 +17,7 @@ class ResultRoute(Enum):
     PEOPLE = auto()
     LINKS = auto()
     INTERESTING_URLS = auto()
+    BREACHES = auto()
 
 
 _ROUTE_CAPABILITIES = {
@@ -27,6 +28,7 @@ _ROUTE_CAPABILITIES = {
     ResultRoute.PEOPLE: 'people',
     ResultRoute.LINKS: 'urls',
     ResultRoute.INTERESTING_URLS: 'urls',
+    ResultRoute.BREACHES: 'breaches',
 }
 
 
@@ -66,7 +68,7 @@ _SPECS = (
     _spec('github-code', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec('gitlab', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec('hackertarget', ResultRoute.SUBDOMAINS),
-    _spec('haveibeenpwned'),
+    _spec('haveibeenpwned', ResultRoute.BREACHES),
     _spec('hudsonrock', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS, ResultRoute.IPS),
     _spec('hunter', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec('hunterhow', ResultRoute.SUBDOMAINS),

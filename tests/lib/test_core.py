@@ -65,6 +65,10 @@ def test_multiple_capabilities_form_a_union() -> None:
     ]
 
 
+def test_breach_capability_selects_haveibeenpwned() -> None:
+    assert Core.expand_source_selection('breaches') == ['haveibeenpwned']
+
+
 def test_all_preserves_every_supported_source() -> None:
     assert Core.expand_source_selection("ALL") == Core.get_supportedengines()
 
