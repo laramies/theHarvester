@@ -1,9 +1,14 @@
+import json
 import logging
+import sys
+from pathlib import Path
 from typing import Any
 
 import pytest
 
+from theHarvester import __main__ as theharvester_main
 from theHarvester.discovery import hudsonrocksearch
+from theHarvester.lib.completed_result import CompletedResult
 from theHarvester.lib.core import FetcherResponse
 
 
@@ -187,3 +192,68 @@ async def test_terminal_domain_responses_are_attributed_without_retry(
     assert await search.get_hostnames() == set()
     assert calls == 1
     assert expected_log in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_infostealer_data_reaches_completed_result_and_jsonl(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    completed_results: list[CompletedResult] = []
+
+    class FakeStash:
+        async def do_init(self) -> None:
+            return None
+
+        async def store_all(self, *_args: object) -> None:
+            return None
+
+        async def store_completed_result(self, result: CompletedResult) -> None:
+            completed_results.append(result)
+
+    class FakeHudsonRock:
+        def __init__(self, target: str) -> None:
+            assert target == 'analyst@example.com'
+
+        async def process(self, _proxy: bool) -> None:
+            return None
+
+        async def get_hostnames(self) -> set[str]:
+            return set()
+
+        async def get_emails(self) -> set[str]:
+            return {'analyst@example.com'}
+
+        async def get_ips(self) -> set[str]:
+            return {'192.0.2.4'}
+
+        async def get_infostealers(self) -> list[dict[str, object]]:
+            return [
+                {
+                    'email': 'analyst@example.com',
+                    'computer_name': 'WORKSTATION-1',
+                    'ip': '192.0.2.4',
+                    'top_corporate_services': ['portal.example.com'],
+                }
+            ]
+
+    report = tmp_path / 'hudsonrock-report'
+    monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
+    monkeypatch.setattr(theharvester_main.hudsonrocksearch, 'SearchHudsonRock', FakeHudsonRock)
+    monkeypatch.setattr(
+        sys,
+        'argv',
+        ['theHarvester', '-d', 'analyst@example.com', '-b', 'hudsonrock', '-f', str(report)],
+    )
+
+    with pytest.raises(SystemExit) as exit_info:
+        await theharvester_main.start()
+
+    assert exit_info.value.code == 0
+    stealer = (
+        '{"computer_name":"WORKSTATION-1","email":"analyst@example.com","ip":"192.0.2.4",'
+        '"top_corporate_services":["portal.example.com"]}'
+    )
+    assert ('infostealer', stealer) in completed_results[0].results
+    records = [json.loads(line) for line in report.with_suffix('.jsonl').read_text().splitlines()]
+    assert {'type': 'infostealer', 'value': stealer} in records

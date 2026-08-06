@@ -34,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed the nonfunctional ThreatCrowd source because its service hostnames terminate at deleted AWS load balancers and return NXDOMAIN; OTX remains available through its separate adapter.
 
 ### Fixed
-- Made Hudson Rock HTTP failures status-aware, bounded rate-limit retries, removed trailing request delays, and isolated malformed provider items with offline contracts.
+- Made Hudson Rock HTTP failures status-aware, bounded rate-limit retries, removed trailing request delays, isolated malformed provider items, and retained infostealer details in completed JSONL and SQLite results.
 - Made the public Have I Been Pwned breach catalogue keyless, added offline response contracts, and retained stable breach names in completed JSONL and SQLite results.
 - Fixed THC rate-limit exhaustion so terminal failures are reported without sleeping after the final attempt, with offline recovery, non-success, and malformed-response contracts.
 - Made RapidDNS, Robtex, and Subdomain Center HTTP failures report the source and response status before parsing.
