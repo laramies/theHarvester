@@ -29,6 +29,9 @@ class SearchThc:
                     async with session.get(url) as response:
                         if response.status == 429:
                             rate_remaining = response.headers.get('x-ratelimit-remaining', '0')
+                            if attempt == self.max_retries - 1:
+                                logger.info(f'THC returned status 429 after {self.max_retries} attempts')
+                                return
                             wait_time = self.base_delay * (attempt + 1)
                             logger.info(f'THC rate limit hit (remaining: {rate_remaining}). Waiting {wait_time}s before retry...')
                             await asyncio.sleep(wait_time)
@@ -49,6 +52,9 @@ class SearchThc:
             except Exception as e:
                 error_msg = str(e).lower()
                 if '429' in error_msg or 'rate' in error_msg:
+                    if attempt == self.max_retries - 1:
+                        logger.info(f'THC rate limit failure after {self.max_retries} attempts')
+                        return
                     wait_time = self.base_delay * (attempt + 1)
                     logger.info(f'THC rate limit detected. Waiting {wait_time}s before retry...')
                     await asyncio.sleep(wait_time)
