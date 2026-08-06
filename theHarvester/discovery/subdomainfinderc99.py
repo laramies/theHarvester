@@ -22,6 +22,8 @@ class SearchSubdomainfinderc99:
         # Based on https://gist.github.com/th3gundy/bc83580cbe04031e9164362b33600962
         headers = {'User-Agent': Core.get_user_agent()}
         resp = await AsyncFetcher.fetch_all([self.server], headers=headers, proxy=self.proxy)
+        if not resp or not isinstance(resp[0], str):
+            return
         data = await self.get_csrf_params(resp[0])
 
         data['scan_subdomains'] = ''
@@ -29,8 +31,8 @@ class SearchSubdomainfinderc99:
         data['privatequery'] = 'on'
         await asyncio.sleep(get_delay())
         second_resp = await AsyncFetcher.post_fetch(self.server, headers=headers, proxy=self.proxy, data=ujson.dumps(data))
-
-        self.totalresults += second_resp
+        if isinstance(second_resp, str):
+            self.totalresults += second_resp
 
     async def get_hostnames(self):
         rawres = myparser.Parser(self.totalresults, self.word)

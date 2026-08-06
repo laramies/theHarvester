@@ -104,7 +104,7 @@ _SPECS = (
     _spec('netlas', ResultRoute.SUBDOMAINS),
     _spec('onyphe', ResultRoute.SUBDOMAINS, ResultRoute.IPS, ResultRoute.ASNS),
     _spec('otx', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
-    _spec('pentesttools', ResultRoute.SUBDOMAINS, activity=ActivityClass.DNS),
+    _spec('pentesttools', ResultRoute.SUBDOMAINS, ResultRoute.IPS, activity=ActivityClass.DNS),
     _spec('projectdiscovery', ResultRoute.SUBDOMAINS),
     _spec('rapiddns', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
     _spec('robtex', ResultRoute.SUBDOMAINS, ResultRoute.IPS),

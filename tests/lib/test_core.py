@@ -94,6 +94,15 @@ def test_all_selects_only_passive_catalog_sources() -> None:
     }
 
 
+@pytest.mark.parametrize(
+    'source',
+    ['criminalip', 'pentesttools', 'shodan', 'shodanInternetDB', 'subdomainfinderc99', 'windvane'],
+)
+def test_non_passive_sources_run_only_when_explicitly_selected(source: str) -> None:
+    assert source not in Core.expand_source_selection('all')
+    assert Core.expand_source_selection(source) == [source]
+
+
 def mock_read_text(mocked: dict[Path, str | Exception]):
     read_text = Path.read_text
 

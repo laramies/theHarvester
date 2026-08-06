@@ -1,8 +1,10 @@
 import asyncio
 import logging
 import socket
+from ipaddress import ip_address
 
 from theHarvester.lib.core import AsyncFetcher
+from theHarvester.lib.hostnames import normalize_scoped_hostname
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +22,7 @@ class SearchShodanInternetDB:
     """
 
     def __init__(self, word) -> None:
-        self.word = word
+        self.word = word.strip().lower().rstrip('.')
         self.totalhosts: set = set()
         self.totalips: set = set()
         self.ports: set = set()
@@ -42,7 +44,10 @@ class SearchShodanInternetDB:
         for _family, _type, _proto, _canonname, sockaddr in addr_infos:
             ip = sockaddr[0]
             if isinstance(ip, str):
-                resolved_ips.add(ip)
+                try:
+                    resolved_ips.add(str(ip_address(ip)))
+                except ValueError:
+                    continue
 
         if not resolved_ips:
             logger.info(f'Shodan InternetDB: No IPs resolved for {self.word}')
@@ -50,7 +55,11 @@ class SearchShodanInternetDB:
 
         # Query InternetDB for each resolved IP
         urls = [f'https://internetdb.shodan.io/{ip}' for ip in resolved_ips]
-        responses = await AsyncFetcher.fetch_all(urls, json=True, proxy=self.proxy)
+        try:
+            responses = await AsyncFetcher.fetch_all(urls, json=True, proxy=self.proxy)
+        except Exception:
+            logger.info('Shodan InternetDB request failed')
+            return
 
         for response in responses:
             if not isinstance(response, dict):
@@ -63,8 +72,8 @@ class SearchShodanInternetDB:
 
             # Collect hostnames that match our target domain
             for hostname in response.get('hostnames', []):
-                if isinstance(hostname, str) and (hostname == self.word or hostname.endswith('.' + self.word)):
-                    self.totalhosts.add(hostname)
+                if normalized := normalize_scoped_hostname(hostname, self.word):
+                    self.totalhosts.add(normalized)
 
             # Collect ports
             for port in response.get('ports', []):
@@ -94,9 +103,12 @@ class SearchShodanInternetDB:
                 or response.get('tags')
                 or response.get('cpes')
             ):
-                ip_str = response.get('ip', '')
-                if ip_str:
-                    self.totalips.add(str(ip_str))
+                try:
+                    response_ip = str(ip_address(response.get('ip', '')))
+                except ValueError:
+                    continue
+                if response_ip in resolved_ips:
+                    self.totalips.add(response_ip)
 
     async def get_hostnames(self) -> set:
         return self.totalhosts
