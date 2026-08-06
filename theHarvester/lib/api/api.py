@@ -22,6 +22,7 @@ from theHarvester.lib import stash
 from theHarvester.lib.api.additional_endpoints import router as additional_router
 from theHarvester.lib.api.auth import get_api_key
 from theHarvester.lib.completed_result import ResultKind
+from theHarvester.lib.recursive_dns import DEFAULT_RECURSIVE_DNS_QUERY_LIMIT
 
 logger = logging.getLogger(__name__)
 
@@ -374,7 +375,7 @@ async def query(
     ] = 0,
     dns_recursive_query_limit: Annotated[
         int, Query(gt=0, description='Maximum resolver-vantage queries for recursive DNS discovery')
-    ] = 10_000,
+    ] = DEFAULT_RECURSIVE_DNS_QUERY_LIMIT,
     dns_recursive_runtime_seconds: Annotated[
         float, Query(gt=0, description='Maximum runtime in seconds for recursive DNS discovery')
     ] = 60.0,

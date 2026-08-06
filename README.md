@@ -79,7 +79,7 @@ uv run theHarvester -h
 
 Options such as DNS brute force (`-c`), bounded recursive DNS (`--dns-recursive-depth`), reverse DNS lookup (`-n`), takeover checks (`-t`), API endpoint scanning (`-a`), DNS resolution (`-r`), and screenshots (`--screenshot`) generate additional network activity. Use them only within an explicitly authorized scope.
 
-Recursive DNS requires exactly three distinct resolver IPs through `--dns-resolve`. It advances only names with two-vantage address consensus that are distinguishable from closest-encloser wildcard controls. Depth, resolver-query, and runtime limits are configurable through the three `--dns-recursive-*` options; three consecutive zero-yield batches also stop recursion. REST `/query` exposes the same options.
+Recursive DNS requires exactly three distinct resolver IPs through `--dns-resolve`. It advances only names with two-vantage address consensus that are distinguishable from closest-encloser wildcard controls. Depth, resolver-query, and runtime limits are configurable through the three `--dns-recursive-*` options; the default query ceiling is 1,000 resolver-vantage queries, and three consecutive zero-yield batches also stop recursion. PTR names for current addresses are retained as secondary evidence, but they do not establish current addressability or become recursion seeds. REST `/query` exposes the same options.
 
 Screenshot capture also requires a Playwright-compatible browser; see the installation guide for setup.
 
@@ -238,7 +238,7 @@ The JSON report is a single object and is the more complete format for automatio
 
 The XML report contains the command, emails, hosts, and virtual hosts. Use JSON when you need the additional result types above.
 
-The JSONL report is finalized after the selected one-shot actions finish. Its first line is a summary with an independent run UUID, the target, UTC timestamps, counts, and schema version. Each remaining line is one deterministic, deduplicated string finding, including stable Have I Been Pwned breach names as `breach` records and normalized BuiltWith findings as `framework`, `language`, `server`, `cms`, or `analytics` records. Recursive runs add `dns-recursive-finding` values with hostname, parent, and addresses; `dns-recursive-classification` values retain current and meaningful secondary candidates with hostname, parent, addressability, addresses, and CNAMEs. One `dns-recursive-summary` value records query cost, reached depth, zero-yield batches, and stop reason. The format does not claim provider success or provider source attribution.
+The JSONL report is finalized after the selected one-shot actions finish. Its first line is a summary with an independent run UUID, the target, UTC timestamps, counts, and schema version. Each remaining line is one deterministic, deduplicated string finding, including stable Have I Been Pwned breach names as `breach` records and normalized BuiltWith findings as `framework`, `language`, `server`, `cms`, or `analytics` records. Recursive runs add `dns-recursive-finding` values with hostname, parent, addresses, and PTR names; `dns-recursive-classification` values retain current and meaningful secondary candidates with hostname, parent, addressability, addresses, CNAMEs, and PTR names. One `dns-recursive-summary` value records query cost, reached depth, zero-yield batches, and stop reason. The format does not claim provider success or provider source attribution.
 
 List every JSONL finding as tab-separated type and value columns:
 

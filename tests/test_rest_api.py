@@ -62,6 +62,15 @@ def test_query_forwards_bounded_recursive_dns_options(monkeypatch) -> None:
     assert captured[0].dns_recursive_runtime_seconds == 4.5
 
 
+def test_query_documents_safe_recursive_dns_query_default() -> None:
+    query_operation = api.app.openapi()['paths']['/query']['get']
+    query_limit = next(
+        parameter for parameter in query_operation['parameters'] if parameter['name'] == 'dns_recursive_query_limit'
+    )
+
+    assert query_limit['schema']['default'] == 1_000
+
+
 def test_query_rejects_recursive_dns_without_three_distinct_resolvers(monkeypatch) -> None:
     async def unexpected_start(*_args, **_kwargs):
         raise AssertionError('enumeration must not start')
