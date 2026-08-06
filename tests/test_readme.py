@@ -14,6 +14,7 @@ ROUTE_COLUMNS = {
     ResultRoute.IPS: 'IPs',
     ResultRoute.ASNS: 'ASNs',
     ResultRoute.LINKS: 'URLs / links',
+    ResultRoute.URLS: 'URLs / links',
     ResultRoute.INTERESTING_URLS: 'URLs / links',
     ResultRoute.PEOPLE: 'People',
     ResultRoute.BREACHES: 'Breaches',

@@ -68,6 +68,13 @@ class SearchGitlab:
 
         return emails
 
+    def _add_text_evidence(self, text: str) -> bool:
+        hosts = self._extract_domains_from_text(text)
+        emails = self._extract_emails_from_text(text)
+        self.totalhosts.update(hosts)
+        self.totalemails.update(emails)
+        return bool(hosts or emails)
+
     async def search_projects(self) -> None:
         """Search GitLab projects for domain references"""
         try:
@@ -101,12 +108,7 @@ class SearchGitlab:
 
                         # Look for domains in description and name
                         all_text = f'{description} {name} {path}'
-                        self.totalhosts.update(self._extract_domains_from_text(all_text))
-                        self.totalemails.update(self._extract_emails_from_text(all_text))
-
-                        # Add the web URL if it contains our domain
-                        if web_url and self.word in web_url:
-                            self.totalurls.add(web_url)
+                        project_is_relevant = self._add_text_evidence(all_text)
 
                         # Try to get README content for more detailed search
                         project_id = project.get('id')
@@ -122,10 +124,12 @@ class SearchGitlab:
                                     readme_text = (
                                         readme_response[0] if isinstance(readme_response[0], str) else str(readme_response[0])
                                     )
-                                    self.totalhosts.update(self._extract_domains_from_text(readme_text))
-                                    self.totalemails.update(self._extract_emails_from_text(readme_text))
+                                    project_is_relevant = self._add_text_evidence(readme_text) or project_is_relevant
                             except Exception:
                                 pass  # README might not exist or be accessible
+
+                        if project_is_relevant and isinstance(web_url, str) and web_url.strip():
+                            self.totalurls.add(web_url.strip())
 
                 except Exception as e:
                     logger.info(f'Failed to parse GitLab projects response: {e}')
@@ -163,20 +167,23 @@ class SearchGitlab:
                     public_email = user.get('public_email', '') or ''
 
                     # Look for domains in user info
-                    all_text = f'{name} {username} {bio} {website_url}'
-                    self.totalhosts.update(self._extract_domains_from_text(all_text))
+                    user_hosts = self._extract_domains_from_text(f'{name} {username} {bio}')
+                    website_hosts = self._extract_domains_from_text(website_url) if isinstance(website_url, str) else set()
+                    user_hosts.update(website_hosts)
+                    self.totalhosts.update(user_hosts)
 
                     # Check email
+                    user_emails: set[str] = set()
                     if public_email:
-                        self.totalemails.update(self._extract_emails_from_text(public_email))
+                        user_emails = self._extract_emails_from_text(public_email)
+                        self.totalemails.update(user_emails)
 
-                    # Check website URL
-                    if website_url and self.word in website_url:
-                        self.totalurls.add(website_url)
+                    user_is_relevant = bool(user_hosts or user_emails)
+                    if website_hosts and isinstance(website_url, str) and website_url.strip():
+                        self.totalurls.add(website_url.strip())
 
-                    # Add user profile URL if relevant
-                    if web_url:
-                        self.totalurls.add(web_url)
+                    if user_is_relevant and isinstance(web_url, str) and web_url.strip():
+                        self.totalurls.add(web_url.strip())
 
             except Exception as e:
                 logger.info(f'Failed to parse GitLab users response: {e}')

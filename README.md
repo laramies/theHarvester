@@ -152,7 +152,7 @@ Read the **API key** column as follows:
 | `fofa` | ✓ | No | ✓ | No | No | No | No | No | ✓ |
 | `fullhunt` | ✓ | No | No | No | No | No | No | No | ✓ |
 | `github-code` | ✓ | ✓ | No | No | No | No | No | No | ✓ |
-| `gitlab` | ✓ | ✓ | No | No | No | No | No | No | No |
+| `gitlab` | ✓ | ✓ | No | No | ✓ | No | No | No | No |
 | `hackertarget` | ✓ | No | No | No | No | No | No | No | Optional |
 | `haveibeenpwned` | No | No | No | No | No | No | ✓ | `POST /additional/breaches` response | No |
 | `hibpverified` | No | ✓ | No | No | No | No | ✓ | No | ✓ |

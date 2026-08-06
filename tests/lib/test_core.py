@@ -49,6 +49,7 @@ def test_capabilities_and_explicit_sources_form_a_union() -> None:
         "bevigil",
         "builtwith",
         "certspotter",
+        "gitlab",
         "intelx",
         "rocketreach",
         "urlscan",
