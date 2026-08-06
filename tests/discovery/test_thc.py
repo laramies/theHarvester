@@ -22,11 +22,10 @@ from theHarvester.lib.core import Core
 
 
 class FakeResponse:
-    status = 200
-    headers: dict[str, str] = {}
-
-    def __init__(self, text: str) -> None:
+    def __init__(self, text: str, status: int = 200, headers: dict[str, str] | None = None) -> None:
         self._text = text
+        self.status = status
+        self.headers = headers or {}
 
     async def __aenter__(self) -> Self:
         return self
@@ -63,9 +62,33 @@ class FakeSession:
         return FakeResponse(f'WWW.{domain}\napi.{domain}\napi.{domain}\n')
 
 
+def session_for(*outcomes: FakeResponse | Exception) -> type[FakeSession]:
+    remaining = iter(outcomes)
+
+    class SequencedSession(FakeSession):
+        def get(self, _url: str) -> FakeResponse:
+            outcome = next(remaining)
+            if isinstance(outcome, Exception):
+                raise outcome
+            return outcome
+
+    return SequencedSession
+
+
 @pytest.fixture(autouse=True)
 def fake_thc_session(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(thc.aiohttp, 'ClientSession', FakeSession)
+
+
+@pytest.fixture
+def recorded_sleeps(monkeypatch: pytest.MonkeyPatch) -> list[int]:
+    sleeps: list[int] = []
+
+    async def record_sleep(seconds: int) -> None:
+        sleeps.append(seconds)
+
+    monkeypatch.setattr(thc.asyncio, 'sleep', record_sleep)
+    return sleeps
 
 
 # =============================================================================
@@ -153,6 +176,90 @@ class TestThcSubdomainSearch:
         result = await search.get_hostnames()
         result_list = list(result)
         assert len(result_list) == len(set(result_list))
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ('outcomes', 'message'),
+        [
+            (
+                tuple(FakeResponse('', status=429) for _ in range(3)),
+                'THC returned status 429 after 3 attempts',
+            ),
+            (
+                tuple(RuntimeError('429 too many requests') for _ in range(3)),
+                'THC rate limit failure after 3 attempts',
+            ),
+        ],
+    )
+    async def test_final_rate_limit_is_attributed_without_an_extra_sleep(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        recorded_sleeps: list[int],
+        caplog: pytest.LogCaptureFixture,
+        outcomes: tuple[FakeResponse | Exception, ...],
+        message: str,
+    ) -> None:
+        monkeypatch.setattr(
+            thc.aiohttp,
+            'ClientSession',
+            session_for(FakeResponse('kept.example.com\n'), *outcomes),
+        )
+        search = thc.SearchThc(self.domain())
+        await search.process()
+
+        with caplog.at_level('INFO', logger=thc.__name__):
+            await search.process()
+
+        assert await search.get_hostnames() == {'kept.example.com'}
+        assert recorded_sleeps == [2, 4]
+        assert message in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_retry_recovers(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        recorded_sleeps: list[int],
+    ) -> None:
+        monkeypatch.setattr(
+            thc.aiohttp,
+            'ClientSession',
+            session_for(FakeResponse('', status=429), FakeResponse('WWW.example.com\napi.example.com\n')),
+        )
+        search = thc.SearchThc(self.domain())
+
+        await search.process()
+
+        assert recorded_sleeps == [2]
+        assert await search.get_hostnames() == {'www.example.com', 'api.example.com'}
+
+    @pytest.mark.asyncio
+    async def test_non_success_status_is_attributed(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        monkeypatch.setattr(thc.aiohttp, 'ClientSession', session_for(FakeResponse('', status=503)))
+        search = thc.SearchThc(self.domain())
+
+        with caplog.at_level('INFO', logger=thc.__name__):
+            await search.process()
+
+        assert await search.get_hostnames() == set()
+        assert 'THC returned status 503' in caplog.text
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize('payload', ['', '\n\t\n', 'not a hostname'])
+    async def test_empty_or_malformed_payloads_fail_safely(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        payload: str,
+    ) -> None:
+        monkeypatch.setattr(thc.aiohttp, 'ClientSession', session_for(FakeResponse(payload)))
+        search = thc.SearchThc(self.domain())
+
+        await search.process()
+
+        assert await search.get_hostnames() == set()
 
 
 # =============================================================================
