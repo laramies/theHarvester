@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Made no-filename REST `/query` executions reach completed-result construction and SQLite persistence without changing the legacy response fields.
 - Made Chaos reject empty credentials, report HTTP and malformed-response failures, and preserve supported subdomain response shapes.
+- Made Fofa reject incomplete credentials, report HTTP and malformed-response failures, normalize scoped hosts, and discard invalid IP values.
 - Made Hudson Rock HTTP failures status-aware, bounded rate-limit retries, removed trailing request delays, isolated malformed provider items, and retained infostealer details in completed JSONL and SQLite results.
 - Made the public Have I Been Pwned breach catalogue keyless, added offline response contracts, and retained stable breach names in completed JSONL and SQLite results.
 - Fixed THC rate-limit exhaustion so terminal failures are reported without sleeping after the final attempt, with offline recovery, non-success, and malformed-response contracts.
