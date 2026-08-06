@@ -152,6 +152,37 @@ async def test_aiodns_vantage_does_not_follow_a_cname_outside_scope(monkeypatch:
 
 
 @pytest.mark.asyncio
+async def test_aiodns_vantage_returns_normalized_ptr_evidence(monkeypatch: pytest.MonkeyPatch) -> None:
+    from theHarvester.lib import dns_consensus
+
+    queries: list[tuple[str, str]] = []
+
+    class FakeDNSResolver:
+        def __init__(self, *, nameservers: list[str]) -> None:
+            assert nameservers == ['192.0.2.53']
+
+        async def query_dns(self, hostname: str, record_type: str):
+            queries.append((hostname, record_type))
+            return SimpleNamespace(
+                answer=[
+                    SimpleNamespace(data=SimpleNamespace(dname='Mail.Example.COM.')),
+                    SimpleNamespace(data=SimpleNamespace(dname='mail.example.com')),
+                ]
+            )
+
+        async def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(dns_consensus.aiodns, 'DNSResolver', FakeDNSResolver)
+    resolver = AioDNSResolverVantage('192.0.2.53', 'example.com')
+
+    ptrs = await resolver.query_ptr('192.0.2.10')
+
+    assert queries == [('10.2.0.192.in-addr.arpa', 'PTR')]
+    assert ptrs == ('mail.example.com',)
+
+
+@pytest.mark.asyncio
 async def test_empty_target_is_rejected_before_any_dns_query() -> None:
     queries: list[str] = []
 

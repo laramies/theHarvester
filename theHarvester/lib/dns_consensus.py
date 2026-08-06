@@ -45,6 +45,8 @@ class ResolverVantage(Protocol):
 
     async def query(self, hostname: str) -> DNSResponse: ...
 
+    async def query_ptr(self, address: str) -> tuple[str, ...]: ...
+
 
 class AioDNSResolverVantage:
     """Query one nameserver and follow CNAMEs that remain under the target."""
@@ -123,6 +125,24 @@ class AioDNSResolverVantage:
             cnames=tuple(cnames),
             rcode=rcode,
             error='; '.join(errors) or None,
+        )
+
+    async def query_ptr(self, address: str) -> tuple[str, ...]:
+        try:
+            result = await self._resolver.query_dns(ipaddress.ip_address(address).reverse_pointer, 'PTR')
+        except asyncio.CancelledError:
+            raise
+        except (ValueError, aiodns.error.DNSError):
+            return ()
+        return tuple(
+            sorted(
+                {
+                    normalized
+                    for record in result.answer
+                    if isinstance(value := getattr(record.data, 'dname', None), str)
+                    and (normalized := value.strip().lower().rstrip('.'))
+                }
+            )
         )
 
     async def close(self) -> None:
