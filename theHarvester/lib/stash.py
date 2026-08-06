@@ -117,6 +117,30 @@ class StashManager:
             results=tuple((cast('ResultKind', kind), value) for kind, value in rows),
         )
 
+    async def list_completed_results(self, *, limit: int = 50) -> list[dict[str, object]]:
+        async with aiosqlite.connect(self.db, timeout=30) as db:
+            rows = await db.execute_fetchall(
+                """
+                SELECT runs.run_id, runs.target, runs.started_at, runs.completed_at, COUNT(items.position)
+                FROM completed_results AS runs
+                LEFT JOIN completed_result_items AS items ON items.run_id = runs.run_id
+                GROUP BY runs.run_id
+                ORDER BY julianday(runs.completed_at) DESC, runs.run_id DESC
+                LIMIT ?
+                """,
+                (limit,),
+            )
+        return [
+            {
+                'run_id': row[0],
+                'target': row[1],
+                'started_at': row[2],
+                'completed_at': row[3],
+                'result_count': row[4],
+            }
+            for row in rows
+        ]
+
     async def store(self, domain, resource, res_type, source) -> None:
         self.domain = domain
         self.resource = resource

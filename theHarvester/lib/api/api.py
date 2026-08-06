@@ -4,9 +4,11 @@ import ipaddress
 import logging
 import os
 import socket
+from datetime import datetime
 from typing import Annotated, Any, cast
+from uuid import UUID
 
-from fastapi import FastAPI, Header, HTTPException, Query, Request, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field
@@ -16,7 +18,10 @@ from slowapi.util import get_remote_address
 from starlette.staticfiles import StaticFiles
 
 from theHarvester import __main__
+from theHarvester.lib import stash
 from theHarvester.lib.api.additional_endpoints import router as additional_router
+from theHarvester.lib.api.auth import get_api_key
+from theHarvester.lib.completed_result import ResultKind
 
 logger = logging.getLogger(__name__)
 
@@ -166,6 +171,23 @@ class SourcesResponse(BaseModel):
     sources: list[str] = Field(..., description='List of supported data sources')
 
 
+class CompletedRunSummary(BaseModel):
+    run_id: UUID
+    target: str
+    started_at: datetime
+    completed_at: datetime
+    result_count: int
+
+
+class CompletedResultItem(BaseModel):
+    type: ResultKind
+    value: str
+
+
+class CompletedRunDetail(CompletedRunSummary):
+    results: list[CompletedResultItem]
+
+
 @app.get(
     '/sources',
     response_model=SourcesResponse,
@@ -194,6 +216,54 @@ async def getsources(request: Request) -> Response:
             },
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+
+
+@app.get(
+    '/runs',
+    response_model=list[CompletedRunSummary],
+    responses={status.HTTP_429_TOO_MANY_REQUESTS: {'model': ErrorResponse}},
+)
+@limiter.limit(API_RATE_LIMIT)
+async def list_runs(
+    request: Request,
+    _api_key: Annotated[str, Depends(get_api_key)],
+    limit: Annotated[int, Query(ge=1, le=500)] = 50,
+) -> list[dict[str, object]]:
+    """List recently completed enumeration runs."""
+    manager = stash.StashManager()
+    await manager.do_init()
+    return await manager.list_completed_results(limit=limit)
+
+
+@app.get(
+    '/runs/{run_id}',
+    response_model=CompletedRunDetail,
+    responses={
+        status.HTTP_404_NOT_FOUND: {'model': ErrorResponse},
+        status.HTTP_429_TOO_MANY_REQUESTS: {'model': ErrorResponse},
+    },
+)
+@limiter.limit(API_RATE_LIMIT)
+async def get_run(
+    request: Request,
+    run_id: UUID,
+    _api_key: Annotated[str, Depends(get_api_key)],
+) -> dict[str, object]:
+    """Retrieve one completed enumeration run with its normalized evidence."""
+    manager = stash.StashManager()
+    await manager.do_init()
+    try:
+        result = await manager.load_completed_result(run_id)
+    except LookupError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Completed run not found') from error
+    return {
+        'run_id': str(result.run_id),
+        'target': result.target,
+        'started_at': result.started_at.isoformat(),
+        'completed_at': result.completed_at.isoformat(),
+        'result_count': len(result.results),
+        'results': [{'type': kind, 'value': value} for kind, value in result.results],
+    }
 
 
 # Define Pydantic model for DNS brute force response

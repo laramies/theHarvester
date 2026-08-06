@@ -35,6 +35,8 @@ Treat the runtime OpenAPI document as the exact request and response reference.
 | `GET /sources` | List current discovery sources. |
 | `GET /query` | Run selected discovery sources and return consolidated JSON. |
 | `GET /dnsbrute` | Run active DNS brute force for an authorized domain. |
+| `GET /runs` | List recent completed enumeration runs. |
+| `GET /runs/{run_id}` | Retrieve one completed run and its normalized evidence. |
 
 List sources:
 
@@ -69,6 +71,15 @@ A completed `/query` also retains its normalized terminal record in the local
 SQLite database. The response fields remain unchanged, and no JSON, XML, or
 JSONL report file is written unless `filename` is supplied.
 
+Completed-run routes require the operator API key because retained evidence can
+contain sensitive results:
+
+```bash
+curl -s http://127.0.0.1:5000/runs \
+  -H "X-API-Key: $THEHARVESTER_API_KEY" \
+  | jq
+```
+
 ## Additional API routes
 
 The following `POST /additional/*` routes provide optional breach, leak, security-score, and technology-stack lookups:
@@ -101,7 +112,7 @@ These routes may also require provider credentials in the request body or local 
 
 ## Security boundary
 
-`THEHARVESTER_API_KEY` protects only `/additional/*`. It does not authenticate `/query`, `/sources`, or `/dnsbrute`.
+`THEHARVESTER_API_KEY` protects `/additional/*` and `/runs*`. It does not authenticate `/query`, `/sources`, or `/dnsbrute`.
 
 Keep the default localhost binding. If you require remote access, add authentication, network allowlists, TLS, request logging, and an appropriate rate limit.
 
