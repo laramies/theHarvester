@@ -442,6 +442,12 @@ async def start(
             if len(links) > 0:
                 await db.store_all(word, links, 'linkedinlinks', source)
 
+        if ResultRoute.URLS in routes:
+            urls = await search_engine.get_urls()
+            all_urls.extend(urls)
+            if len(urls) > 0:
+                await db_stash.store_all(word, urls, 'url', source)
+
         if ResultRoute.INTERESTING_URLS in routes:
             get_interesting_urls = getattr(search_engine, 'get_interesting_urls', None)
             iurls = await get_interesting_urls() if get_interesting_urls else await search_engine.get_interestingurls()
@@ -1471,7 +1477,7 @@ async def start(
             output_logger.info('\n[*] No Trello URLs found.')
     else:
         total = length_urls
-        print_section('\n[*] Trello URLs found: ' + str(total), all_urls, '--------------------')
+        print_section('\n[*] URLs found: ' + str(total), all_urls, '--------------------')
         all_urls = sorted_unique(all_urls)
 
     if len(all_ip) == 0:

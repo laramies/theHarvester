@@ -169,6 +169,9 @@ async def test_all_schedules_each_passive_catalog_source_once_and_reports_result
         async def get_links(self) -> set[str]:
             return {'https://sub.example.test/profile'}
 
+        async def get_urls(self) -> set[str]:
+            return {'https://gitlab.com/example/project'}
+
         async def get_interestingurls(self) -> set[str]:
             return {'https://sub.example.test/evidence'}
 
@@ -229,6 +232,7 @@ async def test_all_schedules_each_passive_catalog_source_once_and_reports_result
     jsonl_records = [json.loads(line) for line in report.with_suffix('.jsonl').read_text().splitlines()]
     assert {'type': 'hostname', 'value': 'sub.example.test'} in jsonl_records
     assert {'type': 'email', 'value': 'user@example.test'} in jsonl_records
+    assert {'type': 'url', 'value': 'https://gitlab.com/example/project'} in jsonl_records
 
     completed = await TestStash().load_completed_result(UUID(jsonl_records[0]['run_id']))
     assert completed.target == 'example.test'

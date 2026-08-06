@@ -1,9 +1,13 @@
 import json
+import sys
+from pathlib import Path
 from typing import Any
 
 import pytest
 
 from theHarvester.discovery import gitlabsearch
+from theHarvester import __main__ as theharvester_main
+from theHarvester.lib.completed_result import CompletedResult
 
 
 @pytest.mark.asyncio
@@ -83,6 +87,11 @@ async def test_public_discovery_normalizes_evidence_and_uses_bounded_requests(
         'status.example.test',
     }
     assert await search.get_emails() == {'admin@example.test', 'security@example.test'}
+    assert await search.get_urls() == {
+        'https://gitlab.com/example',
+        'https://gitlab.com/group/project',
+        'https://Portal.Example.TEST./profile',
+    }
 
 
 @pytest.mark.asyncio
@@ -118,3 +127,50 @@ async def test_decoded_pages_are_accepted_without_silent_slicing(monkeypatch: py
     assert 'project-21.example.test' in hostnames
     assert len(emails) == 11
     assert 'user-11@example.test' in emails
+
+
+@pytest.mark.asyncio
+async def test_gitlab_urls_reach_completed_jsonl(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    completed_results: list[CompletedResult] = []
+
+    class FakeStash:
+        async def do_init(self) -> None:
+            return None
+
+        async def store_all(self, *_args: object) -> None:
+            return None
+
+        async def store_completed_result(self, result: CompletedResult) -> None:
+            completed_results.append(result)
+
+    class FakeGitlab:
+        def __init__(self, domain: str) -> None:
+            assert domain == 'example.test'
+
+        async def process(self, _proxy: bool) -> None:
+            return None
+
+        async def get_hostnames(self) -> set[str]:
+            return set()
+
+        async def get_emails(self) -> set[str]:
+            return set()
+
+        async def get_urls(self) -> set[str]:
+            return {'https://gitlab.com/group/project'}
+
+    report = tmp_path / 'gitlab-report'
+    monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
+    monkeypatch.setattr(theharvester_main.gitlabsearch, 'SearchGitlab', FakeGitlab)
+    monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.test', '-b', 'gitlab', '-f', str(report)])
+
+    with pytest.raises(SystemExit) as exit_info:
+        await theharvester_main.start()
+
+    assert exit_info.value.code == 0
+    assert completed_results[0].results == (('url', 'https://gitlab.com/group/project'),)
+    records = [json.loads(line) for line in report.with_suffix('.jsonl').read_text().splitlines()]
+    assert {'type': 'url', 'value': 'https://gitlab.com/group/project'} in records

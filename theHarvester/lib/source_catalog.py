@@ -22,6 +22,7 @@ class ResultRoute(Enum):
     ASNS = auto()
     PEOPLE = auto()
     LINKS = auto()
+    URLS = auto()
     INTERESTING_URLS = auto()
     BREACHES = auto()
 
@@ -33,6 +34,7 @@ _ROUTE_CAPABILITIES = {
     ResultRoute.ASNS: 'asns',
     ResultRoute.PEOPLE: 'people',
     ResultRoute.LINKS: 'urls',
+    ResultRoute.URLS: 'urls',
     ResultRoute.INTERESTING_URLS: 'urls',
     ResultRoute.BREACHES: 'breaches',
 }
@@ -88,7 +90,7 @@ _SPECS = (
     _spec('fofa', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
     _spec('fullhunt', ResultRoute.SUBDOMAINS),
     _spec('github-code', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
-    _spec('gitlab', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
+    _spec('gitlab', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS, ResultRoute.URLS),
     _spec('hackertarget', ResultRoute.SUBDOMAINS),
     _spec('haveibeenpwned', ResultRoute.BREACHES),
     _spec('hibpverified', ResultRoute.EMAILS, ResultRoute.BREACHES),

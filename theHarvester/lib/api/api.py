@@ -48,7 +48,7 @@ class QueryResponse(BaseModel):
     twitter_people: list[str] = Field(default_factory=list, description='List of Twitter people')
     linkedin_people: list[dict] = Field(default_factory=list, description='List of LinkedIn people')
     linkedin_links: list[str] = Field(default_factory=list, description='List of LinkedIn links')
-    trello_urls: list[str] = Field(default_factory=list, description='List of Trello URLs')
+    trello_urls: list[str] = Field(default_factory=list, description='List of discovered URLs (legacy field name)')
     ips: list[str] = Field(default_factory=list, description='List of IPs')
     emails: list[str] = Field(default_factory=list, description='List of emails')
     hosts: list[str] = Field(default_factory=list, description='List of hosts')
