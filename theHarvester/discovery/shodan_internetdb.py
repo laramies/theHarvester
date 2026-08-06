@@ -77,6 +77,7 @@ class SearchShodanInternetDB:
                 continue
             if response_ip != requested_ip:
                 continue
+            self.totalips.add(response_ip)
 
             # Collect hostnames that match our target domain
             for hostname in response.get('hostnames', []):
@@ -102,16 +103,6 @@ class SearchShodanInternetDB:
             for cpe in response.get('cpes', []):
                 if isinstance(cpe, str):
                     self.cpes.add(cpe)
-
-            # Add the IP if there was any data
-            if (
-                response.get('hostnames')
-                or response.get('ports')
-                or response.get('vulns')
-                or response.get('tags')
-                or response.get('cpes')
-            ):
-                self.totalips.add(response_ip)
 
     async def get_hostnames(self) -> set:
         return self.totalhosts

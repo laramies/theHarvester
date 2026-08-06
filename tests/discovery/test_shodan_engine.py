@@ -153,6 +153,27 @@ class TestShodanEngine:
         assert not await search.get_cpes()
 
     @pytest.mark.asyncio
+    async def test_shodan_internetdb_retains_a_matching_ip_with_empty_details(self, monkeypatch):
+        from theHarvester.discovery import shodan_internetdb
+
+        monkeypatch.setattr(
+            shodan_internetdb.socket,
+            'getaddrinfo',
+            lambda *_args: [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('203.0.113.1', 0))],
+            raising=True,
+        )
+
+        async def fake_fetch_all(_urls, json=False, proxy=False):
+            return [{'ip': '203.0.113.1', 'hostnames': [], 'ports': [], 'vulns': [], 'tags': [], 'cpes': []}]
+
+        monkeypatch.setattr(shodan_internetdb.AsyncFetcher, 'fetch_all', fake_fetch_all, raising=True)
+
+        search = shodan_internetdb.SearchShodanInternetDB('example.test')
+        await search.process()
+
+        assert await search.get_ips() == {'203.0.113.1'}
+
+    @pytest.mark.asyncio
     async def test_shodan_internetdb_resolution_failure_skips_provider_request(self, monkeypatch):
         from theHarvester.discovery import shodan_internetdb
 
