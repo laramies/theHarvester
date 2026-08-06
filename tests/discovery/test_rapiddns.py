@@ -13,6 +13,7 @@ import pytest
 import theHarvester.__main__ as theharvester_main
 from theHarvester.discovery import rapiddns
 from theHarvester.lib.completed_result import CompletedResult
+from theHarvester.lib.core import FetcherResponse
 from theHarvester.lib.output import configure_logging
 
 RAPID_DNS_HTML = """
@@ -24,9 +25,9 @@ RAPID_DNS_HTML = """
 """
 
 
-async def fake_fetch_all(_urls: list[str], **_kwargs: Any) -> list[str]:
+async def fake_fetch_all(_urls: list[str], **_kwargs: Any) -> list[FetcherResponse]:
     await asyncio.sleep(0)
-    return [RAPID_DNS_HTML]
+    return [FetcherResponse(body=RAPID_DNS_HTML, status=200, headers={})]
 
 
 @pytest.mark.asyncio
@@ -53,8 +54,8 @@ async def test_rapiddns_handles_empty_or_malformed_html(
     monkeypatch: pytest.MonkeyPatch,
     payload: str,
 ) -> None:
-    async def fake_response(*_args: Any, **_kwargs: Any) -> list[str]:
-        return [payload]
+    async def fake_response(*_args: Any, **_kwargs: Any) -> list[FetcherResponse]:
+        return [FetcherResponse(body=payload, status=200, headers={})]
 
     monkeypatch.setattr(rapiddns.AsyncFetcher, 'fetch_all', fake_response)
     search = rapiddns.SearchRapidDns('example.com')
@@ -83,6 +84,26 @@ async def test_rapiddns_attributes_provider_failures(
     assert await search.get_hostnames() == []
     assert await search.get_ips() == set()
     assert 'RapidDNS error' in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_rapiddns_attributes_http_failures(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    async def rate_limited_fetch(*_args: Any, **kwargs: Any) -> list[FetcherResponse]:
+        assert kwargs['include_metadata'] is True
+        return [FetcherResponse(body='rate limited', status=429, headers={})]
+
+    monkeypatch.setattr(rapiddns.AsyncFetcher, 'fetch_all', rate_limited_fetch)
+    search = rapiddns.SearchRapidDns('example.com')
+
+    with caplog.at_level(logging.INFO, logger=rapiddns.__name__):
+        await search.process()
+
+    assert await search.get_hostnames() == []
+    assert await search.get_ips() == set()
+    assert 'RapidDNS request failed with HTTP 429' in caplog.text
 
 
 @pytest.mark.asyncio

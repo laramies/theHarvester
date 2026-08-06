@@ -1,6 +1,6 @@
 import logging
 
-from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 
 logger = logging.getLogger(__name__)
 
@@ -16,8 +16,21 @@ class SubdomainCenter:
         headers = {'User-Agent': Core.get_user_agent()}
         try:
             current_url = f'{self.server}{self.word}'
-            resp = await AsyncFetcher.fetch_all([current_url], headers=headers, proxy=self.proxy, json=True)
-            payload = resp[0] if resp else []
+            responses: list[FetcherResponse | None] = await AsyncFetcher.fetch_all(
+                [current_url],
+                headers=headers,
+                proxy=self.proxy,
+                json=True,
+                include_metadata=True,
+            )
+            response = responses[0] if responses else None
+            if response is None:
+                logger.info('SubdomainCenter request failed')
+                return
+            if not 200 <= response.status < 300:
+                logger.info(f'SubdomainCenter request failed with HTTP {response.status}')
+                return
+            payload = response.body
             self.results = (
                 {hostname for hostname in payload if isinstance(hostname, str) and hostname.strip()}
                 if isinstance(payload, list)

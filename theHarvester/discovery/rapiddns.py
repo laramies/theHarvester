@@ -4,7 +4,7 @@ import logging
 from bs4 import BeautifulSoup
 from bs4.element import Tag
 
-from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 
 logger = logging.getLogger(__name__)
 
@@ -23,10 +23,22 @@ class SearchRapidDns:
             # TODO see if it's worth adding sameip searches
             # f'{self.hostname}/sameip/{self.word}?full=1#result'
             urls = [f'https://rapiddns.io/subdomain/{self.word}?full=1#result']
-            responses = await AsyncFetcher.fetch_all(urls, headers=headers, proxy=self.proxy)
-            if len(responses[0]) <= 1:
+            responses: list[FetcherResponse | None] = await AsyncFetcher.fetch_all(
+                urls,
+                headers=headers,
+                proxy=self.proxy,
+                include_metadata=True,
+            )
+            response = responses[0] if responses else None
+            if response is None:
+                logger.info('RapidDNS request failed')
                 return
-            soup = BeautifulSoup(responses[0], 'html.parser')
+            if not 200 <= response.status < 300:
+                logger.info(f'RapidDNS request failed with HTTP {response.status}')
+                return
+            if not isinstance(response.body, str) or len(response.body) <= 1:
+                return
+            soup = BeautifulSoup(response.body, 'html.parser')
             table_el = soup.find('table')
             if not isinstance(table_el, Tag):
                 return
