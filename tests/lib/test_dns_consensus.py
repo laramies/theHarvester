@@ -8,6 +8,7 @@ import pytest
 from theHarvester.lib.dns_consensus import (
     Addressability,
     AioDNSResolverVantage,
+    DNSQueryBudget,
     DNSResponse,
     validate_dns_candidates,
 )
@@ -121,6 +122,42 @@ async def test_aiodns_vantage_follows_a_bounded_cname_chain(monkeypatch: pytest.
     assert response.cnames == ('edge.example.com', 'origin.example.com')
     assert response.error is None
     assert closed == [True]
+
+
+@pytest.mark.asyncio
+async def test_aiodns_vantage_stops_before_exceeding_cname_query_budget(monkeypatch: pytest.MonkeyPatch) -> None:
+    from theHarvester.lib import dns_consensus
+
+    queries: list[tuple[str, str]] = []
+
+    class FakeDNSResolver:
+        def __init__(self, *, nameservers: list[str]) -> None:
+            assert nameservers == ['192.0.2.53']
+
+        async def query_dns(self, hostname: str, record_type: str):
+            queries.append((hostname, record_type))
+            if record_type == 'CNAME':
+                return SimpleNamespace(answer=[SimpleNamespace(data=SimpleNamespace(cname='edge.example.com'))])
+            raise dns_consensus.aiodns.error.DNSError(dns_consensus.aiodns.error.ARES_ENODATA, 'no data')
+
+        async def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(dns_consensus.aiodns, 'DNSResolver', FakeDNSResolver)
+    resolver = AioDNSResolverVantage('192.0.2.53', 'example.com')
+    budget = DNSQueryBudget(3)
+
+    response = await resolver.query('alias.example.com', budget)
+
+    assert queries == [
+        ('alias.example.com', 'A'),
+        ('alias.example.com', 'AAAA'),
+        ('alias.example.com', 'CNAME'),
+    ]
+    assert response.cnames == ('edge.example.com',)
+    assert response.error == 'query-limit'
+    assert budget.used == 3
+    assert budget.blocked
 
 
 @pytest.mark.asyncio

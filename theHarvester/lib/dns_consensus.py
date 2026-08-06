@@ -27,6 +27,26 @@ class Addressability(StrEnum):
     WILDCARD_INDISTINGUISHABLE = 'wildcard-indistinguishable'
 
 
+@dataclass(slots=True)
+class DNSQueryBudget:
+    limit: int
+    used: int = 0
+    blocked: bool = False
+
+    def __post_init__(self) -> None:
+        if self.limit <= 0:
+            raise ValueError('DNS query budget must be greater than zero')
+
+    def consume(self, count: int) -> bool:
+        if count <= 0:
+            raise ValueError('DNS query count must be greater than zero')
+        if self.used + count > self.limit:
+            self.blocked = True
+            return False
+        self.used += count
+        return True
+
+
 @dataclass(frozen=True, slots=True)
 class DNSResponse:
     ipv4: tuple[str, ...] = ()
@@ -43,9 +63,9 @@ class DNSResponse:
 class ResolverVantage(Protocol):
     name: str
 
-    async def query(self, hostname: str) -> DNSResponse: ...
+    async def query(self, hostname: str, budget: DNSQueryBudget | None = None) -> DNSResponse: ...
 
-    async def query_ptr(self, address: str) -> tuple[str, ...]: ...
+    async def query_ptr(self, address: str, budget: DNSQueryBudget | None = None) -> tuple[str, ...]: ...
 
 
 class AioDNSResolverVantage:
@@ -56,7 +76,7 @@ class AioDNSResolverVantage:
         self._target = target
         self._resolver = aiodns.DNSResolver(nameservers=[nameserver])
 
-    async def query(self, hostname: str) -> DNSResponse:
+    async def query(self, hostname: str, budget: DNSQueryBudget | None = None) -> DNSResponse:
         current = hostname.strip().lower().rstrip('.')
         seen = {current}
         ipv4: set[str] = set()
@@ -66,6 +86,9 @@ class AioDNSResolverVantage:
         errors: list[str] = []
         successful_query = False
         for _ in range(16):
+            if budget is not None and not budget.consume(3):
+                errors.append('query-limit')
+                break
             results = await asyncio.gather(
                 *(self._resolver.query_dns(current, record_type) for record_type in ('A', 'AAAA', 'CNAME')),
                 return_exceptions=True,
@@ -127,7 +150,9 @@ class AioDNSResolverVantage:
             error='; '.join(errors) or None,
         )
 
-    async def query_ptr(self, address: str) -> tuple[str, ...]:
+    async def query_ptr(self, address: str, budget: DNSQueryBudget | None = None) -> tuple[str, ...]:
+        if budget is not None and not budget.consume(1):
+            return ()
         try:
             result = await self._resolver.query_dns(ipaddress.ip_address(address).reverse_pointer, 'PTR')
         except asyncio.CancelledError:
@@ -194,9 +219,12 @@ async def _query(
     resolver: ResolverVantage,
     *,
     wildcard_depth: str | None = None,
+    budget: DNSQueryBudget | None = None,
 ) -> DNSValidation:
     try:
-        response = _normalize_response(await resolver.query(query_name))
+        response = _normalize_response(
+            await (resolver.query(query_name) if budget is None else resolver.query(query_name, budget))
+        )
     except asyncio.CancelledError:
         raise
     except Exception as error:
@@ -246,6 +274,8 @@ async def validate_dns_candidates(
     target: str,
     candidates: Sequence[str],
     resolvers: Sequence[ResolverVantage],
+    *,
+    budget: DNSQueryBudget | None = None,
 ) -> tuple[CandidateConsensus, ...]:
     """Compare each in-scope candidate with randomized wildcard controls.
 
@@ -275,8 +305,12 @@ async def validate_dns_candidates(
         )
         validations = tuple(
             await asyncio.gather(
-                *(_query(candidate, resolver) for resolver in resolvers),
-                *(_query(query_name, resolver, wildcard_depth=depth) for query_name, depth in controls for resolver in resolvers),
+                *(_query(candidate, resolver, budget=budget) for resolver in resolvers),
+                *(
+                    _query(query_name, resolver, wildcard_depth=depth, budget=budget)
+                    for query_name, depth in controls
+                    for resolver in resolvers
+                ),
             )
         )
         results.append(CandidateConsensus(candidate, _classify(validations), validations))
