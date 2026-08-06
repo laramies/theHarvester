@@ -89,7 +89,12 @@ from theHarvester.lib.core import DATA_DIR, Core, show_default_error_message
 from theHarvester.lib.dns_consensus import AioDNSResolverVantage
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.output import configure_logging, output_logger, print_linkedin_sections, print_section, sorted_unique
-from theHarvester.lib.recursive_dns import RecursiveDNSLimits, RecursiveDNSResult, discover_recursive_dns
+from theHarvester.lib.recursive_dns import (
+    DEFAULT_RECURSIVE_DNS_QUERY_LIMIT,
+    RecursiveDNSLimits,
+    RecursiveDNSResult,
+    discover_recursive_dns,
+)
 from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass, ResultRoute, get_source_spec
 from theHarvester.screenshot.screenshot import ScreenShotter
 
@@ -229,7 +234,7 @@ async def start(
     parser.add_argument(
         '--dns-recursive-query-limit',
         help='Maximum resolver-vantage queries for recursive DNS discovery.',
-        default=10_000,
+        default=DEFAULT_RECURSIVE_DNS_QUERY_LIMIT,
         type=int,
     )
     parser.add_argument(
@@ -363,7 +368,7 @@ async def start(
             raise ValueError('--dns-recursive-depth requires --dns-resolve with exactly three resolver vantages')
         recursive_limits = RecursiveDNSLimits(
             depth=recursive_depth,
-            query_limit=getattr(args, 'dns_recursive_query_limit', 10_000),
+            query_limit=getattr(args, 'dns_recursive_query_limit', DEFAULT_RECURSIVE_DNS_QUERY_LIMIT),
             runtime_seconds=getattr(args, 'dns_recursive_runtime_seconds', 60.0),
         )
 
@@ -1461,6 +1466,7 @@ async def start(
                             'addresses': list(finding.records.addresses),
                             'hostname': finding.hostname,
                             'parent': finding.parent,
+                            'ptrs': list(finding.ptrs),
                         },
                         separators=(',', ':'),
                         sort_keys=True,
@@ -1479,6 +1485,7 @@ async def start(
                             'cnames': list(classification.records.cnames),
                             'hostname': classification.hostname,
                             'parent': classification.parent,
+                            'ptrs': list(classification.ptrs),
                         },
                         separators=(',', ':'),
                         sort_keys=True,

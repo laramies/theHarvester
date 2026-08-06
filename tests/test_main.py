@@ -25,9 +25,7 @@ def test_normalize_hosts_for_storage_uses_the_parser_scope(target: str) -> None:
 
 
 @pytest.mark.asyncio
-async def test_rapiddns_hostnames_honor_explicit_dns_resolution(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+async def test_rapiddns_hostnames_honor_explicit_dns_resolution(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     completed: list[CompletedResult] = []
     output_path = tmp_path / 'rapiddns'
 
@@ -119,6 +117,7 @@ async def test_recursive_dns_requires_canonically_distinct_resolvers(monkeypatch
 
     with pytest.raises(ValueError, match='exactly three resolver vantages'):
         await theharvester_main.start()
+
 
 @pytest.mark.asyncio
 async def test_dns_proven_cname_hosts_reach_screenshot_filter(
@@ -230,7 +229,7 @@ async def test_recursive_dns_results_reach_completed_output_without_changing_leg
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     completed: list[CompletedResult] = []
-    captured: list[tuple[str, tuple[str, ...], int]] = []
+    captured: list[tuple[str, tuple[str, ...], int, int]] = []
 
     class FakeStash:
         async def do_init(self) -> None:
@@ -271,13 +270,14 @@ async def test_recursive_dns_results_reach_completed_output_without_changing_leg
             return None
 
     async def fake_recursive(target, seeds, _labels, _resolvers, limits):
-        captured.append((target, tuple(seeds), limits.depth))
+        captured.append((target, tuple(seeds), limits.depth, limits.query_limit))
         return RecursiveDNSResult(
             findings=(
                 RecursiveDNSFinding(
                     'dev.api.example.com',
                     'api.example.com',
                     HostDnsRecords(ipv4=('192.0.2.2',)),
+                    ('ptr.example.net',),
                 ),
             ),
             query_count=24,
@@ -290,6 +290,7 @@ async def test_recursive_dns_results_reach_completed_output_without_changing_leg
                     'api.example.com',
                     Addressability.NOT_CURRENT,
                     HostDnsRecords(cnames=('missing.vendor.test',)),
+                    ('legacy-ptr.example.net',),
                 ),
             ),
         )
@@ -319,7 +320,7 @@ async def test_recursive_dns_results_reach_completed_output_without_changing_leg
         await theharvester_main.start()
 
     assert exit_info.value.code == 0
-    assert captured == [('example.com', ('api.example.com',), 1)]
+    assert captured == [('example.com', ('api.example.com',), 1, 1_000)]
     assert completed
     assert ('hostname', 'dev.api.example.com') in completed[0].results
     assert ('ip-address', '192.0.2.2') in completed[0].results
@@ -330,6 +331,7 @@ async def test_recursive_dns_results_reach_completed_output_without_changing_leg
                 'addresses': ['192.0.2.2'],
                 'hostname': 'dev.api.example.com',
                 'parent': 'api.example.com',
+                'ptrs': ['ptr.example.net'],
             },
             separators=(',', ':'),
             sort_keys=True,
@@ -352,6 +354,7 @@ async def test_recursive_dns_results_reach_completed_output_without_changing_leg
                 'cnames': ['missing.vendor.test'],
                 'hostname': 'unused.api.example.com',
                 'parent': 'api.example.com',
+                'ptrs': ['legacy-ptr.example.net'],
             },
             separators=(',', ':'),
             sort_keys=True,
