@@ -177,7 +177,6 @@ Read the **API key** column as follows:
 | `subdomaincenter` | ✓ | No | No | No | No | No | No | No |
 | `subdomainfinderc99` | ✓ | No | No | No | No | No | No | No |
 | `thc` | ✓ | No | No | No | No | No | No | No |
-| `threatcrowd` | ✓ | No | ✓ | No | No | No | No | No |
 | `tomba` | ✓ | ✓ | No | No | No | No | No | ✓ |
 | `urlscan` | ✓ | No | ✓ | ✓ | ✓ | No | No | No |
 | `venacus` | No | ✓ | ✓ | No | ✓ | ✓ | No | ✓ |

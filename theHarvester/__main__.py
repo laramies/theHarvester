@@ -69,7 +69,6 @@ from theHarvester.discovery import (
     subdomainfinderc99,
     takeover,
     thc,
-    threatcrowd,
     tombasearch,
     urlscan,
     venacussearch,
@@ -236,7 +235,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                             builtwith, censys, certspotter, chaos, commoncrawl, criminalip, crtsh, dehashed, dnsdumpster, duckduckgo, dymo, fofa, fullhunt, github-code,
                             gitlab, hackertarget, haveibeenpwned, hudsonrock, hunter, hunterhow, intelx, leakix, leaklookup, mojeek, netlas, onyphe, otx, pentesttools,
                             projectdiscovery, rapiddns, robtex, rocketreach, securityscorecard, securityTrails, sherlockeye, shodan, shodanInternetDB, subdomaincenter,
-                            subdomainfinderc99, thc, threatcrowd, tomba, urlscan, venacus, virustotal, waybackarchive, whoisxml, windvane, yahoo, zoomeye""",
+                            subdomainfinderc99, thc, tomba, urlscan, venacus, virustotal, waybackarchive, whoisxml, windvane, yahoo, zoomeye""",
     )
 
     # determines if the filename is coming from rest api or user
@@ -1123,18 +1122,6 @@ async def start(rest_args: argparse.Namespace | None = None):
                     try:
                         thc_search = thc.SearchThc(word)
                         stor_lst.append(store(thc_search, engineitem))
-                    except Exception as e:
-                        show_default_error_message(engineitem, word, e)
-
-                elif engineitem == 'threatcrowd':
-                    try:
-                        threatcrowd_search = threatcrowd.SearchThreatcrowd(word)
-                        stor_lst.append(
-                            store(
-                                threatcrowd_search,
-                                engineitem,
-                            )
-                        )
                     except Exception as e:
                         show_default_error_message(engineitem, word, e)
 

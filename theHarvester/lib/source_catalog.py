@@ -91,7 +91,6 @@ _SPECS = (
     _spec('subdomaincenter', ResultRoute.SUBDOMAINS),
     _spec('subdomainfinderc99', ResultRoute.SUBDOMAINS),
     _spec('thc', ResultRoute.SUBDOMAINS),
-    _spec('threatcrowd', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
     _spec('tomba', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec('urlscan', ResultRoute.SUBDOMAINS, ResultRoute.IPS, ResultRoute.ASNS, ResultRoute.INTERESTING_URLS),
     _spec('venacus', ResultRoute.EMAILS, ResultRoute.IPS, ResultRoute.PEOPLE, ResultRoute.INTERESTING_URLS),
