@@ -52,6 +52,19 @@ curl -sG http://127.0.0.1:5000/query \
   | jq
 ```
 
+The `source` parameter also accepts the same capability selectors as the CLI:
+`subdomains`, `emails`, `ips`, `asns`, `urls`, `people`, and `breaches`.
+Repeat `source` to combine capabilities with explicit source names. Selection is
+a union and does not filter fields returned by a selected source.
+
+```bash
+curl -sG http://127.0.0.1:5000/query \
+  --data-urlencode 'domain=example.com' \
+  --data-urlencode 'source=emails' \
+  --data-urlencode 'source=certspotter' \
+  | jq
+```
+
 ## Additional API routes
 
 The following `POST /additional/*` routes provide optional breach, leak, security-score, and technology-stack lookups:
