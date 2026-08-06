@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 
-from theHarvester.lib.dns_consensus import DNSResponse
+from theHarvester.lib.dns_consensus import DNSQueryBudget, DNSResponse
 from theHarvester.lib.recursive_dns import RecursiveDNSLimits, discover_recursive_dns
 
 
@@ -21,7 +21,9 @@ class FakeResolver:
         self.aliases = aliases or {}
         self.nodata = nodata or set()
 
-    async def query(self, hostname: str) -> DNSResponse:
+    async def query(self, hostname: str, budget: DNSQueryBudget | None = None) -> DNSResponse:
+        if budget is not None and not budget.consume(3):
+            return DNSResponse(rcode='ERROR', error='query-limit')
         if hostname in self.current:
             return DNSResponse(ipv4=('192.0.2.10',))
         if hostname in self.aliases:
@@ -30,7 +32,9 @@ class FakeResolver:
             return DNSResponse(rcode='NODATA')
         return DNSResponse(rcode='NXDOMAIN')
 
-    async def query_ptr(self, address: str) -> tuple[str, ...]:
+    async def query_ptr(self, address: str, budget: DNSQueryBudget | None = None) -> tuple[str, ...]:
+        if budget is not None and not budget.consume(1):
+            return ()
         return ('edge.example.net',) if address == '192.0.2.10' else ()
 
 
@@ -39,12 +43,29 @@ class BlockingResolver:
         self.name = name
         self.cancelled = 0
 
-    async def query(self, _hostname: str) -> DNSResponse:
+    async def query(self, _hostname: str, budget: DNSQueryBudget | None = None) -> DNSResponse:
+        if budget is not None and not budget.consume(3):
+            return DNSResponse(rcode='ERROR', error='query-limit')
         try:
             await asyncio.Event().wait()
         except asyncio.CancelledError:
             self.cancelled += 1
             raise
+
+
+class CnameHeavyResolver:
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+    async def query(self, _hostname: str, budget: DNSQueryBudget | None = None) -> DNSResponse:
+        assert budget is not None
+        if not budget.consume(3) or not budget.consume(3):
+            return DNSResponse(rcode='ERROR', error='query-limit')
+        return DNSResponse(ipv4=('192.0.2.10',), cnames=('edge.example.com',))
+
+    async def query_ptr(self, _address: str, budget: DNSQueryBudget | None = None) -> tuple[str, ...]:
+        assert budget is not None
+        return () if not budget.consume(1) else ('edge.example.net',)
 
 
 @pytest.mark.asyncio
@@ -82,7 +103,7 @@ async def test_recursive_dns_advances_only_current_candidates_breadth_first() ->
         ('v2.dev.api.example.com', 'dev.api.example.com', 'currently-addressable'),
     ]
     assert result.classifications[1].records.cnames == ('missing.vendor.test',)
-    assert result.query_count == 120
+    assert result.query_count == 348
     assert result.depth_reached == 2
     assert result.stop_reason == 'depth-limit'
 
@@ -97,12 +118,12 @@ async def test_recursive_dns_retains_ptrs_as_secondary_evidence() -> None:
         ('api.example.com',),
         ('dev',),
         resolvers,
-        RecursiveDNSLimits(depth=1, query_limit=100, runtime_seconds=5),
+        RecursiveDNSLimits(depth=1, query_limit=200, runtime_seconds=5),
     )
 
     assert result.findings[0].ptrs == ('edge.example.net',)
     assert result.classifications[0].ptrs == ('edge.example.net',)
-    assert result.query_count == 36
+    assert result.query_count == 102
 
 
 @pytest.mark.asyncio
@@ -115,12 +136,28 @@ async def test_recursive_dns_does_not_exceed_query_limit_for_ptrs() -> None:
         ('api.example.com',),
         ('dev',),
         resolvers,
-        RecursiveDNSLimits(depth=1, query_limit=33, runtime_seconds=5),
+        RecursiveDNSLimits(depth=1, query_limit=99, runtime_seconds=5),
     )
 
     assert result.findings[0].hostname == 'dev.api.example.com'
     assert result.findings[0].ptrs == ()
-    assert result.query_count == 33
+    assert result.query_count == 99
+    assert result.stop_reason == 'query-limit'
+
+
+@pytest.mark.asyncio
+async def test_recursive_dns_counts_cname_hops_before_stopping() -> None:
+    resolvers = tuple(CnameHeavyResolver(f'resolver-{index}') for index in range(3))
+
+    result = await discover_recursive_dns(
+        'example.com',
+        ('api.example.com',),
+        ('dev',),
+        resolvers,
+        RecursiveDNSLimits(depth=1, query_limit=12, runtime_seconds=5),
+    )
+
+    assert result.query_count == 12
     assert result.stop_reason == 'query-limit'
 
 
@@ -138,7 +175,7 @@ async def test_recursive_dns_stops_before_exceeding_query_limit() -> None:
     )
 
     assert result.findings == ()
-    assert result.query_count == 0
+    assert result.query_count == 9
     assert result.depth_reached == 0
     assert result.stop_reason == 'query-limit'
 
@@ -155,7 +192,7 @@ async def test_recursive_dns_runtime_limit_cancels_pending_queries() -> None:
         RecursiveDNSLimits(depth=1, query_limit=100, runtime_seconds=0.01),
     )
 
-    assert result.query_count == 12
+    assert result.query_count == 36
     assert result.stop_reason == 'runtime-limit'
     assert sum(resolver.cancelled for resolver in resolvers) == 12
 
@@ -174,7 +211,7 @@ async def test_recursive_dns_stops_after_three_zero_yield_batches() -> None:
     )
 
     assert result.findings == ()
-    assert result.query_count == 3_162
+    assert result.query_count == 9_486
     assert result.depth_reached == 0
     assert result.zero_yield_batches == 3
     assert result.stop_reason == 'zero-yield'

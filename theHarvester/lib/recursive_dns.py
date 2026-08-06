@@ -5,7 +5,13 @@ import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from theHarvester.lib.dns_consensus import Addressability, CandidateConsensus, ResolverVantage, validate_dns_candidates
+from theHarvester.lib.dns_consensus import (
+    Addressability,
+    CandidateConsensus,
+    DNSQueryBudget,
+    ResolverVantage,
+    validate_dns_candidates,
+)
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 
 if TYPE_CHECKING:
@@ -14,7 +20,7 @@ if TYPE_CHECKING:
     from theHarvester.lib.hostchecker import HostDnsRecords
 
 
-DEFAULT_RECURSIVE_DNS_QUERY_LIMIT = 1_000
+DEFAULT_RECURSIVE_DNS_QUERY_LIMIT = 3_000
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,11 +65,6 @@ class RecursiveDNSResult:
     classifications: tuple[RecursiveDNSClassification, ...] = ()
 
 
-def _query_cost(target: str, candidate: str) -> int:
-    wildcard_depths = max(1, len(candidate.split('.')) - len(target.split('.')))
-    return 3 + wildcard_depths * 9
-
-
 def _normalize_labels(labels: Sequence[str], deadline: float) -> tuple[str, ...]:
     normalized: list[str] = []
     for value in labels:
@@ -93,49 +94,41 @@ async def discover_recursive_dns(
     normalized_target = target.strip().lower().rstrip('.')
     if not normalized_target:
         raise ValueError('target must not be empty')
-    started = time.monotonic()
-    deadline = started + limits.runtime_seconds
+    deadline = time.monotonic() + limits.runtime_seconds
     normalized_labels = _normalize_labels(labels, deadline)
     seen = {candidate for value in seeds if (candidate := normalize_scoped_hostname(value, normalized_target)) is not None}
-    query_count = 0
+    budget = DNSQueryBudget(limits.query_limit)
     stop_reason = 'frontier-exhausted'
 
     async def validate(candidate: str) -> CandidateConsensus | None:
-        nonlocal query_count, stop_reason
-        query_cost = _query_cost(normalized_target, candidate)
-        if query_count + query_cost > limits.query_limit:
-            stop_reason = 'query-limit'
-            return None
+        nonlocal stop_reason
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             stop_reason = 'runtime-limit'
             return None
-        query_count += query_cost
         try:
             async with asyncio.timeout(remaining):
-                (consensus,) = await validate_dns_candidates(normalized_target, (candidate,), resolvers)
+                (consensus,) = await validate_dns_candidates(normalized_target, (candidate,), resolvers, budget=budget)
+                if budget.blocked:
+                    stop_reason = 'query-limit'
+                    return None
                 return consensus
         except TimeoutError:
             stop_reason = 'runtime-limit'
             return None
 
     async def resolve_ptrs(records: HostDnsRecords) -> tuple[str, ...]:
-        nonlocal query_count, stop_reason
+        nonlocal stop_reason
         ptrs: set[str] = set()
         for address in records.addresses:
-            query_cost = len(resolvers)
-            if query_count + query_cost > limits.query_limit:
-                stop_reason = 'query-limit'
-                break
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 stop_reason = 'runtime-limit'
                 break
-            query_count += query_cost
             try:
                 async with asyncio.timeout(remaining):
                     results = await asyncio.gather(
-                        *(resolver.query_ptr(address) for resolver in resolvers), return_exceptions=True
+                        *(resolver.query_ptr(address, budget) for resolver in resolvers), return_exceptions=True
                     )
             except TimeoutError:
                 stop_reason = 'runtime-limit'
@@ -145,6 +138,9 @@ async def discover_recursive_dns(
                     raise result
                 if not isinstance(result, BaseException):
                     ptrs.update(result)
+            if budget.blocked:
+                stop_reason = 'query-limit'
+                break
         return tuple(sorted(ptrs))
 
     frontier: list[str] = []
@@ -221,5 +217,5 @@ async def discover_recursive_dns(
     else:
         stop_reason = 'depth-limit'
     return RecursiveDNSResult(
-        tuple(findings), query_count, depth_reached, zero_yield_batches, stop_reason, tuple(classifications)
+        tuple(findings), budget.used, depth_reached, zero_yield_batches, stop_reason, tuple(classifications)
     )
