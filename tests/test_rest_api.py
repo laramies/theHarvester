@@ -36,6 +36,46 @@ def test_query_expands_source_capability(monkeypatch) -> None:
     assert captured[0][1] is True
 
 
+def test_query_forwards_bounded_recursive_dns_options(monkeypatch) -> None:
+    captured: list[Namespace] = []
+
+    async def fake_start(
+        args: Namespace,
+        *,
+        persist_completed_result: bool = False,
+        include_breaches: bool = False,
+    ):
+        captured.append(args)
+        return ([], [], [], [], [], [], [], [], [], [])
+
+    monkeypatch.setattr(api.__main__, 'start', fake_start)
+
+    response = TestClient(api.app).get(
+        '/query?domain=example.test&source=certspotter&dns_recursive_depth=2'
+        '&dns_recursive_query_limit=321&dns_recursive_runtime_seconds=4.5'
+        '&dns_resolve=192.0.2.53,192.0.2.54,192.0.2.55'
+    )
+
+    assert response.status_code == 200
+    assert captured[0].dns_recursive_depth == 2
+    assert captured[0].dns_recursive_query_limit == 321
+    assert captured[0].dns_recursive_runtime_seconds == 4.5
+
+
+def test_query_rejects_recursive_dns_without_three_distinct_resolvers(monkeypatch) -> None:
+    async def unexpected_start(*_args, **_kwargs):
+        raise AssertionError('enumeration must not start')
+
+    monkeypatch.setattr(api.__main__, 'start', unexpected_start)
+
+    response = TestClient(api.app).get(
+        '/query?domain=example.test&source=certspotter&dns_recursive_depth=1&dns_resolve=192.0.2.53,192.0.2.54'
+    )
+
+    assert response.status_code == 400
+    assert response.json()['detail'] == 'recursive DNS requires exactly three distinct resolver IPs'
+
+
 def test_query_unions_capabilities_and_explicit_sources(monkeypatch) -> None:
     captured: list[tuple[Namespace, bool]] = []
 

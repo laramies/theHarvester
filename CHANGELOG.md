@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added bounded recursive DNS discovery with three-vantage consensus, closest-encloser wildcard controls, and explicit query, depth, runtime, and zero-yield limits.
 - Added authenticated REST routes for listing completed enumeration runs and retrieving their normalized evidence.
 - Added an authenticated HIBP verified-domain source for CLI and conditionally authenticated REST queries that retains normalized account emails and stable breach names without retaining the raw account mapping.
 - Added keyless Shodan Certificate Transparency hostname discovery with bounded requests and offline response contracts.
