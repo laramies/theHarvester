@@ -152,7 +152,7 @@ Read the **API key** column as follows:
 | `github-code` | ✓ | ✓ | No | No | No | No | No | ✓ |
 | `gitlab` | ✓ | ✓ | No | No | No | No | No | No |
 | `hackertarget` | ✓ | No | No | No | No | No | No | Optional |
-| `haveibeenpwned` | No | No | No | No | No | No | `POST /additional/breaches` response | ✓ |
+| `haveibeenpwned` | No | No | No | No | No | No | `POST /additional/breaches` response | No |
 | `hudsonrock` | ✓ | ✓ | ✓ | No | No | No | No | No |
 | `hunter` | ✓ | ✓ | No | No | No | No | No | ✓ |
 | `hunterhow` | ✓ | No | No | No | No | No | No | ✓ |

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from theHarvester.discovery.additional_apis import AdditionalAPIs
+from theHarvester.discovery.haveibeenpwned import SearchHaveIBeenPwned
 from theHarvester.lib.api.auth import get_api_key
 
 router = APIRouter()
@@ -25,10 +26,9 @@ def _raise_processing_error(endpoint: str, exc: Exception) -> NoReturn:
 async def get_breaches(request: DomainRequest, _api_key: Annotated[str, Depends(get_api_key)]):
     """Get breach information for a domain using HaveIBeenPwned."""
     try:
-        apis = AdditionalAPIs(request.domain, request.api_keys or {})
-        await apis._process_haveibeenpwned()
-        results = apis.results['breaches']
-        return {'status': 'success', 'data': results}
+        search = SearchHaveIBeenPwned(request.domain)
+        await search.process()
+        return {'status': 'success', 'data': await search.get_breaches()}
     except Exception as e:
         _raise_processing_error('breaches', e)
 

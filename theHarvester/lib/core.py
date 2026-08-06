@@ -58,7 +58,6 @@ class Core:
         'fullhunt': ('key',),
         'github': ('key',),
         'hackertarget': ('key',),
-        'haveibeenpwned': ('key',),
         'hunter': ('key',),
         'hunterhow': ('key',),
         'intelx': ('key',),
@@ -168,10 +167,6 @@ class Core:
     @staticmethod
     def hackertarget_key() -> str:
         return Core._api_key_value('hackertarget')
-
-    @staticmethod
-    def haveibeenpwned_key() -> str:
-        return Core._api_key_value('haveibeenpwned')
 
     @staticmethod
     def hunter_key() -> str:

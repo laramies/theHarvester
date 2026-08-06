@@ -733,11 +733,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                             )
                         )
                     except Exception as e:
-                        if isinstance(e, MissingKey):
-                            if not args.quiet:
-                                output_logger.info(MissingKey('HaveIBeenPwned'))
-                        else:
-                            output_logger.info(f'An exception has occurred in HaveIBeenPwned search: {e}')
+                        show_default_error_message(engineitem, word, e)
 
                 elif engineitem == 'hudsonrock':
                     try:

@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed the nonfunctional ThreatCrowd source because its service hostnames terminate at deleted AWS load balancers and return NXDOMAIN; OTX remains available through its separate adapter.
 
 ### Fixed
+- Made the public Have I Been Pwned breach catalogue keyless and added offline response contracts.
 - Fixed THC rate-limit exhaustion so terminal failures are reported without sleeping after the final attempt, with offline recovery, non-success, and malformed-response contracts.
 - Made RapidDNS, Robtex, and Subdomain Center HTTP failures report the source and response status before parsing.
 - Fixed GitHub code-search fragment limits, boundary separation, and malformed-page termination with offline provider tests.
