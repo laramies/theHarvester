@@ -54,8 +54,14 @@ class SearchBuiltWith:
             self.interesting_urls.update(self.tech_stack['paths'])
         if 'technologies' in self.tech_stack:
             for tech in self.tech_stack['technologies']:
-                category = tech.get('category', '').lower()
-                name = tech.get('name', '')
+                if not isinstance(tech, dict):
+                    continue
+                category = tech.get('category')
+                name = tech.get('name')
+                if not isinstance(category, str) or not isinstance(name, str) or not name.strip():
+                    continue
+                category = category.lower()
+                name = name.strip()
 
                 if 'framework' in category:
                     self.frameworks.add(name)

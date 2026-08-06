@@ -1,5 +1,7 @@
+import json
 import sys
 import types
+from pathlib import Path
 
 import pytest
 
@@ -16,6 +18,8 @@ if 'aiohttp_socks' not in sys.modules:
 
 from theHarvester.discovery import builtwith
 from theHarvester.discovery.constants import MissingKey
+from theHarvester import __main__ as theharvester_main
+from theHarvester.lib.completed_result import CompletedResult
 
 
 @pytest.mark.asyncio
@@ -36,11 +40,15 @@ async def test_process_accepts_text_json_content_type(monkeypatch) -> None:
         'domains': ['sub.example.com'],
         'paths': ['https://example.com/login'],
         'technologies': [
+            None,
             {'name': 'Django', 'category': 'framework'},
             {'name': 'Python', 'category': 'language'},
             {'name': 'nginx', 'category': 'server'},
             {'name': 'WordPress', 'category': 'cms'},
             {'name': 'Google Analytics', 'category': 'analytics'},
+            {'category': 'framework'},
+            {'name': ' ', 'category': 'server'},
+            {'name': 7, 'category': 'cms'},
         ],
     }
 
@@ -120,3 +128,74 @@ async def test_process_handles_non_200_status(monkeypatch) -> None:
 
     assert await search.get_hostnames() == set()
     assert await search.get_tech_stack() == {}
+
+
+@pytest.mark.asyncio
+async def test_normalized_builtwith_results_reach_completed_jsonl(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    completed_results: list[CompletedResult] = []
+
+    class FakeStash:
+        async def do_init(self) -> None:
+            return None
+
+        async def store_all(self, *_args: object) -> None:
+            return None
+
+        async def store_completed_result(self, result: CompletedResult) -> None:
+            completed_results.append(result)
+
+    class FakeBuiltWith:
+        def __init__(self, domain: str) -> None:
+            assert domain == 'example.com'
+
+        async def process(self, _proxy: bool) -> None:
+            return None
+
+        async def get_hostnames(self) -> set[str]:
+            return set()
+
+        async def get_interesting_urls(self) -> set[str]:
+            return {'https://example.com/login'}
+
+        async def get_frameworks(self) -> set[str]:
+            return {'Django'}
+
+        async def get_languages(self) -> set[str]:
+            return {'Python'}
+
+        async def get_servers(self) -> set[str]:
+            return {'nginx'}
+
+        async def get_cms(self) -> set[str]:
+            return {'WordPress'}
+
+        async def get_analytics(self) -> set[str]:
+            return {'Google Analytics'}
+
+    report = tmp_path / 'builtwith-report'
+    monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
+    monkeypatch.setattr(theharvester_main.builtwith, 'SearchBuiltWith', FakeBuiltWith)
+    monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.com', '-b', 'builtwith', '-f', str(report)])
+
+    with pytest.raises(SystemExit) as exit_info:
+        await theharvester_main.start()
+
+    assert exit_info.value.code == 0
+    assert completed_results[0].results == (
+        ('analytics', 'Google Analytics'),
+        ('cms', 'WordPress'),
+        ('framework', 'Django'),
+        ('interesting-url', 'https://example.com/login'),
+        ('language', 'Python'),
+        ('server', 'nginx'),
+    )
+    records = [json.loads(line) for line in report.with_suffix('.jsonl').read_text().splitlines()]
+    assert {'type': 'interesting-url', 'value': 'https://example.com/login'} in records
+    assert {'type': 'framework', 'value': 'Django'} in records
+    assert {'type': 'language', 'value': 'Python'} in records
+    assert {'type': 'server', 'value': 'nginx'} in records
+    assert {'type': 'cms', 'value': 'WordPress'} in records
+    assert {'type': 'analytics', 'value': 'Google Analytics'} in records

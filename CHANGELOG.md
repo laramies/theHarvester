@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added keyless Shodan Certificate Transparency hostname discovery with bounded requests and offline response contracts.
 - Added transactional SQLite storage and loading for completed full-pipeline runs without changing legacy result rows.
 - Added deterministic JSONL report companions finalized after selected one-shot actions complete.
+- Added normalized BuiltWith framework, language, server, CMS, and analytics findings to JSONL and completed-result SQLite output.
 - Added DNSDB passive DNS discovery with API key configuration, shared transport handling, result parsing, and offline tests ([9b41b78e](https://github.com/laramies/theHarvester/commit/9b41b78e), [aba9fec6](https://github.com/laramies/theHarvester/commit/aba9fec6)).
 - Added `--verbose` diagnostic logging while keeping normal operator output available at the default log level ([8a7b8b71](https://github.com/laramies/theHarvester/commit/8a7b8b71)).
 - Added an opt-in passive-provider smoke workflow and a network guard that keeps routine tests offline by default ([72e5820f](https://github.com/laramies/theHarvester/commit/72e5820f)).
@@ -21,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Included HIBP verified-domain in `all` and matching capability selectors like every other P0 source, with REST operator authentication applied after source expansion when its provider key is configured.
 - Allowed REST `/query` requests to select discovery sources by result capability, matching the CLI's union semantics while preserving explicit source selection.
+- Changed `-b all` to select every cataloged P0 passive source once while leaving P1 DNS and P2 direct sources available through explicit selection.
 - Expanded Common Crawl discovery to use every unique crawl ending within one year of the newest catalog entry, validate catalog endpoints, batch requests, cap each query at 100 pages, and enforce the CLI result limit across page requests ([249ce64b](https://github.com/laramies/theHarvester/commit/249ce64b), [70470cd8](https://github.com/laramies/theHarvester/commit/70470cd8)).
 - Completed bounded pagination for Wayback Archive and Cert Spotter, including continuation handling, truncation diagnostics, and preservation of partial results on provider failures ([df6ff2c9](https://github.com/laramies/theHarvester/commit/df6ff2c9), [f85a08ff](https://github.com/laramies/theHarvester/commit/f85a08ff)).
 - Routed operator messages and diagnostics through logging, preserved host logging policy and existing handlers, and configured logging for the standalone API example ([8a7b8b71](https://github.com/laramies/theHarvester/commit/8a7b8b71)).
@@ -39,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed the nonfunctional ThreatCrowd source because its service hostnames terminate at deleted AWS load balancers and return NXDOMAIN; OTX remains available through its separate adapter.
 
 ### Fixed
+- Removed BuiltWith's duplicate interesting-URL getter by allowing the shared collector to use either established getter spelling.
 - Made no-filename REST `/query` executions reach completed-result construction and SQLite persistence without changing the legacy response fields.
 - Made Chaos reject empty credentials, report HTTP and malformed-response failures, and preserve supported subdomain response shapes.
 - Made Fofa reject incomplete credentials, report HTTP and malformed-response failures, normalize scoped hosts, and discard invalid IP values.

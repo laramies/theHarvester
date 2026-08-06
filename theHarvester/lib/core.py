@@ -19,7 +19,7 @@ from aiohttp_socks import ProxyConnector
 
 from theHarvester import __version__
 from theHarvester.lib.output import output_logger
-from theHarvester.lib.source_catalog import SOURCE_SPECS
+from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass
 
 if TYPE_CHECKING:
     from collections.abc import Sized
@@ -358,7 +358,7 @@ class Core:
     def expand_source_selection(cls, selection: str) -> list[str]:
         """Expand result capability selectors into source names."""
         if selection.lower() == 'all':
-            return cls.get_supportedengines()
+            return sorted(spec.name for spec in SOURCE_SPECS.values() if spec.activity is ActivityClass.PASSIVE)
         capabilities = {capability for spec in SOURCE_SPECS.values() for capability in spec.capabilities}
         selected: set[str] = set()
         for token in map(str.strip, selection.split(',')):

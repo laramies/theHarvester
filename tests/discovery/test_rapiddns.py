@@ -179,7 +179,6 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
         created = 0
 
         def __init__(self, _domain: str) -> None:
-            self.is_late_action = self.created > 0
             type(self).created += 1
 
         async def process(self, _proxy: bool) -> None:
@@ -189,16 +188,14 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
             return set()
 
         async def get_ips(self) -> set[str]:
-            if self.is_late_action:
-                return {'2001:0DB8::1', '198.51.100.9', 'not-an-ip'}
-            return set()
+            return {'2001:0DB8::1', '198.51.100.9', 'not-an-ip'}
 
     async def fake_reverse_all_ips_in_range(
         iprange: str,
         callback: Any,
         nameservers: list[str] | None = None,
     ) -> None:
-        assert iprange in {'192.0.2.0/24', '198.51.100.0/24'}
+        assert iprange in {'192.0.2.0/24', '198.51.100.0/24', '2001:d00::/24'}
         assert nameservers is None
         callback('reverse.example.com')
 
@@ -237,7 +234,7 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
 
     report_json = json.loads(report.with_suffix('.json').read_text())
     assert report_json['hosts'] == ['alias.example.com', 'api.example.com', 'broken.example.com']
-    assert report_json['ips'] == ['192.0.2.1']
+    assert report_json['ips'] == ['192.0.2.1', '198.51.100.9', '2001:db8::1']
     assert 'interesting_urls' not in report_json
 
     jsonl_records = [json.loads(line) for line in report.with_suffix('.jsonl').read_text().splitlines()]
@@ -314,7 +311,7 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
         ('ip', ('192.0.2.1',), 'rapiddns'),
     ]
     assert len(completed_results) == 2
-    assert FakeSecurityScorecard.created == 2
+    assert FakeSecurityScorecard.created == 1
     assert completed_results[1].target == 'example.com'
     assert {'192.0.2.1', '198.51.100.2'} <= {value for kind, value in completed_results[1].results if kind == 'ip-address'}
 
