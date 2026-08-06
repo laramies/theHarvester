@@ -30,6 +30,9 @@ class FakeResolver:
             return DNSResponse(rcode='NODATA')
         return DNSResponse(rcode='NXDOMAIN')
 
+    async def query_ptr(self, address: str) -> tuple[str, ...]:
+        return ('edge.example.net',) if address == '192.0.2.10' else ()
+
 
 class BlockingResolver:
     def __init__(self, name: str) -> None:
@@ -79,9 +82,46 @@ async def test_recursive_dns_advances_only_current_candidates_breadth_first() ->
         ('v2.dev.api.example.com', 'dev.api.example.com', 'currently-addressable'),
     ]
     assert result.classifications[1].records.cnames == ('missing.vendor.test',)
-    assert result.query_count == 114
+    assert result.query_count == 120
     assert result.depth_reached == 2
     assert result.stop_reason == 'depth-limit'
+
+
+@pytest.mark.asyncio
+async def test_recursive_dns_retains_ptrs_as_secondary_evidence() -> None:
+    current = {'api.example.com', 'dev.api.example.com'}
+    resolvers = tuple(FakeResolver(f'resolver-{index}', current) for index in range(3))
+
+    result = await discover_recursive_dns(
+        'example.com',
+        ('api.example.com',),
+        ('dev',),
+        resolvers,
+        RecursiveDNSLimits(depth=1, query_limit=100, runtime_seconds=5),
+    )
+
+    assert result.findings[0].ptrs == ('edge.example.net',)
+    assert result.classifications[0].ptrs == ('edge.example.net',)
+    assert result.query_count == 36
+
+
+@pytest.mark.asyncio
+async def test_recursive_dns_does_not_exceed_query_limit_for_ptrs() -> None:
+    current = {'api.example.com', 'dev.api.example.com'}
+    resolvers = tuple(FakeResolver(f'resolver-{index}', current) for index in range(3))
+
+    result = await discover_recursive_dns(
+        'example.com',
+        ('api.example.com',),
+        ('dev',),
+        resolvers,
+        RecursiveDNSLimits(depth=1, query_limit=33, runtime_seconds=5),
+    )
+
+    assert result.findings[0].hostname == 'dev.api.example.com'
+    assert result.findings[0].ptrs == ()
+    assert result.query_count == 33
+    assert result.stop_reason == 'query-limit'
 
 
 @pytest.mark.asyncio

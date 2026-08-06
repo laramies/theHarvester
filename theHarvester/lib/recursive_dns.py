@@ -14,6 +14,9 @@ if TYPE_CHECKING:
     from theHarvester.lib.hostchecker import HostDnsRecords
 
 
+DEFAULT_RECURSIVE_DNS_QUERY_LIMIT = 1_000
+
+
 @dataclass(frozen=True, slots=True)
 class RecursiveDNSLimits:
     depth: int
@@ -34,6 +37,7 @@ class RecursiveDNSFinding:
     hostname: str
     parent: str
     records: HostDnsRecords
+    ptrs: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +46,7 @@ class RecursiveDNSClassification:
     parent: str
     addressability: Addressability
     records: HostDnsRecords
+    ptrs: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,6 +119,34 @@ async def discover_recursive_dns(
             stop_reason = 'runtime-limit'
             return None
 
+    async def resolve_ptrs(records: HostDnsRecords) -> tuple[str, ...]:
+        nonlocal query_count, stop_reason
+        ptrs: set[str] = set()
+        for address in records.addresses:
+            query_cost = len(resolvers)
+            if query_count + query_cost > limits.query_limit:
+                stop_reason = 'query-limit'
+                break
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                stop_reason = 'runtime-limit'
+                break
+            query_count += query_cost
+            try:
+                async with asyncio.timeout(remaining):
+                    results = await asyncio.gather(
+                        *(resolver.query_ptr(address) for resolver in resolvers), return_exceptions=True
+                    )
+            except TimeoutError:
+                stop_reason = 'runtime-limit'
+                break
+            for result in results:
+                if isinstance(result, asyncio.CancelledError):
+                    raise result
+                if not isinstance(result, BaseException):
+                    ptrs.update(result)
+        return tuple(sorted(ptrs))
+
     frontier: list[str] = []
     for seed in sorted(seen):
         consensus = await validate(seed)
@@ -146,6 +179,7 @@ async def discover_recursive_dns(
                 if consensus is None:
                     stopped = True
                     break
+                ptrs = await resolve_ptrs(consensus.records) if consensus.addressability is Addressability.CURRENT else ()
                 if (
                     consensus.addressability is not Addressability.NOT_CURRENT
                     or (consensus.records.addresses or consensus.records.cnames)
@@ -157,12 +191,15 @@ async def discover_recursive_dns(
                     )
                 ):
                     classifications.append(
-                        RecursiveDNSClassification(candidate, parent, consensus.addressability, consensus.records)
+                        RecursiveDNSClassification(candidate, parent, consensus.addressability, consensus.records, ptrs)
                     )
                 if consensus.addressability is Addressability.CURRENT:
-                    findings.append(RecursiveDNSFinding(candidate, parent, consensus.records))
+                    findings.append(RecursiveDNSFinding(candidate, parent, consensus.records, ptrs))
                     next_frontier.append(candidate)
                     batch_yield += 1
+                if stop_reason in {'query-limit', 'runtime-limit'}:
+                    stopped = True
+                    break
             if stopped:
                 break
             if batch_yield:
