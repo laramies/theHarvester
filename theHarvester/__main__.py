@@ -21,6 +21,7 @@ from aiomultiprocess import Pool
 
 from theHarvester.discovery import (
     api_endpoints,
+    arquivo,
     baidusearch,
     bevigil,
     bravesearch,
@@ -496,7 +497,14 @@ async def start(
             output_logger.info(f'\n[*] Target: {word} \n')
 
             for engineitem in engines:
-                if engineitem == 'baidu':
+                if engineitem == 'arquivo':
+                    try:
+                        arquivo_search = arquivo.SearchArquivo(word, limit)
+                        stor_lst.append(store(arquivo_search, engineitem))
+                    except Exception as e:
+                        show_default_error_message(engineitem, word, e)
+
+                elif engineitem == 'baidu':
                     try:
                         baidu_search = baidusearch.SearchBaidu(word, limit)
                         stor_lst.append(
