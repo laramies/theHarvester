@@ -68,7 +68,7 @@ def test_query_documents_safe_recursive_dns_query_default() -> None:
         parameter for parameter in query_operation['parameters'] if parameter['name'] == 'dns_recursive_query_limit'
     )
 
-    assert query_limit['schema']['default'] == 1_000
+    assert query_limit['schema']['default'] == 3_000
 
 
 def test_query_rejects_recursive_dns_without_three_distinct_resolvers(monkeypatch) -> None:

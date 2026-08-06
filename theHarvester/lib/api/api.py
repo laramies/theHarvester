@@ -374,7 +374,7 @@ async def query(
         int, Query(ge=0, description='Recursively discover DNS names beneath currently addressable parents')
     ] = 0,
     dns_recursive_query_limit: Annotated[
-        int, Query(gt=0, description='Maximum resolver-vantage queries for recursive DNS discovery')
+        int, Query(gt=0, description='Maximum DNS record queries across resolver vantages')
     ] = DEFAULT_RECURSIVE_DNS_QUERY_LIMIT,
     dns_recursive_runtime_seconds: Annotated[
         float, Query(gt=0, description='Maximum runtime in seconds for recursive DNS discovery')
