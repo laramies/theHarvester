@@ -62,6 +62,7 @@ def _spec(
 
 
 _SPECS = (
+    _spec('arquivo', ResultRoute.SUBDOMAINS),
     _spec('baidu', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec('bevigil', ResultRoute.SUBDOMAINS, ResultRoute.INTERESTING_URLS),
     _spec('brave', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),

@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added authenticated REST routes for listing completed enumeration runs and retrieving their normalized evidence.
 - Added an authenticated HIBP verified-domain source for CLI and conditionally authenticated REST queries that retains normalized account emails and stable breach names without retaining the raw account mapping.
 - Added keyless Shodan Certificate Transparency hostname discovery with bounded requests and offline response contracts.
+- Added bounded, keyless subdomain discovery through Arquivo.pt's public CDX API with offline response contracts.
 - Added transactional SQLite storage and loading for completed full-pipeline runs without changing legacy result rows.
 - Added deterministic JSONL report companions finalized after selected one-shot actions complete.
 - Added normalized BuiltWith framework, language, server, CMS, and analytics findings to JSONL and completed-result SQLite output.
