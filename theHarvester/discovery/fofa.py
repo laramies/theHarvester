@@ -1,22 +1,13 @@
 import base64
-import json as _stdlib_json
 import logging
-from types import ModuleType
+from ipaddress import ip_address
+from urllib.parse import urlparse
 
 from theHarvester.discovery.constants import MissingKey
-from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
+from theHarvester.lib.hostnames import normalize_scoped_hostname
 
 logger = logging.getLogger(__name__)
-
-json: ModuleType = _stdlib_json
-try:
-    import ujson as _ujson
-
-    json = _ujson
-except ImportError:
-    pass
-except Exception:
-    pass
 
 
 class SearchFofa:
@@ -35,20 +26,12 @@ class SearchFofa:
     def _get_api_credentials(self) -> tuple[str, str]:
         """Get Fofa API credentials"""
         try:
-            return Core.fofa_key()
-        except Exception:
+            api_key, email = Core.fofa_key()
+        except Exception as error:
+            raise MissingKey('Fofa API (key and email required)') from error
+        if not all(isinstance(value, str) and value.strip() for value in (api_key, email)):
             raise MissingKey('Fofa API (key and email required)')
-
-    @staticmethod
-    def _safe_parse_json(payload: object) -> dict:
-        if isinstance(payload, dict):
-            return payload
-        if isinstance(payload, str):
-            try:
-                return json.loads(payload)
-            except Exception:
-                return {}
-        return {}
+        return api_key, email
 
     async def do_search(self) -> None:
         try:
@@ -72,42 +55,55 @@ class SearchFofa:
             param_string = '&'.join([f'{k}={v}' for k, v in params.items()])
             full_url = f'{url}?{param_string}'
 
-            response = await AsyncFetcher.fetch_all([full_url], headers=headers, proxy=self.proxy)
+            response = await AsyncFetcher.fetch_all(
+                [full_url],
+                headers=headers,
+                proxy=self.proxy,
+                json=True,
+                include_metadata=True,
+            )
 
-            if not response or not isinstance(response, list) or not response[0]:
+            metadata = response[0] if response and isinstance(response[0], FetcherResponse) else None
+            if metadata is None:
                 logger.info(f'No response from Fofa API for: {self.word}')
+                return
+            if not 200 <= metadata.status < 300:
+                logger.info(f'Fofa request failed with HTTP {metadata.status}')
                 return
 
             try:
-                data = self._safe_parse_json(response[0])
+                data = metadata.body
+                if not isinstance(data, dict):
+                    logger.info('Fofa returned malformed data')
+                    return
 
-                if isinstance(data, dict):
-                    # Check for errors
-                    if data.get('error', False):
-                        error_msg = data.get('errmsg', 'Unknown error')
-                        logger.info('Fofa API returned an error')
-                        if '账号无效' in error_msg or 'invalid' in error_msg.lower():
-                            raise MissingKey('Fofa API (Invalid credentials)')
-                        return
+                # Check for errors
+                if data.get('error', False):
+                    logger.info('Fofa API returned an error')
+                    return
 
-                    # Extract results
-                    results = data.get('results', [])
-                    if isinstance(results, list):
-                        for result in results:
-                            if isinstance(result, list) and len(result) >= 2:
-                                host = result[0]  # host field
-                                ip = result[1]  # ip field
+                # Extract results
+                results = data.get('results', [])
+                if not isinstance(results, list):
+                    logger.info('Fofa returned malformed results')
+                    return
+                for result in results:
+                    if isinstance(result, list) and len(result) >= 2:
+                        host = result[0]  # host field
+                        ip = result[1]  # ip field
 
-                                # Add host if it's related to our domain
-                                if isinstance(host, str) and self.word in host:
-                                    # Extract clean hostname
-                                    clean_host = host.replace('http://', '').replace('https://', '').split(':')[0]
-                                    if clean_host.endswith(f'.{self.word}') or clean_host == self.word:
-                                        self.totalhosts.add(clean_host.lower())
+                        # Add host if it's related to our domain
+                        if isinstance(host, str):
+                            parsed = urlparse(host if '://' in host else f'//{host}')
+                            if clean_host := normalize_scoped_hostname(parsed.hostname, self.word):
+                                self.totalhosts.add(clean_host)
 
-                                # Add IP
-                                if isinstance(ip, str) and ip:
-                                    self.totalips.add(ip)
+                        # Add IP
+                        if isinstance(ip, str) and ip:
+                            try:
+                                self.totalips.add(str(ip_address(ip)))
+                            except ValueError:
+                                continue
 
             except Exception as e:
                 logger.info(f'Failed to parse Fofa response: {e}')
