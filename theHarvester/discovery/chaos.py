@@ -1,21 +1,9 @@
-import json as _stdlib_json
 import logging
-from types import ModuleType
 
 from theHarvester.discovery.constants import MissingKey
-from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 
 logger = logging.getLogger(__name__)
-
-json: ModuleType = _stdlib_json
-try:
-    import ujson as _ujson
-
-    json = _ujson
-except ImportError:
-    pass
-except Exception:
-    pass
 
 
 class SearchChaos:
@@ -31,21 +19,12 @@ class SearchChaos:
     def _get_api_key(self) -> str:
         """Get Chaos API key"""
         try:
-            return Core.projectdiscovery_key()
-        except Exception:
+            key = Core.projectdiscovery_key()
+        except Exception as error:
+            raise MissingKey('Chaos (ProjectDiscovery)') from error
+        if not isinstance(key, str) or not key.strip():
             raise MissingKey('Chaos (ProjectDiscovery)')
-
-    @staticmethod
-    def _safe_parse_json(payload: object) -> dict:
-        # If already a dict, return it; if string, try parse; else return {}
-        if isinstance(payload, dict):
-            return payload
-        if isinstance(payload, str):
-            try:
-                return json.loads(payload)
-            except Exception:
-                return {}
-        return {}
+        return key
 
     async def do_search(self) -> None:
         try:
@@ -54,21 +33,34 @@ class SearchChaos:
             # Chaos API endpoint for subdomain enumeration
             url = f'{self.hostname}/dns/{self.word}/subdomains'
 
-            response = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
+            response = await AsyncFetcher.fetch_all(
+                [url],
+                headers=headers,
+                proxy=self.proxy,
+                json=True,
+                include_metadata=True,
+            )
 
-            if not response or not isinstance(response, list) or not response[0]:
+            metadata = response[0] if response and isinstance(response[0], FetcherResponse) else None
+            if metadata is None:
                 logger.info(f'No response from Chaos API for: {url}')
+                return
+            if not 200 <= metadata.status < 300:
+                logger.info(f'Chaos request failed with HTTP {metadata.status}')
                 return
 
             try:
-                data = self._safe_parse_json(response[0])
+                data = metadata.body
+                if not isinstance(data, (dict, list)):
+                    logger.info('Chaos returned malformed data')
+                    return
 
                 if isinstance(data, dict):
                     # Check for error messages
                     if 'error' in data:
                         error_msg = data.get('message', data.get('error', 'Unknown error'))
                         logger.info('Chaos API returned an error')
-                        if 'unauthorized' in error_msg.lower():
+                        if 'unauthorized' in str(error_msg).lower():
                             raise MissingKey('Chaos (ProjectDiscovery)')
                         return
 
@@ -79,26 +71,25 @@ class SearchChaos:
                     if not subdomains:
                         subdomains = data.get('results', [])
 
-                    if isinstance(subdomains, list):
-                        for subdomain in subdomains:
-                            if isinstance(subdomain, str):
-                                # Chaos returns subdomain names without the root domain
-                                # So we need to append the root domain
-                                full_domain = f'{subdomain}.{self.word}' if subdomain else self.word
-                                self.totalhosts.add(full_domain.lower())
-                            elif isinstance(subdomain, dict):
-                                # Handle different response formats
-                                sub = subdomain.get('subdomain', '') or subdomain.get('name', '')
-                                if sub:
-                                    full_domain = f'{sub}.{self.word}'
-                                    self.totalhosts.add(full_domain.lower())
+                else:
+                    subdomains = data
 
-                elif isinstance(data, list):
-                    # Sometimes the response is directly a list
-                    for subdomain in data:
-                        if isinstance(subdomain, str):
-                            full_domain = f'{subdomain}.{self.word}' if subdomain else self.word
-                            self.totalhosts.add(full_domain.lower())
+                if not isinstance(subdomains, list):
+                    logger.info('Chaos returned malformed subdomain data')
+                    return
+                for subdomain in subdomains:
+                    if isinstance(subdomain, str):
+                        label = subdomain
+                    elif isinstance(subdomain, dict):
+                        label = subdomain.get('subdomain', '') or subdomain.get('name', '')
+                        if not isinstance(label, str) or not label:
+                            logger.info('Chaos ignored a malformed subdomain item')
+                            continue
+                    else:
+                        logger.info('Chaos ignored a malformed subdomain item')
+                        continue
+                    full_domain = f'{label}.{self.word}' if label else self.word
+                    self.totalhosts.add(full_domain.lower())
 
             except Exception as e:
                 logger.info(f'Failed to parse Chaos response: {e}')
