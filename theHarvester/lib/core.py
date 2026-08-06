@@ -45,7 +45,6 @@ class Core:
     quiet: bool = False
     _API_KEY_FIELDS: ClassVar[dict[str, tuple[str, ...]]] = {
         'bevigil': ('key',),
-        'bitbucket': ('key',),
         'brave': ('key',),
         'bufferoverun': ('key',),
         'builtwith': ('key',),
@@ -117,10 +116,6 @@ class Core:
     @staticmethod
     def bevigil_key() -> str:
         return Core._api_key_value('bevigil')
-
-    @staticmethod
-    def bitbucket_key() -> str:
-        return Core._api_key_value('bitbucket')
 
     @staticmethod
     def brave_key() -> str:
@@ -297,7 +292,6 @@ class Core:
         return [
             'baidu',
             'bevigil',
-            'bitbucket',
             'bufferoverun',
             'builtwith',
             'brave',

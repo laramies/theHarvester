@@ -47,7 +47,6 @@ def _spec(name: str, *routes: ResultRoute) -> SourceSpec:
 _SPECS = (
     _spec('baidu', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec('bevigil', ResultRoute.SUBDOMAINS, ResultRoute.INTERESTING_URLS),
-    _spec('bitbucket', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec('brave', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec('bufferoverun', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
     _spec('builtwith', ResultRoute.SUBDOMAINS, ResultRoute.INTERESTING_URLS),
