@@ -96,6 +96,7 @@ async def test_domain_search_ignores_malformed_url_items(monkeypatch: pytest.Mon
                     'data': {
                         'employees_urls': [
                             'not-an-object',
+                            {'url': 7},
                             {'url': 'https://portal.example.com/login'},
                         ]
                     }
@@ -122,6 +123,7 @@ async def test_email_search_ignores_malformed_stealer_items(monkeypatch: pytest.
             else {
                 'stealers': [
                     'not-an-object',
+                    {'top_corporate_services': None},
                     {'ip': '192.0.2.5', 'top_corporate_services': [], 'top_user_services': []},
                 ]
             }

@@ -199,7 +199,7 @@ class SearchHudsonRock:
             if not isinstance(url_data, dict):
                 continue
             url = url_data.get('url', '')
-            if not url or url.startswith('https://•••') or url.startswith('http://•••'):
+            if not isinstance(url, str) or not url or url.startswith('https://•••') or url.startswith('http://•••'):
                 continue
 
             try:
@@ -254,6 +254,10 @@ class SearchHudsonRock:
             for stealer in stealers:
                 if not isinstance(stealer, dict):
                     continue
+                corporate_services = stealer.get('top_corporate_services', [])
+                user_services = stealer.get('top_user_services', [])
+                if not isinstance(corporate_services, list) or not isinstance(user_services, list):
+                    continue
                 self.emails.add(self.word)
                 stealer_info = {
                     'email': self.word,
@@ -265,8 +269,8 @@ class SearchHudsonRock:
                     'total_corporate_services': stealer.get('total_corporate_services', 0),
                     'total_user_services': stealer.get('total_user_services', 0),
                     'antiviruses': stealer.get('antiviruses', []),
-                    'top_corporate_services': stealer.get('top_corporate_services', []),
-                    'top_user_services': stealer.get('top_user_services', []),
+                    'top_corporate_services': corporate_services,
+                    'top_user_services': user_services,
                 }
 
                 # Extract and validate IP addresses
@@ -276,8 +280,8 @@ class SearchHudsonRock:
                     self.logger.debug(f'Extracted IP: {ip}')
 
                 # Extract hostnames from services
-                self._extract_hosts_from_services(stealer.get('top_corporate_services', []))
-                self._extract_hosts_from_services(stealer.get('top_user_services', []))
+                self._extract_hosts_from_services(corporate_services)
+                self._extract_hosts_from_services(user_services)
 
                 self.infostealers.append(stealer_info)
 
