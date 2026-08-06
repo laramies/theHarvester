@@ -54,20 +54,28 @@ class SearchShodanInternetDB:
             return
 
         # Query InternetDB for each resolved IP
-        urls = [f'https://internetdb.shodan.io/{ip}' for ip in resolved_ips]
+        requested_ips = sorted(resolved_ips)
+        urls = [f'https://internetdb.shodan.io/{ip}' for ip in requested_ips]
         try:
             responses = await AsyncFetcher.fetch_all(urls, json=True, proxy=self.proxy)
         except Exception:
             logger.info('Shodan InternetDB request failed')
             return
 
-        for response in responses:
+        for requested_ip, response in zip(requested_ips, responses, strict=False):
             if not isinstance(response, dict):
                 continue
 
             # InternetDB returns a 404 as an empty JSON object or with a "detail" key
             # when no data is found for an IP. Skip those.
             if 'detail' in response:
+                continue
+
+            try:
+                response_ip = str(ip_address(response.get('ip', '')))
+            except ValueError:
+                continue
+            if response_ip != requested_ip:
                 continue
 
             # Collect hostnames that match our target domain
@@ -103,12 +111,7 @@ class SearchShodanInternetDB:
                 or response.get('tags')
                 or response.get('cpes')
             ):
-                try:
-                    response_ip = str(ip_address(response.get('ip', '')))
-                except ValueError:
-                    continue
-                if response_ip in resolved_ips:
-                    self.totalips.add(response_ip)
+                self.totalips.add(response_ip)
 
     async def get_hostnames(self) -> set:
         return self.totalhosts
