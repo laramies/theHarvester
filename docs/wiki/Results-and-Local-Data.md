@@ -34,13 +34,17 @@ Host, email, IP, and related records are stored at:
 
 The database persists across runs. Account for it in engagement cleanup and retention procedures.
 
+Completed CLI and REST `/query` executions also store one normalized terminal
+record keyed by run UUID. REST keeps its existing response shape and does not
+write report files unless a filename is requested.
+
 ## Screenshots
 
 `--screenshot DIR` writes browser captures to the selected directory. Screenshots may contain authentication pages, internal names, or other sensitive visual data even when no credentials were used.
 
 ## REST JSON
 
-The REST `/query` response returns arrays for ASNs, interesting URLs, Twitter/LinkedIn data, Trello URLs, IPs, emails, and hosts. Treat runtime `/docs`, `/redoc`, and OpenAPI as the exact request/response reference.
+The REST `/query` response returns arrays for ASNs, interesting URLs, Twitter/LinkedIn data, Trello URLs, IPs, emails, and hosts. The corresponding normalized terminal record is retained in SQLite. Treat runtime `/docs`, `/redoc`, and OpenAPI as the exact request/response reference.
 
 ## Handling and sharing
 

@@ -362,7 +362,8 @@ async def query(
                 dns_resolve=dns_resolve,
                 quiet=False,
                 screenshot='',
-            )
+            ),
+            persist_completed_result=True,
         )
 
         # Return the results using the Pydantic model

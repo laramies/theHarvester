@@ -65,6 +65,10 @@ curl -sG http://127.0.0.1:5000/query \
   | jq
 ```
 
+A completed `/query` also retains its normalized terminal record in the local
+SQLite database. The response fields remain unchanged, and no JSON, XML, or
+JSONL report file is written unless `filename` is supplied.
+
 ## Additional API routes
 
 The following `POST /additional/*` routes provide optional breach, leak, security-score, and technology-stack lookups:

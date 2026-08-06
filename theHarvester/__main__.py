@@ -138,7 +138,7 @@ def sanitize_filename(filename: str) -> str:
     return filename
 
 
-async def start(rest_args: argparse.Namespace | None = None):
+async def start(rest_args: argparse.Namespace | None = None, *, persist_completed_result: bool = False):
     """Main program function"""
     parser = argparse.ArgumentParser(
         description='theHarvester is used to gather open source intelligence (OSINT) on a company or domain.'
@@ -1299,6 +1299,47 @@ async def start(rest_args: argparse.Namespace | None = None):
         await asyncio.gather(*tasks, return_exceptions=True)
 
     await handler(lst=stor_lst)
+
+    def finish_completed_result(
+        *, extra_hostnames: Iterable[str] = (), virtual_hosts: Iterable[str] = ()
+    ) -> CompletedResult | None:
+        groups: dict[ResultKind, Iterable[str]] = {
+            'asn': map(str, total_asns),
+            'breach': map(str, all_breaches),
+            'email': map(str, all_emails),
+            'hostname': _normalize_hosts_for_storage((*all_hosts, *extra_hostnames), word),
+            'infostealer': (
+                json.dumps(stealer, ensure_ascii=False, separators=(',', ':'), sort_keys=True) for stealer in all_infostealers
+            ),
+            'interesting-url': map(str, interesting_urls),
+            'ip-address': _normalize_ip_addresses(all_ip),
+            'linkedin-link': map(str, linkedin_links_tracker),
+            'linkedin-person': map(str, linkedin_people_list_tracker),
+            'person': (json.dumps(person, ensure_ascii=False, separators=(',', ':'), sort_keys=True) for person in all_people),
+            'twitter-person': map(str, twitter_people_list_tracker),
+            'url': map(str, all_urls),
+            'vhost': map(str, virtual_hosts),
+        }
+        try:
+            return CompletedResult.finish(
+                target=word,
+                started_at=run_started_at,
+                completed_at=datetime.now(UTC),
+                groups=groups,
+            )
+        except (ValueError, TypeError) as error:
+            output_logger.info(f'[!] An error occurred while completing the result: {error}')
+            return None
+
+    async def persist_result(completed_result: CompletedResult | None) -> None:
+        if completed_result is None:
+            return
+        try:
+            completed_db = stash.StashManager()
+            await completed_db.store_completed_result(completed_result)
+        except Exception as error:
+            output_logger.info(f'[!] An error occurred while storing the completed result: {error}')
+
     return_ips: list = []
     if rest_args is not None and len(rest_filename) == 0 and rest_args.dns_brute is False:
         # Indicates user is using REST api but not wanting output to be saved to a file
@@ -1306,6 +1347,8 @@ async def start(rest_args: argparse.Namespace | None = None):
         return_ips.extend([str(ip) for ip in sorted([netaddr.IPAddress(ip.strip()) for ip in set(all_ip)])])
         # return list(set(all_emails)), return_ips, full, '', ''
         all_hosts = sorted_unique(all_hosts)
+        if persist_completed_result:
+            await persist_result(finish_completed_result())
         return (
             total_asns,
             interesting_urls,
@@ -1845,33 +1888,7 @@ async def start(rest_args: argparse.Namespace | None = None):
                 else:
                     output_logger.info(f'An exception has occurred in BuiltWith scanning: {e}')
 
-    groups: dict[ResultKind, Iterable[str]] = {
-        'asn': map(str, total_asns),
-        'breach': map(str, all_breaches),
-        'email': map(str, all_emails),
-        'hostname': _normalize_hosts_for_storage((*all_hosts, *dnsrev), word),
-        'infostealer': (
-            json.dumps(stealer, ensure_ascii=False, separators=(',', ':'), sort_keys=True) for stealer in all_infostealers
-        ),
-        'interesting-url': map(str, interesting_urls),
-        'ip-address': _normalize_ip_addresses(all_ip),
-        'linkedin-link': map(str, linkedin_links_tracker),
-        'linkedin-person': map(str, linkedin_people_list_tracker),
-        'person': (json.dumps(person, ensure_ascii=False, separators=(',', ':'), sort_keys=True) for person in all_people),
-        'twitter-person': map(str, twitter_people_list_tracker),
-        'url': map(str, all_urls),
-        'vhost': map(str, vhost),
-    }
-    try:
-        completed_result = CompletedResult.finish(
-            target=word,
-            started_at=run_started_at,
-            completed_at=datetime.now(UTC),
-            groups=groups,
-        )
-    except (ValueError, TypeError) as error:
-        completed_result = None
-        output_logger.info(f'[!] An error occurred while completing the result: {error}')
+    completed_result = finish_completed_result(extra_hostnames=dnsrev, virtual_hosts=vhost)
 
     if filename and completed_result is not None:
         try:
@@ -1882,12 +1899,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         except (OSError, ValueError, TypeError, UnicodeEncodeError) as error:
             output_logger.info(f'[!] An error occurred while saving the JSONL file: {error}')
 
-    if completed_result is not None:
-        try:
-            completed_db = stash.StashManager()
-            await completed_db.store_completed_result(completed_result)
-        except Exception as error:
-            output_logger.info(f'[!] An error occurred while storing the completed result: {error}')
+    await persist_result(completed_result)
 
     if rest_args is not None:
         all_hosts = sorted_unique(all_hosts)

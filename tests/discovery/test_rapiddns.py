@@ -266,8 +266,7 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
     console = capsys.readouterr().out
     assert {'alias.example.com', 'api.example.com', 'broken.example.com', '192.0.2.1'} <= set(console.splitlines())
 
-    stored_before_rest = len(stored)
-    rest_results = await theharvester_main.start(
+    legacy_rest_results = await theharvester_main.start(
         Namespace(
             source='dehashed,rapiddns',
             dns_brute=False,
@@ -284,6 +283,29 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
             proxies=False,
         )
     )
+    stored_before_rest = len(stored)
+    rest_results = await theharvester_main.start(
+        Namespace(
+            source='dehashed,rapiddns',
+            dns_brute=False,
+            filename='',
+            quiet=True,
+            dns_lookup=False,
+            dns_server=None,
+            dns_resolve='',
+            limit=500,
+            shodan=False,
+            start=0,
+            domain='example.com',
+            take_over=False,
+            proxies=False,
+            screenshot='',
+            wordlist='',
+            api_scan=False,
+        ),
+        persist_completed_result=True,
+    )
+    assert rest_results == legacy_rest_results
     assert set(rest_results[6]) == {'192.0.2.1', '198.51.100.2'}
     assert rest_results[8] == ['alias.example.com', 'api.example.com', 'broken.example.com']
     assert stored[stored_before_rest:] == [
@@ -291,18 +313,21 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
         ('host', ('alias.example.com', 'api.example.com', 'broken.example.com'), 'rapiddns'),
         ('ip', ('192.0.2.1',), 'rapiddns'),
     ]
-    assert len(completed_results) == 1
+    assert len(completed_results) == 2
+    assert FakeSecurityScorecard.created == 2
+    assert completed_results[1].target == 'example.com'
+    assert {'192.0.2.1', '198.51.100.2'} <= {value for kind, value in completed_results[1].results if kind == 'ip-address'}
 
     monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.com', '-b', 'rapiddns'])
     with pytest.raises(SystemExit) as no_file_exit:
         await theharvester_main.start()
     assert no_file_exit.value.code == 0
-    assert len(completed_results) == 2
-    assert completed_results[1].target == 'example.com'
+    assert len(completed_results) == 3
+    assert completed_results[2].target == 'example.com'
 
     FakeStash.fail_completed_write = True
     with pytest.raises(SystemExit) as failed_write_exit:
         await theharvester_main.start()
     assert failed_write_exit.value.code == 0
-    assert len(completed_results) == 2
+    assert len(completed_results) == 3
     assert 'forced completed-result failure' in capsys.readouterr().out
