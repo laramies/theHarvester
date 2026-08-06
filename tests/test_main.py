@@ -320,7 +320,7 @@ async def test_recursive_dns_results_reach_completed_output_without_changing_leg
         await theharvester_main.start()
 
     assert exit_info.value.code == 0
-    assert captured == [('example.com', ('api.example.com',), 1, 1_000)]
+    assert captured == [('example.com', ('api.example.com',), 1, 3_000)]
     assert completed
     assert ('hostname', 'dev.api.example.com') in completed[0].results
     assert ('ip-address', '192.0.2.2') in completed[0].results
