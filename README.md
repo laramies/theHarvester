@@ -131,6 +131,7 @@ Read the **API key** column as follows:
 
 | Source | Subdomains | Emails | IPs | ASNs | URLs / links | People | Breaches | Separate REST/action output (not consolidated report) | API key |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | --- | :---: |
+| `arquivo` | ✓ | No | No | No | No | No | No | No | No |
 | `baidu` | ✓ | ✓ | No | No | No | No | No | No | No |
 | `bevigil` | ✓ | No | No | No | ✓ | No | No | No | ✓ |
 | `bufferoverun` | ✓ | No | ✓ | No | No | No | No | No | ✓ |

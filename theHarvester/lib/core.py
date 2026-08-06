@@ -290,6 +290,7 @@ class Core:
     def get_supportedengines() -> list[str]:
         """Returns a list of supported search engines."""
         return [
+            'arquivo',
             'baidu',
             'bevigil',
             'bufferoverun',
