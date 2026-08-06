@@ -1,4 +1,5 @@
 import json
+import socket
 import sys
 import xml.etree.ElementTree as ElementTree
 from collections import Counter
@@ -11,6 +12,16 @@ import pytest
 
 from theHarvester import __main__ as theharvester_main
 from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass
+
+
+NON_PASSIVE_SOURCES = (
+    'criminalip',
+    'pentesttools',
+    'shodan',
+    'shodanInternetDB',
+    'subdomainfinderc99',
+    'windvane',
+)
 
 
 @pytest.mark.asyncio
@@ -119,6 +130,70 @@ async def test_legacy_handlerless_source_does_not_break_activity_summary(
         await theharvester_main.start()
 
     assert exit_info.value.code == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('source', NON_PASSIVE_SOURCES)
+async def test_explicit_non_passive_source_is_scheduled_once(
+    monkeypatch: pytest.MonkeyPatch,
+    source: str,
+) -> None:
+    executions = 0
+
+    class FakeStash:
+        async def do_init(self) -> None:
+            return None
+
+        async def store_all(self, *_args: object) -> None:
+            return None
+
+        async def store_completed_result(self, *_args: object) -> None:
+            return None
+
+    class FakeAdapter:
+        async def process(self, *_args: object, **_kwargs: object) -> None:
+            nonlocal executions
+            executions += 1
+
+        async def get_hostnames(self) -> set[str]:
+            return set()
+
+        async def get_emails(self) -> set[str]:
+            return set()
+
+        async def get_ips(self) -> set[str]:
+            return set()
+
+        async def get_asns(self) -> set[str]:
+            return set()
+
+    if source == 'shodan':
+        class FakeShodan:
+            async def search_ip(self, _ip: str) -> dict:
+                nonlocal executions
+                executions += 1
+                return {}
+
+        monkeypatch.setattr(theharvester_main.shodansearch, 'SearchShodan', FakeShodan)
+        monkeypatch.setattr(socket, 'gethostbyname', lambda _domain: '203.0.113.1')
+    else:
+        module, constructor_name = {
+            'criminalip': (theharvester_main.criminalip, 'SearchCriminalIP'),
+            'pentesttools': (theharvester_main.pentesttools, 'SearchPentestTools'),
+            'shodanInternetDB': (theharvester_main.shodan_internetdb, 'SearchShodanInternetDB'),
+            'subdomainfinderc99': (theharvester_main.subdomainfinderc99, 'SearchSubdomainfinderc99'),
+            'windvane': (theharvester_main.windvane, 'SearchWindvane'),
+        }[source]
+        monkeypatch.setattr(module, constructor_name, lambda *_args, **_kwargs: FakeAdapter())
+
+    monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
+    monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.test', '-b', source])
+
+    with pytest.raises(SystemExit) as exit_info:
+        await theharvester_main.start()
+
+    assert exit_info.value.code == 0
+    assert executions == 1
 
 
 @pytest.mark.asyncio
