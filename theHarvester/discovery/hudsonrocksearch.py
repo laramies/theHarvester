@@ -2,7 +2,7 @@ import asyncio
 import logging
 from urllib.parse import urlparse
 
-from theHarvester.lib.core import AsyncFetcher
+from theHarvester.lib.core import AsyncFetcher, FetcherResponse
 
 
 class SearchHudsonRock:
@@ -52,10 +52,11 @@ class SearchHudsonRock:
             search_tasks.append(self._search_email(self.word))
 
         # Execute searches with rate limiting
-        for task in search_tasks:
+        for index, task in enumerate(search_tasks):
             try:
                 await task
-                await asyncio.sleep(self.request_delay)  # Rate limiting
+                if index < len(search_tasks) - 1:
+                    await asyncio.sleep(self.request_delay)
             except Exception as e:
                 self.logger.error(f'Search task failed: {e}')
                 continue
@@ -88,24 +89,9 @@ class SearchHudsonRock:
 
         """
         url = f'{self.base_url}/search-by-domain?domain={domain}'
-
-        for attempt in range(self.max_retries):
-            try:
-                self.logger.debug(f'Searching domain: {domain} (attempt {attempt + 1})')
-                response = await AsyncFetcher.fetch_all([url], json=True, proxy=self.proxy)
-
-                if response and isinstance(response[0], dict):
-                    self._process_domain_response(response[0])
-                    return
-                else:
-                    self.logger.warning(f'Invalid response format for domain search: {domain}')
-
-            except Exception as e:
-                self.logger.error(f'Domain search attempt {attempt + 1} failed for {domain}: {e}')
-                if attempt < self.max_retries - 1:
-                    await asyncio.sleep(2**attempt)  # Exponential backoff
-                else:
-                    raise
+        response = await self._fetch_response(url, 'domain', domain)
+        if response is not None:
+            self._process_domain_response(response)
 
     async def _search_email(self, email: str) -> None:
         """Search Hudson Rock by email with retry logic.
@@ -115,24 +101,45 @@ class SearchHudsonRock:
 
         """
         url = f'{self.base_url}/search-by-email?email={email}'
+        response = await self._fetch_response(url, 'email', email)
+        if response is not None:
+            self._process_email_response(response)
 
+    async def _fetch_response(self, url: str, search_type: str, target: str) -> dict | None:
         for attempt in range(self.max_retries):
             try:
-                self.logger.debug(f'Searching email: {email} (attempt {attempt + 1})')
-                response = await AsyncFetcher.fetch_all([url], json=True, proxy=self.proxy)
-
-                if response and isinstance(response[0], dict):
-                    self._process_email_response(response[0])
-                    return
-                else:
-                    self.logger.warning(f'Invalid response format for email search: {email}')
+                self.logger.debug(f'Searching {search_type}: {target} (attempt {attempt + 1})')
+                responses = await AsyncFetcher.fetch_all([url], json=True, proxy=self.proxy, include_metadata=True)
+                response = responses[0] if responses and isinstance(responses[0], FetcherResponse) else None
+                if response is None:
+                    self.logger.warning(f'Invalid response format for {search_type} search: {target}')
+                    return None
+                if response.status == 429:
+                    if attempt == self.max_retries - 1:
+                        self.logger.info(f'Hudson Rock {search_type} search returned HTTP 429 after {self.max_retries} attempts')
+                        return None
+                    retry_after = response.headers.get('retry-after')
+                    try:
+                        delay = int(retry_after) if retry_after is not None else 2**attempt
+                    except ValueError:
+                        delay = 2**attempt
+                    await asyncio.sleep(max(0, min(delay, 60)))
+                    continue
+                if not 200 <= response.status < 300:
+                    self.logger.info(f'Hudson Rock {search_type} search failed with HTTP {response.status}')
+                    return None
+                if not isinstance(response.body, dict):
+                    self.logger.warning(f'Invalid response format for {search_type} search: {target}')
+                    return None
+                return response.body
 
             except Exception as e:
-                self.logger.error(f'Email search attempt {attempt + 1} failed for {email}: {e}')
+                self.logger.error(f'{search_type.title()} search attempt {attempt + 1} failed for {target}: {e}')
                 if attempt < self.max_retries - 1:
-                    await asyncio.sleep(2**attempt)  # Exponential backoff
+                    await asyncio.sleep(2**attempt)
                 else:
                     raise
+        return None
 
     def _process_domain_response(self, response: dict) -> None:
         """Process domain search response from Hudson Rock API.
@@ -189,6 +196,8 @@ class SearchHudsonRock:
         extracted_count = 0
 
         for url_data in urls_data:
+            if not isinstance(url_data, dict):
+                continue
             url = url_data.get('url', '')
             if not url or url.startswith('https://•••') or url.startswith('http://•••'):
                 continue
@@ -238,15 +247,14 @@ class SearchHudsonRock:
 
         """
         try:
-            # Add the searched email to our results
-            if self._is_valid_email(self.word):
-                self.emails.add(self.word)
-
             # Process stealer data with enhanced information extraction
             stealers = response.get('stealers', [])
             self.logger.info(f'Processing {len(stealers)} stealer records for email: {self.word}')
 
             for stealer in stealers:
+                if not isinstance(stealer, dict):
+                    continue
+                self.emails.add(self.word)
                 stealer_info = {
                     'email': self.word,
                     'date_compromised': stealer.get('date_compromised'),
