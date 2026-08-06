@@ -68,8 +68,20 @@ curl -sG http://127.0.0.1:5000/query \
 ```
 
 A completed `/query` also retains its normalized terminal record in the local
-SQLite database. The response fields remain unchanged, and no JSON, XML, or
-JSONL report file is written unless `filename` is supplied.
+SQLite database. No JSON, XML, or JSONL report file is written unless `filename`
+is supplied.
+
+HIBP verified-domain participates in `all`, `emails`, and `breaches` selections.
+When its provider key is configured, any selection that includes it also requires
+the operator API key:
+
+```bash
+curl -sG http://127.0.0.1:5000/query \
+  -H "X-API-Key: $THEHARVESTER_API_KEY" \
+  --data-urlencode "domain=$VERIFIED_DOMAIN" \
+  --data-urlencode 'source=hibpverified' \
+  | jq '{emails, breaches}'
+```
 
 Completed-run routes require the operator API key because retained evidence can
 contain sensitive results:
@@ -112,7 +124,7 @@ These routes may also require provider credentials in the request body or local 
 
 ## Security boundary
 
-`THEHARVESTER_API_KEY` protects `/additional/*` and `/runs*`. It does not authenticate `/query`, `/sources`, or `/dnsbrute`.
+`THEHARVESTER_API_KEY` protects `/additional/*`, `/runs*`, and `/query` selections that include a configured `hibpverified` source. Other `/query` requests, `/sources`, and `/dnsbrute` remain unauthenticated.
 
 Keep the default localhost binding. If you require remote access, add authentication, network allowlists, TLS, request logging, and an appropriate rate limit.
 

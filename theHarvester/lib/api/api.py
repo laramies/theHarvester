@@ -52,6 +52,7 @@ class QueryResponse(BaseModel):
     ips: list[str] = Field(default_factory=list, description='List of IPs')
     emails: list[str] = Field(default_factory=list, description='List of emails')
     hosts: list[str] = Field(default_factory=list, description='List of hosts')
+    breaches: list[str] = Field(default_factory=list, description='List of breach names')
 
 
 class ErrorResponse(BaseModel):
@@ -362,6 +363,7 @@ async def query(
     domain: Annotated[str, Query(min_length=3, description='Domain to be harvested')],
     dns_server: Annotated[str, Query(description='DNS server to use for lookup')] = '',
     user_agent: Annotated[str | None, Header()] = None,
+    x_api_key: Annotated[str | None, Header(alias='X-API-Key')] = None,
     dns_brute: Annotated[bool, Query(description='Perform a DNS brute force on the domain')] = False,
     dns_lookup: Annotated[bool, Query(description='Enable DNS server lookup')] = False,
     dns_resolve: Annotated[
@@ -389,6 +391,8 @@ async def query(
     try:
         # Validate sources
         selected_sources = __main__.Core.expand_source_selection(','.join(source))
+        if 'hibpverified' in selected_sources and __main__.Core.hibpverified_key() is not None:
+            get_api_key(x_api_key)
         supported_engines = __main__.Core.get_supportedengines()
         for s in selected_sources:
             if s not in supported_engines:
@@ -414,6 +418,7 @@ async def query(
             aips,
             aemails,
             ahosts,
+            abreaches,
         ) = await __main__.start(
             argparse.Namespace(
                 dns_brute=dns_brute,
@@ -434,6 +439,7 @@ async def query(
                 screenshot='',
             ),
             persist_completed_result=True,
+            include_breaches=True,
         )
 
         # Return the results using the Pydantic model
@@ -448,6 +454,7 @@ async def query(
                 'ips': aips,
                 'emails': aemails,
                 'hosts': ahosts,
+                'breaches': abreaches,
             }
         )
     except HTTPException as e:

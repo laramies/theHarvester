@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Added authenticated REST routes for listing completed enumeration runs and retrieving their normalized evidence.
+- Added an authenticated HIBP verified-domain source for CLI and conditionally authenticated REST queries that retains normalized account emails and stable breach names without retaining the raw account mapping.
 - Added keyless Shodan Certificate Transparency hostname discovery with bounded requests and offline response contracts.
 - Added transactional SQLite storage and loading for completed full-pipeline runs without changing legacy result rows.
 - Added deterministic JSONL report companions finalized after selected one-shot actions complete.
@@ -18,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added root contributor and security policies, structured issue forms, repository agent guidance, discovery terminology, and an operator-focused documentation wiki ([d090a29a](https://github.com/laramies/theHarvester/commit/d090a29a), [7c491ef5](https://github.com/laramies/theHarvester/commit/7c491ef5), [8b9d420b](https://github.com/laramies/theHarvester/commit/8b9d420b)).
 
 ### Changed
+- Included HIBP verified-domain in `all` and matching capability selectors like every other P0 source, with REST operator authentication applied after source expansion when its provider key is configured.
 - Allowed REST `/query` requests to select discovery sources by result capability, matching the CLI's union semantics while preserving explicit source selection.
 - Expanded Common Crawl discovery to use every unique crawl ending within one year of the newest catalog entry, validate catalog endpoints, batch requests, cap each query at 100 pages, and enforce the CLI result limit across page requests ([249ce64b](https://github.com/laramies/theHarvester/commit/249ce64b), [70470cd8](https://github.com/laramies/theHarvester/commit/70470cd8)).
 - Completed bounded pagination for Wayback Archive and Cert Spotter, including continuation handling, truncation diagnostics, and preservation of partial results on provider failures ([df6ff2c9](https://github.com/laramies/theHarvester/commit/df6ff2c9), [f85a08ff](https://github.com/laramies/theHarvester/commit/f85a08ff)).

@@ -26,6 +26,7 @@ def test_email_capability_expands_to_email_sources() -> None:
         "duckduckgo",
         "github-code",
         "gitlab",
+        "hibpverified",
         "hudsonrock",
         "hunter",
         "intelx",
@@ -65,8 +66,12 @@ def test_multiple_capabilities_form_a_union() -> None:
     ]
 
 
-def test_breach_capability_selects_haveibeenpwned() -> None:
-    assert Core.expand_source_selection('breaches') == ['haveibeenpwned']
+def test_breach_capability_includes_every_matching_source() -> None:
+    assert Core.expand_source_selection('breaches') == ['haveibeenpwned', 'hibpverified']
+
+
+def test_named_source_can_be_combined_with_a_capability() -> None:
+    assert Core.expand_source_selection('breaches,hibpverified') == ['haveibeenpwned', 'hibpverified']
 
 
 def test_all_preserves_every_supported_source() -> None:
