@@ -11,6 +11,7 @@ ResultKind = Literal[
     'breach',
     'email',
     'hostname',
+    'infostealer',
     'interesting-url',
     'ip-address',
     'linkedin-link',

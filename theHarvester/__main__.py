@@ -289,6 +289,7 @@ async def start(rest_args: argparse.Namespace | None = None):
     all_hosts: list = []
     all_ip: list = []
     all_people: list[dict[str, str]] = []
+    all_infostealers: list[dict[str, object]] = []
     dnslookup = args.dns_lookup
     dnsserver = args.dns_server  # TODO arg is not used anywhere replace with resolvers wordlist arg dnsresolve
     dnsresolve: str | None = args.dns_resolve
@@ -444,6 +445,8 @@ async def start(rest_args: argparse.Namespace | None = None):
 
         if ResultRoute.BREACHES in routes:
             all_breaches.extend(await search_engine.get_breach_names())
+        if source == 'hudsonrock':
+            all_infostealers.extend(await search_engine.get_infostealers())
         logger.info(f'Source {source} completed')
 
     stor_lst = []
@@ -1847,6 +1850,9 @@ async def start(rest_args: argparse.Namespace | None = None):
         'breach': map(str, all_breaches),
         'email': map(str, all_emails),
         'hostname': _normalize_hosts_for_storage((*all_hosts, *dnsrev), word),
+        'infostealer': (
+            json.dumps(stealer, ensure_ascii=False, separators=(',', ':'), sort_keys=True) for stealer in all_infostealers
+        ),
         'interesting-url': map(str, interesting_urls),
         'ip-address': _normalize_ip_addresses(all_ip),
         'linkedin-link': map(str, linkedin_links_tracker),
