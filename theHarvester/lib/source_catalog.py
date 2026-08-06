@@ -89,6 +89,7 @@ _SPECS = (
     _spec('sherlockeye', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS, ResultRoute.IPS),
     _spec('shodan', ResultRoute.SUBDOMAINS),
     _spec('shodanInternetDB', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
+    _spec('shodanct', ResultRoute.SUBDOMAINS),
     _spec('subdomaincenter', ResultRoute.SUBDOMAINS),
     _spec('subdomainfinderc99', ResultRoute.SUBDOMAINS),
     _spec('thc', ResultRoute.SUBDOMAINS),
