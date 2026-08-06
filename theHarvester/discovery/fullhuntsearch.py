@@ -1,9 +1,11 @@
 import logging
+from ipaddress import ip_address
 from typing import Any, ClassVar
 from urllib.parse import quote
 
 from theHarvester.discovery.constants import MissingKey
-from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
+from theHarvester.lib.hostnames import normalize_scoped_hostname
 
 logger = logging.getLogger(__name__)
 
@@ -115,8 +117,11 @@ class SearchFullHunt:
 
     def __init__(self, word) -> None:
         self.word = word
-        self.key = Core.fullhunt_key()
-        if self.key is None:
+        try:
+            self.key = Core.fullhunt_key()
+        except Exception as error:
+            raise MissingKey('fullhunt') from error
+        if not isinstance(self.key, str) or not self.key.strip():
             raise MissingKey('fullhunt')
         self.total_results: dict[str, Any] = {
             'hosts': [],  # List of subdomains
@@ -148,8 +153,16 @@ class SearchFullHunt:
             json=True,
             headers=self._get_headers(),
             proxy=self.proxy,
+            include_metadata=True,
         )
-        return response[0]
+        metadata = response[0] if response and isinstance(response[0], FetcherResponse) else None
+        if metadata is None:
+            raise RuntimeError('FullHunt request failed')
+        if not 200 <= metadata.status < 300:
+            raise RuntimeError(f'FullHunt request failed with HTTP {metadata.status}')
+        if not isinstance(metadata.body, dict):
+            raise ValueError('FullHunt returned malformed data')
+        return metadata.body
 
     def add_filter(self, filter_name: str, filter_value: str) -> None:
         """Add a search filter to be used in advanced searches
@@ -287,13 +300,46 @@ class SearchFullHunt:
 
         hosts = details['hosts']
         for host_data in hosts:
+            if not isinstance(host_data, dict):
+                logger.info('FullHunt ignored a malformed host item')
+                continue
+            hostname = normalize_scoped_hostname(host_data.get('host'), self.word)
+            address = host_data.get('ip_address')
+            try:
+                normalized_address = str(ip_address(address)) if isinstance(address, str) else None
+            except ValueError:
+                normalized_address = None
+            if (
+                hostname is None
+                or (address is not None and normalized_address is None)
+                or (
+                    'network_ports' in host_data
+                    and (
+                        not isinstance(host_data['network_ports'], (list, set, tuple))
+                        or any(
+                            not isinstance(port, int) or isinstance(port, bool) or not 0 <= port <= 65535
+                            for port in host_data['network_ports']
+                        )
+                    )
+                )
+                or any(
+                    field in host_data
+                    and (not isinstance(host_data[field], list) or any(not isinstance(value, str) for value in host_data[field]))
+                    for field in ('products', 'tags')
+                )
+                or any(
+                    field in host_data and not isinstance(host_data[field], dict)
+                    for field in ('dns_records', 'http_response', 'geo', 'cloud', 'certificate')
+                )
+            ):
+                logger.info('FullHunt ignored a malformed host item')
+                continue
             # Extract subdomains
-            if host_data.get('host'):
-                self.total_results['hosts'].append(host_data['host'])
+            self.total_results['hosts'].append(hostname)
 
             # Extract IPs
-            if host_data.get('ip_address'):
-                self.total_results['ips'].append(host_data['ip_address'])
+            if normalized_address:
+                self.total_results['ips'].append(normalized_address)
 
             # Extract ports
             if host_data.get('network_ports'):
@@ -310,7 +356,6 @@ class SearchFullHunt:
             # Extract DNS information
             if 'dns_records' in host_data:
                 dns_records = host_data['dns_records']
-                hostname = host_data.get('host', '')
 
                 if hostname not in self.total_results['dns_records']:
                     self.total_results['dns_records'][hostname] = {}
@@ -321,7 +366,6 @@ class SearchFullHunt:
             # Extract HTTP information
             if 'http_response' in host_data:
                 http_info = host_data['http_response']
-                hostname = host_data.get('host', '')
 
                 if hostname not in self.total_results['http_info']:
                     self.total_results['http_info'][hostname] = {}
@@ -332,7 +376,6 @@ class SearchFullHunt:
             # Extract geographic information
             if 'geo' in host_data:
                 geo_info = host_data['geo']
-                hostname = host_data.get('host', '')
 
                 if hostname not in self.total_results['geo_info']:
                     self.total_results['geo_info'][hostname] = {}
@@ -343,7 +386,6 @@ class SearchFullHunt:
             # Extract cloud information
             if 'cloud' in host_data:
                 cloud_info = host_data['cloud']
-                hostname = host_data.get('host', '')
 
                 if hostname not in self.total_results['cloud_info']:
                     self.total_results['cloud_info'][hostname] = {}
@@ -353,8 +395,7 @@ class SearchFullHunt:
 
             # Extract certificate information
             if 'certificate' in host_data:
-                cert_info = host_data['certificate']
-                cert_info['hostname'] = host_data.get('host', '')
+                cert_info = {**host_data['certificate'], 'hostname': hostname}
                 self.total_results['cert_info'].append(cert_info)
 
         # Deduplicate results
@@ -379,14 +420,22 @@ class SearchFullHunt:
         try:
             # First get domain details which includes most information
             domain_details = await self.get_domain_details()
+            if not isinstance(domain_details.get('hosts'), list):
+                raise ValueError('FullHunt returned malformed domain details')
             self.total_results['domain_details'] = domain_details
             await self.extract_data_from_domain_details(domain_details)
 
             # If no hosts found in domain details, try the dedicated subdomains endpoint
             if not self.total_results['hosts']:
                 subdomains_response = await self.get_subdomains()
-                if 'hosts' in subdomains_response:
-                    self.total_results['hosts'] = subdomains_response['hosts']
+                hosts = subdomains_response.get('hosts')
+                if not isinstance(hosts, list):
+                    raise ValueError('FullHunt returned malformed subdomains')
+                for host in hosts:
+                    if normalized_host := normalize_scoped_hostname(host, self.word):
+                        self.total_results['hosts'].append(normalized_host)
+                    else:
+                        logger.info('FullHunt ignored a malformed subdomain item')
 
             # If filters are set, perform an advanced search
             if self.filters:
