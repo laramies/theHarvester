@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added root contributor and security policies, structured issue forms, repository agent guidance, discovery terminology, and an operator-focused documentation wiki ([d090a29a](https://github.com/laramies/theHarvester/commit/d090a29a), [7c491ef5](https://github.com/laramies/theHarvester/commit/7c491ef5), [8b9d420b](https://github.com/laramies/theHarvester/commit/8b9d420b)).
 
 ### Changed
+- Migrated Pentest-Tools discovery to its API v2 Bearer-authenticated scan, status, and output endpoints.
 - Included HIBP verified-domain in `all` and matching capability selectors like every other P0 source, with REST operator authentication applied after source expansion when its provider key is configured.
 - Allowed REST `/query` requests to select discovery sources by result capability, matching the CLI's union semantics while preserving explicit source selection.
 - Changed `-b all` to select every cataloged P0 passive source once while leaving P1 DNS and P2 direct sources available through explicit selection.
