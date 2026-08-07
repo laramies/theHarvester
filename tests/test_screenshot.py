@@ -49,6 +49,7 @@ async def test_visit_prefers_https_and_returns_final_www_url(monkeypatch: pytest
 
     assert result == ('https://www.example.com/landing', 'reachable')
     assert session.get.call_args.args[0] == 'https://www.example.com'
+    assert session.get.call_args.kwargs == {}
 
 
 @pytest.mark.asyncio
@@ -77,7 +78,16 @@ async def test_visit_falls_back_to_http_when_https_is_unreachable(monkeypatch: p
 
 
 @pytest.mark.asyncio
-async def test_take_screenshot_preserves_www_hostname(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+async def test_take_screenshot_preserves_www_and_allows_public_redirects(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    class Resolver:
+        async def resolve(self, host, *_args, **_kwargs):
+            if host == '127.0.0.1':
+                raise OSError('Refusing non-public address')
+            return [{'host': '192.0.2.1'}]
+
     page = AsyncMock()
     context = AsyncMock()
     context.new_page.return_value = page
@@ -89,7 +99,7 @@ async def test_take_screenshot_preserves_www_hostname(monkeypatch: pytest.Monkey
     manager.__aenter__ = AsyncMock(return_value=playwright)
     manager.__aexit__ = AsyncMock(return_value=False)
     monkeypatch.setattr(screenshot_module, 'async_playwright', MagicMock(return_value=manager))
-    monkeypatch.setattr(screenshot_module, 'PublicResolver', PublicResolver)
+    monkeypatch.setattr(screenshot_module, 'PublicResolver', Resolver)
     monkeypatch.setattr(screenshot_module.os, 'chmod', MagicMock())
 
     captured_url = await ScreenShotter(str(tmp_path)).take_screenshot('www.example.com')
@@ -98,6 +108,18 @@ async def test_take_screenshot_preserves_www_hostname(monkeypatch: pytest.Monkey
     page.goto.assert_awaited_once_with('https://www.example.com', timeout=35000)
     screenshot_path = page.screenshot.await_args.kwargs['path']
     assert screenshot_path.endswith('www.example.com.png')
+    guard_request = context.route.await_args.args[1]
+    public_redirect = AsyncMock()
+    public_redirect.request.url = 'https://login.example.com/landing'
+    await guard_request(public_redirect)
+    public_redirect.continue_.assert_awaited_once_with()
+    public_redirect.abort.assert_not_awaited()
+
+    private_redirect = AsyncMock()
+    private_redirect.request.url = 'http://127.0.0.1/admin'
+    await guard_request(private_redirect)
+    private_redirect.abort.assert_awaited_once_with('blockedbyclient')
+    private_redirect.continue_.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -130,51 +152,6 @@ async def test_screenshot_visit_refuses_an_unpinned_proxy(monkeypatch) -> None:
 
     assert result == ('', '')
     assert sessions == []
-
-
-@pytest.mark.asyncio
-async def test_screenshot_visit_does_not_follow_redirects(monkeypatch) -> None:
-    requests = []
-
-    class Resolver:
-        async def resolve(self, *_args, **_kwargs):
-            return [{'host': '192.0.2.1'}]
-
-    class Response:
-        url = 'https://example.com'
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args):
-            return None
-
-        async def text(self, _encoding):
-            return 'fixture'
-
-    class Session:
-        def __init__(self, **_kwargs):
-            return None
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args):
-            return None
-
-        def get(self, url, **kwargs):
-            requests.append((url, kwargs))
-            return Response()
-
-    monkeypatch.setattr(screenshot_module, 'PublicResolver', Resolver)
-    monkeypatch.setattr(screenshot_module.aiohttp, 'ClientSession', Session)
-    monkeypatch.setattr(screenshot_module.aiohttp, 'TCPConnector', lambda **_kwargs: object())
-    monkeypatch.setattr(screenshot_module.ssl, 'create_default_context', lambda **_kwargs: object())
-
-    result = await ScreenShotter.visit('example.com')
-
-    assert result == ('https://example.com', 'fixture')
-    assert requests == [('https://example.com', {'allow_redirects': False})]
 
 
 @pytest.mark.asyncio

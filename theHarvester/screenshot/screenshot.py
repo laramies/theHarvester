@@ -75,7 +75,7 @@ class ScreenShotter:
             async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
                 for candidate in urls:
                     try:
-                        async with session.get(candidate, allow_redirects=False) as resp:
+                        async with session.get(candidate) as resp:
                             text = await resp.text('UTF-8')
                             return str(resp.url), text
                     except (aiohttp.ClientError, TimeoutError) as e:
@@ -107,13 +107,22 @@ class ScreenShotter:
 
             async def guard_request(route) -> None:
                 request_url = urlsplit(route.request.url)
-                if request_url.scheme in {'http', 'https'} and request_url.hostname != parsed.hostname:
-                    await route.abort('blockedbyclient')
-                else:
-                    await route.continue_()
+                if request_url.scheme in {'http', 'https'}:
+                    if request_url.hostname is None:
+                        await route.abort('blockedbyclient')
+                        return
+                    try:
+                        await resolver.resolve(
+                            request_url.hostname,
+                            request_url.port or (443 if request_url.scheme == 'https' else 80),
+                        )
+                    except (OSError, ValueError):
+                        await route.abort('blockedbyclient')
+                        return
+                await route.continue_()
 
             async def block_web_socket(web_socket) -> None:
-                await web_socket.close(code=1008, reason='Wayfinder blocks WebSocket egress')
+                await web_socket.close(code=1008, reason='theHarvester blocks WebSocket egress')
 
             await context.route('**/*', guard_request)
             await context.route_web_socket('**/*', block_web_socket)
