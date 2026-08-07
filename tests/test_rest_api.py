@@ -36,6 +36,27 @@ def test_query_expands_source_capability(monkeypatch) -> None:
     assert captured[0][1] is True
 
 
+def test_query_allows_api_scan_of_operator_selected_private_target(monkeypatch) -> None:
+    captured: list[Namespace] = []
+
+    async def fake_start(
+        args: Namespace,
+        *,
+        persist_completed_result: bool = False,
+        include_breaches: bool = False,
+    ):
+        captured.append(args)
+        return ([], [], [], [], [], [], [], [], [], [])
+
+    monkeypatch.setattr(api.__main__, 'start', fake_start)
+
+    response = TestClient(api.app).get('/query?domain=192.0.2.8&source=certspotter&api_scan=true')
+
+    assert response.status_code == 200
+    assert captured[0].domain == '192.0.2.8'
+    assert captured[0].api_scan is True
+
+
 def test_query_forwards_bounded_recursive_dns_options(monkeypatch) -> None:
     captured: list[Namespace] = []
 

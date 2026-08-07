@@ -1,9 +1,7 @@
 import argparse
-import asyncio
 import ipaddress
 import logging
 import os
-import socket
 from datetime import datetime
 from typing import Annotated, Any, cast
 from uuid import UUID
@@ -27,19 +25,6 @@ from theHarvester.lib.recursive_dns import DEFAULT_RECURSIVE_DNS_QUERY_LIMIT
 logger = logging.getLogger(__name__)
 
 API_RATE_LIMIT = os.getenv('API_RATE_LIMIT', '5/minute')
-
-
-async def _is_public_target(domain: str) -> bool:
-    host = domain.split('/')[0].split(':')[0]
-    try:
-        infos = await asyncio.get_event_loop().getaddrinfo(host, None)
-    except socket.gaierror:
-        return True  # unresolvable: the scan cannot reach it
-    for info in infos:
-        ip = ipaddress.ip_address(info[4][0])
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast or ip.is_unspecified:
-            return False
-    return True
 
 
 # Define Pydantic models for request and response validation
@@ -459,12 +444,6 @@ async def query(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail='recursive DNS requires exactly three distinct resolver IPs',
                 )
-
-        if api_scan and not await _is_public_target(domain):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail='api_scan target must be a publicly routable host',
-            )
 
         # Call the main function with the provided parameters
         (
