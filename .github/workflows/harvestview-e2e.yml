@@ -1,0 +1,63 @@
+name: HarvestView browser E2E
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/harvestview-e2e.yml'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - 'theHarvester/lib/api/**'
+      - 'tests/e2e/**'
+      - 'tests/lib/test_api_v1.py'
+      - 'tests/lib/test_harvestview_ui.py'
+
+permissions:
+  contents: read
+
+jobs:
+  harvestview-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          python-version: '3.13'
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install project dependencies
+        run: uv sync --all-groups --frozen
+
+      - name: Install Chromium
+        run: uv run playwright install --with-deps chromium
+
+      - name: Run HarvestView browser tests
+        run: >-
+          uv run pytest -m harvestview_e2e
+          --browser chromium
+          --tracing=retain-on-failure
+          --screenshot=only-on-failure
+          --video=retain-on-failure
+          --output=test-results
+
+      - name: Upload browser test artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: harvestview-browser-test-results
+          path: test-results/
+          if-no-files-found: warn
+          retention-days: 7

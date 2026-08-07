@@ -76,7 +76,6 @@ def test_api_exposes_one_versioned_run_contract(tmp_path, monkeypatch) -> None:
         schema = client.get('/openapi.json').json()
         paths = set(schema['paths'])
         old_responses = [
-            client.get('/'),
             client.get('/query?domain=example.test&source=crtsh'),
             client.get('/sources'),
             client.get('/dnsbrute?domain=example.test'),

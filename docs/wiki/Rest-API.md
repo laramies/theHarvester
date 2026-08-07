@@ -1,6 +1,6 @@
 # REST API
 
-`restfulHarvest` serves one versioned API for local automation.
+`restfulHarvest` serves HarvestView at `/` and one versioned API for local automation.
 
 ## Start the service
 
@@ -15,6 +15,7 @@ The service binds to `127.0.0.1:5000` by default. Use `uv run restfulHarvest -h`
 
 Open:
 
+- HarvestView: [http://127.0.0.1:5000/](http://127.0.0.1:5000/)
 - Swagger UI: [http://127.0.0.1:5000/docs](http://127.0.0.1:5000/docs)
 - ReDoc: [http://127.0.0.1:5000/redoc](http://127.0.0.1:5000/redoc)
 
@@ -46,6 +47,8 @@ curl -s http://127.0.0.1:5000/api/v1/sources \
   -H "X-API-Key: $THEHARVESTER_API_KEY" \
   | jq
 ```
+
+HarvestView receives a derived HttpOnly browser-session cookie when loaded from localhost. The browser never stores or displays the configured API key. Cookie-authenticated mutations also require a matching same-origin request.
 
 Provider credentials remain in theHarvester's server-side configuration. Requests cannot supply provider API keys.
 

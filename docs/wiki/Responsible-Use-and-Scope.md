@@ -35,6 +35,6 @@ Results may contain private infrastructure, employee addresses, account identifi
 
 ## API exposure
 
-Every `/api/v1/*` route requires `THEHARVESTER_API_KEY`. Provider credentials remain server-side.
+Every `/api/v1/*` route requires `THEHARVESTER_API_KEY`. HarvestView is restricted to a loopback browser origin and uses a derived HttpOnly cookie for those same routes. Provider credentials remain server-side.
 
 Keep the service on localhost. If you require remote access, add network controls and TLS in front of the existing API authentication.

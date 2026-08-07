@@ -82,7 +82,7 @@ uv run restfulHarvest --log-level debug
 
 Then open [http://127.0.0.1:5000/docs](http://127.0.0.1:5000/docs).
 
-- `401` on `/api/v1/*`: the `X-API-Key` header does not match.
+- `401` on `/api/v1/*`: the `X-API-Key` header or HarvestView browser session does not match.
 - `503` on `/api/v1/*`: `THEHARVESTER_API_KEY` was not configured before startup.
 - `429`: the client exceeded the configured API rate limit.
 - `503` when creating a run: the execution worker is disabled or unavailable.
