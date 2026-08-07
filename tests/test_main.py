@@ -1,5 +1,6 @@
 import json
 import sys
+import xml.etree.ElementTree as ElementTree
 from pathlib import Path
 
 import pytest
@@ -226,10 +227,11 @@ async def test_dns_proven_cname_hosts_reach_screenshot_filter(
 
 @pytest.mark.asyncio
 async def test_recursive_dns_results_reach_completed_output_without_changing_legacy_shapes(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
 ) -> None:
     completed: list[CompletedResult] = []
     captured: list[tuple[str, tuple[str, ...], int, int]] = []
+    output_path = tmp_path / 'recursive-dns'
 
     class FakeStash:
         async def do_init(self) -> None:
@@ -276,7 +278,7 @@ async def test_recursive_dns_results_reach_completed_output_without_changing_leg
                 RecursiveDNSFinding(
                     'dev.api.example.com',
                     'api.example.com',
-                    HostDnsRecords(ipv4=('192.0.2.2',)),
+                    HostDnsRecords(ipv4=('192.0.2.2',), ipv6=('2001:db8::2',)),
                     ('ptr.example.net',),
                 ),
             ),
@@ -313,6 +315,8 @@ async def test_recursive_dns_results_reach_completed_output_without_changing_leg
             '192.0.2.53,192.0.2.54,192.0.2.55',
             '--dns-recursive-depth',
             '1',
+            '-f',
+            str(output_path),
         ],
     )
 
@@ -324,11 +328,12 @@ async def test_recursive_dns_results_reach_completed_output_without_changing_leg
     assert completed
     assert ('hostname', 'dev.api.example.com') in completed[0].results
     assert ('ip-address', '192.0.2.2') in completed[0].results
+    assert ('ip-address', '2001:db8::2') in completed[0].results
     assert (
         'dns-recursive-finding',
         json.dumps(
             {
-                'addresses': ['192.0.2.2'],
+                'addresses': ['192.0.2.2', '2001:db8::2'],
                 'hostname': 'dev.api.example.com',
                 'parent': 'api.example.com',
                 'ptrs': ['ptr.example.net'],
@@ -337,6 +342,17 @@ async def test_recursive_dns_results_reach_completed_output_without_changing_leg
             sort_keys=True,
         ),
     ) in completed[0].results
+    assert set(json.loads(output_path.with_suffix('.json').read_text())['hosts']) >= {
+        'dev.api.example.com:192.0.2.2',
+        'dev.api.example.com:2001:db8::2',
+    }
+    xml_pairs = {
+        (element.findtext('hostname'), element.findtext('ip'))
+        for element in ElementTree.parse(output_path.with_suffix('.xml')).getroot().findall('host')
+    }
+    assert ('dev.api.example.com', '192.0.2.2') in xml_pairs
+    assert ('dev.api.example.com', '2001:db8::2') in xml_pairs
+    assert not any(ip is not None and ',' in ip for _host, ip in xml_pairs)
     assert (
         'dns-recursive-summary',
         json.dumps(

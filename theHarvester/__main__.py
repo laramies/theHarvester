@@ -1436,7 +1436,7 @@ async def start(
             resolved_screenshot_hosts.update(recursive_hosts)
             for finding in recursive_result.findings:
                 if finding.records.addresses:
-                    full.append(f'{finding.hostname}:{",".join(finding.records.addresses)}')
+                    full.extend(f'{finding.hostname}:{address}' for address in finding.records.addresses)
                     reported_host_ip_pairs.update((finding.hostname, address) for address in finding.records.addresses)
                 else:
                     full.append(finding.hostname)
