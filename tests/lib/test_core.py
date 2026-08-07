@@ -69,11 +69,11 @@ def test_multiple_capabilities_form_a_union() -> None:
 
 
 def test_breach_capability_includes_every_matching_source() -> None:
-    assert Core.expand_source_selection('breaches') == ['haveibeenpwned', 'hibpverified']
+    assert Core.expand_source_selection('breaches') == ['haveibeenpwned', 'hibpverified', 'leaklookup']
 
 
 def test_named_source_can_be_combined_with_a_capability() -> None:
-    assert Core.expand_source_selection('breaches,hibpverified') == ['haveibeenpwned', 'hibpverified']
+    assert Core.expand_source_selection('breaches,hibpverified') == ['haveibeenpwned', 'hibpverified', 'leaklookup']
 
 
 def test_all_selects_only_passive_catalog_sources() -> None:

@@ -163,7 +163,7 @@ Read the **API key** column as follows:
 | `hunterhow` | ✓ | No | No | No | No | No | No | No | ✓ |
 | `intelx` | ✓ | ✓ | No | No | ✓ | No | No | No | ✓ |
 | `leakix` | ✓ | ✓ | No | No | No | No | No | No | Optional |
-| `leaklookup` | No | ✓ | No | No | No | No | No | `POST /additional/leaks` response | ✓ |
+| `leaklookup` | No | ✓ | No | No | No | No | ✓ | `POST /additional/leaks` response | ✓ |
 | `mojeek` | ✓ | ✓ | No | No | No | No | No | No | Optional |
 | `netlas` | ✓ | No | No | No | No | No | No | No | ✓ |
 | `onyphe` | ✓ | No | ✓ | ✓ | No | No | No | No | ✓ |

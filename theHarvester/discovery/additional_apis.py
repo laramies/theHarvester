@@ -21,7 +21,7 @@ class AdditionalAPIs:
 
         # Initialize API services
         self.haveibeenpwned = SearchHaveIBeenPwned(domain)
-        self.leaklookup = SearchLeakLookup(domain)
+        self.leaklookup: SearchLeakLookup | None = None
         self.securityscorecard = SearchSecurityScorecard(domain)
         self.builtwith = SearchBuiltWith(domain)
         self.shodan: SearchShodan | None = None  # Will be initialized when needed
@@ -74,6 +74,8 @@ class AdditionalAPIs:
     async def _process_leaklookup(self, proxy: bool = False):
         """Process Leak-Lookup API."""
         try:
+            if self.leaklookup is None:
+                self.leaklookup = SearchLeakLookup(self.domain)
             await self.leaklookup.process(proxy)
             self.results['leaks'] = self.leaklookup.leaks
             self.hosts.update(self.leaklookup.hosts)
