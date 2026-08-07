@@ -48,18 +48,35 @@ def test_query_forwards_bounded_recursive_dns_options(monkeypatch) -> None:
         captured.append(args)
         return ([], [], [], [], [], [], [], [], [], [])
 
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'operator-secret')
     monkeypatch.setattr(api.__main__, 'start', fake_start)
 
     response = TestClient(api.app).get(
         '/query?domain=example.test&source=certspotter&dns_recursive_depth=2'
         '&dns_recursive_query_limit=321&dns_recursive_runtime_seconds=4.5'
-        '&dns_resolve=192.0.2.53,192.0.2.54,192.0.2.55'
+        '&dns_resolve=192.0.2.53,192.0.2.54,192.0.2.55',
+        headers={'X-API-Key': 'operator-secret'},
     )
 
     assert response.status_code == 200
     assert captured[0].dns_recursive_depth == 2
     assert captured[0].dns_recursive_query_limit == 321
     assert captured[0].dns_recursive_runtime_seconds == 4.5
+
+
+def test_query_requires_operator_key_for_recursive_dns(monkeypatch) -> None:
+    async def unexpected_start(*_args, **_kwargs):
+        raise AssertionError('enumeration must not start')
+
+    monkeypatch.delenv('THEHARVESTER_API_KEY', raising=False)
+    monkeypatch.setattr(api.__main__, 'start', unexpected_start)
+
+    response = TestClient(api.app).get(
+        '/query?domain=example.test&source=certspotter&dns_recursive_depth=1&dns_resolve=192.0.2.53,192.0.2.54,192.0.2.55'
+    )
+
+    assert response.status_code == 503
+    assert response.json()['detail'] == 'THEHARVESTER_API_KEY is not configured'
 
 
 def test_query_documents_safe_recursive_dns_query_default() -> None:
@@ -89,10 +106,12 @@ def test_query_rejects_recursive_dns_without_three_distinct_resolvers(monkeypatc
     async def unexpected_start(*_args, **_kwargs):
         raise AssertionError('enumeration must not start')
 
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'operator-secret')
     monkeypatch.setattr(api.__main__, 'start', unexpected_start)
 
     response = TestClient(api.app).get(
-        '/query?domain=example.test&source=certspotter&dns_recursive_depth=1&dns_resolve=192.0.2.53,192.0.2.54'
+        '/query?domain=example.test&source=certspotter&dns_recursive_depth=1&dns_resolve=192.0.2.53,192.0.2.54',
+        headers={'X-API-Key': 'operator-secret'},
     )
 
     assert response.status_code == 400

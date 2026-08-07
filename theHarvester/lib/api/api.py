@@ -412,6 +412,7 @@ async def query(
                 )
 
         if dns_recursive_depth > 0:
+            get_api_key(x_api_key)
             try:
                 recursive_resolvers = {
                     str(ipaddress.ip_address(value.strip())) for value in dns_resolve.split(',') if value.strip()
