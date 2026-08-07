@@ -51,6 +51,7 @@ dev = [
     "mypy-extensions==1.1.0",
     "pytest==9.1.1",
     "pytest-asyncio==1.4.0",
+    "pytest-playwright==0.8.0",
     "types-certifi==2021.10.8.3",
     "types-chardet==5.0.4.6",
     "types-python-dateutil==2.9.0.20260518",
@@ -69,9 +70,10 @@ restfulHarvest = "theHarvester.restfulHarvest:main"
 minversion = "8.3.3"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-addopts = "--no-header --strict-markers"
+addopts = "--no-header --strict-markers -m 'not harvestview_e2e'"
 markers = [
     "live_network: contacts an external service and runs only with --run-live-network",
+    "harvestview_e2e: real-browser tests against an isolated local HarvestView server",
 ]
 testpaths = ["tests"]
 
