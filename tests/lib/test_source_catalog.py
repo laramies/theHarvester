@@ -79,16 +79,10 @@ def test_pentesttools_declares_its_normalized_subdomain_and_ip_routes() -> None:
     assert SOURCE_SPECS['pentesttools'].routes == frozenset({ResultRoute.SUBDOMAINS, ResultRoute.IPS})
 
 
-def test_capability_selection_preserves_every_declared_route() -> None:
-    assert 'venacus' in Core.expand_source_selection('emails')
-    assert get_source_spec('venacus').routes == frozenset(
-        {
-            ResultRoute.EMAILS,
-            ResultRoute.IPS,
-            ResultRoute.PEOPLE,
-            ResultRoute.INTERESTING_URLS,
-        }
-    )
+def test_unavailable_venacus_source_is_not_selectable() -> None:
+    assert 'venacus' not in Core.get_supportedengines()
+    assert 'venacus' not in SOURCE_SPECS
+    assert 'venacus' not in _scheduled_source_names()
 
 
 def test_source_lookup_preserves_case_insensitive_legacy_labels() -> None:

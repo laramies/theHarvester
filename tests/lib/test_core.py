@@ -37,7 +37,6 @@ def test_email_capability_expands_to_email_sources() -> None:
         "rocketreach",
         "sherlockeye",
         "tomba",
-        "venacus",
         "windvane",
         "yahoo",
         "zoomeye",
@@ -53,7 +52,6 @@ def test_capabilities_and_explicit_sources_form_a_union() -> None:
         "intelx",
         "rocketreach",
         "urlscan",
-        "venacus",
         "zoomeye",
     ]
 
@@ -63,7 +61,6 @@ def test_multiple_capabilities_form_a_union() -> None:
         "criminalip",
         "onyphe",
         "urlscan",
-        "venacus",
         "zoomeye",
     ]
 
