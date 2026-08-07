@@ -166,7 +166,7 @@ Read the **API key** column as follows:
 | `netlas` | ✓ | No | No | No | No | No | No | No | ✓ |
 | `onyphe` | ✓ | No | ✓ | ✓ | No | No | No | No | ✓ |
 | `otx` | ✓ | No | ✓ | No | No | No | No | No | No |
-| `pentesttools` | ✓ | No | No | No | No | No | No | No | ✓ |
+| `pentesttools` | ✓ | No | ✓ | No | No | No | No | No | ✓ |
 | `projectdiscovery` | ✓ | No | No | No | No | No | No | No | ✓ |
 | `rapiddns` | ✓ | No | ✓ | No | No | No | No | No | No |
 | `robtex` | ✓ | No | ✓ | No | No | No | No | No | No |

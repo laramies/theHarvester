@@ -3,6 +3,7 @@ import logging
 from types import ModuleType
 
 from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.hostnames import normalize_scoped_hostname
 
 logger = logging.getLogger(__name__)
 
@@ -37,13 +38,26 @@ class SearchWindvane:
     """
 
     def __init__(self, word) -> None:
-        self.word = word
+        self.word = word.strip().lower().rstrip('.')
         self.totalhosts: set = set()
         self.totalips: set = set()
         self.totalemails: set = set()
         self.proxy = False
         self.hostname = 'https://windvane.lichoin.com/trpc.backendhub.public.WindvaneService'
         self.api_key = self._get_api_key()
+
+    def _add_host(self, value: object) -> bool:
+        if (hostname := normalize_scoped_hostname(value, self.word)) and hostname != self.word:
+            self.totalhosts.add(hostname)
+            return True
+        return False
+
+    def _add_email(self, value: object) -> None:
+        if not isinstance(value, str) or '@' not in value:
+            return
+        local_part, domain = value.rsplit('@', 1)
+        if local_part and (normalized_domain := normalize_scoped_hostname(domain, self.word)):
+            self.totalemails.add(f'{local_part.lower()}@{normalized_domain}')
 
     def _get_api_key(self) -> str | None:
         try:
@@ -109,9 +123,7 @@ class SearchWindvane:
 
                             for item in subdomains:
                                 if isinstance(item, dict):
-                                    domain = item.get('domain', '')
-                                    if domain and domain.endswith(self.word):
-                                        self.totalhosts.add(domain.lower())
+                                    self._add_host(item.get('domain'))
                         else:
                             # API error - stop pagination
                             if response_data.get('code') != 0:
@@ -148,16 +160,13 @@ class SearchWindvane:
 
                             for record in dns_records:
                                 if isinstance(record, dict):
-                                    domain = record.get('domain', '')
                                     answer = record.get('answer', '')
                                     answer_type = record.get('answer_type', '')
 
-                                    # Add subdomains
-                                    if domain and domain.endswith(self.word):
-                                        self.totalhosts.add(domain.lower())
+                                    domain_is_scoped = self._add_host(record.get('domain'))
 
                                     # Add IP addresses from A records
-                                    if answer and answer_type == 'A' and self._is_valid_ip(answer):
+                                    if domain_is_scoped and answer and answer_type == 'A' and self._is_valid_ip(answer):
                                         self.totalips.add(answer)
                         else:
                             break
@@ -187,14 +196,8 @@ class SearchWindvane:
 
                         for item in email_results:
                             if isinstance(item, dict):
-                                email = item.get('email', '')
-                                if email and self.word in email:
-                                    self.totalemails.add(email.lower())
-
-                                # Also extract domain from whois data if available
-                                domain = item.get('domain', '')
-                                if domain and domain.endswith(self.word):
-                                    self.totalhosts.add(domain.lower())
+                                self._add_email(item.get('email'))
+                                self._add_host(item.get('domain'))
 
             except Exception as e:
                 logger.info(f'Windvane email search request failed: {e}')
@@ -228,9 +231,7 @@ class SearchWindvane:
 
                         for item in subdomains:
                             if isinstance(item, dict):
-                                domain = item.get('domain', '')
-                                if domain and domain.endswith(self.word):
-                                    self.totalhosts.add(domain.lower())
+                                self._add_host(item.get('domain'))
 
                         logger.info(f'[*] Found {len(subdomains)} subdomains with limited access')
                     else:

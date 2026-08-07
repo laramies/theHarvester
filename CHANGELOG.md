@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed the nonfunctional ThreatCrowd source because its service hostnames terminate at deleted AWS load balancers and return NXDOMAIN; OTX remains available through its separate adapter.
 
 ### Fixed
+- Added offline contracts for explicitly selected DNS and direct sources, retained normalized Pentest-Tools host and IP results, and hardened Shodan InternetDB, SubdomainFinder C99, and Windvane evidence boundaries.
 - Retained relevant GitLab project, profile, and website URLs in consolidated JSONL and SQLite results while excluding unrelated user URLs.
 - Removed BuiltWith's duplicate interesting-URL getter by allowing the shared collector to use either established getter spelling.
 - Made no-filename REST `/query` executions reach completed-result construction and SQLite persistence without changing the legacy response fields.
