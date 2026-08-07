@@ -66,7 +66,11 @@ async def test_rapiddns_hostnames_honor_explicit_dns_resolution(monkeypatch: pyt
             assert nameservers == ['192.0.2.53']
 
         async def check(self) -> tuple[list[str], list[str], list[str]]:
-            return ['api.example.com:192.0.2.10'], ['api.example.com'], ['192.0.2.10']
+            return (
+                ['api.example.com:192.0.2.10', 'reported.example.com:192.0.2.21'],
+                ['api.example.com', 'reported.example.com'],
+                ['192.0.2.10', '192.0.2.21'],
+            )
 
     monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
     monkeypatch.setattr(theharvester_main.rapiddns, 'SearchRapidDns', FakeRapidDNS)
@@ -96,7 +100,14 @@ async def test_rapiddns_hostnames_honor_explicit_dns_resolution(monkeypatch: pyt
     assert ('hostname', 'reported.example.com') in completed[0].results
     assert ('ip-address', '192.0.2.10') in completed[0].results
     assert ('ip-address', '192.0.2.20') in completed[0].results
-    assert 'reported.example.com' in json.loads(output_path.with_suffix('.json').read_text())['hosts']
+    assert ('ip-address', '192.0.2.21') in completed[0].results
+    assert 'reported.example.com:192.0.2.21' in json.loads(output_path.with_suffix('.json').read_text())['hosts']
+    xml_pairs = [
+        (element.findtext('hostname'), element.findtext('ip'))
+        for element in ElementTree.parse(output_path.with_suffix('.xml')).getroot().findall('host')
+    ]
+    assert xml_pairs.count(('reported.example.com', '192.0.2.20')) == 1
+    assert xml_pairs.count(('reported.example.com', '192.0.2.21')) == 1
 
 
 @pytest.mark.asyncio

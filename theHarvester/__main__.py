@@ -1858,13 +1858,13 @@ async def start(
                     await file.write(f'<host><ip>{sanitize_for_xml(ip)}</ip><hostname>{sanitize_for_xml(host)}</hostname></host>')
                 for x in full:
                     host, ip = x.split(':', 1) if ':' in x else (x, '')
-                    if host in paired_hosts:
-                        continue
                     if ip and len(ip) > 3:
+                        if (host, ip) in reported_host_ip_pairs:
+                            continue
                         await file.write(
                             f'<host><ip>{sanitize_for_xml(ip)}</ip><hostname>{sanitize_for_xml(host)}</hostname></host>'
                         )
-                    else:
+                    elif host not in paired_hosts:
                         await file.write(f'<host>{sanitize_for_xml(host)}</host>')
                 for x in vhost:
                     host, ip = x.split(':', 1) if ':' in x else (x, '')
