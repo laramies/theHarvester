@@ -59,8 +59,8 @@ class TestShodanEngine:
 
         out = capsys.readouterr().out
         assert 'An error occurred while processing a "work item"' not in out
-        assert 'a.example.com' in out
-        assert 'b.example.com' in out
+        output_tokens = set(out.split())
+        assert {'a.example.com', 'b.example.com'} <= output_tokens
 
     @pytest.mark.asyncio
     async def test_shodan_internetdb_ignores_non_string_resolved_addresses(self, monkeypatch):
