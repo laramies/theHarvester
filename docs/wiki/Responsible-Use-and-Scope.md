@@ -33,8 +33,8 @@ Results may contain private infrastructure, employee addresses, account identifi
 - Redact credentials, private target data, account information, and unnecessary response content before filing an issue.
 - Never publish raw provider responses merely to demonstrate a parsing or availability problem.
 
-## Service exposure
+## API exposure
 
-The `restfulHarvest` core query routes do not require authentication. `THEHARVESTER_API_KEY` protects the optional `/additional/*` routes only. It does not protect `/query`, `/sources`, or `/dnsbrute`.
+Every `/api/v1/*` route requires `THEHARVESTER_API_KEY`. Provider credentials remain server-side.
 
-Keep the service on localhost. If you require remote access, add authentication, network controls, and TLS.
+Keep the service on localhost. If you require remote access, add network controls and TLS in front of the existing API authentication.

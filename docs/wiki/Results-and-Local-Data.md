@@ -1,6 +1,6 @@
 # Results and local data
 
-theHarvester can print findings, write reports, retain selected records in SQLite, save screenshots, and return REST JSON. These outputs have different schemas and sensitivity.
+theHarvester can print findings, write reports, retain selected records in SQLite, save screenshots, and expose durable run records through the API. These outputs have different schemas and sensitivity.
 
 ## Terminal output
 
@@ -34,17 +34,15 @@ Host, email, IP, and related records are stored at:
 
 The database persists across runs. Account for it in engagement cleanup and retention procedures.
 
-Completed CLI and REST `/query` executions also store one normalized terminal
-record keyed by run UUID. REST keeps its existing response shape and does not
-write report files unless a filename is requested.
+Completed CLI executions store one normalized terminal record keyed by run UUID. API executions use a separate run database configured by `THEHARVESTER_RUN_DB`; each record keeps lifecycle state, the submitted request, normalized results, and source outcomes. Imported JSON or JSONL evidence is stored as an imported run without executing discovery. Because CLI JSONL does not record source outcomes, its imported evidence status is `partial`.
 
 ## Screenshots
 
 `--screenshot DIR` writes browser captures to the selected directory. Screenshots may contain authentication pages, internal names, or other sensitive visual data even when no credentials were used.
 
-## REST JSON
+## API results
 
-The REST `/query` response returns arrays for ASNs, interesting URLs, Twitter/LinkedIn data, Trello URLs, IPs, emails, and hosts. The corresponding normalized terminal record is retained in SQLite. Treat runtime `/docs`, `/redoc`, and OpenAPI as the exact request/response reference.
+`GET /api/v1/runs/{run_id}` returns lifecycle state plus a normalized `results` array. Each result has a `type` and `value`; DNS-backed results can also include `dns_status`. Per-result source attribution is omitted until the collection seam can retain it truthfully. Run-level source outcomes remain available in `source_executions`. JSON and CSV exports use the same normalized results. Treat runtime `/docs`, `/redoc`, and OpenAPI as the exact request and response reference.
 
 ## Handling and sharing
 

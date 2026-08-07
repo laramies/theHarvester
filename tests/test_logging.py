@@ -54,26 +54,6 @@ def test_operator_output_uses_stdout_without_verbose_logging() -> None:
     assert result.stderr == ''
 
 
-def test_api_example_entry_point_configures_output_and_diagnostics() -> None:
-    result = run_python(
-        """
-        import logging
-        from theHarvester.lib.api import api_example
-        from theHarvester.lib.output import output_logger
-
-        async def fake_main():
-            output_logger.info('example result')
-            logging.getLogger(api_example.__name__).info('example diagnostic')
-
-        api_example.main = fake_main
-        api_example.entry_point()
-        """
-    )
-
-    assert result.stdout == 'example result\n'
-    assert 'INFO theHarvester.lib.api.api_example: example diagnostic' in result.stderr
-
-
 def test_diagnostics_use_stderr_only_when_verbose() -> None:
     result = run_python(
         """
@@ -130,41 +110,6 @@ def test_verbose_logging_does_not_overwrite_a_later_host_level() -> None:
     )
 
     assert result.stdout == f'{logging.ERROR}\n'
-
-
-def test_rest_errors_are_visible_with_uvicorn_logging() -> None:
-    result = run_python(
-        """
-        import logging.config
-        import sys
-        from unittest.mock import AsyncMock, patch
-
-        from fastapi.testclient import TestClient
-        from uvicorn.config import LOGGING_CONFIG
-
-        logging.config.dictConfig(LOGGING_CONFIG)
-
-        from theHarvester.lib.api import api
-
-        client = TestClient(api.app)
-        statuses = []
-        with patch.object(api.__main__.Core, 'get_supportedengines', side_effect=RuntimeError('sources failure')):
-            statuses.append(client.get('/sources').status_code)
-        with patch.object(api.__main__, 'start', AsyncMock(side_effect=RuntimeError('dnsbrute failure'))):
-            statuses.append(client.get('/dnsbrute?domain=example.com').status_code)
-        with (
-            patch.object(api.__main__.Core, 'get_supportedengines', return_value=['baidu']),
-            patch.object(api.__main__, 'start', AsyncMock(side_effect=RuntimeError('query failure'))),
-        ):
-            statuses.append(client.get('/query?domain=example.com&source=baidu').status_code)
-        sys.stdout.write(repr(statuses) + '\\n')
-        """
-    )
-
-    assert result.stdout == '[500, 500, 500]\n'
-    assert 'Error in getsources endpoint' in result.stderr
-    assert 'Error in dnsbrute endpoint' in result.stderr
-    assert 'Error in query endpoint' in result.stderr
 
 
 def test_verbose_enables_info_diagnostics(tmp_path: Path) -> None:

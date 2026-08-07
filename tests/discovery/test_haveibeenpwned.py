@@ -8,7 +8,6 @@ import pytest
 
 from theHarvester.discovery import haveibeenpwned
 from theHarvester import __main__ as theharvester_main
-from theHarvester.lib.api import additional_endpoints
 from theHarvester.lib.completed_result import CompletedResult
 from theHarvester.lib.core import FetcherResponse
 
@@ -111,21 +110,6 @@ async def test_public_breach_catalog_attributes_http_failures(
 
     assert await search.get_breaches() == []
     assert 'HaveIBeenPwned request failed with HTTP 429' in caplog.text
-
-
-@pytest.mark.asyncio
-async def test_breach_rest_handler_does_not_initialize_unrelated_providers(monkeypatch: pytest.MonkeyPatch) -> None:
-    async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[FetcherResponse]:
-        return [FetcherResponse(body=[{'Domain': 'example.com'}], status=200, headers={})]
-
-    monkeypatch.setattr(haveibeenpwned.AsyncFetcher, 'fetch_all', fake_fetch_all)
-
-    result = await additional_endpoints.get_breaches(
-        additional_endpoints.DomainRequest(domain='example.com'),
-        _api_key='local-api-key',
-    )
-
-    assert result == {'status': 'success', 'data': [{'Domain': 'example.com'}]}
 
 
 @pytest.mark.asyncio
