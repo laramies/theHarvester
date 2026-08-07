@@ -106,7 +106,7 @@ Open [http://127.0.0.1:5000/docs](http://127.0.0.1:5000/docs) for interactive Sw
 
 The service rate limit defaults to five requests per minute and can be changed with `--rate-limit`. The `/additional/*` routes require `THEHARVESTER_API_KEY` on the server and the same value in the `X-API-Key` request header.
 
-The core `/query`, `/sources`, and `/dnsbrute` routes do not normally require authentication. When a `/query` selection includes `hibpverified` and its provider key is configured, the request requires `THEHARVESTER_API_KEY` in the `X-API-Key` header because it can access verified-domain account data. Keep the service bound to localhost. If you require remote access, add authentication, access controls, and TLS.
+The core `/query`, `/sources`, and `/dnsbrute` routes do not normally require authentication. When a `/query` selection includes `dehashed`, `hibpverified`, or `leaklookup` and that source's provider key is configured, the request requires `THEHARVESTER_API_KEY` in the `X-API-Key` header because these sources can access breach-account data. Keep the service bound to localhost. If you require remote access, add authentication, access controls, and TLS.
 
 Docker Compose publishes port `5000` on every host interface unless you narrow the port mapping:
 

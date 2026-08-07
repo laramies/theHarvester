@@ -401,10 +401,15 @@ async def query(
     try:
         # Validate sources
         selected_sources = __main__.Core.expand_source_selection(','.join(source))
-        credentialed_breach_source = (
-            'hibpverified' in selected_sources and bool((__main__.Core.hibpverified_key() or '').strip())
-        ) or ('leaklookup' in selected_sources and bool((__main__.Core.leaklookup_key() or '').strip()))
-        if credentialed_breach_source:
+        credentialed_source = any(
+            source_name in selected_sources and bool((key_getter() or '').strip())
+            for source_name, key_getter in (
+                ('dehashed', __main__.Core.dehashed_key),
+                ('hibpverified', __main__.Core.hibpverified_key),
+                ('leaklookup', __main__.Core.leaklookup_key),
+            )
+        )
+        if credentialed_source:
             get_api_key(x_api_key)
         supported_engines = __main__.Core.get_supportedengines()
         for s in selected_sources:

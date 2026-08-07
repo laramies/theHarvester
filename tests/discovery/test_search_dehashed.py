@@ -76,6 +76,37 @@ async def test_non_json_response_body_is_not_logged(monkeypatch, caplog) -> None
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('response', 'expected_log'),
+    [
+        (FetcherResponse(body='provider-secret-auth-detail', status=401, headers={}), 'HTTP 401'),
+        (FetcherResponse(body='provider-secret-auth-detail', status=403, headers={}), 'HTTP 403'),
+        (FetcherResponse(body={'entries': []}, status=200, headers={}), None),
+    ],
+)
+async def test_authorization_and_empty_responses_fail_closed_without_provider_detail(
+    monkeypatch, caplog, response, expected_log
+) -> None:
+    monkeypatch.setattr(search_dehashed.Core, 'dehashed_key', lambda: 'test-key')
+    monkeypatch.setattr(search_dehashed.Core, 'get_user_agent', lambda: 'test-agent')
+
+    async def fake_post_fetch(*args, **kwargs):
+        return response
+
+    monkeypatch.setattr(search_dehashed.AsyncFetcher, 'post_fetch', fake_post_fetch)
+    caplog.set_level(logging.INFO, logger=search_dehashed.__name__)
+    search = SearchDehashed('example.com')
+
+    await search.process()
+
+    assert await search.get_emails() == set()
+    assert await search.get_ips() == set()
+    assert 'provider-secret-auth-detail' not in caplog.text
+    if expected_log is not None:
+        assert expected_log in caplog.text
+
+
+@pytest.mark.asyncio
 async def test_rate_limit_retries_once_and_preserves_earlier_page(monkeypatch, caplog) -> None:
     monkeypatch.setattr(search_dehashed.Core, 'dehashed_key', lambda: 'test-key')
     monkeypatch.setattr(search_dehashed.Core, 'get_user_agent', lambda: 'test-agent')

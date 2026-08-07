@@ -241,6 +241,43 @@ def test_query_requires_operator_auth_for_configured_leaklookup(monkeypatch) -> 
     assert response.status_code == 401
 
 
+@pytest.mark.parametrize('source', ['dehashed', 'emails'])
+def test_query_requires_operator_auth_for_configured_dehashed(monkeypatch, source) -> None:
+    async def unexpected_start(*_args, **_kwargs):
+        raise AssertionError('collection must not start without operator authentication')
+
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'operator-secret')
+    monkeypatch.setattr(api.__main__.Core, 'dehashed_key', lambda: 'provider-secret')
+    monkeypatch.setattr(api.__main__, 'start', unexpected_start)
+
+    response = TestClient(api.app).get(f'/query?domain=example.test&source={source}')
+
+    assert response.status_code == 401
+
+
+@pytest.mark.parametrize('dehashed_key', [None, '', ' '])
+def test_query_skips_operator_auth_when_dehashed_key_is_blank(monkeypatch, dehashed_key) -> None:
+    captured: list[Namespace] = []
+
+    async def fake_start(
+        args: Namespace,
+        *,
+        persist_completed_result: bool = False,
+        include_breaches: bool = False,
+    ):
+        captured.append(args)
+        return ([], [], [], [], [], [], [], [], [], [])
+
+    monkeypatch.delenv('THEHARVESTER_API_KEY', raising=False)
+    monkeypatch.setattr(api.__main__.Core, 'dehashed_key', lambda: dehashed_key)
+    monkeypatch.setattr(api.__main__, 'start', fake_start)
+
+    response = TestClient(api.app).get('/query?domain=example.test&source=dehashed')
+
+    assert response.status_code == 200
+    assert captured[0].source == 'dehashed'
+
+
 @pytest.mark.parametrize('leaklookup_key', [None, '', ' '])
 def test_query_skips_operator_auth_when_credentialed_provider_keys_are_blank(monkeypatch, leaklookup_key) -> None:
     captured: list[Namespace] = []
