@@ -531,11 +531,15 @@ class AsyncFetcher:
         url: str,
         *,
         json: bool = False,
+        json_body: dict[str, Any] | None = None,
         delay: int = 5,
         request_timeout: int | None = None,
         include_metadata: bool = False,
         **request_kwargs: Any,
     ) -> Any:
+        if json_body is not None:
+            request_kwargs.pop('data', None)
+            request_kwargs['json'] = json_body
         if request_timeout:
             async with asyncio.timeout(request_timeout):
                 async with session.request(method.upper(), url, **request_kwargs) as response:
@@ -596,6 +600,7 @@ class AsyncFetcher:
         json: bool = False,
         proxy: bool = False,
         include_metadata: bool = False,
+        json_body: dict[str, Any] | None = None,
     ):
         headers = cls._default_headers(headers)
         timeout = cls._request_timeout(720)
@@ -615,6 +620,7 @@ class AsyncFetcher:
                             params=params,
                             proxy=proxy_url if proxy_type == 'http' else None,
                             json=json,
+                            json_body=json_body,
                             delay=5,
                             include_metadata=include_metadata,
                         )
@@ -626,6 +632,7 @@ class AsyncFetcher:
                             url,
                             proxy=proxy_url if proxy_type == 'http' else None,
                             json=json,
+                            json_body=json_body,
                             delay=5,
                             include_metadata=include_metadata,
                         )
@@ -635,8 +642,9 @@ class AsyncFetcher:
                         session,
                         'POST',
                         url,
-                        data=cls._normalize_data(data),
+                        data=cls._normalize_data(data) if json_body is None else None,
                         json=json,
+                        json_body=json_body,
                         delay=3,
                         include_metadata=include_metadata,
                     )
@@ -646,10 +654,11 @@ class AsyncFetcher:
                         session,
                         'POST',
                         url,
-                        data=cls._normalize_data(data),
+                        data=cls._normalize_data(data) if json_body is None else None,
                         ssl=cls._ssl_context(),
                         params=params,
                         json=json,
+                        json_body=json_body,
                         delay=3,
                         include_metadata=include_metadata,
                     )

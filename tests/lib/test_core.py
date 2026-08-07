@@ -456,6 +456,27 @@ async def test_post_fetch_decodes_string_payload_and_posts_params(monkeypatch) -
 
 
 @pytest.mark.asyncio
+async def test_post_fetch_sends_json_body(monkeypatch) -> None:
+    reset_dummy_sessions()
+    monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
+    monkeypatch.setattr(core_module.asyncio, 'sleep', fake_sleep)
+    monkeypatch.setattr(core_module.ssl, 'create_default_context', lambda cafile=None: 'ssl-context')
+    monkeypatch.setattr(core_module.certifi, 'where', lambda: '/tmp/cacert.pem')
+
+    result = await AsyncFetcher.post_fetch(
+        'https://example.com/api',
+        json_body={'scan': 'example'},
+        json=True,
+    )
+
+    assert result == {'ok': True}
+    session = DummySession.instances[0]
+    assert session.requests == [
+        ('POST', 'https://example.com/api', {'json': {'scan': 'example'}})
+    ]
+
+
+@pytest.mark.asyncio
 async def test_post_fetch_can_include_response_metadata(monkeypatch) -> None:
     reset_dummy_sessions()
     monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
