@@ -28,7 +28,7 @@ class ScreenShotter:
             if not os.path.isdir(self.output):
                 answer = input('[+] The output path you have entered does not exist would you like to create it (y/n): ')
                 if answer.lower() == 'yes' or answer.lower() == 'y':
-                    os.makedirs(self.output)
+                    os.makedirs(self.output, mode=0o700)
                     return True
                 else:
                     return False
@@ -59,19 +59,13 @@ class ScreenShotter:
             timeout = aiohttp.ClientTimeout(total=35)
             urls = (url,) if url.startswith(('http://', 'https://')) else (f'https://{url}', f'http://{url}')
             sslcontext = ssl.create_default_context(cafile=certifi.where())
-
-            # Create connector based on proxy type
-            connector: ProxyConnector | aiohttp.TCPConnector | None = None
+            connector: ProxyConnector | aiohttp.TCPConnector
             proxy_param = None
-            if proxy:
-                if proxy.startswith('socks5://'):
-                    connector = ProxyConnector.from_url(proxy, ssl=sslcontext)
-                else:
-                    # HTTP proxy
-                    connector = aiohttp.TCPConnector(ssl=sslcontext)
-                    proxy_param = proxy
+            if proxy and proxy.startswith('socks5://'):
+                connector = ProxyConnector.from_url(proxy, ssl=sslcontext)
             else:
                 connector = aiohttp.TCPConnector(ssl=sslcontext)
+                proxy_param = proxy
 
             async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
                 for candidate in urls:
@@ -86,7 +80,7 @@ class ScreenShotter:
             logger.info(f'An exception has occurred while attempting to visit {url} : {e}')
             return '', ''
 
-    async def take_screenshot(self, url: str) -> None:
+    async def take_screenshot(self, url: str) -> str:
         url = f'https://{url}' if not url.startswith(('http://', 'https://')) else url
         logger.info(f'Attempting to take a screenshot of: {url}')
         async with async_playwright() as p:
@@ -101,6 +95,7 @@ class ScreenShotter:
                 # 35s which should be handled
                 await page.goto(url, timeout=35000)
                 await page.screenshot(path=path)
+                os.chmod(path, 0o600)
             except Exception as e:
                 logger.info(f'An exception has occurred attempting to screenshot: {url} : {e}')
                 path = ''
@@ -109,3 +104,4 @@ class ScreenShotter:
                 await context.close()
                 await browser.close()
                 logger.info(f'{date} {url} {path}')
+        return url if path else ''

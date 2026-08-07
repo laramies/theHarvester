@@ -19,7 +19,7 @@ from aiohttp_socks import ProxyConnector
 
 from theHarvester import __version__
 from theHarvester.lib.output import output_logger
-from theHarvester.lib.source_catalog import RESULT_CAPABILITIES, SOURCE_SPECS, ActivityClass
+from theHarvester.lib.source_catalog import resolve_sources
 
 if TYPE_CHECKING:
     from collections.abc import Sized
@@ -352,15 +352,7 @@ class Core:
     @classmethod
     def expand_source_selection(cls, selection: str) -> list[str]:
         """Expand result capability selectors into source names."""
-        if selection.lower() == 'all':
-            return sorted(spec.name for spec in SOURCE_SPECS.values() if spec.activity is ActivityClass.PASSIVE)
-        selected: set[str] = set()
-        for token in map(str.strip, selection.split(',')):
-            if token in RESULT_CAPABILITIES:
-                selected.update(spec.name for spec in SOURCE_SPECS.values() if token in spec.capabilities)
-            else:
-                selected.add(token)
-        return sorted(selected)
+        return resolve_sources(selection)
 
     @staticmethod
     def get_user_agent() -> str:
@@ -714,36 +706,19 @@ class AsyncFetcher:
             return None if include_metadata else ''
 
     @staticmethod
-    async def takeover_fetch(session, url: str, proxy: str | None = None) -> tuple[Any, Any] | str:
-        # This fetch method solely focuses on get requests
-        try:
-            # Wrap in try except due to 0x89 png/jpg files
-            # This fetch method solely focuses on get requests
-            # TODO determine if method for post requests is necessary
-            # url = f'http://{url}' if str(url).startswith(('http:', 'https:')) is False else url
-            # Clean up urls with proper schemas
-            if proxy:
-                if 'https://' in url:
-                    sslcontext = ssl.create_default_context(cafile=certifi.where())
-                    async with session.get(url, proxy=proxy, ssl=sslcontext) as response:
-                        await asyncio.sleep(5)
-                        return url, await response.text()
-                else:
-                    async with session.get(url, proxy=proxy, ssl=False) as response:
-                        await asyncio.sleep(5)
-                        return url, await response.text()
-            elif 'https://' in url:
-                sslcontext = ssl.create_default_context(cafile=certifi.where())
-                async with session.get(url, ssl=sslcontext) as response:
-                    await asyncio.sleep(5)
-                    return url, await response.text()
-            else:
-                async with session.get(url, ssl=False) as response:
-                    await asyncio.sleep(5)
-                    return url, await response.text()
-        except (aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, UnicodeDecodeError, ValueError) as e:
-            logger.info(f'Takeover check error: {e}')
-            return url, ''
+    async def takeover_fetch(
+        session,
+        url: str,
+        proxy: str | None = None,
+    ) -> tuple[Any, Any] | str:
+        _, proxy_type = AsyncFetcher._resolve_proxy(proxy)
+        response = await AsyncFetcher.fetch(
+            session=None if proxy_type == 'socks5' else session,
+            url=url,
+            proxy=proxy,
+            request_timeout=15,
+        )
+        return url, response
 
     @classmethod
     async def fetch_all(
@@ -760,7 +735,10 @@ class AsyncFetcher:
         headers = cls._default_headers(headers)
         timeout = cls._request_timeout(60)
         if takeover:
-            async with aiohttp.ClientSession(headers=headers, timeout=aiohttp.ClientTimeout(total=15)) as session:
+            async with aiohttp.ClientSession(
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(total=15),
+            ) as session:
                 if proxy:
                     # Get random proxy for each URL
                     proxy_urls = [cls._get_random_proxy(cls().proxy_list)[0] for _ in urls]
