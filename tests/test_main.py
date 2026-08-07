@@ -1,3 +1,4 @@
+import asyncio
 import json
 import sys
 import xml.etree.ElementTree as ElementTree
@@ -346,12 +347,12 @@ async def test_recursive_dns_results_reach_completed_output_without_changing_leg
         'dev.api.example.com:192.0.2.2',
         'dev.api.example.com:2001:db8::2',
     }
-    xml_pairs = {
+    xml_pairs = [
         (element.findtext('hostname'), element.findtext('ip'))
         for element in ElementTree.parse(output_path.with_suffix('.xml')).getroot().findall('host')
-    }
-    assert ('dev.api.example.com', '192.0.2.2') in xml_pairs
-    assert ('dev.api.example.com', '2001:db8::2') in xml_pairs
+    ]
+    assert xml_pairs.count(('dev.api.example.com', '192.0.2.2')) == 1
+    assert xml_pairs.count(('dev.api.example.com', '2001:db8::2')) == 1
     assert not any(ip is not None and ',' in ip for _host, ip in xml_pairs)
     assert (
         'dns-recursive-summary',
@@ -376,3 +377,82 @@ async def test_recursive_dns_results_reach_completed_output_without_changing_leg
             sort_keys=True,
         ),
     ) in completed[0].results
+
+
+@pytest.mark.parametrize('error_type', [RuntimeError, asyncio.CancelledError])
+@pytest.mark.asyncio
+async def test_recursive_dns_closes_resolvers_on_failure_and_preserves_cancellation(
+    monkeypatch: pytest.MonkeyPatch, error_type: type[BaseException]
+) -> None:
+    closed: list[str] = []
+
+    class FakeStash:
+        async def do_init(self) -> None:
+            return None
+
+        async def store_all(self, *_args) -> None:
+            return None
+
+        async def store(self, *_args) -> None:
+            return None
+
+        async def store_completed_result(self, _result: CompletedResult) -> None:
+            return None
+
+    class FakeCrtsh:
+        def __init__(self, _word: str) -> None:
+            pass
+
+        async def process(self, _proxy: bool) -> None:
+            return None
+
+        async def get_hostnames(self) -> set[str]:
+            return {'api.example.com'}
+
+    class FakeChecker:
+        def __init__(self, _hosts: list[str], _nameservers: list[str]) -> None:
+            pass
+
+        async def check(self) -> tuple[list[str], list[str], list[str]]:
+            return ['api.example.com:192.0.2.1'], ['api.example.com'], ['192.0.2.1']
+
+    class FakeResolver:
+        def __init__(self, nameserver: str, _target: str) -> None:
+            self.name = nameserver
+
+        async def close(self) -> None:
+            closed.append(self.name)
+
+    async def fail_recursive(*_args, **_kwargs):
+        raise error_type()
+
+    monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
+    monkeypatch.setattr(theharvester_main.crtsh, 'SearchCrtsh', FakeCrtsh)
+    monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', FakeChecker)
+    monkeypatch.setattr(theharvester_main, 'AioDNSResolverVantage', FakeResolver)
+    monkeypatch.setattr(theharvester_main, 'discover_recursive_dns', fail_recursive)
+    monkeypatch.setattr(
+        sys,
+        'argv',
+        [
+            'theHarvester',
+            '-d',
+            'example.com',
+            '-b',
+            'crtsh',
+            '-r',
+            '192.0.2.53,192.0.2.54,192.0.2.55',
+            '--dns-recursive-depth',
+            '1',
+        ],
+    )
+
+    if issubclass(error_type, asyncio.CancelledError):
+        with pytest.raises(asyncio.CancelledError):
+            await theharvester_main.start()
+    else:
+        with pytest.raises(SystemExit) as exit_info:
+            await theharvester_main.start()
+        assert exit_info.value.code == 0
+
+    assert sorted(closed) == ['192.0.2.53', '192.0.2.54', '192.0.2.55']

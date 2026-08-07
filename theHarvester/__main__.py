@@ -1857,9 +1857,9 @@ async def start(
                 for host, ip in sorted(reported_host_ip_pairs):
                     await file.write(f'<host><ip>{sanitize_for_xml(ip)}</ip><hostname>{sanitize_for_xml(host)}</hostname></host>')
                 for x in full:
-                    if x in paired_hosts:
-                        continue
                     host, ip = x.split(':', 1) if ':' in x else (x, '')
+                    if host in paired_hosts:
+                        continue
                     if ip and len(ip) > 3:
                         await file.write(
                             f'<host><ip>{sanitize_for_xml(ip)}</ip><hostname>{sanitize_for_xml(host)}</hostname></host>'
