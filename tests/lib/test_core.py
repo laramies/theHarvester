@@ -494,7 +494,7 @@ async def test_post_fetch_can_include_response_metadata(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_post_fetch_proxy_branch_uses_get_with_http_proxy(monkeypatch) -> None:
+async def test_post_fetch_proxy_branch_posts_body_and_params_with_http_proxy(monkeypatch) -> None:
     reset_dummy_sessions()
     created_connectors = []
     monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
@@ -509,12 +509,22 @@ async def test_post_fetch_proxy_branch_uses_get_with_http_proxy(monkeypatch) -> 
 
     monkeypatch.setattr(AsyncFetcher, '_create_connector', fake_create_connector)
 
-    result = await AsyncFetcher.post_fetch('https://example.com/resource', proxy=True)
+    result = await AsyncFetcher.post_fetch(
+        'https://example.com/resource',
+        json_body={'scan': 'example'},
+        params={'page': 2},
+        json=True,
+        proxy=True,
+    )
 
-    assert result == 'response-text'
+    assert result == {'ok': True}
     assert created_connectors == [('http://proxy.local:8080', 'http', 'ssl-context')]
     session = DummySession.instances[0]
     assert session.connector == 'connector'
     assert session.requests == [
-        ('GET', 'https://example.com/resource', {'proxy': 'http://proxy.local:8080'})
+        (
+            'POST',
+            'https://example.com/resource',
+            {'json': {'scan': 'example'}, 'params': {'page': 2}, 'proxy': 'http://proxy.local:8080'},
+        )
     ]
