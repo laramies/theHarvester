@@ -60,6 +60,7 @@ def test_source_specs_describe_consolidated_routes_not_getter_presence() -> None
     )
     assert SOURCE_SPECS['haveibeenpwned'].routes == frozenset({ResultRoute.BREACHES})
     assert SOURCE_SPECS['hibpverified'].routes == frozenset({ResultRoute.EMAILS, ResultRoute.BREACHES})
+    assert SOURCE_SPECS['leaklookup'].routes == frozenset({ResultRoute.EMAILS, ResultRoute.BREACHES})
     assert SOURCE_SPECS['urlscan'].routes == frozenset(
         {
             ResultRoute.SUBDOMAINS,

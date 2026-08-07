@@ -225,7 +225,20 @@ def test_authenticated_query_includes_verified_hibp_from_capability_selection(mo
     )
 
     assert response.status_code == 200
-    assert captured[0].source == 'haveibeenpwned,hibpverified'
+    assert captured[0].source == 'haveibeenpwned,hibpverified,leaklookup'
+
+
+def test_query_requires_operator_auth_for_configured_leaklookup(monkeypatch) -> None:
+    async def unexpected_start(*_args, **_kwargs):
+        raise AssertionError('collection must not start without operator authentication')
+
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'operator-secret')
+    monkeypatch.setattr(api.__main__.Core, 'leaklookup_key', lambda: 'provider-secret')
+    monkeypatch.setattr(api.__main__, 'start', unexpected_start)
+
+    response = TestClient(api.app).get('/query?domain=example.test&source=leaklookup')
+
+    assert response.status_code == 401
 
 
 def test_query_skips_operator_auth_when_verified_hibp_provider_key_is_absent(monkeypatch) -> None:
@@ -242,12 +255,13 @@ def test_query_skips_operator_auth_when_verified_hibp_provider_key_is_absent(mon
 
     monkeypatch.delenv('THEHARVESTER_API_KEY', raising=False)
     monkeypatch.setattr(api.__main__.Core, 'hibpverified_key', lambda: None)
+    monkeypatch.setattr(api.__main__.Core, 'leaklookup_key', lambda: None)
     monkeypatch.setattr(api.__main__, 'start', fake_start)
 
     response = TestClient(api.app).get('/query?domain=example.test&source=breaches')
 
     assert response.status_code == 200
-    assert captured[0].source == 'haveibeenpwned,hibpverified'
+    assert captured[0].source == 'haveibeenpwned,hibpverified,leaklookup'
 
 
 def test_sources_advertises_authenticated_verified_hibp(monkeypatch) -> None:

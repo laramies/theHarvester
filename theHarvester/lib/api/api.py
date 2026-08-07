@@ -401,7 +401,10 @@ async def query(
     try:
         # Validate sources
         selected_sources = __main__.Core.expand_source_selection(','.join(source))
-        if 'hibpverified' in selected_sources and __main__.Core.hibpverified_key() is not None:
+        credentialed_breach_source = ('hibpverified' in selected_sources and __main__.Core.hibpverified_key() is not None) or (
+            'leaklookup' in selected_sources and __main__.Core.leaklookup_key() is not None
+        )
+        if credentialed_breach_source:
             get_api_key(x_api_key)
         supported_engines = __main__.Core.get_supportedengines()
         for s in selected_sources:
