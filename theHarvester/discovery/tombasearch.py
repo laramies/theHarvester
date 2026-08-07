@@ -10,11 +10,12 @@ logger = logging.getLogger(__name__)
 class SearchTomba:
     def __init__(self, word, limit, start) -> None:
         self.word = word
-        self.limit = limit
+        self.requested_limit = limit
         self.limit = min(limit, 10)
         self.start = start
-        self.key = Core.tomba_key()
-        if self.key[0] is None or self.key[1] is None:
+        key, secret = Core.tomba_key()
+        self.key = (key.strip() if key else '', secret.strip() if secret else '')
+        if not all(self.key):
             raise MissingKey('Tomba Key and/or Secret')
         self.total_results = ''
         self.counter = start
@@ -32,7 +33,7 @@ class SearchTomba:
             'X-Tomba-Secret': self.key[1],
         }
         acc_info_url = 'https://api.tomba.io/v1/me'
-        response = await AsyncFetcher.fetch_all([acc_info_url], headers=headers, json=True)
+        response = await AsyncFetcher.fetch_all([acc_info_url], headers=headers, proxy=self.proxy, json=True)
         is_free = (
             is_free
             if 'name' in response[0]['data']['pricing'].keys() and response[0]['data']['pricing']['name'].lower() == 'free'
@@ -53,7 +54,8 @@ class SearchTomba:
             # This is only done where paid accounts are in play
             tomba_counter = f'https://api.tomba.io/v1/email-count?domain={self.word}'
             response = await AsyncFetcher.fetch_all([tomba_counter], headers=headers, proxy=self.proxy, json=True)
-            total_number_reqs = response[0]['data']['total'] // 100
+            total_results = min(response[0]['data']['total'], self.requested_limit)
+            total_number_reqs = (total_results + 49) // 50
             # Parse out meta field within initial JSON response to determine the total number of results
             if total_requests_avail < total_number_reqs:
                 logger.info('WARNING: The account does not have enough requests to gather all the emails.')
@@ -64,11 +66,11 @@ class SearchTomba:
                     'RETURNING current results, If you still wish to run this module despite the current results, please comment out the "if request" line.'
                 )
                 return
-            self.limit = 100
+            self.limit = 50
             # max number of emails you can get per request
             # increments of max number with page determining where to start
             # See docs for more details: https://developer.tomba.io/#domain-search
-            for page in range(0, total_number_reqs + 1):
+            for page in range(1, total_number_reqs + 1):
                 req_url = f'https://api.tomba.io/v1/domain-search?domain={self.word}&limit={self.limit}&page={page}'
                 response = await AsyncFetcher.fetch_all([req_url], headers=headers, proxy=self.proxy, json=True)
                 temp_emails, temp_hostnames = await self.parse_resp(response[0])
