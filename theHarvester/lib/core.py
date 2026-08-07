@@ -610,32 +610,23 @@ class AsyncFetcher:
             if proxy:
                 proxy_url, proxy_type = cls._resolve_proxy(proxy)
                 sslcontext = cls._ssl_context()
-
+                request_kwargs: dict[str, Any] = {
+                    'data': cls._normalize_data(data) if json_body is None else None,
+                    'proxy': proxy_url if proxy_type == 'http' else None,
+                }
                 if params != '':
-                    async with await cls._build_session(headers, timeout, proxy_url, proxy_type, sslcontext) as session:
-                        return await cls._request(
-                            session,
-                            'GET',
-                            url,
-                            params=params,
-                            proxy=proxy_url if proxy_type == 'http' else None,
-                            json=json,
-                            json_body=json_body,
-                            delay=5,
-                            include_metadata=include_metadata,
-                        )
-                else:
-                    async with await cls._build_session(headers, timeout, proxy_url, proxy_type, sslcontext) as session:
-                        return await cls._request(
-                            session,
-                            'GET',
-                            url,
-                            proxy=proxy_url if proxy_type == 'http' else None,
-                            json=json,
-                            json_body=json_body,
-                            delay=5,
-                            include_metadata=include_metadata,
-                        )
+                    request_kwargs['params'] = params
+                async with await cls._build_session(headers, timeout, proxy_url, proxy_type, sslcontext) as session:
+                    return await cls._request(
+                        session,
+                        'POST',
+                        url,
+                        json=json,
+                        json_body=json_body,
+                        delay=3,
+                        include_metadata=include_metadata,
+                        **request_kwargs,
+                    )
             elif params == '':
                 async with await cls._build_session(headers, timeout) as session:
                     return await cls._request(
