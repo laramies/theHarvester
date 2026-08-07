@@ -729,17 +729,7 @@ class AsyncFetcher:
             # TODO determine if method for post requests is necessary
             # url = f'http://{url}' if str(url).startswith(('http:', 'https:')) is False else url
             # Clean up urls with proper schemas
-            if proxy:
-                if 'https://' in url:
-                    sslcontext = ssl.create_default_context(cafile=certifi.where())
-                    async with session.get(url, proxy=proxy, ssl=sslcontext, allow_redirects=False) as response:
-                        await asyncio.sleep(5)
-                        return url, await response.text()
-                else:
-                    async with session.get(url, proxy=proxy, ssl=False, allow_redirects=False) as response:
-                        await asyncio.sleep(5)
-                        return url, await response.text()
-            elif 'https://' in url:
+            if 'https://' in url:
                 sslcontext = ssl.create_default_context(cafile=certifi.where())
                 async with session.get(url, ssl=sslcontext, allow_redirects=False) as response:
                     await asyncio.sleep(5)

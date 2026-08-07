@@ -56,6 +56,13 @@ def test_process_response_extracts_only_string_json_parameter_names(monkeypatch)
     assert result.parameters == ['name']
 
 
+def test_api_endpoint_scan_defaults_to_direct_requests_without_redirects() -> None:
+    search = api_endpoints.SearchApiEndpoints('example.com')
+
+    assert search.proxy is None
+    assert search.follow_redirects is False
+
+
 @pytest.mark.asyncio
 async def test_api_endpoint_scan_uses_only_observational_http_methods(monkeypatch) -> None:
     search = api_endpoints.SearchApiEndpoints('192.0.2.1')
@@ -138,6 +145,8 @@ async def test_detect_schema_reuses_pinned_session_without_redirects(monkeypatch
     session = FakeSession()
     search = api_endpoints.SearchApiEndpoints('example.com', follow_redirects=True)
     search._session = session
+
+    assert search.follow_redirects is False
 
     monkeypatch.setattr(
         api_endpoints.aiohttp,

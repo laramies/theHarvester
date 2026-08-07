@@ -8,7 +8,12 @@ from aiohttp.abc import AbstractResolver, ResolveResult
 
 
 class PublicResolver(AbstractResolver):
-    """Resolve and pin hosts only when every address is globally routable."""
+    """Resolve only global addresses and reuse that answer for the session.
+
+    If DNS returns any non-global or multicast address, resolution fails for
+    the whole hostname. Reusing a validated answer prevents DNS from changing
+    the destination between the safety check and the outbound connection.
+    """
 
     def __init__(self) -> None:
         self._cache: dict[tuple[str, int, socket.AddressFamily], list[ResolveResult]] = {}

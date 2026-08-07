@@ -221,7 +221,7 @@ Treat collected OSINT as potentially sensitive. Keep report files, screenshots, 
 
 ### Report formats
 
-The JSON report is a single object and is the more complete format for automation. Host entries remain plain hostnames or `hostname:address[,address...]` values when DNS resolution is enabled. DNS resolution and DNS brute force retain candidates only when A, AAAA, or CNAME evidence is available; CNAME-only candidates remain plain hostnames in existing CLI, REST, JSON, and XML output.
+The JSON report is a single object that preserves the legacy automation contract. Host entries remain plain hostnames or `hostname:address[,address...]` values when DNS resolution is enabled. DNS resolution and DNS brute force retain candidates only when A, AAAA, or CNAME evidence is available; CNAME-only candidates remain plain hostnames in existing CLI, REST, JSON, and XML output.
 
 `Checker.check()` and `DnsForce.run()` retain their existing `(resolved, hosts, addresses)` return shape. Normalized A, AAAA, and CNAME values are available through each object's `records` mapping.
 
@@ -237,7 +237,22 @@ The JSON report is a single object and is the more complete format for automatio
 
 The XML report contains the command, emails, hosts, and virtual hosts. Use JSON when you need the additional result types above.
 
-The JSONL report is finalized after the selected one-shot actions finish. Its first line is a summary with an independent run UUID, the target, UTC timestamps, counts, and schema version. Each remaining line is one deterministic, deduplicated string finding, including stable Have I Been Pwned breach names as `breach` records and normalized BuiltWith findings as `framework`, `language`, `server`, `cms`, or `analytics` records. Recursive runs add `dns-recursive-finding` values with hostname, parent, addresses, and PTR names; `dns-recursive-classification` values retain current and meaningful secondary candidates with hostname, parent, addressability, addresses, CNAMEs, and PTR names. One `dns-recursive-summary` value records query cost, reached depth, zero-yield batches, and stop reason. The format does not claim provider success or provider source attribution.
+The JSONL report is finalized after the selected one-shot actions finish. The first line identifies the run with its UUID, target, UTC timestamps, result counts, and schema version. Each later line is one sorted, deduplicated finding. When you concatenate report files, treat each summary line as the start of a new run.
+
+```jsonl
+{"completed_at":"2026-08-07T12:01:00Z","counts":{"hostname":1},"result_count":1,"run_id":"123e4567-e89b-12d3-a456-426614174000","schema_version":"theharvester-results-v1","started_at":"2026-08-07T12:00:00Z","target":"example.com","type":"summary"}
+{"type":"hostname","value":"api.example.com"}
+```
+
+JSONL v1 is easy to stream for simple findings, but it is not uniformly self-describing. Finding lines inherit their run ID and target from the preceding summary. Structured result types, including recursive DNS records plus `person`, `infostealer`, `shodan`, and `takeover`, store a JSON object inside the string `value` to preserve the v1 wire format. Parse those values a second time with `fromjson`. JSONL v1 does not include source execution records or source attribution.
+
+Parse recursive DNS findings as JSON objects:
+
+```bash
+jq -c 'select(.type == "dns-recursive-finding") | .value | fromjson' report.jsonl
+```
+
+Stable Have I Been Pwned breach names use `breach` records. Normalized BuiltWith findings use `framework`, `language`, `server`, `cms`, or `analytics` records. Recursive runs also include classifications and one summary containing query cost, reached depth, zero-yield batches, and the stop reason.
 
 List every JSONL finding as tab-separated type and value columns:
 

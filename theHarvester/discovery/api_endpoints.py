@@ -1,7 +1,4 @@
-"""API endpoint scanner module.
-This module contains the SearchApiEndpoints class that performs comprehensive API endpoint
-scanning, detection, and analysis on target domains with advanced features for security testing.
-"""
+"""Check common API paths on an authorized public target."""
 
 import asyncio
 import json
@@ -46,7 +43,7 @@ class EndpointResult:
 
 
 class SearchApiEndpoints:
-    """SearchApiEndpoints class for scanning common API endpoints on target domains."""
+    """Check common API paths using only observational HTTP methods."""
 
     def __init__(
         self,
@@ -56,22 +53,24 @@ class SearchApiEndpoints:
         timeout: int = 10,
         proxy: str | None = None,
         user_agent: str | None = None,
-        follow_redirects: bool = True,
+        follow_redirects: bool = False,
         verify_ssl: bool = True,
         additional_headers: dict[str, str] | None = None,
     ) -> None:
-        """Initialize the SearchApiEndpoints class with advanced configuration options.
+        """Configure an API path scan.
 
         Args:
-            word: The target domain to scan
-            wordlist: Optional path to a custom wordlist file
-            concurrency: Maximum number of concurrent requests (default: 20)
-            timeout: Request timeout in seconds (default: 10)
-            proxy: Proxy URL (e.g. "http://127.0.0.1:8080")
-            user_agent: Custom User-Agent string
-            follow_redirects: Whether to follow HTTP redirects
-            verify_ssl: Whether to verify SSL certificates
-            additional_headers: Additional HTTP headers to include in requests
+            word: Public hostname to scan.
+            wordlist: Path to an optional endpoint wordlist.
+            concurrency: Maximum number of requests in flight.
+            timeout: Timeout for each request, in seconds.
+            proxy: Kept for caller compatibility. A configured proxy makes the scan refuse to run because the target
+                address cannot be pinned through it.
+            user_agent: HTTP User-Agent value. The default comes from ``Core``.
+            follow_redirects: Kept for caller compatibility. Redirects are always disabled so a response cannot move
+                the scan outside the authorized target.
+            verify_ssl: Whether to verify TLS certificates.
+            additional_headers: Extra HTTP headers to send.
 
         """
         self.word = word
@@ -90,7 +89,7 @@ class SearchApiEndpoints:
         self.proxy = proxy
         self.concurrency = concurrency
         self.timeout = timeout
-        self.follow_redirects = follow_redirects
+        self.follow_redirects = False
         self.verify_ssl = verify_ssl
         self.semaphore = asyncio.Semaphore(concurrency)
         self.user_agent = user_agent or Core.get_user_agent()
@@ -387,11 +386,11 @@ class SearchApiEndpoints:
         self.logger = logger
 
     async def do_search(self) -> None:
-        """Perform the API endpoint scan with advanced features."""
+        """Check common paths with GET, HEAD, and OPTIONS on a pinned public target."""
         session: aiohttp.ClientSession | None = None
         try:
             if self.proxy:
-                self.logger.warning('Refusing API endpoint proxy that cannot pin the validated target address')
+                self.logger.warning('API endpoint scan skipped because a proxy cannot guarantee the validated target address')
                 return
             resolver = PublicResolver()
             await resolver.resolve(self.word, 443)
@@ -498,6 +497,7 @@ class SearchApiEndpoints:
             Optional[EndpointResult]: Result object or None if not found
 
         """
+        # Other standard HTTP methods can change or delete data on the target.
         methods = ['GET', 'HEAD', 'OPTIONS']
         headers = self._get_headers()
 

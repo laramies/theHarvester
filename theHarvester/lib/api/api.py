@@ -359,34 +359,67 @@ async def query(
     request: Request,
     source: Annotated[
         list[str],
-        Query(description='Data sources or capability selectors to query; repeated values form a union'),
+        Query(
+            description=(
+                'Source names or source capabilities to query. Multiple capabilities select the union of matching '
+                'sources; they do not filter returned fields.'
+            )
+        ),
     ],
     domain: Annotated[str, Query(min_length=3, description='Domain to be harvested')],
-    dns_server: Annotated[str, Query(description='DNS server to use for lookup')] = '',
+    dns_server: Annotated[
+        str,
+        Query(description='Accepted for compatibility but currently unused; use dns_resolve to select resolvers.'),
+    ] = '',
     user_agent: Annotated[str | None, Header()] = None,
     x_api_key: Annotated[str | None, Header(alias='X-API-Key')] = None,
     dns_brute: Annotated[bool, Query(description='Perform a DNS brute force on the domain')] = False,
-    dns_lookup: Annotated[bool, Query(description='Enable DNS server lookup')] = False,
-    dns_resolve: Annotated[
-        str, Query(description='Perform DNS resolution on subdomains with a resolver list or passed in resolvers')
-    ] = '',
-    dns_recursive_depth: Annotated[
-        int, Query(ge=0, description='Recursively discover DNS names beneath currently addressable parents')
-    ] = 0,
+    dns_lookup: Annotated[
+        bool,
+        Query(
+            description=(
+                'Perform PTR lookups across the /24 network containing each discovered IPv4 address. '
+                'This sends active DNS queries.'
+            )
+        ),
+    ] = False,
+    dns_resolve: Annotated[str, Query(description='Resolve discovered hostnames using resolver IPs or a resolver file')] = '',
+    dns_recursive_depth: Annotated[int, Query(ge=0, description='Maximum recursive DNS discovery depth. Zero disables it.')] = 0,
     dns_recursive_query_limit: Annotated[
-        int, Query(gt=0, description='Maximum DNS record queries across resolver vantages')
+        int, Query(gt=0, description='Hard cap on recursive DNS record queries across all resolver vantages')
     ] = DEFAULT_RECURSIVE_DNS_QUERY_LIMIT,
     dns_recursive_runtime_seconds: Annotated[
-        float, Query(gt=0, allow_inf_nan=False, description='Maximum runtime in seconds for recursive DNS discovery')
+        float, Query(gt=0, allow_inf_nan=False, description='Hard runtime cap in seconds for recursive DNS discovery')
     ] = 60.0,
-    filename: Annotated[str, Query(description='Save the results to an XML and JSON file')] = '',
-    proxies: Annotated[bool, Query(description='Use proxies for requests')] = False,
+    filename: Annotated[
+        str,
+        Query(description=('Write uniquely prefixed server-side XML, JSON, and JSONL files using NAME as the filename suffix.')),
+    ] = '',
+    proxies: Annotated[
+        bool,
+        Query(
+            description=(
+                'Use proxies.yaml for supported discovery-source requests. Direct takeover and API-path checks '
+                'connect directly so their target addresses can be validated.'
+            )
+        ),
+    ] = False,
     shodan: Annotated[bool, Query(description='Use Shodan to query discovered hosts')] = False,
-    take_over: Annotated[bool, Query(description='Check for takeovers')] = False,
-    wordlist: Annotated[str, Query(description='Specify a wordlist for API endpoint scanning')] = '',
-    api_scan: Annotated[bool, Query(description='Scan for API endpoints')] = False,
-    limit: Annotated[int, Query(description='Limit the number of search results')] = 500,
-    start: Annotated[int, Query(description='Start with result number X')] = 0,
+    take_over: Annotated[
+        bool,
+        Query(
+            description=('Check discovered hosts for known takeover indicators. The takeover check bypasses configured proxies.')
+        ),
+    ] = False,
+    wordlist: Annotated[str, Query(description='Path to the endpoint wordlist used by api_scan')] = '',
+    api_scan: Annotated[
+        bool,
+        Query(
+            description=('Check common API paths with GET, HEAD, and OPTIONS. Requests do not use proxies or follow redirects.')
+        ),
+    ] = False,
+    limit: Annotated[int, Query(description='Maximum results requested from each source that supports result limits')] = 500,
+    start: Annotated[int, Query(description='Result offset for sources that support pagination')] = 0,
 ) -> Response:
     """Query function that allows user to query theHarvester rest API.
 

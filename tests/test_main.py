@@ -14,6 +14,26 @@ from theHarvester.lib.hostchecker import HostDnsRecords
 from theHarvester.lib.recursive_dns import RecursiveDNSClassification, RecursiveDNSFinding, RecursiveDNSResult
 
 
+@pytest.mark.asyncio
+async def test_cli_help_explains_proxy_and_direct_action_scope(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(sys, 'argv', ['theHarvester', '--help'])
+
+    with pytest.raises(SystemExit) as exit_info:
+        await theharvester_main.start()
+
+    help_text = ' '.join(capsys.readouterr().out.split())
+    assert exit_info.value.code == 0
+    assert 'Use proxies.yaml for supported discovery-source requests.' in help_text
+    assert 'Direct takeover, screenshot, and API-path checks connect directly' in help_text
+    assert 'Accepted for compatibility but currently unused; use --dns-resolve to select resolvers.' in help_text
+    assert 'Perform PTR lookups across the /24 network containing each discovered IPv4 address.' in help_text
+    assert 'Multiple capabilities select the union of matching sources; they do not filter returned fields.' in help_text
+    assert 'Check common API paths with GET, HEAD, and OPTIONS.' in help_text
+    assert 'Requests do not use proxies or follow redirects.' in help_text
+
+
 @pytest.mark.parametrize('target', ['Example.COM.', 'WWW.Example.COM.'])
 def test_normalize_hosts_for_storage_uses_the_parser_scope(target: str) -> None:
     discovered_hosts: set[object] = {

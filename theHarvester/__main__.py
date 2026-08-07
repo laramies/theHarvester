@@ -168,21 +168,24 @@ async def start(
     parser.add_argument(
         '-l',
         '--limit',
-        help='Limit the number of search results, default=500.',
+        help='Maximum results requested from each source that supports result limits (default: 500).',
         default=DEFAULT_RESULT_LIMIT,
         type=int,
     )
     parser.add_argument(
         '-S',
         '--start',
-        help='Start with result number X, default=0.',
+        help='Result offset for sources that support pagination (default: 0).',
         default=DEFAULT_RESULT_START,
         type=int,
     )
     parser.add_argument(
         '-p',
         '--proxies',
-        help='Use proxies for requests, enter proxies in proxies.yaml.',
+        help=(
+            'Use proxies.yaml for supported discovery-source requests. Direct takeover, screenshot, and API-path '
+            'checks connect directly so their target addresses can be validated.'
+        ),
         default=False,
         action='store_true',
     )
@@ -195,23 +198,28 @@ async def start(
     )
     parser.add_argument(
         '--screenshot',
-        help='Take screenshots of resolved domains specify output directory: --screenshot output_directory',
+        help='Save screenshots of reachable discovered hosts to DIR. This sends direct browser requests.',
+        metavar='DIR',
         default='',
         type=str,
     )
 
-    parser.add_argument('-e', '--dns-server', help='DNS server to use for lookup.')
+    parser.add_argument(
+        '-e',
+        '--dns-server',
+        help='Accepted for compatibility but currently unused; use --dns-resolve to select resolvers.',
+    )
     parser.add_argument(
         '-t',
         '--take-over',
-        help='Check for takeovers.',
+        help='Check discovered hosts for known takeover indicators. The takeover check bypasses configured proxies.',
         default=False,
         action='store_true',
     )
     parser.add_argument(
         '-r',
         '--dns-resolve',
-        help='Perform DNS resolution on subdomains with a resolver list or passed in resolvers, default False.',
+        help='Resolve discovered hostnames. Pass resolver IPs or a resolver file; omit the value to use defaults.',
         default='',
         type=str,
         nargs='?',
@@ -219,7 +227,9 @@ async def start(
     parser.add_argument(
         '-n',
         '--dns-lookup',
-        help='Enable DNS server lookup, default False.',
+        help=(
+            'Perform PTR lookups across the /24 network containing each discovered IPv4 address. This sends active DNS queries.'
+        ),
         default=False,
         action='store_true',
     )
@@ -232,31 +242,37 @@ async def start(
     )
     parser.add_argument(
         '--dns-recursive-depth',
-        help='Recursively discover DNS names beneath currently addressable parents to this depth.',
+        help='Enable recursive DNS discovery to this maximum depth. Zero disables it.',
         default=0,
         type=int,
     )
     parser.add_argument(
         '--dns-recursive-query-limit',
-        help='Maximum DNS record queries across resolver vantages for recursive DNS discovery.',
+        help='Hard cap on recursive DNS record queries across all resolver vantages.',
         default=DEFAULT_RECURSIVE_DNS_QUERY_LIMIT,
         type=int,
     )
     parser.add_argument(
         '--dns-recursive-runtime-seconds',
-        help='Maximum runtime in seconds for recursive DNS discovery.',
+        help='Hard runtime cap in seconds for recursive DNS discovery.',
         default=DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS,
         type=float,
     )
     parser.add_argument(
         '-f',
         '--filename',
-        help='Save the results to XML, JSON, and JSONL files.',
+        help='Write NAME.json, NAME.xml, and NAME.jsonl.',
+        metavar='NAME',
         default='',
         type=str,
     )
-    parser.add_argument('-w', '--wordlist', help='Specify a wordlist for API endpoint scanning.', default='')
-    parser.add_argument('-a', '--api-scan', help='Scan for API endpoints.', action='store_true')
+    parser.add_argument('-w', '--wordlist', help='Path to the endpoint wordlist used by --api-scan.', default='')
+    parser.add_argument(
+        '-a',
+        '--api-scan',
+        help='Check common API paths with GET, HEAD, and OPTIONS. Requests do not use proxies or follow redirects.',
+        action='store_true',
+    )
     parser.add_argument(
         '-q',
         '--quiet',
@@ -269,8 +285,10 @@ async def start(
         '-b',
         '--source',
         help=(
-            'Comma-separated sources or capability selectors: subdomains, emails, ips, asns, urls, people, '
-            f'breaches, or all. Sources: {", ".join(sorted(SOURCE_SPECS, key=str.casefold))}'
+            'Comma-separated source names or source capabilities. Multiple capabilities select the union of matching '
+            'sources; they do not filter returned fields. Capabilities: '
+            f'subdomains, emails, ips, asns, urls, people, breaches, all. Sources: '
+            f'{", ".join(sorted(SOURCE_SPECS, key=str.casefold))}'
         ),
     )
 
