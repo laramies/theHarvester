@@ -6,7 +6,7 @@ import asyncio
 import ipaddress
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Protocol, cast
 from uuid import uuid4
 
 import aiodns
@@ -63,6 +63,10 @@ class DNSResponse:
 class ResolverVantage(Protocol):
     name: str
 
+    async def query(self, hostname: str) -> DNSResponse: ...
+
+
+class BudgetedResolverVantage(ResolverVantage, Protocol):
     async def query(self, hostname: str, budget: DNSQueryBudget | None = None) -> DNSResponse: ...
 
     async def query_ptr(self, address: str, budget: DNSQueryBudget | None = None) -> tuple[str, ...]: ...
@@ -151,13 +155,17 @@ class AioDNSResolverVantage:
         )
 
     async def query_ptr(self, address: str, budget: DNSQueryBudget | None = None) -> tuple[str, ...]:
+        try:
+            reverse_pointer = ipaddress.ip_address(address).reverse_pointer
+        except ValueError:
+            return ()
         if budget is not None and not budget.consume(1):
             return ()
         try:
-            result = await self._resolver.query_dns(ipaddress.ip_address(address).reverse_pointer, 'PTR')
+            result = await self._resolver.query_dns(reverse_pointer, 'PTR')
         except asyncio.CancelledError:
             raise
-        except (ValueError, aiodns.error.DNSError):
+        except aiodns.error.DNSError:
             return ()
         return tuple(
             sorted(
@@ -222,9 +230,11 @@ async def _query(
     budget: DNSQueryBudget | None = None,
 ) -> DNSValidation:
     try:
-        response = _normalize_response(
-            await (resolver.query(query_name) if budget is None else resolver.query(query_name, budget))
-        )
+        if budget is None:
+            response = await resolver.query(query_name)
+        else:
+            response = await cast('BudgetedResolverVantage', resolver).query(query_name, budget)
+        response = _normalize_response(response)
     except asyncio.CancelledError:
         raise
     except Exception as error:
@@ -313,5 +323,6 @@ async def validate_dns_candidates(
                 ),
             )
         )
-        results.append(CandidateConsensus(candidate, _classify(validations), validations))
+        addressability = Addressability.RESOLVER_DISPUTED if budget is not None and budget.blocked else _classify(validations)
+        results.append(CandidateConsensus(candidate, addressability, validations))
     return tuple(results)
