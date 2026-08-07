@@ -1,7 +1,11 @@
+import logging
+from typing import Any
+
 import pytest
 
 from theHarvester.discovery import huntersearch
 from theHarvester.discovery.constants import MissingKey
+from theHarvester.lib.core import FetcherResponse
 
 
 @pytest.mark.parametrize('key', [None, '  '])
@@ -10,6 +14,53 @@ def test_hunter_rejects_missing_or_blank_key(monkeypatch, key) -> None:
 
     with pytest.raises(MissingKey):
         huntersearch.SearchHunter('example.test', 10, 0)
+
+
+@pytest.mark.parametrize('status', [401, 403, 429])
+@pytest.mark.asyncio
+async def test_hunter_http_failures_return_no_results(monkeypatch, caplog, status: int) -> None:
+    async def fake_fetch_all(*_args: Any, **kwargs: Any) -> list[FetcherResponse]:
+        assert kwargs['include_metadata'] is True
+        return [FetcherResponse(body={'error': 'provider detail'}, status=status, headers={})]
+
+    monkeypatch.setattr(huntersearch.Core, 'hunter_key', lambda: 'test-key')
+    monkeypatch.setattr(huntersearch.Core, 'get_user_agent', lambda: 'test-agent')
+    monkeypatch.setattr(huntersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    search = huntersearch.SearchHunter('example.test', 10, 0)
+
+    with caplog.at_level(logging.INFO, logger=huntersearch.__name__):
+        await search.process()
+
+    assert await search.get_emails() == []
+    assert await search.get_hostnames() == []
+    assert f'Hunter request failed with HTTP {status}' in caplog.text
+    assert 'provider detail' not in caplog.text
+
+
+@pytest.mark.parametrize(
+    ('response', 'message'),
+    [
+        ([], 'Hunter request failed without a response'),
+        ([FetcherResponse(body='not json', status=200, headers={})], 'Hunter returned malformed data'),
+        ([FetcherResponse(body={}, status=200, headers={})], 'Hunter returned malformed data'),
+    ],
+)
+@pytest.mark.asyncio
+async def test_hunter_empty_or_malformed_response_returns_no_results(monkeypatch, caplog, response, message) -> None:
+    async def fake_fetch_all(*_args: Any, **_kwargs: Any):
+        return response
+
+    monkeypatch.setattr(huntersearch.Core, 'hunter_key', lambda: 'test-key')
+    monkeypatch.setattr(huntersearch.Core, 'get_user_agent', lambda: 'test-agent')
+    monkeypatch.setattr(huntersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    search = huntersearch.SearchHunter('example.test', 10, 0)
+
+    with caplog.at_level(logging.INFO, logger=huntersearch.__name__):
+        await search.process()
+
+    assert await search.get_emails() == []
+    assert await search.get_hostnames() == []
+    assert message in caplog.text
 
 
 @pytest.mark.asyncio
@@ -38,7 +89,7 @@ async def test_paid_hunter_search_honors_limit_and_offset(monkeypatch) -> None:
 
     async def fake_fetch_all(urls, *, proxy=False, **_kwargs):
         requests.append((urls[0], proxy))
-        return [next(responses)]
+        return [FetcherResponse(body=next(responses), status=200, headers={})]
 
     async def no_sleep(_seconds: float) -> None:
         return None
@@ -79,7 +130,7 @@ async def test_free_hunter_search_honors_limit_and_offset(monkeypatch) -> None:
 
     async def fake_fetch_all(urls, **_kwargs):
         requests.append(urls[0])
-        return [next(responses)]
+        return [FetcherResponse(body=next(responses), status=200, headers={})]
 
     monkeypatch.setattr(huntersearch.Core, 'hunter_key', lambda: 'test-key')
     monkeypatch.setattr(huntersearch.Core, 'get_user_agent', lambda: 'test-agent')
@@ -106,7 +157,7 @@ async def test_paid_hunter_search_stops_before_exceeding_quota(monkeypatch) -> N
 
     async def fake_fetch_all(urls, **_kwargs):
         requests.append(urls[0])
-        return [next(responses)]
+        return [FetcherResponse(body=next(responses), status=200, headers={})]
 
     monkeypatch.setattr(huntersearch.Core, 'hunter_key', lambda: 'test-key')
     monkeypatch.setattr(huntersearch.Core, 'get_user_agent', lambda: 'test-agent')
