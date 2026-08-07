@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import time
 from dataclasses import dataclass
 from itertools import islice
@@ -35,8 +36,8 @@ class RecursiveDNSLimits:
             raise ValueError('recursive DNS depth must be greater than zero')
         if self.query_limit <= 0:
             raise ValueError('recursive DNS query limit must be greater than zero')
-        if self.runtime_seconds <= 0:
-            raise ValueError('recursive DNS runtime must be greater than zero')
+        if not math.isfinite(self.runtime_seconds) or self.runtime_seconds <= 0:
+            raise ValueError('recursive DNS runtime must be finite and greater than zero')
 
 
 @dataclass(frozen=True, slots=True)

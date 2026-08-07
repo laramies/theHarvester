@@ -73,6 +73,12 @@ class CnameHeavyResolver:
         return () if not budget.consume(1) else ('edge.example.net',)
 
 
+@pytest.mark.parametrize('runtime_seconds', [float('nan'), float('inf')])
+def test_recursive_dns_limits_require_a_finite_runtime(runtime_seconds: float) -> None:
+    with pytest.raises(ValueError, match='runtime'):
+        RecursiveDNSLimits(depth=1, query_limit=100, runtime_seconds=runtime_seconds)
+
+
 @pytest.mark.asyncio
 async def test_seed_normalization_stops_at_runtime_deadline(monkeypatch: pytest.MonkeyPatch) -> None:
     from theHarvester.lib import recursive_dns
