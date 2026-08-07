@@ -119,6 +119,55 @@ async def test_paid_hunter_search_honors_limit_and_offset(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
+async def test_paid_hunter_search_preserves_first_page_after_rate_limit(monkeypatch, caplog) -> None:
+    requests: list[str] = []
+    responses = iter(
+        [
+            FetcherResponse(
+                body={'data': {'plan_name': 'Growth', 'requests': {'searches': {'available': 10, 'used': 0}}}},
+                status=200,
+                headers={},
+            ),
+            FetcherResponse(body={'data': {'total': 175}}, status=200, headers={}),
+            FetcherResponse(
+                body={
+                    'data': {
+                        'emails': [
+                            {'value': 'alice@example.test', 'sources': [{'domain': 'api.example.test'}]},
+                        ]
+                    }
+                },
+                status=200,
+                headers={},
+            ),
+            FetcherResponse(body={'error': 'provider detail'}, status=429, headers={}),
+        ]
+    )
+
+    async def fake_fetch_all(urls, **_kwargs):
+        requests.append(urls[0])
+        return [next(responses)]
+
+    async def no_sleep(_seconds: float) -> None:
+        return None
+
+    monkeypatch.setattr(huntersearch.Core, 'hunter_key', lambda: 'test-key')
+    monkeypatch.setattr(huntersearch.Core, 'get_user_agent', lambda: 'test-agent')
+    monkeypatch.setattr(huntersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    monkeypatch.setattr(huntersearch.asyncio, 'sleep', no_sleep)
+    search = huntersearch.SearchHunter('example.test', 150, 0)
+
+    with caplog.at_level(logging.INFO, logger=huntersearch.__name__):
+        await search.process()
+
+    assert await search.get_emails() == ['alice@example.test']
+    assert await search.get_hostnames() == ['api.example.test']
+    assert requests[-1].endswith('limit=50&offset=100')
+    assert 'Hunter request failed with HTTP 429' in caplog.text
+    assert 'provider detail' not in caplog.text
+
+
+@pytest.mark.asyncio
 async def test_free_hunter_search_honors_limit_and_offset(monkeypatch) -> None:
     requests: list[str] = []
     responses = iter(
