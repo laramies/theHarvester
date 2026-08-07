@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from theHarvester.discovery import leaklookup
+from theHarvester.discovery import additional_apis, leaklookup
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.completed_result import CompletedResult
 from theHarvester.lib.api import additional_endpoints
@@ -177,6 +177,47 @@ async def test_additional_leaks_endpoint_uses_only_leaklookup(monkeypatch) -> No
     assert result == {
         'status': 'success',
         'data': [{'breach': 'Example Breach', 'email': 'alice@example.test'}],
+    }
+
+
+@pytest.mark.asyncio
+async def test_missing_leaklookup_key_does_not_break_security_score_endpoint(monkeypatch) -> None:
+    class PassiveProvider:
+        def __init__(self, _domain: str) -> None:
+            return None
+
+    class FakeSecurityScorecard(PassiveProvider):
+        score = 95
+        grades = {'network': 'A'}
+        issues: list[object] = []
+        recommendations: list[object] = []
+        hosts: set[str] = set()
+
+        async def process(self, _proxy: bool) -> None:
+            return None
+
+    class UnexpectedLeakLookup:
+        def __init__(self, _domain: str) -> None:
+            raise AssertionError('Leak-Lookup must be constructed only when requested')
+
+    monkeypatch.setattr(additional_apis, 'SearchHaveIBeenPwned', PassiveProvider)
+    monkeypatch.setattr(additional_apis, 'SearchBuiltWith', PassiveProvider)
+    monkeypatch.setattr(additional_apis, 'SearchSecurityScorecard', FakeSecurityScorecard)
+    monkeypatch.setattr(additional_apis, 'SearchLeakLookup', UnexpectedLeakLookup)
+
+    result = await additional_endpoints.get_security_score(
+        additional_endpoints.DomainRequest(domain='example.test'),
+        _api_key='local-api-key',
+    )
+
+    assert result == {
+        'status': 'success',
+        'data': {
+            'score': 95,
+            'grades': {'network': 'A'},
+            'issues': [],
+            'recommendations': [],
+        },
     }
 
 

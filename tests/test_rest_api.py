@@ -241,7 +241,8 @@ def test_query_requires_operator_auth_for_configured_leaklookup(monkeypatch) -> 
     assert response.status_code == 401
 
 
-def test_query_skips_operator_auth_when_verified_hibp_provider_key_is_absent(monkeypatch) -> None:
+@pytest.mark.parametrize('leaklookup_key', [None, '', ' '])
+def test_query_skips_operator_auth_when_credentialed_provider_keys_are_blank(monkeypatch, leaklookup_key) -> None:
     captured: list[Namespace] = []
 
     async def fake_start(
@@ -255,7 +256,7 @@ def test_query_skips_operator_auth_when_verified_hibp_provider_key_is_absent(mon
 
     monkeypatch.delenv('THEHARVESTER_API_KEY', raising=False)
     monkeypatch.setattr(api.__main__.Core, 'hibpverified_key', lambda: None)
-    monkeypatch.setattr(api.__main__.Core, 'leaklookup_key', lambda: None)
+    monkeypatch.setattr(api.__main__.Core, 'leaklookup_key', lambda: leaklookup_key)
     monkeypatch.setattr(api.__main__, 'start', fake_start)
 
     response = TestClient(api.app).get('/query?domain=example.test&source=breaches')
