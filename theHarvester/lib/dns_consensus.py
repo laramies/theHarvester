@@ -1,3 +1,5 @@
+"""Classify hostnames by comparing three resolvers with wildcard controls."""
+
 from __future__ import annotations
 
 import asyncio
@@ -17,6 +19,8 @@ if TYPE_CHECKING:
 
 
 class Addressability(StrEnum):
+    """DNS classification assigned to a candidate hostname."""
+
     CURRENT = 'currently-addressable'
     NOT_CURRENT = 'not-currently-addressable'
     RESOLVER_DISPUTED = 'resolver-disputed'
@@ -43,6 +47,8 @@ class ResolverVantage(Protocol):
 
 
 class AioDNSResolverVantage:
+    """Query one nameserver and follow CNAMEs that remain under the target."""
+
     def __init__(self, nameserver: str, target: str) -> None:
         self.name = nameserver
         self._target = target
@@ -133,6 +139,8 @@ class DNSValidation:
 
 @dataclass(frozen=True, slots=True)
 class CandidateConsensus:
+    """Classification and resolver evidence for one candidate hostname."""
+
     hostname: str
     addressability: Addressability
     validations: tuple[DNSValidation, ...]
@@ -219,6 +227,11 @@ async def validate_dns_candidates(
     candidates: Sequence[str],
     resolvers: Sequence[ResolverVantage],
 ) -> tuple[CandidateConsensus, ...]:
+    """Compare each in-scope candidate with randomized wildcard controls.
+
+    A candidate is current when at least two of the three resolvers return an
+    address and its records do not match the closest wildcard control.
+    """
     normalized_target = target.strip().lower().rstrip('.')
     if not normalized_target:
         raise ValueError('target must not be empty')
