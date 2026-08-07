@@ -146,7 +146,7 @@ Read the **API key** column as follows:
 | `commoncrawl` | ✓ | No | No | No | No | No | No | No | No |
 | `criminalip` | ✓ | No | ✓ | ✓ | No | No | No | No | ✓ |
 | `crtsh` | ✓ | No | No | No | No | No | No | No | No |
-| `dehashed` | No | No | ✓ | No | No | No | No | No | ✓ |
+| `dehashed` | No | ✓ | ✓ | No | No | No | No | No | ✓ |
 | `dnsdb` | ✓ | No | No | No | No | No | No | No | ✓ |
 | `dnsdumpster` | ✓ | No | ✓ | No | No | No | No | No | ✓ |
 | `duckduckgo` | ✓ | ✓ | No | No | No | No | No | No | No |

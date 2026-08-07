@@ -55,9 +55,7 @@ def test_subdomain_route_drives_subdomain_capability() -> None:
 
 
 def test_source_specs_describe_consolidated_routes_not_getter_presence() -> None:
-    assert SOURCE_SPECS['gitlab'].routes == frozenset(
-        {ResultRoute.SUBDOMAINS, ResultRoute.EMAILS, ResultRoute.URLS}
-    )
+    assert SOURCE_SPECS['gitlab'].routes == frozenset({ResultRoute.SUBDOMAINS, ResultRoute.EMAILS, ResultRoute.URLS})
     assert SOURCE_SPECS['haveibeenpwned'].routes == frozenset({ResultRoute.BREACHES})
     assert SOURCE_SPECS['hibpverified'].routes == frozenset({ResultRoute.EMAILS, ResultRoute.BREACHES})
     assert SOURCE_SPECS['leaklookup'].routes == frozenset({ResultRoute.EMAILS, ResultRoute.BREACHES})
@@ -77,6 +75,10 @@ def test_rapiddns_declares_separate_subdomain_and_ip_routes() -> None:
 
 def test_pentesttools_declares_its_normalized_subdomain_and_ip_routes() -> None:
     assert SOURCE_SPECS['pentesttools'].routes == frozenset({ResultRoute.SUBDOMAINS, ResultRoute.IPS})
+
+
+def test_dehashed_declares_its_normalized_email_and_ip_routes() -> None:
+    assert SOURCE_SPECS['dehashed'].routes == frozenset({ResultRoute.EMAILS, ResultRoute.IPS})
 
 
 def test_unavailable_venacus_source_is_not_selectable() -> None:

@@ -137,11 +137,14 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
             raise AssertionError('DNS resolution requires the explicit --dns-resolve flag')
 
     class FakeDehashed:
-        def __init__(self, _domain: str) -> None:
-            pass
+        def __init__(self, _domain: str, limit: int) -> None:
+            assert limit == 500
 
         async def process(self, _proxy: bool) -> None:
             return None
+
+        async def get_emails(self) -> set[str]:
+            return {'user@example.com'}
 
         async def get_ips(self) -> set[str]:
             return {'198.51.100.2'}
@@ -304,8 +307,10 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
     )
     assert rest_results == legacy_rest_results
     assert set(rest_results[6]) == {'192.0.2.1', '198.51.100.2'}
+    assert rest_results[7] == ['user@example.com']
     assert rest_results[8] == ['alias.example.com', 'api.example.com', 'broken.example.com']
     assert stored[stored_before_rest:] == [
+        ('email', ('user@example.com',), 'dehashed'),
         ('ip', ('198.51.100.2',), 'dehashed'),
         ('host', ('alias.example.com', 'api.example.com', 'broken.example.com'), 'rapiddns'),
         ('ip', ('192.0.2.1',), 'rapiddns'),
@@ -314,6 +319,7 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
     assert FakeSecurityScorecard.created == 1
     assert completed_results[1].target == 'example.com'
     assert {'192.0.2.1', '198.51.100.2'} <= {value for kind, value in completed_results[1].results if kind == 'ip-address'}
+    assert ('email', 'user@example.com') in completed_results[1].results
 
     monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.com', '-b', 'rapiddns'])
     with pytest.raises(SystemExit) as no_file_exit:

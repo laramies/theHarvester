@@ -83,7 +83,7 @@ _SPECS = (
         activity=ActivityClass.DIRECT,
     ),
     _spec('crtsh', ResultRoute.SUBDOMAINS),
-    _spec('dehashed', ResultRoute.IPS),
+    _spec('dehashed', ResultRoute.EMAILS, ResultRoute.IPS),
     _spec('dnsdb', ResultRoute.SUBDOMAINS),
     _spec('dnsdumpster', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
     _spec('duckduckgo', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),

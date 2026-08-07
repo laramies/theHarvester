@@ -709,7 +709,7 @@ async def start(
 
                 elif engineitem == 'dehashed':
                     try:
-                        dehashed_search = search_dehashed.SearchDehashed(word)
+                        dehashed_search = search_dehashed.SearchDehashed(word, limit=limit)
                         stor_lst.append(
                             store(
                                 dehashed_search,
