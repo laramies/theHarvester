@@ -8,13 +8,11 @@ import ssl
 import sys
 from collections.abc import Collection
 from datetime import datetime
-from urllib.parse import urlsplit
 
 import aiohttp
 import certifi
+from aiohttp_socks import ProxyConnector
 from playwright.async_api import async_playwright
-
-from theHarvester.lib.public_egress import PublicResolver
 
 logger = logging.getLogger(__name__)
 
@@ -58,24 +56,21 @@ class ScreenShotter:
     @staticmethod
     async def visit(url: str, proxy: str | None = None) -> tuple[str, str]:
         try:
-            if proxy:
-                logger.info('Refusing screenshot proxy that cannot pin the validated target address')
-                return '', ''
             timeout = aiohttp.ClientTimeout(total=35)
             urls = (url,) if url.startswith(('http://', 'https://')) else (f'https://{url}', f'http://{url}')
-            resolver = PublicResolver()
-            for candidate in urls:
-                parsed = urlsplit(candidate)
-                if parsed.hostname is None:
-                    return '', ''
-                await resolver.resolve(parsed.hostname, parsed.port or (443 if parsed.scheme == 'https' else 80))
             sslcontext = ssl.create_default_context(cafile=certifi.where())
-            connector = aiohttp.TCPConnector(ssl=sslcontext, resolver=resolver)
+            connector: ProxyConnector | aiohttp.TCPConnector
+            proxy_param = None
+            if proxy and proxy.startswith('socks5://'):
+                connector = ProxyConnector.from_url(proxy, ssl=sslcontext)
+            else:
+                connector = aiohttp.TCPConnector(ssl=sslcontext)
+                proxy_param = proxy
 
             async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
                 for candidate in urls:
                     try:
-                        async with session.get(candidate) as resp:
+                        async with session.get(candidate, proxy=proxy_param) as resp:
                             text = await resp.text('UTF-8')
                             return str(resp.url), text
                     except (aiohttp.ClientError, TimeoutError) as e:
@@ -87,45 +82,11 @@ class ScreenShotter:
 
     async def take_screenshot(self, url: str) -> str:
         url = f'https://{url}' if not url.startswith(('http://', 'https://')) else url
-        parsed = urlsplit(url)
-        if parsed.hostname is None:
-            return ''
-        resolver = PublicResolver()
-        try:
-            addresses = await resolver.resolve(parsed.hostname, parsed.port or (443 if parsed.scheme == 'https' else 80))
-        except OSError as error:
-            logger.info(f'Refusing screenshot target {url}: {error}')
-            return ''
         logger.info(f'Attempting to take a screenshot of: {url}')
         async with async_playwright() as p:
-            browser = await p.chromium.launch(
-                headless=True,
-                args=[f'--host-resolver-rules=MAP {parsed.hostname} {addresses[0]["host"]}'],
-            )
+            browser = await p.chromium.launch(headless=True)
             # New browser context
             context = await browser.new_context()
-
-            async def guard_request(route) -> None:
-                request_url = urlsplit(route.request.url)
-                if request_url.scheme in {'http', 'https'}:
-                    if request_url.hostname is None:
-                        await route.abort('blockedbyclient')
-                        return
-                    try:
-                        await resolver.resolve(
-                            request_url.hostname,
-                            request_url.port or (443 if request_url.scheme == 'https' else 80),
-                        )
-                    except (OSError, ValueError):
-                        await route.abort('blockedbyclient')
-                        return
-                await route.continue_()
-
-            async def block_web_socket(web_socket) -> None:
-                await web_socket.close(code=1008, reason='theHarvester blocks WebSocket egress')
-
-            await context.route('**/*', guard_request)
-            await context.route_web_socket('**/*', block_web_socket)
             page = await context.new_page()
             path = rf'{self.output}{self.slash}{url.replace("http://", "").replace("https://", "")}.png'
             date = str(datetime.now())

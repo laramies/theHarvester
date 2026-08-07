@@ -25,13 +25,12 @@ async def test_cli_help_explains_proxy_and_direct_action_scope(
 
     help_text = ' '.join(capsys.readouterr().out.split())
     assert exit_info.value.code == 0
-    assert 'Use proxies.yaml for supported discovery-source requests.' in help_text
-    assert 'Direct takeover, screenshot, and API-path checks connect directly' in help_text
+    assert 'Use proxies.yaml for supported discovery-source and takeover requests.' in help_text
     assert 'Accepted for compatibility but currently unused; use --dns-resolve to select resolvers.' in help_text
     assert 'Perform PTR lookups across the /24 network containing each discovered IPv4 address.' in help_text
     assert 'Multiple capabilities select the union of matching sources; they do not filter returned fields.' in help_text
     assert 'Check common API paths with GET, HEAD, and OPTIONS.' in help_text
-    assert 'Requests do not use proxies or follow redirects.' in help_text
+    assert 'Requests follow redirects.' in help_text
 
 
 @pytest.mark.parametrize('target', ['Example.COM.', 'WWW.Example.COM.'])
@@ -299,7 +298,7 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
             return None
 
         async def process(self, proxy: bool = False) -> None:
-            assert proxy is False
+            assert proxy is True
 
         async def get_takeover_results(self) -> dict[str, list[dict[str, str]]]:
             return {'https://api.example.com': [{'No such app': 'Heroku'}]}

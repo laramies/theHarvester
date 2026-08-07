@@ -8,7 +8,6 @@ import ssl
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
-from urllib.parse import urlsplit
 
 import aiohttp
 import certifi
@@ -20,7 +19,6 @@ from aiohttp_socks import ProxyConnector
 
 from theHarvester import __version__
 from theHarvester.lib.output import output_logger
-from theHarvester.lib.public_egress import PublicResolver
 from theHarvester.lib.source_catalog import resolve_sources
 
 if TYPE_CHECKING:
@@ -712,35 +710,15 @@ class AsyncFetcher:
         session,
         url: str,
         proxy: str | None = None,
-        resolver: PublicResolver | None = None,
     ) -> tuple[Any, Any] | str:
-        # This fetch method solely focuses on get requests
-        try:
-            parsed = urlsplit(url)
-            if parsed.hostname is None:
-                raise ValueError('Takeover target does not identify a host')
-            if proxy:
-                logger.info('Refusing takeover proxy that cannot pin the validated target address')
-                return url, ''
-            resolver = resolver or PublicResolver()
-            await resolver.resolve(parsed.hostname, parsed.port or (443 if parsed.scheme == 'https' else 80))
-            # Wrap in try except due to 0x89 png/jpg files
-            # This fetch method solely focuses on get requests
-            # TODO determine if method for post requests is necessary
-            # url = f'http://{url}' if str(url).startswith(('http:', 'https:')) is False else url
-            # Clean up urls with proper schemas
-            if 'https://' in url:
-                sslcontext = ssl.create_default_context(cafile=certifi.where())
-                async with session.get(url, ssl=sslcontext, allow_redirects=False) as response:
-                    await asyncio.sleep(5)
-                    return url, await response.text()
-            else:
-                async with session.get(url, ssl=False, allow_redirects=False) as response:
-                    await asyncio.sleep(5)
-                    return url, await response.text()
-        except (aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, UnicodeDecodeError, ValueError) as e:
-            logger.info(f'Takeover check error: {e}')
-            return url, ''
+        _, proxy_type = AsyncFetcher._resolve_proxy(proxy)
+        response = await AsyncFetcher.fetch(
+            session=None if proxy_type == 'socks5' else session,
+            url=url,
+            proxy=proxy,
+            request_timeout=15,
+        )
+        return url, response
 
     @classmethod
     async def fetch_all(
@@ -757,31 +735,23 @@ class AsyncFetcher:
         headers = cls._default_headers(headers)
         timeout = cls._request_timeout(60)
         if takeover:
-            resolver = PublicResolver()
-            connector = aiohttp.TCPConnector(resolver=resolver)
             async with aiohttp.ClientSession(
                 headers=headers,
                 timeout=aiohttp.ClientTimeout(total=15),
-                connector=connector,
             ) as session:
                 if proxy:
                     # Get random proxy for each URL
                     proxy_urls = [cls._get_random_proxy(cls().proxy_list)[0] for _ in urls]
-                    if any(proxy_url is None for proxy_url in proxy_urls):
-                        logger.info('Refusing takeover checks because no proxy is configured')
-                        return [(url, '') for url in urls]
                     return list(
                         await asyncio.gather(
                             *[
-                                AsyncFetcher.takeover_fetch(session, url, proxy=proxy_url, resolver=resolver)
+                                AsyncFetcher.takeover_fetch(session, url, proxy=proxy_url)
                                 for url, proxy_url in zip(urls, proxy_urls, strict=False)
                             ]
                         )
                     )
                 else:
-                    return list(
-                        await asyncio.gather(*[AsyncFetcher.takeover_fetch(session, url, resolver=resolver) for url in urls])
-                    )
+                    return list(await asyncio.gather(*[AsyncFetcher.takeover_fetch(session, url) for url in urls]))
 
         if len(params) == 0:
             async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:

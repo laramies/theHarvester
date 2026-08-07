@@ -10,11 +10,6 @@ import theHarvester.screenshot.screenshot as screenshot_module
 from theHarvester.screenshot.screenshot import ScreenShotter
 
 
-class PublicResolver:
-    async def resolve(self, *_args, **_kwargs):
-        return [{'host': '192.0.2.1'}]
-
-
 @pytest.mark.parametrize(
     ('platform', 'expected_separator'),
     [('darwin', '/'), ('linux', '/'), ('win32', '\\')],
@@ -43,13 +38,10 @@ async def test_visit_prefers_https_and_returns_final_www_url(monkeypatch: pytest
     monkeypatch.setattr(screenshot_module.aiohttp, 'ClientSession', MagicMock(return_value=session))
     monkeypatch.setattr(screenshot_module.aiohttp, 'TCPConnector', MagicMock())
     monkeypatch.setattr(screenshot_module.ssl, 'create_default_context', MagicMock())
-    monkeypatch.setattr(screenshot_module, 'PublicResolver', PublicResolver)
-
     result = await ScreenShotter.visit('www.example.com')
 
     assert result == ('https://www.example.com/landing', 'reachable')
     assert session.get.call_args.args[0] == 'https://www.example.com'
-    assert session.get.call_args.kwargs == {}
 
 
 @pytest.mark.asyncio
@@ -66,8 +58,6 @@ async def test_visit_falls_back_to_http_when_https_is_unreachable(monkeypatch: p
     monkeypatch.setattr(screenshot_module.aiohttp, 'ClientSession', MagicMock(return_value=session))
     monkeypatch.setattr(screenshot_module.aiohttp, 'TCPConnector', MagicMock())
     monkeypatch.setattr(screenshot_module.ssl, 'create_default_context', MagicMock())
-    monkeypatch.setattr(screenshot_module, 'PublicResolver', PublicResolver)
-
     result = await ScreenShotter.visit('www.example.com')
 
     assert result == ('http://www.example.com', 'reachable')
@@ -78,16 +68,10 @@ async def test_visit_falls_back_to_http_when_https_is_unreachable(monkeypatch: p
 
 
 @pytest.mark.asyncio
-async def test_take_screenshot_preserves_www_and_allows_public_redirects(
+async def test_take_screenshot_preserves_www_hostname(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    class Resolver:
-        async def resolve(self, host, *_args, **_kwargs):
-            if host == '127.0.0.1':
-                raise OSError('Refusing non-public address')
-            return [{'host': '192.0.2.1'}]
-
     page = AsyncMock()
     context = AsyncMock()
     context.new_page.return_value = page
@@ -99,7 +83,6 @@ async def test_take_screenshot_preserves_www_and_allows_public_redirects(
     manager.__aenter__ = AsyncMock(return_value=playwright)
     manager.__aexit__ = AsyncMock(return_value=False)
     monkeypatch.setattr(screenshot_module, 'async_playwright', MagicMock(return_value=manager))
-    monkeypatch.setattr(screenshot_module, 'PublicResolver', Resolver)
     monkeypatch.setattr(screenshot_module.os, 'chmod', MagicMock())
 
     captured_url = await ScreenShotter(str(tmp_path)).take_screenshot('www.example.com')
@@ -108,75 +91,31 @@ async def test_take_screenshot_preserves_www_and_allows_public_redirects(
     page.goto.assert_awaited_once_with('https://www.example.com', timeout=35000)
     screenshot_path = page.screenshot.await_args.kwargs['path']
     assert screenshot_path.endswith('www.example.com.png')
-    guard_request = context.route.await_args.args[1]
-    public_redirect = AsyncMock()
-    public_redirect.request.url = 'https://login.example.com/landing'
-    await guard_request(public_redirect)
-    public_redirect.continue_.assert_awaited_once_with()
-    public_redirect.abort.assert_not_awaited()
-
-    private_redirect = AsyncMock()
-    private_redirect.request.url = 'http://127.0.0.1/admin'
-    await guard_request(private_redirect)
-    private_redirect.abort.assert_awaited_once_with('blockedbyclient')
-    private_redirect.continue_.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_screenshot_visit_rejects_a_non_public_discovered_host(monkeypatch) -> None:
-    sessions = []
+async def test_screenshot_visit_uses_an_http_proxy(monkeypatch) -> None:
+    response = MagicMock()
+    response.url = 'https://example.com'
+    response.__aenter__ = AsyncMock(return_value=response)
+    response.__aexit__ = AsyncMock(return_value=False)
+    response.text = AsyncMock(return_value='reachable')
+    session = MagicMock()
+    session.__aenter__ = AsyncMock(return_value=session)
+    session.__aexit__ = AsyncMock(return_value=False)
+    session.get.return_value = response
+    monkeypatch.setattr(screenshot_module.aiohttp, 'ClientSession', MagicMock(return_value=session))
+    monkeypatch.setattr(screenshot_module.aiohttp, 'TCPConnector', MagicMock())
+    monkeypatch.setattr(screenshot_module.ssl, 'create_default_context', MagicMock())
 
-    def unexpected_session(*_args, **_kwargs):
-        sessions.append(True)
-        raise AssertionError('HTTP session should not be created')
+    result = await ScreenShotter.visit('example.com', proxy='http://proxy.example:8080')
 
-    monkeypatch.setattr(screenshot_module.aiohttp, 'ClientSession', unexpected_session)
-
-    result = await ScreenShotter.visit('100.64.0.1')
-
-    assert result == ('', '')
-    assert sessions == []
-
-
-@pytest.mark.asyncio
-async def test_screenshot_visit_refuses_an_unpinned_proxy(monkeypatch) -> None:
-    sessions = []
-
-    def unexpected_session(*_args, **_kwargs):
-        sessions.append(True)
-        raise AssertionError('HTTP session should not be created')
-
-    monkeypatch.setattr(screenshot_module.aiohttp, 'ClientSession', unexpected_session)
-
-    result = await ScreenShotter.visit('192.0.2.1', proxy='http://proxy.example:8080')
-
-    assert result == ('', '')
-    assert sessions == []
-
-
-@pytest.mark.asyncio
-async def test_screenshot_capture_rejects_a_non_public_discovered_host(monkeypatch) -> None:
-    launches = []
-
-    def unexpected_playwright():
-        launches.append(True)
-        raise AssertionError('Playwright should not launch')
-
-    monkeypatch.setattr(screenshot_module, 'async_playwright', unexpected_playwright)
-
-    await ScreenShotter('/tmp/wayfinder').take_screenshot('100.64.0.1')
-
-    assert launches == []
+    assert result == ('https://example.com', 'reachable')
+    assert session.get.call_args.kwargs == {'proxy': 'http://proxy.example:8080'}
 
 
 @pytest.mark.asyncio
 async def test_screenshot_capture_is_owner_only(tmp_path, monkeypatch) -> None:
-    websocket_closes = []
-
-    class Resolver:
-        async def resolve(self, *_args, **_kwargs):
-            return [{'host': '192.0.2.1'}]
-
     class Page:
         async def goto(self, *_args, **_kwargs):
             return None
@@ -188,16 +127,6 @@ async def test_screenshot_capture_is_owner_only(tmp_path, monkeypatch) -> None:
             return None
 
     class Context:
-        async def route(self, *_args, **_kwargs):
-            return None
-
-        async def route_web_socket(self, _pattern, handler):
-            class WebSocket:
-                async def close(self, **_kwargs):
-                    websocket_closes.append(True)
-
-            await handler(WebSocket())
-
         async def new_page(self):
             return Page()
 
@@ -226,10 +155,8 @@ async def test_screenshot_capture_is_owner_only(tmp_path, monkeypatch) -> None:
         async def launch(self, **_kwargs):
             return Browser()
 
-    monkeypatch.setattr(screenshot_module, 'PublicResolver', Resolver)
     monkeypatch.setattr(screenshot_module, 'async_playwright', Playwright)
 
     await ScreenShotter(str(tmp_path)).take_screenshot('example.com')
 
     assert stat.S_IMODE((tmp_path / 'example.com.png').stat().st_mode) == 0o600
-    assert websocket_closes == [True]

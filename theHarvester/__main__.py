@@ -182,10 +182,7 @@ async def start(
     parser.add_argument(
         '-p',
         '--proxies',
-        help=(
-            'Use proxies.yaml for supported discovery-source requests. Direct takeover, screenshot, and API-path '
-            'checks connect directly so their target addresses can be validated.'
-        ),
+        help='Use proxies.yaml for supported discovery-source and takeover requests.',
         default=False,
         action='store_true',
     )
@@ -212,7 +209,7 @@ async def start(
     parser.add_argument(
         '-t',
         '--take-over',
-        help='Check discovered hosts for known takeover indicators. The takeover check bypasses configured proxies.',
+        help='Check discovered hosts for known takeover indicators, using configured proxies when enabled.',
         default=False,
         action='store_true',
     )
@@ -270,7 +267,7 @@ async def start(
     parser.add_argument(
         '-a',
         '--api-scan',
-        help='Check common API paths with GET, HEAD, and OPTIONS. Requests do not use proxies or follow redirects.',
+        help='Check common API paths with GET, HEAD, and OPTIONS. Requests follow redirects.',
         action='store_true',
     )
     parser.add_argument(
@@ -1800,11 +1797,9 @@ async def start(
     if takeover_status:
         output_logger.info('\n[*] Performing subdomain takeover check')
         output_logger.info('\n[*] Subdomain Takeover checking IS ACTIVE RECON')
-        if use_proxy:
-            output_logger.info('[!] Takeover checks bypass configured proxies so validated target addresses remain pinned')
         search_take = takeover.TakeOver(all_hosts)
         await search_take.populate_fingerprints()
-        await search_take.process(proxy=False)
+        await search_take.process(proxy=use_proxy)
         takeover_results = await search_take.get_takeover_results()
         await checkpoint_completed_result()
     # DNS reverse lookup

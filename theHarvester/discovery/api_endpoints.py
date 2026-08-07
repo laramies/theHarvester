@@ -1,4 +1,4 @@
-"""Check common API paths on an authorized public target."""
+"""Check common API paths on an authorized target."""
 
 import asyncio
 import json
@@ -12,7 +12,6 @@ from urllib.parse import urlparse
 import aiohttp
 
 from theHarvester.lib.core import AsyncFetcher, Core
-from theHarvester.lib.public_egress import PublicResolver
 
 logger = logging.getLogger(__name__)
 
@@ -53,22 +52,20 @@ class SearchApiEndpoints:
         timeout: int = 10,
         proxy: str | None = None,
         user_agent: str | None = None,
-        follow_redirects: bool = False,
+        follow_redirects: bool = True,
         verify_ssl: bool = True,
         additional_headers: dict[str, str] | None = None,
     ) -> None:
         """Configure an API path scan.
 
         Args:
-            word: Public hostname to scan.
+            word: Hostname to scan.
             wordlist: Path to an optional endpoint wordlist.
             concurrency: Maximum number of requests in flight.
             timeout: Timeout for each request, in seconds.
-            proxy: Kept for caller compatibility. A configured proxy makes the scan refuse to run because the target
-                address cannot be pinned through it.
+            proxy: Optional HTTP proxy URL.
             user_agent: HTTP User-Agent value. The default comes from ``Core``.
-            follow_redirects: Kept for caller compatibility. Redirects are always disabled so a response cannot move
-                the scan outside the authorized target.
+            follow_redirects: Whether requests follow redirects.
             verify_ssl: Whether to verify TLS certificates.
             additional_headers: Extra HTTP headers to send.
 
@@ -89,7 +86,7 @@ class SearchApiEndpoints:
         self.proxy = proxy
         self.concurrency = concurrency
         self.timeout = timeout
-        self.follow_redirects = False
+        self.follow_redirects = follow_redirects
         self.verify_ssl = verify_ssl
         self.semaphore = asyncio.Semaphore(concurrency)
         self.user_agent = user_agent or Core.get_user_agent()
@@ -386,16 +383,10 @@ class SearchApiEndpoints:
         self.logger = logger
 
     async def do_search(self) -> None:
-        """Check common paths with GET, HEAD, and OPTIONS on a pinned public target."""
+        """Check common paths with GET, HEAD, and OPTIONS."""
         session: aiohttp.ClientSession | None = None
         try:
-            if self.proxy:
-                self.logger.warning('API endpoint scan skipped because a proxy cannot guarantee the validated target address')
-                return
-            resolver = PublicResolver()
-            await resolver.resolve(self.word, 443)
             session = aiohttp.ClientSession(
-                connector=aiohttp.TCPConnector(resolver=resolver),
                 headers=self._get_headers(),
                 timeout=aiohttp.ClientTimeout(total=self.timeout),
             )
@@ -451,7 +442,7 @@ class SearchApiEndpoints:
                 https_url,
                 proxy=self.proxy,
                 ssl=self.verify_ssl,
-                allow_redirects=False,
+                allow_redirects=self.follow_redirects,
             ):
                 return 'https'
         except (aiohttp.ClientConnectionError, TimeoutError) as error:
@@ -514,7 +505,7 @@ class SearchApiEndpoints:
                     headers=headers,
                     proxy=self.proxy,
                     verify=self.verify_ssl,
-                    follow_redirects=False,
+                    follow_redirects=self.follow_redirects,
                     request_timeout=self.timeout,
                 )
 

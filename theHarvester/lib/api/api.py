@@ -397,26 +397,17 @@ async def query(
     ] = '',
     proxies: Annotated[
         bool,
-        Query(
-            description=(
-                'Use proxies.yaml for supported discovery-source requests. Direct takeover and API-path checks '
-                'connect directly so their target addresses can be validated.'
-            )
-        ),
+        Query(description='Use proxies.yaml for supported discovery-source and takeover requests.'),
     ] = False,
     shodan: Annotated[bool, Query(description='Use Shodan to query discovered hosts')] = False,
     take_over: Annotated[
         bool,
-        Query(
-            description=('Check discovered hosts for known takeover indicators. The takeover check bypasses configured proxies.')
-        ),
+        Query(description='Check discovered hosts for known takeover indicators, using configured proxies when enabled.'),
     ] = False,
     wordlist: Annotated[str, Query(description='Path to the endpoint wordlist used by api_scan')] = '',
     api_scan: Annotated[
         bool,
-        Query(
-            description=('Check common API paths with GET, HEAD, and OPTIONS. Requests do not use proxies or follow redirects.')
-        ),
+        Query(description='Check common API paths with GET, HEAD, and OPTIONS. Requests follow redirects.'),
     ] = False,
     limit: Annotated[int, Query(description='Maximum results requested from each source that supports result limits')] = 500,
     start: Annotated[int, Query(description='Result offset for sources that support pagination')] = 0,

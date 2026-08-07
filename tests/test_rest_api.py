@@ -91,10 +91,12 @@ def test_query_documents_safe_recursive_dns_query_default() -> None:
 def test_query_documents_proxy_and_direct_action_scope() -> None:
     parameters = {parameter['name']: parameter for parameter in api.app.openapi()['paths']['/query']['get']['parameters']}
 
-    assert parameters['proxies']['description'].startswith('Use proxies.yaml for supported discovery-source requests.')
-    assert 'bypasses configured proxies' in parameters['take_over']['description']
+    assert parameters['proxies']['description'] == (
+        'Use proxies.yaml for supported discovery-source and takeover requests.'
+    )
+    assert 'using configured proxies when enabled' in parameters['take_over']['description']
     assert parameters['api_scan']['description'] == (
-        'Check common API paths with GET, HEAD, and OPTIONS. Requests do not use proxies or follow redirects.'
+        'Check common API paths with GET, HEAD, and OPTIONS. Requests follow redirects.'
     )
     assert parameters['dns_server']['description'] == (
         'Accepted for compatibility but currently unused; use dns_resolve to select resolvers.'
