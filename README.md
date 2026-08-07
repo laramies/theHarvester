@@ -79,11 +79,11 @@ uv run theHarvester -h
 
 Options such as DNS brute force (`-c`), bounded recursive DNS (`--dns-recursive-depth`), reverse DNS lookup (`-n`), takeover checks (`-t`), API endpoint scanning (`-a`), DNS resolution (`-r`), and screenshots (`--screenshot`) generate additional network activity. Use them only within an explicitly authorized scope.
 
-Recursive DNS requires exactly three distinct resolver IPs through `--dns-resolve`. It advances only names with two-vantage address consensus that are distinguishable from closest-encloser wildcard controls. Depth, DNS record query, and runtime limits are configurable through the three `--dns-recursive-*` options; the default query ceiling is 3,000 record queries across resolver vantages, and three consecutive zero-yield batches also stop recursion. PTR names for current addresses are retained as secondary evidence, but they do not establish current addressability or become recursion seeds. REST `/query` exposes the same options and requires the configured operator API key when recursion is enabled.
+Recursive DNS requires exactly three distinct resolver IPs through `--dns-resolve`. It advances only names with two-vantage address consensus that are distinguishable from closest-encloser wildcard controls. Depth, DNS record query, and runtime limits are configurable through the three `--dns-recursive-*` options; the default query ceiling is 3,000 record queries across resolver vantages, and three consecutive zero-yield batches also stop recursion. PTR names for current addresses are retained as secondary evidence, but they do not establish current addressability or become recursion seeds. `POST /api/v1/runs` exposes the same controls.
 
 Screenshot capture also requires a Playwright-compatible browser; see the installation guide for setup.
 
-## Browser interface and REST API
+## REST API
 
 `restfulHarvest` starts a FastAPI service on `127.0.0.1:5000` by default:
 
@@ -95,24 +95,17 @@ Open [http://127.0.0.1:5000/docs](http://127.0.0.1:5000/docs) for interactive Sw
 
 | Route | Purpose |
 | --- | --- |
-| `GET /sources` | List registered discovery sources. |
-| `GET /query` | Return consolidated discovery results, including emails and breach names, as JSON. |
-| `GET /dnsbrute` | Run DNS brute force for a domain. |
-| `POST /additional/breaches` | Return Have I Been Pwned breach data. |
-| `POST /additional/leaks` | Return Leak-Lookup data. |
-| `POST /additional/security-score` | Return SecurityScorecard data. |
-| `POST /additional/tech-stack` | Return BuiltWith technology data. |
-| `POST /additional/all` | Run all additional API lookups. |
+| `GET /api/v1/sources` | List registered discovery sources and capabilities. |
+| `POST /api/v1/runs` | Submit a finite enumeration run. |
+| `GET /api/v1/runs` | List durable run records. |
+| `GET /api/v1/runs/{run_id}` | Retrieve lifecycle state, normalized results, and source outcomes. |
+| `POST /api/v1/runs/{run_id}/cancel` | Cancel queued or running work. |
+| `POST /api/v1/runs/import` | Import JSON or JSONL evidence without executing discovery. |
+| `GET /api/v1/runs/{run_id}/exports/{format}` | Export normalized JSON or CSV. |
 
-The service rate limit defaults to five requests per minute and can be changed with `--rate-limit`. The `/additional/*` routes require `THEHARVESTER_API_KEY` on the server and the same value in the `X-API-Key` request header.
+The service rate limit defaults to five requests per minute and can be changed with `--rate-limit`. Every `/api/v1/*` route requires `THEHARVESTER_API_KEY` in the `X-API-Key` header. Provider credentials stay in server-side configuration and cannot be supplied in a request. Keep the service bound to localhost. If you require remote access, add network access controls and TLS.
 
-The core `/query`, `/sources`, and `/dnsbrute` routes do not normally require authentication. When a `/query` selection includes `dehashed`, `hibpverified`, or `leaklookup` and that source's provider key is configured, the request requires `THEHARVESTER_API_KEY` in the `X-API-Key` header because these sources can access breach-account data. Keep the service bound to localhost. If you require remote access, add authentication, access controls, and TLS.
-
-Docker Compose publishes port `5000` on every host interface unless you narrow the port mapping:
-
-```bash
-docker compose up --build
-```
+When `--proxies` and `--take-over` are combined, supported discovery and takeover requests use the configured proxies.
 
 ## Discovery sources
 
@@ -121,7 +114,7 @@ The table shows which result types each source can add to consolidated CLI resul
 The report groups findings by result type. It does not record which source found each item. Empty optional fields may be omitted.
 BuiltWith's normalized frameworks, languages, servers, CMS products, and analytics products are retained in JSONL and completed-result SQLite rows.
 
-A checkmark means the source can add that result type. The **Separate output** column lists REST endpoints and optional actions that return other data.
+A checkmark means the source can add that result type. The **Additional action output** column lists optional actions that return other data.
 
 Read the **API key** column as follows:
 
@@ -132,13 +125,13 @@ Read the **API key** column as follows:
 <details>
 <summary><strong>View the source and result matrix</strong></summary>
 
-| Source | Subdomains | Emails | IPs | ASNs | URLs / links | People | Breaches | Separate REST/action output (not consolidated report) | API key |
+| Source | Subdomains | Emails | IPs | ASNs | URLs / links | People | Breaches | Additional action output (not consolidated report) | API key |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | --- | :---: |
 | `arquivo` | ✓ | No | No | No | No | No | No | No | No |
 | `baidu` | ✓ | ✓ | No | No | No | No | No | No | No |
 | `bevigil` | ✓ | No | No | No | ✓ | No | No | No | ✓ |
 | `bufferoverun` | ✓ | No | ✓ | No | No | No | No | No | ✓ |
-| `builtwith` | ✓ | No | No | No | ✓ | No | No | `POST /additional/tech-stack` response | ✓ |
+| `builtwith` | ✓ | No | No | No | ✓ | No | No | No | ✓ |
 | `brave` | ✓ | ✓ | No | No | No | No | No | No | ✓ |
 | `censys` | ✓ | ✓ | No | No | No | No | No | No | ✓ |
 | `certspotter` | ✓ | No | No | No | No | No | No | No | No |
@@ -156,14 +149,14 @@ Read the **API key** column as follows:
 | `github-code` | ✓ | ✓ | No | No | No | No | No | No | ✓ |
 | `gitlab` | ✓ | ✓ | No | No | ✓ | No | No | No | No |
 | `hackertarget` | ✓ | No | No | No | No | No | No | No | Optional |
-| `haveibeenpwned` | No | No | No | No | No | No | ✓ | `POST /additional/breaches` response | No |
+| `haveibeenpwned` | No | No | No | No | No | No | ✓ | No | No |
 | `hibpverified` | No | ✓ | No | No | No | No | ✓ | No | ✓ |
 | `hudsonrock` | ✓ | ✓ | ✓ | No | No | No | No | No | No |
 | `hunter` | ✓ | ✓ | No | No | No | No | No | No | ✓ |
 | `hunterhow` | ✓ | No | No | No | No | No | No | No | ✓ |
 | `intelx` | ✓ | ✓ | No | No | ✓ | No | No | No | ✓ |
 | `leakix` | ✓ | No | No | No | No | No | No | No | ✓ |
-| `leaklookup` | No | ✓ | No | No | No | No | ✓ | `POST /additional/leaks` response | ✓ |
+| `leaklookup` | No | ✓ | No | No | No | No | ✓ | No | ✓ |
 | `mojeek` | ✓ | ✓ | No | No | No | No | No | No | Optional |
 | `netlas` | ✓ | No | No | No | No | No | No | No | ✓ |
 | `onyphe` | ✓ | No | ✓ | ✓ | No | No | No | No | ✓ |
@@ -173,7 +166,7 @@ Read the **API key** column as follows:
 | `rapiddns` | ✓ | No | ✓ | No | No | No | No | No | No |
 | `robtex` | ✓ | No | ✓ | No | No | No | No | No | No |
 | `rocketreach` | No | ✓ | No | No | ✓ | No | No | No | ✓ |
-| `securityscorecard` | ✓ | No | ✓ | No | No | No | No | `POST /additional/security-score` response | ✓ |
+| `securityscorecard` | ✓ | No | ✓ | No | No | No | No | No | ✓ |
 | `securityTrails` | ✓ | No | ✓ | No | No | No | No | No | ✓ |
 | `sherlockeye` | ✓ | ✓ | ✓ | No | No | No | No | No | ✓ |
 | `shodan` | ✓ | No | No | No | No | No | No | `-s` / `--shodan` host-enrichment output | ✓ |
@@ -195,7 +188,7 @@ Read the **API key** column as follows:
 
 Provider pricing is intentionally omitted because plans and quotas change frequently. See [Configuration and API Keys](docs/wiki/Configuration-and-API-Keys.md) and each provider's current documentation.
 
-`haveibeenpwned` remains the keyless public breach catalogue. `hibpverified` is a separate authenticated source for HIBP's `breachedDomain` endpoint. It participates in `all` and matching capability selectors just like every other P0 source, and skips normally when its provider key is absent. REST selections that include it require the operator `X-API-Key` when the provider key is configured and return normalized emails plus stable breach names. A live run requires a user-owned paid HIBP API key and a user-owned domain verified in that account; routine tests use offline responses.
+`haveibeenpwned` remains the keyless public breach catalogue. `hibpverified` is a separate authenticated source for HIBP's `breachedDomain` endpoint. It participates in `all` and matching capability selectors just like every other P0 source, and skips normally when its provider key is absent. API run requests can select it through the shared source contract and return normalized emails plus stable breach names. A live run requires a user-owned paid HIBP API key and a user-owned domain verified in that account; routine tests use offline responses.
 
 The runtime registry also reports the legacy identifiers `linkedin`, `linkedin_links`, `netcraft`, `omnisint`, `sublist3r`, and `zoomeyeapi`. These identifiers have no active CLI handlers. The table does not present them as usable sources.
 
@@ -214,8 +207,8 @@ Never commit populated configuration files, API keys, account details, or provid
 - `-f NAME` writes `NAME.json`, `NAME.xml`, and `NAME.jsonl`.
 - Screenshots are written to the directory passed to `--screenshot`.
 - Host, email, IP, and related scan records are stored in `~/.local/share/theHarvester/stash.sqlite`.
-- Completed CLI, REST query, and DNS-brute utility runs are stored transactionally by run UUID with their deduplicated findings.
-- REST queries return JSON.
+- Full CLI pipeline runs are also stored transactionally by run UUID with their completed, deduplicated findings.
+- API executions use durable run records with separate lifecycle and evidence status, typed `results`, and `source_executions`. JSON and CSV exports use the same normalized result list.
 
 Treat collected OSINT as potentially sensitive. Keep report files, screenshots, and the local database out of source control and share them only within the authorized engagement.
 

@@ -1,25 +1,17 @@
 # REST API
 
-`restfulHarvest` runs a FastAPI service for local automation and interactive Swagger/ReDoc documentation.
+`restfulHarvest` serves one versioned API for local automation.
 
 ## Start the service
 
+Set a long random API key before startup:
+
 ```bash
+export THEHARVESTER_API_KEY='replace-with-a-long-random-value'
 uv run restfulHarvest
 ```
 
-Defaults:
-
-- host: `127.0.0.1`
-- port: `5000`
-- log level: `info`
-- rate limit: `5/minute` per client address
-
-Use `uv run restfulHarvest -h` for current launcher options. For example:
-
-```bash
-uv run restfulHarvest --rate-limit 10/minute
-```
+The service binds to `127.0.0.1:5000` by default. Use `uv run restfulHarvest -h` for launcher options.
 
 Open:
 
@@ -28,104 +20,103 @@ Open:
 
 Treat the runtime OpenAPI document as the exact request and response reference.
 
-## Core routes
+## Routes
 
 | Route | Purpose |
 | --- | --- |
-| `GET /sources` | List current discovery sources. |
-| `GET /query` | Run selected discovery sources and return consolidated JSON. |
-| `GET /dnsbrute` | Run active DNS brute force for an authorized domain. |
-| `GET /runs` | List recent completed enumeration runs. |
-| `GET /runs/{run_id}` | Retrieve one completed run and its normalized evidence. |
+| `GET /api/v1/sources` | List discovery sources, capabilities, activity classes, and credential names. |
+| `POST /api/v1/runs` | Submit one finite enumeration run. |
+| `GET /api/v1/runs` | List run records. |
+| `GET /api/v1/runs/{run_id}` | Retrieve lifecycle state, options, results, source outcomes, and artifacts. |
+| `POST /api/v1/runs/{run_id}/cancel` | Cancel queued work or request cancellation of running work. |
+| `POST /api/v1/runs/import` | Import a JSON or JSONL result file without executing discovery. |
+| `GET /api/v1/runs/{run_id}/exports/{format}` | Export normalized results as `json` or `csv`. |
+| `GET /api/v1/runs/{run_id}/screenshots/{name}` | Retrieve one managed screenshot. |
 
-List sources:
+There are no provider-specific routes. Sources such as `builtwith`, `haveibeenpwned`, `hibpverified`, `leaklookup`, and `securityscorecard` use the same run request as every other source.
 
-```bash
-curl -s http://127.0.0.1:5000/sources | jq -r '.sources[]'
-```
+## Fresh-start migration
 
-Run a passive query:
+The unversioned API was removed without compatibility routes or redirects. Update clients as follows:
 
-```bash
-curl -sG http://127.0.0.1:5000/query \
-  --data-urlencode 'domain=example.com' \
-  --data-urlencode 'source=crtsh' \
-  --data-urlencode 'source=certspotter' \
-  | jq
-```
+| Removed route | Replacement |
+| --- | --- |
+| `GET /sources` | `GET /api/v1/sources` |
+| `GET /query` | Submit with `POST /api/v1/runs`, then read `GET /api/v1/runs/{run_id}`. |
+| `GET /dnsbrute` | Submit a run with `dns_brute: true`. |
+| `POST /additional/*` | Select the corresponding provider through `POST /api/v1/runs`. |
 
-The `source` parameter also accepts the same capability selectors as the CLI:
-`subdomains`, `emails`, `ips`, `asns`, `urls`, `people`, and `breaches`.
-Repeat `source` to combine capabilities with explicit source names. Selection is
-a union and does not filter fields returned by a selected source.
+The versioned API is asynchronous by design. A successful submission returns a durable run record instead of waiting for every provider and action to finish.
 
-```bash
-curl -sG http://127.0.0.1:5000/query \
-  --data-urlencode 'domain=example.com' \
-  --data-urlencode 'source=emails' \
-  --data-urlencode 'source=certspotter' \
-  | jq
-```
+## Authentication
 
-A completed `/query` also retains its normalized terminal record in the local
-SQLite database. No JSON, XML, or JSONL report file is written unless `filename`
-is supplied.
-
-HIBP verified-domain participates in `all`, `emails`, and `breaches` selections.
-When its provider key is configured, any selection that includes it also requires
-the operator API key:
+Every `/api/v1/*` route requires the configured key in `X-API-Key`:
 
 ```bash
-curl -sG http://127.0.0.1:5000/query \
-  -H "X-API-Key: $THEHARVESTER_API_KEY" \
-  --data-urlencode "domain=$VERIFIED_DOMAIN" \
-  --data-urlencode 'source=hibpverified' \
-  | jq '{emails, breaches}'
-```
-
-Completed-run routes require the operator API key because retained evidence can
-contain sensitive results:
-
-```bash
-curl -s http://127.0.0.1:5000/runs \
+curl -s http://127.0.0.1:5000/api/v1/sources \
   -H "X-API-Key: $THEHARVESTER_API_KEY" \
   | jq
 ```
 
-## Additional API routes
+Provider credentials remain in theHarvester's server-side configuration. Requests cannot supply provider API keys.
 
-The following `POST /additional/*` routes provide optional breach, leak, security-score, and technology-stack lookups:
+## Submit and inspect a run
 
-- `/additional/breaches`
-- `/additional/leaks`
-- `/additional/security-score`
-- `/additional/tech-stack`
-- `/additional/all`
-
-Set a server key before startup:
+Source names and capability selectors share the `sources` array. Multiple capabilities select the union of matching sources and do not filter fields returned by those sources.
 
 ```bash
-export THEHARVESTER_API_KEY='replace-with-a-long-random-value'
-uv run restfulHarvest
+run_id="$(curl -s http://127.0.0.1:5000/api/v1/runs \
+    -X POST \
+    -H "X-API-Key: $THEHARVESTER_API_KEY" \
+    -H 'Content-Type: application/json' \
+    -d '{
+      "target": "example.com",
+      "sources": ["emails", "crtsh"],
+      "limit": 500,
+      "deadline_seconds": 1800
+    }' \
+  | jq -r '.run_id')"
+
+curl -s "http://127.0.0.1:5000/api/v1/runs/$run_id" \
+  -H "X-API-Key: $THEHARVESTER_API_KEY" \
+  | jq '{status, evidence_status, results, source_executions}'
 ```
 
-Send that value in `X-API-Key`:
+Run submission is asynchronous. Lifecycle status is `queued`, `running`, `cancelling`, `cancelled`, `completed`, or `failed`. Terminal evidence status is reported separately as `complete`, `partial`, or `failed` when evidence exists.
+
+P1 DNS and P2 direct options are fields on the same run request. The OpenAPI schema shows their current defaults, limits, and descriptions. The server uses the operator-selected target and does not impose a public-only egress policy.
+
+## Import and export
+
+Import records existing evidence and never contacts the target. JSONL imports accept the same `theharvester-results-v1` report written by `theHarvester -f NAME`:
 
 ```bash
-curl -s http://127.0.0.1:5000/additional/tech-stack \
+curl -s "http://127.0.0.1:5000/api/v1/runs/import?filename=report.jsonl" \
   -X POST \
   -H "X-API-Key: $THEHARVESTER_API_KEY" \
-  -H 'Content-Type: application/json' \
-  -d '{"domain":"example.com"}' \
+  -H 'Content-Type: application/x-ndjson' \
+  --data-binary @report.jsonl \
   | jq
 ```
 
-These routes may also require provider credentials in the request body or local configuration. Consult `/docs` for the current schema.
+That CLI JSONL format does not contain source outcomes, so its imported evidence status is `partial` rather than an invented success claim. `hostname` and `ip-address` findings are exposed through the API's canonical `subdomain` and `ip` result types.
+
+Export one normalized result set:
+
+```bash
+curl -s "http://127.0.0.1:5000/api/v1/runs/$run_id/exports/json" \
+  -H "X-API-Key: $THEHARVESTER_API_KEY" \
+  -o results.json
+```
+
+The JSON export contains run and evidence IDs, target, lifecycle and evidence status, timestamps, the submitted request, source outcomes, and the normalized `results` array. The CSV export has a stable header:
+
+```text
+"type","value","dns_status"
+```
+
+Fields are quoted in the CSV response. Per-result source attribution is omitted until the collection seam can retain it truthfully; source outcomes remain available in the JSON export.
 
 ## Security boundary
 
-`THEHARVESTER_API_KEY` protects `/additional/*`, `/runs*`, and `/query` selections that include a configured `hibpverified` source. Other `/query` requests, `/sources`, and `/dnsbrute` remain unauthenticated.
-
-Keep the default localhost binding. If you require remote access, add authentication, network allowlists, TLS, request logging, and an appropriate rate limit.
-
-The supplied Docker Compose configuration binds host port `5000` on every interface unless you narrow the mapping.
+Keep the default localhost binding. If remote access is required, add TLS, network access controls, request logging, and an appropriate rate limit. The supplied Docker Compose configuration publishes only to `127.0.0.1` by default.

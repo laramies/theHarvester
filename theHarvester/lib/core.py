@@ -106,6 +106,10 @@ class Core:
         return keys['apikeys']
 
     @staticmethod
+    def api_key_fields() -> dict[str, tuple[str, ...]]:
+        return dict(Core._API_KEY_FIELDS)
+
+    @staticmethod
     def _api_key_value(provider: str) -> Any:
         provider_keys = Core.api_keys()[provider]
         fields = Core._API_KEY_FIELDS[provider]
