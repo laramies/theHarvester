@@ -81,6 +81,10 @@ def test_dehashed_declares_its_normalized_email_and_ip_routes() -> None:
     assert SOURCE_SPECS['dehashed'].routes == frozenset({ResultRoute.EMAILS, ResultRoute.IPS})
 
 
+def test_leakix_declares_only_its_documented_subdomain_route() -> None:
+    assert SOURCE_SPECS['leakix'].routes == frozenset({ResultRoute.SUBDOMAINS})
+
+
 def test_unavailable_venacus_source_is_not_selectable() -> None:
     assert 'venacus' not in Core.get_supportedengines()
     assert 'venacus' not in SOURCE_SPECS

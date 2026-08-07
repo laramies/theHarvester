@@ -162,7 +162,7 @@ Read the **API key** column as follows:
 | `hunter` | ✓ | ✓ | No | No | No | No | No | No | ✓ |
 | `hunterhow` | ✓ | No | No | No | No | No | No | No | ✓ |
 | `intelx` | ✓ | ✓ | No | No | ✓ | No | No | No | ✓ |
-| `leakix` | ✓ | ✓ | No | No | No | No | No | No | Optional |
+| `leakix` | ✓ | No | No | No | No | No | No | No | ✓ |
 | `leaklookup` | No | ✓ | No | No | No | No | ✓ | `POST /additional/leaks` response | ✓ |
 | `mojeek` | ✓ | ✓ | No | No | No | No | No | No | Optional |
 | `netlas` | ✓ | No | No | No | No | No | No | No | ✓ |

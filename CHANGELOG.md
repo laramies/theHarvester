@@ -45,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed the nonfunctional ThreatCrowd source because its service hostnames terminate at deleted AWS load balancers and return NXDOMAIN; OTX remains available through its separate adapter.
 
 ### Fixed
+- Made DeHashed pagination honor the CLI limit, retain only normalized email and IP evidence, and discard raw breach rows; aligned LeakIX with its authenticated subdomain endpoint and documented rate-limit retry.
 - Added offline contracts for explicitly selected DNS and direct sources, retained normalized Pentest-Tools host and IP results, and hardened Shodan InternetDB, SubdomainFinder C99, and Windvane evidence boundaries.
 - Retained relevant GitLab project, profile, and website URLs in consolidated JSONL and SQLite results while excluding unrelated user URLs.
 - Removed BuiltWith's duplicate interesting-URL getter by allowing the shared collector to use either established getter spelling.

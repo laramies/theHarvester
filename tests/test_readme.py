@@ -19,7 +19,7 @@ ROUTE_COLUMNS = {
     ResultRoute.PEOPLE: 'People',
     ResultRoute.BREACHES: 'Breaches',
 }
-OPTIONAL_API_KEY_SOURCES = {'hackertarget', 'leakix', 'mojeek', 'windvane'}
+OPTIONAL_API_KEY_SOURCES = {'hackertarget', 'mojeek', 'windvane'}
 API_KEY_SOURCE_ALIASES = {
     'github': {'github-code'},
     'pentestTools': {'pentesttools'},

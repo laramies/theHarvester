@@ -909,6 +909,9 @@ async def start(
                                 engineitem,
                             )
                         )
+                    except MissingKey as e:
+                        if not args.quiet:
+                            output_logger.info(e)
                     except Exception as e:
                         show_default_error_message(engineitem, word, e)
 
