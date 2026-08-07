@@ -184,7 +184,6 @@ Read the **API key** column as follows:
 | `thc` | ✓ | No | No | No | No | No | No | No | No |
 | `tomba` | ✓ | ✓ | No | No | No | No | No | No | ✓ |
 | `urlscan` | ✓ | No | ✓ | ✓ | ✓ | No | No | No | No |
-| `venacus` | No | ✓ | ✓ | No | ✓ | ✓ | No | No | ✓ |
 | `virustotal` | ✓ | No | No | No | No | No | No | No | ✓ |
 | `waybackarchive` | ✓ | No | No | No | No | No | No | No | No |
 | `whoisxml` | ✓ | No | No | No | No | No | No | No | ✓ |

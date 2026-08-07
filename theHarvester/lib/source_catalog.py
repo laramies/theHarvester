@@ -38,6 +38,7 @@ _ROUTE_CAPABILITIES = {
     ResultRoute.INTERESTING_URLS: 'urls',
     ResultRoute.BREACHES: 'breaches',
 }
+RESULT_CAPABILITIES = frozenset(_ROUTE_CAPABILITIES.values())
 
 
 @dataclass(frozen=True)
@@ -125,7 +126,6 @@ _SPECS = (
     _spec('thc', ResultRoute.SUBDOMAINS),
     _spec('tomba', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec('urlscan', ResultRoute.SUBDOMAINS, ResultRoute.IPS, ResultRoute.ASNS, ResultRoute.INTERESTING_URLS),
-    _spec('venacus', ResultRoute.EMAILS, ResultRoute.IPS, ResultRoute.PEOPLE, ResultRoute.INTERESTING_URLS),
     _spec('virustotal', ResultRoute.SUBDOMAINS),
     _spec('waybackarchive', ResultRoute.SUBDOMAINS),
     _spec('whoisxml', ResultRoute.SUBDOMAINS),

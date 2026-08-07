@@ -74,7 +74,6 @@ from theHarvester.discovery import (
     thc,
     tombasearch,
     urlscan,
-    venacussearch,
     virustotal,
     waybackarchive,
     whoisxml,
@@ -1263,22 +1262,6 @@ async def start(
                     except Exception as e:
                         if not args.quiet:
                             output_logger.info(f'Unexpected error occurred in Urlscan module: {e}')
-
-                elif engineitem == 'venacus':
-                    try:
-                        venacus_search = venacussearch.SearchVenacus(word=word, limit=limit, offset_doc=start)
-                        stor_lst.append(
-                            store(
-                                venacus_search,
-                                engineitem,
-                            )
-                        )
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            if not args.quiet:
-                                output_logger.info(f'A Missing Key error occurred in venacus search: {e}')
-                        else:
-                            output_logger.info(f'An exception has occurred in venacus search: {e}')
 
                 elif engineitem == 'virustotal':
                     try:
