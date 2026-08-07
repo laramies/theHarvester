@@ -10,6 +10,7 @@ import sys
 import time
 import traceback
 from collections.abc import Iterable
+from contextlib import AsyncExitStack
 from datetime import UTC, datetime
 from ipaddress import ip_address
 from typing import TYPE_CHECKING, Any
@@ -85,8 +86,15 @@ from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib import hostchecker, stash
 from theHarvester.lib.completed_result import CompletedResult, ResultKind
 from theHarvester.lib.core import DATA_DIR, Core, show_default_error_message
+from theHarvester.lib.dns_consensus import AioDNSResolverVantage
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.output import configure_logging, output_logger, print_linkedin_sections, print_section, sorted_unique
+from theHarvester.lib.recursive_dns import (
+    DEFAULT_RECURSIVE_DNS_QUERY_LIMIT,
+    RecursiveDNSLimits,
+    RecursiveDNSResult,
+    discover_recursive_dns,
+)
 from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass, ResultRoute, get_source_spec
 from theHarvester.screenshot.screenshot import ScreenShotter
 
@@ -218,6 +226,24 @@ async def start(
         action='store_true',
     )
     parser.add_argument(
+        '--dns-recursive-depth',
+        help='Recursively discover DNS names beneath currently addressable parents to this depth.',
+        default=0,
+        type=int,
+    )
+    parser.add_argument(
+        '--dns-recursive-query-limit',
+        help='Maximum DNS record queries across resolver vantages for recursive DNS discovery.',
+        default=DEFAULT_RECURSIVE_DNS_QUERY_LIMIT,
+        type=int,
+    )
+    parser.add_argument(
+        '--dns-recursive-runtime-seconds',
+        help='Maximum runtime in seconds for recursive DNS discovery.',
+        default=60.0,
+        type=float,
+    )
+    parser.add_argument(
         '-f',
         '--filename',
         help='Save the results to XML, JSON, and JSONL files.',
@@ -312,8 +338,7 @@ async def start(
                     if len(line) == 0:
                         continue
                     try:
-                        _ = netaddr.IPAddress(line)
-                        final_dns_resolver_list.append(line)
+                        final_dns_resolver_list.append(str(netaddr.IPAddress(line)))
                     except (netaddr.core.AddrFormatError, ValueError, TypeError) as e:
                         output_logger.info(f'An exception has occurred while reading from: {dnsresolve}, {e}')
                         output_logger.info(f'Current line: {line}')
@@ -325,15 +350,27 @@ async def start(
                     continue
                 try:
                     # Verify user passed in an IP; this does not validate resolver behavior
-                    _ = netaddr.IPAddress(item)
-                    final_dns_resolver_list.append(item)
+                    final_dns_resolver_list.append(str(netaddr.IPAddress(item)))
                 except (netaddr.core.AddrFormatError, ValueError, TypeError) as e:
                     output_logger.info(f'Passed DNS resolver is invalid, skipping: {item} ({e})')
 
         # if for some reason, there are duplicates
-        final_dns_resolver_list = list(set(final_dns_resolver_list))
+        final_dns_resolver_list = sorted(set(final_dns_resolver_list))
         if len(final_dns_resolver_list) == 0:
             output_logger.info('No valid DNS resolvers were parsed from --dns-resolve; continuing without custom resolvers.')
+
+    recursive_depth = getattr(args, 'dns_recursive_depth', 0)
+    recursive_limits = None
+    if recursive_depth < 0:
+        raise ValueError('--dns-recursive-depth cannot be negative')
+    if recursive_depth > 0:
+        if len(final_dns_resolver_list) != 3:
+            raise ValueError('--dns-recursive-depth requires --dns-resolve with exactly three resolver vantages')
+        recursive_limits = RecursiveDNSLimits(
+            depth=recursive_depth,
+            query_limit=getattr(args, 'dns_recursive_query_limit', DEFAULT_RECURSIVE_DNS_QUERY_LIMIT),
+            runtime_seconds=getattr(args, 'dns_recursive_runtime_seconds', 60.0),
+        )
 
     engines: list = []
     # If the user specifies
@@ -491,7 +528,7 @@ async def start(
     activities = {get_source_spec(engine).activity for engine in engines if engine in SOURCE_SPECS}
     if shodan:
         activities.add(ActivityClass.PASSIVE)
-    if dnslookup or dnsbrute[0] or dnsresolve != '':
+    if dnslookup or dnsbrute[0] or dnsresolve != '' or recursive_limits is not None:
         activities.add(ActivityClass.DNS)
     if takeover_status or getattr(args, 'screenshot', '') or getattr(args, 'api_scan', False):
         activities.add(ActivityClass.DIRECT)
@@ -1376,6 +1413,44 @@ async def start(
 
     await handler(lst=stor_lst)
 
+    recursive_result: RecursiveDNSResult | None = None
+    if recursive_limits is not None:
+        try:
+            async with AsyncExitStack() as resolver_stack:
+                resolvers = []
+                for nameserver in sorted(final_dns_resolver_list):
+                    resolver = AioDNSResolverVantage(nameserver, word)
+                    resolvers.append(resolver)
+                    resolver_stack.push_async_callback(resolver.close)
+                recursive_result = await discover_recursive_dns(
+                    word,
+                    all_hosts,
+                    dnssearch.DNS_NAMES.read_text(encoding='utf-8').splitlines(),
+                    resolvers,
+                    recursive_limits,
+                )
+            recursive_hosts = [finding.hostname for finding in recursive_result.findings]
+            recursive_ips = [address for finding in recursive_result.findings for address in finding.records.addresses]
+            all_hosts.extend(recursive_hosts)
+            all_ip.extend(recursive_ips)
+            resolved_screenshot_hosts.update(recursive_hosts)
+            for finding in recursive_result.findings:
+                if finding.records.addresses:
+                    full.extend(f'{finding.hostname}:{address}' for address in finding.records.addresses)
+                    reported_host_ip_pairs.update((finding.hostname, address) for address in finding.records.addresses)
+                else:
+                    full.append(finding.hostname)
+            recursive_db = stash.StashManager()
+            await recursive_db.store_all(word, recursive_hosts, 'host', 'dns_recursive')
+            await recursive_db.store_all(word, recursive_ips, 'ip', 'dns_recursive')
+            output_logger.info(
+                '[*] Recursive DNS: '
+                f'hosts={len(recursive_hosts)}; queries={recursive_result.query_count}; '
+                f'depth={recursive_result.depth_reached}; stop={recursive_result.stop_reason}'
+            )
+        except Exception as error:
+            output_logger.info(f'[!] Recursive DNS discovery failed: {type(error).__name__}')
+
     def finish_completed_result(
         *, extra_hostnames: Iterable[str] = (), virtual_hosts: Iterable[str] = ()
     ) -> CompletedResult | None:
@@ -1384,6 +1459,58 @@ async def start(
             'asn': map(str, total_asns),
             'breach': map(str, all_breaches),
             'cms': map(str, all_cms),
+            'dns-recursive-finding': (
+                (
+                    json.dumps(
+                        {
+                            'addresses': list(finding.records.addresses),
+                            'hostname': finding.hostname,
+                            'parent': finding.parent,
+                            'ptrs': list(finding.ptrs),
+                        },
+                        separators=(',', ':'),
+                        sort_keys=True,
+                    )
+                    for finding in recursive_result.findings
+                )
+                if recursive_result is not None
+                else ()
+            ),
+            'dns-recursive-classification': (
+                (
+                    json.dumps(
+                        {
+                            'addressability': classification.addressability.value,
+                            'addresses': list(classification.records.addresses),
+                            'cnames': list(classification.records.cnames),
+                            'hostname': classification.hostname,
+                            'parent': classification.parent,
+                            'ptrs': list(classification.ptrs),
+                        },
+                        separators=(',', ':'),
+                        sort_keys=True,
+                    )
+                    for classification in recursive_result.classifications
+                )
+                if recursive_result is not None
+                else ()
+            ),
+            'dns-recursive-summary': (
+                (
+                    json.dumps(
+                        {
+                            'depth_reached': recursive_result.depth_reached,
+                            'query_count': recursive_result.query_count,
+                            'stop_reason': recursive_result.stop_reason,
+                            'zero_yield_batches': recursive_result.zero_yield_batches,
+                        },
+                        separators=(',', ':'),
+                        sort_keys=True,
+                    ),
+                )
+                if recursive_result is not None
+                else ()
+            ),
             'email': map(str, all_emails),
             'framework': map(str, all_frameworks),
             'hostname': _normalize_hosts_for_storage((*all_hosts, *extra_hostnames), word),
@@ -1730,14 +1857,14 @@ async def start(
                 for host, ip in sorted(reported_host_ip_pairs):
                     await file.write(f'<host><ip>{sanitize_for_xml(ip)}</ip><hostname>{sanitize_for_xml(host)}</hostname></host>')
                 for x in full:
-                    if x in paired_hosts:
-                        continue
                     host, ip = x.split(':', 1) if ':' in x else (x, '')
                     if ip and len(ip) > 3:
+                        if (host, ip) in reported_host_ip_pairs:
+                            continue
                         await file.write(
                             f'<host><ip>{sanitize_for_xml(ip)}</ip><hostname>{sanitize_for_xml(host)}</hostname></host>'
                         )
-                    else:
+                    elif host not in paired_hosts:
                         await file.write(f'<host>{sanitize_for_xml(host)}</host>')
                 for x in vhost:
                     host, ip = x.split(':', 1) if ':' in x else (x, '')

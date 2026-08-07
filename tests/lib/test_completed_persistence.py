@@ -16,6 +16,11 @@ def completed_result(run_id: str = 'f047261c-0afb-4e18-89d5-28a7d977f51f') -> Co
         completed_at=datetime(2026, 8, 5, 12, 1, tzinfo=UTC),
         groups={
             'breach': ['ExampleBreach'],
+            'dns-recursive-finding': ['{"addresses":["192.0.2.2"],"hostname":"dev.api.example.com","parent":"api.example.com"}'],
+            'dns-recursive-classification': [
+                '{"addressability":"not-currently-addressable","addresses":[],"cnames":["missing.vendor.test"],"hostname":"unused.api.example.com","parent":"api.example.com"}'
+            ],
+            'dns-recursive-summary': ['{"depth_reached":1,"query_count":24,"stop_reason":"depth-limit","zero_yield_batches":0}'],
             'hostname': ['api.example.com'],
             'ip-address': ['192.0.2.1'],
             'person': ['{"firstname":"Ada","lastname":"Lovelace"}'],
@@ -53,14 +58,14 @@ async def test_completed_result_write_is_atomic_and_rejects_duplicate_run_id(tmp
     failing = completed_result('f9b33a33-e6d6-4a48-b04f-1a4a3012bc1f')
     async with aiosqlite.connect(manager.db) as db:
         await db.execute(
-            '''
+            """
             CREATE TRIGGER fail_completed_item
             BEFORE INSERT ON completed_result_items
             WHEN NEW.run_id = 'f9b33a33-e6d6-4a48-b04f-1a4a3012bc1f'
             BEGIN
                 SELECT RAISE(ABORT, 'forced failure');
             END
-            '''
+            """
         )
         await db.commit()
 
@@ -70,4 +75,4 @@ async def test_completed_result_write_is_atomic_and_rejects_duplicate_run_id(tmp
     async with aiosqlite.connect(manager.db) as db:
         parent_count = (await db.execute_fetchall('SELECT COUNT(*) FROM completed_results'))[0][0]
         item_count = (await db.execute_fetchall('SELECT COUNT(*) FROM completed_result_items'))[0][0]
-    assert (parent_count, item_count) == (1, 4)
+    assert (parent_count, item_count) == (1, 7)
