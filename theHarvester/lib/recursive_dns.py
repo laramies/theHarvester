@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import time
 from dataclasses import dataclass
+from itertools import islice
 from typing import TYPE_CHECKING
 
 from theHarvester.lib.dns_consensus import (
@@ -15,7 +16,7 @@ from theHarvester.lib.dns_consensus import (
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Iterator, Sequence
 
     from theHarvester.lib.hostchecker import HostDnsRecords
 
@@ -65,23 +66,18 @@ class RecursiveDNSResult:
     classifications: tuple[RecursiveDNSClassification, ...] = ()
 
 
-def _normalize_labels(labels: Sequence[str], deadline: float) -> tuple[str, ...]:
-    normalized: list[str] = []
-    for value in labels:
-        if time.monotonic() >= deadline:
-            break
-        label = value.strip().lower()
-        if (
-            not label
-            or '.' in label
-            or len(label) > 63
-            or label.startswith('-')
-            or label.endswith('-')
-            or not all(character.isascii() and (character.isalnum() or character in {'-', '_'}) for character in label)
-        ):
-            continue
-        normalized.append(label)
-    return tuple(dict.fromkeys(normalized))
+def _normalize_label(value: str) -> str | None:
+    label = value.strip().lower()
+    if (
+        not label
+        or '.' in label
+        or len(label) > 63
+        or label.startswith('-')
+        or label.endswith('-')
+        or not all(character.isascii() and (character.isalnum() or character in {'-', '_'}) for character in label)
+    ):
+        return None
+    return label
 
 
 async def discover_recursive_dns(
@@ -95,10 +91,37 @@ async def discover_recursive_dns(
     if not normalized_target:
         raise ValueError('target must not be empty')
     deadline = time.monotonic() + limits.runtime_seconds
-    normalized_labels = _normalize_labels(labels, deadline)
-    seen = {candidate for value in seeds if (candidate := normalize_scoped_hostname(value, normalized_target)) is not None}
     budget = DNSQueryBudget(limits.query_limit)
     stop_reason = 'frontier-exhausted'
+    seen: set[str] = set()
+    for value in seeds:
+        if time.monotonic() >= deadline:
+            stop_reason = 'runtime-limit'
+            break
+        if (candidate := normalize_scoped_hostname(value, normalized_target)) is not None:
+            seen.add(candidate)
+
+    def iter_candidates(parents: Sequence[str]) -> Iterator[tuple[str, str]]:
+        nonlocal stop_reason
+        seen_labels: set[str] = set()
+        ordered_parents = tuple(sorted(parents))
+        for value in labels:
+            if time.monotonic() >= deadline:
+                stop_reason = 'runtime-limit'
+                return
+            label = _normalize_label(value)
+            if label is None or label in seen_labels:
+                continue
+            seen_labels.add(label)
+            for parent in ordered_parents:
+                if time.monotonic() >= deadline:
+                    stop_reason = 'runtime-limit'
+                    return
+                candidate = f'{label}.{parent}'
+                if candidate in seen:
+                    continue
+                seen.add(candidate)
+                yield candidate, parent
 
     async def validate(candidate: str) -> CandidateConsensus | None:
         nonlocal stop_reason
@@ -160,21 +183,16 @@ async def discover_recursive_dns(
     for depth in range(1, limits.depth + 1):
         if stopped or not frontier:
             break
-        candidates = [
-            (f'{label}.{parent}', parent)
-            for parent in sorted(frontier)
-            for label in normalized_labels
-            if f'{label}.{parent}' not in seen
-        ]
-        seen.update(candidate for candidate, _parent in candidates)
         next_frontier: list[str] = []
-        for offset in range(0, len(candidates), 50):
+        candidates = iter_candidates(frontier)
+        while batch := tuple(islice(candidates, 50)):
             batch_yield = 0
-            for candidate, parent in candidates[offset : offset + 50]:
+            for candidate, parent in batch:
                 consensus = await validate(candidate)
                 if consensus is None:
                     stopped = True
                     break
+                depth_reached = depth
                 ptrs = await resolve_ptrs(consensus.records) if consensus.addressability is Addressability.CURRENT else ()
                 if (
                     consensus.addressability is not Addressability.NOT_CURRENT
@@ -207,9 +225,10 @@ async def discover_recursive_dns(
                     stop_reason = 'zero-yield'
                     stopped = True
                     break
+        if stop_reason in {'query-limit', 'runtime-limit'}:
+            stopped = True
         if stopped:
             break
-        depth_reached = depth
         frontier = next_frontier
         if not frontier:
             stop_reason = 'frontier-exhausted'

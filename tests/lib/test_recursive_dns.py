@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from types import SimpleNamespace
 
 import pytest
 
@@ -70,6 +71,40 @@ class CnameHeavyResolver:
     async def query_ptr(self, _address: str, budget: DNSQueryBudget | None = None) -> tuple[str, ...]:
         assert budget is not None
         return () if not budget.consume(1) else ('edge.example.net',)
+
+
+@pytest.mark.asyncio
+async def test_seed_normalization_stops_at_runtime_deadline(monkeypatch: pytest.MonkeyPatch) -> None:
+    from theHarvester.lib import recursive_dns
+
+    class GuardedSeeds(list[str]):
+        def __init__(self) -> None:
+            super().__init__(('api.example.com', 'unused.example.com'))
+            self.consumed = 0
+
+        def __iter__(self):
+            for value in super().__iter__():
+                self.consumed += 1
+                if self.consumed > 1:
+                    pytest.fail('seeds beyond the runtime limit must remain unconsumed')
+                yield value
+
+    seeds = GuardedSeeds()
+    times = iter((0.0, 1.0))
+    monkeypatch.setattr(recursive_dns, 'time', SimpleNamespace(monotonic=lambda: next(times)))
+    resolvers = tuple(FakeResolver(f'resolver-{index}', set()) for index in range(3))
+
+    result = await discover_recursive_dns(
+        'example.com',
+        seeds,
+        ('dev',),
+        resolvers,
+        RecursiveDNSLimits(depth=1, query_limit=100, runtime_seconds=0.5),
+    )
+
+    assert seeds.consumed == 1
+    assert result.query_count == 0
+    assert result.stop_reason == 'runtime-limit'
 
 
 @pytest.mark.asyncio
@@ -146,6 +181,7 @@ async def test_recursive_dns_does_not_exceed_query_limit_for_ptrs() -> None:
     assert result.findings[0].hostname == 'dev.api.example.com'
     assert result.findings[0].ptrs == ()
     assert result.query_count == 99
+    assert result.depth_reached == 1
     assert result.stop_reason == 'query-limit'
 
 
@@ -203,19 +239,50 @@ async def test_recursive_dns_runtime_limit_cancels_pending_queries() -> None:
 
 @pytest.mark.asyncio
 async def test_recursive_dns_stops_after_three_zero_yield_batches() -> None:
+    class GuardedLabels(list[str]):
+        def __init__(self) -> None:
+            super().__init__(f'unused{index}' for index in range(1_000))
+            self.consumed = 0
+
+        def __iter__(self):
+            for value in super().__iter__():
+                self.consumed += 1
+                if self.consumed > 150:
+                    pytest.fail('labels beyond the zero-yield stop must remain lazy')
+                yield value
+
+    current = {'api.example.com'}
+    resolvers = tuple(FakeResolver(f'resolver-{index}', current) for index in range(3))
+    labels = GuardedLabels()
+
+    result = await discover_recursive_dns(
+        'example.com',
+        ('api.example.com',),
+        labels,
+        resolvers,
+        RecursiveDNSLimits(depth=1, query_limit=10_000, runtime_seconds=5),
+    )
+
+    assert labels.consumed == 150
+    assert result.findings == ()
+    assert result.query_count == 9_486
+    assert result.depth_reached == 1
+    assert result.zero_yield_batches == 3
+    assert result.stop_reason == 'zero-yield'
+
+
+@pytest.mark.asyncio
+async def test_recursive_dns_does_not_reach_a_depth_without_labels() -> None:
     current = {'api.example.com'}
     resolvers = tuple(FakeResolver(f'resolver-{index}', current) for index in range(3))
 
     result = await discover_recursive_dns(
         'example.com',
         ('api.example.com',),
-        tuple(f'unused{index}' for index in range(151)),
+        (),
         resolvers,
-        RecursiveDNSLimits(depth=1, query_limit=10_000, runtime_seconds=5),
+        RecursiveDNSLimits(depth=1, query_limit=100, runtime_seconds=5),
     )
 
-    assert result.findings == ()
-    assert result.query_count == 9_486
     assert result.depth_reached == 0
-    assert result.zero_yield_batches == 3
-    assert result.stop_reason == 'zero-yield'
+    assert result.stop_reason == 'frontier-exhausted'
