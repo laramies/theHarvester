@@ -709,7 +709,7 @@ async def start(
 
                 elif engineitem == 'dehashed':
                     try:
-                        dehashed_search = search_dehashed.SearchDehashed(word)
+                        dehashed_search = search_dehashed.SearchDehashed(word, limit=limit)
                         stor_lst.append(
                             store(
                                 dehashed_search,
@@ -909,6 +909,9 @@ async def start(
                                 engineitem,
                             )
                         )
+                    except MissingKey as e:
+                        if not args.quiet:
+                            output_logger.info(e)
                     except Exception as e:
                         show_default_error_message(engineitem, word, e)
 
