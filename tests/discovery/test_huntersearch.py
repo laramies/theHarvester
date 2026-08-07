@@ -48,23 +48,50 @@ async def test_paid_hunter_search_honors_limit_and_offset(monkeypatch) -> None:
     monkeypatch.setattr(huntersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
     monkeypatch.setattr(huntersearch.asyncio, 'sleep', no_sleep)
 
-    search = huntersearch.SearchHunter('example.test', 150, 0)
+    search = huntersearch.SearchHunter('example.test', 150, 25)
     await search.process(proxy=True)
 
     assert requests == [
         ('https://api.hunter.io/v2/account?api_key=test-key', True),
         ('https://api.hunter.io/v2/email-count?domain=example.test', True),
         (
-            'https://api.hunter.io/v2/domain-search?domain=example.test&api_key=test-key&limit=100&offset=0',
+            'https://api.hunter.io/v2/domain-search?domain=example.test&api_key=test-key&limit=100&offset=25',
             True,
         ),
         (
-            'https://api.hunter.io/v2/domain-search?domain=example.test&api_key=test-key&limit=50&offset=100',
+            'https://api.hunter.io/v2/domain-search?domain=example.test&api_key=test-key&limit=50&offset=125',
             True,
         ),
     ]
     assert await search.get_emails() == ['alice@example.test', 'bob@example.test']
     assert await search.get_hostnames() == ['api.example.test', 'www.example.test']
+
+
+@pytest.mark.asyncio
+async def test_free_hunter_search_honors_limit_and_offset(monkeypatch) -> None:
+    requests: list[str] = []
+    responses = iter(
+        [
+            {'data': {'plan_name': 'Free', 'requests': {'searches': {'available': 10, 'used': 0}}}},
+            {'data': {'emails': []}},
+        ]
+    )
+
+    async def fake_fetch_all(urls, **_kwargs):
+        requests.append(urls[0])
+        return [next(responses)]
+
+    monkeypatch.setattr(huntersearch.Core, 'hunter_key', lambda: 'test-key')
+    monkeypatch.setattr(huntersearch.Core, 'get_user_agent', lambda: 'test-agent')
+    monkeypatch.setattr(huntersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+
+    search = huntersearch.SearchHunter('example.test', 5, 3)
+    await search.process()
+
+    assert requests == [
+        'https://api.hunter.io/v2/account?api_key=test-key',
+        'https://api.hunter.io/v2/domain-search?domain=example.test&api_key=test-key&limit=5&offset=3',
+    ]
 
 
 @pytest.mark.asyncio

@@ -19,7 +19,9 @@ class SearchHunter:
             raise MissingKey('Hunter')
         self.total_results = ''
         self.counter = start
-        self.database = f'https://api.hunter.io/v2/domain-search?domain={self.word}&api_key={self.key}&limit={self.limit}'
+        self.database = (
+            f'https://api.hunter.io/v2/domain-search?domain={self.word}&api_key={self.key}&limit={self.limit}&offset={self.start}'
+        )
         self.proxy = False
         self.hostnames: list = []
         self.emails: list = []
@@ -47,7 +49,7 @@ class SearchHunter:
             # This is only done where paid accounts are in play
             hunter_dinfo_url = f'https://api.hunter.io/v2/email-count?domain={self.word}'
             response = await AsyncFetcher.fetch_all([hunter_dinfo_url], headers=headers, proxy=self.proxy, json=True)
-            total_results = min(response[0]['data']['total'], self.requested_limit)
+            total_results = min(max(0, response[0]['data']['total'] - self.start), self.requested_limit)
             total_number_reqs = (total_results + 99) // 100
             # Parse out meta field within initial JSON response to determine the total number of results
             if total_requests_avail < total_number_reqs:
@@ -60,8 +62,9 @@ class SearchHunter:
             # max number of emails you can get per request is 100
             # increments of 100 with offset determining where to start
             # See docs for more details: https://hunter.io/api-documentation/v2#domain-search
-            for offset in range(0, total_results, 100):
-                page_limit = min(100, total_results - offset)
+            result_end = self.start + total_results
+            for offset in range(self.start, result_end, 100):
+                page_limit = min(100, result_end - offset)
                 req_url = f'https://api.hunter.io/v2/domain-search?domain={self.word}&api_key={self.key}&limit={page_limit}&offset={offset}'
                 response = await AsyncFetcher.fetch_all([req_url], headers=headers, proxy=self.proxy, json=True)
                 temp_emails, temp_hostnames = await self.parse_resp(response[0])

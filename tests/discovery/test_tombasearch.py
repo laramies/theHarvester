@@ -4,6 +4,20 @@ from theHarvester.discovery import tombasearch
 from theHarvester.discovery.constants import MissingKey
 
 
+def tomba_page(first: int, count: int = 50) -> dict:
+    return {
+        'data': {
+            'emails': [
+                {
+                    'email': f'user{index}@example.test',
+                    'sources': [{'website_url': f'user{index}.example.test'}],
+                }
+                for index in range(first, first + count)
+            ]
+        }
+    }
+
+
 @pytest.mark.parametrize(
     'credentials',
     [
@@ -31,22 +45,10 @@ async def test_paid_tomba_search_uses_documented_pages_and_page_size(monkeypatch
                     'requests': {'domains': {'available': 10, 'used': 0}},
                 }
             },
-            {'data': {'total': 120}},
-            {
-                'data': {
-                    'emails': [
-                        {'email': 'alice@example.test', 'sources': [{'website_url': 'api.example.test'}]},
-                    ]
-                }
-            },
-            {
-                'data': {
-                    'emails': [
-                        {'email': 'bob@example.test', 'sources': [{'website_url': 'www.example.test'}]},
-                    ]
-                }
-            },
-            {'data': {'emails': []}},
+            {'data': {'total': 175}},
+            tomba_page(0),
+            tomba_page(50),
+            tomba_page(100),
         ]
     )
 
@@ -72,8 +74,97 @@ async def test_paid_tomba_search_uses_documented_pages_and_page_size(monkeypatch
         ('https://api.tomba.io/v1/domain-search?domain=example.test&limit=50&page=2', True),
         ('https://api.tomba.io/v1/domain-search?domain=example.test&limit=50&page=3', True),
     ]
-    assert await search.get_emails() == ['alice@example.test', 'bob@example.test']
-    assert await search.get_hostnames() == ['api.example.test', 'www.example.test']
+    emails = await search.get_emails()
+    hostnames = await search.get_hostnames()
+    assert len(emails) == 120
+    assert len(hostnames) == 120
+    assert 'user119@example.test' in emails
+    assert 'user119.example.test' in hostnames
+    assert 'user120@example.test' not in emails
+    assert 'user120.example.test' not in hostnames
+
+
+@pytest.mark.asyncio
+async def test_paid_tomba_search_honors_nonzero_start(monkeypatch) -> None:
+    requests: list[str] = []
+    responses = iter(
+        [
+            {
+                'data': {
+                    'pricing': {'name': 'Growth'},
+                    'requests': {'domains': {'available': 10, 'used': 0}},
+                }
+            },
+            {'data': {'total': 200}},
+            tomba_page(50),
+        ]
+    )
+
+    async def fake_fetch_all(urls, **_kwargs):
+        requests.append(urls[0])
+        return [next(responses)]
+
+    async def no_sleep(_seconds: float) -> None:
+        return None
+
+    monkeypatch.setattr(tombasearch.Core, 'tomba_key', lambda: ('test-key', 'test-secret'))
+    monkeypatch.setattr(tombasearch.Core, 'get_user_agent', lambda: 'test-agent')
+    monkeypatch.setattr(tombasearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    monkeypatch.setattr(tombasearch.asyncio, 'sleep', no_sleep)
+
+    search = tombasearch.SearchTomba('example.test', 20, 60)
+    await search.process()
+
+    assert requests == [
+        'https://api.tomba.io/v1/me',
+        'https://api.tomba.io/v1/email-count?domain=example.test',
+        'https://api.tomba.io/v1/domain-search?domain=example.test&limit=50&page=2',
+    ]
+    emails = await search.get_emails()
+    assert len(emails) == 20
+    assert 'user60@example.test' in emails
+    assert 'user79@example.test' in emails
+    assert 'user59@example.test' not in emails
+    assert 'user80@example.test' not in emails
+
+
+@pytest.mark.asyncio
+async def test_free_tomba_search_honors_limit_and_start(monkeypatch) -> None:
+    requests: list[str] = []
+    responses = iter(
+        [
+            {
+                'data': {
+                    'pricing': {'name': 'Free'},
+                    'requests': {'domains': {'available': 10, 'used': 0}},
+                }
+            },
+            tomba_page(0, 10),
+        ]
+    )
+
+    async def fake_fetch_all(urls, **_kwargs):
+        requests.append(urls[0])
+        return [next(responses)]
+
+    monkeypatch.setattr(tombasearch.Core, 'tomba_key', lambda: ('test-key', 'test-secret'))
+    monkeypatch.setattr(tombasearch.Core, 'get_user_agent', lambda: 'test-agent')
+    monkeypatch.setattr(tombasearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+
+    search = tombasearch.SearchTomba('example.test', 5, 3)
+    await search.process()
+
+    assert requests == [
+        'https://api.tomba.io/v1/me',
+        'https://api.tomba.io/v1/domain-search?domain=example.test&limit=10&page=1',
+    ]
+    assert set(await search.get_emails()) == {
+        'user3@example.test',
+        'user4@example.test',
+        'user5@example.test',
+        'user6@example.test',
+        'user7@example.test',
+    }
 
 
 @pytest.mark.asyncio
