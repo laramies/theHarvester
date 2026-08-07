@@ -405,6 +405,57 @@ async def test_fetch_all_propagates_metadata_opt_in(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
+async def test_takeover_fetch_rejects_a_non_public_discovered_host() -> None:
+    class NoRequestSession:
+        def get(self, *_args, **_kwargs):
+            raise AssertionError('HTTP request should not be created')
+
+    result = await AsyncFetcher.takeover_fetch(NoRequestSession(), 'http://100.64.0.1')
+
+    assert result == ('http://100.64.0.1', '')
+
+
+@pytest.mark.asyncio
+async def test_takeover_fetch_refuses_a_proxy_that_cannot_pin_the_target() -> None:
+    class NoRequestSession:
+        def get(self, *_args, **_kwargs):
+            raise AssertionError('HTTP request should not be created')
+
+    class PublicResolver:
+        async def resolve(self, *_args, **_kwargs):
+            return [{'host': '192.0.2.1'}]
+
+    result = await AsyncFetcher.takeover_fetch(
+        NoRequestSession(),
+        'http://example.com',
+        proxy='http://proxy.example:8080',
+        resolver=PublicResolver(),
+    )
+
+    assert result == ('http://example.com', '')
+
+
+@pytest.mark.asyncio
+async def test_takeover_fetch_all_refuses_direct_egress_when_proxy_pool_is_empty(monkeypatch) -> None:
+    reset_dummy_sessions()
+    calls = []
+    monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
+    monkeypatch.setattr(core_module.aiohttp, 'TCPConnector', lambda **_kwargs: 'connector')
+    monkeypatch.setattr(AsyncFetcher, '_get_random_proxy', staticmethod(lambda _proxy_dict: (None, None)))
+
+    async def unexpected_takeover_fetch(*args, **kwargs):
+        calls.append((args, kwargs))
+        return 'http://example.com', 'direct response'
+
+    monkeypatch.setattr(AsyncFetcher, 'takeover_fetch', unexpected_takeover_fetch)
+
+    result = await AsyncFetcher.fetch_all(['http://example.com'], takeover=True, proxy=True)
+
+    assert result == [('http://example.com', '')]
+    assert calls == []
+
+
+@pytest.mark.asyncio
 async def test_fetch_uses_http_proxy_when_enabled(monkeypatch) -> None:
     reset_dummy_sessions()
     monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)

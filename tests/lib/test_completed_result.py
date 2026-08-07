@@ -5,7 +5,7 @@ from uuid import UUID
 
 import pytest
 
-from theHarvester.lib.completed_result import CompletedResult
+from theHarvester.lib.completed_result import CompletedResult, SourceExecution
 
 
 def test_completed_result_is_deterministic_and_deduplicated() -> None:
@@ -47,6 +47,67 @@ def test_completed_result_is_deterministic_and_deduplicated() -> None:
         },
     ]
     assert result.jsonl().endswith('\n')
+
+
+def test_completed_result_exposes_truthful_source_execution_evidence() -> None:
+    started_at = datetime(2026, 8, 5, 12, 0, tzinfo=UTC)
+    result = CompletedResult.finish(
+        target='example.com',
+        started_at=started_at,
+        completed_at=started_at,
+        groups={'hostname': ['www.example.com']},
+        source_executions=(
+            SourceExecution('crtsh', 'succeeded', 12.5, 1),
+            SourceExecution('builtwith', 'skipped', 0, 0, 'SourceDidNotStart'),
+        ),
+    )
+
+    evidence = result.evidence_dict()
+
+    assert evidence['status'] == 'partial'
+    assert evidence['source_executions'] == [
+        {
+            'source': 'crtsh',
+            'status': 'succeeded',
+            'duration_ms': 12.5,
+            'result_count': 1,
+            'error_type': None,
+            'stop_reason': None,
+        },
+        {
+            'source': 'builtwith',
+            'status': 'skipped',
+            'duration_ms': 0,
+            'result_count': 0,
+            'error_type': 'SourceDidNotStart',
+            'stop_reason': None,
+        },
+    ]
+
+
+def test_completed_result_keeps_terminal_action_evidence_in_jsonl() -> None:
+    completed_at = datetime(2026, 8, 5, 12, 1, tzinfo=UTC)
+    result = CompletedResult.finish(
+        target='example.com',
+        started_at=completed_at,
+        completed_at=completed_at,
+        groups={
+            'api-endpoint': ['/api/v1'],
+            'screenshot': ['https://api.example.com'],
+            'shodan': ['{"ip":"192.0.2.10","ports":[443]}'],
+            'takeover': ['{"matches":[{"No such app":"Heroku"}],"url":"https://old.example.com"}'],
+        },
+    )
+
+    records = [json.loads(line) for line in result.jsonl().splitlines()]
+
+    assert records[0]['counts'] == {'api-endpoint': 1, 'screenshot': 1, 'shodan': 1, 'takeover': 1}
+    assert {(record['type'], record['value']) for record in records[1:]} == {
+        ('api-endpoint', '/api/v1'),
+        ('screenshot', 'https://api.example.com'),
+        ('shodan', '{"ip":"192.0.2.10","ports":[443]}'),
+        ('takeover', '{"matches":[{"No such app":"Heroku"}],"url":"https://old.example.com"}'),
+    }
 
 
 @pytest.mark.parametrize('value', ['', '   ', 7])

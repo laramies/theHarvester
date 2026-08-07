@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 import aiohttp
 
 from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.public_egress import PublicResolver
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +95,7 @@ class SearchApiEndpoints:
         self.semaphore = asyncio.Semaphore(concurrency)
         self.user_agent = user_agent or Core.get_user_agent()
         self.additional_headers = additional_headers or {}
+        self._session: aiohttp.ClientSession | None = None
 
         # Set default wordlist path
         default_wordlist = os.path.join(
@@ -386,7 +388,19 @@ class SearchApiEndpoints:
 
     async def do_search(self) -> None:
         """Perform the API endpoint scan with advanced features."""
+        session: aiohttp.ClientSession | None = None
         try:
+            if self.proxy:
+                self.logger.warning('Refusing API endpoint proxy that cannot pin the validated target address')
+                return
+            resolver = PublicResolver()
+            await resolver.resolve(self.word, 443)
+            session = aiohttp.ClientSession(
+                connector=aiohttp.TCPConnector(resolver=resolver),
+                headers=self._get_headers(),
+                timeout=aiohttp.ClientTimeout(total=self.timeout),
+            )
+            self._session = session
             self.logger.info(f'Starting API endpoint scan for {self.word}')
 
             # Load endpoints from wordlist
@@ -423,20 +437,24 @@ class SearchApiEndpoints:
 
         except Exception as e:
             self.logger.error(f'Error in API endpoint scan: {e!s}', exc_info=True)
+        finally:
+            self._session = None
+            if session is not None:
+                await session.close()
 
     async def _detect_schema(self) -> str:
         """Detect if the domain supports HTTPS or fall back to HTTP."""
         https_url = f'https://{self.word}'
+        if self._session is None:
+            raise RuntimeError('API endpoint session is not initialized')
         try:
-            timeout = aiohttp.ClientTimeout(total=self.timeout)
-            async with aiohttp.ClientSession(headers=self._get_headers(), timeout=timeout) as session:
-                async with session.get(
-                    https_url,
-                    proxy=self.proxy,
-                    ssl=self.verify_ssl,
-                    allow_redirects=self.follow_redirects,
-                ):
-                    return 'https'
+            async with self._session.get(
+                https_url,
+                proxy=self.proxy,
+                ssl=self.verify_ssl,
+                allow_redirects=False,
+            ):
+                return 'https'
         except (aiohttp.ClientConnectionError, TimeoutError) as error:
             self.logger.error(f"Failed to connect to HTTPS URL '{https_url}': {error}")
             return 'http'
@@ -480,7 +498,7 @@ class SearchApiEndpoints:
             Optional[EndpointResult]: Result object or None if not found
 
         """
-        methods = ['GET', 'POST', 'OPTIONS', 'HEAD', 'PUT', 'DELETE', 'PATCH']
+        methods = ['GET', 'HEAD', 'OPTIONS']
         headers = self._get_headers()
 
         for method in methods:
@@ -490,12 +508,13 @@ class SearchApiEndpoints:
 
                 # Use AsyncFetcher to make the request
                 response = await AsyncFetcher.fetch(
+                    session=self._session,
                     url=url,
                     method=method,
                     headers=headers,
                     proxy=self.proxy,
                     verify=self.verify_ssl,
-                    follow_redirects=self.follow_redirects,
+                    follow_redirects=False,
                     request_timeout=self.timeout,
                 )
 

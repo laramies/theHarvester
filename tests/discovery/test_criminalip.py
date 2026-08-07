@@ -33,17 +33,17 @@ async def test_parser_handles_missing_legacy_fields(monkeypatch) -> None:
         'data': {
             'certificates': [{'subject': 'www.example.com'}],
             'connected_domain_subdomain': [{'main_domain': {'domain': 'example.com'}, 'subdomains': [{'domain': 'api.example.com'}]}],
-            'connected_ip': [{'ip': '93.184.216.34'}],
+            'connected_ip': [{'ip': '192.0.2.34'}],
             'connected_ip_info': [
                 {
                     'asn': '15133',
-                    'ip': '93.184.216.34',
+                    'ip': '192.0.2.34',
                     'domain_list': [{'domain': 'mail.example.com'}],
                 }
             ],
             'cookies': [{'domain': '.portal.example.com'}],
             'dns_record': {
-                'dns_record_type_a': {'ipv4': [{'ip': '93.184.216.34'}], 'ipv6': []},
+                'dns_record_type_a': {'ipv4': [{'ip': '192.0.2.34'}], 'ipv6': []},
                 'dns_record_type_ns': ['ns1.example.com.'],
             },
             'html_page_link_domains': [{'domain': 'www.iana.org', 'mapped_ips': [{'ip': '192.0.33.8'}]}],
@@ -71,7 +71,7 @@ async def test_parser_handles_missing_legacy_fields(monkeypatch) -> None:
         'login.example.com',
         'www.example.com',
     }.issubset(hostnames)
-    assert {'93.184.216.34', '198.51.100.10', '203.0.113.10'}.issubset(ips)
+    assert {'192.0.2.34', '198.51.100.10', '203.0.113.10'}.issubset(ips)
     assert {'15133', '64500'}.issubset(asns)
 
 

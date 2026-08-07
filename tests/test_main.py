@@ -9,6 +9,7 @@ import pytest
 from theHarvester import __main__ as theharvester_main
 from theHarvester.lib.completed_result import CompletedResult
 from theHarvester.lib.dns_consensus import Addressability
+from theHarvester.lib.enumeration import EnumerationOptions
 from theHarvester.lib.hostchecker import HostDnsRecords
 from theHarvester.lib.recursive_dns import RecursiveDNSClassification, RecursiveDNSFinding, RecursiveDNSResult
 
@@ -238,8 +239,166 @@ async def test_dns_proven_cname_hosts_reach_screenshot_filter(
 
 
 @pytest.mark.asyncio
+async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    class FakeStash:
+        async def do_init(self) -> None:
+            return None
+
+        async def store_all(self, *_args) -> None:
+            return None
+
+        async def store(self, *_args) -> None:
+            return None
+
+        async def store_completed_result(self, _result: CompletedResult) -> None:
+            return None
+
+    class FakeCrtsh:
+        def __init__(self, _word: str) -> None:
+            pass
+
+        async def process(self, proxy: bool) -> None:
+            assert proxy is True
+            return None
+
+        async def get_hostnames(self) -> set[str]:
+            return {'api.example.com'}
+
+    class FakeChecker:
+        def __init__(self, _hosts: list[str], _nameservers: list[str]) -> None:
+            pass
+
+        async def check(self) -> tuple[list[str], list[str], list[str]]:
+            return ['api.example.com:192.0.2.10'], ['api.example.com'], ['192.0.2.10']
+
+    class FakeTakeOver:
+        def __init__(self, hosts: list[str]) -> None:
+            assert hosts == ['api.example.com']
+
+        async def populate_fingerprints(self) -> None:
+            return None
+
+        async def process(self, proxy: bool = False) -> None:
+            assert proxy is False
+
+        async def get_takeover_results(self) -> dict[str, list[dict[str, str]]]:
+            return {'https://api.example.com': [{'No such app': 'Heroku'}]}
+
+    class FakeScreenShotter:
+        slash = '/'
+
+        def __init__(self, output: str) -> None:
+            self.output = output
+
+        def verify_path(self) -> bool:
+            return True
+
+        async def verify_installation(self) -> None:
+            return None
+
+        async def visit(self, host: str) -> tuple[str, str]:
+            return host, 'reachable'
+
+        @staticmethod
+        def chunk_list(values: list[str], _size: int) -> list[list[str]]:
+            return [values]
+
+        async def take_screenshot(self, host: str) -> str:
+            return host
+
+    class FakeShodan:
+        async def search_ip(self, ip: str) -> dict[str, dict[str, list[int]]]:
+            return {ip: {'ports': [443]}}
+
+    class FakeApiScanner:
+        def __init__(self, word: str, wordlist: str) -> None:
+            assert word == 'example.com'
+            assert wordlist == str(tmp_path / 'api.txt')
+
+        async def do_search(self) -> None:
+            return None
+
+        def get_found_endpoints(self) -> set[str]:
+            return {'/api/v1'}
+
+        def get_interesting_endpoints(self) -> set[str]:
+            return {'/api/v1'}
+
+        def get_auth_required(self) -> set[str]:
+            return set()
+
+        def get_api_versions(self) -> set[str]:
+            return {'v1'}
+
+        def get_rate_limits(self) -> dict:
+            return {}
+
+        def get_methods(self) -> set[str]:
+            return {'GET'}
+
+        def get_status_codes(self) -> set[int]:
+            return {200}
+
+    class FakePool:
+        def __init__(self, _workers: int) -> None:
+            pass
+
+        async def __aenter__(self) -> 'FakePool':
+            return self
+
+        async def __aexit__(self, *_args) -> None:
+            return None
+
+        async def map(self, function, values):
+            return [await function(value) for value in values]
+
+    async def no_sleep(_seconds: float) -> None:
+        return None
+
+    wordlist = tmp_path / 'api.txt'
+    wordlist.write_text('/api/v1\n', encoding='utf-8')
+    monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
+    monkeypatch.setattr(theharvester_main.crtsh, 'SearchCrtsh', FakeCrtsh)
+    monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', FakeChecker)
+    monkeypatch.setattr(theharvester_main.takeover, 'TakeOver', FakeTakeOver)
+    monkeypatch.setattr(theharvester_main, 'ScreenShotter', FakeScreenShotter)
+    monkeypatch.setattr(theharvester_main.shodansearch, 'SearchShodan', FakeShodan)
+    monkeypatch.setattr(theharvester_main.api_endpoints, 'SearchApiEndpoints', FakeApiScanner)
+    monkeypatch.setattr(theharvester_main, 'Pool', FakePool)
+    monkeypatch.setattr(theharvester_main.asyncio, 'sleep', no_sleep)
+
+    result = await theharvester_main.start(
+        EnumerationOptions(
+            api_scan=True,
+            dns_resolve='192.0.2.53',
+            domain='example.com',
+            proxies=True,
+            quiet=True,
+            screenshot=str(tmp_path),
+            shodan=True,
+            source='crtsh',
+            take_over=True,
+            wordlist=str(wordlist),
+        ),
+        include_breaches=True,
+        return_completed_result=True,
+    )
+
+    completed = result[-1]
+    assert isinstance(completed, CompletedResult)
+    assert ('api-endpoint', '/api/v1') in completed.results
+    assert ('screenshot', 'api.example.com') in completed.results
+    assert ('shodan', '{"ip":"192.0.2.10","result":{"ports":[443]}}') in completed.results
+    assert (
+        'takeover',
+        '{"matches":[{"No such app":"Heroku"}],"url":"https://api.example.com"}',
+    ) in completed.results
+
+
+@pytest.mark.asyncio
 async def test_recursive_dns_results_reach_completed_output_without_changing_legacy_shapes(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     completed: list[CompletedResult] = []
     captured: list[tuple[str, tuple[str, ...], int, int]] = []

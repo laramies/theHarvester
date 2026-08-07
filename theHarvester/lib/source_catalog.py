@@ -1,11 +1,24 @@
+from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import Enum, StrEnum, auto
+from typing import Final
 
 
 class ActivityClass(StrEnum):
     PASSIVE = 'P0'
     DNS = 'P1'
     DIRECT = 'P2'
+
+
+ACTION_ACTIVITIES: Final = {
+    'dns-brute': ActivityClass.DNS,
+    'dns-lookup': ActivityClass.DNS,
+    'dns-resolve': ActivityClass.DNS,
+    'shodan': ActivityClass.PASSIVE,
+    'api-scan': ActivityClass.DIRECT,
+    'screenshot': ActivityClass.DIRECT,
+    'take-over': ActivityClass.DIRECT,
+}
 
 
 class ResultRoute(Enum):
@@ -153,3 +166,18 @@ _CASEFOLDED_SOURCE_SPECS = {name.casefold(): spec for name, spec in SOURCE_SPECS
 
 def get_source_spec(name: str) -> SourceSpec:
     return _CASEFOLDED_SOURCE_SPECS[name.casefold()]
+
+
+def resolve_sources(selection: str | Iterable[str]) -> list[str]:
+    """Expand source and result-capability selectors into canonical source names."""
+    values = (selection,) if isinstance(selection, str) else selection
+    tokens = [token for value in values for token in map(str.strip, value.split(',')) if token]
+    selected: set[str] = set()
+    for token in tokens:
+        if token.casefold() == 'all':
+            selected.update(spec.name for spec in SOURCE_SPECS.values() if spec.activity is ActivityClass.PASSIVE)
+        elif token in RESULT_CAPABILITIES:
+            selected.update(spec.name for spec in SOURCE_SPECS.values() if token in spec.capabilities)
+        else:
+            selected.add(token)
+    return sorted(selected)
