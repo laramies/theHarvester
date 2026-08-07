@@ -51,6 +51,10 @@ class BlockingResolver:
         except asyncio.CancelledError:
             self.cancelled += 1
             raise
+        raise AssertionError('unreachable')
+
+    async def query_ptr(self, _address: str, _budget: DNSQueryBudget | None = None) -> tuple[str, ...]:
+        return ()
 
 
 class CnameHeavyResolver:

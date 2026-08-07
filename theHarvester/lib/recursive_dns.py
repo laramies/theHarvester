@@ -7,9 +7,9 @@ from typing import TYPE_CHECKING
 
 from theHarvester.lib.dns_consensus import (
     Addressability,
+    BudgetedResolverVantage,
     CandidateConsensus,
     DNSQueryBudget,
-    ResolverVantage,
     validate_dns_candidates,
 )
 from theHarvester.lib.hostnames import normalize_scoped_hostname
@@ -88,7 +88,7 @@ async def discover_recursive_dns(
     target: str,
     seeds: Sequence[str],
     labels: Sequence[str],
-    resolvers: Sequence[ResolverVantage],
+    resolvers: Sequence[BudgetedResolverVantage],
     limits: RecursiveDNSLimits,
 ) -> RecursiveDNSResult:
     normalized_target = target.strip().lower().rstrip('.')
