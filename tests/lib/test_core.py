@@ -24,6 +24,7 @@ def test_email_capability_expands_to_email_sources() -> None:
         "baidu",
         "brave",
         "censys",
+        "dehashed",
         "duckduckgo",
         "github-code",
         "gitlab",
@@ -31,13 +32,11 @@ def test_email_capability_expands_to_email_sources() -> None:
         "hudsonrock",
         "hunter",
         "intelx",
-        "leakix",
         "leaklookup",
         "mojeek",
         "rocketreach",
         "sherlockeye",
         "tomba",
-        "venacus",
         "windvane",
         "yahoo",
         "zoomeye",
@@ -53,7 +52,6 @@ def test_capabilities_and_explicit_sources_form_a_union() -> None:
         "intelx",
         "rocketreach",
         "urlscan",
-        "venacus",
         "zoomeye",
     ]
 
@@ -63,17 +61,16 @@ def test_multiple_capabilities_form_a_union() -> None:
         "criminalip",
         "onyphe",
         "urlscan",
-        "venacus",
         "zoomeye",
     ]
 
 
 def test_breach_capability_includes_every_matching_source() -> None:
-    assert Core.expand_source_selection('breaches') == ['haveibeenpwned', 'hibpverified']
+    assert Core.expand_source_selection('breaches') == ['haveibeenpwned', 'hibpverified', 'leaklookup']
 
 
 def test_named_source_can_be_combined_with_a_capability() -> None:
-    assert Core.expand_source_selection('breaches,hibpverified') == ['haveibeenpwned', 'hibpverified']
+    assert Core.expand_source_selection('breaches,hibpverified') == ['haveibeenpwned', 'hibpverified', 'leaklookup']
 
 
 def test_all_selects_only_passive_catalog_sources() -> None:
@@ -92,6 +89,15 @@ def test_all_selects_only_passive_catalog_sources() -> None:
         "subdomainfinderc99": ActivityClass.DNS,
         "windvane": ActivityClass.DNS,
     }
+
+
+@pytest.mark.parametrize(
+    'source',
+    ['criminalip', 'pentesttools', 'shodan', 'shodanInternetDB', 'subdomainfinderc99', 'windvane'],
+)
+def test_non_passive_sources_run_only_when_explicitly_selected(source: str) -> None:
+    assert source not in Core.expand_source_selection('all')
+    assert Core.expand_source_selection(source) == [source]
 
 
 def mock_read_text(mocked: dict[Path, str | Exception]):
@@ -447,6 +453,27 @@ async def test_post_fetch_decodes_string_payload_and_posts_params(monkeypatch) -
 
 
 @pytest.mark.asyncio
+async def test_post_fetch_sends_json_body(monkeypatch) -> None:
+    reset_dummy_sessions()
+    monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
+    monkeypatch.setattr(core_module.asyncio, 'sleep', fake_sleep)
+    monkeypatch.setattr(core_module.ssl, 'create_default_context', lambda cafile=None: 'ssl-context')
+    monkeypatch.setattr(core_module.certifi, 'where', lambda: '/tmp/cacert.pem')
+
+    result = await AsyncFetcher.post_fetch(
+        'https://example.com/api',
+        json_body={'scan': 'example'},
+        json=True,
+    )
+
+    assert result == {'ok': True}
+    session = DummySession.instances[0]
+    assert session.requests == [
+        ('POST', 'https://example.com/api', {'json': {'scan': 'example'}})
+    ]
+
+
+@pytest.mark.asyncio
 async def test_post_fetch_can_include_response_metadata(monkeypatch) -> None:
     reset_dummy_sessions()
     monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
@@ -464,7 +491,7 @@ async def test_post_fetch_can_include_response_metadata(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_post_fetch_proxy_branch_uses_get_with_http_proxy(monkeypatch) -> None:
+async def test_post_fetch_proxy_branch_posts_body_and_params_with_http_proxy(monkeypatch) -> None:
     reset_dummy_sessions()
     created_connectors = []
     monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
@@ -479,12 +506,22 @@ async def test_post_fetch_proxy_branch_uses_get_with_http_proxy(monkeypatch) -> 
 
     monkeypatch.setattr(AsyncFetcher, '_create_connector', fake_create_connector)
 
-    result = await AsyncFetcher.post_fetch('https://example.com/resource', proxy=True)
+    result = await AsyncFetcher.post_fetch(
+        'https://example.com/resource',
+        json_body={'scan': 'example'},
+        params={'page': 2},
+        json=True,
+        proxy=True,
+    )
 
-    assert result == 'response-text'
+    assert result == {'ok': True}
     assert created_connectors == [('http://proxy.local:8080', 'http', 'ssl-context')]
     session = DummySession.instances[0]
     assert session.connector == 'connector'
     assert session.requests == [
-        ('GET', 'https://example.com/resource', {'proxy': 'http://proxy.local:8080'})
+        (
+            'POST',
+            'https://example.com/resource',
+            {'json': {'scan': 'example'}, 'params': {'page': 2}, 'proxy': 'http://proxy.local:8080'},
+        )
     ]

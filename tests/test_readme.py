@@ -19,7 +19,7 @@ ROUTE_COLUMNS = {
     ResultRoute.PEOPLE: 'People',
     ResultRoute.BREACHES: 'Breaches',
 }
-OPTIONAL_API_KEY_SOURCES = {'hackertarget', 'leakix', 'mojeek', 'windvane'}
+OPTIONAL_API_KEY_SOURCES = {'hackertarget', 'mojeek', 'windvane'}
 API_KEY_SOURCE_ALIASES = {
     'github': {'github-code'},
     'pentestTools': {'pentesttools'},
@@ -81,8 +81,8 @@ def test_readme_matches_declared_source_contracts() -> None:
     declared = _declared_source_contracts()
 
     assert '| Source | Subdomains | Emails | IPs | ASNs | URLs / links | People | Breaches |' in readme
-    assert len(declared) == 57
-    assert len(documented) == 57
+    assert len(declared) == 56
+    assert len(documented) == 56
     assert documented == declared
     assert {'securitytrails', 'shodaninternetdb'}.isdisjoint(documented)
 

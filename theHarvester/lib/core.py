@@ -19,7 +19,7 @@ from aiohttp_socks import ProxyConnector
 
 from theHarvester import __version__
 from theHarvester.lib.output import output_logger
-from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass
+from theHarvester.lib.source_catalog import RESULT_CAPABILITIES, SOURCE_SPECS, ActivityClass
 
 if TYPE_CHECKING:
     from collections.abc import Sized
@@ -75,7 +75,6 @@ class Core:
         'sherlockeye': ('key',),
         'shodan': ('key',),
         'tomba': ('key', 'secret'),
-        'venacus': ('key',),
         'virustotal': ('key',),
         'whoisxml': ('key',),
         'windvane': ('key',),
@@ -238,10 +237,6 @@ class Core:
         return Core._api_key_value('tomba')
 
     @staticmethod
-    def venacus_key() -> str:
-        return Core._api_key_value('venacus')
-
-    @staticmethod
     def virustotal_key() -> str:
         return Core._api_key_value('virustotal')
 
@@ -345,7 +340,6 @@ class Core:
             'thc',
             'tomba',
             'urlscan',
-            'venacus',
             'virustotal',
             'waybackarchive',
             'whoisxml',
@@ -360,10 +354,9 @@ class Core:
         """Expand result capability selectors into source names."""
         if selection.lower() == 'all':
             return sorted(spec.name for spec in SOURCE_SPECS.values() if spec.activity is ActivityClass.PASSIVE)
-        capabilities = {capability for spec in SOURCE_SPECS.values() for capability in spec.capabilities}
         selected: set[str] = set()
         for token in map(str.strip, selection.split(',')):
-            if token in capabilities:
+            if token in RESULT_CAPABILITIES:
                 selected.update(spec.name for spec in SOURCE_SPECS.values() if token in spec.capabilities)
             else:
                 selected.add(token)
@@ -531,11 +524,15 @@ class AsyncFetcher:
         url: str,
         *,
         json: bool = False,
+        json_body: dict[str, Any] | None = None,
         delay: int = 5,
         request_timeout: int | None = None,
         include_metadata: bool = False,
         **request_kwargs: Any,
     ) -> Any:
+        if json_body is not None:
+            request_kwargs.pop('data', None)
+            request_kwargs['json'] = json_body
         if request_timeout:
             async with asyncio.timeout(request_timeout):
                 async with session.request(method.upper(), url, **request_kwargs) as response:
@@ -596,6 +593,7 @@ class AsyncFetcher:
         json: bool = False,
         proxy: bool = False,
         include_metadata: bool = False,
+        json_body: dict[str, Any] | None = None,
     ):
         headers = cls._default_headers(headers)
         timeout = cls._request_timeout(720)
@@ -605,38 +603,32 @@ class AsyncFetcher:
             if proxy:
                 proxy_url, proxy_type = cls._resolve_proxy(proxy)
                 sslcontext = cls._ssl_context()
-
+                request_kwargs: dict[str, Any] = {
+                    'data': cls._normalize_data(data) if json_body is None else None,
+                    'proxy': proxy_url if proxy_type == 'http' else None,
+                }
                 if params != '':
-                    async with await cls._build_session(headers, timeout, proxy_url, proxy_type, sslcontext) as session:
-                        return await cls._request(
-                            session,
-                            'GET',
-                            url,
-                            params=params,
-                            proxy=proxy_url if proxy_type == 'http' else None,
-                            json=json,
-                            delay=5,
-                            include_metadata=include_metadata,
-                        )
-                else:
-                    async with await cls._build_session(headers, timeout, proxy_url, proxy_type, sslcontext) as session:
-                        return await cls._request(
-                            session,
-                            'GET',
-                            url,
-                            proxy=proxy_url if proxy_type == 'http' else None,
-                            json=json,
-                            delay=5,
-                            include_metadata=include_metadata,
-                        )
+                    request_kwargs['params'] = params
+                async with await cls._build_session(headers, timeout, proxy_url, proxy_type, sslcontext) as session:
+                    return await cls._request(
+                        session,
+                        'POST',
+                        url,
+                        json=json,
+                        json_body=json_body,
+                        delay=3,
+                        include_metadata=include_metadata,
+                        **request_kwargs,
+                    )
             elif params == '':
                 async with await cls._build_session(headers, timeout) as session:
                     return await cls._request(
                         session,
                         'POST',
                         url,
-                        data=cls._normalize_data(data),
+                        data=cls._normalize_data(data) if json_body is None else None,
                         json=json,
+                        json_body=json_body,
                         delay=3,
                         include_metadata=include_metadata,
                     )
@@ -646,10 +638,11 @@ class AsyncFetcher:
                         session,
                         'POST',
                         url,
-                        data=cls._normalize_data(data),
+                        data=cls._normalize_data(data) if json_body is None else None,
                         ssl=cls._ssl_context(),
                         params=params,
                         json=json,
+                        json_body=json_body,
                         delay=3,
                         include_metadata=include_metadata,
                     )

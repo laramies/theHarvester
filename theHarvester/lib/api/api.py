@@ -22,6 +22,7 @@ from theHarvester.lib import stash
 from theHarvester.lib.api.additional_endpoints import router as additional_router
 from theHarvester.lib.api.auth import get_api_key
 from theHarvester.lib.completed_result import ResultKind
+from theHarvester.lib.recursive_dns import DEFAULT_RECURSIVE_DNS_QUERY_LIMIT
 
 logger = logging.getLogger(__name__)
 
@@ -369,6 +370,15 @@ async def query(
     dns_resolve: Annotated[
         str, Query(description='Perform DNS resolution on subdomains with a resolver list or passed in resolvers')
     ] = '',
+    dns_recursive_depth: Annotated[
+        int, Query(ge=0, description='Recursively discover DNS names beneath currently addressable parents')
+    ] = 0,
+    dns_recursive_query_limit: Annotated[
+        int, Query(gt=0, description='Maximum DNS record queries across resolver vantages')
+    ] = DEFAULT_RECURSIVE_DNS_QUERY_LIMIT,
+    dns_recursive_runtime_seconds: Annotated[
+        float, Query(gt=0, allow_inf_nan=False, description='Maximum runtime in seconds for recursive DNS discovery')
+    ] = 60.0,
     filename: Annotated[str, Query(description='Save the results to an XML and JSON file')] = '',
     proxies: Annotated[bool, Query(description='Use proxies for requests')] = False,
     shodan: Annotated[bool, Query(description='Use Shodan to query discovered hosts')] = False,
@@ -391,7 +401,15 @@ async def query(
     try:
         # Validate sources
         selected_sources = __main__.Core.expand_source_selection(','.join(source))
-        if 'hibpverified' in selected_sources and __main__.Core.hibpverified_key() is not None:
+        credentialed_source = any(
+            source_name in selected_sources and bool((key_getter() or '').strip())
+            for source_name, key_getter in (
+                ('dehashed', __main__.Core.dehashed_key),
+                ('hibpverified', __main__.Core.hibpverified_key),
+                ('leaklookup', __main__.Core.leaklookup_key),
+            )
+        )
+        if credentialed_source:
             get_api_key(x_api_key)
         supported_engines = __main__.Core.get_supportedengines()
         for s in selected_sources:
@@ -399,6 +417,23 @@ async def query(
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Source '{s}' is not supported. Supported sources: {', '.join(supported_engines)}",
+                )
+
+        if dns_recursive_depth > 0:
+            get_api_key(x_api_key)
+            try:
+                recursive_resolvers = {
+                    str(ipaddress.ip_address(value.strip())) for value in dns_resolve.split(',') if value.strip()
+                }
+            except ValueError as error:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail='recursive DNS requires exactly three distinct resolver IPs',
+                ) from error
+            if len(recursive_resolvers) != 3:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail='recursive DNS requires exactly three distinct resolver IPs',
                 )
 
         if api_scan and not await _is_public_target(domain):
@@ -435,6 +470,9 @@ async def query(
                 wordlist=wordlist,
                 api_scan=api_scan,
                 dns_resolve=dns_resolve,
+                dns_recursive_depth=dns_recursive_depth,
+                dns_recursive_query_limit=dns_recursive_query_limit,
+                dns_recursive_runtime_seconds=dns_recursive_runtime_seconds,
                 quiet=False,
                 screenshot='',
             ),

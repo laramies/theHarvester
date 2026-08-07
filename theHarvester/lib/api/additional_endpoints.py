@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from theHarvester.discovery.additional_apis import AdditionalAPIs
 from theHarvester.discovery.haveibeenpwned import SearchHaveIBeenPwned
+from theHarvester.discovery.leaklookup import SearchLeakLookup
 from theHarvester.lib.api.auth import get_api_key
 
 router = APIRouter()
@@ -37,10 +38,9 @@ async def get_breaches(request: DomainRequest, _api_key: Annotated[str, Depends(
 async def get_leaks(request: DomainRequest, _api_key: Annotated[str, Depends(get_api_key)]):
     """Get leaked credentials for a domain using Leak-Lookup."""
     try:
-        apis = AdditionalAPIs(request.domain, request.api_keys or {})
-        await apis._process_leaklookup()
-        results = apis.results['leaks']
-        return {'status': 'success', 'data': results}
+        search = SearchLeakLookup(request.domain)
+        await search.process()
+        return {'status': 'success', 'data': await search.get_leaks()}
     except Exception as e:
         _raise_processing_error('leaks', e)
 

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added bounded recursive DNS discovery with three-vantage consensus, closest-encloser wildcard controls, exact-address PTR evidence, and hard query, depth, runtime, and zero-yield limits.
 - Added authenticated REST routes for listing completed enumeration runs and retrieving their normalized evidence.
 - Added an authenticated HIBP verified-domain source for CLI and conditionally authenticated REST queries that retains normalized account emails and stable breach names without retaining the raw account mapping.
 - Added keyless Shodan Certificate Transparency hostname discovery with bounded requests and offline response contracts.
@@ -21,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added root contributor and security policies, structured issue forms, repository agent guidance, discovery terminology, and an operator-focused documentation wiki ([d090a29a](https://github.com/laramies/theHarvester/commit/d090a29a), [7c491ef5](https://github.com/laramies/theHarvester/commit/7c491ef5), [8b9d420b](https://github.com/laramies/theHarvester/commit/8b9d420b)).
 
 ### Changed
+- Fixed proxied POST requests so they retain the request method, body, and query parameters.
+- Migrated Pentest-Tools discovery to its API v2 Bearer-authenticated scan, status, and output endpoints.
 - Included HIBP verified-domain in `all` and matching capability selectors like every other P0 source, with REST operator authentication applied after source expansion when its provider key is configured.
 - Allowed REST `/query` requests to select discovery sources by result capability, matching the CLI's union semantics while preserving explicit source selection.
 - Changed `-b all` to select every cataloged P0 passive source once while leaving P1 DNS and P2 direct sources available through explicit selection.
@@ -42,6 +45,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed the nonfunctional ThreatCrowd source because its service hostnames terminate at deleted AWS load balancers and return NXDOMAIN; OTX remains available through its separate adapter.
 
 ### Fixed
+- Made DeHashed pagination honor the CLI limit, retain only normalized email and IP evidence, and discard raw breach rows; aligned LeakIX with its authenticated subdomain endpoint and documented rate-limit retry.
+- Added offline contracts for explicitly selected DNS and direct sources, retained normalized Pentest-Tools host and IP results, and hardened Shodan InternetDB, SubdomainFinder C99, and Windvane evidence boundaries.
 - Retained relevant GitLab project, profile, and website URLs in consolidated JSONL and SQLite results while excluding unrelated user URLs.
 - Removed BuiltWith's duplicate interesting-URL getter by allowing the shared collector to use either established getter spelling.
 - Made no-filename REST `/query` executions reach completed-result construction and SQLite persistence without changing the legacy response fields.

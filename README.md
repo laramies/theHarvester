@@ -77,7 +77,9 @@ uv run theHarvester -h
 
 ### Active features
 
-Options such as DNS brute force (`-c`), reverse DNS lookup (`-n`), takeover checks (`-t`), API endpoint scanning (`-a`), DNS resolution (`-r`), and screenshots (`--screenshot`) generate additional network activity. Use them only within an explicitly authorized scope.
+Options such as DNS brute force (`-c`), bounded recursive DNS (`--dns-recursive-depth`), reverse DNS lookup (`-n`), takeover checks (`-t`), API endpoint scanning (`-a`), DNS resolution (`-r`), and screenshots (`--screenshot`) generate additional network activity. Use them only within an explicitly authorized scope.
+
+Recursive DNS requires exactly three distinct resolver IPs through `--dns-resolve`. It advances only names with two-vantage address consensus that are distinguishable from closest-encloser wildcard controls. Depth, DNS record query, and runtime limits are configurable through the three `--dns-recursive-*` options; the default query ceiling is 3,000 record queries across resolver vantages, and three consecutive zero-yield batches also stop recursion. PTR names for current addresses are retained as secondary evidence, but they do not establish current addressability or become recursion seeds. REST `/query` exposes the same options and requires the configured operator API key when recursion is enabled.
 
 Screenshot capture also requires a Playwright-compatible browser; see the installation guide for setup.
 
@@ -104,7 +106,7 @@ Open [http://127.0.0.1:5000/docs](http://127.0.0.1:5000/docs) for interactive Sw
 
 The service rate limit defaults to five requests per minute and can be changed with `--rate-limit`. The `/additional/*` routes require `THEHARVESTER_API_KEY` on the server and the same value in the `X-API-Key` request header.
 
-The core `/query`, `/sources`, and `/dnsbrute` routes do not normally require authentication. When a `/query` selection includes `hibpverified` and its provider key is configured, the request requires `THEHARVESTER_API_KEY` in the `X-API-Key` header because it can access verified-domain account data. Keep the service bound to localhost. If you require remote access, add authentication, access controls, and TLS.
+The core `/query`, `/sources`, and `/dnsbrute` routes do not normally require authentication. When a `/query` selection includes `dehashed`, `hibpverified`, or `leaklookup` and that source's provider key is configured, the request requires `THEHARVESTER_API_KEY` in the `X-API-Key` header because these sources can access breach-account data. Keep the service bound to localhost. If you require remote access, add authentication, access controls, and TLS.
 
 Docker Compose publishes port `5000` on every host interface unless you narrow the port mapping:
 
@@ -144,7 +146,7 @@ Read the **API key** column as follows:
 | `commoncrawl` | ✓ | No | No | No | No | No | No | No | No |
 | `criminalip` | ✓ | No | ✓ | ✓ | No | No | No | No | ✓ |
 | `crtsh` | ✓ | No | No | No | No | No | No | No | No |
-| `dehashed` | No | No | ✓ | No | No | No | No | No | ✓ |
+| `dehashed` | No | ✓ | ✓ | No | No | No | No | No | ✓ |
 | `dnsdb` | ✓ | No | No | No | No | No | No | No | ✓ |
 | `dnsdumpster` | ✓ | No | ✓ | No | No | No | No | No | ✓ |
 | `duckduckgo` | ✓ | ✓ | No | No | No | No | No | No | No |
@@ -160,13 +162,13 @@ Read the **API key** column as follows:
 | `hunter` | ✓ | ✓ | No | No | No | No | No | No | ✓ |
 | `hunterhow` | ✓ | No | No | No | No | No | No | No | ✓ |
 | `intelx` | ✓ | ✓ | No | No | ✓ | No | No | No | ✓ |
-| `leakix` | ✓ | ✓ | No | No | No | No | No | No | Optional |
-| `leaklookup` | No | ✓ | No | No | No | No | No | `POST /additional/leaks` response | ✓ |
+| `leakix` | ✓ | No | No | No | No | No | No | No | ✓ |
+| `leaklookup` | No | ✓ | No | No | No | No | ✓ | `POST /additional/leaks` response | ✓ |
 | `mojeek` | ✓ | ✓ | No | No | No | No | No | No | Optional |
 | `netlas` | ✓ | No | No | No | No | No | No | No | ✓ |
 | `onyphe` | ✓ | No | ✓ | ✓ | No | No | No | No | ✓ |
 | `otx` | ✓ | No | ✓ | No | No | No | No | No | No |
-| `pentesttools` | ✓ | No | No | No | No | No | No | No | ✓ |
+| `pentesttools` | ✓ | No | ✓ | No | No | No | No | No | ✓ |
 | `projectdiscovery` | ✓ | No | No | No | No | No | No | No | ✓ |
 | `rapiddns` | ✓ | No | ✓ | No | No | No | No | No | No |
 | `robtex` | ✓ | No | ✓ | No | No | No | No | No | No |
@@ -182,7 +184,6 @@ Read the **API key** column as follows:
 | `thc` | ✓ | No | No | No | No | No | No | No | No |
 | `tomba` | ✓ | ✓ | No | No | No | No | No | No | ✓ |
 | `urlscan` | ✓ | No | ✓ | ✓ | ✓ | No | No | No | No |
-| `venacus` | No | ✓ | ✓ | No | ✓ | ✓ | No | No | ✓ |
 | `virustotal` | ✓ | No | No | No | No | No | No | No | ✓ |
 | `waybackarchive` | ✓ | No | No | No | No | No | No | No | No |
 | `whoisxml` | ✓ | No | No | No | No | No | No | No | ✓ |
@@ -236,7 +237,7 @@ The JSON report is a single object and is the more complete format for automatio
 
 The XML report contains the command, emails, hosts, and virtual hosts. Use JSON when you need the additional result types above.
 
-The JSONL report is finalized after the selected one-shot actions finish. Its first line is a summary with an independent run UUID, the target, UTC timestamps, counts, and schema version. Each remaining line is one deterministic, deduplicated string finding, including stable Have I Been Pwned breach names as `breach` records and normalized BuiltWith findings as `framework`, `language`, `server`, `cms`, or `analytics` records. The format does not claim provider success or record source attribution.
+The JSONL report is finalized after the selected one-shot actions finish. Its first line is a summary with an independent run UUID, the target, UTC timestamps, counts, and schema version. Each remaining line is one deterministic, deduplicated string finding, including stable Have I Been Pwned breach names as `breach` records and normalized BuiltWith findings as `framework`, `language`, `server`, `cms`, or `analytics` records. Recursive runs add `dns-recursive-finding` values with hostname, parent, addresses, and PTR names; `dns-recursive-classification` values retain current and meaningful secondary candidates with hostname, parent, addressability, addresses, CNAMEs, and PTR names. One `dns-recursive-summary` value records query cost, reached depth, zero-yield batches, and stop reason. The format does not claim provider success or provider source attribution.
 
 List every JSONL finding as tab-separated type and value columns:
 

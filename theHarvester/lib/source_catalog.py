@@ -38,6 +38,7 @@ _ROUTE_CAPABILITIES = {
     ResultRoute.INTERESTING_URLS: 'urls',
     ResultRoute.BREACHES: 'breaches',
 }
+RESULT_CAPABILITIES = frozenset(_ROUTE_CAPABILITIES.values())
 
 
 @dataclass(frozen=True)
@@ -82,7 +83,7 @@ _SPECS = (
         activity=ActivityClass.DIRECT,
     ),
     _spec('crtsh', ResultRoute.SUBDOMAINS),
-    _spec('dehashed', ResultRoute.IPS),
+    _spec('dehashed', ResultRoute.EMAILS, ResultRoute.IPS),
     _spec('dnsdb', ResultRoute.SUBDOMAINS),
     _spec('dnsdumpster', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
     _spec('duckduckgo', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
@@ -98,13 +99,13 @@ _SPECS = (
     _spec('hunter', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec('hunterhow', ResultRoute.SUBDOMAINS),
     _spec('intelx', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS, ResultRoute.INTERESTING_URLS),
-    _spec('leakix', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
-    _spec('leaklookup', ResultRoute.EMAILS),
+    _spec('leakix', ResultRoute.SUBDOMAINS),
+    _spec('leaklookup', ResultRoute.EMAILS, ResultRoute.BREACHES),
     _spec('mojeek', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec('netlas', ResultRoute.SUBDOMAINS),
     _spec('onyphe', ResultRoute.SUBDOMAINS, ResultRoute.IPS, ResultRoute.ASNS),
     _spec('otx', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
-    _spec('pentesttools', ResultRoute.SUBDOMAINS, activity=ActivityClass.DNS),
+    _spec('pentesttools', ResultRoute.SUBDOMAINS, ResultRoute.IPS, activity=ActivityClass.DNS),
     _spec('projectdiscovery', ResultRoute.SUBDOMAINS),
     _spec('rapiddns', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
     _spec('robtex', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
@@ -125,7 +126,6 @@ _SPECS = (
     _spec('thc', ResultRoute.SUBDOMAINS),
     _spec('tomba', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec('urlscan', ResultRoute.SUBDOMAINS, ResultRoute.IPS, ResultRoute.ASNS, ResultRoute.INTERESTING_URLS),
-    _spec('venacus', ResultRoute.EMAILS, ResultRoute.IPS, ResultRoute.PEOPLE, ResultRoute.INTERESTING_URLS),
     _spec('virustotal', ResultRoute.SUBDOMAINS),
     _spec('waybackarchive', ResultRoute.SUBDOMAINS),
     _spec('whoisxml', ResultRoute.SUBDOMAINS),
