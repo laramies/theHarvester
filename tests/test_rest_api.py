@@ -71,6 +71,20 @@ def test_query_documents_safe_recursive_dns_query_default() -> None:
     assert query_limit['schema']['default'] == 3_000
 
 
+@pytest.mark.parametrize('runtime_seconds', ['nan', 'inf'])
+def test_query_rejects_non_finite_recursive_dns_runtime(monkeypatch, runtime_seconds: str) -> None:
+    async def unexpected_start(*_args, **_kwargs):
+        raise AssertionError('enumeration must not start')
+
+    monkeypatch.setattr(api.__main__, 'start', unexpected_start)
+
+    response = TestClient(api.app).get(
+        f'/query?domain=example.test&source=certspotter&dns_recursive_runtime_seconds={runtime_seconds}'
+    )
+
+    assert response.status_code == 422
+
+
 def test_query_rejects_recursive_dns_without_three_distinct_resolvers(monkeypatch) -> None:
     async def unexpected_start(*_args, **_kwargs):
         raise AssertionError('enumeration must not start')

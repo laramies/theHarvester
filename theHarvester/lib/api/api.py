@@ -377,7 +377,7 @@ async def query(
         int, Query(gt=0, description='Maximum DNS record queries across resolver vantages')
     ] = DEFAULT_RECURSIVE_DNS_QUERY_LIMIT,
     dns_recursive_runtime_seconds: Annotated[
-        float, Query(gt=0, description='Maximum runtime in seconds for recursive DNS discovery')
+        float, Query(gt=0, allow_inf_nan=False, description='Maximum runtime in seconds for recursive DNS discovery')
     ] = 60.0,
     filename: Annotated[str, Query(description='Save the results to an XML and JSON file')] = '',
     proxies: Annotated[bool, Query(description='Use proxies for requests')] = False,
