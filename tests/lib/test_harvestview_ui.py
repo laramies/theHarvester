@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import ipaddress
 
 from fastapi.testclient import TestClient
@@ -70,7 +69,7 @@ def test_harvestview_offers_only_jsonl_file_interchange(tmp_path, monkeypatch) -
     assert 'text/csv' not in script.text
 
 
-def test_harvestview_self_hosts_only_the_pinned_tabulator_theme(tmp_path, monkeypatch) -> None:
+def test_harvestview_loads_pinned_tabulator_from_cdnjs(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api import api
 
     monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
@@ -80,16 +79,28 @@ def test_harvestview_self_hosts_only_the_pinned_tabulator_theme(tmp_path, monkey
     with TestClient(api.app, base_url='http://127.0.0.1', client=('127.0.0.1', 50000)) as client:
         root = client.get('/')
         theme = client.get('/static/harvestview/tabulator.min.css')
+        script = client.get('/static/harvestview/tabulator.min.js')
+        license_file = client.get('/static/harvestview/TABULATOR-LICENSE')
         bootstrap = client.get('/static/harvestview/bootstrap.min.css')
         old_theme = client.get('/static/harvestview/tabulator_bootstrap5.min.css')
 
     assert root.status_code == 200
     assert 'bootstrap.min.css' not in root.text
     assert 'tabulator_bootstrap5.min.css' not in root.text
-    assert '<link rel="stylesheet" href="/static/harvestview/tabulator.min.css?v=6.5.2">' in root.text
+    assert (
+        '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabulator-tables/6.5.2/css/tabulator.min.css" '
+        'integrity="sha512-t8I/asqzdu/MRgVLxVanQ/c5bhUA1qZ/zA432a/3nUh0kkd7P8Qch35wQvTODivf9D6Xv3h7F8p7ezcUyBOQrQ==" '
+        'crossorigin="anonymous" referrerpolicy="no-referrer">'
+    ) in root.text
+    assert (
+        '<script src="https://cdnjs.cloudflare.com/ajax/libs/tabulator-tables/6.5.2/js/tabulator.min.js" '
+        'integrity="sha512-AF0YMSgc0Ui4IJPb4hJNSi16wFidZEQa6ZTCAeguF3h5glVnAPuz/JT2ai9ypKhsc9n6CEXBB+tMdxsv1q+rxg==" '
+        'crossorigin="anonymous" referrerpolicy="no-referrer"></script>'
+    ) in root.text
     assert 'https://unpkg.com' not in root.text
-    assert theme.status_code == 200
-    assert hashlib.sha256(theme.content).hexdigest() == 'b55e204b2f968cecc4d3663d37858093b31dd22d20f01d76f590726ee18f7e1f'
+    assert theme.status_code == 404
+    assert script.status_code == 404
+    assert license_file.status_code == 404
     assert bootstrap.status_code == 404
     assert old_theme.status_code == 404
 

@@ -22,7 +22,7 @@ Use native dialogs, buttons, inputs, details, and file controls. Motion is limit
 
 ## Tables and evidence
 
-Use the locally served standalone Tabulator JavaScript build for sorting, filtering, selection, and pagination. Load only its pinned default table theme, with HarvestView's own stylesheet controlling the visual system. DNS status uses resolved, no-answer, disputed, uncertain, and not-captured labels. Long values wrap or truncate with a title; they never break the viewport.
+Use the pinned CDNjs Tabulator browser build for sorting, filtering, selection, and pagination. Load only its default table theme, with HarvestView's own stylesheet controlling the visual system. DNS status uses resolved, no-answer, disputed, uncertain, and not-captured labels. Long values wrap or truncate with a title; they never break the viewport.
 
 ## CSS architecture
 
@@ -40,13 +40,14 @@ again.
 | Tailwind | Strong utility workflow and small compiled output when a build step is used. | Requires a markup rewrite and build pipeline; its browser CDN is development-only. | Do not add. |
 
 Tabulator is the exception because it supplies table behavior HarvestView actually
-uses. Its JavaScript and pinned default theme remain same-origin so local and
-isolated-network use does not depend on a CDN. `app.css` owns the visual treatment
-on top of that structural theme.
+uses. Its JavaScript and pinned default theme load from CDNjs by default with
+Subresource Integrity. Isolated deployments can self-host those exact assets by
+following the installation wiki. `app.css` owns the visual treatment on top of
+that structural theme.
 
 Primary references: [Bootstrap 5.3 installation](https://getbootstrap.com/docs/5.3/getting-started/introduction/),
-[Tabulator 6.5 installation](https://tabulator.info/docs/6.5/install),
-[Tabulator 6.5 themes](https://tabulator.info/docs/6.5/theme),
+[Tabulator 6.x installation](https://tabulator.info/docs/6.x/install),
+[Tabulator 6.x themes](https://tabulator.info/docs/6.x/theme),
 [Pico quick start](https://github.com/picocss/pico#quick-start),
 [Bulma quick install](https://github.com/jgthms/bulma#quick-install), and
 [Tailwind Play CDN guidance](https://tailwindcss.com/docs/installation/play-cdn).

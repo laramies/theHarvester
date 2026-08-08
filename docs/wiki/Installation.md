@@ -35,6 +35,24 @@ uv run pytest
 
 The supported console commands are `theHarvester` and `restfulHarvest`. There is no root `theHarvester.py` launcher.
 
+### Self-host Tabulator
+
+HarvestView loads Tabulator 6.5.2 from CDNjs by default. For an isolated deployment, download the same pinned files in a connected environment and copy them into `theHarvester/lib/api/static/harvestview/`:
+
+| File | CDNjs source | SRI |
+| --- | --- | --- |
+| `tabulator.min.css` | `https://cdnjs.cloudflare.com/ajax/libs/tabulator-tables/6.5.2/css/tabulator.min.css` | `sha512-t8I/asqzdu/MRgVLxVanQ/c5bhUA1qZ/zA432a/3nUh0kkd7P8Qch35wQvTODivf9D6Xv3h7F8p7ezcUyBOQrQ==` |
+| `tabulator.min.js` | `https://cdnjs.cloudflare.com/ajax/libs/tabulator-tables/6.5.2/js/tabulator.min.js` | `sha512-AF0YMSgc0Ui4IJPb4hJNSi16wFidZEQa6ZTCAeguF3h5glVnAPuz/JT2ai9ypKhsc9n6CEXBB+tMdxsv1q+rxg==` |
+
+Then replace the two CDNjs tags in `theHarvester/lib/api/static/harvestview/index.html` with same-origin references:
+
+```html
+<link rel="stylesheet" href="/static/harvestview/tabulator.min.css?v=6.5.2">
+<script src="/static/harvestview/tabulator.min.js?v=6.5.2"></script>
+```
+
+Remove the CDN-only `integrity`, `crossorigin`, and `referrerpolicy` attributes from those local tags. Rebuild the package or container after copying the assets.
+
 ### Screenshot support
 
 The screenshot option requires a Playwright-compatible Chromium browser:

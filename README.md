@@ -96,26 +96,11 @@ Open [HarvestView](http://127.0.0.1:5000/) to run and inspect finite enumeration
 
 HarvestView uses its own `app.css` rather than a general UI framework. Bootstrap,
 Bulma, Pico, and Tailwind would duplicate the existing design layer or require a
-markup and build-pipeline rewrite. Tabulator's table behavior and default theme
-are pinned to version 6.5.2 and served locally, so opening HarvestView makes no
-third-party request.
-
-Connected deployments may instead load the exact theme from
-`https://unpkg.com/tabulator-tables@6.5.2/dist/css/tabulator.min.css`. Replace the
-first stylesheet link in `index.html` and set these attributes:
-
-```html
-integrity="sha384-7L13yWDATAJeK/mNTrYjb3Z8l08N1iGKbO9mSeSdlqR91llnpd0c4Y8wPznKlHCh"
-crossorigin="anonymous"
-referrerpolicy="no-referrer"
-```
-
-The CDN sees the browser request, and the table theme is unavailable without
-network access. The equivalent self-hosted file has this SHA-256 value:
-
-```text
-b55e204b2f968cecc4d3663d37858093b31dd22d20f01d76f590726ee18f7e1f
-```
+markup and build-pipeline rewrite. Tabulator 6.5.2's table behavior and default
+theme load from pinned CDNjs URLs with Subresource Integrity. HarvestView
+therefore needs network access to CDNjs by default. See the
+[self-hosting instructions](docs/wiki/Installation.md#self-host-tabulator) for
+an isolated deployment.
 
 Open [Swagger](http://127.0.0.1:5000/docs) or [ReDoc](http://127.0.0.1:5000/redoc) for the automation contract.
 
