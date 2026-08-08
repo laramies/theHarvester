@@ -34,7 +34,7 @@ Host, email, IP, and related records are stored at:
 
 The database persists across runs. Account for it in engagement cleanup and retention procedures.
 
-Completed CLI executions store one normalized terminal record keyed by run UUID. API executions use a separate run database configured by `THEHARVESTER_RUN_DB`; each record keeps lifecycle state, the submitted request, normalized results, and source outcomes. Imported JSON or JSONL evidence is stored as an imported run without executing discovery. Because CLI JSONL does not record source outcomes, its imported evidence status is `partial`.
+Completed CLI executions store one normalized terminal record keyed by run UUID. API executions use a separate run database configured by `THEHARVESTER_RUN_DB`; each record keeps lifecycle state, the submitted request, normalized results, and source outcomes. Imported JSONL evidence is stored as an imported run without executing discovery. CLI JSONL imports are `partial` because that format does not record source outcomes or evidence status; API JSONL exports add both fields to the summary so they survive an API round trip.
 
 ## Screenshots
 
@@ -42,7 +42,7 @@ Completed CLI executions store one normalized terminal record keyed by run UUID.
 
 ## API results
 
-`GET /api/v1/runs/{run_id}` returns lifecycle state plus a normalized `results` array. Each result has a `type` and `value`; DNS-backed results can also include `dns_status`. Per-result source attribution is omitted until the collection seam can retain it truthfully. Run-level source outcomes remain available in `source_executions`. JSON and CSV exports use the same normalized results. Treat runtime `/docs`, `/redoc`, and OpenAPI as the exact request and response reference.
+`GET /api/v1/runs/{run_id}` returns lifecycle state plus a normalized `results` array. Each result has a `type` and `value`; DNS-backed results can also include `dns_status`. Per-result source attribution is omitted until the collection seam can retain it truthfully. Run-level source outcomes remain available in `source_executions`. API file import and export use only versioned JSONL. Treat runtime `/docs`, `/redoc`, and OpenAPI as the exact request and response reference.
 
 ## Handling and sharing
 

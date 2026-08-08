@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import json
 import os
-import shlex
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi import HTTPException, status
 
@@ -14,22 +14,8 @@ from theHarvester.lib.source_catalog import ACTION_ACTIVITIES, SOURCE_SPECS, Act
 
 from .run_models import _normalize_target, default_database_path, utc_now
 
-LEGACY_RESULT_ROUTES = {
-    'hosts': 'subdomain',
-    'ips': 'ip',
-    'emails': 'email',
-    'asns': 'asn',
-    'interesting_urls': 'interesting-url',
-    'trello_urls': 'url',
-    'twitter_people': 'twitter-person',
-    'linkedin_people': 'linkedin-person',
-    'linkedin_links': 'linkedin-link',
-    'people': 'person',
-    'vhosts': 'vhost',
-    'shodan': 'shodan',
-    'takeover_results': 'takeover',
-}
 RESULT_TYPE_ALIASES = {'hostname': 'subdomain', 'ip-address': 'ip'}
+JSONL_RESULT_TYPE_ALIASES = {value: key for key, value in RESULT_TYPE_ALIASES.items()}
 
 
 def _activities(request: dict[str, Any]) -> list[str]:
@@ -123,12 +109,6 @@ def _results(evidence: dict[str, Any] | None) -> list[dict[str, Any]]:
         kind = str(observation.get('kind', 'other'))
         add(kind_map.get(kind, kind), observation.get('value'))
 
-    legacy = evidence.get('_legacy', {})
-    if not isinstance(legacy, dict):
-        legacy = {}
-    for key, result_type in LEGACY_RESULT_ROUTES.items():
-        for value in legacy.get(key, []):
-            add(result_type, json.dumps(value, sort_keys=True) if isinstance(value, dict) else value)
     return results
 
 
@@ -172,47 +152,6 @@ def _evidence_activities(executions: list[dict[str, Any]]) -> list[str]:
     return [activity for activity in ('P0', 'P1', 'P2') if activity in activities]
 
 
-def _legacy_target(payload: dict[str, Any]) -> str | None:
-    command = payload.get('cmd')
-    if not isinstance(command, str):
-        return None
-    try:
-        arguments = shlex.split(command)
-    except ValueError:
-        return None
-    for flag in ('-d', '--domain'):
-        if flag in arguments and arguments.index(flag) + 1 < len(arguments):
-            return arguments[arguments.index(flag) + 1]
-    return None
-
-
-def _parse_json_import(body: bytes) -> dict[str, Any]:
-    try:
-        payload = json.loads(body)
-    except (UnicodeDecodeError, json.JSONDecodeError) as error:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Result file is not valid JSON') from error
-    if not isinstance(payload, dict):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Result JSON must be an object')
-    if isinstance(payload.get('evidence_run'), dict):
-        evidence = dict(payload['evidence_run'])
-        evidence['_legacy'] = {key: value for key, value in payload.items() if key != 'evidence_run'}
-    elif isinstance(payload.get('run'), dict):
-        evidence = dict(payload['run'])
-        evidence['_legacy'] = {key: value for key, value in payload.items() if key != 'run'}
-    else:
-        evidence = dict(payload)
-        if 'target' not in evidence:
-            evidence = {
-                'run_id': str(uuid4()),
-                'target': _legacy_target(payload),
-                'status': 'complete',
-                'started_at': None,
-                'completed_at': utc_now(),
-                '_legacy': payload,
-            }
-    return _validate_evidence(evidence)
-
-
 def _parse_jsonl_import(body: bytes) -> dict[str, Any]:
     records: list[dict[str, Any]] = []
     try:
@@ -230,6 +169,31 @@ def _parse_jsonl_import(body: bytes) -> dict[str, Any]:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f'JSONL must use {RESULTS_SCHEMA_VERSION}',
         )
+    try:
+        run_id = str(UUID(summary['run_id']))
+    except (KeyError, TypeError, ValueError) as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='JSONL summary must contain a UUID run_id',
+        ) from error
+    timestamps: dict[str, datetime] = {}
+    for field in ('started_at', 'completed_at'):
+        value = summary.get(field)
+        try:
+            timestamp = datetime.fromisoformat(value) if isinstance(value, str) else None
+        except ValueError:
+            timestamp = None
+        if timestamp is None or timestamp.tzinfo is None or timestamp.utcoffset() != timedelta(0):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f'JSONL summary must contain an ISO-8601 UTC {field}',
+            )
+        timestamps[field] = timestamp
+    if timestamps['completed_at'] < timestamps['started_at']:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='JSONL summary completed_at must not be earlier than started_at',
+        )
     findings = records[1:]
     if any(
         not isinstance(record.get('type'), str)
@@ -241,13 +205,21 @@ def _parse_jsonl_import(body: bytes) -> dict[str, Any]:
     ):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='JSONL findings must contain type and value')
     evidence = {
-        'run_id': summary.get('run_id'),
+        'run_id': run_id,
         'target': summary.get('target'),
-        'status': 'partial',
+        'status': summary.get('evidence_status', 'partial'),
         'started_at': summary.get('started_at'),
         'completed_at': summary.get('completed_at'),
-        'results': [{'type': record['type'], 'value': record['value'], 'sources': []} for record in findings],
-        'source_executions': [],
+        'results': [
+            {
+                'type': record['type'],
+                'value': record['value'],
+                'sources': [],
+                **({'dns_status': record['dns_status']} if isinstance(record.get('dns_status'), str) else {}),
+            }
+            for record in findings
+        ],
+        'source_executions': summary.get('source_executions', []),
     }
     return _validate_evidence(evidence)
 
@@ -264,6 +236,13 @@ def _validate_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail='Evidence status must be complete, partial, or failed',
         )
+    for field in ('started_at', 'completed_at'):
+        value = evidence.get(field)
+        if value is not None and not isinstance(value, str):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f'Evidence field {field} must be a string',
+            )
     for field in ('results', 'source_executions', 'executions', 'entities', 'selected_observations'):
         value = evidence.get(field)
         if value is None:
@@ -281,16 +260,6 @@ def _validate_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f'Evidence entity field {field} must be an array',
-                )
-    legacy = evidence.get('_legacy')
-    if legacy is not None:
-        if not isinstance(legacy, dict):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Evidence field _legacy must be an object')
-        for field in LEGACY_RESULT_ROUTES:
-            if field in legacy and not isinstance(legacy[field], list):
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f'Legacy evidence field {field} must be an array',
                 )
     evidence.setdefault('run_id', str(uuid4()))
     evidence.setdefault('completed_at', utc_now())

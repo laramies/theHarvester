@@ -8,6 +8,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+from theHarvester.lib.completed_result import SCHEMA_VERSION as RESULTS_SCHEMA_VERSION
 from theHarvester.lib.enumeration import (
     DEFAULT_DNS_RECURSIVE_QUERY_LIMIT,
     DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS,
@@ -200,20 +201,6 @@ class RunDetail(RunSummary):
     log: str
 
 
-class RunExport(BaseModel):
-    run_id: str
-    evidence_run_id: str | None
-    target: str
-    lifecycle_status: RunStatus
-    evidence_status: EvidenceStatus | None
-    created_at: str
-    started_at: str | None
-    completed_at: str | None
-    request: RunRequest | ImportedRunRequest
-    source_executions: list[dict[str, Any]]
-    results: list[NormalizedResult]
-
-
 RUN_REQUEST_OPENAPI = {
     'requestBody': {
         'required': True,
@@ -223,20 +210,17 @@ RUN_REQUEST_OPENAPI = {
 IMPORT_REQUEST_OPENAPI = {
     'requestBody': {
         'required': True,
-        'content': {
-            media_type: {'schema': {'type': 'string', 'format': 'binary'}}
-            for media_type in ('application/json', 'application/x-ndjson')
-        },
+        'content': {'application/x-ndjson': {'schema': {'type': 'string', 'format': 'binary'}}},
     }
 }
 EXPORT_RESPONSES: dict[int | str, dict[str, Any]] = {
     200: {
-        'description': 'Normalized run results as JSON or CSV.',
+        'description': 'Normalized run results as JSONL.',
         'content': {
-            'text/csv': {
+            'application/x-ndjson': {
                 'schema': {
                     'type': 'string',
-                    'description': 'UTF-8 CSV with type, value, and dns_status columns.',
+                    'description': (f'UTF-8 {RESULTS_SCHEMA_VERSION} JSONL with one summary followed by normalized findings.'),
                 }
             },
         },

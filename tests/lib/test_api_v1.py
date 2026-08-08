@@ -1,6 +1,36 @@
 from __future__ import annotations
 
+import asyncio
+import json
+
 from fastapi.testclient import TestClient
+
+
+def _jsonl_result(
+    *,
+    target: str = 'example.test',
+    finding_type: str = 'email',
+    value: str = 'a@example.test',
+    summary_fields: dict[str, object] | None = None,
+) -> str:
+    summary = {
+        'type': 'summary',
+        'schema_version': 'theharvester-results-v1',
+        'run_id': '9f9b4383-6cc4-4f3f-80a4-c8d21930dc2d',
+        'target': target,
+        'started_at': '2026-08-08T01:00:00Z',
+        'completed_at': '2026-08-08T01:01:00Z',
+        'result_count': 1,
+        'counts': {finding_type: 1},
+    }
+    summary.update(summary_fields or {})
+    return '\n'.join(
+        (
+            json.dumps(summary),
+            json.dumps({'type': finding_type, 'value': value}),
+            '',
+        )
+    )
 
 
 def test_api_exposes_one_versioned_run_contract(tmp_path, monkeypatch) -> None:
@@ -28,7 +58,7 @@ def test_api_exposes_one_versioned_run_contract(tmp_path, monkeypatch) -> None:
         '/api/v1/runs/import',
         '/api/v1/runs/{run_id}',
         '/api/v1/runs/{run_id}/cancel',
-        '/api/v1/runs/{run_id}/exports/{format}',
+        '/api/v1/runs/{run_id}/export',
         '/api/v1/runs/{run_id}/screenshots/{name}',
     }
     assert all(response.status_code == 404 for response in old_responses)
@@ -43,12 +73,12 @@ def test_screenshot_route_serves_only_a_run_owned_png(tmp_path, monkeypatch) -> 
     monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
     headers = {'X-API-Key': 'test-key'}
 
-    with TestClient(api.app) as client:
+    with TestClient(api.app, client=('127.0.0.2', 50000)) as client:
         imported = client.post(
             '/api/v1/runs/import',
-            params={'filename': 'smoke.json'},
+            params={'filename': 'smoke.jsonl'},
             headers=headers,
-            json={'cmd': 'theHarvester -d example.test -b crtsh', 'hosts': ['www.example.test']},
+            content=_jsonl_result(finding_type='hostname', value='www.example.test'),
         )
         assert imported.status_code == 201
         run_id = imported.json()['run_id']
@@ -119,25 +149,13 @@ def test_openapi_explains_scope_and_execution_controls(tmp_path, monkeypatch) ->
     assert 'discovery sources' in properties['proxies']['description']
     assert 'configured proxies' in properties['take_over']['description']
     import_content = schema['paths']['/api/v1/runs/import']['post']['requestBody']['content']
-    assert set(import_content) == {'application/json', 'application/x-ndjson'}
-    export_content = schema['paths']['/api/v1/runs/{run_id}/exports/{format}']['get']['responses']['200']['content']
-    assert set(export_content) == {'application/json', 'text/csv'}
-    assert export_content['application/json']['schema'] == {'$ref': '#/components/schemas/RunExport'}
-    assert set(schema['components']['schemas']['RunExport']['properties']) == {
-        'run_id',
-        'evidence_run_id',
-        'target',
-        'lifecycle_status',
-        'evidence_status',
-        'created_at',
-        'started_at',
-        'completed_at',
-        'request',
-        'source_executions',
-        'results',
-    }
+    assert set(import_content) == {'application/x-ndjson'}
+    export_content = schema['paths']['/api/v1/runs/{run_id}/export']['get']['responses']['200']['content']
+    assert set(export_content) == {'application/x-ndjson'}
     assert set(schema['components']['schemas']['NormalizedResult']['properties']) == {'type', 'value', 'dns_status'}
-    assert export_content['text/csv']['schema']['description'] == 'UTF-8 CSV with type, value, and dns_status columns.'
+    assert export_content['application/x-ndjson']['schema']['description'] == (
+        'UTF-8 theharvester-results-v1 JSONL with one summary followed by normalized findings.'
+    )
 
     def references(value):
         if isinstance(value, dict):
@@ -153,3 +171,288 @@ def test_openapi_explains_scope_and_execution_controls(tmp_path, monkeypatch) ->
     for reference in references(schema):
         assert reference.startswith('#/components/schemas/')
         assert reference.removeprefix('#/components/schemas/') in components
+
+
+def test_api_import_and_export_accept_only_jsonl(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+    headers = {'X-API-Key': 'test-key'}
+
+    with TestClient(api.app, client=('127.0.0.3', 50000)) as client:
+        rejected = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'legacy.json'},
+            headers=headers,
+            content='{"target":"example.test"}',
+        )
+        imported = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'result.jsonl'},
+            headers={**headers, 'Content-Type': 'application/x-ndjson'},
+            content=_jsonl_result(),
+        )
+        exported = client.get(f'/api/v1/runs/{imported.json()["run_id"]}/export', headers=headers)
+        reimported = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'round-trip.jsonl'},
+            headers={**headers, 'Content-Type': 'application/x-ndjson'},
+            content=exported.content,
+        )
+        old_json = client.get(f'/api/v1/runs/{imported.json()["run_id"]}/exports/json', headers=headers)
+        old_csv = client.get(f'/api/v1/runs/{imported.json()["run_id"]}/exports/csv', headers=headers)
+
+    assert rejected.status_code == 400
+    assert rejected.json()['detail'] == 'Choose a .jsonl result file'
+    assert imported.status_code == 201
+    assert exported.status_code == 200
+    assert exported.headers['content-type'] == 'application/x-ndjson'
+    assert exported.headers['content-disposition'].endswith('.jsonl"')
+    records = [json.loads(line) for line in exported.text.splitlines()]
+    assert records[0]['schema_version'] == 'theharvester-results-v1'
+    assert records[0]['type'] == 'summary'
+    assert records[0]['target'] == 'example.test'
+    assert records[1] == {'type': 'email', 'value': 'a@example.test'}
+    assert reimported.status_code == 201
+    assert reimported.json()['results'] == [{'type': 'email', 'value': 'a@example.test'}]
+    assert old_json.status_code == 404
+    assert old_csv.status_code == 404
+
+
+def test_api_jsonl_round_trip_preserves_evidence_status_and_source_outcomes(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    source_execution = {
+        'source': 'crtsh',
+        'status': 'succeeded',
+        'duration_ms': 25,
+        'result_count': 1,
+        'error_type': None,
+        'stop_reason': None,
+    }
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+    headers = {'X-API-Key': 'test-key'}
+
+    with TestClient(api.app, client=('127.0.0.4', 50000)) as client:
+        imported = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'complete.jsonl'},
+            headers=headers,
+            content=_jsonl_result(summary_fields={'evidence_status': 'complete', 'source_executions': [source_execution]}),
+        )
+        exported = client.get(f'/api/v1/runs/{imported.json()["run_id"]}/export', headers=headers)
+        reimported = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'complete-round-trip.jsonl'},
+            headers=headers,
+            content=exported.content,
+        )
+
+    summary = json.loads(exported.text.splitlines()[0])
+    assert imported.json()['evidence_status'] == 'complete'
+    assert imported.json()['source_executions'] == [source_execution]
+    assert summary['run_id'] == '9f9b4383-6cc4-4f3f-80a4-c8d21930dc2d'
+    assert summary['evidence_status'] == 'complete'
+    assert summary['source_executions'] == [source_execution]
+    assert reimported.json()['evidence_status'] == 'complete'
+    assert reimported.json()['evidence']['run_id'] == '9f9b4383-6cc4-4f3f-80a4-c8d21930dc2d'
+    assert reimported.json()['source_executions'] == [source_execution]
+
+
+def test_api_jsonl_export_uses_evidence_timestamps_not_lifecycle_timestamps(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+    from theHarvester.lib.api.run_models import RunRequest
+    from theHarvester.lib.api.run_store import RunStore
+
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+    store = RunStore()
+    queued = asyncio.run(store.create(RunRequest(target='example.test', sources=['crtsh'])))
+    asyncio.run(store.claim_next())
+    asyncio.run(
+        store.finish(
+            queued['run_id'],
+            {
+                'run_id': '3e7cf0c1-214b-4429-80ba-058b2cb68b06',
+                'target': 'example.test',
+                'status': 'complete',
+                'started_at': '2026-08-07T01:00:00Z',
+                'completed_at': '2026-08-07T01:01:00Z',
+                'results': [],
+                'source_executions': [],
+            },
+            '',
+        )
+    )
+
+    with TestClient(api.app, client=('127.0.0.16', 50000)) as client:
+        response = client.get(
+            f'/api/v1/runs/{queued["run_id"]}/export',
+            headers={'X-API-Key': 'test-key'},
+        )
+
+    summary = json.loads(response.text.splitlines()[0])
+    assert summary['started_at'] == '2026-08-07T01:00:00Z'
+    assert summary['completed_at'] == '2026-08-07T01:01:00Z'
+
+
+def test_api_jsonl_export_uses_lifecycle_timestamps_for_sparse_partial_evidence(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+    from theHarvester.lib.api.run_models import RunRequest
+    from theHarvester.lib.api.run_store import RunStore
+
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+    store = RunStore()
+    queued = asyncio.run(store.create(RunRequest(target='example.test', sources=['crtsh'])))
+    asyncio.run(store.claim_next())
+    asyncio.run(
+        store.fail(
+            queued['run_id'],
+            'Provider process exited.',
+            '',
+            evidence={
+                'run_id': 'eb470313-d813-4d81-bd75-c1221a8bc00e',
+                'target': 'example.test',
+                'status': 'partial',
+                'results': [],
+                'source_executions': [],
+            },
+        )
+    )
+
+    with TestClient(api.app, client=('127.0.0.17', 50000)) as client:
+        exported = client.get(
+            f'/api/v1/runs/{queued["run_id"]}/export',
+            headers={'X-API-Key': 'test-key'},
+        )
+        reimported = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'partial.jsonl'},
+            headers={'X-API-Key': 'test-key'},
+            content=exported.content,
+        )
+
+    summary = json.loads(exported.text.splitlines()[0])
+    assert exported.status_code == 200
+    assert isinstance(summary['started_at'], str)
+    assert isinstance(summary['completed_at'], str)
+    assert reimported.status_code == 201
+    assert reimported.json()['evidence_status'] == 'partial'
+
+
+def test_api_jsonl_round_trip_uses_canonical_hostname_and_ip_kinds(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+    headers = {'X-API-Key': 'test-key'}
+
+    for client_ip, finding_type, api_type, value in (
+        ('127.0.0.5', 'hostname', 'subdomain', 'www.example.test'),
+        ('127.0.0.6', 'ip-address', 'ip', '192.0.2.1'),
+    ):
+        with TestClient(api.app, client=(client_ip, 50000)) as client:
+            imported = client.post(
+                '/api/v1/runs/import',
+                params={'filename': f'{finding_type}.jsonl'},
+                headers=headers,
+                content=_jsonl_result(finding_type=finding_type, value=value),
+            )
+            exported = client.get(f'/api/v1/runs/{imported.json()["run_id"]}/export', headers=headers)
+            reimported = client.post(
+                '/api/v1/runs/import',
+                params={'filename': f'{finding_type}-round-trip.jsonl'},
+                headers=headers,
+                content=exported.content,
+            )
+
+        assert imported.json()['results'] == [{'type': api_type, 'value': value}]
+        assert json.loads(exported.text.splitlines()[1]) == {'type': finding_type, 'value': value}
+        assert reimported.json()['results'] == [{'type': api_type, 'value': value}]
+
+
+def test_api_rejects_non_string_jsonl_timestamps(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+
+    with TestClient(api.app, client=('127.0.0.7', 50000)) as client:
+        response = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'invalid.jsonl'},
+            headers={'X-API-Key': 'test-key'},
+            content=_jsonl_result(summary_fields={'completed_at': {'not': 'a timestamp'}}),
+        )
+
+    assert response.status_code == 400
+    assert response.json()['detail'] == 'JSONL summary must contain an ISO-8601 UTC completed_at'
+
+
+def test_api_rejects_invalid_jsonl_summary_identity_and_timestamps(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+    cases = (
+        ({'run_id': None}, None, 'JSONL summary must contain a UUID run_id'),
+        ({}, 'run_id', 'JSONL summary must contain a UUID run_id'),
+        ({'run_id': 'not-a-uuid'}, None, 'JSONL summary must contain a UUID run_id'),
+        ({}, 'started_at', 'JSONL summary must contain an ISO-8601 UTC started_at'),
+        ({}, 'completed_at', 'JSONL summary must contain an ISO-8601 UTC completed_at'),
+        ({'started_at': 'not-a-time'}, None, 'JSONL summary must contain an ISO-8601 UTC started_at'),
+        (
+            {'completed_at': '2026-08-08T02:01:00+01:00'},
+            None,
+            'JSONL summary must contain an ISO-8601 UTC completed_at',
+        ),
+        (
+            {'started_at': '2026-08-08T03:00:00Z', 'completed_at': '2026-08-08T02:00:00Z'},
+            None,
+            'JSONL summary completed_at must not be earlier than started_at',
+        ),
+    )
+
+    for index, (updates, removed_field, detail) in enumerate(cases, start=8):
+        records = [json.loads(line) for line in _jsonl_result().splitlines()]
+        records[0].update(updates)
+        if removed_field:
+            records[0].pop(removed_field)
+        content = ''.join(json.dumps(record) + '\n' for record in records)
+        with TestClient(api.app, client=(f'127.0.0.{index}', 50000)) as client:
+            response = client.post(
+                '/api/v1/runs/import',
+                params={'filename': 'invalid.jsonl'},
+                headers={'X-API-Key': 'test-key'},
+                content=content,
+            )
+
+        assert response.status_code == 400
+        assert response.json()['detail'] == detail
+
+
+def test_api_refuses_to_export_before_evidence_exists(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+    from theHarvester.lib.api.run_models import RunRequest
+    from theHarvester.lib.api.run_store import RunStore
+
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+    run = asyncio.run(RunStore().create(RunRequest(target='example.test', sources=['crtsh'])))
+
+    with TestClient(api.app) as client:
+        response = client.get(f'/api/v1/runs/{run["run_id"]}/export', headers={'X-API-Key': 'test-key'})
+
+    assert response.status_code == 409
+    assert response.json()['detail'] == 'No run evidence is available to export'
