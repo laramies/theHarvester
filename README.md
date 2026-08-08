@@ -99,7 +99,7 @@ Bulma, Pico, and Tailwind would duplicate the existing design layer or require a
 markup and build-pipeline rewrite. Tabulator 6.5.2's table behavior and default
 theme load from pinned CDNjs URLs with Subresource Integrity. HarvestView
 therefore needs network access to CDNjs by default. See the
-[self-hosting instructions](docs/wiki/Installation.md#self-host-tabulator) for
+[self-hosting instructions](docs/wiki/Installation.md) for
 an isolated deployment.
 
 Open [Swagger](http://127.0.0.1:5000/docs) or [ReDoc](http://127.0.0.1:5000/redoc) for the automation contract.
