@@ -1,33 +1,36 @@
 from __future__ import annotations
 
 import json
-import os
 from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 import aiosqlite
 from fastapi import HTTPException, status
 
-from .run_evidence import (
-    _activities,
-    _artifact_dir,
-    _evidence_activities,
-    _read_child_evidence,
-    _results,
-    _screenshots,
-    _source_executions,
-)
+from .run_artifacts import RunPaths, read_child_evidence
 from .run_models import RunRequest, _normalize_target, utc_now
+from .run_projection import (
+    activities_for_evidence,
+    activities_for_request,
+    normalized_results,
+    screenshots,
+    source_executions,
+)
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 WORKER_LEASE_TIMEOUT_SECONDS = 30
 
 
 class RunStore:
     def __init__(self, database: str | Path | None = None) -> None:
-        configured = database or os.getenv('THEHARVESTER_RUN_DB')
-        self.database = Path(configured) if configured else Path('~/.local/share/theHarvester/runs.sqlite').expanduser()
+        self.paths = RunPaths.configured(database)
+        self.database = self.paths.database
+
+    def artifact_directory(self, run_id: str) -> Path:
+        return self.paths.artifact_directory(run_id)
 
     async def initialize(self) -> None:
         try:
@@ -68,8 +71,7 @@ class RunStore:
             )
             await database.commit()
 
-    @staticmethod
-    def _row(row: aiosqlite.Row, *, detail: bool = False) -> dict[str, Any]:
+    def _row(self, row: aiosqlite.Row, *, detail: bool = False) -> dict[str, Any]:
         result = {
             'run_id': row['run_id'],
             'target': row['target'],
@@ -84,15 +86,15 @@ class RunStore:
         request = json.loads(row['request_json'])
         evidence = json.loads(row['evidence_json']) if row['evidence_json'] else None
         result['sources'] = request.get('sources', [])
-        result['activities'] = _activities(request)
+        result['activities'] = activities_for_request(request)
         result['evidence_status'] = evidence.get('status') if evidence else None
-        result['result_count'] = len(_results(evidence)) if evidence else 0
+        result['result_count'] = len(normalized_results(evidence)) if evidence else 0
         if detail:
             result['request'] = request
             result['evidence'] = evidence
-            result['results'] = _results(evidence)
-            result['source_executions'] = _source_executions(evidence)
-            result['screenshots'] = _screenshots(evidence, row['run_id'])
+            result['results'] = normalized_results(evidence)
+            result['source_executions'] = source_executions(evidence)
+            result['screenshots'] = screenshots(evidence, row['run_id'], self.artifact_directory(row['run_id']))
             result['log'] = row['log']
         return result
 
@@ -119,17 +121,17 @@ class RunStore:
         run_id = str(uuid4())
         created_at = utc_now()
         target = _normalize_target(str(evidence['target']))
-        source_executions = _source_executions(evidence)
+        executions = source_executions(evidence)
         request = {
             'filename': filename,
             'sources': sorted(
                 {
                     str(execution.get('source') or execution.get('name'))
-                    for execution in source_executions
+                    for execution in executions
                     if execution.get('source') or execution.get('name')
                 }
             ),
-            'activities': _evidence_activities(source_executions),
+            'activities': activities_for_evidence(executions),
         }
         async with aiosqlite.connect(self.database) as database:
             await database.execute(
@@ -204,7 +206,7 @@ class RunStore:
         async with aiosqlite.connect(self.database) as database:
             cursor = await database.execute("SELECT run_id FROM runs WHERE status IN ('running', 'cancelling')")
             for (run_id,) in await cursor.fetchall():
-                evidence, evidence_error = _read_child_evidence(_artifact_dir(run_id, database=self.database))
+                evidence, evidence_error = read_child_evidence(self.artifact_directory(run_id))
                 error = 'theHarvester restarted before child completion'
                 if evidence_error:
                     error += f'; {evidence_error}'

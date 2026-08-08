@@ -18,7 +18,7 @@ from theHarvester.lib.enumeration import (
     EnumerationOptions,
 )
 
-from .run_evidence import _artifact_dir, _ensure_private_directory, _read_child_evidence, _write_child_evidence
+from .run_artifacts import ensure_private_directory, read_child_evidence, write_child_evidence
 from .run_models import DEFAULT_DNS_RESOLVERS
 from .run_store import RunStore
 
@@ -40,7 +40,7 @@ def worker_available() -> bool:
     return _worker_task is not None and not _worker_task.done()
 
 
-async def _default_process_factory(run_id: str, _artifact_dir_path: Path) -> asyncio.subprocess.Process:
+async def _default_process_factory(run_id: str, database: Path, _artifact_dir_path: Path) -> asyncio.subprocess.Process:
     process_options = (
         {'creationflags': getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0)} if os.name == 'nt' else {'start_new_session': True}
     )
@@ -51,7 +51,7 @@ async def _default_process_factory(run_id: str, _artifact_dir_path: Path) -> asy
         '--execute',
         run_id,
         '--database',
-        str(RunStore().database),
+        str(database),
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
         **process_options,
@@ -61,7 +61,7 @@ async def _default_process_factory(run_id: str, _artifact_dir_path: Path) -> asy
     return process
 
 
-_process_factory: Callable[[str, Path], Awaitable[asyncio.subprocess.Process]] = _default_process_factory
+_process_factory: Callable[[str, Path, Path], Awaitable[asyncio.subprocess.Process]] = _default_process_factory
 
 
 async def _process_output(process: asyncio.subprocess.Process) -> str:
@@ -117,10 +117,10 @@ async def _stop_process(process: asyncio.subprocess.Process, wait_task: asyncio.
 
 async def _execute_claimed(store: RunStore, run: dict[str, Any], owner_id: str | None = None) -> None:
     run_id = run['run_id']
-    artifact_dir = _artifact_dir(run_id)
-    _ensure_private_directory(artifact_dir)
+    artifact_dir = store.artifact_directory(run_id)
+    ensure_private_directory(artifact_dir)
     try:
-        process = await _process_factory(run_id, artifact_dir)
+        process = await _process_factory(run_id, store.database, artifact_dir)
     except (OSError, RuntimeError) as error:
         await store.fail(run_id, f'Could not start child process: {error}', '')
         return
@@ -140,19 +140,19 @@ async def _execute_claimed(store: RunStore, run: dict[str, Any], owner_id: str |
         stopping = _worker_stop is not None and _worker_stop.is_set()
         if current is not None and current['status'] == 'cancelling':
             await _stop_process(process, wait_task)
-            evidence, evidence_error = _read_child_evidence(artifact_dir)
+            evidence, evidence_error = read_child_evidence(artifact_dir)
             failure_message = 'Cancelled by operator' + (f'; {evidence_error}' if evidence_error else '')
             await store.fail(run_id, failure_message, await output_task, cancelled=True, evidence=evidence)
             return
         if stopping:
             await _stop_process(process, wait_task)
-            evidence, evidence_error = _read_child_evidence(artifact_dir)
+            evidence, evidence_error = read_child_evidence(artifact_dir)
             failure_message = 'theHarvester stopped before child completion' + (f'; {evidence_error}' if evidence_error else '')
             await store.fail(run_id, failure_message, await output_task, evidence=evidence)
             return
         if asyncio.get_running_loop().time() >= deadline:
             await _stop_process(process, wait_task)
-            evidence, evidence_error = _read_child_evidence(artifact_dir)
+            evidence, evidence_error = read_child_evidence(artifact_dir)
             failure_message = f'Run exceeded its {run["request"]["deadline_seconds"]} second deadline'
             if evidence_error:
                 failure_message += f'; {evidence_error}'
@@ -165,7 +165,7 @@ async def _execute_claimed(store: RunStore, run: dict[str, Any], owner_id: str |
             return
     log = await output_task
     current = await store.get(run_id)
-    evidence, evidence_error = _read_child_evidence(artifact_dir)
+    evidence, evidence_error = read_child_evidence(artifact_dir)
     if evidence_error:
         await store.fail(
             run_id,
@@ -270,11 +270,11 @@ async def _child_execute(run_id: str, database: Path) -> None:
     if run is None or run['status'] not in {'running', 'cancelling'}:
         raise RuntimeError('theHarvester run is not executable')
     request = run['request']
-    artifact_dir = _artifact_dir(run_id)
-    _ensure_private_directory(artifact_dir)
+    artifact_dir = store.artifact_directory(run_id)
+    ensure_private_directory(artifact_dir)
     screenshot_dir = artifact_dir / 'screenshots'
     if request.get('screenshot'):
-        _ensure_private_directory(screenshot_dir)
+        ensure_private_directory(screenshot_dir)
     recursive_depth = request.get('dns_recursive_depth', 0)
     resolver_list = request.get('dns_resolvers', DEFAULT_DNS_RESOLVERS.split(','))
     args = EnumerationOptions(
@@ -302,7 +302,7 @@ async def _child_execute(run_id: str, database: Path) -> None:
 
     async def checkpoint(evidence: CompletedResult) -> None:
         async with checkpoint_lock:
-            _write_child_evidence(artifact_dir, evidence, partial=True)
+            write_child_evidence(artifact_dir, evidence, partial=True)
 
     task = asyncio.create_task(main_module.start(args, completed_result_checkpoint=checkpoint, return_completed_result=True))
     loop = asyncio.get_running_loop()
@@ -323,7 +323,7 @@ async def _child_execute(run_id: str, database: Path) -> None:
     evidence = response[-1]
     if not isinstance(evidence, CompletedResult):
         raise RuntimeError('theHarvester did not return terminal evidence')
-    _write_child_evidence(artifact_dir, evidence, partial=False)
+    write_child_evidence(artifact_dir, evidence, partial=False)
 
 
 if __name__ == '__main__':
