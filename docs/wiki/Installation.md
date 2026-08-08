@@ -45,26 +45,30 @@ uv run playwright install chromium
 
 On Linux, Playwright may report missing system libraries. Follow the host-specific dependency instructions printed by Playwright, then rerun the browser installation.
 
-## Docker Compose API service
+## Docker Compose HarvestView service
 
-The Docker image starts `restfulHarvest`; it does not open an interactive theHarvester CLI:
+The Docker image starts `restfulHarvest` with HarvestView at `/`; it does not open an interactive theHarvester CLI. Create the operator-key secret before the first start:
 
 ```bash
 git clone https://github.com/laramies/theHarvester.git
 cd theHarvester
-docker compose up --build
+install -d -m 0700 .secrets
+openssl rand -hex 32 > .secrets/operator-api-key
+chmod 0444 .secrets/operator-api-key
+docker compose up --build -d
+docker compose ps
 ```
 
-Open [http://127.0.0.1:5000/docs](http://127.0.0.1:5000/docs) after the service starts.
+The `0700` directory protects the secret on the host, while the read-only `0444` file lets the unprivileged container process read its bind-mounted copy. Open [HarvestView](http://127.0.0.1:5000/) after the service starts. Swagger remains available at [http://127.0.0.1:5000/docs](http://127.0.0.1:5000/docs).
 
-The supplied Compose mapping publishes port `5000` on every host interface. For a local-only service, change it to:
+The supplied configuration publishes container port `8000` only on host `127.0.0.1:5000`, runs as an unprivileged user with a read-only root filesystem, and stores run records in the `theharvester-data` volume. The image includes Chromium for optional screenshot capture.
 
-```yaml
-ports:
-  - "127.0.0.1:5000:80"
+```bash
+docker compose logs -f theharvester.svc.local
+docker compose down
 ```
 
-Do not expose the service directly to an untrusted network. Core query routes are not authenticated.
+Every `/api/v1/*` route is authenticated. Do not change the loopback port mapping or expose the service directly to an untrusted network without adding TLS and network access controls.
 
 ## Next step
 
