@@ -29,22 +29,11 @@ Treat the runtime OpenAPI document as the exact request and response reference.
 | `GET /api/v1/runs` | List run records. |
 | `GET /api/v1/runs/{run_id}` | Retrieve lifecycle state, options, results, source outcomes, and artifacts. |
 | `POST /api/v1/runs/{run_id}/cancel` | Cancel queued work or request cancellation of running work. |
-| `POST /api/v1/runs/import` | Import a JSON or JSONL result file without executing discovery. |
-| `GET /api/v1/runs/{run_id}/exports/{format}` | Export normalized results as `json` or `csv`. |
+| `POST /api/v1/runs/import` | Import a versioned JSONL result file without executing discovery. |
+| `GET /api/v1/runs/{run_id}/export` | Export normalized results as versioned JSONL. |
 | `GET /api/v1/runs/{run_id}/screenshots/{name}` | Retrieve one managed screenshot. |
 
 There are no provider-specific routes. Sources such as `builtwith`, `haveibeenpwned`, `hibpverified`, `leaklookup`, and `securityscorecard` use the same run request as every other source.
-
-## Fresh-start migration
-
-The unversioned API was removed without compatibility routes or redirects. Update clients as follows:
-
-| Removed route | Replacement |
-| --- | --- |
-| `GET /sources` | `GET /api/v1/sources` |
-| `GET /query` | Submit with `POST /api/v1/runs`, then read `GET /api/v1/runs/{run_id}`. |
-| `GET /dnsbrute` | Submit a run with `dns_brute: true`. |
-| `POST /additional/*` | Select the corresponding provider through `POST /api/v1/runs`. |
 
 The versioned API is asynchronous by design. A successful submission returns a durable run record instead of waiting for every provider and action to finish.
 
@@ -88,7 +77,7 @@ P1 DNS and P2 direct options are fields on the same run request. The OpenAPI sch
 
 ## Import and export
 
-Import records existing evidence and never contacts the target. JSONL imports accept the same `theharvester-results-v1` report written by `theHarvester -f NAME`:
+Import records existing evidence and never contacts the target. The API accepts only the same versioned `theharvester-results-v1` JSONL written by `theHarvester -f NAME`:
 
 ```bash
 curl -s "http://127.0.0.1:5000/api/v1/runs/import?filename=report.jsonl" \
@@ -99,23 +88,17 @@ curl -s "http://127.0.0.1:5000/api/v1/runs/import?filename=report.jsonl" \
   | jq
 ```
 
-That CLI JSONL format does not contain source outcomes, so its imported evidence status is `partial` rather than an invented success claim. `hostname` and `ip-address` findings are exposed through the API's canonical `subdomain` and `ip` result types.
+CLI JSONL does not contain source outcomes or an evidence status, so those imports are marked `partial` rather than inventing a success claim. API exports add `evidence_status` and `source_executions` to the summary record so a later API import retains them. `hostname` and `ip-address` findings are exposed through the API's canonical `subdomain` and `ip` result types.
 
-Export one normalized result set:
+Export one normalized result set in the same streamable format:
 
 ```bash
-curl -s "http://127.0.0.1:5000/api/v1/runs/$run_id/exports/json" \
+curl -s "http://127.0.0.1:5000/api/v1/runs/$run_id/export" \
   -H "X-API-Key: $THEHARVESTER_API_KEY" \
-  -o results.json
+  -o results.jsonl
 ```
 
-The JSON export contains run and evidence IDs, target, lifecycle and evidence status, timestamps, the submitted request, source outcomes, and the normalized `results` array. The CSV export has a stable header:
-
-```text
-"type","value","dns_status"
-```
-
-Fields are quoted in the CSV response. Per-result source attribution is omitted until the collection seam can retain it truthfully; source outcomes remain available in the JSON export.
+The first line is the `summary` record, including evidence status and run-level source outcomes. Each remaining line is one normalized finding with `type`, `value`, and optional `dns_status` fields. This keeps the file easy to stream with `jq -c` and makes API exports importable again without a format conversion. Lifecycle details and the submitted request remain available from `GET /api/v1/runs/{run_id}`.
 
 ## Security boundary
 

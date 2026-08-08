@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-import csv
-import io
 import json
+from collections import Counter
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.responses import FileResponse
@@ -12,16 +11,16 @@ from pydantic import ValidationError
 
 from theHarvester.lib.api.auth import get_api_key
 from theHarvester.lib.api.rate_limit import API_RATE_LIMIT, limiter
+from theHarvester.lib.completed_result import SCHEMA_VERSION as RESULTS_SCHEMA_VERSION
 from theHarvester.lib.source_catalog import SOURCE_SPECS, SourceSpec, get_source_spec, resolve_sources
 
 from . import run_worker
-from .run_evidence import _artifact_dir, _parse_json_import, _parse_jsonl_import, _source_spec
+from .run_evidence import JSONL_RESULT_TYPE_ALIASES, _artifact_dir, _parse_jsonl_import, _source_spec
 from .run_models import (
     EXPORT_RESPONSES,
     IMPORT_REQUEST_OPENAPI,
     RUN_REQUEST_OPENAPI,
     RunDetail,
-    RunExport,
     RunRequest,
     RunSummary,
     SourceResponse,
@@ -132,19 +131,15 @@ async def import_run(
         Query(
             min_length=1,
             max_length=255,
-            description='Original file name. Its .json or .jsonl suffix selects the import format.',
+            description='Original .jsonl file name.',
         ),
     ],
 ) -> RunDetail:
-    body = await _read_limited_body(request, MAX_IMPORT_BYTES, 'Result file exceeds the 10 MiB limit')
     safe_filename = Path(filename).name
-    suffix = Path(safe_filename).suffix.casefold()
-    if suffix == '.json':
-        evidence = _parse_json_import(body)
-    elif suffix == '.jsonl':
-        evidence = _parse_jsonl_import(body)
-    else:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Choose a .json or .jsonl result file')
+    if Path(safe_filename).suffix.casefold() != '.jsonl':
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Choose a .jsonl result file')
+    body = await _read_limited_body(request, MAX_IMPORT_BYTES, 'Result file exceeds the 10 MiB limit')
+    evidence = _parse_jsonl_import(body)
     return RunDetail.model_validate(await RunStore().import_evidence(evidence, safe_filename))
 
 
@@ -169,55 +164,49 @@ async def cancel_run(
     return RunDetail.model_validate(run)
 
 
-@router.get('/runs/{run_id}/exports/{format}', response_model=RunExport, responses=EXPORT_RESPONSES)
+@router.get('/runs/{run_id}/export', response_class=Response, responses=EXPORT_RESPONSES)
 async def export_run(
     run_id: str,
-    format: Literal['json', 'csv'],
     _api_key: Annotated[str, Depends(get_api_key)],
 ) -> Response:
     run = await RunStore().get(run_id)
     if run is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='theHarvester run not found')
-    if format == 'json':
-        payload = {
-            'run_id': run['run_id'],
-            'evidence_run_id': (run['evidence'] or {}).get('run_id'),
-            'target': run['target'],
-            'lifecycle_status': run['status'],
+    if run['evidence'] is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail='No run evidence is available to export',
+        )
+    results = [{**result, 'type': JSONL_RESULT_TYPE_ALIASES.get(result['type'], result['type'])} for result in run['results']]
+    counts = Counter(result['type'] for result in results)
+    started_at = run['evidence'].get('started_at') or run['started_at']
+    completed_at = run['evidence'].get('completed_at') or run['completed_at']
+    if started_at is None or completed_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail='Run evidence does not have complete timestamps',
+        )
+    records = [
+        {
+            'completed_at': completed_at,
+            'counts': dict(sorted(counts.items())),
             'evidence_status': run['evidence_status'],
-            'created_at': run['created_at'],
-            'started_at': run['started_at'],
-            'completed_at': run['completed_at'],
-            'request': run['request'],
+            'result_count': len(results),
+            'run_id': run['evidence']['run_id'],
+            'schema_version': RESULTS_SCHEMA_VERSION,
+            'started_at': started_at,
             'source_executions': run['source_executions'],
-            'results': run['results'],
-        }
-        return Response(
-            json.dumps(payload, indent=2) + '\n',
-            media_type='application/json',
-            headers={'Content-Disposition': f'attachment; filename="{run["target"]}-{run_id}.json"'},
-        )
-    output = io.StringIO(newline='')
-    writer = csv.writer(output, quoting=csv.QUOTE_ALL, lineterminator='\n')
-    writer.writerow(('type', 'value', 'dns_status'))
-    for result in run['results']:
-        writer.writerow(
-            (
-                _safe_csv_cell(result['type']),
-                _safe_csv_cell(result['value']),
-                _safe_csv_cell(result.get('dns_status', '')),
-            )
-        )
+            'target': run['target'],
+            'type': 'summary',
+        },
+        *results,
+    ]
+    payload = ''.join(json.dumps(record, ensure_ascii=False, separators=(',', ':'), sort_keys=True) + '\n' for record in records)
     return Response(
-        output.getvalue(),
-        media_type='text/csv',
-        headers={'Content-Disposition': f'attachment; filename="{run["target"]}-{run_id}.csv"'},
+        payload,
+        media_type='application/x-ndjson',
+        headers={'Content-Disposition': f'attachment; filename="{run["target"]}-{run_id}.jsonl"'},
     )
-
-
-def _safe_csv_cell(value: object) -> str:
-    text = str(value)
-    return f"'{text}" if text.startswith(('=', '+', '-', '@', '\t', '\r')) else text
 
 
 @router.get('/runs/{run_id}/screenshots/{name}')
