@@ -17,9 +17,9 @@ from theHarvester.lib.enumeration import (
     DEFAULT_RESULT_START,
     EnumerationOptions,
 )
+from theHarvester.lib.resolver_selection import DEFAULT_DNS_RESOLVERS
 
 from .run_artifacts import ensure_private_directory, read_child_evidence, write_child_evidence
-from .run_models import DEFAULT_DNS_RESOLVERS
 from .run_store import RunStore
 
 if TYPE_CHECKING:
@@ -276,7 +276,7 @@ async def _child_execute(run_id: str, database: Path) -> None:
     if request.get('screenshot'):
         ensure_private_directory(screenshot_dir)
     recursive_depth = request.get('dns_recursive_depth', 0)
-    resolver_list = request.get('dns_resolvers', DEFAULT_DNS_RESOLVERS.split(','))
+    resolver_list = request.get('dns_resolvers', list(DEFAULT_DNS_RESOLVERS))
     args = EnumerationOptions(
         api_scan=request.get('api_scan', False),
         dns_brute=request.get('dns_brute', False),
@@ -284,9 +284,8 @@ async def _child_execute(run_id: str, database: Path) -> None:
         dns_recursive_depth=recursive_depth,
         dns_recursive_query_limit=request.get('dns_recursive_query_limit', DEFAULT_DNS_RECURSIVE_QUERY_LIMIT),
         dns_recursive_runtime_seconds=request.get('dns_recursive_runtime_seconds', DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS),
-        dns_resolve=(
-            ','.join(resolver_list) if request.get('dns_resolve') or request.get('dns_brute') or recursive_depth > 0 else ''
-        ),
+        dns_resolve=','.join(resolver_list) if request.get('dns_resolve') else '',
+        dns_resolvers=tuple(resolver_list),
         dns_server=None,
         domain=run['target'],
         filename='',

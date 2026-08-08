@@ -11,10 +11,8 @@ from theHarvester.lib.enumeration import (
     DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS,
     DEFAULT_RESULT_START,
 )
-from theHarvester.lib.resolver_selection import normalize_resolver_addresses
+from theHarvester.lib.resolver_selection import DEFAULT_DNS_RESOLVERS, normalize_resolver_addresses
 from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass
-
-DEFAULT_DNS_RESOLVERS = '1.1.1.1,8.8.8.8,9.9.9.9'
 
 
 def utc_now() -> str:
@@ -82,10 +80,10 @@ class RunRequest(BaseModel):
     )
     dns_resolve: bool = Field(
         default=False,
-        description='Validate discovered hostnames through the three configured resolver addresses.',
+        description='Validate discovered hostnames through the configured resolver addresses.',
     )
     dns_resolvers: list[str] = Field(
-        default_factory=lambda: DEFAULT_DNS_RESOLVERS.split(','),
+        default_factory=lambda: list(DEFAULT_DNS_RESOLVERS),
         min_length=1,
         description=('Distinct resolver IPv4 or IPv6 addresses used by DNS actions. Recursive DNS requires exactly three.'),
     )

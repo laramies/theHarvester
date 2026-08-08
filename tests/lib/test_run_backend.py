@@ -325,7 +325,8 @@ def test_dns_brute_child_uses_operator_resolver_list(tmp_path, monkeypatch) -> N
 
     assert received_options[0].source == ''
     assert received_options[0].dns_brute is True
-    assert received_options[0].dns_resolve == '192.0.2.53'
+    assert received_options[0].dns_resolve == ''
+    assert received_options[0].dns_resolvers == ('192.0.2.53',)
 
 
 def test_running_cancellation_terminates_child_and_retains_partial_evidence(tmp_path, monkeypatch) -> None:

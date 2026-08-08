@@ -109,7 +109,7 @@ from theHarvester.lib.recursive_dns import (
     RecursiveDNSLimits,
     discover_recursive_dns,
 )
-from theHarvester.lib.resolver_selection import normalize_resolver_addresses
+from theHarvester.lib.resolver_selection import DEFAULT_DNS_RESOLVERS, normalize_resolver_addresses
 from theHarvester.lib.source_catalog import (
     ACTION_REQUEST_FIELDS,
     SOURCE_SPECS,
@@ -368,8 +368,10 @@ async def start(
     dnslookup = args.dns_lookup
     dnsserver = args.dns_server  # TODO arg is not used anywhere replace with resolvers wordlist arg dnsresolve
     dnsresolve: str | None = args.dns_resolve
-    final_dns_resolver_list: list[str] = []
-    if dnsresolve is not None and len(dnsresolve) > 0:
+    final_dns_resolver_list = normalize_resolver_addresses(args.dns_resolvers) if args.dns_resolvers else []
+    if dnsresolve is None and not final_dns_resolver_list:
+        final_dns_resolver_list = list(DEFAULT_DNS_RESOLVERS)
+    elif dnsresolve is not None and len(dnsresolve) > 0:
         resolver_candidates: list[str] = []
         if await anyio.Path(dnsresolve).exists():
             async with await anyio.open_file(dnsresolve, encoding='UTF-8') as fp:
@@ -620,7 +622,7 @@ async def start(
                 # If a source is inside this conditional, it means the hosts returned must be resolved to obtain ip
                 # This should only be checked if --dns-resolve has a wordlist
                 hosts_to_resolve = [host for host in host_names if host not in paired_hosts]
-                if (dnsresolve is None or final_dns_resolver_list) and hosts_to_resolve:
+                if dnsresolve != '' and hosts_to_resolve:
                     # indicates that -r was passed in if dnsresolve is None
                     dns_resolution_started = time.perf_counter()
                     try:
@@ -1927,7 +1929,7 @@ async def start(
     if len(all_hosts) == 0:
         output_logger.info('\n[*] No hosts found.\n\n')
     else:
-        if dnsresolve is None or len(final_dns_resolver_list) > 0:
+        if dnsresolve != '':
             temp = set()
             for host in full:
                 if ':' in host:
@@ -2190,7 +2192,7 @@ async def start(
             output_logger.info('Filtering domains for ones we can reach')
             if not engines:
                 unique_resolved_domains = resolved_screenshot_hosts | {word}
-            elif dnsresolve is None or len(final_dns_resolver_list) > 0:
+            elif dnsresolve != '':
                 unique_resolved_domains = resolved_screenshot_hosts
             else:
                 # Technically not resolved in this case, which is not ideal
@@ -2358,7 +2360,7 @@ async def start(
             if len(all_emails) > 0:
                 json_dict['emails'] = all_emails
 
-            if dnsresolve is None or (len(final_dns_resolver_list) > 0 and len(full) > 0):
+            if dnsresolve != '' and len(full) > 0:
                 json_dict['hosts'] = full
             elif len(all_hosts) > 0:
                 json_dict['hosts'] = all_hosts

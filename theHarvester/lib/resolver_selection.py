@@ -1,6 +1,8 @@
 from collections.abc import Iterable
 from ipaddress import ip_address
 
+DEFAULT_DNS_RESOLVERS = ('1.1.1.1', '8.8.8.8', '9.9.9.9')
+
 
 def normalize_resolver_addresses(values: Iterable[str]) -> list[str]:
     """Return distinct canonical resolver IP addresses in operator order."""

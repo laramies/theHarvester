@@ -39,7 +39,6 @@ class DnsForce:
         self.dnsserver = dnsserver
         with DNS_NAMES.open('r') as file:
             self.list = file.readlines()
-        self.domain = domain.replace('www.', '')
         self.list = [f'{word.strip()}.{self.domain}' for word in self.list]
 
     async def run(self):

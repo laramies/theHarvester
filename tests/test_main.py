@@ -872,16 +872,60 @@ async def test_recursive_dns_requires_canonically_distinct_resolvers(monkeypatch
 
 @pytest.mark.asyncio
 async def test_cli_rejects_resolver_file_with_non_ip_value(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    class FakeStash:
-        async def do_init(self) -> None:
+    class FakeResultStore:
+        async def initialize(self) -> None:
             return None
 
     resolvers = tmp_path / 'resolvers.txt'
     resolvers.write_text('192.0.2.53\nnot-an-ip\n', encoding='utf-8')
-    monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
 
     with pytest.raises(ValueError, match='Invalid DNS resolver address: not-an-ip'):
         await theharvester_main.start(EnumerationOptions(domain='example.com', dns_resolve=str(resolvers), quiet=True))
+
+
+@pytest.mark.asyncio
+async def test_dns_brute_resolver_configuration_does_not_enable_dns_resolution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeResultStore:
+        async def initialize(self) -> None:
+            return None
+
+        async def save_run(self, _result: CompletedResult) -> None:
+            return None
+
+    class FakeDnsForce:
+        def __init__(self, domain: str, nameservers: list[str], verbose: bool) -> None:
+            assert domain == 'www.example.com'
+            assert nameservers == ['192.0.2.53']
+            assert verbose is True
+
+        async def run(self) -> tuple[list[str], list[str], list[str]]:
+            return (
+                ['dev.www.example.com:192.0.2.10'],
+                ['dev.www.example.com'],
+                ['192.0.2.10'],
+            )
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
+    monkeypatch.setattr(theharvester_main.dnssearch, 'DnsForce', FakeDnsForce)
+
+    result = await theharvester_main.start(
+        EnumerationOptions(
+            domain='www.example.com',
+            source='',
+            dns_brute=True,
+            dns_resolvers=('192.0.2.53',),
+            quiet=True,
+        ),
+        return_completed_result=True,
+    )
+
+    completed = result[-1]
+    actions = {execution.action for execution in completed.active_evidence.executions}
+    assert 'dns-brute' in actions
+    assert 'dns-resolve' not in actions
 
 
 @pytest.mark.asyncio
@@ -1031,14 +1075,11 @@ async def test_cli_can_capture_an_explicit_target_without_discovery_sources(
 ) -> None:
     captured: list[str] = []
 
-    class FakeStash:
-        async def do_init(self) -> None:
+    class FakeResultStore:
+        async def initialize(self) -> None:
             return None
 
-        async def store_all(self, *_args) -> None:
-            return None
-
-        async def store_completed_result(self, _result: CompletedResult) -> None:
+        async def save_run(self, _result: CompletedResult) -> None:
             return None
 
     class FakeScreenShotter:
@@ -1077,7 +1118,7 @@ async def test_cli_can_capture_an_explicit_target_without_discovery_sources(
         async def map(self, function, values):
             return [await function(value) for value in values]
 
-    monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
     monkeypatch.setattr(theharvester_main, 'ScreenShotter', FakeScreenShotter)
     monkeypatch.setattr(theharvester_main, 'Pool', FakePool)
     monkeypatch.setattr(

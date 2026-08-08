@@ -93,6 +93,13 @@ async def test_dns_force_preserves_legacy_result_and_typed_records(monkeypatch: 
     assert dns_force.query_error_types == {'TimeoutError'}
 
 
+def test_dns_force_preserves_selected_www_target() -> None:
+    dns_force = dnssearch.DnsForce('www.example.com', ['192.0.2.53'])
+
+    assert dns_force.domain == 'www.example.com'
+    assert all(candidate.endswith('.www.example.com') for candidate in dns_force.list)
+
+
 @pytest.mark.asyncio
 async def test_check_normalizes_and_deduplicates_mixed_evidence(monkeypatch: pytest.MonkeyPatch) -> None:
     values = {

@@ -75,6 +75,25 @@ Run submission is asynchronous. Lifecycle status is `queued`, `running`, `cancel
 
 P1 DNS and P2 direct options are fields on the same run request. The OpenAPI schema shows their current defaults, limits, and descriptions. The server uses the operator-selected target and does not impose a public-only egress policy.
 
+### Run an action against one result
+
+Screenshots and DNS brute force can run directly against an authorized hostname without repeating discovery. Submit an empty `sources` array and select one action:
+
+```bash
+curl -s http://127.0.0.1:5000/api/v1/runs \
+    -X POST \
+    -H "X-API-Key: $THEHARVESTER_API_KEY" \
+    -H 'Content-Type: application/json' \
+    -d '{
+      "target": "subdomain.example.com",
+      "sources": [],
+      "screenshot": true
+    }' \
+  | jq
+```
+
+For DNS brute force, set `dns_brute` to `true`. You may also provide `dns_resolvers` as one or more distinct IPv4 or IPv6 addresses. Recursive DNS is the only action that requires exactly three resolver addresses.
+
 ## Import and export
 
 Import records existing evidence and never contacts the target. The API accepts only the same JSONL written by `theHarvester -f NAME`:
