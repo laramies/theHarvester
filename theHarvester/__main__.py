@@ -109,7 +109,17 @@ from theHarvester.lib.recursive_dns import (
     RecursiveDNSLimits,
     discover_recursive_dns,
 )
-from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass, ResultRoute, SourceSpec, get_source_spec
+from theHarvester.lib.resolver_selection import normalize_resolver_addresses
+from theHarvester.lib.source_catalog import (
+    ACTION_REQUEST_FIELDS,
+    SOURCE_SPECS,
+    ActivityClass,
+    ResultRoute,
+    SourceSpec,
+    activity_classes_for_selection,
+    get_source_spec,
+    selected_action_names,
+)
 from theHarvester.screenshot.screenshot import ScreenShotter
 
 logger = logging.getLogger(__name__)
@@ -225,7 +235,10 @@ async def start(
     parser.add_argument(
         '-r',
         '--dns-resolve',
-        help='Resolve discovered hostnames. Pass resolver IPs or a resolver file; omit the value to use defaults.',
+        help=(
+            'Resolve discovered hostnames. Pass comma-separated resolver IPs or a text file with one IP per line; '
+            'omit the value to use defaults.'
+        ),
         default='',
         type=str,
         nargs='?',
@@ -355,39 +368,16 @@ async def start(
     dnslookup = args.dns_lookup
     dnsserver = args.dns_server  # TODO arg is not used anywhere replace with resolvers wordlist arg dnsresolve
     dnsresolve: str | None = args.dns_resolve
-    final_dns_resolver_list = []
+    final_dns_resolver_list: list[str] = []
     if dnsresolve is not None and len(dnsresolve) > 0:
-        # Three scenarios:
-        # 8.8.8.8
-        # 1.1.1.1,8.8.8.8 or 1.1.1.1, 8.8.8.8
-        # resolvers.txt
+        resolver_candidates: list[str] = []
         if await anyio.Path(dnsresolve).exists():
             async with await anyio.open_file(dnsresolve, encoding='UTF-8') as fp:
                 async for line in fp:
-                    line = line.strip()
-                    if len(line) == 0:
-                        continue
-                    try:
-                        final_dns_resolver_list.append(str(netaddr.IPAddress(line)))
-                    except (netaddr.core.AddrFormatError, ValueError, TypeError) as e:
-                        output_logger.info(f'An exception has occurred while reading from: {dnsresolve}, {e}')
-                        output_logger.info(f'Current line: {line}')
+                    resolver_candidates.append(line)
         else:
-            cleaned = dnsresolve.replace(' ', '')
-            resolver_candidates = cleaned.split(',') if ',' in cleaned else [cleaned]
-            for item in resolver_candidates:
-                if len(item) == 0:
-                    continue
-                try:
-                    # Verify user passed in an IP; this does not validate resolver behavior
-                    final_dns_resolver_list.append(str(netaddr.IPAddress(item)))
-                except (netaddr.core.AddrFormatError, ValueError, TypeError) as e:
-                    output_logger.info(f'Passed DNS resolver is invalid, skipping: {item} ({e})')
-
-        # if for some reason, there are duplicates
-        final_dns_resolver_list = sorted(set(final_dns_resolver_list))
-        if len(final_dns_resolver_list) == 0:
-            output_logger.info('No valid DNS resolvers were parsed from --dns-resolve; continuing without custom resolvers.')
+            resolver_candidates.extend(dnsresolve.split(','))
+        final_dns_resolver_list = normalize_resolver_addresses(resolver_candidates)
 
     recursive_depth = getattr(args, 'dns_recursive_depth', 0)
     recursive_limits = None
@@ -2198,7 +2188,9 @@ async def start(
             output_logger.info(f'\nScreenshots can be found in: {screen_shotter.output}{screen_shotter.slash}')
             start_time = time.perf_counter()
             output_logger.info('Filtering domains for ones we can reach')
-            if dnsresolve is None or len(final_dns_resolver_list) > 0:
+            if not engines:
+                unique_resolved_domains = resolved_screenshot_hosts | {word}
+            elif dnsresolve is None or len(final_dns_resolver_list) > 0:
                 unique_resolved_domains = resolved_screenshot_hosts
             else:
                 # Technically not resolved in this case, which is not ideal

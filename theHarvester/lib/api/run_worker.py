@@ -284,7 +284,9 @@ async def _child_execute(run_id: str, database: Path) -> None:
         dns_recursive_depth=recursive_depth,
         dns_recursive_query_limit=request.get('dns_recursive_query_limit', DEFAULT_DNS_RECURSIVE_QUERY_LIMIT),
         dns_recursive_runtime_seconds=request.get('dns_recursive_runtime_seconds', DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS),
-        dns_resolve=','.join(resolver_list) if request.get('dns_resolve') or recursive_depth > 0 else '',
+        dns_resolve=(
+            ','.join(resolver_list) if request.get('dns_resolve') or request.get('dns_brute') or recursive_depth > 0 else ''
+        ),
         dns_server=None,
         domain=run['target'],
         filename='',

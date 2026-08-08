@@ -4,13 +4,14 @@ import ipaddress
 from datetime import UTC, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from theHarvester.lib.enumeration import (
     DEFAULT_DNS_RECURSIVE_QUERY_LIMIT,
     DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS,
     DEFAULT_RESULT_START,
 )
+from theHarvester.lib.resolver_selection import normalize_resolver_addresses
 from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass
 
 DEFAULT_DNS_RESOLVERS = '1.1.1.1,8.8.8.8,9.9.9.9'
@@ -47,11 +48,10 @@ def _normalize_target(value: str) -> str:
 class RunRequest(BaseModel):
     target: str = Field(description='Authorized domain name or IP address to enumerate.')
     sources: list[str] = Field(
-        min_length=1,
         max_length=len(SOURCE_SPECS),
         description=(
             'Discovery source names or source capabilities. Multiple capabilities select the union of matching '
-            'sources and do not filter result fields.'
+            'sources and do not filter result fields. May be empty for a screenshot-only or DNS-brute-only run.'
         ),
     )
     limit: int = Field(
@@ -75,7 +75,7 @@ class RunRequest(BaseModel):
         default=False,
         description='Use configured proxies for supported discovery sources and takeover requests.',
     )
-    dns_brute: bool = Field(default=False, description='Try wordlist candidates against DNS.')
+    dns_brute: bool = Field(default=False, description='Try wordlist candidates below the authorized target through DNS.')
     dns_lookup: bool = Field(
         default=False,
         description="Perform reverse DNS lookup across each discovered IPv4 address's /24 network.",
@@ -86,9 +86,8 @@ class RunRequest(BaseModel):
     )
     dns_resolvers: list[str] = Field(
         default_factory=lambda: DEFAULT_DNS_RESOLVERS.split(','),
-        min_length=3,
-        max_length=3,
-        description='Exactly three distinct resolver IP addresses used for DNS validation and recursion.',
+        min_length=1,
+        description=('Distinct resolver IPv4 or IPv6 addresses used by DNS actions. Recursive DNS requires exactly three.'),
     )
     dns_recursive_depth: int = Field(
         default=0,
@@ -107,7 +106,10 @@ class RunRequest(BaseModel):
         description='Maximum wall-clock seconds spent in recursive DNS discovery.',
     )
     shodan: bool = Field(default=False, description='Enrich discovered hosts with configured Shodan access.')
-    screenshot: bool = Field(default=False, description='Capture screenshots of discovered web services.')
+    screenshot: bool = Field(
+        default=False,
+        description='Capture discovered web services, or the authorized target when no discovery sources are selected.',
+    )
     take_over: bool = Field(
         default=False,
         description='Check discovered hosts for takeover indicators, using configured proxies when enabled.',
@@ -132,10 +134,15 @@ class RunRequest(BaseModel):
     @field_validator('dns_resolvers')
     @classmethod
     def validate_dns_resolvers(cls, values: list[str]) -> list[str]:
-        normalized = [str(ipaddress.ip_address(value.strip())) for value in values]
-        if len(set(normalized)) != 3:
-            raise ValueError('DNS resolution requires exactly three distinct resolver IPs')
-        return normalized
+        return normalize_resolver_addresses(values)
+
+    @model_validator(mode='after')
+    def validate_selected_work(self) -> RunRequest:
+        if not self.sources and not (self.screenshot or self.dns_brute):
+            raise ValueError('Select at least one discovery source or enable screenshots or DNS brute force')
+        if self.dns_recursive_depth > 0 and len(self.dns_resolvers) != 3:
+            raise ValueError('Recursive DNS requires exactly three distinct resolver IPs')
+        return self
 
 
 class SourceResponse(BaseModel):

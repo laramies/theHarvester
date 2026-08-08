@@ -58,6 +58,10 @@ _Avoid_: DNS result, resolved host, validation status
 One finite execution of theHarvester against an explicit target and selected options, identified independently from every other execution.
 _Avoid_: Scan, monitoring cycle, session, job
 
+**Action-only run**:
+An enumeration run with no discovery sources that performs an explicitly selected DNS or direct action against an explicitly authorized target. It creates its own run record and never mutates the evidence of a parent run.
+_Avoid_: Result action, parent-run update, inline scan
+
 **Run record**:
 The durable operator-facing record that begins when an enumeration is submitted or evidence is imported and retains lifecycle, authorization, and available evidence under one stable identifier.
 _Avoid_: Task, worker job, scan record

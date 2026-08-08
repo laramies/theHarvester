@@ -871,6 +871,20 @@ async def test_recursive_dns_requires_canonically_distinct_resolvers(monkeypatch
 
 
 @pytest.mark.asyncio
+async def test_cli_rejects_resolver_file_with_non_ip_value(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    class FakeStash:
+        async def do_init(self) -> None:
+            return None
+
+    resolvers = tmp_path / 'resolvers.txt'
+    resolvers.write_text('192.0.2.53\nnot-an-ip\n', encoding='utf-8')
+    monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
+
+    with pytest.raises(ValueError, match='Invalid DNS resolver address: not-an-ip'):
+        await theharvester_main.start(EnumerationOptions(domain='example.com', dns_resolve=str(resolvers), quiet=True))
+
+
+@pytest.mark.asyncio
 async def test_dns_proven_cname_hosts_reach_screenshot_filter(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -1008,6 +1022,75 @@ def _recording_result_store(saved: list[CompletedResult]) -> type[_NoopResultSto
             saved.append(result)
 
     return RecordingResultStore
+
+
+@pytest.mark.asyncio
+async def test_cli_can_capture_an_explicit_target_without_discovery_sources(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    captured: list[str] = []
+
+    class FakeStash:
+        async def do_init(self) -> None:
+            return None
+
+        async def store_all(self, *_args) -> None:
+            return None
+
+        async def store_completed_result(self, _result: CompletedResult) -> None:
+            return None
+
+    class FakeScreenShotter:
+        slash = '/'
+
+        def __init__(self, output: str) -> None:
+            self.output = output
+
+        def verify_path(self) -> bool:
+            return True
+
+        async def verify_installation(self) -> None:
+            return None
+
+        async def visit(self, host: str) -> tuple[str, str]:
+            return host, 'https'
+
+        @staticmethod
+        def chunk_list(values: list[str], _size: int) -> list[list[str]]:
+            return [values]
+
+        async def take_screenshot(self, host: str) -> str:
+            captured.append(host)
+            return host
+
+    class FakePool:
+        def __init__(self, _workers: int) -> None:
+            pass
+
+        async def __aenter__(self) -> 'FakePool':
+            return self
+
+        async def __aexit__(self, *_args) -> None:
+            return None
+
+        async def map(self, function, values):
+            return [await function(value) for value in values]
+
+    monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
+    monkeypatch.setattr(theharvester_main, 'ScreenShotter', FakeScreenShotter)
+    monkeypatch.setattr(theharvester_main, 'Pool', FakePool)
+    monkeypatch.setattr(
+        sys,
+        'argv',
+        ['theHarvester', '-d', 'api.example.com', '--screenshot', str(tmp_path), '--quiet'],
+    )
+
+    with pytest.raises(SystemExit) as exit_info:
+        await theharvester_main.start()
+
+    assert exit_info.value.code == 0
+    assert captured == ['api.example.com']
 
 
 @pytest.mark.asyncio

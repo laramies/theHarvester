@@ -1,4 +1,4 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from enum import Enum, StrEnum, auto
 from typing import Final
@@ -20,6 +20,18 @@ ACTION_ACTIVITIES: Final = {
     'screenshot': ActivityClass.DIRECT,
     'take-over': ActivityClass.DIRECT,
 }
+ACTION_REQUEST_FIELDS: Final = {
+    **{name: name.replace('-', '_') for name in ACTION_ACTIVITIES},
+    'dns-recursive': 'dns_recursive_depth',
+}
+
+
+def selected_action_names(request: Mapping[str, object]) -> tuple[str, ...]:
+    def selected(name: str) -> bool:
+        value = request.get(ACTION_REQUEST_FIELDS[name])
+        return isinstance(value, (int, float)) and value > 0 if name == 'dns-recursive' else bool(value)
+
+    return tuple(name for name in ACTION_ACTIVITIES if selected(name))
 
 
 class ResultRoute(Enum):
