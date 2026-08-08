@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse
 
 from theHarvester import __version__
 from theHarvester.lib.api.auth import API_KEY_COOKIE_NAME, _configured_api_key, browser_session_token
+from theHarvester.lib.resolver_selection import DEFAULT_DNS_RESOLVERS
 
 router = APIRouter()
 
@@ -45,7 +46,11 @@ async def harvestview_app(request: Request) -> HTMLResponse:
     static_dir = Path(__file__).parent / 'static' / 'harvestview'
     template = (static_dir / 'index.html').read_text(encoding='utf-8')
     asset_version = max((static_dir / name).stat().st_mtime_ns for name in ('app.css', 'app.js'))
-    response = HTMLResponse(template.replace('{{VERSION}}', __version__).replace('{{ASSET_VERSION}}', str(asset_version)))
+    response = HTMLResponse(
+        template.replace('{{VERSION}}', __version__)
+        .replace('{{ASSET_VERSION}}', str(asset_version))
+        .replace('{{DNS_RESOLVERS}}', ','.join(DEFAULT_DNS_RESOLVERS))
+    )
     if configured_api_key := _configured_api_key():
         response.delete_cookie(API_KEY_COOKIE_NAME, path='/')
         response.set_cookie(

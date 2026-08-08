@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 def test_harvestview_owns_root_and_issues_an_http_only_session(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api import api
+    from theHarvester.lib.resolver_selection import DEFAULT_DNS_RESOLVERS
 
     monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
     monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
@@ -20,6 +21,7 @@ def test_harvestview_owns_root_and_issues_an_http_only_session(tmp_path, monkeyp
 
     assert root.status_code == 200
     assert '<title>HarvestView</title>' in root.text
+    assert f'value="{",".join(DEFAULT_DNS_RESOLVERS)}"' in root.text
     assert legacy.status_code == 404
     cookie = root.headers['set-cookie']
     assert 'theharvester-api-key=' in cookie
