@@ -18,6 +18,7 @@
     selectedId: null,
     detail: null,
     sources: [],
+    actions: [],
     selectedSources: new Set(['crtsh']),
     route: null,
     theme: localStorage.getItem('runs-theme') || 'system',
@@ -176,10 +177,12 @@
     nodes.empty.hidden = true;
     nodes.detail.hidden = true;
     nodes.workspaceError.hidden = true;
-    const [sourcesResponse, runsResponse] = await Promise.all([
+    const [catalogResponse, runsResponse] = await Promise.all([
       api('/api/v1/sources'), api('/api/v1/runs')
     ]);
-    state.sources = await sourcesResponse.json();
+    const catalog = await catalogResponse.json();
+    state.sources = catalog.sources;
+    state.actions = catalog.actions;
     nodes.newRunButton.disabled = false;
     const capabilities = [...new Set(state.sources.flatMap(source => source.capabilities || []))].sort();
     nodes.sourceCapability.innerHTML = '<option value="">Choose result type</option>' + capabilities.map(capability => `<option value="${escapeHtml(capability)}">${escapeHtml(capability)}</option>`).join('');
@@ -600,9 +603,13 @@
   function selectedActivities() {
     const activities = new Set();
     for (const source of state.sources) if (state.selectedSources.has(source.name)) activities.add(source.activity);
-    if (nodes.newRunForm.elements.shodan.checked) activities.add('P0');
-    if (nodes.newRunForm.elements.dns_lookup.checked || nodes.newRunForm.elements.dns_resolve.checked || nodes.newRunForm.elements.dns_brute.checked || Number(nodes.newRunForm.elements.dns_recursive_depth.value) > 0) activities.add('P1');
-    if (nodes.newRunForm.elements.screenshot.checked || nodes.newRunForm.elements.take_over.checked || nodes.newRunForm.elements.api_scan.checked) activities.add('P2');
+    for (const action of state.actions) {
+      const field = nodes.newRunForm.elements[action.name.replaceAll('-', '_')];
+      const selected = action.name === 'dns-recursive'
+        ? Number(nodes.newRunForm.elements.dns_recursive_depth.value) > 0
+        : field?.checked;
+      if (selected) activities.add(action.activity);
+    }
     return activities;
   }
 

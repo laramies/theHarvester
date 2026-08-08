@@ -219,7 +219,7 @@ def test_harvestview_can_submit_overridable_execution_controls(
 def test_harvestview_can_select_sources_by_result_capability(harvestview_server_url: str, page: Page) -> None:
     page.goto(f'{harvestview_server_url}/')
     catalog = page.context.request.get(f'{harvestview_server_url}/api/v1/sources').json()
-    expected = {source['name'] for source in catalog if 'ips' in source['capabilities']}
+    expected = {source['name'] for source in catalog['sources'] if 'ips' in source['capabilities']}
 
     page.get_by_role('button', name='Start enumeration').first.click()
     page.get_by_role('button', name='Clear', exact=True).click()
@@ -528,7 +528,7 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
     page.context.grant_permissions(['clipboard-read', 'clipboard-write'], origin=harvestview_server_url)
     page.goto(f'{harvestview_server_url}/')
     catalog = page.context.request.get(f'{harvestview_server_url}/api/v1/sources').json()
-    passive_sources = [source for source in catalog if source['activity'] == 'P0']
+    passive_sources = [source for source in catalog['sources'] if source['activity'] == 'P0']
     credentialed = [source for source in passive_sources if source['credentials']]
     uncredentialed = [source for source in passive_sources if not source['credentials']]
     ordered_sources = uncredentialed[:23] + credentialed[:2] + uncredentialed[23:] + credentialed[2:]
