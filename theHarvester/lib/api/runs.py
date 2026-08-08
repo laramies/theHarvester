@@ -9,7 +9,6 @@ from fastapi.responses import FileResponse
 from pydantic import ValidationError
 
 from theHarvester.lib.api.auth import get_api_key
-from theHarvester.lib.api.rate_limit import API_RATE_LIMIT, limiter
 from theHarvester.lib.completed_result import encode_result_jsonl
 from theHarvester.lib.source_catalog import ACTION_ACTIVITIES, SOURCE_SPECS, SourceSpec, get_source_spec, resolve_sources
 
@@ -85,7 +84,6 @@ async def list_sources(_api_key: Annotated[str, Depends(get_api_key)]) -> Source
     response_model_exclude_unset=True,
     openapi_extra=RUN_REQUEST_OPENAPI,
 )
-@limiter.limit(API_RATE_LIMIT)
 async def create_run(
     request: Request,
     _api_key: Annotated[str, Depends(get_api_key)],
@@ -127,7 +125,6 @@ async def create_run(
     response_model_exclude_unset=True,
     openapi_extra=IMPORT_REQUEST_OPENAPI,
 )
-@limiter.limit(API_RATE_LIMIT)
 async def import_run(
     request: Request,
     _api_key: Annotated[str, Depends(get_api_key)],
@@ -157,9 +154,7 @@ async def get_run(run_id: str, _api_key: Annotated[str, Depends(get_api_key)]) -
 
 
 @router.post('/runs/{run_id}/cancel', response_model_exclude_unset=True)
-@limiter.limit(API_RATE_LIMIT)
 async def cancel_run(
-    request: Request,
     run_id: str,
     _api_key: Annotated[str, Depends(get_api_key)],
 ) -> RunDetail:

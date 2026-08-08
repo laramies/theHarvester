@@ -103,7 +103,7 @@ Open [http://127.0.0.1:5000/docs](http://127.0.0.1:5000/docs) for interactive Sw
 | `POST /api/v1/runs/import` | Import versioned JSONL evidence without executing discovery. |
 | `GET /api/v1/runs/{run_id}/export` | Export normalized evidence as versioned JSONL. |
 
-The service rate limit defaults to five requests per minute and can be changed with `--rate-limit`. Every `/api/v1/*` route requires `THEHARVESTER_API_KEY` in the `X-API-Key` header. Provider credentials stay in server-side configuration and cannot be supplied in a request. Keep the service bound to localhost. If you require remote access, add network access controls and TLS.
+Every `/api/v1/*` route requires `THEHARVESTER_API_KEY` in the `X-API-Key` header. Provider credentials stay in server-side configuration and cannot be supplied in a request. Keep the service bound to localhost. If you require remote access, add network access controls and TLS.
 
 When `--proxies` and `--take-over` are combined, supported discovery and takeover requests use the configured proxies.
 

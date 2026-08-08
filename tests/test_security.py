@@ -407,16 +407,6 @@ class TestSecurityBestPractices:
                     ]
                     assert not real_matches, f'Potential hardcoded secret in {file_path}: {real_matches}'
 
-    def test_api_has_rate_limiting(self):
-        """
-        Security Test: Verify API endpoints have rate limiting enabled.
-        """
-        from theHarvester.lib.api.api import app
-
-        # Check that rate limiting is configured
-        assert hasattr(app.state, 'limiter'), 'Rate limiter not configured'
-        assert app.state.limiter is not None, 'Rate limiter is None'
-
     def test_sensitive_endpoints_require_validation(self, monkeypatch):
         """
         Security Test: Ensure sensitive endpoints validate input.

@@ -1,5 +1,4 @@
 import argparse
-import os
 
 import uvicorn
 
@@ -32,16 +31,7 @@ def main():
         help='Enable automatic reload used during development of the api',
         action='store_true',
     )
-    parser.add_argument(
-        '--rate-limit',
-        default='5/minute',
-        help='Set API rate limit (e.g., "10/minute", "100/hour"), default is 5/minute',
-    )
-
     args: argparse.Namespace = parser.parse_args()
-
-    # Set environment variable for API rate limit
-    os.environ['API_RATE_LIMIT'] = args.rate_limit
 
     uvicorn.run(
         'theHarvester.lib.api.api:app',

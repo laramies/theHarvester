@@ -6,12 +6,9 @@ from typing import TYPE_CHECKING, Any, cast
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi import _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
 from starlette.staticfiles import StaticFiles
 
 from theHarvester import __version__
-from theHarvester.lib.api.rate_limit import limiter
 from theHarvester.lib.api.run_worker import start_worker, stop_worker
 from theHarvester.lib.api.runs import router as api_router
 
@@ -36,8 +33,6 @@ app = FastAPI(
     redoc_url='/redoc',
     lifespan=lifespan,
 )
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore
 app.add_middleware(
     cast('Any', CORSMiddleware),
     allow_origins=[],
