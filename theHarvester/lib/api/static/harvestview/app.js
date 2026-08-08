@@ -42,8 +42,8 @@
     routeTabs: $('#route-tabs'), resultsEmpty: $('#results-empty'), resultsEmptyTitle: $('#results-empty-title'),
     resultsEmptyCopy: $('#results-empty-copy'), resultWorkbench: $('#result-workbench'),
     routeOverflowCue: $('#route-overflow-cue'),
-    resultSearch: $('#result-search'), routeCount: $('#route-count'), copySelected: $('#copy-route-button'), routeCsv: $('#route-csv-button'),
-    exportJson: $('#export-json-button'), exportCsv: $('#export-csv-button'), screenshotSection: $('#screenshot-section'),
+    resultSearch: $('#result-search'), routeCount: $('#route-count'), copySelected: $('#copy-route-button'),
+    exportJsonl: $('#export-jsonl-button'), screenshotSection: $('#screenshot-section'),
     screenshotGallery: $('#screenshot-gallery'), logSection: $('#log-section'), logOutput: $('#run-log-output'),
     newRunDialog: $('#new-run-dialog'), newRunForm: $('#new-run-form'), sourceSearch: $('#source-search'), sourceGroups: $('#source-groups'),
     sourceCapability: $('#source-capability'), selectCapability: $('#select-capability-button'),
@@ -428,7 +428,7 @@
     nodes.resultWorkbench.hidden = total === 0;
     nodes.routeTabs.hidden = total === 0;
     nodes.routeOverflowCue.hidden = total === 0;
-    for (const button of [nodes.routeCsv, nodes.exportJson, nodes.exportCsv]) button.disabled = total === 0;
+    nodes.exportJsonl.disabled = !run.evidence_status;
     nodes.copySelected.disabled = true;
     if (!total) {
       nodes.routeTabs.innerHTML = '';
@@ -626,7 +626,7 @@
 
   function openImport() {
     nodes.importForm.reset();
-    nodes.fileLabel.textContent = 'Choose a .json or .jsonl file';
+    nodes.fileLabel.textContent = 'Choose a .jsonl file';
     openDialog(nodes.importDialog, '#result-file');
   }
 
@@ -674,7 +674,7 @@
     showFormError(nodes.importError, '');
     const file = nodes.resultFile.files[0];
     if (!file) {
-      showFormError(nodes.importError, 'Choose a JSON or JSONL result file.');
+      showFormError(nodes.importError, 'Choose a JSONL result file.');
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
@@ -684,7 +684,7 @@
     setBusy(nodes.submitImport, true, 'Importing…');
     try {
       const response = await api(`/api/v1/runs/import?filename=${encodeURIComponent(file.name)}`, {
-        method: 'POST', headers: {'Content-Type': file.name.toLowerCase().endsWith('.jsonl') ? 'application/x-ndjson' : 'application/json'}, body: file
+        method: 'POST', headers: {'Content-Type': 'application/x-ndjson'}, body: file
       });
       const run = await response.json();
       closeDialog(nodes.importDialog);
@@ -724,12 +724,12 @@
     }
   }
 
-  async function downloadServerExport(format) {
+  async function downloadServerExport() {
     try {
-      const response = await api(`/api/v1/runs/${encodeURIComponent(state.selectedId)}/exports/${format}`);
+      const response = await api(`/api/v1/runs/${encodeURIComponent(state.selectedId)}/export`);
       const disposition = response.headers.get('Content-Disposition') || '';
       const match = disposition.match(/filename="([^"]+)"/);
-      downloadBlob(await response.blob(), match?.[1] || `harvestview-results.${format}`);
+      downloadBlob(await response.blob(), match?.[1] || 'harvestview-results.jsonl');
     } catch (error) {
       toast(`Could not export results: ${error.message}. Keep the run open and try again.`, true);
     }
@@ -745,23 +745,6 @@
     toast(`Downloaded ${filename}.`);
   }
 
-  function routeRows() {
-    return (state.detail?.results || []).filter(result => result.type === state.route);
-  }
-
-  function safeSpreadsheetCell(value) {
-    const text = String(value ?? '');
-    return /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
-  }
-  function csvCell(value) { return `"${safeSpreadsheetCell(value).replaceAll('"', '""')}"`; }
-  function exportRouteCsv() {
-    const rows = [['type', 'value', 'dns_status'], ...routeRows().map(result => [
-      result.type, result.value, result.dns_status || ''
-    ])];
-    const content = `${rows.map(row => row.map(csvCell).join(',')).join('\n')}\n`;
-    downloadBlob(new Blob([content], {type: 'text/csv'}), `${state.detail.target}-${state.route}.csv`);
-  }
-
   async function copySelected() {
     const selected = state.resultTable?.getSelectedRows().map(row => row.getData()) || [];
     if (!selected.length) return;
@@ -770,7 +753,7 @@
       await navigator.clipboard.writeText(text);
       toast(`Copied ${selected.length} selected ${ROUTE_LABELS[state.route] || state.route}.`);
     } catch {
-      toast('Clipboard access was unavailable. Use Route CSV instead.', true);
+      toast('Clipboard access was unavailable. Use the JSONL export instead.', true);
     }
   }
 
@@ -795,9 +778,7 @@
   nodes.newRunForm.addEventListener('submit', submitRun);
   nodes.importForm.addEventListener('submit', submitImport);
   nodes.cancel.addEventListener('click', requestCancellation);
-  nodes.exportJson.addEventListener('click', () => downloadServerExport('json'));
-  nodes.exportCsv.addEventListener('click', () => downloadServerExport('csv'));
-  nodes.routeCsv.addEventListener('click', exportRouteCsv);
+  nodes.exportJsonl.addEventListener('click', downloadServerExport);
   nodes.copySelected.addEventListener('click', copySelected);
   nodes.resultSearch.addEventListener('input', event => {
     const query = event.target.value.trim().toLowerCase();
@@ -816,7 +797,7 @@
   nodes.newRunForm.addEventListener('change', updateActivitySummary);
   nodes.resultFile.addEventListener('change', () => {
     const file = nodes.resultFile.files[0];
-    nodes.fileLabel.textContent = file ? `${file.name} · ${(file.size / 1024).toLocaleString(undefined, {maximumFractionDigits: 1})} KiB` : 'Choose a .json or .jsonl file';
+    nodes.fileLabel.textContent = file ? `${file.name} · ${(file.size / 1024).toLocaleString(undefined, {maximumFractionDigits: 1})} KiB` : 'Choose a .jsonl file';
   });
 
   document.addEventListener('click', event => {

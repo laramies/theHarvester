@@ -46,6 +46,27 @@ def test_harvestview_assets_load_outside_the_repository_directory(tmp_path, monk
     assert 'function renderResults' in response.text
 
 
+def test_harvestview_offers_only_jsonl_file_interchange(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+
+    with TestClient(api.app, base_url='http://127.0.0.1', client=('127.0.0.1', 50000)) as client:
+        root = client.get('/')
+        script = client.get('/static/harvestview/app.js')
+
+    assert 'accept=".jsonl,application/x-ndjson"' in root.text
+    assert 'id="export-jsonl-button"' in root.text
+    assert 'id="route-csv-button"' not in root.text
+    assert 'id="export-json-button"' not in root.text
+    assert 'id="export-csv-button"' not in root.text
+    assert '/export' in script.text
+    assert '/exports/' not in script.text
+    assert 'text/csv' not in script.text
+
+
 def test_harvestview_self_hosts_only_the_pinned_tabulator_theme(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api import api
 
