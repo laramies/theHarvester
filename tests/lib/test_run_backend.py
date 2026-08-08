@@ -9,8 +9,50 @@ from datetime import UTC, datetime
 from fastapi.testclient import TestClient
 
 
+def test_run_paths_use_one_expanded_database_and_artifact_root(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api.run_store import RunStore
+
+    monkeypatch.setenv('HOME', str(tmp_path))
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', '~/state/runs.sqlite')
+    monkeypatch.delenv('THEHARVESTER_RUN_ARTIFACTS', raising=False)
+
+    store = RunStore()
+
+    assert store.database == tmp_path / 'state' / 'runs.sqlite'
+    assert store.artifact_directory('run-id') == tmp_path / 'state' / 'run-artifacts' / 'run-id'
+
+
+def test_explicit_run_database_keeps_screenshot_artifacts_attached(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api.run_store import RunStore
+
+    monkeypatch.delenv('THEHARVESTER_RUN_DB', raising=False)
+    monkeypatch.delenv('THEHARVESTER_RUN_ARTIFACTS', raising=False)
+
+    async def scenario():
+        store = RunStore(tmp_path / 'state' / 'runs.sqlite')
+        imported = await store.import_evidence(
+            {
+                'run_id': '4a6e5a15-fae5-462c-a34b-122ced6bb86d',
+                'target': 'example.test',
+                'status': 'complete',
+                'results': [{'type': 'screenshot', 'value': 'https://owned.example.test'}],
+                'source_executions': [],
+            },
+            'evidence.jsonl',
+        )
+        screenshot_dir = store.artifact_directory(imported['run_id']) / 'screenshots'
+        screenshot_dir.mkdir(parents=True)
+        (screenshot_dir / 'owned.example.test.png').write_bytes(b'png')
+        return await store.get(imported['run_id'])
+
+    run = asyncio.run(scenario())
+
+    assert run is not None
+    assert [screenshot['name'] for screenshot in run['screenshots']] == ['owned.example.test.png']
+
+
 def test_orphan_recovery_reattaches_partial_checkpoint_and_leaves_queued_work(tmp_path, monkeypatch) -> None:
-    from theHarvester.lib.api import run_evidence
+    from theHarvester.lib.api.run_artifacts import ensure_private_directory, write_child_evidence
     from theHarvester.lib.api.run_models import RunRequest
     from theHarvester.lib.api.run_store import RunStore
     from theHarvester.lib.completed_result import CompletedResult
@@ -25,8 +67,8 @@ def test_orphan_recovery_reattaches_partial_checkpoint_and_leaves_queued_work(tm
         cancelling = await store.claim_next()
         assert cancelling is not None
         await store.cancel(cancelling['run_id'])
-        artifact_dir = run_evidence._artifact_dir(cancelling['run_id'])
-        run_evidence._ensure_private_directory(artifact_dir)
+        artifact_dir = store.artifact_directory(cancelling['run_id'])
+        ensure_private_directory(artifact_dir)
         now = datetime.now(UTC)
         checkpoint = CompletedResult.finish(
             target='first.example',
@@ -34,7 +76,7 @@ def test_orphan_recovery_reattaches_partial_checkpoint_and_leaves_queued_work(tm
             completed_at=now,
             groups={'email': ['saved@first.example']},
         )
-        run_evidence._write_child_evidence(artifact_dir, checkpoint, partial=True)
+        write_child_evidence(artifact_dir, checkpoint, partial=True)
         running = await store.claim_next()
         assert running is not None
         await store.recover_orphans()
@@ -108,12 +150,12 @@ def test_authenticated_operator_can_queue_direct_activity_for_selected_target(tm
         response = client.post(
             '/api/v1/runs',
             headers={'X-API-Key': 'test-key'},
-            json={'target': '192.0.2.8', 'sources': ['certspotter'], 'api_scan': True},
+            json={'target': '192.0.2.8', 'sources': ['criminalip']},
         )
 
     assert response.status_code == 201
     assert response.json()['target'] == '192.0.2.8'
-    assert response.json()['request']['api_scan'] is True
+    assert response.json()['activities'] == ['P2']
 
 
 def test_running_cancellation_terminates_child_and_retains_partial_evidence(tmp_path, monkeypatch) -> None:
@@ -124,7 +166,7 @@ def test_running_cancellation_terminates_child_and_retains_partial_evidence(tmp_
     monkeypatch.setenv('THEHARVESTER_RUN_ARTIFACTS', str(tmp_path / 'artifacts'))
     monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'enabled')
 
-    async def slow_process(_run_id, artifact_dir):
+    async def slow_process(_run_id, _database, artifact_dir):
         artifact_dir.mkdir(parents=True, exist_ok=True)
         (artifact_dir / 'evidence.json').write_text(
             json.dumps(
@@ -181,7 +223,7 @@ def test_whole_run_deadline_terminates_child_and_retains_partial_evidence(tmp_pa
     monkeypatch.setenv('THEHARVESTER_RUN_ARTIFACTS', str(tmp_path / 'artifacts'))
     monkeypatch.setattr(run_worker, '_worker_stop', None)
 
-    async def slow_process(_run_id, artifact_dir):
+    async def slow_process(_run_id, _database, artifact_dir):
         artifact_dir.mkdir(parents=True, exist_ok=True)
         (artifact_dir / 'evidence.json').write_text(
             json.dumps(

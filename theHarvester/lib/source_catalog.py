@@ -13,6 +13,7 @@ class ActivityClass(StrEnum):
 ACTION_ACTIVITIES: Final = {
     'dns-brute': ActivityClass.DNS,
     'dns-lookup': ActivityClass.DNS,
+    'dns-recursive': ActivityClass.DNS,
     'dns-resolve': ActivityClass.DNS,
     'shodan': ActivityClass.PASSIVE,
     'api-scan': ActivityClass.DIRECT,
@@ -166,6 +167,20 @@ _CASEFOLDED_SOURCE_SPECS = {name.casefold(): spec for name, spec in SOURCE_SPECS
 
 def get_source_spec(name: str) -> SourceSpec:
     return _CASEFOLDED_SOURCE_SPECS[name.casefold()]
+
+
+def activity_classes_for_selection(
+    source_names: Iterable[str],
+    action_names: Iterable[str] = (),
+) -> tuple[ActivityClass, ...]:
+    selected: set[ActivityClass] = set()
+    for name in source_names:
+        try:
+            selected.add(get_source_spec(name).activity)
+        except KeyError:
+            continue
+    selected.update(ACTION_ACTIVITIES[name] for name in action_names if name in ACTION_ACTIVITIES)
+    return tuple(activity for activity in ActivityClass if activity in selected)
 
 
 def resolve_sources(selection: str | Iterable[str]) -> list[str]:

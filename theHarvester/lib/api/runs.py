@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from collections import Counter
 from pathlib import Path
 from typing import Annotated
@@ -11,20 +10,23 @@ from pydantic import ValidationError
 
 from theHarvester.lib.api.auth import get_api_key
 from theHarvester.lib.api.rate_limit import API_RATE_LIMIT, limiter
-from theHarvester.lib.completed_result import SCHEMA_VERSION as RESULTS_SCHEMA_VERSION
-from theHarvester.lib.source_catalog import SOURCE_SPECS, SourceSpec, get_source_spec, resolve_sources
+from theHarvester.lib.completed_result import encode_result_jsonl
+from theHarvester.lib.source_catalog import ACTION_ACTIVITIES, SOURCE_SPECS, SourceSpec, get_source_spec, resolve_sources
 
 from . import run_worker
-from .run_evidence import JSONL_RESULT_TYPE_ALIASES, _artifact_dir, _parse_jsonl_import, _source_spec
+from .run_evidence import parse_jsonl_import
 from .run_models import (
     EXPORT_RESPONSES,
     IMPORT_REQUEST_OPENAPI,
     RUN_REQUEST_OPENAPI,
+    ActionResponse,
     RunDetail,
     RunRequest,
     RunSummary,
+    SourceCatalogResponse,
     SourceResponse,
 )
+from .run_projection import JSONL_RESULT_TYPE_ALIASES, source_spec
 from .run_store import RunStore
 
 router = APIRouter(prefix='/api/v1', tags=['Runs'])
@@ -50,7 +52,7 @@ async def list_runs(_api_key: Annotated[str, Depends(get_api_key)]) -> list[RunS
 
 
 @router.get('/sources')
-async def list_sources(_api_key: Annotated[str, Depends(get_api_key)]) -> list[SourceResponse]:
+async def list_sources(_api_key: Annotated[str, Depends(get_api_key)]) -> SourceCatalogResponse:
     from theHarvester.lib.core import Core
 
     provider_aliases = {'chaos': 'projectDiscovery', 'github-code': 'github', 'pentesttools': 'pentestTools'}
@@ -63,15 +65,18 @@ async def list_sources(_api_key: Annotated[str, Depends(get_api_key)]) -> list[S
             return []
         return [f'api-{field}' for field in api_key_fields.get(provider, ())]
 
-    return [
-        SourceResponse(
-            name=source.name,
-            activity=source.activity,
-            credentials=credentials(source),
-            capabilities=sorted(source.capabilities),
-        )
-        for source in sorted(SOURCE_SPECS.values(), key=lambda item: item.name)
-    ]
+    return SourceCatalogResponse(
+        sources=[
+            SourceResponse(
+                name=source.name,
+                activity=source.activity,
+                credentials=credentials(source),
+                capabilities=sorted(source.capabilities),
+            )
+            for source in sorted(SOURCE_SPECS.values(), key=lambda item: item.name)
+        ],
+        actions=[ActionResponse(name=name, activity=activity) for name, activity in sorted(ACTION_ACTIVITIES.items())],
+    )
 
 
 @router.post(
@@ -94,7 +99,7 @@ async def create_run(
             detail=error.errors(include_url=False, include_context=False),
         ) from error
     selected_sources = resolve_sources(run_request.sources)
-    unsupported_sources = [source for source in selected_sources if _source_spec(source) is None]
+    unsupported_sources = [source for source in selected_sources if source_spec(source) is None]
     if unsupported_sources:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -139,7 +144,7 @@ async def import_run(
     if Path(safe_filename).suffix.casefold() != '.jsonl':
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Choose a .jsonl result file')
     body = await _read_limited_body(request, MAX_IMPORT_BYTES, 'Result file exceeds the 10 MiB limit')
-    evidence = _parse_jsonl_import(body)
+    evidence = parse_jsonl_import(body)
     return RunDetail.model_validate(await RunStore().import_evidence(evidence, safe_filename))
 
 
@@ -186,22 +191,19 @@ async def export_run(
             status_code=status.HTTP_409_CONFLICT,
             detail='Run evidence does not have complete timestamps',
         )
-    records = [
+    payload = encode_result_jsonl(
         {
             'completed_at': completed_at,
             'counts': dict(sorted(counts.items())),
             'evidence_status': run['evidence_status'],
             'result_count': len(results),
             'run_id': run['evidence']['run_id'],
-            'schema_version': RESULTS_SCHEMA_VERSION,
             'started_at': started_at,
             'source_executions': run['source_executions'],
             'target': run['target'],
-            'type': 'summary',
         },
-        *results,
-    ]
-    payload = ''.join(json.dumps(record, ensure_ascii=False, separators=(',', ':'), sort_keys=True) + '\n' for record in records)
+        results,
+    )
     return Response(
         payload,
         media_type='application/x-ndjson',
@@ -215,13 +217,14 @@ async def get_screenshot(
     name: str,
     _api_key: Annotated[str, Depends(get_api_key)],
 ) -> FileResponse:
-    run = await RunStore().get(run_id)
+    store = RunStore()
+    run = await store.get(run_id)
     if run is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Screenshot not found')
     screenshot = next((item for item in run['screenshots'] if item['name'] == name), None)
     if screenshot is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Screenshot not found')
-    artifact_dir = _artifact_dir(str(run['run_id']))
+    artifact_dir = store.artifact_directory(str(run['run_id']))
     screenshot_dir = artifact_dir / 'screenshots'
     path = screenshot_dir / screenshot['name']
     if artifact_dir.is_symlink() or screenshot_dir.is_symlink() or path.is_symlink() or not path.is_file():

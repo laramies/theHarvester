@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import ipaddress
-import os
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
@@ -21,11 +19,6 @@ DEFAULT_DNS_RESOLVERS = '1.1.1.1,8.8.8.8,9.9.9.9'
 
 def utc_now() -> str:
     return datetime.now(UTC).isoformat()
-
-
-def default_database_path() -> Path:
-    configured = os.getenv('THEHARVESTER_RUN_DB')
-    return Path(configured).expanduser() if configured else Path('~/.local/share/theHarvester/runs.sqlite').expanduser()
 
 
 def _normalize_target(value: str) -> str:
@@ -151,6 +144,16 @@ class SourceResponse(BaseModel):
     activity: ActivityClass
     credentials: list[str]
     capabilities: list[str]
+
+
+class ActionResponse(BaseModel):
+    name: str
+    activity: ActivityClass
+
+
+class SourceCatalogResponse(BaseModel):
+    sources: list[SourceResponse]
+    actions: list[ActionResponse]
 
 
 class NormalizedResult(BaseModel):

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -11,6 +12,7 @@ def _jsonl_result(
     target: str = 'example.test',
     finding_type: str = 'email',
     value: str = 'a@example.test',
+    finding_fields: dict[str, object] | None = None,
     summary_fields: dict[str, object] | None = None,
 ) -> str:
     summary = {
@@ -27,10 +29,40 @@ def _jsonl_result(
     return '\n'.join(
         (
             json.dumps(summary),
-            json.dumps({'type': finding_type, 'value': value}),
+            json.dumps({'type': finding_type, 'value': value, **(finding_fields or {})}),
             '',
         )
     )
+
+
+@pytest.mark.parametrize(
+    ('finding_type', 'finding_fields'),
+    [
+        ('made-up-kind', {}),
+        ('hostname', {'dns_status': 'made-up-status'}),
+    ],
+)
+def test_api_rejects_jsonl_findings_outside_the_v1_contract(
+    tmp_path,
+    monkeypatch,
+    finding_type: str,
+    finding_fields: dict[str, object],
+) -> None:
+    from theHarvester.lib.api import api
+
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+
+    with TestClient(api.app) as client:
+        response = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'invalid.jsonl'},
+            headers={'X-API-Key': 'test-key'},
+            content=_jsonl_result(finding_type=finding_type, finding_fields=finding_fields),
+        )
+
+    assert response.status_code == 400
 
 
 def test_api_exposes_one_versioned_run_contract(tmp_path, monkeypatch) -> None:
@@ -78,23 +110,26 @@ def test_screenshot_route_serves_only_a_run_owned_png(tmp_path, monkeypatch) -> 
             '/api/v1/runs/import',
             params={'filename': 'smoke.jsonl'},
             headers=headers,
-            content=_jsonl_result(finding_type='hostname', value='www.example.test'),
+            content=_jsonl_result(finding_type='screenshot', value='https://owned.example.test'),
         )
         assert imported.status_code == 201
         run_id = imported.json()['run_id']
         screenshot_dir = tmp_path / 'artifacts' / run_id / 'screenshots'
         screenshot_dir.mkdir(parents=True)
-        (screenshot_dir / 'owned.png').write_bytes(b'owned screenshot')
+        (screenshot_dir / 'owned.example.test.png').write_bytes(b'owned screenshot')
+        (screenshot_dir / 'unrecorded.png').write_bytes(b'unrecorded screenshot')
         outside = tmp_path / 'outside.png'
         outside.write_bytes(b'outside screenshot')
         (screenshot_dir / 'linked.png').symlink_to(outside)
 
-        owned = client.get(f'/api/v1/runs/{run_id}/screenshots/owned.png', headers=headers)
+        owned = client.get(f'/api/v1/runs/{run_id}/screenshots/owned.example.test.png', headers=headers)
+        unrecorded = client.get(f'/api/v1/runs/{run_id}/screenshots/unrecorded.png', headers=headers)
         linked = client.get(f'/api/v1/runs/{run_id}/screenshots/linked.png', headers=headers)
         traversal = client.get(f'/api/v1/runs/{run_id}/screenshots/%2E%2E%2Foutside.png', headers=headers)
 
     assert owned.status_code == 200
     assert owned.content == b'owned screenshot'
+    assert unrecorded.status_code == 404
     assert linked.status_code == 404
     assert traversal.status_code == 404
 
@@ -110,8 +145,8 @@ def test_openapi_names_the_public_response_shapes(tmp_path, monkeypatch) -> None
         schema = client.get('/openapi.json').json()
 
     paths = schema['paths']
-    assert paths['/api/v1/sources']['get']['responses']['200']['content']['application/json']['schema']['items'] == {
-        '$ref': '#/components/schemas/SourceResponse'
+    assert paths['/api/v1/sources']['get']['responses']['200']['content']['application/json']['schema'] == {
+        '$ref': '#/components/schemas/SourceCatalogResponse'
     }
     assert paths['/api/v1/runs']['get']['responses']['200']['content']['application/json']['schema']['items'] == {
         '$ref': '#/components/schemas/RunSummary'
@@ -125,6 +160,31 @@ def test_openapi_names_the_public_response_shapes(tmp_path, monkeypatch) -> None
         assert paths[path][method]['responses']['201' if path in {'/api/v1/runs', '/api/v1/runs/import'} else '200']['content'][
             'application/json'
         ]['schema'] == {'$ref': '#/components/schemas/RunDetail'}
+
+
+def test_source_catalog_exposes_shared_action_activities(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+
+    with TestClient(api.app) as client:
+        response = client.get('/api/v1/sources', headers={'X-API-Key': 'test-key'})
+
+    assert response.status_code == 200
+    catalog = response.json()
+    assert catalog['sources']
+    assert catalog['actions'] == [
+        {'name': 'api-scan', 'activity': 'P2'},
+        {'name': 'dns-brute', 'activity': 'P1'},
+        {'name': 'dns-lookup', 'activity': 'P1'},
+        {'name': 'dns-recursive', 'activity': 'P1'},
+        {'name': 'dns-resolve', 'activity': 'P1'},
+        {'name': 'screenshot', 'activity': 'P2'},
+        {'name': 'shodan', 'activity': 'P0'},
+        {'name': 'take-over', 'activity': 'P2'},
+    ]
 
 
 def test_openapi_explains_scope_and_execution_controls(tmp_path, monkeypatch) -> None:
