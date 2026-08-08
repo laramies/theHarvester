@@ -159,6 +159,7 @@ def test_harvestview_can_submit_overridable_execution_controls(
     harvestview_server_url: str,
     page: Page,
     browser_failures,
+    tmp_path: Path,
 ) -> None:
     browser_failures.allow_response('POST', 503, '/api/v1/runs')
     browser_failures.allow_console_error(
@@ -188,7 +189,10 @@ def test_harvestview_can_submit_overridable_execution_controls(
     page.locator('#dns-recursive-depth').fill('3')
     page.locator('#dns-recursive-query-limit').fill('1234')
     page.locator('#dns-recursive-runtime-seconds').fill('12.5')
-    page.locator('#dns-resolvers').fill('192.0.2.53, 198.51.100.53, 203.0.113.53')
+    resolver_file = tmp_path / 'resolvers.txt'
+    resolver_file.write_text('192.0.2.53\n198.51.100.53\n203.0.113.53\n', encoding='utf-8')
+    page.locator('#dns-resolver-file').set_input_files(resolver_file)
+    expect(page.locator('#dns-resolvers')).to_have_value('192.0.2.53,198.51.100.53,203.0.113.53')
 
     expect(page.locator('#activity-summary')).to_have_text('P0 selected · P1 selected · P2 off')
     page.locator('[data-activity="P0"] input[value="crtsh"]').check()
@@ -214,6 +218,73 @@ def test_harvestview_can_submit_overridable_execution_controls(
         'take_over': False,
         'api_scan': False,
     }
+
+
+def test_subdomain_actions_queue_isolated_runs(
+    harvestview_server_url: str,
+    page: Page,
+    browser_failures,
+) -> None:
+    browser_failures.allow_response('POST', 503, '/api/v1/runs')
+    browser_failures.allow_response('POST', 503, '/api/v1/runs')
+    browser_failures.allow_console_error(
+        'Failed to load resource: the server responded with a status of 503 (Service Unavailable)'
+    )
+    browser_failures.allow_console_error(
+        'Failed to load resource: the server responded with a status of 503 (Service Unavailable)'
+    )
+    run = {
+        'run_id': 'parent-run',
+        'target': 'example.com',
+        'status': 'completed',
+        'origin': 'local',
+        'created_at': '2026-08-05T12:00:00+00:00',
+        'started_at': '2026-08-05T12:00:01+00:00',
+        'completed_at': '2026-08-05T12:00:05+00:00',
+        'cancellation_requested_at': None,
+        'evidence_status': 'complete',
+        'result_count': 1,
+        'activities': ['P0'],
+        'sources': ['crtsh'],
+        'request': {
+            'sources': ['crtsh'],
+            'limit': 25,
+            'deadline_seconds': 300,
+            'dns_resolvers': ['192.0.2.53'],
+        },
+        'source_executions': [],
+        'results': [{'type': 'subdomain', 'value': 'api.example.com'}],
+        'screenshots': [],
+        'log': '',
+        'error': None,
+    }
+    submissions: list[dict[str, object]] = []
+
+    def route_runs(route: Route) -> None:
+        if route.request.method == 'POST':
+            submissions.append(route.request.post_data_json)
+            route.fulfill(status=503, json={'detail': 'Action captured'})
+        else:
+            route.fulfill(json=[run])
+
+    page.route(f'{harvestview_server_url}/api/v1/runs', route_runs)
+    page.route(f'{harvestview_server_url}/api/v1/runs/parent-run', lambda route: route.fulfill(json=run))
+    page.goto(f'{harvestview_server_url}/')
+
+    page.get_by_role('button', name='Take screenshot of api.example.com (P2)').click()
+    expect(page.locator('#toast')).to_contain_text('Action captured')
+    page.get_by_role('button', name='DNS brute force api.example.com (P1)').click()
+    expect(page.locator('#toast')).to_contain_text('Action captured')
+
+    assert submissions == [
+        {'target': 'api.example.com', 'sources': [], 'screenshot': True},
+        {
+            'target': 'api.example.com',
+            'sources': [],
+            'dns_brute': True,
+            'dns_resolvers': ['192.0.2.53'],
+        },
+    ]
 
 
 def test_harvestview_can_select_sources_by_result_capability(harvestview_server_url: str, page: Page) -> None:

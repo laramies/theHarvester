@@ -111,6 +111,8 @@ The action catalog and run request use the same names. For example, set `takeove
 
 Every custom API scan entry must be a URL path beginning with `/`. The API does not accept a server-side file path.
 
+HarvestView's subdomain action buttons call this route and create a separate run without changing the completed parent run.
+
 ## Import and export
 
 Import records existing evidence and never contacts the target. For one run, send the same JSONL written by `theHarvester -f NAME`:

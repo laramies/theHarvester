@@ -49,6 +49,7 @@
     newRunDialog: $('#new-run-dialog'), newRunForm: $('#new-run-form'), sourceSearch: $('#source-search'), sourceGroups: $('#source-groups'),
     sourceCapability: $('#source-capability'), selectCapability: $('#select-capability-button'),
     selectP0: $('#select-p0-button'), clearP0: $('#clear-p0-button'),
+    dnsResolvers: $('#dns-resolvers'), dnsResolverFile: $('#dns-resolver-file'),
     activitySummary: $('#activity-summary'), newRunError: $('#new-run-error'), submitRun: $('#submit-run-button'),
     importDialog: $('#import-dialog'), importForm: $('#import-form'), resultFile: $('#result-file'), fileLabel: $('#file-label'),
     importError: $('#import-error'), submitImport: $('#submit-import-button'), screenshotDialog: $('#screenshot-dialog'),
@@ -366,10 +367,34 @@
     return String(value).toLowerCase().replaceAll('-', ' ').includes(query);
   }
 
+  function resultActionFormatter(cell) {
+    const target = escapeHtml(cell.getRow().getData().value);
+    return `<div class="result-actions">
+      <button class="button small" type="button" data-run-action="screenshot" aria-label="Take screenshot of ${target} (P2)">Screenshot (P2)</button>
+      <button class="button small" type="button" data-run-action="dns_brute" aria-label="DNS brute force ${target} (P1)">DNS brute (P1)</button>
+    </div>`;
+  }
+
   function mountResultTable(rows) {
     state.resultTable?.destroy();
     nodes.copySelected.disabled = true;
     nodes.copySelected.textContent = 'Copy selected';
+    const columns = [
+      {title: 'Value', field: 'value', formatter: cell => `<span class="value-cell">${escapeHtml(cell.getValue())}</span>`, minWidth: 260, widthGrow: 2, headerFilter: 'input', headerFilterFunc: columnTextFilter, headerFilterPlaceholder: 'Filter values'},
+      {title: 'DNS', field: 'dns_status', formatter: dnsFormatter, width: 130, responsive: 1, headerFilter: 'input', headerFilterFunc: columnTextFilter, headerFilterPlaceholder: 'Filter DNS'},
+    ];
+    if (state.route === 'subdomain') {
+      columns.push({
+        title: 'Actions', field: 'value', formatter: resultActionFormatter, headerSort: false,
+        minWidth: 265, width: 265, responsive: 0, resizable: false,
+        cellClick: (event, cell) => {
+          const button = event.target.closest('[data-run-action]');
+          if (!button) return;
+          event.stopPropagation();
+          queueResultAction(button.dataset.runAction, cell.getRow().getData().value, button);
+        },
+      });
+    }
     state.resultTable = new Tabulator(nodes.resultWorkbench.querySelector('#result-grid'), {
       data: rows,
       layout: 'fitColumns',
@@ -389,10 +414,7 @@
       paginationSizeSelector: [15, 30, 60, 120],
       paginationCounter: 'rows',
       initialSort: [{column: 'value', dir: 'asc'}],
-      columns: [
-        {title: 'Value', field: 'value', formatter: cell => `<span class="value-cell">${escapeHtml(cell.getValue())}</span>`, minWidth: 260, widthGrow: 2, headerFilter: 'input', headerFilterFunc: columnTextFilter, headerFilterPlaceholder: 'Filter values'},
-        {title: 'DNS', field: 'dns_status', formatter: dnsFormatter, width: 130, responsive: 1, headerFilter: 'input', headerFilterFunc: columnTextFilter, headerFilterPlaceholder: 'Filter DNS'},
-      ]
+      columns
     });
     state.resultTable.on('rowSelectionChanged', selected => {
       nodes.copySelected.disabled = selected.length === 0;
@@ -637,14 +659,44 @@
     openDialog(nodes.importDialog, '#result-file');
   }
 
+  async function focusCreatedRun(run) {
+    state.selectedId = run.run_id;
+    const runsResponse = await api('/api/v1/runs');
+    state.runs = await runsResponse.json();
+    renderHistory();
+    await selectRun(run.run_id);
+  }
+
+  async function queueResultAction(action, target, button) {
+    const label = action === 'screenshot' ? 'Screenshot' : 'DNS brute force';
+    const payload = {target, sources: [], [action]: true};
+    const resolvers = state.detail?.request?.dns_resolvers;
+    if (action === 'dns_brute' && Array.isArray(resolvers) && resolvers.length) {
+      payload.dns_resolvers = resolvers;
+    }
+    setBusy(button, true, 'Starting…');
+    try {
+      const response = await api('/api/v1/runs', {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)
+      });
+      const run = await response.json();
+      await focusCreatedRun(run);
+      toast(`${label} for ${target} is ${state.detail?.status || 'submitted'}.`);
+    } catch (error) {
+      toast(`Could not start ${label.toLowerCase()}: ${error.message}.`, true);
+    } finally {
+      setBusy(button, false, '');
+    }
+  }
+
   async function submitRun(event) {
     event.preventDefault();
     showFormError(nodes.newRunError, '');
-    if (!state.selectedSources.size) {
-      showFormError(nodes.newRunError, 'Select at least one discovery source.');
+    const form = new FormData(nodes.newRunForm);
+    if (!state.selectedSources.size && !form.has('screenshot') && !form.has('dns_brute')) {
+      showFormError(nodes.newRunError, 'Select at least one discovery source, screenshots, or DNS brute force.');
       return;
     }
-    const form = new FormData(nodes.newRunForm);
     const payload = {
       target: form.get('target'), sources: [...state.selectedSources], limit: Number(form.get('limit')),
       start: Number(form.get('start')), deadline_seconds: Number(form.get('deadline_seconds')),
@@ -663,11 +715,7 @@
       });
       const run = await response.json();
       closeDialog(nodes.newRunDialog);
-      state.selectedId = run.run_id;
-      const runsResponse = await api('/api/v1/runs');
-      state.runs = await runsResponse.json();
-      renderHistory();
-      await selectRun(run.run_id);
+      await focusCreatedRun(run);
       if (state.detail?.status === 'queued') toast(`Enumeration for ${run.target} is queued.`);
     } catch (error) {
       showFormError(nodes.newRunError, error.message);
@@ -802,6 +850,17 @@
     updateActivitySummary();
   });
   nodes.newRunForm.addEventListener('change', updateActivitySummary);
+  nodes.dnsResolverFile.addEventListener('change', async () => {
+    const file = nodes.dnsResolverFile.files[0];
+    if (!file) return;
+    try {
+      const resolvers = (await file.text()).split(/\r?\n/).map(value => value.trim()).filter(Boolean);
+      nodes.dnsResolvers.value = resolvers.join(',');
+      announce(`${formatCount(resolvers.length, 'resolver address')} loaded from ${file.name}.`);
+    } catch {
+      toast(`Could not read ${file.name}. Choose a plain text resolver file and try again.`, true);
+    }
+  });
   nodes.resultFile.addEventListener('change', () => {
     const file = nodes.resultFile.files[0];
     nodes.fileLabel.textContent = file ? `${file.name} · ${(file.size / 1024).toLocaleString(undefined, {maximumFractionDigits: 1})} KiB` : 'Choose a .jsonl file';

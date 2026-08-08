@@ -579,6 +579,8 @@ a:focus-visible {
 .tabulator .tabulator-footer .tabulator-page-size { min-height: 44px; }
 .tabulator .tabulator-footer .tabulator-page.active { color: var(--nav); background: var(--accent); }
 .value-cell { overflow-wrap: anywhere; font-family: var(--font-mono); font-size: 12px; }
+.result-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.result-actions .button { flex: 1 1 118px; white-space: nowrap; }
 .source-cell { color: var(--muted); font-size: 11px; }
 .dns-label { display: inline-flex; min-width: 82px; align-items: center; gap: 6px; font-size: 11px; font-weight: 750; }
 .dns-label::before { content: ""; width: 7px; height: 7px; background: currentColor; border-radius: 50%; }

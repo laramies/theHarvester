@@ -221,9 +221,13 @@
               <input id="dns-recursive-runtime-seconds" name="dns_recursive_runtime_seconds" type="number" min="0.1" step="0.1" value="60" required>
               <small>Finite wall-clock cap for recursive discovery.</small>
             </label>
-            <label>DNS resolver vantages
+            <label>DNS resolver addresses
               <input id="dns-resolvers" name="dns_resolvers" value="1.1.1.1,8.8.8.8,9.9.9.9" required>
-              <small>Exactly three distinct IPv4 or IPv6 addresses.</small>
+              <small>One or more IP addresses. Recursive DNS requires exactly three.</small>
+            </label>
+            <label>Resolver text file
+              <input id="dns-resolver-file" type="file" accept=".txt,text/plain">
+              <small>Optional file with one IPv4 or IPv6 address per line.</small>
             </label>
             <label class="inline-choice"><input type="checkbox" name="proxies"><span>Use configured proxies for discovery and takeover checks</span></label>
           </div>
