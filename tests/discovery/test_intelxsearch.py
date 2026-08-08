@@ -123,7 +123,7 @@ async def test_orchestrator_stores_intelx_subdomains_without_dns(monkeypatch: py
             return None
 
         async def store_all(self, _domain: str, values: list[str], result_type: str, _source: str) -> None:
-            if result_type == 'host':
+            if result_type == 'hostname':
                 stored_hosts.append(set(values))
 
     class _Intelx:

@@ -49,14 +49,17 @@ def test_normalize_hosts_for_storage_uses_the_parser_scope(target: str) -> None:
 @pytest.mark.asyncio
 async def test_rapiddns_hostnames_honor_explicit_dns_resolution(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     completed: list[CompletedResult] = []
-    output_path = tmp_path / 'rapiddns'
+    stored_observations: list[tuple[str, list[str], str, str]] = []
+    output_directory = tmp_path / 'reports.v1'
+    output_directory.mkdir()
+    output_path = output_directory / 'rapiddns'
 
     class FakeStash:
         async def do_init(self) -> None:
             return None
 
-        async def store_all(self, *_args) -> None:
-            return None
+        async def store_all(self, domain: str, values: list[str] | set[str], kind: str, source: str) -> None:
+            stored_observations.append((domain, sorted(values), kind, source))
 
         async def store(self, *_args) -> None:
             return None
@@ -80,12 +83,25 @@ async def test_rapiddns_hostnames_honor_explicit_dns_resolution(monkeypatch: pyt
         async def get_ips(self) -> set[str]:
             return {'192.0.2.20'}
 
+    class FakeCrtsh:
+        def __init__(self, _word: str) -> None:
+            pass
+
+        async def process(self, _proxy: bool) -> None:
+            return None
+
+        async def get_hostnames(self) -> set[str]:
+            return {'crt.example.com'}
+
     class FakeChecker:
         def __init__(self, hosts: list[str], nameservers: list[str]) -> None:
-            assert hosts == ['api.example.com']
             assert nameservers == ['192.0.2.53']
+            self.hosts = hosts
 
         async def check(self) -> tuple[list[str], list[str], list[str]]:
+            if self.hosts == ['crt.example.com']:
+                return ['crt.example.com:192.0.2.30'], ['crt.example.com'], ['192.0.2.30']
+            assert self.hosts == ['api.example.com']
             return (
                 ['api.example.com:192.0.2.10', 'reported.example.com:192.0.2.21'],
                 ['api.example.com', 'reported.example.com'],
@@ -94,6 +110,7 @@ async def test_rapiddns_hostnames_honor_explicit_dns_resolution(monkeypatch: pyt
 
     monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
     monkeypatch.setattr(theharvester_main.rapiddns, 'SearchRapidDns', FakeRapidDNS)
+    monkeypatch.setattr(theharvester_main.crtsh, 'SearchCrtsh', FakeCrtsh)
     monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', FakeChecker)
 
     monkeypatch.setattr(
@@ -104,7 +121,7 @@ async def test_rapiddns_hostnames_honor_explicit_dns_resolution(monkeypatch: pyt
             '-d',
             'example.com',
             '-b',
-            'rapiddns',
+            'crtsh,rapiddns',
             '-r',
             '192.0.2.53',
             '-f',
@@ -117,11 +134,18 @@ async def test_rapiddns_hostnames_honor_explicit_dns_resolution(monkeypatch: pyt
 
     assert exit_info.value.code == 0
     assert ('hostname', 'api.example.com') in completed[0].results
+    assert ('hostname', 'crt.example.com') in completed[0].results
     assert ('hostname', 'reported.example.com') in completed[0].results
     assert ('ip-address', '192.0.2.10') in completed[0].results
     assert ('ip-address', '192.0.2.20') in completed[0].results
     assert ('ip-address', '192.0.2.21') in completed[0].results
+    assert ('ip-address', '192.0.2.30') in completed[0].results
+    assert {execution.source for execution in completed[0].source_executions} == {'crtsh', 'rapiddns'}
+    assert ('example.com', ['crt.example.com'], 'hostname', 'crtsh') in stored_observations
+    assert ('example.com', ['api.example.com', 'reported.example.com'], 'hostname', 'rapiddns') in stored_observations
+    assert ('example.com', ['192.0.2.20'], 'ip-address', 'rapiddns') in stored_observations
     assert 'reported.example.com:192.0.2.21' in json.loads(output_path.with_suffix('.json').read_text())['hosts']
+    assert output_path.with_suffix('.jsonl').is_file()
     xml_pairs = [
         (element.findtext('hostname'), element.findtext('ip'))
         for element in ElementTree.parse(output_path.with_suffix('.xml')).getroot().findall('host')
@@ -132,6 +156,11 @@ async def test_rapiddns_hostnames_honor_explicit_dns_resolution(monkeypatch: pyt
 
 @pytest.mark.asyncio
 async def test_recursive_dns_requires_canonically_distinct_resolvers(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeStash:
+        async def do_init(self) -> None:
+            return None
+
+    monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
     monkeypatch.setattr(
         sys,
         'argv',

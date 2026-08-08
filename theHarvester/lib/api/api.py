@@ -2,6 +2,8 @@ import argparse
 import ipaddress
 import logging
 import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Annotated, Any, cast
 from uuid import UUID
@@ -20,6 +22,7 @@ from theHarvester.lib import stash
 from theHarvester.lib.api.additional_endpoints import router as additional_router
 from theHarvester.lib.api.auth import get_api_key
 from theHarvester.lib.completed_result import ResultKind
+from theHarvester.lib.database import dispose_sqlite_databases
 from theHarvester.lib.recursive_dns import DEFAULT_RECURSIVE_DNS_QUERY_LIMIT
 
 logger = logging.getLogger(__name__)
@@ -48,12 +51,25 @@ class ErrorResponse(BaseModel):
 
 
 limiter = Limiter(key_func=get_remote_address)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    manager = stash.StashManager()
+    await manager.do_init()
+    try:
+        yield
+    finally:
+        await dispose_sqlite_databases()
+
+
 app = FastAPI(
     title='Restful Harvest',
     description='Rest API for theHarvester powered by FastAPI',
     version='0.0.4',
     docs_url='/docs',
     redoc_url='/redoc',
+    lifespan=lifespan,
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore

@@ -2,6 +2,14 @@ import asyncio
 import sys
 
 from theHarvester import __main__
+from theHarvester.lib.database import dispose_sqlite_databases
+
+
+async def _run() -> None:
+    try:
+        await __main__.entry_point()
+    finally:
+        await dispose_sqlite_databases()
 
 
 def main():
@@ -29,4 +37,4 @@ def main():
 
             # As we are not using Windows, we can change the spawn method to fork for greater performance
             aiomultiprocess.set_context('fork')
-    asyncio.run(__main__.entry_point())
+    asyncio.run(_run())
