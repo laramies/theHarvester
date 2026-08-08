@@ -22,7 +22,7 @@ Use native dialogs, buttons, inputs, details, and file controls. Motion is limit
 
 ## Tables and evidence
 
-Use the locally served standalone Tabulator JavaScript build for sorting, filtering, selection, and pagination. Load only its pinned default table theme, with HarvestView's own stylesheet controlling the visual system. DNS status uses resolved, no-answer, disputed, and not-captured labels. Long values wrap or truncate with a title; they never break the viewport.
+Use the locally served standalone Tabulator JavaScript build for sorting, filtering, selection, and pagination. Load only its pinned default table theme, with HarvestView's own stylesheet controlling the visual system. DNS status uses resolved, no-answer, disputed, uncertain, and not-captured labels. Long values wrap or truncate with a title; they never break the viewport.
 
 ## CSS architecture
 
