@@ -2,7 +2,6 @@ from pathlib import Path
 
 import yaml
 
-
 REPO_ROOT = Path(__file__).parents[1]
 
 
@@ -12,11 +11,17 @@ def test_container_starts_and_checks_harvestview_on_port_8000() -> None:
     assert 'EXPOSE 8000' in dockerfile
     assert 'from theHarvester.lib.api.auth import _configured_api_key' in dockerfile
     assert 'key = _configured_api_key(); assert key' in dockerfile
-    assert "http://127.0.0.1:8000/api/v1/runs" in dockerfile
+    assert 'http://127.0.0.1:8000/api/v1/runs' in dockerfile
     assert "headers={'X-API-Key': key}" in dockerfile
     assert 'CMD ["-H", "0.0.0.0", "-p", "8000"]' in dockerfile
     assert '127.0.0.1:8000/app' not in dockerfile
     assert 'COPY --chown=10001:10001 theHarvester ./theHarvester' not in dockerfile
+
+
+def test_container_rebuilds_the_local_package_when_source_changes() -> None:
+    dockerfile = (REPO_ROOT / 'Dockerfile').read_text(encoding='utf-8')
+
+    assert '--reinstall-package theharvester' in dockerfile
 
 
 def test_compose_keeps_harvestview_local_and_persists_private_run_data() -> None:

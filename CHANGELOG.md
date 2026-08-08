@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Added HarvestView, an authenticated local browser workspace backed by a durable single-worker `/api/v1` run lifecycle with cancellation, deadlines, imports, exports, retained partial evidence, and real-browser regression coverage.
+- Added HarvestView, an authenticated local browser workspace backed by a durable single-worker `/api/v1` run lifecycle with cancellation, deadlines, JSONL-only file interchange, retained partial evidence, and real-browser regression coverage.
 - Added a pinned, non-root Docker Compose deployment for HarvestView and the REST API with localhost-only publishing, file-secret authentication, private durable run storage, and an authenticated API health check.
 - Added bounded recursive DNS discovery with three-vantage consensus, closest-encloser wildcard controls, exact-address PTR evidence, and hard query, depth, runtime, and zero-yield limits.
 - Added an authenticated HIBP verified-domain source for CLI and `/api/v1` runs that retains normalized account emails and stable breach names without retaining the raw account mapping.
