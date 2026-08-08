@@ -22,6 +22,8 @@ The following options require additional care:
 | `--screenshot DIR` | Opens discovered web services in a browser. |
 | `-a`, `--api-scan` | Requests common API paths from the target. |
 
+Use `--dns-resolvers IPS_OR_FILE` to select resolver addresses for DNS brute force, reverse lookup, or recursive DNS without also enabling hostname resolution. The compatible `--dns-resolve` value still selects resolvers and enables hostname resolution.
+
 Use an owned or explicitly authorized domain for active examples. Do not substitute universities, public companies, bounty targets, or reserved example domains for recurring active scans.
 
 ## Protect collected data

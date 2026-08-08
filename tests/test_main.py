@@ -28,7 +28,8 @@ async def test_cli_help_explains_proxy_and_direct_action_scope(
     help_text = ' '.join(capsys.readouterr().out.split())
     assert exit_info.value.code == 0
     assert 'Use proxies.yaml for supported discovery-source and takeover requests.' in help_text
-    assert 'Accepted for compatibility but currently unused; use --dns-resolve to select resolvers.' in help_text
+    assert 'Accepted for compatibility but currently unused; use --dns-resolvers to select resolvers.' in help_text
+    assert 'Select resolver IPs for DNS actions without enabling hostname resolution.' in help_text
     assert 'Perform PTR lookups across the /24 network containing each discovered IPv4 address.' in help_text
     assert 'Multiple capabilities select the union of matching sources; they do not filter returned fields.' in help_text
     assert 'Check common API paths with GET, HEAD, and OPTIONS.' in help_text
@@ -866,7 +867,7 @@ async def test_recursive_dns_requires_canonically_distinct_resolvers(monkeypatch
         ],
     )
 
-    with pytest.raises(ValueError, match='exactly three resolver vantages'):
+    with pytest.raises(ValueError, match='exactly three resolver addresses'):
         await theharvester_main.start()
 
 
@@ -887,6 +888,7 @@ async def test_cli_rejects_resolver_file_with_non_ip_value(monkeypatch: pytest.M
 @pytest.mark.asyncio
 async def test_dns_brute_resolver_configuration_does_not_enable_dns_resolution(
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     class FakeResultStore:
         async def initialize(self) -> None:
@@ -910,19 +912,31 @@ async def test_dns_brute_resolver_configuration_does_not_enable_dns_resolution(
 
     monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
     monkeypatch.setattr(theharvester_main.dnssearch, 'DnsForce', FakeDnsForce)
-
-    result = await theharvester_main.start(
-        EnumerationOptions(
-            domain='www.example.com',
-            source='',
-            dns_brute=True,
-            dns_resolvers=('192.0.2.53',),
-            quiet=True,
-        ),
-        return_completed_result=True,
+    resolvers = tmp_path / 'resolvers.txt'
+    resolvers.write_text('192.0.2.53\n', encoding='utf-8')
+    monkeypatch.setattr(
+        sys,
+        'argv',
+        [
+            'theHarvester',
+            '-d',
+            'www.example.com',
+            '-c',
+            '--dns-resolvers',
+            str(resolvers),
+            '--quiet',
+        ],
     )
+    checkpoints: list[CompletedResult] = []
 
-    completed = result[-1]
+    async def checkpoint(result: CompletedResult) -> None:
+        checkpoints.append(result)
+
+    with pytest.raises(SystemExit) as exit_info:
+        await theharvester_main.start(completed_result_checkpoint=checkpoint)
+
+    assert exit_info.value.code == 0
+    completed = checkpoints[-1]
     actions = {execution.action for execution in completed.active_evidence.executions}
     assert 'dns-brute' in actions
     assert 'dns-resolve' not in actions

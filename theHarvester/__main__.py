@@ -223,7 +223,7 @@ async def start(
     parser.add_argument(
         '-e',
         '--dns-server',
-        help='Accepted for compatibility but currently unused; use --dns-resolve to select resolvers.',
+        help='Accepted for compatibility but currently unused; use --dns-resolvers to select resolvers.',
     )
     parser.add_argument(
         '-t',
@@ -242,6 +242,16 @@ async def start(
         default='',
         type=str,
         nargs='?',
+    )
+    parser.add_argument(
+        '--dns-resolvers',
+        dest='dns_resolver_input',
+        help=(
+            'Select resolver IPs for DNS actions without enabling hostname resolution. '
+            'Pass comma-separated IPs or a text file with one IP per line.'
+        ),
+        default='',
+        metavar='IPS_OR_FILE',
     )
     parser.add_argument(
         '-n',
@@ -369,17 +379,20 @@ async def start(
     dnsserver = args.dns_server  # TODO arg is not used anywhere replace with resolvers wordlist arg dnsresolve
     dnsresolve: str | None = args.dns_resolve
     final_dns_resolver_list = normalize_resolver_addresses(args.dns_resolvers) if args.dns_resolvers else []
-    if dnsresolve is None and not final_dns_resolver_list:
-        final_dns_resolver_list = list(DEFAULT_DNS_RESOLVERS)
-    elif dnsresolve is not None and len(dnsresolve) > 0:
+    if args.dns_resolver_input and dnsresolve not in {'', None}:
+        raise ValueError('Pass resolver values through either --dns-resolvers or --dns-resolve, not both')
+    resolver_input = args.dns_resolver_input or (dnsresolve if dnsresolve is not None else '')
+    if resolver_input:
         resolver_candidates: list[str] = []
-        if await anyio.Path(dnsresolve).exists():
-            async with await anyio.open_file(dnsresolve, encoding='UTF-8') as fp:
+        if await anyio.Path(resolver_input).exists():
+            async with await anyio.open_file(resolver_input, encoding='UTF-8') as fp:
                 async for line in fp:
                     resolver_candidates.append(line)
         else:
-            resolver_candidates.extend(dnsresolve.split(','))
+            resolver_candidates.extend(resolver_input.split(','))
         final_dns_resolver_list = normalize_resolver_addresses(resolver_candidates)
+    elif dnsresolve is None and not final_dns_resolver_list:
+        final_dns_resolver_list = list(DEFAULT_DNS_RESOLVERS)
 
     recursive_depth = getattr(args, 'dns_recursive_depth', 0)
     recursive_limits = None
@@ -387,7 +400,7 @@ async def start(
         raise ValueError('--dns-recursive-depth cannot be negative')
     if recursive_depth > 0:
         if len(final_dns_resolver_list) != 3:
-            raise ValueError('--dns-recursive-depth requires --dns-resolve with exactly three resolver vantages')
+            raise ValueError('--dns-recursive-depth requires exactly three resolver addresses')
         recursive_limits = RecursiveDNSLimits(
             depth=recursive_depth,
             query_limit=getattr(args, 'dns_recursive_query_limit', DEFAULT_RECURSIVE_DNS_QUERY_LIMIT),
