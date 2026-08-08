@@ -60,13 +60,21 @@ jobs:
           curl --fail --silent --show-error \
             --header 'X-API-Key: harvestview-container-smoke-key' \
             http://127.0.0.1:8769/api/v1/runs > /dev/null
+          printf '%s\n' \
+            '{"completed_at":"2026-08-08T01:01:00Z","counts":{"hostname":1,"ip-address":1},"result_count":2,"run_id":"9f9b4383-6cc4-4f3f-80a4-c8d21930dc2d","schema_version":"theharvester-results-v1","started_at":"2026-08-08T01:00:00Z","target":"example.test","type":"summary"}' \
+            '{"type":"hostname","value":"www.example.test"}' \
+            '{"type":"ip-address","value":"192.0.2.10"}' > /tmp/smoke.jsonl
           curl --fail --silent --show-error \
             --request POST \
-            --header 'Content-Type: application/json' \
+            --header 'Content-Type: application/x-ndjson' \
             --header 'X-API-Key: harvestview-container-smoke-key' \
-            --data '{"cmd":"theHarvester -d example.test -b crtsh","hosts":["www.example.test"],"ips":["192.0.2.10"]}' \
-            'http://127.0.0.1:8769/api/v1/runs/import?filename=smoke.json' > /tmp/imported-run.json
+            --data-binary @/tmp/smoke.jsonl \
+            'http://127.0.0.1:8769/api/v1/runs/import?filename=smoke.jsonl' > /tmp/imported-run.json
           run_id="$(python3 -c "import json; print(json.load(open('/tmp/imported-run.json', encoding='utf-8'))['run_id'])")"
+          curl --fail --silent --show-error \
+            --header 'X-API-Key: harvestview-container-smoke-key' \
+            "http://127.0.0.1:8769/api/v1/runs/${run_id}/export" \
+            | python3 -c "import json, sys; rows = [json.loads(line) for line in sys.stdin if line.strip()]; assert rows[0]['type'] == 'summary'; assert len(rows) == 3"
           docker compose -p harvestview-container-smoke exec -T theharvester.svc.local \
             python -c "from playwright.sync_api import sync_playwright; p = sync_playwright().start(); browser = p.chromium.launch(headless=True); browser.close(); p.stop()"
           docker compose -p harvestview-container-smoke restart theharvester.svc.local

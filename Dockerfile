@@ -11,7 +11,7 @@ COPY theHarvester ./theHarvester
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=from=ghcr.io/astral-sh/uv:0.12.1@sha256:cf4eedcaa81655197f625739489effcbe71b61ceb1506f332c3facae5deceded,source=/uv,target=/usr/local/bin/uv \
-    uv sync --locked --no-dev --no-editable
+    uv sync --locked --no-dev --no-editable --reinstall-package theharvester
 
 FROM ${PYTHON_IMAGE} AS runtime
 
