@@ -24,7 +24,7 @@
       </div>
       <nav class="header-actions" aria-label="Run desk actions">
         <button id="theme-button" class="header-button" type="button" aria-label="Change color theme" title="Cycle between system, light, and dark themes.">Theme: system</button>
-        <button id="import-button" class="header-button" type="button" title="Store existing JSON or JSONL evidence without contacting the target.">Import result file</button>
+        <button id="import-button" class="header-button" type="button" title="Store existing versioned JSONL evidence without contacting the target.">Import result file</button>
         <button id="new-run-button" class="header-button primary" type="button" title="Review the target, sources, and authorized activity before anything is queued." disabled>Start enumeration</button>
       </nav>
     </header>
@@ -67,7 +67,7 @@
         <div id="empty-state" class="center-state empty-state" hidden>
           <div class="empty-mark" aria-hidden="true">W</div>
           <h2>No enumeration runs yet</h2>
-          <p>Start an explicitly authorized finite run, or import a theHarvester JSON or JSONL result file.</p>
+          <p>Start an explicitly authorized finite run, or import a versioned theHarvester JSONL result file.</p>
           <div class="empty-actions">
             <button type="button" class="button primary" data-action="new-run">Start enumeration</button>
             <button type="button" class="button" data-action="import">Import result file</button>
@@ -124,15 +124,13 @@
               <div>
                 <div class="heading-with-help">
                   <h3 id="results-title">Result routes</h3>
-                  <button class="help-tip" type="button" aria-label="Explain result routes" data-tooltip="Routes group normalized evidence by type. Search the route or filter individual columns; drag header dividers to resize. Copy and Route CSV use the open route; All exports include the full run.">?</button>
+                  <button class="help-tip" type="button" aria-label="Explain result routes" data-tooltip="Routes group normalized evidence by type. Search the route or filter individual columns; drag header dividers to resize. Copy uses selected rows; JSONL export includes the full run.">?</button>
                 </div>
                 <p id="results-summary" class="section-note">Choose a route to inspect its evidence.</p>
               </div>
               <div class="section-actions">
                 <button id="copy-route-button" class="button small" type="button" title="Copy only the selected rows from the open result route." disabled>Copy selected</button>
-                <button id="route-csv-button" class="button small" type="button" title="Download the open result route as CSV.">Route CSV</button>
-                <button id="export-json-button" class="button small" type="button" title="Download the complete run and its retained evidence as JSON.">All JSON</button>
-                <button id="export-csv-button" class="button small" type="button" title="Download all normalized results from this run as CSV.">All CSV</button>
+                <button id="export-jsonl-button" class="button small" type="button" title="Download the complete normalized result stream as JSONL.">All JSONL</button>
               </div>
             </div>
             <nav id="route-tabs" class="route-tabs" aria-label="Result routes"></nav>
@@ -277,12 +275,12 @@
           <div><h2 id="import-title">Import a result file</h2></div>
           <button class="icon-button dialog-close" type="button" data-close-dialog aria-label="Close import dialog">×</button>
         </header>
-        <p>Choose a theHarvester JSON or versioned JSONL file. Import stores evidence only-it never contacts the target or replays the run.</p>
+        <p>Choose a versioned theHarvester JSONL file. Import stores evidence only; it never contacts the target or replays the run.</p>
         <label class="file-drop" for="result-file">
           <span class="file-mark" aria-hidden="true">⇧</span>
-          <strong id="file-label">Choose a .json or .jsonl file</strong>
+          <strong id="file-label">Choose a .jsonl file</strong>
           <small>Maximum size: 10 MiB</small>
-          <input id="result-file" name="result-file" type="file" accept=".json,.jsonl,application/json,application/x-ndjson" required>
+          <input id="result-file" name="result-file" type="file" accept=".jsonl,application/x-ndjson" required>
         </label>
         <p id="import-error" class="form-error" role="alert" hidden></p>
         <footer class="dialog-actions">

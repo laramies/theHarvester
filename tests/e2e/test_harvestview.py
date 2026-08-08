@@ -1,14 +1,33 @@
 from __future__ import annotations
 
-import csv
-import io
 import json
+from collections import Counter
 from pathlib import Path
 
 import pytest
 from playwright.sync_api import Page, Route, expect
 
 pytestmark = pytest.mark.harvestview_e2e
+
+
+def write_jsonl_evidence(path: Path, evidence: dict[str, object]) -> None:
+    results = evidence.get('results', [])
+    assert isinstance(results, list)
+    counts = Counter(str(result['type']) for result in results if isinstance(result, dict))
+    summary = {
+        'type': 'summary',
+        'schema_version': 'theharvester-results-v1',
+        'run_id': evidence['run_id'],
+        'target': evidence['target'],
+        'started_at': evidence['started_at'],
+        'completed_at': evidence['completed_at'],
+        'evidence_status': evidence['status'],
+        'source_executions': evidence.get('source_executions', []),
+        'result_count': len(results),
+        'counts': dict(sorted(counts.items())),
+    }
+    records = [summary, *results]
+    path.write_text(''.join(json.dumps(record, sort_keys=True) + '\n' for record in records), encoding='utf-8')
 
 
 def record_api_statuses(page: Page, server_url: str) -> dict[str, int]:
@@ -463,22 +482,20 @@ def test_completed_empty_import_explains_terminal_outcome(
     page: Page,
     tmp_path: Path,
 ) -> None:
-    evidence_file = tmp_path / 'empty-run.json'
-    evidence_file.write_text(
-        json.dumps(
-            {
-                'run_id': 'harvestview-e2e-empty-run',
-                'target': 'example.com',
-                'started_at': '2026-08-05T12:00:00+00:00',
-                'completed_at': '2026-08-05T12:00:25+00:00',
-                'status': 'complete',
-                'source_executions': [
-                    {'source': 'CRTsh', 'status': 'empty', 'result_count': 0, 'duration_ms': 25000},
-                ],
-                'results': [],
-            }
-        ),
-        encoding='utf-8',
+    evidence_file = tmp_path / 'empty-run.jsonl'
+    write_jsonl_evidence(
+        evidence_file,
+        {
+            'run_id': '4ce79bb1-91a1-4456-8589-e5d82b55f2b4',
+            'target': 'example.com',
+            'started_at': '2026-08-05T12:00:00+00:00',
+            'completed_at': '2026-08-05T12:00:25+00:00',
+            'status': 'complete',
+            'source_executions': [
+                {'source': 'CRTsh', 'status': 'empty', 'result_count': 0, 'duration_ms': 25000},
+            ],
+            'results': [],
+        },
     )
 
     page.goto(f'{harvestview_server_url}/')
@@ -492,6 +509,14 @@ def test_completed_empty_import_explains_terminal_outcome(
         'CRTsh returned no normalized evidence. The retained evidence record is complete.'
     )
     expect(page.locator('#lifecycle-track strong')).to_have_text(['Submitted', 'Started', 'Completed'])
+    expect(page.get_by_role('button', name='All JSONL')).to_be_enabled()
+    with page.expect_download() as jsonl_download:
+        page.get_by_role('button', name='All JSONL').click()
+    exported_records = [json.loads(line) for line in Path(jsonl_download.value.path()).read_text(encoding='utf-8').splitlines()]
+    assert len(exported_records) == 1
+    assert exported_records[0]['evidence_status'] == 'complete'
+    assert exported_records[0]['result_count'] == 0
+    assert exported_records[0]['source_executions'][0]['status'] == 'empty'
 
 
 def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui(
@@ -512,7 +537,7 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
     assert ordered_sources[24]['credentials']
 
     evidence = {
-        'run_id': 'harvestview-e2e-broad-run',
+        'run_id': '7bb74ee1-c81c-4ccd-8ec7-e8e496490f53',
         'target': 'example.com',
         'started_at': '2026-08-04T12:00:01+00:00',
         'completed_at': '2026-08-04T12:03:21+00:00',
@@ -529,19 +554,22 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
             for index, source in enumerate(ordered_sources)
         ],
         'results': [
-            {'type': result_type, 'value': f'{result_type}.example.com'}
+            {
+                'type': {'subdomain': 'hostname', 'ip': 'ip-address'}.get(result_type, result_type),
+                'value': f'{result_type}.example.com',
+            }
             for result_type in ('subdomain', 'ip', 'asn', 'email', 'url', 'interesting-url', 'person', 'api-endpoint')
         ]
         + [
             {
-                'type': 'ip',
+                'type': 'ip-address',
                 'value': 'zeta.example.com',
                 'dns_status': 'resolved',
             }
         ],
     }
-    evidence_file = tmp_path / 'broad-run.json'
-    evidence_file.write_text(json.dumps(evidence), encoding='utf-8')
+    evidence_file = tmp_path / 'broad-run.jsonl'
+    write_jsonl_evidence(evidence_file, evidence)
 
     page.get_by_role('button', name='Import result file').first.click()
     page.locator('#result-file').set_input_files(evidence_file)
@@ -613,20 +641,12 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
     expect(page.locator('#toast')).to_have_text('Copied 1 selected IP addresses.')
     assert page.evaluate('navigator.clipboard.readText()') == 'ip.example.com'
 
-    with page.expect_download() as route_download:
-        page.get_by_role('button', name='Route CSV').click()
-    route_csv = Path(route_download.value.path()).read_text(encoding='utf-8')
-    assert {'type': 'ip', 'value': 'ip.example.com', 'dns_status': ''} in csv.DictReader(io.StringIO(route_csv))
-
-    with page.expect_download() as json_download:
-        page.get_by_role('button', name='All JSON').click()
-    exported_json = json.loads(Path(json_download.value.path()).read_text(encoding='utf-8'))
-    assert {'type': 'ip', 'value': 'ip.example.com'} in exported_json['results']
-
-    with page.expect_download() as csv_download:
-        page.get_by_role('button', name='All CSV').click()
-    exported_csv = Path(csv_download.value.path()).read_text(encoding='utf-8')
-    assert {'type': 'ip', 'value': 'ip.example.com', 'dns_status': ''} in csv.DictReader(io.StringIO(exported_csv))
+    with page.expect_download() as jsonl_download:
+        page.get_by_role('button', name='All JSONL').click()
+    exported_records = [json.loads(line) for line in Path(jsonl_download.value.path()).read_text(encoding='utf-8').splitlines()]
+    assert exported_records[0]['type'] == 'summary'
+    assert exported_records[0]['evidence_status'] == 'partial'
+    assert {'type': 'ip-address', 'value': 'ip.example.com'} in exported_records[1:]
 
     page.get_by_role('button', name='Start enumeration').first.click()
     expect(page.locator('#new-run-dialog').get_by_text('Credentials required:', exact=False).first).to_be_visible()

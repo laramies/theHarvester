@@ -28,6 +28,7 @@ class HarvestViewServer:
         self._process: subprocess.Popen[str] | None = None
 
     def start(self) -> None:
+        self.server_log.parent.mkdir(parents=True, exist_ok=True)
         self._output = self.server_log.open('a', encoding='utf-8')
         self._process = subprocess.Popen(
             [
