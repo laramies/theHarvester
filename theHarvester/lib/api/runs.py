@@ -11,7 +11,7 @@ from pydantic import ValidationError
 from theHarvester.lib.api.auth import get_api_key
 from theHarvester.lib.api.rate_limit import API_RATE_LIMIT, limiter
 from theHarvester.lib.completed_result import encode_result_jsonl
-from theHarvester.lib.source_catalog import ACTION_ACTIVITIES, SOURCE_SPECS, SourceSpec, get_source_spec, resolve_sources
+from theHarvester.lib.source_catalog import ACTION_ACTIVITIES, SOURCE_SPECS, get_source_spec, resolve_sources
 
 from . import run_worker
 from .run_evidence import parse_jsonl_import
@@ -26,7 +26,7 @@ from .run_models import (
     SourceCatalogResponse,
     SourceResponse,
 )
-from .run_projection import JSONL_RESULT_TYPE_ALIASES, source_spec
+from .run_projection import JSONL_RESULT_TYPE_ALIASES, export_findings, source_spec
 from .run_store import RunStore
 
 router = APIRouter(prefix='/api/v1', tags=['Runs'])
@@ -55,22 +55,12 @@ async def list_runs(_api_key: Annotated[str, Depends(get_api_key)]) -> list[RunS
 async def list_sources(_api_key: Annotated[str, Depends(get_api_key)]) -> SourceCatalogResponse:
     from theHarvester.lib.core import Core
 
-    provider_aliases = {'chaos': 'projectDiscovery', 'github-code': 'github', 'pentesttools': 'pentestTools'}
-    api_key_fields = Core.api_key_fields()
-    provider_names = {provider.casefold(): provider for provider in api_key_fields}
-
-    def credentials(source: SourceSpec) -> list[str]:
-        provider = provider_aliases.get(source.name, provider_names.get(source.name.casefold()))
-        if provider is None:
-            return []
-        return [f'api-{field}' for field in api_key_fields.get(provider, ())]
-
     return SourceCatalogResponse(
         sources=[
             SourceResponse(
                 name=source.name,
                 activity=source.activity,
-                credentials=credentials(source),
+                credentials=[f'api-{field}' for field in Core.source_api_key_fields(source.name)],
                 capabilities=sorted(source.capabilities),
             )
             for source in sorted(SOURCE_SPECS.values(), key=lambda item: item.name)
@@ -182,7 +172,10 @@ async def export_run(
             status_code=status.HTTP_409_CONFLICT,
             detail='No run evidence is available to export',
         )
-    results = [{**result, 'type': JSONL_RESULT_TYPE_ALIASES.get(result['type'], result['type'])} for result in run['results']]
+    results = [
+        {**result, 'type': JSONL_RESULT_TYPE_ALIASES.get(result['type'], result['type'])}
+        for result in export_findings(run['evidence'])
+    ]
     counts = Counter(result['type'] for result in results)
     started_at = run['evidence'].get('started_at') or run['started_at']
     completed_at = run['evidence'].get('completed_at') or run['completed_at']

@@ -432,6 +432,26 @@ async def start(
     total_asns = []
     source_executions: list[SourceExecution] = []
 
+    def record_action(
+        name: str,
+        started: float | None,
+        result_count: int = 0,
+        error: BaseException | None = None,
+        stop_reason: str | None = None,
+    ) -> None:
+        source = f'action:{name}'
+        source_executions[:] = [execution for execution in source_executions if execution.source != source]
+        source_executions.append(
+            SourceExecution(
+                source,
+                'failed' if error is not None else ('succeeded' if result_count else 'empty'),
+                (time.perf_counter() - started) * 1000 if started is not None else 0,
+                result_count,
+                type(error).__name__ if error is not None else None,
+                stop_reason,
+            )
+        )
+
     def finish_completed_result(
         *, extra_hostnames: Iterable[str] = (), virtual_hosts: Iterable[str] = ()
     ) -> CompletedResult | None:
@@ -1570,9 +1590,22 @@ async def start(
         for engine in engines
         if engine.casefold() not in recorded_sources
     )
+    if dnsresolve != '':
+        failed_sources = [execution for execution in source_executions if execution.status == 'failed']
+        resolution_error = (
+            RuntimeError('Source collection failed before DNS resolution completed') if failed_sources and not full else None
+        )
+        record_action(
+            'dns-resolve',
+            None,
+            len(full),
+            resolution_error,
+            stop_reason='interleaved-with-source-collection',
+        )
     await checkpoint_completed_result()
 
     if recursive_limits is not None:
+        recursive_started = time.perf_counter()
         try:
             async with AsyncExitStack() as resolver_stack:
                 resolvers = []
@@ -1606,8 +1639,11 @@ async def start(
                 f'hosts={len(recursive_hosts)}; queries={recursive_result.query_count}; '
                 f'depth={recursive_result.depth_reached}; stop={recursive_result.stop_reason}'
             )
+            record_action('dns-recursive', recursive_started, len(recursive_result.findings))
             await checkpoint_completed_result()
         except Exception as error:
+            record_action('dns-recursive', recursive_started, error=error)
+            await checkpoint_completed_result()
             output_logger.info(f'[!] Recursive DNS discovery failed: {type(error).__name__}')
 
     async def persist_result(completed_result: CompletedResult | None) -> None:
@@ -1760,9 +1796,15 @@ async def start(
 
     # DNS brute force
     if dnsbrute and dnsbrute[0] is True:
+        dns_brute_started = time.perf_counter()
         output_logger.info('\n[*] Starting DNS brute force.')
         dns_force = dnssearch.DnsForce(word, final_dns_resolver_list, verbose=True)
-        resolved_pair, hosts, ips = await dns_force.run()
+        try:
+            resolved_pair, hosts, ips = await dns_force.run()
+        except Exception as error:
+            record_action('dns-brute', dns_brute_started, error=error)
+            await checkpoint_completed_result()
+            raise
         resolved_screenshot_hosts.update(hosts)
         # Check if Rest API is being used if so return found hosts
         if dnsbrute[1]:
@@ -1791,20 +1833,29 @@ async def start(
         for sub in temp:
             output_logger.info(sub)
         await db.store_all(word, list(sorted(temp)), 'host', 'dns_bruteforce')
+        record_action('dns-brute', dns_brute_started, len(temp))
         await checkpoint_completed_result()
 
     # TakeOver Checking
     if takeover_status:
+        takeover_started = time.perf_counter()
         output_logger.info('\n[*] Performing subdomain takeover check')
         output_logger.info('\n[*] Subdomain Takeover checking IS ACTIVE RECON')
         search_take = takeover.TakeOver(all_hosts)
-        await search_take.populate_fingerprints()
-        await search_take.process(proxy=use_proxy)
-        takeover_results = await search_take.get_takeover_results()
+        try:
+            await search_take.populate_fingerprints()
+            await search_take.process(proxy=use_proxy)
+            takeover_results = await search_take.get_takeover_results()
+        except Exception as error:
+            record_action('take-over', takeover_started, error=error)
+            await checkpoint_completed_result()
+            raise
+        record_action('take-over', takeover_started, len(takeover_results))
         await checkpoint_completed_result()
     # DNS reverse lookup
     dnsrev: list = []
     if dnslookup is True:
+        dns_lookup_started = time.perf_counter()
         output_logger.info('\n[*] Starting active queries for DNSLookup.')
 
         # reverse each iprange in a separate task
@@ -1825,20 +1876,33 @@ async def start(
                 # nameservers=list(map(str, dnsserver.split(','))) if dnsserver else None))
 
         # run all the reversing tasks concurrently
-        await asyncio.gather(*__reverse_dns_tasks.values())
+        try:
+            await asyncio.gather(*__reverse_dns_tasks.values())
+        except Exception as error:
+            record_action('dns-lookup', dns_lookup_started, error=error)
+            await checkpoint_completed_result(extra_hostnames=dnsrev)
+            raise
         output_logger.info('\n[*] Hosts found after reverse lookup (in target domain):')
         output_logger.info('--------------------------------------------------------')
         for xh in dnsrev:
             output_logger.info(xh)
+        record_action('dns-lookup', dns_lookup_started, len(dnsrev))
         await checkpoint_completed_result(extra_hostnames=dnsrev)
 
     # Screenshots
     if len(args.screenshot) > 0:
+        screenshot_started = time.perf_counter()
+        screenshot_error: BaseException | None = None
         screen_shotter = ScreenShotter(args.screenshot)
         path_exists = screen_shotter.verify_path()
         # Verify the path exists, if not create it or if user does not create it skips screenshot
         if path_exists:
-            await screen_shotter.verify_installation()
+            try:
+                await screen_shotter.verify_installation()
+            except Exception as error:
+                record_action('screenshot', screenshot_started, error=error)
+                await checkpoint_completed_result(extra_hostnames=dnsrev)
+                raise
             output_logger.info(f'\nScreenshots can be found in: {screen_shotter.output}{screen_shotter.slash}')
             start_time = time.perf_counter()
             output_logger.info('Filtering domains for ones we can reach')
@@ -1852,10 +1916,15 @@ async def start(
             if len(unique_resolved_domains) > 0:
                 # First filter out ones that didn't resolve
                 output_logger.info('Attempting to visit unique resolved domains, this is ACTIVE RECON')
-                async with Pool(10) as pool:
-                    results = await pool.map(screen_shotter.visit, list(unique_resolved_domains))
-                    # Filter out domains that we couldn't connect to
-                    unique_resolved_domains_list = list(sorted({tup[0] for tup in results if len(tup[1]) > 0}))
+                try:
+                    async with Pool(10) as pool:
+                        results = await pool.map(screen_shotter.visit, list(unique_resolved_domains))
+                except Exception as error:
+                    record_action('screenshot', screenshot_started, error=error)
+                    await checkpoint_completed_result(extra_hostnames=dnsrev)
+                    raise
+                # Filter out domains that we couldn't connect to
+                unique_resolved_domains_list = list(sorted({tup[0] for tup in results if len(tup[1]) > 0}))
                 async with Pool(3) as pool:
                     output_logger.info(f'Length of unique resolved domains: {len(unique_resolved_domains_list)} chunking now!\n')
                     # If you have the resources, you could make the function faster by increasing the chunk number
@@ -1867,6 +1936,7 @@ async def start(
                             )
                             await checkpoint_completed_result(extra_hostnames=dnsrev)
                         except Exception as ee:
+                            screenshot_error = ee
                             output_logger.info(f'An exception has occurred while mapping: {ee}')
             end = time.perf_counter()
             # There is probably an easier way to do this
@@ -1876,10 +1946,16 @@ async def start(
             total_time = f'{mon:02d}:{sec:02d}'
             output_logger.info(f'Finished taking screenshots in {total_time} seconds')
             output_logger.info('[+] Note there may be leftover chrome processes you may have to kill manually\n')
+        else:
+            screenshot_error = RuntimeError('Screenshot output path is unavailable')
+        record_action('screenshot', screenshot_started, len(screenshot_results), screenshot_error)
+        await checkpoint_completed_result(extra_hostnames=dnsrev)
 
     # Shodan
     shodanres = []
     if shodan is True:
+        shodan_started = time.perf_counter()
+        shodan_error: BaseException | None = None
         output_logger.info('[*] Searching Shodan. ')
         try:
             for ip in host_ip:
@@ -1911,10 +1987,14 @@ async def start(
                         output_logger.info(ujson.dumps(shodandict[ip], indent=4, sort_keys=True))
                         output_logger.info('\n')
                 except Exception as ip_error:
+                    shodan_error = ip_error
                     output_logger.info(f'[SHODAN-error] Error searching {ip}: {ip_error}')
                     continue
         except Exception as e:
+            shodan_error = e
             output_logger.info(f'[!] An error occurred with Shodan: {e} ')
+        record_action('shodan', shodan_started, len(shodan_evidence), shodan_error)
+        await checkpoint_completed_result(extra_hostnames=dnsrev)
     else:
         pass
 
@@ -2020,6 +2100,7 @@ async def start(
 
     # Enhanced code block for API Endpoint scanning feature
     if args.api_scan or 'api_endpoints' in engines:
+        api_scan_started = time.perf_counter()
         try:
             # Define a default wordlist if none is specified
             wordlist = args.wordlist or str(DATA_DIR / 'wordlists' / 'api_endpoints.txt')
@@ -2112,13 +2193,18 @@ async def start(
                 all_urls.extend(new_urls)
 
             output_logger.info('\n[+] API scanning completed successfully.')
+            record_action('api-scan', api_scan_started, len(endpoints_found))
             await checkpoint_completed_result(extra_hostnames=dnsrev, virtual_hosts=vhost)
 
-        except MissingKey:
+        except MissingKey as error:
+            record_action('api-scan', api_scan_started, error=error)
+            await checkpoint_completed_result(extra_hostnames=dnsrev, virtual_hosts=vhost)
             output_logger.info('\n[!] API endpoint scanning requires a wordlist. Use -w to specify a wordlist file.')
             output_logger.info('    Creating a basic wordlist and trying again...')
             # The wordlist creation code above could be used here
         except Exception as e:
+            record_action('api-scan', api_scan_started, error=e)
+            await checkpoint_completed_result(extra_hostnames=dnsrev, virtual_hosts=vhost)
             output_logger.info(f'\n[!] An exception has occurred in API Endpoints scanning: {e}')
             output_logger.info('    Continuing with the rest of the scan...')
             traceback.print_exc()  # More detailed error information for developers

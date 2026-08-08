@@ -3,7 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from theHarvester.lib.source_catalog import ActivityClass, SourceSpec, activity_classes_for_selection, get_source_spec
+from theHarvester.lib.source_catalog import (
+    ActivityClass,
+    SourceSpec,
+    activity_classes_for_selection,
+    get_source_spec,
+    selected_action_names,
+)
 
 RESULT_TYPE_ALIASES = {'hostname': 'subdomain', 'ip-address': 'ip'}
 JSONL_RESULT_TYPE_ALIASES = {value: key for key, value in RESULT_TYPE_ALIASES.items()}
@@ -12,14 +18,9 @@ JSONL_RESULT_TYPE_ALIASES = {value: key for key, value in RESULT_TYPE_ALIASES.it
 def activities_for_request(request: dict[str, Any]) -> list[str]:
     if request.get('activities'):
         return list(request['activities'])
-    actions = [
-        name
-        for name in ('dns-brute', 'dns-lookup', 'dns-resolve', 'shodan', 'api-scan', 'screenshot', 'take-over')
-        if request.get(name.replace('-', '_'))
+    return [
+        activity.value for activity in activity_classes_for_selection(request.get('sources', []), selected_action_names(request))
     ]
-    if request.get('dns_recursive_depth', 0) > 0:
-        actions.append('dns-recursive')
-    return [activity.value for activity in activity_classes_for_selection(request.get('sources', []), actions)]
 
 
 def source_spec(name: str) -> SourceSpec | None:
@@ -89,6 +90,16 @@ def normalized_results(evidence: dict[str, Any] | None) -> list[dict[str, Any]]:
         add(kind_map.get(kind, kind), observation.get('value'))
 
     return results
+
+
+def export_findings(evidence: dict[str, Any]) -> list[dict[str, Any]]:
+    findings = normalized_results(evidence)
+    findings.extend(
+        {'type': 'screenshot', 'value': str(item['value'])}
+        for item in evidence.get('results') or []
+        if isinstance(item, dict) and item.get('type') == 'screenshot' and item.get('value')
+    )
+    return findings
 
 
 def source_executions(evidence: dict[str, Any] | None) -> list[dict[str, Any]]:

@@ -43,6 +43,11 @@ class FetcherResponse:
 
 class Core:
     quiet: bool = False
+    _SOURCE_API_KEY_PROVIDER_ALIASES: ClassVar[dict[str, str]] = {
+        'chaos': 'projectDiscovery',
+        'github-code': 'github',
+        'pentesttools': 'pentestTools',
+    }
     _API_KEY_FIELDS: ClassVar[dict[str, tuple[str, ...]]] = {
         'bevigil': ('key',),
         'brave': ('key',),
@@ -108,6 +113,12 @@ class Core:
     @staticmethod
     def api_key_fields() -> dict[str, tuple[str, ...]]:
         return dict(Core._API_KEY_FIELDS)
+
+    @classmethod
+    def source_api_key_fields(cls, source: str) -> tuple[str, ...]:
+        providers = {provider.casefold(): provider for provider in cls._API_KEY_FIELDS}
+        provider = cls._SOURCE_API_KEY_PROVIDER_ALIASES.get(source, providers.get(source.casefold()))
+        return cls._API_KEY_FIELDS.get(provider, ()) if provider is not None else ()
 
     @staticmethod
     def _api_key_value(provider: str) -> Any:

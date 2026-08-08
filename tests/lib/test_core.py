@@ -254,6 +254,13 @@ def test_api_keys_yaml_is_in_sync_with_core_accessors():
     assert not missing_fields, f"Missing fields in api-keys.yaml: {missing_fields}"
 
 
+def test_source_api_key_fields_use_canonical_provider_aliases() -> None:
+    assert core_module.Core.source_api_key_fields('github-code') == ('key',)
+    assert core_module.Core.source_api_key_fields('chaos') == ('key',)
+    assert core_module.Core.source_api_key_fields('pentesttools') == ('key',)
+    assert core_module.Core.source_api_key_fields('crtsh') == ()
+
+
 @pytest.mark.parametrize(
     ("accessor_name", "expected"),
     [

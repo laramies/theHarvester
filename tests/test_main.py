@@ -412,6 +412,40 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
         'takeover',
         '{"matches":[{"No such app":"Heroku"}],"url":"https://api.example.com"}',
     ) in completed.results
+    actions = {execution.source: execution for execution in completed.source_executions if execution.source.startswith('action:')}
+    assert set(actions) == {
+        'action:api-scan',
+        'action:dns-resolve',
+        'action:screenshot',
+        'action:shodan',
+        'action:take-over',
+    }
+    assert all(execution.status == 'succeeded' for execution in actions.values())
+
+    class FailingScreenShotter(FakeScreenShotter):
+        async def take_screenshot(self, host: str) -> str:
+            raise RuntimeError(f'could not capture {host}')
+
+    monkeypatch.setattr(theharvester_main, 'ScreenShotter', FailingScreenShotter)
+    failed_result = await theharvester_main.start(
+        EnumerationOptions(
+            domain='example.com',
+            proxies=True,
+            quiet=True,
+            screenshot=str(tmp_path),
+            source='crtsh',
+        ),
+        include_breaches=True,
+        return_completed_result=True,
+    )
+    failed_completed = failed_result[-1]
+    assert isinstance(failed_completed, CompletedResult)
+    screenshot_execution = next(
+        execution for execution in failed_completed.source_executions if execution.source == 'action:screenshot'
+    )
+    assert screenshot_execution.status == 'failed'
+    assert screenshot_execution.error_type == 'RuntimeError'
+    assert failed_completed.evidence_dict()['status'] == 'partial'
 
 
 @pytest.mark.asyncio

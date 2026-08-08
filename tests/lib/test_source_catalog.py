@@ -2,7 +2,14 @@ import ast
 from pathlib import Path
 
 from theHarvester.lib.core import Core
-from theHarvester.lib.source_catalog import SOURCE_SPECS, ResultRoute, SourceSpec, get_source_spec
+from theHarvester.lib.source_catalog import SOURCE_SPECS, ResultRoute, SourceSpec, get_source_spec, selected_action_names
+
+
+def test_action_selection_uses_the_canonical_catalog_names() -> None:
+    assert selected_action_names({'shodan': True, 'dns_recursive_depth': 2, 'api_scan': False}) == (
+        'dns-recursive',
+        'shodan',
+    )
 
 
 def _scheduled_source_names() -> list[str]:

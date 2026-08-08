@@ -37,6 +37,7 @@ ExecutionStatus = Literal['succeeded', 'empty', 'failed', 'rate-limited', 'skipp
 
 SCHEMA_VERSION = 'theharvester-results-v1'
 RESULT_KINDS: frozenset[str] = frozenset(get_args(ResultKind))
+JSONL_RESULT_KINDS: frozenset[str] = RESULT_KINDS | {'external-relationship', 'other', 'scope-extension'}
 EXECUTION_STATUSES: frozenset[str] = frozenset(get_args(ExecutionStatus))
 DNS_STATUSES: frozenset[str] = frozenset({'resolved', 'no-answer', 'disputed', 'uncertain', 'not-captured'})
 
@@ -45,12 +46,29 @@ def _isoformat_utc(value: datetime) -> str:
     return value.astimezone(UTC).isoformat().replace('+00:00', 'Z')
 
 
+def _validated_jsonl_findings(findings: Iterable[Mapping[str, object]]) -> list[dict[str, object]]:
+    records = [dict(finding) for finding in findings]
+    if any(
+        not isinstance(result_type := record.get('type'), str)
+        or result_type not in JSONL_RESULT_KINDS
+        or not isinstance(value := record.get('value'), str)
+        or not value.strip()
+        or (
+            record.get('dns_status') is not None
+            and (not isinstance(record['dns_status'], str) or record['dns_status'] not in DNS_STATUSES)
+        )
+        for record in records
+    ):
+        raise ValueError('JSONL findings must contain a known type and non-empty value')
+    return records
+
+
 def encode_result_jsonl(
     summary: Mapping[str, object],
     findings: Iterable[Mapping[str, object]],
 ) -> str:
     summary_record = {**summary, 'schema_version': SCHEMA_VERSION, 'type': 'summary'}
-    records = [summary_record, *findings]
+    records = [summary_record, *_validated_jsonl_findings(findings)]
     return ''.join(json.dumps(record, ensure_ascii=False, separators=(',', ':'), sort_keys=True) + '\n' for record in records)
 
 
@@ -65,20 +83,7 @@ def parse_result_jsonl(payload: bytes | str) -> tuple[dict[str, object], list[di
     summary = records[0] if records else None
     if not summary or summary.get('schema_version') != SCHEMA_VERSION or summary.get('type') != 'summary':
         raise ValueError(f'JSONL must use {SCHEMA_VERSION}')
-    findings = records[1:]
-    if any(
-        not isinstance(record.get('type'), str)
-        or record['type'] not in RESULT_KINDS
-        or not isinstance(record.get('value'), str)
-        or not record['value'].strip()
-        or (
-            record.get('dns_status') is not None
-            and (not isinstance(record['dns_status'], str) or record['dns_status'] not in DNS_STATUSES)
-        )
-        for record in findings
-    ):
-        raise ValueError('JSONL findings must contain a known type and non-empty value')
-    return summary, findings
+    return summary, _validated_jsonl_findings(records[1:])
 
 
 @dataclass(frozen=True, slots=True)

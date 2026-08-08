@@ -5,7 +5,18 @@ from uuid import UUID
 
 import pytest
 
-from theHarvester.lib.completed_result import CompletedResult, SourceExecution
+from theHarvester.lib.completed_result import CompletedResult, SourceExecution, encode_result_jsonl, parse_result_jsonl
+
+
+def test_jsonl_codec_uses_one_validated_wire_kind_set() -> None:
+    summary = {'run_id': 'f047261c-0afb-4e18-89d5-28a7d977f51f'}
+    payload = encode_result_jsonl(summary, [{'type': 'scope-extension', 'value': 'other.example'}])
+
+    _summary, findings = parse_result_jsonl(payload)
+
+    assert findings == [{'type': 'scope-extension', 'value': 'other.example'}]
+    with pytest.raises(ValueError, match='known type'):
+        encode_result_jsonl(summary, [{'type': 'made-up-kind', 'value': 'other.example'}])
 
 
 def test_completed_result_is_deterministic_and_deduplicated() -> None:

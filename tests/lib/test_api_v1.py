@@ -323,6 +323,38 @@ def test_api_jsonl_round_trip_preserves_evidence_status_and_source_outcomes(tmp_
     assert reimported.json()['source_executions'] == [source_execution]
 
 
+def test_api_jsonl_round_trip_preserves_screenshot_evidence(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+    headers = {'X-API-Key': 'test-key'}
+
+    with TestClient(api.app) as client:
+        imported = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'screenshots.jsonl'},
+            headers=headers,
+            content=_jsonl_result(finding_type='screenshot', value='https://owned.example.test'),
+        )
+        exported = client.get(f'/api/v1/runs/{imported.json()["run_id"]}/export', headers=headers)
+        reimported = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'screenshots-round-trip.jsonl'},
+            headers=headers,
+            content=exported.content,
+        )
+        reexported = client.get(f'/api/v1/runs/{reimported.json()["run_id"]}/export', headers=headers)
+
+    assert imported.status_code == 201
+    assert exported.status_code == 200
+    assert reimported.status_code == 201
+    assert reexported.status_code == 200
+    records = [json.loads(line) for line in reexported.text.splitlines()]
+    assert {'type': 'screenshot', 'value': 'https://owned.example.test'} in records[1:]
+
+
 def test_api_jsonl_export_uses_evidence_timestamps_not_lifecycle_timestamps(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api import api
     from theHarvester.lib.api.run_models import RunRequest
