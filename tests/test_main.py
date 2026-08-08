@@ -131,6 +131,77 @@ async def test_rapiddns_hostnames_honor_explicit_dns_resolution(monkeypatch: pyt
 
 
 @pytest.mark.asyncio
+async def test_dns_resolution_action_reports_resolver_work(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeStash:
+        async def do_init(self) -> None:
+            return None
+
+        async def store_all(self, *_args) -> None:
+            return None
+
+        async def store(self, *_args) -> None:
+            return None
+
+        async def store_completed_result(self, _result: CompletedResult) -> None:
+            return None
+
+    class FakeRapidDNS:
+        def __init__(self, _word: str) -> None:
+            pass
+
+        async def process(self, _proxy: bool) -> None:
+            return None
+
+        async def get_hostnames(self) -> set[str]:
+            return {'resolved.example.com', 'unresolved.example.com'}
+
+        async def get_host_ip_pairs(self) -> set[tuple[str, str]]:
+            return set()
+
+        async def get_ips(self) -> set[str]:
+            return set()
+
+    class FakeChecker:
+        def __init__(self, hosts: list[str], _nameservers: list[str]) -> None:
+            assert set(hosts) == {'resolved.example.com', 'unresolved.example.com'}
+
+        async def check(self) -> tuple[list[str], list[str], list[str]]:
+            return ['resolved.example.com:192.0.2.10'], ['resolved.example.com'], ['192.0.2.10']
+
+    options = EnumerationOptions(
+        domain='example.com',
+        source='rapiddns',
+        dns_resolve='192.0.2.53',
+        quiet=True,
+    )
+    monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
+    monkeypatch.setattr(theharvester_main.rapiddns, 'SearchRapidDns', FakeRapidDNS)
+    monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', FakeChecker)
+
+    result = await theharvester_main.start(options, return_completed_result=True)
+
+    completed = result[-1]
+    dns_execution = next(execution for execution in completed.source_executions if execution.source == 'action:dns-resolve')
+    assert dns_execution.status == 'succeeded'
+    assert dns_execution.result_count == 1
+
+    class FailingChecker(FakeChecker):
+        async def check(self) -> tuple[list[str], list[str], list[str]]:
+            raise LookupError('resolver failed')
+
+    monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', FailingChecker)
+    failed_result = await theharvester_main.start(options, return_completed_result=True)
+
+    failed_completed = failed_result[-1]
+    failed_dns_execution = next(
+        execution for execution in failed_completed.source_executions if execution.source == 'action:dns-resolve'
+    )
+    assert failed_dns_execution.status == 'failed'
+    assert failed_dns_execution.result_count == 0
+    assert failed_dns_execution.error_type == 'LookupError'
+
+
+@pytest.mark.asyncio
 async def test_recursive_dns_requires_canonically_distinct_resolvers(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         sys,
@@ -424,7 +495,7 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
 
     class FailingScreenShotter(FakeScreenShotter):
         async def take_screenshot(self, host: str) -> str:
-            raise RuntimeError(f'could not capture {host}')
+            return ''
 
     monkeypatch.setattr(theharvester_main, 'ScreenShotter', FailingScreenShotter)
     failed_result = await theharvester_main.start(

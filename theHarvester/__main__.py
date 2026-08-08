@@ -100,7 +100,15 @@ from theHarvester.lib.recursive_dns import (
     RecursiveDNSResult,
     discover_recursive_dns,
 )
-from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass, ResultRoute, get_source_spec
+from theHarvester.lib.source_catalog import (
+    ACTION_REQUEST_FIELDS,
+    SOURCE_SPECS,
+    ActivityClass,
+    ResultRoute,
+    activity_classes_for_selection,
+    get_source_spec,
+    selected_action_names,
+)
 from theHarvester.screenshot.screenshot import ScreenShotter
 
 logger = logging.getLogger(__name__)
@@ -423,6 +431,10 @@ async def start(
     shodan_evidence: list[str] = []
     takeover_results: dict[str, list[dict[str, str]]] = {}
     recursive_result: RecursiveDNSResult | None = None
+    dns_resolution_started: float | None = None
+    dns_resolution_attempt_count = 0
+    dns_resolution_result_count = 0
+    dns_resolution_error: BaseException | None = None
 
     linkedin_people_list_tracker = []
     linkedin_links_tracker = []
@@ -566,6 +578,8 @@ async def start(
         :param search_engine: search engine to fetch details from
         :param source: source against which the details (corresponding to the search engine) need to be persisted
         """
+        nonlocal dns_resolution_attempt_count, dns_resolution_error, dns_resolution_result_count, dns_resolution_started
+
         await search_engine.process(use_proxy)
         result_count = 0
         db_stash = stash.StashManager()
@@ -591,15 +605,26 @@ async def start(
                 # This should only be checked if --dns-resolve has a wordlist
                 if dnsresolve is None or len(final_dns_resolver_list) > 0:
                     # indicates that -r was passed in if dnsresolve is None
+                    hosts_to_resolve = [host for host in host_names if host not in paired_hosts]
+                    dns_resolution_attempt_count += len(hosts_to_resolve)
+                    if hosts_to_resolve and dns_resolution_started is None:
+                        dns_resolution_started = time.perf_counter()
                     full_hosts_checker = hostchecker.Checker(
-                        [host for host in host_names if host not in paired_hosts], final_dns_resolver_list
+                        hosts_to_resolve,
+                        final_dns_resolver_list,
                     )
                     # If full, this is only getting resolved hosts
-                    (
-                        resolved_pair,
-                        resolved_hosts,
-                        temp_ips,
-                    ) = await full_hosts_checker.check()
+                    try:
+                        (
+                            resolved_pair,
+                            resolved_hosts,
+                            temp_ips,
+                        ) = await full_hosts_checker.check()
+                    except Exception as error:
+                        if dns_resolution_error is None:
+                            dns_resolution_error = error
+                        raise
+                    dns_resolution_result_count += len(set(resolved_hosts) & set(hosts_to_resolve))
                     all_ip.extend(temp_ips)
                     full.extend(resolved_pair)
                     if source == 'rapiddns':
@@ -709,13 +734,9 @@ async def start(
     stor_lst = []
     if args.source is not None:
         engines = Core.expand_source_selection(args.source)
-    activities = {get_source_spec(engine).activity for engine in engines if engine in SOURCE_SPECS}
-    if shodan:
-        activities.add(ActivityClass.PASSIVE)
-    if dnslookup or dnsbrute[0] or dnsresolve != '' or recursive_limits is not None:
-        activities.add(ActivityClass.DNS)
-    if takeover_status or args.screenshot or args.api_scan:
-        activities.add(ActivityClass.DIRECT)
+    action_request = {field: getattr(args, field) for field in set(ACTION_REQUEST_FIELDS.values())}
+    action_request['dns_resolve'] = dnsresolve != ''
+    activities = activity_classes_for_selection(engines, selected_action_names(action_request))
     if activities:
         activity_labels = {
             ActivityClass.PASSIVE: 'P0 passive collection',
@@ -1591,16 +1612,12 @@ async def start(
         if engine.casefold() not in recorded_sources
     )
     if dnsresolve != '':
-        failed_sources = [execution for execution in source_executions if execution.status == 'failed']
-        resolution_error = (
-            RuntimeError('Source collection failed before DNS resolution completed') if failed_sources and not full else None
-        )
         record_action(
             'dns-resolve',
-            None,
-            len(full),
-            resolution_error,
-            stop_reason='interleaved-with-source-collection',
+            dns_resolution_started,
+            dns_resolution_result_count,
+            dns_resolution_error,
+            stop_reason=('interleaved-with-source-collection' if dns_resolution_attempt_count else 'no-hosts-to-resolve'),
         )
     await checkpoint_completed_result()
 
@@ -1931,9 +1948,10 @@ async def start(
                     chunk_number = 14
                     for chunk in screen_shotter.chunk_list(unique_resolved_domains_list, chunk_number):
                         try:
-                            screenshot_results.extend(
-                                result for result in await pool.map(screen_shotter.take_screenshot, chunk) if result
-                            )
+                            chunk_results = await pool.map(screen_shotter.take_screenshot, chunk)
+                            screenshot_results.extend(result for result in chunk_results if result)
+                            if any(not result for result in chunk_results):
+                                screenshot_error = RuntimeError('One or more screenshot captures failed')
                             await checkpoint_completed_result(extra_hostnames=dnsrev)
                         except Exception as ee:
                             screenshot_error = ee
