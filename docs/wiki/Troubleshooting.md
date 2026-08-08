@@ -94,7 +94,7 @@ docker compose ps
 docker compose logs theharvester.svc.local
 ```
 
-The container runs the REST API on container port `8000`, published as host port `5000` by the supplied Compose file.
+The container runs HarvestView and the REST API on container port `8000`, published only as `127.0.0.1:5000` by the supplied Compose file. If startup reports a missing secret, create `.secrets/operator-api-key` as shown in the installation guide.
 
 ## File an actionable issue
 

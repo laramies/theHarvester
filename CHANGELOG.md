@@ -8,9 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added HarvestView, an authenticated local browser workspace backed by a durable single-worker `/api/v1` run lifecycle with cancellation, deadlines, imports, exports, retained partial evidence, and real-browser regression coverage.
+- Added a pinned, non-root Docker Compose deployment for HarvestView and the REST API with localhost-only publishing, file-secret authentication, private durable run storage, and an authenticated API health check.
 - Added bounded recursive DNS discovery with three-vantage consensus, closest-encloser wildcard controls, exact-address PTR evidence, and hard query, depth, runtime, and zero-yield limits.
-- Added authenticated REST routes for listing completed enumeration runs and retrieving their normalized evidence.
-- Added an authenticated HIBP verified-domain source for CLI and conditionally authenticated REST queries that retains normalized account emails and stable breach names without retaining the raw account mapping.
+- Added an authenticated HIBP verified-domain source for CLI and `/api/v1` runs that retains normalized account emails and stable breach names without retaining the raw account mapping.
 - Added keyless Shodan Certificate Transparency hostname discovery with bounded requests and offline response contracts.
 - Added bounded, keyless subdomain discovery through Arquivo.pt's public CDX API with offline response contracts.
 - Added transactional SQLite storage and loading for completed full-pipeline runs without changing legacy result rows.
@@ -29,14 +30,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Standardized SQLite, JSONL, API, and HarvestView result names on `hostname` and `ip` without a presentation alias.
 - Standardized URL-producing adapters, JSON, JSONL, SQLite, and API evidence on one `url` result kind while preserving producer provenance.
+- Replaced the unversioned and provider-specific REST routes with one authenticated `/api/v1` source and run contract shared with CLI execution semantics.
 - Fixed proxied POST requests so they retain the request method, body, and query parameters.
 - Migrated Pentest-Tools discovery to its API v2 Bearer-authenticated scan, status, and output endpoints.
-- Included HIBP verified-domain in `all` and matching capability selectors like every other P0 source, with REST operator authentication applied after source expansion when its provider key is configured.
-- Allowed REST `/query` requests to select discovery sources by result capability, matching the CLI's union semantics while preserving explicit source selection.
+- Included HIBP verified-domain in `all` and matching capability selectors like every other P0 source.
 - Changed `-b all` to select every cataloged P0 passive source once while leaving P1 DNS and P2 direct sources available through explicit selection.
 - Expanded Common Crawl discovery to use every unique crawl ending within one year of the newest catalog entry, validate catalog endpoints, batch requests, cap each query at 100 pages, and enforce the CLI result limit across page requests ([249ce64b](https://github.com/laramies/theHarvester/commit/249ce64b), [70470cd8](https://github.com/laramies/theHarvester/commit/70470cd8)).
 - Completed bounded pagination for Wayback Archive and Cert Spotter, including continuation handling, truncation diagnostics, and preservation of partial results on provider failures ([df6ff2c9](https://github.com/laramies/theHarvester/commit/df6ff2c9), [f85a08ff](https://github.com/laramies/theHarvester/commit/f85a08ff)).
-- Routed operator messages and diagnostics through logging, preserved host logging policy and existing handlers, and configured logging for the standalone API example ([8a7b8b71](https://github.com/laramies/theHarvester/commit/8a7b8b71)).
+- Routed operator messages and diagnostics through logging, preserved host logging policy and existing handlers, and configured logging for the API service ([8a7b8b71](https://github.com/laramies/theHarvester/commit/8a7b8b71)).
 - Added credential configuration adapters, deferred proxy configuration loading until required, and retained compatibility accessors such as `Core.brave_key()` ([ccd91176](https://github.com/laramies/theHarvester/commit/ccd91176)).
 - Centralized hostname scope normalization for parser and storage boundaries, including case-insensitive targets, trailing dots, optional `www.` prefixes, and exact DNS-label matching ([c0a0b653](https://github.com/laramies/theHarvester/commit/c0a0b653), [a474f086](https://github.com/laramies/theHarvester/commit/a474f086), [70470cd8](https://github.com/laramies/theHarvester/commit/70470cd8)).
 - Replaced deprecated hostname resolution with `getaddrinfo`-based handling ([6a847435](https://github.com/laramies/theHarvester/commit/6a847435)).

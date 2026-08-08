@@ -104,6 +104,25 @@ an isolated deployment.
 
 Open [Swagger](http://127.0.0.1:5000/docs) or [ReDoc](http://127.0.0.1:5000/redoc) for the automation contract.
 
+### Docker Compose
+
+The supplied Compose service runs as an unprivileged user, stores run records in a named volume, loads the operator key from a file secret, and publishes only to host loopback. Create the secret before the first start:
+
+```bash
+install -d -m 0700 .secrets
+openssl rand -hex 32 > .secrets/operator-api-key
+chmod 0444 .secrets/operator-api-key
+docker compose up --build -d
+docker compose ps
+```
+
+The `0700` directory protects the secret on the host, while the read-only `0444` file lets the unprivileged container process read its bind-mounted copy. Open [HarvestView](http://127.0.0.1:5000/). The image includes Chromium for optional screenshots. Provider keys and proxies remain in the existing read-only YAML mounts and are excluded from the image build context.
+
+```bash
+docker compose logs -f theharvester.svc.local
+docker compose down
+```
+
 | Route | Purpose |
 | --- | --- |
 | `GET /api/v1/sources` | List registered discovery sources and capabilities. |
