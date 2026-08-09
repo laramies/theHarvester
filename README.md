@@ -214,7 +214,7 @@ Never commit populated configuration files, API keys, account details, or provid
 - `-f NAME` writes `NAME.json`, `NAME.xml`, and `NAME.jsonl`.
 - Screenshots are written to the directory passed to `--screenshot`.
 - Host, email, IP, and related scan records are stored in `~/.local/share/theHarvester/stash.sqlite`.
-- Full-pipeline runs are also stored transactionally by run UUID with their completed, deduplicated findings. Early REST returns and DNS-brute utility requests are not recorded as completed runs.
+- Completed CLI, REST query, and DNS-brute utility runs are stored transactionally by run UUID with their deduplicated findings.
 - REST queries return JSON.
 
 Treat collected OSINT as potentially sensitive. Keep report files, screenshots, and the local database out of source control and share them only within the authorized engagement.

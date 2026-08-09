@@ -198,10 +198,14 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
         iprange: str,
         callback: Any,
         nameservers: list[str] | None = None,
+        error_types: set[str] | None = None,
     ) -> None:
         assert iprange in {'192.0.2.0/24', '198.51.100.0/24', '2001:d00::/24'}
         assert nameservers is None
         callback('reverse.example.com')
+        if iprange == '198.51.100.0/24':
+            assert error_types is not None
+            error_types.add('TimeoutError')
 
     report = tmp_path / 'rapiddns-report'
     monkeypatch.setattr(rapiddns.AsyncFetcher, 'fetch_all', fake_fetch_all)
@@ -263,7 +267,15 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
     )
     assert securityscorecard_execution.status == 'completed'
     assert securityscorecard_execution.result_count == 2
-
+    reverse_execution = next(
+        execution for execution in completed_results[0].active_evidence.executions if execution.action == 'dns-lookup'
+    )
+    assert reverse_execution.status == 'partial'
+    assert reverse_execution.error_type == 'TimeoutError'
+    assert reverse_execution.stop_reason == 'query-errors'
+    assert {(observation.kind, observation.value) for observation in reverse_execution.observations} == {
+        ('hostname', 'reverse.example.com')
+    }
     xml_hosts = {
         (element.findtext('hostname') or (element.text or '').strip(), element.findtext('ip'))
         for element in ElementTree.parse(report.with_suffix('.xml')).getroot().findall('host')

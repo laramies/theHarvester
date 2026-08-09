@@ -96,6 +96,8 @@ async def test_rapiddns_hostnames_honor_explicit_dns_resolution(monkeypatch: pyt
         def __init__(self, hosts: list[str], nameservers: list[str]) -> None:
             assert nameservers == ['192.0.2.53']
             self.hosts = hosts
+            self.query_error_count = 1
+            self.query_error_types = {'TimeoutError'}
 
         async def check(self) -> tuple[list[str], list[str], list[str]]:
             if self.hosts == ['crt.example.com']:
@@ -143,6 +145,19 @@ async def test_rapiddns_hostnames_honor_explicit_dns_resolution(monkeypatch: pyt
     crtsh_execution = next(execution for execution in completed[0].source_executions if execution.source == 'crtsh')
     assert crtsh_execution.status == 'partial'
     assert crtsh_execution.stop_reason == 'invalid-response'
+    dns_execution = completed[0].active_evidence.executions[0]
+    assert dns_execution.action == 'dns-resolve'
+    assert dns_execution.status == 'partial'
+    assert dns_execution.error_type == 'TimeoutError'
+    assert dns_execution.stop_reason == 'query-errors'
+    assert {(observation.kind, observation.value) for observation in dns_execution.observations} == {
+        ('ip-address', '192.0.2.10'),
+        ('ip-address', '192.0.2.21'),
+        ('ip-address', '192.0.2.30'),
+    }
+    assert ('ip-address', '192.0.2.20') not in {
+        (observation.kind, observation.value) for observation in dns_execution.observations
+    }
     assert completed[0].evidence_dict()['status'] == 'partial'
     assert {(observation.source, observation.kind, observation.value) for observation in completed[0].observations} >= {
         ('crtsh', 'hostname', 'crt.example.com'),
@@ -158,6 +173,518 @@ async def test_rapiddns_hostnames_honor_explicit_dns_resolution(monkeypatch: pyt
     ]
     assert xml_pairs.count(('reported.example.com', '192.0.2.20')) == 1
     assert xml_pairs.count(('reported.example.com', '192.0.2.21')) == 1
+
+
+@pytest.mark.asyncio
+async def test_dns_brute_utility_persists_action_evidence_before_return(monkeypatch: pytest.MonkeyPatch) -> None:
+    completed: list[CompletedResult] = []
+    legacy_writes: list[tuple[object, ...]] = []
+    resolved = ['api.example.com:192.0.2.10']
+
+    class FakeResultStore:
+        async def initialize(self) -> None:
+            return None
+
+        async def record_observations(self, *args: object) -> None:
+            legacy_writes.append(args)
+
+        async def save_run(self, result: CompletedResult) -> None:
+            completed.append(result)
+
+    class FakeDnsForce:
+        query_error_count = 1
+        query_error_types = {'TimeoutError'}
+
+        def __init__(self, domain: str, nameservers: list[str], verbose: bool) -> None:
+            assert domain == 'example.com'
+            assert nameservers == []
+            assert verbose is True
+
+        async def run(self) -> tuple[list[str], list[str], list[str]]:
+            return resolved, ['API.Example.COM.'], ['192.0.2.10', 'not-an-ip']
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
+    monkeypatch.setattr(theharvester_main.dnssearch, 'DnsForce', FakeDnsForce)
+
+    response = await theharvester_main.start(
+        EnumerationOptions(domain='example.com', source='', dns_brute=True, quiet=True),
+        return_dns_brute_result=True,
+    )
+
+    assert response == resolved
+    assert len(completed) == 1
+    execution = completed[0].active_evidence.executions[0]
+    assert execution.action == 'dns-brute'
+    assert execution.status == 'partial'
+    assert execution.error_type == 'TimeoutError'
+    assert execution.stop_reason == 'query-errors'
+    assert {(observation.kind, observation.value) for observation in execution.observations} == {
+        ('hostname', 'api.example.com'),
+        ('ip-address', '192.0.2.10'),
+    }
+    assert legacy_writes == []
+
+
+@pytest.mark.asyncio
+async def test_dns_brute_query_errors_are_partial_even_without_findings(monkeypatch: pytest.MonkeyPatch) -> None:
+    completed: list[CompletedResult] = []
+
+    class FakeResultStore:
+        async def initialize(self) -> None:
+            return None
+
+        async def save_run(self, result: CompletedResult) -> None:
+            completed.append(result)
+
+    class EmptyDnsForce:
+        query_error_count = 1
+        query_error_types = {'TimeoutError'}
+
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+        async def run(self) -> tuple[list[str], list[str], list[str]]:
+            return [], [], []
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
+    monkeypatch.setattr(theharvester_main.dnssearch, 'DnsForce', EmptyDnsForce)
+
+    assert (
+        await theharvester_main.start(
+            EnumerationOptions(domain='example.com', source='', dns_brute=True, quiet=True),
+            return_dns_brute_result=True,
+        )
+        == []
+    )
+
+    execution = completed[0].active_evidence.executions[0]
+    assert execution.status == 'partial'
+    assert execution.result_count == 0
+    assert execution.error_type == 'TimeoutError'
+    assert execution.stop_reason == 'query-errors'
+
+
+@pytest.mark.asyncio
+async def test_dns_brute_keeps_legacy_json_and_xml_while_persisting_canonical_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    stored: list[CompletedResult] = []
+    output_path = tmp_path / 'dns-brute'
+
+    class FakeResultStore:
+        async def initialize(self) -> None:
+            return None
+
+        async def save_run(self, result: CompletedResult) -> None:
+            stored.append(result)
+
+    class FakeDnsForce:
+        query_error_count = 0
+        query_error_types: set[str] = set()
+
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+        async def run(self) -> tuple[list[str], list[str], list[str]]:
+            return ['api.example.com:192.0.2.10'], ['api.example.com'], ['192.0.2.10']
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
+    monkeypatch.setattr(theharvester_main.dnssearch, 'DnsForce', FakeDnsForce)
+
+    response = await theharvester_main.start(
+        EnumerationOptions(
+            domain='example.com',
+            source='',
+            dns_brute=True,
+            filename=str(output_path),
+            quiet=True,
+        ),
+        return_completed_result=True,
+    )
+
+    legacy_json = json.loads(output_path.with_suffix('.json').read_text())
+    assert legacy_json['hosts'] == ['api.example.com:192.0.2.10']
+    assert 'ips' not in legacy_json
+    assert response[6] == []
+    xml_pairs = [
+        (element.findtext('hostname'), element.findtext('ip'))
+        for element in ElementTree.parse(output_path.with_suffix('.xml')).getroot().findall('host')
+    ]
+    assert xml_pairs == [('api.example.com', '192.0.2.10')]
+    completed = response[-1]
+    assert isinstance(completed, CompletedResult)
+    assert ('hostname', 'api.example.com') in completed.results
+    assert ('ip-address', '192.0.2.10') in completed.results
+    assert stored == [completed]
+
+
+@pytest.mark.parametrize('error_type', [RuntimeError, asyncio.CancelledError])
+@pytest.mark.asyncio
+async def test_dns_brute_failure_persists_before_propagation(
+    monkeypatch: pytest.MonkeyPatch,
+    error_type: type[BaseException],
+) -> None:
+    completed: list[CompletedResult] = []
+
+    class FakeResultStore:
+        async def initialize(self) -> None:
+            return None
+
+        async def save_run(self, result: CompletedResult) -> None:
+            completed.append(result)
+
+    class FailingDnsForce:
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+        async def run(self):
+            raise error_type()
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
+    monkeypatch.setattr(theharvester_main.dnssearch, 'DnsForce', FailingDnsForce)
+
+    with pytest.raises(error_type):
+        await theharvester_main.start(
+            EnumerationOptions(domain='example.com', source='', dns_brute=True, quiet=True),
+            return_dns_brute_result=True,
+        )
+
+    assert len(completed) == 1
+    execution = completed[0].active_evidence.executions[0]
+    assert execution.action == 'dns-brute'
+    assert execution.status == 'failed'
+    assert execution.error_type == error_type.__name__
+    assert execution.stop_reason == ('cancelled' if issubclass(error_type, asyncio.CancelledError) else None)
+
+
+@pytest.mark.asyncio
+async def test_dns_resolve_cancellation_closes_workers_and_persists_before_propagation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    completed: list[CompletedResult] = []
+
+    class FakeResultStore:
+        async def initialize(self) -> None:
+            return None
+
+        async def save_run(self, result: CompletedResult) -> None:
+            completed.append(result)
+
+    class FakeSource:
+        def __init__(self, _word: str) -> None:
+            pass
+
+        async def process(self, _proxy: bool) -> None:
+            return None
+
+        async def get_hostnames(self) -> set[str]:
+            return {'api.example.com'}
+
+    class CancelledChecker:
+        def __init__(self, _hosts: list[str], _nameservers: list[str]) -> None:
+            pass
+
+        async def check(self):
+            raise asyncio.CancelledError
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
+    monkeypatch.setattr(theharvester_main.certspottersearch, 'SearchCertspoter', FakeSource)
+    monkeypatch.setattr(theharvester_main.crtsh, 'SearchCrtsh', FakeSource)
+    monkeypatch.setattr(theharvester_main.shodanct, 'SearchShodanCt', FakeSource)
+    monkeypatch.setattr(theharvester_main.subdomaincenter, 'SubdomainCenter', FakeSource)
+    monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', CancelledChecker)
+
+    with pytest.raises(asyncio.CancelledError):
+        await asyncio.wait_for(
+            theharvester_main.start(
+                EnumerationOptions(
+                    domain='example.com',
+                    source='certspotter,crtsh,shodanct,subdomaincenter',
+                    dns_resolve='192.0.2.53',
+                    quiet=True,
+                )
+            ),
+            timeout=1,
+        )
+
+    assert len(completed) == 1
+    execution = completed[0].active_evidence.executions[0]
+    assert execution.action == 'dns-resolve'
+    assert execution.status == 'failed'
+    assert execution.error_type == 'CancelledError'
+    assert execution.stop_reason == 'cancelled'
+
+
+@pytest.mark.asyncio
+async def test_source_cancellation_before_dns_resolution_does_not_claim_dns_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    completed: list[CompletedResult] = []
+
+    class FakeResultStore:
+        async def initialize(self) -> None:
+            return None
+
+        async def save_run(self, result: CompletedResult) -> None:
+            completed.append(result)
+
+    class CancelledSource:
+        def __init__(self, _word: str) -> None:
+            pass
+
+        async def process(self, _proxy: bool) -> None:
+            raise asyncio.CancelledError
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
+    monkeypatch.setattr(theharvester_main.certspottersearch, 'SearchCertspoter', CancelledSource)
+
+    with pytest.raises(asyncio.CancelledError):
+        await theharvester_main.start(
+            EnumerationOptions(
+                domain='example.com',
+                source='certspotter',
+                dns_resolve='192.0.2.53',
+                quiet=True,
+            )
+        )
+
+    assert len(completed) == 1
+    assert completed[0].active_evidence.executions == ()
+    assert len(completed[0].source_executions) == 1
+    source_execution = completed[0].source_executions[0]
+    assert source_execution.source == 'certspotter'
+    assert source_execution.status == 'failed'
+    assert source_execution.error_type == 'CancelledError'
+    assert source_execution.stop_reason == 'cancelled'
+    assert completed[0].evidence_dict()['status'] == 'failed'
+
+
+@pytest.mark.asyncio
+async def test_dns_resolve_query_errors_are_partial_even_without_findings(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeResultStore:
+        async def initialize(self) -> None:
+            return None
+
+        async def save_run(self, _result: CompletedResult) -> None:
+            return None
+
+    class FakeSource:
+        def __init__(self, _word: str) -> None:
+            pass
+
+        async def process(self, _proxy: bool) -> None:
+            return None
+
+        async def get_hostnames(self) -> set[str]:
+            return {'api.example.com'}
+
+    class EmptyChecker:
+        query_error_count = 1
+        query_error_types = {'TimeoutError'}
+
+        def __init__(self, hosts: list[str], _nameservers: list[str]) -> None:
+            assert hosts == ['api.example.com']
+
+        async def check(self) -> tuple[list[str], list[str], list[str]]:
+            return [], [], []
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
+    monkeypatch.setattr(theharvester_main.certspottersearch, 'SearchCertspoter', FakeSource)
+    monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', EmptyChecker)
+
+    response = await theharvester_main.start(
+        EnumerationOptions(
+            domain='example.com',
+            source='certspotter',
+            dns_resolve='192.0.2.53',
+            quiet=True,
+        ),
+        return_completed_result=True,
+    )
+
+    completed = response[-1]
+    assert isinstance(completed, CompletedResult)
+    execution = completed.active_evidence.executions[0]
+    assert execution.action == 'dns-resolve'
+    assert execution.status == 'partial'
+    assert execution.result_count == 0
+    assert execution.error_type == 'TimeoutError'
+    assert execution.stop_reason == 'query-errors'
+
+
+@pytest.mark.asyncio
+async def test_requested_dns_resolve_without_inputs_is_skipped(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeResultStore:
+        async def initialize(self) -> None:
+            return None
+
+        async def save_run(self, _result: CompletedResult) -> None:
+            return None
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
+
+    response = await theharvester_main.start(
+        EnumerationOptions(domain='example.com', source='', dns_resolve='192.0.2.53', quiet=True),
+        return_completed_result=True,
+    )
+
+    completed = response[-1]
+    assert isinstance(completed, CompletedResult)
+    assert len(completed.active_evidence.executions) == 1
+    execution = completed.active_evidence.executions[0]
+    assert execution.action == 'dns-resolve'
+    assert execution.status == 'skipped'
+    assert execution.stop_reason == 'no-input'
+
+
+@pytest.mark.asyncio
+async def test_rest_dns_lookup_runs_before_return_and_retains_action_evidence(monkeypatch: pytest.MonkeyPatch) -> None:
+    completed: list[CompletedResult] = []
+
+    class FakeResultStore:
+        async def initialize(self) -> None:
+            return None
+
+        async def save_run(self, result: CompletedResult) -> None:
+            completed.append(result)
+
+    class FakeSecurityScorecard:
+        def __init__(self, domain: str) -> None:
+            assert domain == 'example.com'
+
+        async def process(self, _proxy: bool) -> None:
+            return None
+
+        async def get_hostnames(self) -> set[str]:
+            return set()
+
+        async def get_ips(self) -> set[str]:
+            return {'192.0.2.10'}
+
+    async def fake_reverse(
+        iprange: str,
+        callback,
+        nameservers: list[str] | None = None,
+        error_types: set[str] | None = None,
+    ) -> None:
+        assert iprange == '192.0.2.0/24'
+        assert nameservers is None
+        callback('PTR.example.com.')
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
+    monkeypatch.setattr(theharvester_main.securityscorecard, 'SearchSecurityScorecard', FakeSecurityScorecard)
+    monkeypatch.setattr(theharvester_main.dnssearch, 'reverse_all_ips_in_range', fake_reverse)
+
+    response = await theharvester_main.start(
+        EnumerationOptions(domain='example.com', source='securityscorecard', dns_lookup=True, quiet=True),
+        persist_completed_result=True,
+    )
+
+    assert len(response) == 9
+    assert response[8] == ['ptr.example.com']
+    assert len(completed) == 1
+    execution = completed[0].active_evidence.executions[0]
+    assert execution.action == 'dns-lookup'
+    assert execution.status == 'completed'
+    assert execution.error_type is None
+    assert execution.stop_reason is None
+    assert execution.observations[0].kind == 'hostname'
+    assert execution.observations[0].value == 'ptr.example.com'
+
+
+@pytest.mark.asyncio
+async def test_requested_dns_lookup_without_ip_ranges_is_skipped(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeResultStore:
+        async def initialize(self) -> None:
+            return None
+
+        async def save_run(self, _result: CompletedResult) -> None:
+            return None
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
+
+    response = await theharvester_main.start(
+        EnumerationOptions(domain='example.com', source='', dns_lookup=True, quiet=True),
+        return_completed_result=True,
+    )
+
+    completed = response[-1]
+    assert isinstance(completed, CompletedResult)
+    assert len(completed.active_evidence.executions) == 1
+    execution = completed.active_evidence.executions[0]
+    assert execution.action == 'dns-lookup'
+    assert execution.status == 'skipped'
+    assert execution.result_count == 0
+    assert execution.stop_reason == 'no-input'
+
+
+@pytest.mark.asyncio
+async def test_dns_lookup_cancels_sibling_ranges_and_persists_partial_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    completed: list[CompletedResult] = []
+    sibling_started = asyncio.Event()
+    sibling_cancelled = asyncio.Event()
+
+    class FakeResultStore:
+        async def initialize(self) -> None:
+            return None
+
+        async def save_run(self, result: CompletedResult) -> None:
+            completed.append(result)
+
+    class FakeSecurityScorecard:
+        def __init__(self, _domain: str) -> None:
+            pass
+
+        async def process(self, _proxy: bool) -> None:
+            return None
+
+        async def get_hostnames(self) -> set[str]:
+            return set()
+
+        async def get_ips(self) -> set[str]:
+            return {'192.0.2.10', '198.51.100.10'}
+
+    async def fake_reverse(
+        iprange: str,
+        callback,
+        nameservers: list[str] | None = None,
+        error_types: set[str] | None = None,
+    ) -> None:
+        assert nameservers is None
+        if iprange == '192.0.2.0/24':
+            callback('partial.example.com')
+            await sibling_started.wait()
+            raise asyncio.CancelledError
+        sibling_started.set()
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            sibling_cancelled.set()
+            raise
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
+    monkeypatch.setattr(theharvester_main.securityscorecard, 'SearchSecurityScorecard', FakeSecurityScorecard)
+    monkeypatch.setattr(theharvester_main.dnssearch, 'reverse_all_ips_in_range', fake_reverse)
+
+    with pytest.raises(asyncio.CancelledError):
+        await theharvester_main.start(
+            EnumerationOptions(domain='example.com', source='securityscorecard', dns_lookup=True, quiet=True),
+            persist_completed_result=True,
+        )
+
+    assert sibling_cancelled.is_set()
+    assert len(completed) == 1
+    execution = completed[0].active_evidence.executions[0]
+    assert execution.action == 'dns-lookup'
+    assert execution.status == 'partial'
+    assert execution.error_type == 'CancelledError'
+    assert execution.stop_reason == 'cancelled'
+    assert [(observation.kind, observation.value) for observation in execution.observations] == [
+        ('hostname', 'partial.example.com')
+    ]
 
 
 @pytest.mark.asyncio
@@ -604,6 +1131,7 @@ async def test_recursive_dns_results_reach_completed_output_without_changing_leg
 ) -> None:
     completed: list[CompletedResult] = []
     captured: list[tuple[str, tuple[str, ...], int, int]] = []
+    closed: list[str] = []
     output_path = tmp_path / 'recursive-dns'
 
     class FakeResultStore:
@@ -639,7 +1167,7 @@ async def test_recursive_dns_results_reach_completed_output_without_changing_leg
             assert target == 'example.com'
 
         async def close(self) -> None:
-            return None
+            closed.append(self.name)
 
     async def fake_recursive(target, seeds, _labels, _resolvers, limits):
         captured.append((target, tuple(seeds), limits.depth, limits.query_limit))
@@ -695,6 +1223,7 @@ async def test_recursive_dns_results_reach_completed_output_without_changing_leg
 
     assert exit_info.value.code == 0
     assert captured == [('example.com', ('api.example.com',), 1, 3_000)]
+    assert sorted(closed) == ['192.0.2.53', '192.0.2.54', '192.0.2.55']
     assert completed
     assert ('hostname', 'dev.api.example.com') in completed[0].results
     assert ('ip-address', '192.0.2.2') in completed[0].results
@@ -746,6 +1275,53 @@ async def test_recursive_dns_results_reach_completed_output_without_changing_leg
             sort_keys=True,
         ),
     ) in completed[0].results
+    recursive_execution = next(
+        execution for execution in completed[0].active_evidence.executions if execution.action == 'dns-recursive'
+    )
+    assert recursive_execution.status == 'completed'
+    assert recursive_execution.stop_reason == 'depth-limit'
+    assert recursive_execution.result_count == 6
+    assert {(observation.kind, observation.value) for observation in recursive_execution.observations} >= {
+        ('hostname', 'dev.api.example.com'),
+        ('ip-address', '192.0.2.2'),
+        ('ip-address', '2001:db8::2'),
+    }
+
+
+@pytest.mark.asyncio
+async def test_requested_recursive_dns_without_seed_hosts_is_skipped(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeResultStore:
+        async def initialize(self) -> None:
+            return None
+
+        async def save_run(self, _result: CompletedResult) -> None:
+            return None
+
+    async def unexpected_recursive(*_args, **_kwargs):
+        raise AssertionError('recursive discovery must not start without seed hostnames')
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
+    monkeypatch.setattr(theharvester_main, 'discover_recursive_dns', unexpected_recursive)
+
+    response = await theharvester_main.start(
+        EnumerationOptions(
+            domain='example.com',
+            source='',
+            dns_resolve='192.0.2.53,192.0.2.54,192.0.2.55',
+            dns_recursive_depth=1,
+            quiet=True,
+        ),
+        return_completed_result=True,
+    )
+
+    completed = response[-1]
+    assert isinstance(completed, CompletedResult)
+    recursive_execution = next(
+        execution for execution in completed.active_evidence.executions if execution.action == 'dns-recursive'
+    )
+    assert recursive_execution.status == 'skipped'
+    assert recursive_execution.result_count == 0
+    assert recursive_execution.stop_reason == 'no-input'
 
 
 @pytest.mark.parametrize('error_type', [RuntimeError, asyncio.CancelledError])
@@ -754,6 +1330,7 @@ async def test_recursive_dns_closes_resolvers_on_failure_and_preserves_cancellat
     monkeypatch: pytest.MonkeyPatch, error_type: type[BaseException]
 ) -> None:
     closed: list[str] = []
+    completed: list[CompletedResult] = []
 
     class FakeResultStore:
         async def initialize(self) -> None:
@@ -762,8 +1339,8 @@ async def test_recursive_dns_closes_resolvers_on_failure_and_preserves_cancellat
         async def record_observations(self, *_args) -> None:
             return None
 
-        async def save_run(self, _result: CompletedResult) -> None:
-            return None
+        async def save_run(self, result: CompletedResult) -> None:
+            completed.append(result)
 
     class FakeCrtsh:
         def __init__(self, _word: str) -> None:
@@ -822,3 +1399,10 @@ async def test_recursive_dns_closes_resolvers_on_failure_and_preserves_cancellat
         assert exit_info.value.code == 0
 
     assert sorted(closed) == ['192.0.2.53', '192.0.2.54', '192.0.2.55']
+    assert len(completed) == 1
+    recursive_execution = next(
+        execution for execution in completed[0].active_evidence.executions if execution.action == 'dns-recursive'
+    )
+    assert recursive_execution.status == 'failed'
+    assert recursive_execution.error_type == error_type.__name__
+    assert recursive_execution.stop_reason == ('cancelled' if issubclass(error_type, asyncio.CancelledError) else None)

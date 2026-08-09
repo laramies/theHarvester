@@ -194,6 +194,43 @@ async def test_dns_force_defaults_diagnostics_for_existing_checker_contract(monk
 
 
 @pytest.mark.asyncio
+async def test_reverse_single_ip_keeps_transport_failures_as_empty_results() -> None:
+    class FakeResolver:
+        async def gethostbyaddr(self, _ip: str):
+            raise TimeoutError('resolver timed out')
+
+    assert await dnssearch.reverse_single_ip('192.0.2.10', FakeResolver()) == ''
+
+
+@pytest.mark.asyncio
+async def test_reverse_range_reports_only_unexpected_ptr_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    not_found = hostchecker.aiodns.error.DNSError(hostchecker.aiodns.error.ARES_ENOTFOUND, 'not found')
+
+    class FakeResolver:
+        async def gethostbyaddr(self, ip: str):
+            if ip == '192.0.2.1':
+                return SimpleNamespace(name='api.example.com')
+            if ip == '192.0.2.2':
+                raise not_found
+            raise TimeoutError('resolver timed out')
+
+    monkeypatch.setattr(dnssearch, 'list_ips_in_network_range', lambda _range: ['192.0.2.1', '192.0.2.2', '192.0.2.3'])
+    monkeypatch.setattr(dnssearch, 'DNSResolver', lambda **_kwargs: FakeResolver())
+    monkeypatch.setattr(dnssearch, 'log_query', lambda _ip: None)
+    results: list[str] = []
+    error_types: set[str] = set()
+
+    await dnssearch.reverse_all_ips_in_range(
+        '192.0.2.0/24',
+        results.append,
+        error_types=error_types,
+    )
+
+    assert results == ['api.example.com', '', '']
+    assert error_types == {'TimeoutError'}
+
+
+@pytest.mark.asyncio
 async def test_check_propagates_cancellation(monkeypatch: pytest.MonkeyPatch) -> None:
     class FakeResolver:
         async def query_dns(self, _host: str, _record_type: str):

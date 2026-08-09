@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import inspect
 import json
 import logging
 import os
@@ -84,6 +85,7 @@ from theHarvester.discovery import (
 )
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib import hostchecker
+from theHarvester.lib.active_evidence import ActionExecution, ActiveEvidence
 from theHarvester.lib.completed_result import (
     EXECUTION_STATUSES,
     CompletedResult,
@@ -106,7 +108,6 @@ from theHarvester.lib.output import configure_logging, output_logger, print_link
 from theHarvester.lib.recursive_dns import (
     DEFAULT_RECURSIVE_DNS_QUERY_LIMIT,
     RecursiveDNSLimits,
-    RecursiveDNSResult,
     discover_recursive_dns,
 )
 from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass, ResultRoute, SourceSpec, get_source_spec
@@ -306,12 +307,12 @@ async def start(
         if rest_args.source and rest_args.source == 'getsources':
             return list(sorted(Core.get_supportedengines()))
         args = EnumerationOptions.from_namespace(rest_args)
+        filename = args.filename
         if args.dns_brute:
             dnsbrute = (args.dns_brute, return_dns_brute_result)
         else:
             dnsbrute = (args.dns_brute, False)
             # We need to make sure the filename is random as to not overwrite other files
-            filename: str = args.filename
             alphabet = string.ascii_letters + string.digits
             rest_filename += f'{"".join(secrets.choice(alphabet) for _ in range(32))}_{filename}' if len(filename) != 0 else ''
     else:
@@ -432,8 +433,6 @@ async def start(
     screenshot_results: list[str] = []
     shodan_evidence: list[str] = []
     takeover_results: dict[str, list[dict[str, str]]] = {}
-    recursive_result: RecursiveDNSResult | None = None
-
     linkedin_people_list_tracker = []
     linkedin_links_tracker = []
     twitter_people_list_tracker = []
@@ -442,6 +441,14 @@ async def start(
     total_asns = []
     source_executions: list[SourceExecution] = []
     observations: set[ResultObservation] = set()
+    action_executions: list[ActionExecution] = []
+    dns_resolution_duration_ms = 0.0
+    dns_resolution_ips: set[str] = set()
+    dns_resolution_completed_count = 0
+    dns_resolution_query_error_count = 0
+    dns_resolution_error_types: set[str] = set()
+    dns_resolution_failure_types: set[str] = set()
+    dns_resolution_cancelled = False
 
     def finish_completed_result(
         *,
@@ -455,58 +462,6 @@ async def start(
             'asn': map(str, total_asns),
             'breach': map(str, all_breaches),
             'cms': map(str, all_cms),
-            'dns-recursive-finding': (
-                (
-                    json.dumps(
-                        {
-                            'addresses': list(finding.records.addresses),
-                            'hostname': finding.hostname,
-                            'parent': finding.parent,
-                            'ptrs': list(finding.ptrs),
-                        },
-                        separators=(',', ':'),
-                        sort_keys=True,
-                    )
-                    for finding in recursive_result.findings
-                )
-                if recursive_result is not None
-                else ()
-            ),
-            'dns-recursive-classification': (
-                (
-                    json.dumps(
-                        {
-                            'addressability': classification.addressability.value,
-                            'addresses': list(classification.records.addresses),
-                            'cnames': list(classification.records.cnames),
-                            'hostname': classification.hostname,
-                            'parent': classification.parent,
-                            'ptrs': list(classification.ptrs),
-                        },
-                        separators=(',', ':'),
-                        sort_keys=True,
-                    )
-                    for classification in recursive_result.classifications
-                )
-                if recursive_result is not None
-                else ()
-            ),
-            'dns-recursive-summary': (
-                (
-                    json.dumps(
-                        {
-                            'depth_reached': recursive_result.depth_reached,
-                            'query_count': recursive_result.query_count,
-                            'stop_reason': recursive_result.stop_reason,
-                            'zero_yield_batches': recursive_result.zero_yield_batches,
-                        },
-                        separators=(',', ':'),
-                        sort_keys=True,
-                    ),
-                )
-                if recursive_result is not None
-                else ()
-            ),
             'email': map(str, all_emails),
             'framework': map(str, all_frameworks),
             'hostname': _normalize_hosts_for_storage(all_hosts, word),
@@ -546,6 +501,7 @@ async def start(
                 groups=groups,
                 source_executions=source_executions,
                 observations=observations,
+                active_evidence=ActiveEvidence(tuple(action_executions)),
             )
         except (ValueError, TypeError) as error:
             output_logger.info(f'[!] An error occurred while completing the result: {error}')
@@ -570,6 +526,66 @@ async def start(
         ):
             await completed_result_checkpoint(result)
 
+    async def persist_result(completed_result: CompletedResult | None) -> None:
+        if completed_result is None:
+            return
+        try:
+            await db.save_run(completed_result)
+        except Exception as error:
+            output_logger.info(f'[!] An error occurred while storing the completed result: {error}')
+
+    def record_dns_resolution_execution(*, handler_cancelled: bool = False) -> None:
+        if dnsresolve == '':
+            return
+        if dnsresolve is not None and not final_dns_resolver_list:
+            action_executions.append(
+                ActionExecution.finish(
+                    action='dns-resolve',
+                    status='skipped',
+                    duration_ms=0,
+                    groups={},
+                    stop_reason='no-valid-resolvers',
+                )
+            )
+            return
+        if handler_cancelled and not (
+            dns_resolution_cancelled
+            or dns_resolution_completed_count
+            or dns_resolution_failure_types
+            or dns_resolution_query_error_count
+        ):
+            return
+
+        status: ExecutionStatus
+        error_type: str | None = None
+        stop_reason: str | None = None
+        if dns_resolution_cancelled:
+            status = 'partial' if dns_resolution_completed_count else 'failed'
+            error_type = 'CancelledError'
+            stop_reason = 'cancelled'
+        elif dns_resolution_failure_types:
+            status = 'partial' if dns_resolution_completed_count else 'failed'
+            error_type = next(iter(sorted(dns_resolution_failure_types)))
+        elif dns_resolution_completed_count:
+            status = 'partial' if dns_resolution_query_error_count else 'completed'
+            error_type = next(iter(sorted(dns_resolution_error_types)), None)
+            stop_reason = 'query-errors' if dns_resolution_query_error_count else None
+        elif not handler_cancelled:
+            status = 'skipped'
+            stop_reason = 'no-input'
+        else:
+            return
+        action_executions.append(
+            ActionExecution.finish(
+                action='dns-resolve',
+                status=status,
+                duration_ms=dns_resolution_duration_ms,
+                groups={'ip-address': dns_resolution_ips},
+                error_type=error_type,
+                stop_reason=stop_reason,
+            )
+        )
+
     async def collect_and_store(
         search_engine: Any,
         source_spec: SourceSpec,
@@ -580,6 +596,9 @@ async def start(
         :param search_engine: search engine to fetch details from
         :param source_spec: canonical source identity and declared result routes
         """
+        nonlocal dns_resolution_cancelled, dns_resolution_completed_count
+        nonlocal dns_resolution_duration_ms, dns_resolution_query_error_count
+
         await search_engine.process(use_proxy)
         source = source_spec.name
         routes = source_spec.routes
@@ -606,17 +625,31 @@ async def start(
             if source != 'hackertarget' and source != 'pentesttools':
                 # If a source is inside this conditional, it means the hosts returned must be resolved to obtain ip
                 # This should only be checked if --dns-resolve has a wordlist
-                if dnsresolve is None or len(final_dns_resolver_list) > 0:
+                hosts_to_resolve = [host for host in host_names if host not in paired_hosts]
+                if (dnsresolve is None or final_dns_resolver_list) and hosts_to_resolve:
                     # indicates that -r was passed in if dnsresolve is None
-                    full_hosts_checker = hostchecker.Checker(
-                        [host for host in host_names if host not in paired_hosts], final_dns_resolver_list
-                    )
-                    # If full, this is only getting resolved hosts
-                    (
-                        resolved_pair,
-                        resolved_hosts,
-                        temp_ips,
-                    ) = await full_hosts_checker.check()
+                    dns_resolution_started = time.perf_counter()
+                    try:
+                        full_hosts_checker = hostchecker.Checker(hosts_to_resolve, final_dns_resolver_list)
+                        # If full, this is only getting resolved hosts
+                        (
+                            resolved_pair,
+                            resolved_hosts,
+                            temp_ips,
+                        ) = await full_hosts_checker.check()
+                    except asyncio.CancelledError:
+                        dns_resolution_duration_ms += (time.perf_counter() - dns_resolution_started) * 1000
+                        dns_resolution_cancelled = True
+                        raise
+                    except Exception as error:
+                        dns_resolution_duration_ms += (time.perf_counter() - dns_resolution_started) * 1000
+                        dns_resolution_failure_types.add(type(error).__name__)
+                        raise
+                    dns_resolution_duration_ms += (time.perf_counter() - dns_resolution_started) * 1000
+                    dns_resolution_completed_count += 1
+                    dns_resolution_query_error_count += getattr(full_hosts_checker, 'query_error_count', 0)
+                    dns_resolution_error_types.update(getattr(full_hosts_checker, 'query_error_types', set()))
+                    dns_resolution_ips.update(_normalize_ip_addresses(temp_ips))
                     all_ip.extend(temp_ips)
                     full.extend(resolved_pair)
                     if source == 'rapiddns':
@@ -708,6 +741,20 @@ async def start(
                 execution_status = cast('ExecutionStatus', reported_status)
             else:
                 raise ValueError(f'Source {source_name} reported invalid execution status: {reported_status!r}')
+        except asyncio.CancelledError:
+            result_count = len(source_observations)
+            source_executions.append(
+                SourceExecution(
+                    source_name,
+                    'partial' if result_count else 'failed',
+                    (time.perf_counter() - started) * 1000,
+                    result_count,
+                    'CancelledError',
+                    'cancelled',
+                )
+            )
+            observations.update(source_observations)
+            raise
         except Exception as error:
             logger.exception(f'Source {source_name} failed')
             result_count = len(source_observations)
@@ -1586,12 +1633,12 @@ async def start(
             stor = await queue.get()
             try:
                 await stor
-                queue.task_done()
-                # Notify the queue that the "work item" has been processed.
             except Exception as work_item_error:
                 output_logger.info(
                     f'\n An error occurred while processing a "work item": {type(work_item_error).__name__}: {work_item_error}\n'
                 )
+            finally:
+                # Notify the queue that the "work item" has been processed.
                 queue.task_done()
 
     async def handler(lst):
@@ -1605,16 +1652,36 @@ async def start(
             task = asyncio.create_task(worker(queue))
             tasks.append(task)
 
-        # Wait until the queue is fully processed.
-        await queue.join()
+        join_task = asyncio.create_task(queue.join())
+        try:
+            done, _pending = await asyncio.wait((join_task, *tasks), return_when=asyncio.FIRST_COMPLETED)
+            finished_workers = [task for task in tasks if task in done]
+            if any(task.cancelled() for task in finished_workers):
+                raise asyncio.CancelledError
+            for task in finished_workers:
+                if error := task.exception():
+                    raise error
+            if finished_workers:
+                raise RuntimeError('A source worker stopped before the queue was drained')
+            await join_task
+        finally:
+            join_task.cancel()
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(join_task, *tasks, return_exceptions=True)
+            while not queue.empty():
+                pending_work = queue.get_nowait()
+                if inspect.iscoroutine(pending_work):
+                    pending_work.close()
+                queue.task_done()
 
-        # Cancel our worker tasks.
-        for task in tasks:
-            task.cancel()
-        # Wait until all worker tasks are cancelled.
-        await asyncio.gather(*tasks, return_exceptions=True)
-
-    await handler(lst=stor_lst)
+    try:
+        await handler(lst=stor_lst)
+    except asyncio.CancelledError:
+        record_dns_resolution_execution(handler_cancelled=True)
+        await checkpoint_completed_result(committed_sources_only=True)
+        await persist_result(finish_completed_result(committed_sources_only=True))
+        raise
 
     recorded_sources = {result.source.casefold() for result in source_executions}
     source_executions.extend(
@@ -1622,9 +1689,23 @@ async def start(
         for engine in engines
         if engine.casefold() not in recorded_sources
     )
+    record_dns_resolution_execution()
     await checkpoint_completed_result()
 
-    if recursive_limits is not None:
+    recursive_seeds = sorted(_normalize_hosts_for_storage(all_hosts, word)) if recursive_limits is not None else []
+    if recursive_limits is not None and not recursive_seeds:
+        action_executions.append(
+            ActionExecution.finish(
+                action='dns-recursive',
+                status='skipped',
+                duration_ms=0,
+                groups={},
+                stop_reason='no-input',
+            )
+        )
+        await checkpoint_completed_result()
+    elif recursive_limits is not None:
+        recursive_started = time.perf_counter()
         try:
             async with AsyncExitStack() as resolver_stack:
                 resolvers = []
@@ -1634,11 +1715,51 @@ async def start(
                     resolver_stack.push_async_callback(resolver.close)
                 recursive_result = await discover_recursive_dns(
                     word,
-                    all_hosts,
+                    recursive_seeds,
                     dnssearch.DNS_NAMES.read_text(encoding='utf-8').splitlines(),
                     resolvers,
                     recursive_limits,
                 )
+            recursive_finding_evidence = tuple(
+                json.dumps(
+                    {
+                        'addresses': list(finding.records.addresses),
+                        'hostname': finding.hostname,
+                        'parent': finding.parent,
+                        'ptrs': list(finding.ptrs),
+                    },
+                    separators=(',', ':'),
+                    sort_keys=True,
+                )
+                for finding in recursive_result.findings
+            )
+            recursive_classification_evidence = tuple(
+                json.dumps(
+                    {
+                        'addressability': classification.addressability.value,
+                        'addresses': list(classification.records.addresses),
+                        'cnames': list(classification.records.cnames),
+                        'hostname': classification.hostname,
+                        'parent': classification.parent,
+                        'ptrs': list(classification.ptrs),
+                    },
+                    separators=(',', ':'),
+                    sort_keys=True,
+                )
+                for classification in recursive_result.classifications
+            )
+            recursive_summary_evidence = (
+                json.dumps(
+                    {
+                        'depth_reached': recursive_result.depth_reached,
+                        'query_count': recursive_result.query_count,
+                        'stop_reason': recursive_result.stop_reason,
+                        'zero_yield_batches': recursive_result.zero_yield_batches,
+                    },
+                    separators=(',', ':'),
+                    sort_keys=True,
+                ),
+            )
             recursive_hosts = [finding.hostname for finding in recursive_result.findings]
             recursive_ips = [address for finding in recursive_result.findings for address in finding.records.addresses]
             all_hosts.extend(recursive_hosts)
@@ -1650,27 +1771,63 @@ async def start(
                     reported_host_ip_pairs.update((finding.hostname, address) for address in finding.records.addresses)
                 else:
                     full.append(finding.hostname)
-            await db.record_observations(word, recursive_hosts, 'hostname', 'dns_recursive')
-            await db.record_observations(word, recursive_ips, 'ip-address', 'dns_recursive')
+        except asyncio.CancelledError:
+            action_executions.append(
+                ActionExecution.finish(
+                    action='dns-recursive',
+                    status='failed',
+                    duration_ms=(time.perf_counter() - recursive_started) * 1000,
+                    groups={},
+                    error_type='CancelledError',
+                    stop_reason='cancelled',
+                )
+            )
+            await checkpoint_completed_result()
+            await persist_result(finish_completed_result())
+            raise
+        except Exception as error:
+            action_executions.append(
+                ActionExecution.finish(
+                    action='dns-recursive',
+                    status='failed',
+                    duration_ms=(time.perf_counter() - recursive_started) * 1000,
+                    groups={},
+                    error_type=type(error).__name__,
+                )
+            )
+            await checkpoint_completed_result()
+            output_logger.info(f'[!] Recursive DNS discovery failed: {type(error).__name__}')
+        else:
+            action_executions.append(
+                ActionExecution.finish(
+                    action='dns-recursive',
+                    status='partial' if recursive_result.stop_reason in {'query-limit', 'runtime-limit'} else 'completed',
+                    duration_ms=(time.perf_counter() - recursive_started) * 1000,
+                    groups={
+                        'hostname': recursive_hosts,
+                        'ip-address': recursive_ips,
+                        'dns-recursive-finding': recursive_finding_evidence,
+                        'dns-recursive-classification': recursive_classification_evidence,
+                        'dns-recursive-summary': recursive_summary_evidence,
+                    },
+                    stop_reason=recursive_result.stop_reason,
+                )
+            )
             output_logger.info(
                 '[*] Recursive DNS: '
                 f'hosts={len(recursive_hosts)}; queries={recursive_result.query_count}; '
                 f'depth={recursive_result.depth_reached}; stop={recursive_result.stop_reason}'
             )
             await checkpoint_completed_result()
-        except Exception as error:
-            output_logger.info(f'[!] Recursive DNS discovery failed: {type(error).__name__}')
-
-    async def persist_result(completed_result: CompletedResult | None) -> None:
-        if completed_result is None:
-            return
-        try:
-            await db.save_run(completed_result)
-        except Exception as error:
-            output_logger.info(f'[!] An error occurred while storing the completed result: {error}')
 
     return_ips: list = []
-    if rest_args is not None and len(rest_filename) == 0 and rest_args.dns_brute is False and not return_completed_result:
+    if (
+        rest_args is not None
+        and len(rest_filename) == 0
+        and rest_args.dns_brute is False
+        and not dnslookup
+        and not return_completed_result
+    ):
         # Indicates user is using REST api but not wanting output to be saved to a file
         # cast to string so Rest API can understand the type
         return_ips.extend([str(ip) for ip in sorted([netaddr.IPAddress(ip.strip()) for ip in set(all_ip)])])
@@ -1793,13 +1950,6 @@ async def start(
             output_logger.info('---------------------')
             for host in full:
                 output_logger.info(host)
-                try:
-                    if ':' in host:
-                        _, addr = host.split(':', 1)
-                        await db.record_observations(word, [addr], 'ip-address', 'DNS-resolver')
-                except (OSError, RuntimeError, ValueError, TypeError) as e:
-                    output_logger.info(f'An exception has occurred while attempting to insert: {host} IP into DB: {e}')
-                    continue
         else:
             all_hosts = sorted_unique(all_hosts)
             output_logger.info('\n[*] Hosts found: ' + str(len(all_hosts)))
@@ -1809,13 +1959,41 @@ async def start(
 
     # DNS brute force
     if dnsbrute and dnsbrute[0] is True:
+        dns_brute_started = time.perf_counter()
         output_logger.info('\n[*] Starting DNS brute force.')
-        dns_force = dnssearch.DnsForce(word, final_dns_resolver_list, verbose=True)
-        resolved_pair, hosts, ips = await dns_force.run()
+        try:
+            dns_force = dnssearch.DnsForce(word, final_dns_resolver_list, verbose=True)
+            resolved_pair, hosts, ips = await dns_force.run()
+        except asyncio.CancelledError:
+            action_executions.append(
+                ActionExecution.finish(
+                    action='dns-brute',
+                    status='failed',
+                    duration_ms=(time.perf_counter() - dns_brute_started) * 1000,
+                    groups={},
+                    error_type='CancelledError',
+                    stop_reason='cancelled',
+                )
+            )
+            await checkpoint_completed_result()
+            await persist_result(finish_completed_result())
+            raise
+        except Exception as error:
+            action_executions.append(
+                ActionExecution.finish(
+                    action='dns-brute',
+                    status='failed',
+                    duration_ms=(time.perf_counter() - dns_brute_started) * 1000,
+                    groups={},
+                    error_type=type(error).__name__,
+                )
+            )
+            await checkpoint_completed_result()
+            await persist_result(finish_completed_result())
+            raise
         resolved_screenshot_hosts.update(hosts)
-        # Check if Rest API is being used if so return found hosts
-        if dnsbrute[1]:
-            return resolved_pair
+        normalized_brute_hosts = _normalize_hosts_for_storage(hosts, word)
+        normalized_brute_ips = _normalize_ip_addresses(ips)
         temp = set()
         for host in resolved_pair:
             if ':' in host:
@@ -1838,8 +2016,26 @@ async def start(
         output_logger.info('\n[*] Hosts found after DNS brute force:')
         for sub in temp:
             output_logger.info(sub)
-        await db.record_observations(word, list(sorted(temp)), 'hostname', 'dns_bruteforce')
+        dns_brute_error_count = getattr(dns_force, 'query_error_count', 0)
+        dns_brute_error_types: set[str] = set(getattr(dns_force, 'query_error_types', set()))
+        dns_brute_status: ExecutionStatus = 'completed'
+        if dns_brute_error_count:
+            dns_brute_status = 'partial'
+        action_executions.append(
+            ActionExecution.finish(
+                action='dns-brute',
+                status=dns_brute_status,
+                duration_ms=(time.perf_counter() - dns_brute_started) * 1000,
+                groups={'hostname': normalized_brute_hosts, 'ip-address': normalized_brute_ips},
+                error_type=next(iter(sorted(dns_brute_error_types)), None),
+                stop_reason='query-errors' if dns_brute_error_count else None,
+            )
+        )
         await checkpoint_completed_result()
+        # Preserve the dedicated utility response after retaining its completed evidence.
+        if dnsbrute[1]:
+            await persist_result(finish_completed_result())
+            return resolved_pair
 
     # TakeOver Checking
     if takeover_status:
@@ -1853,10 +2049,12 @@ async def start(
     # DNS reverse lookup
     dnsrev: list = []
     if dnslookup is True:
+        dns_lookup_started = time.perf_counter()
+        dns_lookup_error_types: set[str] = set()
         output_logger.info('\n[*] Starting active queries for DNSLookup.')
 
         # reverse each iprange in a separate task
-        __reverse_dns_tasks: dict = {}
+        __reverse_dns_tasks: dict[str, asyncio.Task[None]] = {}
         for entry in host_ip:
             __ip_range = dnssearch.serialize_ip_range(ip=entry, netmask='24')
             if __ip_range and __ip_range not in set(__reverse_dns_tasks.keys()):
@@ -1868,16 +2066,56 @@ async def start(
                             target=word, local_results=dnsrev, overall_results=full
                         ),
                         nameservers=(final_dns_resolver_list if len(final_dns_resolver_list) > 0 else None),
+                        error_types=dns_lookup_error_types,
                     )
                 )
                 # nameservers=list(map(str, dnsserver.split(','))) if dnsserver else None))
 
         # run all the reversing tasks concurrently
-        await asyncio.gather(*__reverse_dns_tasks.values())
+        try:
+            await asyncio.gather(*__reverse_dns_tasks.values())
+        except (asyncio.CancelledError, Exception) as error:
+            for task in __reverse_dns_tasks.values():
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(*__reverse_dns_tasks.values(), return_exceptions=True)
+            normalized_reverse_hosts = _normalize_hosts_for_storage(dnsrev, word)
+            action_executions.append(
+                ActionExecution.finish(
+                    action='dns-lookup',
+                    status='partial' if normalized_reverse_hosts else 'failed',
+                    duration_ms=(time.perf_counter() - dns_lookup_started) * 1000,
+                    groups={'hostname': normalized_reverse_hosts},
+                    error_type=type(error).__name__,
+                    stop_reason='cancelled' if isinstance(error, asyncio.CancelledError) else None,
+                )
+            )
+            await checkpoint_completed_result(extra_hostnames=dnsrev)
+            await persist_result(finish_completed_result(extra_hostnames=dnsrev))
+            raise
         output_logger.info('\n[*] Hosts found after reverse lookup (in target domain):')
         output_logger.info('--------------------------------------------------------')
         for xh in dnsrev:
             output_logger.info(xh)
+        normalized_reverse_hosts = _normalize_hosts_for_storage(dnsrev, word)
+        dns_lookup_status: ExecutionStatus = 'completed'
+        dns_lookup_stop_reason = None
+        if not __reverse_dns_tasks:
+            dns_lookup_status = 'skipped'
+            dns_lookup_stop_reason = 'no-input'
+        elif dns_lookup_error_types:
+            dns_lookup_status = 'partial'
+            dns_lookup_stop_reason = 'query-errors'
+        action_executions.append(
+            ActionExecution.finish(
+                action='dns-lookup',
+                status=dns_lookup_status,
+                duration_ms=(time.perf_counter() - dns_lookup_started) * 1000,
+                groups={'hostname': normalized_reverse_hosts},
+                error_type=next(iter(sorted(dns_lookup_error_types)), None),
+                stop_reason=dns_lookup_stop_reason,
+            )
+        )
         await checkpoint_completed_result(extra_hostnames=dnsrev)
 
     # Screenshots
@@ -2176,7 +2414,7 @@ async def start(
     await persist_result(completed_result)
 
     if rest_args is not None:
-        all_hosts = sorted_unique(all_hosts)
+        all_hosts = sorted_unique((*all_hosts, *_normalize_hosts_for_storage(dnsrev, word)))
         result = (
             total_asns,
             interesting_urls,

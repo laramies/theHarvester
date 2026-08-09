@@ -325,7 +325,9 @@ async def dnsbrute(
                 wordlist='',
                 api_scan=False,
                 dns_resolve=dns_resolve,
-            )
+            ),
+            persist_completed_result=True,
+            return_dns_brute_result=True,
         )
 
         return JSONResponse({'dns_bruteforce': dns_bruteforce})

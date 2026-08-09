@@ -36,6 +36,28 @@ def test_query_expands_source_capability(monkeypatch) -> None:
     assert captured[0][1] is True
 
 
+def test_dnsbrute_returns_its_result_list_and_requests_persistence(monkeypatch) -> None:
+    captured: list[tuple[Namespace, bool, bool]] = []
+
+    async def fake_start(
+        args: Namespace,
+        *,
+        persist_completed_result: bool = False,
+        return_dns_brute_result: bool = False,
+    ):
+        captured.append((args, persist_completed_result, return_dns_brute_result))
+        return ['api.example.test:192.0.2.10']
+
+    monkeypatch.setattr(api.__main__, 'start', fake_start)
+
+    response = TestClient(api.app).get('/dnsbrute?domain=example.test')
+
+    assert response.status_code == 200
+    assert response.json() == {'dns_bruteforce': ['api.example.test:192.0.2.10']}
+    assert captured[0][0].dns_brute is True
+    assert captured[0][1:] == (True, True)
+
+
 def test_query_allows_api_scan_of_operator_selected_private_target(monkeypatch) -> None:
     captured: list[Namespace] = []
 
