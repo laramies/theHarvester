@@ -3,7 +3,6 @@ services:
     image: theharvester:local
     build:
       context: .
-      target: runtime
     init: true
     restart: unless-stopped
     read_only: true
@@ -16,8 +15,6 @@ services:
       - /tmp:rw,noexec,nosuid,nodev,size=128m
     environment:
       THEHARVESTER_API_KEY_FILE: /run/secrets/operator-api-key
-      THEHARVESTER_RUN_ARTIFACTS: /var/lib/theharvester/run-artifacts
-      THEHARVESTER_RUN_DB: /var/lib/theharvester/runs.sqlite
       THEHARVESTER_HARVESTVIEW_LOCAL_PROXY: enabled
     secrets:
       - source: operator-api-key

@@ -24,6 +24,15 @@ def test_container_rebuilds_the_local_package_when_source_changes() -> None:
     assert '--reinstall-package theharvester' in dockerfile
 
 
+def test_container_smoke_uses_the_unversioned_jsonl_contract() -> None:
+    workflow = (REPO_ROOT / '.github/workflows/harvestview-container.yml').read_text(encoding='utf-8')
+
+    assert '"evidence_status":"complete"' in workflow
+    assert '"type":"ip"' in workflow
+    assert 'ip-address' not in workflow
+    assert 'schema_version' not in workflow
+
+
 def test_compose_keeps_harvestview_local_and_persists_private_run_data() -> None:
     compose = yaml.safe_load((REPO_ROOT / 'docker-compose.yml').read_text(encoding='utf-8'))
     service = compose['services']['theharvester.svc.local']
