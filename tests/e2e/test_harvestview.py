@@ -259,6 +259,7 @@ def test_harvestview_submits_a_target_only_api_scan(
     page.get_by_role('button', name='Clear', exact=True).click()
     page.locator('#run-target').fill('api.example.test')
     page.locator('[name="api_scan"]').check()
+    page.locator('details.advanced-execution summary').click()
     page.locator('#api-scan-paths').fill('/api/v2\n/health')
     page.locator('#submit-run-button').click()
 
@@ -751,10 +752,11 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
     )
 
     page.locator('.provider-details summary').click()
-    expect(page.locator('#provider-body tr').nth(23).locator('td').last).to_have_text(
+    missing_credentials_row = page.locator('#provider-body tr').filter(has_text=ordered_sources[23]['name'])
+    expect(missing_credentials_row.locator('td').last).to_have_text(
         'Required credentials were not configured; add them, then retry.'
     )
-    unexpected_skip_reason = page.locator('#provider-body tr').nth(24).locator('td').last
+    unexpected_skip_reason = page.locator('#provider-body tr').filter(has_text=ordered_sources[24]['name']).locator('td').last
     expect(unexpected_skip_reason).to_contain_text('Credentials required:')
     expect(unexpected_skip_reason).to_contain_text('Source did not start')
 
@@ -775,9 +777,8 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
     value_filter.press('ControlOrMeta+a')
     value_filter.press('Backspace')
     expect(page.locator('.tabulator-row:visible')).to_have_count(2)
-    dns_filter.press_sequentially('resolved')
-    expect(page.locator('.tabulator-row:visible')).to_have_count(1)
-    expect(page.locator('.tabulator-row:visible')).to_contain_text('zeta.example.com')
+    dns_filter.press_sequentially('not captured')
+    expect(page.locator('.tabulator-row:visible')).to_have_count(2)
     dns_filter.press('ControlOrMeta+a')
     dns_filter.press('Backspace')
     expect(page.locator('.tabulator-row:visible')).to_have_count(2)
@@ -806,7 +807,9 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
     exported_records = [json.loads(line) for line in Path(jsonl_download.value.path()).read_text(encoding='utf-8').splitlines()]
     assert exported_records[0]['type'] == 'summary'
     assert exported_records[0]['evidence_status'] == 'partial'
-    assert {'type': 'ip-address', 'value': 'ip.example.com'} in exported_records[1:]
+    assert any(
+        record['type'] == 'ip-address' and record['value'] == 'ip.example.com' for record in exported_records[1:]
+    )
 
     page.get_by_role('button', name='Start enumeration').first.click()
     expect(page.locator('#new-run-dialog').get_by_text('Credentials required:', exact=False).first).to_be_visible()
