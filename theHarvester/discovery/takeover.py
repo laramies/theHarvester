@@ -5,7 +5,7 @@ from random import shuffle
 
 import ujson
 
-from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.output import output_logger
 
 logger = logging.getLogger(__name__)
@@ -19,6 +19,10 @@ class TakeOver:
         self.fingerprints: dict[str, str] = dict()
         # https://stackoverflow.com/questions/33080869/python-how-to-create-a-dict-of-dict-of-list-with-defaultdict
         self.results: defaultdict[str, list] = defaultdict(list)
+        self.request_count = 0
+        self.request_error_count = 0
+        self.request_error_types: set[str] = set()
+        self.scan_error_type: str | None = None
 
     async def populate_fingerprints(self):
         # Thank you to https://github.com/EdOverflow/can-i-take-over-xyz for these fingerprints
@@ -78,6 +82,10 @@ class TakeOver:
                 self.results[url].append({match: service})
 
     async def do_take(self) -> None:
+        self.request_count = 0
+        self.request_error_count = 0
+        self.request_error_types.clear()
+        self.scan_error_type = None
         try:
             if len(self.hosts) > 0:
                 # Returns a list of tuples in this format: (url, response)
@@ -85,21 +93,37 @@ class TakeOver:
                 https_hosts = [f'https://{host}' for host in self.hosts]
                 http_hosts = [f'http://{host}' for host in self.hosts]
                 all_hosts = https_hosts + http_hosts
+                self.request_count = len(all_hosts)
                 shuffle(all_hosts)
-                resps: list = await AsyncFetcher.fetch_all(all_hosts, takeover=True, proxy=self.proxy)
-                for url, resp in tuple(resp for resp in resps if len(resp[1]) >= 1):
-                    await self.check(url, resp)
+                responses: list[tuple[str, FetcherResponse | None]] = await AsyncFetcher.fetch_all(
+                    all_hosts,
+                    takeover=True,
+                    proxy=self.proxy,
+                    include_metadata=True,
+                )
+                for url, response in responses:
+                    if response is None:
+                        self.request_error_count += 1
+                        self.request_error_types.add('TransportError')
+                        continue
+                    if response.body:
+                        await self.check(url, response.body)
             else:
                 return
         except IndexError:
+            self.scan_error_type = 'IndexError'
             logger.info('Response was empty: possible network error or invalid URL.')
         except ujson.JSONDecodeError:
+            self.scan_error_type = 'JSONDecodeError'
             logger.info('Failed to parse JSON: cert fingerprints might be unavailable.')
         except KeyError as ke:
+            self.scan_error_type = 'KeyError'
             logger.info(f'Missing expected field in fingerprint: {ke}')
         except TypeError as te:
+            self.scan_error_type = 'TypeError'
             logger.info(f'Invalid response structure: {te}')
         except Exception as e:
+            self.scan_error_type = type(e).__name__
             logger.info(f'Unexpected error: {e}')
 
     async def process(self, proxy: bool = False) -> None:

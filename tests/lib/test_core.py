@@ -441,6 +441,7 @@ async def test_takeover_fetch_uses_the_shared_transport(
             'url': url,
             'proxy': proxy,
             'request_timeout': 15,
+            'include_metadata': False,
         }
     ]
 
@@ -462,7 +463,25 @@ async def test_takeover_fetch_all_falls_back_to_direct_when_proxy_pool_is_empty(
 
     assert result == [('http://example.com', 'direct response')]
     assert len(calls) == 1
-    assert calls[0][1] == {'proxy': None}
+    assert calls[0][1] == {'proxy': None, 'include_metadata': False}
+
+
+@pytest.mark.asyncio
+async def test_takeover_fetch_all_propagates_metadata_opt_in(monkeypatch) -> None:
+    reset_dummy_sessions()
+    seen: list[bool] = []
+    monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
+
+    async def fake_takeover_fetch(*_args, include_metadata: bool = False, **_kwargs):
+        seen.append(include_metadata)
+        return 'https://example.com', FetcherResponse(body='', status=204, headers={})
+
+    monkeypatch.setattr(AsyncFetcher, 'takeover_fetch', fake_takeover_fetch)
+
+    result = await AsyncFetcher.fetch_all(['https://example.com'], takeover=True, include_metadata=True)
+
+    assert seen == [True]
+    assert result[0][1].status == 204
 
 
 @pytest.mark.asyncio

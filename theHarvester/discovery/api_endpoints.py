@@ -92,6 +92,9 @@ class SearchApiEndpoints:
         self.user_agent = user_agent or Core.get_user_agent()
         self.additional_headers = additional_headers or {}
         self._session: aiohttp.ClientSession | None = None
+        self.scan_error_type: str | None = None
+        self.request_error_count = 0
+        self.request_error_types: set[str] = set()
 
         # Set default wordlist path
         default_wordlist = os.path.join(
@@ -384,6 +387,9 @@ class SearchApiEndpoints:
 
     async def do_search(self) -> None:
         """Check common paths with GET, HEAD, and OPTIONS."""
+        self.scan_error_type = None
+        self.request_error_count = 0
+        self.request_error_types.clear()
         session: aiohttp.ClientSession | None = None
         try:
             session = aiohttp.ClientSession(
@@ -426,6 +432,7 @@ class SearchApiEndpoints:
             await self._post_scan_analysis()
 
         except Exception as e:
+            self.scan_error_type = type(e).__name__
             self.logger.error(f'Error in API endpoint scan: {e!s}', exc_info=True)
         finally:
             self._session = None
@@ -507,21 +514,28 @@ class SearchApiEndpoints:
                     verify=self.verify_ssl,
                     follow_redirects=self.follow_redirects,
                     request_timeout=self.timeout,
+                    include_metadata=True,
                 )
 
                 # Calculate response time
                 response_time = asyncio.get_event_loop().time() - start_time
 
-                # If we get a response, process it
-                if response:
-                    result = self._process_response(url, method, response, response_time)
-                    if result:
-                        return result
+                if response is None:
+                    self.request_error_count += 1
+                    self.request_error_types.add('TransportError')
+                    continue
+                result = self._process_response(url, method, response, response_time)
+                if result:
+                    return result
 
             except TimeoutError:
+                self.request_error_count += 1
+                self.request_error_types.add('TimeoutError')
                 self.logger.debug(f'Timeout for {method} {url}')
                 continue
             except (aiohttp.ClientError, OSError, TypeError, ValueError, AttributeError) as e:
+                self.request_error_count += 1
+                self.request_error_types.add(type(e).__name__)
                 self.logger.debug(f'Error checking {method} {url}: {e!s}')
                 continue
 
@@ -567,7 +581,10 @@ class SearchApiEndpoints:
             headers = {}
 
         try:
-            content = getattr(response, 'content', b'')
+            content_value = getattr(response, 'body', getattr(response, 'content', b''))
+            content = content_value.encode() if isinstance(content_value, str) else content_value
+            if not isinstance(content, bytes):
+                content = b''
         except (TypeError, AttributeError) as e:
             self.logger.error(f'Failed to get content from response for URL {url}: {e}')
             content = b''
@@ -576,7 +593,7 @@ class SearchApiEndpoints:
         self.response_sizes[url] = content_length
 
         # Try to get content type from headers
-        content_type = headers.get('Content-Type', '')
+        content_type = next((value for name, value in headers.items() if name.casefold() == 'content-type'), '')
 
         # Try to create a preview of the response content (up to 200 characters)
         content_preview = ''

@@ -32,6 +32,8 @@ class DnsForce:
         self.subdo = False
         self.verbose = verbose
         self.records: dict[str, hostchecker.HostDnsRecords] = {}
+        self.query_error_count = 0
+        self.query_error_types: set[str] = set()
         # self.dnsserver = [dnsserver] if isinstance(dnsserver, str) else dnsserver
         # self.dnsserver = list(map(str, dnsserver.split(','))) if isinstance(dnsserver, str) else dnsserver
         self.dnsserver = dnsserver
@@ -45,6 +47,8 @@ class DnsForce:
         checker = hostchecker.Checker(self.list, nameservers=self.dnsserver)
         resolved_pair, hosts, ips = await checker.check()
         self.records = checker.records
+        self.query_error_count = getattr(checker, 'query_error_count', 0)
+        self.query_error_types = set(getattr(checker, 'query_error_types', set()))
         return resolved_pair, hosts, ips
 
 

@@ -75,6 +75,8 @@ async def test_dns_force_preserves_legacy_result_and_typed_records(monkeypatch: 
         def __init__(self, _hosts: list[str], nameservers: list[str]) -> None:
             assert nameservers == ['192.0.2.53']
             self.records = records
+            self.query_error_count = 2
+            self.query_error_types = {'TimeoutError'}
 
         async def check(self) -> tuple[list[str], list[str], list[str]]:
             return ['www.example.com:192.0.2.10'], ['www.example.com'], ['192.0.2.10']
@@ -87,6 +89,8 @@ async def test_dns_force_preserves_legacy_result_and_typed_records(monkeypatch: 
 
     assert result == (['www.example.com:192.0.2.10'], ['www.example.com'], ['192.0.2.10'])
     assert dns_force.records is records
+    assert dns_force.query_error_count == 2
+    assert dns_force.query_error_types == {'TimeoutError'}
 
 
 @pytest.mark.asyncio
@@ -143,6 +147,50 @@ async def test_check_excludes_candidate_without_usable_evidence(
 
     assert await checker.check() == ([], [], [])
     assert checker.records == {}
+
+
+@pytest.mark.asyncio
+async def test_check_distinguishes_expected_absence_from_query_failures(monkeypatch: pytest.MonkeyPatch) -> None:
+    not_found = hostchecker.aiodns.error.DNSError(hostchecker.aiodns.error.ARES_ENOTFOUND, 'not found')
+    no_data = hostchecker.aiodns.error.DNSError(hostchecker.aiodns.error.ARES_ENODATA, 'no data')
+
+    class FakeResolver:
+        async def query_dns(self, host: str, _record_type: str):
+            if host == 'missing.example.com':
+                raise not_found
+            if host == 'empty.example.com':
+                raise no_data
+            raise TimeoutError('resolver timed out')
+
+    monkeypatch.setattr(hostchecker.aiodns, 'DNSResolver', lambda **_kwargs: FakeResolver())
+    checker = hostchecker.Checker(
+        ['missing.example.com', 'empty.example.com', 'timeout.example.com'],
+        nameservers=[],
+    )
+
+    assert await checker.check() == ([], [], [])
+    assert checker.query_error_count == 3
+    assert checker.query_error_types == {'TimeoutError'}
+
+
+@pytest.mark.asyncio
+async def test_dns_force_defaults_diagnostics_for_existing_checker_contract(monkeypatch: pytest.MonkeyPatch) -> None:
+    class ExistingChecker:
+        records: dict[str, hostchecker.HostDnsRecords] = {}
+
+        def __init__(self, _hosts: list[str], nameservers: list[str]) -> None:
+            assert nameservers == []
+
+        async def check(self) -> tuple[list[str], list[str], list[str]]:
+            return [], [], []
+
+    monkeypatch.setattr(dnssearch.hostchecker, 'Checker', ExistingChecker)
+    dns_force = dnssearch.DnsForce('example.com', [])
+    dns_force.list = []
+
+    assert await dns_force.run() == ([], [], [])
+    assert dns_force.query_error_count == 0
+    assert dns_force.query_error_types == set()
 
 
 @pytest.mark.asyncio

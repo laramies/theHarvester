@@ -710,6 +710,7 @@ class AsyncFetcher:
         session,
         url: str,
         proxy: str | None = None,
+        include_metadata: bool = False,
     ) -> tuple[Any, Any] | str:
         _, proxy_type = AsyncFetcher._resolve_proxy(proxy)
         response = await AsyncFetcher.fetch(
@@ -717,6 +718,7 @@ class AsyncFetcher:
             url=url,
             proxy=proxy,
             request_timeout=15,
+            include_metadata=include_metadata,
         )
         return url, response
 
@@ -745,13 +747,22 @@ class AsyncFetcher:
                     return list(
                         await asyncio.gather(
                             *[
-                                AsyncFetcher.takeover_fetch(session, url, proxy=proxy_url)
+                                AsyncFetcher.takeover_fetch(
+                                    session,
+                                    url,
+                                    proxy=proxy_url,
+                                    include_metadata=include_metadata,
+                                )
                                 for url, proxy_url in zip(urls, proxy_urls, strict=False)
                             ]
                         )
                     )
                 else:
-                    return list(await asyncio.gather(*[AsyncFetcher.takeover_fetch(session, url) for url in urls]))
+                    return list(
+                        await asyncio.gather(
+                            *[AsyncFetcher.takeover_fetch(session, url, include_metadata=include_metadata) for url in urls]
+                        )
+                    )
 
         if len(params) == 0:
             async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
