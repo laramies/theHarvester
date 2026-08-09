@@ -27,6 +27,8 @@ class Base(DeclarativeBase):
 
 
 class DiscoveryObservationRecord(Base):
+    """One source's observation of a resource during an enumeration run."""
+
     __tablename__ = 'discovery_observations'
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -38,6 +40,8 @@ class DiscoveryObservationRecord(Base):
 
 
 class CompletedRunRecord(Base):
+    """The target and timestamps shared by the evidence from one completed run."""
+
     __tablename__ = 'completed_results'
 
     run_id: Mapped[str] = mapped_column(Text, primary_key=True)
@@ -47,6 +51,8 @@ class CompletedRunRecord(Base):
 
 
 class CompletedResultItemRecord(Base):
+    """A deduplicated finding in a completed run, kept in output order."""
+
     __tablename__ = 'completed_result_items'
     __table_args__ = (UniqueConstraint('run_id', 'kind', 'value'),)
 
