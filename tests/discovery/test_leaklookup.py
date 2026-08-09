@@ -225,14 +225,14 @@ async def test_missing_leaklookup_key_does_not_break_security_score_endpoint(mon
 async def test_leaklookup_emails_and_breaches_reach_completed_result_and_jsonl(monkeypatch, tmp_path: Path) -> None:
     completed_results: list[CompletedResult] = []
 
-    class FakeStash:
-        async def do_init(self) -> None:
+    class FakeResultStore:
+        async def initialize(self) -> None:
             return None
 
-        async def store_all(self, *_args: object) -> None:
+        async def record_observations(self, *_args: object) -> None:
             return None
 
-        async def store_completed_result(self, result: CompletedResult) -> None:
+        async def save_run(self, result: CompletedResult) -> None:
             completed_results.append(result)
 
     class FakeLeakLookup:
@@ -249,7 +249,7 @@ async def test_leaklookup_emails_and_breaches_reach_completed_result_and_jsonl(m
             return {'Example Breach'}
 
     report = tmp_path / 'leaklookup-report'
-    monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
     monkeypatch.setattr(theharvester_main.leaklookup, 'SearchLeakLookup', FakeLeakLookup)
     monkeypatch.setattr(
         sys,

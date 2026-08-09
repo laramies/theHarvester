@@ -135,14 +135,14 @@ async def test_public_breach_names_reach_completed_result_and_jsonl(
 ) -> None:
     completed_results: list[CompletedResult] = []
 
-    class FakeStash:
-        async def do_init(self) -> None:
+    class FakeResultStore:
+        async def initialize(self) -> None:
             return None
 
-        async def store_all(self, *_args: object) -> None:
+        async def record_observations(self, *_args: object) -> None:
             return None
 
-        async def store_completed_result(self, result: CompletedResult) -> None:
+        async def save_run(self, result: CompletedResult) -> None:
             completed_results.append(result)
 
     class FakeHaveIBeenPwned:
@@ -156,7 +156,7 @@ async def test_public_breach_names_reach_completed_result_and_jsonl(
             return {'Adobe', 'ExampleBreach'}
 
     report = tmp_path / 'hibp-report'
-    monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
     monkeypatch.setattr(theharvester_main.haveibeenpwned, 'SearchHaveIBeenPwned', FakeHaveIBeenPwned)
     monkeypatch.setattr(
         sys,

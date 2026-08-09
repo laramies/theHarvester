@@ -54,17 +54,14 @@ async def test_rapiddns_hostnames_honor_explicit_dns_resolution(monkeypatch: pyt
     output_directory.mkdir()
     output_path = output_directory / 'rapiddns'
 
-    class FakeStash:
-        async def do_init(self) -> None:
+    class FakeResultStore:
+        async def initialize(self) -> None:
             return None
 
-        async def store_all(self, domain: str, values: list[str] | set[str], kind: str, source: str) -> None:
+        async def record_observations(self, domain: str, values: list[str] | set[str], kind: str, source: str) -> None:
             stored_observations.append((domain, sorted(values), kind, source))
 
-        async def store(self, *_args) -> None:
-            return None
-
-        async def store_completed_result(self, result: CompletedResult) -> None:
+        async def save_run(self, result: CompletedResult) -> None:
             completed.append(result)
 
     class FakeRapidDNS:
@@ -108,7 +105,7 @@ async def test_rapiddns_hostnames_honor_explicit_dns_resolution(monkeypatch: pyt
                 ['192.0.2.10', '192.0.2.21'],
             )
 
-    monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
     monkeypatch.setattr(theharvester_main.rapiddns, 'SearchRapidDns', FakeRapidDNS)
     monkeypatch.setattr(theharvester_main.crtsh, 'SearchCrtsh', FakeCrtsh)
     monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', FakeChecker)
@@ -156,11 +153,11 @@ async def test_rapiddns_hostnames_honor_explicit_dns_resolution(monkeypatch: pyt
 
 @pytest.mark.asyncio
 async def test_recursive_dns_requires_canonically_distinct_resolvers(monkeypatch: pytest.MonkeyPatch) -> None:
-    class FakeStash:
-        async def do_init(self) -> None:
+    class FakeResultStore:
+        async def initialize(self) -> None:
             return None
 
-    monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
     monkeypatch.setattr(
         sys,
         'argv',
@@ -188,17 +185,14 @@ async def test_dns_proven_cname_hosts_reach_screenshot_filter(
 ) -> None:
     visited: set[str] = set()
 
-    class FakeStash:
-        async def do_init(self) -> None:
+    class FakeResultStore:
+        async def initialize(self) -> None:
             return None
 
-        async def store_all(self, *_args) -> None:
+        async def record_observations(self, *_args) -> None:
             return None
 
-        async def store(self, *_args) -> None:
-            return None
-
-        async def store_completed_result(self, _result: CompletedResult) -> None:
+        async def save_run(self, _result: CompletedResult) -> None:
             return None
 
     class FakeCrtsh:
@@ -258,7 +252,7 @@ async def test_dns_proven_cname_hosts_reach_screenshot_filter(
         async def map(self, function, values):
             return [await function(value) for value in values]
 
-    monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
     monkeypatch.setattr(theharvester_main.crtsh, 'SearchCrtsh', FakeCrtsh)
     monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', FakeChecker)
     monkeypatch.setattr(theharvester_main, 'ScreenShotter', FakeScreenShotter)
@@ -288,17 +282,14 @@ async def test_dns_proven_cname_hosts_reach_screenshot_filter(
 
 @pytest.mark.asyncio
 async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    class FakeStash:
-        async def do_init(self) -> None:
+    class FakeResultStore:
+        async def initialize(self) -> None:
             return None
 
-        async def store_all(self, *_args) -> None:
+        async def record_observations(self, *_args) -> None:
             return None
 
-        async def store(self, *_args) -> None:
-            return None
-
-        async def store_completed_result(self, _result: CompletedResult) -> None:
+        async def save_run(self, _result: CompletedResult) -> None:
             return None
 
     class FakeCrtsh:
@@ -405,7 +396,7 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
 
     wordlist = tmp_path / 'api.txt'
     wordlist.write_text('/api/v1\n', encoding='utf-8')
-    monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
     monkeypatch.setattr(theharvester_main.crtsh, 'SearchCrtsh', FakeCrtsh)
     monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', FakeChecker)
     monkeypatch.setattr(theharvester_main.takeover, 'TakeOver', FakeTakeOver)
@@ -452,17 +443,14 @@ async def test_recursive_dns_results_reach_completed_output_without_changing_leg
     captured: list[tuple[str, tuple[str, ...], int, int]] = []
     output_path = tmp_path / 'recursive-dns'
 
-    class FakeStash:
-        async def do_init(self) -> None:
+    class FakeResultStore:
+        async def initialize(self) -> None:
             return None
 
-        async def store_all(self, *_args) -> None:
+        async def record_observations(self, *_args) -> None:
             return None
 
-        async def store(self, *_args) -> None:
-            return None
-
-        async def store_completed_result(self, result: CompletedResult) -> None:
+        async def save_run(self, result: CompletedResult) -> None:
             completed.append(result)
 
     class FakeCrtsh:
@@ -516,7 +504,7 @@ async def test_recursive_dns_results_reach_completed_output_without_changing_leg
             ),
         )
 
-    monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
     monkeypatch.setattr(theharvester_main.crtsh, 'SearchCrtsh', FakeCrtsh)
     monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', FakeChecker)
     monkeypatch.setattr(theharvester_main, 'AioDNSResolverVantage', FakeResolver)
@@ -604,17 +592,14 @@ async def test_recursive_dns_closes_resolvers_on_failure_and_preserves_cancellat
 ) -> None:
     closed: list[str] = []
 
-    class FakeStash:
-        async def do_init(self) -> None:
+    class FakeResultStore:
+        async def initialize(self) -> None:
             return None
 
-        async def store_all(self, *_args) -> None:
+        async def record_observations(self, *_args) -> None:
             return None
 
-        async def store(self, *_args) -> None:
-            return None
-
-        async def store_completed_result(self, _result: CompletedResult) -> None:
+        async def save_run(self, _result: CompletedResult) -> None:
             return None
 
     class FakeCrtsh:
@@ -644,7 +629,7 @@ async def test_recursive_dns_closes_resolvers_on_failure_and_preserves_cancellat
     async def fail_recursive(*_args, **_kwargs):
         raise error_type()
 
-    monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
     monkeypatch.setattr(theharvester_main.crtsh, 'SearchCrtsh', FakeCrtsh)
     monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', FakeChecker)
     monkeypatch.setattr(theharvester_main, 'AioDNSResolverVantage', FakeResolver)

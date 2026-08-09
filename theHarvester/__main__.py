@@ -82,9 +82,10 @@ from theHarvester.discovery import (
     zoomeyesearch,
 )
 from theHarvester.discovery.constants import MissingKey
-from theHarvester.lib import hostchecker, stash
+from theHarvester.lib import hostchecker
 from theHarvester.lib.completed_result import CompletedResult, ResultKind, SourceExecution
 from theHarvester.lib.core import DATA_DIR, Core, show_default_error_message
+from theHarvester.lib.database import ResultStore
 from theHarvester.lib.dns_consensus import AioDNSResolverVantage
 from theHarvester.lib.enumeration import (
     DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS,
@@ -314,12 +315,12 @@ async def start(
             logger.info('Verbose logging enabled')
     Core.quiet = getattr(args, 'quiet', False)
     try:
-        db = stash.StashManager()
-        await db.do_init()
+        db = ResultStore()
+        await db.initialize()
     except (AttributeError, OSError, RuntimeError, ValueError) as init_error:
         if not args.quiet:
-            output_logger.info(f'Error initializing StashManager: {init_error}')
-        raise ValueError('Failed to initialize StashManager')
+            output_logger.info(f'Error initializing result store: {init_error}')
+        raise ValueError('Failed to initialize result store')
 
     if len(filename) > 0:
         if filename.startswith('~/'):
@@ -548,7 +549,6 @@ async def start(
         """
         await search_engine.process(use_proxy)
         result_count = 0
-        db_stash = stash.StashManager()
         source = source_spec.name
         routes = source_spec.routes
 
@@ -591,19 +591,19 @@ async def start(
             else:
                 full.extend(host_names)
             all_hosts.extend(host_names)
-            await db_stash.store_all(word, host_names, 'hostname', source)
+            await db.record_observations(word, host_names, 'hostname', source)
 
         if ResultRoute.EMAILS in routes:
             email_list = await search_engine.get_emails()
             result_count += len(email_list)
             all_emails.extend(email_list)
-            await db_stash.store_all(word, email_list, 'email', source)
+            await db.record_observations(word, email_list, 'email', source)
 
         if ResultRoute.IPS in routes:
             ips_list = await search_engine.get_ips()
             result_count += len(ips_list)
             all_ip.extend(ips_list)
-            await db_stash.store_all(word, ips_list, 'ip-address', source)
+            await db.record_observations(word, ips_list, 'ip-address', source)
 
         if ResultRoute.PEOPLE in routes:
             people_list = await search_engine.get_people()
@@ -612,21 +612,21 @@ async def start(
             people_evidence = (
                 json.dumps(person, ensure_ascii=False, separators=(',', ':'), sort_keys=True) for person in people_list
             )
-            await db_stash.store_all(word, people_evidence, 'person', source)
+            await db.record_observations(word, people_evidence, 'person', source)
 
         if ResultRoute.LINKS in routes:
             links = await search_engine.get_links()
             result_count += len(links)
             linkedin_links_tracker.extend(links)
             if len(links) > 0:
-                await db.store_all(word, links, 'linkedin-link', source)
+                await db.record_observations(word, links, 'linkedin-link', source)
 
         if ResultRoute.URLS in routes:
             urls = await search_engine.get_urls()
             result_count += len(urls)
             all_urls.extend(urls)
             if len(urls) > 0:
-                await db_stash.store_all(word, urls, 'url', source)
+                await db.record_observations(word, urls, 'url', source)
 
         if ResultRoute.INTERESTING_URLS in routes:
             get_interesting_urls = getattr(search_engine, 'get_interesting_urls', None)
@@ -634,14 +634,14 @@ async def start(
             result_count += len(iurls)
             interesting_urls.extend(iurls)
             if len(iurls) > 0:
-                await db.store_all(word, iurls, 'interesting-url', source)
+                await db.record_observations(word, iurls, 'interesting-url', source)
 
         if ResultRoute.ASNS in routes:
             fasns = await search_engine.get_asns()
             result_count += len(fasns)
             total_asns.extend(fasns)
             if len(fasns) > 0:
-                await db.store_all(word, fasns, 'asn', source)
+                await db.record_observations(word, fasns, 'asn', source)
 
         if ResultRoute.BREACHES in routes:
             breach_names = await search_engine.get_breach_names()
@@ -659,7 +659,7 @@ async def start(
                 values = await getattr(search_engine, getter_name)()
                 result_count += len(values)
                 results.extend(values)
-                await db_stash.store_all(word, values, result_type, source)
+                await db.record_observations(word, values, result_type, source)
         if source == 'hudsonrock':
             infostealers = await search_engine.get_infostealers()
             result_count += len(infostealers)
@@ -1604,9 +1604,8 @@ async def start(
                     reported_host_ip_pairs.update((finding.hostname, address) for address in finding.records.addresses)
                 else:
                     full.append(finding.hostname)
-            recursive_db = stash.StashManager()
-            await recursive_db.store_all(word, recursive_hosts, 'hostname', 'dns_recursive')
-            await recursive_db.store_all(word, recursive_ips, 'ip-address', 'dns_recursive')
+            await db.record_observations(word, recursive_hosts, 'hostname', 'dns_recursive')
+            await db.record_observations(word, recursive_ips, 'ip-address', 'dns_recursive')
             output_logger.info(
                 '[*] Recursive DNS: '
                 f'hosts={len(recursive_hosts)}; queries={recursive_result.query_count}; '
@@ -1620,8 +1619,7 @@ async def start(
         if completed_result is None:
             return
         try:
-            completed_db = stash.StashManager()
-            await completed_db.store_completed_result(completed_result)
+            await db.save_run(completed_result)
         except Exception as error:
             output_logger.info(f'[!] An error occurred while storing the completed result: {error}')
 
@@ -1732,7 +1730,6 @@ async def start(
     if len(all_hosts) == 0:
         output_logger.info('\n[*] No hosts found.\n\n')
     else:
-        db = stash.StashManager()
         if dnsresolve is None or len(final_dns_resolver_list) > 0:
             temp = set()
             for host in full:
@@ -1753,7 +1750,7 @@ async def start(
                 try:
                     if ':' in host:
                         _, addr = host.split(':', 1)
-                        await db.store(word, addr, 'ip-address', 'DNS-resolver')
+                        await db.record_observations(word, [addr], 'ip-address', 'DNS-resolver')
                 except (OSError, RuntimeError, ValueError, TypeError) as e:
                     output_logger.info(f'An exception has occurred while attempting to insert: {host} IP into DB: {e}')
                     continue
@@ -1773,7 +1770,6 @@ async def start(
         # Check if Rest API is being used if so return found hosts
         if dnsbrute[1]:
             return resolved_pair
-        db = stash.StashManager()
         temp = set()
         for host in resolved_pair:
             if ':' in host:
@@ -1796,7 +1792,7 @@ async def start(
         output_logger.info('\n[*] Hosts found after DNS brute force:')
         for sub in temp:
             output_logger.info(sub)
-        await db.store_all(word, list(sorted(temp)), 'hostname', 'dns_bruteforce')
+        await db.record_observations(word, list(sorted(temp)), 'hostname', 'dns_bruteforce')
         await checkpoint_completed_result()
 
     # TakeOver Checking
@@ -2098,8 +2094,7 @@ async def start(
             output_logger.info(f'\n[*] HTTP status codes encountered: {", ".join(map(str, status_codes))}')
 
             # Add results to storage
-            db = stash.StashManager()
-            await db.store_all(word, endpoints_found, 'api-endpoint', 'api_scan')
+            await db.record_observations(word, endpoints_found, 'api-endpoint', 'api_scan')
 
             # Add to interesting URLs if any endpoints were found
             if interesting_endpoints:

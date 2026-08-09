@@ -115,19 +115,16 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
     stored: list[tuple[str, tuple[str, ...], str]] = []
     completed_results: list[CompletedResult] = []
 
-    class FakeStash:
+    class FakeResultStore:
         fail_completed_write = False
 
-        async def do_init(self) -> None:
+        async def initialize(self) -> None:
             return None
 
-        async def store_all(self, _domain: str, values: list[str], result_type: str, source: str) -> None:
+        async def record_observations(self, _domain: str, values: list[str], result_type: str, source: str) -> None:
             stored.append((result_type, tuple(sorted(values)), source))
 
-        async def store(self, _domain: str, value: str, result_type: str, source: str) -> None:
-            stored.append((result_type, (value,), source))
-
-        async def store_completed_result(self, result: CompletedResult) -> None:
+        async def save_run(self, result: CompletedResult) -> None:
             if self.fail_completed_write:
                 raise OSError('forced completed-result failure')
             completed_results.append(result)
@@ -204,7 +201,7 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
 
     report = tmp_path / 'rapiddns-report'
     monkeypatch.setattr(rapiddns.AsyncFetcher, 'fetch_all', fake_fetch_all)
-    monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
     monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', UnexpectedChecker)
     monkeypatch.setattr(theharvester_main.search_dehashed, 'SearchDehashed', FakeDehashed)
     monkeypatch.setattr(theharvester_main.api_endpoints, 'SearchApiEndpoints', FakeApiEndpoints)
@@ -328,7 +325,7 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
     assert len(completed_results) == 3
     assert completed_results[2].target == 'example.com'
 
-    FakeStash.fail_completed_write = True
+    FakeResultStore.fail_completed_write = True
     with pytest.raises(SystemExit) as failed_write_exit:
         await theharvester_main.start()
     assert failed_write_exit.value.code == 0

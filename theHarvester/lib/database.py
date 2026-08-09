@@ -1,17 +1,34 @@
 import asyncio
+import datetime
+import logging
 import sqlite3
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterable
 from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
+from uuid import UUID
 
-from sqlalchemy import Date, ForeignKey, Text, UniqueConstraint, event
+from sqlalchemy import Date, ForeignKey, Text, UniqueConstraint, event, func, select
 from sqlalchemy.engine import URL
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
+from theHarvester.lib.completed_result import CompletedResult, ResultKind
+
+logger = logging.getLogger(__name__)
+
 SCHEMA_VERSION = 1
+_DEFAULT_DATABASE = Path('~/.local/share/theHarvester/stash.sqlite').expanduser()
+
+
+class ResultStoreError(RuntimeError):
+    """The result store could not complete an operation."""
+
+
+class DuplicateRunError(ResultStoreError):
+    """A persisted enumeration run already uses the requested run ID."""
 
 
 def _sqlite_has_wal_reset_fix(version: tuple[int, int, int]) -> bool:
@@ -22,11 +39,11 @@ def _sqlite_has_wal_reset_fix(version: tuple[int, int, int]) -> bool:
     )
 
 
-class Base(DeclarativeBase):
+class _Base(DeclarativeBase):
     pass
 
 
-class DiscoveryObservationRecord(Base):
+class _DiscoveryObservationRow(_Base):
     """One source's persisted observation of a discovered resource."""
 
     __tablename__ = 'discovery_observations'
@@ -39,7 +56,7 @@ class DiscoveryObservationRecord(Base):
     source: Mapped[str] = mapped_column(Text)
 
 
-class RunRecord(Base):
+class _RunRow(_Base):
     """One enumeration run and the time window in which it ran."""
 
     __tablename__ = 'runs'
@@ -50,7 +67,7 @@ class RunRecord(Base):
     completed_at: Mapped[str] = mapped_column(Text)
 
 
-class ResultRecord(Base):
+class _ResultRow(_Base):
     """One deduplicated result from a run, kept in output order."""
 
     __tablename__ = 'results'
@@ -87,7 +104,7 @@ def _sqlite_engine(database: str | Path) -> AsyncEngine:
     return engine
 
 
-class SQLiteDatabase:
+class _SQLiteDatabase:
     def __init__(self, database: str | Path) -> None:
         self.database = str(Path(database).expanduser().resolve())
         self.engine = _sqlite_engine(database)
@@ -131,7 +148,7 @@ class SQLiteDatabase:
                                 await connection.exec_driver_sql('ALTER TABLE completed_results RENAME TO runs')
                             if 'completed_result_items' in tables:
                                 await connection.exec_driver_sql('ALTER TABLE completed_result_items RENAME TO results')
-                        await connection.run_sync(Base.metadata.create_all)
+                        await connection.run_sync(_Base.metadata.create_all)
                         if has_legacy_results:
                             await connection.exec_driver_sql(
                                 'INSERT INTO discovery_observations (domain, resource, kind, discovered_on, source) '
@@ -158,30 +175,134 @@ class SQLiteDatabase:
                         raise RuntimeError(f'Could not set SQLite journal mode to {journal_mode}: got {actual_journal_mode}')
             finally:
                 await initialization_engine.dispose()
+            async with self.engine.connect() as runtime_connection:
+                foreign_keys = await runtime_connection.exec_driver_sql('PRAGMA foreign_keys')
+                if foreign_keys.scalar_one() != 1:
+                    raise RuntimeError('SQLite foreign-key enforcement is not enabled')
             self._initialized = True
 
     async def dispose(self) -> None:
         await self.engine.dispose()
 
 
-_databases: dict[str, SQLiteDatabase] = {}
+_databases: dict[str, _SQLiteDatabase] = {}
 
 
-def _database_for(database: str | Path) -> SQLiteDatabase:
+def _database_for(database: str | Path) -> _SQLiteDatabase:
     path = str(Path(database).expanduser().resolve())
     if path not in _databases:
-        _databases[path] = SQLiteDatabase(path)
+        _databases[path] = _SQLiteDatabase(path)
     return _databases[path]
 
 
-@asynccontextmanager
-async def sqlite_session(database: str | Path) -> AsyncIterator[AsyncSession]:
-    async with _database_for(database).session() as session:
-        yield session
+class ResultStore:
+    """Persist enumeration results without exposing SQLAlchemy to callers."""
 
+    def __init__(self, database: str | Path | None = None) -> None:
+        self.database = str(Path(database or _DEFAULT_DATABASE).expanduser().resolve())
 
-async def initialize_stash_schema(database: str | Path) -> None:
-    await _database_for(database).initialize()
+    async def initialize(self) -> None:
+        Path(self.database).parent.mkdir(parents=True, exist_ok=True)
+        try:
+            await _database_for(self.database).initialize()
+        except SQLAlchemyError as error:
+            raise ResultStoreError('Could not initialize result store') from error
+
+    async def save_run(self, result: CompletedResult) -> None:
+        run_id = str(result.run_id)
+        async with self._session() as session:
+            try:
+                session.add(
+                    _RunRow(
+                        run_id=run_id,
+                        target=result.target,
+                        started_at=result.started_at.isoformat(),
+                        completed_at=result.completed_at.isoformat(),
+                    )
+                )
+                await session.flush()
+                session.add_all(
+                    _ResultRow(run_id=run_id, position=position, kind=kind, value=value)
+                    for position, (kind, value) in enumerate(result.results)
+                )
+                await session.commit()
+            except IntegrityError as error:
+                duplicate_codes = {
+                    sqlite3.SQLITE_CONSTRAINT_PRIMARYKEY,
+                    sqlite3.SQLITE_CONSTRAINT_UNIQUE,
+                }
+                if getattr(error.orig, 'sqlite_errorcode', None) in duplicate_codes:
+                    raise DuplicateRunError(f'Enumeration run already exists: {run_id}') from error
+                raise ResultStoreError('Could not save enumeration run') from error
+
+    async def load_run(self, run_id: UUID) -> CompletedResult:
+        async with self._session() as session:
+            parent = await session.get(_RunRow, str(run_id))
+            if parent is None:
+                raise LookupError(f'completed result not found: {run_id}')
+            rows = (
+                await session.scalars(select(_ResultRow).where(_ResultRow.run_id == str(run_id)).order_by(_ResultRow.position))
+            ).all()
+        return CompletedResult(
+            run_id=UUID(parent.run_id),
+            target=parent.target,
+            started_at=datetime.datetime.fromisoformat(parent.started_at),
+            completed_at=datetime.datetime.fromisoformat(parent.completed_at),
+            results=tuple((cast('ResultKind', row.kind), row.value) for row in rows),
+        )
+
+    async def list_runs(self, *, limit: int = 50) -> list[dict[str, object]]:
+        async with self._session() as session:
+            rows = (
+                await session.execute(
+                    select(_RunRow, func.count(_ResultRow.position))
+                    .outerjoin(_ResultRow, _ResultRow.run_id == _RunRow.run_id)
+                    .group_by(_RunRow.run_id)
+                    .order_by(func.julianday(_RunRow.completed_at).desc(), _RunRow.run_id.desc())
+                    .limit(limit)
+                )
+            ).all()
+        return [
+            {
+                'run_id': run.run_id,
+                'target': run.target,
+                'started_at': run.started_at,
+                'completed_at': run.completed_at,
+                'result_count': result_count,
+            }
+            for run, result_count in rows
+        ]
+
+    async def record_observations(
+        self,
+        target: str,
+        values: Iterable[object],
+        kind: ResultKind,
+        source: str,
+    ) -> None:
+        try:
+            async with self._session() as session:
+                session.add_all(
+                    _DiscoveryObservationRow(
+                        domain=target,
+                        resource=str(value),
+                        kind=kind,
+                        discovered_on=datetime.date.today(),
+                        source=source,
+                    )
+                    for value in values
+                )
+                await session.commit()
+        except Exception as error:
+            logger.info(f'Unexpected error while storing result: {error}')
+
+    @asynccontextmanager
+    async def _session(self) -> AsyncIterator[AsyncSession]:
+        try:
+            async with _database_for(self.database).session() as session:
+                yield session
+        except SQLAlchemyError as error:
+            raise ResultStoreError('Could not access result store') from error
 
 
 async def dispose_sqlite_databases() -> None:
