@@ -44,16 +44,16 @@ class _Base(DeclarativeBase):
 
 
 class _DiscoveryObservationRow(_Base):
-    """One source's persisted observation of a discovered resource."""
+    """A runless source observation, including incomplete rows from older databases."""
 
     __tablename__ = 'discovery_observations'
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    domain: Mapped[str] = mapped_column(Text, index=True)
-    resource: Mapped[str] = mapped_column(Text)
-    kind: Mapped[str] = mapped_column(Text, index=True)
-    discovered_on: Mapped[date] = mapped_column(Date, index=True)
-    source: Mapped[str] = mapped_column(Text)
+    domain: Mapped[str | None] = mapped_column(Text, index=True)
+    resource: Mapped[str | None] = mapped_column(Text)
+    kind: Mapped[str | None] = mapped_column(Text, index=True)
+    discovered_on: Mapped[date | None] = mapped_column(Date, index=True)
+    source: Mapped[str | None] = mapped_column(Text)
 
 
 class _RunRow(_Base):

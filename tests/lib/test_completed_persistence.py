@@ -281,6 +281,24 @@ async def test_released_results_migrate_to_discovery_observations(tmp_path) -> N
 
 
 @pytest.mark.asyncio
+async def test_released_null_observation_fields_survive_migration(tmp_path) -> None:
+    database = tmp_path / 'stash.sqlite'
+    with sqlite3.connect(database) as db:
+        db.executescript(RELEASED_RESULTS_SCHEMA)
+        db.execute(
+            'INSERT INTO results (domain, resource, type, find_date, source) VALUES (?, ?, ?, ?, ?)',
+            (None, None, None, None, None),
+        )
+
+    store = ResultStore(database)
+    await store.initialize()
+
+    with sqlite3.connect(database) as db:
+        migrated = db.execute('SELECT domain, resource, kind, discovered_on, source FROM discovery_observations').fetchall()
+    assert migrated == [(None, None, None, None, None)]
+
+
+@pytest.mark.asyncio
 async def test_concurrent_initialization_migrates_released_results_once(tmp_path) -> None:
     database = tmp_path / 'stash.sqlite'
     first = ResultStore(database)
