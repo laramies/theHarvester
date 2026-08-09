@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import sys
 import xml.etree.ElementTree as ElementTree
 from pathlib import Path
@@ -7,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from theHarvester import __main__ as theharvester_main
+from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.completed_result import CompletedResult, ResultObservation
 from theHarvester.lib.dns_consensus import Addressability
 from theHarvester.lib.enumeration import EnumerationOptions
@@ -970,6 +972,44 @@ async def test_dns_proven_cname_hosts_reach_screenshot_filter(
     assert visited == {'address.example.com', 'alias.example.com'}
 
 
+class _NoopResultStore:
+    async def initialize(self) -> None:
+        return None
+
+    async def record_observations(self, *_args: object) -> None:
+        return None
+
+    async def save_run(self, _result: CompletedResult) -> None:
+        return None
+
+
+class _ApiHostSource:
+    def __init__(self, _word: str) -> None:
+        pass
+
+    async def process(self, _proxy: bool) -> None:
+        return None
+
+    async def get_hostnames(self) -> set[str]:
+        return {'api.example.com'}
+
+
+class _ApiHostChecker:
+    def __init__(self, _hosts: list[str], _nameservers: list[str]) -> None:
+        pass
+
+    async def check(self) -> tuple[list[str], list[str], list[str]]:
+        return ['api.example.com:192.0.2.10'], ['api.example.com'], ['192.0.2.10']
+
+
+def _recording_result_store(saved: list[CompletedResult]) -> type[_NoopResultStore]:
+    class RecordingResultStore(_NoopResultStore):
+        async def save_run(self, result: CompletedResult) -> None:
+            saved.append(result)
+
+    return RecordingResultStore
+
+
 @pytest.mark.asyncio
 async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     class FakeResultStore:
@@ -1003,6 +1043,10 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
     class FakeTakeOver:
         def __init__(self, hosts: list[str]) -> None:
             assert hosts == ['api.example.com']
+            self.request_count = 2
+            self.request_error_count = 0
+            self.request_error_types: set[str] = set()
+            self.scan_error_type = None
 
         async def populate_fingerprints(self) -> None:
             return None
@@ -1036,6 +1080,8 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
             return host
 
     class FakeShodan:
+        error_type = None
+
         async def search_ip(self, ip: str) -> dict[str, dict[str, list[int]]]:
             return {ip: {'ports': [443]}}
 
@@ -1043,15 +1089,18 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
         def __init__(self, word: str, wordlist: str) -> None:
             assert word == 'example.com'
             assert wordlist == str(tmp_path / 'api.txt')
+            self.scan_error_type = None
+            self.request_error_count = 0
+            self.request_error_types: set[str] = set()
 
         async def do_search(self) -> None:
             return None
 
         def get_found_endpoints(self) -> set[str]:
-            return {'/api/v1'}
+            return {'https://example.com/api/v1'}
 
         def get_interesting_endpoints(self) -> set[str]:
-            return {'/api/v1'}
+            return {'https://example.com/api/v1'}
 
         def get_auth_required(self) -> set[str]:
             return set()
@@ -1115,13 +1164,563 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
 
     completed = result[-1]
     assert isinstance(completed, CompletedResult)
-    assert ('api-endpoint', '/api/v1') in completed.results
+    assert ('api-endpoint', 'https://example.com/api/v1') in completed.results
     assert ('screenshot', 'api.example.com') in completed.results
     assert ('shodan', '{"ip":"192.0.2.10","result":{"ports":[443]}}') in completed.results
-    assert (
+    takeover_result = (
         'takeover',
         '{"matches":[{"No such app":"Heroku"}],"url":"https://api.example.com"}',
-    ) in completed.results
+    )
+    assert takeover_result in completed.results
+    takeover_execution = next(execution for execution in completed.active_evidence.executions if execution.action == 'takeover')
+    assert takeover_execution.status == 'completed'
+    assert takeover_execution.result_count == 1
+    assert takeover_execution.error_type is None
+    assert takeover_execution.stop_reason is None
+    shodan_execution = next(execution for execution in completed.active_evidence.executions if execution.action == 'shodan')
+    assert shodan_execution.status == 'completed'
+    assert shodan_execution.result_count == 1
+    assert shodan_execution.error_type is None
+    assert shodan_execution.stop_reason is None
+    api_executions = [execution for execution in completed.active_evidence.executions if execution.action == 'api-scan']
+    assert len(api_executions) == 1
+    api_execution = api_executions[0]
+    assert api_execution.status == 'completed'
+    assert api_execution.result_count == 3
+    assert api_execution.error_type is None
+    assert api_execution.stop_reason is None
+    assert {(observation.kind, observation.value) for observation in api_execution.observations} == {
+        ('api-endpoint', 'https://example.com/api/v1'),
+        ('interesting-url', 'https://example.com/api/v1'),
+        ('url', 'https://example.com/api/v1'),
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('request_count', 'request_errors', 'scan_error', 'expected_status', 'expected_error', 'expected_reason'),
+    [
+        (2, 1, None, 'partial', 'TransportError', 'request-errors'),
+        (2, 2, None, 'failed', 'TransportError', 'request-errors'),
+        (0, 0, 'RuntimeError', 'failed', 'RuntimeError', 'scan-error'),
+    ],
+)
+async def test_takeover_action_records_suppressed_outcome(
+    monkeypatch: pytest.MonkeyPatch,
+    request_count: int,
+    request_errors: int,
+    scan_error: str | None,
+    expected_status: str,
+    expected_error: str,
+    expected_reason: str,
+) -> None:
+    class FakeTakeOver:
+        def __init__(self, _hosts: list[str]) -> None:
+            self.request_count = request_count
+            self.request_error_count = request_errors
+            self.request_error_types = {'TransportError'} if request_errors else set()
+            self.scan_error_type = scan_error
+
+        async def populate_fingerprints(self) -> None:
+            return None
+
+        async def process(self, proxy: bool = False) -> None:
+            assert proxy is False
+            return None
+
+        async def get_takeover_results(self) -> dict:
+            return {}
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
+    monkeypatch.setattr(theharvester_main.crtsh, 'SearchCrtsh', _ApiHostSource)
+    monkeypatch.setattr(theharvester_main.takeover, 'TakeOver', FakeTakeOver)
+
+    result = await theharvester_main.start(
+        EnumerationOptions(domain='example.com', quiet=True, source='crtsh', take_over=True),
+        return_completed_result=True,
+    )
+
+    execution = next(item for item in result[-1].active_evidence.executions if item.action == 'takeover')
+    assert execution.status == expected_status
+    assert execution.result_count == 0
+    assert execution.error_type == expected_error
+    assert execution.stop_reason == expected_reason
+
+
+@pytest.mark.asyncio
+async def test_shodan_action_records_all_target_errors_as_failed(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.INFO)
+
+    class FailedShodan:
+        error_type = None
+
+        async def search_ip(self, ip: str) -> dict[str, str]:
+            raise RuntimeError(f'provider-secret-payload for {ip}')
+
+    async def no_sleep(_seconds: float) -> None:
+        return None
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
+    monkeypatch.setattr(theharvester_main.crtsh, 'SearchCrtsh', _ApiHostSource)
+    monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', _ApiHostChecker)
+    monkeypatch.setattr(theharvester_main.shodansearch, 'SearchShodan', FailedShodan)
+    monkeypatch.setattr(theharvester_main.asyncio, 'sleep', no_sleep)
+
+    result = await theharvester_main.start(
+        EnumerationOptions(
+            dns_resolve='192.0.2.53',
+            domain='example.com',
+            quiet=True,
+            shodan=True,
+            source='crtsh',
+        ),
+        return_completed_result=True,
+    )
+
+    completed = result[-1]
+    shodan_execution = next(execution for execution in completed.active_evidence.executions if execution.action == 'shodan')
+    assert shodan_execution.status == 'failed'
+    assert shodan_execution.result_count == 0
+    assert shodan_execution.error_type == 'RuntimeError'
+    assert shodan_execution.stop_reason == 'target-errors'
+    assert 'provider-secret-payload' not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_shodan_no_data_is_a_completed_zero_yield_action(monkeypatch: pytest.MonkeyPatch) -> None:
+    class EmptyShodan:
+        error_type = None
+
+        async def search_ip(self, _ip: str) -> dict:
+            return {}
+
+    async def no_sleep(_seconds: float) -> None:
+        return None
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
+    monkeypatch.setattr(theharvester_main.crtsh, 'SearchCrtsh', _ApiHostSource)
+    monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', _ApiHostChecker)
+    monkeypatch.setattr(theharvester_main.shodansearch, 'SearchShodan', EmptyShodan)
+    monkeypatch.setattr(theharvester_main.asyncio, 'sleep', no_sleep)
+
+    result = await theharvester_main.start(
+        EnumerationOptions(dns_resolve='192.0.2.53', domain='example.com', quiet=True, shodan=True, source='crtsh'),
+        return_completed_result=True,
+    )
+
+    completed = result[-1]
+    execution = next(item for item in completed.active_evidence.executions if item.action == 'shodan')
+    assert execution.status == 'completed'
+    assert execution.result_count == 0
+    assert execution.error_type is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('scan_error', 'request_errors', 'rate_limited', 'expected_status', 'expected_error', 'expected_reason'),
+    [
+        ('RuntimeError', 0, False, 'failed', 'RuntimeError', 'scan-error'),
+        (None, 3, False, 'partial', 'TransportError', 'request-errors'),
+        (None, 0, True, 'rate-limited', None, 'rate-limited'),
+    ],
+)
+async def test_api_scan_records_suppressed_scan_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    scan_error: str | None,
+    request_errors: int,
+    rate_limited: bool,
+    expected_status: str,
+    expected_error: str | None,
+    expected_reason: str,
+) -> None:
+    class FailedApiScanner:
+        scan_error_type = scan_error
+        request_error_count = request_errors
+        request_error_types = {'TransportError'} if request_errors else set()
+
+        def __init__(self, word: str, wordlist: str) -> None:
+            assert word == 'example.com'
+            assert wordlist == str(tmp_path / 'api.txt')
+
+        async def do_search(self) -> None:
+            return None
+
+        def get_found_endpoints(self) -> dict:
+            return {}
+
+        def get_interesting_endpoints(self) -> dict:
+            return {}
+
+        def get_auth_required(self) -> dict:
+            return {}
+
+        def get_api_versions(self) -> set[str]:
+            return set()
+
+        def get_rate_limits(self) -> dict:
+            if rate_limited:
+                return {'/api': type('RateLimitInfo', (), {'method': 'GET'})()}
+            return {}
+
+        def get_methods(self) -> set[str]:
+            return set()
+
+        def get_status_codes(self) -> set[int]:
+            return set()
+
+    wordlist = tmp_path / 'api.txt'
+    wordlist.write_text('/api\n', encoding='utf-8')
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
+    monkeypatch.setattr(theharvester_main.api_endpoints, 'SearchApiEndpoints', FailedApiScanner)
+
+    result = await theharvester_main.start(
+        EnumerationOptions(
+            api_scan=True,
+            domain='example.com',
+            quiet=True,
+            wordlist=str(wordlist),
+        ),
+        return_completed_result=True,
+    )
+
+    completed = result[-1]
+    api_execution = next(execution for execution in completed.active_evidence.executions if execution.action == 'api-scan')
+    assert api_execution.status == expected_status
+    assert api_execution.result_count == 0
+    assert api_execution.error_type == expected_error
+    assert api_execution.stop_reason == expected_reason
+
+
+@pytest.mark.asyncio
+async def test_takeover_without_hosts_is_skipped_without_starting(monkeypatch: pytest.MonkeyPatch) -> None:
+    class UnexpectedTakeOver:
+        def __init__(self, _hosts: list[str]) -> None:
+            raise AssertionError('takeover should not start without hosts')
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
+    monkeypatch.setattr(theharvester_main.takeover, 'TakeOver', UnexpectedTakeOver)
+
+    result = await theharvester_main.start(
+        EnumerationOptions(domain='example.com', quiet=True, take_over=True),
+        return_completed_result=True,
+    )
+
+    completed = result[-1]
+    takeover_execution = next(execution for execution in completed.active_evidence.executions if execution.action == 'takeover')
+    assert takeover_execution.status == 'skipped'
+    assert takeover_execution.result_count == 0
+    assert takeover_execution.stop_reason == 'no-input'
+
+
+@pytest.mark.asyncio
+async def test_shodan_without_ips_is_skipped_without_starting(monkeypatch: pytest.MonkeyPatch) -> None:
+    class UnexpectedShodan:
+        def __init__(self) -> None:
+            raise AssertionError('Shodan should not start without IP addresses')
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
+    monkeypatch.setattr(theharvester_main.shodansearch, 'SearchShodan', UnexpectedShodan)
+
+    result = await theharvester_main.start(
+        EnumerationOptions(domain='example.com', quiet=True, shodan=True),
+        return_completed_result=True,
+    )
+
+    completed = result[-1]
+    shodan_execution = next(execution for execution in completed.active_evidence.executions if execution.action == 'shodan')
+    assert shodan_execution.status == 'skipped'
+    assert shodan_execution.result_count == 0
+    assert shodan_execution.stop_reason == 'no-input'
+
+
+@pytest.mark.asyncio
+async def test_api_scan_cancellation_persists_failure_and_propagates(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    saved: list[CompletedResult] = []
+
+    class CancelledApiScanner:
+        def __init__(self, word: str, wordlist: str) -> None:
+            assert word == 'example.com'
+            assert wordlist == str(tmp_path / 'api.txt')
+
+        async def do_search(self) -> None:
+            raise asyncio.CancelledError
+
+        def get_found_endpoints(self) -> set[str]:
+            return {'https://example.com/api/v1'}
+
+        def get_interesting_endpoints(self) -> set[str]:
+            return {'https://example.com/api/v1'}
+
+    wordlist = tmp_path / 'api.txt'
+    wordlist.write_text('/api\n', encoding='utf-8')
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _recording_result_store(saved))
+    monkeypatch.setattr(theharvester_main.api_endpoints, 'SearchApiEndpoints', CancelledApiScanner)
+
+    with pytest.raises(asyncio.CancelledError):
+        await theharvester_main.start(
+            EnumerationOptions(
+                api_scan=True,
+                domain='example.com',
+                quiet=True,
+                wordlist=str(wordlist),
+            ),
+            return_completed_result=True,
+        )
+
+    execution = next(item for item in saved[-1].active_evidence.executions if item.action == 'api-scan')
+    assert execution.status == 'partial'
+    assert execution.result_count == 3
+    assert execution.error_type == 'CancelledError'
+    assert execution.stop_reason == 'cancelled'
+    assert {(observation.kind, observation.value) for observation in execution.observations} == {
+        ('api-endpoint', 'https://example.com/api/v1'),
+        ('interesting-url', 'https://example.com/api/v1'),
+        ('url', 'https://example.com/api/v1'),
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('raised_error', 'failure_stage', 'expected_status', 'expected_count'),
+    [
+        (RuntimeError('scan failed'), 'search', 'partial', 3),
+        (MissingKey('API endpoints'), 'init', 'failed', 0),
+        (RuntimeError('getter failed'), 'getter', 'partial', 3),
+    ],
+)
+async def test_api_scan_raised_failure_is_persisted(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    raised_error: Exception,
+    failure_stage: str,
+    expected_status: str,
+    expected_count: int,
+) -> None:
+    class FailedApiScanner:
+        def __init__(self, word: str, wordlist: str) -> None:
+            assert word == 'example.com'
+            assert wordlist == str(tmp_path / 'api.txt')
+            self.scan_error_type = None
+            self.request_error_count = 0
+            self.request_error_types: set[str] = set()
+            if failure_stage == 'init':
+                raise raised_error
+
+        async def do_search(self) -> None:
+            if failure_stage == 'search':
+                raise raised_error
+
+        def get_found_endpoints(self) -> set[str]:
+            if failure_stage == 'getter':
+                raise raised_error
+            return {'https://example.com/api/v1'}
+
+        def get_interesting_endpoints(self) -> set[str]:
+            return {'https://example.com/api/v1'}
+
+        def get_auth_required(self) -> dict:
+            return {}
+
+        def get_api_versions(self) -> set[str]:
+            return set()
+
+        def get_rate_limits(self) -> dict:
+            return {}
+
+        def get_methods(self) -> set[str]:
+            return set()
+
+        def get_status_codes(self) -> set[int]:
+            return set()
+
+    wordlist = tmp_path / 'api.txt'
+    wordlist.write_text('/api\n', encoding='utf-8')
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
+    monkeypatch.setattr(theharvester_main.api_endpoints, 'SearchApiEndpoints', FailedApiScanner)
+
+    result = await theharvester_main.start(
+        EnumerationOptions(api_scan=True, domain='example.com', quiet=True, wordlist=str(wordlist)),
+        return_completed_result=True,
+    )
+
+    executions = [item for item in result[-1].active_evidence.executions if item.action == 'api-scan']
+    assert len(executions) == 1
+    execution = executions[0]
+    assert execution.status == expected_status
+    assert execution.result_count == expected_count
+    assert execution.error_type == type(raised_error).__name__
+    assert execution.stop_reason == 'scan-error'
+    if failure_stage == 'getter':
+        assert {(observation.kind, observation.value) for observation in execution.observations} == {
+            ('api-endpoint', 'https://example.com/api/v1'),
+            ('interesting-url', 'https://example.com/api/v1'),
+            ('url', 'https://example.com/api/v1'),
+        }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('raised_error', 'failure_stage', 'expected_reason'),
+    [
+        (asyncio.CancelledError(), 'process', 'cancelled'),
+        (RuntimeError('scan failed'), 'process', 'scan-error'),
+        (RuntimeError('constructor failed'), 'init', 'scan-error'),
+        (RuntimeError('getter failed'), 'getter', 'scan-error'),
+    ],
+)
+async def test_takeover_failure_persists_and_propagates(
+    monkeypatch: pytest.MonkeyPatch,
+    raised_error: BaseException,
+    failure_stage: str,
+    expected_reason: str,
+) -> None:
+    saved: list[CompletedResult] = []
+
+    class CancelledTakeOver:
+        def __init__(self, _hosts: list[str]) -> None:
+            self.request_error_count = 0
+            self.request_error_types: set[str] = set()
+            self.scan_error_type = None
+            if failure_stage == 'init':
+                raise raised_error
+
+        async def populate_fingerprints(self) -> None:
+            return None
+
+        async def process(self, _proxy: bool = False, **_kwargs) -> None:
+            if failure_stage == 'process':
+                raise raised_error
+
+        async def get_takeover_results(self) -> dict:
+            if failure_stage == 'getter':
+                raise raised_error
+            return {}
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _recording_result_store(saved))
+    monkeypatch.setattr(theharvester_main.crtsh, 'SearchCrtsh', _ApiHostSource)
+    monkeypatch.setattr(theharvester_main.takeover, 'TakeOver', CancelledTakeOver)
+
+    with pytest.raises(type(raised_error)):
+        await theharvester_main.start(
+            EnumerationOptions(domain='example.com', quiet=True, source='crtsh', take_over=True),
+            return_completed_result=True,
+        )
+
+    execution = next(item for item in saved[-1].active_evidence.executions if item.action == 'takeover')
+    assert execution.status == 'failed'
+    assert execution.result_count == 0
+    assert execution.error_type == type(raised_error).__name__
+    assert execution.stop_reason == expected_reason
+
+
+@pytest.mark.asyncio
+async def test_shodan_cancellation_persists_failure_and_propagates(monkeypatch: pytest.MonkeyPatch) -> None:
+    saved: list[CompletedResult] = []
+
+    class FakeChecker:
+        def __init__(self, _hosts: list[str], _nameservers: list[str]) -> None:
+            pass
+
+        async def check(self) -> tuple[list[str], list[str], list[str]]:
+            return (
+                ['api.example.com:192.0.2.10', 'www.example.com:192.0.2.11'],
+                ['api.example.com', 'www.example.com'],
+                ['192.0.2.10', '192.0.2.11'],
+            )
+
+    class CancelledShodan:
+        error_type = None
+
+        async def search_ip(self, ip: str) -> dict:
+            return {ip: {'ports': [443]}}
+
+    async def cancel_during_throttle(_seconds: float) -> None:
+        raise asyncio.CancelledError
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _recording_result_store(saved))
+    monkeypatch.setattr(theharvester_main.crtsh, 'SearchCrtsh', _ApiHostSource)
+    monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', FakeChecker)
+    monkeypatch.setattr(theharvester_main.shodansearch, 'SearchShodan', CancelledShodan)
+    monkeypatch.setattr(theharvester_main.asyncio, 'sleep', cancel_during_throttle)
+
+    with pytest.raises(asyncio.CancelledError):
+        await theharvester_main.start(
+            EnumerationOptions(
+                dns_resolve='192.0.2.53',
+                domain='example.com',
+                quiet=True,
+                shodan=True,
+                source='crtsh',
+            ),
+            return_completed_result=True,
+        )
+
+    execution = next(item for item in saved[-1].active_evidence.executions if item.action == 'shodan')
+    assert execution.status == 'partial'
+    assert execution.result_count == 1
+    assert execution.error_type == 'CancelledError'
+    assert execution.stop_reason == 'cancelled'
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('action', ['takeover', 'shodan'])
+async def test_direct_action_checkpoint_cancellation_persists_and_propagates(
+    monkeypatch: pytest.MonkeyPatch, action: str
+) -> None:
+    saved: list[CompletedResult] = []
+
+    class FakeTakeOver:
+        def __init__(self, _hosts: list[str]) -> None:
+            self.request_count = 1
+            self.request_error_count = 0
+            self.request_error_types: set[str] = set()
+            self.scan_error_type = None
+
+        async def populate_fingerprints(self) -> None:
+            return None
+
+        async def process(self, proxy: bool = False) -> None:
+            assert proxy is False
+
+        async def get_takeover_results(self) -> dict:
+            return {}
+
+    class FakeShodan:
+        error_type = None
+
+        async def search_ip(self, ip: str) -> dict:
+            return {ip: {'ports': [443]}}
+
+    async def cancel_after_action(result: CompletedResult) -> None:
+        if any(execution.action == action for execution in result.active_evidence.executions):
+            raise asyncio.CancelledError
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _recording_result_store(saved))
+    monkeypatch.setattr(theharvester_main.crtsh, 'SearchCrtsh', _ApiHostSource)
+    monkeypatch.setattr(theharvester_main.takeover, 'TakeOver', FakeTakeOver)
+    monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', _ApiHostChecker)
+    monkeypatch.setattr(theharvester_main.shodansearch, 'SearchShodan', FakeShodan)
+
+    options = EnumerationOptions(
+        dns_resolve='192.0.2.53' if action == 'shodan' else '',
+        domain='example.com',
+        quiet=True,
+        shodan=action == 'shodan',
+        source='crtsh',
+        take_over=action == 'takeover',
+    )
+    with pytest.raises(asyncio.CancelledError):
+        await theharvester_main.start(
+            options,
+            completed_result_checkpoint=cancel_after_action,
+            return_completed_result=True,
+        )
+
+    execution = next(item for item in saved[-1].active_evidence.executions if item.action == action)
+    assert execution.status == 'completed'
 
 
 @pytest.mark.asyncio

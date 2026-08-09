@@ -154,15 +154,18 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
         def __init__(self, *, word: str, wordlist: str) -> None:
             assert word == 'example.com'
             assert wordlist.endswith('api_endpoints.txt')
+            self.scan_error_type = None
+            self.request_error_count = 0
+            self.request_error_types: set[str] = set()
 
         async def do_search(self) -> None:
             return None
 
         def get_found_endpoints(self) -> dict[str, object]:
-            return {'/health': object()}
+            return {'https://example.com/health': object()}
 
         def get_interesting_endpoints(self) -> dict[str, object]:
-            return {'/health': object()}
+            return {'https://example.com/health': object()}
 
         def get_auth_required(self) -> dict[str, object]:
             return {}
@@ -236,7 +239,7 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
         await theharvester_main.start(completed_result_checkpoint=capture_checkpoint)
 
     assert exit_info.value.code == 0
-    assert stored.count(('api-endpoint', ('/health',), 'api_scan')) == 1
+    assert stored == []
 
     report_json = json.loads(report.with_suffix('.json').read_text())
     assert report_json['hosts'] == ['alias.example.com', 'api.example.com', 'broken.example.com']
@@ -275,6 +278,15 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
     assert reverse_execution.stop_reason == 'query-errors'
     assert {(observation.kind, observation.value) for observation in reverse_execution.observations} == {
         ('hostname', 'reverse.example.com')
+    }
+    api_execution = next(
+        execution for execution in completed_results[0].active_evidence.executions if execution.action == 'api-scan'
+    )
+    assert api_execution.status == 'completed'
+    assert {(observation.kind, observation.value) for observation in api_execution.observations} == {
+        ('api-endpoint', 'https://example.com/health'),
+        ('interesting-url', 'https://example.com/health'),
+        ('url', 'https://example.com/health'),
     }
     xml_hosts = {
         (element.findtext('hostname') or (element.text or '').strip(), element.findtext('ip'))
