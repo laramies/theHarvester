@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added deterministic JSONL report companions finalized after selected one-shot actions complete.
 - Added a unified model and SQLite schema for active-action provenance and screenshot artifact metadata.
 - Added authenticated bulk import for completed runs from validated theHarvester SQLite databases.
+- Added bounded custom endpoint-path input for REST API scans without exposing server-side file paths.
 - Recorded DNS resolution, recursive DNS, DNS brute force, and PTR lookup outcomes through the unified action model.
 - Recorded takeover, Shodan, and API endpoint scan outcomes through the unified action model.
 - Added normalized BuiltWith framework, language, server, CMS, and analytics findings to JSONL and completed-result SQLite output.

@@ -393,7 +393,7 @@ class RunLifecycleStore:
             rows = (
                 await session.execute(
                     select(_RunRecordRow, result_count.label('result_count'))
-                    .order_by(_RunRecordRow.created_at.desc())
+                    .order_by(_RunRecordRow.created_at.desc(), _RunRecordRow.run_id.desc())
                     .limit(limit)
                     .offset(offset)
                 )
@@ -763,7 +763,7 @@ class ResultStore:
             active_evidence=ActiveEvidence(executions=tuple(action_executions)),
         )
 
-    async def list_runs(self, *, limit: int | None = 50) -> list[dict[str, object]]:
+    async def list_runs(self, *, limit: int | None = 50, offset: int = 0) -> list[dict[str, object]]:
         async with self._session() as session:
             statement = (
                 select(_RunRow, func.count(_ResultRow.position))
@@ -773,6 +773,7 @@ class ResultStore:
             )
             if limit is not None:
                 statement = statement.limit(limit)
+            statement = statement.offset(offset)
             rows = (await session.execute(statement)).all()
         return [
             {

@@ -55,6 +55,7 @@ class SearchApiEndpoints:
         follow_redirects: bool = True,
         verify_ssl: bool = True,
         additional_headers: dict[str, str] | None = None,
+        exact_paths: bool = False,
     ) -> None:
         """Configure an API path scan.
 
@@ -68,6 +69,7 @@ class SearchApiEndpoints:
             follow_redirects: Whether requests follow redirects.
             verify_ssl: Whether to verify TLS certificates.
             additional_headers: Extra HTTP headers to send.
+            exact_paths: Check only paths listed in the configured wordlist.
 
         """
         self.word = word
@@ -101,6 +103,7 @@ class SearchApiEndpoints:
             os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'wordlists', 'api_endpoints.txt'
         )
         self.wordlist = wordlist or default_wordlist
+        self.exact_paths = exact_paths
 
         # Add comprehensive API paths categorized by functionality
         self.common_api_paths = [
@@ -405,12 +408,14 @@ class SearchApiEndpoints:
                 self.logger.warning(f'No endpoints found in wordlist: {self.wordlist}')
                 endpoints = []
 
-            # Add common API paths that might not be in the wordlist
-            endpoints.extend(self.common_api_paths)
-            endpoints = list(set(endpoints))  # Remove duplicates
+            if not self.exact_paths:
+                endpoints.extend(self.common_api_paths)
+            endpoints = list(dict.fromkeys(endpoints))
+            if not endpoints:
+                return
 
             # Detect base URL schema (http or https)
-            schema = await self._detect_schema()
+            schema = await self._detect_schema(endpoints[0]) if self.exact_paths else await self._detect_schema()
             self.logger.info(f'Detected schema for {self.word}: {schema}')
 
             # Generate batches of tasks to control concurrency
@@ -439,9 +444,9 @@ class SearchApiEndpoints:
             if session is not None:
                 await session.close()
 
-    async def _detect_schema(self) -> str:
+    async def _detect_schema(self, path: str = '') -> str:
         """Detect if the domain supports HTTPS or fall back to HTTP."""
-        https_url = f'https://{self.word}'
+        https_url = f'https://{self.word}{path}'
         if self._session is None:
             raise RuntimeError('API endpoint session is not initialized')
         try:
@@ -469,6 +474,9 @@ class SearchApiEndpoints:
 
             # Ensure all paths start with /
             endpoints = [line if line.startswith('/') else f'/{line}' for line in lines]
+
+            if self.exact_paths:
+                return list(dict.fromkeys(endpoints))
 
             # Add some path variations (with and without trailing slash)
             variations = []

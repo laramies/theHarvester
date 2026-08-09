@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 from weakref import WeakKeyDictionary
 
+import anyio
+
 from theHarvester.lib.enumeration import (
     DEFAULT_DNS_RECURSIVE_QUERY_LIMIT,
     DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS,
@@ -140,19 +142,19 @@ async def _execute_claimed(store: RunStore, run: dict[str, Any], owner_id: str |
         stopping = _worker_stop is not None and _worker_stop.is_set()
         if current is not None and current['status'] == 'cancelling':
             await _stop_process(process, wait_task)
-            evidence, evidence_error = read_child_evidence(artifact_dir)
+            evidence, evidence_error = read_child_evidence(artifact_dir, str(run['target']))
             failure_message = 'Cancelled by operator' + (f'; {evidence_error}' if evidence_error else '')
             await store.fail(run_id, failure_message, await output_task, cancelled=True, evidence=evidence)
             return
         if stopping:
             await _stop_process(process, wait_task)
-            evidence, evidence_error = read_child_evidence(artifact_dir)
+            evidence, evidence_error = read_child_evidence(artifact_dir, str(run['target']))
             failure_message = 'theHarvester stopped before child completion' + (f'; {evidence_error}' if evidence_error else '')
             await store.fail(run_id, failure_message, await output_task, evidence=evidence)
             return
         if asyncio.get_running_loop().time() >= deadline:
             await _stop_process(process, wait_task)
-            evidence, evidence_error = read_child_evidence(artifact_dir)
+            evidence, evidence_error = read_child_evidence(artifact_dir, str(run['target']))
             failure_message = f'Run exceeded its {run["request"]["deadline_seconds"]} second deadline'
             if evidence_error:
                 failure_message += f'; {evidence_error}'
@@ -165,7 +167,7 @@ async def _execute_claimed(store: RunStore, run: dict[str, Any], owner_id: str |
             return
     log = await output_task
     current = await store.get(run_id)
-    evidence, evidence_error = read_child_evidence(artifact_dir)
+    evidence, evidence_error = read_child_evidence(artifact_dir, str(run['target']))
     if evidence_error:
         await store.fail(
             run_id,
@@ -277,6 +279,14 @@ async def _child_execute(run_id: str, database: Path) -> None:
         ensure_private_directory(screenshot_dir)
     recursive_depth = request.get('dns_recursive_depth', 0)
     resolver_list = request.get('dns_resolvers', list(DEFAULT_DNS_RESOLVERS))
+    api_scan_wordlist = ''
+    if request.get('api_scan_paths'):
+        api_scan_wordlist_path = artifact_dir / 'api-scan-paths.txt'
+        await anyio.Path(api_scan_wordlist_path).write_text(
+            ''.join(f'{path}\n' for path in request['api_scan_paths']),
+            encoding='utf-8',
+        )
+        api_scan_wordlist = str(api_scan_wordlist_path)
     args = EnumerationOptions(
         api_scan=request.get('api_scan', False),
         dns_brute=request.get('dns_brute', False),
@@ -296,8 +306,8 @@ async def _child_execute(run_id: str, database: Path) -> None:
         shodan=request.get('shodan', False),
         source=','.join(request['sources']),
         start=request.get('start', DEFAULT_RESULT_START),
-        take_over=request.get('take_over', False),
-        wordlist='',
+        take_over=request.get('takeover', False),
+        wordlist=api_scan_wordlist,
     )
     checkpoint_lock = asyncio.Lock()
 

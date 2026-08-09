@@ -39,12 +39,18 @@ def ensure_private_directory(path: Path) -> None:
     path.chmod(0o700)
 
 
-def read_child_evidence(artifact_dir: Path) -> tuple[dict[str, Any] | None, str | None]:
+def read_child_evidence(
+    artifact_dir: Path,
+    expected_target: str | None = None,
+) -> tuple[dict[str, Any] | None, str | None]:
     evidence_path = artifact_dir / 'evidence.json'
     if not evidence_path.is_file():
         return None, None
     try:
-        return validate_evidence(json.loads(evidence_path.read_text(encoding='utf-8'))), None
+        evidence = validate_evidence(json.loads(evidence_path.read_text(encoding='utf-8')))
+        if expected_target is not None and evidence.get('target') != expected_target:
+            return None, 'Child evidence target does not match run target'
+        return evidence, None
     except (OSError, json.JSONDecodeError, HTTPException) as error:
         return None, f'Child evidence is invalid: {error}'
 

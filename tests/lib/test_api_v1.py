@@ -237,7 +237,9 @@ def test_openapi_explains_scope_and_execution_controls(tmp_path, monkeypatch) ->
     assert 'whole run' in properties['deadline_seconds']['description']
     assert 'three resolver' in properties['dns_recursive_query_limit']['description']
     assert 'discovery sources' in properties['proxies']['description']
-    assert 'configured proxies' in properties['take_over']['description']
+    assert 'configured proxies' in properties['takeover']['description']
+    assert 'take_over' not in properties
+    assert 'endpoint paths' in properties['api_scan_paths']['description']
     import_content = schema['paths']['/api/v1/runs/import']['post']['requestBody']['content']
     assert set(import_content) == {'application/x-ndjson'}
     export_content = schema['paths']['/api/v1/runs/{run_id}/export']['get']['responses']['200']['content']
@@ -288,11 +290,28 @@ def test_run_detail_exposes_one_normalized_evidence_surface(tmp_path, monkeypatc
 
 
 def test_api_scan_can_run_without_discovery_sources(tmp_path, monkeypatch) -> None:
+    from pydantic import ValidationError
+
     from theHarvester.lib.api.run_models import RunRequest
 
-    request = RunRequest(target='example.test', sources=[], api_scan=True)
+    request = RunRequest(target='example.test', sources=[], api_scan=True, api_scan_paths=['/api/v2', '/health'])
 
     assert request.api_scan is True
+    assert request.api_scan_paths == ['/api/v2', '/health']
+    with pytest.raises(ValidationError):
+        RunRequest(target='example.test', sources=[], api_scan=True, api_scan_paths=['https://other.example/api'])
+
+
+def test_fresh_api_uses_catalog_takeover_name_and_rejects_unknown_fields() -> None:
+    from pydantic import ValidationError
+
+    from theHarvester.lib.api.run_models import RunRequest
+
+    request = RunRequest(target='example.test', sources=[], takeover=True)
+
+    assert request.takeover is True
+    with pytest.raises(ValidationError):
+        RunRequest(target='example.test', sources=[], take_over=True)
 
 
 def test_api_rejects_evidence_status_that_disagrees_with_executions(tmp_path, monkeypatch) -> None:
@@ -328,6 +347,29 @@ def test_api_rejects_evidence_status_that_disagrees_with_executions(tmp_path, mo
 
     assert response.status_code == 400
     assert response.json()['detail'] == 'Evidence status does not match its execution outcomes'
+
+
+def test_api_rejects_status_without_executions_before_persisting(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+    from theHarvester.lib.database import ResultStore
+
+    database = tmp_path / 'runs.sqlite'
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(database))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+    payload = _jsonl_result(summary_fields={'evidence_status': 'failed'})
+
+    with TestClient(api.app) as client:
+        response = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'inconsistent.jsonl'},
+            headers={'X-API-Key': 'test-key'},
+            content=payload,
+        )
+
+    assert response.status_code == 400
+    assert response.json()['detail'] == 'Evidence status does not match its execution outcomes'
+    assert asyncio.run(ResultStore(database).list_runs(limit=None)) == []
 
 
 def test_api_import_and_export_accept_only_jsonl(tmp_path, monkeypatch) -> None:
@@ -441,9 +483,7 @@ def test_api_database_import_exposes_completed_cli_runs(tmp_path, monkeypatch) -
     assert imported.status_code == 201
     assert imported.json()['imported_run_ids'] == [str(completed.run_id)]
     assert detail.status_code == 200
-    assert detail.json()['results'] == [
-        {'type': 'subdomain', 'value': 'api.imported.example.test', 'sources': [], 'actions': []}
-    ]
+    assert detail.json()['results'] == [{'type': 'subdomain', 'value': 'api.imported.example.test', 'sources': [], 'actions': []}]
 
 
 def test_api_jsonl_round_trip_preserves_source_attribution(tmp_path, monkeypatch) -> None:
@@ -574,8 +614,8 @@ def test_api_jsonl_export_uses_lifecycle_timestamps_for_sparse_partial_evidence(
     assert isinstance(summary['started_at'], str)
     assert isinstance(summary['completed_at'], str)
     assert reimported.status_code == 201
-    assert summary['evidence_status'] == 'partial'
-    assert reimported.json()['evidence_status'] == 'partial'
+    assert summary['evidence_status'] == 'complete'
+    assert reimported.json()['evidence_status'] == 'complete'
 
 
 def test_api_jsonl_round_trip_uses_canonical_hostname_and_ip_kinds(tmp_path, monkeypatch) -> None:

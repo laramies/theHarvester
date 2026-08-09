@@ -80,6 +80,41 @@ async def test_api_endpoint_scan_uses_only_observational_http_methods(monkeypatc
 
 
 @pytest.mark.asyncio
+async def test_api_endpoint_scan_uses_only_the_configured_wordlist(monkeypatch, tmp_path) -> None:
+    wordlist = tmp_path / 'operator-paths.txt'
+    wordlist.write_text('/health\n', encoding='utf-8')
+    search = api_endpoints.SearchApiEndpoints('example.com', wordlist=str(wordlist), exact_paths=True)
+    detected_paths: list[str] = []
+    requested_urls: list[str] = []
+
+    async def detect_schema(path: str = '') -> str:
+        detected_paths.append(path)
+        return 'https'
+
+    async def fetch(url: str, *_args, **_kwargs):
+        requested_urls.append(url)
+        return ''
+
+    monkeypatch.setattr(search, '_detect_schema', detect_schema)
+    monkeypatch.setattr(api_endpoints.AsyncFetcher, 'fetch', fetch)
+
+    await search.do_search()
+
+    assert detected_paths == ['/health']
+    assert requested_urls == ['https://example.com/health'] * 3
+
+
+@pytest.mark.asyncio
+async def test_schema_detection_can_probe_an_exact_listed_path() -> None:
+    search = api_endpoints.SearchApiEndpoints('example.com', exact_paths=True)
+    session = FakeSession()
+    search._session = session
+
+    assert await search._detect_schema('/health') == 'https'
+    assert session.requests[0][0] == 'https://example.com/health'
+
+
+@pytest.mark.asyncio
 async def test_api_endpoint_scan_exposes_shared_fetcher_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
     search = api_endpoints.SearchApiEndpoints('example.com')
     search.common_api_paths = ['/api']

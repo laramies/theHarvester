@@ -95,6 +95,19 @@ curl -s http://127.0.0.1:5000/api/v1/runs \
 
 For DNS brute force, set `dns_brute` to `true`. You may also provide `dns_resolvers` as one or more distinct IPv4 or IPv6 addresses. Recursive DNS is the only action that requires exactly three resolver addresses.
 
+The action catalog and run request use the same names. For example, set `takeover` to `true` for takeover checks. API endpoint scans can use the bundled paths or an explicit bounded list:
+
+```json
+{
+  "target": "api.example.com",
+  "sources": [],
+  "api_scan": true,
+  "api_scan_paths": ["/api/v2", "/health"]
+}
+```
+
+Every custom API scan entry must be a URL path beginning with `/`. The API does not accept a server-side file path.
+
 ## Import and export
 
 Import records existing evidence and never contacts the target. For one run, send the same JSONL written by `theHarvester -f NAME`:

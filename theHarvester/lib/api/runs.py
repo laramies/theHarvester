@@ -262,7 +262,7 @@ async def export_run(
         {
             'completed_at': format_utc(datetime.fromisoformat(completed_at)),
             'counts': dict(sorted(counts.items())),
-            'evidence_status': run['evidence_status'],
+            'evidence_status': run['evidence']['status'],
             'result_count': len(results),
             'run_id': run_id,
             'source_executions': run['evidence'].get('source_executions', []),

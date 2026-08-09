@@ -4,7 +4,7 @@ import ipaddress
 from datetime import UTC, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from theHarvester.lib.enumeration import (
     DEFAULT_DNS_RECURSIVE_QUERY_LIMIT,
@@ -44,6 +44,8 @@ def _normalize_target(value: str) -> str:
 
 
 class RunRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
     target: str = Field(description='Authorized domain name or IP address to enumerate.')
     sources: list[str] = Field(
         max_length=len(SOURCE_SPECS),
@@ -108,13 +110,18 @@ class RunRequest(BaseModel):
         default=False,
         description='Capture discovered web services, or the authorized target when no discovery sources are selected.',
     )
-    take_over: bool = Field(
+    takeover: bool = Field(
         default=False,
         description='Check discovered hosts for takeover indicators, using configured proxies when enabled.',
     )
     api_scan: bool = Field(
         default=False,
         description='Request common API paths directly from the authorized target.',
+    )
+    api_scan_paths: list[str] = Field(
+        default_factory=list,
+        max_length=500,
+        description='Optional endpoint paths used by API scan instead of its bundled wordlist.',
     )
 
     @field_validator('target')
@@ -133,6 +140,23 @@ class RunRequest(BaseModel):
     @classmethod
     def validate_dns_resolvers(cls, values: list[str]) -> list[str]:
         return normalize_resolver_addresses(values)
+
+    @field_validator('api_scan_paths')
+    @classmethod
+    def validate_api_scan_paths(cls, values: list[str]) -> list[str]:
+        paths = [value.strip() for value in values]
+        if any(
+            not path
+            or not path.startswith('/')
+            or len(path) > 2048
+            or '://' in path
+            or any(character in path for character in '\r\n')
+            for path in paths
+        ):
+            raise ValueError('API scan paths must be non-empty URL paths beginning with /')
+        if len(paths) != len(set(paths)):
+            raise ValueError('API scan paths must not contain duplicates')
+        return paths
 
     @model_validator(mode='after')
     def validate_selected_work(self) -> RunRequest:

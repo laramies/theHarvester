@@ -9,7 +9,9 @@ import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
+from uuid import UUID
 
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -54,6 +56,28 @@ def test_run_history_is_bounded_without_loading_completed_evidence(tmp_path, mon
     assert len(history) == 2
     assert [run['target'] for run in history] == ['2.example.test', '1.example.test']
     assert all(run['result_count'] == 0 for run in history)
+
+
+def test_run_history_breaks_timestamp_ties_by_run_id(tmp_path) -> None:
+    from theHarvester.lib.database import RunLifecycleStore
+
+    async def scenario() -> list[str]:
+        store = RunLifecycleStore(tmp_path / 'runs.sqlite')
+        await store.initialize()
+        for run_id in ('run-a', 'run-c', 'run-b'):
+            await store.create(
+                run_id=run_id,
+                target='example.test',
+                status='completed',
+                origin='imported',
+                created_at='2026-08-09T12:00:00+00:00',
+                request_json='{}',
+            )
+        first = await store.list_records(limit=2, offset=0)
+        second = await store.list_records(limit=2, offset=2)
+        return [str(run['run_id']) for run in first + second]
+
+    assert asyncio.run(scenario()) == ['run-c', 'run-b', 'run-a']
 
 
 def test_api_lifespan_disposes_shared_sqlite_engines(tmp_path, monkeypatch) -> None:
@@ -264,9 +288,9 @@ def test_child_screenshot_run_persists_downloadable_artifact_metadata(tmp_path, 
         def screenshot_path(self, url: str) -> Path:
             return Path(self.output) / f'{url.removeprefix("https://")}.png'
 
-        async def take_screenshot(self, url: str) -> str:
+        async def take_screenshot(self, url: str, *, output_path: Path | None = None) -> str:
             captured_url = url if url.startswith('https://') else f'https://{url}'
-            self.screenshot_path(captured_url).write_bytes(b'png')
+            (output_path or self.screenshot_path(captured_url)).write_bytes(b'png')
             return captured_url
 
     class FakePool:
@@ -308,7 +332,92 @@ def test_child_screenshot_run_persists_downloadable_artifact_metadata(tmp_path, 
     assert (artifact_dir / 'screenshots' / 'api.example.test.png').read_bytes() == b'png'
 
 
-def test_sqlite_import_preserves_run_ids_and_is_idempotent(tmp_path) -> None:
+def test_child_screenshot_cancellation_reuses_the_checkpointed_evidence(tmp_path, monkeypatch) -> None:
+    from theHarvester import __main__ as main_module
+    from theHarvester.lib.api.run_artifacts import read_child_evidence
+    from theHarvester.lib.api.run_models import RunRequest
+    from theHarvester.lib.api.run_store import RunStore
+    from theHarvester.lib.api.run_worker import _child_execute
+
+    first_captured = asyncio.Event()
+
+    class FakeScreenShotter:
+        slash = '/'
+
+        def __init__(self, output: str) -> None:
+            self.output = output
+
+        def verify_path(self) -> bool:
+            return True
+
+        async def verify_installation(self) -> None:
+            return None
+
+        async def visit(self, host: str) -> tuple[str, str]:
+            return f'https://{host}', 'reachable'
+
+        async def take_screenshot(self, url: str, *, output_path: Path | None = None) -> str:
+            assert output_path is not None
+            if 'first.' in url:
+                output_path.write_bytes(b'png')  # noqa: ASYNC240 - tiny in-memory screenshot fixture
+                first_captured.set()
+                return url
+            await first_captured.wait()
+            raise asyncio.CancelledError
+
+        def screenshot_path(self, url: str) -> Path:
+            return Path(self.output) / f'{url.removeprefix("https://")}.png'
+
+    class TwoHostSource:
+        def __init__(self, _word: str) -> None:
+            pass
+
+        async def process(self, _proxy: bool) -> None:
+            return None
+
+        async def get_hostnames(self) -> set[str]:
+            return {'first.example.test', 'second.example.test'}
+
+    class FakePool:
+        def __init__(self, _workers: int) -> None:
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args) -> None:
+            return None
+
+        async def map(self, function, values):
+            return [await function(value) for value in values]
+
+    database = tmp_path / 'runs.sqlite'
+    monkeypatch.setenv('THEHARVESTER_RUN_ARTIFACTS', str(tmp_path / 'artifacts'))
+    monkeypatch.setattr(main_module.crtsh, 'SearchCrtsh', TwoHostSource)
+    monkeypatch.setattr(main_module, 'ScreenShotter', FakeScreenShotter)
+    monkeypatch.setattr(main_module, 'Pool', FakePool)
+
+    async def scenario():
+        store = RunStore(database)
+        queued = await store.create(RunRequest(target='example.test', sources=['crtsh'], screenshot=True))
+        await store.claim_next()
+        await _child_execute(queued['run_id'], database)
+        evidence, error = read_child_evidence(store.artifact_directory(queued['run_id']))
+        assert error is None
+        assert evidence is not None
+        await store.fail(queued['run_id'], 'cancelled', '', cancelled=True, evidence=evidence)
+        return await store.get(queued['run_id'])
+
+    run = asyncio.run(scenario())
+
+    assert run is not None
+    assert run['status'] == 'cancelled'
+    assert run['action_executions'][0]['status'] == 'partial'
+    assert [screenshot['target'] for screenshot in run['screenshots']] == ['first.example.test']
+
+
+def test_sqlite_import_preserves_run_ids_and_is_idempotent(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import run_store
     from theHarvester.lib.api.run_store import RunStore
     from theHarvester.lib.completed_result import CompletedResult
     from theHarvester.lib.database import ResultStore, dispose_sqlite_databases
@@ -328,6 +437,16 @@ def test_sqlite_import_preserves_run_ids_and_is_idempotent(tmp_path) -> None:
         completed_at=now,
         groups={'email': ['security@second.example.test']},
     )
+    list_calls: list[tuple[int | None, int]] = []
+    original_list_runs = ResultStore.list_runs
+
+    async def track_source_batches(self, *, limit=50, offset=0):
+        if Path(self.database) == source_database.resolve():
+            list_calls.append((limit, offset))
+        return await original_list_runs(self, limit=limit, offset=offset)
+
+    monkeypatch.setattr(run_store, 'DATABASE_IMPORT_BATCH_SIZE', 1)
+    monkeypatch.setattr(ResultStore, 'list_runs', track_source_batches)
 
     async def scenario():
         source = ResultStore(source_database)
@@ -337,16 +456,19 @@ def test_sqlite_import_preserves_run_ids_and_is_idempotent(tmp_path) -> None:
         await dispose_sqlite_databases()
         destination = RunStore(destination_database)
         imported = await destination.import_database(source_database, 'source.sqlite')
+        first_import_calls = list(list_calls)
+        list_calls.clear()
         repeated = await destination.import_database(source_database, 'source.sqlite')
         history = await destination.list_runs()
-        return imported, repeated, history
+        return imported, repeated, history, first_import_calls
 
-    imported, repeated, history = asyncio.run(scenario())
+    imported, repeated, history, first_import_calls = asyncio.run(scenario())
 
     expected_ids = sorted((str(first.run_id), str(second.run_id)))
     assert imported == {'filename': 'source.sqlite', 'imported_run_ids': expected_ids, 'skipped_run_ids': []}
     assert repeated == {'filename': 'source.sqlite', 'imported_run_ids': [], 'skipped_run_ids': expected_ids}
     assert sorted(run['run_id'] for run in history) == expected_ids
+    assert first_import_calls == [(1, 0), (1, 1), (1, 2), (1, 0), (1, 1), (1, 2)]
 
 
 def test_orphan_recovery_reattaches_partial_checkpoint_and_leaves_queued_work(tmp_path, monkeypatch) -> None:
@@ -377,6 +499,14 @@ def test_orphan_recovery_reattaches_partial_checkpoint_and_leaves_queued_work(tm
         write_child_evidence(artifact_dir, checkpoint, partial=True)
         running = await store.claim_next()
         assert running is not None
+        persisted = CompletedResult.finish(
+            run_id=UUID(running['run_id']),
+            target=str(running['target']),
+            started_at=now,
+            completed_at=now,
+            groups={'hostname': [f'api.{running["target"]}']},
+        )
+        await store.results.save_run(persisted)
         await store.recover_orphans()
         return await store.get(cancelling['run_id']), await store.get(running['run_id']), await store.list_runs()
 
@@ -388,7 +518,105 @@ def test_orphan_recovery_reattaches_partial_checkpoint_and_leaves_queued_work(tm
     assert cancelling['results'] == [{'type': 'email', 'value': 'saved@first.example', 'sources': [], 'actions': []}]
     assert running is not None
     assert running['status'] == 'failed'
+    assert running['results'] == [{'type': 'subdomain', 'value': f'api.{running["target"]}', 'sources': [], 'actions': []}]
     assert {run['target']: run['status'] for run in history}['third.example'] == 'queued'
+
+
+def test_orphan_recovery_does_not_attach_same_id_evidence_for_another_target(tmp_path) -> None:
+    from theHarvester.lib.api.run_models import RunRequest
+    from theHarvester.lib.api.run_store import RunStore
+    from theHarvester.lib.completed_result import CompletedResult
+
+    async def scenario():
+        store = RunStore(tmp_path / 'runs.sqlite')
+        queued = await store.create(RunRequest(target='expected.example', sources=['crtsh']))
+        await store.claim_next()
+        now = datetime.now(UTC)
+        await store.results.save_run(
+            CompletedResult.finish(
+                run_id=UUID(queued['run_id']),
+                target='different.example',
+                started_at=now,
+                completed_at=now,
+                groups={'hostname': ['api.different.example']},
+            )
+        )
+        await store.recover_orphans()
+        return await store.get(queued['run_id'])
+
+    run = asyncio.run(scenario())
+
+    assert run is not None
+    assert run['status'] == 'failed'
+    assert run['results'] == []
+
+
+def test_orphan_recovery_rejects_checkpoint_for_another_target(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api.run_artifacts import ensure_private_directory, write_child_evidence
+    from theHarvester.lib.api.run_models import RunRequest
+    from theHarvester.lib.api.run_store import RunStore
+    from theHarvester.lib.completed_result import CompletedResult
+
+    monkeypatch.setenv('THEHARVESTER_RUN_ARTIFACTS', str(tmp_path / 'artifacts'))
+
+    async def scenario():
+        store = RunStore(tmp_path / 'runs.sqlite')
+        queued = await store.create(RunRequest(target='expected.example', sources=['crtsh']))
+        await store.claim_next()
+        artifact_dir = store.artifact_directory(queued['run_id'])
+        ensure_private_directory(artifact_dir)
+        now = datetime.now(UTC)
+        write_child_evidence(
+            artifact_dir,
+            CompletedResult.finish(
+                target='different.example',
+                started_at=now,
+                completed_at=now,
+                groups={'hostname': ['api.different.example']},
+            ),
+            partial=True,
+        )
+        await store.recover_orphans()
+        return await store.get(queued['run_id'])
+
+    run = asyncio.run(scenario())
+
+    assert run is not None
+    assert run['status'] == 'failed'
+    assert run['results'] == []
+    assert 'does not match run target' in run['error']
+
+
+@pytest.mark.parametrize('operation', ['finish', 'fail'])
+def test_terminal_run_rejects_evidence_for_another_target(tmp_path, operation) -> None:
+    from fastapi import HTTPException
+
+    from theHarvester.lib.api.run_models import RunRequest
+    from theHarvester.lib.api.run_store import RunStore
+    from theHarvester.lib.completed_result import CompletedResult
+
+    async def scenario():
+        store = RunStore(tmp_path / 'runs.sqlite')
+        queued = await store.create(RunRequest(target='expected.example', sources=['crtsh']))
+        await store.claim_next()
+        now = datetime.now(UTC)
+        evidence = CompletedResult.finish(
+            target='different.example',
+            started_at=now,
+            completed_at=now,
+            groups={'hostname': ['api.different.example']},
+        ).evidence_dict()
+        terminal = (
+            store.finish(queued['run_id'], evidence, '')
+            if operation == 'finish'
+            else store.fail(queued['run_id'], 'failed', '', evidence=evidence)
+        )
+        with pytest.raises(HTTPException, match='Evidence target does not match run target'):
+            await terminal
+        with pytest.raises(LookupError):
+            await store.results.load_run(UUID(queued['run_id']))
+
+    asyncio.run(scenario())
 
 
 def test_worker_lease_serializes_execution_owners(tmp_path) -> None:
@@ -549,6 +777,40 @@ def test_dns_brute_child_uses_operator_resolver_list(tmp_path, monkeypatch) -> N
     assert received_options[0].dns_resolvers == ('192.0.2.53',)
 
 
+def test_api_scan_child_uses_operator_endpoint_paths(tmp_path, monkeypatch) -> None:
+    from theHarvester import __main__ as main_module
+    from theHarvester.lib.api import run_worker
+    from theHarvester.lib.api.run_models import RunRequest
+    from theHarvester.lib.api.run_store import RunStore
+    from theHarvester.lib.completed_result import CompletedResult
+
+    received_wordlists: list[Path] = []
+
+    async def fake_start(options, **_kwargs):
+        received_wordlists.append(Path(options.wordlist))
+        now = datetime.now(UTC)
+        return (CompletedResult.finish(target=options.domain, started_at=now, completed_at=now, groups={}),)
+
+    monkeypatch.setattr(main_module, 'start', fake_start)
+
+    async def scenario() -> None:
+        store = RunStore(tmp_path / 'runs.sqlite')
+        created = await store.create(
+            RunRequest(
+                target='api.example.test',
+                sources=[],
+                api_scan=True,
+                api_scan_paths=['/api/v2', '/health'],
+            )
+        )
+        assert await store.claim_next() is not None
+        await run_worker._child_execute(created['run_id'], store.database)
+
+    asyncio.run(scenario())
+
+    assert received_wordlists[0].read_text(encoding='utf-8') == '/api/v2\n/health\n'
+
+
 def test_running_cancellation_terminates_child_and_retains_partial_evidence(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api import api, run_worker
 
@@ -652,3 +914,49 @@ def test_whole_run_deadline_terminates_child_and_retains_partial_evidence(tmp_pa
     assert 'deadline' in detail['error']
     assert detail['evidence_status'] == 'partial'
     assert detail['results'] == [{'type': 'email', 'value': 'saved@example.test', 'sources': [], 'actions': []}]
+
+
+def test_worker_fails_run_without_attaching_child_evidence_for_another_target(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import run_worker
+    from theHarvester.lib.api.run_models import RunRequest
+    from theHarvester.lib.api.run_store import RunStore
+
+    monkeypatch.setenv('THEHARVESTER_RUN_ARTIFACTS', str(tmp_path / 'artifacts'))
+    monkeypatch.setattr(run_worker, '_worker_stop', None)
+
+    async def mismatched_process(_run_id, _database, artifact_dir):
+        artifact_dir.mkdir(parents=True, exist_ok=True)
+        (artifact_dir / 'evidence.json').write_text(
+            json.dumps(
+                {
+                    'target': 'different.example',
+                    'status': 'complete',
+                    'results': [{'type': 'email', 'value': 'saved@different.example'}],
+                }
+            ),
+            encoding='utf-8',
+        )
+        return await asyncio.create_subprocess_exec(
+            sys.executable,
+            '-c',
+            'pass',
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+    monkeypatch.setattr(run_worker, '_process_factory', mismatched_process)
+
+    async def scenario():
+        store = RunStore(tmp_path / 'runs.sqlite')
+        await store.create(RunRequest(target='expected.example', sources=['crtsh']))
+        run = await store.claim_next()
+        assert run is not None
+        await run_worker._execute_claimed(store, run)
+        return await store.get(run['run_id'])
+
+    detail = asyncio.run(scenario())
+
+    assert detail is not None
+    assert detail['status'] == 'failed'
+    assert detail['results'] == []
+    assert 'does not match run target' in detail['error']
