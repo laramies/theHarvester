@@ -302,6 +302,16 @@ def test_subdomain_actions_queue_isolated_runs(
             'dns_resolvers': ['192.0.2.53'],
         },
         'source_executions': [],
+        'action_executions': [
+            {
+                'action': 'dns-brute',
+                'status': 'failed',
+                'result_count': 0,
+                'duration_ms': 125,
+                'error_type': 'TimeoutError',
+                'stop_reason': 'query-errors',
+            }
+        ],
         'results': [{'type': 'subdomain', 'value': 'api.example.com'}],
         'screenshots': [],
         'log': '',
@@ -320,6 +330,13 @@ def test_subdomain_actions_queue_isolated_runs(
     page.route(f'{harvestview_server_url}/api/v1/runs/parent-run', lambda route: route.fulfill(json=run))
     page.goto(f'{harvestview_server_url}/')
 
+    page.locator('#provider-details summary').click()
+    expect(page.locator('#provider-title')).to_have_text('Execution outcomes')
+    action_row = page.locator('#provider-body tr').filter(has_text='dns-brute')
+    expect(action_row).to_contain_text('Action')
+    expect(action_row).to_contain_text('failed')
+    expect(action_row).to_contain_text('TimeoutError')
+
     page.get_by_role('button', name='Take screenshot of api.example.com (P2)').click()
     expect(page.locator('#toast')).to_contain_text('Action captured')
     page.get_by_role('button', name='DNS brute force api.example.com (P1)').click()
@@ -334,6 +351,139 @@ def test_subdomain_actions_queue_isolated_runs(
             'dns_resolvers': ['192.0.2.53'],
         },
     ]
+
+
+def test_accepted_result_action_is_not_reported_as_failed_when_refresh_fails(
+    harvestview_server_url: str,
+    page: Page,
+    browser_failures,
+) -> None:
+    browser_failures.allow_response('GET', 503, '/api/v1/runs')
+    browser_failures.allow_console_error(
+        'Failed to load resource: the server responded with a status of 503 (Service Unavailable)'
+    )
+    run = {
+        'run_id': 'parent-run',
+        'target': 'example.com',
+        'status': 'running',
+        'origin': 'local',
+        'created_at': '2026-08-05T12:00:00+00:00',
+        'started_at': '2026-08-05T12:00:01+00:00',
+        'completed_at': None,
+        'cancellation_requested_at': None,
+        'evidence_status': 'partial',
+        'result_count': 1,
+        'activities': ['P0'],
+        'sources': ['crtsh'],
+        'request': {'sources': ['crtsh'], 'limit': 25, 'deadline_seconds': 300},
+        'source_executions': [],
+        'action_executions': [],
+        'results': [{'type': 'subdomain', 'value': 'api.example.com'}],
+        'screenshots': [],
+        'log': '',
+        'error': None,
+    }
+    list_calls = 0
+    post_calls = 0
+    cancelled_ids: list[str] = []
+
+    def route_runs(route: Route) -> None:
+        nonlocal list_calls, post_calls
+        if route.request.method == 'POST':
+            post_calls += 1
+            route.fulfill(status=201, json={'run_id': 'queued-action', 'target': 'api.example.com', 'status': 'queued'})
+            return
+        list_calls += 1
+        if list_calls == 1:
+            route.fulfill(json=[run])
+        elif list_calls == 2:
+            route.fulfill(status=503, json={'detail': 'Refresh unavailable'})
+        else:
+            route.fulfill(json=[{**run, 'status': 'cancelled', 'completed_at': '2026-08-05T12:00:06+00:00'}])
+
+    def route_cancel(route: Route, run_id: str) -> None:
+        cancelled_ids.append(run_id)
+        route.fulfill(json={**run, 'status': 'cancelled', 'completed_at': '2026-08-05T12:00:06+00:00'})
+
+    page.route(f'{harvestview_server_url}/api/v1/runs', route_runs)
+    page.route(
+        f'{harvestview_server_url}/api/v1/runs/parent-run/cancel',
+        lambda route: route_cancel(route, 'parent-run'),
+    )
+    page.route(
+        f'{harvestview_server_url}/api/v1/runs/queued-action/cancel',
+        lambda route: route_cancel(route, 'queued-action'),
+    )
+    page.route(f'{harvestview_server_url}/api/v1/runs/parent-run', lambda route: route.fulfill(json=run))
+    page.goto(f'{harvestview_server_url}/')
+
+    page.get_by_role('button', name='Take screenshot of api.example.com (P2)').click()
+
+    expect(page.locator('#toast')).to_contain_text('was queued, but the run view could not refresh')
+    expect(page.locator('#toast')).to_contain_text('Do not submit it again')
+    expect(page.locator('#detail-run-id')).to_have_text('parent-run')
+    page.locator('#cancel-run-button').click()
+    expect(page.locator('#toast')).to_have_text('Queued enumeration cancelled.')
+    assert post_calls == 1
+    assert cancelled_ids == ['parent-run']
+
+
+def test_accepted_cancellation_is_not_reported_as_failed_when_history_refresh_fails(
+    harvestview_server_url: str,
+    page: Page,
+    browser_failures,
+) -> None:
+    browser_failures.allow_response('GET', 503, '/api/v1/runs')
+    browser_failures.allow_console_error(
+        'Failed to load resource: the server responded with a status of 503 (Service Unavailable)'
+    )
+    run = {
+        'run_id': 'running-run',
+        'target': 'example.com',
+        'status': 'running',
+        'origin': 'local',
+        'created_at': '2026-08-05T12:00:00+00:00',
+        'started_at': '2026-08-05T12:00:01+00:00',
+        'completed_at': None,
+        'cancellation_requested_at': None,
+        'evidence_status': 'partial',
+        'result_count': 0,
+        'activities': ['P0'],
+        'sources': ['crtsh'],
+        'request': {'sources': ['crtsh'], 'limit': 25, 'deadline_seconds': 300},
+        'source_executions': [],
+        'action_executions': [],
+        'results': [],
+        'screenshots': [],
+        'log': '',
+        'error': None,
+    }
+    list_calls = 0
+    cancel_calls = 0
+
+    def route_runs(route: Route) -> None:
+        nonlocal list_calls
+        list_calls += 1
+        if list_calls == 1:
+            route.fulfill(json=[run])
+        else:
+            route.fulfill(status=503, json={'detail': 'Refresh unavailable'})
+
+    def route_cancel(route: Route) -> None:
+        nonlocal cancel_calls
+        cancel_calls += 1
+        route.fulfill(json={**run, 'status': 'cancelling', 'cancellation_requested_at': '2026-08-05T12:00:02+00:00'})
+
+    page.route(f'{harvestview_server_url}/api/v1/runs', route_runs)
+    page.route(f'{harvestview_server_url}/api/v1/runs/running-run/cancel', route_cancel)
+    page.route(f'{harvestview_server_url}/api/v1/runs/running-run', lambda route: route.fulfill(json=run))
+    page.goto(f'{harvestview_server_url}/')
+
+    page.locator('#cancel-run-button').click()
+
+    expect(page.locator('#toast')).to_contain_text('Cancellation was accepted, but run history could not refresh')
+    expect(page.locator('#toast')).to_contain_text('Do not request it again')
+    assert cancel_calls == 1
 
 
 def test_harvestview_can_select_sources_by_result_capability(harvestview_server_url: str, page: Page) -> None:
@@ -807,9 +957,7 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
     exported_records = [json.loads(line) for line in Path(jsonl_download.value.path()).read_text(encoding='utf-8').splitlines()]
     assert exported_records[0]['type'] == 'summary'
     assert exported_records[0]['evidence_status'] == 'partial'
-    assert any(
-        record['type'] == 'ip-address' and record['value'] == 'ip.example.com' for record in exported_records[1:]
-    )
+    assert any(record['type'] == 'ip-address' and record['value'] == 'ip.example.com' for record in exported_records[1:])
 
     page.get_by_role('button', name='Start enumeration').first.click()
     expect(page.locator('#new-run-dialog').get_by_text('Credentials required:', exact=False).first).to_be_visible()
@@ -825,6 +973,8 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
     expect(page.get_by_role('button', name='Start enumeration').first).to_be_focused()
     page.set_viewport_size({'width': 390, 'height': 844})
     expect(page.locator('#provider-outcome-summary')).to_be_visible()
+    expect(page.get_by_role('columnheader', name='Outcome')).to_be_visible()
+    expect(page.get_by_role('columnheader', name='Results')).to_be_hidden()
     expect(page.locator('#route-overflow-cue')).to_be_visible()
     value_filter.scroll_into_view_if_needed()
     expect(value_filter).to_be_visible()

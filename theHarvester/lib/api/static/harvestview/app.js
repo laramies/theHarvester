@@ -244,14 +244,16 @@
     try {
       const response = await api(`/api/v1/runs/${encodeURIComponent(runId)}`);
       const detail = await response.json();
-      if (state.selectedId !== runId) return;
+      if (state.selectedId !== runId) return null;
       state.detail = detail;
       renderDetail();
       if (!isTerminalStatus(state.detail.status)) startPolling();
+      return null;
     } catch (error) {
-      if (state.selectedId !== runId) return;
+      if (state.selectedId !== runId) return null;
       nodes.loading.hidden = true;
       toast(`Could not load the run: ${error.message}. Select it again to retry.`, true);
+      return error;
     }
   }
 
@@ -306,6 +308,8 @@
   }
 
   function sourceName(execution) { return execution.source || 'Unknown source'; }
+  function executionName(execution) { return execution.source || execution.action || 'Unknown producer'; }
+  function executionKind(execution) { return execution.source ? 'Source' : execution.action ? 'Action' : 'Unknown'; }
   function credentialRequirement(source) {
     const credentials = source?.credentials || [];
     if (!credentials.length) return '';
@@ -313,12 +317,12 @@
     return `Credentials required: ${labels.join(', ')}`;
   }
 
-  function providerReason(execution) {
+  function executionReason(execution) {
     const errorType = execution.error_type;
     if (execution.stop_reason === 'missing-credentials') {
       return 'Required credentials were not configured; add them, then retry.';
     }
-    if (execution.status === 'skipped' && errorType === 'SourceDidNotStart') {
+    if (execution.source && execution.status === 'skipped' && errorType === 'SourceDidNotStart') {
       const requirement = credentialRequirement(state.sources.find(source => source.name === sourceName(execution)));
       return requirement
         ? `${requirement}. Source did not start; verify configuration or inspect the child log, then retry.`
@@ -327,8 +331,8 @@
     return errorType || execution.stop_reason?.replaceAll('-', ' ') || '-';
   }
 
-  function renderProviders(run) {
-    const executions = run.source_executions || [];
+  function renderExecutions(run) {
+    const executions = [...(run.source_executions || []), ...(run.action_executions || [])];
     const counts = {completed: 0, partial: 0, skipped: 0, failed: 0, 'rate-limited': 0};
     let zeroResultCount = 0;
     for (const execution of executions) {
@@ -340,9 +344,9 @@
     nodes.providerOutcomeSummary.textContent = `${counts.completed} completed (${zeroResultCount} zero-result) / ${counts.partial} partial / ${counts.skipped} skipped / ${counts.failed} failed${counts['rate-limited'] ? ` / ${counts['rate-limited']} rate-limited` : ''}`;
     nodes.providerEmpty.hidden = executions.length > 0;
     nodes.providerBody.innerHTML = executions.map(execution => `
-      <tr><td>${escapeHtml(sourceName(execution))}</td><td>${statusChip(execution.status || 'unknown')}</td>
+      <tr><td>${escapeHtml(executionName(execution))}</td><td>${executionKind(execution)}</td><td>${statusChip(execution.status || 'unknown')}</td>
       <td>${Number(execution.result_count || 0).toLocaleString()}</td><td>${execution.duration_ms == null ? '-' : `${Math.round(execution.duration_ms).toLocaleString()} ms`}</td>
-      <td>${escapeHtml(providerReason(execution))}</td></tr>`).join('');
+      <td>${escapeHtml(executionReason(execution))}</td></tr>`).join('');
   }
 
   function groupedResults() {
@@ -528,7 +532,7 @@
     renderFacts(run);
     renderLifecycle(run);
     renderAuthorization(run);
-    renderProviders(run);
+    renderExecutions(run);
     if (!previousRun || previousRun.status !== run.status || JSON.stringify(previousRun.results) !== JSON.stringify(run.results)) {
       renderResults(run);
     }
@@ -669,7 +673,36 @@
     const runsResponse = await api('/api/v1/runs');
     state.runs = await runsResponse.json();
     renderHistory();
-    await selectRun(runId);
+    const loadError = await selectRun(runId);
+    if (loadError) throw loadError;
+    return state.selectedId === runId && state.detail?.run_id === runId;
+  }
+
+  async function focusAcceptedRun(runId, acceptedMessage) {
+    const previousSelectedId = state.selectedId;
+    const previousDetail = state.detail;
+    try {
+      if (!await focusCreatedRun(runId)) {
+        toast(`${acceptedMessage}.`);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      if (state.selectedId === runId) {
+        state.selectedId = previousSelectedId;
+        state.detail = previousDetail;
+        renderHistory();
+        if (previousDetail) {
+          renderDetail();
+          if (!isTerminalStatus(previousDetail.status)) startPolling();
+        } else {
+          nodes.loading.hidden = true;
+          nodes.detail.hidden = true;
+        }
+      }
+      toast(`${acceptedMessage}, but the run view could not refresh: ${error.message}. Do not submit it again; reload the page to view it.`, true);
+      return false;
+    }
   }
 
   async function queueResultAction(action, target, button) {
@@ -685,8 +718,9 @@
         method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)
       });
       const run = await response.json();
-      await focusCreatedRun(run.run_id);
-      toast(`${label} for ${target} is ${state.detail?.status || 'submitted'}.`);
+      if (await focusAcceptedRun(run.run_id, `${label} for ${target} was queued`)) {
+        toast(`${label} for ${target} is ${state.detail?.status || 'submitted'}.`);
+      }
     } catch (error) {
       toast(`Could not start ${label.toLowerCase()}: ${error.message}.`, true);
     } finally {
@@ -727,8 +761,10 @@
       });
       const run = await response.json();
       closeDialog(nodes.newRunDialog);
-      await focusCreatedRun(run.run_id);
-      if (state.detail?.status === 'queued') toast(`Enumeration for ${run.target} is queued.`);
+      const focused = await focusAcceptedRun(run.run_id, `Enumeration for ${run.target} was created`);
+      if (focused && state.detail?.status === 'queued') {
+        toast(`Enumeration for ${run.target} is queued.`);
+      }
     } catch (error) {
       showFormError(nodes.newRunError, error.message);
     } finally {
@@ -764,17 +800,24 @@
       const imported = await response.json();
       closeDialog(nodes.importDialog);
       if (fileKind === 'jsonl') {
-        await focusCreatedRun(imported.run_id);
-        toast(`Imported ${file.name} without executing discovery.`);
+        if (await focusAcceptedRun(imported.run_id, `${file.name} was imported`)) {
+          toast(`Imported ${file.name} without executing discovery.`);
+        }
       } else {
         const importedIds = imported.imported_run_ids || [];
         const skippedIds = imported.skipped_run_ids || [];
         const selectedId = importedIds[0] || skippedIds[0];
-        if (selectedId) await focusCreatedRun(selectedId);
-        else {
-          const runsResponse = await api('/api/v1/runs');
-          state.runs = await runsResponse.json();
-          renderHistory();
+        if (selectedId) {
+          if (!await focusAcceptedRun(selectedId, `${file.name} was imported`)) return;
+        } else {
+          try {
+            const runsResponse = await api('/api/v1/runs');
+            state.runs = await runsResponse.json();
+            renderHistory();
+          } catch (error) {
+            toast(`${file.name} was imported, but run history could not refresh: ${error.message}. Do not import it again; reload the page to view it.`, true);
+            return;
+          }
         }
         toast(`Imported ${formatCount(importedIds.length, 'run')} from ${file.name}; ${skippedIds.length} already present.`);
       }
@@ -789,25 +832,33 @@
     if (!state.selectedId) return;
     const selectedId = state.selectedId;
     nodes.cancel.disabled = true;
+    let detail;
     try {
       const response = await api(`/api/v1/runs/${encodeURIComponent(selectedId)}/cancel`, {method: 'POST'});
-      const detail = await response.json();
+      detail = await response.json();
+    } catch (error) {
       if (state.selectedId !== selectedId) return;
-      state.detail = detail;
-      renderDetail();
-      if (state.detail.status === 'cancelling') startPolling();
-      else stopPolling();
+      nodes.cancel.disabled = false;
+      toast(`Could not request cancellation: ${error.message}. Refresh the run state and try again.`, true);
+      return;
+    }
+    if (state.selectedId !== selectedId) return;
+    state.detail = detail;
+    renderDetail();
+    if (state.detail.status === 'cancelling') startPolling();
+    else stopPolling();
+    try {
       const runsResponse = await api('/api/v1/runs');
       const runs = await runsResponse.json();
       if (state.selectedId !== selectedId) return;
       state.runs = runs;
       renderHistory();
-      toast(state.detail.status === 'cancelled' ? 'Queued enumeration cancelled.' : 'Cancellation requested.');
     } catch (error) {
       if (state.selectedId !== selectedId) return;
-      nodes.cancel.disabled = false;
-      toast(`Could not request cancellation: ${error.message}. Refresh the run state and try again.`, true);
+      toast(`Cancellation was accepted, but run history could not refresh: ${error.message}. Do not request it again; reload the page to confirm it.`, true);
+      return;
     }
+    toast(state.detail.status === 'cancelled' ? 'Queued enumeration cancelled.' : 'Cancellation requested.');
   }
 
   async function downloadServerExport() {
