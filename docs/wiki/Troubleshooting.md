@@ -53,7 +53,7 @@ Do not post credentials, private targets, account details, or raw provider respo
 
 ## DNS resolution
 
-`-r` accepts no value, a resolver IP, comma-separated resolver IPs, or a file with one IP per line:
+`-r` accepts no value, a resolver IP, comma-separated resolver IPs, or a resolver file you create with one IP per line:
 
 ```bash
 AUTHORIZED_DOMAIN='replace-with-a-domain-you-control'

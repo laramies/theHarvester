@@ -35,7 +35,7 @@ AUTHORIZED_DOMAIN='replace-with-a-domain-you-control'
 uv run theHarvester -d "$AUTHORIZED_DOMAIN" -b crtsh,certspotter -r
 ```
 
-Pass a resolver IP, comma-separated resolver IPs, or a file containing one resolver IP per line:
+Pass a resolver IP, comma-separated resolver IPs, or a resolver file you create with one IP per line:
 
 ```bash
 AUTHORIZED_DOMAIN='replace-with-a-domain-you-control'

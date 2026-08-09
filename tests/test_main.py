@@ -30,6 +30,7 @@ async def test_cli_help_explains_proxy_and_direct_action_scope(
     assert 'Use proxies.yaml for supported discovery-source and takeover requests.' in help_text
     assert 'Accepted for compatibility but currently unused; use --dns-resolvers to select resolvers.' in help_text
     assert 'Select resolver IPs for DNS actions without enabling hostname resolution.' in help_text
+    assert 'text file with one IP per line' in help_text
     assert 'Perform PTR lookups across the /24 network containing each discovered IPv4 address.' in help_text
     assert 'Multiple capabilities select the union of matching sources; they do not filter returned fields.' in help_text
     assert 'Check common API paths with GET, HEAD, and OPTIONS.' in help_text
