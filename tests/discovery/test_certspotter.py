@@ -21,7 +21,7 @@ class TestCertspotterSearch(object):
     @pytest.mark.live_network
     def test_api(self, live_test_domain: str) -> None:
         base_url = f'https://api.certspotter.com/v1/issuances?domain={live_test_domain}&expand=dns_names'
-        headers = {"User-Agent": Core.get_user_agent()}
+        headers = {'User-Agent': Core.get_user_agent()}
         request = httpx.get(base_url, headers=headers, timeout=30)
         assert request.status_code == 200
         payload = request.json()
@@ -96,6 +96,8 @@ class TestCertspotterSearch(object):
 
         assert requests == 2
         assert await search.get_hostnames() == {'host-1.example.com', 'host-2.example.com'}
+        assert search.execution_status == 'partial'
+        assert search.stop_reason == 'page-limit'
         assert 'page limit reached; results may be incomplete' in caplog.text
 
     @pytest.mark.asyncio
@@ -147,6 +149,8 @@ class TestCertspotterSearch(object):
             await search.process()
 
         assert await search.get_hostnames() == {'first.example.com'}
+        assert search.execution_status == 'rate-limited'
+        assert search.stop_reason == 'rate_limited'
         assert 'rate_limited' in caplog.text
         assert 'results may be incomplete' in caplog.text
         assert 'provider details must not be logged' not in caplog.text
@@ -169,12 +173,18 @@ class TestCertspotterSearch(object):
             await search.process()
 
         assert await search.get_hostnames() == {'first.example.com'}
+        assert search.execution_status == 'partial'
+        assert search.stop_reason == 'invalid-response'
         assert 'results may be incomplete' in caplog.text
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize('response', [[], [{}]])
+    @pytest.mark.parametrize(('response', 'stop_reason'), [([], 'no-response'), ([{}], 'invalid-response')])
     async def test_search_reports_invalid_response_as_incomplete(
-        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, response: list[Any]
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+        response: list[Any],
+        stop_reason: str,
     ) -> None:
         async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[Any]:
             return response
@@ -185,6 +195,8 @@ class TestCertspotterSearch(object):
             await search.process()
 
         assert await search.get_hostnames() == set()
+        assert search.execution_status == 'partial'
+        assert search.stop_reason == stop_reason
         assert 'results may be incomplete' in caplog.text
 
     @pytest.mark.asyncio
@@ -205,18 +217,24 @@ class TestCertspotterSearch(object):
             await search.process()
 
         assert await search.get_hostnames() == {'first.example.com'}
+        assert search.execution_status == 'partial'
+        assert search.stop_reason == 'malformed-issuance'
         assert 'results may be incomplete' in caplog.text
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        'error',
+        ('error', 'stop_reason'),
         [
-            ConnectionError('private connection details'),
-            RuntimeError('private provider payload'),
+            (ConnectionError('private connection details'), 'connection-error'),
+            (RuntimeError('private provider payload'), 'unexpected-error'),
         ],
     )
     async def test_search_redacts_unexpected_errors(
-        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, error: Exception
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+        error: Exception,
+        stop_reason: str,
     ) -> None:
         responses: list[Any] = [
             [{'id': '1', 'dns_names': ['first.example.com']}],
@@ -235,6 +253,8 @@ class TestCertspotterSearch(object):
             await search.process()
 
         assert await search.get_hostnames() == {'first.example.com'}
+        assert search.execution_status == 'partial'
+        assert search.stop_reason == stop_reason
         assert 'results may be incomplete' in caplog.text
         assert str(error) not in caplog.text
 
@@ -260,14 +280,13 @@ class TestCertspotterSearch(object):
 
         assert await search.get_hostnames() == {'first.example.com', 'second.example.com'}
         assert calls == 2
+        assert search.execution_status == 'partial'
+        assert search.stop_reason == 'repeated-cursor'
         assert 'results may be incomplete' in caplog.text
 
     @pytest.mark.asyncio
     async def test_search_continues_until_empty_page(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        pages = [
-            [{'id': str(page_number), 'dns_names': [f'page-{page_number}.example.com']}]
-            for page_number in range(1, 12)
-        ]
+        pages = [[{'id': str(page_number), 'dns_names': [f'page-{page_number}.example.com']}] for page_number in range(1, 12)]
         pages.append([])
         calls = 0
 
@@ -311,8 +330,10 @@ class TestCertspotterSearch(object):
 
         assert await search.get_hostnames() == {'first.example.com'}
         assert calls == 1
+        assert search.execution_status == 'partial'
+        assert search.stop_reason == 'invalid-cursor'
         assert 'results may be incomplete' in caplog.text
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     pytest.main()

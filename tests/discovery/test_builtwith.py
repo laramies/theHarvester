@@ -193,9 +193,9 @@ async def test_normalized_builtwith_results_reach_completed_jsonl(
         ('server', 'nginx'),
     )
     records = [json.loads(line) for line in report.with_suffix('.jsonl').read_text().splitlines()]
-    assert {'type': 'interesting-url', 'value': 'https://example.com/login'} in records
-    assert {'type': 'framework', 'value': 'Django'} in records
-    assert {'type': 'language', 'value': 'Python'} in records
-    assert {'type': 'server', 'value': 'nginx'} in records
-    assert {'type': 'cms', 'value': 'WordPress'} in records
-    assert {'type': 'analytics', 'value': 'Google Analytics'} in records
+    assert {'type': 'interesting-url', 'value': 'https://example.com/login', 'sources': ['builtwith']} in records
+    assert {'type': 'framework', 'value': 'Django', 'sources': ['builtwith']} in records
+    assert {'type': 'language', 'value': 'Python', 'sources': ['builtwith']} in records
+    assert {'type': 'server', 'value': 'nginx', 'sources': ['builtwith']} in records
+    assert {'type': 'cms', 'value': 'WordPress', 'sources': ['builtwith']} in records
+    assert {'type': 'analytics', 'value': 'Google Analytics', 'sources': ['builtwith']} in records

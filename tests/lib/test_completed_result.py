@@ -5,7 +5,7 @@ from uuid import UUID
 
 import pytest
 
-from theHarvester.lib.completed_result import CompletedResult, SourceExecution
+from theHarvester.lib.completed_result import CompletedResult, ResultObservation, SourceExecution
 
 
 def test_completed_result_is_deterministic_and_deduplicated() -> None:
@@ -28,24 +28,28 @@ def test_completed_result_is_deterministic_and_deduplicated() -> None:
             'counts': {'email': 1, 'hostname': 2},
             'result_count': 3,
             'run_id': 'f047261c-0afb-4e18-89d5-28a7d977f51f',
-            'schema_version': 'theharvester-results-v1',
             'started_at': '2026-08-05T12:00:00Z',
             'target': 'example.com',
             'type': 'summary',
         },
         {
+            'sources': [],
             'type': 'email',
             'value': 'admin@example.com',
         },
         {
+            'sources': [],
             'type': 'hostname',
             'value': 'api.example.com',
         },
         {
+            'sources': [],
             'type': 'hostname',
             'value': 'www.example.com',
         },
     ]
+    assert 'schema' not in records[0]
+    assert 'schema_version' not in records[0]
     assert result.jsonl().endswith('\n')
 
 
@@ -57,9 +61,10 @@ def test_completed_result_exposes_truthful_source_execution_evidence() -> None:
         completed_at=started_at,
         groups={'hostname': ['www.example.com']},
         source_executions=(
-            SourceExecution('crtsh', 'succeeded', 12.5, 1),
-            SourceExecution('builtwith', 'skipped', 0, 0, 'SourceDidNotStart'),
+            SourceExecution('crtsh', 'completed', 12.5, 1),
+            SourceExecution('builtwith', 'partial', 0, 0, stop_reason='invalid-response'),
         ),
+        observations=(ResultObservation('crtsh', 'hostname', 'www.example.com'),),
     )
 
     evidence = result.evidence_dict()
@@ -68,7 +73,7 @@ def test_completed_result_exposes_truthful_source_execution_evidence() -> None:
     assert evidence['source_executions'] == [
         {
             'source': 'crtsh',
-            'status': 'succeeded',
+            'status': 'completed',
             'duration_ms': 12.5,
             'result_count': 1,
             'error_type': None,
@@ -76,13 +81,90 @@ def test_completed_result_exposes_truthful_source_execution_evidence() -> None:
         },
         {
             'source': 'builtwith',
-            'status': 'skipped',
+            'status': 'partial',
             'duration_ms': 0,
             'result_count': 0,
-            'error_type': 'SourceDidNotStart',
-            'stop_reason': None,
+            'error_type': None,
+            'stop_reason': 'invalid-response',
         },
     ]
+
+
+def test_completed_result_attributes_each_finding_to_its_sources() -> None:
+    completed_at = datetime(2026, 8, 5, 12, 1, tzinfo=UTC)
+    result = CompletedResult.finish(
+        target='example.com',
+        started_at=completed_at,
+        completed_at=completed_at,
+        groups={'hostname': ['api.example.com', 'mail.example.com']},
+        source_executions=(
+            SourceExecution('crtsh', 'completed', 12.5, 2),
+            SourceExecution('certspotter', 'completed', 8.0, 1),
+        ),
+        observations=(
+            ResultObservation('crtsh', 'hostname', 'api.example.com'),
+            ResultObservation('certspotter', 'hostname', 'api.example.com'),
+            ResultObservation('crtsh', 'hostname', 'mail.example.com'),
+        ),
+    )
+
+    records = [json.loads(line) for line in result.jsonl().splitlines()]
+
+    assert records[1:] == [
+        {
+            'sources': ['certspotter', 'crtsh'],
+            'type': 'hostname',
+            'value': 'api.example.com',
+        },
+        {
+            'sources': ['crtsh'],
+            'type': 'hostname',
+            'value': 'mail.example.com',
+        },
+    ]
+    assert result.evidence_dict()['results'] == records[1:]
+
+
+def test_completed_result_rejects_observation_without_execution() -> None:
+    completed_at = datetime(2026, 8, 5, 12, 1, tzinfo=UTC)
+
+    with pytest.raises(ValueError, match='matching source execution'):
+        CompletedResult.finish(
+            target='example.com',
+            started_at=completed_at,
+            completed_at=completed_at,
+            groups={'hostname': ['api.example.com']},
+            observations=(ResultObservation('crtsh', 'hostname', 'api.example.com'),),
+        )
+
+
+def test_completed_result_rejects_duplicate_source_executions() -> None:
+    completed_at = datetime(2026, 8, 5, 12, 1, tzinfo=UTC)
+
+    with pytest.raises(ValueError, match='source executions must be unique'):
+        CompletedResult.finish(
+            target='example.com',
+            started_at=completed_at,
+            completed_at=completed_at,
+            groups={},
+            source_executions=(
+                SourceExecution('crtsh', 'completed', 1.0, 0),
+                SourceExecution('crtsh', 'failed', 2.0, 0, error_type='RuntimeError'),
+            ),
+        )
+
+
+def test_completed_result_rejects_source_count_without_matching_origins() -> None:
+    completed_at = datetime(2026, 8, 5, 12, 1, tzinfo=UTC)
+
+    with pytest.raises(ValueError, match='result count must match'):
+        CompletedResult.finish(
+            target='example.com',
+            started_at=completed_at,
+            completed_at=completed_at,
+            groups={'hostname': ['api.example.com']},
+            source_executions=(SourceExecution('crtsh', 'completed', 1.0, 1),),
+        )
 
 
 def test_completed_result_keeps_terminal_action_evidence_in_jsonl() -> None:

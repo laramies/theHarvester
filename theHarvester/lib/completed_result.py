@@ -33,9 +33,8 @@ ResultKind = Literal[
     'url',
     'vhost',
 ]
-ExecutionStatus = Literal['succeeded', 'empty', 'failed', 'rate-limited', 'skipped']
+ExecutionStatus = Literal['completed', 'partial', 'failed', 'rate-limited', 'skipped']
 
-SCHEMA_VERSION = 'theharvester-results-v1'
 RESULT_KINDS: frozenset[str] = frozenset(get_args(ResultKind))
 EXECUTION_STATUSES: frozenset[str] = frozenset(get_args(ExecutionStatus))
 
@@ -44,8 +43,30 @@ def _isoformat_utc(value: datetime) -> str:
     return value.astimezone(UTC).isoformat().replace('+00:00', 'Z')
 
 
+@dataclass(frozen=True, order=True, slots=True)
+class ResultObservation:
+    source: str
+    kind: ResultKind
+    value: str
+
+    def __post_init__(self) -> None:
+        if not self.source.strip():
+            raise ValueError('observation source must not be empty')
+        if self.kind not in RESULT_KINDS:
+            raise ValueError(f'unknown observation kind: {self.kind}')
+        if not isinstance(self.value, str) or not self.value.strip():
+            raise ValueError('observation value must be a non-empty string')
+
+
 @dataclass(frozen=True, slots=True)
 class SourceExecution:
+    """Record one source invocation without overstating the provider outcome.
+
+    ``completed`` means the adapter returned normally. More precise statuses are
+    used only when the adapter reports them or raises an exception. ``result_count``
+    is the number of normalized, deduplicated observations attributed to the source.
+    """
+
     source: str
     status: ExecutionStatus
     duration_ms: float
@@ -73,6 +94,22 @@ class SourceExecution:
 
 
 @dataclass(frozen=True, slots=True)
+class SourceYield:
+    source: str
+    observed_result_count: int
+    unique_result_count: int
+    shared_result_count: int
+
+    def to_dict(self) -> dict[str, str | int]:
+        return {
+            'source': self.source,
+            'observed_result_count': self.observed_result_count,
+            'unique_result_count': self.unique_result_count,
+            'shared_result_count': self.shared_result_count,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class CompletedResult:
     run_id: UUID
     target: str
@@ -80,6 +117,7 @@ class CompletedResult:
     completed_at: datetime
     results: tuple[tuple[ResultKind, str], ...]
     source_executions: tuple[SourceExecution, ...] = ()
+    observations: tuple[ResultObservation, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.target.strip():
@@ -96,6 +134,20 @@ class CompletedResult:
             raise ValueError('results must contain known kinds and non-empty string values')
         if self.results != tuple(sorted(set(self.results))):
             raise ValueError('results must be deduplicated and sorted')
+        if self.observations != tuple(sorted(set(self.observations))):
+            raise ValueError('observations must be deduplicated and sorted')
+        result_set = set(self.results)
+        if any((observation.kind, observation.value) not in result_set for observation in self.observations):
+            raise ValueError('every observation must reference a completed result')
+        execution_sources = [execution.source for execution in self.source_executions]
+        execution_source_set = set(execution_sources)
+        if len(execution_sources) != len(execution_source_set):
+            raise ValueError('source executions must be unique')
+        if any(observation.source not in execution_source_set for observation in self.observations):
+            raise ValueError('every observation must reference a matching source execution')
+        observation_counts = Counter(observation.source for observation in self.observations)
+        if any(execution.result_count != observation_counts[execution.source] for execution in self.source_executions):
+            raise ValueError('source execution result count must match its attributed observations')
 
     @classmethod
     def finish(
@@ -107,6 +159,7 @@ class CompletedResult:
         completed_at: datetime,
         groups: Mapping[ResultKind, Iterable[str]],
         source_executions: Iterable[SourceExecution] = (),
+        observations: Iterable[ResultObservation] = (),
     ) -> Self:
         results: set[tuple[ResultKind, str]] = set()
         for kind, values in groups.items():
@@ -123,10 +176,11 @@ class CompletedResult:
             completed_at=completed_at,
             results=tuple(sorted(results)),
             source_executions=tuple(source_executions),
+            observations=tuple(sorted(set(observations))),
         )
 
     def evidence_dict(self) -> dict[str, object]:
-        incomplete = {'failed', 'rate-limited', 'skipped'}
+        incomplete = {'partial', 'failed', 'rate-limited', 'skipped'}
         status = 'complete'
         if self.source_executions and all(execution.status == 'failed' for execution in self.source_executions):
             status = 'failed'
@@ -138,7 +192,7 @@ class CompletedResult:
             'started_at': self.started_at.isoformat(),
             'completed_at': self.completed_at.isoformat(),
             'status': status,
-            'results': [{'type': kind, 'value': value, 'sources': []} for kind, value in self.results],
+            'results': self._result_records(),
             'source_executions': [execution.to_dict() for execution in self.source_executions],
         }
 
@@ -150,11 +204,18 @@ class CompletedResult:
                 'counts': dict(sorted(counts.items())),
                 'result_count': len(self.results),
                 'run_id': str(self.run_id),
-                'schema_version': SCHEMA_VERSION,
                 'started_at': _isoformat_utc(self.started_at),
                 'target': self.target,
                 'type': 'summary',
             },
-            *({'type': kind, 'value': value} for kind, value in self.results),
+            *self._result_records(),
         ]
         return ''.join(json.dumps(record, ensure_ascii=False, separators=(',', ':'), sort_keys=True) + '\n' for record in records)
+
+    def _result_records(self) -> list[dict[str, object]]:
+        sources_by_result: dict[tuple[ResultKind, str], list[str]] = {}
+        for observation in self.observations:
+            sources_by_result.setdefault((observation.kind, observation.value), []).append(observation.source)
+        return [
+            {'type': kind, 'value': value, 'sources': sources_by_result.get((kind, value), [])} for kind, value in self.results
+        ]

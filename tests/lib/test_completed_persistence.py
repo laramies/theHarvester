@@ -8,7 +8,7 @@ from uuid import UUID
 import pytest
 
 from theHarvester.lib import database as database_module
-from theHarvester.lib.completed_result import CompletedResult
+from theHarvester.lib.completed_result import CompletedResult, ResultObservation, SourceExecution
 from theHarvester.lib.database import (
     DuplicateRunError,
     ResultStore,
@@ -42,6 +42,18 @@ CREATE TABLE results (
     find_date DATE,
     source TEXT
 );
+"""
+
+SCHEMA_V1_DISCOVERY_OBSERVATIONS = """
+CREATE TABLE discovery_observations (
+    id INTEGER NOT NULL PRIMARY KEY,
+    domain TEXT NOT NULL,
+    resource TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    discovered_on DATE NOT NULL,
+    source TEXT NOT NULL
+);
+PRAGMA user_version = 1;
 """
 
 
@@ -112,10 +124,10 @@ async def test_newer_schema_is_rejected_without_changing_journal_mode(tmp_path) 
     database = tmp_path / 'stash.sqlite'
     store = ResultStore(database)
     with sqlite3.connect(database) as db:
-        db.execute('PRAGMA user_version = 2')
+        db.execute('PRAGMA user_version = 3')
         original_journal_mode = db.execute('PRAGMA journal_mode').fetchone()[0]
 
-    with pytest.raises(RuntimeError, match='schema version 2 is newer than supported version 1'):
+    with pytest.raises(RuntimeError, match='schema version 3 is newer than supported version 2'):
         await store.initialize()
 
     with sqlite3.connect(database) as db:
@@ -167,7 +179,7 @@ async def test_schema_enforces_foreign_keys_and_cascades_results(tmp_path) -> No
 
 
 @pytest.mark.asyncio
-async def test_completed_result_round_trip_preserves_discovery_observations(tmp_path) -> None:
+async def test_completed_result_round_trip_preserves_legacy_observations(tmp_path) -> None:
     database = tmp_path / 'stash.sqlite'
     store = ResultStore(database)
     await store.initialize()
@@ -178,7 +190,7 @@ async def test_completed_result_round_trip_preserves_discovery_observations(tmp_
 
     assert await store.load_run(result.run_id) == result
     with sqlite3.connect(database) as db:
-        stored = db.execute('SELECT domain, resource, kind, source FROM discovery_observations').fetchall()
+        stored = db.execute('SELECT domain, resource, kind, source FROM legacy_observations').fetchall()
         stored_items = set(db.execute('SELECT kind, value FROM results').fetchall())
         run_types = {row[1]: row[2] for row in db.execute('PRAGMA table_info(runs)')}
         result_types = {row[1]: row[2] for row in db.execute('PRAGMA table_info(results)')}
@@ -192,6 +204,101 @@ async def test_completed_result_round_trip_preserves_discovery_observations(tmp_
         'kind': 'TEXT',
         'value': 'TEXT',
     }
+
+
+@pytest.mark.asyncio
+async def test_completed_result_round_trip_preserves_source_provenance(tmp_path) -> None:
+    database = tmp_path / 'stash.sqlite'
+    store = ResultStore(database)
+    await store.initialize()
+    result = CompletedResult.finish(
+        run_id=UUID('9c024fb7-4877-4f6e-89ef-0bf6af59ade0'),
+        target='example.com',
+        started_at=datetime(2026, 8, 5, 12, 0, tzinfo=UTC),
+        completed_at=datetime(2026, 8, 5, 12, 1, tzinfo=UTC),
+        groups={'hostname': ['api.example.com', 'mail.example.com']},
+        observations=(
+            ResultObservation('crtsh', 'hostname', 'api.example.com'),
+            ResultObservation('certspotter', 'hostname', 'api.example.com'),
+            ResultObservation('crtsh', 'hostname', 'mail.example.com'),
+        ),
+        source_executions=(
+            SourceExecution('crtsh', 'completed', 12.5, 2),
+            SourceExecution('certspotter', 'completed', 8.0, 1),
+        ),
+    )
+
+    await store.save_run(result)
+
+    assert await store.load_run(result.run_id) == result
+    with sqlite3.connect(database) as db:
+        observations = db.execute(
+            'SELECT o.run_id, e.name, r.kind, r.value '
+            'FROM result_origins AS o '
+            'JOIN executions AS e ON e.run_id = o.run_id AND e.position = o.execution_position '
+            'JOIN results AS r ON r.run_id = o.run_id AND r.position = o.result_position '
+            'ORDER BY e.name, r.value'
+        ).fetchall()
+        executions = db.execute(
+            'SELECT run_id, producer_kind, name, status, result_count FROM executions ORDER BY position'
+        ).fetchall()
+    assert observations == [
+        (str(result.run_id), 'certspotter', 'hostname', 'api.example.com'),
+        (str(result.run_id), 'crtsh', 'hostname', 'api.example.com'),
+        (str(result.run_id), 'crtsh', 'hostname', 'mail.example.com'),
+    ]
+    assert executions == [
+        (str(result.run_id), 'source', 'crtsh', 'completed', 2),
+        (str(result.run_id), 'source', 'certspotter', 'completed', 1),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_source_yields_distinguish_unique_and_shared_results(tmp_path) -> None:
+    store = ResultStore(tmp_path / 'stash.sqlite')
+    await store.initialize()
+    result = CompletedResult.finish(
+        run_id=UUID('bb2e9a76-f7fc-4eec-acbc-6da55a389d88'),
+        target='example.com',
+        started_at=datetime(2026, 8, 5, 12, 0, tzinfo=UTC),
+        completed_at=datetime(2026, 8, 5, 12, 1, tzinfo=UTC),
+        groups={'hostname': ['api.example.com', 'mail.example.com', 'www.example.com']},
+        observations=(
+            ResultObservation('crtsh', 'hostname', 'api.example.com'),
+            ResultObservation('certspotter', 'hostname', 'api.example.com'),
+            ResultObservation('crtsh', 'hostname', 'mail.example.com'),
+            ResultObservation('certspotter', 'hostname', 'www.example.com'),
+        ),
+        source_executions=(
+            SourceExecution('crtsh', 'completed', 12.5, 2),
+            SourceExecution('certspotter', 'completed', 8.0, 2),
+            SourceExecution('empty-source', 'completed', 5.0, 0),
+        ),
+    )
+    await store.save_run(result)
+
+    yields = await store.source_yields(result.run_id)
+
+    assert [item.to_dict() for item in yields] == [
+        {
+            'source': 'certspotter',
+            'observed_result_count': 2,
+            'unique_result_count': 1,
+            'shared_result_count': 1,
+        },
+        {
+            'source': 'crtsh',
+            'observed_result_count': 2,
+            'unique_result_count': 1,
+            'shared_result_count': 1,
+        },
+        {
+            'source': 'empty-source',
+            'observed_result_count': 0,
+            'unique_result_count': 0,
+            'shared_result_count': 0,
+        },
+    ]
 
 
 @pytest.mark.asyncio
@@ -219,7 +326,7 @@ async def test_existing_completed_records_survive_initialization(tmp_path) -> No
     assert await store.load_run(existing.run_id) == existing
     with sqlite3.connect(database) as db:
         tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
-        migrated = db.execute('SELECT resource, kind, source FROM discovery_observations').fetchall()
+        migrated = db.execute('SELECT resource, kind, source FROM legacy_observations').fetchall()
     assert {'completed_results', 'completed_result_items', 'legacy_results'}.isdisjoint(tables)
     assert migrated == [('legacy.example.com', 'hostname', 'crtsh')]
 
@@ -240,7 +347,7 @@ async def test_current_schema_reopens_without_running_legacy_migration(tmp_path)
 
 
 @pytest.mark.asyncio
-async def test_released_results_migrate_to_discovery_observations(tmp_path) -> None:
+async def test_released_results_migrate_to_legacy_observations(tmp_path) -> None:
     database = tmp_path / 'stash.sqlite'
     store = ResultStore(database)
     released_rows = [
@@ -262,7 +369,7 @@ async def test_released_results_migrate_to_discovery_observations(tmp_path) -> N
 
     with sqlite3.connect(database) as db:
         tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
-        observations = db.execute('SELECT resource, kind FROM discovery_observations ORDER BY id').fetchall()
+        observations = db.execute('SELECT resource, kind FROM legacy_observations ORDER BY id').fetchall()
         result_columns = [row[1] for row in db.execute('PRAGMA table_info(results)')]
         schema_version = db.execute('PRAGMA user_version').fetchone()[0]
     assert 'legacy_results' not in tables
@@ -277,7 +384,7 @@ async def test_released_results_migrate_to_discovery_observations(tmp_path) -> N
         ('/api/v1', 'api-endpoint'),
         ('admin@example.com', 'email'),
     ]
-    assert schema_version == 1
+    assert schema_version == 2
 
 
 @pytest.mark.asyncio
@@ -294,7 +401,7 @@ async def test_released_null_observation_fields_survive_migration(tmp_path) -> N
     await store.initialize()
 
     with sqlite3.connect(database) as db:
-        migrated = db.execute('SELECT domain, resource, kind, discovered_on, source FROM discovery_observations').fetchall()
+        migrated = db.execute('SELECT domain, resource, kind, discovered_on, source FROM legacy_observations').fetchall()
     assert migrated == [(None, None, None, None, None)]
 
 
@@ -313,7 +420,7 @@ async def test_concurrent_initialization_migrates_released_results_once(tmp_path
     await asyncio.gather(first.initialize(), second.initialize())
 
     with sqlite3.connect(database) as db:
-        rows = db.execute('SELECT domain, resource, kind, source FROM discovery_observations').fetchall()
+        rows = db.execute('SELECT domain, resource, kind, source FROM legacy_observations').fetchall()
     assert rows == [('example.com', 'api.example.com', 'hostname', 'crtsh')]
 
 
@@ -351,7 +458,7 @@ async def test_completed_result_write_is_atomic_and_rejects_duplicate_run_id(tmp
 
 
 @pytest.mark.asyncio
-async def test_discovery_observations_use_the_normalized_schema(tmp_path) -> None:
+async def test_legacy_observations_keep_the_released_normalized_schema(tmp_path) -> None:
     database = tmp_path / 'stash.sqlite'
     store = ResultStore(database)
     await store.initialize()
@@ -363,8 +470,8 @@ async def test_discovery_observations_use_the_normalized_schema(tmp_path) -> Non
     await store.record_observations('example.com', ['443'], 'shodan', 'shodan')
 
     with sqlite3.connect(database) as db:
-        columns = [row[1] for row in db.execute('PRAGMA table_info(discovery_observations)')]
-        rows = db.execute('SELECT domain, resource, kind, source FROM discovery_observations ORDER BY id').fetchall()
+        columns = [row[1] for row in db.execute('PRAGMA table_info(legacy_observations)')]
+        rows = db.execute('SELECT domain, resource, kind, source FROM legacy_observations ORDER BY id').fetchall()
 
     assert columns == ['id', 'domain', 'resource', 'kind', 'discovered_on', 'source']
     assert rows == [
@@ -376,6 +483,28 @@ async def test_discovery_observations_use_the_normalized_schema(tmp_path) -> Non
         ('example.com', 'vhost.example.com', 'vhost', 'virtual-host'),
         ('example.com', '443', 'shodan', 'shodan'),
     ]
+
+
+@pytest.mark.asyncio
+async def test_schema_v1_observations_upgrade_without_losing_rows(tmp_path) -> None:
+    database = tmp_path / 'stash.sqlite'
+    store = ResultStore(database)
+    with sqlite3.connect(database) as db:
+        db.executescript(SCHEMA_V1_DISCOVERY_OBSERVATIONS)
+        db.execute(
+            'INSERT INTO discovery_observations (domain, resource, kind, discovered_on, source) VALUES (?, ?, ?, ?, ?)',
+            ('example.com', 'api.example.com', 'hostname', '2026-08-08', 'crtsh'),
+        )
+
+    await store.initialize()
+
+    with sqlite3.connect(database) as db:
+        tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+        rows = db.execute('SELECT domain, resource, kind, source FROM legacy_observations').fetchall()
+        schema_version = db.execute('PRAGMA user_version').fetchone()[0]
+    assert 'discovery_observations' not in tables
+    assert rows == [('example.com', 'api.example.com', 'hostname', 'crtsh')]
+    assert schema_version == 2
 
 
 @pytest.mark.asyncio

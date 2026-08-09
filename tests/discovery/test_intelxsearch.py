@@ -5,6 +5,7 @@ import pytest
 from theHarvester import __main__ as theharvester_main
 from theHarvester.discovery import intelxsearch
 from theHarvester.discovery.constants import MissingKey
+from theHarvester.lib.completed_result import CompletedResult, ResultObservation
 
 
 class _Response:
@@ -116,15 +117,14 @@ async def test_process_treats_denied_and_malformed_responses_as_empty(
 
 @pytest.mark.asyncio
 async def test_orchestrator_stores_intelx_subdomains_without_dns(monkeypatch: pytest.MonkeyPatch) -> None:
-    stored_hosts: list[set[str]] = []
+    completed_results: list[CompletedResult] = []
 
     class _ResultStore:
         async def initialize(self) -> None:
             return None
 
-        async def record_observations(self, _domain: str, values: list[str], result_type: str, _source: str) -> None:
-            if result_type == 'hostname':
-                stored_hosts.append(set(values))
+        async def save_run(self, result: CompletedResult) -> None:
+            completed_results.append(result)
 
     class _Intelx:
         def __init__(self, _domain: str) -> None:
@@ -165,8 +165,9 @@ async def test_orchestrator_stores_intelx_subdomains_without_dns(monkeypatch: py
             domain='Example.COM',
             take_over=False,
             proxies=False,
-        )
+        ),
+        persist_completed_result=True,
     )
 
     assert results[-1] == ['api.example.com']
-    assert stored_hosts == [{'api.example.com'}]
+    assert completed_results[0].observations == (ResultObservation('intelx', 'hostname', 'api.example.com'),)
