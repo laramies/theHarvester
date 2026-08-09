@@ -118,12 +118,12 @@ async def test_process_treats_denied_and_malformed_responses_as_empty(
 async def test_orchestrator_stores_intelx_subdomains_without_dns(monkeypatch: pytest.MonkeyPatch) -> None:
     stored_hosts: list[set[str]] = []
 
-    class _Stash:
-        async def do_init(self) -> None:
+    class _ResultStore:
+        async def initialize(self) -> None:
             return None
 
-        async def store_all(self, _domain: str, values: list[str], result_type: str, _source: str) -> None:
-            if result_type == 'host':
+        async def record_observations(self, _domain: str, values: list[str], result_type: str, _source: str) -> None:
+            if result_type == 'hostname':
                 stored_hosts.append(set(values))
 
     class _Intelx:
@@ -146,7 +146,7 @@ async def test_orchestrator_stores_intelx_subdomains_without_dns(monkeypatch: py
         def __init__(self, *_args: object, **_kwargs: object) -> None:
             raise AssertionError('DNS resolution requires the explicit --dns-resolve flag')
 
-    monkeypatch.setattr(theharvester_main.stash, 'StashManager', _Stash)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _ResultStore)
     monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', _UnexpectedChecker)
     monkeypatch.setattr(intelxsearch, 'SearchIntelx', _Intelx)
 

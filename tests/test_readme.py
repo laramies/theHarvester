@@ -126,3 +126,13 @@ def test_readme_preserves_project_social_attribution() -> None:
         assert name in readme
         assert f'https://twitter.com/{handle}' in readme
         assert f'@{handle}' in readme
+
+
+def test_readme_explains_jsonl_record_and_structured_value_parsing() -> None:
+    readme = Path('README.md').read_text()
+
+    assert '{"type":"hostname","value":"api.example.com"}' in readme
+    assert 'select(.type == "dns-recursive-finding") | .value | fromjson' in readme
+    assert 'JSONL v1 is easy to stream for simple findings, but it is not uniformly self-describing.' in readme
+    assert '`person`, `infostealer`, `shodan`, and `takeover`' in readme
+    assert 'JSONL v1 does not include source execution records or source attribution.' in readme

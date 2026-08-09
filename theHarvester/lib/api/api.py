@@ -1,9 +1,9 @@
 import argparse
-import asyncio
 import ipaddress
 import logging
 import os
-import socket
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Annotated, Any, cast
 from uuid import UUID
@@ -18,28 +18,15 @@ from slowapi.util import get_remote_address
 from starlette.staticfiles import StaticFiles
 
 from theHarvester import __main__
-from theHarvester.lib import stash
 from theHarvester.lib.api.additional_endpoints import router as additional_router
 from theHarvester.lib.api.auth import get_api_key
 from theHarvester.lib.completed_result import ResultKind
+from theHarvester.lib.database import ResultStore, dispose_sqlite_databases
 from theHarvester.lib.recursive_dns import DEFAULT_RECURSIVE_DNS_QUERY_LIMIT
 
 logger = logging.getLogger(__name__)
 
 API_RATE_LIMIT = os.getenv('API_RATE_LIMIT', '5/minute')
-
-
-async def _is_public_target(domain: str) -> bool:
-    host = domain.split('/')[0].split(':')[0]
-    try:
-        infos = await asyncio.get_event_loop().getaddrinfo(host, None)
-    except socket.gaierror:
-        return True  # unresolvable: the scan cannot reach it
-    for info in infos:
-        ip = ipaddress.ip_address(info[4][0])
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast or ip.is_unspecified:
-            return False
-    return True
 
 
 # Define Pydantic models for request and response validation
@@ -63,12 +50,25 @@ class ErrorResponse(BaseModel):
 
 
 limiter = Limiter(key_func=get_remote_address)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    manager = ResultStore()
+    await manager.initialize()
+    try:
+        yield
+    finally:
+        await dispose_sqlite_databases()
+
+
 app = FastAPI(
     title='Restful Harvest',
     description='Rest API for theHarvester powered by FastAPI',
     version='0.0.4',
     docs_url='/docs',
     redoc_url='/redoc',
+    lifespan=lifespan,
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore
@@ -232,9 +232,9 @@ async def list_runs(
     limit: Annotated[int, Query(ge=1, le=500)] = 50,
 ) -> list[dict[str, object]]:
     """List recently completed enumeration runs."""
-    manager = stash.StashManager()
-    await manager.do_init()
-    return await manager.list_completed_results(limit=limit)
+    manager = ResultStore()
+    await manager.initialize()
+    return await manager.list_runs(limit=limit)
 
 
 @app.get(
@@ -252,10 +252,10 @@ async def get_run(
     _api_key: Annotated[str, Depends(get_api_key)],
 ) -> dict[str, object]:
     """Retrieve one completed enumeration run with its normalized evidence."""
-    manager = stash.StashManager()
-    await manager.do_init()
+    manager = ResultStore()
+    await manager.initialize()
     try:
-        result = await manager.load_completed_result(run_id)
+        result = await manager.load_run(run_id)
     except LookupError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Completed run not found') from error
     return {
@@ -359,34 +359,58 @@ async def query(
     request: Request,
     source: Annotated[
         list[str],
-        Query(description='Data sources or capability selectors to query; repeated values form a union'),
+        Query(
+            description=(
+                'Source names or source capabilities to query. Multiple capabilities select the union of matching '
+                'sources; they do not filter returned fields.'
+            )
+        ),
     ],
     domain: Annotated[str, Query(min_length=3, description='Domain to be harvested')],
-    dns_server: Annotated[str, Query(description='DNS server to use for lookup')] = '',
+    dns_server: Annotated[
+        str,
+        Query(description='Accepted for compatibility but currently unused; use dns_resolve to select resolvers.'),
+    ] = '',
     user_agent: Annotated[str | None, Header()] = None,
     x_api_key: Annotated[str | None, Header(alias='X-API-Key')] = None,
     dns_brute: Annotated[bool, Query(description='Perform a DNS brute force on the domain')] = False,
-    dns_lookup: Annotated[bool, Query(description='Enable DNS server lookup')] = False,
-    dns_resolve: Annotated[
-        str, Query(description='Perform DNS resolution on subdomains with a resolver list or passed in resolvers')
-    ] = '',
-    dns_recursive_depth: Annotated[
-        int, Query(ge=0, description='Recursively discover DNS names beneath currently addressable parents')
-    ] = 0,
+    dns_lookup: Annotated[
+        bool,
+        Query(
+            description=(
+                'Perform PTR lookups across the /24 network containing each discovered IPv4 address. '
+                'This sends active DNS queries.'
+            )
+        ),
+    ] = False,
+    dns_resolve: Annotated[str, Query(description='Resolve discovered hostnames using resolver IPs or a resolver file')] = '',
+    dns_recursive_depth: Annotated[int, Query(ge=0, description='Maximum recursive DNS discovery depth. Zero disables it.')] = 0,
     dns_recursive_query_limit: Annotated[
-        int, Query(gt=0, description='Maximum DNS record queries across resolver vantages')
+        int, Query(gt=0, description='Hard cap on recursive DNS record queries across all resolver vantages')
     ] = DEFAULT_RECURSIVE_DNS_QUERY_LIMIT,
     dns_recursive_runtime_seconds: Annotated[
-        float, Query(gt=0, allow_inf_nan=False, description='Maximum runtime in seconds for recursive DNS discovery')
+        float, Query(gt=0, allow_inf_nan=False, description='Hard runtime cap in seconds for recursive DNS discovery')
     ] = 60.0,
-    filename: Annotated[str, Query(description='Save the results to an XML and JSON file')] = '',
-    proxies: Annotated[bool, Query(description='Use proxies for requests')] = False,
+    filename: Annotated[
+        str,
+        Query(description=('Write uniquely prefixed server-side XML, JSON, and JSONL files using NAME as the filename suffix.')),
+    ] = '',
+    proxies: Annotated[
+        bool,
+        Query(description='Use proxies.yaml for supported discovery-source and takeover requests.'),
+    ] = False,
     shodan: Annotated[bool, Query(description='Use Shodan to query discovered hosts')] = False,
-    take_over: Annotated[bool, Query(description='Check for takeovers')] = False,
-    wordlist: Annotated[str, Query(description='Specify a wordlist for API endpoint scanning')] = '',
-    api_scan: Annotated[bool, Query(description='Scan for API endpoints')] = False,
-    limit: Annotated[int, Query(description='Limit the number of search results')] = 500,
-    start: Annotated[int, Query(description='Start with result number X')] = 0,
+    take_over: Annotated[
+        bool,
+        Query(description='Check discovered hosts for known takeover indicators, using configured proxies when enabled.'),
+    ] = False,
+    wordlist: Annotated[str, Query(description='Path to the endpoint wordlist used by api_scan')] = '',
+    api_scan: Annotated[
+        bool,
+        Query(description='Check common API paths with GET, HEAD, and OPTIONS. Requests follow redirects.'),
+    ] = False,
+    limit: Annotated[int, Query(description='Maximum results requested from each source that supports result limits')] = 500,
+    start: Annotated[int, Query(description='Result offset for sources that support pagination')] = 0,
 ) -> Response:
     """Query function that allows user to query theHarvester rest API.
 
@@ -435,12 +459,6 @@ async def query(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail='recursive DNS requires exactly three distinct resolver IPs',
                 )
-
-        if api_scan and not await _is_public_target(domain):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail='api_scan target must be a publicly routable host',
-            )
 
         # Call the main function with the provided parameters
         (

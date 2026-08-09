@@ -404,6 +404,67 @@ async def test_fetch_all_propagates_metadata_opt_in(monkeypatch) -> None:
     assert [result.status for result in results] == [429, 429]
 
 
+@pytest.mark.parametrize(
+    ('url', 'proxy', 'uses_shared_session'),
+    [
+        ('http://100.64.0.1', None, True),
+        ('http://example.com', 'http://proxy.example:8080', True),
+        ('https://example.com', 'socks5://proxy.example:1080', False),
+    ],
+)
+@pytest.mark.asyncio
+async def test_takeover_fetch_uses_the_shared_transport(
+    monkeypatch,
+    url: str,
+    proxy: str | None,
+    uses_shared_session: bool,
+) -> None:
+    calls = []
+    session = DummySession()
+
+    async def fake_fetch(*_args, **kwargs):
+        calls.append(kwargs)
+        return 'response-text'
+
+    monkeypatch.setattr(AsyncFetcher, 'fetch', fake_fetch)
+
+    result = await AsyncFetcher.takeover_fetch(
+        session,
+        url,
+        proxy=proxy,
+    )
+
+    assert result == (url, 'response-text')
+    assert calls == [
+        {
+            'session': session if uses_shared_session else None,
+            'url': url,
+            'proxy': proxy,
+            'request_timeout': 15,
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_takeover_fetch_all_falls_back_to_direct_when_proxy_pool_is_empty(monkeypatch) -> None:
+    reset_dummy_sessions()
+    calls = []
+    monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
+    monkeypatch.setattr(AsyncFetcher, '_get_random_proxy', staticmethod(lambda _proxy_dict: (None, None)))
+
+    async def fake_takeover_fetch(*args, **kwargs):
+        calls.append((args, kwargs))
+        return 'http://example.com', 'direct response'
+
+    monkeypatch.setattr(AsyncFetcher, 'takeover_fetch', fake_takeover_fetch)
+
+    result = await AsyncFetcher.fetch_all(['http://example.com'], takeover=True, proxy=True)
+
+    assert result == [('http://example.com', 'direct response')]
+    assert len(calls) == 1
+    assert calls[0][1] == {'proxy': None}
+
+
 @pytest.mark.asyncio
 async def test_fetch_uses_http_proxy_when_enabled(monkeypatch) -> None:
     reset_dummy_sessions()

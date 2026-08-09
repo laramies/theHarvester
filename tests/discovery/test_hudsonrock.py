@@ -203,14 +203,14 @@ async def test_infostealer_data_reaches_completed_result_and_jsonl(
 ) -> None:
     completed_results: list[CompletedResult] = []
 
-    class FakeStash:
-        async def do_init(self) -> None:
+    class FakeResultStore:
+        async def initialize(self) -> None:
             return None
 
-        async def store_all(self, *_args: object) -> None:
+        async def record_observations(self, *_args: object) -> None:
             return None
 
-        async def store_completed_result(self, result: CompletedResult) -> None:
+        async def save_run(self, result: CompletedResult) -> None:
             completed_results.append(result)
 
     class FakeHudsonRock:
@@ -240,7 +240,7 @@ async def test_infostealer_data_reaches_completed_result_and_jsonl(
             ]
 
     report = tmp_path / 'hudsonrock-report'
-    monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
     monkeypatch.setattr(theharvester_main.hudsonrocksearch, 'SearchHudsonRock', FakeHudsonRock)
     monkeypatch.setattr(
         sys,

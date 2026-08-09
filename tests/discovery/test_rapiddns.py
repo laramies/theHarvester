@@ -115,19 +115,16 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
     stored: list[tuple[str, tuple[str, ...], str]] = []
     completed_results: list[CompletedResult] = []
 
-    class FakeStash:
+    class FakeResultStore:
         fail_completed_write = False
 
-        async def do_init(self) -> None:
+        async def initialize(self) -> None:
             return None
 
-        async def store_all(self, _domain: str, values: list[str], result_type: str, source: str) -> None:
+        async def record_observations(self, _domain: str, values: list[str], result_type: str, source: str) -> None:
             stored.append((result_type, tuple(sorted(values)), source))
 
-        async def store(self, _domain: str, value: str, result_type: str, source: str) -> None:
-            stored.append((result_type, (value,), source))
-
-        async def store_completed_result(self, result: CompletedResult) -> None:
+        async def save_run(self, result: CompletedResult) -> None:
             if self.fail_completed_write:
                 raise OSError('forced completed-result failure')
             completed_results.append(result)
@@ -204,7 +201,7 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
 
     report = tmp_path / 'rapiddns-report'
     monkeypatch.setattr(rapiddns.AsyncFetcher, 'fetch_all', fake_fetch_all)
-    monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
     monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', UnexpectedChecker)
     monkeypatch.setattr(theharvester_main.search_dehashed, 'SearchDehashed', FakeDehashed)
     monkeypatch.setattr(theharvester_main.api_endpoints, 'SearchApiEndpoints', FakeApiEndpoints)
@@ -231,9 +228,9 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
         await theharvester_main.start()
 
     assert exit_info.value.code == 0
-    assert ('host', ('alias.example.com', 'api.example.com', 'broken.example.com'), 'rapiddns') in stored
-    assert ('ip', ('192.0.2.1',), 'rapiddns') in stored
-    assert stored.count(('api_endpoint', ('/health',), 'api_scan')) == 2
+    assert ('hostname', ('alias.example.com', 'api.example.com', 'broken.example.com'), 'rapiddns') in stored
+    assert ('ip-address', ('192.0.2.1',), 'rapiddns') in stored
+    assert stored.count(('api-endpoint', ('/health',), 'api_scan')) == 1
 
     report_json = json.loads(report.with_suffix('.json').read_text())
     assert report_json['hosts'] == ['alias.example.com', 'api.example.com', 'broken.example.com']
@@ -311,9 +308,9 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
     assert rest_results[8] == ['alias.example.com', 'api.example.com', 'broken.example.com']
     assert stored[stored_before_rest:] == [
         ('email', ('user@example.com',), 'dehashed'),
-        ('ip', ('198.51.100.2',), 'dehashed'),
-        ('host', ('alias.example.com', 'api.example.com', 'broken.example.com'), 'rapiddns'),
-        ('ip', ('192.0.2.1',), 'rapiddns'),
+        ('ip-address', ('198.51.100.2',), 'dehashed'),
+        ('hostname', ('alias.example.com', 'api.example.com', 'broken.example.com'), 'rapiddns'),
+        ('ip-address', ('192.0.2.1',), 'rapiddns'),
     ]
     assert len(completed_results) == 2
     assert FakeSecurityScorecard.created == 1
@@ -328,7 +325,7 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
     assert len(completed_results) == 3
     assert completed_results[2].target == 'example.com'
 
-    FakeStash.fail_completed_write = True
+    FakeResultStore.fail_completed_write = True
     with pytest.raises(SystemExit) as failed_write_exit:
         await theharvester_main.start()
     assert failed_write_exit.value.code == 0

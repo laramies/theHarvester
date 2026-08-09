@@ -34,14 +34,14 @@ class TestShodanEngine:
         monkeypatch.setattr(socket, 'gethostbyname', lambda _domain: '1.2.3.4', raising=True)
 
         # Avoid filesystem/sqlite side effects.
-        class DummyStashManager:
-            async def do_init(self) -> None:
+        class DummyResultStore:
+            async def initialize(self) -> None:
                 return None
 
-            async def store_all(self, domain, all, res_type, source) -> None:
+            async def record_observations(self, domain, all, res_type, source) -> None:
                 return None
 
-        monkeypatch.setattr(main_module.stash, 'StashManager', DummyStashManager, raising=True)
+        monkeypatch.setattr(main_module, 'ResultStore', DummyResultStore, raising=True)
 
         # Stub Shodan search to avoid network and API key requirements.
         class DummySearchShodan:

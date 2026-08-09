@@ -9,11 +9,11 @@ import string
 import sys
 import time
 import traceback
-from collections.abc import Iterable
+from collections.abc import Awaitable, Callable, Iterable
 from contextlib import AsyncExitStack
 from datetime import UTC, datetime
 from ipaddress import ip_address
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import anyio
 import netaddr
@@ -82,10 +82,17 @@ from theHarvester.discovery import (
     zoomeyesearch,
 )
 from theHarvester.discovery.constants import MissingKey
-from theHarvester.lib import hostchecker, stash
-from theHarvester.lib.completed_result import CompletedResult, ResultKind
+from theHarvester.lib import hostchecker
+from theHarvester.lib.completed_result import CompletedResult, ResultKind, SourceExecution
 from theHarvester.lib.core import DATA_DIR, Core, show_default_error_message
+from theHarvester.lib.database import ResultStore
 from theHarvester.lib.dns_consensus import AioDNSResolverVantage
+from theHarvester.lib.enumeration import (
+    DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS,
+    DEFAULT_RESULT_LIMIT,
+    DEFAULT_RESULT_START,
+    EnumerationOptions,
+)
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.output import configure_logging, output_logger, print_linkedin_sections, print_section, sorted_unique
 from theHarvester.lib.recursive_dns import (
@@ -94,11 +101,8 @@ from theHarvester.lib.recursive_dns import (
     RecursiveDNSResult,
     discover_recursive_dns,
 )
-from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass, ResultRoute, get_source_spec
+from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass, ResultRoute, SourceSpec, get_source_spec
 from theHarvester.screenshot.screenshot import ScreenShotter
-
-if TYPE_CHECKING:
-    from collections.abc import Awaitable
 
 logger = logging.getLogger(__name__)
 
@@ -149,10 +153,13 @@ def sanitize_filename(filename: str) -> str:
 
 
 async def start(
-    rest_args: argparse.Namespace | None = None,
+    rest_args: argparse.Namespace | EnumerationOptions | None = None,
     *,
+    completed_result_checkpoint: Callable[[CompletedResult], Awaitable[None]] | None = None,
     persist_completed_result: bool = False,
     include_breaches: bool = False,
+    return_completed_result: bool = False,
+    return_dns_brute_result: bool = False,
 ):
     """Main program function"""
     parser = argparse.ArgumentParser(
@@ -162,21 +169,21 @@ async def start(
     parser.add_argument(
         '-l',
         '--limit',
-        help='Limit the number of search results, default=500.',
-        default=500,
+        help='Maximum results requested from each source that supports result limits (default: 500).',
+        default=DEFAULT_RESULT_LIMIT,
         type=int,
     )
     parser.add_argument(
         '-S',
         '--start',
-        help='Start with result number X, default=0.',
-        default=0,
+        help='Result offset for sources that support pagination (default: 0).',
+        default=DEFAULT_RESULT_START,
         type=int,
     )
     parser.add_argument(
         '-p',
         '--proxies',
-        help='Use proxies for requests, enter proxies in proxies.yaml.',
+        help='Use proxies.yaml for supported discovery-source and takeover requests.',
         default=False,
         action='store_true',
     )
@@ -189,23 +196,28 @@ async def start(
     )
     parser.add_argument(
         '--screenshot',
-        help='Take screenshots of resolved domains specify output directory: --screenshot output_directory',
+        help='Save screenshots of reachable discovered hosts to DIR. This sends direct browser requests.',
+        metavar='DIR',
         default='',
         type=str,
     )
 
-    parser.add_argument('-e', '--dns-server', help='DNS server to use for lookup.')
+    parser.add_argument(
+        '-e',
+        '--dns-server',
+        help='Accepted for compatibility but currently unused; use --dns-resolve to select resolvers.',
+    )
     parser.add_argument(
         '-t',
         '--take-over',
-        help='Check for takeovers.',
+        help='Check discovered hosts for known takeover indicators, using configured proxies when enabled.',
         default=False,
         action='store_true',
     )
     parser.add_argument(
         '-r',
         '--dns-resolve',
-        help='Perform DNS resolution on subdomains with a resolver list or passed in resolvers, default False.',
+        help='Resolve discovered hostnames. Pass resolver IPs or a resolver file; omit the value to use defaults.',
         default='',
         type=str,
         nargs='?',
@@ -213,7 +225,9 @@ async def start(
     parser.add_argument(
         '-n',
         '--dns-lookup',
-        help='Enable DNS server lookup, default False.',
+        help=(
+            'Perform PTR lookups across the /24 network containing each discovered IPv4 address. This sends active DNS queries.'
+        ),
         default=False,
         action='store_true',
     )
@@ -226,31 +240,37 @@ async def start(
     )
     parser.add_argument(
         '--dns-recursive-depth',
-        help='Recursively discover DNS names beneath currently addressable parents to this depth.',
+        help='Enable recursive DNS discovery to this maximum depth. Zero disables it.',
         default=0,
         type=int,
     )
     parser.add_argument(
         '--dns-recursive-query-limit',
-        help='Maximum DNS record queries across resolver vantages for recursive DNS discovery.',
+        help='Hard cap on recursive DNS record queries across all resolver vantages.',
         default=DEFAULT_RECURSIVE_DNS_QUERY_LIMIT,
         type=int,
     )
     parser.add_argument(
         '--dns-recursive-runtime-seconds',
-        help='Maximum runtime in seconds for recursive DNS discovery.',
-        default=60.0,
+        help='Hard runtime cap in seconds for recursive DNS discovery.',
+        default=DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS,
         type=float,
     )
     parser.add_argument(
         '-f',
         '--filename',
-        help='Save the results to XML, JSON, and JSONL files.',
+        help='Write NAME.json, NAME.xml, and NAME.jsonl.',
+        metavar='NAME',
         default='',
         type=str,
     )
-    parser.add_argument('-w', '--wordlist', help='Specify a wordlist for API endpoint scanning.', default='')
-    parser.add_argument('-a', '--api-scan', help='Scan for API endpoints.', action='store_true')
+    parser.add_argument('-w', '--wordlist', help='Path to the endpoint wordlist used by --api-scan.', default='')
+    parser.add_argument(
+        '-a',
+        '--api-scan',
+        help='Check common API paths with GET, HEAD, and OPTIONS. Requests follow redirects.',
+        action='store_true',
+    )
     parser.add_argument(
         '-q',
         '--quiet',
@@ -263,29 +283,31 @@ async def start(
         '-b',
         '--source',
         help=(
-            'Comma-separated sources or capability selectors: subdomains, emails, ips, asns, urls, people, '
-            f'breaches, or all. Sources: {", ".join(sorted(SOURCE_SPECS, key=str.casefold))}'
+            'Comma-separated source names or source capabilities. Multiple capabilities select the union of matching '
+            'sources; they do not filter returned fields. Capabilities: '
+            f'subdomains, emails, ips, asns, urls, people, breaches, all. Sources: '
+            f'{", ".join(sorted(SOURCE_SPECS, key=str.casefold))}'
         ),
     )
 
     # determines if the filename is coming from rest api or user
     rest_filename = ''
+    dnsbrute: tuple[bool, bool]
     # indicates this from the rest API
     if rest_args:
         if rest_args.source and rest_args.source == 'getsources':
             return list(sorted(Core.get_supportedengines()))
-        elif rest_args.dns_brute:
-            args = rest_args
-            dnsbrute = (rest_args.dns_brute, True)
+        args = EnumerationOptions.from_namespace(rest_args)
+        if args.dns_brute:
+            dnsbrute = (args.dns_brute, return_dns_brute_result)
         else:
-            args = rest_args
             dnsbrute = (args.dns_brute, False)
             # We need to make sure the filename is random as to not overwrite other files
             filename: str = args.filename
             alphabet = string.ascii_letters + string.digits
             rest_filename += f'{"".join(secrets.choice(alphabet) for _ in range(32))}_{filename}' if len(filename) != 0 else ''
     else:
-        args = parser.parse_args()
+        args = EnumerationOptions.from_namespace(parser.parse_args())
         filename = args.filename
         dnsbrute = (args.dns_brute, False)
         configure_logging(verbose=args.verbose)
@@ -293,12 +315,12 @@ async def start(
             logger.info('Verbose logging enabled')
     Core.quiet = getattr(args, 'quiet', False)
     try:
-        db = stash.StashManager()
-        await db.do_init()
+        db = ResultStore()
+        await db.initialize()
     except (AttributeError, OSError, RuntimeError, ValueError) as init_error:
         if not args.quiet:
-            output_logger.info(f'Error initializing StashManager: {init_error}')
-        raise ValueError('Failed to initialize StashManager')
+            output_logger.info(f'Error initializing result store: {init_error}')
+        raise ValueError('Failed to initialize result store')
 
     if len(filename) > 0:
         if filename.startswith('~/'):
@@ -397,6 +419,11 @@ async def start(
     all_servers: list[str] = []
     all_cms: list[str] = []
     all_analytics: list[str] = []
+    endpoints_found: set[str] = set()
+    screenshot_results: list[str] = []
+    shodan_evidence: list[str] = []
+    takeover_results: dict[str, list[dict[str, str]]] = {}
+    recursive_result: RecursiveDNSResult | None = None
 
     linkedin_people_list_tracker = []
     linkedin_links_tracker = []
@@ -404,24 +431,126 @@ async def start(
 
     interesting_urls = []
     total_asns = []
+    source_executions: list[SourceExecution] = []
 
-    async def store(
+    def finish_completed_result(
+        *, extra_hostnames: Iterable[str] = (), virtual_hosts: Iterable[str] = ()
+    ) -> CompletedResult | None:
+        groups: dict[ResultKind, Iterable[str]] = {
+            'analytics': map(str, all_analytics),
+            'api-endpoint': map(str, endpoints_found),
+            'asn': map(str, total_asns),
+            'breach': map(str, all_breaches),
+            'cms': map(str, all_cms),
+            'dns-recursive-finding': (
+                (
+                    json.dumps(
+                        {
+                            'addresses': list(finding.records.addresses),
+                            'hostname': finding.hostname,
+                            'parent': finding.parent,
+                            'ptrs': list(finding.ptrs),
+                        },
+                        separators=(',', ':'),
+                        sort_keys=True,
+                    )
+                    for finding in recursive_result.findings
+                )
+                if recursive_result is not None
+                else ()
+            ),
+            'dns-recursive-classification': (
+                (
+                    json.dumps(
+                        {
+                            'addressability': classification.addressability.value,
+                            'addresses': list(classification.records.addresses),
+                            'cnames': list(classification.records.cnames),
+                            'hostname': classification.hostname,
+                            'parent': classification.parent,
+                            'ptrs': list(classification.ptrs),
+                        },
+                        separators=(',', ':'),
+                        sort_keys=True,
+                    )
+                    for classification in recursive_result.classifications
+                )
+                if recursive_result is not None
+                else ()
+            ),
+            'dns-recursive-summary': (
+                (
+                    json.dumps(
+                        {
+                            'depth_reached': recursive_result.depth_reached,
+                            'query_count': recursive_result.query_count,
+                            'stop_reason': recursive_result.stop_reason,
+                            'zero_yield_batches': recursive_result.zero_yield_batches,
+                        },
+                        separators=(',', ':'),
+                        sort_keys=True,
+                    ),
+                )
+                if recursive_result is not None
+                else ()
+            ),
+            'email': map(str, all_emails),
+            'framework': map(str, all_frameworks),
+            'hostname': _normalize_hosts_for_storage(all_hosts, word),
+            'infostealer': (
+                json.dumps(stealer, ensure_ascii=False, separators=(',', ':'), sort_keys=True) for stealer in all_infostealers
+            ),
+            'interesting-url': map(str, interesting_urls),
+            'ip-address': _normalize_ip_addresses(all_ip),
+            'language': map(str, all_languages),
+            'linkedin-link': map(str, linkedin_links_tracker),
+            'linkedin-person': map(str, linkedin_people_list_tracker),
+            'person': (json.dumps(person, ensure_ascii=False, separators=(',', ':'), sort_keys=True) for person in all_people),
+            'server': map(str, all_servers),
+            'screenshot': map(str, screenshot_results),
+            'shodan': shodan_evidence,
+            'takeover': (
+                json.dumps({'matches': matches, 'url': url}, separators=(',', ':'), sort_keys=True)
+                for url, matches in takeover_results.items()
+            ),
+            'twitter-person': map(str, twitter_people_list_tracker),
+            'url': map(str, all_urls),
+            'vhost': map(str, virtual_hosts),
+        }
+        if extra_hostnames:
+            groups['hostname'] = _normalize_hosts_for_storage((*all_hosts, *extra_hostnames), word)
+        try:
+            return CompletedResult.finish(
+                target=word,
+                started_at=run_started_at,
+                completed_at=datetime.now(UTC),
+                groups=groups,
+                source_executions=source_executions,
+            )
+        except (ValueError, TypeError) as error:
+            output_logger.info(f'[!] An error occurred while completing the result: {error}')
+            return None
+
+    async def checkpoint_completed_result(*, extra_hostnames: Iterable[str] = (), virtual_hosts: Iterable[str] = ()) -> None:
+        if (
+            completed_result_checkpoint is not None
+            and (result := finish_completed_result(extra_hostnames=extra_hostnames, virtual_hosts=virtual_hosts)) is not None
+        ):
+            await completed_result_checkpoint(result)
+
+    async def collect_and_store(
         search_engine: Any,
-        source: str,
-    ) -> None:
+        source_spec: SourceSpec,
+    ) -> int:
         """Process a source and persist its declared consolidated result routes.
 
         :param search_engine: search engine to fetch details from
-        :param source: source against which the details (corresponding to the search engine) need to be persisted
+        :param source_spec: canonical source identity and declared result routes
         """
-        logger.info(f'Source {source} started')
-        try:
-            await search_engine.process(use_proxy)
-        except Exception:
-            logger.exception(f'Source {source} failed')
-            raise
-        db_stash = stash.StashManager()
-        routes = get_source_spec(source).routes
+        await search_engine.process(use_proxy)
+        result_count = 0
+        source = source_spec.name
+        routes = source_spec.routes
 
         if source:
             output_logger.info(f'[*] Searching {source[0].upper() + source[1:]}. ')
@@ -430,6 +559,7 @@ async def start(
             discovered_hosts = await search_engine.get_hostnames()
             host_names = list(_normalize_hosts_for_storage(discovered_hosts, word))
             paired_hosts: set[str] = set()
+            result_count += len(host_names)
             if source == 'rapiddns':
                 for host, address in await search_engine.get_host_ip_pairs():
                     normalized = normalize_scoped_hostname(host, word)
@@ -461,52 +591,64 @@ async def start(
             else:
                 full.extend(host_names)
             all_hosts.extend(host_names)
-            await db_stash.store_all(word, all_hosts, 'host', source)
+            await db.record_observations(word, host_names, 'hostname', source)
 
         if ResultRoute.EMAILS in routes:
             email_list = await search_engine.get_emails()
+            result_count += len(email_list)
             all_emails.extend(email_list)
-            await db_stash.store_all(word, email_list, 'email', source)
+            await db.record_observations(word, email_list, 'email', source)
 
         if ResultRoute.IPS in routes:
             ips_list = await search_engine.get_ips()
+            result_count += len(ips_list)
             all_ip.extend(ips_list)
-            await db_stash.store_all(word, ips_list, 'ip', source)
+            await db.record_observations(word, ips_list, 'ip-address', source)
 
         if ResultRoute.PEOPLE in routes:
             people_list = await search_engine.get_people()
+            result_count += len(people_list)
             all_people.extend(people_list)
-            await db_stash.store_all(word, people_list, 'people', source)
+            people_evidence = (
+                json.dumps(person, ensure_ascii=False, separators=(',', ':'), sort_keys=True) for person in people_list
+            )
+            await db.record_observations(word, people_evidence, 'person', source)
 
         if ResultRoute.LINKS in routes:
             links = await search_engine.get_links()
+            result_count += len(links)
             linkedin_links_tracker.extend(links)
             if len(links) > 0:
-                await db.store_all(word, links, 'linkedinlinks', source)
+                await db.record_observations(word, links, 'linkedin-link', source)
 
         if ResultRoute.URLS in routes:
             urls = await search_engine.get_urls()
+            result_count += len(urls)
             all_urls.extend(urls)
             if len(urls) > 0:
-                await db_stash.store_all(word, urls, 'url', source)
+                await db.record_observations(word, urls, 'url', source)
 
         if ResultRoute.INTERESTING_URLS in routes:
             get_interesting_urls = getattr(search_engine, 'get_interesting_urls', None)
             iurls = await get_interesting_urls() if get_interesting_urls else await search_engine.get_interestingurls()
+            result_count += len(iurls)
             interesting_urls.extend(iurls)
             if len(iurls) > 0:
-                await db.store_all(word, iurls, 'interestingurls', source)
+                await db.record_observations(word, iurls, 'interesting-url', source)
 
         if ResultRoute.ASNS in routes:
             fasns = await search_engine.get_asns()
+            result_count += len(fasns)
             total_asns.extend(fasns)
             if len(fasns) > 0:
-                await db.store_all(word, fasns, 'asns', source)
+                await db.record_observations(word, fasns, 'asn', source)
 
         if ResultRoute.BREACHES in routes:
-            all_breaches.extend(await search_engine.get_breach_names())
+            breach_names = await search_engine.get_breach_names()
+            result_count += len(breach_names)
+            all_breaches.extend(breach_names)
         if source == 'builtwith':
-            technology_results = (
+            technology_results: tuple[tuple[str, list[Any], ResultKind], ...] = (
                 ('get_frameworks', all_frameworks, 'framework'),
                 ('get_languages', all_languages, 'language'),
                 ('get_servers', all_servers, 'server'),
@@ -515,11 +657,40 @@ async def start(
             )
             for getter_name, results, result_type in technology_results:
                 values = await getattr(search_engine, getter_name)()
+                result_count += len(values)
                 results.extend(values)
-                await db_stash.store_all(word, values, result_type, source)
+                await db.record_observations(word, values, result_type, source)
         if source == 'hudsonrock':
-            all_infostealers.extend(await search_engine.get_infostealers())
-        logger.info(f'Source {source} completed')
+            infostealers = await search_engine.get_infostealers()
+            result_count += len(infostealers)
+            all_infostealers.extend(infostealers)
+
+        return result_count
+
+    async def store(search_engine: Any, source: str) -> None:
+        source_spec = get_source_spec(source)
+        source_name = source_spec.name
+        logger.info(f'Source {source_name} started')
+        started = time.perf_counter()
+        try:
+            result_count = await collect_and_store(search_engine, source_spec)
+        except Exception as error:
+            logger.exception(f'Source {source_name} failed')
+            source_executions.append(
+                SourceExecution(source_name, 'failed', (time.perf_counter() - started) * 1000, 0, type(error).__name__)
+            )
+            await checkpoint_completed_result()
+            raise
+        source_executions.append(
+            SourceExecution(
+                source_name,
+                'succeeded' if result_count else 'empty',
+                (time.perf_counter() - started) * 1000,
+                result_count,
+            )
+        )
+        await checkpoint_completed_result()
+        logger.info(f'Source {source_name} completed')
 
     stor_lst = []
     if args.source is not None:
@@ -529,7 +700,7 @@ async def start(
         activities.add(ActivityClass.PASSIVE)
     if dnslookup or dnsbrute[0] or dnsresolve != '' or recursive_limits is not None:
         activities.add(ActivityClass.DNS)
-    if takeover_status or getattr(args, 'screenshot', '') or getattr(args, 'api_scan', False):
+    if takeover_status or args.screenshot or args.api_scan:
         activities.add(ActivityClass.DIRECT)
     if activities:
         activity_labels = {
@@ -1399,7 +1570,14 @@ async def start(
 
     await handler(lst=stor_lst)
 
-    recursive_result: RecursiveDNSResult | None = None
+    recorded_sources = {result.source.casefold() for result in source_executions}
+    source_executions.extend(
+        SourceExecution(engine, 'skipped', 0, 0, 'SourceDidNotStart')
+        for engine in engines
+        if engine.casefold() not in recorded_sources
+    )
+    await checkpoint_completed_result()
+
     if recursive_limits is not None:
         try:
             async with AsyncExitStack() as resolver_stack:
@@ -1426,116 +1604,27 @@ async def start(
                     reported_host_ip_pairs.update((finding.hostname, address) for address in finding.records.addresses)
                 else:
                     full.append(finding.hostname)
-            recursive_db = stash.StashManager()
-            await recursive_db.store_all(word, recursive_hosts, 'host', 'dns_recursive')
-            await recursive_db.store_all(word, recursive_ips, 'ip', 'dns_recursive')
+            await db.record_observations(word, recursive_hosts, 'hostname', 'dns_recursive')
+            await db.record_observations(word, recursive_ips, 'ip-address', 'dns_recursive')
             output_logger.info(
                 '[*] Recursive DNS: '
                 f'hosts={len(recursive_hosts)}; queries={recursive_result.query_count}; '
                 f'depth={recursive_result.depth_reached}; stop={recursive_result.stop_reason}'
             )
+            await checkpoint_completed_result()
         except Exception as error:
             output_logger.info(f'[!] Recursive DNS discovery failed: {type(error).__name__}')
-
-    def finish_completed_result(
-        *, extra_hostnames: Iterable[str] = (), virtual_hosts: Iterable[str] = ()
-    ) -> CompletedResult | None:
-        groups: dict[ResultKind, Iterable[str]] = {
-            'analytics': map(str, all_analytics),
-            'asn': map(str, total_asns),
-            'breach': map(str, all_breaches),
-            'cms': map(str, all_cms),
-            'dns-recursive-finding': (
-                (
-                    json.dumps(
-                        {
-                            'addresses': list(finding.records.addresses),
-                            'hostname': finding.hostname,
-                            'parent': finding.parent,
-                            'ptrs': list(finding.ptrs),
-                        },
-                        separators=(',', ':'),
-                        sort_keys=True,
-                    )
-                    for finding in recursive_result.findings
-                )
-                if recursive_result is not None
-                else ()
-            ),
-            'dns-recursive-classification': (
-                (
-                    json.dumps(
-                        {
-                            'addressability': classification.addressability.value,
-                            'addresses': list(classification.records.addresses),
-                            'cnames': list(classification.records.cnames),
-                            'hostname': classification.hostname,
-                            'parent': classification.parent,
-                            'ptrs': list(classification.ptrs),
-                        },
-                        separators=(',', ':'),
-                        sort_keys=True,
-                    )
-                    for classification in recursive_result.classifications
-                )
-                if recursive_result is not None
-                else ()
-            ),
-            'dns-recursive-summary': (
-                (
-                    json.dumps(
-                        {
-                            'depth_reached': recursive_result.depth_reached,
-                            'query_count': recursive_result.query_count,
-                            'stop_reason': recursive_result.stop_reason,
-                            'zero_yield_batches': recursive_result.zero_yield_batches,
-                        },
-                        separators=(',', ':'),
-                        sort_keys=True,
-                    ),
-                )
-                if recursive_result is not None
-                else ()
-            ),
-            'email': map(str, all_emails),
-            'framework': map(str, all_frameworks),
-            'hostname': _normalize_hosts_for_storage((*all_hosts, *extra_hostnames), word),
-            'infostealer': (
-                json.dumps(stealer, ensure_ascii=False, separators=(',', ':'), sort_keys=True) for stealer in all_infostealers
-            ),
-            'interesting-url': map(str, interesting_urls),
-            'ip-address': _normalize_ip_addresses(all_ip),
-            'language': map(str, all_languages),
-            'linkedin-link': map(str, linkedin_links_tracker),
-            'linkedin-person': map(str, linkedin_people_list_tracker),
-            'person': (json.dumps(person, ensure_ascii=False, separators=(',', ':'), sort_keys=True) for person in all_people),
-            'server': map(str, all_servers),
-            'twitter-person': map(str, twitter_people_list_tracker),
-            'url': map(str, all_urls),
-            'vhost': map(str, virtual_hosts),
-        }
-        try:
-            return CompletedResult.finish(
-                target=word,
-                started_at=run_started_at,
-                completed_at=datetime.now(UTC),
-                groups=groups,
-            )
-        except (ValueError, TypeError) as error:
-            output_logger.info(f'[!] An error occurred while completing the result: {error}')
-            return None
 
     async def persist_result(completed_result: CompletedResult | None) -> None:
         if completed_result is None:
             return
         try:
-            completed_db = stash.StashManager()
-            await completed_db.store_completed_result(completed_result)
+            await db.save_run(completed_result)
         except Exception as error:
             output_logger.info(f'[!] An error occurred while storing the completed result: {error}')
 
     return_ips: list = []
-    if rest_args is not None and len(rest_filename) == 0 and rest_args.dns_brute is False:
+    if rest_args is not None and len(rest_filename) == 0 and rest_args.dns_brute is False and not return_completed_result:
         # Indicates user is using REST api but not wanting output to be saved to a file
         # cast to string so Rest API can understand the type
         return_ips.extend([str(ip) for ip in sorted([netaddr.IPAddress(ip.strip()) for ip in set(all_ip)])])
@@ -1641,7 +1730,6 @@ async def start(
     if len(all_hosts) == 0:
         output_logger.info('\n[*] No hosts found.\n\n')
     else:
-        db = stash.StashManager()
         if dnsresolve is None or len(final_dns_resolver_list) > 0:
             temp = set()
             for host in full:
@@ -1662,7 +1750,7 @@ async def start(
                 try:
                     if ':' in host:
                         _, addr = host.split(':', 1)
-                        await db.store(word, addr, 'ip', 'DNS-resolver')
+                        await db.record_observations(word, [addr], 'ip-address', 'DNS-resolver')
                 except (OSError, RuntimeError, ValueError, TypeError) as e:
                     output_logger.info(f'An exception has occurred while attempting to insert: {host} IP into DB: {e}')
                     continue
@@ -1682,7 +1770,6 @@ async def start(
         # Check if Rest API is being used if so return found hosts
         if dnsbrute[1]:
             return resolved_pair
-        db = stash.StashManager()
         temp = set()
         for host in resolved_pair:
             if ':' in host:
@@ -1705,9 +1792,9 @@ async def start(
         output_logger.info('\n[*] Hosts found after DNS brute force:')
         for sub in temp:
             output_logger.info(sub)
-        await db.store_all(word, list(sorted(temp)), 'host', 'dns_bruteforce')
+        await db.record_observations(word, list(sorted(temp)), 'hostname', 'dns_bruteforce')
+        await checkpoint_completed_result()
 
-    takeover_results = dict()
     # TakeOver Checking
     if takeover_status:
         output_logger.info('\n[*] Performing subdomain takeover check')
@@ -1716,6 +1803,7 @@ async def start(
         await search_take.populate_fingerprints()
         await search_take.process(proxy=use_proxy)
         takeover_results = await search_take.get_takeover_results()
+        await checkpoint_completed_result()
     # DNS reverse lookup
     dnsrev: list = []
     if dnslookup is True:
@@ -1744,9 +1832,9 @@ async def start(
         output_logger.info('--------------------------------------------------------')
         for xh in dnsrev:
             output_logger.info(xh)
+        await checkpoint_completed_result(extra_hostnames=dnsrev)
 
     # Screenshots
-    screenshot_tups = []
     if len(args.screenshot) > 0:
         screen_shotter = ScreenShotter(args.screenshot)
         path_exists = screen_shotter.verify_path()
@@ -1776,7 +1864,10 @@ async def start(
                     chunk_number = 14
                     for chunk in screen_shotter.chunk_list(unique_resolved_domains_list, chunk_number):
                         try:
-                            screenshot_tups.extend(await pool.map(screen_shotter.take_screenshot, chunk))
+                            screenshot_results.extend(
+                                result for result in await pool.map(screen_shotter.take_screenshot, chunk) if result
+                            )
+                            await checkpoint_completed_result(extra_hostnames=dnsrev)
                         except Exception as ee:
                             output_logger.info(f'An exception has occurred while mapping: {ee}')
             end = time.perf_counter()
@@ -1815,6 +1906,10 @@ async def start(
                                 value = ', '.join(map(str, value))
                             rowdata.append(value)
                         shodanres.append(rowdata)
+                        shodan_evidence.append(
+                            json.dumps({'ip': ip, 'result': shodandict[ip]}, separators=(',', ':'), sort_keys=True)
+                        )
+                        await checkpoint_completed_result(extra_hostnames=dnsrev)
                         output_logger.info(ujson.dumps(shodandict[ip], indent=4, sort_keys=True))
                         output_logger.info('\n')
                 except Exception as ip_error:
@@ -1829,9 +1924,9 @@ async def start(
         output_logger.info('\n[*] Reporting started.')
         try:
             if len(rest_filename) == 0:
-                filename = filename.rsplit('.', 1)[0] + '.xml'
+                filename = os.path.splitext(filename)[0] + '.xml'
             else:
-                filename = 'theHarvester/app/static/' + rest_filename.rsplit('.', 1)[0] + '.xml'
+                filename = 'theHarvester/app/static/' + os.path.splitext(rest_filename)[0] + '.xml'
             # XML REPORT SECTION
             async with await anyio.open_file(filename, 'w+') as file:
                 await file.write('<?xml version="1.0" encoding="UTF-8"?><theHarvester>')
@@ -1868,7 +1963,7 @@ async def start(
 
         try:
             # JSON REPORT SECTION
-            filename = filename.rsplit('.', 1)[0] + '.json'
+            filename = os.path.splitext(filename)[0] + '.json'
             # create dict with values for JSON output
             json_dict: dict = dict()
             # start by adding the command line arguments
@@ -1967,7 +2062,7 @@ async def start(
             await api_scanner.do_search()
 
             # Print results
-            endpoints_found = api_scanner.get_found_endpoints()
+            endpoints_found = set(api_scanner.get_found_endpoints())
             output_logger.info(f'\n[*] API Endpoints found: {len(endpoints_found)}')
             for endpoint in endpoints_found:
                 output_logger.info(f'    - {endpoint}')
@@ -1999,16 +2094,7 @@ async def start(
             output_logger.info(f'\n[*] HTTP status codes encountered: {", ".join(map(str, status_codes))}')
 
             # Add results to storage
-            db = stash.StashManager()
-            await db.store_all(word, endpoints_found, 'api_endpoint', 'api_scan')
-
-            # Use custom database function if available
-            try:
-                # Try to use the storage module if available
-                db_storage = stash.StashManager()
-                await db_storage.store_all(word, endpoints_found, 'api_endpoint', 'api_scan')
-            except AttributeError:
-                output_logger.info('\n[*] No custom database functions found')
+            await db.record_observations(word, endpoints_found, 'api-endpoint', 'api_scan')
 
             # Add to interesting URLs if any endpoints were found
             if interesting_endpoints:
@@ -2019,6 +2105,7 @@ async def start(
                 all_urls.extend(new_urls)
 
             output_logger.info('\n[+] API scanning completed successfully.')
+            await checkpoint_completed_result(extra_hostnames=dnsrev, virtual_hosts=vhost)
 
         except MissingKey:
             output_logger.info('\n[!] API endpoint scanning requires a wordlist. Use -w to specify a wordlist file.')
@@ -2033,7 +2120,7 @@ async def start(
 
     if filename and completed_result is not None:
         try:
-            jsonl_filename = filename.rsplit('.', 1)[0] + '.jsonl'
+            jsonl_filename = os.path.splitext(filename)[0] + '.jsonl'
             async with await anyio.open_file(jsonl_filename, 'w+', encoding='UTF-8') as fp:
                 await fp.write(completed_result.jsonl())
             output_logger.info('[*] JSONL File saved.')
@@ -2055,7 +2142,10 @@ async def start(
             all_emails,
             all_hosts,
         )
-        return (*result, sorted_unique(all_breaches)) if include_breaches else result
+        if include_breaches:
+            result_with_breaches = (*result, sorted_unique(all_breaches))
+            return (*result_with_breaches, completed_result) if return_completed_result else result_with_breaches
+        return (*result, completed_result) if return_completed_result else result
     sys.exit(0)
 
 

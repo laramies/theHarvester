@@ -1,7 +1,4 @@
-"""API endpoint scanner module.
-This module contains the SearchApiEndpoints class that performs comprehensive API endpoint
-scanning, detection, and analysis on target domains with advanced features for security testing.
-"""
+"""Check common API paths on an authorized target."""
 
 import asyncio
 import json
@@ -45,7 +42,7 @@ class EndpointResult:
 
 
 class SearchApiEndpoints:
-    """SearchApiEndpoints class for scanning common API endpoints on target domains."""
+    """Check common API paths using only observational HTTP methods."""
 
     def __init__(
         self,
@@ -59,18 +56,18 @@ class SearchApiEndpoints:
         verify_ssl: bool = True,
         additional_headers: dict[str, str] | None = None,
     ) -> None:
-        """Initialize the SearchApiEndpoints class with advanced configuration options.
+        """Configure an API path scan.
 
         Args:
-            word: The target domain to scan
-            wordlist: Optional path to a custom wordlist file
-            concurrency: Maximum number of concurrent requests (default: 20)
-            timeout: Request timeout in seconds (default: 10)
-            proxy: Proxy URL (e.g. "http://127.0.0.1:8080")
-            user_agent: Custom User-Agent string
-            follow_redirects: Whether to follow HTTP redirects
-            verify_ssl: Whether to verify SSL certificates
-            additional_headers: Additional HTTP headers to include in requests
+            word: Hostname to scan.
+            wordlist: Path to an optional endpoint wordlist.
+            concurrency: Maximum number of requests in flight.
+            timeout: Timeout for each request, in seconds.
+            proxy: Optional HTTP proxy URL.
+            user_agent: HTTP User-Agent value. The default comes from ``Core``.
+            follow_redirects: Whether requests follow redirects.
+            verify_ssl: Whether to verify TLS certificates.
+            additional_headers: Extra HTTP headers to send.
 
         """
         self.word = word
@@ -94,6 +91,7 @@ class SearchApiEndpoints:
         self.semaphore = asyncio.Semaphore(concurrency)
         self.user_agent = user_agent or Core.get_user_agent()
         self.additional_headers = additional_headers or {}
+        self._session: aiohttp.ClientSession | None = None
 
         # Set default wordlist path
         default_wordlist = os.path.join(
@@ -385,8 +383,14 @@ class SearchApiEndpoints:
         self.logger = logger
 
     async def do_search(self) -> None:
-        """Perform the API endpoint scan with advanced features."""
+        """Check common paths with GET, HEAD, and OPTIONS."""
+        session: aiohttp.ClientSession | None = None
         try:
+            session = aiohttp.ClientSession(
+                headers=self._get_headers(),
+                timeout=aiohttp.ClientTimeout(total=self.timeout),
+            )
+            self._session = session
             self.logger.info(f'Starting API endpoint scan for {self.word}')
 
             # Load endpoints from wordlist
@@ -423,20 +427,24 @@ class SearchApiEndpoints:
 
         except Exception as e:
             self.logger.error(f'Error in API endpoint scan: {e!s}', exc_info=True)
+        finally:
+            self._session = None
+            if session is not None:
+                await session.close()
 
     async def _detect_schema(self) -> str:
         """Detect if the domain supports HTTPS or fall back to HTTP."""
         https_url = f'https://{self.word}'
+        if self._session is None:
+            raise RuntimeError('API endpoint session is not initialized')
         try:
-            timeout = aiohttp.ClientTimeout(total=self.timeout)
-            async with aiohttp.ClientSession(headers=self._get_headers(), timeout=timeout) as session:
-                async with session.get(
-                    https_url,
-                    proxy=self.proxy,
-                    ssl=self.verify_ssl,
-                    allow_redirects=self.follow_redirects,
-                ):
-                    return 'https'
+            async with self._session.get(
+                https_url,
+                proxy=self.proxy,
+                ssl=self.verify_ssl,
+                allow_redirects=self.follow_redirects,
+            ):
+                return 'https'
         except (aiohttp.ClientConnectionError, TimeoutError) as error:
             self.logger.error(f"Failed to connect to HTTPS URL '{https_url}': {error}")
             return 'http'
@@ -480,7 +488,8 @@ class SearchApiEndpoints:
             Optional[EndpointResult]: Result object or None if not found
 
         """
-        methods = ['GET', 'POST', 'OPTIONS', 'HEAD', 'PUT', 'DELETE', 'PATCH']
+        # Other standard HTTP methods can change or delete data on the target.
+        methods = ['GET', 'HEAD', 'OPTIONS']
         headers = self._get_headers()
 
         for method in methods:
@@ -490,6 +499,7 @@ class SearchApiEndpoints:
 
                 # Use AsyncFetcher to make the request
                 response = await AsyncFetcher.fetch(
+                    session=self._session,
                     url=url,
                     method=method,
                     headers=headers,

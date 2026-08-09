@@ -36,6 +36,27 @@ def test_query_expands_source_capability(monkeypatch) -> None:
     assert captured[0][1] is True
 
 
+def test_query_allows_api_scan_of_operator_selected_private_target(monkeypatch) -> None:
+    captured: list[Namespace] = []
+
+    async def fake_start(
+        args: Namespace,
+        *,
+        persist_completed_result: bool = False,
+        include_breaches: bool = False,
+    ):
+        captured.append(args)
+        return ([], [], [], [], [], [], [], [], [], [])
+
+    monkeypatch.setattr(api.__main__, 'start', fake_start)
+
+    response = TestClient(api.app).get('/query?domain=192.0.2.8&source=certspotter&api_scan=true')
+
+    assert response.status_code == 200
+    assert captured[0].domain == '192.0.2.8'
+    assert captured[0].api_scan is True
+
+
 def test_query_forwards_bounded_recursive_dns_options(monkeypatch) -> None:
     captured: list[Namespace] = []
 
@@ -86,6 +107,32 @@ def test_query_documents_safe_recursive_dns_query_default() -> None:
     )
 
     assert query_limit['schema']['default'] == 3_000
+
+
+def test_query_documents_proxy_and_direct_action_scope() -> None:
+    parameters = {parameter['name']: parameter for parameter in api.app.openapi()['paths']['/query']['get']['parameters']}
+
+    assert parameters['proxies']['description'] == (
+        'Use proxies.yaml for supported discovery-source and takeover requests.'
+    )
+    assert 'using configured proxies when enabled' in parameters['take_over']['description']
+    assert parameters['api_scan']['description'] == (
+        'Check common API paths with GET, HEAD, and OPTIONS. Requests follow redirects.'
+    )
+    assert parameters['dns_server']['description'] == (
+        'Accepted for compatibility but currently unused; use dns_resolve to select resolvers.'
+    )
+    assert parameters['dns_lookup']['description'] == (
+        'Perform PTR lookups across the /24 network containing each discovered IPv4 address. '
+        'This sends active DNS queries.'
+    )
+    assert parameters['source']['description'] == (
+        'Source names or source capabilities to query. Multiple capabilities select the union of matching sources; '
+        'they do not filter returned fields.'
+    )
+    assert parameters['filename']['description'] == (
+        'Write uniquely prefixed server-side XML, JSON, and JSONL files using NAME as the filename suffix.'
+    )
 
 
 @pytest.mark.parametrize('runtime_seconds', ['nan', 'inf'])

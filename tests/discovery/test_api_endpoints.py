@@ -17,6 +17,7 @@ class FakeResponse:
 class FakeSession:
     def __init__(self, error: Exception | None = None) -> None:
         self.error = error
+        self.requests: list[tuple[str, dict[str, object]]] = []
 
     async def __aenter__(self) -> 'FakeSession':
         return self
@@ -24,7 +25,8 @@ class FakeSession:
     async def __aexit__(self, *_args) -> None:
         return None
 
-    def get(self, *_args, **_kwargs) -> FakeResponse:
+    def get(self, url: str, **kwargs) -> FakeResponse:
+        self.requests.append((url, kwargs))
         if self.error:
             raise self.error
         return FakeResponse()
@@ -46,23 +48,116 @@ def test_process_response_extracts_only_string_json_parameter_names(monkeypatch)
     assert result.parameters == ['name']
 
 
+def test_api_endpoint_scan_defaults_to_direct_requests_with_redirects() -> None:
+    search = api_endpoints.SearchApiEndpoints('example.com')
+
+    assert search.proxy is None
+    assert search.follow_redirects is True
+
+
+@pytest.mark.asyncio
+async def test_api_endpoint_scan_uses_only_observational_http_methods(monkeypatch) -> None:
+    search = api_endpoints.SearchApiEndpoints('192.0.2.1')
+    search.common_api_paths = ['/api']
+    methods = []
+
+    monkeypatch.setattr(search, '_load_wordlist', lambda: [])
+    async def detect_schema():
+        return 'https'
+
+    async def fetch(*_args, method='GET', **_kwargs):
+        methods.append(method)
+        return ''
+
+    monkeypatch.setattr(search, '_detect_schema', detect_schema)
+    monkeypatch.setattr(api_endpoints.AsyncFetcher, 'fetch', fetch)
+
+    await search.do_search()
+
+    assert methods == ['GET', 'HEAD', 'OPTIONS']
+
+
+@pytest.mark.asyncio
+async def test_api_endpoint_scan_allows_an_operator_selected_private_target(monkeypatch) -> None:
+    search = api_endpoints.SearchApiEndpoints('100.64.0.1')
+    search.common_api_paths = ['/api']
+    requests = []
+
+    monkeypatch.setattr(search, '_load_wordlist', lambda: [])
+
+    async def detect_schema():
+        return 'https'
+
+    async def fetch(*_args, **_kwargs):
+        requests.append(True)
+        return ''
+
+    monkeypatch.setattr(search, '_detect_schema', detect_schema)
+    monkeypatch.setattr(api_endpoints.AsyncFetcher, 'fetch', fetch)
+
+    await search.do_search()
+
+    assert requests == [True, True, True]
+
+
+@pytest.mark.asyncio
+async def test_api_endpoint_scan_uses_a_configured_proxy(monkeypatch) -> None:
+    proxy = 'http://proxy.example:8080'
+    search = api_endpoints.SearchApiEndpoints('192.0.2.1', proxy=proxy)
+    search.common_api_paths = ['/api']
+    requests = []
+
+    monkeypatch.setattr(search, '_load_wordlist', lambda: [])
+
+    async def detect_schema():
+        return 'https'
+
+    async def fetch(*_args, **kwargs):
+        requests.append((kwargs['proxy'], kwargs['follow_redirects']))
+        return ''
+
+    monkeypatch.setattr(search, '_detect_schema', detect_schema)
+    monkeypatch.setattr(api_endpoints.AsyncFetcher, 'fetch', fetch)
+
+    await search.do_search()
+
+    assert requests == [(proxy, True), (proxy, True), (proxy, True)]
+
+
 @pytest.mark.parametrize('error', [aiohttp.ClientConnectionError(), TimeoutError()])
 @pytest.mark.asyncio
 async def test_detect_schema_falls_back_only_when_https_cannot_connect(monkeypatch, error: Exception) -> None:
-    monkeypatch.setattr(api_endpoints.aiohttp, 'ClientSession', lambda **_kwargs: FakeSession(error))
     search = api_endpoints.SearchApiEndpoints('example.com')
+    search._session = FakeSession(error)
 
     assert await search._detect_schema() == 'http'
 
 
 @pytest.mark.asyncio
 async def test_detect_schema_does_not_downgrade_after_https_client_error(monkeypatch) -> None:
-    monkeypatch.setattr(
-        api_endpoints.aiohttp,
-        'ClientSession',
-        lambda **_kwargs: FakeSession(aiohttp.ClientPayloadError('bad payload')),
-    )
     search = api_endpoints.SearchApiEndpoints('example.com')
+    search._session = FakeSession(aiohttp.ClientPayloadError('bad payload'))
 
     with pytest.raises(aiohttp.ClientPayloadError, match='bad payload'):
         await search._detect_schema()
+
+
+@pytest.mark.asyncio
+async def test_detect_schema_reuses_session_with_configured_request_policy(monkeypatch) -> None:
+    session = FakeSession()
+    search = api_endpoints.SearchApiEndpoints('example.com', follow_redirects=True)
+    search._session = session
+
+    monkeypatch.setattr(
+        api_endpoints.aiohttp,
+        'ClientSession',
+        lambda **_kwargs: pytest.fail('schema detection must reuse the scan session'),
+    )
+
+    assert await search._detect_schema() == 'https'
+    assert session.requests == [
+        (
+            'https://example.com',
+            {'proxy': None, 'ssl': True, 'allow_redirects': True},
+        )
+    ]

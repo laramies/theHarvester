@@ -136,14 +136,14 @@ async def test_gitlab_urls_reach_completed_jsonl(
 ) -> None:
     completed_results: list[CompletedResult] = []
 
-    class FakeStash:
-        async def do_init(self) -> None:
+    class FakeResultStore:
+        async def initialize(self) -> None:
             return None
 
-        async def store_all(self, *_args: object) -> None:
+        async def record_observations(self, *_args: object) -> None:
             return None
 
-        async def store_completed_result(self, result: CompletedResult) -> None:
+        async def save_run(self, result: CompletedResult) -> None:
             completed_results.append(result)
 
     class FakeGitlab:
@@ -163,7 +163,7 @@ async def test_gitlab_urls_reach_completed_jsonl(
             return {'https://gitlab.com/group/project'}
 
     report = tmp_path / 'gitlab-report'
-    monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
     monkeypatch.setattr(theharvester_main.gitlabsearch, 'SearchGitlab', FakeGitlab)
     monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.test', '-b', 'gitlab', '-f', str(report)])
 
