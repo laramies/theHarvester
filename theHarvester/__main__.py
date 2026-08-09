@@ -82,9 +82,10 @@ from theHarvester.discovery import (
     zoomeyesearch,
 )
 from theHarvester.discovery.constants import MissingKey
-from theHarvester.lib import hostchecker, stash
+from theHarvester.lib import hostchecker
 from theHarvester.lib.completed_result import CompletedResult, ResultKind, SourceExecution
 from theHarvester.lib.core import DATA_DIR, Core, show_default_error_message
+from theHarvester.lib.database import ResultStore
 from theHarvester.lib.dns_consensus import AioDNSResolverVantage
 from theHarvester.lib.enumeration import (
     DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS,
@@ -100,7 +101,7 @@ from theHarvester.lib.recursive_dns import (
     RecursiveDNSResult,
     discover_recursive_dns,
 )
-from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass, ResultRoute, get_source_spec
+from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass, ResultRoute, SourceSpec, get_source_spec
 from theHarvester.screenshot.screenshot import ScreenShotter
 
 logger = logging.getLogger(__name__)
@@ -314,12 +315,12 @@ async def start(
             logger.info('Verbose logging enabled')
     Core.quiet = getattr(args, 'quiet', False)
     try:
-        db = stash.StashManager()
-        await db.do_init()
+        db = ResultStore()
+        await db.initialize()
     except (AttributeError, OSError, RuntimeError, ValueError) as init_error:
         if not args.quiet:
-            output_logger.info(f'Error initializing StashManager: {init_error}')
-        raise ValueError('Failed to initialize StashManager')
+            output_logger.info(f'Error initializing result store: {init_error}')
+        raise ValueError('Failed to initialize result store')
 
     if len(filename) > 0:
         if filename.startswith('~/'):
@@ -539,17 +540,17 @@ async def start(
 
     async def collect_and_store(
         search_engine: Any,
-        source: str,
+        source_spec: SourceSpec,
     ) -> int:
         """Process a source and persist its declared consolidated result routes.
 
         :param search_engine: search engine to fetch details from
-        :param source: source against which the details (corresponding to the search engine) need to be persisted
+        :param source_spec: canonical source identity and declared result routes
         """
         await search_engine.process(use_proxy)
         result_count = 0
-        db_stash = stash.StashManager()
-        routes = get_source_spec(source).routes
+        source = source_spec.name
+        routes = source_spec.routes
 
         if source:
             output_logger.info(f'[*] Searching {source[0].upper() + source[1:]}. ')
@@ -590,39 +591,42 @@ async def start(
             else:
                 full.extend(host_names)
             all_hosts.extend(host_names)
-            await db_stash.store_all(word, all_hosts, 'host', source)
+            await db.record_observations(word, host_names, 'hostname', source)
 
         if ResultRoute.EMAILS in routes:
             email_list = await search_engine.get_emails()
             result_count += len(email_list)
             all_emails.extend(email_list)
-            await db_stash.store_all(word, email_list, 'email', source)
+            await db.record_observations(word, email_list, 'email', source)
 
         if ResultRoute.IPS in routes:
             ips_list = await search_engine.get_ips()
             result_count += len(ips_list)
             all_ip.extend(ips_list)
-            await db_stash.store_all(word, ips_list, 'ip', source)
+            await db.record_observations(word, ips_list, 'ip-address', source)
 
         if ResultRoute.PEOPLE in routes:
             people_list = await search_engine.get_people()
             result_count += len(people_list)
             all_people.extend(people_list)
-            await db_stash.store_all(word, people_list, 'people', source)
+            people_evidence = (
+                json.dumps(person, ensure_ascii=False, separators=(',', ':'), sort_keys=True) for person in people_list
+            )
+            await db.record_observations(word, people_evidence, 'person', source)
 
         if ResultRoute.LINKS in routes:
             links = await search_engine.get_links()
             result_count += len(links)
             linkedin_links_tracker.extend(links)
             if len(links) > 0:
-                await db.store_all(word, links, 'linkedinlinks', source)
+                await db.record_observations(word, links, 'linkedin-link', source)
 
         if ResultRoute.URLS in routes:
             urls = await search_engine.get_urls()
             result_count += len(urls)
             all_urls.extend(urls)
             if len(urls) > 0:
-                await db_stash.store_all(word, urls, 'url', source)
+                await db.record_observations(word, urls, 'url', source)
 
         if ResultRoute.INTERESTING_URLS in routes:
             get_interesting_urls = getattr(search_engine, 'get_interesting_urls', None)
@@ -630,21 +634,21 @@ async def start(
             result_count += len(iurls)
             interesting_urls.extend(iurls)
             if len(iurls) > 0:
-                await db.store_all(word, iurls, 'interestingurls', source)
+                await db.record_observations(word, iurls, 'interesting-url', source)
 
         if ResultRoute.ASNS in routes:
             fasns = await search_engine.get_asns()
             result_count += len(fasns)
             total_asns.extend(fasns)
             if len(fasns) > 0:
-                await db.store_all(word, fasns, 'asns', source)
+                await db.record_observations(word, fasns, 'asn', source)
 
         if ResultRoute.BREACHES in routes:
             breach_names = await search_engine.get_breach_names()
             result_count += len(breach_names)
             all_breaches.extend(breach_names)
         if source == 'builtwith':
-            technology_results = (
+            technology_results: tuple[tuple[str, list[Any], ResultKind], ...] = (
                 ('get_frameworks', all_frameworks, 'framework'),
                 ('get_languages', all_languages, 'language'),
                 ('get_servers', all_servers, 'server'),
@@ -655,7 +659,7 @@ async def start(
                 values = await getattr(search_engine, getter_name)()
                 result_count += len(values)
                 results.extend(values)
-                await db_stash.store_all(word, values, result_type, source)
+                await db.record_observations(word, values, result_type, source)
         if source == 'hudsonrock':
             infostealers = await search_engine.get_infostealers()
             result_count += len(infostealers)
@@ -664,27 +668,29 @@ async def start(
         return result_count
 
     async def store(search_engine: Any, source: str) -> None:
-        logger.info(f'Source {source} started')
+        source_spec = get_source_spec(source)
+        source_name = source_spec.name
+        logger.info(f'Source {source_name} started')
         started = time.perf_counter()
         try:
-            result_count = await collect_and_store(search_engine, source)
+            result_count = await collect_and_store(search_engine, source_spec)
         except Exception as error:
-            logger.exception(f'Source {source} failed')
+            logger.exception(f'Source {source_name} failed')
             source_executions.append(
-                SourceExecution(source, 'failed', (time.perf_counter() - started) * 1000, 0, type(error).__name__)
+                SourceExecution(source_name, 'failed', (time.perf_counter() - started) * 1000, 0, type(error).__name__)
             )
             await checkpoint_completed_result()
             raise
         source_executions.append(
             SourceExecution(
-                source,
+                source_name,
                 'succeeded' if result_count else 'empty',
                 (time.perf_counter() - started) * 1000,
                 result_count,
             )
         )
         await checkpoint_completed_result()
-        logger.info(f'Source {source} completed')
+        logger.info(f'Source {source_name} completed')
 
     stor_lst = []
     if args.source is not None:
@@ -1598,9 +1604,8 @@ async def start(
                     reported_host_ip_pairs.update((finding.hostname, address) for address in finding.records.addresses)
                 else:
                     full.append(finding.hostname)
-            recursive_db = stash.StashManager()
-            await recursive_db.store_all(word, recursive_hosts, 'host', 'dns_recursive')
-            await recursive_db.store_all(word, recursive_ips, 'ip', 'dns_recursive')
+            await db.record_observations(word, recursive_hosts, 'hostname', 'dns_recursive')
+            await db.record_observations(word, recursive_ips, 'ip-address', 'dns_recursive')
             output_logger.info(
                 '[*] Recursive DNS: '
                 f'hosts={len(recursive_hosts)}; queries={recursive_result.query_count}; '
@@ -1614,8 +1619,7 @@ async def start(
         if completed_result is None:
             return
         try:
-            completed_db = stash.StashManager()
-            await completed_db.store_completed_result(completed_result)
+            await db.save_run(completed_result)
         except Exception as error:
             output_logger.info(f'[!] An error occurred while storing the completed result: {error}')
 
@@ -1726,7 +1730,6 @@ async def start(
     if len(all_hosts) == 0:
         output_logger.info('\n[*] No hosts found.\n\n')
     else:
-        db = stash.StashManager()
         if dnsresolve is None or len(final_dns_resolver_list) > 0:
             temp = set()
             for host in full:
@@ -1747,7 +1750,7 @@ async def start(
                 try:
                     if ':' in host:
                         _, addr = host.split(':', 1)
-                        await db.store(word, addr, 'ip', 'DNS-resolver')
+                        await db.record_observations(word, [addr], 'ip-address', 'DNS-resolver')
                 except (OSError, RuntimeError, ValueError, TypeError) as e:
                     output_logger.info(f'An exception has occurred while attempting to insert: {host} IP into DB: {e}')
                     continue
@@ -1767,7 +1770,6 @@ async def start(
         # Check if Rest API is being used if so return found hosts
         if dnsbrute[1]:
             return resolved_pair
-        db = stash.StashManager()
         temp = set()
         for host in resolved_pair:
             if ':' in host:
@@ -1790,7 +1792,7 @@ async def start(
         output_logger.info('\n[*] Hosts found after DNS brute force:')
         for sub in temp:
             output_logger.info(sub)
-        await db.store_all(word, list(sorted(temp)), 'host', 'dns_bruteforce')
+        await db.record_observations(word, list(sorted(temp)), 'hostname', 'dns_bruteforce')
         await checkpoint_completed_result()
 
     # TakeOver Checking
@@ -1922,9 +1924,9 @@ async def start(
         output_logger.info('\n[*] Reporting started.')
         try:
             if len(rest_filename) == 0:
-                filename = filename.rsplit('.', 1)[0] + '.xml'
+                filename = os.path.splitext(filename)[0] + '.xml'
             else:
-                filename = 'theHarvester/app/static/' + rest_filename.rsplit('.', 1)[0] + '.xml'
+                filename = 'theHarvester/app/static/' + os.path.splitext(rest_filename)[0] + '.xml'
             # XML REPORT SECTION
             async with await anyio.open_file(filename, 'w+') as file:
                 await file.write('<?xml version="1.0" encoding="UTF-8"?><theHarvester>')
@@ -1961,7 +1963,7 @@ async def start(
 
         try:
             # JSON REPORT SECTION
-            filename = filename.rsplit('.', 1)[0] + '.json'
+            filename = os.path.splitext(filename)[0] + '.json'
             # create dict with values for JSON output
             json_dict: dict = dict()
             # start by adding the command line arguments
@@ -2092,16 +2094,7 @@ async def start(
             output_logger.info(f'\n[*] HTTP status codes encountered: {", ".join(map(str, status_codes))}')
 
             # Add results to storage
-            db = stash.StashManager()
-            await db.store_all(word, endpoints_found, 'api_endpoint', 'api_scan')
-
-            # Use custom database function if available
-            try:
-                # Try to use the storage module if available
-                db_storage = stash.StashManager()
-                await db_storage.store_all(word, endpoints_found, 'api_endpoint', 'api_scan')
-            except AttributeError:
-                output_logger.info('\n[*] No custom database functions found')
+            await db.record_observations(word, endpoints_found, 'api-endpoint', 'api_scan')
 
             # Add to interesting URLs if any endpoints were found
             if interesting_endpoints:
@@ -2127,7 +2120,7 @@ async def start(
 
     if filename and completed_result is not None:
         try:
-            jsonl_filename = filename.rsplit('.', 1)[0] + '.jsonl'
+            jsonl_filename = os.path.splitext(filename)[0] + '.jsonl'
             async with await anyio.open_file(jsonl_filename, 'w+', encoding='UTF-8') as fp:
                 await fp.write(completed_result.jsonl())
             output_logger.info('[*] JSONL File saved.')

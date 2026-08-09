@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from theHarvester.lib.api import api
 from theHarvester.lib.completed_result import CompletedResult
-from theHarvester.lib.stash import StashManager
+from theHarvester.lib.database import ResultStore
 
 
 def completed_result(run_id: str, completed_at: datetime) -> CompletedResult:
@@ -21,18 +21,18 @@ def completed_result(run_id: str, completed_at: datetime) -> CompletedResult:
 
 @pytest.mark.asyncio
 async def test_authenticated_operator_lists_recent_completed_runs(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr('theHarvester.lib.stash.db_path', str(tmp_path))
+    monkeypatch.setattr('theHarvester.lib.database._DEFAULT_DATABASE', tmp_path / 'stash.sqlite')
     monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-secret')
-    manager = StashManager()
-    await manager.do_init()
+    store = ResultStore()
+    await store.initialize()
     older = completed_result('11111111-1111-4111-8111-111111111111', datetime(2026, 8, 6, 12, 0, tzinfo=UTC))
     newer = completed_result('22222222-2222-4222-8222-222222222222', datetime(2026, 8, 6, 13, 0, tzinfo=UTC))
     offset_older = completed_result(
         '55555555-5555-4555-8555-555555555555', datetime.fromisoformat('2026-08-06T14:30:00+05:00')
     )
-    await manager.store_completed_result(older)
-    await manager.store_completed_result(newer)
-    await manager.store_completed_result(offset_older)
+    await store.save_run(older)
+    await store.save_run(newer)
+    await store.save_run(offset_older)
 
     response = TestClient(api.app).get('/runs?limit=1', headers={'X-API-Key': 'test-secret'})
 
@@ -50,10 +50,10 @@ async def test_authenticated_operator_lists_recent_completed_runs(tmp_path, monk
 
 @pytest.mark.asyncio
 async def test_authenticated_operator_gets_one_completed_run(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr('theHarvester.lib.stash.db_path', str(tmp_path))
+    monkeypatch.setattr('theHarvester.lib.database._DEFAULT_DATABASE', tmp_path / 'stash.sqlite')
     monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-secret')
-    manager = StashManager()
-    await manager.do_init()
+    store = ResultStore()
+    await store.initialize()
     result = CompletedResult.finish(
         run_id=UUID('33333333-3333-4333-8333-333333333333'),
         target='example.com',
@@ -61,7 +61,7 @@ async def test_authenticated_operator_gets_one_completed_run(tmp_path, monkeypat
         completed_at=datetime(2026, 8, 6, 14, 1, tzinfo=UTC),
         groups={'email': ['security@example.com'], 'hostname': ['www.example.com']},
     )
-    await manager.store_completed_result(result)
+    await store.save_run(result)
     client = TestClient(api.app)
 
     response = client.get(f'/runs/{result.run_id}', headers={'X-API-Key': 'test-secret'})

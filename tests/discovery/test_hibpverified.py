@@ -147,14 +147,14 @@ async def test_verified_domain_results_reach_completed_jsonl_and_sqlite_handoff(
 ) -> None:
     completed_results: list[CompletedResult] = []
 
-    class FakeStash:
-        async def do_init(self) -> None:
+    class FakeResultStore:
+        async def initialize(self) -> None:
             return None
 
-        async def store_all(self, *_args: object) -> None:
+        async def record_observations(self, *_args: object) -> None:
             return None
 
-        async def store_completed_result(self, result: CompletedResult) -> None:
+        async def save_run(self, result: CompletedResult) -> None:
             completed_results.append(result)
 
     class FakeHibpVerified:
@@ -171,7 +171,7 @@ async def test_verified_domain_results_reach_completed_jsonl_and_sqlite_handoff(
             return {'ExampleBreach'}
 
     report = tmp_path / 'hibp-verified-report'
-    monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
     monkeypatch.setattr(theharvester_main.hibpverified, 'SearchHibpVerified', FakeHibpVerified)
     monkeypatch.setattr(
         sys,

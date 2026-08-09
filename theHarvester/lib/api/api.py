@@ -2,6 +2,8 @@ import argparse
 import ipaddress
 import logging
 import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Annotated, Any, cast
 from uuid import UUID
@@ -16,10 +18,10 @@ from slowapi.util import get_remote_address
 from starlette.staticfiles import StaticFiles
 
 from theHarvester import __main__
-from theHarvester.lib import stash
 from theHarvester.lib.api.additional_endpoints import router as additional_router
 from theHarvester.lib.api.auth import get_api_key
 from theHarvester.lib.completed_result import ResultKind
+from theHarvester.lib.database import ResultStore, dispose_sqlite_databases
 from theHarvester.lib.recursive_dns import DEFAULT_RECURSIVE_DNS_QUERY_LIMIT
 
 logger = logging.getLogger(__name__)
@@ -48,12 +50,25 @@ class ErrorResponse(BaseModel):
 
 
 limiter = Limiter(key_func=get_remote_address)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    manager = ResultStore()
+    await manager.initialize()
+    try:
+        yield
+    finally:
+        await dispose_sqlite_databases()
+
+
 app = FastAPI(
     title='Restful Harvest',
     description='Rest API for theHarvester powered by FastAPI',
     version='0.0.4',
     docs_url='/docs',
     redoc_url='/redoc',
+    lifespan=lifespan,
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore
@@ -217,9 +232,9 @@ async def list_runs(
     limit: Annotated[int, Query(ge=1, le=500)] = 50,
 ) -> list[dict[str, object]]:
     """List recently completed enumeration runs."""
-    manager = stash.StashManager()
-    await manager.do_init()
-    return await manager.list_completed_results(limit=limit)
+    manager = ResultStore()
+    await manager.initialize()
+    return await manager.list_runs(limit=limit)
 
 
 @app.get(
@@ -237,10 +252,10 @@ async def get_run(
     _api_key: Annotated[str, Depends(get_api_key)],
 ) -> dict[str, object]:
     """Retrieve one completed enumeration run with its normalized evidence."""
-    manager = stash.StashManager()
-    await manager.do_init()
+    manager = ResultStore()
+    await manager.initialize()
     try:
-        result = await manager.load_completed_result(run_id)
+        result = await manager.load_run(run_id)
     except LookupError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Completed run not found') from error
     return {

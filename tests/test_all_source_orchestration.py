@@ -46,14 +46,14 @@ async def test_activity_summary_includes_source_and_option_classes(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    class FakeStash:
-        async def do_init(self) -> None:
+    class FakeResultStore:
+        async def initialize(self) -> None:
             return None
 
-        async def store_all(self, *_args: object) -> None:
+        async def record_observations(self, *_args: object) -> None:
             return None
 
-        async def store_completed_result(self, _result: object) -> None:
+        async def save_run(self, _result: object) -> None:
             return None
 
     class FakeCriminalIP:
@@ -73,7 +73,7 @@ async def test_activity_summary_includes_source_and_option_classes(
             return set()
 
     monkeypatch.setattr(theharvester_main.criminalip, 'SearchCriminalIP', FakeCriminalIP)
-    monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
     monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.test', '-b', 'criminalip', '-n', '-s'])
 
     with pytest.raises(SystemExit) as exit_info:
@@ -88,21 +88,21 @@ async def test_activity_summary_covers_api_scan_without_sources(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    class FakeStash:
-        async def do_init(self) -> None:
+    class FakeResultStore:
+        async def initialize(self) -> None:
             return None
 
-        async def store_all(self, *_args: object) -> None:
+        async def record_observations(self, *_args: object) -> None:
             return None
 
-        async def store_completed_result(self, _result: object) -> None:
+        async def save_run(self, _result: object) -> None:
             return None
 
     def stop_api_scan(**_kwargs: object) -> None:
         raise RuntimeError('offline test stop')
 
     monkeypatch.setattr(theharvester_main.api_endpoints, 'SearchApiEndpoints', stop_api_scan)
-    monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
     monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.test', '-a'])
 
     with pytest.raises(SystemExit) as exit_info:
@@ -116,14 +116,14 @@ async def test_activity_summary_covers_api_scan_without_sources(
 async def test_legacy_handlerless_source_does_not_break_activity_summary(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    class FakeStash:
-        async def do_init(self) -> None:
+    class FakeResultStore:
+        async def initialize(self) -> None:
             return None
 
-        async def store_completed_result(self, _result: object) -> None:
+        async def save_run(self, _result: object) -> None:
             return None
 
-    monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
     monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.test', '-b', 'linkedin'])
 
     with pytest.raises(SystemExit) as exit_info:
@@ -140,14 +140,14 @@ async def test_explicit_non_passive_source_is_scheduled_once(
 ) -> None:
     executions = 0
 
-    class FakeStash:
-        async def do_init(self) -> None:
+    class FakeResultStore:
+        async def initialize(self) -> None:
             return None
 
-        async def store_all(self, *_args: object) -> None:
+        async def record_observations(self, *_args: object) -> None:
             return None
 
-        async def store_completed_result(self, *_args: object) -> None:
+        async def save_run(self, *_args: object) -> None:
             return None
 
     class FakeAdapter:
@@ -186,7 +186,7 @@ async def test_explicit_non_passive_source_is_scheduled_once(
         }[source]
         monkeypatch.setattr(module, constructor_name, lambda *_args, **_kwargs: FakeAdapter())
 
-    monkeypatch.setattr(theharvester_main.stash, 'StashManager', FakeStash)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
     monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.test', '-b', source])
 
     with pytest.raises(SystemExit) as exit_info:
@@ -208,15 +208,11 @@ async def test_all_schedules_each_passive_catalog_source_once_and_reports_result
         if spec.activity is ActivityClass.PASSIVE
     )
 
-    class TestStash(theharvester_main.stash.StashManager):
+    class TestResultStore(theharvester_main.ResultStore):
         def __init__(self) -> None:
-            super().__init__()
-            self.db = str(tmp_path / 'stash.sqlite')
+            super().__init__(tmp_path / 'stash.sqlite')
 
-        async def store_all(self, *_args: Any, **_kwargs: Any) -> None:
-            return None
-
-        async def store(self, *_args: Any, **_kwargs: Any) -> None:
+        async def record_observations(self, *_args: Any, **_kwargs: Any) -> None:
             return None
 
     class FakeAdapter:
@@ -285,7 +281,7 @@ async def test_all_schedules_each_passive_catalog_source_once_and_reports_result
     assert patched_classes
 
     report = tmp_path / 'all-sources'
-    monkeypatch.setattr(theharvester_main.stash, 'StashManager', TestStash)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', TestResultStore)
     monkeypatch.setattr(
         sys,
         'argv',
@@ -309,7 +305,7 @@ async def test_all_schedules_each_passive_catalog_source_once_and_reports_result
     assert {'type': 'email', 'value': 'user@example.test'} in jsonl_records
     assert {'type': 'url', 'value': 'https://gitlab.com/example/project'} in jsonl_records
 
-    completed = await TestStash().load_completed_result(UUID(jsonl_records[0]['run_id']))
+    completed = await TestResultStore().load_run(UUID(jsonl_records[0]['run_id']))
     assert completed.target == 'example.test'
     assert ('hostname', 'sub.example.test') in completed.results
     assert ('email', 'user@example.test') in completed.results
