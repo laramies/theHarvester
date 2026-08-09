@@ -409,6 +409,11 @@ class ResultStore:
             logger.info(f'Unexpected error while storing result: {error}')
 
     async def source_yields(self, run_id: UUID) -> list[SourceYield]:
+        """Count each source's observed, unique, and shared results for a run.
+
+        A result is unique when one source reported it and shared when more than one
+        source reported it. Sources that ran without results still appear with zero counts.
+        """
         async with self._session() as session:
             execution_rows = (
                 await session.scalars(
