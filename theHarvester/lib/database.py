@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import logging
 import sqlite3
+from collections import Counter
 from collections.abc import AsyncIterator, Iterable
 from contextlib import asynccontextmanager
 from datetime import date
@@ -9,17 +10,24 @@ from pathlib import Path
 from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import Date, ForeignKey, Text, UniqueConstraint, event, func, select
+from sqlalchemy import Date, Float, ForeignKey, ForeignKeyConstraint, Text, UniqueConstraint, event, func, select
 from sqlalchemy.engine import URL
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from theHarvester.lib.completed_result import CompletedResult, ResultKind
+from theHarvester.lib.completed_result import (
+    CompletedResult,
+    ExecutionStatus,
+    ResultKind,
+    ResultObservation,
+    SourceExecution,
+    SourceYield,
+)
 
 logger = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 _DEFAULT_DATABASE = Path('~/.local/share/theHarvester/stash.sqlite').expanduser()
 
 
@@ -43,10 +51,10 @@ class _Base(DeclarativeBase):
     pass
 
 
-class _DiscoveryObservationRow(_Base):
+class _LegacyObservationRow(_Base):
     """A runless source observation, including incomplete rows from older databases."""
 
-    __tablename__ = 'discovery_observations'
+    __tablename__ = 'legacy_observations'
 
     id: Mapped[int] = mapped_column(primary_key=True)
     domain: Mapped[str | None] = mapped_column(Text, index=True)
@@ -81,6 +89,49 @@ class _ResultRow(_Base):
     position: Mapped[int] = mapped_column(primary_key=True)
     kind: Mapped[str] = mapped_column(Text)
     value: Mapped[str] = mapped_column(Text)
+
+
+class _ExecutionRow(_Base):
+    """One source or action that ran as part of an enumeration."""
+
+    __tablename__ = 'executions'
+    __table_args__ = (UniqueConstraint('run_id', 'producer_kind', 'name'),)
+
+    run_id: Mapped[str] = mapped_column(
+        Text,
+        ForeignKey('runs.run_id', ondelete='CASCADE'),
+        primary_key=True,
+    )
+    position: Mapped[int] = mapped_column(primary_key=True)
+    producer_kind: Mapped[str] = mapped_column(Text)
+    name: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(Text)
+    duration_ms: Mapped[float] = mapped_column(Float)
+    result_count: Mapped[int]
+    error_type: Mapped[str | None] = mapped_column(Text)
+    stop_reason: Mapped[str | None] = mapped_column(Text)
+
+
+class _ResultOriginRow(_Base):
+    """Link one persisted result to the execution that produced it."""
+
+    __tablename__ = 'result_origins'
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ('run_id', 'result_position'),
+            ('results.run_id', 'results.position'),
+            ondelete='CASCADE',
+        ),
+        ForeignKeyConstraint(
+            ('run_id', 'execution_position'),
+            ('executions.run_id', 'executions.position'),
+            ondelete='CASCADE',
+        ),
+    )
+
+    run_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    result_position: Mapped[int] = mapped_column(primary_key=True)
+    execution_position: Mapped[int] = mapped_column(primary_key=True)
 
 
 def _configure_sqlite_connection(dbapi_connection: Any, _connection_record: Any) -> None:
@@ -141,17 +192,22 @@ class _SQLiteDatabase:
                         if schema_version == 0:
                             table_rows = await connection.exec_driver_sql("SELECT name FROM sqlite_master WHERE type = 'table'")
                             tables = {row[0] for row in table_rows}
-                            has_legacy_results = 'results' in tables
+                            has_legacy_results = 'results' in tables and 'runs' not in tables
                             if has_legacy_results:
                                 await connection.exec_driver_sql('ALTER TABLE results RENAME TO legacy_results')
                             if 'completed_results' in tables:
                                 await connection.exec_driver_sql('ALTER TABLE completed_results RENAME TO runs')
                             if 'completed_result_items' in tables:
                                 await connection.exec_driver_sql('ALTER TABLE completed_result_items RENAME TO results')
+                        else:
+                            table_rows = await connection.exec_driver_sql("SELECT name FROM sqlite_master WHERE type = 'table'")
+                            tables = {row[0] for row in table_rows}
+                        if 'discovery_observations' in tables and 'legacy_observations' not in tables:
+                            await connection.exec_driver_sql('ALTER TABLE discovery_observations RENAME TO legacy_observations')
                         await connection.run_sync(_Base.metadata.create_all)
                         if has_legacy_results:
                             await connection.exec_driver_sql(
-                                'INSERT INTO discovery_observations (domain, resource, kind, discovered_on, source) '
+                                'INSERT INTO legacy_observations (domain, resource, kind, discovered_on, source) '
                                 'SELECT domain, resource, CASE type '
                                 "WHEN 'host' THEN 'hostname' "
                                 "WHEN 'ip' THEN 'ip-address' "
@@ -225,6 +281,31 @@ class ResultStore:
                     _ResultRow(run_id=run_id, position=position, kind=kind, value=value)
                     for position, (kind, value) in enumerate(result.results)
                 )
+                session.add_all(
+                    _ExecutionRow(
+                        run_id=run_id,
+                        position=position,
+                        producer_kind='source',
+                        name=execution.source,
+                        status=execution.status,
+                        duration_ms=execution.duration_ms,
+                        result_count=execution.result_count,
+                        error_type=execution.error_type,
+                        stop_reason=execution.stop_reason,
+                    )
+                    for position, execution in enumerate(result.source_executions)
+                )
+                await session.flush()
+                result_positions = {item: position for position, item in enumerate(result.results)}
+                execution_positions = {execution.source: position for position, execution in enumerate(result.source_executions)}
+                session.add_all(
+                    _ResultOriginRow(
+                        run_id=run_id,
+                        result_position=result_positions[(observation.kind, observation.value)],
+                        execution_position=execution_positions[observation.source],
+                    )
+                    for observation in result.observations
+                )
                 await session.commit()
             except IntegrityError as error:
                 duplicate_codes = {
@@ -243,12 +324,43 @@ class ResultStore:
             rows = (
                 await session.scalars(select(_ResultRow).where(_ResultRow.run_id == str(run_id)).order_by(_ResultRow.position))
             ).all()
+            execution_rows = (
+                await session.scalars(
+                    select(_ExecutionRow)
+                    .where(_ExecutionRow.run_id == str(run_id), _ExecutionRow.producer_kind == 'source')
+                    .order_by(_ExecutionRow.position)
+                )
+            ).all()
+            origin_rows = (await session.scalars(select(_ResultOriginRow).where(_ResultOriginRow.run_id == str(run_id)))).all()
+        results_by_position = {row.position: row for row in rows}
+        executions_by_position = {row.position: row for row in execution_rows}
         return CompletedResult(
             run_id=UUID(parent.run_id),
             target=parent.target,
             started_at=datetime.datetime.fromisoformat(parent.started_at),
             completed_at=datetime.datetime.fromisoformat(parent.completed_at),
             results=tuple((cast('ResultKind', row.kind), row.value) for row in rows),
+            source_executions=tuple(
+                SourceExecution(
+                    source=row.name,
+                    status=cast('ExecutionStatus', row.status),
+                    duration_ms=row.duration_ms,
+                    result_count=row.result_count,
+                    error_type=row.error_type,
+                    stop_reason=row.stop_reason,
+                )
+                for row in execution_rows
+            ),
+            observations=tuple(
+                sorted(
+                    ResultObservation(
+                        source=executions_by_position[row.execution_position].name,
+                        kind=cast('ResultKind', results_by_position[row.result_position].kind),
+                        value=results_by_position[row.result_position].value,
+                    )
+                    for row in origin_rows
+                )
+            ),
         )
 
     async def list_runs(self, *, limit: int = 50) -> list[dict[str, object]]:
@@ -283,7 +395,7 @@ class ResultStore:
         try:
             async with self._session() as session:
                 session.add_all(
-                    _DiscoveryObservationRow(
+                    _LegacyObservationRow(
                         domain=target,
                         resource=str(value),
                         kind=kind,
@@ -295,6 +407,48 @@ class ResultStore:
                 await session.commit()
         except Exception as error:
             logger.info(f'Unexpected error while storing result: {error}')
+
+    async def source_yields(self, run_id: UUID) -> list[SourceYield]:
+        """Count each source's observed, unique, and shared results for a run.
+
+        A result is unique when one source reported it and shared when more than one
+        source reported it. Sources that ran without results still appear with zero counts.
+        """
+        async with self._session() as session:
+            execution_rows = (
+                await session.scalars(
+                    select(_ExecutionRow).where(
+                        _ExecutionRow.run_id == str(run_id),
+                        _ExecutionRow.producer_kind == 'source',
+                    )
+                )
+            ).all()
+            result_rows = (await session.scalars(select(_ResultRow).where(_ResultRow.run_id == str(run_id)))).all()
+            origin_rows = (await session.scalars(select(_ResultOriginRow).where(_ResultOriginRow.run_id == str(run_id)))).all()
+        source_by_position = {row.position: row.name for row in execution_rows}
+        result_by_position = {row.position: (row.kind, row.value) for row in result_rows}
+        sources_by_result: dict[tuple[str, str], set[str]] = {}
+        for origin in origin_rows:
+            source = source_by_position.get(origin.execution_position)
+            result = result_by_position.get(origin.result_position)
+            if source is not None and result is not None:
+                sources_by_result.setdefault(result, set()).add(source)
+        observed_counts: Counter[str] = Counter()
+        unique_counts: Counter[str] = Counter()
+        shared_counts: Counter[str] = Counter()
+        for sources in sources_by_result.values():
+            for source in sources:
+                observed_counts[source] += 1
+                (unique_counts if len(sources) == 1 else shared_counts)[source] += 1
+        return [
+            SourceYield(
+                source=source,
+                observed_result_count=observed_counts[source],
+                unique_result_count=unique_counts[source],
+                shared_result_count=shared_counts[source],
+            )
+            for source in sorted(source_by_position.values())
+        ]
 
     @asynccontextmanager
     async def _session(self) -> AsyncIterator[AsyncSession]:

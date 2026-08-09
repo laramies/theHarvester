@@ -168,6 +168,7 @@ async def test_explicit_non_passive_source_is_scheduled_once(
             return set()
 
     if source == 'shodan':
+
         class FakeShodan:
             async def search_ip(self, _ip: str) -> dict:
                 nonlocal executions
@@ -202,11 +203,7 @@ async def test_all_schedules_each_passive_catalog_source_once_and_reports_result
     tmp_path: Path,
 ) -> None:
     executions: Counter[str] = Counter()
-    passive_sources = sorted(
-        source
-        for source, spec in SOURCE_SPECS.items()
-        if spec.activity is ActivityClass.PASSIVE
-    )
+    passive_sources = sorted(source for source, spec in SOURCE_SPECS.items() if spec.activity is ActivityClass.PASSIVE)
 
     class TestResultStore(theharvester_main.ResultStore):
         def __init__(self) -> None:
@@ -301,9 +298,10 @@ async def test_all_schedules_each_passive_catalog_source_once_and_reports_result
     assert 'user@example.test' in json_report['emails']
 
     jsonl_records = [json.loads(line) for line in report.with_suffix('.jsonl').read_text().splitlines()]
-    assert {'type': 'hostname', 'value': 'sub.example.test'} in jsonl_records
-    assert {'type': 'email', 'value': 'user@example.test'} in jsonl_records
-    assert {'type': 'url', 'value': 'https://gitlab.com/example/project'} in jsonl_records
+    findings = {(record['type'], record['value']): record for record in jsonl_records[1:]}
+    assert findings[('hostname', 'sub.example.test')]['sources']
+    assert findings[('email', 'user@example.test')]['sources']
+    assert findings[('url', 'https://gitlab.com/example/project')]['sources']
 
     completed = await TestResultStore().load_run(UUID(jsonl_records[0]['run_id']))
     assert completed.target == 'example.test'

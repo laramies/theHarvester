@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from theHarvester import __main__ as theharvester_main
-from theHarvester.lib.completed_result import CompletedResult
+from theHarvester.lib.completed_result import CompletedResult, ResultObservation
 from theHarvester.lib.dns_consensus import Addressability
 from theHarvester.lib.enumeration import EnumerationOptions
 from theHarvester.lib.hostchecker import HostDnsRecords
@@ -49,7 +49,6 @@ def test_normalize_hosts_for_storage_uses_the_parser_scope(target: str) -> None:
 @pytest.mark.asyncio
 async def test_rapiddns_hostnames_honor_explicit_dns_resolution(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     completed: list[CompletedResult] = []
-    stored_observations: list[tuple[str, list[str], str, str]] = []
     output_directory = tmp_path / 'reports.v1'
     output_directory.mkdir()
     output_path = output_directory / 'rapiddns'
@@ -58,8 +57,8 @@ async def test_rapiddns_hostnames_honor_explicit_dns_resolution(monkeypatch: pyt
         async def initialize(self) -> None:
             return None
 
-        async def record_observations(self, domain: str, values: list[str] | set[str], kind: str, source: str) -> None:
-            stored_observations.append((domain, sorted(values), kind, source))
+        async def record_observations(self, *_args: object) -> None:
+            return None
 
         async def save_run(self, result: CompletedResult) -> None:
             completed.append(result)
@@ -81,6 +80,9 @@ async def test_rapiddns_hostnames_honor_explicit_dns_resolution(monkeypatch: pyt
             return {'192.0.2.20'}
 
     class FakeCrtsh:
+        execution_status = 'partial'
+        stop_reason = 'invalid-response'
+
         def __init__(self, _word: str) -> None:
             pass
 
@@ -138,9 +140,16 @@ async def test_rapiddns_hostnames_honor_explicit_dns_resolution(monkeypatch: pyt
     assert ('ip-address', '192.0.2.21') in completed[0].results
     assert ('ip-address', '192.0.2.30') in completed[0].results
     assert {execution.source for execution in completed[0].source_executions} == {'crtsh', 'rapiddns'}
-    assert ('example.com', ['crt.example.com'], 'hostname', 'crtsh') in stored_observations
-    assert ('example.com', ['api.example.com', 'reported.example.com'], 'hostname', 'rapiddns') in stored_observations
-    assert ('example.com', ['192.0.2.20'], 'ip-address', 'rapiddns') in stored_observations
+    crtsh_execution = next(execution for execution in completed[0].source_executions if execution.source == 'crtsh')
+    assert crtsh_execution.status == 'partial'
+    assert crtsh_execution.stop_reason == 'invalid-response'
+    assert completed[0].evidence_dict()['status'] == 'partial'
+    assert {(observation.source, observation.kind, observation.value) for observation in completed[0].observations} >= {
+        ('crtsh', 'hostname', 'crt.example.com'),
+        ('rapiddns', 'hostname', 'api.example.com'),
+        ('rapiddns', 'hostname', 'reported.example.com'),
+        ('rapiddns', 'ip-address', '192.0.2.20'),
+    }
     assert 'reported.example.com:192.0.2.21' in json.loads(output_path.with_suffix('.json').read_text())['hosts']
     assert output_path.with_suffix('.jsonl').is_file()
     xml_pairs = [
@@ -149,6 +158,160 @@ async def test_rapiddns_hostnames_honor_explicit_dns_resolution(monkeypatch: pyt
     ]
     assert xml_pairs.count(('reported.example.com', '192.0.2.20')) == 1
     assert xml_pairs.count(('reported.example.com', '192.0.2.21')) == 1
+
+
+@pytest.mark.asyncio
+async def test_source_failure_retains_normalized_partial_results(monkeypatch: pytest.MonkeyPatch) -> None:
+    completed: list[CompletedResult] = []
+
+    class FakeResultStore:
+        async def initialize(self) -> None:
+            return None
+
+        async def save_run(self, result: CompletedResult) -> None:
+            completed.append(result)
+
+    class PartiallyFailingBuiltWith:
+        def __init__(self, _word: str) -> None:
+            pass
+
+        async def process(self, _proxy: bool) -> None:
+            return None
+
+        async def get_hostnames(self) -> list[str]:
+            return ['API.Example.COM.', 'api.example.com', 'outside.test']
+
+        async def get_interesting_urls(self) -> set[str]:
+            raise RuntimeError('provider page failed')
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
+    monkeypatch.setattr(theharvester_main.builtwith, 'SearchBuiltWith', PartiallyFailingBuiltWith)
+    monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.com', '-b', 'builtwith'])
+
+    with pytest.raises(SystemExit) as exit_info:
+        await theharvester_main.start()
+
+    assert exit_info.value.code == 0
+    assert len(completed) == 1
+    execution = completed[0].source_executions[0]
+    assert execution.status == 'partial'
+    assert execution.result_count == 1
+    assert execution.error_type == 'RuntimeError'
+    assert completed[0].observations == (ResultObservation('builtwith', 'hostname', 'api.example.com'),)
+
+
+@pytest.mark.asyncio
+async def test_source_checkpoint_excludes_other_source_work_in_progress(monkeypatch: pytest.MonkeyPatch) -> None:
+    builtwith_collected = asyncio.Event()
+    release_builtwith = asyncio.Event()
+    checkpoints: list[CompletedResult] = []
+    completed: list[CompletedResult] = []
+
+    class FakeResultStore:
+        async def initialize(self) -> None:
+            return None
+
+        async def save_run(self, result: CompletedResult) -> None:
+            completed.append(result)
+
+    class PausedBuiltWith:
+        def __init__(self, _word: str) -> None:
+            pass
+
+        async def process(self, _proxy: bool) -> None:
+            return None
+
+        async def get_hostnames(self) -> set[str]:
+            builtwith_collected.set()
+            return {'early.example.com'}
+
+        async def get_interesting_urls(self) -> set[str]:
+            await release_builtwith.wait()
+            return set()
+
+        async def get_frameworks(self) -> set[str]:
+            return set()
+
+        async def get_languages(self) -> set[str]:
+            return set()
+
+        async def get_servers(self) -> set[str]:
+            return set()
+
+        async def get_cms(self) -> set[str]:
+            return set()
+
+        async def get_analytics(self) -> set[str]:
+            return set()
+
+    class FastCrtsh:
+        def __init__(self, _word: str) -> None:
+            pass
+
+        async def process(self, _proxy: bool) -> None:
+            await builtwith_collected.wait()
+
+        async def get_hostnames(self) -> set[str]:
+            return {'committed.example.com'}
+
+    async def capture_checkpoint(result: CompletedResult) -> None:
+        checkpoints.append(result)
+        if {execution.source for execution in result.source_executions} == {'crtsh'}:
+            release_builtwith.set()
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
+    monkeypatch.setattr(theharvester_main.builtwith, 'SearchBuiltWith', PausedBuiltWith)
+    monkeypatch.setattr(theharvester_main.crtsh, 'SearchCrtsh', FastCrtsh)
+    monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.com', '-b', 'builtwith,crtsh'])
+
+    with pytest.raises(SystemExit) as exit_info:
+        await theharvester_main.start(completed_result_checkpoint=capture_checkpoint)
+
+    assert exit_info.value.code == 0
+    crtsh_checkpoint = next(
+        result for result in checkpoints if {execution.source for execution in result.source_executions} == {'crtsh'}
+    )
+    assert ('hostname', 'committed.example.com') in crtsh_checkpoint.results
+    assert ('hostname', 'early.example.com') not in crtsh_checkpoint.results
+    assert {value for kind, value in completed[0].results if kind == 'hostname'} == {
+        'committed.example.com',
+        'early.example.com',
+    }
+
+
+@pytest.mark.asyncio
+async def test_invalid_source_outcome_is_not_recorded_as_completed(monkeypatch: pytest.MonkeyPatch) -> None:
+    completed: list[CompletedResult] = []
+
+    class FakeResultStore:
+        async def initialize(self) -> None:
+            return None
+
+        async def save_run(self, result: CompletedResult) -> None:
+            completed.append(result)
+
+    class InvalidOutcomeCrtsh:
+        execution_status = 'typo'
+
+        def __init__(self, _word: str) -> None:
+            pass
+
+        async def process(self, _proxy: bool) -> None:
+            return None
+
+        async def get_hostnames(self) -> set[str]:
+            return set()
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
+    monkeypatch.setattr(theharvester_main.crtsh, 'SearchCrtsh', InvalidOutcomeCrtsh)
+    monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.com', '-b', 'crtsh'])
+
+    with pytest.raises(SystemExit) as exit_info:
+        await theharvester_main.start()
+
+    assert exit_info.value.code == 0
+    assert completed[0].source_executions[0].status == 'failed'
+    assert completed[0].source_executions[0].error_type == 'ValueError'
 
 
 @pytest.mark.asyncio

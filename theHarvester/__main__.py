@@ -13,7 +13,8 @@ from collections.abc import Awaitable, Callable, Iterable
 from contextlib import AsyncExitStack
 from datetime import UTC, datetime
 from ipaddress import ip_address
-from typing import Any
+from typing import Any, cast
+from uuid import uuid4
 
 import anyio
 import netaddr
@@ -83,7 +84,14 @@ from theHarvester.discovery import (
 )
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib import hostchecker
-from theHarvester.lib.completed_result import CompletedResult, ResultKind, SourceExecution
+from theHarvester.lib.completed_result import (
+    EXECUTION_STATUSES,
+    CompletedResult,
+    ExecutionStatus,
+    ResultKind,
+    ResultObservation,
+    SourceExecution,
+)
 from theHarvester.lib.core import DATA_DIR, Core, show_default_error_message
 from theHarvester.lib.database import ResultStore
 from theHarvester.lib.dns_consensus import AioDNSResolverVantage
@@ -337,6 +345,7 @@ async def start(
             # For relative paths, sanitize the entire filename
             filename = sanitize_filename(filename)
     run_started_at = datetime.now(UTC)
+    run_id = uuid4()
 
     all_emails: list = []
     all_hosts: list = []
@@ -432,9 +441,13 @@ async def start(
     interesting_urls = []
     total_asns = []
     source_executions: list[SourceExecution] = []
+    observations: set[ResultObservation] = set()
 
     def finish_completed_result(
-        *, extra_hostnames: Iterable[str] = (), virtual_hosts: Iterable[str] = ()
+        *,
+        extra_hostnames: Iterable[str] = (),
+        virtual_hosts: Iterable[str] = (),
+        committed_sources_only: bool = False,
     ) -> CompletedResult | None:
         groups: dict[ResultKind, Iterable[str]] = {
             'analytics': map(str, all_analytics),
@@ -517,40 +530,64 @@ async def start(
             'url': map(str, all_urls),
             'vhost': map(str, virtual_hosts),
         }
-        if extra_hostnames:
+        if committed_sources_only:
+            committed_groups: dict[ResultKind, list[str]] = {}
+            for observation in observations:
+                committed_groups.setdefault(observation.kind, []).append(observation.value)
+            groups = {kind: iter(values) for kind, values in committed_groups.items()}
+        elif extra_hostnames:
             groups['hostname'] = _normalize_hosts_for_storage((*all_hosts, *extra_hostnames), word)
         try:
             return CompletedResult.finish(
+                run_id=run_id,
                 target=word,
                 started_at=run_started_at,
                 completed_at=datetime.now(UTC),
                 groups=groups,
                 source_executions=source_executions,
+                observations=observations,
             )
         except (ValueError, TypeError) as error:
             output_logger.info(f'[!] An error occurred while completing the result: {error}')
             return None
 
-    async def checkpoint_completed_result(*, extra_hostnames: Iterable[str] = (), virtual_hosts: Iterable[str] = ()) -> None:
+    async def checkpoint_completed_result(
+        *,
+        extra_hostnames: Iterable[str] = (),
+        virtual_hosts: Iterable[str] = (),
+        committed_sources_only: bool = False,
+    ) -> None:
         if (
             completed_result_checkpoint is not None
-            and (result := finish_completed_result(extra_hostnames=extra_hostnames, virtual_hosts=virtual_hosts)) is not None
+            and (
+                result := finish_completed_result(
+                    extra_hostnames=extra_hostnames,
+                    virtual_hosts=virtual_hosts,
+                    committed_sources_only=committed_sources_only,
+                )
+            )
+            is not None
         ):
             await completed_result_checkpoint(result)
 
     async def collect_and_store(
         search_engine: Any,
         source_spec: SourceSpec,
-    ) -> int:
+        source_observations: set[ResultObservation],
+    ) -> None:
         """Process a source and persist its declared consolidated result routes.
 
         :param search_engine: search engine to fetch details from
         :param source_spec: canonical source identity and declared result routes
         """
         await search_engine.process(use_proxy)
-        result_count = 0
         source = source_spec.name
         routes = source_spec.routes
+
+        def record_source_observations(source_name: str, kind: ResultKind, values: Iterable[object]) -> None:
+            source_observations.update(
+                ResultObservation(source_name, kind, value) for item in values if (value := str(item).strip())
+            )
 
         if source:
             output_logger.info(f'[*] Searching {source[0].upper() + source[1:]}. ')
@@ -559,7 +596,6 @@ async def start(
             discovered_hosts = await search_engine.get_hostnames()
             host_names = list(_normalize_hosts_for_storage(discovered_hosts, word))
             paired_hosts: set[str] = set()
-            result_count += len(host_names)
             if source == 'rapiddns':
                 for host, address in await search_engine.get_host_ip_pairs():
                     normalized = normalize_scoped_hostname(host, word)
@@ -591,62 +627,51 @@ async def start(
             else:
                 full.extend(host_names)
             all_hosts.extend(host_names)
-            await db.record_observations(word, host_names, 'hostname', source)
+            record_source_observations(source, 'hostname', host_names)
 
         if ResultRoute.EMAILS in routes:
             email_list = await search_engine.get_emails()
-            result_count += len(email_list)
             all_emails.extend(email_list)
-            await db.record_observations(word, email_list, 'email', source)
+            record_source_observations(source, 'email', email_list)
 
         if ResultRoute.IPS in routes:
             ips_list = await search_engine.get_ips()
-            result_count += len(ips_list)
             all_ip.extend(ips_list)
-            await db.record_observations(word, ips_list, 'ip-address', source)
+            record_source_observations(source, 'ip-address', _normalize_ip_addresses(ips_list))
 
         if ResultRoute.PEOPLE in routes:
             people_list = await search_engine.get_people()
-            result_count += len(people_list)
             all_people.extend(people_list)
             people_evidence = (
                 json.dumps(person, ensure_ascii=False, separators=(',', ':'), sort_keys=True) for person in people_list
             )
-            await db.record_observations(word, people_evidence, 'person', source)
+            record_source_observations(source, 'person', people_evidence)
 
         if ResultRoute.LINKS in routes:
             links = await search_engine.get_links()
-            result_count += len(links)
             linkedin_links_tracker.extend(links)
-            if len(links) > 0:
-                await db.record_observations(word, links, 'linkedin-link', source)
+            record_source_observations(source, 'linkedin-link', links)
 
         if ResultRoute.URLS in routes:
             urls = await search_engine.get_urls()
-            result_count += len(urls)
             all_urls.extend(urls)
-            if len(urls) > 0:
-                await db.record_observations(word, urls, 'url', source)
+            record_source_observations(source, 'url', urls)
 
         if ResultRoute.INTERESTING_URLS in routes:
             get_interesting_urls = getattr(search_engine, 'get_interesting_urls', None)
             iurls = await get_interesting_urls() if get_interesting_urls else await search_engine.get_interestingurls()
-            result_count += len(iurls)
             interesting_urls.extend(iurls)
-            if len(iurls) > 0:
-                await db.record_observations(word, iurls, 'interesting-url', source)
+            record_source_observations(source, 'interesting-url', iurls)
 
         if ResultRoute.ASNS in routes:
             fasns = await search_engine.get_asns()
-            result_count += len(fasns)
             total_asns.extend(fasns)
-            if len(fasns) > 0:
-                await db.record_observations(word, fasns, 'asn', source)
+            record_source_observations(source, 'asn', fasns)
 
         if ResultRoute.BREACHES in routes:
             breach_names = await search_engine.get_breach_names()
-            result_count += len(breach_names)
             all_breaches.extend(breach_names)
+            record_source_observations(source, 'breach', breach_names)
         if source == 'builtwith':
             technology_results: tuple[tuple[str, list[Any], ResultKind], ...] = (
                 ('get_frameworks', all_frameworks, 'framework'),
@@ -657,39 +682,60 @@ async def start(
             )
             for getter_name, results, result_type in technology_results:
                 values = await getattr(search_engine, getter_name)()
-                result_count += len(values)
                 results.extend(values)
-                await db.record_observations(word, values, result_type, source)
+                record_source_observations(source, result_type, values)
         if source == 'hudsonrock':
             infostealers = await search_engine.get_infostealers()
-            result_count += len(infostealers)
             all_infostealers.extend(infostealers)
-
-        return result_count
+            record_source_observations(
+                source,
+                'infostealer',
+                (json.dumps(stealer, ensure_ascii=False, separators=(',', ':'), sort_keys=True) for stealer in infostealers),
+            )
 
     async def store(search_engine: Any, source: str) -> None:
         source_spec = get_source_spec(source)
         source_name = source_spec.name
+        source_observations: set[ResultObservation] = set()
         logger.info(f'Source {source_name} started')
         started = time.perf_counter()
         try:
-            result_count = await collect_and_store(search_engine, source_spec)
+            await collect_and_store(search_engine, source_spec, source_observations)
+            reported_status = getattr(search_engine, 'execution_status', None)
+            if reported_status is None:
+                execution_status: ExecutionStatus = 'completed'
+            elif isinstance(reported_status, str) and reported_status in EXECUTION_STATUSES:
+                execution_status = cast('ExecutionStatus', reported_status)
+            else:
+                raise ValueError(f'Source {source_name} reported invalid execution status: {reported_status!r}')
         except Exception as error:
             logger.exception(f'Source {source_name} failed')
+            result_count = len(source_observations)
             source_executions.append(
-                SourceExecution(source_name, 'failed', (time.perf_counter() - started) * 1000, 0, type(error).__name__)
+                SourceExecution(
+                    source_name,
+                    'partial' if result_count else 'failed',
+                    (time.perf_counter() - started) * 1000,
+                    result_count,
+                    type(error).__name__,
+                )
             )
-            await checkpoint_completed_result()
+            observations.update(source_observations)
+            await checkpoint_completed_result(committed_sources_only=True)
             raise
+        result_count = len(source_observations)
+        stop_reason = getattr(search_engine, 'stop_reason', None)
         source_executions.append(
             SourceExecution(
                 source_name,
-                'succeeded' if result_count else 'empty',
+                execution_status,
                 (time.perf_counter() - started) * 1000,
                 result_count,
+                stop_reason=stop_reason if isinstance(stop_reason, str) else None,
             )
         )
-        await checkpoint_completed_result()
+        observations.update(source_observations)
+        await checkpoint_completed_result(committed_sources_only=True)
         logger.info(f'Source {source_name} completed')
 
     stor_lst = []

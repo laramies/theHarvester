@@ -173,5 +173,5 @@ async def test_public_breach_names_reach_completed_result_and_jsonl(
         ('breach', 'ExampleBreach'),
     )
     records = [json.loads(line) for line in report.with_suffix('.jsonl').read_text().splitlines()]
-    assert {'type': 'breach', 'value': 'Adobe'} in records
-    assert {'type': 'breach', 'value': 'ExampleBreach'} in records
+    assert {'type': 'breach', 'value': 'Adobe', 'sources': ['haveibeenpwned']} in records
+    assert {'type': 'breach', 'value': 'ExampleBreach', 'sources': ['haveibeenpwned']} in records
