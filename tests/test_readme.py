@@ -133,6 +133,6 @@ def test_readme_explains_jsonl_record_and_structured_value_parsing() -> None:
 
     assert '{"sources":[],"type":"hostname","value":"api.example.com"}' in readme
     assert 'select(.type == "dns-recursive-finding") | .value | fromjson' in readme
-    assert 'JSONL is easy to stream for simple findings, but it is not uniformly self-describing.' in readme
+    assert 'JSONL is easy to stream one record at a time.' in readme
     assert '`person`, `infostealer`, `shodan`, and `takeover`' in readme
-    assert 'JSONL does not include source execution records. Finding records include source attribution' in readme
+    assert 'The summary preserves the evidence status, source and action outcomes' in readme

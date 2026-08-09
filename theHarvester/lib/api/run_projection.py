@@ -6,7 +6,6 @@ from typing import Any
 from theHarvester.lib.source_catalog import ActivityClass, SourceSpec, activity_classes_for_selection, get_source_spec
 
 RESULT_TYPE_ALIASES = {'hostname': 'subdomain', 'ip-address': 'ip'}
-JSONL_RESULT_TYPE_ALIASES = {value: key for key, value in RESULT_TYPE_ALIASES.items()}
 
 
 def activities_for_request(request: dict[str, Any]) -> list[str]:
@@ -68,41 +67,6 @@ def normalized_results(evidence: dict[str, Any] | None) -> list[dict[str, Any]]:
                 item.get('actions'),
             )
 
-    for entity in evidence.get('entities') or []:
-        if not isinstance(entity, dict):
-            continue
-        scope_classes = entity.get('scope_classes', [])
-        result_type = 'subdomain'
-        if 'scope-extension' in scope_classes:
-            result_type = 'scope-extension'
-        elif 'external-relationship' in scope_classes:
-            result_type = 'external-relationship'
-        addressability = entity.get('addressability')
-        dns_status = (
-            {
-                'currently-addressable': 'resolved',
-                'not-currently-addressable': 'no-answer',
-                'resolver-disputed': 'disputed',
-                'wildcard-indistinguishable': 'uncertain',
-                'unverified': 'not-captured',
-            }.get(str(addressability))
-            if addressability is not None
-            else None
-        )
-        add(result_type, entity.get('value'), dns_status)
-
-    kind_map = {
-        **RESULT_TYPE_ALIASES,
-        'interesting-url': 'interesting-url',
-        'api-endpoint': 'api-endpoint',
-        'shodan-result': 'shodan',
-    }
-    for observation in evidence.get('selected_observations') or []:
-        if not isinstance(observation, dict) or observation.get('kind') == 'screenshot':
-            continue
-        kind = str(observation.get('kind', 'other'))
-        add(kind_map.get(kind, kind), observation.get('value'))
-
     results.extend(by_key.values())
     return results
 
@@ -110,7 +74,7 @@ def normalized_results(evidence: dict[str, Any] | None) -> list[dict[str, Any]]:
 def source_executions(evidence: dict[str, Any] | None) -> list[dict[str, Any]]:
     if not evidence:
         return []
-    executions = evidence.get('source_executions') or evidence.get('executions') or []
+    executions = evidence.get('source_executions') or []
     return [dict(execution) for execution in executions if isinstance(execution, dict)]
 
 
@@ -131,16 +95,6 @@ def screenshots(evidence: dict[str, Any] | None, run_id: str, artifact_dir: Path
         if name and name.endswith('.png'):
             allowed_names.add(name)
             targets[name] = str(subject.get('value') or Path(name).stem)
-    for item in (evidence or {}).get('results') or []:
-        if not isinstance(item, dict) or item.get('type') != 'screenshot':
-            continue
-        name = f'{str(item.get("value", "")).removeprefix("https://").removeprefix("http://")}.png'
-        if name and Path(name).name == name:
-            allowed_names.add(name)
-            path_target = str(item.get('value', ''))
-            targets[name] = path_target
-            if path_target.startswith(('http://', 'https://')):
-                targets[name] = path_target.split('://', 1)[1]
     return [
         {
             'name': path.name,
@@ -152,17 +106,15 @@ def screenshots(evidence: dict[str, Any] | None, run_id: str, artifact_dir: Path
     ]
 
 
-def activities_for_evidence(executions: list[dict[str, Any]]) -> list[str]:
-    sources: list[str] = []
-    actions: list[str] = []
+def activities_for_evidence(
+    source_executions: list[dict[str, Any]],
+    action_executions: list[dict[str, Any]],
+) -> list[str]:
+    sources = [str(execution.get('source', '')) for execution in source_executions]
+    actions = [str(execution.get('action', '')) for execution in action_executions]
     explicit: set[ActivityClass] = set()
-    for execution in executions:
-        source = str(execution.get('source') or execution.get('name') or '')
+    for execution in (*source_executions, *action_executions):
         activity = str(execution.get('activity') or '')
-        if source.startswith('action:'):
-            actions.append(source.removeprefix('action:'))
-        else:
-            sources.append(source)
         try:
             explicit.add(ActivityClass(activity))
         except ValueError:

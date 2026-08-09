@@ -27,8 +27,12 @@ def test_completed_result_is_deterministic_and_deduplicated() -> None:
         {
             'completed_at': '2026-08-05T12:01:00Z',
             'counts': {'email': 1, 'hostname': 2},
+            'evidence_status': 'complete',
             'result_count': 3,
             'run_id': 'f047261c-0afb-4e18-89d5-28a7d977f51f',
+            'source_executions': [],
+            'action_executions': [],
+            'artifacts': [],
             'started_at': '2026-08-05T12:00:00Z',
             'target': 'example.com',
             'type': 'summary',
@@ -214,7 +218,7 @@ def test_completed_result_merges_active_results_and_keeps_screenshot_as_an_artif
     ]
     assert [json.loads(line) for line in result.jsonl().splitlines()][1:] == [
         {'type': 'hostname', 'value': 'api.example.com', 'sources': []},
-        {'type': 'ip-address', 'value': '192.0.2.10', 'sources': []},
+        {'type': 'ip-address', 'value': '192.0.2.10', 'sources': [], 'actions': ['dns-resolve']},
     ]
 
 

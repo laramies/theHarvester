@@ -27,7 +27,7 @@ from .run_models import (
     SourceCatalogResponse,
     SourceResponse,
 )
-from .run_projection import JSONL_RESULT_TYPE_ALIASES, source_spec
+from .run_projection import source_spec
 from .run_store import RunStore
 
 router = APIRouter(prefix='/api/v1', tags=['Runs'])
@@ -179,21 +179,7 @@ async def export_run(
             status_code=status.HTTP_409_CONFLICT,
             detail='No run evidence is available to export',
         )
-    evidence_sources = {
-        (str(result.get('type')), str(result.get('value'))): result.get('sources', [])
-        for result in run['evidence'].get('results', [])
-        if isinstance(result, dict)
-    }
-    results = []
-    for result in run['results']:
-        result_type = JSONL_RESULT_TYPE_ALIASES.get(result['type'], result['type'])
-        results.append(
-            {
-                'type': result_type,
-                'value': result['value'],
-                'sources': evidence_sources.get((result_type, result['value']), []),
-            }
-        )
+    results = [dict(result) for result in run['evidence'].get('results', []) if isinstance(result, dict)]
     counts = Counter(result['type'] for result in results)
     started_at = run['evidence'].get('started_at') or run['started_at']
     completed_at = run['evidence'].get('completed_at') or run['completed_at']
@@ -206,8 +192,12 @@ async def export_run(
         {
             'completed_at': format_utc(datetime.fromisoformat(completed_at)),
             'counts': dict(sorted(counts.items())),
+            'evidence_status': run['evidence_status'],
             'result_count': len(results),
-            'run_id': run['evidence']['run_id'],
+            'run_id': run_id,
+            'source_executions': run['evidence'].get('source_executions', []),
+            'action_executions': run['evidence'].get('action_executions', []),
+            'artifacts': run['evidence'].get('artifacts', []),
             'started_at': format_utc(datetime.fromisoformat(started_at)),
             'target': run['target'],
         },

@@ -24,38 +24,45 @@ WORKER_LEASE_TIMEOUT_SECONDS = 30
 
 
 def _execution_status(value: object) -> ExecutionStatus:
-    normalized = {'succeeded': 'completed', 'empty': 'completed'}.get(str(value), str(value))
-    return cast('ExecutionStatus', normalized if normalized in EXECUTION_STATUSES else 'failed')
+    normalized = str(value)
+    if normalized not in EXECUTION_STATUSES:
+        raise ValueError(f'unknown execution status: {normalized}')
+    return cast('ExecutionStatus', normalized)
 
 
 def _completed_result(
     evidence: dict[str, Any],
     *,
+    run_id: UUID,
     fallback_started_at: str,
     fallback_completed_at: str,
 ) -> CompletedResult:
     results = [item for item in evidence.get('results', []) if isinstance(item, dict)]
-    groups: dict[ResultKind, list[str]] = defaultdict(list)
-    source_origins: list[ResultObservation] = []
+    groups: dict[ResultKind, set[str]] = defaultdict(set)
+    source_origins: set[ResultObservation] = set()
     source_counts: Counter[str] = Counter()
-    action_groups: dict[str, dict[ResultKind, list[str]]] = defaultdict(lambda: defaultdict(list))
+    action_groups: dict[str, dict[ResultKind, set[str]]] = defaultdict(lambda: defaultdict(set))
     for item in results:
         kind = cast('ResultKind', str(item['type']))
         value = str(item['value'])
-        groups[kind].append(value)
-        for source in item.get('sources', []):
+        groups[kind].add(value)
+        for source in set(item.get('sources', [])):
             source_name = str(source)
-            source_origins.append(ResultObservation(source_name, kind, value))
+            source_origins.add(ResultObservation(source_name, kind, value))
             source_counts[source_name] += 1
-        for action in item.get('actions', []):
-            action_groups[str(action)][kind].append(value)
+        for action in set(item.get('actions', [])):
+            action_groups[str(action)][kind].add(value)
 
     source_details = {
-        str(item.get('source') or item.get('name')): item
+        str(item['source']): item
         for item in evidence.get('source_executions', [])
-        if isinstance(item, dict) and (item.get('source') or item.get('name'))
+        if isinstance(item, dict) and item.get('source')
     }
-    source_names = sorted(set(source_details) | set(source_counts))
+    if len(source_details) != len(evidence.get('source_executions', [])):
+        raise ValueError('source executions must have unique non-empty names')
+    if missing_sources := set(source_counts) - set(source_details):
+        raise ValueError(f'missing source execution: {sorted(missing_sources)[0]}')
+    source_names = sorted(source_details)
     completed_sources = tuple(
         SourceExecution(
             source=name,
@@ -63,8 +70,7 @@ def _completed_result(
             duration_ms=float(source_details.get(name, {}).get('duration_ms', 0)),
             result_count=source_counts[name],
             error_type=source_details.get(name, {}).get('error_type'),
-            stop_reason=source_details.get(name, {}).get('stop_reason')
-            or ('imported-attribution' if name not in source_details else None),
+            stop_reason=source_details[name].get('stop_reason'),
         )
         for name in source_names
     )
@@ -90,11 +96,16 @@ def _completed_result(
             )
         )
     action_details = {
-        str(item.get('action') or item.get('name')): item
+        str(item['action']): item
         for item in evidence.get('action_executions', [])
-        if isinstance(item, dict) and (item.get('action') or item.get('name'))
+        if isinstance(item, dict) and item.get('action')
     }
-    action_names = sorted(set(action_details) | set(action_groups) | set(artifacts_by_action))
+    if len(action_details) != len(evidence.get('action_executions', [])):
+        raise ValueError('action executions must have unique non-empty names')
+    missing_actions = (set(action_groups) | set(artifacts_by_action)) - set(action_details)
+    if missing_actions:
+        raise ValueError(f'missing action execution: {sorted(missing_actions)[0]}')
+    action_names = sorted(action_details)
     active_evidence = ActiveEvidence(
         executions=tuple(
             ActionExecution.finish(
@@ -110,13 +121,13 @@ def _completed_result(
         )
     )
     return CompletedResult.finish(
-        run_id=UUID(str(evidence.get('run_id') or uuid4())),
+        run_id=run_id,
         target=str(evidence['target']),
         started_at=datetime.fromisoformat(str(evidence.get('started_at') or fallback_started_at)),
         completed_at=datetime.fromisoformat(str(evidence.get('completed_at') or fallback_completed_at)),
         groups=groups,
         source_executions=completed_sources,
-        observations=source_origins,
+        observations=sorted(source_origins),
         active_evidence=active_evidence,
     )
 
@@ -135,7 +146,6 @@ class RunStore:
 
     async def initialize(self) -> None:
         self.database.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        self.database.parent.chmod(0o700)
         await self.lifecycle.initialize()
         self.database.chmod(0o600)
 
@@ -191,10 +201,20 @@ class RunStore:
         await self.initialize()
         created_at = utc_now()
         target = _normalize_target(str(evidence['target']))
-        completed = await self._save_evidence(evidence, created_at, created_at)
-        executions = source_executions(completed.evidence_dict())
+        source_run_id = str(evidence['run_id'])
+        run_id = str(uuid4())
+        completed = await self._save_evidence(evidence, created_at, created_at, run_id=UUID(run_id))
+        completed_evidence = completed.evidence_dict()
+        executions = source_executions(completed_evidence)
+        raw_action_executions = completed_evidence.get('action_executions', [])
+        action_executions = (
+            [dict(execution) for execution in raw_action_executions if isinstance(execution, dict)]
+            if isinstance(raw_action_executions, list)
+            else []
+        )
         request = {
             'filename': filename,
+            'source_run_id': source_run_id,
             'sources': sorted(
                 {
                     str(execution.get('source') or execution.get('name'))
@@ -202,9 +222,8 @@ class RunStore:
                     if execution.get('source') or execution.get('name')
                 }
             ),
-            'activities': activities_for_evidence(executions),
+            'activities': activities_for_evidence(executions, action_executions),
         }
-        run_id = str(uuid4())
         await self.lifecycle.create(
             run_id=run_id,
             target=target,
@@ -214,8 +233,8 @@ class RunStore:
             started_at=completed.started_at.isoformat(),
             completed_at=completed.completed_at.isoformat(),
             request_json=json.dumps(request),
-            evidence_run_id=str(completed.run_id),
-            evidence_status=completed.status,
+            evidence_run_id=run_id,
+            evidence_status=str(evidence['status']),
         )
         run = await self.get(run_id)
         assert run is not None
@@ -253,6 +272,7 @@ class RunStore:
                     evidence,
                     str(record['started_at'] or record['created_at']),
                     recovered_at,
+                    run_id=UUID(run_id),
                 )
                 evidence_run_id = str(completed.run_id)
             await self.lifecycle.fail(
@@ -290,6 +310,7 @@ class RunStore:
                 evidence,
                 str(record['started_at'] or record['created_at']),
                 utc_now(),
+                run_id=UUID(run_id),
             )
             evidence_run_id = str(completed.run_id)
         await self.lifecycle.finish(
@@ -319,6 +340,7 @@ class RunStore:
                 evidence,
                 str(record['started_at'] or record['created_at']),
                 completed_at,
+                run_id=UUID(run_id),
             )
             evidence_run_id = str(completed.run_id)
         await self.lifecycle.fail(
@@ -336,12 +358,21 @@ class RunStore:
         evidence: dict[str, Any],
         fallback_started_at: str,
         fallback_completed_at: str,
+        *,
+        run_id: UUID,
     ) -> CompletedResult:
-        completed = _completed_result(
-            evidence,
-            fallback_started_at=fallback_started_at,
-            fallback_completed_at=fallback_completed_at,
-        )
+        try:
+            completed = _completed_result(
+                evidence,
+                run_id=run_id,
+                fallback_started_at=fallback_started_at,
+                fallback_completed_at=fallback_completed_at,
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f'Invalid run evidence: {error}',
+            ) from error
         try:
             await self.results.save_run(completed)
         except DuplicateRunError:

@@ -111,14 +111,11 @@ from theHarvester.lib.recursive_dns import (
 )
 from theHarvester.lib.resolver_selection import DEFAULT_DNS_RESOLVERS, normalize_resolver_addresses
 from theHarvester.lib.source_catalog import (
-    ACTION_REQUEST_FIELDS,
     SOURCE_SPECS,
     ActivityClass,
     ResultRoute,
     SourceSpec,
-    activity_classes_for_selection,
     get_source_spec,
-    selected_action_names,
 )
 from theHarvester.screenshot.screenshot import ScreenShotter
 

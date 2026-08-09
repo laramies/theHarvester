@@ -40,16 +40,20 @@ def parse_result_jsonl(payload: bytes | str) -> tuple[dict[str, object], list[di
     findings = records[1:]
     for record in findings:
         sources = record.get('sources', [])
+        actions = record.get('actions', [])
         if (
-            set(record) - {'type', 'value', 'sources'}
+            set(record) - {'type', 'value', 'sources', 'actions'}
             or record.get('type') not in RESULT_KINDS
             or not isinstance(record.get('value'), str)
             or not record['value'].strip()
             or not isinstance(sources, list)
             or any(not isinstance(source, str) or not source.strip() for source in sources)
+            or not isinstance(actions, list)
+            or any(not isinstance(action, str) or not action.strip() for action in actions)
         ):
-            raise ValueError('JSONL findings must contain a known type, non-empty value, and source names')
-        record['sources'] = sources
+            raise ValueError('JSONL findings must contain a known type, non-empty value, and producer names')
+        record['sources'] = sorted(set(sources))
+        record['actions'] = sorted(set(actions))
     return summary, findings
 
 
@@ -223,12 +227,16 @@ class CompletedResult:
             {
                 'completed_at': format_utc(self.completed_at),
                 'counts': dict(sorted(counts.items())),
+                'evidence_status': self.status,
                 'result_count': len(self.results),
                 'run_id': str(self.run_id),
+                'source_executions': [execution.to_dict() for execution in self.source_executions],
+                'action_executions': [execution.to_dict() for execution in self.active_evidence.executions],
+                'artifacts': [{'action': action, **artifact.to_dict()} for action, artifact in self.active_evidence.artifacts],
                 'started_at': format_utc(self.started_at),
                 'target': self.target,
             },
-            self._result_records(include_actions=False),
+            self._result_records(include_actions=True),
         )
 
     @property

@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from fastapi import HTTPException, status
 
 from theHarvester.lib.completed_result import parse_result_jsonl
 
-from .run_models import _normalize_target, utc_now
+from .run_models import _normalize_target
 
 
 def parse_jsonl_import(body: bytes) -> dict[str, Any]:
@@ -47,7 +47,7 @@ def parse_jsonl_import(body: bytes) -> dict[str, Any]:
     evidence = {
         'run_id': run_id,
         'target': summary.get('target'),
-        'status': summary.get('evidence_status', 'complete'),
+        'status': summary.get('evidence_status'),
         'started_at': summary.get('started_at'),
         'completed_at': summary.get('completed_at'),
         'results': [
@@ -55,10 +55,13 @@ def parse_jsonl_import(body: bytes) -> dict[str, Any]:
                 'type': record['type'],
                 'value': record['value'],
                 'sources': record['sources'],
+                'actions': record['actions'],
             }
             for record in findings
         ],
         'source_executions': summary.get('source_executions', []),
+        'action_executions': summary.get('action_executions', []),
+        'artifacts': summary.get('artifacts', []),
     }
     return validate_evidence(evidence)
 
@@ -82,7 +85,7 @@ def validate_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f'Evidence field {field} must be a string',
             )
-    for field in ('results', 'source_executions', 'executions', 'entities', 'selected_observations'):
+    for field in ('results', 'source_executions', 'action_executions', 'artifacts'):
         value = evidence.get(field)
         if value is None:
             evidence[field] = []
@@ -91,15 +94,4 @@ def validate_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f'Evidence field {field} must be an array',
             )
-    for entity in evidence['entities']:
-        if not isinstance(entity, dict):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Evidence entities must be objects')
-        for field in ('scope_classes', 'observations', 'provenance'):
-            if field in entity and not isinstance(entity[field], list):
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f'Evidence entity field {field} must be an array',
-                )
-    evidence.setdefault('run_id', str(uuid4()))
-    evidence.setdefault('completed_at', utc_now())
     return evidence

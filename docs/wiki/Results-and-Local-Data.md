@@ -44,7 +44,7 @@ The normalized persistence model can represent active-action provenance and arti
 - `result_origins`: which execution produced each result; and
 - `artifacts`: files such as screenshots, linked to their creating action and subject result.
 
-Current runtime collection populates passive source executions plus DNS, takeover, Shodan, and API endpoint scan executions and origins. Screenshot artifacts are integrated in a later slice.
+Current runtime collection populates passive source executions plus DNS, takeover, Shodan, and API endpoint scan executions and origins. Screenshot actions attach file metadata to their captured hostname or URL without creating fake screenshot findings.
 
 Two operational tables support the API without changing those five evidence concepts: `run_records` stores queue and lifecycle state, and `run_worker_leases` prevents two local workers from claiming the same queue. Older runless rows remain in `legacy_observations`. SQLite upgrades supported schemas automatically during normal initialization.
 

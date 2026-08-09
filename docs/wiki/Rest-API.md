@@ -107,7 +107,7 @@ curl -s "http://127.0.0.1:5000/api/v1/runs/import?filename=report.jsonl" \
   | jq
 ```
 
-JSONL is a terminal report, so an import is recorded as completed. Each finding's `sources` array is retained and used to rebuild source attribution. Reconstructed executions use zero duration and the stop reason `imported-attribution` to make the missing timing explicit. `hostname` and `ip-address` findings are exposed through the API as `subdomain` and `ip` results.
+JSONL is a terminal report, so an import is recorded as completed. The summary retains evidence status, source and action outcomes, and screenshot artifact metadata. Each finding's `sources` and `actions` arrays rebuild result attribution and must name an execution in the summary. `hostname` and `ip-address` findings are exposed through the API as `subdomain` and `ip` results.
 
 Export one normalized result set in the same streamable format:
 
@@ -117,7 +117,7 @@ curl -s "http://127.0.0.1:5000/api/v1/runs/$run_id/export" \
   -o results.jsonl
 ```
 
-The first line is the `summary` record, including evidence status and run-level source outcomes. Each remaining line is one normalized finding with `type`, `value`, and optional `dns_status` fields. This keeps the file easy to stream with `jq -c` and makes API exports importable again without a format conversion. Lifecycle details and the submitted request remain available from `GET /api/v1/runs/{run_id}`.
+The first line is the `summary` record, including evidence status, source and action outcomes, and artifacts. Each remaining line is one normalized finding with `type`, `value`, `sources`, and optional `actions`. This keeps the file easy to stream with `jq -c` and makes API exports importable again without a format conversion. Lifecycle details and the submitted request remain available from `GET /api/v1/runs/{run_id}`.
 
 ## Security boundary
 

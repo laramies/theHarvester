@@ -253,9 +253,19 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
     assert [str(result.run_id) for result in completed_results] == [jsonl_records[0]['run_id']]
     assert checkpoints
     assert {result.run_id for result in checkpoints} == {completed_results[0].run_id}
-    assert {'type': 'interesting-url', 'value': 'https://example.com/health', 'sources': []} in jsonl_records
-    assert {'type': 'url', 'value': 'https://example.com/health', 'sources': []} in jsonl_records
-    assert {'type': 'hostname', 'value': 'reverse.example.com', 'sources': []} in jsonl_records
+    assert {
+        'type': 'interesting-url',
+        'value': 'https://example.com/health',
+        'sources': [],
+        'actions': ['api-scan'],
+    } in jsonl_records
+    assert {'type': 'url', 'value': 'https://example.com/health', 'sources': [], 'actions': ['api-scan']} in jsonl_records
+    assert {
+        'type': 'hostname',
+        'value': 'reverse.example.com',
+        'sources': [],
+        'actions': ['dns-lookup'],
+    } in jsonl_records
     assert {'type': 'ip-address', 'value': '198.51.100.9', 'sources': ['securityscorecard']} in jsonl_records
     assert {'type': 'ip-address', 'value': '2001:db8::1', 'sources': ['securityscorecard']} in jsonl_records
     assert not any(record.get('value') == 'not-an-ip' for record in jsonl_records)

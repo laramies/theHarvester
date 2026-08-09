@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import json
+import os
 import sqlite3
 import sys
 import time
@@ -22,6 +23,15 @@ def test_run_paths_use_one_expanded_database_and_artifact_root(tmp_path, monkeyp
 
     assert store.database == tmp_path / 'state' / 'runs.sqlite'
     assert store.artifact_directory('run-id') == tmp_path / 'state' / 'run-artifacts' / 'run-id'
+
+
+def test_run_store_does_not_change_caller_owned_directory_permissions(tmp_path) -> None:
+    from theHarvester.lib.api.run_store import RunStore
+
+    tmp_path.chmod(0o755)
+    asyncio.run(RunStore(tmp_path / 'runs.sqlite').initialize())
+
+    assert os.stat(tmp_path).st_mode & 0o777 == 0o755
 
 
 def test_explicit_run_database_keeps_screenshot_artifacts_attached(tmp_path, monkeypatch) -> None:
@@ -76,6 +86,8 @@ def test_explicit_run_database_keeps_screenshot_artifacts_attached(tmp_path, mon
     run = asyncio.run(scenario())
 
     assert run is not None
+    assert run['evidence']['run_id'] == run['run_id']
+    assert run['request']['source_run_id'] == '4a6e5a15-fae5-462c-a34b-122ced6bb86d'
     assert [screenshot['name'] for screenshot in run['screenshots']] == ['owned.example.test.png']
 
 
@@ -123,7 +135,7 @@ def test_api_lifecycle_and_terminal_evidence_share_the_sqlalchemy_database(tmp_p
         ).fetchone()[0]
         stored_target = db.execute('SELECT target FROM runs WHERE run_id = ?', (evidence_run_id,)).fetchone()[0]
         schema_version = db.execute('PRAGMA user_version').fetchone()[0]
-    assert evidence_run_id == '4a6e5a15-fae5-462c-a34b-122ced6bb86d'
+    assert evidence_run_id == lifecycle_run_id
     assert stored_target == 'example.test'
     assert schema_version == 4
     assert 'import aiosqlite' not in inspect.getsource(run_store_module)
