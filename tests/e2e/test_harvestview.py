@@ -16,17 +16,25 @@ def write_jsonl_evidence(path: Path, evidence: dict[str, object]) -> None:
     counts = Counter(str(result['type']) for result in results if isinstance(result, dict))
     summary = {
         'type': 'summary',
-        'schema_version': 'theharvester-results-v1',
         'run_id': evidence['run_id'],
         'target': evidence['target'],
         'started_at': evidence['started_at'],
         'completed_at': evidence['completed_at'],
         'evidence_status': evidence['status'],
         'source_executions': evidence.get('source_executions', []),
+        'action_executions': evidence.get('action_executions', []),
+        'artifacts': evidence.get('artifacts', []),
         'result_count': len(results),
         'counts': dict(sorted(counts.items())),
     }
-    records = [summary, *results]
+    records = [
+        summary,
+        *[
+            {**result, 'sources': result.get('sources', []), 'actions': result.get('actions', [])}
+            for result in results
+            if isinstance(result, dict)
+        ],
+    ]
     path.write_text(''.join(json.dumps(record, sort_keys=True) + '\n' for record in records), encoding='utf-8')
 
 
@@ -563,7 +571,7 @@ def test_completed_empty_import_explains_terminal_outcome(
             'completed_at': '2026-08-05T12:00:25+00:00',
             'status': 'complete',
             'source_executions': [
-                {'source': 'CRTsh', 'status': 'empty', 'result_count': 0, 'duration_ms': 25000},
+                {'source': 'crtsh', 'status': 'completed', 'result_count': 0, 'duration_ms': 25000},
             ],
             'results': [],
         },
@@ -575,9 +583,11 @@ def test_completed_empty_import_explains_terminal_outcome(
     page.locator('#submit-import-button').click()
 
     expect(page.locator('#results-empty-title')).to_have_text('Enumeration completed')
-    expect(page.locator('#results-summary')).to_have_text('0 normalized results · 0 succeeded / 1 empty / 0 skipped / 0 failed.')
+    expect(page.locator('#results-summary')).to_have_text(
+        '0 normalized results · 1 completed (1 zero-result) / 0 partial / 0 skipped / 0 failed.'
+    )
     expect(page.locator('#results-empty-copy')).to_have_text(
-        'CRTsh returned no normalized evidence. The retained evidence record is complete.'
+        'crtsh returned no normalized evidence. The retained evidence record is complete.'
     )
     expect(page.locator('#lifecycle-track strong')).to_have_text(['Submitted', 'Started', 'Completed'])
     expect(page.get_by_role('button', name='All JSONL')).to_be_enabled()
@@ -587,7 +597,7 @@ def test_completed_empty_import_explains_terminal_outcome(
     assert len(exported_records) == 1
     assert exported_records[0]['evidence_status'] == 'complete'
     assert exported_records[0]['result_count'] == 0
-    assert exported_records[0]['source_executions'][0]['status'] == 'empty'
+    assert exported_records[0]['source_executions'][0]['status'] == 'completed'
 
 
 def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui(
@@ -616,7 +626,7 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
         'source_executions': [
             {
                 'source': source['name'],
-                'status': 'succeeded' if index < 3 else 'empty' if index < 23 else 'skipped',
+                'status': 'completed' if index < 23 else 'skipped',
                 'result_count': 1 if index < 3 else 0,
                 'duration_ms': index + 1,
                 **({'error_type': 'SourceDidNotStart'} if index >= 23 else {}),
@@ -628,14 +638,16 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
             {
                 'type': {'subdomain': 'hostname', 'ip': 'ip-address'}.get(result_type, result_type),
                 'value': f'{result_type}.example.com',
+                'sources': [ordered_sources[index]['name']] if index < 3 else [],
             }
-            for result_type in ('subdomain', 'ip', 'asn', 'email', 'url', 'interesting-url', 'person', 'api-endpoint')
+            for index, result_type in enumerate(
+                ('subdomain', 'ip', 'asn', 'email', 'url', 'interesting-url', 'person', 'api-endpoint')
+            )
         ]
         + [
             {
                 'type': 'ip-address',
                 'value': 'zeta.example.com',
-                'dns_status': 'resolved',
             }
         ],
     }
@@ -647,7 +659,7 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
     page.locator('#submit-import-button').click()
 
     expect(page.locator('#provider-outcome-summary')).to_have_text(
-        f'3 succeeded / 20 empty / {len(ordered_sources) - 23} skipped / 0 failed'
+        f'23 completed (20 zero-result) / 0 partial / {len(ordered_sources) - 23} skipped / 0 failed'
     )
     expect(page.locator('#run-count')).to_have_text('1')
     expect(page.locator('#run-list button')).to_have_count(1)

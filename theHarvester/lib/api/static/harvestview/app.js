@@ -304,7 +304,7 @@
     nodes.requestOptions.innerHTML = options.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('');
   }
 
-  function sourceName(execution) { return execution.source || execution.name || 'Unknown source'; }
+  function sourceName(execution) { return execution.source || 'Unknown source'; }
   function credentialRequirement(source) {
     const credentials = source?.credentials || [];
     if (!credentials.length) return '';
@@ -328,13 +328,15 @@
 
   function renderProviders(run) {
     const executions = run.source_executions || [];
-    const counts = {succeeded: 0, empty: 0, skipped: 0, failed: 0, 'rate-limited': 0};
+    const counts = {completed: 0, partial: 0, skipped: 0, failed: 0, 'rate-limited': 0};
+    let zeroResultCount = 0;
     for (const execution of executions) {
       if (Object.hasOwn(counts, execution.status)) counts[execution.status] += 1;
+      if (execution.status === 'completed' && Number(execution.result_count || 0) === 0) zeroResultCount += 1;
     }
     nodes.providerSummary.textContent = executions.length;
     nodes.providerOutcomeSummary.hidden = executions.length === 0;
-    nodes.providerOutcomeSummary.textContent = `${counts.succeeded} succeeded / ${counts.empty} empty / ${counts.skipped} skipped / ${counts.failed} failed${counts['rate-limited'] ? ` / ${counts['rate-limited']} rate-limited` : ''}`;
+    nodes.providerOutcomeSummary.textContent = `${counts.completed} completed (${zeroResultCount} zero-result) / ${counts.partial} partial / ${counts.skipped} skipped / ${counts.failed} failed${counts['rate-limited'] ? ` / ${counts['rate-limited']} rate-limited` : ''}`;
     nodes.providerEmpty.hidden = executions.length > 0;
     nodes.providerBody.innerHTML = executions.map(execution => `
       <tr><td>${escapeHtml(sourceName(execution))}</td><td>${statusChip(execution.status || 'unknown')}</td>
@@ -429,7 +431,9 @@
     if (total) {
       nodes.resultsSummary.textContent = `${formatCount(total, 'normalized result')} across ${formatCount(groups.length, 'route')}.`;
     } else if (run.status === 'completed') {
-      const emptySources = (run.source_executions || []).filter(execution => execution.status === 'empty').map(sourceName);
+      const emptySources = (run.source_executions || [])
+        .filter(execution => execution.status === 'completed' && Number(execution.result_count || 0) === 0)
+        .map(sourceName);
       let sourceSummary = 'No normalized evidence was returned.';
       if (emptySources.length === 1) sourceSummary = `${emptySources[0]} returned no normalized evidence.`;
       if (emptySources.length > 1) sourceSummary = `${emptySources.length} selected sources returned no normalized evidence.`;
