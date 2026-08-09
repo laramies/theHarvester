@@ -8,6 +8,8 @@ from typing import Any
 
 from fastapi import HTTPException
 
+from theHarvester.lib.database import ResultStore
+
 from .run_evidence import validate_evidence
 
 
@@ -18,7 +20,7 @@ class RunPaths:
 
     @classmethod
     def configured(cls, database: str | Path | None = None) -> RunPaths:
-        database_path = Path(database or os.getenv('THEHARVESTER_RUN_DB') or '~/.local/share/theHarvester/runs.sqlite')
+        database_path = Path(database or os.getenv('THEHARVESTER_RUN_DB') or ResultStore().database)
         database_path = database_path.expanduser()
         configured_artifacts = os.getenv('THEHARVESTER_RUN_ARTIFACTS')
         artifact_root = (

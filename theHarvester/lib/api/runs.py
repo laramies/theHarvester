@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -10,6 +11,7 @@ from pydantic import ValidationError
 
 from theHarvester.lib.api.auth import get_api_key
 from theHarvester.lib.completed_result import encode_result_jsonl
+from theHarvester.lib.evidence_types import format_utc
 from theHarvester.lib.source_catalog import ACTION_ACTIVITIES, SOURCE_SPECS, SourceSpec, get_source_spec, resolve_sources
 
 from . import run_worker
@@ -177,7 +179,21 @@ async def export_run(
             status_code=status.HTTP_409_CONFLICT,
             detail='No run evidence is available to export',
         )
-    results = [{**result, 'type': JSONL_RESULT_TYPE_ALIASES.get(result['type'], result['type'])} for result in run['results']]
+    evidence_sources = {
+        (str(result.get('type')), str(result.get('value'))): result.get('sources', [])
+        for result in run['evidence'].get('results', [])
+        if isinstance(result, dict)
+    }
+    results = []
+    for result in run['results']:
+        result_type = JSONL_RESULT_TYPE_ALIASES.get(result['type'], result['type'])
+        results.append(
+            {
+                'type': result_type,
+                'value': result['value'],
+                'sources': evidence_sources.get((result_type, result['value']), []),
+            }
+        )
     counts = Counter(result['type'] for result in results)
     started_at = run['evidence'].get('started_at') or run['started_at']
     completed_at = run['evidence'].get('completed_at') or run['completed_at']
@@ -188,13 +204,11 @@ async def export_run(
         )
     payload = encode_result_jsonl(
         {
-            'completed_at': completed_at,
+            'completed_at': format_utc(datetime.fromisoformat(completed_at)),
             'counts': dict(sorted(counts.items())),
-            'evidence_status': run['evidence_status'],
             'result_count': len(results),
             'run_id': run['evidence']['run_id'],
-            'started_at': started_at,
-            'source_executions': run['source_executions'],
+            'started_at': format_utc(datetime.fromisoformat(started_at)),
             'target': run['target'],
         },
         results,

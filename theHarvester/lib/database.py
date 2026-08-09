@@ -5,12 +5,27 @@ import sqlite3
 from collections import Counter
 from collections.abc import AsyncIterator, Iterable
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import CheckConstraint, Date, Float, ForeignKey, ForeignKeyConstraint, Text, UniqueConstraint, event, func, select
+from sqlalchemy import (
+    CheckConstraint,
+    Date,
+    Float,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Text,
+    UniqueConstraint,
+    delete,
+    event,
+    func,
+    or_,
+    select,
+    update,
+)
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine import URL
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
@@ -34,7 +49,7 @@ from theHarvester.lib.completed_result import (
 
 logger = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 _DEFAULT_DATABASE = Path('~/.local/share/theHarvester/stash.sqlite').expanduser()
 
 
@@ -172,6 +187,36 @@ class _ArtifactRow(_Base):
     created_at: Mapped[str] = mapped_column(Text)
 
 
+class _RunRecordRow(_Base):
+    """Lifecycle state for one API-submitted or imported run."""
+
+    __tablename__ = 'run_records'
+
+    run_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    target: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(Text)
+    origin: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[str] = mapped_column(Text)
+    started_at: Mapped[str | None] = mapped_column(Text)
+    completed_at: Mapped[str | None] = mapped_column(Text)
+    request_json: Mapped[str] = mapped_column(Text)
+    evidence_run_id: Mapped[str | None] = mapped_column(Text, ForeignKey('runs.run_id', ondelete='SET NULL'))
+    evidence_status: Mapped[str | None] = mapped_column(Text)
+    cancellation_requested_at: Mapped[str | None] = mapped_column(Text)
+    error: Mapped[str | None] = mapped_column(Text)
+    log: Mapped[str] = mapped_column(Text, default='')
+
+
+class _WorkerLeaseRow(_Base):
+    """The current owner of the single local API execution worker."""
+
+    __tablename__ = 'run_worker_leases'
+
+    name: Mapped[str] = mapped_column(Text, primary_key=True)
+    owner_id: Mapped[str] = mapped_column(Text)
+    heartbeat_at: Mapped[str] = mapped_column(Text)
+
+
 def _configure_sqlite_connection(dbapi_connection: Any, _connection_record: Any) -> None:
     dbapi_connection.isolation_level = None
     cursor = dbapi_connection.cursor()
@@ -287,6 +332,224 @@ def _database_for(database: str | Path) -> _SQLiteDatabase:
     if path not in _databases:
         _databases[path] = _SQLiteDatabase(path)
     return _databases[path]
+
+
+def _row_count(result: Any) -> int:
+    return int(result.rowcount)
+
+
+class RunLifecycleStore:
+    """Persist API run state in the same SQLite database as terminal evidence."""
+
+    def __init__(self, database: str | Path | None = None) -> None:
+        self.database = str(Path(database or _DEFAULT_DATABASE).expanduser().resolve())
+
+    async def initialize(self) -> None:
+        Path(self.database).parent.mkdir(parents=True, exist_ok=True)
+        await _database_for(self.database).initialize()
+
+    async def create(
+        self,
+        *,
+        run_id: str,
+        target: str,
+        status: str,
+        origin: str,
+        created_at: str,
+        request_json: str,
+        started_at: str | None = None,
+        completed_at: str | None = None,
+        evidence_run_id: str | None = None,
+        evidence_status: str | None = None,
+    ) -> None:
+        async with self._session() as session:
+            session.add(
+                _RunRecordRow(
+                    run_id=run_id,
+                    target=target,
+                    status=status,
+                    origin=origin,
+                    created_at=created_at,
+                    started_at=started_at,
+                    completed_at=completed_at,
+                    request_json=request_json,
+                    evidence_run_id=evidence_run_id,
+                    evidence_status=evidence_status,
+                    cancellation_requested_at=None,
+                    error=None,
+                    log='',
+                )
+            )
+            await session.commit()
+
+    async def list_records(self) -> list[dict[str, object]]:
+        async with self._session() as session:
+            rows = (await session.scalars(select(_RunRecordRow).order_by(_RunRecordRow.created_at.desc()))).all()
+        return [self._record(row) for row in rows]
+
+    async def get(self, run_id: str) -> dict[str, object] | None:
+        async with self._session() as session:
+            row = await session.get(_RunRecordRow, run_id)
+        return self._record(row) if row is not None else None
+
+    async def cancel(self, run_id: str, requested_at: str) -> dict[str, object] | None:
+        async with self._session() as session:
+            queued = await session.execute(
+                update(_RunRecordRow)
+                .where(_RunRecordRow.run_id == run_id, _RunRecordRow.status == 'queued')
+                .values(status='cancelled', cancellation_requested_at=requested_at, completed_at=requested_at)
+            )
+            running = None
+            if _row_count(queued) != 1:
+                running = await session.execute(
+                    update(_RunRecordRow)
+                    .where(_RunRecordRow.run_id == run_id, _RunRecordRow.status == 'running')
+                    .values(status='cancelling', cancellation_requested_at=requested_at)
+                )
+            await session.commit()
+        row = await self.get(run_id)
+        if row is None:
+            return None
+        if (
+            _row_count(queued) == 1
+            or (running is not None and _row_count(running) == 1)
+            or row['status'] in {'cancelling', 'cancelled'}
+        ):
+            return row
+        raise ValueError(row['status'])
+
+    async def claim_next(self, started_at: str) -> dict[str, object] | None:
+        async with self._session() as session:
+            candidate = (
+                select(_RunRecordRow.run_id)
+                .where(_RunRecordRow.status == 'queued')
+                .order_by(_RunRecordRow.created_at)
+                .limit(1)
+                .scalar_subquery()
+            )
+            result = await session.execute(
+                update(_RunRecordRow)
+                .where(_RunRecordRow.run_id == candidate, _RunRecordRow.status == 'queued')
+                .values(status='running', started_at=started_at)
+                .returning(_RunRecordRow.run_id)
+            )
+            run_id = result.scalar_one_or_none()
+            if run_id is None:
+                await session.rollback()
+                return None
+            await session.commit()
+        return await self.get(run_id)
+
+    async def finish(
+        self,
+        run_id: str,
+        *,
+        completed_at: str,
+        evidence_run_id: str | None,
+        evidence_status: str | None,
+        log: str,
+    ) -> None:
+        async with self._session() as session:
+            await session.execute(
+                update(_RunRecordRow)
+                .where(_RunRecordRow.run_id == run_id, _RunRecordRow.status.in_({'running', 'cancelling'}))
+                .values(
+                    status=func.iif(_RunRecordRow.status == 'cancelling', 'cancelled', 'completed'),
+                    completed_at=completed_at,
+                    evidence_run_id=func.coalesce(evidence_run_id, _RunRecordRow.evidence_run_id),
+                    evidence_status=func.coalesce(evidence_status, _RunRecordRow.evidence_status),
+                    log=log,
+                )
+            )
+            await session.commit()
+
+    async def fail(
+        self,
+        run_id: str,
+        *,
+        status: str,
+        completed_at: str,
+        error: str,
+        log: str,
+        evidence_run_id: str | None,
+        evidence_status: str | None,
+    ) -> None:
+        async with self._session() as session:
+            await session.execute(
+                update(_RunRecordRow)
+                .where(_RunRecordRow.run_id == run_id)
+                .values(
+                    status=status,
+                    completed_at=completed_at,
+                    error=error,
+                    log=log,
+                    evidence_run_id=func.coalesce(evidence_run_id, _RunRecordRow.evidence_run_id),
+                    evidence_status=func.coalesce(evidence_status, _RunRecordRow.evidence_status),
+                )
+            )
+            await session.commit()
+
+    async def running(self) -> list[dict[str, object]]:
+        async with self._session() as session:
+            rows = (await session.scalars(select(_RunRecordRow).where(_RunRecordRow.status.in_({'running', 'cancelling'})))).all()
+        return [self._record(row) for row in rows]
+
+    async def acquire_lease(self, owner_id: str, now: str, timeout_seconds: int) -> bool:
+        async with self._session() as session:
+            stale_before = (datetime.datetime.fromisoformat(now) - timedelta(seconds=timeout_seconds)).isoformat()
+            statement = sqlite_insert(_WorkerLeaseRow).values(name='executor', owner_id=owner_id, heartbeat_at=now)
+            statement = statement.on_conflict_do_update(
+                index_elements=[_WorkerLeaseRow.name],
+                set_={'owner_id': owner_id, 'heartbeat_at': now},
+                where=or_(_WorkerLeaseRow.owner_id == owner_id, _WorkerLeaseRow.heartbeat_at < stale_before),
+            )
+            result = await session.execute(statement)
+            await session.commit()
+            return _row_count(result) == 1
+
+    async def heartbeat_lease(self, owner_id: str, now: str) -> bool:
+        async with self._session() as session:
+            result = await session.execute(
+                update(_WorkerLeaseRow)
+                .where(_WorkerLeaseRow.name == 'executor', _WorkerLeaseRow.owner_id == owner_id)
+                .values(heartbeat_at=now)
+            )
+            await session.commit()
+            return _row_count(result) == 1
+
+    async def release_lease(self, owner_id: str) -> None:
+        async with self._session() as session:
+            await session.execute(
+                delete(_WorkerLeaseRow).where(
+                    _WorkerLeaseRow.name == 'executor',
+                    _WorkerLeaseRow.owner_id == owner_id,
+                )
+            )
+            await session.commit()
+
+    @asynccontextmanager
+    async def _session(self) -> AsyncIterator[AsyncSession]:
+        await self.initialize()
+        async with _database_for(self.database).session() as session:
+            yield session
+
+    @staticmethod
+    def _record(row: _RunRecordRow) -> dict[str, object]:
+        return {
+            'run_id': row.run_id,
+            'target': row.target,
+            'status': row.status,
+            'origin': row.origin,
+            'created_at': row.created_at,
+            'started_at': row.started_at,
+            'completed_at': row.completed_at,
+            'request_json': row.request_json,
+            'evidence_run_id': row.evidence_run_id,
+            'evidence_status': row.evidence_status,
+            'cancellation_requested_at': row.cancellation_requested_at,
+            'error': row.error,
+            'log': row.log,
+        }
 
 
 class ResultStore:

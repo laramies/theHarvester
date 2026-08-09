@@ -29,8 +29,8 @@ Treat the runtime OpenAPI document as the exact request and response reference.
 | `GET /api/v1/runs` | List run records. |
 | `GET /api/v1/runs/{run_id}` | Retrieve lifecycle state, options, results, source outcomes, and artifacts. |
 | `POST /api/v1/runs/{run_id}/cancel` | Cancel queued work or request cancellation of running work. |
-| `POST /api/v1/runs/import` | Import a versioned JSONL result file without executing discovery. |
-| `GET /api/v1/runs/{run_id}/export` | Export normalized results as versioned JSONL. |
+| `POST /api/v1/runs/import` | Import a JSONL result file without executing discovery. |
+| `GET /api/v1/runs/{run_id}/export` | Export normalized results as JSONL. |
 | `GET /api/v1/runs/{run_id}/screenshots/{name}` | Retrieve one managed screenshot. |
 
 There are no provider-specific routes. Sources such as `builtwith`, `haveibeenpwned`, `hibpverified`, `leaklookup`, and `securityscorecard` use the same run request as every other source.
@@ -68,7 +68,7 @@ run_id="$(curl -s http://127.0.0.1:5000/api/v1/runs \
 
 curl -s "http://127.0.0.1:5000/api/v1/runs/$run_id" \
   -H "X-API-Key: $THEHARVESTER_API_KEY" \
-  | jq '{status, evidence_status, results, source_executions}'
+  | jq '{status, evidence_status, results, source_executions, action_executions, artifacts}'
 ```
 
 Run submission is asynchronous. Lifecycle status is `queued`, `running`, `cancelling`, `cancelled`, `completed`, or `failed`. Terminal evidence status is reported separately as `complete`, `partial`, or `failed` when evidence exists.
@@ -77,7 +77,7 @@ P1 DNS and P2 direct options are fields on the same run request. The OpenAPI sch
 
 ## Import and export
 
-Import records existing evidence and never contacts the target. The API accepts only the same versioned `theharvester-results-v1` JSONL written by `theHarvester -f NAME`:
+Import records existing evidence and never contacts the target. The API accepts only the same JSONL written by `theHarvester -f NAME`:
 
 ```bash
 curl -s "http://127.0.0.1:5000/api/v1/runs/import?filename=report.jsonl" \
@@ -88,7 +88,7 @@ curl -s "http://127.0.0.1:5000/api/v1/runs/import?filename=report.jsonl" \
   | jq
 ```
 
-CLI JSONL does not contain source outcomes or an evidence status, so those imports are marked `partial` rather than inventing a success claim. API exports add `evidence_status` and `source_executions` to the summary record so a later API import retains them. `hostname` and `ip-address` findings are exposed through the API's canonical `subdomain` and `ip` result types.
+JSONL is a terminal report, so an import is recorded as completed. Each finding's `sources` array is retained and used to rebuild source attribution. Reconstructed executions use zero duration and the stop reason `imported-attribution` to make the missing timing explicit. `hostname` and `ip-address` findings are exposed through the API as `subdomain` and `ip` results.
 
 Export one normalized result set in the same streamable format:
 

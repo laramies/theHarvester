@@ -17,7 +17,6 @@ def _jsonl_result(
 ) -> str:
     summary = {
         'type': 'summary',
-        'schema_version': 'theharvester-results-v1',
         'run_id': '9f9b4383-6cc4-4f3f-80a4-c8d21930dc2d',
         'target': target,
         'started_at': '2026-08-08T01:00:00Z',
@@ -29,7 +28,7 @@ def _jsonl_result(
     return '\n'.join(
         (
             json.dumps(summary),
-            json.dumps({'type': finding_type, 'value': value, **(finding_fields or {})}),
+            json.dumps({'type': finding_type, 'value': value, 'sources': [], **(finding_fields or {})}),
             '',
         )
     )
@@ -42,7 +41,7 @@ def _jsonl_result(
         ('hostname', {'dns_status': 'made-up-status'}),
     ],
 )
-def test_api_rejects_jsonl_findings_outside_the_v1_contract(
+def test_api_rejects_jsonl_findings_outside_the_contract(
     tmp_path,
     monkeypatch,
     finding_type: str,
@@ -65,7 +64,7 @@ def test_api_rejects_jsonl_findings_outside_the_v1_contract(
     assert response.status_code == 400
 
 
-def test_api_exposes_one_versioned_run_contract(tmp_path, monkeypatch) -> None:
+def test_api_exposes_one_fresh_run_contract(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api import api
 
     monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
@@ -212,9 +211,15 @@ def test_openapi_explains_scope_and_execution_controls(tmp_path, monkeypatch) ->
     assert set(import_content) == {'application/x-ndjson'}
     export_content = schema['paths']['/api/v1/runs/{run_id}/export']['get']['responses']['200']['content']
     assert set(export_content) == {'application/x-ndjson'}
-    assert set(schema['components']['schemas']['NormalizedResult']['properties']) == {'type', 'value', 'dns_status'}
+    assert set(schema['components']['schemas']['NormalizedResult']['properties']) == {
+        'type',
+        'value',
+        'dns_status',
+        'sources',
+        'actions',
+    }
     assert export_content['application/x-ndjson']['schema']['description'] == (
-        'UTF-8 theharvester-results-v1 JSONL with one summary followed by normalized findings.'
+        'UTF-8 JSONL with one summary followed by normalized findings.'
     )
 
     def references(value):
@@ -271,26 +276,27 @@ def test_api_import_and_export_accept_only_jsonl(tmp_path, monkeypatch) -> None:
     assert exported.headers['content-type'] == 'application/x-ndjson'
     assert exported.headers['content-disposition'].endswith('.jsonl"')
     records = [json.loads(line) for line in exported.text.splitlines()]
-    assert records[0]['schema_version'] == 'theharvester-results-v1'
+    assert 'schema' not in records[0]
+    assert 'schema_version' not in records[0]
     assert records[0]['type'] == 'summary'
     assert records[0]['target'] == 'example.test'
-    assert records[1] == {'type': 'email', 'value': 'a@example.test'}
+    assert records[1] == {'sources': [], 'type': 'email', 'value': 'a@example.test'}
     assert reimported.status_code == 201
-    assert reimported.json()['results'] == [{'type': 'email', 'value': 'a@example.test'}]
+    assert reimported.json()['results'] == [{'type': 'email', 'value': 'a@example.test', 'sources': [], 'actions': []}]
     assert old_json.status_code == 404
     assert old_csv.status_code == 404
 
 
-def test_api_jsonl_round_trip_preserves_evidence_status_and_source_outcomes(tmp_path, monkeypatch) -> None:
+def test_api_jsonl_round_trip_preserves_source_attribution(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api import api
 
     source_execution = {
         'source': 'crtsh',
-        'status': 'succeeded',
-        'duration_ms': 25,
+        'status': 'completed',
+        'duration_ms': 0,
         'result_count': 1,
         'error_type': None,
-        'stop_reason': None,
+        'stop_reason': 'imported-attribution',
     }
     monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
     monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
@@ -302,7 +308,7 @@ def test_api_jsonl_round_trip_preserves_evidence_status_and_source_outcomes(tmp_
             '/api/v1/runs/import',
             params={'filename': 'complete.jsonl'},
             headers=headers,
-            content=_jsonl_result(summary_fields={'evidence_status': 'complete', 'source_executions': [source_execution]}),
+            content=_jsonl_result(finding_fields={'sources': ['crtsh']}),
         )
         exported = client.get(f'/api/v1/runs/{imported.json()["run_id"]}/export', headers=headers)
         reimported = client.post(
@@ -315,9 +321,11 @@ def test_api_jsonl_round_trip_preserves_evidence_status_and_source_outcomes(tmp_
     summary = json.loads(exported.text.splitlines()[0])
     assert imported.json()['evidence_status'] == 'complete'
     assert imported.json()['source_executions'] == [source_execution]
+    assert imported.json()['results'] == [{'type': 'email', 'value': 'a@example.test', 'sources': ['crtsh'], 'actions': []}]
     assert summary['run_id'] == '9f9b4383-6cc4-4f3f-80a4-c8d21930dc2d'
-    assert summary['evidence_status'] == 'complete'
-    assert summary['source_executions'] == [source_execution]
+    assert 'evidence_status' not in summary
+    assert 'source_executions' not in summary
+    assert json.loads(exported.text.splitlines()[1])['sources'] == ['crtsh']
     assert reimported.json()['evidence_status'] == 'complete'
     assert reimported.json()['evidence']['run_id'] == '9f9b4383-6cc4-4f3f-80a4-c8d21930dc2d'
     assert reimported.json()['source_executions'] == [source_execution]
@@ -404,7 +412,8 @@ def test_api_jsonl_export_uses_lifecycle_timestamps_for_sparse_partial_evidence(
     assert isinstance(summary['started_at'], str)
     assert isinstance(summary['completed_at'], str)
     assert reimported.status_code == 201
-    assert reimported.json()['evidence_status'] == 'partial'
+    assert 'evidence_status' not in summary
+    assert reimported.json()['evidence_status'] == 'complete'
 
 
 def test_api_jsonl_round_trip_uses_canonical_hostname_and_ip_kinds(tmp_path, monkeypatch) -> None:
@@ -415,16 +424,16 @@ def test_api_jsonl_round_trip_uses_canonical_hostname_and_ip_kinds(tmp_path, mon
     monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
     headers = {'X-API-Key': 'test-key'}
 
-    for client_ip, finding_type, api_type, value in (
-        ('127.0.0.5', 'hostname', 'subdomain', 'www.example.test'),
-        ('127.0.0.6', 'ip-address', 'ip', '192.0.2.1'),
+    for client_ip, finding_type, api_type, value, run_id in (
+        ('127.0.0.5', 'hostname', 'subdomain', 'www.example.test', '0f17b751-dd31-46da-968f-31580e233b72'),
+        ('127.0.0.6', 'ip-address', 'ip', '192.0.2.1', 'f7419165-d78c-4aef-9023-e9686f864ff0'),
     ):
         with TestClient(api.app, client=(client_ip, 50000)) as client:
             imported = client.post(
                 '/api/v1/runs/import',
                 params={'filename': f'{finding_type}.jsonl'},
                 headers=headers,
-                content=_jsonl_result(finding_type=finding_type, value=value),
+                content=_jsonl_result(finding_type=finding_type, value=value, summary_fields={'run_id': run_id}),
             )
             exported = client.get(f'/api/v1/runs/{imported.json()["run_id"]}/export', headers=headers)
             reimported = client.post(
@@ -434,9 +443,9 @@ def test_api_jsonl_round_trip_uses_canonical_hostname_and_ip_kinds(tmp_path, mon
                 content=exported.content,
             )
 
-        assert imported.json()['results'] == [{'type': api_type, 'value': value}]
-        assert json.loads(exported.text.splitlines()[1]) == {'type': finding_type, 'value': value}
-        assert reimported.json()['results'] == [{'type': api_type, 'value': value}]
+        assert imported.json()['results'] == [{'type': api_type, 'value': value, 'sources': [], 'actions': []}]
+        assert json.loads(exported.text.splitlines()[1]) == {'sources': [], 'type': finding_type, 'value': value}
+        assert reimported.json()['results'] == [{'type': api_type, 'value': value, 'sources': [], 'actions': []}]
 
 
 def test_api_rejects_non_string_jsonl_timestamps(tmp_path, monkeypatch) -> None:

@@ -16,6 +16,43 @@ from theHarvester.lib.evidence_types import (
 )
 
 
+def encode_result_jsonl(
+    summary: Mapping[str, object],
+    findings: Iterable[Mapping[str, object]],
+) -> str:
+    records = [{**summary, 'type': 'summary'}, *findings]
+    return ''.join(json.dumps(record, ensure_ascii=False, separators=(',', ':'), sort_keys=True) + '\n' for record in records)
+
+
+def parse_result_jsonl(payload: bytes | str) -> tuple[dict[str, object], list[dict[str, object]]]:
+    try:
+        text = payload.decode('utf-8') if isinstance(payload, bytes) else payload
+        records = [json.loads(line) for line in text.splitlines() if line.strip()]
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ValueError('result file is not valid JSONL') from error
+    if any(not isinstance(record, dict) for record in records):
+        raise ValueError('JSONL records must be objects')
+    summary = records[0] if records else None
+    if not summary or summary.get('type') != 'summary':
+        raise ValueError('JSONL must start with a summary record')
+    if 'schema' in summary or 'schema_version' in summary:
+        raise ValueError('JSONL must not contain a schema version')
+    findings = records[1:]
+    for record in findings:
+        sources = record.get('sources', [])
+        if (
+            set(record) - {'type', 'value', 'sources'}
+            or record.get('type') not in RESULT_KINDS
+            or not isinstance(record.get('value'), str)
+            or not record['value'].strip()
+            or not isinstance(sources, list)
+            or any(not isinstance(source, str) or not source.strip() for source in sources)
+        ):
+            raise ValueError('JSONL findings must contain a known type, non-empty value, and source names')
+        record['sources'] = sources
+    return summary, findings
+
+
 @dataclass(frozen=True, order=True, slots=True)
 class ResultObservation:
     source: str
@@ -182,7 +219,7 @@ class CompletedResult:
 
     def jsonl(self) -> str:
         counts = Counter(kind for kind, _value in self.results)
-        records = [
+        return encode_result_jsonl(
             {
                 'completed_at': format_utc(self.completed_at),
                 'counts': dict(sorted(counts.items())),
@@ -190,11 +227,9 @@ class CompletedResult:
                 'run_id': str(self.run_id),
                 'started_at': format_utc(self.started_at),
                 'target': self.target,
-                'type': 'summary',
             },
-            *self._result_records(include_actions=False),
-        ]
-        return ''.join(json.dumps(record, ensure_ascii=False, separators=(',', ':'), sort_keys=True) + '\n' for record in records)
+            self._result_records(include_actions=False),
+        )
 
     @property
     def status(self) -> str:

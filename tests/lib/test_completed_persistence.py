@@ -193,10 +193,10 @@ async def test_newer_schema_is_rejected_without_changing_journal_mode(tmp_path) 
     database = tmp_path / 'stash.sqlite'
     store = ResultStore(database)
     with sqlite3.connect(database) as db:
-        db.execute('PRAGMA user_version = 4')
+        db.execute('PRAGMA user_version = 5')
         original_journal_mode = db.execute('PRAGMA journal_mode').fetchone()[0]
 
-    with pytest.raises(RuntimeError, match='schema version 4 is newer than supported version 3'):
+    with pytest.raises(RuntimeError, match='schema version 5 is newer than supported version 4'):
         await store.initialize()
 
     with sqlite3.connect(database) as db:
@@ -396,7 +396,16 @@ async def test_mixed_source_action_artifact_round_trip_uses_unified_tables(tmp_p
             'JOIN executions AS e ON e.run_id = a.run_id AND e.position = a.execution_position '
             'JOIN results AS r ON r.run_id = a.run_id AND r.position = a.result_position'
         ).fetchall()
-    assert tables == {'runs', 'executions', 'results', 'result_origins', 'artifacts', 'legacy_observations'}
+    assert tables == {
+        'runs',
+        'executions',
+        'results',
+        'result_origins',
+        'artifacts',
+        'legacy_observations',
+        'run_records',
+        'run_worker_leases',
+    }
     assert executions == [
         (0, 'source', 'shared-name', 1),
         (1, 'action', 'shared-name', 1),
@@ -525,7 +534,7 @@ async def test_current_schema_reopens_without_running_legacy_migration(tmp_path)
 
 
 @pytest.mark.asyncio
-async def test_schema_v2_upgrades_to_v3_without_rewriting_existing_rows(tmp_path) -> None:
+async def test_schema_v2_upgrades_to_v4_without_rewriting_existing_rows(tmp_path) -> None:
     database = tmp_path / 'stash.sqlite'
     run_id = UUID('251d4047-190b-4a4d-9c4e-9eed3f23c8c7')
     with sqlite3.connect(database) as db:
@@ -569,7 +578,7 @@ async def test_schema_v2_upgrades_to_v3_without_rewriting_existing_rows(tmp_path
         observations=(ResultObservation('crtsh', 'hostname', 'api.example.com'),),
     )
     with sqlite3.connect(database) as db:
-        assert db.execute('PRAGMA user_version').fetchone()[0] == 3
+        assert db.execute('PRAGMA user_version').fetchone()[0] == 4
         assert db.execute('SELECT COUNT(*) FROM artifacts').fetchone()[0] == 0
 
 
@@ -611,7 +620,7 @@ async def test_released_results_migrate_to_legacy_observations(tmp_path) -> None
         ('/api/v1', 'api-endpoint'),
         ('admin@example.com', 'email'),
     ]
-    assert schema_version == 3
+    assert schema_version == 4
 
 
 @pytest.mark.asyncio
@@ -760,7 +769,7 @@ async def test_schema_v1_observations_upgrade_without_losing_rows(tmp_path) -> N
         schema_version = db.execute('PRAGMA user_version').fetchone()[0]
     assert 'discovery_observations' not in tables
     assert rows == [('example.com', 'api.example.com', 'hostname', 'crtsh')]
-    assert schema_version == 3
+    assert schema_version == 4
 
 
 @pytest.mark.asyncio

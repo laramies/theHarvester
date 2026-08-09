@@ -6,7 +6,6 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-from theHarvester.lib.completed_result import SCHEMA_VERSION as RESULTS_SCHEMA_VERSION
 from theHarvester.lib.enumeration import (
     DEFAULT_DNS_RECURSIVE_QUERY_LIMIT,
     DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS,
@@ -160,6 +159,8 @@ class NormalizedResult(BaseModel):
     type: str
     value: str
     dns_status: str | None = None
+    sources: list[str] = Field(default_factory=list)
+    actions: list[str] = Field(default_factory=list)
 
 
 class ScreenshotRecord(BaseModel):
@@ -200,6 +201,8 @@ class RunDetail(RunSummary):
     evidence: dict[str, Any] | None
     results: list[NormalizedResult]
     source_executions: list[dict[str, Any]]
+    action_executions: list[dict[str, Any]]
+    artifacts: list[dict[str, Any]]
     screenshots: list[ScreenshotRecord]
     log: str
 
@@ -223,7 +226,7 @@ EXPORT_RESPONSES: dict[int | str, dict[str, Any]] = {
             'application/x-ndjson': {
                 'schema': {
                     'type': 'string',
-                    'description': (f'UTF-8 {RESULTS_SCHEMA_VERSION} JSONL with one summary followed by normalized findings.'),
+                    'description': 'UTF-8 JSONL with one summary followed by normalized findings.',
                 }
             },
         },

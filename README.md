@@ -100,8 +100,8 @@ Open [http://127.0.0.1:5000/docs](http://127.0.0.1:5000/docs) for interactive Sw
 | `GET /api/v1/runs` | List durable run records. |
 | `GET /api/v1/runs/{run_id}` | Retrieve lifecycle state, normalized results, and source outcomes. |
 | `POST /api/v1/runs/{run_id}/cancel` | Cancel queued or running work. |
-| `POST /api/v1/runs/import` | Import versioned JSONL evidence without executing discovery. |
-| `GET /api/v1/runs/{run_id}/export` | Export normalized evidence as versioned JSONL. |
+| `POST /api/v1/runs/import` | Import JSONL evidence without executing discovery. |
+| `GET /api/v1/runs/{run_id}/export` | Export normalized evidence as JSONL. |
 
 Every `/api/v1/*` route requires `THEHARVESTER_API_KEY` in the `X-API-Key` header. Provider credentials stay in server-side configuration and cannot be supplied in a request. Keep the service bound to localhost. If you require remote access, add network access controls and TLS.
 
@@ -111,7 +111,7 @@ When `--proxies` and `--take-over` are combined, supported discovery and takeove
 
 The table shows which result types each source can add to consolidated CLI results. Legacy JSON and XML keep their existing schemas; breach names are retained in JSONL and SQLite. Some adapters parse fields that the reports do not store.
 
-The report groups findings by result type. It does not record which source found each item. Empty optional fields may be omitted.
+JSON and XML group findings by result type without source attribution. JSONL and SQLite retain source attribution when the collection adapter provides it. Empty optional fields may be omitted.
 BuiltWith's normalized frameworks, languages, servers, CMS products, and analytics products are retained in JSONL and completed-result SQLite rows.
 
 A checkmark means the source can add that result type. The **Additional action output** column lists optional actions that return other data.
@@ -208,7 +208,7 @@ Never commit populated configuration files, API keys, account details, or provid
 - Screenshots are written to the directory passed to `--screenshot`.
 - Host, email, IP, and related scan records are stored in `~/.local/share/theHarvester/stash.sqlite`.
 - Full CLI pipeline runs are also stored transactionally by run UUID with their completed, deduplicated findings.
-- API executions use durable run records with separate lifecycle and evidence status, typed `results`, and `source_executions`. File import and export use only the versioned JSONL result format.
+- API executions use the same SQLite database as CLI results. Durable lifecycle rows stay separate from terminal evidence, while typed results and source or action origins remain queryable. File import and export use only JSONL.
 
 Treat collected OSINT as potentially sensitive. Keep report files, screenshots, and the local database out of source control and share them only within the authorized engagement.
 

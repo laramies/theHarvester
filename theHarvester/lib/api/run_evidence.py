@@ -47,15 +47,14 @@ def parse_jsonl_import(body: bytes) -> dict[str, Any]:
     evidence = {
         'run_id': run_id,
         'target': summary.get('target'),
-        'status': summary.get('evidence_status', 'partial'),
+        'status': summary.get('evidence_status', 'complete'),
         'started_at': summary.get('started_at'),
         'completed_at': summary.get('completed_at'),
         'results': [
             {
                 'type': record['type'],
                 'value': record['value'],
-                'sources': [],
-                **({'dns_status': record['dns_status']} if isinstance(record.get('dns_status'), str) else {}),
+                'sources': record['sources'],
             }
             for record in findings
         ],

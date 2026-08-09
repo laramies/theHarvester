@@ -33,25 +33,40 @@ def normalized_results(evidence: dict[str, Any] | None) -> list[dict[str, Any]]:
     if not evidence:
         return []
     results: list[dict[str, Any]] = []
-    seen: set[tuple[str, str]] = set()
+    by_key: dict[tuple[str, str], dict[str, Any]] = {}
 
-    def add(result_type: str, value: object, dns_status: str | None = None) -> None:
+    def add(
+        result_type: str,
+        value: object,
+        dns_status: str | None = None,
+        sources: object = (),
+        actions: object = (),
+    ) -> None:
         if value is None or value == '':
             return
         normalized_value = str(value)
         key = (result_type, normalized_value)
-        if key in seen:
-            return
-        seen.add(key)
-        item: dict[str, Any] = {'type': result_type, 'value': normalized_value}
+        item = by_key.setdefault(
+            key,
+            {'type': result_type, 'value': normalized_value, 'sources': [], 'actions': []},
+        )
         if dns_status is not None:
             item['dns_status'] = dns_status
-        results.append(item)
+        if isinstance(sources, list):
+            item['sources'] = sorted(set(item['sources']) | {str(source) for source in sources})
+        if isinstance(actions, list):
+            item['actions'] = sorted(set(item['actions']) | {str(action) for action in actions})
 
     for item in evidence.get('results') or []:
         if isinstance(item, dict) and item.get('type') != 'screenshot':
             result_type = str(item.get('type', 'other'))
-            add(RESULT_TYPE_ALIASES.get(result_type, result_type), item.get('value'), item.get('dns_status'))
+            add(
+                RESULT_TYPE_ALIASES.get(result_type, result_type),
+                item.get('value'),
+                item.get('dns_status'),
+                item.get('sources'),
+                item.get('actions'),
+            )
 
     for entity in evidence.get('entities') or []:
         if not isinstance(entity, dict):
@@ -88,6 +103,7 @@ def normalized_results(evidence: dict[str, Any] | None) -> list[dict[str, Any]]:
         kind = str(observation.get('kind', 'other'))
         add(kind_map.get(kind, kind), observation.get('value'))
 
+    results.extend(by_key.values())
     return results
 
 
@@ -103,14 +119,34 @@ def screenshots(evidence: dict[str, Any] | None, run_id: str, artifact_dir: Path
     if not screenshot_dir.is_dir():
         return []
     allowed_names: set[str] = set()
+    targets: dict[str, str] = {}
+    for artifact in (evidence or {}).get('artifacts') or []:
+        if not isinstance(artifact, dict) or artifact.get('kind') != 'screenshot':
+            continue
+        file = artifact.get('file')
+        subject = artifact.get('subject')
+        if not isinstance(file, dict) or not isinstance(subject, dict):
+            continue
+        name = Path(str(file.get('path', ''))).name
+        if name and name.endswith('.png'):
+            allowed_names.add(name)
+            targets[name] = str(subject.get('value') or Path(name).stem)
     for item in (evidence or {}).get('results') or []:
         if not isinstance(item, dict) or item.get('type') != 'screenshot':
             continue
         name = f'{str(item.get("value", "")).removeprefix("https://").removeprefix("http://")}.png'
         if name and Path(name).name == name:
             allowed_names.add(name)
+            path_target = str(item.get('value', ''))
+            targets[name] = path_target
+            if path_target.startswith(('http://', 'https://')):
+                targets[name] = path_target.split('://', 1)[1]
     return [
-        {'name': path.name, 'target': path.stem, 'url': f'/api/v1/runs/{run_id}/screenshots/{path.name}'}
+        {
+            'name': path.name,
+            'target': targets.get(path.name, path.stem),
+            'url': f'/api/v1/runs/{run_id}/screenshots/{path.name}',
+        }
         for path in sorted(screenshot_dir.glob('*.png'))
         if path.name in allowed_names and path.is_file()
     ]

@@ -34,7 +34,7 @@ Host, email, IP, and related records are stored at:
 
 The database persists across runs. Account for it in engagement cleanup and retention procedures.
 
-Completed CLI executions store one normalized terminal record keyed by run UUID. API executions use a separate run database configured by `THEHARVESTER_RUN_DB`; each record keeps lifecycle state, the submitted request, normalized results, and source outcomes. Imported JSONL evidence is stored as an imported run without executing discovery. CLI JSONL imports are `partial` because that format does not record source outcomes or evidence status; API JSONL exports add both fields to the summary so they survive an API round trip.
+Completed CLI executions store one normalized terminal record keyed by run UUID. API executions use the same database by default and may override its path with `THEHARVESTER_RUN_DB`. Lifecycle rows keep queue, cancellation, and worker state separate from terminal evidence. Imported JSONL is stored without executing discovery, and source attribution is rebuilt from each finding's `sources` array.
 
 The normalized persistence model can represent active-action provenance and artifact metadata through five core tables:
 
@@ -44,7 +44,9 @@ The normalized persistence model can represent active-action provenance and arti
 - `result_origins`: which execution produced each result; and
 - `artifacts`: files such as screenshots, linked to their creating action and subject result.
 
-Current runtime collection populates passive source executions plus DNS, takeover, Shodan, and API endpoint scan executions and origins. Screenshot artifacts are integrated in a later slice. Older runless rows remain in `legacy_observations`. SQLite upgrades supported schemas automatically during normal initialization.
+Current runtime collection populates passive source executions plus DNS, takeover, Shodan, and API endpoint scan executions and origins. Screenshot artifacts are integrated in a later slice.
+
+Two operational tables support the API without changing those five evidence concepts: `run_records` stores queue and lifecycle state, and `run_worker_leases` prevents two local workers from claiming the same queue. Older runless rows remain in `legacy_observations`. SQLite upgrades supported schemas automatically during normal initialization.
 
 ## Screenshots
 
@@ -52,7 +54,7 @@ Current runtime collection populates passive source executions plus DNS, takeove
 
 ## API results
 
-`GET /api/v1/runs/{run_id}` returns lifecycle state plus a normalized `results` array. Each result has a `type` and `value`; DNS-backed results can also include `dns_status`. Per-result source attribution is omitted until the collection seam can retain it truthfully. Run-level source outcomes remain available in `source_executions`. API file import and export use only versioned JSONL. Treat runtime `/docs`, `/redoc`, and OpenAPI as the exact request and response reference.
+`GET /api/v1/runs/{run_id}` returns lifecycle state plus a normalized `results` array. Each result has `type`, `value`, `sources`, and `actions`; DNS-backed results can also include `dns_status`. Run-level source and action outcomes remain available in `source_executions` and `action_executions`, while file metadata is returned through `artifacts`. API file import and export use only JSONL. Treat runtime `/docs`, `/redoc`, and OpenAPI as the exact request and response reference.
 
 ## Handling and sharing
 

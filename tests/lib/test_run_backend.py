@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
+import sqlite3
 import sys
 import time
 from datetime import UTC, datetime
@@ -35,8 +37,34 @@ def test_explicit_run_database_keeps_screenshot_artifacts_attached(tmp_path, mon
                 'run_id': '4a6e5a15-fae5-462c-a34b-122ced6bb86d',
                 'target': 'example.test',
                 'status': 'complete',
-                'results': [{'type': 'screenshot', 'value': 'https://owned.example.test'}],
+                'started_at': '2026-08-09T12:00:00+00:00',
+                'completed_at': '2026-08-09T12:01:00+00:00',
+                'results': [{'type': 'hostname', 'value': 'owned.example.test', 'actions': []}],
                 'source_executions': [],
+                'action_executions': [
+                    {
+                        'action': 'screenshot',
+                        'status': 'completed',
+                        'duration_ms': 1,
+                        'result_count': 0,
+                        'error_type': None,
+                        'stop_reason': None,
+                    }
+                ],
+                'artifacts': [
+                    {
+                        'action': 'screenshot',
+                        'kind': 'screenshot',
+                        'subject': {'kind': 'hostname', 'value': 'owned.example.test'},
+                        'file': {
+                            'path': 'screenshots/owned.example.test.png',
+                            'media_type': 'image/png',
+                            'size_bytes': 3,
+                            'sha256': '0' * 64,
+                        },
+                        'created_at': '2026-08-09T12:01:00+00:00',
+                    }
+                ],
             },
             'evidence.jsonl',
         )
@@ -49,6 +77,56 @@ def test_explicit_run_database_keeps_screenshot_artifacts_attached(tmp_path, mon
 
     assert run is not None
     assert [screenshot['name'] for screenshot in run['screenshots']] == ['owned.example.test.png']
+
+
+def test_api_lifecycle_and_terminal_evidence_share_the_sqlalchemy_database(tmp_path) -> None:
+    from theHarvester.lib.api import run_store as run_store_module
+    from theHarvester.lib.api.run_models import RunRequest
+    from theHarvester.lib.api.run_store import RunStore
+
+    database = tmp_path / 'stash.sqlite'
+
+    async def scenario() -> str:
+        store = RunStore(database)
+        queued = await store.create(RunRequest(target='example.test', sources=['crtsh']))
+        await store.claim_next()
+        await store.finish(
+            queued['run_id'],
+            {
+                'run_id': '4a6e5a15-fae5-462c-a34b-122ced6bb86d',
+                'target': 'example.test',
+                'status': 'complete',
+                'started_at': '2026-08-09T12:00:00+00:00',
+                'completed_at': '2026-08-09T12:01:00+00:00',
+                'results': [{'type': 'hostname', 'value': 'api.example.test', 'sources': ['crtsh']}],
+                'source_executions': [
+                    {
+                        'source': 'crtsh',
+                        'status': 'completed',
+                        'duration_ms': 1,
+                        'result_count': 1,
+                        'error_type': None,
+                        'stop_reason': None,
+                    }
+                ],
+            },
+            '',
+        )
+        return queued['run_id']
+
+    lifecycle_run_id = asyncio.run(scenario())
+
+    with sqlite3.connect(database) as db:
+        evidence_run_id = db.execute(
+            'SELECT evidence_run_id FROM run_records WHERE run_id = ?',
+            (lifecycle_run_id,),
+        ).fetchone()[0]
+        stored_target = db.execute('SELECT target FROM runs WHERE run_id = ?', (evidence_run_id,)).fetchone()[0]
+        schema_version = db.execute('PRAGMA user_version').fetchone()[0]
+    assert evidence_run_id == '4a6e5a15-fae5-462c-a34b-122ced6bb86d'
+    assert stored_target == 'example.test'
+    assert schema_version == 4
+    assert 'import aiosqlite' not in inspect.getsource(run_store_module)
 
 
 def test_orphan_recovery_reattaches_partial_checkpoint_and_leaves_queued_work(tmp_path, monkeypatch) -> None:
@@ -87,7 +165,7 @@ def test_orphan_recovery_reattaches_partial_checkpoint_and_leaves_queued_work(tm
     assert cancelling is not None
     assert cancelling['status'] == 'failed'
     assert cancelling['evidence_status'] == 'partial'
-    assert cancelling['results'] == [{'type': 'email', 'value': 'saved@first.example'}]
+    assert cancelling['results'] == [{'type': 'email', 'value': 'saved@first.example', 'sources': [], 'actions': []}]
     assert running is not None
     assert running['status'] == 'failed'
     assert {run['target']: run['status'] for run in history}['third.example'] == 'queued'
@@ -211,7 +289,7 @@ def test_running_cancellation_terminates_child_and_retains_partial_evidence(tmp_
     assert detail['status'] == 'cancelled'
     assert detail['completed_at'] is not None
     assert detail['evidence_status'] == 'partial'
-    assert detail['results'] == [{'type': 'email', 'value': 'saved@example.test'}]
+    assert detail['results'] == [{'type': 'email', 'value': 'saved@example.test', 'sources': [], 'actions': []}]
 
 
 def test_whole_run_deadline_terminates_child_and_retains_partial_evidence(tmp_path, monkeypatch) -> None:
@@ -260,4 +338,4 @@ def test_whole_run_deadline_terminates_child_and_retains_partial_evidence(tmp_pa
     assert detail['status'] == 'failed'
     assert 'deadline' in detail['error']
     assert detail['evidence_status'] == 'partial'
-    assert detail['results'] == [{'type': 'email', 'value': 'saved@example.test'}]
+    assert detail['results'] == [{'type': 'email', 'value': 'saved@example.test', 'sources': [], 'actions': []}]

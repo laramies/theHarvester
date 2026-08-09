@@ -1,22 +1,21 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any
-from uuid import uuid4
+from collections import Counter, defaultdict
+from datetime import datetime
+from typing import TYPE_CHECKING, Any, cast
+from uuid import UUID, uuid4
 
-import aiosqlite
 from fastapi import HTTPException, status
+
+from theHarvester.lib.active_evidence import ActionExecution, ActiveEvidence, ArtifactReference
+from theHarvester.lib.completed_result import CompletedResult, ResultObservation, SourceExecution
+from theHarvester.lib.database import DuplicateRunError, ResultStore, RunLifecycleStore
+from theHarvester.lib.evidence_types import EXECUTION_STATUSES, ExecutionStatus, ResultKind
 
 from .run_artifacts import RunPaths, read_child_evidence
 from .run_models import RunRequest, _normalize_target, utc_now
-from .run_projection import (
-    activities_for_evidence,
-    activities_for_request,
-    normalized_results,
-    screenshots,
-    source_executions,
-)
+from .run_projection import activities_for_evidence, activities_for_request, normalized_results, screenshots, source_executions
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -24,104 +23,176 @@ if TYPE_CHECKING:
 WORKER_LEASE_TIMEOUT_SECONDS = 30
 
 
+def _execution_status(value: object) -> ExecutionStatus:
+    normalized = {'succeeded': 'completed', 'empty': 'completed'}.get(str(value), str(value))
+    return cast('ExecutionStatus', normalized if normalized in EXECUTION_STATUSES else 'failed')
+
+
+def _completed_result(
+    evidence: dict[str, Any],
+    *,
+    fallback_started_at: str,
+    fallback_completed_at: str,
+) -> CompletedResult:
+    results = [item for item in evidence.get('results', []) if isinstance(item, dict)]
+    groups: dict[ResultKind, list[str]] = defaultdict(list)
+    source_origins: list[ResultObservation] = []
+    source_counts: Counter[str] = Counter()
+    action_groups: dict[str, dict[ResultKind, list[str]]] = defaultdict(lambda: defaultdict(list))
+    for item in results:
+        kind = cast('ResultKind', str(item['type']))
+        value = str(item['value'])
+        groups[kind].append(value)
+        for source in item.get('sources', []):
+            source_name = str(source)
+            source_origins.append(ResultObservation(source_name, kind, value))
+            source_counts[source_name] += 1
+        for action in item.get('actions', []):
+            action_groups[str(action)][kind].append(value)
+
+    source_details = {
+        str(item.get('source') or item.get('name')): item
+        for item in evidence.get('source_executions', [])
+        if isinstance(item, dict) and (item.get('source') or item.get('name'))
+    }
+    source_names = sorted(set(source_details) | set(source_counts))
+    completed_sources = tuple(
+        SourceExecution(
+            source=name,
+            status=_execution_status(source_details.get(name, {}).get('status', 'completed')),
+            duration_ms=float(source_details.get(name, {}).get('duration_ms', 0)),
+            result_count=source_counts[name],
+            error_type=source_details.get(name, {}).get('error_type'),
+            stop_reason=source_details.get(name, {}).get('stop_reason')
+            or ('imported-attribution' if name not in source_details else None),
+        )
+        for name in source_names
+    )
+
+    artifacts_by_action: dict[str, list[ArtifactReference]] = defaultdict(list)
+    for item in evidence.get('artifacts', []):
+        if not isinstance(item, dict) or not item.get('action'):
+            continue
+        subject = item.get('subject')
+        file = item.get('file')
+        if not isinstance(subject, dict) or not isinstance(file, dict):
+            continue
+        artifacts_by_action[str(item['action'])].append(
+            ArtifactReference(
+                kind=str(item['kind']),
+                subject_kind=cast('ResultKind', str(subject['kind'])),
+                subject_value=str(subject['value']),
+                path=str(file['path']),
+                media_type=str(file['media_type']),
+                size_bytes=int(file['size_bytes']),
+                sha256=str(file['sha256']),
+                created_at=datetime.fromisoformat(str(item.get('created_at') or fallback_completed_at)),
+            )
+        )
+    action_details = {
+        str(item.get('action') or item.get('name')): item
+        for item in evidence.get('action_executions', [])
+        if isinstance(item, dict) and (item.get('action') or item.get('name'))
+    }
+    action_names = sorted(set(action_details) | set(action_groups) | set(artifacts_by_action))
+    active_evidence = ActiveEvidence(
+        executions=tuple(
+            ActionExecution.finish(
+                action=name,
+                status=_execution_status(action_details.get(name, {}).get('status', 'completed')),
+                duration_ms=float(action_details.get(name, {}).get('duration_ms', 0)),
+                groups=action_groups[name],
+                artifacts=artifacts_by_action[name],
+                error_type=action_details.get(name, {}).get('error_type'),
+                stop_reason=action_details.get(name, {}).get('stop_reason'),
+            )
+            for name in action_names
+        )
+    )
+    return CompletedResult.finish(
+        run_id=UUID(str(evidence.get('run_id') or uuid4())),
+        target=str(evidence['target']),
+        started_at=datetime.fromisoformat(str(evidence.get('started_at') or fallback_started_at)),
+        completed_at=datetime.fromisoformat(str(evidence.get('completed_at') or fallback_completed_at)),
+        groups=groups,
+        source_executions=completed_sources,
+        observations=source_origins,
+        active_evidence=active_evidence,
+    )
+
+
 class RunStore:
+    """Join API lifecycle state with the canonical SQLAlchemy result store."""
+
     def __init__(self, database: str | Path | None = None) -> None:
         self.paths = RunPaths.configured(database)
         self.database = self.paths.database
+        self.lifecycle = RunLifecycleStore(self.database)
+        self.results = ResultStore(self.database)
 
     def artifact_directory(self, run_id: str) -> Path:
         return self.paths.artifact_directory(run_id)
 
     async def initialize(self) -> None:
-        try:
-            self.database.parent.mkdir(parents=True, mode=0o700)
-        except FileExistsError:
-            pass
-        else:
-            self.database.parent.chmod(0o700)
-        self.database.touch(exist_ok=True, mode=0o600)
+        self.database.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        self.database.parent.chmod(0o700)
+        await self.lifecycle.initialize()
         self.database.chmod(0o600)
-        async with aiosqlite.connect(self.database) as database:
-            await database.execute(
-                """
-                CREATE TABLE IF NOT EXISTS runs (
-                    run_id TEXT PRIMARY KEY,
-                    target TEXT NOT NULL,
-                    status TEXT NOT NULL,
-                    origin TEXT NOT NULL,
-                    created_at TEXT NOT NULL,
-                    started_at TEXT,
-                    completed_at TEXT,
-                    request_json TEXT NOT NULL,
-                    evidence_json TEXT,
-                    cancellation_requested_at TEXT,
-                    error TEXT,
-                    log TEXT NOT NULL DEFAULT ''
-                )
-                """
-            )
-            await database.execute(
-                """
-                CREATE TABLE IF NOT EXISTS run_worker_lease (
-                    lease_name TEXT PRIMARY KEY,
-                    owner_id TEXT NOT NULL,
-                    heartbeat_at TEXT NOT NULL
-                )
-                """
-            )
-            await database.commit()
 
-    def _row(self, row: aiosqlite.Row, *, detail: bool = False) -> dict[str, Any]:
+    async def _row(self, record: dict[str, object], *, detail: bool = False) -> dict[str, Any]:
+        request = json.loads(str(record['request_json']))
+        evidence = None
+        if record['evidence_run_id'] is not None:
+            evidence = (await self.results.load_run(UUID(str(record['evidence_run_id'])))).evidence_dict()
         result = {
-            'run_id': row['run_id'],
-            'target': row['target'],
-            'status': row['status'],
-            'origin': row['origin'],
-            'created_at': row['created_at'],
-            'started_at': row['started_at'],
-            'completed_at': row['completed_at'],
-            'cancellation_requested_at': row['cancellation_requested_at'],
-            'error': row['error'],
+            'run_id': record['run_id'],
+            'target': record['target'],
+            'status': record['status'],
+            'origin': record['origin'],
+            'created_at': record['created_at'],
+            'started_at': record['started_at'],
+            'completed_at': record['completed_at'],
+            'cancellation_requested_at': record['cancellation_requested_at'],
+            'error': record['error'],
+            'sources': request.get('sources', []),
+            'activities': activities_for_request(request),
+            'evidence_status': record['evidence_status'] or (evidence.get('status') if evidence else None),
+            'result_count': len(normalized_results(evidence)) if evidence else 0,
         }
-        request = json.loads(row['request_json'])
-        evidence = json.loads(row['evidence_json']) if row['evidence_json'] else None
-        result['sources'] = request.get('sources', [])
-        result['activities'] = activities_for_request(request)
-        result['evidence_status'] = evidence.get('status') if evidence else None
-        result['result_count'] = len(normalized_results(evidence)) if evidence else 0
         if detail:
-            result['request'] = request
-            result['evidence'] = evidence
-            result['results'] = normalized_results(evidence)
-            result['source_executions'] = source_executions(evidence)
-            result['screenshots'] = screenshots(evidence, row['run_id'], self.artifact_directory(row['run_id']))
-            result['log'] = row['log']
+            result.update(
+                request=request,
+                evidence=evidence,
+                results=normalized_results(evidence),
+                source_executions=source_executions(evidence),
+                action_executions=evidence.get('action_executions', []) if evidence else [],
+                artifacts=evidence.get('artifacts', []) if evidence else [],
+                screenshots=screenshots(evidence, str(record['run_id']), self.artifact_directory(str(record['run_id']))),
+                log=record['log'],
+            )
         return result
 
     async def create(self, request: RunRequest) -> dict[str, Any]:
         await self.initialize()
         run_id = str(uuid4())
-        created_at = utc_now()
-        async with aiosqlite.connect(self.database) as database:
-            await database.execute(
-                """
-                INSERT INTO runs
-                    (run_id, target, status, origin, created_at, request_json)
-                VALUES (?, ?, 'queued', 'local', ?, ?)
-                """,
-                (run_id, request.target, created_at, request.model_dump_json()),
-            )
-            await database.commit()
+        await self.lifecycle.create(
+            run_id=run_id,
+            target=request.target,
+            status='queued',
+            origin='local',
+            created_at=utc_now(),
+            request_json=request.model_dump_json(),
+        )
         run = await self.get(run_id)
         assert run is not None
         return run
 
     async def import_evidence(self, evidence: dict[str, Any], filename: str) -> dict[str, Any]:
         await self.initialize()
-        run_id = str(uuid4())
         created_at = utc_now()
         target = _normalize_target(str(evidence['target']))
-        executions = source_executions(evidence)
+        completed = await self._save_evidence(evidence, created_at, created_at)
+        executions = source_executions(completed.evidence_dict())
         request = {
             'filename': filename,
             'sources': sorted(
@@ -133,169 +204,101 @@ class RunStore:
             ),
             'activities': activities_for_evidence(executions),
         }
-        async with aiosqlite.connect(self.database) as database:
-            await database.execute(
-                """
-                INSERT INTO runs
-                    (run_id, target, status, origin, created_at, started_at, completed_at, request_json, evidence_json)
-                VALUES (?, ?, 'completed', 'imported', ?, ?, ?, ?, ?)
-                """,
-                (
-                    run_id,
-                    target,
-                    created_at,
-                    evidence.get('started_at'),
-                    evidence.get('completed_at') or created_at,
-                    json.dumps(request),
-                    json.dumps(evidence),
-                ),
-            )
-            await database.commit()
+        run_id = str(uuid4())
+        await self.lifecycle.create(
+            run_id=run_id,
+            target=target,
+            status='completed',
+            origin='imported',
+            created_at=created_at,
+            started_at=completed.started_at.isoformat(),
+            completed_at=completed.completed_at.isoformat(),
+            request_json=json.dumps(request),
+            evidence_run_id=str(completed.run_id),
+            evidence_status=completed.status,
+        )
         run = await self.get(run_id)
         assert run is not None
         return run
 
     async def list_runs(self) -> list[dict[str, Any]]:
         await self.initialize()
-        async with aiosqlite.connect(self.database) as database:
-            database.row_factory = aiosqlite.Row
-            cursor = await database.execute('SELECT * FROM runs ORDER BY created_at DESC')
-            rows = await cursor.fetchall()
-        return [self._row(row) for row in rows]
+        return [await self._row(record) for record in await self.lifecycle.list_records()]
 
     async def get(self, run_id: str) -> dict[str, Any] | None:
         await self.initialize()
-        async with aiosqlite.connect(self.database) as database:
-            database.row_factory = aiosqlite.Row
-            cursor = await database.execute('SELECT * FROM runs WHERE run_id = ?', (run_id,))
-            row = await cursor.fetchone()
-        return self._row(row, detail=True) if row else None
+        record = await self.lifecycle.get(run_id)
+        return await self._row(record, detail=True) if record else None
 
     async def cancel(self, run_id: str) -> dict[str, Any] | None:
         await self.initialize()
-        requested_at = utc_now()
-        async with aiosqlite.connect(self.database) as database:
-            await database.execute('BEGIN IMMEDIATE')
-            cursor = await database.execute('SELECT status FROM runs WHERE run_id = ?', (run_id,))
-            row = await cursor.fetchone()
-            if row is None:
-                await database.rollback()
-                return None
-            current = row[0]
-            if current == 'queued':
-                await database.execute(
-                    "UPDATE runs SET status = 'cancelled', cancellation_requested_at = ?, completed_at = ? "
-                    "WHERE run_id = ? AND status = 'queued'",
-                    (requested_at, requested_at, run_id),
-                )
-            elif current == 'running':
-                await database.execute(
-                    "UPDATE runs SET status = 'cancelling', cancellation_requested_at = ? "
-                    "WHERE run_id = ? AND status = 'running'",
-                    (requested_at, run_id),
-                )
-            elif current not in {'cancelling', 'cancelled'}:
-                await database.rollback()
-                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f'Run is already {current}')
-            await database.commit()
-        return await self.get(run_id)
+        try:
+            record = await self.lifecycle.cancel(run_id, utc_now())
+        except ValueError as error:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f'Run is already {error.args[0]}') from error
+        return await self._row(record, detail=True) if record else None
 
     async def recover_orphans(self) -> None:
         await self.initialize()
         recovered_at = utc_now()
-        async with aiosqlite.connect(self.database) as database:
-            cursor = await database.execute("SELECT run_id FROM runs WHERE status IN ('running', 'cancelling')")
-            for (run_id,) in await cursor.fetchall():
-                evidence, evidence_error = read_child_evidence(self.artifact_directory(run_id))
-                error = 'theHarvester restarted before child completion'
-                if evidence_error:
-                    error += f'; {evidence_error}'
-                await database.execute(
-                    """
-                    UPDATE runs
-                    SET status = 'failed', completed_at = ?, error = ?, evidence_json = COALESCE(?, evidence_json)
-                    WHERE run_id = ? AND status IN ('running', 'cancelling')
-                    """,
-                    (recovered_at, error, json.dumps(evidence) if evidence else None, run_id),
+        for record in await self.lifecycle.running():
+            run_id = str(record['run_id'])
+            evidence, evidence_error = read_child_evidence(self.artifact_directory(run_id))
+            error = 'theHarvester restarted before child completion'
+            if evidence_error:
+                error += f'; {evidence_error}'
+            evidence_run_id = None
+            if evidence:
+                completed = await self._save_evidence(
+                    evidence,
+                    str(record['started_at'] or record['created_at']),
+                    recovered_at,
                 )
-            await database.commit()
+                evidence_run_id = str(completed.run_id)
+            await self.lifecycle.fail(
+                run_id,
+                status='failed',
+                completed_at=recovered_at,
+                error=error,
+                log=str(record['log']),
+                evidence_run_id=evidence_run_id,
+                evidence_status=str(evidence.get('status', completed.status)) if evidence else None,
+            )
 
     async def acquire_worker_lease(self, owner_id: str) -> bool:
         await self.initialize()
-        now = utc_now()
-        async with aiosqlite.connect(self.database) as database:
-            await database.execute('BEGIN IMMEDIATE')
-            cursor = await database.execute("SELECT owner_id, heartbeat_at FROM run_worker_lease WHERE lease_name = 'executor'")
-            row = await cursor.fetchone()
-            stale = row is not None and datetime.fromisoformat(row[1]) < datetime.fromisoformat(now) - timedelta(
-                seconds=WORKER_LEASE_TIMEOUT_SECONDS
-            )
-            if row is not None and row[0] != owner_id and not stale:
-                await database.rollback()
-                return False
-            await database.execute(
-                """
-                INSERT INTO run_worker_lease (lease_name, owner_id, heartbeat_at)
-                VALUES ('executor', ?, ?)
-                ON CONFLICT(lease_name) DO UPDATE
-                SET owner_id = excluded.owner_id, heartbeat_at = excluded.heartbeat_at
-                """,
-                (owner_id, now),
-            )
-            await database.commit()
-        return True
+        return await self.lifecycle.acquire_lease(owner_id, utc_now(), WORKER_LEASE_TIMEOUT_SECONDS)
 
     async def heartbeat_worker_lease(self, owner_id: str) -> bool:
-        async with aiosqlite.connect(self.database) as database:
-            cursor = await database.execute(
-                "UPDATE run_worker_lease SET heartbeat_at = ? WHERE lease_name = 'executor' AND owner_id = ?",
-                (utc_now(), owner_id),
-            )
-            await database.commit()
-        return cursor.rowcount == 1
+        return await self.lifecycle.heartbeat_lease(owner_id, utc_now())
 
     async def release_worker_lease(self, owner_id: str) -> None:
-        async with aiosqlite.connect(self.database) as database:
-            await database.execute(
-                "DELETE FROM run_worker_lease WHERE lease_name = 'executor' AND owner_id = ?",
-                (owner_id,),
-            )
-            await database.commit()
+        return await self.lifecycle.release_lease(owner_id)
 
     async def claim_next(self) -> dict[str, Any] | None:
         await self.initialize()
-        async with aiosqlite.connect(self.database) as database:
-            await database.execute('BEGIN IMMEDIATE')
-            cursor = await database.execute("SELECT run_id FROM runs WHERE status = 'queued' ORDER BY created_at LIMIT 1")
-            row = await cursor.fetchone()
-            if row is None:
-                await database.rollback()
-                return None
-            run_id = row[0]
-            started_at = utc_now()
-            cursor = await database.execute(
-                "UPDATE runs SET status = 'running', started_at = ? WHERE run_id = ? AND status = 'queued'",
-                (started_at, run_id),
-            )
-            if cursor.rowcount != 1:
-                await database.rollback()
-                return None
-            await database.commit()
-        return await self.get(run_id)
+        record = await self.lifecycle.claim_next(utc_now())
+        return await self._row(record, detail=True) if record else None
 
     async def finish(self, run_id: str, evidence: dict[str, Any] | None, log: str) -> None:
-        completed_at = utc_now()
-        async with aiosqlite.connect(self.database) as database:
-            await database.execute(
-                """
-                UPDATE runs
-                SET status = CASE status WHEN 'cancelling' THEN 'cancelled' ELSE 'completed' END,
-                    completed_at = ?, evidence_json = COALESCE(?, evidence_json), log = ?
-                WHERE run_id = ? AND status IN ('running', 'cancelling')
-                """,
-                (completed_at, json.dumps(evidence) if evidence else None, log[-200_000:], run_id),
+        record = await self.lifecycle.get(run_id)
+        if record is None:
+            return
+        evidence_run_id = None
+        if evidence:
+            completed = await self._save_evidence(
+                evidence,
+                str(record['started_at'] or record['created_at']),
+                utc_now(),
             )
-            await database.commit()
+            evidence_run_id = str(completed.run_id)
+        await self.lifecycle.finish(
+            run_id,
+            completed_at=utc_now(),
+            evidence_run_id=evidence_run_id,
+            evidence_status=str(evidence.get('status', completed.status)) if evidence else None,
+            log=log[-200_000:],
+        )
 
     async def fail(
         self,
@@ -306,12 +309,46 @@ class RunStore:
         cancelled: bool = False,
         evidence: dict[str, Any] | None = None,
     ) -> None:
+        record = await self.lifecycle.get(run_id)
+        if record is None:
+            return
         completed_at = utc_now()
-        lifecycle_status = 'cancelled' if cancelled else 'failed'
-        async with aiosqlite.connect(self.database) as database:
-            await database.execute(
-                'UPDATE runs SET status = ?, completed_at = ?, error = ?, log = ?, '
-                'evidence_json = COALESCE(?, evidence_json) WHERE run_id = ?',
-                (lifecycle_status, completed_at, error, log[-200_000:], json.dumps(evidence) if evidence else None, run_id),
+        evidence_run_id = None
+        if evidence:
+            completed = await self._save_evidence(
+                evidence,
+                str(record['started_at'] or record['created_at']),
+                completed_at,
             )
-            await database.commit()
+            evidence_run_id = str(completed.run_id)
+        await self.lifecycle.fail(
+            run_id,
+            status='cancelled' if cancelled else 'failed',
+            completed_at=completed_at,
+            error=error,
+            log=log[-200_000:],
+            evidence_run_id=evidence_run_id,
+            evidence_status=str(evidence.get('status', completed.status)) if evidence else None,
+        )
+
+    async def _save_evidence(
+        self,
+        evidence: dict[str, Any],
+        fallback_started_at: str,
+        fallback_completed_at: str,
+    ) -> CompletedResult:
+        completed = _completed_result(
+            evidence,
+            fallback_started_at=fallback_started_at,
+            fallback_completed_at=fallback_completed_at,
+        )
+        try:
+            await self.results.save_run(completed)
+        except DuplicateRunError:
+            existing = await self.results.load_run(completed.run_id)
+            if existing != completed:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f'Run evidence already exists with different contents: {completed.run_id}',
+                ) from None
+        return completed
