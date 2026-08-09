@@ -237,14 +237,14 @@ The JSON report is a single object that preserves the legacy automation contract
 
 The XML report contains the command, emails, hosts, and virtual hosts. Use JSON when you need the additional result types above.
 
-The JSONL report is finalized after the selected one-shot actions finish. The first line identifies the run with its UUID, target, UTC timestamps, result counts, and schema version. Each later line is one sorted, deduplicated finding. When you concatenate report files, treat each summary line as the start of a new run.
+The JSONL report is finalized after the selected one-shot actions finish. The first line identifies the run with its UUID, target, UTC timestamps, and result counts. Each later line is one sorted, deduplicated finding. When you concatenate report files, treat each summary line as the start of a new run.
 
 ```jsonl
-{"completed_at":"2026-08-07T12:01:00Z","counts":{"hostname":1},"result_count":1,"run_id":"123e4567-e89b-12d3-a456-426614174000","schema_version":"theharvester-results-v1","started_at":"2026-08-07T12:00:00Z","target":"example.com","type":"summary"}
-{"type":"hostname","value":"api.example.com"}
+{"completed_at":"2026-08-07T12:01:00Z","counts":{"hostname":1},"result_count":1,"run_id":"123e4567-e89b-12d3-a456-426614174000","started_at":"2026-08-07T12:00:00Z","target":"example.com","type":"summary"}
+{"sources":[],"type":"hostname","value":"api.example.com"}
 ```
 
-JSONL v1 is easy to stream for simple findings, but it is not uniformly self-describing. Finding lines inherit their run ID and target from the preceding summary. Structured result types, including recursive DNS records plus `person`, `infostealer`, `shodan`, and `takeover`, store a JSON object inside the string `value` to preserve the v1 wire format. Parse those values a second time with `fromjson`. JSONL v1 does not include source execution records or source attribution.
+JSONL is easy to stream for simple findings, but it is not uniformly self-describing. Finding lines inherit their run ID and target from the preceding summary. Structured result types, including recursive DNS records plus `person`, `infostealer`, `shodan`, and `takeover`, store a JSON object inside the string `value`. Parse those values a second time with `fromjson`. JSONL does not include source execution records. Finding records include source attribution when it is available.
 
 Parse recursive DNS findings as JSON objects:
 

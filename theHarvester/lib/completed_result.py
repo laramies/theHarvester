@@ -35,7 +35,6 @@ ResultKind = Literal[
 ]
 ExecutionStatus = Literal['completed', 'partial', 'failed', 'rate-limited', 'skipped']
 
-SCHEMA_VERSION = 'theharvester-results-v1'
 RESULT_KINDS: frozenset[str] = frozenset(get_args(ResultKind))
 EXECUTION_STATUSES: frozenset[str] = frozenset(get_args(ExecutionStatus))
 
@@ -205,7 +204,6 @@ class CompletedResult:
                 'counts': dict(sorted(counts.items())),
                 'result_count': len(self.results),
                 'run_id': str(self.run_id),
-                'schema_version': SCHEMA_VERSION,
                 'started_at': _isoformat_utc(self.started_at),
                 'target': self.target,
                 'type': 'summary',

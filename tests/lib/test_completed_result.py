@@ -28,7 +28,6 @@ def test_completed_result_is_deterministic_and_deduplicated() -> None:
             'counts': {'email': 1, 'hostname': 2},
             'result_count': 3,
             'run_id': 'f047261c-0afb-4e18-89d5-28a7d977f51f',
-            'schema_version': 'theharvester-results-v1',
             'started_at': '2026-08-05T12:00:00Z',
             'target': 'example.com',
             'type': 'summary',
@@ -49,6 +48,8 @@ def test_completed_result_is_deterministic_and_deduplicated() -> None:
             'value': 'www.example.com',
         },
     ]
+    assert 'schema' not in records[0]
+    assert 'schema_version' not in records[0]
     assert result.jsonl().endswith('\n')
 
 
