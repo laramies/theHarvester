@@ -114,6 +114,10 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
 ) -> None:
     stored: list[tuple[str, tuple[str, ...], str]] = []
     completed_results: list[CompletedResult] = []
+    checkpoints: list[CompletedResult] = []
+
+    async def capture_checkpoint(result: CompletedResult) -> None:
+        checkpoints.append(result)
 
     class FakeResultStore:
         fail_completed_write = False
@@ -225,11 +229,9 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
     configure_logging(verbose=False)
 
     with pytest.raises(SystemExit) as exit_info:
-        await theharvester_main.start()
+        await theharvester_main.start(completed_result_checkpoint=capture_checkpoint)
 
     assert exit_info.value.code == 0
-    assert ('hostname', ('alias.example.com', 'api.example.com', 'broken.example.com'), 'rapiddns') in stored
-    assert ('ip-address', ('192.0.2.1',), 'rapiddns') in stored
     assert stored.count(('api-endpoint', ('/health',), 'api_scan')) == 1
 
     report_json = json.loads(report.with_suffix('.json').read_text())
@@ -242,12 +244,25 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
     assert jsonl_records[0]['target'] == 'example.com'
     UUID(jsonl_records[0]['run_id'])
     assert [str(result.run_id) for result in completed_results] == [jsonl_records[0]['run_id']]
-    assert {'type': 'interesting-url', 'value': 'https://example.com/health'} in jsonl_records
-    assert {'type': 'url', 'value': 'https://example.com/health'} in jsonl_records
-    assert {'type': 'hostname', 'value': 'reverse.example.com'} in jsonl_records
-    assert {'type': 'ip-address', 'value': '198.51.100.9'} in jsonl_records
-    assert {'type': 'ip-address', 'value': '2001:db8::1'} in jsonl_records
+    assert checkpoints
+    assert {result.run_id for result in checkpoints} == {completed_results[0].run_id}
+    assert {'type': 'interesting-url', 'value': 'https://example.com/health', 'sources': []} in jsonl_records
+    assert {'type': 'url', 'value': 'https://example.com/health', 'sources': []} in jsonl_records
+    assert {'type': 'hostname', 'value': 'reverse.example.com', 'sources': []} in jsonl_records
+    assert {'type': 'ip-address', 'value': '198.51.100.9', 'sources': ['securityscorecard']} in jsonl_records
+    assert {'type': 'ip-address', 'value': '2001:db8::1', 'sources': ['securityscorecard']} in jsonl_records
     assert not any(record.get('value') == 'not-an-ip' for record in jsonl_records)
+    assert {(observation.source, observation.kind, observation.value) for observation in completed_results[0].observations} >= {
+        ('rapiddns', 'hostname', 'api.example.com'),
+        ('rapiddns', 'ip-address', '192.0.2.1'),
+        ('securityscorecard', 'ip-address', '198.51.100.9'),
+        ('securityscorecard', 'ip-address', '2001:db8::1'),
+    }
+    securityscorecard_execution = next(
+        execution for execution in completed_results[0].source_executions if execution.source == 'securityscorecard'
+    )
+    assert securityscorecard_execution.status == 'completed'
+    assert securityscorecard_execution.result_count == 2
 
     xml_hosts = {
         (element.findtext('hostname') or (element.text or '').strip(), element.findtext('ip'))
@@ -306,17 +321,18 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
     assert set(rest_results[6]) == {'192.0.2.1', '198.51.100.2'}
     assert rest_results[7] == ['user@example.com']
     assert rest_results[8] == ['alias.example.com', 'api.example.com', 'broken.example.com']
-    assert stored[stored_before_rest:] == [
-        ('email', ('user@example.com',), 'dehashed'),
-        ('ip-address', ('198.51.100.2',), 'dehashed'),
-        ('hostname', ('alias.example.com', 'api.example.com', 'broken.example.com'), 'rapiddns'),
-        ('ip-address', ('192.0.2.1',), 'rapiddns'),
-    ]
+    assert stored[stored_before_rest:] == []
     assert len(completed_results) == 2
     assert FakeSecurityScorecard.created == 1
     assert completed_results[1].target == 'example.com'
     assert {'192.0.2.1', '198.51.100.2'} <= {value for kind, value in completed_results[1].results if kind == 'ip-address'}
     assert ('email', 'user@example.com') in completed_results[1].results
+    assert {(observation.source, observation.kind, observation.value) for observation in completed_results[1].observations} >= {
+        ('dehashed', 'email', 'user@example.com'),
+        ('dehashed', 'ip-address', '198.51.100.2'),
+        ('rapiddns', 'hostname', 'api.example.com'),
+        ('rapiddns', 'ip-address', '192.0.2.1'),
+    }
 
     monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.com', '-b', 'rapiddns'])
     with pytest.raises(SystemExit) as no_file_exit:

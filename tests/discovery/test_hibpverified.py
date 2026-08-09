@@ -188,5 +188,5 @@ async def test_verified_domain_results_reach_completed_jsonl_and_sqlite_handoff(
         ('email', 'alice@example.com'),
     )
     records = [json.loads(line) for line in report.with_suffix('.jsonl').read_text().splitlines()]
-    assert {'type': 'breach', 'value': 'ExampleBreach'} in records
-    assert {'type': 'email', 'value': 'alice@example.com'} in records
+    assert {'type': 'breach', 'value': 'ExampleBreach', 'sources': ['hibpverified']} in records
+    assert {'type': 'email', 'value': 'alice@example.com', 'sources': ['hibpverified']} in records
