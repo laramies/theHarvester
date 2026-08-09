@@ -10,7 +10,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from theHarvester.lib.completed_result import CompletedResult
-from theHarvester.lib.database import CompletedRunRecord, _sqlite_has_wal_reset_fix, sqlite_session
+from theHarvester.lib.database import RunRecord, _sqlite_has_wal_reset_fix, dispose_sqlite_databases, sqlite_session
 from theHarvester.lib.stash import StashManager
 
 RELEASED_COMPLETED_SCHEMA = """
@@ -133,7 +133,7 @@ async def test_locked_database_write_does_not_block_the_event_loop(tmp_path) -> 
 
 
 @pytest.mark.asyncio
-async def test_orm_sessions_enforce_foreign_keys_and_cascade_completed_items(tmp_path) -> None:
+async def test_orm_sessions_enforce_foreign_keys_and_cascade_results(tmp_path) -> None:
     manager = StashManager()
     manager.db = str(tmp_path / 'stash.sqlite')
     await manager.do_init()
@@ -142,13 +142,13 @@ async def test_orm_sessions_enforce_foreign_keys_and_cascade_completed_items(tmp
 
     async with sqlite_session(manager.db) as session:
         assert (await session.execute(text('PRAGMA foreign_keys'))).scalar_one() == 1
-        parent = await session.get(CompletedRunRecord, str(result.run_id))
+        parent = await session.get(RunRecord, str(result.run_id))
         assert parent is not None
         await session.delete(parent)
         await session.commit()
 
     with sqlite3.connect(manager.db) as db:
-        assert db.execute('SELECT COUNT(*) FROM completed_result_items').fetchone()[0] == 0
+        assert db.execute('SELECT COUNT(*) FROM results').fetchone()[0] == 0
 
 
 @pytest.mark.asyncio
@@ -164,14 +164,14 @@ async def test_completed_result_round_trip_preserves_discovery_observations(tmp_
     assert await manager.load_completed_result(result.run_id) == result
     with sqlite3.connect(manager.db) as db:
         stored = db.execute('SELECT domain, resource, kind, source FROM discovery_observations').fetchall()
-        stored_items = set(db.execute('SELECT kind, value FROM completed_result_items').fetchall())
-        completed_types = {row[1]: row[2] for row in db.execute('PRAGMA table_info(completed_results)')}
-        item_types = {row[1]: row[2] for row in db.execute('PRAGMA table_info(completed_result_items)')}
+        stored_items = set(db.execute('SELECT kind, value FROM results').fetchall())
+        run_types = {row[1]: row[2] for row in db.execute('PRAGMA table_info(runs)')}
+        result_types = {row[1]: row[2] for row in db.execute('PRAGMA table_info(results)')}
     jsonl_items = {(record['type'], record['value']) for line in result.jsonl().splitlines()[1:] if (record := json.loads(line))}
     assert stored == [('example.com', 'legacy.example.com', 'hostname', 'legacy-source')]
     assert stored_items == jsonl_items
-    assert completed_types == {'run_id': 'TEXT', 'target': 'TEXT', 'started_at': 'TEXT', 'completed_at': 'TEXT'}
-    assert item_types == {
+    assert run_types == {'run_id': 'TEXT', 'target': 'TEXT', 'started_at': 'TEXT', 'completed_at': 'TEXT'}
+    assert result_types == {
         'run_id': 'TEXT',
         'position': 'INTEGER',
         'kind': 'TEXT',
@@ -185,7 +185,11 @@ async def test_existing_completed_records_survive_initialization(tmp_path) -> No
     manager.db = str(tmp_path / 'stash.sqlite')
     existing = completed_result()
     with sqlite3.connect(manager.db) as db:
-        db.executescript(RELEASED_COMPLETED_SCHEMA)
+        db.executescript(RELEASED_RESULTS_SCHEMA + RELEASED_COMPLETED_SCHEMA)
+        db.execute(
+            'INSERT INTO results (domain, resource, type, find_date, source) VALUES (?, ?, ?, ?, ?)',
+            ('example.com', 'legacy.example.com', 'host', '2026-08-08', 'crtsh'),
+        )
         db.execute(
             'INSERT INTO completed_results (run_id, target, started_at, completed_at) VALUES (?, ?, ?, ?)',
             (str(existing.run_id), existing.target, existing.started_at.isoformat(), existing.completed_at.isoformat()),
@@ -198,6 +202,27 @@ async def test_existing_completed_records_survive_initialization(tmp_path) -> No
     await manager.do_init()
 
     assert await manager.load_completed_result(existing.run_id) == existing
+    with sqlite3.connect(manager.db) as db:
+        tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+        migrated = db.execute('SELECT resource, kind, source FROM discovery_observations').fetchall()
+    assert {'completed_results', 'completed_result_items', 'legacy_results'}.isdisjoint(tables)
+    assert migrated == [('legacy.example.com', 'hostname', 'crtsh')]
+
+
+@pytest.mark.asyncio
+async def test_current_schema_reopens_without_running_legacy_migration(tmp_path) -> None:
+    manager = StashManager()
+    manager.db = str(tmp_path / 'stash.sqlite')
+    existing = completed_result()
+    await manager.do_init()
+    await manager.store_completed_result(existing)
+    await dispose_sqlite_databases()
+
+    reopened = StashManager()
+    reopened.db = manager.db
+    await reopened.do_init()
+
+    assert await reopened.load_completed_result(existing.run_id) == existing
 
 
 @pytest.mark.asyncio
@@ -224,8 +249,10 @@ async def test_released_results_migrate_to_discovery_observations(tmp_path) -> N
     with sqlite3.connect(manager.db) as db:
         tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
         observations = db.execute('SELECT resource, kind FROM discovery_observations ORDER BY id').fetchall()
+        result_columns = [row[1] for row in db.execute('PRAGMA table_info(results)')]
         schema_version = db.execute('PRAGMA user_version').fetchone()[0]
-    assert 'results' not in tables
+    assert 'legacy_results' not in tables
+    assert result_columns == ['run_id', 'position', 'kind', 'value']
     assert observations == [
         ('api.example.com', 'hostname'),
         ('192.0.2.1', 'ip-address'),
@@ -275,8 +302,8 @@ async def test_completed_result_write_is_atomic_and_rejects_duplicate_run_id(tmp
     with sqlite3.connect(manager.db) as db:
         db.execute(
             """
-            CREATE TRIGGER fail_completed_item
-            BEFORE INSERT ON completed_result_items
+            CREATE TRIGGER fail_result
+            BEFORE INSERT ON results
             WHEN NEW.run_id = 'f9b33a33-e6d6-4a48-b04f-1a4a3012bc1f'
             BEGIN
                 SELECT RAISE(ABORT, 'forced failure');
@@ -288,9 +315,9 @@ async def test_completed_result_write_is_atomic_and_rejects_duplicate_run_id(tmp
         await manager.store_completed_result(failing)
 
     with sqlite3.connect(manager.db) as db:
-        parent_count = db.execute('SELECT COUNT(*) FROM completed_results').fetchone()[0]
-        item_count = db.execute('SELECT COUNT(*) FROM completed_result_items').fetchone()[0]
-    assert (parent_count, item_count) == (1, 7)
+        run_count = db.execute('SELECT COUNT(*) FROM runs').fetchone()[0]
+        result_count = db.execute('SELECT COUNT(*) FROM results').fetchone()[0]
+    assert (run_count, result_count) == (1, 7)
 
 
 @pytest.mark.asyncio

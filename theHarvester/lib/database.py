@@ -39,10 +39,10 @@ class DiscoveryObservationRecord(Base):
     source: Mapped[str] = mapped_column(Text)
 
 
-class CompletedRunRecord(Base):
-    """The target and timestamps shared by the evidence from one completed run."""
+class RunRecord(Base):
+    """One enumeration run and the time window in which it ran."""
 
-    __tablename__ = 'completed_results'
+    __tablename__ = 'runs'
 
     run_id: Mapped[str] = mapped_column(Text, primary_key=True)
     target: Mapped[str] = mapped_column(Text)
@@ -50,15 +50,15 @@ class CompletedRunRecord(Base):
     completed_at: Mapped[str] = mapped_column(Text)
 
 
-class CompletedResultItemRecord(Base):
-    """A deduplicated finding in a completed run, kept in output order."""
+class ResultRecord(Base):
+    """One deduplicated result from a run, kept in output order."""
 
-    __tablename__ = 'completed_result_items'
+    __tablename__ = 'results'
     __table_args__ = (UniqueConstraint('run_id', 'kind', 'value'),)
 
     run_id: Mapped[str] = mapped_column(
         Text,
-        ForeignKey('completed_results.run_id', ondelete='CASCADE'),
+        ForeignKey('runs.run_id', ondelete='CASCADE'),
         primary_key=True,
     )
     position: Mapped[int] = mapped_column(primary_key=True)
@@ -120,11 +120,18 @@ class SQLiteDatabase:
                             raise RuntimeError(
                                 f'Database schema version {schema_version} is newer than supported version {SCHEMA_VERSION}'
                             )
+                        tables: set[str] = set()
+                        if schema_version == 0:
+                            table_rows = await connection.exec_driver_sql("SELECT name FROM sqlite_master WHERE type = 'table'")
+                            tables = {row[0] for row in table_rows}
+                            if 'results' in tables:
+                                await connection.exec_driver_sql('ALTER TABLE results RENAME TO legacy_results')
+                            if 'completed_results' in tables:
+                                await connection.exec_driver_sql('ALTER TABLE completed_results RENAME TO runs')
+                            if 'completed_result_items' in tables:
+                                await connection.exec_driver_sql('ALTER TABLE completed_result_items RENAME TO results')
                         await connection.run_sync(Base.metadata.create_all)
-                        legacy_table = await connection.exec_driver_sql(
-                            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'results'"
-                        )
-                        if legacy_table.scalar_one_or_none() is not None:
+                        if 'results' in tables:
                             await connection.exec_driver_sql(
                                 'INSERT INTO discovery_observations (domain, resource, kind, discovered_on, source) '
                                 'SELECT domain, resource, CASE type '
@@ -135,9 +142,9 @@ class SQLiteDatabase:
                                 "WHEN 'interestingurls' THEN 'interesting-url' "
                                 "WHEN 'asns' THEN 'asn' "
                                 "WHEN 'api_endpoint' THEN 'api-endpoint' "
-                                'ELSE type END, find_date, source FROM results'
+                                'ELSE type END, find_date, source FROM legacy_results'
                             )
-                            await connection.exec_driver_sql('DROP TABLE results')
+                            await connection.exec_driver_sql('DROP TABLE legacy_results')
                         await connection.exec_driver_sql(f'PRAGMA user_version = {SCHEMA_VERSION}')
                         await connection.commit()
                     except BaseException:

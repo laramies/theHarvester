@@ -9,9 +9,9 @@ from sqlalchemy import func, select
 
 from theHarvester.lib.completed_result import CompletedResult, ResultKind
 from theHarvester.lib.database import (
-    CompletedResultItemRecord,
-    CompletedRunRecord,
     DiscoveryObservationRecord,
+    ResultRecord,
+    RunRecord,
     initialize_stash_schema,
     sqlite_session,
 )
@@ -36,7 +36,7 @@ class StashManager:
         run_id = str(result.run_id)
         async with sqlite_session(self.db) as session:
             session.add(
-                CompletedRunRecord(
+                RunRecord(
                     run_id=run_id,
                     target=result.target,
                     started_at=result.started_at.isoformat(),
@@ -45,21 +45,19 @@ class StashManager:
             )
             await session.flush()
             session.add_all(
-                CompletedResultItemRecord(run_id=run_id, position=position, kind=kind, value=value)
+                ResultRecord(run_id=run_id, position=position, kind=kind, value=value)
                 for position, (kind, value) in enumerate(result.results)
             )
             await session.commit()
 
     async def load_completed_result(self, run_id: UUID) -> CompletedResult:
         async with sqlite_session(self.db) as session:
-            parent = await session.get(CompletedRunRecord, str(run_id))
+            parent = await session.get(RunRecord, str(run_id))
             if parent is None:
                 raise LookupError(f'completed result not found: {run_id}')
             rows = (
                 await session.scalars(
-                    select(CompletedResultItemRecord)
-                    .where(CompletedResultItemRecord.run_id == str(run_id))
-                    .order_by(CompletedResultItemRecord.position)
+                    select(ResultRecord).where(ResultRecord.run_id == str(run_id)).order_by(ResultRecord.position)
                 )
             ).all()
         return CompletedResult(
@@ -74,15 +72,15 @@ class StashManager:
         async with sqlite_session(self.db) as session:
             rows = (
                 await session.execute(
-                    select(CompletedRunRecord, func.count(CompletedResultItemRecord.position))
+                    select(RunRecord, func.count(ResultRecord.position))
                     .outerjoin(
-                        CompletedResultItemRecord,
-                        CompletedResultItemRecord.run_id == CompletedRunRecord.run_id,
+                        ResultRecord,
+                        ResultRecord.run_id == RunRecord.run_id,
                     )
-                    .group_by(CompletedRunRecord.run_id)
+                    .group_by(RunRecord.run_id)
                     .order_by(
-                        func.julianday(CompletedRunRecord.completed_at).desc(),
-                        CompletedRunRecord.run_id.desc(),
+                        func.julianday(RunRecord.completed_at).desc(),
+                        RunRecord.run_id.desc(),
                     )
                     .limit(limit)
                 )
