@@ -233,7 +233,7 @@
     return ['completed', 'failed', 'cancelled'].includes(status);
   }
 
-  async function selectRun(runId, options = {}) {
+  async function selectRun(runId) {
     stopPolling();
     state.selectedId = runId;
     state.detail = null;
@@ -248,7 +248,6 @@
       state.detail = detail;
       renderDetail();
       if (!isTerminalStatus(state.detail.status)) startPolling();
-      if (options.focus) $('#run-detail').focus?.();
     } catch (error) {
       if (state.selectedId !== runId) return;
       nodes.loading.hidden = true;
@@ -665,12 +664,12 @@
     openDialog(nodes.importDialog, '#result-file');
   }
 
-  async function focusCreatedRun(run) {
-    state.selectedId = run.run_id;
+  async function focusCreatedRun(runId) {
+    state.selectedId = runId;
     const runsResponse = await api('/api/v1/runs');
     state.runs = await runsResponse.json();
     renderHistory();
-    await selectRun(run.run_id);
+    await selectRun(runId);
   }
 
   async function queueResultAction(action, target, button) {
@@ -686,7 +685,7 @@
         method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)
       });
       const run = await response.json();
-      await focusCreatedRun(run);
+      await focusCreatedRun(run.run_id);
       toast(`${label} for ${target} is ${state.detail?.status || 'submitted'}.`);
     } catch (error) {
       toast(`Could not start ${label.toLowerCase()}: ${error.message}.`, true);
@@ -728,7 +727,7 @@
       });
       const run = await response.json();
       closeDialog(nodes.newRunDialog);
-      await focusCreatedRun(run);
+      await focusCreatedRun(run.run_id);
       if (state.detail?.status === 'queued') toast(`Enumeration for ${run.target} is queued.`);
     } catch (error) {
       showFormError(nodes.newRunError, error.message);
@@ -765,13 +764,13 @@
       const imported = await response.json();
       closeDialog(nodes.importDialog);
       if (fileKind === 'jsonl') {
-        await focusCreatedRun(imported);
+        await focusCreatedRun(imported.run_id);
         toast(`Imported ${file.name} without executing discovery.`);
       } else {
         const importedIds = imported.imported_run_ids || [];
         const skippedIds = imported.skipped_run_ids || [];
         const selectedId = importedIds[0] || skippedIds[0];
-        if (selectedId) await focusCreatedRun({run_id: selectedId});
+        if (selectedId) await focusCreatedRun(selectedId);
         else {
           const runsResponse = await api('/api/v1/runs');
           state.runs = await runsResponse.json();

@@ -276,7 +276,6 @@ a:focus-visible {
 .button:active,
 .header-button:active { transform: translateY(1px); }
 .button.small { min-height: 44px; padding: 8px 10px; font-size: 12px; }
-.button.wide { width: 100%; }
 .button.danger { color: var(--danger); background: var(--danger-soft); border-color: var(--danger); }
 .button:disabled { cursor: wait; opacity: 0.58; }
 
@@ -488,7 +487,6 @@ a:focus-visible {
 
 .overview-grid { display: grid; grid-template-columns: 1fr; border: 1px solid var(--line-strong); }
 .overview-panel { min-width: 0; padding: 20px; background: var(--surface); }
-.overview-panel + .overview-panel { border-inline-start: 1px solid var(--line-strong); }
 
 .activity-bands { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-block-end: 18px; }
 .activity-band { min-width: 0; padding: 10px; color: var(--muted); background: var(--surface-muted); border-block-start: 3px solid var(--line-strong); }
@@ -581,7 +579,6 @@ a:focus-visible {
 .value-cell { overflow-wrap: anywhere; font-family: var(--font-mono); font-size: 12px; }
 .result-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .result-actions .button { flex: 1 1 118px; white-space: nowrap; }
-.source-cell { color: var(--muted); font-size: 11px; }
 .dns-label { display: inline-flex; min-width: 82px; align-items: center; gap: 6px; font-size: 11px; font-weight: 750; }
 .dns-label::before { content: ""; width: 7px; height: 7px; background: currentColor; border-radius: 50%; }
 .dns-label.resolved { color: var(--success); }
@@ -621,9 +618,7 @@ dialog[open] { animation: dialog-in 180ms cubic-bezier(0.22, 1, 0.36, 1); }
 .form-dialog { width: min(650px, calc(100vw - 28px)); }
 .wide-dialog { width: min(980px, calc(100vw - 28px)); }
 .dialog-content { padding: clamp(22px, 4vw, 34px); }
-.dialog-brand, .dialog-header { display: flex; align-items: start; justify-content: space-between; gap: 15px; }
-.dialog-brand { align-items: center; justify-content: start; margin-block-end: 20px; }
-.dialog-brand img { width: 54px; height: 54px; object-fit: contain; }
+.dialog-header { display: flex; align-items: start; justify-content: space-between; gap: 15px; }
 .dialog-content h2 { margin: 0; font-size: clamp(26px, 4vw, 36px); line-height: 1.05; letter-spacing: -0.032em; text-wrap: balance; }
 .dialog-content > p { max-width: 70ch; color: var(--ink-soft); }
 .dialog-content code { color: var(--accent-text); }
@@ -703,7 +698,6 @@ dialog[open] { animation: dialog-in 180ms cubic-bezier(0.22, 1, 0.36, 1); }
   .run-facts div:nth-child(3) { border: 0; }
   .run-facts div:nth-child(n+4) { border-block-start: 1px solid var(--line); }
   .overview-grid { grid-template-columns: 1fr; }
-  .overview-panel + .overview-panel { border-inline-start: 0; border-block-start: 1px solid var(--line-strong); }
   .form-grid.three { grid-template-columns: 1.4fr 0.6fr; }
   .form-grid.three label:last-child { grid-column: 1 / -1; }
 }
