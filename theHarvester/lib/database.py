@@ -27,7 +27,7 @@ class Base(DeclarativeBase):
 
 
 class DiscoveryObservationRecord(Base):
-    """One source's observation of a resource during an enumeration run."""
+    """One source's persisted observation of a discovered resource."""
 
     __tablename__ = 'discovery_observations'
 
@@ -120,18 +120,19 @@ class SQLiteDatabase:
                             raise RuntimeError(
                                 f'Database schema version {schema_version} is newer than supported version {SCHEMA_VERSION}'
                             )
-                        tables: set[str] = set()
+                        has_legacy_results = False
                         if schema_version == 0:
                             table_rows = await connection.exec_driver_sql("SELECT name FROM sqlite_master WHERE type = 'table'")
                             tables = {row[0] for row in table_rows}
-                            if 'results' in tables:
+                            has_legacy_results = 'results' in tables
+                            if has_legacy_results:
                                 await connection.exec_driver_sql('ALTER TABLE results RENAME TO legacy_results')
                             if 'completed_results' in tables:
                                 await connection.exec_driver_sql('ALTER TABLE completed_results RENAME TO runs')
                             if 'completed_result_items' in tables:
                                 await connection.exec_driver_sql('ALTER TABLE completed_result_items RENAME TO results')
                         await connection.run_sync(Base.metadata.create_all)
-                        if 'results' in tables:
+                        if has_legacy_results:
                             await connection.exec_driver_sql(
                                 'INSERT INTO discovery_observations (domain, resource, kind, discovered_on, source) '
                                 'SELECT domain, resource, CASE type '
