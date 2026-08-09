@@ -10,12 +10,19 @@ from pathlib import Path
 from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import Date, Float, ForeignKey, ForeignKeyConstraint, Text, UniqueConstraint, event, func, select
+from sqlalchemy import CheckConstraint, Date, Float, ForeignKey, ForeignKeyConstraint, Text, UniqueConstraint, event, func, select
 from sqlalchemy.engine import URL
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
+from theHarvester.lib.active_evidence import (
+    ActionExecution,
+    ActionObservation,
+    ActionYield,
+    ActiveEvidence,
+    ArtifactReference,
+)
 from theHarvester.lib.completed_result import (
     CompletedResult,
     ExecutionStatus,
@@ -27,7 +34,7 @@ from theHarvester.lib.completed_result import (
 
 logger = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 _DEFAULT_DATABASE = Path('~/.local/share/theHarvester/stash.sqlite').expanduser()
 
 
@@ -132,6 +139,37 @@ class _ResultOriginRow(_Base):
     run_id: Mapped[str] = mapped_column(Text, primary_key=True)
     result_position: Mapped[int] = mapped_column(primary_key=True)
     execution_position: Mapped[int] = mapped_column(primary_key=True)
+
+
+class _ArtifactRow(_Base):
+    """Metadata for a file created by an action and attached to one result."""
+
+    __tablename__ = 'artifacts'
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ('run_id', 'result_position'),
+            ('results.run_id', 'results.position'),
+            ondelete='CASCADE',
+        ),
+        ForeignKeyConstraint(
+            ('run_id', 'execution_position'),
+            ('executions.run_id', 'executions.position'),
+            ondelete='CASCADE',
+        ),
+        CheckConstraint('size_bytes >= 0'),
+        CheckConstraint("length(sha256) = 64 AND sha256 NOT GLOB '*[^0-9a-f]*'"),
+    )
+
+    run_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    position: Mapped[int] = mapped_column(primary_key=True)
+    result_position: Mapped[int]
+    execution_position: Mapped[int]
+    kind: Mapped[str] = mapped_column(Text)
+    path: Mapped[str] = mapped_column(Text)
+    media_type: Mapped[str] = mapped_column(Text)
+    size_bytes: Mapped[int]
+    sha256: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[str] = mapped_column(Text)
 
 
 def _configure_sqlite_connection(dbapi_connection: Any, _connection_record: Any) -> None:
@@ -281,30 +319,58 @@ class ResultStore:
                     _ResultRow(run_id=run_id, position=position, kind=kind, value=value)
                     for position, (kind, value) in enumerate(result.results)
                 )
+                producers: list[tuple[str, str, SourceExecution | ActionExecution]] = [
+                    ('source', execution.source, execution) for execution in result.source_executions
+                ]
+                producers.extend(('action', execution.action, execution) for execution in result.active_evidence.executions)
                 session.add_all(
                     _ExecutionRow(
                         run_id=run_id,
                         position=position,
-                        producer_kind='source',
-                        name=execution.source,
+                        producer_kind=producer_kind,
+                        name=name,
                         status=execution.status,
                         duration_ms=execution.duration_ms,
                         result_count=execution.result_count,
                         error_type=execution.error_type,
                         stop_reason=execution.stop_reason,
                     )
-                    for position, execution in enumerate(result.source_executions)
+                    for position, (producer_kind, name, execution) in enumerate(producers)
                 )
                 await session.flush()
                 result_positions = {item: position for position, item in enumerate(result.results)}
-                execution_positions = {execution.source: position for position, execution in enumerate(result.source_executions)}
+                execution_positions = {
+                    (producer_kind, name): position for position, (producer_kind, name, _execution) in enumerate(producers)
+                }
+                origins: list[tuple[str, str, ResultKind, str]] = [
+                    ('source', observation.source, observation.kind, observation.value) for observation in result.observations
+                ]
+                origins.extend(
+                    ('action', action, observation.kind, observation.value)
+                    for action, observation in result.active_evidence.observations
+                )
                 session.add_all(
                     _ResultOriginRow(
                         run_id=run_id,
-                        result_position=result_positions[(observation.kind, observation.value)],
-                        execution_position=execution_positions[observation.source],
+                        result_position=result_positions[(kind, value)],
+                        execution_position=execution_positions[(producer_kind, name)],
                     )
-                    for observation in result.observations
+                    for producer_kind, name, kind, value in origins
+                )
+                session.add_all(
+                    _ArtifactRow(
+                        run_id=run_id,
+                        position=position,
+                        result_position=result_positions[(artifact.subject_kind, artifact.subject_value)],
+                        execution_position=execution_positions[('action', action)],
+                        kind=artifact.kind,
+                        path=artifact.path,
+                        media_type=artifact.media_type,
+                        size_bytes=artifact.size_bytes,
+                        sha256=artifact.sha256,
+                        created_at=artifact.created_at.isoformat(),
+                    )
+                    for position, (action, artifact) in enumerate(result.active_evidence.artifacts)
                 )
                 await session.commit()
             except IntegrityError as error:
@@ -326,14 +392,76 @@ class ResultStore:
             ).all()
             execution_rows = (
                 await session.scalars(
-                    select(_ExecutionRow)
-                    .where(_ExecutionRow.run_id == str(run_id), _ExecutionRow.producer_kind == 'source')
-                    .order_by(_ExecutionRow.position)
+                    select(_ExecutionRow).where(_ExecutionRow.run_id == str(run_id)).order_by(_ExecutionRow.position)
                 )
             ).all()
             origin_rows = (await session.scalars(select(_ResultOriginRow).where(_ResultOriginRow.run_id == str(run_id)))).all()
+            artifact_rows = (
+                await session.scalars(
+                    select(_ArtifactRow).where(_ArtifactRow.run_id == str(run_id)).order_by(_ArtifactRow.position)
+                )
+            ).all()
         results_by_position = {row.position: row for row in rows}
         executions_by_position = {row.position: row for row in execution_rows}
+        unknown_producer_kinds = {row.producer_kind for row in execution_rows} - {'source', 'action'}
+        if unknown_producer_kinds:
+            raise ResultStoreError(f'Unknown persisted producer kind: {sorted(unknown_producer_kinds)[0]}')
+        observations_by_execution: dict[int, list[ActionObservation]] = {}
+        source_observations: list[ResultObservation] = []
+        for origin in origin_rows:
+            execution = executions_by_position[origin.execution_position]
+            stored_result = results_by_position[origin.result_position]
+            if execution.producer_kind == 'source':
+                source_observations.append(
+                    ResultObservation(
+                        source=execution.name,
+                        kind=cast('ResultKind', stored_result.kind),
+                        value=stored_result.value,
+                    )
+                )
+            else:
+                observations_by_execution.setdefault(execution.position, []).append(
+                    ActionObservation(
+                        kind=cast('ResultKind', stored_result.kind),
+                        value=stored_result.value,
+                    )
+                )
+        artifacts_by_execution: dict[int, list[ArtifactReference]] = {}
+        for artifact in artifact_rows:
+            execution = executions_by_position[artifact.execution_position]
+            if execution.producer_kind != 'action':
+                raise ResultStoreError('Persisted artifact must reference an action execution')
+            subject = results_by_position[artifact.result_position]
+            artifacts_by_execution.setdefault(execution.position, []).append(
+                ArtifactReference(
+                    kind=artifact.kind,
+                    subject_kind=cast('ResultKind', subject.kind),
+                    subject_value=subject.value,
+                    path=artifact.path,
+                    media_type=artifact.media_type,
+                    size_bytes=artifact.size_bytes,
+                    sha256=artifact.sha256,
+                    created_at=datetime.datetime.fromisoformat(artifact.created_at),
+                )
+            )
+        action_executions: list[ActionExecution] = []
+        for row in execution_rows:
+            if row.producer_kind != 'action':
+                continue
+            action_observations = tuple(sorted(observations_by_execution.get(row.position, [])))
+            if row.result_count != len(action_observations):
+                raise ResultStoreError(f'Persisted action result count does not match origins: {row.name}')
+            action_executions.append(
+                ActionExecution(
+                    action=row.name,
+                    status=cast('ExecutionStatus', row.status),
+                    duration_ms=row.duration_ms,
+                    observations=action_observations,
+                    artifacts=tuple(sorted(artifacts_by_execution.get(row.position, []))),
+                    error_type=row.error_type,
+                    stop_reason=row.stop_reason,
+                )
+            )
         return CompletedResult(
             run_id=UUID(parent.run_id),
             target=parent.target,
@@ -350,17 +478,10 @@ class ResultStore:
                     stop_reason=row.stop_reason,
                 )
                 for row in execution_rows
+                if row.producer_kind == 'source'
             ),
-            observations=tuple(
-                sorted(
-                    ResultObservation(
-                        source=executions_by_position[row.execution_position].name,
-                        kind=cast('ResultKind', results_by_position[row.result_position].kind),
-                        value=results_by_position[row.result_position].value,
-                    )
-                    for row in origin_rows
-                )
-            ),
+            observations=tuple(sorted(source_observations)),
+            active_evidence=ActiveEvidence(executions=tuple(action_executions)),
         )
 
     async def list_runs(self, *, limit: int = 50) -> list[dict[str, object]]:
@@ -414,40 +535,59 @@ class ResultStore:
         A result is unique when one source reported it and shared when more than one
         source reported it. Sources that ran without results still appear with zero counts.
         """
+        yields = await self._producer_yields(run_id, 'source')
+        return [
+            SourceYield(
+                source=name,
+                observed_result_count=observed,
+                unique_result_count=unique,
+                shared_result_count=shared,
+            )
+            for name, observed, unique, shared in yields
+        ]
+
+    async def action_yields(self, run_id: UUID) -> list[ActionYield]:
+        yields = await self._producer_yields(run_id, 'action')
+        return [
+            ActionYield(
+                action=name,
+                observed_result_count=observed,
+                unique_result_count=unique,
+                shared_result_count=shared,
+            )
+            for name, observed, unique, shared in yields
+        ]
+
+    async def _producer_yields(self, run_id: UUID, producer_kind: str) -> list[tuple[str, int, int, int]]:
         async with self._session() as session:
             execution_rows = (
                 await session.scalars(
                     select(_ExecutionRow).where(
                         _ExecutionRow.run_id == str(run_id),
-                        _ExecutionRow.producer_kind == 'source',
+                        _ExecutionRow.producer_kind == producer_kind,
                     )
                 )
             ).all()
             result_rows = (await session.scalars(select(_ResultRow).where(_ResultRow.run_id == str(run_id)))).all()
             origin_rows = (await session.scalars(select(_ResultOriginRow).where(_ResultOriginRow.run_id == str(run_id)))).all()
-        source_by_position = {row.position: row.name for row in execution_rows}
+        producer_by_position = {row.position: row.name for row in execution_rows}
         result_by_position = {row.position: (row.kind, row.value) for row in result_rows}
-        sources_by_result: dict[tuple[str, str], set[str]] = {}
+        producers_by_result: dict[tuple[str, str], set[str]] = {}
         for origin in origin_rows:
-            source = source_by_position.get(origin.execution_position)
+            producer = producer_by_position.get(origin.execution_position)
             result = result_by_position.get(origin.result_position)
-            if source is not None and result is not None:
-                sources_by_result.setdefault(result, set()).add(source)
+            if producer is not None and result is not None:
+                producers_by_result.setdefault(result, set()).add(producer)
         observed_counts: Counter[str] = Counter()
         unique_counts: Counter[str] = Counter()
         shared_counts: Counter[str] = Counter()
-        for sources in sources_by_result.values():
-            for source in sources:
-                observed_counts[source] += 1
-                (unique_counts if len(sources) == 1 else shared_counts)[source] += 1
+        for producers in producers_by_result.values():
+            for producer in producers:
+                observed_counts[producer] += 1
+                (unique_counts if len(producers) == 1 else shared_counts)[producer] += 1
         return [
-            SourceYield(
-                source=source,
-                observed_result_count=observed_counts[source],
-                unique_result_count=unique_counts[source],
-                shared_result_count=shared_counts[source],
-            )
-            for source in sorted(source_by_position.values())
+            (name, observed_counts[name], unique_counts[name], shared_counts[name])
+            for name in sorted(producer_by_position.values())
         ]
 
     @asynccontextmanager

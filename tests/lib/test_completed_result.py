@@ -5,6 +5,7 @@ from uuid import UUID
 
 import pytest
 
+from theHarvester.lib.active_evidence import ActionExecution, ActionObservation, ActiveEvidence, ArtifactReference
 from theHarvester.lib.completed_result import CompletedResult, ResultObservation, SourceExecution
 
 
@@ -167,29 +168,111 @@ def test_completed_result_rejects_source_count_without_matching_origins() -> Non
         )
 
 
-def test_completed_result_keeps_terminal_action_evidence_in_jsonl() -> None:
+def test_completed_result_merges_active_results_and_keeps_screenshot_as_an_artifact() -> None:
+    completed_at = datetime(2026, 8, 5, 12, 1, tzinfo=UTC)
+    artifact = ArtifactReference(
+        kind='screenshot',
+        subject_kind='hostname',
+        subject_value='api.example.com',
+        path='screenshots/api.example.com.png',
+        media_type='image/png',
+        size_bytes=3,
+        sha256='0' * 64,
+        created_at=completed_at,
+    )
+    result = CompletedResult.finish(
+        target='example.com',
+        started_at=completed_at,
+        completed_at=completed_at,
+        groups={'hostname': ['api.example.com']},
+        active_evidence=ActiveEvidence(
+            executions=(
+                ActionExecution.finish(
+                    action='dns-resolve',
+                    status='completed',
+                    duration_ms=12.5,
+                    groups={'ip-address': ['192.0.2.10']},
+                ),
+                ActionExecution.finish(
+                    action='screenshot',
+                    status='completed',
+                    duration_ms=4.0,
+                    groups={},
+                    artifacts=(artifact,),
+                ),
+            )
+        ),
+    )
+
+    assert result.results == (('hostname', 'api.example.com'), ('ip-address', '192.0.2.10'))
+    assert result.active_evidence.executions[0].observations == (ActionObservation('ip-address', '192.0.2.10'),)
+    assert result.active_evidence.executions[1].artifacts == (artifact,)
+    assert not any(kind == 'screenshot' for kind, _value in result.results)
+    assert result.evidence_dict()['results'] == [
+        {'type': 'hostname', 'value': 'api.example.com', 'sources': []},
+        {'type': 'ip-address', 'value': '192.0.2.10', 'sources': [], 'actions': ['dns-resolve']},
+    ]
+    assert [json.loads(line) for line in result.jsonl().splitlines()][1:] == [
+        {'type': 'hostname', 'value': 'api.example.com', 'sources': []},
+        {'type': 'ip-address', 'value': '192.0.2.10', 'sources': []},
+    ]
+
+
+def test_completed_result_rejects_artifact_without_a_real_subject_result() -> None:
+    completed_at = datetime(2026, 8, 5, 12, 1, tzinfo=UTC)
+    artifact = ArtifactReference(
+        kind='screenshot',
+        subject_kind='hostname',
+        subject_value='missing.example.com',
+        path='screenshots/missing.example.com.png',
+        media_type='image/png',
+        size_bytes=3,
+        sha256='0' * 64,
+        created_at=completed_at,
+    )
+
+    with pytest.raises(ValueError, match='artifact must reference a completed result'):
+        CompletedResult.finish(
+            target='example.com',
+            started_at=completed_at,
+            completed_at=completed_at,
+            groups={},
+            active_evidence=ActiveEvidence(
+                executions=(
+                    ActionExecution.finish(
+                        action='screenshot',
+                        status='completed',
+                        duration_ms=4.0,
+                        groups={},
+                        artifacts=(artifact,),
+                    ),
+                )
+            ),
+        )
+
+
+def test_action_status_contributes_to_completed_result_status() -> None:
     completed_at = datetime(2026, 8, 5, 12, 1, tzinfo=UTC)
     result = CompletedResult.finish(
         target='example.com',
         started_at=completed_at,
         completed_at=completed_at,
-        groups={
-            'api-endpoint': ['/api/v1'],
-            'screenshot': ['https://api.example.com'],
-            'shodan': ['{"ip":"192.0.2.10","ports":[443]}'],
-            'takeover': ['{"matches":[{"No such app":"Heroku"}],"url":"https://old.example.com"}'],
-        },
+        groups={},
+        source_executions=(SourceExecution('crtsh', 'completed', 1.0, 0),),
+        active_evidence=ActiveEvidence(
+            executions=(
+                ActionExecution.finish(
+                    action='takeover',
+                    status='failed',
+                    duration_ms=2.0,
+                    groups={},
+                    error_type='RuntimeError',
+                ),
+            )
+        ),
     )
 
-    records = [json.loads(line) for line in result.jsonl().splitlines()]
-
-    assert records[0]['counts'] == {'api-endpoint': 1, 'screenshot': 1, 'shodan': 1, 'takeover': 1}
-    assert {(record['type'], record['value']) for record in records[1:]} == {
-        ('api-endpoint', '/api/v1'),
-        ('screenshot', 'https://api.example.com'),
-        ('shodan', '{"ip":"192.0.2.10","ports":[443]}'),
-        ('takeover', '{"matches":[{"No such app":"Heroku"}],"url":"https://old.example.com"}'),
-    }
+    assert result.evidence_dict()['status'] == 'partial'
 
 
 @pytest.mark.parametrize('value', ['', '   ', 7])

@@ -38,6 +38,16 @@ Completed CLI and REST `/query` executions also store one normalized terminal
 record keyed by run UUID. REST keeps its existing response shape and does not
 write report files unless a filename is requested.
 
+The normalized persistence model can represent active-action provenance and artifact metadata through five core tables:
+
+- `runs`: one finite enumeration run;
+- `executions`: each passive source or active action represented by the model;
+- `results`: deduplicated hostnames, IPs, emails, URLs, and structured outputs;
+- `result_origins`: which execution produced each result; and
+- `artifacts`: files such as screenshots, linked to their creating action and subject result.
+
+Current runtime collection populates passive source executions and origins. Action and artifact producers are integrated in a later slice. Older runless rows remain in `legacy_observations`. SQLite upgrades supported schemas automatically during normal initialization.
+
 ## Screenshots
 
 `--screenshot DIR` writes browser captures to the selected directory. Screenshots may contain authentication pages, internal names, or other sensitive visual data even when no credentials were used.
