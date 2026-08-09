@@ -3,7 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from theHarvester.lib.source_catalog import ActivityClass, SourceSpec, activity_classes_for_selection, get_source_spec
+from theHarvester.lib.source_catalog import (
+    ActivityClass,
+    SourceSpec,
+    activity_classes_for_selection,
+    get_source_spec,
+    selected_action_names,
+)
 
 RESULT_TYPE_ALIASES = {'hostname': 'subdomain', 'ip-address': 'ip'}
 
@@ -11,13 +17,7 @@ RESULT_TYPE_ALIASES = {'hostname': 'subdomain', 'ip-address': 'ip'}
 def activities_for_request(request: dict[str, Any]) -> list[str]:
     if request.get('activities'):
         return list(request['activities'])
-    actions = [
-        name
-        for name in ('dns-brute', 'dns-lookup', 'dns-resolve', 'shodan', 'api-scan', 'screenshot', 'take-over')
-        if request.get(name.replace('-', '_'))
-    ]
-    if request.get('dns_recursive_depth', 0) > 0:
-        actions.append('dns-recursive')
+    actions = selected_action_names(request)
     return [activity.value for activity in activity_classes_for_selection(request.get('sources', []), actions)]
 
 
@@ -32,42 +32,17 @@ def normalized_results(evidence: dict[str, Any] | None) -> list[dict[str, Any]]:
     if not evidence:
         return []
     results: list[dict[str, Any]] = []
-    by_key: dict[tuple[str, str], dict[str, Any]] = {}
-
-    def add(
-        result_type: str,
-        value: object,
-        dns_status: str | None = None,
-        sources: object = (),
-        actions: object = (),
-    ) -> None:
-        if value is None or value == '':
-            return
-        normalized_value = str(value)
-        key = (result_type, normalized_value)
-        item = by_key.setdefault(
-            key,
-            {'type': result_type, 'value': normalized_value, 'sources': [], 'actions': []},
-        )
-        if dns_status is not None:
-            item['dns_status'] = dns_status
-        if isinstance(sources, list):
-            item['sources'] = sorted(set(item['sources']) | {str(source) for source in sources})
-        if isinstance(actions, list):
-            item['actions'] = sorted(set(item['actions']) | {str(action) for action in actions})
-
     for item in evidence.get('results') or []:
         if isinstance(item, dict) and item.get('type') != 'screenshot':
             result_type = str(item.get('type', 'other'))
-            add(
-                RESULT_TYPE_ALIASES.get(result_type, result_type),
-                item.get('value'),
-                item.get('dns_status'),
-                item.get('sources'),
-                item.get('actions'),
+            results.append(
+                {
+                    'type': RESULT_TYPE_ALIASES.get(result_type, result_type),
+                    'value': str(item.get('value', '')),
+                    'sources': sorted({str(source) for source in item.get('sources', [])}),
+                    'actions': sorted({str(action) for action in item.get('actions', [])}),
+                }
             )
-
-    results.extend(by_key.values())
     return results
 
 

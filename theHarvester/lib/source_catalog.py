@@ -18,11 +18,12 @@ ACTION_ACTIVITIES: Final = {
     'shodan': ActivityClass.PASSIVE,
     'api-scan': ActivityClass.DIRECT,
     'screenshot': ActivityClass.DIRECT,
-    'take-over': ActivityClass.DIRECT,
+    'takeover': ActivityClass.DIRECT,
 }
 ACTION_REQUEST_FIELDS: Final = {
     **{name: name.replace('-', '_') for name in ACTION_ACTIVITIES},
     'dns-recursive': 'dns_recursive_depth',
+    'takeover': 'take_over',
 }
 
 

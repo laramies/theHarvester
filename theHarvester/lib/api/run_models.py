@@ -12,7 +12,7 @@ from theHarvester.lib.enumeration import (
     DEFAULT_RESULT_START,
 )
 from theHarvester.lib.resolver_selection import DEFAULT_DNS_RESOLVERS, normalize_resolver_addresses
-from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass
+from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass, selected_action_names
 
 
 def utc_now() -> str:
@@ -49,7 +49,7 @@ class RunRequest(BaseModel):
         max_length=len(SOURCE_SPECS),
         description=(
             'Discovery source names or source capabilities. Multiple capabilities select the union of matching '
-            'sources and do not filter result fields. May be empty for a screenshot-only or DNS-brute-only run.'
+            'sources and do not filter result fields. May be empty when a target-only action is selected.'
         ),
     )
     limit: int = Field(
@@ -136,8 +136,8 @@ class RunRequest(BaseModel):
 
     @model_validator(mode='after')
     def validate_selected_work(self) -> RunRequest:
-        if not self.sources and not (self.screenshot or self.dns_brute):
-            raise ValueError('Select at least one discovery source or enable screenshots or DNS brute force')
+        if not self.sources and not selected_action_names(self.model_dump()):
+            raise ValueError('Select at least one discovery source or action')
         if self.dns_recursive_depth > 0 and len(self.dns_resolvers) != 3:
             raise ValueError('Recursive DNS requires exactly three distinct resolver IPs')
         return self
@@ -160,10 +160,15 @@ class SourceCatalogResponse(BaseModel):
     actions: list[ActionResponse]
 
 
+class DatabaseImportResponse(BaseModel):
+    filename: str
+    imported_run_ids: list[str]
+    skipped_run_ids: list[str]
+
+
 class NormalizedResult(BaseModel):
     type: str
     value: str
-    dns_status: str | None = None
     sources: list[str] = Field(default_factory=list)
     actions: list[str] = Field(default_factory=list)
 
@@ -181,6 +186,7 @@ Activity = Literal['P0', 'P1', 'P2']
 
 class ImportedRunRequest(BaseModel):
     filename: str
+    source_run_id: str
     sources: list[str]
     activities: list[Activity]
 
@@ -203,7 +209,6 @@ class RunSummary(BaseModel):
 
 class RunDetail(RunSummary):
     request: RunRequest | ImportedRunRequest
-    evidence: dict[str, Any] | None
     results: list[NormalizedResult]
     source_executions: list[dict[str, Any]]
     action_executions: list[dict[str, Any]]
@@ -222,6 +227,12 @@ IMPORT_REQUEST_OPENAPI = {
     'requestBody': {
         'required': True,
         'content': {'application/x-ndjson': {'schema': {'type': 'string', 'format': 'binary'}}},
+    }
+}
+DATABASE_IMPORT_REQUEST_OPENAPI = {
+    'requestBody': {
+        'required': True,
+        'content': {'application/vnd.sqlite3': {'schema': {'type': 'string', 'format': 'binary'}}},
     }
 }
 EXPORT_RESPONSES: dict[int | str, dict[str, Any]] = {

@@ -382,10 +382,23 @@ class RunLifecycleStore:
             )
             await session.commit()
 
-    async def list_records(self) -> list[dict[str, object]]:
+    async def list_records(self, *, limit: int = 100, offset: int = 0) -> list[dict[str, object]]:
         async with self._session() as session:
-            rows = (await session.scalars(select(_RunRecordRow).order_by(_RunRecordRow.created_at.desc()))).all()
-        return [self._record(row) for row in rows]
+            result_count = (
+                select(func.count(_ResultRow.position))
+                .where(_ResultRow.run_id == _RunRecordRow.evidence_run_id)
+                .correlate(_RunRecordRow)
+                .scalar_subquery()
+            )
+            rows = (
+                await session.execute(
+                    select(_RunRecordRow, result_count.label('result_count'))
+                    .order_by(_RunRecordRow.created_at.desc())
+                    .limit(limit)
+                    .offset(offset)
+                )
+            ).all()
+        return [self._record(row, result_count=count) for row, count in rows]
 
     async def get(self, run_id: str) -> dict[str, object] | None:
         async with self._session() as session:
@@ -534,8 +547,8 @@ class RunLifecycleStore:
             yield session
 
     @staticmethod
-    def _record(row: _RunRecordRow) -> dict[str, object]:
-        return {
+    def _record(row: _RunRecordRow, *, result_count: int | None = None) -> dict[str, object]:
+        record: dict[str, object] = {
             'run_id': row.run_id,
             'target': row.target,
             'status': row.status,
@@ -550,6 +563,9 @@ class RunLifecycleStore:
             'error': row.error,
             'log': row.log,
         }
+        if result_count is not None:
+            record['result_count'] = int(result_count)
+        return record
 
 
 class ResultStore:
@@ -747,17 +763,17 @@ class ResultStore:
             active_evidence=ActiveEvidence(executions=tuple(action_executions)),
         )
 
-    async def list_runs(self, *, limit: int = 50) -> list[dict[str, object]]:
+    async def list_runs(self, *, limit: int | None = 50) -> list[dict[str, object]]:
         async with self._session() as session:
-            rows = (
-                await session.execute(
-                    select(_RunRow, func.count(_ResultRow.position))
-                    .outerjoin(_ResultRow, _ResultRow.run_id == _RunRow.run_id)
-                    .group_by(_RunRow.run_id)
-                    .order_by(func.julianday(_RunRow.completed_at).desc(), _RunRow.run_id.desc())
-                    .limit(limit)
-                )
-            ).all()
+            statement = (
+                select(_RunRow, func.count(_ResultRow.position))
+                .outerjoin(_ResultRow, _ResultRow.run_id == _RunRow.run_id)
+                .group_by(_RunRow.run_id)
+                .order_by(func.julianday(_RunRow.completed_at).desc(), _RunRow.run_id.desc())
+            )
+            if limit is not None:
+                statement = statement.limit(limit)
+            rows = (await session.execute(statement)).all()
         return [
             {
                 'run_id': run.run_id,
@@ -768,6 +784,32 @@ class ResultStore:
             }
             for run, result_count in rows
         ]
+
+    async def validate_import_database(self) -> None:
+        engine = create_async_engine(URL.create('sqlite+aiosqlite', database=self.database))
+        try:
+            async with engine.connect() as connection:
+                quick_check = await connection.exec_driver_sql('PRAGMA quick_check')
+                if quick_check.scalar_one() != 'ok':
+                    raise ResultStoreError('SQLite integrity check failed')
+                version = (await connection.exec_driver_sql('PRAGMA user_version')).scalar_one()
+                if version > SCHEMA_VERSION:
+                    raise ResultStoreError(f'Database schema version {version} is newer than supported version {SCHEMA_VERSION}')
+                table_rows = await connection.exec_driver_sql("SELECT name FROM sqlite_master WHERE type = 'table'")
+                tables = {str(row[0]) for row in table_rows}
+                current_schema = {'runs', 'results'}.issubset(tables)
+                released_schema = {'completed_results', 'completed_result_items'}.issubset(tables)
+                if not current_schema and not released_schema:
+                    raise ResultStoreError('SQLite database does not contain theHarvester completed runs')
+        except SQLAlchemyError as error:
+            raise ResultStoreError('Could not validate SQLite database') from error
+        finally:
+            await engine.dispose()
+
+    async def dispose(self) -> None:
+        database = _databases.pop(self.database, None)
+        if database is not None:
+            await database.dispose()
 
     async def record_observations(
         self,

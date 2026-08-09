@@ -88,6 +88,7 @@ def test_api_exposes_one_fresh_run_contract(tmp_path, monkeypatch) -> None:
         '/api/v1/sources',
         '/api/v1/runs',
         '/api/v1/runs/import',
+        '/api/v1/runs/import-database',
         '/api/v1/runs/{run_id}',
         '/api/v1/runs/{run_id}/cancel',
         '/api/v1/runs/{run_id}/export',
@@ -212,7 +213,7 @@ def test_source_catalog_exposes_shared_action_activities(tmp_path, monkeypatch) 
         {'name': 'dns-resolve', 'activity': 'P1'},
         {'name': 'screenshot', 'activity': 'P2'},
         {'name': 'shodan', 'activity': 'P0'},
-        {'name': 'take-over', 'activity': 'P2'},
+        {'name': 'takeover', 'activity': 'P2'},
     ]
 
 
@@ -244,7 +245,6 @@ def test_openapi_explains_scope_and_execution_controls(tmp_path, monkeypatch) ->
     assert set(schema['components']['schemas']['NormalizedResult']['properties']) == {
         'type',
         'value',
-        'dns_status',
         'sources',
         'actions',
     }
@@ -266,6 +266,68 @@ def test_openapi_explains_scope_and_execution_controls(tmp_path, monkeypatch) ->
     for reference in references(schema):
         assert reference.startswith('#/components/schemas/')
         assert reference.removeprefix('#/components/schemas/') in components
+
+
+def test_run_detail_exposes_one_normalized_evidence_surface(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+
+    with TestClient(api.app) as client:
+        imported = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'result.jsonl'},
+            headers={'X-API-Key': 'test-key'},
+            content=_jsonl_result(),
+        )
+
+    assert imported.status_code == 201
+    assert 'evidence' not in imported.json()
+
+
+def test_api_scan_can_run_without_discovery_sources(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api.run_models import RunRequest
+
+    request = RunRequest(target='example.test', sources=[], api_scan=True)
+
+    assert request.api_scan is True
+
+
+def test_api_rejects_evidence_status_that_disagrees_with_executions(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+    payload = _jsonl_result(
+        summary_fields={
+            'evidence_status': 'complete',
+            'source_executions': [
+                {
+                    'source': 'crtsh',
+                    'status': 'failed',
+                    'duration_ms': 1,
+                    'result_count': 0,
+                    'error_type': 'RuntimeError',
+                    'stop_reason': 'provider-error',
+                }
+            ],
+        },
+        finding_fields={'sources': []},
+    )
+
+    with TestClient(api.app) as client:
+        response = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'inconsistent.jsonl'},
+            headers={'X-API-Key': 'test-key'},
+            content=payload,
+        )
+
+    assert response.status_code == 400
+    assert response.json()['detail'] == 'Evidence status does not match its execution outcomes'
 
 
 def test_api_import_and_export_accept_only_jsonl(tmp_path, monkeypatch) -> None:
@@ -317,6 +379,73 @@ def test_api_import_and_export_accept_only_jsonl(tmp_path, monkeypatch) -> None:
     assert old_csv.status_code == 404
 
 
+def test_api_database_import_rejects_non_sqlite_content(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+
+    with TestClient(api.app) as client:
+        response = client.post(
+            '/api/v1/runs/import-database',
+            params={'filename': 'results.sqlite'},
+            headers={'X-API-Key': 'test-key', 'Content-Type': 'application/vnd.sqlite3'},
+            content=b'not a sqlite database',
+        )
+
+    assert response.status_code == 400
+    assert response.json()['detail'] == 'Uploaded file is not a SQLite database'
+
+
+def test_api_database_import_exposes_completed_cli_runs(tmp_path, monkeypatch) -> None:
+    from datetime import UTC, datetime
+
+    from theHarvester.lib.api import api
+    from theHarvester.lib.completed_result import CompletedResult
+    from theHarvester.lib.database import ResultStore, dispose_sqlite_databases
+
+    source_database = tmp_path / 'source.sqlite'
+    destination_database = tmp_path / 'destination.sqlite'
+    now = datetime.now(UTC)
+    completed = CompletedResult.finish(
+        target='imported.example.test',
+        started_at=now,
+        completed_at=now,
+        groups={'hostname': ['api.imported.example.test']},
+    )
+
+    async def seed() -> None:
+        store = ResultStore(source_database)
+        await store.initialize()
+        await store.save_run(completed)
+        await dispose_sqlite_databases()
+
+    asyncio.run(seed())
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(destination_database))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+
+    with TestClient(api.app) as client:
+        imported = client.post(
+            '/api/v1/runs/import-database',
+            params={'filename': 'source.sqlite'},
+            headers={'X-API-Key': 'test-key', 'Content-Type': 'application/vnd.sqlite3'},
+            content=source_database.read_bytes(),
+        )
+        detail = client.get(
+            f'/api/v1/runs/{completed.run_id}',
+            headers={'X-API-Key': 'test-key'},
+        )
+
+    assert imported.status_code == 201
+    assert imported.json()['imported_run_ids'] == [str(completed.run_id)]
+    assert detail.status_code == 200
+    assert detail.json()['results'] == [
+        {'type': 'subdomain', 'value': 'api.imported.example.test', 'sources': [], 'actions': []}
+    ]
+
+
 def test_api_jsonl_round_trip_preserves_source_attribution(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api import api
 
@@ -360,7 +489,7 @@ def test_api_jsonl_round_trip_preserves_source_attribution(tmp_path, monkeypatch
     assert summary['source_executions'] == [source_execution]
     assert json.loads(exported.text.splitlines()[1])['sources'] == ['crtsh']
     assert reimported.json()['evidence_status'] == 'complete'
-    assert reimported.json()['evidence']['run_id'] == reimported.json()['run_id']
+    assert reimported.json()['request']['source_run_id'] == imported.json()['run_id']
     assert reimported.json()['source_executions'] == [source_execution]
 
 

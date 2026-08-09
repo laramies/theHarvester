@@ -1000,8 +1000,13 @@ async def test_dns_proven_cname_hosts_reach_screenshot_filter(
         def chunk_list(values: list[str], _size: int) -> list[list[str]]:
             return [values]
 
-        async def take_screenshot(self, host: str) -> tuple[str, str]:
-            return host, f'{host}.png'
+        async def take_screenshot(self, host: str) -> str:
+            path = self.screenshot_path(host)
+            path.write_bytes(b'png')
+            return f'https://{host}'
+
+        def screenshot_path(self, host: str) -> Path:
+            return Path(self.output) / f'{host.removeprefix("https://")}.png'
 
     class FakePool:
         def __init__(self, _workers: int) -> None:
@@ -1088,13 +1093,14 @@ async def test_cli_can_capture_an_explicit_target_without_discovery_sources(
     tmp_path: Path,
 ) -> None:
     captured: list[str] = []
+    saved: list[CompletedResult] = []
 
     class FakeResultStore:
         async def initialize(self) -> None:
             return None
 
-        async def save_run(self, _result: CompletedResult) -> None:
-            return None
+        async def save_run(self, result: CompletedResult) -> None:
+            saved.append(result)
 
     class FakeScreenShotter:
         slash = '/'
@@ -1117,7 +1123,11 @@ async def test_cli_can_capture_an_explicit_target_without_discovery_sources(
 
         async def take_screenshot(self, host: str) -> str:
             captured.append(host)
-            return host
+            self.screenshot_path(host).write_bytes(b'png')
+            return f'https://{host}'
+
+        def screenshot_path(self, host: str) -> Path:
+            return Path(self.output) / f'{host.removeprefix("https://")}.png'
 
     class FakePool:
         def __init__(self, _workers: int) -> None:
@@ -1146,6 +1156,83 @@ async def test_cli_can_capture_an_explicit_target_without_discovery_sources(
 
     assert exit_info.value.code == 0
     assert captured == ['api.example.com']
+    completed = saved[-1]
+    execution = next(item for item in completed.active_evidence.executions if item.action == 'screenshot')
+    assert execution.status == 'completed'
+    assert execution.result_count == 0
+    assert ('screenshot', 'https://api.example.com') not in completed.results
+    assert ('hostname', 'api.example.com') in completed.results
+    assert len(execution.artifacts) == 1
+    artifact = execution.artifacts[0]
+    assert artifact.subject_value == 'api.example.com'
+    assert artifact.path == f'{tmp_path.name}/api.example.com.png'
+    assert artifact.media_type == 'image/png'
+    assert artifact.size_bytes == 3
+
+
+@pytest.mark.asyncio
+async def test_screenshot_cancellation_persists_failed_execution_and_propagates(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    saved: list[CompletedResult] = []
+
+    class RecordingResultStore(_NoopResultStore):
+        async def save_run(self, result: CompletedResult) -> None:
+            saved.append(result)
+
+    class FakeScreenShotter:
+        slash = '/'
+
+        def __init__(self, output: str) -> None:
+            self.output = output
+
+        def verify_path(self) -> bool:
+            return True
+
+        async def verify_installation(self) -> None:
+            return None
+
+        async def visit(self, host: str) -> tuple[str, str]:
+            return f'https://{host}', 'reachable'
+
+        @staticmethod
+        def chunk_list(values: list[str], _size: int) -> list[list[str]]:
+            return [values]
+
+        async def take_screenshot(self, _host: str) -> str:
+            raise asyncio.CancelledError
+
+    class FakePool:
+        def __init__(self, _workers: int) -> None:
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args) -> None:
+            return None
+
+        async def map(self, function, values):
+            return [await function(value) for value in values]
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', RecordingResultStore)
+    monkeypatch.setattr(theharvester_main, 'ScreenShotter', FakeScreenShotter)
+    monkeypatch.setattr(theharvester_main, 'Pool', FakePool)
+
+    with pytest.raises(asyncio.CancelledError):
+        await theharvester_main.start(
+            EnumerationOptions(
+                domain='api.example.test',
+                screenshot=str(tmp_path),
+                quiet=True,
+            ),
+            return_completed_result=True,
+        )
+
+    execution = next(item for item in saved[-1].active_evidence.executions if item.action == 'screenshot')
+    assert execution.status == 'failed'
+    assert execution.stop_reason == 'cancelled'
 
 
 @pytest.mark.asyncio
@@ -1215,7 +1302,11 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
             return [values]
 
         async def take_screenshot(self, host: str) -> str:
-            return host
+            self.screenshot_path(host).write_bytes(b'png')
+            return f'https://{host}'
+
+        def screenshot_path(self, host: str) -> Path:
+            return Path(self.output) / f'{host.removeprefix("https://")}.png'
 
     class FakeShodan:
         error_type = None
@@ -1303,7 +1394,7 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
     completed = result[-1]
     assert isinstance(completed, CompletedResult)
     assert ('api-endpoint', 'https://example.com/api/v1') in completed.results
-    assert ('screenshot', 'api.example.com') in completed.results
+    assert ('screenshot', 'api.example.com') not in completed.results
     assert ('shodan', '{"ip":"192.0.2.10","result":{"ports":[443]}}') in completed.results
     takeover_result = (
         'takeover',
@@ -1315,6 +1406,12 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
     assert takeover_execution.result_count == 1
     assert takeover_execution.error_type is None
     assert takeover_execution.stop_reason is None
+    screenshot_execution = next(
+        execution for execution in completed.active_evidence.executions if execution.action == 'screenshot'
+    )
+    assert screenshot_execution.status == 'completed'
+    assert screenshot_execution.result_count == 0
+    assert screenshot_execution.artifacts[0].subject_value == 'api.example.com'
     shodan_execution = next(execution for execution in completed.active_evidence.executions if execution.action == 'shodan')
     assert shodan_execution.status == 'completed'
     assert shodan_execution.result_count == 1

@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-import os
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, Any, cast
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from starlette.staticfiles import StaticFiles
 
 from theHarvester import __version__
 from theHarvester.lib.api.run_worker import start_worker, stop_worker
 from theHarvester.lib.api.runs import router as api_router
+from theHarvester.lib.database import dispose_sqlite_databases
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -22,7 +22,10 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
-        await stop_worker()
+        try:
+            await stop_worker()
+        finally:
+            await dispose_sqlite_databases()
 
 
 app = FastAPI(
@@ -33,18 +36,6 @@ app = FastAPI(
     redoc_url='/redoc',
     lifespan=lifespan,
 )
-app.add_middleware(
-    cast('Any', CORSMiddleware),
-    allow_origins=[],
-    allow_credentials=False,
-    allow_methods=['GET', 'POST'],
-    allow_headers=['Content-Type', 'X-API-Key'],
-)
 app.include_router(api_router)
-
-try:
-    app.mount('/static', StaticFiles(directory='theHarvester/lib/api/static/'), name='static')
-except RuntimeError:
-    static_path = os.path.expanduser('~/.local/share/theHarvester/static/')
-    os.makedirs(static_path, exist_ok=True)
-    app.mount('/static', StaticFiles(directory=static_path), name='static')
+STATIC_DIRECTORY = Path(__file__).resolve().parent / 'static'
+app.mount('/static', StaticFiles(directory=STATIC_DIRECTORY), name='static')

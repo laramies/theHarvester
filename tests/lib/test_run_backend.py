@@ -8,6 +8,7 @@ import sqlite3
 import sys
 import time
 from datetime import UTC, datetime
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 
@@ -32,6 +33,59 @@ def test_run_store_does_not_change_caller_owned_directory_permissions(tmp_path) 
     asyncio.run(RunStore(tmp_path / 'runs.sqlite').initialize())
 
     assert os.stat(tmp_path).st_mode & 0o777 == 0o755
+
+
+def test_run_history_is_bounded_without_loading_completed_evidence(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api.run_models import RunRequest
+    from theHarvester.lib.api.run_store import RunStore
+
+    async def fail_load(*_args, **_kwargs):
+        raise AssertionError('run summaries must not hydrate terminal evidence')
+
+    async def scenario():
+        store = RunStore(tmp_path / 'runs.sqlite')
+        for index in range(4):
+            await store.create(RunRequest(target=f'{index}.example.test', sources=['crtsh']))
+        monkeypatch.setattr(store.results, 'load_run', fail_load)
+        return await store.list_runs(limit=2, offset=1)
+
+    history = asyncio.run(scenario())
+
+    assert len(history) == 2
+    assert [run['target'] for run in history] == ['2.example.test', '1.example.test']
+    assert all(run['result_count'] == 0 for run in history)
+
+
+def test_api_lifespan_disposes_shared_sqlite_engines(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    disposed = False
+
+    async def no_op() -> None:
+        return None
+
+    async def dispose() -> None:
+        nonlocal disposed
+        disposed = True
+
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+    monkeypatch.setattr(api, 'start_worker', no_op)
+    monkeypatch.setattr(api, 'stop_worker', no_op)
+    monkeypatch.setattr(api, 'dispose_sqlite_databases', dispose)
+
+    with TestClient(api.app):
+        pass
+
+    assert disposed is True
+
+
+def test_static_assets_are_resolved_from_the_installed_module(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    monkeypatch.chdir(tmp_path)
+
+    assert api.STATIC_DIRECTORY == Path(api.__file__).resolve().parent / 'static'
 
 
 def test_explicit_run_database_keeps_screenshot_artifacts_attached(tmp_path, monkeypatch) -> None:
@@ -139,6 +193,160 @@ def test_api_lifecycle_and_terminal_evidence_share_the_sqlalchemy_database(tmp_p
     assert stored_target == 'example.test'
     assert schema_version == 4
     assert 'import aiosqlite' not in inspect.getsource(run_store_module)
+
+
+def test_child_execution_passes_the_configured_database_to_core(tmp_path, monkeypatch) -> None:
+    from theHarvester import __main__ as main_module
+    from theHarvester.lib.api.run_models import RunRequest
+    from theHarvester.lib.api.run_store import RunStore
+    from theHarvester.lib.api.run_worker import _child_execute
+    from theHarvester.lib.completed_result import CompletedResult
+
+    database = tmp_path / 'state' / 'runs.sqlite'
+    seen_database = None
+    seen_run_id = None
+
+    async def fake_start(_args, **kwargs):
+        nonlocal seen_database, seen_run_id
+        seen_database = kwargs.get('result_database')
+        seen_run_id = kwargs.get('completed_run_id')
+        now = datetime.now(UTC)
+        result = CompletedResult.finish(
+            run_id=seen_run_id,
+            target='example.test',
+            started_at=now,
+            completed_at=now,
+            groups={},
+        )
+        return (result,)
+
+    async def scenario() -> None:
+        store = RunStore(database)
+        queued = await store.create(RunRequest(target='example.test', sources=['crtsh']))
+        await store.claim_next()
+        monkeypatch.setattr(main_module, 'start', fake_start)
+        await _child_execute(queued['run_id'], database)
+
+    asyncio.run(scenario())
+
+    assert seen_database == database
+    with sqlite3.connect(database) as db:
+        lifecycle_run_id = db.execute('SELECT run_id FROM run_records').fetchone()[0]
+    assert str(seen_run_id) == lifecycle_run_id
+
+
+def test_child_screenshot_run_persists_downloadable_artifact_metadata(tmp_path, monkeypatch) -> None:
+    from theHarvester import __main__ as main_module
+    from theHarvester.lib.api.run_artifacts import read_child_evidence
+    from theHarvester.lib.api.run_models import RunRequest
+    from theHarvester.lib.api.run_store import RunStore
+    from theHarvester.lib.api.run_worker import _child_execute
+
+    class FakeScreenShotter:
+        slash = '/'
+
+        def __init__(self, output: str) -> None:
+            self.output = output
+
+        def verify_path(self) -> bool:
+            return True
+
+        async def verify_installation(self) -> None:
+            return None
+
+        async def visit(self, host: str) -> tuple[str, str]:
+            return f'https://{host}', 'reachable'
+
+        @staticmethod
+        def chunk_list(values: list[str], _size: int) -> list[list[str]]:
+            return [values]
+
+        def screenshot_path(self, url: str) -> Path:
+            return Path(self.output) / f'{url.removeprefix("https://")}.png'
+
+        async def take_screenshot(self, url: str) -> str:
+            captured_url = url if url.startswith('https://') else f'https://{url}'
+            self.screenshot_path(captured_url).write_bytes(b'png')
+            return captured_url
+
+    class FakePool:
+        def __init__(self, _workers: int) -> None:
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args) -> None:
+            return None
+
+        async def map(self, function, values):
+            return [await function(value) for value in values]
+
+    database = tmp_path / 'state' / 'runs.sqlite'
+    monkeypatch.setenv('THEHARVESTER_RUN_ARTIFACTS', str(tmp_path / 'artifacts'))
+    monkeypatch.setattr(main_module, 'ScreenShotter', FakeScreenShotter)
+    monkeypatch.setattr(main_module, 'Pool', FakePool)
+
+    async def scenario():
+        store = RunStore(database)
+        queued = await store.create(RunRequest(target='api.example.test', sources=[], screenshot=True))
+        await store.claim_next()
+        await _child_execute(queued['run_id'], database)
+        evidence, error = read_child_evidence(store.artifact_directory(queued['run_id']))
+        assert error is None
+        assert evidence is not None
+        await store.finish(queued['run_id'], evidence, '')
+        return await store.get(queued['run_id']), store.artifact_directory(queued['run_id'])
+
+    run, artifact_dir = asyncio.run(scenario())
+
+    assert run is not None
+    assert run['action_executions'][0]['action'] == 'screenshot'
+    assert run['action_executions'][0]['status'] == 'completed'
+    assert run['results'] == [{'type': 'subdomain', 'value': 'api.example.test', 'sources': [], 'actions': []}]
+    assert [screenshot['name'] for screenshot in run['screenshots']] == ['api.example.test.png']
+    assert (artifact_dir / 'screenshots' / 'api.example.test.png').read_bytes() == b'png'
+
+
+def test_sqlite_import_preserves_run_ids_and_is_idempotent(tmp_path) -> None:
+    from theHarvester.lib.api.run_store import RunStore
+    from theHarvester.lib.completed_result import CompletedResult
+    from theHarvester.lib.database import ResultStore, dispose_sqlite_databases
+
+    source_database = tmp_path / 'source.sqlite'
+    destination_database = tmp_path / 'destination.sqlite'
+    now = datetime.now(UTC)
+    first = CompletedResult.finish(
+        target='first.example.test',
+        started_at=now,
+        completed_at=now,
+        groups={'hostname': ['api.first.example.test']},
+    )
+    second = CompletedResult.finish(
+        target='second.example.test',
+        started_at=now,
+        completed_at=now,
+        groups={'email': ['security@second.example.test']},
+    )
+
+    async def scenario():
+        source = ResultStore(source_database)
+        await source.initialize()
+        await source.save_run(first)
+        await source.save_run(second)
+        await dispose_sqlite_databases()
+        destination = RunStore(destination_database)
+        imported = await destination.import_database(source_database, 'source.sqlite')
+        repeated = await destination.import_database(source_database, 'source.sqlite')
+        history = await destination.list_runs()
+        return imported, repeated, history
+
+    imported, repeated, history = asyncio.run(scenario())
+
+    expected_ids = sorted((str(first.run_id), str(second.run_id)))
+    assert imported == {'filename': 'source.sqlite', 'imported_run_ids': expected_ids, 'skipped_run_ids': []}
+    assert repeated == {'filename': 'source.sqlite', 'imported_run_ids': [], 'skipped_run_ids': expected_ids}
+    assert sorted(run['run_id'] for run in history) == expected_ids
 
 
 def test_orphan_recovery_reattaches_partial_checkpoint_and_leaves_queued_work(tmp_path, monkeypatch) -> None:

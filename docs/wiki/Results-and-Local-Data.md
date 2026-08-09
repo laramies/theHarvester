@@ -34,7 +34,7 @@ Host, email, IP, and related records are stored at:
 
 The database persists across runs. Account for it in engagement cleanup and retention procedures.
 
-Completed CLI executions store one normalized terminal record keyed by run UUID. API executions use the same database by default and may override its path with `THEHARVESTER_RUN_DB`. Lifecycle rows keep queue, cancellation, and worker state separate from terminal evidence. Imported JSONL is stored without executing discovery, and source attribution is rebuilt from each finding's `sources` array.
+Completed CLI executions store one normalized terminal record keyed by run UUID. API executions use the same database by default and may override its path with `THEHARVESTER_RUN_DB`. Lifecycle rows keep queue, cancellation, and worker state separate from terminal evidence. Imported JSONL is stored without executing discovery, and source attribution is rebuilt from each finding's `sources` array. A SQLite import copies every completed run after validating the database and keeps the original run IDs.
 
 The normalized persistence model can represent active-action provenance and artifact metadata through five core tables:
 
@@ -54,7 +54,7 @@ Two operational tables support the API without changing those five evidence conc
 
 ## API results
 
-`GET /api/v1/runs/{run_id}` returns lifecycle state plus a normalized `results` array. Each result has `type`, `value`, `sources`, and `actions`; DNS-backed results can also include `dns_status`. Run-level source and action outcomes remain available in `source_executions` and `action_executions`, while file metadata is returned through `artifacts`. API file import and export use only JSONL. Treat runtime `/docs`, `/redoc`, and OpenAPI as the exact request and response reference.
+`GET /api/v1/runs/{run_id}` returns lifecycle state plus a normalized `results` array. Each result has `type`, `value`, `sources`, and `actions`. Run-level source and action outcomes remain available in `source_executions` and `action_executions`, while file metadata is returned through `artifacts`. JSONL imports or exports one run, and SQLite import loads completed runs in bulk. Treat runtime `/docs`, `/redoc`, and OpenAPI as the exact request and response reference.
 
 ## Handling and sharing
 

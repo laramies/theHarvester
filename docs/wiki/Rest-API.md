@@ -26,10 +26,11 @@ Treat the runtime OpenAPI document as the exact request and response reference.
 | --- | --- |
 | `GET /api/v1/sources` | List discovery sources, capabilities, activity classes, and credential names. |
 | `POST /api/v1/runs` | Submit one finite enumeration run. |
-| `GET /api/v1/runs` | List run records. |
+| `GET /api/v1/runs` | List run records with `limit` and `offset` pagination. |
 | `GET /api/v1/runs/{run_id}` | Retrieve lifecycle state, options, results, source outcomes, and artifacts. |
 | `POST /api/v1/runs/{run_id}/cancel` | Cancel queued work or request cancellation of running work. |
 | `POST /api/v1/runs/import` | Import a JSONL result file without executing discovery. |
+| `POST /api/v1/runs/import-database` | Import completed runs from a theHarvester SQLite database. |
 | `GET /api/v1/runs/{run_id}/export` | Export normalized results as JSONL. |
 | `GET /api/v1/runs/{run_id}/screenshots/{name}` | Retrieve one managed screenshot. |
 
@@ -96,7 +97,7 @@ For DNS brute force, set `dns_brute` to `true`. You may also provide `dns_resolv
 
 ## Import and export
 
-Import records existing evidence and never contacts the target. The API accepts only the same JSONL written by `theHarvester -f NAME`:
+Import records existing evidence and never contacts the target. For one run, send the same JSONL written by `theHarvester -f NAME`:
 
 ```bash
 curl -s "http://127.0.0.1:5000/api/v1/runs/import?filename=report.jsonl" \
@@ -108,6 +109,19 @@ curl -s "http://127.0.0.1:5000/api/v1/runs/import?filename=report.jsonl" \
 ```
 
 JSONL is a terminal report, so an import is recorded as completed. The summary retains evidence status, source and action outcomes, and screenshot artifact metadata. Each finding's `sources` and `actions` arrays rebuild result attribution and must name an execution in the summary. `hostname` and `ip-address` findings are exposed through the API as `subdomain` and `ip` results.
+
+To load every completed run from another theHarvester database:
+
+```bash
+curl -s "http://127.0.0.1:5000/api/v1/runs/import-database?filename=stash.sqlite" \
+  -X POST \
+  -H "X-API-Key: $THEHARVESTER_API_KEY" \
+  -H 'Content-Type: application/vnd.sqlite3' \
+  --data-binary @stash.sqlite \
+  | jq
+```
+
+The server checks the SQLite header, integrity, schema, and each completed run before copying it. Original run IDs are preserved. Exact duplicates are skipped, while a reused ID with different evidence is rejected. Close the source process or checkpoint its WAL before uploading the database. Screenshot metadata is imported, but screenshot files must be copied separately. The default upload ceiling is 1 GiB and can be changed with `THEHARVESTER_MAX_DATABASE_IMPORT_BYTES`.
 
 Export one normalized result set in the same streamable format:
 

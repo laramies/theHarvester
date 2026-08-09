@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import hashlib
 import inspect
 import json
 import logging
@@ -13,8 +14,10 @@ from collections.abc import Awaitable, Callable, Iterable, Mapping
 from contextlib import AsyncExitStack
 from datetime import UTC, datetime
 from ipaddress import ip_address
+from pathlib import Path
 from typing import Any, cast
-from uuid import uuid4
+from urllib.parse import urlsplit
+from uuid import UUID, uuid4
 
 import anyio
 import netaddr
@@ -84,7 +87,7 @@ from theHarvester.discovery import (
 )
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib import hostchecker
-from theHarvester.lib.active_evidence import ActionExecution, ActiveEvidence
+from theHarvester.lib.active_evidence import ActionExecution, ActiveEvidence, ArtifactReference
 from theHarvester.lib.completed_result import (
     EXECUTION_STATUSES,
     CompletedResult,
@@ -175,6 +178,8 @@ async def start(
     include_breaches: bool = False,
     return_completed_result: bool = False,
     return_dns_brute_result: bool = False,
+    result_database: str | Path | None = None,
+    completed_run_id: UUID | None = None,
 ):
     """Main program function"""
     parser = argparse.ArgumentParser(
@@ -343,7 +348,7 @@ async def start(
             logger.info('Verbose logging enabled')
     Core.quiet = getattr(args, 'quiet', False)
     try:
-        db = ResultStore()
+        db = ResultStore() if result_database is None else ResultStore(result_database)
         await db.initialize()
     except (AttributeError, OSError, RuntimeError, ValueError) as init_error:
         if not args.quiet:
@@ -365,7 +370,7 @@ async def start(
             # For relative paths, sanitize the entire filename
             filename = sanitize_filename(filename)
     run_started_at = datetime.now(UTC)
-    run_id = uuid4()
+    run_id = completed_run_id or uuid4()
 
     all_emails: list = []
     all_hosts: list = []
@@ -431,7 +436,8 @@ async def start(
     all_cms: list[str] = []
     all_analytics: list[str] = []
     endpoints_found: set[str] = set()
-    screenshot_results: list[str] = []
+    screenshot_artifacts: list[ArtifactReference] = []
+    screenshot_subjects: set[str] = set()
     shodan_evidence: list[str] = []
     takeover_results: dict[str, list[dict[str, str]]] = {}
     linkedin_people_list_tracker = []
@@ -464,7 +470,7 @@ async def start(
             'cms': map(str, all_cms),
             'email': map(str, all_emails),
             'framework': map(str, all_frameworks),
-            'hostname': _normalize_hosts_for_storage(all_hosts, word),
+            'hostname': _normalize_hosts_for_storage(all_hosts, word) | screenshot_subjects,
             'infostealer': (
                 json.dumps(stealer, ensure_ascii=False, separators=(',', ':'), sort_keys=True) for stealer in all_infostealers
             ),
@@ -475,7 +481,6 @@ async def start(
             'linkedin-person': map(str, linkedin_people_list_tracker),
             'person': (json.dumps(person, ensure_ascii=False, separators=(',', ':'), sort_keys=True) for person in all_people),
             'server': map(str, all_servers),
-            'screenshot': map(str, screenshot_results),
             'twitter-person': map(str, twitter_people_list_tracker),
             'url': map(str, all_urls),
             'vhost': map(str, virtual_hosts),
@@ -2192,13 +2197,43 @@ async def start(
 
     # Screenshots
     if len(args.screenshot) > 0:
+        screenshot_started = time.perf_counter()
         screen_shotter = ScreenShotter(args.screenshot)
+
+        async def persist_screenshot_cancellation() -> None:
+            action_executions.append(
+                ActionExecution.finish(
+                    action='screenshot',
+                    status='partial' if screenshot_artifacts else 'failed',
+                    duration_ms=(time.perf_counter() - screenshot_started) * 1000,
+                    groups={},
+                    artifacts=screenshot_artifacts,
+                    error_type='CancelledError',
+                    stop_reason='cancelled',
+                )
+            )
+            await checkpoint_completed_result(extra_hostnames=dnsrev)
+            await persist_result(finish_completed_result(extra_hostnames=dnsrev))
+
         path_exists = screen_shotter.verify_path()
         # Verify the path exists, if not create it or if user does not create it skips screenshot
-        if path_exists:
-            await screen_shotter.verify_installation()
+        if not path_exists:
+            action_executions.append(
+                ActionExecution.finish(
+                    action='screenshot',
+                    status='skipped',
+                    duration_ms=(time.perf_counter() - screenshot_started) * 1000,
+                    groups={},
+                    stop_reason='path-unavailable',
+                )
+            )
+        else:
+            try:
+                await screen_shotter.verify_installation()
+            except asyncio.CancelledError:
+                await persist_screenshot_cancellation()
+                raise
             output_logger.info(f'\nScreenshots can be found in: {screen_shotter.output}{screen_shotter.slash}')
-            start_time = time.perf_counter()
             output_logger.info('Filtering domains for ones we can reach')
             if not engines:
                 unique_resolved_domains = resolved_screenshot_hosts | {word}
@@ -2209,28 +2244,88 @@ async def start(
                 # You should always use dns resolve when doing screenshotting
                 output_logger.info('NOTE for future use cases you should only use screenshotting in tandem with DNS resolving')
                 unique_resolved_domains = set(all_hosts)
+            reachable_urls: list[str] = []
+            capture_error_types: set[str] = set()
             if len(unique_resolved_domains) > 0:
                 # First filter out ones that didn't resolve
                 output_logger.info('Attempting to visit unique resolved domains, this is ACTIVE RECON')
                 async with Pool(10) as pool:
-                    results = await pool.map(screen_shotter.visit, list(unique_resolved_domains))
+                    try:
+                        results = await pool.map(screen_shotter.visit, list(unique_resolved_domains))
+                    except asyncio.CancelledError:
+                        await persist_screenshot_cancellation()
+                        raise
                     # Filter out domains that we couldn't connect to
-                    unique_resolved_domains_list = list(sorted({tup[0] for tup in results if len(tup[1]) > 0}))
+                    reachable_urls = list(sorted({tup[0] for tup in results if len(tup[1]) > 0}))
                 async with Pool(3) as pool:
-                    output_logger.info(f'Length of unique resolved domains: {len(unique_resolved_domains_list)} chunking now!\n')
+                    output_logger.info(f'Length of unique resolved domains: {len(reachable_urls)} chunking now!\n')
                     # If you have the resources, you could make the function faster by increasing the chunk number
                     chunk_number = 14
-                    for chunk in screen_shotter.chunk_list(unique_resolved_domains_list, chunk_number):
+                    for chunk in screen_shotter.chunk_list(reachable_urls, chunk_number):
                         try:
-                            screenshot_results.extend(
-                                result for result in await pool.map(screen_shotter.take_screenshot, chunk) if result
-                            )
-                            await checkpoint_completed_result(extra_hostnames=dnsrev)
+                            for captured_url in await pool.map(screen_shotter.take_screenshot, chunk):
+                                if not captured_url:
+                                    capture_error_types.add('CaptureError')
+                                    continue
+                                screenshot_path = screen_shotter.screenshot_path(captured_url)
+                                if not await anyio.Path(screenshot_path).is_file():
+                                    capture_error_types.add('ArtifactMissing')
+                                    continue
+                                parsed = urlsplit(
+                                    captured_url
+                                    if captured_url.startswith(('http://', 'https://'))
+                                    else f'https://{captured_url}'
+                                )
+                                if not parsed.hostname:
+                                    capture_error_types.add('InvalidScreenshotURL')
+                                    continue
+                                screenshot_subjects.add(parsed.hostname.lower())
+                                screenshot_bytes = await anyio.Path(screenshot_path).read_bytes()
+                                screenshot_artifacts.append(
+                                    ArtifactReference(
+                                        kind='screenshot',
+                                        subject_kind='hostname',
+                                        subject_value=parsed.hostname.lower(),
+                                        path=str(Path(Path(screen_shotter.output).name) / screenshot_path.name),
+                                        media_type='image/png',
+                                        size_bytes=len(screenshot_bytes),
+                                        sha256=hashlib.sha256(screenshot_bytes).hexdigest(),
+                                        created_at=datetime.now(UTC),
+                                    )
+                                )
+                        except asyncio.CancelledError:
+                            await persist_screenshot_cancellation()
+                            raise
                         except Exception as ee:
+                            capture_error_types.add(type(ee).__name__)
                             output_logger.info(f'An exception has occurred while mapping: {ee}')
+            if not unique_resolved_domains:
+                screenshot_status: ExecutionStatus = 'skipped'
+                screenshot_stop_reason = 'no-input'
+            elif capture_error_types and screenshot_artifacts:
+                screenshot_status = 'partial'
+                screenshot_stop_reason = 'capture-errors'
+            elif capture_error_types or (reachable_urls and not screenshot_artifacts):
+                screenshot_status = 'failed'
+                screenshot_stop_reason = 'capture-errors'
+            else:
+                screenshot_status = 'completed'
+                screenshot_stop_reason = None
+            action_executions.append(
+                ActionExecution.finish(
+                    action='screenshot',
+                    status=screenshot_status,
+                    duration_ms=(time.perf_counter() - screenshot_started) * 1000,
+                    groups={},
+                    artifacts=screenshot_artifacts,
+                    error_type=next(iter(sorted(capture_error_types)), None),
+                    stop_reason=screenshot_stop_reason,
+                )
+            )
+            await checkpoint_completed_result(extra_hostnames=dnsrev)
             end = time.perf_counter()
             # There is probably an easier way to do this
-            total = int(end - start_time)
+            total = int(end - screenshot_started)
             mon, sec = divmod(total, 60)
             hr, mon = divmod(mon, 60)
             total_time = f'{mon:02d}:{sec:02d}'

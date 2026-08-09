@@ -8,7 +8,7 @@ import sys
 from argparse import ArgumentParser
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-from uuid import uuid4
+from uuid import UUID, uuid4
 from weakref import WeakKeyDictionary
 
 from theHarvester.lib.enumeration import (
@@ -305,7 +305,15 @@ async def _child_execute(run_id: str, database: Path) -> None:
         async with checkpoint_lock:
             write_child_evidence(artifact_dir, evidence, partial=True)
 
-    task = asyncio.create_task(main_module.start(args, completed_result_checkpoint=checkpoint, return_completed_result=True))
+    task = asyncio.create_task(
+        main_module.start(
+            args,
+            completed_result_checkpoint=checkpoint,
+            return_completed_result=True,
+            result_database=database,
+            completed_run_id=UUID(run_id),
+        )
+    )
     loop = asyncio.get_running_loop()
     signal_handler_installed = False
     if os.name != 'nt':

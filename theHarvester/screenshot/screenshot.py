@@ -8,6 +8,8 @@ import ssl
 import sys
 from collections.abc import Collection
 from datetime import datetime
+from pathlib import Path
+from urllib.parse import urlsplit
 
 import aiohttp
 import certifi
@@ -88,20 +90,27 @@ class ScreenShotter:
             # New browser context
             context = await browser.new_context()
             page = await context.new_page()
-            path = rf'{self.output}{self.slash}{url.replace("http://", "").replace("https://", "")}.png'
+            path: Path | None = self.screenshot_path(url)
             date = str(datetime.now())
             try:
                 # Will fail if network idle or load event doesn't fire after
                 # 35s which should be handled
                 await page.goto(url, timeout=35000)
                 await page.screenshot(path=path)
-                os.chmod(path, 0o600)
+                if path is not None:
+                    os.chmod(path, 0o600)
             except Exception as e:
                 logger.info(f'An exception has occurred attempting to screenshot: {url} : {e}')
-                path = ''
+                path = None
             finally:
                 await page.close()
                 await context.close()
                 await browser.close()
                 logger.info(f'{date} {url} {path}')
         return url if path else ''
+
+    def screenshot_path(self, url: str) -> Path:
+        parsed = urlsplit(url if url.startswith(('http://', 'https://')) else f'https://{url}')
+        hostname = (parsed.hostname or 'unknown-host').replace(':', '_')
+        port = f'_{parsed.port}' if parsed.port else ''
+        return Path(self.output) / f'{hostname}{port}.png'

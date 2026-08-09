@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import os
+import tempfile
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated
 
+import anyio
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.responses import FileResponse
 from pydantic import ValidationError
@@ -17,10 +20,12 @@ from theHarvester.lib.source_catalog import ACTION_ACTIVITIES, SOURCE_SPECS, Sou
 from . import run_worker
 from .run_evidence import parse_jsonl_import
 from .run_models import (
+    DATABASE_IMPORT_REQUEST_OPENAPI,
     EXPORT_RESPONSES,
     IMPORT_REQUEST_OPENAPI,
     RUN_REQUEST_OPENAPI,
     ActionResponse,
+    DatabaseImportResponse,
     RunDetail,
     RunRequest,
     RunSummary,
@@ -33,6 +38,7 @@ from .run_store import RunStore
 router = APIRouter(prefix='/api/v1', tags=['Runs'])
 MAX_IMPORT_BYTES = 10 * 1024 * 1024
 MAX_RUN_REQUEST_BYTES = 64 * 1024
+DEFAULT_MAX_DATABASE_IMPORT_BYTES = 1024 * 1024 * 1024
 
 
 async def _read_limited_body(request: Request, limit: int, detail: str) -> bytes:
@@ -47,9 +53,26 @@ async def _read_limited_body(request: Request, limit: int, detail: str) -> bytes
     return bytes(body)
 
 
+async def _stream_limited_body(request: Request, path: Path, limit: int, detail: str) -> None:
+    content_length = request.headers.get('content-length')
+    if content_length and content_length.isdigit() and int(content_length) > limit:
+        raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail=detail)
+    size = 0
+    async with await anyio.open_file(path, 'wb') as file:
+        async for chunk in request.stream():
+            size += len(chunk)
+            if size > limit:
+                raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail=detail)
+            await file.write(chunk)
+
+
 @router.get('/runs')
-async def list_runs(_api_key: Annotated[str, Depends(get_api_key)]) -> list[RunSummary]:
-    return [RunSummary.model_validate(run) for run in await RunStore().list_runs()]
+async def list_runs(
+    _api_key: Annotated[str, Depends(get_api_key)],
+    limit: Annotated[int, Query(ge=1, le=500, description='Maximum run summaries to return.')] = 100,
+    offset: Annotated[int, Query(ge=0, description='Number of newer run summaries to skip.')] = 0,
+) -> list[RunSummary]:
+    return [RunSummary.model_validate(run) for run in await RunStore().list_runs(limit=limit, offset=offset)]
 
 
 @router.get('/sources')
@@ -145,6 +168,53 @@ async def import_run(
     body = await _read_limited_body(request, MAX_IMPORT_BYTES, 'Result file exceeds the 10 MiB limit')
     evidence = parse_jsonl_import(body)
     return RunDetail.model_validate(await RunStore().import_evidence(evidence, safe_filename))
+
+
+@router.post(
+    '/runs/import-database',
+    status_code=status.HTTP_201_CREATED,
+    openapi_extra=DATABASE_IMPORT_REQUEST_OPENAPI,
+)
+async def import_database(
+    request: Request,
+    _api_key: Annotated[str, Depends(get_api_key)],
+    filename: Annotated[
+        str,
+        Query(
+            min_length=1,
+            max_length=255,
+            description='Original .sqlite, .sqlite3, or .db file name.',
+        ),
+    ],
+) -> DatabaseImportResponse:
+    safe_filename = Path(filename).name
+    if Path(safe_filename).suffix.casefold() not in {'.sqlite', '.sqlite3', '.db'}:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Choose a SQLite database file')
+    try:
+        maximum_size = int(os.getenv('THEHARVESTER_MAX_DATABASE_IMPORT_BYTES', DEFAULT_MAX_DATABASE_IMPORT_BYTES))
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail='THEHARVESTER_MAX_DATABASE_IMPORT_BYTES must be an integer',
+        ) from error
+    descriptor, temporary_name = tempfile.mkstemp(prefix='theharvester-import-', suffix='.sqlite')
+    os.close(descriptor)
+    temporary_path = Path(temporary_name)
+    await anyio.Path(temporary_path).chmod(0o600)
+    try:
+        await _stream_limited_body(
+            request,
+            temporary_path,
+            maximum_size,
+            'SQLite database exceeds the configured import limit',
+        )
+        async with await anyio.open_file(temporary_path, 'rb') as file:
+            header = await file.read(16)
+        if header != b'SQLite format 3\x00':
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Uploaded file is not a SQLite database')
+        return DatabaseImportResponse.model_validate(await RunStore().import_database(temporary_path, safe_filename))
+    finally:
+        await anyio.Path(temporary_path).unlink(missing_ok=True)
 
 
 @router.get('/runs/{run_id}', response_model_exclude_unset=True)

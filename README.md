@@ -101,6 +101,7 @@ Open [http://127.0.0.1:5000/docs](http://127.0.0.1:5000/docs) for interactive Sw
 | `GET /api/v1/runs/{run_id}` | Retrieve lifecycle state, normalized results, and source outcomes. |
 | `POST /api/v1/runs/{run_id}/cancel` | Cancel queued or running work. |
 | `POST /api/v1/runs/import` | Import JSONL evidence without executing discovery. |
+| `POST /api/v1/runs/import-database` | Import completed runs from a theHarvester SQLite database. |
 | `GET /api/v1/runs/{run_id}/export` | Export normalized evidence as JSONL. |
 
 Every `/api/v1/*` route requires `THEHARVESTER_API_KEY` in the `X-API-Key` header. Provider credentials stay in server-side configuration and cannot be supplied in a request. Keep the service bound to localhost. If you require remote access, add network access controls and TLS.
@@ -208,7 +209,7 @@ Never commit populated configuration files, API keys, account details, or provid
 - Screenshots are written to the directory passed to `--screenshot`.
 - Host, email, IP, and related scan records are stored in `~/.local/share/theHarvester/stash.sqlite`.
 - Full CLI pipeline runs are also stored transactionally by run UUID with their completed, deduplicated findings.
-- API executions use the same SQLite database as CLI results. Durable lifecycle rows stay separate from terminal evidence, while typed results and source or action origins remain queryable. File import and export use only JSONL.
+- API executions use the same SQLite database as CLI results. Durable lifecycle rows stay separate from terminal evidence, while typed results and source or action origins remain queryable. JSONL handles individual run interchange, and the API can import completed runs from another theHarvester SQLite database.
 
 Treat collected OSINT as potentially sensitive. Keep report files, screenshots, and the local database out of source control and share them only within the authorized engagement.
 

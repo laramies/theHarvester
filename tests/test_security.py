@@ -12,60 +12,10 @@ from theHarvester.__main__ import sanitize_filename, sanitize_for_xml
 class TestCORSConfiguration:
     """Test CORS security configuration."""
 
-    def test_cors_does_not_allow_credentials_with_wildcard_origins(self):
-        """
-        Security Test: CORS should not allow credentials with wildcard origins.
-
-        This prevents credential theft attacks where any origin can make
-        authenticated requests to the API.
-        """
+    def test_api_does_not_enable_cross_origin_requests(self):
         from theHarvester.lib.api.api import app
 
-        # Find CORS middleware in the app
-        cors_middleware = None
-        for middleware in app.user_middleware:
-            if 'CORSMiddleware' in str(middleware.cls):
-                cors_middleware = middleware
-                break
-
-        assert cors_middleware is not None, 'CORS middleware should be configured'
-
-        # Check that if allow_origins contains '*', allow_credentials must be False
-        # Access kwargs from the middleware
-        options = cors_middleware.kwargs
-        allow_origins = options.get('allow_origins', [])
-        allow_credentials = options.get('allow_credentials', False)
-
-        if isinstance(allow_origins, (list, tuple, set)) and '*' in allow_origins:
-            assert allow_credentials is False, 'CRITICAL: CORS must not allow credentials with wildcard origins (CVE risk)'
-
-    def test_cors_restricts_http_methods(self):
-        """
-        Security Test: CORS should restrict HTTP methods to only what's needed.
-
-        Reduces attack surface by limiting available methods.
-        """
-        from theHarvester.lib.api.api import app
-
-        cors_middleware = None
-        for middleware in app.user_middleware:
-            if 'CORSMiddleware' in str(middleware.cls):
-                cors_middleware = middleware
-                break
-
-        assert cors_middleware is not None
-
-        options = cors_middleware.kwargs
-        allow_methods = options.get('allow_methods', [])
-
-        # Should not allow all methods
-        assert allow_methods != ['*'], 'CORS should restrict HTTP methods, not allow all (*)'
-
-        # Should only allow necessary methods (GET, POST for this API)
-        if isinstance(allow_methods, list):
-            dangerous_methods = {'DELETE', 'PUT', 'PATCH', 'TRACE', 'CONNECT'}
-            allowed_set = {m.upper() for m in allow_methods}
-            assert not (allowed_set & dangerous_methods), f'Unnecessary HTTP methods detected: {allowed_set & dangerous_methods}'
+        assert all('CORSMiddleware' not in str(middleware.cls) for middleware in app.user_middleware)
 
 
 class TestXMLInjectionPrevention:

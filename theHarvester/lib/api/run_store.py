@@ -10,7 +10,7 @@ from fastapi import HTTPException, status
 
 from theHarvester.lib.active_evidence import ActionExecution, ActiveEvidence, ArtifactReference
 from theHarvester.lib.completed_result import CompletedResult, ResultObservation, SourceExecution
-from theHarvester.lib.database import DuplicateRunError, ResultStore, RunLifecycleStore
+from theHarvester.lib.database import DuplicateRunError, ResultStore, ResultStoreError, RunLifecycleStore
 from theHarvester.lib.evidence_types import EXECUTION_STATUSES, ExecutionStatus, ResultKind
 
 from .run_artifacts import RunPaths, read_child_evidence
@@ -152,8 +152,9 @@ class RunStore:
     async def _row(self, record: dict[str, object], *, detail: bool = False) -> dict[str, Any]:
         request = json.loads(str(record['request_json']))
         evidence = None
-        if record['evidence_run_id'] is not None:
+        if detail and record['evidence_run_id'] is not None:
             evidence = (await self.results.load_run(UUID(str(record['evidence_run_id'])))).evidence_dict()
+        summary_result_count = record.get('result_count')
         result = {
             'run_id': record['run_id'],
             'target': record['target'],
@@ -167,7 +168,13 @@ class RunStore:
             'sources': request.get('sources', []),
             'activities': activities_for_request(request),
             'evidence_status': record['evidence_status'] or (evidence.get('status') if evidence else None),
-            'result_count': len(normalized_results(evidence)) if evidence else 0,
+            'result_count': (
+                len(normalized_results(evidence))
+                if evidence
+                else summary_result_count
+                if isinstance(summary_result_count, int)
+                else 0
+            ),
         }
         if detail:
             result.update(
@@ -205,6 +212,12 @@ class RunStore:
         run_id = str(uuid4())
         completed = await self._save_evidence(evidence, created_at, created_at, run_id=UUID(run_id))
         completed_evidence = completed.evidence_dict()
+        if completed.source_executions or completed.active_evidence.executions:
+            if evidence['status'] != completed.status:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail='Evidence status does not match its execution outcomes',
+                )
         executions = source_executions(completed_evidence)
         raw_action_executions = completed_evidence.get('action_executions', [])
         action_executions = (
@@ -234,15 +247,92 @@ class RunStore:
             completed_at=completed.completed_at.isoformat(),
             request_json=json.dumps(request),
             evidence_run_id=run_id,
-            evidence_status=str(evidence['status']),
+            evidence_status=completed.status
+            if completed.source_executions or completed.active_evidence.executions
+            else str(evidence['status']),
         )
         run = await self.get(run_id)
         assert run is not None
         return run
 
-    async def list_runs(self) -> list[dict[str, Any]]:
+    async def import_database(self, source_path: Path, filename: str) -> dict[str, object]:
         await self.initialize()
-        return [await self._row(record) for record in await self.lifecycle.list_records()]
+        source = ResultStore(source_path)
+        try:
+            await source.validate_import_database()
+            await source.initialize()
+            summaries = await source.list_runs(limit=None)
+            completed_runs = [await source.load_run(UUID(str(summary['run_id']))) for summary in summaries]
+        except (ResultStoreError, RuntimeError, ValueError) as error:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
+        finally:
+            await source.dispose()
+
+        imported_run_ids: list[str] = []
+        skipped_run_ids: list[str] = []
+        import_plan: list[tuple[CompletedResult, dict[str, object] | None, CompletedResult | None]] = []
+        for completed in sorted(completed_runs, key=lambda item: str(item.run_id)):
+            run_id = str(completed.run_id)
+            record = await self.lifecycle.get(run_id)
+            existing = None
+            try:
+                existing = await self.results.load_run(completed.run_id)
+            except (LookupError, ResultStoreError):
+                pass
+            if record is not None or existing is not None:
+                if record is not None and existing == completed:
+                    skipped_run_ids.append(run_id)
+                    continue
+                if existing != completed:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=f'Run ID conflicts with different evidence: {run_id}',
+                    )
+            import_plan.append((completed, record, existing))
+
+        for completed, record, existing in import_plan:
+            run_id = str(completed.run_id)
+            if record is not None:
+                skipped_run_ids.append(run_id)
+                continue
+            if existing is None:
+                await self.results.save_run(completed)
+            evidence = completed.evidence_dict()
+            executions = source_executions(evidence)
+            raw_action_executions = evidence.get('action_executions', [])
+            action_executions = (
+                [dict(execution) for execution in raw_action_executions if isinstance(execution, dict)]
+                if isinstance(raw_action_executions, list)
+                else []
+            )
+            request = {
+                'filename': filename,
+                'source_run_id': run_id,
+                'sources': [str(execution['source']) for execution in executions],
+                'activities': activities_for_evidence(executions, action_executions),
+            }
+            await self.lifecycle.create(
+                run_id=run_id,
+                target=completed.target,
+                status='completed',
+                origin='imported',
+                created_at=completed.completed_at.isoformat(),
+                started_at=completed.started_at.isoformat(),
+                completed_at=completed.completed_at.isoformat(),
+                request_json=json.dumps(request),
+                evidence_run_id=run_id,
+                evidence_status=completed.status,
+            )
+            imported_run_ids.append(run_id)
+        return {
+            'filename': filename,
+            'imported_run_ids': imported_run_ids,
+            'skipped_run_ids': skipped_run_ids,
+        }
+
+    async def list_runs(self, *, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+        await self.initialize()
+        return [await self._row(record) for record in await self.lifecycle.list_records(limit=limit, offset=offset)]
 
     async def get(self, run_id: str) -> dict[str, Any] | None:
         await self.initialize()

@@ -24,6 +24,14 @@ def test_screenshot_output_separator_matches_platform(
     assert ScreenShotter('screenshots').slash == expected_separator
 
 
+def test_screenshot_path_uses_only_the_final_host_and_port(tmp_path: Path) -> None:
+    screenshotter = ScreenShotter(str(tmp_path))
+
+    assert screenshotter.screenshot_path('https://www.example.com:8443/login?next=/admin') == (
+        tmp_path / 'www.example.com_8443.png'
+    )
+
+
 @pytest.mark.asyncio
 async def test_visit_prefers_https_and_returns_final_www_url(monkeypatch: pytest.MonkeyPatch) -> None:
     response = MagicMock()
@@ -90,7 +98,7 @@ async def test_take_screenshot_preserves_www_hostname(
     assert captured_url == 'https://www.example.com'
     page.goto.assert_awaited_once_with('https://www.example.com', timeout=35000)
     screenshot_path = page.screenshot.await_args.kwargs['path']
-    assert screenshot_path.endswith('www.example.com.png')
+    assert Path(screenshot_path) == tmp_path / 'www.example.com.png'
 
 
 @pytest.mark.asyncio
