@@ -628,12 +628,14 @@ dialog[open] { animation: dialog-in 180ms cubic-bezier(0.22, 1, 0.36, 1); }
 .dialog-content > p { max-width: 70ch; color: var(--ink-soft); }
 .dialog-content code { color: var(--accent-text); }
 .dialog-content label:not(.action-choice, .source-choice, .file-drop) { display: grid; gap: 6px; font-weight: 720; }
-.dialog-content input:not([type="checkbox"], [type="file"]), .dialog-content select { width: 100%; min-height: 44px; padding: 9px 11px; color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 7px; }
+.dialog-content input:not([type="checkbox"], [type="file"]), .dialog-content select, .dialog-content textarea { width: 100%; min-height: 44px; padding: 9px 11px; color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 7px; }
 .dialog-content input::placeholder { color: var(--muted); opacity: 1; }
+.dialog-content textarea { min-height: 88px; resize: vertical; }
 .dialog-content small { color: var(--muted); font-weight: 450; }
 .dialog-close { color: var(--ink); background: transparent; border-color: var(--line); }
 .form-grid { display: grid; gap: 14px; margin-block: 23px; }
 .form-grid.three { grid-template-columns: minmax(220px, 1.4fr) minmax(130px, 0.6fr) minmax(160px, 0.7fr); }
+.form-grid.three .api-scan-paths { grid-column: 1 / -1; }
 .advanced-execution { margin-block: 18px 0; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 7px; }
 .advanced-execution summary { min-height: 32px; align-content: center; font-weight: 780; cursor: pointer; }
 .advanced-execution .form-grid { margin-block-end: 0; }

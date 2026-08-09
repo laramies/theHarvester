@@ -24,7 +24,7 @@
       </div>
       <nav class="header-actions" aria-label="Run desk actions">
         <button id="theme-button" class="header-button" type="button" aria-label="Change color theme" title="Cycle between system, light, and dark themes.">Theme: system</button>
-        <button id="import-button" class="header-button" type="button" title="Store existing versioned JSONL evidence without contacting the target.">Import result file</button>
+        <button id="import-button" class="header-button" type="button" title="Store existing JSONL evidence or completed runs from a theHarvester SQLite database without contacting the target.">Import result file</button>
         <button id="new-run-button" class="header-button primary" type="button" title="Review the target, sources, and authorized activity before anything is queued." disabled>Start enumeration</button>
       </nav>
     </header>
@@ -67,7 +67,7 @@
         <div id="empty-state" class="center-state empty-state" hidden>
           <div class="empty-mark" aria-hidden="true">W</div>
           <h2>No enumeration runs yet</h2>
-          <p>Start an explicitly authorized finite run, or import a versioned theHarvester JSONL result file.</p>
+          <p>Start an explicitly authorized finite run, or import theHarvester JSONL or SQLite results.</p>
           <div class="empty-actions">
             <button type="button" class="button primary" data-action="new-run">Start enumeration</button>
             <button type="button" class="button" data-action="import">Import result file</button>
@@ -229,6 +229,10 @@
               <input id="dns-resolver-file" type="file" accept=".txt,text/plain">
               <small>Optional file with one IPv4 or IPv6 address per line.</small>
             </label>
+            <label class="api-scan-paths">API endpoint paths
+              <textarea id="api-scan-paths" name="api_scan_paths" rows="3" placeholder="/api/v2&#10;/health"></textarea>
+              <small>Optional list for API endpoint interaction, one URL path per line. Leave empty to use the bundled list.</small>
+            </label>
             <label class="inline-choice"><input type="checkbox" name="proxies"><span>Use configured proxies for discovery and takeover checks</span></label>
           </div>
         </details>
@@ -259,7 +263,7 @@
             <label class="action-choice p1"><input type="checkbox" name="dns_resolve"><span><strong>P1 · DNS resolution</strong><small>Resolve with the configured resolver addresses.</small></span></label>
             <label class="action-choice p1"><input type="checkbox" name="dns_brute"><span><strong>P1 · DNS brute force</strong><small>Query candidate labels against DNS.</small></span></label>
             <label class="action-choice p2"><input type="checkbox" name="screenshot"><span><strong>P2 · Screenshots</strong><small>Contact resolved hosts and capture pages.</small></span></label>
-            <label class="action-choice p2"><input type="checkbox" name="take_over"><span><strong>P2 · Takeover checks</strong><small>Contact discovered hosts, through configured proxies when enabled, for takeover evidence.</small></span></label>
+            <label class="action-choice p2"><input type="checkbox" name="takeover"><span><strong>P2 · Takeover checks</strong><small>Contact discovered hosts, through configured proxies when enabled, for takeover evidence.</small></span></label>
             <label class="action-choice p2"><input type="checkbox" name="api_scan"><span><strong>P2 · API endpoint interaction</strong><small>Contact the target for endpoint evidence.</small></span></label>
           </div>
         </fieldset>
@@ -279,12 +283,12 @@
           <div><h2 id="import-title">Import a result file</h2></div>
           <button class="icon-button dialog-close" type="button" data-close-dialog aria-label="Close import dialog">×</button>
         </header>
-        <p>Choose a versioned theHarvester JSONL file. Import stores evidence only; it never contacts the target or replays the run.</p>
+        <p>Choose theHarvester JSONL evidence or a closed, checkpointed SQLite database. Import never contacts the target or replays a run. SQLite stores run evidence but does not embed screenshot files.</p>
         <label class="file-drop" for="result-file">
           <span class="file-mark" aria-hidden="true">⇧</span>
-          <strong id="file-label">Choose a .jsonl file</strong>
-          <small>Maximum size: 10 MiB</small>
-          <input id="result-file" name="result-file" type="file" accept=".jsonl,application/x-ndjson" required>
+          <strong id="file-label">Choose a JSONL or SQLite file</strong>
+          <small>JSONL maximum: 10 MiB. SQLite uses the server import limit.</small>
+          <input id="result-file" name="result-file" type="file" accept=".jsonl,.sqlite,.sqlite3,.db,application/x-ndjson,application/vnd.sqlite3" required>
         </label>
         <p id="import-error" class="form-error" role="alert" hidden></p>
         <footer class="dialog-actions">

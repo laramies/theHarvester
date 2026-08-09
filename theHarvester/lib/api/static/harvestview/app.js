@@ -13,6 +13,8 @@
     'api-endpoint': 'API endpoints', takeover: 'Takeover evidence', shodan: 'Shodan evidence',
     'scope-extension': 'Scope extensions', 'external-relationship': 'External relationships', other: 'Other'
   };
+  const ACTION_FIELDS = {'dns-recursive': 'dns_recursive_depth'};
+  const SQLITE_SUFFIXES = ['.sqlite', '.sqlite3', '.db'];
   const state = {
     runs: [],
     selectedId: null,
@@ -297,7 +299,7 @@
       ['Recursive DNS query budget', request.dns_recursive_query_limit ?? 'Not recorded'],
       ['Recursive DNS runtime', request.dns_recursive_runtime_seconds ? `${request.dns_recursive_runtime_seconds} seconds` : 'Not recorded'],
       ['Screenshots', request.screenshot ? 'Selected' : 'Off'],
-      ['Takeover transport', request.take_over ? (request.proxies ? 'Configured proxy' : 'Direct') : 'Off'],
+      ['Takeover transport', request.takeover ? (request.proxies ? 'Configured proxy' : 'Direct') : 'Off'],
       ['API endpoint interaction', request.api_scan ? 'Selected' : 'Off']
     ];
     if (request.filename) options.unshift(['Imported file', request.filename]);
@@ -630,9 +632,9 @@
     const activities = new Set();
     for (const source of state.sources) if (state.selectedSources.has(source.name)) activities.add(source.activity);
     for (const action of state.actions) {
-      const field = nodes.newRunForm.elements[action.name.replaceAll('-', '_')];
+      const field = nodes.newRunForm.elements[ACTION_FIELDS[action.name] || action.name.replaceAll('-', '_')];
       const selected = action.name === 'dns-recursive'
-        ? Number(nodes.newRunForm.elements.dns_recursive_depth.value) > 0
+        ? Number(field?.value) > 0
         : field?.checked;
       if (selected) activities.add(action.activity);
     }
@@ -659,7 +661,7 @@
 
   function openImport() {
     nodes.importForm.reset();
-    nodes.fileLabel.textContent = 'Choose a .jsonl file';
+    nodes.fileLabel.textContent = 'Choose a JSONL or SQLite file';
     openDialog(nodes.importDialog, '#result-file');
   }
 
@@ -697,8 +699,12 @@
     event.preventDefault();
     showFormError(nodes.newRunError, '');
     const form = new FormData(nodes.newRunForm);
-    if (!state.selectedSources.size && !form.has('screenshot') && !form.has('dns_brute')) {
-      showFormError(nodes.newRunError, 'Select at least one discovery source, screenshots, or DNS brute force.');
+    const actionSelected = state.actions.some(action => {
+      const field = ACTION_FIELDS[action.name] || action.name.replaceAll('-', '_');
+      return action.name === 'dns-recursive' ? Number(form.get(field)) > 0 : form.has(field);
+    });
+    if (!state.selectedSources.size && !actionSelected) {
+      showFormError(nodes.newRunError, 'Select at least one discovery source or additional activity.');
       return;
     }
     const payload = {
@@ -710,7 +716,10 @@
       dns_recursive_query_limit: Number(form.get('dns_recursive_query_limit')),
       dns_recursive_runtime_seconds: Number(form.get('dns_recursive_runtime_seconds')),
       dns_brute: form.has('dns_brute'), shodan: form.has('shodan'), screenshot: form.has('screenshot'),
-      take_over: form.has('take_over'), api_scan: form.has('api_scan')
+      takeover: form.has('takeover'), api_scan: form.has('api_scan'),
+      api_scan_paths: form.has('api_scan')
+        ? String(form.get('api_scan_paths')).split(/\r?\n/).map(value => value.trim()).filter(Boolean)
+        : []
     };
     setBusy(nodes.submitRun, true, 'Submitting…');
     try {
@@ -733,24 +742,43 @@
     showFormError(nodes.importError, '');
     const file = nodes.resultFile.files[0];
     if (!file) {
-      showFormError(nodes.importError, 'Choose a JSONL result file.');
+      showFormError(nodes.importError, 'Choose a JSONL or SQLite result file.');
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      showFormError(nodes.importError, 'Result file exceeds the 10 MiB limit.');
+    const lowerName = file.name.toLowerCase();
+    const fileKind = lowerName.endsWith('.jsonl') ? 'jsonl' : SQLITE_SUFFIXES.some(suffix => lowerName.endsWith(suffix)) ? 'sqlite' : null;
+    if (!fileKind) {
+      showFormError(nodes.importError, 'Choose a .jsonl, .sqlite, .sqlite3, or .db file.');
+      return;
+    }
+    if (fileKind === 'jsonl' && file.size > 10 * 1024 * 1024) {
+      showFormError(nodes.importError, 'JSONL file exceeds the 10 MiB limit.');
       return;
     }
     setBusy(nodes.submitImport, true, 'Importing…');
     try {
-      const response = await api(`/api/v1/runs/import?filename=${encodeURIComponent(file.name)}`, {
-        method: 'POST', headers: {'Content-Type': 'application/x-ndjson'}, body: file
+      const path = fileKind === 'jsonl' ? '/api/v1/runs/import' : '/api/v1/runs/import-database';
+      const contentType = fileKind === 'jsonl' ? 'application/x-ndjson' : 'application/vnd.sqlite3';
+      const response = await api(`${path}?filename=${encodeURIComponent(file.name)}`, {
+        method: 'POST', headers: {'Content-Type': contentType}, body: file
       });
-      const run = await response.json();
+      const imported = await response.json();
       closeDialog(nodes.importDialog);
-      const runsResponse = await api('/api/v1/runs');
-      state.runs = await runsResponse.json();
-      await selectRun(run.run_id);
-      toast(`Imported ${file.name} without executing discovery.`);
+      if (fileKind === 'jsonl') {
+        await focusCreatedRun(imported);
+        toast(`Imported ${file.name} without executing discovery.`);
+      } else {
+        const importedIds = imported.imported_run_ids || [];
+        const skippedIds = imported.skipped_run_ids || [];
+        const selectedId = importedIds[0] || skippedIds[0];
+        if (selectedId) await focusCreatedRun({run_id: selectedId});
+        else {
+          const runsResponse = await api('/api/v1/runs');
+          state.runs = await runsResponse.json();
+          renderHistory();
+        }
+        toast(`Imported ${formatCount(importedIds.length, 'run')} from ${file.name}; ${skippedIds.length} already present.`);
+      }
     } catch (error) {
       showFormError(nodes.importError, error.message);
     } finally {
@@ -867,7 +895,7 @@
   });
   nodes.resultFile.addEventListener('change', () => {
     const file = nodes.resultFile.files[0];
-    nodes.fileLabel.textContent = file ? `${file.name} · ${(file.size / 1024).toLocaleString(undefined, {maximumFractionDigits: 1})} KiB` : 'Choose a .jsonl file';
+    nodes.fileLabel.textContent = file ? `${file.name} · ${(file.size / 1024).toLocaleString(undefined, {maximumFractionDigits: 1})} KiB` : 'Choose a JSONL or SQLite file';
   });
 
   document.addEventListener('click', event => {

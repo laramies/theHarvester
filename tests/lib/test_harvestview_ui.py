@@ -48,7 +48,7 @@ def test_harvestview_assets_load_outside_the_repository_directory(tmp_path, monk
     assert 'function renderResults' in response.text
 
 
-def test_harvestview_offers_only_jsonl_file_interchange(tmp_path, monkeypatch) -> None:
+def test_harvestview_offers_jsonl_and_sqlite_imports_with_jsonl_export(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api import api
 
     monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
@@ -59,14 +59,16 @@ def test_harvestview_offers_only_jsonl_file_interchange(tmp_path, monkeypatch) -
         root = client.get('/')
         script = client.get('/static/harvestview/app.js')
 
-    assert 'accept=".jsonl,application/x-ndjson"' in root.text
+    assert 'accept=".jsonl,.sqlite,.sqlite3,.db,application/x-ndjson,application/vnd.sqlite3"' in root.text
     assert 'id="export-jsonl-button"' in root.text
     assert 'id="route-csv-button"' not in root.text
     assert 'id="export-json-button"' not in root.text
     assert 'id="export-csv-button"' not in root.text
     assert '/export' in script.text
+    assert "fileKind === 'jsonl' ? '/api/v1/runs/import' : '/api/v1/runs/import-database'" in script.text
     assert '/exports/' not in script.text
     assert 'text/csv' not in script.text
+    assert 'versioned JSONL' not in root.text
 
 
 def test_harvestview_loads_pinned_tabulator_from_cdnjs(tmp_path, monkeypatch) -> None:

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -194,6 +197,9 @@ def test_harvestview_can_submit_overridable_execution_controls(
     page.locator('[name="proxies"]').check()
     page.locator('[name="shodan"]').check()
     page.locator('[name="dns_lookup"]').check()
+    page.locator('[name="takeover"]').check()
+    page.locator('[name="api_scan"]').check()
+    page.locator('#api-scan-paths').fill('/api/v2\n/health')
     page.locator('#dns-recursive-depth').fill('3')
     page.locator('#dns-recursive-query-limit').fill('1234')
     page.locator('#dns-recursive-runtime-seconds').fill('12.5')
@@ -202,7 +208,7 @@ def test_harvestview_can_submit_overridable_execution_controls(
     page.locator('#dns-resolver-file').set_input_files(resolver_file)
     expect(page.locator('#dns-resolvers')).to_have_value('192.0.2.53,198.51.100.53,203.0.113.53')
 
-    expect(page.locator('#activity-summary')).to_have_text('P0 selected · P1 selected · P2 off')
+    expect(page.locator('#activity-summary')).to_have_text('P0 selected · P1 selected · P2 selected')
     page.locator('[data-activity="P0"] input[value="crtsh"]').check()
     page.locator('#submit-run-button').click()
     expect(page.locator('#new-run-error')).to_have_text('Controls captured')
@@ -223,9 +229,43 @@ def test_harvestview_can_submit_overridable_execution_controls(
         'dns_brute': False,
         'shodan': True,
         'screenshot': False,
-        'take_over': False,
-        'api_scan': False,
+        'takeover': True,
+        'api_scan': True,
+        'api_scan_paths': ['/api/v2', '/health'],
     }
+
+
+def test_harvestview_submits_a_target_only_api_scan(
+    harvestview_server_url: str,
+    page: Page,
+    browser_failures,
+) -> None:
+    browser_failures.allow_response('POST', 503, '/api/v1/runs')
+    browser_failures.allow_console_error(
+        'Failed to load resource: the server responded with a status of 503 (Service Unavailable)'
+    )
+    captured: dict[str, object] = {}
+
+    def capture_submission(route: Route) -> None:
+        if route.request.method != 'POST':
+            route.continue_()
+            return
+        captured.update(route.request.post_data_json)
+        route.fulfill(status=503, json={'detail': 'Target-only action captured'})
+
+    page.route(f'{harvestview_server_url}/api/v1/runs', capture_submission)
+    page.goto(f'{harvestview_server_url}/')
+    page.get_by_role('button', name='Start enumeration').first.click()
+    page.get_by_role('button', name='Clear', exact=True).click()
+    page.locator('#run-target').fill('api.example.test')
+    page.locator('[name="api_scan"]').check()
+    page.locator('#api-scan-paths').fill('/api/v2\n/health')
+    page.locator('#submit-run-button').click()
+
+    expect(page.locator('#new-run-error')).to_have_text('Target-only action captured')
+    assert captured['sources'] == []
+    assert captured['api_scan'] is True
+    assert captured['api_scan_paths'] == ['/api/v2', '/health']
 
 
 def test_subdomain_actions_queue_isolated_runs(
@@ -418,7 +458,7 @@ def test_unchanged_poll_keeps_result_table_filters(harvestview_server_url: str, 
             'deadline_seconds': 300,
             'proxies': True,
             'dns_lookup': True,
-            'take_over': True,
+            'takeover': True,
         },
         'source_executions': [],
         'results': [{'type': 'subdomain', 'value': 'api.example.com'}],
@@ -598,6 +638,43 @@ def test_completed_empty_import_explains_terminal_outcome(
     assert exported_records[0]['evidence_status'] == 'complete'
     assert exported_records[0]['result_count'] == 0
     assert exported_records[0]['source_executions'][0]['status'] == 'completed'
+
+
+def test_harvestview_imports_completed_runs_from_sqlite(
+    harvestview_server_url: str,
+    page: Page,
+    tmp_path: Path,
+) -> None:
+    from theHarvester.lib.completed_result import CompletedResult
+    from theHarvester.lib.database import ResultStore, dispose_sqlite_databases
+
+    database = tmp_path / 'completed-runs.sqlite'
+    now = datetime.now(UTC)
+    completed = CompletedResult.finish(
+        target='sqlite.example.test',
+        started_at=now,
+        completed_at=now,
+        groups={'hostname': ['api.sqlite.example.test']},
+    )
+
+    async def prepare_database() -> None:
+        store = ResultStore(database)
+        await store.initialize()
+        await store.save_run(completed)
+        await dispose_sqlite_databases()
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        executor.submit(lambda: asyncio.run(prepare_database())).result()
+
+    page.goto(f'{harvestview_server_url}/')
+    page.get_by_role('button', name='Import result file').first.click()
+    page.locator('#result-file').set_input_files(database)
+    page.locator('#submit-import-button').click()
+
+    expect(page.locator('#detail-target')).to_have_text('sqlite.example.test')
+    expect(page.locator('#run-count')).to_have_text('1')
+    expect(page.locator('#toast')).to_have_text('Imported 1 run from completed-runs.sqlite; 0 already present.')
+    expect(page.get_by_role('button', name='Subdomains 1')).to_be_enabled()
 
 
 def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui(
