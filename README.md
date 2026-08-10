@@ -110,7 +110,7 @@ When `--proxies` and `--take-over` are combined, supported discovery and takeove
 
 ## Discovery sources
 
-The table shows which result types each source can add to consolidated CLI results. Legacy JSON and XML keep their existing schemas; breach names are retained in JSONL and SQLite. Some adapters parse fields that the reports do not store.
+The table shows which result types each source can add to consolidated CLI results. XML keeps its existing schema. Legacy JSON now consolidates `interesting_urls`, `linkedin_links`, and `trello_urls` into one `urls` field. Breach names are retained in JSONL and SQLite. Some adapters parse fields that the reports do not store.
 
 JSON and XML group findings by result type without source attribution. JSONL and SQLite retain source attribution when the collection adapter provides it. Empty optional fields may be omitted.
 BuiltWith's normalized frameworks, languages, servers, CMS products, and analytics products are retained in JSONL and completed-result SQLite rows.
@@ -126,7 +126,7 @@ Read the **API key** column as follows:
 <details>
 <summary><strong>View the source and result matrix</strong></summary>
 
-| Source | Subdomains | Emails | IPs | ASNs | URLs / links | People | Breaches | Additional action output (not consolidated report) | API key |
+| Source | Subdomains | Emails | IPs | ASNs | URLs | People | Breaches | Additional action output (not consolidated report) | API key |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | --- | :---: |
 | `arquivo` | ✓ | No | No | No | No | No | No | No | No |
 | `baidu` | ✓ | ✓ | No | No | No | No | No | No | No |
@@ -191,7 +191,7 @@ Provider pricing is intentionally omitted because plans and quotas change freque
 
 `haveibeenpwned` remains the keyless public breach catalogue. `hibpverified` is a separate authenticated source for HIBP's `breachedDomain` endpoint. It participates in `all` and matching capability selectors just like every other P0 source, and skips normally when its provider key is absent. API run requests can select it through the shared source contract and return normalized emails plus stable breach names. A live run requires a user-owned paid HIBP API key and a user-owned domain verified in that account; routine tests use offline responses.
 
-The runtime registry also reports the legacy identifiers `linkedin`, `linkedin_links`, `netcraft`, `omnisint`, `sublist3r`, and `zoomeyeapi`. These identifiers have no active CLI handlers. The table does not present them as usable sources.
+The runtime registry also reports the legacy identifiers `linkedin`, `netcraft`, `omnisint`, `sublist3r`, and `zoomeyeapi`. These identifiers have no active CLI handlers. The table does not present them as usable sources.
 
 ## Configuration
 
@@ -215,7 +215,7 @@ Treat collected OSINT as potentially sensitive. Keep report files, screenshots, 
 
 ### Report formats
 
-The JSON report is a single object that preserves the legacy automation contract. Host entries remain plain hostnames or `hostname:address[,address...]` values when DNS resolution is enabled. DNS resolution and DNS brute force retain candidates only when A, AAAA, or CNAME evidence is available; CNAME-only candidates remain plain hostnames in existing CLI, REST, JSON, and XML output.
+The JSON report is a single object. Host entries remain plain hostnames or `hostname:address[,address...]` values when DNS resolution is enabled. DNS resolution and DNS brute force retain candidates only when A, AAAA, or CNAME evidence is available; CNAME-only candidates remain plain hostnames in existing CLI, REST, JSON, and XML output.
 
 `Checker.check()` and `DnsForce.run()` retain their existing `(resolved, hosts, addresses)` return shape. Normalized A, AAAA, and CNAME values are available through each object's `records` mapping.
 
@@ -225,7 +225,7 @@ The JSON report is a single object that preserves the legacy automation contract
 | `hosts` | Always | Discovered hosts; an empty array when none are found. |
 | `shodan` | Always | Shodan enrichment rows; an empty array when Shodan is not used. |
 | `ips`, `emails`, `vhosts`, `asns` | When non-empty | Network and contact findings. |
-| `interesting_urls`, `trello_urls`, `linkedin_links` | When non-empty | Discovered links and URLs. |
+| `urls` | When non-empty | Discovered URLs from every URL-producing source or action. |
 | `people`, `twitter_people`, `linkedin_people` | When non-empty | People and profile findings. |
 | `takeover_results` | When non-empty | Optional takeover-check results. |
 
@@ -238,7 +238,7 @@ The JSONL report is finalized after the selected one-shot actions finish. The fi
 {"sources":[],"type":"hostname","value":"api.example.com"}
 ```
 
-JSONL is easy to stream one record at a time. The summary preserves the evidence status, source and action outcomes, and screenshot artifact metadata. Finding lines carry `sources` and, when applicable, `actions`; they inherit their run ID and target from the preceding summary. Structured result types, including recursive DNS records plus `person`, `infostealer`, `shodan`, and `takeover`, store a JSON object inside the string `value`. Parse those values a second time with `fromjson`.
+JSONL is easy to stream one record at a time. The summary preserves the evidence status, source and action outcomes, and screenshot artifact metadata. Finding lines carry `sources` and, when applicable, `actions`; they inherit their run ID and target from the preceding summary. Every URL finding uses `type: "url"`; provenance identifies whether it came from BuiltWith, GitLab, RocketReach, API scanning, or another producer. Structured result types, including recursive DNS records plus `person`, `infostealer`, `shodan`, and `takeover`, store a JSON object inside the string `value`. Parse those values a second time with `fromjson`.
 
 Parse recursive DNS findings as JSON objects:
 

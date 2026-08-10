@@ -1,6 +1,7 @@
 import ast
 from pathlib import Path
 
+from theHarvester.discovery import bevigil, builtwith, gitlabsearch, intelxsearch, rocketreach, urlscan, zoomeyesearch
 from theHarvester.lib.core import Core
 from theHarvester.lib.source_catalog import SOURCE_SPECS, ResultRoute, SourceSpec, get_source_spec
 
@@ -42,13 +43,7 @@ def test_invalid_bitbucket_domain_source_is_not_selectable() -> None:
 def test_subdomain_route_drives_subdomain_capability() -> None:
     spec = SourceSpec(
         name='example',
-        routes=frozenset(
-            {
-                ResultRoute.SUBDOMAINS,
-                ResultRoute.LINKS,
-                ResultRoute.INTERESTING_URLS,
-            }
-        ),
+        routes=frozenset({ResultRoute.SUBDOMAINS, ResultRoute.URLS}),
     )
 
     assert spec.capabilities == frozenset({'subdomains', 'urls'})
@@ -64,9 +59,41 @@ def test_source_specs_describe_consolidated_routes_not_getter_presence() -> None
             ResultRoute.SUBDOMAINS,
             ResultRoute.IPS,
             ResultRoute.ASNS,
-            ResultRoute.INTERESTING_URLS,
+            ResultRoute.URLS,
         }
     )
+
+
+def test_every_url_source_uses_one_route() -> None:
+    url_sources = {'bevigil', 'builtwith', 'gitlab', 'intelx', 'rocketreach', 'urlscan', 'zoomeye'}
+
+    assert {spec.name for spec in SOURCE_SPECS.values() if ResultRoute.URLS in spec.routes} == url_sources
+    assert {route.name for route in ResultRoute} == {
+        'SUBDOMAINS',
+        'EMAILS',
+        'IPS',
+        'ASNS',
+        'PEOPLE',
+        'URLS',
+        'BREACHES',
+    }
+
+
+def test_every_url_adapter_uses_one_getter() -> None:
+    adapters = (
+        bevigil.SearchBeVigil,
+        builtwith.SearchBuiltWith,
+        gitlabsearch.SearchGitlab,
+        intelxsearch.SearchIntelx,
+        rocketreach.SearchRocketReach,
+        urlscan.SearchUrlscan,
+        zoomeyesearch.SearchZoomEye,
+    )
+
+    assert all(hasattr(adapter, 'get_urls') for adapter in adapters)
+    assert not any(hasattr(adapter, 'get_links') for adapter in adapters)
+    assert not any(hasattr(adapter, 'get_interestingurls') for adapter in adapters)
+    assert not any(hasattr(adapter, 'get_interesting_urls') for adapter in adapters)
 
 
 def test_rapiddns_declares_separate_subdomain_and_ip_routes() -> None:

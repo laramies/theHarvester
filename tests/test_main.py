@@ -712,7 +712,7 @@ async def test_source_failure_retains_normalized_partial_results(monkeypatch: py
         async def get_hostnames(self) -> list[str]:
             return ['API.Example.COM.', 'api.example.com', 'outside.test']
 
-        async def get_interesting_urls(self) -> set[str]:
+        async def get_urls(self) -> set[str]:
             raise RuntimeError('provider page failed')
 
     monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
@@ -756,7 +756,7 @@ async def test_source_checkpoint_excludes_other_source_work_in_progress(monkeypa
             builtwith_collected.set()
             return {'early.example.com'}
 
-        async def get_interesting_urls(self) -> set[str]:
+        async def get_urls(self) -> set[str]:
             await release_builtwith.wait()
             return set()
 
@@ -1730,7 +1730,7 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
 
     completed = result[-1]
     assert isinstance(completed, CompletedResult)
-    assert ('api-endpoint', 'https://example.com/api/v1') in completed.results
+    assert ('url', 'https://example.com/api/v1') in completed.results
     assert ('screenshot', 'api.example.com') not in completed.results
     assert ('shodan', '{"ip":"192.0.2.10","result":{"ports":[443]}}') in completed.results
     takeover_result = (
@@ -1758,13 +1758,11 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
     assert len(api_executions) == 1
     api_execution = api_executions[0]
     assert api_execution.status == 'completed'
-    assert api_execution.result_count == 3
+    assert api_execution.result_count == 1
     assert api_execution.error_type is None
     assert api_execution.stop_reason is None
     assert {(observation.kind, observation.value) for observation in api_execution.observations} == {
-        ('api-endpoint', 'https://example.com/api/v1'),
-        ('interesting-url', 'https://example.com/api/v1'),
-        ('url', 'https://example.com/api/v1'),
+        ('url', 'https://example.com/api/v1')
     }
 
 
@@ -2046,13 +2044,11 @@ async def test_api_scan_cancellation_persists_failure_and_propagates(monkeypatch
 
     execution = next(item for item in saved[-1].active_evidence.executions if item.action == 'api-scan')
     assert execution.status == 'partial'
-    assert execution.result_count == 3
+    assert execution.result_count == 1
     assert execution.error_type == 'CancelledError'
     assert execution.stop_reason == 'cancelled'
     assert {(observation.kind, observation.value) for observation in execution.observations} == {
-        ('api-endpoint', 'https://example.com/api/v1'),
-        ('interesting-url', 'https://example.com/api/v1'),
-        ('url', 'https://example.com/api/v1'),
+        ('url', 'https://example.com/api/v1')
     }
 
 
@@ -2060,9 +2056,9 @@ async def test_api_scan_cancellation_persists_failure_and_propagates(monkeypatch
 @pytest.mark.parametrize(
     ('raised_error', 'failure_stage', 'expected_status', 'expected_count'),
     [
-        (RuntimeError('scan failed'), 'search', 'partial', 3),
+        (RuntimeError('scan failed'), 'search', 'partial', 1),
         (MissingKey('API endpoints'), 'init', 'failed', 0),
-        (RuntimeError('getter failed'), 'getter', 'partial', 3),
+        (RuntimeError('getter failed'), 'getter', 'partial', 1),
     ],
 )
 async def test_api_scan_raised_failure_is_persisted(
@@ -2130,9 +2126,7 @@ async def test_api_scan_raised_failure_is_persisted(
     assert execution.stop_reason == 'scan-error'
     if failure_stage == 'getter':
         assert {(observation.kind, observation.value) for observation in execution.observations} == {
-            ('api-endpoint', 'https://example.com/api/v1'),
-            ('interesting-url', 'https://example.com/api/v1'),
-            ('url', 'https://example.com/api/v1'),
+            ('url', 'https://example.com/api/v1')
         }
 
 

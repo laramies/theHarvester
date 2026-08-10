@@ -244,7 +244,10 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
     report_json = json.loads(report.with_suffix('.json').read_text())
     assert report_json['hosts'] == ['alias.example.com', 'api.example.com', 'broken.example.com']
     assert report_json['ips'] == ['192.0.2.1', '198.51.100.9', '2001:db8::1']
+    assert report_json['urls'] == ['https://example.com/health']
     assert 'interesting_urls' not in report_json
+    assert 'linkedin_links' not in report_json
+    assert 'trello_urls' not in report_json
 
     jsonl_records = [json.loads(line) for line in report.with_suffix('.jsonl').read_text().splitlines()]
     assert jsonl_records[0]['type'] == 'summary'
@@ -253,12 +256,6 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
     assert [str(result.run_id) for result in completed_results] == [jsonl_records[0]['run_id']]
     assert checkpoints
     assert {result.run_id for result in checkpoints} == {completed_results[0].run_id}
-    assert {
-        'type': 'interesting-url',
-        'value': 'https://example.com/health',
-        'sources': [],
-        'actions': ['api-scan'],
-    } in jsonl_records
     assert {'type': 'url', 'value': 'https://example.com/health', 'sources': [], 'actions': ['api-scan']} in jsonl_records
     assert {
         'type': 'hostname',
@@ -294,9 +291,7 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
     )
     assert api_execution.status == 'completed'
     assert {(observation.kind, observation.value) for observation in api_execution.observations} == {
-        ('api-endpoint', 'https://example.com/health'),
-        ('interesting-url', 'https://example.com/health'),
-        ('url', 'https://example.com/health'),
+        ('url', 'https://example.com/health')
     }
     xml_hosts = {
         (element.findtext('hostname') or (element.text or '').strip(), element.findtext('ip'))

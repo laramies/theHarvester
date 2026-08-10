@@ -28,7 +28,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine import URL
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from theHarvester.lib.active_evidence import (
@@ -49,8 +49,19 @@ from theHarvester.lib.completed_result import (
 
 logger = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 _DEFAULT_DATABASE = Path('~/.local/share/theHarvester/stash.sqlite').expanduser()
+
+_DEPRECATED_URL_KINDS = frozenset(
+    {
+        'api-endpoint',
+        'api_endpoint',
+        'interesting-url',
+        'interestingurls',
+        'linkedin-link',
+        'linkedinlinks',
+    }
+)
 
 
 class ResultStoreError(RuntimeError):
@@ -238,6 +249,99 @@ def _sqlite_engine(database: str | Path) -> AsyncEngine:
     return engine
 
 
+async def _canonicalize_url_kinds(connection: AsyncConnection) -> None:
+    """Merge pre-release URL result kinds without losing their provenance."""
+    deprecated = ', '.join(f"'{kind}'" for kind in sorted(_DEPRECATED_URL_KINDS))
+    run_rows = await connection.exec_driver_sql(f'SELECT DISTINCT run_id FROM results WHERE kind IN ({deprecated})')
+    for (run_id,) in run_rows:
+        result_rows = list(
+            await connection.exec_driver_sql(
+                'SELECT position, kind, value FROM results WHERE run_id = ? ORDER BY position',
+                (run_id,),
+            )
+        )
+        origin_rows = list(
+            await connection.exec_driver_sql(
+                'SELECT result_position, execution_position FROM result_origins WHERE run_id = ?',
+                (run_id,),
+            )
+        )
+        artifact_rows = list(
+            await connection.exec_driver_sql(
+                'SELECT position, result_position, execution_position, kind, path, media_type, '
+                'size_bytes, sha256, created_at FROM artifacts WHERE run_id = ? ORDER BY position',
+                (run_id,),
+            )
+        )
+
+        canonical_results = sorted(
+            {('url' if kind in _DEPRECATED_URL_KINDS else kind, value) for _position, kind, value in result_rows}
+        )
+        new_positions = {result: position for position, result in enumerate(canonical_results)}
+        old_positions = {
+            position: new_positions[('url' if kind in _DEPRECATED_URL_KINDS else kind, value)]
+            for position, kind, value in result_rows
+        }
+        canonical_origins = sorted(
+            {(old_positions[result_position], execution_position) for result_position, execution_position in origin_rows}
+        )
+
+        await connection.exec_driver_sql('DELETE FROM artifacts WHERE run_id = ?', (run_id,))
+        await connection.exec_driver_sql('DELETE FROM result_origins WHERE run_id = ?', (run_id,))
+        await connection.exec_driver_sql('DELETE FROM results WHERE run_id = ?', (run_id,))
+        if canonical_results:
+            await connection.exec_driver_sql(
+                'INSERT INTO results (run_id, position, kind, value) VALUES (?, ?, ?, ?)',
+                [(run_id, position, kind, value) for position, (kind, value) in enumerate(canonical_results)],
+            )
+        if canonical_origins:
+            await connection.exec_driver_sql(
+                'INSERT INTO result_origins (run_id, result_position, execution_position) VALUES (?, ?, ?)',
+                [(run_id, result_position, execution_position) for result_position, execution_position in canonical_origins],
+            )
+        if artifact_rows:
+            await connection.exec_driver_sql(
+                'INSERT INTO artifacts '
+                '(run_id, position, result_position, execution_position, kind, path, media_type, size_bytes, sha256, created_at) '
+                'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [
+                    (
+                        run_id,
+                        position,
+                        old_positions[result_position],
+                        execution_position,
+                        kind,
+                        path,
+                        media_type,
+                        size_bytes,
+                        sha256,
+                        created_at,
+                    )
+                    for (
+                        position,
+                        result_position,
+                        execution_position,
+                        kind,
+                        path,
+                        media_type,
+                        size_bytes,
+                        sha256,
+                        created_at,
+                    ) in artifact_rows
+                ],
+            )
+        await connection.exec_driver_sql(
+            'UPDATE executions SET result_count = ('
+            'SELECT COUNT(*) FROM result_origins '
+            'WHERE result_origins.run_id = executions.run_id '
+            'AND result_origins.execution_position = executions.position'
+            ') WHERE run_id = ?',
+            (run_id,),
+        )
+
+    await connection.exec_driver_sql(f"UPDATE legacy_observations SET kind = 'url' WHERE kind IN ({deprecated})")
+
+
 class _SQLiteDatabase:
     def __init__(self, database: str | Path) -> None:
         self.database = str(Path(database).expanduser().resolve())
@@ -295,13 +399,12 @@ class _SQLiteDatabase:
                                 "WHEN 'host' THEN 'hostname' "
                                 "WHEN 'ip' THEN 'ip-address' "
                                 "WHEN 'people' THEN 'person' "
-                                "WHEN 'linkedinlinks' THEN 'linkedin-link' "
-                                "WHEN 'interestingurls' THEN 'interesting-url' "
                                 "WHEN 'asns' THEN 'asn' "
-                                "WHEN 'api_endpoint' THEN 'api-endpoint' "
                                 'ELSE type END, find_date, source FROM legacy_results'
                             )
                             await connection.exec_driver_sql('DROP TABLE legacy_results')
+                        if schema_version < SCHEMA_VERSION:
+                            await _canonicalize_url_kinds(connection)
                         await connection.exec_driver_sql(f'PRAGMA user_version = {SCHEMA_VERSION}')
                         await connection.commit()
                     except BaseException:

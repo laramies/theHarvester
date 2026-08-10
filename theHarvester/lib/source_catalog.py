@@ -47,9 +47,7 @@ class ResultRoute(Enum):
     IPS = auto()
     ASNS = auto()
     PEOPLE = auto()
-    LINKS = auto()
     URLS = auto()
-    INTERESTING_URLS = auto()
     BREACHES = auto()
 
 
@@ -59,9 +57,7 @@ _ROUTE_CAPABILITIES = {
     ResultRoute.IPS: 'ips',
     ResultRoute.ASNS: 'asns',
     ResultRoute.PEOPLE: 'people',
-    ResultRoute.LINKS: 'urls',
     ResultRoute.URLS: 'urls',
-    ResultRoute.INTERESTING_URLS: 'urls',
     ResultRoute.BREACHES: 'breaches',
 }
 RESULT_CAPABILITIES = frozenset(_ROUTE_CAPABILITIES.values())
@@ -93,10 +89,10 @@ def _spec(
 _SPECS = (
     _spec('arquivo', ResultRoute.SUBDOMAINS),
     _spec('baidu', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
-    _spec('bevigil', ResultRoute.SUBDOMAINS, ResultRoute.INTERESTING_URLS),
+    _spec('bevigil', ResultRoute.SUBDOMAINS, ResultRoute.URLS),
     _spec('brave', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec('bufferoverun', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
-    _spec('builtwith', ResultRoute.SUBDOMAINS, ResultRoute.INTERESTING_URLS),
+    _spec('builtwith', ResultRoute.SUBDOMAINS, ResultRoute.URLS),
     _spec('censys', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec('certspotter', ResultRoute.SUBDOMAINS),
     _spec('chaos', ResultRoute.SUBDOMAINS),
@@ -124,7 +120,7 @@ _SPECS = (
     _spec('hudsonrock', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS, ResultRoute.IPS),
     _spec('hunter', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec('hunterhow', ResultRoute.SUBDOMAINS),
-    _spec('intelx', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS, ResultRoute.INTERESTING_URLS),
+    _spec('intelx', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS, ResultRoute.URLS),
     _spec('leakix', ResultRoute.SUBDOMAINS),
     _spec('leaklookup', ResultRoute.EMAILS, ResultRoute.BREACHES),
     _spec('mojeek', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
@@ -135,7 +131,7 @@ _SPECS = (
     _spec('projectdiscovery', ResultRoute.SUBDOMAINS),
     _spec('rapiddns', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
     _spec('robtex', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
-    _spec('rocketreach', ResultRoute.EMAILS, ResultRoute.LINKS),
+    _spec('rocketreach', ResultRoute.EMAILS, ResultRoute.URLS),
     _spec('securityTrails', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
     _spec('securityscorecard', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
     _spec('sherlockeye', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS, ResultRoute.IPS),
@@ -151,7 +147,7 @@ _SPECS = (
     _spec('subdomainfinderc99', ResultRoute.SUBDOMAINS, activity=ActivityClass.DNS),
     _spec('thc', ResultRoute.SUBDOMAINS),
     _spec('tomba', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
-    _spec('urlscan', ResultRoute.SUBDOMAINS, ResultRoute.IPS, ResultRoute.ASNS, ResultRoute.INTERESTING_URLS),
+    _spec('urlscan', ResultRoute.SUBDOMAINS, ResultRoute.IPS, ResultRoute.ASNS, ResultRoute.URLS),
     _spec('virustotal', ResultRoute.SUBDOMAINS),
     _spec('waybackarchive', ResultRoute.SUBDOMAINS),
     _spec('whoisxml', ResultRoute.SUBDOMAINS),
@@ -169,7 +165,7 @@ _SPECS = (
         ResultRoute.EMAILS,
         ResultRoute.IPS,
         ResultRoute.ASNS,
-        ResultRoute.INTERESTING_URLS,
+        ResultRoute.URLS,
     ),
 )
 

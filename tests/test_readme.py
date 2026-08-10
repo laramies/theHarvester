@@ -7,15 +7,13 @@ import yaml
 
 from theHarvester.lib.source_catalog import SOURCE_SPECS, ResultRoute
 
-RESULT_COLUMNS = ('Subdomains', 'Emails', 'IPs', 'ASNs', 'URLs / links', 'People', 'Breaches')
+RESULT_COLUMNS = ('Subdomains', 'Emails', 'IPs', 'ASNs', 'URLs', 'People', 'Breaches')
 ROUTE_COLUMNS = {
     ResultRoute.SUBDOMAINS: 'Subdomains',
     ResultRoute.EMAILS: 'Emails',
     ResultRoute.IPS: 'IPs',
     ResultRoute.ASNS: 'ASNs',
-    ResultRoute.LINKS: 'URLs / links',
-    ResultRoute.URLS: 'URLs / links',
-    ResultRoute.INTERESTING_URLS: 'URLs / links',
+    ResultRoute.URLS: 'URLs',
     ResultRoute.PEOPLE: 'People',
     ResultRoute.BREACHES: 'Breaches',
 }
@@ -80,7 +78,7 @@ def test_readme_matches_declared_source_contracts() -> None:
     documented = _documented_source_contracts(readme)
     declared = _declared_source_contracts()
 
-    assert '| Source | Subdomains | Emails | IPs | ASNs | URLs / links | People | Breaches |' in readme
+    assert '| Source | Subdomains | Emails | IPs | ASNs | URLs | People | Breaches |' in readme
     assert len(declared) == 56
     assert len(documented) == 56
     assert documented == declared

@@ -215,7 +215,7 @@ def test_api_lifecycle_and_terminal_evidence_share_the_sqlalchemy_database(tmp_p
         schema_version = db.execute('PRAGMA user_version').fetchone()[0]
     assert evidence_run_id == lifecycle_run_id
     assert stored_target == 'example.test'
-    assert schema_version == 4
+    assert schema_version == 5
     assert 'import aiosqlite' not in inspect.getsource(run_store_module)
 
 

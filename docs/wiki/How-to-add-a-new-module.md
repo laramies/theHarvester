@@ -21,7 +21,7 @@ An adapter normally provides:
 
 - an initializer for the target and local result sets;
 - an asynchronous `process()` method;
-- only the getters it actually supports, such as `get_hostnames()`, `get_emails()`, `get_ips()`, `get_asns()`, `get_interesting_urls()`, or `get_results()`.
+- only the getters it actually supports, such as `get_hostnames()`, `get_emails()`, `get_ips()`, `get_asns()`, `get_urls()`, or `get_results()`.
 
 Do not return fields the provider did not supply. Normalize and deduplicate before returning results.
 

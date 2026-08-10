@@ -104,6 +104,28 @@ CREATE TABLE legacy_observations (
 PRAGMA user_version = 2;
 """
 
+SCHEMA_V4_URL_KINDS = (
+    SCHEMA_V2_RUN_PROVENANCE
+    + """
+CREATE TABLE artifacts (
+    run_id TEXT NOT NULL,
+    position INTEGER NOT NULL,
+    result_position INTEGER NOT NULL,
+    execution_position INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    path TEXT NOT NULL,
+    media_type TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL,
+    sha256 TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (run_id, position),
+    FOREIGN KEY (run_id, result_position) REFERENCES results(run_id, position) ON DELETE CASCADE,
+    FOREIGN KEY (run_id, execution_position) REFERENCES executions(run_id, position) ON DELETE CASCADE
+);
+PRAGMA user_version = 4;
+"""
+)
+
 
 def completed_result(run_id: str = 'f047261c-0afb-4e18-89d5-28a7d977f51f') -> CompletedResult:
     return CompletedResult.finish(
@@ -193,10 +215,10 @@ async def test_newer_schema_is_rejected_without_changing_journal_mode(tmp_path) 
     database = tmp_path / 'stash.sqlite'
     store = ResultStore(database)
     with sqlite3.connect(database) as db:
-        db.execute('PRAGMA user_version = 5')
+        db.execute('PRAGMA user_version = 6')
         original_journal_mode = db.execute('PRAGMA journal_mode').fetchone()[0]
 
-    with pytest.raises(RuntimeError, match='schema version 5 is newer than supported version 4'):
+    with pytest.raises(RuntimeError, match='schema version 6 is newer than supported version 5'):
         await store.initialize()
 
     with sqlite3.connect(database) as db:
@@ -534,7 +556,7 @@ async def test_current_schema_reopens_without_running_legacy_migration(tmp_path)
 
 
 @pytest.mark.asyncio
-async def test_schema_v2_upgrades_to_v4_without_rewriting_existing_rows(tmp_path) -> None:
+async def test_schema_v2_upgrades_to_v5_without_rewriting_existing_rows(tmp_path) -> None:
     database = tmp_path / 'stash.sqlite'
     run_id = UUID('251d4047-190b-4a4d-9c4e-9eed3f23c8c7')
     with sqlite3.connect(database) as db:
@@ -578,8 +600,99 @@ async def test_schema_v2_upgrades_to_v4_without_rewriting_existing_rows(tmp_path
         observations=(ResultObservation('crtsh', 'hostname', 'api.example.com'),),
     )
     with sqlite3.connect(database) as db:
-        assert db.execute('PRAGMA user_version').fetchone()[0] == 4
+        assert db.execute('PRAGMA user_version').fetchone()[0] == 5
         assert db.execute('SELECT COUNT(*) FROM artifacts').fetchone()[0] == 0
+
+
+@pytest.mark.asyncio
+async def test_schema_v4_merges_deprecated_url_kinds_without_losing_origins(tmp_path) -> None:
+    database = tmp_path / 'stash.sqlite'
+    run_id = UUID('d299651b-21c1-4511-8cac-63ba70f926f4')
+    target_url = 'https://portal.example.com/login'
+    with sqlite3.connect(database) as db:
+        db.executescript(SCHEMA_V4_URL_KINDS)
+        db.execute(
+            'INSERT INTO runs (run_id, target, started_at, completed_at) VALUES (?, ?, ?, ?)',
+            (str(run_id), 'example.com', '2026-08-09T12:00:00+00:00', '2026-08-09T12:01:00+00:00'),
+        )
+        db.executemany(
+            'INSERT INTO results (run_id, position, kind, value) VALUES (?, ?, ?, ?)',
+            [
+                (str(run_id), 0, 'api-endpoint', target_url),
+                (str(run_id), 1, 'hostname', 'portal.example.com'),
+                (str(run_id), 2, 'interesting-url', target_url),
+                (str(run_id), 3, 'linkedin-link', target_url),
+                (str(run_id), 4, 'url', target_url),
+            ],
+        )
+        db.executemany(
+            'INSERT INTO executions '
+            '(run_id, position, producer_kind, name, status, duration_ms, result_count, error_type, stop_reason) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [
+                (str(run_id), 0, 'source', 'builtwith', 'completed', 1.0, 1, None, None),
+                (str(run_id), 1, 'source', 'rocketreach', 'completed', 1.0, 1, None, None),
+                (str(run_id), 2, 'source', 'gitlab', 'completed', 1.0, 1, None, None),
+                (str(run_id), 3, 'action', 'api-scan', 'completed', 1.0, 3, None, None),
+                (str(run_id), 4, 'action', 'screenshot', 'completed', 1.0, 0, None, None),
+            ],
+        )
+        db.executemany(
+            'INSERT INTO result_origins (run_id, result_position, execution_position) VALUES (?, ?, ?)',
+            [
+                (str(run_id), 2, 0),
+                (str(run_id), 3, 1),
+                (str(run_id), 4, 2),
+                (str(run_id), 0, 3),
+                (str(run_id), 2, 3),
+                (str(run_id), 4, 3),
+            ],
+        )
+        db.execute(
+            'INSERT INTO artifacts '
+            '(run_id, position, result_position, execution_position, kind, path, media_type, size_bytes, sha256, created_at) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            (
+                str(run_id),
+                0,
+                2,
+                4,
+                'screenshot',
+                'screenshots/portal.png',
+                'image/png',
+                3,
+                '0' * 64,
+                '2026-08-09T12:01:00+00:00',
+            ),
+        )
+        db.executemany(
+            'INSERT INTO legacy_observations (domain, resource, kind, discovered_on, source) VALUES (?, ?, ?, ?, ?)',
+            [
+                ('example.com', target_url, 'interesting-url', '2026-08-09', 'builtwith'),
+                ('example.com', target_url, 'linkedinlinks', '2026-08-09', 'rocketreach'),
+            ],
+        )
+
+    store = ResultStore(database)
+    await store.initialize()
+    loaded = await store.load_run(run_id)
+
+    assert loaded.results == (('hostname', 'portal.example.com'), ('url', target_url))
+    assert {(item.source, item.kind, item.value) for item in loaded.observations} == {
+        ('builtwith', 'url', target_url),
+        ('gitlab', 'url', target_url),
+        ('rocketreach', 'url', target_url),
+    }
+    api_scan = next(item for item in loaded.active_evidence.executions if item.action == 'api-scan')
+    assert api_scan.result_count == 1
+    assert {(item.kind, item.value) for item in api_scan.observations} == {('url', target_url)}
+    screenshot = next(item for item in loaded.active_evidence.executions if item.action == 'screenshot')
+    assert screenshot.artifacts[0].subject_kind == 'url'
+    assert screenshot.artifacts[0].subject_value == target_url
+    with sqlite3.connect(database) as db:
+        assert db.execute('PRAGMA user_version').fetchone()[0] == 5
+        assert db.execute('SELECT DISTINCT kind FROM legacy_observations').fetchall() == [('url',)]
+        assert db.execute('SELECT result_count FROM executions WHERE name = ?', ('api-scan',)).fetchone()[0] == 1
 
 
 @pytest.mark.asyncio
@@ -614,13 +727,13 @@ async def test_released_results_migrate_to_legacy_observations(tmp_path) -> None
         ('api.example.com', 'hostname'),
         ('192.0.2.1', 'ip-address'),
         ('Ada Lovelace', 'person'),
-        ('https://linkedin.test/ada', 'linkedin-link'),
-        ('https://admin.example.com', 'interesting-url'),
+        ('https://linkedin.test/ada', 'url'),
+        ('https://admin.example.com', 'url'),
         ('AS64496', 'asn'),
-        ('/api/v1', 'api-endpoint'),
+        ('/api/v1', 'url'),
         ('admin@example.com', 'email'),
     ]
-    assert schema_version == 4
+    assert schema_version == 5
 
 
 @pytest.mark.asyncio
@@ -769,7 +882,7 @@ async def test_schema_v1_observations_upgrade_without_losing_rows(tmp_path) -> N
         schema_version = db.execute('PRAGMA user_version').fetchone()[0]
     assert 'discovery_observations' not in tables
     assert rows == [('example.com', 'api.example.com', 'hostname', 'crtsh')]
-    assert schema_version == 4
+    assert schema_version == 5
 
 
 @pytest.mark.asyncio

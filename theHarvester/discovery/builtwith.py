@@ -19,7 +19,7 @@ class SearchBuiltWith:
         self.headers = {'Authorization': f'Bearer {self.api_key}', 'Content-Type': 'application/json'}
         self.hosts: set[str] = set()
         self.tech_stack: dict[str, Any] = {}
-        self.interesting_urls: set[str] = set()
+        self.urls: set[str] = set()
         self.frameworks: set[str] = set()
         self.languages: set[str] = set()
         self.servers: set[str] = set()
@@ -51,7 +51,7 @@ class SearchBuiltWith:
         if 'domains' in self.tech_stack:
             self.hosts.update(self.tech_stack['domains'])
         if 'paths' in self.tech_stack:
-            self.interesting_urls.update(self.tech_stack['paths'])
+            self.urls.update(self.tech_stack['paths'])
         if 'technologies' in self.tech_stack:
             for tech in self.tech_stack['technologies']:
                 if not isinstance(tech, dict):
@@ -80,8 +80,8 @@ class SearchBuiltWith:
     async def get_tech_stack(self) -> dict:
         return self.tech_stack
 
-    async def get_interesting_urls(self) -> set[str]:
-        return self.interesting_urls
+    async def get_urls(self) -> set[str]:
+        return self.urls
 
     async def get_frameworks(self) -> set[str]:
         return self.frameworks

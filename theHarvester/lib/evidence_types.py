@@ -3,7 +3,6 @@ from typing import Literal, get_args
 
 ResultKind = Literal[
     'analytics',
-    'api-endpoint',
     'asn',
     'breach',
     'cms',
@@ -14,10 +13,8 @@ ResultKind = Literal[
     'framework',
     'hostname',
     'infostealer',
-    'interesting-url',
     'ip-address',
     'language',
-    'linkedin-link',
     'linkedin-person',
     'person',
     'server',

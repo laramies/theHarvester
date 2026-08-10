@@ -39,6 +39,9 @@ def _jsonl_result(
     ('finding_type', 'finding_fields'),
     [
         ('made-up-kind', {}),
+        ('api-endpoint', {}),
+        ('interesting-url', {}),
+        ('linkedin-link', {}),
         ('hostname', {'dns_status': 'made-up-status'}),
     ],
 )
@@ -419,6 +422,56 @@ def test_api_import_and_export_accept_only_jsonl(tmp_path, monkeypatch) -> None:
     assert reimported.json()['results'] == [{'type': 'email', 'value': 'a@example.test', 'sources': [], 'actions': []}]
     assert old_json.status_code == 404
     assert old_csv.status_code == 404
+
+
+def test_api_jsonl_round_trip_preserves_canonical_url_sources(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+    headers = {'X-API-Key': 'test-key', 'Content-Type': 'application/x-ndjson'}
+    sources = ['builtwith', 'gitlab', 'rocketreach']
+    executions = [
+        {
+            'source': source,
+            'status': 'completed',
+            'duration_ms': 1,
+            'result_count': 1,
+            'error_type': None,
+            'stop_reason': None,
+        }
+        for source in sources
+    ]
+    payload = _jsonl_result(
+        finding_type='url',
+        value='https://example.test/profile',
+        finding_fields={'sources': sources},
+        summary_fields={'source_executions': executions},
+    )
+
+    with TestClient(api.app) as client:
+        imported = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'urls.jsonl'},
+            headers=headers,
+            content=payload,
+        )
+        run_id = imported.json()['run_id']
+        detail = client.get(f'/api/v1/runs/{run_id}', headers={'X-API-Key': 'test-key'})
+        exported = client.get(f'/api/v1/runs/{run_id}/export', headers={'X-API-Key': 'test-key'})
+
+    assert imported.status_code == 201
+    assert detail.json()['results'] == [
+        {
+            'type': 'url',
+            'value': 'https://example.test/profile',
+            'sources': sources,
+            'actions': [],
+        }
+    ]
+    records = [json.loads(line) for line in exported.text.splitlines()]
+    assert records[1] == {'sources': sources, 'type': 'url', 'value': 'https://example.test/profile'}
 
 
 def test_api_database_import_rejects_non_sqlite_content(tmp_path, monkeypatch) -> None:

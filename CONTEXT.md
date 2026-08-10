@@ -50,6 +50,10 @@ _Avoid_: Result, duplicate, hit
 A deduplicated operator-facing entity backed by one or more discovery observations and their retained provenance.
 _Avoid_: Raw finding, source result
 
+**URL result**:
+One normalized URL merged result. Source and action origins identify how it was found; provider-specific URL categories are not separate result kinds.
+_Avoid_: Interesting URL, LinkedIn link, API endpoint result
+
 **DNS validation observation**:
 One resolver vantage's time-bound DNS evidence about one in-scope candidate. It supports classifying the candidate as currently addressable or wildcard-indistinguishable without replacing its discovery observations.
 _Avoid_: DNS result, resolved host, validation status

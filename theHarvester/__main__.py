@@ -106,7 +106,7 @@ from theHarvester.lib.enumeration import (
     EnumerationOptions,
 )
 from theHarvester.lib.hostnames import normalize_scoped_hostname
-from theHarvester.lib.output import configure_logging, output_logger, print_linkedin_sections, print_section, sorted_unique
+from theHarvester.lib.output import configure_logging, output_logger, print_linkedin_people, print_section, sorted_unique
 from theHarvester.lib.recursive_dns import (
     DEFAULT_RECURSIVE_DNS_QUERY_LIMIT,
     RecursiveDNSLimits,
@@ -425,9 +425,7 @@ async def start(
     takeover_status = args.take_over
     use_proxy = args.proxies
     linkedin_people_list_tracker: list = []
-    linkedin_links_tracker: list = []
     twitter_people_list_tracker: list = []
-    interesting_urls: list = []
     total_asns: list = []
     all_breaches: list[str] = []
     all_frameworks: list[str] = []
@@ -442,10 +440,7 @@ async def start(
     shodan_evidence: list[str] = []
     takeover_results: dict[str, list[dict[str, str]]] = {}
     linkedin_people_list_tracker = []
-    linkedin_links_tracker = []
     twitter_people_list_tracker = []
-
-    interesting_urls = []
     total_asns = []
     source_executions: list[SourceExecution] = []
     observations: set[ResultObservation] = set()
@@ -475,10 +470,8 @@ async def start(
             'infostealer': (
                 json.dumps(stealer, ensure_ascii=False, separators=(',', ':'), sort_keys=True) for stealer in all_infostealers
             ),
-            'interesting-url': map(str, interesting_urls),
             'ip-address': _normalize_ip_addresses(all_ip) | screenshot_ip_addresses,
             'language': map(str, all_languages),
-            'linkedin-link': map(str, linkedin_links_tracker),
             'linkedin-person': map(str, linkedin_people_list_tracker),
             'person': (json.dumps(person, ensure_ascii=False, separators=(',', ':'), sort_keys=True) for person in all_people),
             'server': map(str, all_servers),
@@ -696,21 +689,10 @@ async def start(
             )
             record_source_observations(source, 'person', people_evidence)
 
-        if ResultRoute.LINKS in routes:
-            links = await search_engine.get_links()
-            linkedin_links_tracker.extend(links)
-            record_source_observations(source, 'linkedin-link', links)
-
         if ResultRoute.URLS in routes:
             urls = await search_engine.get_urls()
             all_urls.extend(urls)
             record_source_observations(source, 'url', urls)
-
-        if ResultRoute.INTERESTING_URLS in routes:
-            get_interesting_urls = getattr(search_engine, 'get_interesting_urls', None)
-            iurls = await get_interesting_urls() if get_interesting_urls else await search_engine.get_interestingurls()
-            interesting_urls.extend(iurls)
-            record_source_observations(source, 'interesting-url', iurls)
 
         if ResultRoute.ASNS in routes:
             fasns = await search_engine.get_asns()
@@ -1853,10 +1835,10 @@ async def start(
             await persist_result(finish_completed_result())
         result = (
             total_asns,
-            interesting_urls,
+            list[str](),
             twitter_people_list_tracker,
             linkedin_people_list_tracker,
-            linkedin_links_tracker,
+            list[str](),
             all_urls,
             all_ip,
             all_emails,
@@ -1880,10 +1862,6 @@ async def start(
         print_section(f'\n[*] ASNS found: {len(total_asns)}', total_asns, '--------------------')
         total_asns = sorted_unique(total_asns)
 
-    if len(interesting_urls) > 0:
-        print_section(f'\n[*] Interesting Urls found: {len(interesting_urls)}', interesting_urls, '--------------------')
-        interesting_urls = sorted_unique(interesting_urls)
-
     if len(twitter_people_list_tracker) == 0 and 'twitter' in engines:
         output_logger.info('\n[*] No Twitter users found.\n\n')
     elif len(twitter_people_list_tracker) >= 1:
@@ -1894,9 +1872,8 @@ async def start(
         )
         twitter_people_list_tracker = sorted_unique(twitter_people_list_tracker)
 
-    print_linkedin_sections(engines, linkedin_people_list_tracker, linkedin_links_tracker)
+    print_linkedin_people(engines, linkedin_people_list_tracker)
     linkedin_people_list_tracker = sorted_unique(linkedin_people_list_tracker)
-    linkedin_links_tracker = sorted_unique(linkedin_links_tracker)
 
     length_urls = len(all_urls)
     if length_urls == 0:
@@ -2496,65 +2473,6 @@ async def start(
         except (OSError, ValueError, TypeError, UnicodeEncodeError) as error:
             output_logger.info(f'[!] An error occurred while saving the XML file: {error}')
 
-        try:
-            # JSON REPORT SECTION
-            filename = os.path.splitext(filename)[0] + '.json'
-            # create dict with values for JSON output
-            json_dict: dict = dict()
-            # start by adding the command line arguments
-            json_dict['cmd'] = ' '.join([f'"{arg}"' if ' ' in arg else arg for arg in sys.argv[1:]])
-            # to determine if a variable exists
-            # it should but just a validation check
-            if 'ip_list' in locals():
-                if all_ip and len(all_ip) >= 1 and ip_list and len(ip_list) > 0:
-                    json_dict['ips'] = ip_list
-
-            if len(all_emails) > 0:
-                json_dict['emails'] = all_emails
-
-            if dnsresolve != '' and len(full) > 0:
-                json_dict['hosts'] = full
-            elif len(all_hosts) > 0:
-                json_dict['hosts'] = all_hosts
-            else:
-                json_dict['hosts'] = []
-
-            if vhost and len(vhost) > 0:
-                json_dict['vhosts'] = vhost
-
-            if len(interesting_urls) > 0:
-                json_dict['interesting_urls'] = interesting_urls
-
-            if len(all_urls) > 0:
-                json_dict['trello_urls'] = all_urls
-
-            if len(total_asns) > 0:
-                json_dict['asns'] = total_asns
-
-            if len(twitter_people_list_tracker) > 0:
-                json_dict['twitter_people'] = twitter_people_list_tracker
-
-            if len(linkedin_people_list_tracker) > 0:
-                json_dict['linkedin_people'] = linkedin_people_list_tracker
-
-            if len(linkedin_links_tracker) > 0:
-                json_dict['linkedin_links'] = linkedin_links_tracker
-
-            if len(all_people) > 0:
-                json_dict['people'] = all_people
-
-            if takeover_status and len(takeover_results) > 0:
-                json_dict['takeover_results'] = takeover_results
-
-            json_dict['shodan'] = shodanres
-            async with await anyio.open_file(filename, 'w+') as fp:
-                dumped_json = ujson.dumps(json_dict, sort_keys=True)
-                await fp.write(dumped_json)
-            output_logger.info('[*] JSON File saved.')
-        except (OSError, ValueError, TypeError, UnicodeEncodeError) as er:
-            output_logger.info(f'[!] An error occurred while saving the JSON file: {er} ')
-        output_logger.info('\n\n')
-
     # Enhanced code block for API Endpoint scanning feature
     if args.api_scan or 'api_endpoints' in engines:
         api_scan_started = time.perf_counter()
@@ -2581,10 +2499,7 @@ async def start(
                 interesting = collect(scanner.get_interesting_endpoints)
                 if best_effort:
                     endpoints.update(interesting)
-            groups: dict[ResultKind, Iterable[str]] = {'api-endpoint': endpoints}
-            if interesting:
-                groups['interesting-url'] = interesting
-                groups['url'] = interesting
+            groups: dict[ResultKind, Iterable[str]] = {'url': endpoints | interesting}
             return endpoints, interesting, groups
 
         try:
@@ -2664,13 +2579,8 @@ async def start(
             status_codes = api_scanner.get_status_codes()
             output_logger.info(f'\n[*] HTTP status codes encountered: {", ".join(map(str, status_codes))}')
 
-            # Add to interesting URLs if any endpoints were found
-            if interesting_endpoints:
-                new_urls = sorted(interesting_endpoints)
-                interesting_urls.extend(new_urls)
-
-                # Also add complete domain paths to the interesting_urls list
-                all_urls.extend(new_urls)
+            if endpoints_found or interesting_endpoints:
+                all_urls.extend(sorted(endpoints_found | interesting_endpoints))
 
             api_scan_error = api_scanner.scan_error_type
             api_request_errors = api_scanner.request_error_count
@@ -2717,11 +2627,9 @@ async def start(
             await persist_result(finish_completed_result(extra_hostnames=dnsrev, virtual_hosts=vhost))
             raise
         except Exception as error:
-            _endpoints, interesting_endpoints, api_action_groups = collect_api_action_groups(api_scanner, best_effort=True)
-            if interesting_endpoints:
-                new_urls = sorted(interesting_endpoints)
-                interesting_urls.extend(new_urls)
-                all_urls.extend(new_urls)
+            endpoints_found, _interesting, api_action_groups = collect_api_action_groups(api_scanner, best_effort=True)
+            if endpoints_found:
+                all_urls.extend(sorted(endpoints_found))
             if not any(execution.action == 'api-scan' for execution in action_executions):
                 action_executions.append(
                     ActionExecution.finish(
@@ -2741,6 +2649,62 @@ async def start(
 
         await checkpoint_action_result(extra_hostnames=dnsrev, virtual_hosts=vhost)
 
+    all_urls = sorted_unique(all_urls)
+
+    if filename != '':
+        try:
+            # JSON REPORT SECTION
+            filename = os.path.splitext(filename)[0] + '.json'
+            # create dict with values for JSON output
+            json_dict: dict = dict()
+            # start by adding the command line arguments
+            json_dict['cmd'] = ' '.join([f'"{arg}"' if ' ' in arg else arg for arg in sys.argv[1:]])
+            # to determine if a variable exists
+            # it should but just a validation check
+            if 'ip_list' in locals():
+                if all_ip and len(all_ip) >= 1 and ip_list and len(ip_list) > 0:
+                    json_dict['ips'] = ip_list
+
+            if len(all_emails) > 0:
+                json_dict['emails'] = all_emails
+
+            if dnsresolve != '' and len(full) > 0:
+                json_dict['hosts'] = full
+            elif len(all_hosts) > 0:
+                json_dict['hosts'] = all_hosts
+            else:
+                json_dict['hosts'] = []
+
+            if vhost and len(vhost) > 0:
+                json_dict['vhosts'] = vhost
+
+            if len(all_urls) > 0:
+                json_dict['urls'] = all_urls
+
+            if len(total_asns) > 0:
+                json_dict['asns'] = total_asns
+
+            if len(twitter_people_list_tracker) > 0:
+                json_dict['twitter_people'] = twitter_people_list_tracker
+
+            if len(linkedin_people_list_tracker) > 0:
+                json_dict['linkedin_people'] = linkedin_people_list_tracker
+
+            if len(all_people) > 0:
+                json_dict['people'] = all_people
+
+            if takeover_status and len(takeover_results) > 0:
+                json_dict['takeover_results'] = takeover_results
+
+            json_dict['shodan'] = shodanres
+            async with await anyio.open_file(filename, 'w+') as fp:
+                dumped_json = ujson.dumps(json_dict, sort_keys=True)
+                await fp.write(dumped_json)
+            output_logger.info('[*] JSON File saved.')
+        except (OSError, ValueError, TypeError, UnicodeEncodeError) as er:
+            output_logger.info(f'[!] An error occurred while saving the JSON file: {er} ')
+        output_logger.info('\n\n')
+
     completed_result = finish_completed_result(extra_hostnames=dnsrev, virtual_hosts=vhost)
 
     if filename and completed_result is not None:
@@ -2758,10 +2722,10 @@ async def start(
         all_hosts = sorted_unique((*all_hosts, *_normalize_hosts_for_storage(dnsrev, word)))
         result = (
             total_asns,
-            interesting_urls,
+            list[str](),
             twitter_people_list_tracker,
             linkedin_people_list_tracker,
-            linkedin_links_tracker,
+            list[str](),
             all_urls,
             all_ip,
             all_emails,

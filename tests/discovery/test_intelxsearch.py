@@ -59,6 +59,8 @@ async def test_process_exposes_flat_normalized_in_scope_results(monkeypatch: pyt
             {'selectorvalue': 'https://portal.example.com/path'},
             {'selectorvalue': 'api.example.com.'},
             {'selectorvalue': 'foo.example.com.evil'},
+            {'selectorvalue': 'https://foo.example.com.evil/path'},
+            {'selectorvalue': 'ftp://api.example.com/archive'},
             {'selectorvalue': 'http://['},
             {'selectorvalue': None},
             None,
@@ -78,11 +80,7 @@ async def test_process_exposes_flat_normalized_in_scope_results(monkeypatch: pyt
 
     assert await search.get_emails() == ['admin@example.com']
     assert await search.get_hostnames() == ['api.example.com', 'portal.example.com']
-    assert await search.get_interestingurls() == [
-        'api.example.com.',
-        'foo.example.com.evil',
-        'https://portal.example.com/path',
-    ]
+    assert await search.get_urls() == ['https://portal.example.com/path']
 
 
 @pytest.mark.asyncio
@@ -112,7 +110,7 @@ async def test_process_treats_denied_and_malformed_responses_as_empty(
 
     assert await search.get_emails() == []
     assert await search.get_hostnames() == []
-    assert await search.get_interestingurls() == []
+    assert await search.get_urls() == []
 
 
 @pytest.mark.asyncio
@@ -139,7 +137,7 @@ async def test_orchestrator_stores_intelx_subdomains_without_dns(monkeypatch: py
         async def get_emails(self) -> list[str]:
             return []
 
-        async def get_interestingurls(self) -> list[str]:
+        async def get_urls(self) -> list[str]:
             return []
 
     class _UnexpectedChecker:

@@ -11,7 +11,7 @@ if 'aiohttp_socks' not in sys.modules:
         def from_url(*_args, **_kwargs):
             return None
 
-    setattr(aiohttp_socks_stub, 'ProxyConnector', _ProxyConnector)
+    aiohttp_socks_stub.ProxyConnector = _ProxyConnector  # type: ignore[attr-defined]
     sys.modules['aiohttp_socks'] = aiohttp_socks_stub
 
 from theHarvester.discovery import rocketreach
@@ -84,7 +84,7 @@ async def test_do_search_uses_people_data_endpoint_and_start_pagination(monkeypa
     assert first_data == {'query': {'current_employer_domain': ['example.com']}, 'start': 0, 'page_size': 100}
     assert second_data == {'query': {'current_employer_domain': ['example.com']}, 'start': 100, 'page_size': 50}
 
-    links = await search.get_links()
+    links = await search.get_urls()
     emails = await search.get_emails()
     assert len(links) == 150
     assert len(emails) == 150
