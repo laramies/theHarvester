@@ -1,15 +1,34 @@
 services:
   theharvester.svc.local:
-    container_name: theHarvester
+    image: theharvester:local
+    build:
+      context: .
+    init: true
+    restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    shm_size: 1gb
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=128m
+    environment:
+      THEHARVESTER_API_KEY_FILE: /run/secrets/operator-api-key
+      THEHARVESTER_HARVESTVIEW_LOCAL_PROXY: enabled
+    secrets:
+      - source: operator-api-key
+        target: operator-api-key
     volumes:
-      - ./theHarvester/data/api-keys.yaml:/root/.theHarvester/api-keys.yaml
-      - ./theHarvester/data/api-keys.yaml:/etc/theHarvester/api-keys.yaml
-      - ./theHarvester/data/proxies.yaml:/etc/theHarvester/proxies.yaml
-      - ./theHarvester/data/proxies.yaml:/root/.theHarvester/proxies.yaml
-    build: .
+      - theharvester-data:/var/lib/theharvester
+      - ./theHarvester/data/api-keys.yaml:/etc/theHarvester/api-keys.yaml:ro
+      - ./theHarvester/data/proxies.yaml:/etc/theHarvester/proxies.yaml:ro
     ports:
-      - "5000:80"
+      - "127.0.0.1:${THEHARVESTER_PORT:-5000}:8000"
 
-networks:
-  default:
-    name: app_theHarvester_network
+volumes:
+  theharvester-data:
+
+secrets:
+  operator-api-key:
+    file: ${THEHARVESTER_API_KEY_FILE:-./.secrets/operator-api-key}

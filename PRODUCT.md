@@ -14,8 +14,8 @@ The operator is a technically capable security practitioner working at a desk, o
 - Cancel work and know whether cancellation is requested, in progress, or complete.
 - Reopen prior runs and compare route-specific evidence without rerunning reconnaissance.
 - Import existing theHarvester JSONL evidence.
-- Export normalized results and inspect managed screenshots.
-- Start a screenshot or DNS brute-force action from a subdomain result without changing the parent evidence.
+- Export normalized JSONL results and inspect managed screenshots.
+- Start a screenshot or DNS brute-force action from a hostname result without changing the parent evidence.
 
 ## Product principles
 

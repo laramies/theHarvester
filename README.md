@@ -85,11 +85,11 @@ Screenshot capture also requires a Playwright-compatible browser; see the instal
 
 ## HarvestView and REST API
 
-`restfulHarvest` starts a FastAPI service on `127.0.0.1:5000` by default:
+`harvestview` starts the local web application and API on `127.0.0.1:5000` by default:
 
 ```bash
 export THEHARVESTER_API_KEY='replace-with-a-long-random-value'
-uv run restfulHarvest
+uv run harvestview
 ```
 
 Open [HarvestView](http://127.0.0.1:5000/) to run and inspect finite enumerations in the local web app. The server gives the local browser a derived HttpOnly session cookie, so the API key is never entered into or stored by HarvestView.
@@ -103,6 +103,25 @@ therefore needs network access to CDNjs by default. See the
 an isolated deployment.
 
 Open [Swagger](http://127.0.0.1:5000/docs) or [ReDoc](http://127.0.0.1:5000/redoc) for the automation contract.
+
+### Docker Compose
+
+The supplied Compose service runs as an unprivileged user, stores run records in a named volume, loads the operator key from a file secret, and publishes only to host loopback. Create the secret before the first start:
+
+```bash
+install -d -m 0700 .secrets
+openssl rand -hex 32 > .secrets/operator-api-key
+chmod 0444 .secrets/operator-api-key
+docker compose up --build -d
+docker compose ps
+```
+
+The `0700` directory protects the secret on the host, while the read-only `0444` file lets the unprivileged container process read its bind-mounted copy. Open [HarvestView](http://127.0.0.1:5000/). The image includes Chromium for optional screenshots. Provider keys and proxies remain in the existing read-only YAML mounts and are excluded from the image build context.
+
+```bash
+docker compose logs -f theharvester.svc.local
+docker compose down
+```
 
 | Route | Purpose |
 | --- | --- |

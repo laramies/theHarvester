@@ -1,6 +1,6 @@
 # REST API
 
-`restfulHarvest` serves HarvestView at `/` and one versioned API for local automation.
+`harvestview` serves the web application at `/` and one versioned API for local automation.
 
 ## Start the service
 
@@ -8,10 +8,10 @@ Set a long random API key before startup:
 
 ```bash
 export THEHARVESTER_API_KEY='replace-with-a-long-random-value'
-uv run restfulHarvest
+uv run harvestview
 ```
 
-The service binds to `127.0.0.1:5000` by default. Use `uv run restfulHarvest -h` for launcher options.
+The service binds to `127.0.0.1:5000` by default. Use `uv run harvestview -h` for launcher options.
 
 Open:
 
