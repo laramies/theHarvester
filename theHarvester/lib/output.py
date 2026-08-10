@@ -59,9 +59,7 @@ def print_section(header: str, items: Iterable[str], separator: str) -> None:
         output_logger.info(item)
 
 
-def print_linkedin_sections(
-    engines: Sequence[str], people: Sequence[str], links: Sequence[str], separator: str = '---------------------'
-) -> None:
+def print_linkedin_people(engines: Sequence[str], people: Sequence[str], separator: str = '---------------------') -> None:
     if len(people) == 0 and 'linkedin' in engines:
         output_logger.info('\n[*] No LinkedIn users found.\n\n')
     elif len(people) >= 1:
@@ -69,9 +67,3 @@ def print_linkedin_sections(
         output_logger.info(separator)
         for usr in sorted_unique(people):
             output_logger.info(usr)
-
-    if 'linkedin' in engines or 'rocketreach' in engines:
-        output_logger.info(f'\n[*] LinkedIn Links found: {len(links)}')
-        output_logger.info(separator)
-        for link in sorted_unique(links):
-            output_logger.info(link)

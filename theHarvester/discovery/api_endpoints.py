@@ -55,6 +55,7 @@ class SearchApiEndpoints:
         follow_redirects: bool = True,
         verify_ssl: bool = True,
         additional_headers: dict[str, str] | None = None,
+        exact_paths: bool = False,
     ) -> None:
         """Configure an API path scan.
 
@@ -68,6 +69,7 @@ class SearchApiEndpoints:
             follow_redirects: Whether requests follow redirects.
             verify_ssl: Whether to verify TLS certificates.
             additional_headers: Extra HTTP headers to send.
+            exact_paths: Check only paths listed in the configured wordlist.
 
         """
         self.word = word
@@ -92,12 +94,16 @@ class SearchApiEndpoints:
         self.user_agent = user_agent or Core.get_user_agent()
         self.additional_headers = additional_headers or {}
         self._session: aiohttp.ClientSession | None = None
+        self.scan_error_type: str | None = None
+        self.request_error_count = 0
+        self.request_error_types: set[str] = set()
 
         # Set default wordlist path
         default_wordlist = os.path.join(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'wordlists', 'api_endpoints.txt'
         )
         self.wordlist = wordlist or default_wordlist
+        self.exact_paths = exact_paths
 
         # Add comprehensive API paths categorized by functionality
         self.common_api_paths = [
@@ -384,6 +390,9 @@ class SearchApiEndpoints:
 
     async def do_search(self) -> None:
         """Check common paths with GET, HEAD, and OPTIONS."""
+        self.scan_error_type = None
+        self.request_error_count = 0
+        self.request_error_types.clear()
         session: aiohttp.ClientSession | None = None
         try:
             session = aiohttp.ClientSession(
@@ -399,12 +408,14 @@ class SearchApiEndpoints:
                 self.logger.warning(f'No endpoints found in wordlist: {self.wordlist}')
                 endpoints = []
 
-            # Add common API paths that might not be in the wordlist
-            endpoints.extend(self.common_api_paths)
-            endpoints = list(set(endpoints))  # Remove duplicates
+            if not self.exact_paths:
+                endpoints.extend(self.common_api_paths)
+            endpoints = list(dict.fromkeys(endpoints))
+            if not endpoints:
+                return
 
             # Detect base URL schema (http or https)
-            schema = await self._detect_schema()
+            schema = await self._detect_schema(endpoints[0]) if self.exact_paths else await self._detect_schema()
             self.logger.info(f'Detected schema for {self.word}: {schema}')
 
             # Generate batches of tasks to control concurrency
@@ -426,15 +437,16 @@ class SearchApiEndpoints:
             await self._post_scan_analysis()
 
         except Exception as e:
+            self.scan_error_type = type(e).__name__
             self.logger.error(f'Error in API endpoint scan: {e!s}', exc_info=True)
         finally:
             self._session = None
             if session is not None:
                 await session.close()
 
-    async def _detect_schema(self) -> str:
+    async def _detect_schema(self, path: str = '') -> str:
         """Detect if the domain supports HTTPS or fall back to HTTP."""
-        https_url = f'https://{self.word}'
+        https_url = f'https://{self.word}{path}'
         if self._session is None:
             raise RuntimeError('API endpoint session is not initialized')
         try:
@@ -462,6 +474,9 @@ class SearchApiEndpoints:
 
             # Ensure all paths start with /
             endpoints = [line if line.startswith('/') else f'/{line}' for line in lines]
+
+            if self.exact_paths:
+                return list(dict.fromkeys(endpoints))
 
             # Add some path variations (with and without trailing slash)
             variations = []
@@ -507,21 +522,28 @@ class SearchApiEndpoints:
                     verify=self.verify_ssl,
                     follow_redirects=self.follow_redirects,
                     request_timeout=self.timeout,
+                    include_metadata=True,
                 )
 
                 # Calculate response time
                 response_time = asyncio.get_event_loop().time() - start_time
 
-                # If we get a response, process it
-                if response:
-                    result = self._process_response(url, method, response, response_time)
-                    if result:
-                        return result
+                if response is None:
+                    self.request_error_count += 1
+                    self.request_error_types.add('TransportError')
+                    continue
+                result = self._process_response(url, method, response, response_time)
+                if result:
+                    return result
 
             except TimeoutError:
+                self.request_error_count += 1
+                self.request_error_types.add('TimeoutError')
                 self.logger.debug(f'Timeout for {method} {url}')
                 continue
             except (aiohttp.ClientError, OSError, TypeError, ValueError, AttributeError) as e:
+                self.request_error_count += 1
+                self.request_error_types.add(type(e).__name__)
                 self.logger.debug(f'Error checking {method} {url}: {e!s}')
                 continue
 
@@ -567,7 +589,10 @@ class SearchApiEndpoints:
             headers = {}
 
         try:
-            content = getattr(response, 'content', b'')
+            content_value = getattr(response, 'body', getattr(response, 'content', b''))
+            content = content_value.encode() if isinstance(content_value, str) else content_value
+            if not isinstance(content, bytes):
+                content = b''
         except (TypeError, AttributeError) as e:
             self.logger.error(f'Failed to get content from response for URL {url}: {e}')
             content = b''
@@ -576,7 +601,7 @@ class SearchApiEndpoints:
         self.response_sizes[url] = content_length
 
         # Try to get content type from headers
-        content_type = headers.get('Content-Type', '')
+        content_type = next((value for name, value in headers.items() if name.casefold() == 'content-type'), '')
 
         # Try to create a preview of the response content (up to 200 characters)
         content_preview = ''

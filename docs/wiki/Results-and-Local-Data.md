@@ -1,6 +1,6 @@
 # Results and local data
 
-theHarvester can print findings, write reports, retain selected records in SQLite, save screenshots, and return REST JSON. These outputs have different schemas and sensitivity.
+theHarvester can print findings, write reports, retain selected records in SQLite, save screenshots, and expose durable run records through the API. These outputs have different schemas and sensitivity.
 
 ## Terminal output
 
@@ -34,17 +34,31 @@ Host, email, IP, and related records are stored at:
 
 The database persists across runs. Account for it in engagement cleanup and retention procedures.
 
-Completed CLI and REST `/query` executions also store one normalized terminal
-record keyed by run UUID. REST keeps its existing response shape and does not
-write report files unless a filename is requested.
+Completed CLI executions store one normalized terminal record keyed by run UUID. API executions use the same database by default and may override its path with `THEHARVESTER_RUN_DB`. Lifecycle rows keep queue, cancellation, and worker state separate from terminal evidence. Imported JSONL is stored without executing discovery, and source attribution is rebuilt from each finding's `sources` array. A SQLite import copies every completed run after validating the database and keeps the original run IDs.
+
+The normalized persistence model can represent active-action provenance and artifact metadata through five core tables:
+
+- `runs`: one finite enumeration run;
+- `executions`: each passive source or active action represented by the model;
+- `results`: deduplicated hostnames, IPs, emails, URLs, and structured outputs;
+- `result_origins`: which execution produced each result; and
+- `artifacts`: files such as screenshots, linked to their creating action and subject result.
+
+Current runtime collection populates passive source executions plus DNS, takeover, Shodan, and API endpoint scan executions and origins. Screenshot actions attach file metadata to their captured hostname or URL without creating fake screenshot findings.
+
+Every discovered URL is stored as the `url` result kind. Its source or action origins identify whether it came from BuiltWith, GitLab, RocketReach, API scanning, or another producer; provider-specific URL kinds are not stored.
+
+Hostname and IP evidence use the `hostname` and `ip` result kinds in SQLite, JSONL, the API, and HarvestView. A hostname may be the authorized target itself or a subordinate name, so the result kind does not claim that every value is a subdomain.
+
+Two operational tables support the API without changing those five evidence concepts: `run_records` stores queue and lifecycle state, and `run_worker_leases` prevents two local workers from claiming the same queue. Older runless rows remain in `legacy_observations`. SQLite upgrades supported schemas automatically during normal initialization.
 
 ## Screenshots
 
 `--screenshot DIR` writes browser captures to the selected directory. Screenshots may contain authentication pages, internal names, or other sensitive visual data even when no credentials were used.
 
-## REST JSON
+## API results
 
-The REST `/query` response returns arrays for ASNs, interesting URLs, Twitter/LinkedIn data, Trello URLs, IPs, emails, and hosts. The corresponding normalized terminal record is retained in SQLite. Treat runtime `/docs`, `/redoc`, and OpenAPI as the exact request/response reference.
+`GET /api/v1/runs/{run_id}` returns lifecycle state plus a normalized `results` array. Each result has `type`, `value`, `sources`, and `actions`. Run-level source and action outcomes remain available in `source_executions` and `action_executions`, while file metadata is returned through `artifacts`. JSONL imports or exports one run, and SQLite import loads completed runs in bulk. Treat runtime `/docs`, `/redoc`, and OpenAPI as the exact request and response reference.
 
 ## Handling and sharing
 

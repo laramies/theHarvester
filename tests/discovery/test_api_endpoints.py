@@ -4,6 +4,7 @@ import aiohttp
 import pytest
 
 from theHarvester.discovery import api_endpoints
+from theHarvester.lib.core import FetcherResponse
 
 
 class FakeResponse:
@@ -62,6 +63,7 @@ async def test_api_endpoint_scan_uses_only_observational_http_methods(monkeypatc
     methods = []
 
     monkeypatch.setattr(search, '_load_wordlist', lambda: [])
+
     async def detect_schema():
         return 'https'
 
@@ -75,6 +77,107 @@ async def test_api_endpoint_scan_uses_only_observational_http_methods(monkeypatc
     await search.do_search()
 
     assert methods == ['GET', 'HEAD', 'OPTIONS']
+
+
+@pytest.mark.asyncio
+async def test_api_endpoint_scan_uses_only_the_configured_wordlist(monkeypatch, tmp_path) -> None:
+    wordlist = tmp_path / 'operator-paths.txt'
+    wordlist.write_text('/health\n', encoding='utf-8')
+    search = api_endpoints.SearchApiEndpoints('example.com', wordlist=str(wordlist), exact_paths=True)
+    detected_paths: list[str] = []
+    requested_urls: list[str] = []
+
+    async def detect_schema(path: str = '') -> str:
+        detected_paths.append(path)
+        return 'https'
+
+    async def fetch(url: str, *_args, **_kwargs):
+        requested_urls.append(url)
+        return ''
+
+    monkeypatch.setattr(search, '_detect_schema', detect_schema)
+    monkeypatch.setattr(api_endpoints.AsyncFetcher, 'fetch', fetch)
+
+    await search.do_search()
+
+    assert detected_paths == ['/health']
+    assert requested_urls == ['https://example.com/health'] * 3
+
+
+@pytest.mark.asyncio
+async def test_schema_detection_can_probe_an_exact_listed_path() -> None:
+    search = api_endpoints.SearchApiEndpoints('example.com', exact_paths=True)
+    session = FakeSession()
+    search._session = session
+
+    assert await search._detect_schema('/health') == 'https'
+    assert session.requests[0][0] == 'https://example.com/health'
+
+
+@pytest.mark.asyncio
+async def test_api_endpoint_scan_exposes_shared_fetcher_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
+    search = api_endpoints.SearchApiEndpoints('example.com')
+    search.common_api_paths = ['/api']
+    monkeypatch.setattr(search, '_load_wordlist', lambda: [])
+
+    async def detect_schema() -> str:
+        return 'https'
+
+    async def fetch(*_args, **kwargs):
+        assert kwargs['include_metadata'] is True
+        return FetcherResponse(
+            body='{"status":"ok"}',
+            status=200,
+            headers={'content-type': 'application/json'},
+        )
+
+    monkeypatch.setattr(search, '_detect_schema', detect_schema)
+    monkeypatch.setattr(api_endpoints.AsyncFetcher, 'fetch', fetch)
+
+    await search.do_search()
+
+    result = search.get_found_endpoints()['https://example.com/api']
+    assert result.status_code == 200
+    assert result.method == 'GET'
+    assert result.content_type == 'application/json'
+    assert result.content_length == len('{"status":"ok"}')
+    assert result.content_preview == '{"status":"ok"}'
+
+
+@pytest.mark.asyncio
+async def test_api_endpoint_scan_counts_suppressed_request_failures(monkeypatch: pytest.MonkeyPatch) -> None:
+    search = api_endpoints.SearchApiEndpoints('example.com')
+    search.common_api_paths = ['/api']
+    monkeypatch.setattr(search, '_load_wordlist', lambda: [])
+
+    async def detect_schema() -> str:
+        return 'https'
+
+    async def fail_request(*_args, **kwargs):
+        assert kwargs['include_metadata'] is True
+        return None
+
+    monkeypatch.setattr(search, '_detect_schema', detect_schema)
+    monkeypatch.setattr(api_endpoints.AsyncFetcher, 'fetch', fail_request)
+
+    await search.do_search()
+
+    assert search.request_error_count == 3
+    assert search.request_error_types == {'TransportError'}
+    assert search.get_found_endpoints() == {}
+
+
+@pytest.mark.asyncio
+async def test_api_endpoint_scan_reports_suppressed_top_level_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    search = api_endpoints.SearchApiEndpoints('example.com')
+
+    async def fail_schema_detection() -> str:
+        raise RuntimeError('scan setup failed')
+
+    monkeypatch.setattr(search, '_detect_schema', fail_schema_detection)
+
+    assert await search.do_search() is None
+    assert search.scan_error_type == 'RuntimeError'
 
 
 @pytest.mark.asyncio

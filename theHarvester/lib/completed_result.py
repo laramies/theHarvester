@@ -1,46 +1,62 @@
 import json
 from collections import Counter
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
-from datetime import UTC, datetime
-from typing import Literal, Self, get_args
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Self
 from uuid import UUID, uuid4
 
-ResultKind = Literal[
-    'analytics',
-    'api-endpoint',
-    'asn',
-    'breach',
-    'cms',
-    'dns-recursive-classification',
-    'dns-recursive-finding',
-    'dns-recursive-summary',
-    'email',
-    'framework',
-    'hostname',
-    'infostealer',
-    'interesting-url',
-    'ip-address',
-    'language',
-    'linkedin-link',
-    'linkedin-person',
-    'person',
-    'server',
-    'screenshot',
-    'shodan',
-    'takeover',
-    'twitter-person',
-    'url',
-    'vhost',
-]
-ExecutionStatus = Literal['completed', 'partial', 'failed', 'rate-limited', 'skipped']
-
-RESULT_KINDS: frozenset[str] = frozenset(get_args(ResultKind))
-EXECUTION_STATUSES: frozenset[str] = frozenset(get_args(ExecutionStatus))
+from theHarvester.lib.active_evidence import ActiveEvidence
+from theHarvester.lib.evidence_types import (
+    EVIDENCE_STATUSES,
+    EXECUTION_STATUSES,
+    RESULT_KINDS,
+    EvidenceStatus,
+    ExecutionStatus,
+    ResultKind,
+    format_utc,
+)
 
 
-def _isoformat_utc(value: datetime) -> str:
-    return value.astimezone(UTC).isoformat().replace('+00:00', 'Z')
+def encode_result_jsonl(
+    summary: Mapping[str, object],
+    findings: Iterable[Mapping[str, object]],
+) -> str:
+    records = [{**summary, 'type': 'summary'}, *findings]
+    return ''.join(json.dumps(record, ensure_ascii=False, separators=(',', ':'), sort_keys=True) + '\n' for record in records)
+
+
+def parse_result_jsonl(payload: bytes | str) -> tuple[dict[str, object], list[dict[str, object]]]:
+    try:
+        text = payload.decode('utf-8') if isinstance(payload, bytes) else payload
+        records = [json.loads(line) for line in text.splitlines() if line.strip()]
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ValueError('result file is not valid JSONL') from error
+    if any(not isinstance(record, dict) for record in records):
+        raise ValueError('JSONL records must be objects')
+    summary = records[0] if records else None
+    if not summary or summary.get('type') != 'summary':
+        raise ValueError('JSONL must start with a summary record')
+    if 'schema' in summary or 'schema_version' in summary:
+        raise ValueError('JSONL must not contain a schema version')
+    findings = records[1:]
+    for record in findings:
+        sources = record.get('sources', [])
+        actions = record.get('actions', [])
+        if (
+            set(record) - {'type', 'value', 'sources', 'actions'}
+            or record.get('type') not in RESULT_KINDS
+            or not isinstance(record.get('value'), str)
+            or not record['value'].strip()
+            or not isinstance(sources, list)
+            or any(not isinstance(source, str) or not source.strip() for source in sources)
+            or not isinstance(actions, list)
+            or any(not isinstance(action, str) or not action.strip() for action in actions)
+        ):
+            raise ValueError('JSONL findings must contain a known type, non-empty value, and producer names')
+        record['sources'] = sorted(set(sources))
+        record['actions'] = sorted(set(actions))
+    return summary, findings
 
 
 @dataclass(frozen=True, order=True, slots=True)
@@ -118,6 +134,8 @@ class CompletedResult:
     results: tuple[tuple[ResultKind, str], ...]
     source_executions: tuple[SourceExecution, ...] = ()
     observations: tuple[ResultObservation, ...] = ()
+    active_evidence: ActiveEvidence = field(default_factory=ActiveEvidence)
+    evidence_status: EvidenceStatus | None = None
 
     def __post_init__(self) -> None:
         if not self.target.strip():
@@ -148,6 +166,17 @@ class CompletedResult:
         observation_counts = Counter(observation.source for observation in self.observations)
         if any(execution.result_count != observation_counts[execution.source] for execution in self.source_executions):
             raise ValueError('source execution result count must match its attributed observations')
+        if any(
+            (observation.kind, observation.value) not in result_set for _action, observation in self.active_evidence.observations
+        ):
+            raise ValueError('every action observation must reference a completed result')
+        if any(
+            (artifact.subject_kind, artifact.subject_value) not in result_set
+            for _action, artifact in self.active_evidence.artifacts
+        ):
+            raise ValueError('every artifact must reference a completed result')
+        if self.evidence_status is not None and self.evidence_status not in EVIDENCE_STATUSES:
+            raise ValueError('evidence status must be complete, partial, or failed')
 
     @classmethod
     def finish(
@@ -160,7 +189,10 @@ class CompletedResult:
         groups: Mapping[ResultKind, Iterable[str]],
         source_executions: Iterable[SourceExecution] = (),
         observations: Iterable[ResultObservation] = (),
+        active_evidence: ActiveEvidence | None = None,
+        evidence_status: EvidenceStatus | None = None,
     ) -> Self:
+        completed_active_evidence = active_evidence if active_evidence is not None else ActiveEvidence()
         results: set[tuple[ResultKind, str]] = set()
         for kind, values in groups.items():
             if kind not in RESULT_KINDS:
@@ -169,6 +201,8 @@ class CompletedResult:
                 if not isinstance(value, str) or not value.strip():
                     raise ValueError('results must contain non-empty string values')
                 results.add((kind, value.strip()))
+        for _action, observation in completed_active_evidence.observations:
+            results.add((observation.kind, observation.value))
         return cls(
             run_id=run_id or uuid4(),
             target=target.strip(),
@@ -177,45 +211,69 @@ class CompletedResult:
             results=tuple(sorted(results)),
             source_executions=tuple(source_executions),
             observations=tuple(sorted(set(observations))),
+            active_evidence=completed_active_evidence,
+            evidence_status=evidence_status,
         )
 
     def evidence_dict(self) -> dict[str, object]:
-        incomplete = {'partial', 'failed', 'rate-limited', 'skipped'}
-        status = 'complete'
-        if self.source_executions and all(execution.status == 'failed' for execution in self.source_executions):
-            status = 'failed'
-        elif any(execution.status in incomplete for execution in self.source_executions):
-            status = 'partial'
         return {
             'run_id': str(self.run_id),
             'target': self.target,
             'started_at': self.started_at.isoformat(),
             'completed_at': self.completed_at.isoformat(),
-            'status': status,
-            'results': self._result_records(),
+            'status': self.status,
+            'results': self._result_records(include_actions=True),
             'source_executions': [execution.to_dict() for execution in self.source_executions],
+            'action_executions': [execution.to_dict() for execution in self.active_evidence.executions],
+            'artifacts': [{'action': action, **artifact.to_dict()} for action, artifact in self.active_evidence.artifacts],
         }
 
     def jsonl(self) -> str:
         counts = Counter(kind for kind, _value in self.results)
-        records = [
+        return encode_result_jsonl(
             {
-                'completed_at': _isoformat_utc(self.completed_at),
+                'completed_at': format_utc(self.completed_at),
                 'counts': dict(sorted(counts.items())),
+                'evidence_status': self.status,
                 'result_count': len(self.results),
                 'run_id': str(self.run_id),
-                'started_at': _isoformat_utc(self.started_at),
+                'source_executions': [execution.to_dict() for execution in self.source_executions],
+                'action_executions': [execution.to_dict() for execution in self.active_evidence.executions],
+                'artifacts': [{'action': action, **artifact.to_dict()} for action, artifact in self.active_evidence.artifacts],
+                'started_at': format_utc(self.started_at),
                 'target': self.target,
-                'type': 'summary',
             },
-            *self._result_records(),
-        ]
-        return ''.join(json.dumps(record, ensure_ascii=False, separators=(',', ':'), sort_keys=True) + '\n' for record in records)
+            self._result_records(include_actions=True),
+        )
 
-    def _result_records(self) -> list[dict[str, object]]:
+    @property
+    def status(self) -> str:
+        incomplete = {'partial', 'failed', 'rate-limited', 'skipped'}
+        execution_statuses = [execution.status for execution in self.source_executions]
+        execution_statuses.extend(execution.status for execution in self.active_evidence.executions)
+        if execution_statuses and all(status == 'failed' for status in execution_statuses):
+            return 'failed'
+        if any(execution_status in incomplete for execution_status in execution_statuses):
+            return 'partial'
+        if execution_statuses:
+            return 'complete'
+        return self.evidence_status or 'complete'
+
+    def _result_records(self, *, include_actions: bool) -> list[dict[str, object]]:
         sources_by_result: dict[tuple[ResultKind, str], list[str]] = {}
         for observation in self.observations:
             sources_by_result.setdefault((observation.kind, observation.value), []).append(observation.source)
-        return [
-            {'type': kind, 'value': value, 'sources': sources_by_result.get((kind, value), [])} for kind, value in self.results
-        ]
+        actions_by_result: dict[tuple[ResultKind, str], list[str]] = {}
+        for action, action_observation in self.active_evidence.observations:
+            actions_by_result.setdefault((action_observation.kind, action_observation.value), []).append(action)
+        records: list[dict[str, object]] = []
+        for kind, value in self.results:
+            record: dict[str, object] = {
+                'type': kind,
+                'value': value,
+                'sources': sources_by_result.get((kind, value), []),
+            }
+            if include_actions and (actions := actions_by_result.get((kind, value))):
+                record['actions'] = actions
+            records.append(record)
+        return records

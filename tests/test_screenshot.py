@@ -24,10 +24,35 @@ def test_screenshot_output_separator_matches_platform(
     assert ScreenShotter('screenshots').slash == expected_separator
 
 
+@pytest.mark.parametrize(
+    ('target', 'filename'),
+    [
+        ('https://www.example.com:8443/login?next=/admin', 'www.example.com_8443.png'),
+        ('2001:db8::1', '2001_db8__1.png'),
+    ],
+)
+def test_screenshot_path_uses_the_target_host_and_port(tmp_path: Path, target: str, filename: str) -> None:
+    screenshotter = ScreenShotter(str(tmp_path))
+
+    assert screenshotter.screenshot_path(target) == tmp_path / filename
+
+
+@pytest.mark.parametrize(
+    ('target', 'response_url', 'request_url'),
+    [
+        ('www.example.com', 'https://www.example.com/landing', 'https://www.example.com'),
+        ('2001:db8::1', 'https://[2001:db8::1]/', 'https://[2001:db8::1]'),
+    ],
+)
 @pytest.mark.asyncio
-async def test_visit_prefers_https_and_returns_final_www_url(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_visit_prefers_https_and_normalizes_the_target(
+    monkeypatch: pytest.MonkeyPatch,
+    target: str,
+    response_url: str,
+    request_url: str,
+) -> None:
     response = MagicMock()
-    response.url = 'https://www.example.com/landing'
+    response.url = response_url
     response.__aenter__ = AsyncMock(return_value=response)
     response.__aexit__ = AsyncMock(return_value=False)
     response.text = AsyncMock(return_value='reachable')
@@ -38,10 +63,10 @@ async def test_visit_prefers_https_and_returns_final_www_url(monkeypatch: pytest
     monkeypatch.setattr(screenshot_module.aiohttp, 'ClientSession', MagicMock(return_value=session))
     monkeypatch.setattr(screenshot_module.aiohttp, 'TCPConnector', MagicMock())
     monkeypatch.setattr(screenshot_module.ssl, 'create_default_context', MagicMock())
-    result = await ScreenShotter.visit('www.example.com')
+    result = await ScreenShotter.visit(target)
 
-    assert result == ('https://www.example.com/landing', 'reachable')
-    assert session.get.call_args.args[0] == 'https://www.example.com'
+    assert result == (response_url, 'reachable')
+    assert session.get.call_args.args[0] == request_url
 
 
 @pytest.mark.asyncio
@@ -67,8 +92,44 @@ async def test_visit_falls_back_to_http_when_https_is_unreachable(monkeypatch: p
     ]
 
 
+@pytest.mark.parametrize(
+    ('target', 'normalized_url', 'filename'),
+    [
+        ('www.example.com', 'https://www.example.com', 'www.example.com.png'),
+        ('2001:db8::1', 'https://[2001:db8::1]', '2001_db8__1.png'),
+    ],
+)
 @pytest.mark.asyncio
-async def test_take_screenshot_preserves_www_hostname(
+async def test_take_screenshot_normalizes_the_target(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    target: str,
+    normalized_url: str,
+    filename: str,
+) -> None:
+    page = AsyncMock()
+    context = AsyncMock()
+    context.new_page.return_value = page
+    browser = AsyncMock()
+    browser.new_context.return_value = context
+    playwright = MagicMock()
+    playwright.chromium.launch = AsyncMock(return_value=browser)
+    manager = MagicMock()
+    manager.__aenter__ = AsyncMock(return_value=playwright)
+    manager.__aexit__ = AsyncMock(return_value=False)
+    monkeypatch.setattr(screenshot_module, 'async_playwright', MagicMock(return_value=manager))
+    monkeypatch.setattr(screenshot_module.os, 'chmod', MagicMock())
+
+    captured_url = await ScreenShotter(str(tmp_path)).take_screenshot(target)
+
+    assert captured_url == normalized_url
+    page.goto.assert_awaited_once_with(normalized_url, timeout=35000)
+    screenshot_path = page.screenshot.await_args.kwargs['path']
+    assert Path(screenshot_path) == tmp_path / filename
+
+
+@pytest.mark.asyncio
+async def test_take_screenshot_can_name_the_artifact_for_the_authorized_subject(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -84,13 +145,15 @@ async def test_take_screenshot_preserves_www_hostname(
     manager.__aexit__ = AsyncMock(return_value=False)
     monkeypatch.setattr(screenshot_module, 'async_playwright', MagicMock(return_value=manager))
     monkeypatch.setattr(screenshot_module.os, 'chmod', MagicMock())
+    output_path = tmp_path / 'authorized.example.com.png'
 
-    captured_url = await ScreenShotter(str(tmp_path)).take_screenshot('www.example.com')
+    captured_url = await ScreenShotter(str(tmp_path)).take_screenshot(
+        'https://login.example.net/session',
+        output_path=output_path,
+    )
 
-    assert captured_url == 'https://www.example.com'
-    page.goto.assert_awaited_once_with('https://www.example.com', timeout=35000)
-    screenshot_path = page.screenshot.await_args.kwargs['path']
-    assert screenshot_path.endswith('www.example.com.png')
+    assert captured_url == 'https://login.example.net/session'
+    assert page.screenshot.await_args.kwargs['path'] == output_path
 
 
 @pytest.mark.asyncio

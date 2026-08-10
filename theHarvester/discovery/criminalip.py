@@ -181,7 +181,7 @@ class SearchCriminalIP:
     async def parser(self, jlines):
         # TODO when new scope field is added to parse lines for potential new scope!
         # TODO map as_name to asn for asn data
-        # TODO determine if worth storing interesting urls
+        # TODO determine if returned URLs are useful
         if not isinstance(jlines, dict) or 'data' not in jlines.keys() or not isinstance(jlines['data'], dict):
             logger.info('CriminalIP report has an unexpected structure')
             return

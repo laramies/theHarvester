@@ -6,7 +6,7 @@ class SearchUrlscan:
         self.word = word
         self.totalhosts: set = set()
         self.totalips: set = set()
-        self.interestingurls: set = set()
+        self.urls: set = set()
         self.totalasns: set = set()
         self.proxy = False
 
@@ -16,7 +16,7 @@ class SearchUrlscan:
         resp = response[0]
         self.totalhosts = {f'{page["page"]["domain"]}' for page in resp['results']}
         self.totalips = {f'{page["page"]["ip"]}' for page in resp['results'] if 'ip' in page['page']}
-        self.interestingurls = {
+        self.urls = {
             f'{page["page"]["url"]}' for page in resp['results'] if self.word in page['page']['url'] and 'url' in page['page']
         }
         self.totalasns = {f'{page["page"]["asn"]}' for page in resp['results'] if 'asn' in page['page']}
@@ -27,8 +27,8 @@ class SearchUrlscan:
     async def get_ips(self) -> set:
         return self.totalips
 
-    async def get_interestingurls(self) -> set:
-        return self.interestingurls
+    async def get_urls(self) -> set:
+        return self.urls
 
     async def get_asns(self) -> set:
         return self.totalasns

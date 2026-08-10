@@ -30,7 +30,7 @@ class SearchIntelx:
         self.results: dict[str, Any] = {}
         self.emails: list[str] = []
         self.hostnames: list[str] = []
-        self.interesting_urls: list[str] = []
+        self.urls: list[str] = []
         self.limit: int = 10000
         self.proxy = False
         self.offset = 0
@@ -80,7 +80,7 @@ class SearchIntelx:
         intelx_parser = intelxparser.Parser()
         raw_emails, raw_selectors = await intelx_parser.parse_dictionaries(self.results)
         emails: set[str] = set()
-        interesting_urls: set[str] = set()
+        urls: set[str] = set()
         hostnames: set[str] = set()
 
         for email in raw_emails:
@@ -94,16 +94,19 @@ class SearchIntelx:
                 emails.add(f'{address.username}@{normalized_domain}')
 
         for selector in raw_selectors:
+            selector = selector.strip()
             try:
                 parsed = urlparse(selector if '://' in selector else f'//{selector}')
             except ValueError:
                 continue
-            interesting_urls.add(selector)
-            if normalized_hostname := normalize_scoped_hostname(parsed.hostname, self.word):
+            normalized_hostname = normalize_scoped_hostname(parsed.hostname, self.word)
+            if normalized_hostname:
                 hostnames.add(normalized_hostname)
+                if parsed.scheme in {'http', 'https'} and parsed.netloc:
+                    urls.add(selector)
 
         self.emails = sorted(emails)
-        self.interesting_urls = sorted(interesting_urls)
+        self.urls = sorted(urls)
         self.hostnames = sorted(hostnames)
 
     async def get_emails(self) -> list[str]:
@@ -112,5 +115,5 @@ class SearchIntelx:
     async def get_hostnames(self) -> list[str]:
         return self.hostnames
 
-    async def get_interestingurls(self) -> list[str]:
-        return self.interesting_urls
+    async def get_urls(self) -> list[str]:
+        return self.urls

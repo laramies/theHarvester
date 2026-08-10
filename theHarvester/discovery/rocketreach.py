@@ -17,7 +17,7 @@ class SearchRocketReach:
         self.hosts: set = set()
         self.proxy = False
         self.baseurl = 'https://api.rocketreach.co/api/v2/person/search'
-        self.links: set = set()
+        self.urls: set = set()
         self.emails: set = set()
         self.limit = limit
 
@@ -64,7 +64,7 @@ class SearchRocketReach:
 
                 for profile in profiles:
                     if 'linkedin_url' in profile:
-                        self.links.add(profile['linkedin_url'])
+                        self.urls.add(profile['linkedin_url'])
                     if profile.get('emails'):
                         for email in profile['emails']:
                             if email.get('email'):
@@ -86,8 +86,8 @@ class SearchRocketReach:
         except Exception as e:
             logger.info(f'An exception has occurred rocketreach: {e}')
 
-    async def get_links(self):
-        return self.links
+    async def get_urls(self):
+        return self.urls
 
     async def get_emails(self):
         return self.emails

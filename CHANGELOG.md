@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added bounded, keyless subdomain discovery through Arquivo.pt's public CDX API with offline response contracts.
 - Added transactional SQLite storage and loading for completed full-pipeline runs without changing legacy result rows.
 - Added deterministic JSONL report companions finalized after selected one-shot actions complete.
+- Added a unified model and SQLite schema for active-action provenance and screenshot artifact metadata.
+- Added authenticated bulk import for completed runs from validated theHarvester SQLite databases.
+- Added bounded custom endpoint-path input for REST API scans without exposing server-side file paths.
+- Recorded DNS resolution, recursive DNS, DNS brute force, and PTR lookup outcomes through the unified action model.
+- Recorded takeover, Shodan, and API endpoint scan outcomes through the unified action model.
 - Added normalized BuiltWith framework, language, server, CMS, and analytics findings to JSONL and completed-result SQLite output.
 - Added DNSDB passive DNS discovery with API key configuration, shared transport handling, result parsing, and offline tests ([9b41b78e](https://github.com/laramies/theHarvester/commit/9b41b78e), [aba9fec6](https://github.com/laramies/theHarvester/commit/aba9fec6)).
 - Added `--verbose` diagnostic logging while keeping normal operator output available at the default log level ([8a7b8b71](https://github.com/laramies/theHarvester/commit/8a7b8b71)).
@@ -22,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added root contributor and security policies, structured issue forms, repository agent guidance, discovery terminology, and an operator-focused documentation wiki ([d090a29a](https://github.com/laramies/theHarvester/commit/d090a29a), [7c491ef5](https://github.com/laramies/theHarvester/commit/7c491ef5), [8b9d420b](https://github.com/laramies/theHarvester/commit/8b9d420b)).
 
 ### Changed
+- Standardized SQLite, JSONL, API, and HarvestView result names on `hostname` and `ip` without a presentation alias.
+- Standardized URL-producing adapters, JSON, JSONL, SQLite, and API evidence on one `url` result kind while preserving producer provenance.
 - Fixed proxied POST requests so they retain the request method, body, and query parameters.
 - Migrated Pentest-Tools discovery to its API v2 Bearer-authenticated scan, status, and output endpoints.
 - Included HIBP verified-domain in `all` and matching capability selectors like every other P0 source, with REST operator authentication applied after source expansion when its provider key is configured.
@@ -35,20 +42,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replaced deprecated hostname resolution with `getaddrinfo`-based handling ([6a847435](https://github.com/laramies/theHarvester/commit/6a847435)).
 - Reworked routine CI to use read-only permissions, non-mutating Ruff checks, offline tests, and explicit opt-in live provider checks ([72e5820f](https://github.com/laramies/theHarvester/commit/72e5820f)).
 - Grouped GitHub Actions, Python, and Docker Dependabot updates with a seven-day cooldown, and added a seven-day `uv` dependency freshness window ([7a947b66](https://github.com/laramies/theHarvester/commit/7a947b66), [52a79cdb](https://github.com/laramies/theHarvester/commit/52a79cdb)).
-- Updated runtime dependencies: `aiohttp` to `3.14.1`, `beautifulsoup4` to `4.15.0`, `certifi` to `2026.6.17`, `fastapi` to `0.138.1`, `slowapi` to `0.1.10`, `ujson` to `5.13.0`, and `uvicorn` to `0.49.0`.
+- Updated runtime dependencies: `aiohttp` to `3.14.1`, `beautifulsoup4` to `4.15.0`, `certifi` to `2026.6.17`, `fastapi` to `0.138.1`, `ujson` to `5.13.0`, and `uvicorn` to `0.49.0`.
 - Updated development dependencies: `pytest` to `9.1.1`, `ruff` to `0.15.20`, and `ty` to `0.0.54`.
 - Updated CI and container maintenance pins, including `actions/checkout`, `astral-sh/setup-uv`, `astral-sh/ruff-action`, `github/codeql-action`, StepSecurity Harden-Runner, Docker actions, and the Python base image.
 - Expanded offline regression coverage for discovery providers, configuration contracts, logging, output, documentation, workflow policy, and scope boundaries.
 
 ### Removed
+- Removed the obsolete bundled IP-range and resolver snapshots.
+- Removed the REST API's built-in SlowAPI request limiter and its launcher option without adding a replacement.
 - Removed Bitbucket domain discovery because its current REST APIs require workspace, repository, or user scope that the domain-only CLI contract cannot provide.
 - Removed the nonfunctional ThreatCrowd source because its service hostnames terminate at deleted AWS load balancers and return NXDOMAIN; OTX remains available through its separate adapter.
 
 ### Fixed
+- Kept API endpoint scan URLs canonical instead of prefixing targets onto already complete URLs.
 - Made DeHashed pagination honor the CLI limit, retain only normalized email and IP evidence, and discard raw breach rows; aligned LeakIX with its authenticated subdomain endpoint and documented rate-limit retry.
 - Added offline contracts for explicitly selected DNS and direct sources, retained normalized Pentest-Tools host and IP results, and hardened Shodan InternetDB, SubdomainFinder C99, and Windvane evidence boundaries.
 - Retained relevant GitLab project, profile, and website URLs in consolidated JSONL and SQLite results while excluding unrelated user URLs.
-- Removed BuiltWith's duplicate interesting-URL getter by allowing the shared collector to use either established getter spelling.
+- Standardized BuiltWith and every other URL-producing adapter on `get_urls()`.
 - Made no-filename REST `/query` executions reach completed-result construction and SQLite persistence without changing the legacy response fields.
 - Made Chaos reject empty credentials, report HTTP and malformed-response failures, and preserve supported subdomain response shapes.
 - Made Fofa reject incomplete credentials, report HTTP and malformed-response failures, normalize scoped hosts, and discard invalid IP values.

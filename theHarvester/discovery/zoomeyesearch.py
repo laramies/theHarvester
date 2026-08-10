@@ -4,9 +4,11 @@ import math
 import re
 from collections.abc import Iterable
 from typing import Any
+from urllib.parse import urlparse
 
 from theHarvester.discovery.constants import MissingKey, get_delay
 from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.parsers import myparser
 
 logger = logging.getLogger(__name__)
@@ -29,7 +31,7 @@ class SearchZoomEye:
         self.proxy = False
         self.totalasns: list = list()
         self.totalhosts: list = list()
-        self.interestingurls: list = list()
+        self.urls: list = list()
         self.totalips: list = list()
         self.totalemails: list = list()
         # Regex used is directly from: https://github.com/GerbenJavado/LinkFinder/blob/master/linkfinder.py#L29
@@ -62,7 +64,7 @@ class SearchZoomEye:
           )
           (?:"|')                               # End newline delimiter
         """
-        self.iurl_regex = re.compile(regex_str, re.VERBOSE)
+        self.url_regex = re.compile(regex_str, re.VERBOSE)
 
     def _build_headers(self) -> dict[str, str]:
         # API v2 uses API-KEY header
@@ -205,24 +207,24 @@ class SearchZoomEye:
             if isinstance(payload, dict):
                 matches = extract_matches(payload)
                 if matches:
-                    hostnames, emails, ips, asns, iurls = await self.parse_matches(matches)
+                    hostnames, emails, ips, asns, urls = await self.parse_matches(matches)
                     self.totalhosts.extend(hostnames)
                     self.totalemails.extend(emails)
                     self.totalips.extend(ips)
                     self.totalasns.extend(asns)
-                    self.interestingurls.extend(iurls)
+                    self.urls.extend(urls)
             return
 
         # Parse first page then loop
         if isinstance(payload, dict):
             matches = extract_matches(payload)
             if matches:
-                hostnames, emails, ips, asns, iurls = await self.parse_matches(matches)
+                hostnames, emails, ips, asns, urls = await self.parse_matches(matches)
                 self.totalhosts.extend(hostnames)
                 self.totalemails.extend(emails)
                 self.totalips.extend(ips)
                 self.totalasns.extend(asns)
-                self.interestingurls.extend(iurls)
+                self.urls.extend(urls)
 
         for num in range(2, self.limit + 1):
             params = (('query', f'site:{self.word}'), ('page', str(num)), ('size', str(size)))
@@ -244,9 +246,9 @@ class SearchZoomEye:
                     break
                 continue
 
-            hostnames, emails, ips, asns, iurls = await self.parse_matches(matches)
+            hostnames, emails, ips, asns, urls = await self.parse_matches(matches)
 
-            if len(hostnames) == 0 and len(emails) == 0 and len(ips) == 0 and len(asns) == 0 and len(iurls) == 0:
+            if len(hostnames) == 0 and len(emails) == 0 and len(ips) == 0 and len(asns) == 0 and len(urls) == 0:
                 nomatches_counter += 1
                 if nomatches_counter >= 5:
                     break
@@ -255,7 +257,7 @@ class SearchZoomEye:
             self.totalemails.extend(emails)
             self.totalips.extend(ips)
             self.totalasns.extend(asns)
-            self.interestingurls.extend(iurls)
+            self.urls.extend(urls)
 
             if num % 10 == 0:
                 await asyncio.sleep(get_delay() + 1)
@@ -263,7 +265,7 @@ class SearchZoomEye:
     async def parse_matches(self, matches):
         # Helper function to parse items from match json
         ips: set[str] = set()
-        iurls: set[str] = set()
+        urls: set[str] = set()
         hostnames: set[str] = set()
         asns: set[str] = set()
         emails: set[str] = set()
@@ -317,7 +319,7 @@ class SearchZoomEye:
                             if isinstance(v, str):
                                 self._safe_add_hostname(hostnames, v)
 
-                # Banner/content extraction for emails, hostnames, iurls
+                # Banner/content extraction for emails, hostnames, and URLs
                 banners = []
 
                 portinfo = match.get('portinfo')
@@ -344,18 +346,21 @@ class SearchZoomEye:
                     temp_emails = set(await self.parse_emails(content_blob))
                     emails.update(temp_emails)
                     hostnames.update(set(await self.parse_hostnames(content_blob)))
-                    found_urls = {
-                        str(iurl.group(1)).replace('"', '')
-                        for iurl in re.finditer(self.iurl_regex, content_blob)
-                        if self.word in str(iurl.group(1))
-                    }
-                    iurls.update(found_urls)
+                    for url_match in re.finditer(self.url_regex, content_blob):
+                        candidate = str(url_match.group(1)).replace('"', '')
+                        try:
+                            parsed = urlparse(candidate)
+                            hostname = normalize_scoped_hostname(parsed.hostname, self.word)
+                        except ValueError:
+                            continue
+                        if parsed.scheme in {'http', 'https'} and parsed.netloc and hostname:
+                            urls.add(candidate)
 
             except Exception as e:
                 # Continue processing other matches instead of failing completely
                 logger.info(f'ZoomEye parsing error: {e}')
 
-        return hostnames, emails, ips, asns, iurls
+        return hostnames, emails, ips, asns, urls
 
     async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
@@ -381,5 +386,5 @@ class SearchZoomEye:
     async def get_asns(self):
         return set(self.totalasns)
 
-    async def get_interestingurls(self):
-        return set(self.interestingurls)
+    async def get_urls(self):
+        return set(self.urls)

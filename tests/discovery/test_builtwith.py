@@ -13,12 +13,12 @@ if 'aiohttp_socks' not in sys.modules:
         def from_url(*_args, **_kwargs):
             return None
 
-    setattr(aiohttp_socks_stub, 'ProxyConnector', _ProxyConnector)
+    aiohttp_socks_stub.ProxyConnector = _ProxyConnector  # type: ignore[attr-defined]
     sys.modules['aiohttp_socks'] = aiohttp_socks_stub
 
+from theHarvester import __main__ as theharvester_main
 from theHarvester.discovery import builtwith
 from theHarvester.discovery.constants import MissingKey
-from theHarvester import __main__ as theharvester_main
 from theHarvester.lib.completed_result import CompletedResult
 
 
@@ -87,7 +87,7 @@ async def test_process_accepts_text_json_content_type(monkeypatch) -> None:
     await search.process()
 
     assert await search.get_hostnames() == {'sub.example.com'}
-    assert await search.get_interesting_urls() == {'https://example.com/login'}
+    assert await search.get_urls() == {'https://example.com/login'}
     assert await search.get_frameworks() == {'Django'}
     assert await search.get_languages() == {'Python'}
     assert await search.get_servers() == {'nginx'}
@@ -157,7 +157,7 @@ async def test_normalized_builtwith_results_reach_completed_jsonl(
         async def get_hostnames(self) -> set[str]:
             return set()
 
-        async def get_interesting_urls(self) -> set[str]:
+        async def get_urls(self) -> set[str]:
             return {'https://example.com/login'}
 
         async def get_frameworks(self) -> set[str]:
@@ -188,12 +188,12 @@ async def test_normalized_builtwith_results_reach_completed_jsonl(
         ('analytics', 'Google Analytics'),
         ('cms', 'WordPress'),
         ('framework', 'Django'),
-        ('interesting-url', 'https://example.com/login'),
         ('language', 'Python'),
         ('server', 'nginx'),
+        ('url', 'https://example.com/login'),
     )
     records = [json.loads(line) for line in report.with_suffix('.jsonl').read_text().splitlines()]
-    assert {'type': 'interesting-url', 'value': 'https://example.com/login', 'sources': ['builtwith']} in records
+    assert {'type': 'url', 'value': 'https://example.com/login', 'sources': ['builtwith']} in records
     assert {'type': 'framework', 'value': 'Django', 'sources': ['builtwith']} in records
     assert {'type': 'language', 'value': 'Python', 'sources': ['builtwith']} in records
     assert {'type': 'server', 'value': 'nginx', 'sources': ['builtwith']} in records

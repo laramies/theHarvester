@@ -25,14 +25,14 @@ AUTHORIZED_DOMAIN='replace-with-a-domain-you-control'
 uv run theHarvester -d "$AUTHORIZED_DOMAIN" -b crtsh,certspotter -r
 ```
 
-To control the resolvers used:
+To control the resolvers used, create a resolver file with one IP address per line and pass its path:
 
 ```bash
 AUTHORIZED_DOMAIN='replace-with-a-domain-you-control'
 uv run theHarvester -d "$AUTHORIZED_DOMAIN" -b crtsh -r resolvers.txt
 ```
 
-Resolver files contain one IP address per line. DNS requests disclose candidate names to the selected resolver.
+DNS requests disclose candidate names to each selected resolver.
 
 ## Shodan enrichment
 

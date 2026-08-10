@@ -25,6 +25,8 @@ class EnumerationOptions:
     dns_server: str | None = None
     take_over: bool = False
     dns_resolve: str | None = ''
+    dns_resolvers: tuple[str, ...] = ()
+    dns_resolver_input: str = ''
     dns_lookup: bool = False
     dns_brute: bool = False
     dns_recursive_depth: int = 0
@@ -49,6 +51,8 @@ class EnumerationOptions:
             dns_server=getattr(value, 'dns_server', None),
             take_over=getattr(value, 'take_over', False),
             dns_resolve=getattr(value, 'dns_resolve', ''),
+            dns_resolvers=tuple(getattr(value, 'dns_resolvers', ())),
+            dns_resolver_input=getattr(value, 'dns_resolver_input', ''),
             dns_lookup=getattr(value, 'dns_lookup', False),
             dns_brute=getattr(value, 'dns_brute', False),
             dns_recursive_depth=getattr(value, 'dns_recursive_depth', 0),

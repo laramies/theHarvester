@@ -8,6 +8,9 @@ import ssl
 import sys
 from collections.abc import Collection
 from datetime import datetime
+from ipaddress import ip_address
+from pathlib import Path
+from urllib.parse import urlsplit
 
 import aiohttp
 import certifi
@@ -15,6 +18,18 @@ from aiohttp_socks import ProxyConnector
 from playwright.async_api import async_playwright
 
 logger = logging.getLogger(__name__)
+
+
+def _target_url(value: str, scheme: str = 'https') -> str:
+    if value.startswith(('http://', 'https://')):
+        return value
+    try:
+        address = ip_address(value)
+    except ValueError:
+        host = value
+    else:
+        host = f'[{address}]' if address.version == 6 else str(address)
+    return f'{scheme}://{host}'
 
 
 class ScreenShotter:
@@ -57,7 +72,7 @@ class ScreenShotter:
     async def visit(url: str, proxy: str | None = None) -> tuple[str, str]:
         try:
             timeout = aiohttp.ClientTimeout(total=35)
-            urls = (url,) if url.startswith(('http://', 'https://')) else (f'https://{url}', f'http://{url}')
+            urls = (url,) if url.startswith(('http://', 'https://')) else (_target_url(url), _target_url(url, 'http'))
             sslcontext = ssl.create_default_context(cafile=certifi.where())
             connector: ProxyConnector | aiohttp.TCPConnector
             proxy_param = None
@@ -80,28 +95,35 @@ class ScreenShotter:
             logger.info(f'An exception has occurred while attempting to visit {url} : {e}')
             return '', ''
 
-    async def take_screenshot(self, url: str) -> str:
-        url = f'https://{url}' if not url.startswith(('http://', 'https://')) else url
+    async def take_screenshot(self, url: str, *, output_path: Path | None = None) -> str:
+        url = _target_url(url)
         logger.info(f'Attempting to take a screenshot of: {url}')
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             # New browser context
             context = await browser.new_context()
             page = await context.new_page()
-            path = rf'{self.output}{self.slash}{url.replace("http://", "").replace("https://", "")}.png'
+            path: Path | None = output_path or self.screenshot_path(url)
             date = str(datetime.now())
             try:
                 # Will fail if network idle or load event doesn't fire after
                 # 35s which should be handled
                 await page.goto(url, timeout=35000)
                 await page.screenshot(path=path)
-                os.chmod(path, 0o600)
+                if path is not None:
+                    os.chmod(path, 0o600)
             except Exception as e:
                 logger.info(f'An exception has occurred attempting to screenshot: {url} : {e}')
-                path = ''
+                path = None
             finally:
                 await page.close()
                 await context.close()
                 await browser.close()
                 logger.info(f'{date} {url} {path}')
         return url if path else ''
+
+    def screenshot_path(self, url: str) -> Path:
+        parsed = urlsplit(_target_url(url))
+        hostname = (parsed.hostname or 'unknown-host').replace(':', '_')
+        port = f'_{parsed.port}' if parsed.port else ''
+        return Path(self.output) / f'{hostname}{port}.png'

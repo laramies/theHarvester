@@ -7,15 +7,13 @@ import yaml
 
 from theHarvester.lib.source_catalog import SOURCE_SPECS, ResultRoute
 
-RESULT_COLUMNS = ('Subdomains', 'Emails', 'IPs', 'ASNs', 'URLs / links', 'People', 'Breaches')
+RESULT_COLUMNS = ('Subdomains', 'Emails', 'IPs', 'ASNs', 'URLs', 'People', 'Breaches')
 ROUTE_COLUMNS = {
     ResultRoute.SUBDOMAINS: 'Subdomains',
     ResultRoute.EMAILS: 'Emails',
     ResultRoute.IPS: 'IPs',
     ResultRoute.ASNS: 'ASNs',
-    ResultRoute.LINKS: 'URLs / links',
-    ResultRoute.URLS: 'URLs / links',
-    ResultRoute.INTERESTING_URLS: 'URLs / links',
+    ResultRoute.URLS: 'URLs',
     ResultRoute.PEOPLE: 'People',
     ResultRoute.BREACHES: 'Breaches',
 }
@@ -80,7 +78,7 @@ def test_readme_matches_declared_source_contracts() -> None:
     documented = _documented_source_contracts(readme)
     declared = _declared_source_contracts()
 
-    assert '| Source | Subdomains | Emails | IPs | ASNs | URLs / links | People | Breaches |' in readme
+    assert '| Source | Subdomains | Emails | IPs | ASNs | URLs | People | Breaches |' in readme
     assert len(declared) == 56
     assert len(documented) == 56
     assert documented == declared
@@ -133,6 +131,6 @@ def test_readme_explains_jsonl_record_and_structured_value_parsing() -> None:
 
     assert '{"sources":[],"type":"hostname","value":"api.example.com"}' in readme
     assert 'select(.type == "dns-recursive-finding") | .value | fromjson' in readme
-    assert 'JSONL is easy to stream for simple findings, but it is not uniformly self-describing.' in readme
+    assert 'JSONL is easy to stream one record at a time.' in readme
     assert '`person`, `infostealer`, `shodan`, and `takeover`' in readme
-    assert 'JSONL does not include source execution records. Finding records include source attribution' in readme
+    assert 'The summary preserves the evidence status, source and action outcomes' in readme

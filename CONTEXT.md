@@ -1,6 +1,6 @@
 # theHarvester discovery context
 
-This glossary is the source of truth for discussing subdomain discovery across code, issues, pull requests, output, and documentation. It separates current addressability from historical, indirect, or unresolved evidence.
+This glossary is the source of truth for discussing subdomain discovery and HarvestView lifecycle behavior across code, issues, pull requests, output, and documentation. It separates current addressability from historical, indirect, or unresolved evidence.
 
 The definitions state intended semantics; they do not imply that every discovery adapter already produces every evidence class. Update this glossary when a change alters a term's meaning or boundary.
 
@@ -50,13 +50,53 @@ _Avoid_: Result, duplicate, hit
 A deduplicated operator-facing entity backed by one or more discovery observations and their retained provenance.
 _Avoid_: Raw finding, source result
 
+**Hostname result**:
+One normalized DNS-name merged result. It can be the authorized target itself or a subordinate name and does not by itself imply current DNS addressability.
+_Avoid_: Subdomain result, live host, resolved host
+
+**IP result**:
+One canonical IPv4 or IPv6 address merged result.
+_Avoid_: IP-address result, resolved host
+
+**URL result**:
+One normalized URL merged result. Source and action origins identify how it was found; provider-specific URL categories are not separate result kinds.
+_Avoid_: Interesting URL, LinkedIn link, API endpoint result
+
 **DNS validation observation**:
 One resolver vantage's time-bound DNS evidence about one in-scope candidate. It supports classifying the candidate as currently addressable or wildcard-indistinguishable without replacing its discovery observations.
 _Avoid_: DNS result, resolved host, validation status
 
 **Enumeration run**:
 One finite execution of theHarvester against an explicit target and selected options, identified independently from every other execution.
-_Avoid_: Scan, monitoring cycle, session
+_Avoid_: Scan, monitoring cycle, session, job
+
+**Action-only run**:
+An enumeration run with no discovery sources that performs an explicitly selected DNS or direct action against an explicitly authorized target. It creates its own run record and never mutates the evidence of a parent run.
+_Avoid_: Result action, parent-run update, inline scan
+
+**Run record**:
+The durable operator-facing record that begins when an enumeration is submitted or evidence is imported and retains lifecycle, authorization, and available evidence under one stable identifier.
+_Avoid_: Task, worker job, scan record
+
+**HarvestView**:
+The browser-based analysis workspace for creating and inspecting run records, normalized evidence, source outcomes, and managed artifacts from theHarvester.
+_Avoid_: Internal workflow names, operator app, console, dashboard
+
+**Imported run**:
+A run record created from an existing theHarvester result file. Import records evidence but never executes discovery or contacts a target.
+_Avoid_: Uploaded scan, replayed run
+
+**Lifecycle status**:
+The durable state of a run record: queued, running, cancelling, cancelled, completed, or failed. It describes control flow, not evidence quality.
+_Avoid_: Run result, provider status
+
+**Terminal evidence status**:
+The completeness classification reported by a finished enumeration result: complete, partial, or failed. It does not describe queue or cancellation state.
+_Avoid_: Lifecycle status, completion state
+
+**Cancellation request**:
+The operator's durable request that the run worker prevent queued work from starting or ask the running child process to stop. A request is not itself proof that execution has ended.
+_Avoid_: Cancelled run, process killed
 
 **Source execution**:
 One attempt to run one canonical discovery source within an enumeration run, with an explicit completion status and summary counts.
