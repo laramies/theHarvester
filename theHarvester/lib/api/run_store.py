@@ -62,7 +62,7 @@ def _completed_result(
     if len(source_details) != len(evidence.get('source_executions', [])):
         raise ValueError('source executions must have unique non-empty names')
     if missing_sources := set(source_counts) - set(source_details):
-        raise ValueError(f'missing source execution: {sorted(missing_sources)[0]}')
+        raise ValueError(f'missing source execution: {min(missing_sources)}')
     source_names = sorted(source_details)
     completed_sources = tuple(
         SourceExecution(
@@ -105,7 +105,7 @@ def _completed_result(
         raise ValueError('action executions must have unique non-empty names')
     missing_actions = (set(action_groups) | set(artifacts_by_action)) - set(action_details)
     if missing_actions:
-        raise ValueError(f'missing action execution: {sorted(missing_actions)[0]}')
+        raise ValueError(f'missing action execution: {min(missing_actions)}')
     action_names = sorted(action_details)
     active_evidence = ActiveEvidence(
         executions=tuple(

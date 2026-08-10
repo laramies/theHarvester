@@ -796,7 +796,7 @@ class ResultStore:
         executions_by_position = {row.position: row for row in execution_rows}
         unknown_producer_kinds = {row.producer_kind for row in execution_rows} - {'source', 'action'}
         if unknown_producer_kinds:
-            raise ResultStoreError(f'Unknown persisted producer kind: {sorted(unknown_producer_kinds)[0]}')
+            raise ResultStoreError(f'Unknown persisted producer kind: {min(unknown_producer_kinds)}')
         observations_by_execution: dict[int, list[ActionObservation]] = {}
         source_observations: list[ResultObservation] = []
         for origin in origin_rows:

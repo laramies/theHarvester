@@ -43,10 +43,7 @@ def worker_available() -> bool:
 
 
 async def _default_process_factory(run_id: str, database: Path, _artifact_dir_path: Path) -> asyncio.subprocess.Process:
-    process_options = (
-        {'creationflags': getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0)} if os.name == 'nt' else {'start_new_session': True}
-    )
-    process = await asyncio.create_subprocess_exec(
+    command = (
         sys.executable,
         '-m',
         'theHarvester.lib.api.run_worker',
@@ -54,10 +51,21 @@ async def _default_process_factory(run_id: str, database: Path, _artifact_dir_pa
         run_id,
         '--database',
         str(database),
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-        **process_options,
     )
+    if os.name == 'nt':
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            creationflags=getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0),
+        )
+    else:
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            start_new_session=True,
+        )
     if process.pid is not None:
         _process_groups[process] = process.pid
     return process
