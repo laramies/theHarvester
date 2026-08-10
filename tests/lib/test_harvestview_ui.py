@@ -69,6 +69,9 @@ def test_harvestview_offers_jsonl_and_sqlite_imports_with_jsonl_export(tmp_path,
     assert '/exports/' not in script.text
     assert 'text/csv' not in script.text
     assert 'versioned JSONL' not in root.text
+    assert 'interesting-url' not in script.text
+    assert 'api-endpoint' not in script.text
+    assert 'linkedin-link' not in script.text
 
 
 def test_harvestview_loads_pinned_tabulator_from_cdnjs(tmp_path, monkeypatch) -> None:

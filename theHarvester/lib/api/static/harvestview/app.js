@@ -4,13 +4,12 @@
   const $ = selector => document.querySelector(selector);
   const $$ = selector => [...document.querySelectorAll(selector)];
   const ROUTE_ORDER = [
-    'subdomain', 'ip', 'asn', 'email', 'url', 'interesting-url', 'person', 'person-link',
-    'api-endpoint', 'takeover', 'shodan', 'scope-extension', 'external-relationship', 'other'
+    'subdomain', 'ip', 'asn', 'email', 'url', 'person', 'person-link', 'takeover', 'shodan',
+    'scope-extension', 'external-relationship', 'other'
   ];
   const ROUTE_LABELS = {
     subdomain: 'Subdomains', ip: 'IP addresses', asn: 'ASNs', email: 'Emails', url: 'URLs',
-    'interesting-url': 'Interesting URLs', person: 'People', 'person-link': 'People links',
-    'api-endpoint': 'API endpoints', takeover: 'Takeover evidence', shodan: 'Shodan evidence',
+    person: 'People', 'person-link': 'People links', takeover: 'Takeover evidence', shodan: 'Shodan evidence',
     'scope-extension': 'Scope extensions', 'external-relationship': 'External relationships', other: 'Other'
   };
   const ACTION_FIELDS = {'dns-recursive': 'dns_recursive_depth'};

@@ -868,9 +868,7 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
                 'value': f'{result_type}.example.com',
                 'sources': [ordered_sources[index]['name']] if index < 3 else [],
             }
-            for index, result_type in enumerate(
-                ('subdomain', 'ip', 'asn', 'email', 'url', 'interesting-url', 'person', 'api-endpoint')
-            )
+            for index, result_type in enumerate(('subdomain', 'ip', 'asn', 'email', 'url', 'framework', 'person', 'language'))
         ]
         + [
             {
