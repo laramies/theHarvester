@@ -215,8 +215,30 @@ def test_api_lifecycle_and_terminal_evidence_share_the_sqlalchemy_database(tmp_p
         schema_version = db.execute('PRAGMA user_version').fetchone()[0]
     assert evidence_run_id == lifecycle_run_id
     assert stored_target == 'example.test'
-    assert schema_version == 5
+    assert schema_version == 7
     assert 'import aiosqlite' not in inspect.getsource(run_store_module)
+
+
+def test_run_store_distinguishes_no_evidence_from_a_broken_evidence_link(tmp_path) -> None:
+    from uuid import uuid4
+
+    from theHarvester.lib.api.run_models import RunRequest
+    from theHarvester.lib.api.run_store import RunStore
+    from theHarvester.lib.database import ResultStoreError
+
+    database = tmp_path / 'runs.sqlite'
+    store = RunStore(database)
+    queued = asyncio.run(store.create(RunRequest(target='example.test', sources=['crtsh'])))
+    assert asyncio.run(store.load_completed_result(queued['run_id'])) is None
+
+    with sqlite3.connect(database) as db:
+        db.execute(
+            'UPDATE run_records SET evidence_run_id = ? WHERE run_id = ?',
+            (str(uuid4()), queued['run_id']),
+        )
+
+    with pytest.raises(ResultStoreError, match='Attached run evidence does not exist'):
+        asyncio.run(store.load_completed_result(queued['run_id']))
 
 
 def test_child_execution_passes_the_configured_database_to_core(tmp_path, monkeypatch) -> None:
@@ -327,7 +349,7 @@ def test_child_screenshot_run_persists_downloadable_artifact_metadata(tmp_path, 
     assert run is not None
     assert run['action_executions'][0]['action'] == 'screenshot'
     assert run['action_executions'][0]['status'] == 'completed'
-    assert run['results'] == [{'type': 'subdomain', 'value': 'api.example.test', 'sources': [], 'actions': []}]
+    assert run['results'] == [{'type': 'hostname', 'value': 'api.example.test', 'sources': [], 'actions': []}]
     assert [screenshot['name'] for screenshot in run['screenshots']] == ['api.example.test.png']
     assert (artifact_dir / 'screenshots' / 'api.example.test.png').read_bytes() == b'png'
 
@@ -518,7 +540,7 @@ def test_orphan_recovery_reattaches_partial_checkpoint_and_leaves_queued_work(tm
     assert cancelling['results'] == [{'type': 'email', 'value': 'saved@first.example', 'sources': [], 'actions': []}]
     assert running is not None
     assert running['status'] == 'failed'
-    assert running['results'] == [{'type': 'subdomain', 'value': f'api.{running["target"]}', 'sources': [], 'actions': []}]
+    assert running['results'] == [{'type': 'hostname', 'value': f'api.{running["target"]}', 'sources': [], 'actions': []}]
     assert {run['target']: run['status'] for run in history}['third.example'] == 'queued'
 
 

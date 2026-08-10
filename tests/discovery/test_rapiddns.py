@@ -263,14 +263,14 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
         'sources': [],
         'actions': ['dns-lookup'],
     } in jsonl_records
-    assert {'type': 'ip-address', 'value': '198.51.100.9', 'sources': ['securityscorecard']} in jsonl_records
-    assert {'type': 'ip-address', 'value': '2001:db8::1', 'sources': ['securityscorecard']} in jsonl_records
+    assert {'type': 'ip', 'value': '198.51.100.9', 'sources': ['securityscorecard']} in jsonl_records
+    assert {'type': 'ip', 'value': '2001:db8::1', 'sources': ['securityscorecard']} in jsonl_records
     assert not any(record.get('value') == 'not-an-ip' for record in jsonl_records)
     assert {(observation.source, observation.kind, observation.value) for observation in completed_results[0].observations} >= {
         ('rapiddns', 'hostname', 'api.example.com'),
-        ('rapiddns', 'ip-address', '192.0.2.1'),
-        ('securityscorecard', 'ip-address', '198.51.100.9'),
-        ('securityscorecard', 'ip-address', '2001:db8::1'),
+        ('rapiddns', 'ip', '192.0.2.1'),
+        ('securityscorecard', 'ip', '198.51.100.9'),
+        ('securityscorecard', 'ip', '2001:db8::1'),
     }
     securityscorecard_execution = next(
         execution for execution in completed_results[0].source_executions if execution.source == 'securityscorecard'
@@ -354,13 +354,13 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
     assert len(completed_results) == 2
     assert FakeSecurityScorecard.created == 1
     assert completed_results[1].target == 'example.com'
-    assert {'192.0.2.1', '198.51.100.2'} <= {value for kind, value in completed_results[1].results if kind == 'ip-address'}
+    assert {'192.0.2.1', '198.51.100.2'} <= {value for kind, value in completed_results[1].results if kind == 'ip'}
     assert ('email', 'user@example.com') in completed_results[1].results
     assert {(observation.source, observation.kind, observation.value) for observation in completed_results[1].observations} >= {
         ('dehashed', 'email', 'user@example.com'),
-        ('dehashed', 'ip-address', '198.51.100.2'),
+        ('dehashed', 'ip', '198.51.100.2'),
         ('rapiddns', 'hostname', 'api.example.com'),
-        ('rapiddns', 'ip-address', '192.0.2.1'),
+        ('rapiddns', 'ip', '192.0.2.1'),
     }
 
     monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.com', '-b', 'rapiddns'])

@@ -11,7 +11,7 @@ from fastapi import HTTPException, status
 from theHarvester.lib.active_evidence import ActionExecution, ActiveEvidence, ArtifactReference
 from theHarvester.lib.completed_result import CompletedResult, ResultObservation, SourceExecution
 from theHarvester.lib.database import DuplicateRunError, ResultStore, ResultStoreError, RunLifecycleStore
-from theHarvester.lib.evidence_types import EXECUTION_STATUSES, ExecutionStatus, ResultKind
+from theHarvester.lib.evidence_types import EXECUTION_STATUSES, EvidenceStatus, ExecutionStatus, ResultKind
 
 from .run_artifacts import RunPaths, read_child_evidence
 from .run_models import RunRequest, _normalize_target, utc_now
@@ -130,6 +130,7 @@ def _completed_result(
         source_executions=completed_sources,
         observations=sorted(source_origins),
         active_evidence=active_evidence,
+        evidence_status=cast('EvidenceStatus', str(evidence['status'])) if evidence.get('status') is not None else None,
     )
 
 
@@ -344,6 +345,22 @@ class RunStore:
         await self.initialize()
         record = await self.lifecycle.get(run_id)
         return await self._row(record, detail=True) if record else None
+
+    async def load_completed_result(self, run_id: str) -> CompletedResult | None:
+        """Load the canonical evidence attached to an API run."""
+        await self.initialize()
+        record = await self.lifecycle.get(run_id)
+        if record is None:
+            raise LookupError(run_id)
+        if record['evidence_run_id'] is None:
+            return None
+        try:
+            completed = await self.results.load_run(UUID(str(record['evidence_run_id'])))
+        except (LookupError, ValueError) as error:
+            raise ResultStoreError('Attached run evidence does not exist') from error
+        if completed.target != str(record['target']):
+            raise ResultStoreError('Attached run evidence target does not match its lifecycle run')
+        return completed
 
     async def cancel(self, run_id: str) -> dict[str, Any] | None:
         await self.initialize()

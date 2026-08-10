@@ -7,6 +7,7 @@ from uuid import UUID
 from fastapi import HTTPException, status
 
 from theHarvester.lib.completed_result import parse_result_jsonl
+from theHarvester.lib.evidence_types import EVIDENCE_STATUSES
 
 from .run_models import _normalize_target
 
@@ -73,7 +74,7 @@ def validate_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
         evidence['target'] = _normalize_target(str(evidence['target']))
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
-    if evidence.get('status') not in {'complete', 'partial', 'failed'}:
+    if evidence.get('status') not in EVIDENCE_STATUSES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail='Evidence status must be complete, partial, or failed',

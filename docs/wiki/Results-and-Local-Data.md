@@ -48,6 +48,8 @@ Current runtime collection populates passive source executions plus DNS, takeove
 
 Every discovered URL is stored as the `url` result kind. Its source or action origins identify whether it came from BuiltWith, GitLab, RocketReach, API scanning, or another producer; provider-specific URL kinds are not stored.
 
+Hostname and IP evidence use the `hostname` and `ip` result kinds in SQLite, JSONL, the API, and HarvestView. A hostname may be the authorized target itself or a subordinate name, so the result kind does not claim that every value is a subdomain.
+
 Two operational tables support the API without changing those five evidence concepts: `run_records` stores queue and lifecycle state, and `run_worker_leases` prevents two local workers from claiming the same queue. Older runless rows remain in `legacy_observations`. SQLite upgrades supported schemas automatically during normal initialization.
 
 ## Screenshots

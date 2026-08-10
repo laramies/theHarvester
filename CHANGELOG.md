@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added root contributor and security policies, structured issue forms, repository agent guidance, discovery terminology, and an operator-focused documentation wiki ([d090a29a](https://github.com/laramies/theHarvester/commit/d090a29a), [7c491ef5](https://github.com/laramies/theHarvester/commit/7c491ef5), [8b9d420b](https://github.com/laramies/theHarvester/commit/8b9d420b)).
 
 ### Changed
+- Standardized SQLite, JSONL, API, and HarvestView result names on `hostname` and `ip` without a presentation alias.
 - Standardized URL-producing adapters, JSON, JSONL, SQLite, and API evidence on one `url` result kind while preserving producer provenance.
 - Fixed proxied POST requests so they retain the request method, body, and query parameters.
 - Migrated Pentest-Tools discovery to its API v2 Bearer-authenticated scan, status, and output endpoints.

@@ -11,6 +11,7 @@ from theHarvester.lib.enumeration import (
     DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS,
     DEFAULT_RESULT_START,
 )
+from theHarvester.lib.evidence_types import EvidenceStatus  # noqa: TC001 - Pydantic resolves this annotation at runtime
 from theHarvester.lib.resolver_selection import DEFAULT_DNS_RESOLVERS, normalize_resolver_addresses
 from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass, selected_action_names
 
@@ -204,7 +205,6 @@ class ScreenshotRecord(BaseModel):
 
 
 RunStatus = Literal['queued', 'running', 'cancelling', 'cancelled', 'completed', 'failed']
-EvidenceStatus = Literal['complete', 'partial', 'failed']
 Activity = Literal['P0', 'P1', 'P2']
 
 

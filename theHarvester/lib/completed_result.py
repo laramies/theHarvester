@@ -8,8 +8,10 @@ from uuid import UUID, uuid4
 
 from theHarvester.lib.active_evidence import ActiveEvidence
 from theHarvester.lib.evidence_types import (
+    EVIDENCE_STATUSES,
     EXECUTION_STATUSES,
     RESULT_KINDS,
+    EvidenceStatus,
     ExecutionStatus,
     ResultKind,
     format_utc,
@@ -133,6 +135,7 @@ class CompletedResult:
     source_executions: tuple[SourceExecution, ...] = ()
     observations: tuple[ResultObservation, ...] = ()
     active_evidence: ActiveEvidence = field(default_factory=ActiveEvidence)
+    evidence_status: EvidenceStatus | None = None
 
     def __post_init__(self) -> None:
         if not self.target.strip():
@@ -172,6 +175,8 @@ class CompletedResult:
             for _action, artifact in self.active_evidence.artifacts
         ):
             raise ValueError('every artifact must reference a completed result')
+        if self.evidence_status is not None and self.evidence_status not in EVIDENCE_STATUSES:
+            raise ValueError('evidence status must be complete, partial, or failed')
 
     @classmethod
     def finish(
@@ -185,6 +190,7 @@ class CompletedResult:
         source_executions: Iterable[SourceExecution] = (),
         observations: Iterable[ResultObservation] = (),
         active_evidence: ActiveEvidence | None = None,
+        evidence_status: EvidenceStatus | None = None,
     ) -> Self:
         completed_active_evidence = active_evidence if active_evidence is not None else ActiveEvidence()
         results: set[tuple[ResultKind, str]] = set()
@@ -206,6 +212,7 @@ class CompletedResult:
             source_executions=tuple(source_executions),
             observations=tuple(sorted(set(observations))),
             active_evidence=completed_active_evidence,
+            evidence_status=evidence_status,
         )
 
     def evidence_dict(self) -> dict[str, object]:
@@ -248,7 +255,9 @@ class CompletedResult:
             return 'failed'
         if any(execution_status in incomplete for execution_status in execution_statuses):
             return 'partial'
-        return 'complete'
+        if execution_statuses:
+            return 'complete'
+        return self.evidence_status or 'complete'
 
     def _result_records(self, *, include_actions: bool) -> list[dict[str, object]]:
         sources_by_result: dict[tuple[ResultKind, str], list[str]] = {}

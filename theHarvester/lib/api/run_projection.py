@@ -11,8 +11,6 @@ from theHarvester.lib.source_catalog import (
     selected_action_names,
 )
 
-RESULT_TYPE_ALIASES = {'hostname': 'subdomain', 'ip-address': 'ip'}
-
 
 def activities_for_request(request: dict[str, Any]) -> list[str]:
     if request.get('activities'):
@@ -34,10 +32,9 @@ def normalized_results(evidence: dict[str, Any] | None) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
     for item in evidence.get('results') or []:
         if isinstance(item, dict) and item.get('type') != 'screenshot':
-            result_type = str(item.get('type', 'other'))
             results.append(
                 {
-                    'type': RESULT_TYPE_ALIASES.get(result_type, result_type),
+                    'type': str(item.get('type', 'other')),
                     'value': str(item.get('value', '')),
                     'sources': sorted({str(source) for source in item.get('sources', [])}),
                     'actions': sorted({str(action) for action in item.get('actions', [])}),

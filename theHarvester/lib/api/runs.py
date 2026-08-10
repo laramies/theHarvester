@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import os
 import tempfile
-from collections import Counter
-from datetime import datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -13,8 +11,6 @@ from fastapi.responses import FileResponse
 from pydantic import ValidationError
 
 from theHarvester.lib.api.auth import get_api_key
-from theHarvester.lib.completed_result import encode_result_jsonl
-from theHarvester.lib.evidence_types import format_utc
 from theHarvester.lib.source_catalog import ACTION_ACTIVITIES, SOURCE_SPECS, SourceSpec, get_source_spec, resolve_sources
 
 from . import run_worker
@@ -241,42 +237,20 @@ async def export_run(
     run_id: str,
     _api_key: Annotated[str, Depends(get_api_key)],
 ) -> Response:
-    run = await RunStore().get(run_id)
-    if run is None:
+    store = RunStore()
+    try:
+        completed = await store.load_completed_result(run_id)
+    except LookupError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='theHarvester run not found')
-    if run['evidence'] is None:
+    if completed is None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail='No run evidence is available to export',
         )
-    results = [dict(result) for result in run['evidence'].get('results', []) if isinstance(result, dict)]
-    counts = Counter(result['type'] for result in results)
-    started_at = run['evidence'].get('started_at') or run['started_at']
-    completed_at = run['evidence'].get('completed_at') or run['completed_at']
-    if started_at is None or completed_at is None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail='Run evidence does not have complete timestamps',
-        )
-    payload = encode_result_jsonl(
-        {
-            'completed_at': format_utc(datetime.fromisoformat(completed_at)),
-            'counts': dict(sorted(counts.items())),
-            'evidence_status': run['evidence']['status'],
-            'result_count': len(results),
-            'run_id': run_id,
-            'source_executions': run['evidence'].get('source_executions', []),
-            'action_executions': run['evidence'].get('action_executions', []),
-            'artifacts': run['evidence'].get('artifacts', []),
-            'started_at': format_utc(datetime.fromisoformat(started_at)),
-            'target': run['target'],
-        },
-        results,
-    )
     return Response(
-        payload,
+        completed.jsonl(),
         media_type='application/x-ndjson',
-        headers={'Content-Disposition': f'attachment; filename="{run["target"]}-{run_id}.jsonl"'},
+        headers={'Content-Disposition': f'attachment; filename="{completed.target}-{run_id}.jsonl"'},
     )
 
 

@@ -470,7 +470,7 @@ async def start(
             'infostealer': (
                 json.dumps(stealer, ensure_ascii=False, separators=(',', ':'), sort_keys=True) for stealer in all_infostealers
             ),
-            'ip-address': _normalize_ip_addresses(all_ip) | screenshot_ip_addresses,
+            'ip': _normalize_ip_addresses(all_ip) | screenshot_ip_addresses,
             'language': map(str, all_languages),
             'linkedin-person': map(str, linkedin_people_list_tracker),
             'person': (json.dumps(person, ensure_ascii=False, separators=(',', ':'), sort_keys=True) for person in all_people),
@@ -589,7 +589,7 @@ async def start(
                 action='dns-resolve',
                 status=status,
                 duration_ms=dns_resolution_duration_ms,
-                groups={'ip-address': dns_resolution_ips},
+                groups={'ip': dns_resolution_ips},
                 error_type=error_type,
                 stop_reason=stop_reason,
             )
@@ -679,7 +679,7 @@ async def start(
         if ResultRoute.IPS in routes:
             ips_list = await search_engine.get_ips()
             all_ip.extend(ips_list)
-            record_source_observations(source, 'ip-address', _normalize_ip_addresses(ips_list))
+            record_source_observations(source, 'ip', _normalize_ip_addresses(ips_list))
 
         if ResultRoute.PEOPLE in routes:
             people_list = await search_engine.get_people()
@@ -1803,7 +1803,7 @@ async def start(
                     duration_ms=(time.perf_counter() - recursive_started) * 1000,
                     groups={
                         'hostname': recursive_hosts,
-                        'ip-address': recursive_ips,
+                        'ip': recursive_ips,
                         'dns-recursive-finding': recursive_finding_evidence,
                         'dns-recursive-classification': recursive_classification_evidence,
                         'dns-recursive-summary': recursive_summary_evidence,
@@ -2019,7 +2019,7 @@ async def start(
                 action='dns-brute',
                 status=dns_brute_status,
                 duration_ms=(time.perf_counter() - dns_brute_started) * 1000,
-                groups={'hostname': normalized_brute_hosts, 'ip-address': normalized_brute_ips},
+                groups={'hostname': normalized_brute_hosts, 'ip': normalized_brute_ips},
                 error_type=next(iter(sorted(dns_brute_error_types)), None),
                 stop_reason='query-errors' if dns_brute_error_count else None,
             )
@@ -2268,7 +2268,7 @@ async def start(
                     raw_subject = subject.strip()
                     try:
                         subject_value = str(ip_address(raw_subject))
-                        subject_kind: ResultKind = 'ip-address'
+                        subject_kind: ResultKind = 'ip'
                     except ValueError:
                         parsed_subject = urlsplit(
                             raw_subject if raw_subject.startswith(('http://', 'https://')) else f'https://{raw_subject}'
@@ -2279,10 +2279,10 @@ async def start(
                         subject_value = parsed_subject.hostname.lower()
                         try:
                             subject_value = str(ip_address(subject_value))
-                            subject_kind = 'ip-address'
+                            subject_kind = 'ip'
                         except ValueError:
                             subject_kind = 'hostname'
-                    recorded_subjects = screenshot_ip_addresses if subject_kind == 'ip-address' else screenshot_hostnames
+                    recorded_subjects = screenshot_ip_addresses if subject_kind == 'ip' else screenshot_hostnames
                     if subject_value in recorded_subjects:
                         return
                     recorded_subjects.add(subject_value)

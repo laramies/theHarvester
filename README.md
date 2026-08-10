@@ -238,7 +238,7 @@ The JSONL report is finalized after the selected one-shot actions finish. The fi
 {"sources":[],"type":"hostname","value":"api.example.com"}
 ```
 
-JSONL is easy to stream one record at a time. The summary preserves the evidence status, source and action outcomes, and screenshot artifact metadata. Finding lines carry `sources` and, when applicable, `actions`; they inherit their run ID and target from the preceding summary. Every URL finding uses `type: "url"`; provenance identifies whether it came from BuiltWith, GitLab, RocketReach, API scanning, or another producer. Structured result types, including recursive DNS records plus `person`, `infostealer`, `shodan`, and `takeover`, store a JSON object inside the string `value`. Parse those values a second time with `fromjson`.
+JSONL is easy to stream one record at a time. The summary preserves the evidence status, source and action outcomes, and screenshot artifact metadata. Finding lines carry `sources` and, when applicable, `actions`; they inherit their run ID and target from the preceding summary. Hostnames, IP addresses, and URLs use the same `hostname`, `ip`, and `url` result kinds in JSONL, SQLite, the API, and HarvestView. Provenance identifies which source or action produced each finding. Structured result types, including recursive DNS records plus `person`, `infostealer`, `shodan`, and `takeover`, store a JSON object inside the string `value`. Parse those values a second time with `fromjson`.
 
 Parse recursive DNS findings as JSON objects:
 

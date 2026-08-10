@@ -25,7 +25,7 @@ def test_active_evidence_owns_action_results_and_artifacts() -> None:
                 action='dns-resolve',
                 status='completed',
                 duration_ms=12.5,
-                groups={'ip-address': ['192.0.2.10', '192.0.2.10']},
+                groups={'ip': ['192.0.2.10', '192.0.2.10']},
             ),
             ActionExecution.finish(
                 action='screenshot',
@@ -39,7 +39,7 @@ def test_active_evidence_owns_action_results_and_artifacts() -> None:
     )
 
     assert evidence.executions[0].result_count == 1
-    assert evidence.executions[0].observations == (ActionObservation('ip-address', '192.0.2.10'),)
+    assert evidence.executions[0].observations == (ActionObservation('ip', '192.0.2.10'),)
     assert evidence.executions[1].result_count == 0
     assert evidence.executions[1].artifacts == (screenshot_artifact(),)
 

@@ -7,7 +7,7 @@ from collections.abc import AsyncIterator, Iterable
 from contextlib import asynccontextmanager
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
 
 from sqlalchemy import (
@@ -47,21 +47,23 @@ from theHarvester.lib.completed_result import (
     SourceYield,
 )
 
+if TYPE_CHECKING:
+    from theHarvester.lib.evidence_types import EvidenceStatus
+
 logger = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 7
 _DEFAULT_DATABASE = Path('~/.local/share/theHarvester/stash.sqlite').expanduser()
 
-_DEPRECATED_URL_KINDS = frozenset(
-    {
-        'api-endpoint',
-        'api_endpoint',
-        'interesting-url',
-        'interestingurls',
-        'linkedin-link',
-        'linkedinlinks',
-    }
-)
+_LEGACY_RESULT_KIND_RENAMES = {
+    'api-endpoint': 'url',
+    'api_endpoint': 'url',
+    'interesting-url': 'url',
+    'interestingurls': 'url',
+    'ip-address': 'ip',
+    'linkedin-link': 'url',
+    'linkedinlinks': 'url',
+}
 
 
 class ResultStoreError(RuntimeError):
@@ -106,6 +108,7 @@ class _RunRow(_Base):
     target: Mapped[str] = mapped_column(Text)
     started_at: Mapped[str] = mapped_column(Text)
     completed_at: Mapped[str] = mapped_column(Text)
+    evidence_status: Mapped[str | None] = mapped_column(Text)
 
 
 class _ResultRow(_Base):
@@ -249,10 +252,10 @@ def _sqlite_engine(database: str | Path) -> AsyncEngine:
     return engine
 
 
-async def _canonicalize_url_kinds(connection: AsyncConnection) -> None:
-    """Merge pre-release URL result kinds without losing their provenance."""
-    deprecated = ', '.join(f"'{kind}'" for kind in sorted(_DEPRECATED_URL_KINDS))
-    run_rows = await connection.exec_driver_sql(f'SELECT DISTINCT run_id FROM results WHERE kind IN ({deprecated})')
+async def _canonicalize_result_kinds(connection: AsyncConnection) -> None:
+    """Merge result-kind aliases without losing provenance or artifact references."""
+    aliases = ', '.join(f"'{kind}'" for kind in sorted(_LEGACY_RESULT_KIND_RENAMES))
+    run_rows = await connection.exec_driver_sql(f'SELECT DISTINCT run_id FROM results WHERE kind IN ({aliases})')
     for (run_id,) in run_rows:
         result_rows = list(
             await connection.exec_driver_sql(
@@ -275,12 +278,11 @@ async def _canonicalize_url_kinds(connection: AsyncConnection) -> None:
         )
 
         canonical_results = sorted(
-            {('url' if kind in _DEPRECATED_URL_KINDS else kind, value) for _position, kind, value in result_rows}
+            {(_LEGACY_RESULT_KIND_RENAMES.get(kind, kind), value) for _position, kind, value in result_rows}
         )
         new_positions = {result: position for position, result in enumerate(canonical_results)}
         old_positions = {
-            position: new_positions[('url' if kind in _DEPRECATED_URL_KINDS else kind, value)]
-            for position, kind, value in result_rows
+            position: new_positions[(_LEGACY_RESULT_KIND_RENAMES.get(kind, kind), value)] for position, kind, value in result_rows
         }
         canonical_origins = sorted(
             {(old_positions[result_position], execution_position) for result_position, execution_position in origin_rows}
@@ -339,7 +341,11 @@ async def _canonicalize_url_kinds(connection: AsyncConnection) -> None:
             (run_id,),
         )
 
-    await connection.exec_driver_sql(f"UPDATE legacy_observations SET kind = 'url' WHERE kind IN ({deprecated})")
+    for alias, canonical in _LEGACY_RESULT_KIND_RENAMES.items():
+        await connection.exec_driver_sql(
+            'UPDATE legacy_observations SET kind = ? WHERE kind = ?',
+            (canonical, alias),
+        )
 
 
 class _SQLiteDatabase:
@@ -392,19 +398,21 @@ class _SQLiteDatabase:
                         if 'discovery_observations' in tables and 'legacy_observations' not in tables:
                             await connection.exec_driver_sql('ALTER TABLE discovery_observations RENAME TO legacy_observations')
                         await connection.run_sync(_Base.metadata.create_all)
+                        run_column_rows = await connection.exec_driver_sql('PRAGMA table_info(runs)')
+                        if 'evidence_status' not in {row[1] for row in run_column_rows}:
+                            await connection.exec_driver_sql('ALTER TABLE runs ADD COLUMN evidence_status TEXT')
                         if has_legacy_results:
                             await connection.exec_driver_sql(
                                 'INSERT INTO legacy_observations (domain, resource, kind, discovered_on, source) '
                                 'SELECT domain, resource, CASE type '
                                 "WHEN 'host' THEN 'hostname' "
-                                "WHEN 'ip' THEN 'ip-address' "
                                 "WHEN 'people' THEN 'person' "
                                 "WHEN 'asns' THEN 'asn' "
                                 'ELSE type END, find_date, source FROM legacy_results'
                             )
                             await connection.exec_driver_sql('DROP TABLE legacy_results')
                         if schema_version < SCHEMA_VERSION:
-                            await _canonicalize_url_kinds(connection)
+                            await _canonicalize_result_kinds(connection)
                         await connection.exec_driver_sql(f'PRAGMA user_version = {SCHEMA_VERSION}')
                         await connection.commit()
                     except BaseException:
@@ -694,6 +702,7 @@ class ResultStore:
                         target=result.target,
                         started_at=result.started_at.isoformat(),
                         completed_at=result.completed_at.isoformat(),
+                        evidence_status=result.evidence_status,
                     )
                 )
                 await session.flush()
@@ -864,6 +873,7 @@ class ResultStore:
             ),
             observations=tuple(sorted(source_observations)),
             active_evidence=ActiveEvidence(executions=tuple(action_executions)),
+            evidence_status=cast('EvidenceStatus', parent.evidence_status) if parent.evidence_status is not None else None,
         )
 
     async def list_runs(self, *, limit: int | None = 50, offset: int = 0) -> list[dict[str, object]]:

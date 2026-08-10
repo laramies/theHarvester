@@ -41,7 +41,9 @@ def _jsonl_result(
         ('made-up-kind', {}),
         ('api-endpoint', {}),
         ('interesting-url', {}),
+        ('ip-address', {}),
         ('linkedin-link', {}),
+        ('subdomain', {}),
         ('hostname', {'dns_status': 'made-up-status'}),
     ],
 )
@@ -317,7 +319,16 @@ def test_fresh_api_uses_catalog_takeover_name_and_rejects_unknown_fields() -> No
         RunRequest(target='example.test', sources=[], take_over=True)
 
 
-def test_api_rejects_evidence_status_that_disagrees_with_executions(tmp_path, monkeypatch) -> None:
+@pytest.mark.parametrize(
+    ('evidence_status', 'execution_status'),
+    [('complete', 'failed'), ('partial', 'completed')],
+)
+def test_api_rejects_evidence_status_that_disagrees_with_executions(
+    tmp_path,
+    monkeypatch,
+    evidence_status,
+    execution_status,
+) -> None:
     from theHarvester.lib.api import api
 
     monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
@@ -325,11 +336,11 @@ def test_api_rejects_evidence_status_that_disagrees_with_executions(tmp_path, mo
     monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
     payload = _jsonl_result(
         summary_fields={
-            'evidence_status': 'complete',
+            'evidence_status': evidence_status,
             'source_executions': [
                 {
                     'source': 'crtsh',
-                    'status': 'failed',
+                    'status': execution_status,
                     'duration_ms': 1,
                     'result_count': 0,
                     'error_type': 'RuntimeError',
@@ -352,9 +363,8 @@ def test_api_rejects_evidence_status_that_disagrees_with_executions(tmp_path, mo
     assert response.json()['detail'] == 'Evidence status does not match its execution outcomes'
 
 
-def test_api_rejects_status_without_executions_before_persisting(tmp_path, monkeypatch) -> None:
+def test_api_preserves_sparse_failed_status_without_executions(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api import api
-    from theHarvester.lib.database import ResultStore
 
     database = tmp_path / 'runs.sqlite'
     monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
@@ -363,16 +373,17 @@ def test_api_rejects_status_without_executions_before_persisting(tmp_path, monke
     payload = _jsonl_result(summary_fields={'evidence_status': 'failed'})
 
     with TestClient(api.app) as client:
-        response = client.post(
+        imported = client.post(
             '/api/v1/runs/import',
-            params={'filename': 'inconsistent.jsonl'},
+            params={'filename': 'failed.jsonl'},
             headers={'X-API-Key': 'test-key'},
             content=payload,
         )
+        exported = client.get(f'/api/v1/runs/{imported.json()["run_id"]}/export', headers={'X-API-Key': 'test-key'})
 
-    assert response.status_code == 400
-    assert response.json()['detail'] == 'Evidence status does not match its execution outcomes'
-    assert asyncio.run(ResultStore(database).list_runs(limit=None)) == []
+    assert imported.status_code == 201
+    assert imported.json()['evidence_status'] == 'failed'
+    assert json.loads(exported.text.splitlines()[0])['evidence_status'] == 'failed'
 
 
 def test_api_import_and_export_accept_only_jsonl(tmp_path, monkeypatch) -> None:
@@ -536,7 +547,7 @@ def test_api_database_import_exposes_completed_cli_runs(tmp_path, monkeypatch) -
     assert imported.status_code == 201
     assert imported.json()['imported_run_ids'] == [str(completed.run_id)]
     assert detail.status_code == 200
-    assert detail.json()['results'] == [{'type': 'subdomain', 'value': 'api.imported.example.test', 'sources': [], 'actions': []}]
+    assert detail.json()['results'] == [{'type': 'hostname', 'value': 'api.imported.example.test', 'sources': [], 'actions': []}]
 
 
 def test_api_jsonl_round_trip_preserves_source_attribution(tmp_path, monkeypatch) -> None:
@@ -620,6 +631,9 @@ def test_api_jsonl_export_uses_evidence_timestamps_not_lifecycle_timestamps(tmp_
         )
 
     summary = json.loads(response.text.splitlines()[0])
+    completed = asyncio.run(store.load_completed_result(queued['run_id']))
+    assert completed is not None
+    assert response.text == completed.jsonl()
     assert summary['started_at'] == '2026-08-07T01:00:00Z'
     assert summary['completed_at'] == '2026-08-07T01:01:00Z'
 
@@ -667,8 +681,8 @@ def test_api_jsonl_export_uses_lifecycle_timestamps_for_sparse_partial_evidence(
     assert isinstance(summary['started_at'], str)
     assert isinstance(summary['completed_at'], str)
     assert reimported.status_code == 201
-    assert summary['evidence_status'] == 'complete'
-    assert reimported.json()['evidence_status'] == 'complete'
+    assert summary['evidence_status'] == 'partial'
+    assert reimported.json()['evidence_status'] == 'partial'
 
 
 def test_api_jsonl_round_trip_uses_canonical_hostname_and_ip_kinds(tmp_path, monkeypatch) -> None:
@@ -679,9 +693,9 @@ def test_api_jsonl_round_trip_uses_canonical_hostname_and_ip_kinds(tmp_path, mon
     monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
     headers = {'X-API-Key': 'test-key'}
 
-    for client_ip, finding_type, api_type, value, run_id in (
-        ('127.0.0.5', 'hostname', 'subdomain', 'www.example.test', '0f17b751-dd31-46da-968f-31580e233b72'),
-        ('127.0.0.6', 'ip-address', 'ip', '192.0.2.1', 'f7419165-d78c-4aef-9023-e9686f864ff0'),
+    for client_ip, finding_type, value, run_id in (
+        ('127.0.0.5', 'hostname', 'www.example.test', '0f17b751-dd31-46da-968f-31580e233b72'),
+        ('127.0.0.6', 'ip', '192.0.2.1', 'f7419165-d78c-4aef-9023-e9686f864ff0'),
     ):
         with TestClient(api.app, client=(client_ip, 50000)) as client:
             imported = client.post(
@@ -698,9 +712,9 @@ def test_api_jsonl_round_trip_uses_canonical_hostname_and_ip_kinds(tmp_path, mon
                 content=exported.content,
             )
 
-        assert imported.json()['results'] == [{'type': api_type, 'value': value, 'sources': [], 'actions': []}]
+        assert imported.json()['results'] == [{'type': finding_type, 'value': value, 'sources': [], 'actions': []}]
         assert json.loads(exported.text.splitlines()[1]) == {'sources': [], 'type': finding_type, 'value': value}
-        assert reimported.json()['results'] == [{'type': api_type, 'value': value, 'sources': [], 'actions': []}]
+        assert reimported.json()['results'] == [{'type': finding_type, 'value': value, 'sources': [], 'actions': []}]
 
 
 def test_api_jsonl_round_trip_preserves_execution_outcomes_and_action_origins(tmp_path, monkeypatch) -> None:
@@ -770,7 +784,7 @@ def test_api_jsonl_round_trip_preserves_execution_outcomes_and_action_origins(tm
     assert reimported.json()['action_executions'] == imported.json()['action_executions']
     assert reimported.json()['results'] == [
         {
-            'type': 'subdomain',
+            'type': 'hostname',
             'value': 'api.example.test',
             'sources': ['crtsh'],
             'actions': ['dns-brute'],

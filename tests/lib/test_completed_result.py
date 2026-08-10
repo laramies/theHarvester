@@ -9,6 +9,20 @@ from theHarvester.lib.active_evidence import ActionExecution, ActionObservation,
 from theHarvester.lib.completed_result import CompletedResult, ResultObservation, SourceExecution
 
 
+@pytest.mark.parametrize('evidence_status', ['partial', 'failed'])
+def test_sparse_completed_result_retains_explicit_status(evidence_status: str) -> None:
+    result = CompletedResult.finish(
+        target='example.com',
+        started_at=datetime(2026, 8, 5, 12, 0, tzinfo=UTC),
+        completed_at=datetime(2026, 8, 5, 12, 1, tzinfo=UTC),
+        groups={},
+        evidence_status=evidence_status,
+    )
+
+    assert result.status == evidence_status
+    assert json.loads(result.jsonl().splitlines()[0])['evidence_status'] == evidence_status
+
+
 def test_completed_result_is_deterministic_and_deduplicated() -> None:
     result = CompletedResult.finish(
         run_id=UUID('f047261c-0afb-4e18-89d5-28a7d977f51f'),
@@ -195,7 +209,7 @@ def test_completed_result_merges_active_results_and_keeps_screenshot_as_an_artif
                     action='dns-resolve',
                     status='completed',
                     duration_ms=12.5,
-                    groups={'ip-address': ['192.0.2.10']},
+                    groups={'ip': ['192.0.2.10']},
                 ),
                 ActionExecution.finish(
                     action='screenshot',
@@ -208,17 +222,17 @@ def test_completed_result_merges_active_results_and_keeps_screenshot_as_an_artif
         ),
     )
 
-    assert result.results == (('hostname', 'api.example.com'), ('ip-address', '192.0.2.10'))
-    assert result.active_evidence.executions[0].observations == (ActionObservation('ip-address', '192.0.2.10'),)
+    assert result.results == (('hostname', 'api.example.com'), ('ip', '192.0.2.10'))
+    assert result.active_evidence.executions[0].observations == (ActionObservation('ip', '192.0.2.10'),)
     assert result.active_evidence.executions[1].artifacts == (artifact,)
     assert not any(kind == 'screenshot' for kind, _value in result.results)
     assert result.evidence_dict()['results'] == [
         {'type': 'hostname', 'value': 'api.example.com', 'sources': []},
-        {'type': 'ip-address', 'value': '192.0.2.10', 'sources': [], 'actions': ['dns-resolve']},
+        {'type': 'ip', 'value': '192.0.2.10', 'sources': [], 'actions': ['dns-resolve']},
     ]
     assert [json.loads(line) for line in result.jsonl().splitlines()][1:] == [
         {'type': 'hostname', 'value': 'api.example.com', 'sources': []},
-        {'type': 'ip-address', 'value': '192.0.2.10', 'sources': [], 'actions': ['dns-resolve']},
+        {'type': 'ip', 'value': '192.0.2.10', 'sources': [], 'actions': ['dns-resolve']},
     ]
 
 

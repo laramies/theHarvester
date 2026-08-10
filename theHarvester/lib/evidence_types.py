@@ -13,7 +13,7 @@ ResultKind = Literal[
     'framework',
     'hostname',
     'infostealer',
-    'ip-address',
+    'ip',
     'language',
     'linkedin-person',
     'person',
@@ -26,9 +26,11 @@ ResultKind = Literal[
     'vhost',
 ]
 ExecutionStatus = Literal['completed', 'partial', 'failed', 'rate-limited', 'skipped']
+EvidenceStatus = Literal['complete', 'partial', 'failed']
 
 RESULT_KINDS: frozenset[str] = frozenset(get_args(ResultKind))
 EXECUTION_STATUSES: frozenset[str] = frozenset(get_args(ExecutionStatus))
+EVIDENCE_STATUSES: frozenset[str] = frozenset(get_args(EvidenceStatus))
 
 
 def format_utc(value: datetime) -> str:

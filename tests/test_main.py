@@ -141,10 +141,10 @@ async def test_rapiddns_hostnames_honor_explicit_dns_resolution(monkeypatch: pyt
     assert ('hostname', 'api.example.com') in completed[0].results
     assert ('hostname', 'crt.example.com') in completed[0].results
     assert ('hostname', 'reported.example.com') in completed[0].results
-    assert ('ip-address', '192.0.2.10') in completed[0].results
-    assert ('ip-address', '192.0.2.20') in completed[0].results
-    assert ('ip-address', '192.0.2.21') in completed[0].results
-    assert ('ip-address', '192.0.2.30') in completed[0].results
+    assert ('ip', '192.0.2.10') in completed[0].results
+    assert ('ip', '192.0.2.20') in completed[0].results
+    assert ('ip', '192.0.2.21') in completed[0].results
+    assert ('ip', '192.0.2.30') in completed[0].results
     assert {execution.source for execution in completed[0].source_executions} == {'crtsh', 'rapiddns'}
     crtsh_execution = next(execution for execution in completed[0].source_executions if execution.source == 'crtsh')
     assert crtsh_execution.status == 'partial'
@@ -155,19 +155,17 @@ async def test_rapiddns_hostnames_honor_explicit_dns_resolution(monkeypatch: pyt
     assert dns_execution.error_type == 'TimeoutError'
     assert dns_execution.stop_reason == 'query-errors'
     assert {(observation.kind, observation.value) for observation in dns_execution.observations} == {
-        ('ip-address', '192.0.2.10'),
-        ('ip-address', '192.0.2.21'),
-        ('ip-address', '192.0.2.30'),
+        ('ip', '192.0.2.10'),
+        ('ip', '192.0.2.21'),
+        ('ip', '192.0.2.30'),
     }
-    assert ('ip-address', '192.0.2.20') not in {
-        (observation.kind, observation.value) for observation in dns_execution.observations
-    }
+    assert ('ip', '192.0.2.20') not in {(observation.kind, observation.value) for observation in dns_execution.observations}
     assert completed[0].evidence_dict()['status'] == 'partial'
     assert {(observation.source, observation.kind, observation.value) for observation in completed[0].observations} >= {
         ('crtsh', 'hostname', 'crt.example.com'),
         ('rapiddns', 'hostname', 'api.example.com'),
         ('rapiddns', 'hostname', 'reported.example.com'),
-        ('rapiddns', 'ip-address', '192.0.2.20'),
+        ('rapiddns', 'ip', '192.0.2.20'),
     }
     assert 'reported.example.com:192.0.2.21' in json.loads(output_path.with_suffix('.json').read_text())['hosts']
     assert output_path.with_suffix('.jsonl').is_file()
@@ -224,7 +222,7 @@ async def test_dns_brute_utility_persists_action_evidence_before_return(monkeypa
     assert execution.stop_reason == 'query-errors'
     assert {(observation.kind, observation.value) for observation in execution.observations} == {
         ('hostname', 'api.example.com'),
-        ('ip-address', '192.0.2.10'),
+        ('ip', '192.0.2.10'),
     }
     assert legacy_writes == []
 
@@ -319,7 +317,7 @@ async def test_dns_brute_keeps_legacy_json_and_xml_while_persisting_canonical_ev
     completed = response[-1]
     assert isinstance(completed, CompletedResult)
     assert ('hostname', 'api.example.com') in completed.results
-    assert ('ip-address', '192.0.2.10') in completed.results
+    assert ('ip', '192.0.2.10') in completed.results
     assert stored == [completed]
 
 
@@ -1326,9 +1324,9 @@ async def test_target_only_ip_screenshot_keeps_ip_result_and_artifact_subject(
 
     completed = result[-1]
     execution = next(item for item in completed.active_evidence.executions if item.action == 'screenshot')
-    assert ('ip-address', '192.0.2.1') in completed.results
+    assert ('ip', '192.0.2.1') in completed.results
     assert ('hostname', '192.0.2.1') not in completed.results
-    assert execution.artifacts[0].subject_kind == 'ip-address'
+    assert execution.artifacts[0].subject_kind == 'ip'
     assert execution.artifacts[0].subject_value == '192.0.2.1'
 
 
@@ -2397,8 +2395,8 @@ async def test_recursive_dns_results_reach_completed_output_without_changing_leg
     assert sorted(closed) == ['192.0.2.53', '192.0.2.54', '192.0.2.55']
     assert completed
     assert ('hostname', 'dev.api.example.com') in completed[0].results
-    assert ('ip-address', '192.0.2.2') in completed[0].results
-    assert ('ip-address', '2001:db8::2') in completed[0].results
+    assert ('ip', '192.0.2.2') in completed[0].results
+    assert ('ip', '2001:db8::2') in completed[0].results
     assert (
         'dns-recursive-finding',
         json.dumps(
@@ -2454,8 +2452,8 @@ async def test_recursive_dns_results_reach_completed_output_without_changing_leg
     assert recursive_execution.result_count == 6
     assert {(observation.kind, observation.value) for observation in recursive_execution.observations} >= {
         ('hostname', 'dev.api.example.com'),
-        ('ip-address', '192.0.2.2'),
-        ('ip-address', '2001:db8::2'),
+        ('ip', '192.0.2.2'),
+        ('ip', '2001:db8::2'),
     }
 
 

@@ -307,7 +307,7 @@ async def test_all_schedules_each_passive_catalog_source_once_and_reports_result
     assert completed.target == 'example.test'
     assert ('hostname', 'sub.example.test') in completed.results
     assert ('email', 'user@example.test') in completed.results
-    assert ('ip-address', '192.0.2.1') in completed.results
+    assert ('ip', '192.0.2.1') in completed.results
 
     xml_hosts = {
         (element.findtext('hostname') or (element.text or '').strip())
