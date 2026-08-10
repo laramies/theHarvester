@@ -79,19 +79,30 @@ uv run theHarvester -h
 
 Options such as DNS brute force (`-c`), bounded recursive DNS (`--dns-recursive-depth`), reverse DNS lookup (`-n`), takeover checks (`-t`), API endpoint scanning (`-a`), DNS resolution (`-r`), and screenshots (`--screenshot`) generate additional network activity. Use them only within an explicitly authorized scope.
 
-Recursive DNS requires exactly three distinct resolver IPs through `--dns-resolvers` or the compatible `--dns-resolve` value. It advances only names with two-vantage address consensus that are distinguishable from closest-encloser wildcard controls. Depth, DNS record query, and runtime limits are configurable through the three `--dns-recursive-*` options; the default query ceiling is 3,000 record queries across resolver vantages, and three consecutive zero-yield batches also stop recursion. PTR names for current addresses are retained as secondary evidence, but they do not establish current addressability or become recursion seeds. `POST /api/v1/runs` exposes the same controls.
+Recursive DNS requires exactly three distinct resolver IPs through `--dns-resolvers` or the compatible `--dns-resolve` value. It advances only names with two-vantage address consensus that are distinguishable from closest-encloser wildcard controls. Depth, DNS record query, and runtime limits are configurable through the three `--dns-recursive-*` options; the default query ceiling is 3,000 record queries across resolver vantages, and three consecutive zero-yield batches also stop recursion. PTR names for current addresses are retained as secondary evidence, but they do not establish current addressability or become recursion seeds. HarvestView and `POST /api/v1/runs` expose the same controls.
 
 Screenshot capture also requires a Playwright-compatible browser; see the installation guide for setup.
 
-## REST API
+## HarvestView and REST API
 
 `restfulHarvest` starts a FastAPI service on `127.0.0.1:5000` by default:
 
 ```bash
+export THEHARVESTER_API_KEY='replace-with-a-long-random-value'
 uv run restfulHarvest
 ```
 
-Open [http://127.0.0.1:5000/docs](http://127.0.0.1:5000/docs) for interactive Swagger documentation or [http://127.0.0.1:5000/redoc](http://127.0.0.1:5000/redoc) for ReDoc.
+Open [HarvestView](http://127.0.0.1:5000/) to run and inspect finite enumerations in the local web app. The server gives the local browser a derived HttpOnly session cookie, so the API key is never entered into or stored by HarvestView.
+
+HarvestView uses its own `app.css` rather than a general UI framework. Bootstrap,
+Bulma, Pico, and Tailwind would duplicate the existing design layer or require a
+markup and build-pipeline rewrite. Tabulator 6.5.2's table behavior and default
+theme load from pinned CDNjs URLs with Subresource Integrity. HarvestView
+therefore needs network access to CDNjs by default. See the
+[self-hosting instructions](docs/wiki/Installation.md) for
+an isolated deployment.
+
+Open [Swagger](http://127.0.0.1:5000/docs) or [ReDoc](http://127.0.0.1:5000/redoc) for the automation contract.
 
 | Route | Purpose |
 | --- | --- |
@@ -104,7 +115,9 @@ Open [http://127.0.0.1:5000/docs](http://127.0.0.1:5000/docs) for interactive Sw
 | `POST /api/v1/runs/import-database` | Import completed runs from a theHarvester SQLite database. |
 | `GET /api/v1/runs/{run_id}/export` | Export normalized evidence as JSONL. |
 
-Every `/api/v1/*` route requires `THEHARVESTER_API_KEY` in the `X-API-Key` header. Provider credentials stay in server-side configuration and cannot be supplied in a request. Keep the service bound to localhost. If you require remote access, add network access controls and TLS.
+HarvestView can start a screenshot or DNS brute-force run directly from a hostname result. These actions create a separate run record for that hostname and leave the parent evidence unchanged. Resolver addresses may be entered directly or loaded from a text file with one IP address per line. Ordinary DNS actions accept one or more resolvers; recursive DNS requires exactly three.
+
+API clients send `THEHARVESTER_API_KEY` in the `X-API-Key` header; HarvestView uses its derived browser cookie. Provider credentials stay in server-side configuration and cannot be supplied in a request. Keep the service bound to localhost. If you require remote access, add network access controls and TLS.
 
 When `--proxies` and `--take-over` are combined, supported discovery and takeover requests use the configured proxies.
 

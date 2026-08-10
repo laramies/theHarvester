@@ -72,4 +72,4 @@ export THEHARVESTER_API_KEY='replace-with-a-long-random-value'
 uv run restfulHarvest
 ```
 
-API clients send the same value in the `X-API-Key` header. Provider credentials remain in `api-keys.yaml` and cannot be supplied through an API request.
+API clients send the same value in the `X-API-Key` header. HarvestView receives a derived HttpOnly browser cookie when it is opened locally, so the key is never entered into or stored by the web app. Provider credentials remain in `api-keys.yaml` and cannot be supplied through an API request.

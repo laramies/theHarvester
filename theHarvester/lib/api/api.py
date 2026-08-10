@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from starlette.staticfiles import StaticFiles
 
 from theHarvester import __version__
+from theHarvester.lib.api.harvestview import router as harvestview_router
 from theHarvester.lib.api.run_worker import start_worker, stop_worker
 from theHarvester.lib.api.runs import router as api_router
 from theHarvester.lib.database import dispose_sqlite_databases
@@ -36,6 +37,7 @@ app = FastAPI(
     redoc_url='/redoc',
     lifespan=lifespan,
 )
+app.include_router(harvestview_router)
 app.include_router(api_router)
 STATIC_DIRECTORY = Path(__file__).resolve().parent / 'static'
 app.mount('/static', StaticFiles(directory=STATIC_DIRECTORY), name='static')
