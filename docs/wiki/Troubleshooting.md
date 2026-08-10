@@ -77,14 +77,14 @@ If Chromium reports missing Linux libraries, install the host dependencies recom
 Start with:
 
 ```bash
-uv run restfulHarvest --log-level debug
+uv run harvestview --log-level debug
 ```
 
 Then open [http://127.0.0.1:5000/docs](http://127.0.0.1:5000/docs).
 
 - `401` on `/api/v1/*`: the `X-API-Key` header or HarvestView browser session does not match.
 - `503` on `/api/v1/*`: `THEHARVESTER_API_KEY` was not configured before startup.
-- `429`: a reverse proxy or remote provider applied its own rate limit. `restfulHarvest` has no built-in request limiter.
+- `429`: a reverse proxy or remote provider applied its own rate limit. `harvestview` has no built-in request limiter.
 - `503` when creating a run: the execution worker is disabled or unavailable.
 
 ## Docker

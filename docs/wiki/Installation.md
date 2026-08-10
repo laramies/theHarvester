@@ -33,7 +33,7 @@ uv sync --all-groups
 uv run pytest
 ```
 
-The supported console commands are `theHarvester` and `restfulHarvest`. There is no root `theHarvester.py` launcher.
+The supported console commands are `theHarvester` and `harvestview`. There is no root `theHarvester.py` launcher.
 
 ### Self-host Tabulator
 
@@ -65,7 +65,7 @@ On Linux, Playwright may report missing system libraries. Follow the host-specif
 
 ## Docker Compose HarvestView service
 
-The Docker image starts `restfulHarvest` with HarvestView at `/`; it does not open an interactive theHarvester CLI. Create the operator-key secret before the first start:
+The Docker image starts `harvestview`; it does not open an interactive theHarvester CLI. Create the operator-key secret before the first start:
 
 ```bash
 git clone https://github.com/laramies/theHarvester.git

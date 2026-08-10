@@ -85,11 +85,11 @@ Screenshot capture also requires a Playwright-compatible browser; see the instal
 
 ## HarvestView and REST API
 
-`restfulHarvest` starts a FastAPI service on `127.0.0.1:5000` by default:
+`harvestview` starts the local web application and API on `127.0.0.1:5000` by default:
 
 ```bash
 export THEHARVESTER_API_KEY='replace-with-a-long-random-value'
-uv run restfulHarvest
+uv run harvestview
 ```
 
 Open [HarvestView](http://127.0.0.1:5000/) to run and inspect finite enumerations in the local web app. The server gives the local browser a derived HttpOnly session cookie, so the API key is never entered into or stored by HarvestView.

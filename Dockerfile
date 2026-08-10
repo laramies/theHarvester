@@ -46,5 +46,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD ["python", "-c", "from urllib.request import Request, urlopen; from theHarvester.lib.api.auth import _configured_api_key; key = _configured_api_key(); assert key; urlopen(Request('http://127.0.0.1:8000/api/v1/runs', headers={'X-API-Key': key}), timeout=3).close()"]
 
-ENTRYPOINT ["restfulHarvest"]
+ENTRYPOINT ["harvestview"]
 CMD ["-H", "0.0.0.0", "-p", "8000"]

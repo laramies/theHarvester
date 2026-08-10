@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added root contributor and security policies, structured issue forms, repository agent guidance, discovery terminology, and an operator-focused documentation wiki ([d090a29a](https://github.com/laramies/theHarvester/commit/d090a29a), [7c491ef5](https://github.com/laramies/theHarvester/commit/7c491ef5), [8b9d420b](https://github.com/laramies/theHarvester/commit/8b9d420b)).
 
 ### Changed
+- Made `harvestview` the sole launcher for the local web application and REST API.
 - Standardized SQLite, JSONL, API, and HarvestView result names on `hostname` and `ip` without a presentation alias.
 - Standardized URL-producing adapters, JSON, JSONL, SQLite, and API evidence on one `url` result kind while preserving producer provenance.
 - Replaced the unversioned and provider-specific REST routes with one authenticated `/api/v1` source and run contract shared with CLI execution semantics.

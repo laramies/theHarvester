@@ -64,7 +64,7 @@ dev = [
 
 [project.scripts]
 theHarvester = "theHarvester.theHarvester:main"
-restfulHarvest = "theHarvester.restfulHarvest:main"
+harvestview = "theHarvester.harvestview:main"
 
 [tool.pytest.ini_options]
 minversion = "8.3.3"

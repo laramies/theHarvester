@@ -13,6 +13,7 @@ def test_container_starts_and_checks_harvestview_on_port_8000() -> None:
     assert 'key = _configured_api_key(); assert key' in dockerfile
     assert 'http://127.0.0.1:8000/api/v1/runs' in dockerfile
     assert "headers={'X-API-Key': key}" in dockerfile
+    assert 'ENTRYPOINT ["harvestview"]' in dockerfile
     assert 'CMD ["-H", "0.0.0.0", "-p", "8000"]' in dockerfile
     assert '127.0.0.1:8000/app' not in dockerfile
     assert 'COPY --chown=10001:10001 theHarvester ./theHarvester' not in dockerfile
