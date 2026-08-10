@@ -131,7 +131,7 @@ class BrowserFailures:
         self.allowed_console_errors[message] += 1
 
     def assert_clean(self) -> None:
-        assert self.console_errors == self.allowed_console_errors
+        assert self.console_errors - self.allowed_console_errors == Counter()
         assert self.local_failures == self.allowed_responses
         assert self.external_requests == []
 

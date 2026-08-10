@@ -298,8 +298,10 @@ def test_hostname_actions_queue_isolated_runs(
 
     def route_runs(route: Route) -> None:
         if route.request.method == 'POST':
-            submissions.append(route.request.post_data_json)
-            route.fulfill(status=503, json={'detail': 'Action captured'})
+            submission = route.request.post_data_json
+            submissions.append(submission)
+            detail = 'Screenshot captured' if submission.get('screenshot') else 'DNS brute captured'
+            route.fulfill(status=503, json={'detail': detail})
         else:
             route.fulfill(json=[run])
 
@@ -317,9 +319,9 @@ def test_hostname_actions_queue_isolated_runs(
     expect(action_row).to_contain_text('TimeoutError')
 
     page.get_by_role('button', name='Take screenshot of api.example.com (P2)').click()
-    expect(page.locator('#toast')).to_contain_text('Action captured')
+    expect(page.locator('#toast')).to_contain_text('Screenshot captured')
     page.get_by_role('button', name='DNS brute force api.example.com (P1)').click()
-    expect(page.locator('#toast')).to_contain_text('Action captured')
+    expect(page.locator('#toast')).to_contain_text('DNS brute captured')
 
     assert submissions == [
         {'target': 'api.example.com', 'sources': [], 'screenshot': True},
