@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import json
 import logging
 import sqlite3
 from collections import Counter
@@ -45,14 +46,17 @@ from theHarvester.lib.completed_result import (
     ResultObservation,
     SourceExecution,
     SourceYield,
+    parse_virtual_host_details,
+    virtual_host_details,
 )
+from theHarvester.lib.virtual_host import VirtualHostObservation
 
 if TYPE_CHECKING:
     from theHarvester.lib.evidence_types import EvidenceStatus
 
 logger = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 _DEFAULT_DATABASE = Path('~/.local/share/theHarvester/stash.sqlite').expanduser()
 
 _LEGACY_RESULT_KIND_RENAMES = {
@@ -63,6 +67,7 @@ _LEGACY_RESULT_KIND_RENAMES = {
     'ip-address': 'ip',
     'linkedin-link': 'url',
     'linkedinlinks': 'url',
+    'vhost': 'hostname',
 }
 
 
@@ -125,6 +130,7 @@ class _ResultRow(_Base):
     position: Mapped[int] = mapped_column(primary_key=True)
     kind: Mapped[str] = mapped_column(Text)
     value: Mapped[str] = mapped_column(Text)
+    details_json: Mapped[str | None] = mapped_column(Text)
 
 
 class _ExecutionRow(_Base):
@@ -401,6 +407,9 @@ class _SQLiteDatabase:
                         run_column_rows = await connection.exec_driver_sql('PRAGMA table_info(runs)')
                         if 'evidence_status' not in {row[1] for row in run_column_rows}:
                             await connection.exec_driver_sql('ALTER TABLE runs ADD COLUMN evidence_status TEXT')
+                        result_column_rows = await connection.exec_driver_sql('PRAGMA table_info(results)')
+                        if 'details_json' not in {row[1] for row in result_column_rows}:
+                            await connection.exec_driver_sql('ALTER TABLE results ADD COLUMN details_json TEXT')
                         if has_legacy_results:
                             await connection.exec_driver_sql(
                                 'INSERT INTO legacy_observations (domain, resource, kind, discovered_on, source) '
@@ -694,6 +703,9 @@ class ResultStore:
 
     async def save_run(self, result: CompletedResult) -> None:
         run_id = str(result.run_id)
+        vhosts_by_hostname: dict[str, list[VirtualHostObservation]] = {}
+        for observation in result.virtual_hosts:
+            vhosts_by_hostname.setdefault(observation.hostname, []).append(observation)
         async with self._session() as session:
             try:
                 session.add(
@@ -707,7 +719,22 @@ class ResultStore:
                 )
                 await session.flush()
                 session.add_all(
-                    _ResultRow(run_id=run_id, position=position, kind=kind, value=value)
+                    _ResultRow(
+                        run_id=run_id,
+                        position=position,
+                        kind=kind,
+                        value=value,
+                        details_json=(
+                            json.dumps(
+                                virtual_host_details(vhosts_by_hostname[value]),
+                                ensure_ascii=False,
+                                separators=(',', ':'),
+                                sort_keys=True,
+                            )
+                            if kind == 'hostname' and value in vhosts_by_hostname
+                            else None
+                        ),
+                    )
                     for position, (kind, value) in enumerate(result.results)
                 )
                 producers: list[tuple[str, str, SourceExecution | ActionExecution]] = [
@@ -794,6 +821,29 @@ class ResultStore:
             ).all()
         results_by_position = {row.position: row for row in rows}
         executions_by_position = {row.position: row for row in execution_rows}
+        vhost_execution_positions = {
+            row.position for row in execution_rows if row.producer_kind == 'action' and row.name == 'vhost'
+        }
+        vhost_result_positions = {
+            row.result_position for row in origin_rows if row.execution_position in vhost_execution_positions
+        }
+        virtual_hosts: list[VirtualHostObservation] = []
+        for result_row in rows:
+            is_vhost_result = result_row.position in vhost_result_positions
+            if is_vhost_result and (result_row.kind != 'hostname' or result_row.details_json is None):
+                raise ResultStoreError(f'Persisted virtual-host details are missing: {result_row.value}')
+            if result_row.details_json is None:
+                continue
+            if result_row.kind != 'hostname' or not is_vhost_result:
+                raise ResultStoreError('Persisted virtual-host details require hostname results with vhost provenance')
+            try:
+                details = json.loads(result_row.details_json)
+                parsed_virtual_hosts = parse_virtual_host_details(result_row.value, details)
+            except (json.JSONDecodeError, ValueError) as error:
+                raise ResultStoreError(f'Persisted virtual-host details are invalid: {result_row.value}') from error
+            if details != virtual_host_details(parsed_virtual_hosts):
+                raise ResultStoreError(f'Persisted virtual-host details are not canonical: {result_row.value}')
+            virtual_hosts.extend(parsed_virtual_hosts)
         unknown_producer_kinds = {row.producer_kind for row in execution_rows} - {'source', 'action'}
         if unknown_producer_kinds:
             raise ResultStoreError(f'Unknown persisted producer kind: {sorted(unknown_producer_kinds)[0]}')
@@ -836,21 +886,21 @@ class ResultStore:
                 )
             )
         action_executions: list[ActionExecution] = []
-        for row in execution_rows:
-            if row.producer_kind != 'action':
+        for execution_row in execution_rows:
+            if execution_row.producer_kind != 'action':
                 continue
-            action_observations = tuple(sorted(observations_by_execution.get(row.position, [])))
-            if row.result_count != len(action_observations):
-                raise ResultStoreError(f'Persisted action result count does not match origins: {row.name}')
+            action_observations = tuple(sorted(observations_by_execution.get(execution_row.position, [])))
+            if execution_row.result_count != len(action_observations):
+                raise ResultStoreError(f'Persisted action result count does not match origins: {execution_row.name}')
             action_executions.append(
                 ActionExecution(
-                    action=row.name,
-                    status=cast('ExecutionStatus', row.status),
-                    duration_ms=row.duration_ms,
+                    action=execution_row.name,
+                    status=cast('ExecutionStatus', execution_row.status),
+                    duration_ms=execution_row.duration_ms,
                     observations=action_observations,
-                    artifacts=tuple(sorted(artifacts_by_execution.get(row.position, []))),
-                    error_type=row.error_type,
-                    stop_reason=row.stop_reason,
+                    artifacts=tuple(sorted(artifacts_by_execution.get(execution_row.position, []))),
+                    error_type=execution_row.error_type,
+                    stop_reason=execution_row.stop_reason,
                 )
             )
         return CompletedResult(
@@ -873,6 +923,7 @@ class ResultStore:
             ),
             observations=tuple(sorted(source_observations)),
             active_evidence=ActiveEvidence(executions=tuple(action_executions)),
+            virtual_hosts=tuple(sorted(set(virtual_hosts), key=VirtualHostObservation.sort_key)),
             evidence_status=cast('EvidenceStatus', parent.evidence_status) if parent.evidence_status is not None else None,
         )
 

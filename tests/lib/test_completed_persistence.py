@@ -17,6 +17,7 @@ from theHarvester.lib.database import (
     _sqlite_has_wal_reset_fix,
     dispose_sqlite_databases,
 )
+from theHarvester.lib.virtual_host import VirtualHostObservation
 
 RELEASED_COMPLETED_SCHEMA = """
 CREATE TABLE completed_results (
@@ -128,6 +129,13 @@ PRAGMA user_version = 4;
 
 SCHEMA_V5_RESULT_KINDS = SCHEMA_V4_URL_KINDS + 'PRAGMA user_version = 5;'
 SCHEMA_V6_RESULT_KINDS = SCHEMA_V5_RESULT_KINDS + 'PRAGMA user_version = 6;'
+SCHEMA_V7_EVIDENCE_STATUS = (
+    SCHEMA_V6_RESULT_KINDS
+    + """
+ALTER TABLE runs ADD COLUMN evidence_status TEXT;
+PRAGMA user_version = 7;
+"""
+)
 
 
 def completed_result(run_id: str = 'f047261c-0afb-4e18-89d5-28a7d977f51f') -> CompletedResult:
@@ -168,6 +176,41 @@ def screenshot_execution(completed_at: datetime) -> ActionExecution:
                 created_at=completed_at,
             ),
         ),
+    )
+
+
+def vhost_observation(endpoint: str, *, status: int, control_status: int) -> VirtualHostObservation:
+    return VirtualHostObservation.from_record(
+        {
+            'type': 'vhost',
+            'endpoint': endpoint,
+            'hostname': 'admin.example.com',
+            'http_host': 'admin.example.com',
+            'tls_server_name': None,
+            'classification': 'distinct',
+            'phase': 'body',
+            'status': status,
+            'location': None,
+            'body_sha256': 'a' * 64,
+            'body_size': 5,
+            'body_truncated': False,
+            'context_phase': 'body',
+            'context_status': control_status,
+            'context_location': None,
+            'context_body_sha256': 'a' * 64,
+            'context_body_size': 5,
+            'context_body_truncated': False,
+            'control_phase': 'body',
+            'control_status': control_status,
+            'control_location': None,
+            'control_body_sha256': 'a' * 64,
+            'control_body_size': 5,
+            'control_body_truncated': False,
+            'confirmation_body_sha256': None,
+            'tls_verified': None,
+            'distinct_signals': ['status'],
+            'reflection_normalized': False,
+        }
     )
 
 
@@ -218,10 +261,10 @@ async def test_newer_schema_is_rejected_without_changing_journal_mode(tmp_path) 
     database = tmp_path / 'stash.sqlite'
     store = ResultStore(database)
     with sqlite3.connect(database) as db:
-        db.execute('PRAGMA user_version = 8')
+        db.execute('PRAGMA user_version = 9')
         original_journal_mode = db.execute('PRAGMA journal_mode').fetchone()[0]
 
-    with pytest.raises(RuntimeError, match='schema version 8 is newer than supported version 7'):
+    with pytest.raises(RuntimeError, match='schema version 9 is newer than supported version 8'):
         await store.initialize()
 
     with sqlite3.connect(database) as db:
@@ -303,7 +346,192 @@ async def test_completed_result_round_trip_preserves_legacy_observations(tmp_pat
         'position': 'INTEGER',
         'kind': 'TEXT',
         'value': 'TEXT',
+        'details_json': 'TEXT',
     }
+
+
+@pytest.mark.asyncio
+async def test_structured_vhost_evidence_round_trips_in_the_results_table(tmp_path) -> None:
+    database = tmp_path / 'stash.sqlite'
+    store = ResultStore(database)
+    await store.initialize()
+    completed_at = datetime(2026, 8, 9, 12, 1, tzinfo=UTC)
+    first = vhost_observation('http://192.0.2.10', status=200, control_status=404)
+    second = vhost_observation('http://192.0.2.11', status=201, control_status=404)
+    result = CompletedResult.finish(
+        run_id=UUID('3ac7bba2-45da-4cdd-96a4-019a4d42bca4'),
+        target='example.com',
+        started_at=completed_at,
+        completed_at=completed_at,
+        groups={},
+        source_executions=(SourceExecution('crtsh', 'completed', 4.0, 1),),
+        observations=(ResultObservation('crtsh', 'hostname', 'admin.example.com'),),
+        active_evidence=ActiveEvidence(
+            executions=(
+                ActionExecution.finish(
+                    action='vhost',
+                    status='completed',
+                    duration_ms=12.5,
+                    groups={'hostname': ['admin.example.com']},
+                ),
+            )
+        ),
+        virtual_hosts=(second, first),
+    )
+
+    await store.save_run(result)
+
+    assert await store.load_run(result.run_id) == result
+    with sqlite3.connect(database) as db:
+        schema_version = db.execute('PRAGMA user_version').fetchone()[0]
+        stored_result = db.execute(
+            'SELECT kind, value, details_json FROM results WHERE run_id = ?',
+            (str(result.run_id),),
+        ).fetchone()
+        executions = db.execute(
+            'SELECT producer_kind, name, result_count FROM executions WHERE run_id = ? ORDER BY producer_kind',
+            (str(result.run_id),),
+        ).fetchall()
+        origin_count = db.execute(
+            'SELECT COUNT(*) FROM result_origins WHERE run_id = ?',
+            (str(result.run_id),),
+        ).fetchone()[0]
+    assert schema_version == 8
+    assert stored_result[:2] == ('hostname', 'admin.example.com')
+    assert json.loads(stored_result[2]) == [
+        {key: value for key, value in observation.to_record().items() if key not in {'type', 'hostname'}}
+        for observation in (first, second)
+    ]
+    assert executions == [('action', 'vhost', 1), ('source', 'crtsh', 1)]
+    assert origin_count == 2
+
+
+@pytest.mark.asyncio
+async def test_schema_v7_migrates_vhost_collision_without_losing_references(tmp_path) -> None:
+    database = tmp_path / 'stash.sqlite'
+    run_id = UUID('750ab571-778d-490e-b760-70394d936eb4')
+    with sqlite3.connect(database) as db:
+        db.executescript(SCHEMA_V7_EVIDENCE_STATUS)
+        db.execute(
+            'INSERT INTO runs (run_id, target, started_at, completed_at) VALUES (?, ?, ?, ?)',
+            (str(run_id), 'example.com', '2026-08-09T12:00:00+00:00', '2026-08-09T12:01:00+00:00'),
+        )
+        db.execute(
+            'INSERT INTO results (run_id, position, kind, value) VALUES (?, ?, ?, ?)',
+            (str(run_id), 0, 'hostname', 'admin.example.com'),
+        )
+        db.execute(
+            'INSERT INTO results (run_id, position, kind, value) VALUES (?, ?, ?, ?)',
+            (str(run_id), 1, 'vhost', 'admin.example.com'),
+        )
+        db.execute(
+            'INSERT INTO executions '
+            '(run_id, position, producer_kind, name, status, duration_ms, result_count) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?)',
+            (str(run_id), 0, 'action', 'vhost', 'completed', 1.0, 2),
+        )
+        db.executemany(
+            'INSERT INTO result_origins (run_id, result_position, execution_position) VALUES (?, ?, ?)',
+            [(str(run_id), position, 0) for position in (0, 1)],
+        )
+        db.execute(
+            'INSERT INTO artifacts '
+            '(run_id, position, result_position, execution_position, kind, path, media_type, size_bytes, sha256, created_at) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            (
+                str(run_id),
+                0,
+                1,
+                0,
+                'screenshot',
+                'screenshots/admin.example.com.png',
+                'image/png',
+                3,
+                '0' * 64,
+                '2026-08-09T12:01:00+00:00',
+            ),
+        )
+
+    store = ResultStore(database)
+    await store.initialize()
+    await store.dispose()
+    store = ResultStore(database)
+    await store.initialize()
+
+    with pytest.raises(ResultStoreError, match='virtual-host details'):
+        await store.load_run(run_id)
+    with sqlite3.connect(database) as db:
+        result_columns = [row[1] for row in db.execute('PRAGMA table_info(results)')]
+        stored = db.execute('SELECT kind, value, details_json FROM results').fetchall()
+        execution = db.execute('SELECT name, result_count FROM executions').fetchone()
+        origins = db.execute('SELECT result_position, execution_position FROM result_origins').fetchall()
+        artifacts = db.execute('SELECT result_position, execution_position, path FROM artifacts').fetchall()
+        schema_version = db.execute('PRAGMA user_version').fetchone()[0]
+    assert result_columns == ['run_id', 'position', 'kind', 'value', 'details_json']
+    assert stored == [('hostname', 'admin.example.com', None)]
+    assert execution == ('vhost', 1)
+    assert origins == [(0, 0)]
+    assert artifacts == [(0, 0, 'screenshots/admin.example.com.png')]
+    assert schema_version == 8
+
+
+@pytest.mark.asyncio
+async def test_schema_v7_migrates_unstructured_vhost_without_action_origin_to_hostname(tmp_path) -> None:
+    database = tmp_path / 'stash.sqlite'
+    run_id = UUID('20f4b762-e9cb-4e10-96c6-85f982af50b3')
+    with sqlite3.connect(database) as db:
+        db.executescript(SCHEMA_V7_EVIDENCE_STATUS)
+        db.execute(
+            'INSERT INTO runs (run_id, target, started_at, completed_at) VALUES (?, ?, ?, ?)',
+            (str(run_id), 'example.com', '2026-08-09T12:00:00+00:00', '2026-08-09T12:01:00+00:00'),
+        )
+        db.execute(
+            'INSERT INTO results (run_id, position, kind, value) VALUES (?, ?, ?, ?)',
+            (str(run_id), 0, 'vhost', 'admin.example.com'),
+        )
+
+    store = ResultStore(database)
+    await store.initialize()
+
+    loaded = await store.load_run(run_id)
+
+    assert loaded.results == (('hostname', 'admin.example.com'),)
+    assert loaded.virtual_hosts == ()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('details_json', [None, 'not-json', '[]', '[{"endpoint":"http://192.0.2.10:80/"}]'])
+async def test_loading_malformed_vhost_details_fails_closed(tmp_path, details_json: str | None) -> None:
+    database = tmp_path / 'stash.sqlite'
+    store = ResultStore(database)
+    await store.initialize()
+    result = CompletedResult.finish(
+        target='example.com',
+        started_at=datetime(2026, 8, 9, 12, 0, tzinfo=UTC),
+        completed_at=datetime(2026, 8, 9, 12, 1, tzinfo=UTC),
+        groups={},
+        active_evidence=ActiveEvidence(
+            executions=(
+                ActionExecution.finish(
+                    action='vhost',
+                    status='completed',
+                    duration_ms=1,
+                    groups={'hostname': ['admin.example.com']},
+                ),
+            )
+        ),
+        virtual_hosts=(vhost_observation('http://192.0.2.10', status=200, control_status=404),),
+    )
+    await store.save_run(result)
+    with sqlite3.connect(database) as db:
+        db.execute(
+            'UPDATE results SET details_json = ? WHERE run_id = ?',
+            (details_json, str(result.run_id)),
+        )
+        db.commit()
+
+    with pytest.raises(ResultStoreError, match='virtual-host details'):
+        await store.load_run(result.run_id)
 
 
 @pytest.mark.asyncio
@@ -585,7 +813,7 @@ async def test_current_schema_reopens_without_running_legacy_migration(tmp_path)
 
 
 @pytest.mark.asyncio
-async def test_schema_v2_upgrades_to_v7_without_rewriting_existing_rows(tmp_path) -> None:
+async def test_schema_v2_upgrades_to_v8_without_rewriting_existing_rows(tmp_path) -> None:
     database = tmp_path / 'stash.sqlite'
     run_id = UUID('251d4047-190b-4a4d-9c4e-9eed3f23c8c7')
     with sqlite3.connect(database) as db:
@@ -629,7 +857,7 @@ async def test_schema_v2_upgrades_to_v7_without_rewriting_existing_rows(tmp_path
         observations=(ResultObservation('crtsh', 'hostname', 'api.example.com'),),
     )
     with sqlite3.connect(database) as db:
-        assert db.execute('PRAGMA user_version').fetchone()[0] == 7
+        assert db.execute('PRAGMA user_version').fetchone()[0] == 8
         assert db.execute('SELECT COUNT(*) FROM artifacts').fetchone()[0] == 0
 
 
@@ -666,7 +894,7 @@ async def test_schema_v6_adds_nullable_evidence_status_without_rewriting_executi
     assert loaded.status == 'partial'
     assert stored_status is None
     assert 'evidence_status' in run_columns
-    assert schema_version == 7
+    assert schema_version == 8
 
 
 @pytest.mark.asyncio
@@ -755,7 +983,7 @@ async def test_schema_v4_merges_deprecated_url_kinds_without_losing_origins(tmp_
     assert screenshot.artifacts[0].subject_kind == 'url'
     assert screenshot.artifacts[0].subject_value == target_url
     with sqlite3.connect(database) as db:
-        assert db.execute('PRAGMA user_version').fetchone()[0] == 7
+        assert db.execute('PRAGMA user_version').fetchone()[0] == 8
         assert db.execute('SELECT DISTINCT kind FROM legacy_observations').fetchall() == [('url',)]
         assert db.execute('SELECT result_count FROM executions WHERE name = ?', ('api-scan',)).fetchone()[0] == 1
 
@@ -833,7 +1061,7 @@ async def test_schema_v5_merges_ip_address_into_ip_without_losing_provenance_or_
     assert screenshot.artifacts[0].subject_kind == 'ip'
     assert screenshot.artifacts[0].subject_value == address
     with sqlite3.connect(database) as db:
-        assert db.execute('PRAGMA user_version').fetchone()[0] == 7
+        assert db.execute('PRAGMA user_version').fetchone()[0] == 8
         assert db.execute('SELECT kind, value FROM results').fetchall() == [('ip', address)]
         assert db.execute('SELECT execution_position FROM result_origins ORDER BY execution_position').fetchall() == [
             (0,),
@@ -870,7 +1098,7 @@ async def test_released_results_migrate_to_legacy_observations(tmp_path) -> None
         result_columns = [row[1] for row in db.execute('PRAGMA table_info(results)')]
         schema_version = db.execute('PRAGMA user_version').fetchone()[0]
     assert 'legacy_results' not in tables
-    assert result_columns == ['run_id', 'position', 'kind', 'value']
+    assert result_columns == ['run_id', 'position', 'kind', 'value', 'details_json']
     assert observations == [
         ('api.example.com', 'hostname'),
         ('192.0.2.1', 'ip'),
@@ -881,7 +1109,7 @@ async def test_released_results_migrate_to_legacy_observations(tmp_path) -> None
         ('/api/v1', 'url'),
         ('admin@example.com', 'email'),
     ]
-    assert schema_version == 7
+    assert schema_version == 8
 
 
 @pytest.mark.asyncio
@@ -992,7 +1220,7 @@ async def test_legacy_observations_keep_the_released_normalized_schema(tmp_path)
     await store.record_observations('example.com', ['admin@example.com'], 'email', 'hunter')
     await store.record_observations('example.com', ['192.0.2.1'], 'ip', 'dns')
     await store.record_observations('example.com', ['{"firstname":"Ada","lastname":"Lovelace"}'], 'person', 'hunter')
-    await store.record_observations('example.com', ['vhost.example.com'], 'vhost', 'virtual-host')
+    await store.record_observations('example.com', ['vhost.example.com'], 'hostname', 'virtual-host')
     await store.record_observations('example.com', ['443'], 'shodan', 'shodan')
 
     with sqlite3.connect(database) as db:
@@ -1006,7 +1234,7 @@ async def test_legacy_observations_keep_the_released_normalized_schema(tmp_path)
         ('example.com', 'admin@example.com', 'email', 'hunter'),
         ('example.com', '192.0.2.1', 'ip', 'dns'),
         ('example.com', '{"firstname":"Ada","lastname":"Lovelace"}', 'person', 'hunter'),
-        ('example.com', 'vhost.example.com', 'vhost', 'virtual-host'),
+        ('example.com', 'vhost.example.com', 'hostname', 'virtual-host'),
         ('example.com', '443', 'shodan', 'shodan'),
     ]
 
@@ -1030,7 +1258,7 @@ async def test_schema_v1_observations_upgrade_without_losing_rows(tmp_path) -> N
         schema_version = db.execute('PRAGMA user_version').fetchone()[0]
     assert 'discovery_observations' not in tables
     assert rows == [('example.com', 'api.example.com', 'hostname', 'crtsh')]
-    assert schema_version == 7
+    assert schema_version == 8
 
 
 @pytest.mark.asyncio

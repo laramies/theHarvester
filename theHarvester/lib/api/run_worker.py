@@ -20,6 +20,12 @@ from theHarvester.lib.enumeration import (
     EnumerationOptions,
 )
 from theHarvester.lib.resolver_selection import DEFAULT_DNS_RESOLVERS
+from theHarvester.lib.virtual_host import (
+    DEFAULT_VHOST_CONCURRENCY,
+    DEFAULT_VHOST_REQUEST_LIMIT,
+    DEFAULT_VHOST_RUNTIME_SECONDS,
+    DEFAULT_VHOST_TIMEOUT_SECONDS,
+)
 
 from .run_artifacts import ensure_private_directory, read_child_evidence, write_child_evidence
 from .run_store import RunStore
@@ -307,6 +313,14 @@ async def _child_execute(run_id: str, database: Path) -> None:
         source=','.join(request['sources']),
         start=request.get('start', DEFAULT_RESULT_START),
         take_over=request.get('takeover', False),
+        vhost=request.get('vhost', False),
+        vhost_candidates=tuple(request.get('vhost_candidates', ())),
+        vhost_concurrency=request.get('vhost_concurrency', DEFAULT_VHOST_CONCURRENCY),
+        vhost_endpoint=request.get('vhost_endpoint', ''),
+        vhost_insecure=request.get('vhost_insecure', False),
+        vhost_request_limit=request.get('vhost_request_limit', DEFAULT_VHOST_REQUEST_LIMIT),
+        vhost_runtime_seconds=request.get('vhost_runtime_seconds', DEFAULT_VHOST_RUNTIME_SECONDS),
+        vhost_timeout_seconds=request.get('vhost_timeout_seconds', DEFAULT_VHOST_TIMEOUT_SECONDS),
         wordlist=api_scan_wordlist,
     )
     checkpoint_lock = asyncio.Lock()

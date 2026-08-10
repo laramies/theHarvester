@@ -14,6 +14,11 @@ from theHarvester.lib.dns_consensus import Addressability
 from theHarvester.lib.enumeration import EnumerationOptions
 from theHarvester.lib.hostchecker import HostDnsRecords
 from theHarvester.lib.recursive_dns import RecursiveDNSClassification, RecursiveDNSFinding, RecursiveDNSResult
+from theHarvester.lib.virtual_host import (
+    HarvestedVirtualHostResult,
+    VirtualHostDiscoveryCancelled,
+    VirtualHostObservation,
+)
 
 
 @pytest.mark.asyncio
@@ -35,6 +40,462 @@ async def test_cli_help_explains_proxy_and_direct_action_scope(
     assert 'Multiple capabilities select the union of matching sources; they do not filter returned fields.' in help_text
     assert 'Check common API paths with GET, HEAD, and OPTIONS.' in help_text
     assert 'Requests follow redirects.' in help_text
+    assert 'virtual host discovery' in help_text
+    assert 'P2 direct interaction (active reconnaissance): sends direct HTTP and TLS requests.' in help_text
+    assert 'For normal use, pass only --vhost; bounded safety defaults apply automatically.' in help_text
+    assert 'virtual host advanced controls' in help_text
+    assert 'Candidate names are never resolved through DNS.' in help_text
+
+
+def _confirmed_vhost(endpoint: str = 'http://192.0.2.10:80/') -> VirtualHostObservation:
+    return VirtualHostObservation(
+        endpoint=endpoint,
+        hostname='admin.example.com',
+        http_host='admin.example.com',
+        tls_server_name=None,
+        classification='distinct',
+        phase='body',
+        status=200,
+        location=None,
+        body_sha256='a' * 64,
+        body_size=5,
+        body_truncated=False,
+        tls_verified=None,
+        error_type=None,
+        distinct_signals=('body_sha256',),
+        reflection_normalized=False,
+        needs_confirmation=False,
+        context_phase='body',
+        context_status=200,
+        context_location=None,
+        context_body_sha256='b' * 64,
+        context_body_size=5,
+        context_body_truncated=False,
+        control_phase='body',
+        control_status=200,
+        control_location=None,
+        control_body_sha256='b' * 64,
+        control_body_size=5,
+        control_body_truncated=False,
+        confirmation_body_sha256='a' * 64,
+    )
+
+
+@pytest.mark.asyncio
+async def test_virtual_host_action_reaches_completed_evidence(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[dict[str, object]] = []
+
+    async def fake_discover(**kwargs: object) -> HarvestedVirtualHostResult:
+        calls.append(kwargs)
+        return HarvestedVirtualHostResult((_confirmed_vhost(),), 5, 1, 1, 1, 1, 'completed')
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
+    monkeypatch.setattr(theharvester_main, 'discover_harvested_virtual_hosts', fake_discover, raising=False)
+
+    response = await theharvester_main.start(
+        EnumerationOptions(
+            domain='example.com',
+            quiet=True,
+            vhost_endpoint='http://192.0.2.10/',
+            vhost_candidates=('admin.example.com',),
+        ),
+        return_completed_result=True,
+    )
+
+    completed = response[-1]
+    assert isinstance(completed, CompletedResult)
+    assert calls[0]['scope'] == 'example.com'
+    assert calls[0]['addresses'] == ()
+    assert calls[0]['candidates'] == ('admin.example.com',)
+    assert calls[0]['endpoint_override'] == 'http://192.0.2.10:80/'
+    execution = next(item for item in completed.active_evidence.executions if item.action == 'vhost')
+    assert execution.status == 'completed'
+    assert {(item.kind, item.value) for item in execution.observations} == {('hostname', 'admin.example.com')}
+    assert completed.virtual_hosts == (_confirmed_vhost(),)
+
+
+@pytest.mark.asyncio
+async def test_virtual_host_inputs_fail_before_result_store_initialization(monkeypatch: pytest.MonkeyPatch) -> None:
+    class UnexpectedResultStore:
+        def __init__(self, *_args: object) -> None:
+            raise AssertionError('result store initialization must follow virtual-host validation')
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', UnexpectedResultStore)
+
+    with pytest.raises(ValueError, match='outside authorized scope'):
+        await theharvester_main.start(
+            EnumerationOptions(
+                domain='example.com',
+                vhost_endpoint='https://192.0.2.10/',
+                vhost_candidates=('admin.attacker.test',),
+            )
+        )
+
+    with pytest.raises(ValueError, match='direct transport only'):
+        await theharvester_main.start(
+            EnumerationOptions(
+                domain='example.com',
+                proxies=True,
+                vhost_endpoint='https://192.0.2.10/',
+                vhost_candidates=('admin.example.com',),
+            )
+        )
+
+
+@pytest.mark.asyncio
+async def test_virtual_host_action_uses_harvested_hostnames_and_ips(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[dict[str, object]] = []
+
+    class FakeRapidDNS:
+        def __init__(self, _word: str) -> None:
+            pass
+
+        async def process(self, _proxy: bool) -> None:
+            return None
+
+        async def get_hostnames(self) -> set[str]:
+            return {'admin.example.com'}
+
+        async def get_host_ip_pairs(self) -> set[tuple[str, str]]:
+            return {('admin.example.com', '192.0.2.10')}
+
+        async def get_ips(self) -> set[str]:
+            return {'192.0.2.10'}
+
+    async def fake_discover(**kwargs: object) -> HarvestedVirtualHostResult:
+        calls.append(kwargs)
+        return HarvestedVirtualHostResult((), 5, 1, 1, 1, 1, 'completed')
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
+    monkeypatch.setattr(theharvester_main.rapiddns, 'SearchRapidDns', FakeRapidDNS)
+    monkeypatch.setattr(theharvester_main, 'discover_harvested_virtual_hosts', fake_discover)
+
+    response = await theharvester_main.start(
+        EnumerationOptions(domain='example.com', quiet=True, source='rapiddns', vhost=True),
+        return_completed_result=True,
+    )
+
+    assert calls[0]['addresses'] == ('192.0.2.10',)
+    assert calls[0]['candidates'] == ('admin.example.com',)
+    execution = next(item for item in response[-1].active_evidence.executions if item.action == 'vhost')
+    assert execution.status == 'completed'
+    assert execution.result_count == 0
+
+
+@pytest.mark.asyncio
+async def test_virtual_host_action_explains_missing_harvested_endpoints(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
+
+    response = await theharvester_main.start(
+        EnumerationOptions(domain='example.com', quiet=True, vhost_candidates=('admin.example.com',)),
+        return_completed_result=True,
+    )
+
+    execution = next(item for item in response[-1].active_evidence.executions if item.action == 'vhost')
+    assert execution.status == 'skipped'
+    assert execution.stop_reason == 'no-endpoints'
+
+
+@pytest.mark.asyncio
+async def test_virtual_host_action_reports_all_request_errors_as_failed(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def failed_discovery(**_kwargs: object) -> HarvestedVirtualHostResult:
+        return HarvestedVirtualHostResult(
+            observations=(),
+            request_count=5,
+            endpoint_count=1,
+            total_endpoint_count=1,
+            candidate_endpoint_count=1,
+            total_candidate_endpoint_count=1,
+            stop_reason='request-errors',
+            request_error_count=5,
+            request_error_types=('TimeoutError',),
+        )
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
+    monkeypatch.setattr(theharvester_main, 'discover_harvested_virtual_hosts', failed_discovery)
+
+    response = await theharvester_main.start(
+        EnumerationOptions(
+            domain='example.com',
+            quiet=True,
+            vhost_endpoint='http://192.0.2.10/',
+            vhost_candidates=('admin.example.com',),
+        ),
+        return_completed_result=True,
+    )
+
+    execution = next(item for item in response[-1].active_evidence.executions if item.action == 'vhost')
+    assert execution.status == 'failed'
+    assert execution.error_type == 'TimeoutError'
+    assert execution.stop_reason == 'request-errors'
+
+
+@pytest.mark.asyncio
+async def test_virtual_host_action_reports_mixed_request_errors_without_a_finding_as_failed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def failed_discovery(**_kwargs: object) -> HarvestedVirtualHostResult:
+        return HarvestedVirtualHostResult(
+            observations=(),
+            request_count=5,
+            endpoint_count=1,
+            total_endpoint_count=1,
+            candidate_endpoint_count=1,
+            total_candidate_endpoint_count=1,
+            stop_reason='request-errors',
+            request_error_count=1,
+            request_error_types=('TimeoutError',),
+        )
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
+    monkeypatch.setattr(theharvester_main, 'discover_harvested_virtual_hosts', failed_discovery)
+
+    response = await theharvester_main.start(
+        EnumerationOptions(
+            domain='example.com',
+            quiet=True,
+            vhost_endpoint='http://192.0.2.10/',
+            vhost_candidates=('admin.example.com',),
+        ),
+        return_completed_result=True,
+    )
+
+    execution = next(item for item in response[-1].active_evidence.executions if item.action == 'vhost')
+    assert execution.status == 'failed'
+    assert execution.error_type == 'TimeoutError'
+    assert execution.stop_reason == 'request-errors'
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('stop_reason', 'scan_error_type', 'expected_error_type'),
+    [
+        ('request-errors', None, 'TimeoutError'),
+        ('scan-error', 'ConnectionError', 'ConnectionError'),
+    ],
+)
+async def test_virtual_host_action_reports_mixed_or_scan_errors_as_partial(
+    monkeypatch: pytest.MonkeyPatch,
+    stop_reason: str,
+    scan_error_type: str | None,
+    expected_error_type: str,
+) -> None:
+    saved: list[CompletedResult] = []
+
+    async def partial_discovery(**_kwargs: object) -> HarvestedVirtualHostResult:
+        return HarvestedVirtualHostResult(
+            observations=(_confirmed_vhost(),),
+            request_count=5,
+            endpoint_count=1,
+            total_endpoint_count=1,
+            candidate_endpoint_count=1,
+            total_candidate_endpoint_count=1,
+            stop_reason=stop_reason,
+            request_error_count=1,
+            request_error_types=('TimeoutError',),
+            scan_error_type=scan_error_type,
+        )
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _recording_result_store(saved))
+    monkeypatch.setattr(theharvester_main, 'discover_harvested_virtual_hosts', partial_discovery)
+
+    response = await theharvester_main.start(
+        EnumerationOptions(
+            domain='example.com',
+            quiet=True,
+            vhost_endpoint='http://192.0.2.10/',
+            vhost_candidates=('admin.example.com',),
+        ),
+        return_completed_result=True,
+    )
+
+    completed = response[-1]
+    execution = next(item for item in completed.active_evidence.executions if item.action == 'vhost')
+    assert execution.status == 'partial'
+    assert execution.error_type == expected_error_type
+    assert execution.stop_reason == stop_reason
+    assert completed.virtual_hosts == (_confirmed_vhost(),)
+    assert saved[-1].virtual_hosts == (_confirmed_vhost(),)
+
+
+@pytest.mark.asyncio
+async def test_virtual_host_cancellation_persists_partial_observations_and_propagates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    saved: list[CompletedResult] = []
+    partial = HarvestedVirtualHostResult(
+        observations=(_confirmed_vhost(),),
+        request_count=5,
+        endpoint_count=1,
+        total_endpoint_count=2,
+        candidate_endpoint_count=1,
+        total_candidate_endpoint_count=2,
+        stop_reason='cancelled',
+        request_error_count=1,
+        request_error_types=('TimeoutError',),
+        scan_error_type='CancelledError',
+    )
+
+    async def cancelled_discovery(**_kwargs: object) -> HarvestedVirtualHostResult:
+        raise VirtualHostDiscoveryCancelled(partial)
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _recording_result_store(saved))
+    monkeypatch.setattr(theharvester_main, 'discover_harvested_virtual_hosts', cancelled_discovery)
+
+    with pytest.raises(VirtualHostDiscoveryCancelled):
+        await theharvester_main.start(
+            EnumerationOptions(
+                domain='example.com',
+                quiet=True,
+                vhost_endpoint='http://192.0.2.10/',
+                vhost_candidates=('admin.example.com',),
+            ),
+            return_completed_result=True,
+        )
+
+    completed = saved[-1]
+    execution = next(item for item in completed.active_evidence.executions if item.action == 'vhost')
+    assert execution.status == 'partial'
+    assert execution.error_type == 'CancelledError'
+    assert execution.stop_reason == 'cancelled'
+    assert completed.virtual_hosts == (_confirmed_vhost(),)
+
+
+@pytest.mark.asyncio
+async def test_virtual_host_cancellation_persists_failure_and_propagates(monkeypatch: pytest.MonkeyPatch) -> None:
+    saved: list[CompletedResult] = []
+
+    async def cancelled_discovery(**_kwargs: object) -> HarvestedVirtualHostResult:
+        raise asyncio.CancelledError
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _recording_result_store(saved))
+    monkeypatch.setattr(theharvester_main, 'discover_harvested_virtual_hosts', cancelled_discovery)
+
+    with pytest.raises(asyncio.CancelledError):
+        await theharvester_main.start(
+            EnumerationOptions(
+                domain='example.com',
+                quiet=True,
+                vhost_endpoint='http://192.0.2.10/',
+                vhost_candidates=('admin.example.com',),
+            ),
+            return_completed_result=True,
+        )
+
+    execution = next(item for item in saved[-1].active_evidence.executions if item.action == 'vhost')
+    assert execution.status == 'failed'
+    assert execution.error_type == 'CancelledError'
+    assert execution.stop_reason == 'cancelled'
+
+
+@pytest.mark.asyncio
+async def test_virtual_host_carried_cancellation_without_a_finding_is_failed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    saved: list[CompletedResult] = []
+    cancelled = HarvestedVirtualHostResult(
+        observations=(),
+        request_count=5,
+        endpoint_count=1,
+        total_endpoint_count=2,
+        candidate_endpoint_count=1,
+        total_candidate_endpoint_count=2,
+        stop_reason='cancelled',
+        scan_error_type='CancelledError',
+    )
+
+    async def cancelled_discovery(**_kwargs: object) -> HarvestedVirtualHostResult:
+        raise VirtualHostDiscoveryCancelled(cancelled)
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _recording_result_store(saved))
+    monkeypatch.setattr(theharvester_main, 'discover_harvested_virtual_hosts', cancelled_discovery)
+
+    with pytest.raises(VirtualHostDiscoveryCancelled):
+        await theharvester_main.start(
+            EnumerationOptions(
+                domain='example.com',
+                quiet=True,
+                vhost_endpoint='http://192.0.2.10/',
+                vhost_candidates=('admin.example.com',),
+            ),
+            return_completed_result=True,
+        )
+
+    execution = next(item for item in saved[-1].active_evidence.executions if item.action == 'vhost')
+    assert execution.status == 'failed'
+    assert execution.error_type == 'CancelledError'
+    assert execution.stop_reason == 'cancelled'
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('stop_reason', ['request-limit', 'runtime-limit'])
+async def test_virtual_host_limits_remain_partial_without_a_finding(
+    monkeypatch: pytest.MonkeyPatch,
+    stop_reason: str,
+) -> None:
+    async def limited_discovery(**_kwargs: object) -> HarvestedVirtualHostResult:
+        return HarvestedVirtualHostResult((), 4, 1, 1, 0, 1, stop_reason)
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
+    monkeypatch.setattr(theharvester_main, 'discover_harvested_virtual_hosts', limited_discovery)
+
+    response = await theharvester_main.start(
+        EnumerationOptions(
+            domain='example.com',
+            quiet=True,
+            vhost_endpoint='http://192.0.2.10/',
+            vhost_candidates=('admin.example.com',),
+        ),
+        return_completed_result=True,
+    )
+
+    execution = next(item for item in response[-1].active_evidence.executions if item.action == 'vhost')
+    assert execution.status == 'partial'
+    assert execution.stop_reason == stop_reason
+
+
+@pytest.mark.asyncio
+async def test_virtual_host_output_keeps_legacy_lists_and_structured_jsonl(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    output_path = tmp_path / 'vhost-report'
+
+    async def fake_discover(**_kwargs: object) -> HarvestedVirtualHostResult:
+        return HarvestedVirtualHostResult((_confirmed_vhost(),), 5, 1, 1, 1, 1, 'completed')
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
+    monkeypatch.setattr(theharvester_main, 'discover_harvested_virtual_hosts', fake_discover)
+    monkeypatch.setattr(
+        sys,
+        'argv',
+        [
+            'theHarvester',
+            '-d',
+            'example.com',
+            '--vhost-endpoint',
+            'http://192.0.2.10/',
+            '--vhost-candidate',
+            'admin.example.com',
+            '-f',
+            str(output_path),
+        ],
+    )
+
+    with pytest.raises(SystemExit) as exit_info:
+        await theharvester_main.start()
+
+    assert exit_info.value.code == 0
+    assert json.loads(output_path.with_suffix('.json').read_text())['vhosts'] == ['admin.example.com']
+    assert [item.text for item in ElementTree.parse(output_path.with_suffix('.xml')).getroot().findall('vhost')] == [
+        'admin.example.com'
+    ]
+    jsonl = [json.loads(line) for line in output_path.with_suffix('.jsonl').read_text().splitlines()]
+    finding = next(item for item in jsonl if item['type'] == 'hostname')
+    assert finding['value'] == 'admin.example.com'
+    assert finding['actions'] == ['vhost']
+    assert len(finding['observations']) == 1
+    assert finding['observations'][0]['endpoint'] == 'http://192.0.2.10:80/'
 
 
 @pytest.mark.parametrize('target', ['Example.COM.', 'WWW.Example.COM.'])

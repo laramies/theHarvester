@@ -266,6 +266,43 @@
             <label class="action-choice p2"><input type="checkbox" name="takeover"><span><strong>P2 · Takeover checks</strong><small>Contact discovered hosts, through configured proxies when enabled, for takeover evidence.</small></span></label>
             <label class="action-choice p2"><input type="checkbox" name="api_scan"><span><strong>P2 · API endpoint interaction</strong><small>Contact the target for endpoint evidence.</small></span></label>
           </div>
+          <details class="advanced-execution">
+            <summary>P2 · Virtual-host discovery</summary>
+            <p>Test harvested in-scope hostnames against every harvested literal IP that fits the shared request cap, breadth-first on HTTPS 443 then HTTP 80. This is harvested-candidate testing, not wordlist brute forcing. HTTP Host and TLS SNI stay aligned; candidate DNS and redirects are never used.</p>
+            <div class="form-grid three">
+              <label class="inline-choice"><input id="vhost-enabled" name="vhost" type="checkbox"><span>Probe harvested IPs for virtual hosts</span></label>
+              <label>Literal-IP endpoint override
+                <input id="vhost-endpoint" name="vhost_endpoint" placeholder="https://192.0.2.10:443/" autocomplete="off">
+                <small>Optional: probe only this endpoint instead of harvested IPs. Providing it also enables discovery.</small>
+              </label>
+              <label>Additional candidate hostnames
+                <textarea id="vhost-candidates" name="vhost_candidates" rows="4" placeholder="admin.example.com&#10;preview.example.com"></textarea>
+                <small>Optional: augment in-scope hostnames harvested during this run. Providing a name also enables discovery.</small>
+              </label>
+            </div>
+            <details class="advanced-execution">
+              <summary>Advanced safety controls</summary>
+              <div class="form-grid three">
+                <label>Request budget
+                  <input id="vhost-request-limit" name="vhost_request_limit" type="number" min="5" max="10000" value="100">
+                  <small>Includes context, controls, candidates, and confirmations.</small>
+                </label>
+                <label>Runtime seconds
+                  <input id="vhost-runtime-seconds" name="vhost_runtime_seconds" type="number" min="0.1" max="3600" step="0.1" value="30">
+                  <small>Hard wall-clock cap.</small>
+                </label>
+                <label>Per-request timeout
+                  <input id="vhost-timeout-seconds" name="vhost_timeout_seconds" type="number" min="0.1" max="300" step="0.1" value="5">
+                  <small>Seconds allowed for each request.</small>
+                </label>
+                <label>Concurrency
+                  <input id="vhost-concurrency" name="vhost_concurrency" type="number" min="1" max="100" value="5">
+                  <small>Maximum simultaneous candidate requests.</small>
+                </label>
+                <label class="inline-choice"><input id="vhost-insecure" name="vhost_insecure" type="checkbox"><span>Disable HTTPS certificate verification and record that choice</span></label>
+              </div>
+            </details>
+          </details>
         </fieldset>
 
         <p id="activity-summary" class="activity-summary">P0 selected · P1 off · P2 off</p>

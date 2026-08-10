@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import sqlite3
 
 import pytest
 from fastapi.testclient import TestClient
@@ -35,6 +36,64 @@ def _jsonl_result(
     )
 
 
+def _vhost_observation(endpoint: str, hostname: str = 'admin.example.test') -> dict[str, object]:
+    return {
+        'endpoint': endpoint,
+        'http_host': hostname,
+        'tls_server_name': hostname,
+        'classification': 'distinct',
+        'phase': 'body',
+        'status': 401,
+        'location': None,
+        'body_sha256': 'a' * 64,
+        'body_size': 12,
+        'body_truncated': False,
+        'context_phase': 'body',
+        'context_status': 200,
+        'context_location': None,
+        'context_body_sha256': 'a' * 64,
+        'context_body_size': 12,
+        'context_body_truncated': False,
+        'control_phase': 'body',
+        'control_status': 200,
+        'control_location': None,
+        'control_body_sha256': 'a' * 64,
+        'control_body_size': 12,
+        'control_body_truncated': False,
+        'confirmation_body_sha256': None,
+        'tls_verified': True,
+        'distinct_signals': ['status'],
+        'reflection_normalized': False,
+    }
+
+
+def _vhost_jsonl_result(*, target: str = 'example.test', value: str = 'admin.example.test') -> str:
+    return _jsonl_result(
+        target=target,
+        finding_type='hostname',
+        value=value,
+        finding_fields={
+            'actions': ['vhost'],
+            'observations': [
+                _vhost_observation('https://192.0.2.8:443/', value),
+                _vhost_observation('https://192.0.2.9:443/', value),
+            ],
+        },
+        summary_fields={
+            'action_executions': [
+                {
+                    'action': 'vhost',
+                    'status': 'completed',
+                    'duration_ms': 1,
+                    'result_count': 1,
+                    'error_type': None,
+                    'stop_reason': None,
+                }
+            ]
+        },
+    )
+
+
 @pytest.mark.parametrize(
     ('finding_type', 'finding_fields'),
     [
@@ -44,6 +103,7 @@ def _jsonl_result(
         ('ip-address', {}),
         ('linkedin-link', {}),
         ('subdomain', {}),
+        ('vhost', {}),
         ('hostname', {'dns_status': 'made-up-status'}),
     ],
 )
@@ -218,6 +278,7 @@ def test_source_catalog_exposes_shared_action_activities(tmp_path, monkeypatch) 
         {'name': 'screenshot', 'activity': 'P2'},
         {'name': 'shodan', 'activity': 'P0'},
         {'name': 'takeover', 'activity': 'P2'},
+        {'name': 'vhost', 'activity': 'P2'},
     ]
 
 
@@ -253,7 +314,9 @@ def test_openapi_explains_scope_and_execution_controls(tmp_path, monkeypatch) ->
         'value',
         'sources',
         'actions',
+        'observations',
     }
+    assert 'VirtualHostResult' not in schema['components']['schemas']
     assert export_content['application/x-ndjson']['schema']['description'] == (
         'UTF-8 JSONL with one summary followed by normalized findings.'
     )
@@ -714,6 +777,215 @@ def test_api_jsonl_round_trip_uses_canonical_hostname_and_ip_kinds(tmp_path, mon
         assert imported.json()['results'] == [{'type': finding_type, 'value': value, 'sources': [], 'actions': []}]
         assert json.loads(exported.text.splitlines()[1]) == {'sources': [], 'type': finding_type, 'value': value}
         assert reimported.json()['results'] == [{'type': finding_type, 'value': value, 'sources': [], 'actions': []}]
+
+
+def test_api_jsonl_round_trip_preserves_grouped_virtual_host_observations(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+    headers = {'X-API-Key': 'test-key'}
+
+    with TestClient(api.app, client=('127.0.0.18', 50000)) as client:
+        imported = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'vhost.jsonl'},
+            headers=headers,
+            content=_vhost_jsonl_result(),
+        )
+        exported = client.get(f'/api/v1/runs/{imported.json()["run_id"]}/export', headers=headers)
+        reimported = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'vhost-round-trip.jsonl'},
+            headers=headers,
+            content=exported.content,
+        )
+
+    expected = {
+        'type': 'hostname',
+        'value': 'admin.example.test',
+        'sources': [],
+        'actions': ['vhost'],
+        'observations': [
+            _vhost_observation('https://192.0.2.8:443/'),
+            _vhost_observation('https://192.0.2.9:443/'),
+        ],
+    }
+    assert imported.status_code == 201
+    assert imported.json()['results'] == [expected]
+    assert imported.json()['result_count'] == 1
+    assert json.loads(exported.text.splitlines()[1]) == expected
+    assert reimported.status_code == 201
+    assert reimported.json()['results'] == [expected]
+
+
+@pytest.mark.parametrize(
+    ('target', 'hostname'),
+    [
+        ('example.test', 'example.test'),
+        ('example.test', 'admin.other.test'),
+        ('192.0.2.8', 'admin.192.0.2.8'),
+    ],
+)
+def test_api_rejects_virtual_host_evidence_outside_the_run_scope(
+    tmp_path,
+    monkeypatch,
+    target: str,
+    hostname: str,
+) -> None:
+    from theHarvester.lib.api import api
+
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+
+    with TestClient(api.app) as client:
+        response = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'out-of-scope-vhost.jsonl'},
+            headers={'X-API-Key': 'test-key'},
+            content=_vhost_jsonl_result(target=target, value=hostname),
+        )
+
+    assert response.status_code == 400
+
+
+def test_api_rejects_partial_virtual_host_observation(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    records = [json.loads(line) for line in _vhost_jsonl_result().splitlines()]
+    records[1]['observations'][0].pop('control_body_sha256')
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+
+    with TestClient(api.app) as client:
+        response = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'partial-vhost.jsonl'},
+            headers={'X-API-Key': 'test-key'},
+            content=''.join(json.dumps(record) + '\n' for record in records),
+        )
+
+    assert response.status_code == 400
+
+
+@pytest.mark.parametrize(
+    'mutation',
+    ['impossible-phase', 'serialized-error', 'missing-confirmation', 'mismatched-confirmation'],
+)
+def test_api_rejects_unproven_virtual_host_observation(tmp_path, monkeypatch, mutation: str) -> None:
+    from theHarvester.lib.api import api
+
+    records = [json.loads(line) for line in _vhost_jsonl_result().splitlines()]
+    observation = records[1]['observations'][0]
+    if mutation == 'impossible-phase':
+        observation['phase'] = 'connect'
+    elif mutation == 'serialized-error':
+        observation['error_type'] = None
+    else:
+        observation.update(
+            status=200,
+            context_body_sha256='b' * 64,
+            control_body_sha256='b' * 64,
+            distinct_signals=['body_sha256'],
+        )
+        if mutation == 'missing-confirmation':
+            observation.pop('confirmation_body_sha256')
+        else:
+            observation['confirmation_body_sha256'] = 'b' * 64
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+
+    with TestClient(api.app) as client:
+        response = client.post(
+            '/api/v1/runs/import',
+            params={'filename': f'{mutation}.jsonl'},
+            headers={'X-API-Key': 'test-key'},
+            content=''.join(json.dumps(record) + '\n' for record in records),
+        )
+
+    assert response.status_code == 400
+
+
+def test_api_database_upload_preserves_grouped_virtual_host_observations(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+    from theHarvester.lib.api.run_evidence import parse_jsonl_import
+    from theHarvester.lib.api.run_store import RunStore
+    from theHarvester.lib.database import dispose_sqlite_databases
+
+    source_database = tmp_path / 'source.sqlite'
+
+    async def build_source_database() -> None:
+        await RunStore(source_database).import_evidence(
+            parse_jsonl_import(_vhost_jsonl_result().encode()),
+            'vhost.jsonl',
+        )
+        await dispose_sqlite_databases()
+
+    asyncio.run(build_source_database())
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'destination.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+    headers = {'X-API-Key': 'test-key'}
+
+    with TestClient(api.app) as client:
+        uploaded = client.post(
+            '/api/v1/runs/import-database',
+            params={'filename': 'source.sqlite'},
+            headers=headers,
+            content=source_database.read_bytes(),
+        )
+        run_id = uploaded.json()['imported_run_ids'][0]
+        detail = client.get(f'/api/v1/runs/{run_id}', headers=headers)
+        exported = client.get(f'/api/v1/runs/{run_id}/export', headers=headers)
+
+    assert uploaded.status_code == 201
+    assert detail.status_code == 200
+    assert detail.json()['results'][0]['observations'] == [
+        _vhost_observation('https://192.0.2.8:443/'),
+        _vhost_observation('https://192.0.2.9:443/'),
+    ]
+    assert json.loads(exported.text.splitlines()[1]) == detail.json()['results'][0]
+
+
+def test_api_database_upload_rejects_vhost_evidence_outside_its_stored_target(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+    from theHarvester.lib.api.run_evidence import parse_jsonl_import
+    from theHarvester.lib.api.run_store import RunStore
+    from theHarvester.lib.database import dispose_sqlite_databases
+
+    source_database = tmp_path / 'source.sqlite'
+
+    async def build_source_database() -> None:
+        await RunStore(source_database).import_evidence(
+            parse_jsonl_import(_vhost_jsonl_result().encode()),
+            'vhost.jsonl',
+        )
+        await dispose_sqlite_databases()
+
+    asyncio.run(build_source_database())
+    with sqlite3.connect(source_database) as database:
+        database.execute("UPDATE runs SET target = 'other.test'")
+        database.commit()
+        database.execute('PRAGMA wal_checkpoint(TRUNCATE)')
+
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'destination.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+
+    with TestClient(api.app) as client:
+        response = client.post(
+            '/api/v1/runs/import-database',
+            params={'filename': 'out-of-scope.sqlite'},
+            headers={'X-API-Key': 'test-key'},
+            content=source_database.read_bytes(),
+        )
+
+    assert response.status_code == 400
+    assert 'run target scope' in response.json()['detail']
 
 
 def test_api_jsonl_round_trip_preserves_execution_outcomes_and_action_origins(tmp_path, monkeypatch) -> None:

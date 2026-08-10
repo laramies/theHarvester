@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added bounded virtual host discovery over harvested or operator-supplied literal-IP endpoints, with aligned HTTP `Host` and TLS SNI, synthetic unknown-host controls, hard request and runtime limits, and structured observations on canonical hostname results in JSONL, SQLite, the API, and HarvestView.
 - Added HarvestView, an authenticated local browser workspace backed by a durable single-worker `/api/v1` run lifecycle with cancellation, deadlines, JSONL-only file interchange, retained partial evidence, and real-browser regression coverage.
 - Added a pinned, non-root Docker Compose deployment for HarvestView and the REST API with localhost-only publishing, file-secret authentication, private durable run storage, and an authenticated API health check.
 - Added bounded recursive DNS discovery with three-vantage consensus, closest-encloser wildcard controls, exact-address PTR evidence, and hard query, depth, runtime, and zero-yield limits.
@@ -23,11 +24,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Recorded takeover, Shodan, and API endpoint scan outcomes through the unified action model.
 - Added normalized BuiltWith framework, language, server, CMS, and analytics findings to JSONL and completed-result SQLite output.
 - Added DNSDB passive DNS discovery with API key configuration, shared transport handling, result parsing, and offline tests ([9b41b78e](https://github.com/laramies/theHarvester/commit/9b41b78e), [aba9fec6](https://github.com/laramies/theHarvester/commit/aba9fec6)).
-- Added `--verbose` diagnostic logging while keeping normal operator output available at the default log level ([8a7b8b71](https://github.com/laramies/theHarvester/commit/8a7b8b71)).
+- Added `-v` and `--verbose` diagnostic logging while keeping normal operator output available at the default log level ([8a7b8b71](https://github.com/laramies/theHarvester/commit/8a7b8b71)).
 - Added an opt-in passive-provider smoke workflow and a network guard that keeps routine tests offline by default ([72e5820f](https://github.com/laramies/theHarvester/commit/72e5820f)).
 - Added root contributor and security policies, structured issue forms, repository agent guidance, discovery terminology, and an operator-focused documentation wiki ([d090a29a](https://github.com/laramies/theHarvester/commit/d090a29a), [7c491ef5](https://github.com/laramies/theHarvester/commit/7c491ef5), [8b9d420b](https://github.com/laramies/theHarvester/commit/8b9d420b)).
 
 ### Changed
+- Removed the transport-wide delay before reading ready HTTP responses, bounded Wayback Archive and Common Crawl collection to 30 seconds, kept Wayback within the requested result limit, and made long-source progress visible in verbose mode.
+- Reported Baidu no-response and verification outcomes plus Common Crawl query failures as source evidence without aborting sibling sources.
 - Made `harvestview` the sole launcher for the local web application and REST API.
 - Standardized SQLite, JSONL, API, and HarvestView result names on `hostname` and `ip` without a presentation alias.
 - Standardized URL-producing adapters, JSON, JSONL, SQLite, and API evidence on one `url` result kind while preserving producer provenance.

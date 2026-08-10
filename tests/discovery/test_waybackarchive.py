@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from urllib.parse import parse_qs, urlparse
 
@@ -121,15 +122,17 @@ async def test_process_keeps_partial_results_when_a_later_page_times_out(
 
     assert await search.get_hostnames() == {'api.example.com', 'example.com'}
     assert 'Wayback Archive API error for pattern *.example.com' in caplog.text
+    assert search.execution_status == 'partial'
+    assert search.stop_reason == 'request-error'
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ('payload', 'expected_log'),
+    ('payload', 'expected_log', 'expected_status', 'expected_stop_reason'),
     [
-        ('', 'returned no page data'),
-        ('<html>provider error</html>', 'returned invalid page data'),
-        ({'unexpected': 'shape'}, 'returned invalid page data'),
+        ('', 'returned no page data', None, None),
+        ('<html>provider error</html>', 'returned invalid page data', 'failed', 'invalid-response'),
+        ({'unexpected': 'shape'}, 'returned invalid page data', 'failed', 'invalid-response'),
     ],
 )
 async def test_process_ignores_empty_html_and_non_text_responses(
@@ -137,6 +140,8 @@ async def test_process_ignores_empty_html_and_non_text_responses(
     caplog: pytest.LogCaptureFixture,
     payload: object,
     expected_log: str,
+    expected_status: str | None,
+    expected_stop_reason: str | None,
 ) -> None:
     async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[object]:
         return [payload]
@@ -149,6 +154,8 @@ async def test_process_ignores_empty_html_and_non_text_responses(
 
     assert await search.get_hostnames() == set()
     assert expected_log in caplog.text
+    assert search.execution_status == expected_status
+    assert search.stop_reason == expected_stop_reason
 
 
 @pytest.mark.asyncio
@@ -176,3 +183,70 @@ async def test_process_respects_the_per_query_page_bound(
     assert wildcard_requests == 2
     assert await search.get_hostnames() == {'host-1.example.com', 'host-2.example.com'}
     assert 'Wayback Archive page limit reached for pattern *.example.com; results may be incomplete' in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_process_retains_partial_results_at_the_runtime_limit(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    requests = 0
+
+    async def fake_fetch_all(_urls: list[str], **_kwargs: object) -> list[str]:
+        nonlocal requests
+        requests += 1
+        if requests == 1:
+            return ['https://api.example.com/path\n\nnext-page']
+        await asyncio.Event().wait()
+        raise AssertionError('unreachable')
+
+    monkeypatch.setattr(waybackarchive.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    monkeypatch.setattr(waybackarchive.SearchWaybackarchive, 'RUNTIME_SECONDS', 0.01)
+    search = waybackarchive.SearchWaybackarchive('example.com')
+
+    with caplog.at_level(logging.INFO, logger=waybackarchive.__name__):
+        await search.process()
+
+    assert await search.get_hostnames() == {'api.example.com'}
+    assert search.execution_status == 'partial'
+    assert search.stop_reason == 'runtime-limit'
+    assert 'Wayback Archive page 1: hosts=1' in caplog.text
+    assert 'example.com' not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_process_stops_at_the_requested_result_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    requested_urls: list[str] = []
+
+    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[str]:
+        requested_urls.extend(urls)
+        return ['https://one.example.com/path\nhttps://two.example.com/path\nhttps://three.example.com/path\n\nnext-page']
+
+    monkeypatch.setattr(waybackarchive.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    search = waybackarchive.SearchWaybackarchive('example.com', limit=2)
+
+    await search.process()
+
+    assert await search.get_hostnames() == {'one.example.com', 'two.example.com'}
+    assert search.stop_reason == 'result-limit'
+    assert len(requested_urls) == 1
+
+
+@pytest.mark.asyncio
+async def test_process_keeps_an_earlier_failure_when_a_later_pattern_reaches_the_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[str]:
+        query = parse_qs(urlparse(urls[0]).query)
+        if query['url'] == ['*.example.com']:
+            return ['<html>provider error</html>']
+        return ['https://example.com/path']
+
+    monkeypatch.setattr(waybackarchive.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    search = waybackarchive.SearchWaybackarchive('example.com', limit=1)
+
+    await search.process()
+
+    assert await search.get_hostnames() == {'example.com'}
+    assert search.execution_status == 'partial'
+    assert search.stop_reason == 'invalid-response'

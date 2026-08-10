@@ -4,6 +4,12 @@ from dataclasses import dataclass
 from typing import Any, Self
 
 from theHarvester.lib.recursive_dns import DEFAULT_RECURSIVE_DNS_QUERY_LIMIT
+from theHarvester.lib.virtual_host import (
+    DEFAULT_VHOST_CONCURRENCY,
+    DEFAULT_VHOST_REQUEST_LIMIT,
+    DEFAULT_VHOST_RUNTIME_SECONDS,
+    DEFAULT_VHOST_TIMEOUT_SECONDS,
+)
 
 DEFAULT_RESULT_LIMIT = 500
 DEFAULT_RESULT_START = 0
@@ -35,6 +41,14 @@ class EnumerationOptions:
     filename: str = ''
     wordlist: str = ''
     api_scan: bool = False
+    vhost: bool = False
+    vhost_endpoint: str = ''
+    vhost_candidates: tuple[str, ...] = ()
+    vhost_request_limit: int = DEFAULT_VHOST_REQUEST_LIMIT
+    vhost_runtime_seconds: float = DEFAULT_VHOST_RUNTIME_SECONDS
+    vhost_timeout_seconds: float = DEFAULT_VHOST_TIMEOUT_SECONDS
+    vhost_concurrency: int = DEFAULT_VHOST_CONCURRENCY
+    vhost_insecure: bool = False
     quiet: bool = False
     verbose: bool = False
 
@@ -69,6 +83,14 @@ class EnumerationOptions:
             filename=getattr(value, 'filename', ''),
             wordlist=getattr(value, 'wordlist', ''),
             api_scan=getattr(value, 'api_scan', False),
+            vhost=getattr(value, 'vhost', False),
+            vhost_endpoint=getattr(value, 'vhost_endpoint', ''),
+            vhost_candidates=tuple(getattr(value, 'vhost_candidates', ())),
+            vhost_request_limit=getattr(value, 'vhost_request_limit', DEFAULT_VHOST_REQUEST_LIMIT),
+            vhost_runtime_seconds=getattr(value, 'vhost_runtime_seconds', DEFAULT_VHOST_RUNTIME_SECONDS),
+            vhost_timeout_seconds=getattr(value, 'vhost_timeout_seconds', DEFAULT_VHOST_TIMEOUT_SECONDS),
+            vhost_concurrency=getattr(value, 'vhost_concurrency', DEFAULT_VHOST_CONCURRENCY),
+            vhost_insecure=getattr(value, 'vhost_insecure', False),
             quiet=getattr(value, 'quiet', False),
             verbose=getattr(value, 'verbose', False),
         )

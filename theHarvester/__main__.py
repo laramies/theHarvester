@@ -120,6 +120,19 @@ from theHarvester.lib.source_catalog import (
     SourceSpec,
     get_source_spec,
 )
+from theHarvester.lib.virtual_host import (
+    DEFAULT_VHOST_CONCURRENCY,
+    DEFAULT_VHOST_REQUEST_LIMIT,
+    DEFAULT_VHOST_RUNTIME_SECONDS,
+    DEFAULT_VHOST_TIMEOUT_SECONDS,
+    VirtualHostDiscoveryCancelled,
+    VirtualHostLimits,
+    VirtualHostObservation,
+    discover_harvested_virtual_hosts,
+    normalize_virtual_host_candidates,
+    normalize_virtual_host_endpoint,
+    normalize_virtual_host_hostname,
+)
 from theHarvester.screenshot.screenshot import ScreenShotter
 
 logger = logging.getLogger(__name__)
@@ -304,6 +317,63 @@ async def start(
         help='Check common API paths with GET, HEAD, and OPTIONS. Requests follow redirects.',
         action='store_true',
     )
+    vhost_group = parser.add_argument_group(
+        'virtual host discovery',
+        'P2 direct interaction (active reconnaissance): sends direct HTTP and TLS requests. '
+        'For normal use, pass only --vhost; bounded safety defaults apply automatically. '
+        'Supplying --vhost-endpoint or --vhost-candidate also enables discovery.',
+    )
+    vhost_group.add_argument(
+        '--vhost',
+        help='Test harvested in-scope hostnames against harvested literal IPs, using HTTPS before HTTP.',
+        action='store_true',
+    )
+    vhost_group.add_argument(
+        '--vhost-endpoint',
+        help='Replace harvested IPs with one authorized HTTP or HTTPS endpoint using a literal IP.',
+        default='',
+    )
+    vhost_group.add_argument(
+        '--vhost-candidate',
+        dest='vhost_candidates',
+        help='Repeat to add an authorized in-scope hostname. Candidate names are never resolved through DNS.',
+        action='append',
+        default=[],
+        metavar='HOSTNAME',
+    )
+    vhost_advanced_group = parser.add_argument_group(
+        'virtual host advanced controls',
+        'Optional safety overrides. Bounded defaults apply when these options are omitted.',
+    )
+    vhost_advanced_group.add_argument(
+        '--vhost-request-limit',
+        help='Hard request cap shared by baseline, controls, candidates, and confirmations (default: %(default)s).',
+        default=DEFAULT_VHOST_REQUEST_LIMIT,
+        type=int,
+    )
+    vhost_advanced_group.add_argument(
+        '--vhost-runtime-seconds',
+        help='Hard wall-clock cap for virtual-host discovery (default: %(default)s seconds).',
+        default=DEFAULT_VHOST_RUNTIME_SECONDS,
+        type=float,
+    )
+    vhost_advanced_group.add_argument(
+        '--vhost-timeout-seconds',
+        help='Timeout for each virtual-host request (default: %(default)s seconds).',
+        default=DEFAULT_VHOST_TIMEOUT_SECONDS,
+        type=float,
+    )
+    vhost_advanced_group.add_argument(
+        '--vhost-concurrency',
+        help='Maximum concurrent candidate requests (default: %(default)s).',
+        default=DEFAULT_VHOST_CONCURRENCY,
+        type=int,
+    )
+    vhost_advanced_group.add_argument(
+        '--vhost-insecure',
+        help='Do not verify TLS certificates for HTTPS probes; evidence records tls_verified=false.',
+        action='store_true',
+    )
     parser.add_argument(
         '-q',
         '--quiet',
@@ -311,7 +381,7 @@ async def start(
         default=False,
         action='store_true',
     )
-    parser.add_argument('--verbose', help='Show informational diagnostic messages.', action='store_true')
+    parser.add_argument('-v', '--verbose', help='Show informational diagnostic messages.', action='store_true')
     parser.add_argument(
         '-b',
         '--source',
@@ -346,6 +416,23 @@ async def start(
         configure_logging(verbose=args.verbose)
         if args.verbose:
             logger.info('Verbose logging enabled')
+    vhost_enabled = args.vhost or bool(args.vhost_endpoint) or bool(args.vhost_candidates)
+    vhost_scope = ''
+    vhost_endpoint = ''
+    vhost_candidates: tuple[str, ...] = ()
+    vhost_limits: VirtualHostLimits | None = None
+    if vhost_enabled:
+        vhost_scope = normalize_virtual_host_hostname(args.domain)
+        if args.proxies:
+            raise ValueError('virtual-host discovery supports direct transport only; do not use --proxies')
+        vhost_endpoint = normalize_virtual_host_endpoint(args.vhost_endpoint) if args.vhost_endpoint else ''
+        vhost_candidates = normalize_virtual_host_candidates(vhost_scope, args.vhost_candidates)
+        vhost_limits = VirtualHostLimits(
+            request_limit=args.vhost_request_limit,
+            runtime_seconds=args.vhost_runtime_seconds,
+            timeout_seconds=args.vhost_timeout_seconds,
+            concurrency=args.vhost_concurrency,
+        )
     Core.quiet = getattr(args, 'quiet', False)
     try:
         db = ResultStore() if result_database is None else ResultStore(result_database)
@@ -420,7 +507,7 @@ async def start(
     shodan = args.shodan
     start: int = args.start
     all_urls: list = []
-    vhost: list = []
+    vhost_observations: list[VirtualHostObservation] = []
     word: str = args.domain.rstrip('\n')
     takeover_status = args.take_over
     use_proxy = args.proxies
@@ -453,10 +540,12 @@ async def start(
     dns_resolution_failure_types: set[str] = set()
     dns_resolution_cancelled = False
 
+    def confirmed_virtual_hostnames() -> list[str]:
+        return sorted({observation.hostname for observation in vhost_observations})
+
     def finish_completed_result(
         *,
         extra_hostnames: Iterable[str] = (),
-        virtual_hosts: Iterable[str] = (),
         committed_sources_only: bool = False,
     ) -> CompletedResult | None:
         groups: dict[ResultKind, Iterable[str]] = {
@@ -466,7 +555,9 @@ async def start(
             'cms': map(str, all_cms),
             'email': map(str, all_emails),
             'framework': map(str, all_frameworks),
-            'hostname': _normalize_hosts_for_storage(all_hosts, word) | screenshot_hostnames,
+            'hostname': (
+                _normalize_hosts_for_storage(all_hosts, word) | screenshot_hostnames | set(confirmed_virtual_hostnames())
+            ),
             'infostealer': (
                 json.dumps(stealer, ensure_ascii=False, separators=(',', ':'), sort_keys=True) for stealer in all_infostealers
             ),
@@ -477,7 +568,6 @@ async def start(
             'server': map(str, all_servers),
             'twitter-person': map(str, twitter_people_list_tracker),
             'url': map(str, all_urls),
-            'vhost': map(str, virtual_hosts),
         }
         if committed_sources_only:
             committed_groups: dict[ResultKind, list[str]] = {}
@@ -485,7 +575,11 @@ async def start(
                 committed_groups.setdefault(observation.kind, []).append(observation.value)
             groups = {kind: iter(values) for kind, values in committed_groups.items()}
         elif extra_hostnames:
-            groups['hostname'] = _normalize_hosts_for_storage((*all_hosts, *extra_hostnames), word) | screenshot_hostnames
+            groups['hostname'] = (
+                _normalize_hosts_for_storage((*all_hosts, *extra_hostnames), word)
+                | screenshot_hostnames
+                | set(confirmed_virtual_hostnames())
+            )
         try:
             return CompletedResult.finish(
                 run_id=run_id,
@@ -496,6 +590,7 @@ async def start(
                 source_executions=source_executions,
                 observations=observations,
                 active_evidence=ActiveEvidence(tuple(action_executions)),
+                virtual_hosts=vhost_observations,
             )
         except (ValueError, TypeError) as error:
             output_logger.info(f'[!] An error occurred while completing the result: {error}')
@@ -504,7 +599,6 @@ async def start(
     async def checkpoint_completed_result(
         *,
         extra_hostnames: Iterable[str] = (),
-        virtual_hosts: Iterable[str] = (),
         committed_sources_only: bool = False,
     ) -> None:
         if (
@@ -512,7 +606,6 @@ async def start(
             and (
                 result := finish_completed_result(
                     extra_hostnames=extra_hostnames,
-                    virtual_hosts=virtual_hosts,
                     committed_sources_only=committed_sources_only,
                 )
             )
@@ -531,9 +624,8 @@ async def start(
     async def checkpoint_action_result(
         *,
         extra_hostnames: Iterable[str] = (),
-        virtual_hosts: Iterable[str] = (),
     ) -> None:
-        result = finish_completed_result(extra_hostnames=extra_hostnames, virtual_hosts=virtual_hosts)
+        result = finish_completed_result(extra_hostnames=extra_hostnames)
         if result is None:
             return
         try:
@@ -608,17 +700,16 @@ async def start(
         nonlocal dns_resolution_cancelled, dns_resolution_completed_count
         nonlocal dns_resolution_duration_ms, dns_resolution_query_error_count
 
-        await search_engine.process(use_proxy)
         source = source_spec.name
         routes = source_spec.routes
+        if source:
+            output_logger.info(f'[*] Searching {source[0].upper() + source[1:]}. ')
+        await search_engine.process(use_proxy)
 
         def record_source_observations(source_name: str, kind: ResultKind, values: Iterable[object]) -> None:
             source_observations.update(
                 ResultObservation(source_name, kind, value) for item in values if (value := str(item).strip())
             )
-
-        if source:
-            output_logger.info(f'[*] Searching {source[0].upper() + source[1:]}. ')
 
         if ResultRoute.SUBDOMAINS in routes:
             discovered_hosts = await search_engine.get_hostnames()
@@ -754,13 +845,14 @@ async def start(
             observations.update(source_observations)
             raise
         except Exception as error:
-            logger.exception(f'Source {source_name} failed')
             result_count = len(source_observations)
+            duration_ms = (time.perf_counter() - started) * 1000
+            logger.exception(f'Source {source_name} failed after {duration_ms / 1000:.2f}s with {result_count} result(s)')
             source_executions.append(
                 SourceExecution(
                     source_name,
                     'partial' if result_count else 'failed',
-                    (time.perf_counter() - started) * 1000,
+                    duration_ms,
                     result_count,
                     type(error).__name__,
                 )
@@ -769,19 +861,24 @@ async def start(
             await checkpoint_completed_result(committed_sources_only=True)
             raise
         result_count = len(source_observations)
+        duration_ms = (time.perf_counter() - started) * 1000
         stop_reason = getattr(search_engine, 'stop_reason', None)
         source_executions.append(
             SourceExecution(
                 source_name,
                 execution_status,
-                (time.perf_counter() - started) * 1000,
+                duration_ms,
                 result_count,
                 stop_reason=stop_reason if isinstance(stop_reason, str) else None,
             )
         )
         observations.update(source_observations)
         await checkpoint_completed_result(committed_sources_only=True)
-        logger.info(f'Source {source_name} completed')
+        stop_summary = f'; stop={stop_reason}' if isinstance(stop_reason, str) else ''
+        logger.info(
+            f'Source {source_name} finished in {duration_ms / 1000:.2f}s: '
+            f'status={execution_status}; results={result_count}{stop_summary}'
+        )
 
     stor_lst = []
     if args.source is not None:
@@ -791,7 +888,7 @@ async def start(
         activities.add(ActivityClass.PASSIVE)
     if dnslookup or dnsbrute[0] or dnsresolve != '' or recursive_limits is not None:
         activities.add(ActivityClass.DNS)
-    if takeover_status or args.screenshot or args.api_scan:
+    if takeover_status or args.screenshot or args.api_scan or vhost_enabled:
         activities.add(ActivityClass.DIRECT)
     if activities:
         activity_labels = {
@@ -1539,7 +1636,7 @@ async def start(
 
                 elif engineitem == 'waybackarchive':
                     try:
-                        waybackarchive_search = waybackarchive.SearchWaybackarchive(word)
+                        waybackarchive_search = waybackarchive.SearchWaybackarchive(word, limit)
                         stor_lst.append(
                             store(
                                 waybackarchive_search,
@@ -1825,6 +1922,7 @@ async def start(
         and rest_args.dns_brute is False
         and not dnslookup
         and not return_completed_result
+        and not vhost_enabled
     ):
         # Indicates user is using REST api but not wanting output to be saved to a file
         # cast to string so Rest API can understand the type
@@ -2177,6 +2275,131 @@ async def start(
         )
         await checkpoint_completed_result(extra_hostnames=dnsrev)
 
+    if vhost_enabled:
+        vhost_started = time.perf_counter()
+        assert vhost_limits is not None
+        output_logger.info('[*] Virtual-host discovery is P2 direct interaction (active reconnaissance).')
+        harvested_action_hosts = {
+            observation.value
+            for execution in action_executions
+            for observation in execution.observations
+            if observation.kind == 'hostname'
+        }
+        harvested_action_ips = {
+            observation.value
+            for execution in action_executions
+            for observation in execution.observations
+            if observation.kind == 'ip'
+        }
+        harvested_candidates = {
+            normalized
+            for candidate in (*all_hosts, *dnsrev, *harvested_action_hosts)
+            if (normalized := normalize_scoped_hostname(candidate, vhost_scope)) and normalized != vhost_scope
+        }
+        candidates = tuple(sorted(harvested_candidates | set(vhost_candidates)))
+        addresses = tuple(
+            sorted(
+                _normalize_ip_addresses((*all_ip, *harvested_action_ips)),
+                key=lambda value: (ip_address(value).version, int(ip_address(value))),
+            )
+        )
+        logger.info(
+            'Virtual-host discovery prepared: endpoints=%d; candidates=%d; request-limit=%d; '
+            'runtime=%.2fs; timeout=%.2fs; concurrency=%d',
+            1 if vhost_endpoint else len(addresses) * 2,
+            len(candidates),
+            vhost_limits.request_limit,
+            vhost_limits.runtime_seconds,
+            vhost_limits.timeout_seconds,
+            vhost_limits.concurrency,
+        )
+        try:
+            sweep = await discover_harvested_virtual_hosts(
+                scope=vhost_scope,
+                addresses=addresses,
+                candidates=candidates,
+                limits=vhost_limits,
+                insecure=args.vhost_insecure,
+                endpoint_override=vhost_endpoint,
+            )
+        except asyncio.CancelledError as error:
+            if isinstance(error, VirtualHostDiscoveryCancelled):
+                vhost_observations.extend(
+                    observation for observation in error.result.observations if observation.classification == 'distinct'
+                )
+            confirmed_vhosts = confirmed_virtual_hostnames()
+            action_executions.append(
+                ActionExecution.finish(
+                    action='vhost',
+                    status='partial' if confirmed_vhosts else 'failed',
+                    duration_ms=(time.perf_counter() - vhost_started) * 1000,
+                    groups={'hostname': confirmed_vhosts},
+                    error_type='CancelledError',
+                    stop_reason='cancelled',
+                )
+            )
+            await persist_result(finish_completed_result(extra_hostnames=dnsrev))
+            raise
+        except Exception as error:
+            confirmed_vhosts = confirmed_virtual_hostnames()
+            action_executions.append(
+                ActionExecution.finish(
+                    action='vhost',
+                    status='partial' if confirmed_vhosts else 'failed',
+                    duration_ms=(time.perf_counter() - vhost_started) * 1000,
+                    groups={'hostname': confirmed_vhosts},
+                    error_type=type(error).__name__,
+                    stop_reason='scan-error',
+                )
+            )
+            output_logger.info(f'[!] Virtual-host discovery failed: {type(error).__name__}')
+        else:
+            vhost_observations.extend(
+                observation for observation in sweep.observations if observation.classification == 'distinct'
+            )
+            confirmed_vhosts = confirmed_virtual_hostnames()
+            if sweep.stop_reason in {'no-candidates', 'no-endpoints'}:
+                vhost_status: ExecutionStatus = 'skipped'
+            elif sweep.stop_reason in {'request-limit', 'runtime-limit'}:
+                vhost_status = 'partial'
+            elif sweep.scan_error_type or sweep.request_error_count or sweep.stop_reason in {'request-errors', 'scan-error'}:
+                vhost_status = 'partial' if confirmed_vhosts else 'failed'
+            else:
+                vhost_status = 'completed'
+            vhost_error_type = sweep.scan_error_type or next(iter(sweep.request_error_types), None)
+            action_executions.append(
+                ActionExecution.finish(
+                    action='vhost',
+                    status=vhost_status,
+                    duration_ms=(time.perf_counter() - vhost_started) * 1000,
+                    groups={'hostname': confirmed_vhosts},
+                    error_type=vhost_error_type,
+                    stop_reason=sweep.stop_reason,
+                )
+            )
+            output_logger.info(
+                f'[*] Virtual hosts: confirmed={len(vhost_observations)}; '
+                f'candidate-endpoints={sweep.candidate_endpoint_count}/{sweep.total_candidate_endpoint_count}; '
+                f'endpoints={sweep.endpoint_count}/{sweep.total_endpoint_count}; requests={sweep.request_count}; '
+                f'stop={sweep.stop_reason}; elapsed={time.perf_counter() - vhost_started:.2f}s'
+            )
+            stop_hint = {
+                'no-candidates': 'No candidate hostnames were available; select hostname-producing sources or add --vhost-candidate.',
+                'no-endpoints': 'No literal-IP endpoints were available; select IP-producing sources, enable a DNS action, or use --vhost-endpoint.',
+                'request-limit': 'Coverage stopped at the request limit; raise --vhost-request-limit or narrow the scan.',
+                'request-errors': 'All requested coverage finished, but one or more requests failed.',
+                'runtime-limit': 'Coverage stopped at the runtime limit; raise --vhost-runtime-seconds or narrow the scan.',
+                'scan-error': 'Coverage stopped after an endpoint scan failed.',
+            }.get(sweep.stop_reason)
+            if stop_hint:
+                output_logger.info(f'[!] {stop_hint}')
+            for observation in vhost_observations:
+                output_logger.info(
+                    f'{observation.hostname} at {observation.endpoint}: '
+                    f'status={observation.status}; signals={",".join(observation.distinct_signals)}'
+                )
+        await checkpoint_action_result(extra_hostnames=dnsrev)
+
     # Screenshots
     if len(args.screenshot) > 0:
         screenshot_started = time.perf_counter()
@@ -2459,14 +2682,8 @@ async def start(
                         )
                     elif host not in paired_hosts:
                         await file.write(f'<host>{sanitize_for_xml(host)}</host>')
-                for x in vhost:
-                    host, ip = x.split(':', 1) if ':' in x else (x, '')
-                    if ip and len(ip) > 3:
-                        await file.write(
-                            f'<vhost><ip>{sanitize_for_xml(ip)} </ip><hostname>{sanitize_for_xml(host)}</hostname></vhost>'
-                        )
-                    else:
-                        await file.write(f'<vhost>{sanitize_for_xml(host)}</vhost>')
+                for host in confirmed_virtual_hostnames():
+                    await file.write(f'<vhost>{sanitize_for_xml(host)}</vhost>')
                 # TODO add Shodan output into XML report
                 await file.write('</theHarvester>')
                 output_logger.info('[*] XML File saved.')
@@ -2624,7 +2841,7 @@ async def start(
                         stop_reason='cancelled',
                     )
                 )
-            await persist_result(finish_completed_result(extra_hostnames=dnsrev, virtual_hosts=vhost))
+            await persist_result(finish_completed_result(extra_hostnames=dnsrev))
             raise
         except Exception as error:
             endpoints_found, _interesting, api_action_groups = collect_api_action_groups(api_scanner, best_effort=True)
@@ -2647,7 +2864,7 @@ async def start(
                 output_logger.info(f'\n[!] API endpoint scanning failed with {type(error).__name__}.')
                 output_logger.info('    Continuing with the rest of the scan...')
 
-        await checkpoint_action_result(extra_hostnames=dnsrev, virtual_hosts=vhost)
+        await checkpoint_action_result(extra_hostnames=dnsrev)
 
     all_urls = sorted_unique(all_urls)
 
@@ -2675,8 +2892,8 @@ async def start(
             else:
                 json_dict['hosts'] = []
 
-            if vhost and len(vhost) > 0:
-                json_dict['vhosts'] = vhost
+            if virtual_hostnames := confirmed_virtual_hostnames():
+                json_dict['vhosts'] = virtual_hostnames
 
             if len(all_urls) > 0:
                 json_dict['urls'] = all_urls
@@ -2705,7 +2922,7 @@ async def start(
             output_logger.info(f'[!] An error occurred while saving the JSON file: {er} ')
         output_logger.info('\n\n')
 
-    completed_result = finish_completed_result(extra_hostnames=dnsrev, virtual_hosts=vhost)
+    completed_result = finish_completed_result(extra_hostnames=dnsrev)
 
     if filename and completed_result is not None:
         try:

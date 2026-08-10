@@ -19,6 +19,7 @@ The following options require additional care:
 | `-c`, `--dns-brute` | Tries candidate subdomains against DNS. |
 | `-t`, `--take-over` | Checks discovered hosts for takeover indicators. |
 | `-s`, `--shodan` | Enriches discovered hosts through Shodan. |
+| `--vhost`, `--vhost-*` | Probes literal IP endpoints with candidate SNI and HTTP `Host` values. |
 | `--screenshot DIR` | Opens discovered web services in a browser. |
 | `-a`, `--api-scan` | Requests common API paths from the target. |
 

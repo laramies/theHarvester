@@ -9,7 +9,12 @@ from uuid import UUID, uuid4
 from fastapi import HTTPException, status
 
 from theHarvester.lib.active_evidence import ActionExecution, ActiveEvidence, ArtifactReference
-from theHarvester.lib.completed_result import CompletedResult, ResultObservation, SourceExecution
+from theHarvester.lib.completed_result import (
+    CompletedResult,
+    ResultObservation,
+    SourceExecution,
+    parse_virtual_host_details,
+)
 from theHarvester.lib.database import DuplicateRunError, ResultStore, ResultStoreError, RunLifecycleStore
 from theHarvester.lib.evidence_types import EXECUTION_STATUSES, EvidenceStatus, ExecutionStatus, ResultKind
 
@@ -19,6 +24,8 @@ from .run_projection import activities_for_evidence, activities_for_request, nor
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from theHarvester.lib.virtual_host import VirtualHostObservation
 
 WORKER_LEASE_TIMEOUT_SECONDS = 30
 DATABASE_IMPORT_BATCH_SIZE = 100
@@ -43,10 +50,13 @@ def _completed_result(
     source_origins: set[ResultObservation] = set()
     source_counts: Counter[str] = Counter()
     action_groups: dict[str, dict[ResultKind, set[str]]] = defaultdict(lambda: defaultdict(set))
+    virtual_hosts: list[VirtualHostObservation] = []
     for item in results:
         kind = cast('ResultKind', str(item['type']))
         value = str(item['value'])
         groups[kind].add(value)
+        if kind == 'hostname' and item.get('observations'):
+            virtual_hosts.extend(parse_virtual_host_details(value, item.get('observations')))
         for source in set(item.get('sources', [])):
             source_name = str(source)
             source_origins.add(ResultObservation(source_name, kind, value))
@@ -131,6 +141,7 @@ def _completed_result(
         source_executions=completed_sources,
         observations=sorted(source_origins),
         active_evidence=active_evidence,
+        virtual_hosts=virtual_hosts,
         evidence_status=(
             cast('EvidenceStatus', str(evidence['status']))
             if evidence.get('status') is not None and not execution_status_is_authoritative

@@ -4,7 +4,7 @@ theHarvester gathers open-source intelligence about a domain or organization. It
 
 Use it during the early reconnaissance stage of an authorized security assessment. Passive providers still receive the search target.
 
-DNS brute force, DNS resolution, takeover checks, screenshots, and API-path scanning create additional network activity. Use these features only on systems you own or are explicitly authorized to test.
+DNS brute force, DNS resolution, virtual host discovery, takeover checks, screenshots, and API-path scanning create additional network activity. Use these features only on systems you own or are explicitly authorized to test.
 
 ## Start here
 

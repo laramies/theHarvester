@@ -20,6 +20,7 @@ def test_harvestview_owns_root_and_issues_an_http_only_session(tmp_path, monkeyp
 
     assert root.status_code == 200
     assert '<title>HarvestView</title>' in root.text
+    assert '<summary>Advanced safety controls</summary>' in root.text
     assert f'value="{",".join(DEFAULT_DNS_RESOLVERS)}"' in root.text
     assert 'Resolve with the configured resolver addresses.' in root.text
     assert legacy.status_code == 404
