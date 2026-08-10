@@ -121,6 +121,7 @@ def _completed_result(
             for name in action_names
         )
     )
+    execution_status_is_authoritative = bool(completed_sources or action_names)
     return CompletedResult.finish(
         run_id=run_id,
         target=str(evidence['target']),
@@ -130,7 +131,11 @@ def _completed_result(
         source_executions=completed_sources,
         observations=sorted(source_origins),
         active_evidence=active_evidence,
-        evidence_status=cast('EvidenceStatus', str(evidence['status'])) if evidence.get('status') is not None else None,
+        evidence_status=(
+            cast('EvidenceStatus', str(evidence['status']))
+            if evidence.get('status') is not None and not execution_status_is_authoritative
+            else None
+        ),
     )
 
 
