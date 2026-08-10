@@ -4,11 +4,11 @@
   const $ = selector => document.querySelector(selector);
   const $$ = selector => [...document.querySelectorAll(selector)];
   const ROUTE_ORDER = [
-    'subdomain', 'ip', 'asn', 'email', 'url', 'person', 'person-link', 'takeover', 'shodan',
+    'hostname', 'ip', 'asn', 'email', 'url', 'person', 'person-link', 'takeover', 'shodan',
     'scope-extension', 'external-relationship', 'other'
   ];
   const ROUTE_LABELS = {
-    subdomain: 'Subdomains', ip: 'IP addresses', asn: 'ASNs', email: 'Emails', url: 'URLs',
+    hostname: 'Hostnames', ip: 'IP addresses', asn: 'ASNs', email: 'Emails', url: 'URLs',
     person: 'People', 'person-link': 'People links', takeover: 'Takeover evidence', shodan: 'Shodan evidence',
     'scope-extension': 'Scope extensions', 'external-relationship': 'External relationships', other: 'Other'
   };
@@ -389,7 +389,7 @@
       {title: 'Value', field: 'value', formatter: cell => `<span class="value-cell">${escapeHtml(cell.getValue())}</span>`, minWidth: 260, widthGrow: 2, headerFilter: 'input', headerFilterFunc: columnTextFilter, headerFilterPlaceholder: 'Filter values'},
       {title: 'DNS', field: 'dns_status', formatter: dnsFormatter, width: 130, responsive: 1, headerFilter: 'input', headerFilterFunc: columnTextFilter, headerFilterPlaceholder: 'Filter DNS'},
     ];
-    if (state.route === 'subdomain') {
+    if (state.route === 'hostname') {
       columns.push({
         title: 'Actions', field: 'value', formatter: resultActionFormatter, headerSort: false,
         minWidth: 265, width: 265, responsive: 0, resizable: false,

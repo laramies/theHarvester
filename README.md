@@ -115,7 +115,7 @@ Open [Swagger](http://127.0.0.1:5000/docs) or [ReDoc](http://127.0.0.1:5000/redo
 | `POST /api/v1/runs/import-database` | Import completed runs from a theHarvester SQLite database. |
 | `GET /api/v1/runs/{run_id}/export` | Export normalized evidence as JSONL. |
 
-HarvestView can start a screenshot or DNS brute-force run directly from a subdomain result. These actions create a separate run record for that subdomain and leave the parent evidence unchanged. Resolver addresses may be entered directly or loaded from a text file with one IP address per line. Ordinary DNS actions accept one or more resolvers; recursive DNS requires exactly three.
+HarvestView can start a screenshot or DNS brute-force run directly from a hostname result. These actions create a separate run record for that hostname and leave the parent evidence unchanged. Resolver addresses may be entered directly or loaded from a text file with one IP address per line. Ordinary DNS actions accept one or more resolvers; recursive DNS requires exactly three.
 
 API clients send `THEHARVESTER_API_KEY` in the `X-API-Key` header; HarvestView uses its derived browser cookie. Provider credentials stay in server-side configuration and cannot be supplied in a request. Keep the service bound to localhost. If you require remote access, add network access controls and TLS.
 

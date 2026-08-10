@@ -65,29 +65,6 @@ def test_fresh_browser_session_authenticates_through_harvestview(
     expect(page.get_by_text('Invalid API key')).to_have_count(0)
 
 
-def test_harvestview_page_replaces_a_legacy_root_cookie(
-    harvestview_server_url: str,
-    page: Page,
-) -> None:
-    page.context.add_cookies(
-        [
-            {
-                'name': 'theharvester-api-key',
-                'value': 'stale-api-key',
-                'url': harvestview_server_url,
-            }
-        ]
-    )
-    api_statuses = record_api_statuses(page, harvestview_server_url)
-    page.goto(f'{harvestview_server_url}/')
-
-    expect(page.get_by_role('heading', name='No enumeration runs yet')).to_be_visible()
-    assert api_statuses['/api/v1/sources'] == 200
-    assert api_statuses['/api/v1/runs'] == 200
-    expect(page.get_by_text('Invalid API key')).to_have_count(0)
-    assert {cookie['path'] for cookie in page.context.cookies() if cookie['name'] == 'theharvester-api-key'} == {'/api/v1'}
-
-
 def test_browser_session_stays_authenticated_after_server_restart(
     harvestview_server,
     page: Page,
@@ -269,7 +246,7 @@ def test_harvestview_submits_a_target_only_api_scan(
     assert captured['api_scan_paths'] == ['/api/v2', '/health']
 
 
-def test_subdomain_actions_queue_isolated_runs(
+def test_hostname_actions_queue_isolated_runs(
     harvestview_server_url: str,
     page: Page,
     browser_failures,
@@ -312,7 +289,7 @@ def test_subdomain_actions_queue_isolated_runs(
                 'stop_reason': 'query-errors',
             }
         ],
-        'results': [{'type': 'subdomain', 'value': 'api.example.com'}],
+        'results': [{'type': 'hostname', 'value': 'api.example.com'}],
         'screenshots': [],
         'log': '',
         'error': None,
@@ -329,6 +306,8 @@ def test_subdomain_actions_queue_isolated_runs(
     page.route(f'{harvestview_server_url}/api/v1/runs', route_runs)
     page.route(f'{harvestview_server_url}/api/v1/runs/parent-run', lambda route: route.fulfill(json=run))
     page.goto(f'{harvestview_server_url}/')
+
+    expect(page.get_by_role('button', name='Hostnames 1')).to_be_enabled()
 
     page.locator('#provider-details summary').click()
     expect(page.locator('#provider-title')).to_have_text('Execution outcomes')
@@ -378,7 +357,7 @@ def test_accepted_result_action_is_not_reported_as_failed_when_refresh_fails(
         'request': {'sources': ['crtsh'], 'limit': 25, 'deadline_seconds': 300},
         'source_executions': [],
         'action_executions': [],
-        'results': [{'type': 'subdomain', 'value': 'api.example.com'}],
+        'results': [{'type': 'hostname', 'value': 'api.example.com'}],
         'screenshots': [],
         'log': '',
         'error': None,
@@ -612,7 +591,7 @@ def test_unchanged_poll_keeps_result_table_filters(harvestview_server_url: str, 
             'takeover': True,
         },
         'source_executions': [],
-        'results': [{'type': 'subdomain', 'value': 'api.example.com'}],
+        'results': [{'type': 'hostname', 'value': 'api.example.com'}],
         'screenshots': [],
         'log': '',
         'error': None,
@@ -825,7 +804,7 @@ def test_harvestview_imports_completed_runs_from_sqlite(
     expect(page.locator('#detail-target')).to_have_text('sqlite.example.test')
     expect(page.locator('#run-count')).to_have_text('1')
     expect(page.locator('#toast')).to_have_text('Imported 1 run from completed-runs.sqlite; 0 already present.')
-    expect(page.get_by_role('button', name='Subdomains 1')).to_be_enabled()
+    expect(page.get_by_role('button', name='Hostnames 1')).to_be_enabled()
 
 
 def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui(
@@ -864,16 +843,16 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
         ],
         'results': [
             {
-                'type': {'subdomain': 'hostname', 'ip': 'ip-address'}.get(result_type, result_type),
-                'value': f'{result_type}.example.com',
+                'type': result_type,
+                'value': '192.0.2.10' if result_type == 'ip' else f'{result_type}.example.com',
                 'sources': [ordered_sources[index]['name']] if index < 3 else [],
             }
-            for index, result_type in enumerate(('subdomain', 'ip', 'asn', 'email', 'url', 'framework', 'person', 'language'))
+            for index, result_type in enumerate(('hostname', 'ip', 'asn', 'email', 'url', 'framework', 'person', 'language'))
         ]
         + [
             {
-                'type': 'ip-address',
-                'value': 'zeta.example.com',
+                'type': 'ip',
+                'value': '198.51.100.10',
             }
         ],
     }
@@ -919,9 +898,9 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
     expect(value_filter).to_have_attribute('placeholder', 'Filter values')
     expect(dns_filter).to_have_attribute('placeholder', 'Filter DNS')
 
-    value_filter.press_sequentially('zeta')
+    value_filter.press_sequentially('198.51')
     expect(page.locator('.tabulator-row:visible')).to_have_count(1)
-    expect(page.locator('.tabulator-row:visible')).to_contain_text('zeta.example.com')
+    expect(page.locator('.tabulator-row:visible')).to_contain_text('198.51.100.10')
     value_filter.press('ControlOrMeta+a')
     value_filter.press('Backspace')
     expect(page.locator('.tabulator-row:visible')).to_have_count(2)
@@ -948,14 +927,14 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
     expect(page.locator('#copy-route-button')).to_have_text('Copy selected (1)')
     page.locator('#copy-route-button').click()
     expect(page.locator('#toast')).to_have_text('Copied 1 selected IP addresses.')
-    assert page.evaluate('navigator.clipboard.readText()') == 'ip.example.com'
+    assert page.evaluate('navigator.clipboard.readText()') == '192.0.2.10'
 
     with page.expect_download() as jsonl_download:
         page.get_by_role('button', name='All JSONL').click()
     exported_records = [json.loads(line) for line in Path(jsonl_download.value.path()).read_text(encoding='utf-8').splitlines()]
     assert exported_records[0]['type'] == 'summary'
     assert exported_records[0]['evidence_status'] == 'partial'
-    assert any(record['type'] == 'ip-address' and record['value'] == 'ip.example.com' for record in exported_records[1:])
+    assert any(record['type'] == 'ip' and record['value'] == '192.0.2.10' for record in exported_records[1:])
 
     page.get_by_role('button', name='Start enumeration').first.click()
     expect(page.locator('#new-run-dialog').get_by_text('Credentials required:', exact=False).first).to_be_visible()

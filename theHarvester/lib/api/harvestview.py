@@ -52,7 +52,6 @@ async def harvestview_app(request: Request) -> HTMLResponse:
         .replace('{{DNS_RESOLVERS}}', ','.join(DEFAULT_DNS_RESOLVERS))
     )
     if configured_api_key := _configured_api_key():
-        response.delete_cookie(API_KEY_COOKIE_NAME, path='/')
         response.set_cookie(
             API_KEY_COOKIE_NAME,
             browser_session_token(configured_api_key),
