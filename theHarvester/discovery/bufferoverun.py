@@ -23,15 +23,13 @@ class SearchBufferover:
             proxy=self.proxy,
         )
         dct = response[0]
-        if dct['Results']:
-            self.totalhosts = {
-                (
-                    host.split(',')
-                    if ',' in host and self.word.replace('www.', '') in host.split(',')[0] in host
-                    else host.split(',')[4]
-                )
-                for host in dct['Results']
-            }
+        if not dct or not dct.get('Results'):
+            return
+
+        # Each entry is formatted as '<ip>,<sha256>,<cert-org>,<CN/SNI>', so the
+        # hostname is the last field. The certificate organization may itself
+        # contain commas, hence the right-split.
+        self.totalhosts = {hostname.strip() for host in dct['Results'] if (hostname := host.rsplit(',', 1)[-1].strip())}
 
         self.totalips = {
             ip.split(',')[0] for ip in dct['Results'] if re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', ip.split(',')[0])
