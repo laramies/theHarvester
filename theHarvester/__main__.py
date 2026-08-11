@@ -42,6 +42,7 @@ from theHarvester.discovery import (
     intelxsearch,
     leakix,
     leaklookup,
+    lunar,
     mojeek,
     netlas,
     onyphe,
@@ -200,7 +201,7 @@ async def start(rest_args: argparse.Namespace | None = None):
         '--source',
         help="""baidu, bevigil, bitbucket, brave, bufferoverun,
                             builtwith, censys, certspotter, chaos, commoncrawl, criminalip, crtsh, dehashed, dnsdumpster, duckduckgo, dymo, fofa, fullhunt, github-code,
-                            gitlab, hackertarget, haveibeenpwned, hudsonrock, hunter, hunterhow, intelx, leakix, leaklookup, mojeek, netlas, onyphe, otx, pentesttools,
+                            gitlab, hackertarget, haveibeenpwned, hudsonrock, hunter, hunterhow, intelx, leakix, leaklookup, lunar, mojeek, netlas, onyphe, otx, pentesttools,
                             projectdiscovery, rapiddns, robtex, rocketreach, securityscorecard, securityTrails, sherlockeye, shodan, shodanInternetDB, subdomaincenter,
                             subdomainfinderc99, thc, threatcrowd, tomba, urlscan, venacus, virustotal, waybackarchive, whoisxml, windvane, yahoo, zoomeye""",
     )
@@ -847,6 +848,20 @@ async def start(rest_args: argparse.Namespace | None = None):
                             print(f'A Missing Key error occurred in LeakLookup: {e}')
                         else:
                             print(f'An exception has occurred in LeakLookup search: {e}')
+
+                elif engineitem == 'lunar':
+                    try:
+                        lunar_search = lunar.SearchLunar(word)
+                        stor_lst.append(
+                            store(
+                                lunar_search,
+                                engineitem,
+                                store_host=True,
+                                store_interestingurls=True,
+                            )
+                        )
+                    except Exception as e:
+                        print(f'An exception has occurred in Lunar search: {e}')
 
                 elif engineitem == 'mojeek':
                     try:

@@ -307,6 +307,7 @@ class Core:
             'leaklookup',
             'linkedin',
             'linkedin_links',
+            'lunar',
             'mojeek',
             'netcraft',
             'netlas',
