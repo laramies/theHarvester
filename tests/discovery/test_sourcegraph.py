@@ -1,63 +1,162 @@
+from __future__ import annotations
+
 import asyncio
+import contextlib
 import json
 import sys
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
 from theHarvester import __main__ as theharvester_main
 from theHarvester.discovery import sourcegraph
-from theHarvester.lib.completed_result import CompletedResult
-from theHarvester.lib.core import FetcherResponse
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from theHarvester.lib.completed_result import CompletedResult
+
+
+def event(name: str, payload: object) -> str:
+    return f'event: {name}\ndata: {json.dumps(payload)}'
+
+
+def install_stream(
+    monkeypatch: pytest.MonkeyPatch,
+    records: tuple[str, ...] = (),
+    *,
+    status: int = 200,
+    error: BaseException | None = None,
+    allow_reserved_target: bool = True,
+) -> list[dict[str, Any]]:
+    calls: list[dict[str, Any]] = []
+    if allow_reserved_target:
+        monkeypatch.setattr(
+            sourcegraph,
+            '_SPECIAL_USE_SUFFIXES',
+            sourcegraph._SPECIAL_USE_SUFFIXES - {'test'},
+        )
+
+    class FakeResponse:
+        def __init__(self) -> None:
+            self.status = status
+            self.headers: dict[str, str] = {}
+
+        async def __aiter__(self):
+            for record in records:
+                yield record
+            if error is not None:
+                raise error
+
+    @contextlib.asynccontextmanager
+    async def fake_stream_records(url: str, **kwargs: Any):
+        calls.append({'url': url, **kwargs})
+        if error is not None and not records:
+            raise error
+        yield FakeResponse()
+
+    async def buffered_fetch_is_not_the_sourcegraph_seam(**_kwargs: Any):
+        raise AssertionError('Sourcegraph must use AsyncFetcher.stream_records')
+
+    monkeypatch.setattr(sourcegraph.AsyncFetcher, 'stream_records', fake_stream_records)
+    monkeypatch.setattr(sourcegraph.AsyncFetcher, 'fetch', buffered_fetch_is_not_the_sourcegraph_seam)
+    return calls
 
 
 @pytest.mark.asyncio
-async def test_sourcegraph_processes_one_bounded_current_file_stream(
+async def test_sourcegraph_uses_fixed_chunk_query_and_collects_descendants(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls: list[dict[str, Any]] = []
-    payload = '''event: filters
-data: [{"value":"type:file"}]
-
-event: progress
-data: {"done":false,"matchCount":1}
-
-event: matches
-data: [{"type":"content","repository":"github.com/example/repo","commit":"0123456789abcdef","path":"config/example.txt","lineMatches":[{"line":"API.EXAMPLE.COM admin@Example.COM outside.example.net other@example.net"}]}]
-
-event: done
-data: {}
-'''
-
-    async def fake_fetch(**kwargs: Any) -> FetcherResponse:
-        calls.append(kwargs)
-        return FetcherResponse(body=payload, status=200, headers={})
-
-    monkeypatch.setattr(sourcegraph.AsyncFetcher, 'fetch', fake_fetch)
+    records = (
+        event('filters', [{'value': 'type:file'}]),
+        event(
+            'matches',
+            [
+                {
+                    'type': 'content',
+                    'repository': 'example.invalid/repo',
+                    'path': 'config.json',
+                    'chunkMatches': [
+                        {
+                            'content': (
+                                'API.SCOPE.TEST. deep.api.scope.test scope.test '
+                                '*.wild.scope.test outside.invalid 192.0.2.1 '
+                                'münchen.scope.test api.scope.testé bad.scope.test....'
+                            ),
+                            'ranges': [],
+                        },
+                        {'content': 'api.scope.test', 'ranges': []},
+                    ],
+                },
+                {'type': 'path', 'path': 'ignored.scope.test'},
+            ],
+        ),
+        event('progress', {'done': True, 'matchCount': 2, 'skipped': []}),
+        event('done', {}),
+    )
+    calls = install_stream(monkeypatch, records)
     monkeypatch.setattr(sourcegraph.Core, 'get_user_agent', staticmethod(lambda: 'test-agent'))
-    search = sourcegraph.SearchSourcegraph('example.com', limit=750)
+    search = sourcegraph.SearchSourcegraph(' Scope.TEST. ', limit=1)
 
     await search.process(proxy=True)
 
     assert calls == [
         {
             'url': 'https://sourcegraph.com/.api/search/stream',
+            'framing': 'sse',
             'headers': {'Accept': 'text/event-stream', 'User-Agent': 'test-agent'},
             'params': {
-                'q': '"example.com" type:file count:500 timeout:10s patternType:keyword',
+                'q': '"scope.test" type:file count:2000 timeout:10s patternType:keyword',
                 'v': 'V3',
-                'cm': 'false',
+                'cm': 'true',
+                'cl': 0,
+                'max-line-len': 4096,
+                'display': 2000,
             },
             'proxy': True,
+            'follow_redirects': False,
             'request_timeout': 60,
-            'include_metadata': True,
         }
     ]
-    assert await search.get_hostnames() == ['api.example.com', 'example.com']
-    assert await search.get_emails() == {'admin@example.com'}
+    assert await search.get_hostnames() == ['api.scope.test', 'deep.api.scope.test']
     assert search.execution_status == 'completed'
     assert search.stop_reason is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    'target',
+    [
+        '',
+        '.',
+        'localhost',
+        'not a domain',
+        '-bad.example',
+        '192.0.2.1',
+        '192.168.001.001',
+        'scope.test" count:all',
+        'straße.de',
+        '\u212a.scope.test',
+        'www.example.com',
+        'scope.test....',
+        '.'.join(['9' * 100] * 4),
+        'service.test',
+        'service.local',
+    ],
+)
+async def test_sourcegraph_rejects_unsafe_targets_before_request(
+    monkeypatch: pytest.MonkeyPatch,
+    target: str,
+) -> None:
+    calls = install_stream(monkeypatch, allow_reserved_target=False)
+    search = sourcegraph.SearchSourcegraph(target, limit=500)
+
+    await search.process()
+
+    assert calls == []
+    assert search.execution_status == 'failed'
+    assert search.stop_reason == 'invalid-target'
+    assert await search.get_hostnames() == []
 
 
 @pytest.mark.asyncio
@@ -76,64 +175,71 @@ async def test_sourcegraph_attributes_http_failures(
     execution_status: str,
     stop_reason: str,
 ) -> None:
-    async def fake_fetch(**_kwargs: Any) -> FetcherResponse:
-        return FetcherResponse(body='provider response', status=http_status, headers={})
-
-    monkeypatch.setattr(sourcegraph.AsyncFetcher, 'fetch', fake_fetch)
-    search = sourcegraph.SearchSourcegraph('example.com', limit=10)
+    install_stream(monkeypatch, status=http_status)
+    search = sourcegraph.SearchSourcegraph('scope.test', limit=500)
 
     await search.process()
 
     assert search.execution_status == execution_status
     assert search.stop_reason == stop_reason
-    assert await search.get_hostnames() == []
-    assert await search.get_emails() == set()
 
 
 @pytest.mark.asyncio
-async def test_sourcegraph_attributes_transport_failure(monkeypatch: pytest.MonkeyPatch) -> None:
-    async def fake_fetch(**_kwargs: Any) -> FetcherResponse:
-        raise OSError('network unavailable')
-
-    monkeypatch.setattr(sourcegraph.AsyncFetcher, 'fetch', fake_fetch)
-    search = sourcegraph.SearchSourcegraph('example.com', limit=10)
+@pytest.mark.parametrize('reason', ['transport-error', 'invalid-response', 'response-limit'])
+async def test_sourcegraph_attributes_stream_failures(
+    monkeypatch: pytest.MonkeyPatch,
+    reason: str,
+) -> None:
+    install_stream(monkeypatch, error=sourcegraph.ResponseStreamError(reason))
+    search = sourcegraph.SearchSourcegraph('scope.test', limit=500)
 
     await search.process()
 
     assert search.execution_status == 'failed'
-    assert search.stop_reason == 'transport-error'
+    assert search.stop_reason == reason
 
 
 @pytest.mark.asyncio
-async def test_sourcegraph_normalizes_the_query_target(monkeypatch: pytest.MonkeyPatch) -> None:
-    queries: list[str] = []
-
-    async def fake_fetch(**kwargs: Any) -> FetcherResponse:
-        queries.append(kwargs['params']['q'])
-        return FetcherResponse(body='event: done\ndata: {}\n', status=200, headers={})
-
-    monkeypatch.setattr(sourcegraph.AsyncFetcher, 'fetch', fake_fetch)
-    search = sourcegraph.SearchSourcegraph('Example.COM.', limit=10)
+async def test_sourcegraph_preserves_hosts_before_stream_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    records = (
+        event(
+            'matches',
+            [{'type': 'content', 'chunkMatches': [{'content': 'api.scope.test', 'ranges': []}]}],
+        ),
+    )
+    install_stream(
+        monkeypatch,
+        records,
+        error=sourcegraph.ResponseStreamError('response-limit'),
+    )
+    search = sourcegraph.SearchSourcegraph('scope.test', limit=500)
 
     await search.process()
 
-    assert queries == ['"example.com" type:file count:10 timeout:10s patternType:keyword']
+    assert await search.get_hostnames() == ['api.scope.test']
+    assert search.execution_status == 'partial'
+    assert search.stop_reason == 'response-limit'
 
 
 @pytest.mark.asyncio
-async def test_sourcegraph_rejects_malformed_matches_shape(monkeypatch: pytest.MonkeyPatch) -> None:
-    payload = '''event: matches
-data: {"not":"a-list"}
-
-event: done
-data: {}
-'''
-
-    async def fake_fetch(**_kwargs: Any) -> FetcherResponse:
-        return FetcherResponse(body=payload, status=200, headers={})
-
-    monkeypatch.setattr(sourcegraph.AsyncFetcher, 'fetch', fake_fetch)
-    search = sourcegraph.SearchSourcegraph('example.com', limit=10)
+@pytest.mark.parametrize(
+    'bad_record',
+    [
+        'event: matches\ndata: not-json',
+        event('matches', {'not': 'a-list'}),
+        event('matches', [{'type': 'content', 'chunkMatches': 'not-a-list'}]),
+        event('matches', [{'type': 'content', 'chunkMatches': [{'content': 7}]}]),
+        event('unknown', {}),
+        'event: done\ndata: {}\nrogue: ignored',
+        'event: done\ndata: {}\ndata: {}',
+    ],
+)
+async def test_sourcegraph_rejects_malformed_provider_events(
+    monkeypatch: pytest.MonkeyPatch,
+    bad_record: str,
+) -> None:
+    install_stream(monkeypatch, (bad_record, event('done', {})))
+    search = sourcegraph.SearchSourcegraph('scope.test', limit=500)
 
     await search.process()
 
@@ -142,71 +248,106 @@ data: {}
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('with_result', [False, True], ids=['failed', 'partial'])
-async def test_sourcegraph_error_event_is_not_overwritten_by_done(
+@pytest.mark.parametrize(
+    'records',
+    [
+        (event('progress', {'done': True, 'skipped': []}),),
+        (event('progress', {'done': False, 'skipped': []}), event('done', {})),
+        (event('done', {}),),
+    ],
+    ids=['missing-done', 'nonterminal-progress', 'missing-progress'],
+)
+async def test_sourcegraph_requires_terminal_progress_and_done(
     monkeypatch: pytest.MonkeyPatch,
-    with_result: bool,
+    records: tuple[str, ...],
 ) -> None:
-    matches = (
-        'event: matches\ndata: [{"type":"content","lineMatches":[{"line":"api.example.com"}]}]\n\n'
-        if with_result
-        else ''
-    )
-    payload = f'{matches}event: error\ndata: {{"message":"provider failed"}}\n\nevent: done\ndata: {{}}\n'
-
-    async def fake_fetch(**_kwargs: Any) -> FetcherResponse:
-        return FetcherResponse(body=payload, status=200, headers={})
-
-    monkeypatch.setattr(sourcegraph.AsyncFetcher, 'fetch', fake_fetch)
-    search = sourcegraph.SearchSourcegraph('example.com', limit=10)
+    install_stream(monkeypatch, records)
+    search = sourcegraph.SearchSourcegraph('scope.test', limit=500)
 
     await search.process()
 
-    assert search.execution_status == ('partial' if with_result else 'failed')
+    assert search.execution_status == 'failed'
+    assert search.stop_reason == 'invalid-response'
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('with_host', [False, True], ids=['failed', 'partial'])
+async def test_sourcegraph_attributes_provider_error(
+    monkeypatch: pytest.MonkeyPatch,
+    with_host: bool,
+) -> None:
+    records = []
+    if with_host:
+        records.append(
+            event(
+                'matches',
+                [{'type': 'content', 'chunkMatches': [{'content': 'api.scope.test'}]}],
+            )
+        )
+    records.append(event('error', {'message': 'search failed'}))
+    install_stream(monkeypatch, tuple(records))
+    search = sourcegraph.SearchSourcegraph('scope.test', limit=500)
+
+    await search.process()
+
+    assert search.execution_status == ('partial' if with_host else 'failed')
     assert search.stop_reason == 'provider-error'
 
 
 @pytest.mark.asyncio
-async def test_sourcegraph_valid_empty_stream_is_completed(monkeypatch: pytest.MonkeyPatch) -> None:
-    payload = '''event: progress
-data: {"done":true,"matchCount":0}
+async def test_sourcegraph_final_skipped_progress_marks_provider_limited(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    records = (
+        event(
+            'matches',
+            [{'type': 'content', 'chunkMatches': [{'content': 'api.scope.test'}]}],
+        ),
+        event('progress', {'done': True, 'skipped': [{'reason': 'shard-match-limit'}]}),
+        event('done', {}),
+    )
+    install_stream(monkeypatch, records)
+    search = sourcegraph.SearchSourcegraph('scope.test', limit=500)
 
-event: done
-data: {}
-'''
+    await search.process()
 
-    async def fake_fetch(**_kwargs: Any) -> FetcherResponse:
-        return FetcherResponse(body=payload, status=200, headers={})
+    assert await search.get_hostnames() == ['api.scope.test']
+    assert search.execution_status == 'partial'
+    assert search.stop_reason == 'provider-limited'
 
-    monkeypatch.setattr(sourcegraph.AsyncFetcher, 'fetch', fake_fetch)
-    search = sourcegraph.SearchSourcegraph('example.com', limit=10)
+
+@pytest.mark.asyncio
+async def test_sourcegraph_uses_only_the_final_progress_skipped_value(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    install_stream(
+        monkeypatch,
+        (
+            event('progress', {'done': False, 'skipped': [{'reason': 'shard-match-limit'}]}),
+            event('progress', {'done': False, 'skipped': []}),
+            event('progress', {'done': True, 'skipped': []}),
+            event('done', {}),
+        ),
+    )
+    search = sourcegraph.SearchSourcegraph('scope.test', limit=500)
 
     await search.process()
 
     assert search.execution_status == 'completed'
     assert search.stop_reason == 'no-results'
-    assert await search.get_hostnames() == []
-    assert await search.get_emails() == set()
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    'payload',
-    [
-        'event: matches\ndata: not-json\n\nevent: done\ndata: {}\n',
-        'event: progress\ndata: {}\n',
-    ],
-    ids=['malformed-json', 'missing-done'],
-)
-async def test_sourcegraph_invalid_stream_fails(
-    monkeypatch: pytest.MonkeyPatch,
-    payload: str,
-) -> None:
-    async def fake_fetch(**_kwargs: Any) -> FetcherResponse:
-        return FetcherResponse(body=payload, status=200, headers={})
-
-    monkeypatch.setattr(sourcegraph.AsyncFetcher, 'fetch', fake_fetch)
-    search = sourcegraph.SearchSourcegraph('example.com', limit=10)
+async def test_sourcegraph_rejects_match_after_terminal_progress(monkeypatch: pytest.MonkeyPatch) -> None:
+    install_stream(
+        monkeypatch,
+        (
+            event('progress', {'done': True, 'skipped': []}),
+            event('matches', [{'type': 'content', 'chunkMatches': [{'content': 'api.scope.test'}]}]),
+            event('done', {}),
+        ),
+    )
+    search = sourcegraph.SearchSourcegraph('scope.test', limit=500)
 
     await search.process()
 
@@ -215,87 +356,91 @@ async def test_sourcegraph_invalid_stream_fails(
 
 
 @pytest.mark.asyncio
-async def test_sourcegraph_preserves_results_before_malformed_event(monkeypatch: pytest.MonkeyPatch) -> None:
-    payload = '''event: matches
-data: [{"type":"content","lineMatches":[{"line":"api.example.com Admin@Example.COM api.example.com"}]}]
-
-event: progress
-data: not-json
-'''
-
-    async def fake_fetch(**_kwargs: Any) -> FetcherResponse:
-        return FetcherResponse(body=payload, status=200, headers={})
-
-    monkeypatch.setattr(sourcegraph.AsyncFetcher, 'fetch', fake_fetch)
-    search = sourcegraph.SearchSourcegraph('example.com', limit=10)
+async def test_sourcegraph_rejects_events_after_done(monkeypatch: pytest.MonkeyPatch) -> None:
+    install_stream(monkeypatch, (event('done', {}), event('progress', {'done': True})))
+    search = sourcegraph.SearchSourcegraph('scope.test', limit=500)
 
     await search.process()
 
-    assert search.execution_status == 'partial'
+    assert search.execution_status == 'failed'
     assert search.stop_reason == 'invalid-response'
-    assert await search.get_hostnames() == ['api.example.com', 'example.com']
-    assert await search.get_emails() == {'admin@example.com'}
 
 
 @pytest.mark.asyncio
-async def test_sourcegraph_preserves_cancellation(monkeypatch: pytest.MonkeyPatch) -> None:
-    async def fake_fetch(**_kwargs: Any) -> FetcherResponse:
-        raise asyncio.CancelledError
+async def test_sourcegraph_preserves_prefix_at_hostname_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    install_stream(
+        monkeypatch,
+        (
+            event(
+                'matches',
+                [
+                    {
+                        'type': 'content',
+                        'chunkMatches': [{'content': 'one.scope.test two.scope.test'}],
+                    }
+                ],
+            ),
+            event('progress', {'done': True, 'skipped': []}),
+            event('done', {}),
+        ),
+    )
+    monkeypatch.setattr(sourcegraph.SearchSourcegraph, 'MAX_HOSTNAMES', 1)
+    search = sourcegraph.SearchSourcegraph('scope.test', limit=500)
 
-    monkeypatch.setattr(sourcegraph.AsyncFetcher, 'fetch', fake_fetch)
-    search = sourcegraph.SearchSourcegraph('example.com', limit=10)
+    await search.process()
+
+    assert await search.get_hostnames() == ['one.scope.test']
+    assert search.execution_status == 'partial'
+    assert search.stop_reason == 'response-limit'
+
+
+@pytest.mark.asyncio
+async def test_sourcegraph_preserves_prefix_at_event_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    install_stream(
+        monkeypatch,
+        (
+            event(
+                'matches',
+                [{'type': 'content', 'chunkMatches': [{'content': 'api.scope.test'}]}],
+            ),
+            event('progress', {'done': False, 'skipped': []}),
+        ),
+    )
+    monkeypatch.setattr(sourcegraph.SearchSourcegraph, 'MAX_EVENTS', 1)
+    search = sourcegraph.SearchSourcegraph('scope.test', limit=500)
+
+    await search.process()
+
+    assert await search.get_hostnames() == ['api.scope.test']
+    assert search.execution_status == 'partial'
+    assert search.stop_reason == 'response-limit'
+
+
+@pytest.mark.asyncio
+async def test_sourcegraph_treats_deep_json_as_invalid(monkeypatch: pytest.MonkeyPatch) -> None:
+    nested = '[' * 2_000 + ']' * 2_000
+    install_stream(monkeypatch, (f'event: alert\ndata: {nested}',))
+    search = sourcegraph.SearchSourcegraph('scope.test', limit=500)
+
+    await search.process()
+
+    assert search.execution_status == 'failed'
+    assert search.stop_reason == 'invalid-response'
+
+
+@pytest.mark.asyncio
+async def test_sourcegraph_propagates_cancellation(monkeypatch: pytest.MonkeyPatch) -> None:
+    install_stream(monkeypatch, error=asyncio.CancelledError())
+    search = sourcegraph.SearchSourcegraph('scope.test', limit=500)
 
     with pytest.raises(asyncio.CancelledError):
         await search.process()
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ('response', 'execution_status', 'stop_reason', 'has_results'),
-    [
-        (
-            FetcherResponse(
-                body='event: progress\ndata: {"done":true}\n\nevent: done\ndata: {}\n',
-                status=200,
-                headers={},
-            ),
-            'completed',
-            'no-results',
-            False,
-        ),
-        (FetcherResponse(body='', status=429, headers={}), 'rate-limited', 'http-429', False),
-        (FetcherResponse(body='', status=403, headers={}), 'failed', 'access-denied', False),
-        (FetcherResponse(body='event: matches\ndata: not-json\n', status=200, headers={}), 'failed', 'invalid-response', False),
-        (
-            FetcherResponse(
-                body='event: error\ndata: {"message":"provider failed"}\n\nevent: done\ndata: {}\n',
-                status=200,
-                headers={},
-            ),
-            'failed',
-            'provider-error',
-            False,
-        ),
-        (
-            FetcherResponse(
-                body='event: matches\ndata: [{"type":"content","lineMatches":[{"line":"api.example.com"}]}]\n\nevent: progress\ndata: not-json\n',
-                status=200,
-                headers={},
-            ),
-            'partial',
-            'invalid-response',
-            True,
-        ),
-    ],
-    ids=['empty', 'rate-limited', 'access-denied', 'malformed', 'provider-error', 'partial'],
-)
-async def test_sourcegraph_outcomes_reach_completed_result_and_jsonl(
+async def test_sourcegraph_partial_outcome_reaches_completed_result(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
-    response: FetcherResponse,
-    execution_status: str,
-    stop_reason: str,
-    has_results: bool,
 ) -> None:
     completed_results: list[CompletedResult] = []
 
@@ -309,16 +454,23 @@ async def test_sourcegraph_outcomes_reach_completed_result_and_jsonl(
         async def save_run(self, result: CompletedResult) -> None:
             completed_results.append(result)
 
-    async def fake_fetch(**_kwargs: Any) -> FetcherResponse:
-        return response
-
-    report = tmp_path / f'sourcegraph-{execution_status}'
+    install_stream(
+        monkeypatch,
+        (
+            event(
+                'matches',
+                [{'type': 'content', 'chunkMatches': [{'content': 'api.scope.test'}]}],
+            ),
+            event('progress', {'done': True, 'skipped': [{'reason': 'shard-match-limit'}]}),
+            event('done', {}),
+        ),
+    )
+    report = tmp_path / 'sourcegraph-partial'
     monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
-    monkeypatch.setattr(sourcegraph.AsyncFetcher, 'fetch', fake_fetch)
     monkeypatch.setattr(
         sys,
         'argv',
-        ['theHarvester', '-d', 'example.com', '-b', 'sourcegraph', '-l', '10', '-f', str(report)],
+        ['theHarvester', '-d', 'scope.test', '-b', 'sourcegraph', '-f', str(report)],
     )
 
     with pytest.raises(SystemExit) as exit_info:
@@ -327,9 +479,8 @@ async def test_sourcegraph_outcomes_reach_completed_result_and_jsonl(
     assert exit_info.value.code == 0
     execution = completed_results[0].source_executions[0]
     assert execution.source == 'sourcegraph'
-    assert execution.status == execution_status
-    assert execution.stop_reason == stop_reason
-    assert bool(execution.result_count) is has_results
+    assert execution.status == 'partial'
+    assert execution.stop_reason == 'provider-limited'
+    assert execution.result_count == 1
     summary = json.loads(report.with_suffix('.jsonl').read_text().splitlines()[0])
-    assert summary['source_executions'][0]['status'] == execution_status
-    assert summary['source_executions'][0]['stop_reason'] == stop_reason
+    assert summary['source_executions'][0]['stop_reason'] == 'provider-limited'

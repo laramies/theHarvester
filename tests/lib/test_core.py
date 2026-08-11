@@ -38,7 +38,6 @@ def test_email_capability_expands_to_email_sources() -> None:
         "mojeek",
         "rocketreach",
         "sherlockeye",
-        "sourcegraph",
         "tomba",
         "windvane",
         "yahoo",
