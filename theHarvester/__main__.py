@@ -26,6 +26,7 @@ from aiomultiprocess import Pool
 
 from theHarvester.discovery import (
     api_endpoints,
+    apisguru,
     arquivo,
     baidusearch,
     bevigil,
@@ -907,7 +908,14 @@ async def start(
             output_logger.info(f'\n[*] Target: {word} \n')
 
             for engineitem in engines:
-                if engineitem == 'arquivo':
+                if engineitem == 'apis-guru':
+                    try:
+                        apis_guru_search = apisguru.SearchApisGuru(word, limit)
+                        stor_lst.append(store(apis_guru_search, engineitem))
+                    except Exception as e:
+                        show_default_error_message(engineitem, word, e)
+
+                elif engineitem == 'arquivo':
                     try:
                         arquivo_search = arquivo.SearchArquivo(word, limit)
                         stor_lst.append(store(arquivo_search, engineitem))

@@ -90,6 +90,7 @@ def _spec(
 
 
 _SPECS = (
+    _spec('apis-guru', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS, ResultRoute.URLS),
     _spec('arquivo', ResultRoute.SUBDOMAINS),
     _spec('baidu', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec('bevigil', ResultRoute.SUBDOMAINS, ResultRoute.URLS),
