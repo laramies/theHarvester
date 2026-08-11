@@ -29,8 +29,9 @@ class SearchCommoncrawl:
 
     INDEX_LOOKBACK = timedelta(days=365)
     PAGE_SIZE = 5
-    PAGE_BATCH_SIZE = 10
-    RUNTIME_SECONDS = 30.0
+    MAX_RECORDS_PER_REQUEST = 50
+    MAX_CONSECUTIVE_PAGE_ERRORS = 3
+    RUNTIME_SECONDS = 120.0
     # Protect the shared index service even when its page count is unexpectedly large.
     MAX_PAGES_PER_QUERY = 100
 
@@ -151,7 +152,6 @@ class SearchCommoncrawl:
                 query_total,
             )
 
-            records_seen = 0
             successful_queries = 0
             failed_queries = 0
             page_limit_reached = False
@@ -166,6 +166,7 @@ class SearchCommoncrawl:
                         query_total,
                         index.get('id', 'unknown'),
                     )
+                    query_succeeded = False
                     try:
                         query_had_errors = False
                         count_url = f'{endpoint}?{urlencode({"url": query, "output": "json", "pageSize": self.PAGE_SIZE, "showNumPages": "true"})}'
@@ -176,60 +177,54 @@ class SearchCommoncrawl:
                             raise ValueError('invalid page count')
                         query_succeeded = page_count == 0
                         page_limit = min(page_count, self.MAX_PAGES_PER_QUERY)
-                        for first_page in range(0, page_limit, self.PAGE_BATCH_SIZE):
-                            remaining = self.limit - records_seen
+                        first_page = 0
+                        consecutive_page_errors = 0
+                        while first_page < page_limit:
+                            remaining = self.limit - len(self.totalhosts)
                             if remaining == 0:
                                 return
-                            pages_in_batch = min(self.PAGE_BATCH_SIZE, page_limit - first_page, remaining)
-                            per_page_limit, pages_with_extra_result = divmod(remaining, pages_in_batch)
-                            page_urls = [
-                                f'{endpoint}?{urlencode({"url": query, "output": "json", "pageSize": self.PAGE_SIZE, "page": page, "limit": per_page_limit + (page - first_page < pages_with_extra_result)})}'
-                                for page in range(first_page, first_page + pages_in_batch)
-                            ]
-                            responses = await AsyncFetcher.fetch_all(page_urls, headers=headers, proxy=self.proxy)
+                            page_url = f'{endpoint}?{urlencode({"url": query, "output": "json", "pageSize": self.PAGE_SIZE, "page": first_page, "limit": min(remaining, self.MAX_RECORDS_PER_REQUEST)})}'
+                            first_page += 1
+                            responses = await AsyncFetcher.fetch_all([page_url], headers=headers, proxy=self.proxy)
                             if not isinstance(responses, list) or not responses:
-                                raise ValueError('invalid page batch')
-                            usable_response = False
-                            page_errors: dict[str, int] = {}
-                            for response in responses:
-                                try:
-                                    if not response:
-                                        raise ValueError('empty page response')
-                                    for record in self._safe_parse_json_lines(response):
-                                        if records_seen >= self.limit:
-                                            return
-                                        records_seen += 1
-                                        if isinstance(record, dict):
-                                            domain = self._extract_domain_from_url(record.get('url', ''))
-                                            if domain.endswith(f'.{self.word}') or domain == self.word:
-                                                self.totalhosts.add(domain)
-                                    usable_response = True
-                                    query_succeeded = True
-                                except ValueError as error:
-                                    message = str(error)
-                                    page_errors[message] = page_errors.get(message, 0) + 1
-                                except Exception:
-                                    message = 'unexpected page failure'
-                                    page_errors[message] = page_errors.get(message, 0) + 1
-                            if page_errors:
-                                query_had_errors = True
-                                summary = ', '.join(f'{count}x {message}' for message, count in sorted(page_errors.items()))
-                                logger.warning(f'Common Crawl page errors for index {index.get("id", "unknown")}: {summary}')
-                            if not usable_response:
-                                raise ValueError('page batch contained no usable responses')
+                                raise ValueError('invalid page response')
+                            try:
+                                response = responses[0]
+                                if not response:
+                                    raise ValueError('empty page response')
+                                for record in self._safe_parse_json_lines(response):
+                                    if isinstance(record, dict):
+                                        domain = self._extract_domain_from_url(record.get('url', ''))
+                                        if domain.endswith(f'.{self.word}') or domain == self.word:
+                                            self.totalhosts.add(domain)
+                                            if len(self.totalhosts) >= self.limit:
+                                                return
+                            except ValueError as error:
+                                message = str(error)
+                            except Exception:
+                                message = 'unexpected page failure'
+                            else:
+                                query_succeeded = True
+                                consecutive_page_errors = 0
+                                continue
+                            query_had_errors = True
+                            logger.warning(f'Common Crawl page error for index {index.get("id", "unknown")}: {message}')
+                            consecutive_page_errors += 1
+                            if consecutive_page_errors >= self.MAX_CONSECUTIVE_PAGE_ERRORS:
+                                break
                         if page_count > page_limit:
                             page_limit_reached = True
                             logger.warning(
                                 f'Common Crawl page limit reached for index {index.get("id", "unknown")}; '
                                 'results may be incomplete'
                             )
-                        if query_succeeded:
-                            successful_queries += 1
                         if query_had_errors:
                             failed_queries += 1
                     except Exception as error:
                         failed_queries += 1
                         logger.warning(f'Common Crawl API error for index {index.get("id", "unknown")}: {error}')
+                    if query_succeeded:
+                        successful_queries += 1
 
             if failed_queries:
                 if successful_queries or self.totalhosts:

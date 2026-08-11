@@ -1,5 +1,6 @@
 import json as _stdlib_json
 import logging
+from ipaddress import ip_address
 from types import ModuleType
 
 import aiohttp
@@ -20,14 +21,15 @@ except (AttributeError, OSError, RuntimeError, SystemError, ValueError) as e:
 
 
 class SearchRobtex:
-    """Class uses the Robtex passive DNS API to gather subdomains"""
+    """Gather IP addresses for a hostname from the Robtex passive DNS API."""
 
     def __init__(self, word) -> None:
         self.word = word
-        self.totalhosts: set = set()
         self.totalips: set = set()
         self.proxy = False
         self.hostname = 'https://freeapi.robtex.com'
+        self.execution_status: str | None = None
+        self.stop_reason: str | None = None
 
     @staticmethod
     def _safe_parse_json_lines(payload: str) -> list:
@@ -48,7 +50,6 @@ class SearchRobtex:
         try:
             headers = {'User-agent': Core.get_user_agent()}
 
-            # Use passive DNS forward lookup to get subdomains
             url = f'{self.hostname}/pdns/forward/{self.word}'
             responses: list[FetcherResponse | None] = await AsyncFetcher.fetch_all(
                 [url],
@@ -58,13 +59,26 @@ class SearchRobtex:
             )
             response = responses[0] if responses else None
             if response is None:
+                self.execution_status = 'failed'
+                self.stop_reason = 'transport-error'
                 logger.info(f'No response from Robtex API for: {url}')
+                return
+            if response.status == 429:
+                self.execution_status = 'rate-limited'
+                self.stop_reason = 'http-429'
+                logger.info('Robtex request was rate limited')
                 return
             if not 200 <= response.status < 300:
+                self.execution_status = 'failed'
+                self.stop_reason = f'http-{response.status}'
                 logger.info(f'Robtex request failed with HTTP {response.status}')
                 return
-            if not isinstance(response.body, str) or not response.body:
+            if not isinstance(response.body, str):
+                self.execution_status = 'failed'
+                self.stop_reason = 'invalid-response'
                 logger.info(f'No response from Robtex API for: {url}')
+                return
+            if not response.body:
                 return
 
             try:
@@ -72,43 +86,41 @@ class SearchRobtex:
             except (TypeError, ValueError) as e:
                 logger.info(f'Failed to parse JSON lines from Robtex response: {e}')
                 return
+            records = [
+                record
+                for record in data
+                if isinstance(record, dict) and isinstance(record.get('rrtype'), str) and isinstance(record.get('rrdata'), str)
+            ]
+            if not records:
+                self.execution_status = 'failed'
+                self.stop_reason = 'invalid-response'
+                logger.info('Robtex returned no valid DNS records')
+                return
 
-            # Extract subdomains from DNS records
-            for record in data:
-                if isinstance(record, dict):
-                    # Get the hostname from rrdata field for different record types
-                    rrdata = record.get('rrdata', '')
-                    rrtype = record.get('rrtype', '')
-                    rrname = record.get('rrname', '')
+            for record in records:
+                rrdata = record['rrdata']
+                rrtype = record['rrtype']
 
-                    # Add the original domain name
-                    if rrname and rrname.endswith(self.word):
-                        self.totalhosts.add(rrname)
+                if rrtype in {'A', 'AAAA'} and rrdata:
+                    try:
+                        self.totalips.add(str(ip_address(rrdata)))
+                    except ValueError:
+                        pass
 
-                    # For CNAME records, the rrdata contains hostnames
-                    if rrtype == 'CNAME' and rrdata:
-                        if rrdata.endswith(self.word) or f'.{self.word}' in rrdata:
-                            self.totalhosts.add(rrdata.rstrip('.'))
-
-                    # For A records, we can get IPs
-                    if rrtype == 'A' and rrdata:
-                        try:
-                            # Validate it's an IP
-                            parts = rrdata.split('.')
-                            if len(parts) == 4 and all(0 <= int(part) <= 255 for part in parts):
-                                self.totalips.add(rrdata)
-                        except (ValueError, TypeError):
-                            pass
-
-        except (aiohttp.ClientError, TimeoutError, OSError, TypeError, ValueError) as e:
+        except (aiohttp.ClientError, TimeoutError, OSError) as e:
+            self.execution_status = 'failed'
+            self.stop_reason = 'transport-error'
             logger.info(f'Robtex API error: {e}')
-
-    async def get_hostnames(self) -> set:
-        return self.totalhosts
+        except (TypeError, ValueError) as e:
+            self.execution_status = 'failed'
+            self.stop_reason = 'invalid-response'
+            logger.info(f'Robtex API error: {e}')
 
     async def get_ips(self) -> set:
         return self.totalips
 
     async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
+        self.execution_status = None
+        self.stop_reason = None
         await self.do_search()

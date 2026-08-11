@@ -3,6 +3,7 @@ import asyncio
 import pytest
 
 from theHarvester.discovery import crtsh
+from theHarvester.lib.core import FetcherResponse
 
 
 def _patch_fetch(monkeypatch, payload):
@@ -10,9 +11,10 @@ def _patch_fetch(monkeypatch, payload):
 
     calls = []
 
-    async def fake_fetch_all(urls, headers=None, proxy=False, json=False):
+    async def fake_fetch_all(urls, headers=None, proxy=False, json=False, include_metadata=False):
         calls.append(urls)
-        return [payload]
+        assert include_metadata is True
+        return [FetcherResponse(body=payload, status=200, headers={})]
 
     monkeypatch.setattr(core_module.AsyncFetcher, 'fetch_all', staticmethod(fake_fetch_all), raising=True)
     return calls
@@ -75,17 +77,20 @@ class TestCrtshSearch:
         assert len(fetches) == 1
         assert delays == []
         assert await search.get_hostnames() == []
+        assert search.execution_status is None
+        assert search.stop_reason is None
 
     @pytest.mark.asyncio
     async def test_failed_fetches_are_retried_with_delay(self, monkeypatch):
         import theHarvester.lib.core as core_module
 
-        payloads = iter(['', '', [{'name_value': 'api.example.com'}]])
+        payloads = iter([None, None, FetcherResponse([{'name_value': 'api.example.com'}], 200, {})])
         fetch_count = 0
 
-        async def fake_fetch_all(urls, headers=None, proxy=False, json=False):
+        async def fake_fetch_all(urls, headers=None, proxy=False, json=False, include_metadata=False):
             nonlocal fetch_count
             fetch_count += 1
+            assert include_metadata is True
             return [next(payloads)]
 
         monkeypatch.setattr(core_module.AsyncFetcher, 'fetch_all', staticmethod(fake_fetch_all), raising=True)
@@ -97,6 +102,55 @@ class TestCrtshSearch:
         assert fetch_count == 3
         assert delays == [2, 2]
         assert await search.get_hostnames() == ['api.example.com']
+
+    @pytest.mark.asyncio
+    async def test_exhausted_http_failures_are_reported(self, monkeypatch):
+        fetch_count = 0
+
+        async def fake_fetch_all(urls, headers=None, proxy=False, json=False, include_metadata=False):
+            nonlocal fetch_count
+            fetch_count += 1
+            assert json is True
+            assert include_metadata is True
+            return [FetcherResponse(body='bad gateway', status=502, headers={})]
+
+        monkeypatch.setattr(crtsh.AsyncFetcher, 'fetch_all', fake_fetch_all)
+        delays = _patch_sleep(monkeypatch)
+        search = crtsh.SearchCrtsh('example.com')
+
+        await search.process()
+
+        assert fetch_count == 3
+        assert delays == [2, 2]
+        assert await search.get_hostnames() == []
+        assert search.execution_status == 'failed'
+        assert search.stop_reason == 'http-502'
+
+    @pytest.mark.asyncio
+    async def test_cancellation_propagates(self, monkeypatch):
+        async def fake_fetch_all(*_args, **_kwargs):
+            raise asyncio.CancelledError
+
+        monkeypatch.setattr(crtsh.AsyncFetcher, 'fetch_all', fake_fetch_all)
+        search = crtsh.SearchCrtsh('example.com')
+
+        with pytest.raises(asyncio.CancelledError):
+            await search.process(proxy=True)
+
+    @pytest.mark.asyncio
+    async def test_stalled_provider_is_bounded_and_reported(self, monkeypatch):
+        async def fake_fetch_all(*_args, **_kwargs):
+            await asyncio.Event().wait()
+
+        monkeypatch.setattr(crtsh.AsyncFetcher, 'fetch_all', fake_fetch_all)
+        monkeypatch.setattr(crtsh.SearchCrtsh, 'RUNTIME_SECONDS', 0.01)
+        search = crtsh.SearchCrtsh('example.com')
+
+        await asyncio.wait_for(search.process(), timeout=1.0)
+
+        assert await search.get_hostnames() == []
+        assert search.execution_status == 'failed'
+        assert search.stop_reason == 'runtime-limit'
 
     @pytest.mark.asyncio
     async def test_missing_name_value_key_is_handled(self, monkeypatch):

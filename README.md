@@ -181,7 +181,7 @@ Read the **API key** column as follows:
 | `fullhunt` | ✓ | No | No | No | No | No | No | No | ✓ |
 | `github-code` | ✓ | ✓ | No | No | No | No | No | No | ✓ |
 | `gitlab` | ✓ | ✓ | No | No | ✓ | No | No | No | No |
-| `hackertarget` | ✓ | No | No | No | No | No | No | No | Optional |
+| `hackertarget` | ✓ | No | ✓ | No | No | No | No | No | Optional |
 | `haveibeenpwned` | No | No | No | No | No | No | ✓ | No | No |
 | `hibpverified` | No | ✓ | No | No | No | No | ✓ | No | ✓ |
 | `hudsonrock` | ✓ | ✓ | ✓ | No | No | No | No | No | No |
@@ -197,7 +197,7 @@ Read the **API key** column as follows:
 | `pentesttools` | ✓ | No | ✓ | No | No | No | No | No | ✓ |
 | `projectdiscovery` | ✓ | No | No | No | No | No | No | No | ✓ |
 | `rapiddns` | ✓ | No | ✓ | No | No | No | No | No | No |
-| `robtex` | ✓ | No | ✓ | No | No | No | No | No | No |
+| `robtex` | No | No | ✓ | No | No | No | No | No | No |
 | `rocketreach` | No | ✓ | No | No | ✓ | No | No | No | ✓ |
 | `securityscorecard` | ✓ | No | ✓ | No | No | No | No | No | ✓ |
 | `securityTrails` | ✓ | No | ✓ | No | No | No | No | No | ✓ |

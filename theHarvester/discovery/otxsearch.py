@@ -17,8 +17,12 @@ class SearchOtx:
         self.totalhosts: set = set()
         self.totalips: set = set()
         self.proxy = False
+        self.execution_status: str | None = None
+        self.stop_reason: str | None = None
 
     async def do_search(self) -> None:
+        self.execution_status = None
+        self.stop_reason = None
         url = f'https://otx.alienvault.com/api/v1/indicators/domain/{self.word}/passive_dns'
         try:
             response_list = await AsyncFetcher.fetch_all(
@@ -47,13 +51,23 @@ class SearchOtx:
         except (OSError, RuntimeError, ValueError):
             self.totalhosts = set()
             self.totalips = set()
+            self.execution_status = 'failed'
+            self.stop_reason = 'transport-error'
             logger.info('OTX request failed')
             return
 
         if response is None:
+            self.execution_status = 'failed'
+            self.stop_reason = 'transport-error'
             logger.info('OTX request failed')
             return
         if not 200 <= response.status < 300:
+            if response.status == 429:
+                self.execution_status = 'rate-limited'
+                self.stop_reason = 'http-429'
+            else:
+                self.execution_status = 'failed'
+                self.stop_reason = f'http-{response.status}'
             logger.info(f'OTX request failed with HTTP {response.status}')
             return
 
@@ -62,12 +76,16 @@ class SearchOtx:
         if not isinstance(dct, dict):
             self.totalhosts = set()
             self.totalips = set()
+            self.execution_status = 'failed'
+            self.stop_reason = 'invalid-response'
             return
 
         passive = dct.get('passive_dns')
         if not isinstance(passive, list):
             self.totalhosts = set()
             self.totalips = set()
+            self.execution_status = 'failed'
+            self.stop_reason = 'invalid-response'
             return
 
         try:
@@ -83,6 +101,8 @@ class SearchOtx:
         except (KeyError, TypeError, ValueError):
             self.totalhosts = set()
             self.totalips = set()
+            self.execution_status = 'failed'
+            self.stop_reason = 'invalid-response'
 
     async def get_hostnames(self) -> set:
         return self.totalhosts
