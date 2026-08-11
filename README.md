@@ -206,6 +206,7 @@ Read the **API key** column as follows:
 | `shodan` | ✓ | No | No | No | No | No | No | `-s` / `--shodan` host-enrichment output | ✓ |
 | `shodanInternetDB` | ✓ | No | ✓ | No | No | No | No | No | No |
 | `shodanct` | ✓ | No | No | No | No | No | No | No | No |
+| `sourcegraph` | ✓ | ✓ | No | No | No | No | No | No | No |
 | `subdomaincenter` | ✓ | No | No | No | No | No | No | No | No |
 | `subdomainfinderc99` | ✓ | No | No | No | No | No | No | No | No |
 | `thc` | ✓ | No | No | No | No | No | No | No | No |

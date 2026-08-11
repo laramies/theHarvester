@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Recorded takeover, Shodan, and API endpoint scan outcomes through the unified action model.
 - Added normalized BuiltWith framework, language, server, CMS, and analytics findings to JSONL and completed-result SQLite output.
 - Added DNSDB passive DNS discovery with API key configuration, shared transport handling, result parsing, and offline tests ([9b41b78e](https://github.com/laramies/theHarvester/commit/9b41b78e), [aba9fec6](https://github.com/laramies/theHarvester/commit/aba9fec6)).
+- Added bounded anonymous Sourcegraph current-file search for scoped hostname and email discovery.
 - Added `-v` and `--verbose` diagnostic logging while keeping normal operator output available at the default log level ([8a7b8b71](https://github.com/laramies/theHarvester/commit/8a7b8b71)).
 - Added an opt-in passive-provider smoke workflow and a network guard that keeps routine tests offline by default ([72e5820f](https://github.com/laramies/theHarvester/commit/72e5820f)).
 - Added root contributor and security policies, structured issue forms, repository agent guidance, discovery terminology, and an operator-focused documentation wiki ([d090a29a](https://github.com/laramies/theHarvester/commit/d090a29a), [7c491ef5](https://github.com/laramies/theHarvester/commit/7c491ef5), [8b9d420b](https://github.com/laramies/theHarvester/commit/8b9d420b)).
