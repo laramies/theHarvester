@@ -6,7 +6,7 @@ class SearchBeVigil:
     def __init__(self, word) -> None:
         self.word = word
         self.totalhosts: set = set()
-        self.interestingurls: set = set()
+        self.urls: set = set()
         self.key = Core.bevigil_key()
         if self.key is None:
             self.key = ''
@@ -26,13 +26,13 @@ class SearchBeVigil:
         responses = await AsyncFetcher.fetch_all([url_endpoint], json=True, proxy=self.proxy, headers=headers)
         response = responses[0]
         for url in response['urls']:
-            self.interestingurls.add(url)
+            self.urls.add(url)
 
     async def get_hostnames(self) -> set:
         return self.totalhosts
 
-    async def get_interestingurls(self) -> set:
-        return self.interestingurls
+    async def get_urls(self) -> set:
+        return self.urls
 
     async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy

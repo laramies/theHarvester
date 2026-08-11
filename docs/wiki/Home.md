@@ -4,7 +4,7 @@ theHarvester gathers open-source intelligence about a domain or organization. It
 
 Use it during the early reconnaissance stage of an authorized security assessment. Passive providers still receive the search target.
 
-DNS brute force, DNS resolution, takeover checks, screenshots, and API-path scanning create additional network activity. Use these features only on systems you own or are explicitly authorized to test.
+DNS brute force, DNS resolution, virtual host discovery, takeover checks, screenshots, and API-path scanning create additional network activity. Use these features only on systems you own or are explicitly authorized to test.
 
 ## Start here
 
@@ -17,8 +17,9 @@ DNS brute force, DNS resolution, takeover checks, screenshots, and API-path scan
 ## Choose an interface
 
 - **Command line:** best for interactive reconnaissance and report generation.
-- **REST API:** best for local integrations and browser-accessible Swagger/ReDoc documentation. See [REST API](Rest-API).
-- **Docker Compose:** runs the REST API service, not the normal interactive CLI.
+- **HarvestView:** best for creating and inspecting durable local enumeration runs in a browser. See [REST API](Rest-API).
+- **REST API:** best for authenticated local integrations and Swagger/ReDoc documentation. See [REST API](Rest-API).
+- **Docker Compose:** packages HarvestView and the REST API, not the normal interactive CLI.
 
 The repository [README](https://github.com/laramies/theHarvester) owns the current feature summary and source/result matrix. The live `theHarvester -h` output owns the complete CLI reference.
 

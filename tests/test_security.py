@@ -1,7 +1,6 @@
 import os
 import re
 import tempfile
-from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
@@ -13,64 +12,10 @@ from theHarvester.__main__ import sanitize_filename, sanitize_for_xml
 class TestCORSConfiguration:
     """Test CORS security configuration."""
 
-    def test_cors_does_not_allow_credentials_with_wildcard_origins(self):
-        """
-        Security Test: CORS should not allow credentials with wildcard origins.
-
-        This prevents credential theft attacks where any origin can make
-        authenticated requests to the API.
-        """
+    def test_api_does_not_enable_cross_origin_requests(self):
         from theHarvester.lib.api.api import app
 
-        # Find CORS middleware in the app
-        cors_middleware = None
-        for middleware in app.user_middleware:
-            if 'CORSMiddleware' in str(middleware.cls):
-                cors_middleware = middleware
-                break
-
-        assert cors_middleware is not None, 'CORS middleware should be configured'
-
-        # Check that if allow_origins contains '*', allow_credentials must be False
-        # Access kwargs from the middleware
-        options = cors_middleware.kwargs
-        allow_origins = options.get('allow_origins', [])
-        allow_credentials = options.get('allow_credentials', False)
-
-        if isinstance(allow_origins, (list, tuple, set)) and '*' in allow_origins:
-            assert (
-                allow_credentials is False
-            ), 'CRITICAL: CORS must not allow credentials with wildcard origins (CVE risk)'
-
-    def test_cors_restricts_http_methods(self):
-        """
-        Security Test: CORS should restrict HTTP methods to only what's needed.
-
-        Reduces attack surface by limiting available methods.
-        """
-        from theHarvester.lib.api.api import app
-
-        cors_middleware = None
-        for middleware in app.user_middleware:
-            if 'CORSMiddleware' in str(middleware.cls):
-                cors_middleware = middleware
-                break
-
-        assert cors_middleware is not None
-
-        options = cors_middleware.kwargs
-        allow_methods = options.get('allow_methods', [])
-
-        # Should not allow all methods
-        assert allow_methods != ['*'], 'CORS should restrict HTTP methods, not allow all (*)'
-
-        # Should only allow necessary methods (GET, POST for this API)
-        if isinstance(allow_methods, list):
-            dangerous_methods = {'DELETE', 'PUT', 'PATCH', 'TRACE', 'CONNECT'}
-            allowed_set = {m.upper() for m in allow_methods}
-            assert not (
-                allowed_set & dangerous_methods
-            ), f'Unnecessary HTTP methods detected: {allowed_set & dangerous_methods}'
+        assert all('CORSMiddleware' not in str(middleware.cls) for middleware in app.user_middleware)
 
 
 class TestXMLInjectionPrevention:
@@ -153,8 +98,7 @@ class TestInformationDisclosure:
 
         Stack traces can reveal sensitive information about the system.
         """
-        # Test the /sources endpoint with a simulated error condition
-        response = client.get('/sources')
+        response = client.get('/api/v1/sources')
 
         # Even if there's an error, traceback should not be in response
         if response.status_code >= 400:
@@ -163,20 +107,19 @@ class TestInformationDisclosure:
             assert 'Traceback' not in str(response_data), 'Traceback text found in response'
             assert 'File "' not in str(response_data), 'File paths exposed in response'
 
-    def test_error_responses_do_not_leak_internal_paths(self, client, monkeypatch):
+    def test_error_responses_do_not_leak_internal_paths(self, client, tmp_path, monkeypatch):
         """
         Security Test: Error messages should not reveal internal file paths.
         """
-        start = AsyncMock(return_value=([], [], [], [], [], [], [], [], []))
         fetch_all = AsyncMock(side_effect=AssertionError('API security test attempted a provider request'))
-        monkeypatch.setattr('theHarvester.lib.api.api.__main__.start', start)
+        monkeypatch.setenv('THEHARVESTER_API_KEY', 'operator-secret')
+        monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
         monkeypatch.setattr('theHarvester.lib.core.AsyncFetcher.fetch_all', fetch_all)
 
-        # Try various endpoints
-        endpoints = ['/sources', '/dnsbrute?domain=test', '/query?domain=test&source=baidu']
+        endpoints = ['/api/v1/sources', '/api/v1/runs/not-found']
 
         for endpoint in endpoints:
-            response = client.get(endpoint)
+            response = client.get(endpoint, headers={'X-API-Key': 'operator-secret'})
             response_text = str(response.json() if response.status_code != 200 else {})
 
             # Check for common path leakage patterns
@@ -193,7 +136,6 @@ class TestInformationDisclosure:
                 matches = re.findall(pattern, response_text)
                 assert not matches, f'Internal path leaked in {endpoint}: {matches}'
 
-        assert start.await_count == 2
         fetch_all.assert_not_awaited()
 
     def test_debug_mode_does_not_expose_sensitive_info(self, client, monkeypatch):
@@ -204,7 +146,7 @@ class TestInformationDisclosure:
         monkeypatch.setenv('DEBUG', '1')
 
         # Make request that might trigger an error
-        response = client.get('/dnsbrute?domain=')  # Invalid request
+        response = client.get('/api/v1/runs/not-found')
 
         if response.status_code >= 400:
             response_data = response.json()
@@ -212,8 +154,8 @@ class TestInformationDisclosure:
             assert 'traceback' not in response_data, 'DEBUG mode exposes tracebacks to clients'
 
 
-class TestAdditionalAPIAuthentication:
-    """Test authentication and error handling for protected additional API routes."""
+class TestAPIAuthentication:
+    """Test authentication and error handling for the versioned API."""
 
     @pytest.fixture
     def client(self):
@@ -222,40 +164,48 @@ class TestAdditionalAPIAuthentication:
 
         return TestClient(app)
 
-    def test_additional_endpoints_fail_closed_without_configured_api_key(self, client, monkeypatch):
+    def test_api_fails_closed_without_configured_api_key(self, client, monkeypatch):
         monkeypatch.delenv('THEHARVESTER_API_KEY', raising=False)
+        monkeypatch.delenv('THEHARVESTER_API_KEY_FILE', raising=False)
 
-        response = client.post('/additional/all', json={'domain': 'example.com'})
+        response = client.get('/api/v1/sources')
 
         assert response.status_code == 503
 
-    def test_additional_endpoints_reject_missing_or_invalid_api_key(self, client, monkeypatch):
+    def test_api_key_can_be_read_from_a_docker_secret_file(self, client, tmp_path, monkeypatch):
+        secret = tmp_path / 'operator-api-key'
+        secret.write_text('test-secret\n', encoding='utf-8')
+        monkeypatch.delenv('THEHARVESTER_API_KEY', raising=False)
+        monkeypatch.setenv('THEHARVESTER_API_KEY_FILE', str(secret))
+
+        response = client.get('/api/v1/sources', headers={'X-API-Key': 'test-secret'})
+
+        assert response.status_code == 200
+
+    def test_api_rejects_missing_or_invalid_api_key(self, client, monkeypatch):
         monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-secret')
 
-        missing_response = client.post('/additional/all', json={'domain': 'example.com'})
-        invalid_response = client.post('/additional/all', headers={'X-API-Key': 'wrong'}, json={'domain': 'example.com'})
+        missing_response = client.get('/api/v1/sources')
+        invalid_response = client.get('/api/v1/sources', headers={'X-API-Key': 'wrong'})
 
         assert missing_response.status_code == 401
         assert invalid_response.status_code == 401
 
-    def test_additional_endpoints_do_not_expose_internal_errors(self, client, monkeypatch):
-        from theHarvester.lib.api import additional_endpoints
+    def test_api_does_not_expose_internal_errors(self, monkeypatch):
+        from theHarvester.lib.api import api
+        from theHarvester.lib.api.run_store import RunStore
 
-        class FailingAdditionalAPIs:
-            def __init__(self, domain, api_keys):
-                self.domain = domain
-                self.api_keys = api_keys
-
-            async def process(self):
-                raise RuntimeError('/home/user/project/secret.py:123 internal failure')
+        async def fail(_self):
+            raise RuntimeError('/home/user/project/secret.py:123 internal failure')
 
         monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-secret')
-        monkeypatch.setattr(additional_endpoints, 'AdditionalAPIs', FailingAdditionalAPIs)
+        monkeypatch.setattr(RunStore, 'list_runs', fail)
+        client = TestClient(api.app, raise_server_exceptions=False)
 
-        response = client.post('/additional/all', headers={'X-API-Key': 'test-secret'}, json={'domain': 'example.com'})
+        response = client.get('/api/v1/runs', headers={'X-API-Key': 'test-secret'})
 
         assert response.status_code == 500
-        response_text = str(response.json())
+        response_text = response.text
         assert 'internal failure' not in response_text
         assert '/home/user/project' not in response_text
 
@@ -403,24 +353,11 @@ class TestSecurityBestPractices:
                     real_matches = [
                         m
                         for m in matches
-                        if 'example' not in m.lower()
-                        and 'your_' not in m.lower()
-                        and '""' not in m
-                        and "''" not in m
+                        if 'example' not in m.lower() and 'your_' not in m.lower() and '""' not in m and "''" not in m
                     ]
                     assert not real_matches, f'Potential hardcoded secret in {file_path}: {real_matches}'
 
-    def test_api_has_rate_limiting(self):
-        """
-        Security Test: Verify API endpoints have rate limiting enabled.
-        """
-        from theHarvester.lib.api.api import app
-
-        # Check that rate limiting is configured
-        assert hasattr(app.state, 'limiter'), 'Rate limiter not configured'
-        assert app.state.limiter is not None, 'Rate limiter is None'
-
-    def test_sensitive_endpoints_require_validation(self):
+    def test_sensitive_endpoints_require_validation(self, monkeypatch):
         """
         Security Test: Ensure sensitive endpoints validate input.
         """
@@ -428,24 +365,15 @@ class TestSecurityBestPractices:
 
         from theHarvester.lib.api.api import app
 
+        monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-secret')
         client = TestClient(app)
+        headers = {'X-API-Key': 'test-secret'}
 
-        # Test that endpoints reject invalid input
-        # Note: The /query endpoint requires 'source' as a list parameter
-        test_cases = [
-            ('/dnsbrute?domain=', 400),  # Empty domain should be rejected
-            ('/dnsbrute?domain=a', 422),  # Too short domain should be rejected by FastAPI validation
-        ]
+        missing_target = client.post('/api/v1/runs', headers=headers, json={'sources': ['crtsh']})
+        empty_sources = client.post('/api/v1/runs', headers=headers, json={'target': 'example.test', 'sources': []})
 
-        for endpoint, expected_status in test_cases:
-            response = client.get(endpoint)
-            assert (
-                response.status_code >= 400
-            ), f'Endpoint {endpoint} should reject invalid input (got {response.status_code})'
-
-        # Test query endpoint with proper parameter format but invalid domain
-        response = client.get('/query?domain=a&source=baidu')  # Too short domain
-        assert response.status_code == 422
+        assert missing_target.status_code == 422
+        assert empty_sources.status_code == 422
 
 
 if __name__ == '__main__':

@@ -42,7 +42,7 @@ The [README source matrix](https://github.com/laramies/theHarvester/blob/dev/REA
 
 Provider pricing, quotas, and terms change frequently. Check the provider's current documentation for these details.
 
-`hibpverified` queries [HIBP's authenticated verified-domain endpoint](https://haveibeenpwned.com/API/v3#BreachedDomain) only when explicitly named, either alone or in a combination such as `breaches,hibpverified`. Capability selectors and `all` exclude it. Live use requires a user-owned paid HIBP API key and a user-owned domain verified in that account. REST queries selecting it also require the operator `X-API-Key`; the keyless `haveibeenpwned` source continues to query only the public breach catalogue.
+`hibpverified` queries [HIBP's authenticated verified-domain endpoint](https://haveibeenpwned.com/API/v3#BreachedDomain). It is selected by its name, the `breaches` capability, and `all`. Without a configured HIBP API key it is skipped like other unavailable keyed sources. Live use requires a user-owned paid HIBP API key and a user-owned domain verified in that account. The keyless `haveibeenpwned` source continues to query only the public breach catalogue.
 
 ## Proxies
 
@@ -63,13 +63,13 @@ uv run theHarvester -d example.com -b crtsh -p
 
 A proxy does not make an assessment anonymous and does not change the authorization boundary.
 
-## REST API protection
+## API protection
 
-The `/additional/*` routes require a server-side key:
+Every `/api/v1/*` route requires a server-side key:
 
 ```bash
 export THEHARVESTER_API_KEY='replace-with-a-long-random-value'
-uv run restfulHarvest
+uv run harvestview
 ```
 
-Clients send the same value in the `X-API-Key` header. This key protects only `/additional/*`; the core query routes remain unauthenticated.
+API clients send the same value in the `X-API-Key` header. HarvestView receives a derived HttpOnly browser cookie when it is opened locally, so the key is never entered into or stored by the web app. Provider credentials remain in `api-keys.yaml` and cannot be supplied through an API request.

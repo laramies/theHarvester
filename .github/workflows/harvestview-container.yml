@@ -1,0 +1,90 @@
+name: HarvestView container smoke
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.dockerignore'
+      - '.github/workflows/harvestview-container.yml'
+      - 'Dockerfile'
+      - 'docker-compose.yml'
+      - 'pyproject.toml'
+      - 'theHarvester/lib/api/**'
+      - 'tests/test_docker.py'
+      - 'uv.lock'
+
+permissions:
+  contents: read
+
+jobs:
+  container-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Prepare operator secret
+        run: |
+          install -d -m 0700 .secrets
+          printf '%s\n' 'harvestview-container-smoke-key' > .secrets/operator-api-key
+          chmod 0444 .secrets/operator-api-key
+
+      - name: Build and start container
+        env:
+          THEHARVESTER_PORT: '8769'
+        run: |
+          docker compose -p harvestview-container-smoke build theharvester.svc.local
+          docker compose -p harvestview-container-smoke up -d --no-build
+
+      - name: Verify routes, Chromium, and restart persistence
+        env:
+          THEHARVESTER_PORT: '8769'
+        run: |
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --show-error http://127.0.0.1:8769/ > /tmp/harvestview.html; then
+              break
+            fi
+            sleep 1
+          done
+          grep --fixed-strings '<title>HarvestView</title>' /tmp/harvestview.html
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8769/app)" = '404'
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8769/api/v1/runs)" = '401'
+          curl --fail --silent --show-error \
+            --header 'X-API-Key: harvestview-container-smoke-key' \
+            http://127.0.0.1:8769/api/v1/runs > /dev/null
+          printf '%s\n' \
+            '{"completed_at":"2026-08-08T01:01:00Z","counts":{"hostname":1,"ip":1},"evidence_status":"complete","result_count":2,"run_id":"9f9b4383-6cc4-4f3f-80a4-c8d21930dc2d","started_at":"2026-08-08T01:00:00Z","target":"example.test","type":"summary"}' \
+            '{"type":"hostname","value":"www.example.test"}' \
+            '{"type":"ip","value":"192.0.2.10"}' > /tmp/smoke.jsonl
+          curl --fail --silent --show-error \
+            --request POST \
+            --header 'Content-Type: application/x-ndjson' \
+            --header 'X-API-Key: harvestview-container-smoke-key' \
+            --data-binary @/tmp/smoke.jsonl \
+            'http://127.0.0.1:8769/api/v1/runs/import?filename=smoke.jsonl' > /tmp/imported-run.json
+          run_id="$(python3 -c "import json; print(json.load(open('/tmp/imported-run.json', encoding='utf-8'))['run_id'])")"
+          curl --fail --silent --show-error \
+            --header 'X-API-Key: harvestview-container-smoke-key' \
+            "http://127.0.0.1:8769/api/v1/runs/${run_id}/export" \
+            | python3 -c "import json, sys; rows = [json.loads(line) for line in sys.stdin if line.strip()]; assert rows[0]['type'] == 'summary'; assert any(row.get('type') == 'ip' for row in rows[1:]); assert len(rows) == 3"
+          docker compose -p harvestview-container-smoke exec -T theharvester.svc.local \
+            python -c "from playwright.sync_api import sync_playwright; p = sync_playwright().start(); browser = p.chromium.launch(headless=True); browser.close(); p.stop()"
+          docker compose -p harvestview-container-smoke restart theharvester.svc.local
+          curl --retry 30 --retry-all-errors --retry-delay 1 --fail --silent --show-error \
+            --header 'X-API-Key: harvestview-container-smoke-key' \
+            "http://127.0.0.1:8769/api/v1/runs/${run_id}" > /tmp/persisted-run.json
+          python3 -c "import json; data = json.load(open('/tmp/persisted-run.json', encoding='utf-8')); assert data['status'] == 'completed'; assert len(data['results']) == 2"
+
+      - name: Stop container
+        if: ${{ always() }}
+        env:
+          THEHARVESTER_PORT: '8769'
+        run: docker compose -p harvestview-container-smoke down --volumes

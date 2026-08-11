@@ -106,6 +106,10 @@ class Core:
         return keys['apikeys']
 
     @staticmethod
+    def api_key_fields() -> dict[str, tuple[str, ...]]:
+        return dict(Core._API_KEY_FIELDS)
+
+    @staticmethod
     def _api_key_value(provider: str) -> Any:
         provider_keys = Core.api_keys()[provider]
         fields = Core._API_KEY_FIELDS[provider]
@@ -316,7 +320,6 @@ class Core:
             'leakix',
             'leaklookup',
             'linkedin',
-            'linkedin_links',
             'mojeek',
             'netcraft',
             'netlas',
@@ -483,10 +486,8 @@ class AsyncFetcher:
         response: aiohttp.ClientResponse,
         *,
         json: bool,
-        delay: int,
         include_metadata: bool = False,
     ) -> Any:
-        await asyncio.sleep(delay)
         if json is False:
             body = await response.text()
         elif include_metadata:
@@ -517,7 +518,6 @@ class AsyncFetcher:
         *,
         json: bool = False,
         json_body: dict[str, Any] | None = None,
-        delay: int = 5,
         request_timeout: int | None = None,
         include_metadata: bool = False,
         **request_kwargs: Any,
@@ -531,7 +531,6 @@ class AsyncFetcher:
                     return await cls._read_response(
                         response,
                         json=json,
-                        delay=delay,
                         include_metadata=include_metadata,
                     )
 
@@ -539,7 +538,6 @@ class AsyncFetcher:
             return await cls._read_response(
                 response,
                 json=json,
-                delay=delay,
                 include_metadata=include_metadata,
             )
 
@@ -608,7 +606,6 @@ class AsyncFetcher:
                         url,
                         json=json,
                         json_body=json_body,
-                        delay=3,
                         include_metadata=include_metadata,
                         **request_kwargs,
                     )
@@ -621,7 +618,6 @@ class AsyncFetcher:
                         data=cls._normalize_data(data) if json_body is None else None,
                         json=json,
                         json_body=json_body,
-                        delay=3,
                         include_metadata=include_metadata,
                     )
             else:
@@ -635,7 +631,6 @@ class AsyncFetcher:
                         params=params,
                         json=json,
                         json_body=json_body,
-                        delay=3,
                         include_metadata=include_metadata,
                     )
         except (aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, UnicodeDecodeError, ValueError):
@@ -694,7 +689,6 @@ class AsyncFetcher:
                     method,
                     url,
                     json=json,
-                    delay=5,
                     request_timeout=request_timeout,
                     include_metadata=include_metadata,
                     **request_kwargs,
@@ -710,6 +704,7 @@ class AsyncFetcher:
         session,
         url: str,
         proxy: str | None = None,
+        include_metadata: bool = False,
     ) -> tuple[Any, Any] | str:
         _, proxy_type = AsyncFetcher._resolve_proxy(proxy)
         response = await AsyncFetcher.fetch(
@@ -717,6 +712,7 @@ class AsyncFetcher:
             url=url,
             proxy=proxy,
             request_timeout=15,
+            include_metadata=include_metadata,
         )
         return url, response
 
@@ -745,13 +741,22 @@ class AsyncFetcher:
                     return list(
                         await asyncio.gather(
                             *[
-                                AsyncFetcher.takeover_fetch(session, url, proxy=proxy_url)
+                                AsyncFetcher.takeover_fetch(
+                                    session,
+                                    url,
+                                    proxy=proxy_url,
+                                    include_metadata=include_metadata,
+                                )
                                 for url, proxy_url in zip(urls, proxy_urls, strict=False)
                             ]
                         )
                     )
                 else:
-                    return list(await asyncio.gather(*[AsyncFetcher.takeover_fetch(session, url) for url in urls]))
+                    return list(
+                        await asyncio.gather(
+                            *[AsyncFetcher.takeover_fetch(session, url, include_metadata=include_metadata) for url in urls]
+                        )
+                    )
 
         if len(params) == 0:
             async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:

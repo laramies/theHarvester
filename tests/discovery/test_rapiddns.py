@@ -154,15 +154,18 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
         def __init__(self, *, word: str, wordlist: str) -> None:
             assert word == 'example.com'
             assert wordlist.endswith('api_endpoints.txt')
+            self.scan_error_type = None
+            self.request_error_count = 0
+            self.request_error_types: set[str] = set()
 
         async def do_search(self) -> None:
             return None
 
         def get_found_endpoints(self) -> dict[str, object]:
-            return {'/health': object()}
+            return {'https://example.com/health': object()}
 
         def get_interesting_endpoints(self) -> dict[str, object]:
-            return {'/health': object()}
+            return {'https://example.com/health': object()}
 
         def get_auth_required(self) -> dict[str, object]:
             return {}
@@ -198,10 +201,14 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
         iprange: str,
         callback: Any,
         nameservers: list[str] | None = None,
+        error_types: set[str] | None = None,
     ) -> None:
         assert iprange in {'192.0.2.0/24', '198.51.100.0/24', '2001:d00::/24'}
         assert nameservers is None
         callback('reverse.example.com')
+        if iprange == '198.51.100.0/24':
+            assert error_types is not None
+            error_types.add('TimeoutError')
 
     report = tmp_path / 'rapiddns-report'
     monkeypatch.setattr(rapiddns.AsyncFetcher, 'fetch_all', fake_fetch_all)
@@ -232,12 +239,15 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
         await theharvester_main.start(completed_result_checkpoint=capture_checkpoint)
 
     assert exit_info.value.code == 0
-    assert stored.count(('api-endpoint', ('/health',), 'api_scan')) == 1
+    assert stored == []
 
     report_json = json.loads(report.with_suffix('.json').read_text())
     assert report_json['hosts'] == ['alias.example.com', 'api.example.com', 'broken.example.com']
     assert report_json['ips'] == ['192.0.2.1', '198.51.100.9', '2001:db8::1']
+    assert report_json['urls'] == ['https://example.com/health']
     assert 'interesting_urls' not in report_json
+    assert 'linkedin_links' not in report_json
+    assert 'trello_urls' not in report_json
 
     jsonl_records = [json.loads(line) for line in report.with_suffix('.jsonl').read_text().splitlines()]
     assert jsonl_records[0]['type'] == 'summary'
@@ -246,24 +256,43 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
     assert [str(result.run_id) for result in completed_results] == [jsonl_records[0]['run_id']]
     assert checkpoints
     assert {result.run_id for result in checkpoints} == {completed_results[0].run_id}
-    assert {'type': 'interesting-url', 'value': 'https://example.com/health', 'sources': []} in jsonl_records
-    assert {'type': 'url', 'value': 'https://example.com/health', 'sources': []} in jsonl_records
-    assert {'type': 'hostname', 'value': 'reverse.example.com', 'sources': []} in jsonl_records
-    assert {'type': 'ip-address', 'value': '198.51.100.9', 'sources': ['securityscorecard']} in jsonl_records
-    assert {'type': 'ip-address', 'value': '2001:db8::1', 'sources': ['securityscorecard']} in jsonl_records
+    assert {'type': 'url', 'value': 'https://example.com/health', 'sources': [], 'actions': ['api-scan']} in jsonl_records
+    assert {
+        'type': 'hostname',
+        'value': 'reverse.example.com',
+        'sources': [],
+        'actions': ['dns-lookup'],
+    } in jsonl_records
+    assert {'type': 'ip', 'value': '198.51.100.9', 'sources': ['securityscorecard']} in jsonl_records
+    assert {'type': 'ip', 'value': '2001:db8::1', 'sources': ['securityscorecard']} in jsonl_records
     assert not any(record.get('value') == 'not-an-ip' for record in jsonl_records)
     assert {(observation.source, observation.kind, observation.value) for observation in completed_results[0].observations} >= {
         ('rapiddns', 'hostname', 'api.example.com'),
-        ('rapiddns', 'ip-address', '192.0.2.1'),
-        ('securityscorecard', 'ip-address', '198.51.100.9'),
-        ('securityscorecard', 'ip-address', '2001:db8::1'),
+        ('rapiddns', 'ip', '192.0.2.1'),
+        ('securityscorecard', 'ip', '198.51.100.9'),
+        ('securityscorecard', 'ip', '2001:db8::1'),
     }
     securityscorecard_execution = next(
         execution for execution in completed_results[0].source_executions if execution.source == 'securityscorecard'
     )
     assert securityscorecard_execution.status == 'completed'
     assert securityscorecard_execution.result_count == 2
-
+    reverse_execution = next(
+        execution for execution in completed_results[0].active_evidence.executions if execution.action == 'dns-lookup'
+    )
+    assert reverse_execution.status == 'partial'
+    assert reverse_execution.error_type == 'TimeoutError'
+    assert reverse_execution.stop_reason == 'query-errors'
+    assert {(observation.kind, observation.value) for observation in reverse_execution.observations} == {
+        ('hostname', 'reverse.example.com')
+    }
+    api_execution = next(
+        execution for execution in completed_results[0].active_evidence.executions if execution.action == 'api-scan'
+    )
+    assert api_execution.status == 'completed'
+    assert {(observation.kind, observation.value) for observation in api_execution.observations} == {
+        ('url', 'https://example.com/health')
+    }
     xml_hosts = {
         (element.findtext('hostname') or (element.text or '').strip(), element.findtext('ip'))
         for element in ElementTree.parse(report.with_suffix('.xml')).getroot().findall('host')
@@ -325,13 +354,13 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
     assert len(completed_results) == 2
     assert FakeSecurityScorecard.created == 1
     assert completed_results[1].target == 'example.com'
-    assert {'192.0.2.1', '198.51.100.2'} <= {value for kind, value in completed_results[1].results if kind == 'ip-address'}
+    assert {'192.0.2.1', '198.51.100.2'} <= {value for kind, value in completed_results[1].results if kind == 'ip'}
     assert ('email', 'user@example.com') in completed_results[1].results
     assert {(observation.source, observation.kind, observation.value) for observation in completed_results[1].observations} >= {
         ('dehashed', 'email', 'user@example.com'),
-        ('dehashed', 'ip-address', '198.51.100.2'),
+        ('dehashed', 'ip', '198.51.100.2'),
         ('rapiddns', 'hostname', 'api.example.com'),
-        ('rapiddns', 'ip-address', '192.0.2.1'),
+        ('rapiddns', 'ip', '192.0.2.1'),
     }
 
     monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.com', '-b', 'rapiddns'])

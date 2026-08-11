@@ -32,12 +32,13 @@ class DnsForce:
         self.subdo = False
         self.verbose = verbose
         self.records: dict[str, hostchecker.HostDnsRecords] = {}
+        self.query_error_count = 0
+        self.query_error_types: set[str] = set()
         # self.dnsserver = [dnsserver] if isinstance(dnsserver, str) else dnsserver
         # self.dnsserver = list(map(str, dnsserver.split(','))) if isinstance(dnsserver, str) else dnsserver
         self.dnsserver = dnsserver
         with DNS_NAMES.open('r') as file:
             self.list = file.readlines()
-        self.domain = domain.replace('www.', '')
         self.list = [f'{word.strip()}.{self.domain}' for word in self.list]
 
     async def run(self):
@@ -45,6 +46,8 @@ class DnsForce:
         checker = hostchecker.Checker(self.list, nameservers=self.dnsserver)
         resolved_pair, hosts, ips = await checker.check()
         self.records = checker.records
+        self.query_error_count = getattr(checker, 'query_error_count', 0)
+        self.query_error_types = set(getattr(checker, 'query_error_types', set()))
         return resolved_pair, hosts, ips
 
 
@@ -112,7 +115,7 @@ def list_ips_in_network_range(iprange: str) -> list[str]:
         return []
 
 
-async def reverse_single_ip(ip: str, resolver: DNSResolver) -> str:
+async def reverse_single_ip(ip: str, resolver: DNSResolver, error_types: set[str] | None = None) -> str:
     """Reverse a single IP and output the linked CNAME, if it exists.
 
     Parameters
@@ -126,13 +129,20 @@ async def reverse_single_ip(ip: str, resolver: DNSResolver) -> str:
 
     """
     try:
-        __host = await resolver.gethostbyaddr(ip)
-        return __host.name if __host else ''
-    except Exception:
+        host = await resolver.gethostbyaddr(ip)
+        return host.name if host else ''
+    except Exception as error:
+        if error_types is not None and not hostchecker.is_expected_dns_absence(error):
+            error_types.add(type(error).__name__)
         return ''
 
 
-async def reverse_all_ips_in_range(iprange: str, callback: Callable, nameservers: list[str] | None = None) -> None:
+async def reverse_all_ips_in_range(
+    iprange: str,
+    callback: Callable,
+    nameservers: list[str] | None = None,
+    error_types: set[str] | None = None,
+) -> None:
     """Reverse all the IPs stored in a network range.
     All the queries are made concurrently.
 
@@ -146,7 +156,8 @@ async def reverse_all_ips_in_range(iprange: str, callback: Callable, nameservers
         Arbitrary postprocessing function.
     nameservers: List[str].
         Optional list of DNS servers.
-
+    error_types: set[str].
+        Optional sink for unexpected resolver or transport error names.
     Returns
     -------
     out: None.
@@ -156,7 +167,7 @@ async def reverse_all_ips_in_range(iprange: str, callback: Callable, nameservers
     __resolver = DNSResolver(loop=loop, timeout=8, nameservers=nameservers)
     for __ip in list_ips_in_network_range(iprange):
         log_query(__ip)
-        __host = await reverse_single_ip(ip=__ip, resolver=__resolver)
+        __host = await reverse_single_ip(ip=__ip, resolver=__resolver, error_types=error_types)
         callback(__host)
         log_result(__host)
 

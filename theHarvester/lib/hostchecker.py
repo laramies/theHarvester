@@ -28,6 +28,14 @@ class HostDnsRecords:
         return self.ipv4 + self.ipv6
 
 
+def is_expected_dns_absence(error: BaseException) -> bool:
+    return (
+        isinstance(error, aiodns.error.DNSError)
+        and bool(error.args)
+        and error.args[0] in {aiodns.error.ARES_ENODATA, aiodns.error.ARES_ENOTFOUND}
+    )
+
+
 class Checker:
     """Resolve hosts while preserving the legacy ``check()`` return tuple.
 
@@ -41,6 +49,8 @@ class Checker:
         self.addresses: set[str] = set()
         self.records: dict[str, HostDnsRecords] = {}
         self.nameservers: list[str] = nameservers
+        self.query_error_count = 0
+        self.query_error_types: set[str] = set()
 
     # @staticmethod
     # async def query(host, resolver) -> Tuple[str, Any]:
@@ -54,8 +64,7 @@ class Checker:
     #     except Exception:
     #         return f"{host}", tuple()
 
-    @staticmethod
-    async def resolve_host(host: str, resolver: aiodns.DNSResolver) -> tuple[str, HostDnsRecords] | None:
+    async def resolve_host(self, host: str, resolver: aiodns.DNSResolver) -> tuple[str, HostDnsRecords] | None:
         record_types = ('A', 'AAAA', 'CNAME')
         results = await asyncio.gather(
             *(resolver.query_dns(host, record_type) for record_type in record_types),
@@ -65,6 +74,9 @@ class Checker:
         for record_type, result in zip(record_types, results, strict=True):
             if isinstance(result, BaseException):
                 if isinstance(result, Exception):
+                    if not is_expected_dns_absence(result):
+                        self.query_error_count += 1
+                        self.query_error_types.add(type(result).__name__)
                     continue
                 raise result
             for record in result.answer:

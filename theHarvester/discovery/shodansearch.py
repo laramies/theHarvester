@@ -17,8 +17,10 @@ class SearchShodan:
         self.api = Shodan(self.key)
         self.hostdatarow: list = []
         self.tracker: OrderedDict = OrderedDict()
+        self.error_type: str | None = None
 
     async def search_ip(self, ip) -> OrderedDict:
+        self.error_type = None
         try:
             ipaddress = ip
             results = self.api.host(ipaddress)
@@ -108,10 +110,15 @@ class SearchShodan:
             }
 
             return self.tracker
-        except exception.APIError:
-            logger.info(f'{ip}: Not in Shodan')
-            self.tracker[ip] = 'Not in Shodan'
+        except exception.APIError as error:
+            if str(error).strip().rstrip('.').casefold() == 'no information available for that ip':
+                logger.info(f'{ip}: Not in Shodan')
+                self.tracker[ip] = 'Not in Shodan'
+            else:
+                self.error_type = type(error).__name__
+                self.tracker[ip] = 'Shodan request failed'
         except Exception as e:
-            self.tracker[ip] = f'Error occurred in the Shodan IP search module: {e}'
+            self.error_type = type(e).__name__
+            self.tracker[ip] = 'Shodan request failed'
 
         return self.tracker

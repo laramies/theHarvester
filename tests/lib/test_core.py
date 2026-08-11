@@ -283,11 +283,14 @@ def test_api_key_accessors_delegate_to_shared_mapping(monkeypatch, accessor_name
 
 @pytest.mark.asyncio
 async def test_fetch_creates_session_with_default_headers(monkeypatch) -> None:
+    async def fail_if_fetch_sleeps(seconds: float) -> None:
+        raise AssertionError(f'fetch delayed reading a ready response by {seconds} seconds')
+
     reset_dummy_sessions()
     monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
     monkeypatch.setattr(core_module.ssl, 'create_default_context', lambda cafile=None: 'ssl-context')
     monkeypatch.setattr(core_module.certifi, 'where', lambda: '/tmp/cacert.pem')
-    monkeypatch.setattr(core_module.asyncio, 'sleep', fake_sleep)
+    monkeypatch.setattr(core_module.asyncio, 'sleep', fail_if_fetch_sleeps)
     monkeypatch.setattr(Core, 'get_user_agent', staticmethod(lambda: 'test-agent'))
 
     result = await AsyncFetcher.fetch(url='https://example.com', follow_redirects=False)
@@ -441,6 +444,7 @@ async def test_takeover_fetch_uses_the_shared_transport(
             'url': url,
             'proxy': proxy,
             'request_timeout': 15,
+            'include_metadata': False,
         }
     ]
 
@@ -462,7 +466,25 @@ async def test_takeover_fetch_all_falls_back_to_direct_when_proxy_pool_is_empty(
 
     assert result == [('http://example.com', 'direct response')]
     assert len(calls) == 1
-    assert calls[0][1] == {'proxy': None}
+    assert calls[0][1] == {'proxy': None, 'include_metadata': False}
+
+
+@pytest.mark.asyncio
+async def test_takeover_fetch_all_propagates_metadata_opt_in(monkeypatch) -> None:
+    reset_dummy_sessions()
+    seen: list[bool] = []
+    monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
+
+    async def fake_takeover_fetch(*_args, include_metadata: bool = False, **_kwargs):
+        seen.append(include_metadata)
+        return 'https://example.com', FetcherResponse(body='', status=204, headers={})
+
+    monkeypatch.setattr(AsyncFetcher, 'takeover_fetch', fake_takeover_fetch)
+
+    result = await AsyncFetcher.fetch_all(['https://example.com'], takeover=True, include_metadata=True)
+
+    assert seen == [True]
+    assert result[0][1].status == 204
 
 
 @pytest.mark.asyncio

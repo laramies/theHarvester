@@ -84,3 +84,10 @@ Completion criterion: the named target architecture is accepted, the representat
 - Typing: `uv run mypy theHarvester`
 
 Run focused checks first and expand according to risk. Report any skipped check and its reason.
+
+### Test budget
+
+- During implementation, run the narrowest test that covers the changed behavior. Do not rerun the full suite after every small edit.
+- Run the full non-browser suite once at the publication head. Dependent stack layers do not need to repeat it unless they change Python behavior.
+- Run the HarvestView browser suite once at the final UI head or rely on its GitHub workflow. Static UI edits should use focused UI tests and a JavaScript syntax check first.
+- Before retrying a long-running test, confirm the previous process exited. Poll the existing command or stop only its exact owned process instead of starting an overlapping run.

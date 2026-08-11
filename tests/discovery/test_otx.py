@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# coding=utf-8
+import asyncio
 import logging
 from typing import Any
 
@@ -10,7 +10,7 @@ from theHarvester.discovery import otxsearch
 from theHarvester.lib.core import Core, FetcherResponse
 
 
-class TestOtx(object):
+class TestOtx:
     @staticmethod
     def domain() -> str:
         return 'example.com'
@@ -65,6 +65,23 @@ class TestOtx(object):
 
         assert await search.get_hostnames() == set()
         assert await search.get_ips() == set()
+        assert search.execution_status == 'failed'
+        assert search.stop_reason == 'invalid-response'
+
+    @pytest.mark.asyncio
+    async def test_empty_passive_dns_is_a_valid_zero_yield(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[FetcherResponse]:
+            return [FetcherResponse(body={'passive_dns': []}, status=200, headers={})]
+
+        monkeypatch.setattr(otxsearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+        search = otxsearch.SearchOtx(TestOtx.domain())
+
+        await search.process()
+
+        assert await search.get_hostnames() == set()
+        assert await search.get_ips() == set()
+        assert search.execution_status is None
+        assert search.stop_reason is None
 
     @pytest.mark.asyncio
     async def test_provider_failures_are_attributed(
@@ -83,7 +100,50 @@ class TestOtx(object):
 
         assert await search.get_hostnames() == set()
         assert await search.get_ips() == set()
+        assert search.execution_status == 'failed'
+        assert search.stop_reason == 'transport-error'
         assert 'OTX request failed' in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_missing_transport_response_is_attributed(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[None]:
+            return [None]
+
+        monkeypatch.setattr(otxsearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+        search = otxsearch.SearchOtx(TestOtx.domain())
+
+        await search.process()
+
+        assert await search.get_hostnames() == set()
+        assert await search.get_ips() == set()
+        assert search.execution_status == 'failed'
+        assert search.stop_reason == 'transport-error'
+
+    @pytest.mark.asyncio
+    async def test_http_failure_is_attributed(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[FetcherResponse]:
+            return [FetcherResponse(body={'error': 'unavailable'}, status=503, headers={})]
+
+        monkeypatch.setattr(otxsearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+        search = otxsearch.SearchOtx(TestOtx.domain())
+
+        await search.process()
+
+        assert await search.get_hostnames() == set()
+        assert await search.get_ips() == set()
+        assert search.execution_status == 'failed'
+        assert search.stop_reason == 'http-503'
+
+    @pytest.mark.asyncio
+    async def test_cancellation_propagates(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        async def cancelled_fetch(*_args: Any, **_kwargs: Any) -> list[FetcherResponse]:
+            raise asyncio.CancelledError
+
+        monkeypatch.setattr(otxsearch.AsyncFetcher, 'fetch_all', cancelled_fetch)
+        search = otxsearch.SearchOtx(TestOtx.domain())
+
+        with pytest.raises(asyncio.CancelledError):
+            await search.process()
 
     @pytest.mark.asyncio
     async def test_rate_limit_waits_once_then_returns_evidence(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -152,6 +212,8 @@ class TestOtx(object):
         assert waits == expected_waits
         assert await search.get_hostnames() == set()
         assert await search.get_ips() == set()
+        assert search.execution_status == 'rate-limited'
+        assert search.stop_reason == 'http-429'
         assert 'OTX request failed with HTTP 429' in caplog.text
 
 

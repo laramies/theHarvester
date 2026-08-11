@@ -13,7 +13,6 @@ import pytest
 from theHarvester import __main__ as theharvester_main
 from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass
 
-
 NON_PASSIVE_SOURCES = (
     'criminalip',
     'pentesttools',
@@ -234,17 +233,8 @@ async def test_all_schedules_each_passive_catalog_source_once_and_reports_result
         async def get_people(self) -> list[dict[str, str]]:
             return [{'name': 'Example Person'}]
 
-        async def get_links(self) -> set[str]:
-            return {'https://sub.example.test/profile'}
-
         async def get_urls(self) -> set[str]:
-            return {'https://gitlab.com/example/project'}
-
-        async def get_interestingurls(self) -> set[str]:
             return {'https://sub.example.test/evidence'}
-
-        async def get_interesting_urls(self) -> set[str]:
-            return await self.get_interestingurls()
 
         async def get_host_ip_pairs(self) -> set[tuple[str, str]]:
             return set()
@@ -296,18 +286,28 @@ async def test_all_schedules_each_passive_catalog_source_once_and_reports_result
     json_report = json.loads(report.with_suffix('.json').read_text())
     assert 'sub.example.test' in json_report['hosts']
     assert 'user@example.test' in json_report['emails']
+    assert json_report['urls'] == ['https://sub.example.test/evidence']
+    assert not {'interesting_urls', 'linkedin_links', 'trello_urls'} & json_report.keys()
 
     jsonl_records = [json.loads(line) for line in report.with_suffix('.jsonl').read_text().splitlines()]
     findings = {(record['type'], record['value']): record for record in jsonl_records[1:]}
     assert findings[('hostname', 'sub.example.test')]['sources']
     assert findings[('email', 'user@example.test')]['sources']
-    assert findings[('url', 'https://gitlab.com/example/project')]['sources']
+    assert findings[('url', 'https://sub.example.test/evidence')]['sources'] == [
+        'bevigil',
+        'builtwith',
+        'gitlab',
+        'intelx',
+        'rocketreach',
+        'urlscan',
+        'zoomeye',
+    ]
 
     completed = await TestResultStore().load_run(UUID(jsonl_records[0]['run_id']))
     assert completed.target == 'example.test'
     assert ('hostname', 'sub.example.test') in completed.results
     assert ('email', 'user@example.test') in completed.results
-    assert ('ip-address', '192.0.2.1') in completed.results
+    assert ('ip', '192.0.2.1') in completed.results
 
     xml_hosts = {
         (element.findtext('hostname') or (element.text or '').strip())

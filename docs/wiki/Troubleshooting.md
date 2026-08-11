@@ -53,7 +53,7 @@ Do not post credentials, private targets, account details, or raw provider respo
 
 ## DNS resolution
 
-`-r` accepts no value, a resolver IP, comma-separated resolver IPs, or a file with one IP per line:
+`-r` accepts no value, a resolver IP, comma-separated resolver IPs, or a resolver file you create with one IP per line:
 
 ```bash
 AUTHORIZED_DOMAIN='replace-with-a-domain-you-control'
@@ -77,15 +77,15 @@ If Chromium reports missing Linux libraries, install the host dependencies recom
 Start with:
 
 ```bash
-uv run restfulHarvest --log-level debug
+uv run harvestview --log-level debug
 ```
 
 Then open [http://127.0.0.1:5000/docs](http://127.0.0.1:5000/docs).
 
-- `401` on `/additional/*`: the `X-API-Key` header is absent or does not match.
-- `503` on `/additional/*`: `THEHARVESTER_API_KEY` was not configured before startup.
-- `429`: the client exceeded the configured API rate limit.
-- Core routes are intentionally not protected by that key; do not expose the service directly.
+- `401` on `/api/v1/*`: the `X-API-Key` header or HarvestView browser session does not match.
+- `503` on `/api/v1/*`: `THEHARVESTER_API_KEY` was not configured before startup.
+- `429`: a reverse proxy or remote provider applied its own rate limit. `harvestview` has no built-in request limiter.
+- `503` when creating a run: the execution worker is disabled or unavailable.
 
 ## Docker
 
@@ -94,7 +94,7 @@ docker compose ps
 docker compose logs theharvester.svc.local
 ```
 
-The container runs the REST API on container port `80`, published as host port `5000` by the supplied Compose file.
+The container runs HarvestView and the REST API on container port `8000`, published only as `127.0.0.1:5000` by the supplied Compose file. If startup reports a missing secret, create `.secrets/operator-api-key` as shown in the installation guide.
 
 ## File an actionable issue
 

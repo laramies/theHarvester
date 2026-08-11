@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import sys
@@ -6,9 +7,8 @@ from typing import Any
 
 import pytest
 
-from theHarvester.discovery import haveibeenpwned
 from theHarvester import __main__ as theharvester_main
-from theHarvester.lib.api import additional_endpoints
+from theHarvester.discovery import haveibeenpwned
 from theHarvester.lib.completed_result import CompletedResult
 from theHarvester.lib.core import FetcherResponse
 
@@ -76,8 +76,52 @@ async def test_public_breach_catalog_ignores_blank_names(monkeypatch: pytest.Mon
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('payload', [[], None, {}, ['not-a-breach']])
-async def test_public_breach_catalog_handles_empty_and_malformed_payloads(
+async def test_public_breach_catalog_valid_empty_is_completed(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[FetcherResponse]:
+        return [FetcherResponse(body=[], status=200, headers={})]
+
+    monkeypatch.setattr(haveibeenpwned.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    search = haveibeenpwned.SearchHaveIBeenPwned('example.com')
+
+    await search.process()
+
+    assert await search.get_breaches() == []
+    assert await search.get_hostnames() == set()
+    assert await search.get_breach_dates() == set()
+    assert await search.get_affected_data() == set()
+    assert search.execution_status == 'completed'
+    assert search.stop_reason == 'no-results'
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('http_status', 'execution_status'),
+    [(429, 'rate-limited'), (503, 'failed')],
+)
+async def test_public_breach_catalog_attributes_http_failures(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    http_status: int,
+    execution_status: str,
+) -> None:
+    async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[FetcherResponse]:
+        return [FetcherResponse(body={'error': 'provider failure'}, status=http_status, headers={})]
+
+    monkeypatch.setattr(haveibeenpwned.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    search = haveibeenpwned.SearchHaveIBeenPwned('example.com')
+
+    with caplog.at_level(logging.INFO, logger=haveibeenpwned.__name__):
+        await search.process()
+
+    assert await search.get_breaches() == []
+    assert f'HaveIBeenPwned request failed with HTTP {http_status}' in caplog.text
+    assert search.execution_status == execution_status
+    assert search.stop_reason == f'http-{http_status}'
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('payload', [None, {}, ['not-a-breach']])
+async def test_public_breach_catalog_malformed_json_fails(
     monkeypatch: pytest.MonkeyPatch,
     payload: Any,
 ) -> None:
@@ -89,43 +133,35 @@ async def test_public_breach_catalog_handles_empty_and_malformed_payloads(
 
     await search.process()
 
+    assert search.execution_status == 'failed'
+    assert search.stop_reason == 'invalid-response'
     assert await search.get_breaches() == []
-    assert await search.get_hostnames() == set()
-    assert await search.get_breach_dates() == set()
-    assert await search.get_affected_data() == set()
 
 
 @pytest.mark.asyncio
-async def test_public_breach_catalog_attributes_http_failures(
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[FetcherResponse]:
-        return [FetcherResponse(body={'error': 'rate limited'}, status=429, headers={})]
+async def test_public_breach_catalog_missing_metadata_is_transport_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[None]:
+        return [None]
 
     monkeypatch.setattr(haveibeenpwned.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = haveibeenpwned.SearchHaveIBeenPwned('example.com')
 
-    with caplog.at_level(logging.INFO, logger=haveibeenpwned.__name__):
-        await search.process()
+    await search.process(proxy=True)
 
-    assert await search.get_breaches() == []
-    assert 'HaveIBeenPwned request failed with HTTP 429' in caplog.text
+    assert search.execution_status == 'failed'
+    assert search.stop_reason == 'transport-error'
 
 
 @pytest.mark.asyncio
-async def test_breach_rest_handler_does_not_initialize_unrelated_providers(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_public_breach_catalog_preserves_cancellation(monkeypatch: pytest.MonkeyPatch) -> None:
     async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[FetcherResponse]:
-        return [FetcherResponse(body=[{'Domain': 'example.com'}], status=200, headers={})]
+        raise asyncio.CancelledError
 
     monkeypatch.setattr(haveibeenpwned.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    search = haveibeenpwned.SearchHaveIBeenPwned('example.com')
 
-    result = await additional_endpoints.get_breaches(
-        additional_endpoints.DomainRequest(domain='example.com'),
-        _api_key='local-api-key',
-    )
-
-    assert result == {'status': 'success', 'data': [{'Domain': 'example.com'}]}
+    with pytest.raises(asyncio.CancelledError):
+        await search.process()
 
 
 @pytest.mark.asyncio

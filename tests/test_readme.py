@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -7,15 +8,13 @@ import yaml
 
 from theHarvester.lib.source_catalog import SOURCE_SPECS, ResultRoute
 
-RESULT_COLUMNS = ('Subdomains', 'Emails', 'IPs', 'ASNs', 'URLs / links', 'People', 'Breaches')
+RESULT_COLUMNS = ('Subdomains', 'Emails', 'IPs', 'ASNs', 'URLs', 'People', 'Breaches')
 ROUTE_COLUMNS = {
     ResultRoute.SUBDOMAINS: 'Subdomains',
     ResultRoute.EMAILS: 'Emails',
     ResultRoute.IPS: 'IPs',
     ResultRoute.ASNS: 'ASNs',
-    ResultRoute.LINKS: 'URLs / links',
-    ResultRoute.URLS: 'URLs / links',
-    ResultRoute.INTERESTING_URLS: 'URLs / links',
+    ResultRoute.URLS: 'URLs',
     ResultRoute.PEOPLE: 'People',
     ResultRoute.BREACHES: 'Breaches',
 }
@@ -38,6 +37,7 @@ WIKI_PAGES = {
     'Results-and-Local-Data.md',
     'Roadmap.md',
     'Troubleshooting.md',
+    'Virtual-Host-Discovery.md',
     '_Footer.md',
     '_Sidebar.md',
 }
@@ -80,7 +80,7 @@ def test_readme_matches_declared_source_contracts() -> None:
     documented = _documented_source_contracts(readme)
     declared = _declared_source_contracts()
 
-    assert '| Source | Subdomains | Emails | IPs | ASNs | URLs / links | People | Breaches |' in readme
+    assert '| Source | Subdomains | Emails | IPs | ASNs | URLs | People | Breaches |' in readme
     assert len(declared) == 56
     assert len(documented) == 56
     assert documented == declared
@@ -113,6 +113,30 @@ def test_wiki_navigation_and_readme_links_resolve() -> None:
     assert all(Path(target).is_file() for target in readme_wiki_links)
 
 
+def test_virtual_host_wiki_examples_match_the_structured_result_contract() -> None:
+    page = Path('docs/wiki/Virtual-Host-Discovery.md').read_text()
+
+    assert '-b rapiddns \\\n  --vhost' in page
+    assert '"sources": ["rapiddns"]' in page
+    assert '"type": "hostname"' in page
+    assert '"value": "admin.authorized.example"' in page
+    assert '"actions": ["vhost"]' in page
+    assert '"observations": [' in page
+    assert page.count('"endpoint": "https://192.0.2.') == 2
+    assert '"source": "action:vhost"' not in page
+    assert 'schema_version' not in page
+
+    json_examples = re.findall(r'```json\n(.*?)\n```', page, flags=re.DOTALL)
+    finding = next(
+        json.loads(example)
+        for example in json_examples
+        if '"type": "hostname"' in example and '"observations"' in example
+    )
+    assert finding['value'] == 'admin.authorized.example'
+    assert finding['actions'] == ['vhost']
+    assert len(finding['observations']) == 2
+
+
 def test_readme_preserves_project_social_attribution() -> None:
     readme = Path('README.md').read_text()
     profiles = {
@@ -133,6 +157,8 @@ def test_readme_explains_jsonl_record_and_structured_value_parsing() -> None:
 
     assert '{"sources":[],"type":"hostname","value":"api.example.com"}' in readme
     assert 'select(.type == "dns-recursive-finding") | .value | fromjson' in readme
-    assert 'JSONL is easy to stream for simple findings, but it is not uniformly self-describing.' in readme
+    assert 'JSONL is easy to stream one record at a time.' in readme
     assert '`person`, `infostealer`, `shodan`, and `takeover`' in readme
-    assert 'JSONL does not include source execution records. Finding records include source attribution' in readme
+    assert 'select(.type == "hostname" and .observations) | {hostname: .value, observations}' in readme
+    assert 'Several endpoint observations can enrich the same hostname' in readme
+    assert 'The summary preserves the evidence status, source and action outcomes' in readme

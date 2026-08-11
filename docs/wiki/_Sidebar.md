@@ -10,6 +10,7 @@
 
 - [Configuration and API Keys](Configuration-and-API-Keys)
 - [Operator Workflows](Operator-Workflows)
+- [Virtual Host Discovery](Virtual-Host-Discovery)
 - [Results and Local Data](Results-and-Local-Data)
 - [REST API](Rest-API)
 - [Troubleshooting](Troubleshooting)

@@ -79,49 +79,75 @@ uv run theHarvester -h
 
 Options such as DNS brute force (`-c`), bounded recursive DNS (`--dns-recursive-depth`), reverse DNS lookup (`-n`), takeover checks (`-t`), API endpoint scanning (`-a`), DNS resolution (`-r`), and screenshots (`--screenshot`) generate additional network activity. Use them only within an explicitly authorized scope.
 
-Recursive DNS requires exactly three distinct resolver IPs through `--dns-resolve`. It advances only names with two-vantage address consensus that are distinguishable from closest-encloser wildcard controls. Depth, DNS record query, and runtime limits are configurable through the three `--dns-recursive-*` options; the default query ceiling is 3,000 record queries across resolver vantages, and three consecutive zero-yield batches also stop recursion. PTR names for current addresses are retained as secondary evidence, but they do not establish current addressability or become recursion seeds. REST `/query` exposes the same options and requires the configured operator API key when recursion is enabled.
+Recursive DNS requires exactly three distinct resolver IPs through `--dns-resolvers` or the compatible `--dns-resolve` value. It advances only names with two-vantage address consensus that are distinguishable from closest-encloser wildcard controls. Depth, DNS record query, and runtime limits are configurable through the three `--dns-recursive-*` options; the default query ceiling is 3,000 record queries across resolver vantages, and three consecutive zero-yield batches also stop recursion. PTR names for current addresses are retained as secondary evidence, but they do not establish current addressability or become recursion seeds. HarvestView and `POST /api/v1/runs` expose the same controls.
 
 Screenshot capture also requires a Playwright-compatible browser; see the installation guide for setup.
 
-## Browser interface and REST API
+## HarvestView and REST API
 
-`restfulHarvest` starts a FastAPI service on `127.0.0.1:5000` by default:
+`harvestview` starts the local web application and API on `127.0.0.1:5000` by default:
 
 ```bash
-uv run restfulHarvest
+export THEHARVESTER_API_KEY='replace-with-a-long-random-value'
+uv run harvestview
 ```
 
-Open [http://127.0.0.1:5000/docs](http://127.0.0.1:5000/docs) for interactive Swagger documentation or [http://127.0.0.1:5000/redoc](http://127.0.0.1:5000/redoc) for ReDoc.
+Open [HarvestView](http://127.0.0.1:5000/) to run and inspect finite enumerations in the local web app. The server gives the local browser a derived HttpOnly session cookie, so the API key is never entered into or stored by HarvestView.
+
+HarvestView uses its own `app.css` rather than a general UI framework. Bootstrap,
+Bulma, Pico, and Tailwind would duplicate the existing design layer or require a
+markup and build-pipeline rewrite. Tabulator 6.5.2's table behavior and default
+theme load from pinned CDNjs URLs with Subresource Integrity. HarvestView
+therefore needs network access to CDNjs by default. See the
+[self-hosting instructions](docs/wiki/Installation.md) for
+an isolated deployment.
+
+Open [Swagger](http://127.0.0.1:5000/docs) or [ReDoc](http://127.0.0.1:5000/redoc) for the automation contract.
+
+### Docker Compose
+
+The supplied Compose service runs as an unprivileged user, stores run records in a named volume, loads the operator key from a file secret, and publishes only to host loopback. Create the secret before the first start:
+
+```bash
+install -d -m 0700 .secrets
+openssl rand -hex 32 > .secrets/operator-api-key
+chmod 0444 .secrets/operator-api-key
+docker compose up --build -d
+docker compose ps
+```
+
+The `0700` directory protects the secret on the host, while the read-only `0444` file lets the unprivileged container process read its bind-mounted copy. Open [HarvestView](http://127.0.0.1:5000/). The image includes Chromium for optional screenshots. Provider keys and proxies remain in the existing read-only YAML mounts and are excluded from the image build context.
+
+```bash
+docker compose logs -f theharvester.svc.local
+docker compose down
+```
 
 | Route | Purpose |
 | --- | --- |
-| `GET /sources` | List registered discovery sources. |
-| `GET /query` | Return consolidated discovery results, including emails and breach names, as JSON. |
-| `GET /dnsbrute` | Run DNS brute force for a domain. |
-| `POST /additional/breaches` | Return Have I Been Pwned breach data. |
-| `POST /additional/leaks` | Return Leak-Lookup data. |
-| `POST /additional/security-score` | Return SecurityScorecard data. |
-| `POST /additional/tech-stack` | Return BuiltWith technology data. |
-| `POST /additional/all` | Run all additional API lookups. |
+| `GET /api/v1/sources` | List registered discovery sources and capabilities. |
+| `POST /api/v1/runs` | Submit a finite enumeration run. |
+| `GET /api/v1/runs` | List durable run records. |
+| `GET /api/v1/runs/{run_id}` | Retrieve lifecycle state, normalized results, and source outcomes. |
+| `POST /api/v1/runs/{run_id}/cancel` | Cancel queued or running work. |
+| `POST /api/v1/runs/import` | Import JSONL evidence without executing discovery. |
+| `POST /api/v1/runs/import-database` | Import completed runs from a theHarvester SQLite database. |
+| `GET /api/v1/runs/{run_id}/export` | Export normalized evidence as JSONL. |
 
-The service rate limit defaults to five requests per minute and can be changed with `--rate-limit`. The `/additional/*` routes require `THEHARVESTER_API_KEY` on the server and the same value in the `X-API-Key` request header.
+HarvestView can start a screenshot or DNS brute-force run directly from a hostname result. These actions create a separate run record for that hostname and leave the parent evidence unchanged. Resolver addresses may be entered directly or loaded from a text file with one IP address per line. Ordinary DNS actions accept one or more resolvers; recursive DNS requires exactly three.
 
-The core `/query`, `/sources`, and `/dnsbrute` routes do not normally require authentication. When a `/query` selection includes `dehashed`, `hibpverified`, or `leaklookup` and that source's provider key is configured, the request requires `THEHARVESTER_API_KEY` in the `X-API-Key` header because these sources can access breach-account data. Keep the service bound to localhost. If you require remote access, add authentication, access controls, and TLS.
+API clients send `THEHARVESTER_API_KEY` in the `X-API-Key` header; HarvestView uses its derived browser cookie. Provider credentials stay in server-side configuration and cannot be supplied in a request. Keep the service bound to localhost. If you require remote access, add network access controls and TLS.
 
-Docker Compose publishes port `5000` on every host interface unless you narrow the port mapping:
-
-```bash
-docker compose up --build
-```
+When `--proxies` and `--take-over` are combined, supported discovery and takeover requests use the configured proxies.
 
 ## Discovery sources
 
-The table shows which result types each source can add to consolidated CLI results. Legacy JSON and XML keep their existing schemas; breach names are retained in JSONL and SQLite. Some adapters parse fields that the reports do not store.
+The table shows which result types each source can add to consolidated CLI results. XML keeps its existing schema. Legacy JSON now consolidates `interesting_urls`, `linkedin_links`, and `trello_urls` into one `urls` field. Breach names are retained in JSONL and SQLite. Some adapters parse fields that the reports do not store.
 
-The report groups findings by result type. It does not record which source found each item. Empty optional fields may be omitted.
+JSON and XML group findings by result type without source attribution. JSONL and SQLite retain source attribution when the collection adapter provides it. Empty optional fields may be omitted.
 BuiltWith's normalized frameworks, languages, servers, CMS products, and analytics products are retained in JSONL and completed-result SQLite rows.
 
-A checkmark means the source can add that result type. The **Separate output** column lists REST endpoints and optional actions that return other data.
+A checkmark means the source can add that result type. The **Additional action output** column lists optional actions that return other data.
 
 Read the **API key** column as follows:
 
@@ -132,13 +158,13 @@ Read the **API key** column as follows:
 <details>
 <summary><strong>View the source and result matrix</strong></summary>
 
-| Source | Subdomains | Emails | IPs | ASNs | URLs / links | People | Breaches | Separate REST/action output (not consolidated report) | API key |
+| Source | Subdomains | Emails | IPs | ASNs | URLs | People | Breaches | Additional action output (not consolidated report) | API key |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | --- | :---: |
 | `arquivo` | ✓ | No | No | No | No | No | No | No | No |
 | `baidu` | ✓ | ✓ | No | No | No | No | No | No | No |
 | `bevigil` | ✓ | No | No | No | ✓ | No | No | No | ✓ |
 | `bufferoverun` | ✓ | No | ✓ | No | No | No | No | No | ✓ |
-| `builtwith` | ✓ | No | No | No | ✓ | No | No | `POST /additional/tech-stack` response | ✓ |
+| `builtwith` | ✓ | No | No | No | ✓ | No | No | No | ✓ |
 | `brave` | ✓ | ✓ | No | No | No | No | No | No | ✓ |
 | `censys` | ✓ | ✓ | No | No | No | No | No | No | ✓ |
 | `certspotter` | ✓ | No | No | No | No | No | No | No | No |
@@ -155,15 +181,15 @@ Read the **API key** column as follows:
 | `fullhunt` | ✓ | No | No | No | No | No | No | No | ✓ |
 | `github-code` | ✓ | ✓ | No | No | No | No | No | No | ✓ |
 | `gitlab` | ✓ | ✓ | No | No | ✓ | No | No | No | No |
-| `hackertarget` | ✓ | No | No | No | No | No | No | No | Optional |
-| `haveibeenpwned` | No | No | No | No | No | No | ✓ | `POST /additional/breaches` response | No |
+| `hackertarget` | ✓ | No | ✓ | No | No | No | No | No | Optional |
+| `haveibeenpwned` | No | No | No | No | No | No | ✓ | No | No |
 | `hibpverified` | No | ✓ | No | No | No | No | ✓ | No | ✓ |
 | `hudsonrock` | ✓ | ✓ | ✓ | No | No | No | No | No | No |
 | `hunter` | ✓ | ✓ | No | No | No | No | No | No | ✓ |
 | `hunterhow` | ✓ | No | No | No | No | No | No | No | ✓ |
 | `intelx` | ✓ | ✓ | No | No | ✓ | No | No | No | ✓ |
 | `leakix` | ✓ | No | No | No | No | No | No | No | ✓ |
-| `leaklookup` | No | ✓ | No | No | No | No | ✓ | `POST /additional/leaks` response | ✓ |
+| `leaklookup` | No | ✓ | No | No | No | No | ✓ | No | ✓ |
 | `mojeek` | ✓ | ✓ | No | No | No | No | No | No | Optional |
 | `netlas` | ✓ | No | No | No | No | No | No | No | ✓ |
 | `onyphe` | ✓ | No | ✓ | ✓ | No | No | No | No | ✓ |
@@ -171,9 +197,9 @@ Read the **API key** column as follows:
 | `pentesttools` | ✓ | No | ✓ | No | No | No | No | No | ✓ |
 | `projectdiscovery` | ✓ | No | No | No | No | No | No | No | ✓ |
 | `rapiddns` | ✓ | No | ✓ | No | No | No | No | No | No |
-| `robtex` | ✓ | No | ✓ | No | No | No | No | No | No |
+| `robtex` | No | No | ✓ | No | No | No | No | No | No |
 | `rocketreach` | No | ✓ | No | No | ✓ | No | No | No | ✓ |
-| `securityscorecard` | ✓ | No | ✓ | No | No | No | No | `POST /additional/security-score` response | ✓ |
+| `securityscorecard` | ✓ | No | ✓ | No | No | No | No | No | ✓ |
 | `securityTrails` | ✓ | No | ✓ | No | No | No | No | No | ✓ |
 | `sherlockeye` | ✓ | ✓ | ✓ | No | No | No | No | No | ✓ |
 | `shodan` | ✓ | No | No | No | No | No | No | `-s` / `--shodan` host-enrichment output | ✓ |
@@ -195,9 +221,9 @@ Read the **API key** column as follows:
 
 Provider pricing is intentionally omitted because plans and quotas change frequently. See [Configuration and API Keys](docs/wiki/Configuration-and-API-Keys.md) and each provider's current documentation.
 
-`haveibeenpwned` remains the keyless public breach catalogue. `hibpverified` is a separate authenticated source for HIBP's `breachedDomain` endpoint. It participates in `all` and matching capability selectors just like every other P0 source, and skips normally when its provider key is absent. REST selections that include it require the operator `X-API-Key` when the provider key is configured and return normalized emails plus stable breach names. A live run requires a user-owned paid HIBP API key and a user-owned domain verified in that account; routine tests use offline responses.
+`haveibeenpwned` remains the keyless public breach catalogue. `hibpverified` is a separate authenticated source for HIBP's `breachedDomain` endpoint. It participates in `all` and matching capability selectors just like every other P0 source, and skips normally when its provider key is absent. API run requests can select it through the shared source contract and return normalized emails plus stable breach names. A live run requires a user-owned paid HIBP API key and a user-owned domain verified in that account; routine tests use offline responses.
 
-The runtime registry also reports the legacy identifiers `linkedin`, `linkedin_links`, `netcraft`, `omnisint`, `sublist3r`, and `zoomeyeapi`. These identifiers have no active CLI handlers. The table does not present them as usable sources.
+The runtime registry also reports the legacy identifiers `linkedin`, `netcraft`, `omnisint`, `sublist3r`, and `zoomeyeapi`. These identifiers have no active CLI handlers. The table does not present them as usable sources.
 
 ## Configuration
 
@@ -214,14 +240,15 @@ Never commit populated configuration files, API keys, account details, or provid
 - `-f NAME` writes `NAME.json`, `NAME.xml`, and `NAME.jsonl`.
 - Screenshots are written to the directory passed to `--screenshot`.
 - Host, email, IP, and related scan records are stored in `~/.local/share/theHarvester/stash.sqlite`.
-- Full-pipeline runs are also stored transactionally by run UUID with their completed, deduplicated findings. Early REST returns and DNS-brute utility requests are not recorded as completed runs.
-- REST queries return JSON.
+- Full CLI pipeline runs are also stored transactionally by run UUID with their completed, deduplicated findings.
+- API executions use the same SQLite database as CLI results. Durable lifecycle rows stay separate from terminal evidence, while typed results and source or action origins remain queryable. JSONL handles individual run interchange, and the API can import completed runs from another theHarvester SQLite database.
+- Bounded [virtual host discovery](docs/wiki/Virtual-Host-Discovery.md) enriches each confirmed `hostname` result with structured endpoint observations and `vhost` action provenance.
 
 Treat collected OSINT as potentially sensitive. Keep report files, screenshots, and the local database out of source control and share them only within the authorized engagement.
 
 ### Report formats
 
-The JSON report is a single object that preserves the legacy automation contract. Host entries remain plain hostnames or `hostname:address[,address...]` values when DNS resolution is enabled. DNS resolution and DNS brute force retain candidates only when A, AAAA, or CNAME evidence is available; CNAME-only candidates remain plain hostnames in existing CLI, REST, JSON, and XML output.
+The JSON report is a single object. Host entries remain plain hostnames or `hostname:address[,address...]` values when DNS resolution is enabled. DNS resolution and DNS brute force retain candidates only when A, AAAA, or CNAME evidence is available; CNAME-only candidates remain plain hostnames in existing CLI, REST, JSON, and XML output.
 
 `Checker.check()` and `DnsForce.run()` retain their existing `(resolved, hosts, addresses)` return shape. Normalized A, AAAA, and CNAME values are available through each object's `records` mapping.
 
@@ -231,7 +258,7 @@ The JSON report is a single object that preserves the legacy automation contract
 | `hosts` | Always | Discovered hosts; an empty array when none are found. |
 | `shodan` | Always | Shodan enrichment rows; an empty array when Shodan is not used. |
 | `ips`, `emails`, `vhosts`, `asns` | When non-empty | Network and contact findings. |
-| `interesting_urls`, `trello_urls`, `linkedin_links` | When non-empty | Discovered links and URLs. |
+| `urls` | When non-empty | Discovered URLs from every URL-producing source or action. |
 | `people`, `twitter_people`, `linkedin_people` | When non-empty | People and profile findings. |
 | `takeover_results` | When non-empty | Optional takeover-check results. |
 
@@ -240,16 +267,24 @@ The XML report contains the command, emails, hosts, and virtual hosts. Use JSON 
 The JSONL report is finalized after the selected one-shot actions finish. The first line identifies the run with its UUID, target, UTC timestamps, and result counts. Each later line is one sorted, deduplicated finding. When you concatenate report files, treat each summary line as the start of a new run.
 
 ```jsonl
-{"completed_at":"2026-08-07T12:01:00Z","counts":{"hostname":1},"result_count":1,"run_id":"123e4567-e89b-12d3-a456-426614174000","started_at":"2026-08-07T12:00:00Z","target":"example.com","type":"summary"}
+{"action_executions":[],"artifacts":[],"completed_at":"2026-08-07T12:01:00Z","counts":{"hostname":1},"evidence_status":"complete","result_count":1,"run_id":"123e4567-e89b-12d3-a456-426614174000","source_executions":[],"started_at":"2026-08-07T12:00:00Z","target":"example.com","type":"summary"}
 {"sources":[],"type":"hostname","value":"api.example.com"}
 ```
 
-JSONL is easy to stream for simple findings, but it is not uniformly self-describing. Finding lines inherit their run ID and target from the preceding summary. Structured result types, including recursive DNS records plus `person`, `infostealer`, `shodan`, and `takeover`, store a JSON object inside the string `value`. Parse those values a second time with `fromjson`. JSONL does not include source execution records. Finding records include source attribution when it is available.
+JSONL is easy to stream one record at a time. The summary preserves the evidence status, source and action outcomes, and screenshot artifact metadata. Finding lines carry `sources` and, when applicable, `actions`; they inherit their run ID and target from the preceding summary. Hostnames, IP addresses, and URLs use the same `hostname`, `ip`, and `url` result kinds in JSONL, SQLite, the API, and HarvestView. Provenance identifies which source or action produced each finding. Structured result types, including recursive DNS records plus `person`, `infostealer`, `shodan`, and `takeover`, store a JSON object inside the string `value`. Parse those values a second time with `fromjson`.
+
+Virtual-host observations do not use that string encoding. Each confirmed name remains one `hostname` finding with `actions: ["vhost"]` and a native `observations` array. Several endpoint observations can enrich the same hostname without creating another result kind or count.
 
 Parse recursive DNS findings as JSON objects:
 
 ```bash
 jq -c 'select(.type == "dns-recursive-finding") | .value | fromjson' report.jsonl
+```
+
+List the endpoint observations for each confirmed virtual host:
+
+```bash
+jq -c 'select(.type == "hostname" and .observations) | {hostname: .value, observations}' report.jsonl
 ```
 
 Stable Have I Been Pwned breach names use `breach` records. Normalized BuiltWith findings use `framework`, `language`, `server`, `cms`, or `analytics` records. Recursive runs also include classifications and one summary containing query cost, reached depth, zero-yield batches, and the stop reason.

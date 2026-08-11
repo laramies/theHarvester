@@ -13,17 +13,54 @@ class TestShodanEngine:
 
         class FailingShodan:
             def host(self, _ip):
+                raise shodansearch.exception.APIError('No information available for that IP.')
+
+        monkeypatch.setattr(shodansearch.Core, 'shodan_key', lambda: 'test-key')
+        monkeypatch.setattr(shodansearch, 'Shodan', lambda _key: FailingShodan())
+        caplog.set_level(logging.INFO, logger=shodansearch.__name__)
+
+        search = shodansearch.SearchShodan()
+        result = await search.search_ip('203.0.113.1')
+
+        assert result == OrderedDict({'203.0.113.1': 'Not in Shodan'})
+        assert search.error_type is None
+        assert '203.0.113.1: Not in Shodan' in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_shodan_api_failure_exposes_only_its_error_type(self, monkeypatch, caplog):
+        from theHarvester.discovery import shodansearch
+
+        class FailingShodan:
+            def host(self, _ip):
                 raise shodansearch.exception.APIError('provider-secret-payload')
 
         monkeypatch.setattr(shodansearch.Core, 'shodan_key', lambda: 'test-key')
         monkeypatch.setattr(shodansearch, 'Shodan', lambda _key: FailingShodan())
         caplog.set_level(logging.INFO, logger=shodansearch.__name__)
 
-        result = await shodansearch.SearchShodan().search_ip('203.0.113.1')
+        search = shodansearch.SearchShodan()
+        result = await search.search_ip('203.0.113.1')
 
-        assert result == OrderedDict({'203.0.113.1': 'Not in Shodan'})
-        assert '203.0.113.1: Not in Shodan' in caplog.text
+        assert result == OrderedDict({'203.0.113.1': 'Shodan request failed'})
+        assert search.error_type == 'APIError'
         assert 'provider-secret-payload' not in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_shodan_unexpected_failure_exposes_only_its_error_type(self, monkeypatch):
+        from theHarvester.discovery import shodansearch
+
+        class FailingShodan:
+            def host(self, _ip):
+                raise RuntimeError('provider-secret-payload')
+
+        monkeypatch.setattr(shodansearch.Core, 'shodan_key', lambda: 'test-key')
+        monkeypatch.setattr(shodansearch, 'Shodan', lambda _key: FailingShodan())
+
+        search = shodansearch.SearchShodan()
+        result = await search.search_ip('203.0.113.1')
+
+        assert result == OrderedDict({'203.0.113.1': 'Shodan request failed'})
+        assert search.error_type == 'RuntimeError'
 
     @pytest.mark.asyncio
     async def test_shodan_engine_processes_without_work_item_error_and_yields_hostnames(self, monkeypatch, capsys):
