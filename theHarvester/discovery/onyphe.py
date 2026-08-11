@@ -1,8 +1,10 @@
 import logging
+from ipaddress import ip_address
 from urllib.parse import urlparse
 
 from theHarvester.discovery.constants import MissingKey
-from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
+from theHarvester.lib.hostnames import normalize_scoped_hostname
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +22,8 @@ class SearchOnyphe:
         if self.key is None:
             raise MissingKey('onyphe')
         self.proxy = False
+        self.execution_status: str | None = None
+        self.stop_reason: str | None = None
 
     async def do_search(self) -> None:
         # https://www.onyphe.io/docs/apis/search
@@ -31,59 +35,140 @@ class SearchOnyphe:
             'Content-Type': 'application/json',
             'Authorization': f'bearer {self.key}',
         }
-        response = await AsyncFetcher.fetch_all([base_url], json=True, headers=headers, proxy=self.proxy)
-        self.response = response[0]
+        try:
+            response = await AsyncFetcher.fetch_all(
+                [base_url],
+                json=True,
+                headers=headers,
+                proxy=self.proxy,
+                include_metadata=True,
+            )
+        except Exception as error:
+            self.execution_status = 'failed'
+            self.stop_reason = 'transport-error'
+            logger.info('Onyphe request failed: %s', type(error).__name__)
+            return
+
+        metadata = response[0] if response and isinstance(response[0], FetcherResponse) else None
+        if metadata is None:
+            self.execution_status = 'failed'
+            self.stop_reason = 'transport-error'
+            return
+        if metadata.status == 429:
+            self.execution_status = 'rate-limited'
+            self.stop_reason = 'http-429'
+            return
+        if metadata.status in {401, 403}:
+            self.execution_status = 'failed'
+            self.stop_reason = 'access-denied'
+            return
+        if not 200 <= metadata.status < 300:
+            self.execution_status = 'failed'
+            self.stop_reason = f'http-{metadata.status}'
+            return
+
+        self.response = metadata.body
         await self.parse_onyphe_resp_json()
 
     async def parse_onyphe_resp_json(self):
-        if isinstance(self.response, list):
-            self.response = self.response[0]
         if not isinstance(self.response, dict):
-            raise TypeError(f'Onyphe response has unexpected type: {type(self.response).__name__}')
-        if self.response['text'] == 'Success':
-            if 'results' in self.response.keys():
-                for result in self.response['results']:
-                    try:
-                        if 'alternativeip' in result.keys():
-                            self.totalips.update({altip for altip in result['alternativeip']})
-                        if 'url' in result.keys() and isinstance(result['url'], list):
-                            self.totalhosts.update(
-                                urlparse(url).netloc for url in result['url'] if urlparse(url).netloc.endswith(self.word)
-                            )
-                        self.asns.add(result['asn'])
-                        self.asns.add(result['geolocus']['asn'])
-                        self.totalips.add(result['geolocus']['subnet'])
-                        self.totalips.add(result['ip'])
-                        self.totalips.add(result['subnet'])
-                        # Shouldn't be needed as API autoparses urls from html raw data
-                        # rawres = myparser.Parser(result['data'], self.word)
-                        # if await rawres.hostnames():
-                        #     self.totalhosts.update(set(await rawres.hostnames()))
-                        for subdomain_key in [
-                            'domain',
-                            'hostname',
-                            'subdomains',
-                            'subject',
-                            'reverse',
-                            'geolocus',
-                        ]:
-                            if subdomain_key in result.keys():
-                                if subdomain_key == 'subject':
-                                    self.totalhosts.update(
-                                        {domain for domain in result[subdomain_key]['altname'] if domain.endswith(self.word)}
-                                    )
-                                elif subdomain_key == 'geolocus':
-                                    self.totalhosts.update(
-                                        {domain for domain in result[subdomain_key]['domain'] if domain.endswith(self.word)}
-                                    )
-                                else:
-                                    self.totalhosts.update(
-                                        {domain for domain in result[subdomain_key] if domain.endswith(self.word)}
-                                    )
-                    except Exception:
-                        continue
-        else:
+            self.execution_status = 'failed'
+            self.stop_reason = 'invalid-response'
+            return
+        response_text = self.response.get('text')
+        if response_text != 'Success':
+            self.execution_status = 'failed'
+            self.stop_reason = 'provider-error' if isinstance(response_text, str) else 'invalid-response'
             logger.info('Onyphe API query did not succeed')
+            return
+        results = self.response.get('results')
+        if not isinstance(results, list):
+            self.execution_status = 'failed'
+            self.stop_reason = 'invalid-response'
+            return
+
+        malformed = False
+        for result in results:
+            if not isinstance(result, dict):
+                malformed = True
+                continue
+
+            alternative_ips = result.get('alternativeip', [])
+            if not isinstance(alternative_ips, list):
+                malformed = True
+                alternative_ips = []
+            ip_candidates = [result['ip']] if 'ip' in result else []
+            ip_candidates.extend(alternative_ips)
+            for candidate in ip_candidates:
+                if not isinstance(candidate, str):
+                    malformed = True
+                    continue
+                try:
+                    self.totalips.add(str(ip_address(candidate.strip())))
+                except ValueError:
+                    malformed = True
+
+            host_candidates = []
+            urls = result.get('url', [])
+            if not isinstance(urls, list):
+                malformed = True
+            else:
+                for url in urls:
+                    if not isinstance(url, str):
+                        malformed = True
+                        continue
+                    try:
+                        hostname = urlparse(url).hostname
+                    except ValueError:
+                        malformed = True
+                        continue
+                    if hostname:
+                        host_candidates.append(hostname)
+
+            for key in ('domain', 'hostname', 'subdomains', 'reverse'):
+                values = result.get(key, [])
+                if not isinstance(values, list):
+                    malformed = True
+                    continue
+                host_candidates.extend(values)
+
+            subject = result.get('subject')
+            if subject is not None:
+                if isinstance(subject, dict) and isinstance(subject.get('altname', []), list):
+                    host_candidates.extend(subject.get('altname', []))
+                else:
+                    malformed = True
+
+            geolocus = result.get('geolocus')
+            geolocus_asn = None
+            if geolocus is not None:
+                if isinstance(geolocus, dict) and isinstance(geolocus.get('domain', []), list):
+                    host_candidates.extend(geolocus.get('domain', []))
+                    geolocus_asn = geolocus.get('asn')
+                else:
+                    malformed = True
+
+            for candidate in host_candidates:
+                if not isinstance(candidate, str):
+                    malformed = True
+                    continue
+                if hostname := normalize_scoped_hostname(candidate, self.word):
+                    self.totalhosts.add(hostname)
+
+            for asn in (result.get('asn'), geolocus_asn):
+                if asn is None:
+                    continue
+                if isinstance(asn, (str, int)):
+                    self.asns.add(asn)
+                else:
+                    malformed = True
+
+        if malformed:
+            self.execution_status = 'partial' if self.totalhosts or self.totalips or self.asns else 'failed'
+            self.stop_reason = 'invalid-response'
+        else:
+            self.execution_status = 'completed'
+            self.stop_reason = None if self.totalhosts or self.totalips or self.asns else 'no-results'
 
     async def get_asns(self) -> set:
         return self.asns

@@ -133,7 +133,7 @@ async def test_process_rejects_untrusted_catalog_endpoints(
 
 
 @pytest.mark.asyncio
-async def test_process_batches_provider_page_counts(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_process_requests_provider_pages_sequentially(monkeypatch: pytest.MonkeyPatch) -> None:
     catalog = [
         {
             'id': 'CC-MAIN-2026-30',
@@ -153,11 +153,9 @@ async def test_process_batches_provider_page_counts(monkeypatch: pytest.MonkeyPa
         return [f'{{"url":"https://host-{parse_qs(urlsplit(url).query)["page"][0]}.example.com/"}}' for url in urls]
 
     monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
-    monkeypatch.setattr(commoncrawl.SearchCommoncrawl, 'PAGE_BATCH_SIZE', 2, raising=False)
-
     await commoncrawl.SearchCommoncrawl('example.com').process()
 
-    assert page_batches == [2, 1, 2, 1]
+    assert page_batches == [1, 1, 1, 1, 1, 1]
 
 
 @pytest.mark.asyncio
@@ -225,11 +223,60 @@ async def test_process_respects_the_result_limit_across_page_requests(monkeypatc
 
     monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
 
+    search = commoncrawl.SearchCommoncrawl('example.com', limit=51)
+    await search.process()
+
+    assert requested_limits == [50, 1]
+    assert len(await search.get_hostnames()) == 51
+
+
+@pytest.mark.asyncio
+async def test_process_counts_only_unique_in_scope_hosts_toward_the_result_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    catalog = [
+        {
+            'id': 'CC-MAIN-2026-30',
+            'cdx-api': 'https://index.commoncrawl.org/CC-MAIN-2026-30-index',
+            'to': '2026-07-12T00:00:00',
+        }
+    ]
+    requested_pages: list[int] = []
+
+    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[object]:
+        if urls == ['https://index.commoncrawl.org/collinfo.json']:
+            return [catalog]
+        query = parse_qs(urlsplit(urls[0]).query)
+        if query.get('showNumPages') == ['true']:
+            return ['{"pages": 6, "pageSize": 5, "blocks": 6}']
+
+        responses: list[object] = []
+        for url in urls:
+            page = int(parse_qs(urlsplit(url).query)['page'][0])
+            requested_pages.append(page)
+            if page < 2:
+                responses.append(
+                    '{"url":"https://duplicate.example.com/one"}\n'
+                    '{"url":"https://duplicate.example.com/two"}\n'
+                    '{"url":"https://outside.example.net/"}'
+                )
+            elif page == 2:
+                responses.append('{"url":"https://outside.example.net/"}')
+            else:
+                responses.append(f'{{"url":"https://host-{page}.example.com/"}}')
+        return responses
+
+    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
+
     search = commoncrawl.SearchCommoncrawl('example.com', limit=3)
     await search.process()
 
-    assert requested_limits == [1, 1, 1]
-    assert len(await search.get_hostnames()) == 3
+    assert await search.get_hostnames() == {
+        'duplicate.example.com',
+        'host-3.example.com',
+        'host-4.example.com',
+    }
+    assert requested_pages[:5] == [0, 1, 2, 3, 4]
 
 
 @pytest.mark.asyncio
@@ -303,7 +350,7 @@ async def test_process_reports_non_json_upstream_response(
 
 
 @pytest.mark.asyncio
-async def test_process_stops_a_query_after_one_entirely_unusable_page_batch(
+async def test_process_stops_a_query_after_three_entirely_unusable_pages(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -332,7 +379,7 @@ async def test_process_stops_a_query_after_one_entirely_unusable_page_batch(
     with caplog.at_level(logging.INFO, logger=commoncrawl.__name__):
         await search.process()
 
-    assert page_batches == 2
+    assert page_batches == 6
     assert 'Common Crawl selected 1 index and 2 queries' in caplog.text
     assert 'example.com' not in caplog.text
     assert search.execution_status == 'failed'
