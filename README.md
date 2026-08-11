@@ -111,6 +111,8 @@ Passive modules
 
 * leaklookup: Data breach search engine (https://leak-lookup.com)
 
+* lunar: Domain exposure enrichment from infostealer logs and data breaches, free and no API key required (https://lunarcyber.com)
+
 * mojeek: Mojeek search engine (https://www.mojeek.com)
 
 * netlas: A Shodan or Censys competitor (https://app.netlas.io)
