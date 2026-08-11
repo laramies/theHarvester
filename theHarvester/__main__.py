@@ -540,6 +540,9 @@ async def start(
     dns_resolution_failure_types: set[str] = set()
     dns_resolution_cancelled = False
 
+    def record_missing_credentials(source: str) -> None:
+        source_executions.append(SourceExecution(source, 'skipped', 0, 0, 'MissingKeyError', 'missing-credentials'))
+
     def confirmed_virtual_hostnames() -> list[str]:
         return sorted({observation.hostname for observation in vhost_observations})
 
@@ -933,6 +936,8 @@ async def start(
                             )
                         )
                     except Exception as e:
+                        if isinstance(e, MissingKey):
+                            record_missing_credentials(engineitem)
                         show_default_error_message(engineitem, word, error=e)
 
                 elif engineitem == 'brave':
@@ -945,6 +950,8 @@ async def start(
                             )
                         )
                     except Exception as e:
+                        if isinstance(e, MissingKey):
+                            record_missing_credentials(engineitem)
                         show_default_error_message(engineitem, word, error=e)
 
                 elif engineitem == 'bufferoverun':
@@ -957,6 +964,8 @@ async def start(
                             )
                         )
                     except Exception as e:
+                        if isinstance(e, MissingKey):
+                            record_missing_credentials(engineitem)
                         show_default_error_message(engineitem, word, e)
 
                 elif engineitem == 'builtwith':
@@ -965,6 +974,7 @@ async def start(
                         stor_lst.append(store(builtwith_search, engineitem))
                     except Exception as e:
                         if isinstance(e, MissingKey):
+                            record_missing_credentials(engineitem)
                             output_logger.info(f"Failed to perform BuiltWith search for word: '{word}'")
                             output_logger.info(f'A Missing Key Error occurred in builtwith: {e}')
                         else:
@@ -980,6 +990,7 @@ async def start(
                             )
                         )
                     except MissingKey as mk:
+                        record_missing_credentials(engineitem)
                         if not args.quiet:
                             output_logger.info(f'Censys API key is missing or invalid: {mk}')
                     except ConnectionError as ce:
@@ -1009,6 +1020,7 @@ async def start(
                         if not args.quiet:
                             output_logger.info(f'Certspotter returned invalid data: {ve}')
                     except MissingKey as mk:
+                        record_missing_credentials(engineitem)
                         if not args.quiet:
                             output_logger.info(f'Unexpected response structure from Certspotter (missing key): {mk}')
                     except Exception as e:
@@ -1026,6 +1038,7 @@ async def start(
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
+                            record_missing_credentials(engineitem)
                             if not args.quiet:
                                 output_logger.info(f'A Missing Key error occurred in Chaos: {e}')
                         else:
@@ -1054,6 +1067,7 @@ async def start(
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
+                            record_missing_credentials(engineitem)
                             if not args.quiet:
                                 output_logger.info(f'A Missing key error occurred in criminalip: {e}')
                         else:
@@ -1077,6 +1091,7 @@ async def start(
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
+                            record_missing_credentials(engineitem)
                             if not args.quiet:
                                 output_logger.info(f'A Missing Key error occurred in dehashed: {e}')
                         else:
@@ -1087,6 +1102,7 @@ async def start(
                         dnsdb_search = dnsdb.SearchDNSDB(word)
                         stor_lst.append(store(dnsdb_search, engineitem))
                     except MissingKey as e:
+                        record_missing_credentials(engineitem)
                         if not args.quiet:
                             output_logger.info(e)
                     except Exception as e:
@@ -1102,6 +1118,7 @@ async def start(
                             )
                         )
                     except MissingKey as e:
+                        record_missing_credentials(engineitem)
                         if not args.quiet:
                             output_logger.info(e)
                     except Exception as e:
@@ -1122,6 +1139,7 @@ async def start(
                         stor_lst.append(store(dymo_search, engineitem))
                     except Exception as e:
                         if isinstance(e, MissingKey):
+                            record_missing_credentials(engineitem)
                             if not args.quiet:
                                 output_logger.info(f'A Missing Key error occurred in dymo: {e}')
                         else:
@@ -1138,6 +1156,7 @@ async def start(
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
+                            record_missing_credentials(engineitem)
                             if not args.quiet:
                                 output_logger.info(f'A Missing Key error occurred in Fofa: {e}')
                         else:
@@ -1149,6 +1168,7 @@ async def start(
                         stor_lst.append(store(fullhunt_search, engineitem))
                     except Exception as e:
                         if isinstance(e, MissingKey):
+                            record_missing_credentials(engineitem)
                             if not args.quiet:
                                 output_logger.info(f'A Missing Key error occurred in fullhunt: {e}')
 
@@ -1162,6 +1182,7 @@ async def start(
                             )
                         )
                     except MissingKey as ex:
+                        record_missing_credentials(engineitem)
                         if not args.quiet:
                             output_logger.info(f'A Missing Key error occurred in github-code: {ex}')
 
@@ -1201,6 +1222,7 @@ async def start(
                         hibp_search = hibpverified.SearchHibpVerified(word)
                         stor_lst.append(store(hibp_search, engineitem))
                     except MissingKey as error:
+                        record_missing_credentials(engineitem)
                         if not args.quiet:
                             output_logger.info(f'A Missing Key error occurred in hibpverified: {error}')
                     except Exception as error:
@@ -1229,6 +1251,7 @@ async def start(
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
+                            record_missing_credentials(engineitem)
                             if not args.quiet:
                                 output_logger.info(f'A Missing Key error occurred in Hunter: {e}')
 
@@ -1238,6 +1261,7 @@ async def start(
                         stor_lst.append(store(hunterhow_search, engineitem))
                     except Exception as e:
                         if isinstance(e, MissingKey):
+                            record_missing_credentials(engineitem)
                             if not args.quiet:
                                 output_logger.info(f'A Missing Key error occurred in Hunter How: {e}')
                         else:
@@ -1254,6 +1278,7 @@ async def start(
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
+                            record_missing_credentials(engineitem)
                             if not args.quiet:
                                 output_logger.info(f'A Missing Key error occurred in intelx: {e}')
                         else:
@@ -1269,6 +1294,7 @@ async def start(
                             )
                         )
                     except MissingKey as e:
+                        record_missing_credentials(engineitem)
                         if not args.quiet:
                             output_logger.info(e)
                     except Exception as e:
@@ -1285,6 +1311,7 @@ async def start(
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
+                            record_missing_credentials(engineitem)
                             output_logger.info(f'A Missing Key error occurred in LeakLookup: {e}')
                         else:
                             output_logger.info(f'An exception has occurred in LeakLookup search: {e}')
@@ -1300,6 +1327,7 @@ async def start(
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
+                            record_missing_credentials(engineitem)
                             output_logger.info(f'A Missing Key error occurred in Mojeek: {e}')
                         else:
                             output_logger.info(f'An exception has occurred in Mojeek search: {e}')
@@ -1315,6 +1343,7 @@ async def start(
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
+                            record_missing_credentials(engineitem)
                             if not args.quiet:
                                 output_logger.info(f'A Missing Key error occurred in Netlas: {e}')
 
@@ -1340,6 +1369,8 @@ async def start(
                         if not args.quiet:
                             output_logger.info(f'Unexpected response structure from Onyphe (missing key): {ke}')
                     except Exception as e:
+                        if isinstance(e, MissingKey):
+                            record_missing_credentials(engineitem)
                         if not args.quiet:
                             output_logger.info(f'Unexpected error occurred in Onyphe module: {e}')
 
@@ -1374,6 +1405,7 @@ async def start(
                         stor_lst.append(store(pentesttools_search, engineitem))
                     except Exception as e:
                         if isinstance(e, MissingKey):
+                            record_missing_credentials(engineitem)
                             if not args.quiet:
                                 output_logger.info(f'A Missing Key error occurred in PentestTools search: {e}')
                         else:
@@ -1385,6 +1417,7 @@ async def start(
                         stor_lst.append(store(projectdiscovery_search, engineitem))
                     except Exception as e:
                         if isinstance(e, MissingKey):
+                            record_missing_credentials(engineitem)
                             if not args.quiet:
                                 output_logger.info(f'A Missing Key error occurred in ProjectDiscovery: {e}')
                         else:
@@ -1428,6 +1461,7 @@ async def start(
                         stor_lst.append(store(rocketreach_search, engineitem))
                     except Exception as e:
                         if isinstance(e, MissingKey):
+                            record_missing_credentials(engineitem)
                             if not args.quiet:
                                 output_logger.info(f'A Missing Key error occurred in RocketReach: {e}')
                         else:
@@ -1444,6 +1478,7 @@ async def start(
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
+                            record_missing_credentials(engineitem)
                             output_logger.info(MissingKey('SecurityScorecard'))
                         else:
                             output_logger.info(f'An exception has occurred in SecurityScorecard search: {e}')
@@ -1459,6 +1494,7 @@ async def start(
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
+                            record_missing_credentials(engineitem)
                             if not args.quiet:
                                 output_logger.info(f'A Missing Key error occurred Security Trails: {e}')
 
@@ -1473,6 +1509,7 @@ async def start(
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
+                            record_missing_credentials(engineitem)
                             if not args.quiet:
                                 output_logger.info(f'A Missing Key error occurred in sherlockeye: {e}')
                         else:
@@ -1517,6 +1554,7 @@ async def start(
                         stor_lst.append(store(shodan_wrapper, engineitem))
                     except Exception as e:
                         if isinstance(e, MissingKey):
+                            record_missing_credentials(engineitem)
                             if not args.quiet:
                                 output_logger.info(f'A Missing Key error occurred in Shodan search: {e}')
                         else:
@@ -1574,6 +1612,7 @@ async def start(
                         stor_lst.append(store(subdomainfinderc99_search, engineitem))
                     except Exception as e:
                         if isinstance(e, MissingKey):
+                            record_missing_credentials(engineitem)
                             if not args.quiet:
                                 output_logger.info(f'A Missing Key error occurred in Subdomainfinderc99 search: {e}')
                         else:
@@ -1597,6 +1636,7 @@ async def start(
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
+                            record_missing_credentials(engineitem)
                             if not args.quiet:
                                 output_logger.info(f'A Missing Key error occurred in Tomba: {e}')
 
@@ -1631,6 +1671,7 @@ async def start(
                         stor_lst.append(store(virustotal_search, engineitem))
                     except Exception as e:
                         if isinstance(e, MissingKey):
+                            record_missing_credentials(engineitem)
                             if not args.quiet:
                                 output_logger.info(f'A Missing Key error occurred in virustotal search: {e}')
 
@@ -1652,6 +1693,7 @@ async def start(
                         stor_lst.append(store(whoisxml_search, engineitem))
                     except Exception as e:
                         if isinstance(e, MissingKey):
+                            record_missing_credentials(engineitem)
                             if not args.quiet:
                                 output_logger.info(f'A Missing Key error occurred in whoisxml search: {e}')
                         else:
@@ -1705,6 +1747,7 @@ async def start(
                         )
                     except Exception as e:
                         if isinstance(e, MissingKey):
+                            record_missing_credentials(engineitem)
                             if not args.quiet:
                                 output_logger.info(f'A Missing Key error occurred in zoomeye: {e}')
 

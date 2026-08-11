@@ -4,6 +4,7 @@ import logging
 import sys
 import xml.etree.ElementTree as ElementTree
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
@@ -1148,6 +1149,54 @@ async def test_dns_lookup_cancels_sibling_ranges_and_persists_partial_evidence(
     assert [(observation.kind, observation.value) for observation in execution.observations] == [
         ('hostname', 'partial.example.com')
     ]
+
+
+@pytest.mark.parametrize(
+    ('source', 'module', 'constructor_name'),
+    [
+        ('chaos', theharvester_main.chaos, 'SearchChaos'),
+        ('bevigil', theharvester_main.bevigil, 'SearchBeVigil'),
+    ],
+)
+@pytest.mark.asyncio
+async def test_constructor_missing_credentials_are_persisted_as_skipped_source(
+    monkeypatch: pytest.MonkeyPatch,
+    source: str,
+    module: ModuleType,
+    constructor_name: str,
+) -> None:
+    saved_results: list[CompletedResult] = []
+
+    class RecordingResultStore(_NoopResultStore):
+        async def save_run(self, result: CompletedResult) -> None:
+            saved_results.append(result)
+
+    class MissingCredentialSource:
+        construction_count = 0
+
+        def __init__(self, _word: str) -> None:
+            type(self).construction_count += 1
+            raise MissingKey(source)
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', RecordingResultStore)
+    monkeypatch.setattr(module, constructor_name, MissingCredentialSource)
+
+    response = await theharvester_main.start(
+        EnumerationOptions(domain='example.com', source=source, quiet=True),
+        return_completed_result=True,
+    )
+
+    completed = response[-1]
+    assert isinstance(completed, CompletedResult)
+    assert saved_results == [completed]
+    assert MissingCredentialSource.construction_count == 1
+    assert len(completed.source_executions) == 1
+    execution = completed.source_executions[0]
+    assert execution.source == source
+    assert execution.status == 'skipped'
+    assert execution.result_count == 0
+    assert execution.error_type == 'MissingKeyError'
+    assert execution.stop_reason == 'missing-credentials'
 
 
 @pytest.mark.asyncio
