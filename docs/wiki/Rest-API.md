@@ -111,6 +111,19 @@ The action catalog and run request use the same names. For example, set `takeove
 
 Every custom API scan entry must be a URL path beginning with `/`. The API does not accept a server-side file path.
 
+Virtual host discovery is the `vhost` action. An action-only run must provide both a literal-IP endpoint and at least one in-scope hostname candidate:
+
+```json
+{
+  "target": "authorized.example",
+  "sources": [],
+  "vhost_endpoint": "https://192.0.2.10:443/",
+  "vhost_candidates": ["admin.authorized.example"]
+}
+```
+
+Supplying either virtual host field enables the action, but a missing endpoint or candidate set must then come from selected-source results. Candidate names are sent as HTTP `Host` values and HTTPS SNI; this action never resolves them. It uses direct transport, does not follow redirects, rejects proxy settings, and applies request, runtime, timeout, and concurrency bounds. See [Virtual Host Discovery](Virtual-Host-Discovery) for the exact scope and evidence model.
+
 HarvestView's subdomain action buttons call this route and create a separate run without changing the completed parent run.
 
 ## Import and export
@@ -149,7 +162,7 @@ curl -s "http://127.0.0.1:5000/api/v1/runs/$run_id/export" \
   -o results.jsonl
 ```
 
-The first line is the `summary` record, including evidence status, source and action outcomes, and artifacts. Each remaining line is one normalized finding with `type`, `value`, `sources`, and optional `actions`. This keeps the file easy to stream with `jq -c` and makes API exports importable again without a format conversion. Lifecycle details and the submitted request remain available from `GET /api/v1/runs/{run_id}`.
+The first line is the `summary` record, including evidence status, source and action outcomes, and artifacts. Each remaining line is one normalized finding with `type`, `value`, `sources`, and optional `actions`. A hostname confirmed by the `vhost` action adds a native `observations` array; it remains one `hostname` finding. This keeps the file easy to stream with `jq -c` and makes API exports importable again without a format conversion. Lifecycle details and the submitted request remain available from `GET /api/v1/runs/{run_id}`.
 
 ## Security boundary
 

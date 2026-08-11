@@ -215,7 +215,7 @@ def test_api_lifecycle_and_terminal_evidence_share_the_sqlalchemy_database(tmp_p
         schema_version = db.execute('PRAGMA user_version').fetchone()[0]
     assert evidence_run_id == lifecycle_run_id
     assert stored_target == 'example.test'
-    assert schema_version == 7
+    assert schema_version == 8
     assert 'import aiosqlite' not in inspect.getsource(run_store_module)
 
 
@@ -797,6 +797,112 @@ def test_dns_brute_child_uses_operator_resolver_list(tmp_path, monkeypatch) -> N
     assert received_options[0].dns_brute is True
     assert received_options[0].dns_resolve == ''
     assert received_options[0].dns_resolvers == ('192.0.2.53',)
+
+
+def test_virtual_host_request_normalizes_a_self_contained_target_action() -> None:
+    from pydantic import ValidationError
+
+    from theHarvester.lib.api.run_models import RunRequest
+
+    request = RunRequest(
+        target='Example.Test.',
+        sources=[],
+        vhost_endpoint='https://192.0.2.8',
+        vhost_candidates=['ADMIN.Example.Test.'],
+    )
+
+    assert request.vhost is True
+    assert request.vhost_endpoint == 'https://192.0.2.8:443/'
+    assert request.vhost_candidates == ['admin.example.test']
+    assert (
+        RunRequest(
+            target='example.test',
+            sources=['crtsh'],
+            vhost_endpoint='http://192.0.2.9',
+        ).vhost
+        is True
+    )
+    assert (
+        RunRequest(
+            target='example.test',
+            sources=['crtsh'],
+            vhost_candidates=['admin.example.test'],
+        ).vhost
+        is True
+    )
+    with pytest.raises(ValidationError, match='discovery source'):
+        RunRequest(target='example.test', sources=[], vhost_endpoint='https://192.0.2.8')
+    with pytest.raises(ValidationError, match='discovery source'):
+        RunRequest(target='example.test', sources=[], vhost_candidates=['admin.example.test'])
+    with pytest.raises(ValidationError, match='discovery source'):
+        RunRequest(target='example.test', sources=[], vhost=True)
+    with pytest.raises(ValidationError, match='hostname target'):
+        RunRequest(target='192.0.2.8', sources=['crtsh'], vhost=True)
+    with pytest.raises(ValidationError, match='direct transport'):
+        RunRequest(target='example.test', sources=['crtsh'], vhost=True, proxies=True)
+
+
+def test_virtual_host_child_receives_bounded_controls_and_persistence_identity(tmp_path, monkeypatch) -> None:
+    from theHarvester import __main__ as main_module
+    from theHarvester.lib.api import run_worker
+    from theHarvester.lib.api.run_models import RunRequest
+    from theHarvester.lib.api.run_store import RunStore
+    from theHarvester.lib.completed_result import CompletedResult
+
+    captured = None
+    captured_database = None
+    captured_run_id = None
+
+    async def fake_start(options, **kwargs):
+        nonlocal captured, captured_database, captured_run_id
+        captured = options
+        captured_database = kwargs.get('result_database')
+        captured_run_id = kwargs.get('completed_run_id')
+        now = datetime.now(UTC)
+        return (
+            CompletedResult.finish(
+                run_id=captured_run_id,
+                target=options.domain,
+                started_at=now,
+                completed_at=now,
+                groups={},
+            ),
+        )
+
+    monkeypatch.setattr(main_module, 'start', fake_start)
+
+    async def scenario() -> tuple[Path, str]:
+        store = RunStore(tmp_path / 'runs.sqlite')
+        created = await store.create(
+            RunRequest(
+                target='example.test',
+                sources=[],
+                vhost_endpoint='https://192.0.2.8',
+                vhost_candidates=['admin.example.test'],
+                vhost_request_limit=12,
+                vhost_runtime_seconds=9,
+                vhost_timeout_seconds=2,
+                vhost_concurrency=1,
+                vhost_insecure=True,
+            )
+        )
+        assert await store.claim_next() is not None
+        await run_worker._child_execute(created['run_id'], store.database)
+        return store.database, created['run_id']
+
+    database, run_id = asyncio.run(scenario())
+
+    assert captured is not None
+    assert captured.vhost is True
+    assert captured.vhost_endpoint == 'https://192.0.2.8:443/'
+    assert captured.vhost_candidates == ('admin.example.test',)
+    assert captured.vhost_request_limit == 12
+    assert captured.vhost_runtime_seconds == 9
+    assert captured.vhost_timeout_seconds == 2
+    assert captured.vhost_concurrency == 1
+    assert captured.vhost_insecure is True
+    assert captured_database == database
+    assert str(captured_run_id) == run_id
 
 
 def test_api_scan_child_uses_operator_endpoint_paths(tmp_path, monkeypatch) -> None:

@@ -242,6 +242,7 @@ Never commit populated configuration files, API keys, account details, or provid
 - Host, email, IP, and related scan records are stored in `~/.local/share/theHarvester/stash.sqlite`.
 - Full CLI pipeline runs are also stored transactionally by run UUID with their completed, deduplicated findings.
 - API executions use the same SQLite database as CLI results. Durable lifecycle rows stay separate from terminal evidence, while typed results and source or action origins remain queryable. JSONL handles individual run interchange, and the API can import completed runs from another theHarvester SQLite database.
+- Bounded [virtual host discovery](docs/wiki/Virtual-Host-Discovery.md) enriches each confirmed `hostname` result with structured endpoint observations and `vhost` action provenance.
 
 Treat collected OSINT as potentially sensitive. Keep report files, screenshots, and the local database out of source control and share them only within the authorized engagement.
 
@@ -272,10 +273,18 @@ The JSONL report is finalized after the selected one-shot actions finish. The fi
 
 JSONL is easy to stream one record at a time. The summary preserves the evidence status, source and action outcomes, and screenshot artifact metadata. Finding lines carry `sources` and, when applicable, `actions`; they inherit their run ID and target from the preceding summary. Hostnames, IP addresses, and URLs use the same `hostname`, `ip`, and `url` result kinds in JSONL, SQLite, the API, and HarvestView. Provenance identifies which source or action produced each finding. Structured result types, including recursive DNS records plus `person`, `infostealer`, `shodan`, and `takeover`, store a JSON object inside the string `value`. Parse those values a second time with `fromjson`.
 
+Virtual-host observations do not use that string encoding. Each confirmed name remains one `hostname` finding with `actions: ["vhost"]` and a native `observations` array. Several endpoint observations can enrich the same hostname without creating another result kind or count.
+
 Parse recursive DNS findings as JSON objects:
 
 ```bash
 jq -c 'select(.type == "dns-recursive-finding") | .value | fromjson' report.jsonl
+```
+
+List the endpoint observations for each confirmed virtual host:
+
+```bash
+jq -c 'select(.type == "hostname" and .observations) | {hostname: .value, observations}' report.jsonl
 ```
 
 Stable Have I Been Pwned breach names use `breach` records. Normalized BuiltWith findings use `framework`, `language`, `server`, `cms`, or `analytics` records. Recursive runs also include classifications and one summary containing query cost, reached depth, zero-yield batches, and the stop reason.

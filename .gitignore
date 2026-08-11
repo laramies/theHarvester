@@ -24,6 +24,7 @@ api-keys.yaml
 .env.*
 .secrets/
 test-results/
+/testdata/
 
 # impeccable-ignore-start
 # Ephemeral output, runtime state, and per-dev overrides.

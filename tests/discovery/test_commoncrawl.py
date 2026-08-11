@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from urllib.parse import parse_qs, urlsplit
 
@@ -185,11 +186,14 @@ async def test_process_caps_provider_page_counts_and_reports_truncation(
     monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
     monkeypatch.setattr(commoncrawl.SearchCommoncrawl, 'MAX_PAGES_PER_QUERY', 2)
 
+    search = commoncrawl.SearchCommoncrawl('example.com', limit=50)
     with caplog.at_level(logging.WARNING, logger=commoncrawl.__name__):
-        await commoncrawl.SearchCommoncrawl('example.com', limit=50).process()
+        await search.process()
 
     assert requested_pages == [0, 1, 0, 1]
     assert 'Common Crawl page limit reached for index CC-MAIN-2026-30; results may be incomplete' in caplog.text
+    assert search.execution_status == 'partial'
+    assert search.stop_reason == 'page-limit'
 
 
 @pytest.mark.asyncio
@@ -289,13 +293,119 @@ async def test_process_reports_non_json_upstream_response(
 
     monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
 
-    with (
-        caplog.at_level(logging.WARNING, logger=commoncrawl.__name__),
-        pytest.raises(RuntimeError, match='all Common Crawl queries failed'),
-    ):
-        await commoncrawl.SearchCommoncrawl('example.com').process()
+    search = commoncrawl.SearchCommoncrawl('example.com')
+    with caplog.at_level(logging.WARNING, logger=commoncrawl.__name__):
+        await search.process()
 
     assert 'unexpected non-JSON response' in caplog.text
+    assert search.execution_status == 'failed'
+    assert search.stop_reason == 'all-queries-failed'
+
+
+@pytest.mark.asyncio
+async def test_process_stops_a_query_after_one_entirely_unusable_page_batch(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    catalog = [
+        {
+            'id': 'CC-MAIN-2026-30',
+            'cdx-api': 'https://index.commoncrawl.org/CC-MAIN-2026-30-index',
+            'to': '2026-07-12T00:00:00',
+        }
+    ]
+    page_batches = 0
+
+    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[object]:
+        nonlocal page_batches
+        if urls == ['https://index.commoncrawl.org/collinfo.json']:
+            return [catalog]
+        query = parse_qs(urlsplit(urls[0]).query)
+        if query.get('showNumPages') == ['true']:
+            return ['{"pages": 100, "pageSize": 5, "blocks": 500}']
+        page_batches += 1
+        return [''] * len(urls)
+
+    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
+
+    search = commoncrawl.SearchCommoncrawl('example.com')
+    with caplog.at_level(logging.INFO, logger=commoncrawl.__name__):
+        await search.process()
+
+    assert page_batches == 2
+    assert 'Common Crawl selected 1 index and 2 queries' in caplog.text
+    assert 'example.com' not in caplog.text
+    assert search.execution_status == 'failed'
+    assert search.stop_reason == 'all-queries-failed'
+
+
+@pytest.mark.asyncio
+async def test_process_retains_partial_results_at_the_runtime_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    catalog = [
+        {
+            'id': 'CC-MAIN-2026-30',
+            'cdx-api': 'https://index.commoncrawl.org/CC-MAIN-2026-30-index',
+            'to': '2026-07-12T00:00:00',
+        }
+    ]
+    count_requests = 0
+
+    async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[object]:
+        nonlocal count_requests
+        if urls == ['https://index.commoncrawl.org/collinfo.json']:
+            return [catalog]
+        query = parse_qs(urlsplit(urls[0]).query)
+        if query.get('showNumPages') == ['true']:
+            count_requests += 1
+            if count_requests > 1:
+                await asyncio.Event().wait()
+            return ['{"pages": 1, "pageSize": 5, "blocks": 1}']
+        return ['{"url":"https://api.example.com/"}']
+
+    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    monkeypatch.setattr(commoncrawl.SearchCommoncrawl, 'RUNTIME_SECONDS', 0.01)
+    search = commoncrawl.SearchCommoncrawl('example.com')
+
+    await asyncio.wait_for(search.process(), timeout=0.1)
+
+    assert await search.get_hostnames() == {'api.example.com'}
+    assert search.execution_status == 'partial'
+    assert search.stop_reason == 'runtime-limit'
+
+
+@pytest.mark.asyncio
+async def test_process_reports_a_runtime_limit_before_collecting_results(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def fake_fetch_all(_urls: list[str], **_kwargs: object) -> list[object]:
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    monkeypatch.setattr(commoncrawl.SearchCommoncrawl, 'RUNTIME_SECONDS', 0.01)
+    search = commoncrawl.SearchCommoncrawl('example.com')
+
+    await asyncio.wait_for(search.process(), timeout=0.1)
+
+    assert await search.get_hostnames() == set()
+    assert search.execution_status == 'failed'
+    assert search.stop_reason == 'runtime-limit'
+
+
+@pytest.mark.asyncio
+async def test_process_propagates_external_cancellation(monkeypatch: pytest.MonkeyPatch) -> None:
+    started = asyncio.Event()
+
+    async def fake_fetch_all(_urls: list[str], **_kwargs: object) -> list[object]:
+        started.set()
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    search = commoncrawl.SearchCommoncrawl('example.com')
+    task = asyncio.create_task(search.process())
+    await started.wait()
+
+    task.cancel()
+
+    with pytest.raises(asyncio.CancelledError):
+        await task
 
 
 @pytest.mark.asyncio
@@ -333,6 +443,8 @@ async def test_process_keeps_later_valid_page_after_malformed_page(
 
     assert await search.get_hostnames() == {'api.example.com'}
     assert 'malformed JSON line' in caplog.text
+    assert search.execution_status == 'partial'
+    assert search.stop_reason == 'query-errors'
 
 
 @pytest.mark.asyncio

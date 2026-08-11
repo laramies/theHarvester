@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import logging
 import os
 import subprocess
@@ -135,12 +136,34 @@ except SystemExit:
     environment = {**os.environ, 'HOME': str(tmp_path)}
 
     normal = subprocess.run(command, capture_output=True, text=True, env=environment)
+    short_verbose = subprocess.run([*command, '-v'], capture_output=True, text=True, env=environment)
     verbose = subprocess.run([*command, '--verbose'], capture_output=True, text=True, env=environment)
 
-    assert normal.returncode == verbose.returncode == 1
+    assert normal.returncode == short_verbose.returncode == verbose.returncode == 1
     assert 'INFO theHarvester.__main__: Verbose logging enabled' not in normal.stderr
+    assert 'INFO theHarvester.__main__: Verbose logging enabled' in short_verbose.stderr
     assert 'INFO theHarvester.__main__: Verbose logging enabled' in verbose.stderr
     assert 'third-party info' not in verbose.stderr
+
+
+def test_operator_output_flushes_the_current_stdout(monkeypatch) -> None:
+    from theHarvester.lib.output import configure_logging, output_logger
+
+    class RecordingStdout(io.StringIO):
+        flushed = False
+
+        def flush(self) -> None:
+            self.flushed = True
+            super().flush()
+
+    stream = RecordingStdout()
+    monkeypatch.setattr(sys, 'stdout', stream)
+    configure_logging(verbose=False)
+
+    output_logger.info('operator progress')
+
+    assert stream.getvalue() == 'operator progress\n'
+    assert stream.flushed is True
 
 
 def test_cli_preserves_host_logging_unless_verbose_is_requested(tmp_path: Path) -> None:

@@ -164,8 +164,10 @@ def test_harvestview_can_submit_overridable_execution_controls(
 
     page.route(f'{harvestview_server_url}/api/v1/runs', capture_submission)
     page.goto(f'{harvestview_server_url}/')
+    start_button = page.get_by_role('button', name='Start enumeration').first
+    expect(start_button).to_be_enabled()
     page.set_default_timeout(2_000)
-    page.get_by_role('button', name='Start enumeration').first.click()
+    start_button.click()
     page.get_by_role('button', name='Clear', exact=True).click()
     page.locator('#run-target').fill('example.com')
     page.get_by_text('Advanced execution controls', exact=True).click()
@@ -209,7 +211,66 @@ def test_harvestview_can_submit_overridable_execution_controls(
         'takeover': True,
         'api_scan': True,
         'api_scan_paths': ['/api/v2', '/health'],
+        'vhost': False,
+        'vhost_endpoint': '',
+        'vhost_candidates': [],
+        'vhost_request_limit': 100,
+        'vhost_runtime_seconds': 30,
+        'vhost_timeout_seconds': 5,
+        'vhost_concurrency': 5,
+        'vhost_insecure': False,
     }
+
+
+def test_harvestview_requires_complete_inputs_for_a_vhost_only_run(
+    harvestview_server_url: str,
+    page: Page,
+    browser_failures,
+) -> None:
+    browser_failures.allow_response('POST', 503, '/api/v1/runs')
+    browser_failures.allow_console_error(
+        'Failed to load resource: the server responded with a status of 503 (Service Unavailable)'
+    )
+    captured: dict[str, object] = {}
+
+    def capture_submission(route: Route) -> None:
+        if route.request.method != 'POST':
+            route.continue_()
+            return
+        captured.update(route.request.post_data_json)
+        route.fulfill(status=503, json={'detail': 'Virtual-host controls captured'})
+
+    page.route(f'{harvestview_server_url}/api/v1/runs', capture_submission)
+    page.goto(f'{harvestview_server_url}/')
+    page.get_by_role('button', name='Start enumeration').first.click()
+    page.get_by_role('button', name='Clear', exact=True).click()
+    page.locator('#run-target').fill('example.com')
+    page.get_by_text('P2 · Virtual-host discovery', exact=True).click()
+    page.locator('#vhost-endpoint').fill('https://192.0.2.10:443/')
+
+    expect(page.locator('#activity-summary')).to_have_text('P0 off · P1 off · P2 selected')
+    page.locator('#submit-run-button').click()
+    expect(page.locator('#new-run-error')).to_have_text(
+        'Virtual-host discovery without sources requires both a literal-IP endpoint and at least one candidate hostname.'
+    )
+    assert captured == {}
+
+    page.locator('#vhost-candidates').fill('admin.example.com\npreview.example.com')
+    page.locator('#submit-run-button').click()
+    expect(page.locator('#new-run-error')).to_have_text('Virtual-host controls captured')
+
+    assert captured['sources'] == []
+    assert captured['dns_resolvers']
+    assert captured['takeover'] is False
+    assert captured['api_scan_paths'] == []
+    assert captured['vhost'] is True
+    assert captured['vhost_endpoint'] == 'https://192.0.2.10:443/'
+    assert captured['vhost_candidates'] == ['admin.example.com', 'preview.example.com']
+    assert captured['vhost_request_limit'] == 100
+    assert captured['vhost_runtime_seconds'] == 30
+    assert captured['vhost_timeout_seconds'] == 5
+    assert captured['vhost_concurrency'] == 5
+    assert captured['vhost_insecure'] is False
 
 
 def test_harvestview_submits_a_target_only_api_scan(
@@ -236,7 +297,7 @@ def test_harvestview_submits_a_target_only_api_scan(
     page.get_by_role('button', name='Clear', exact=True).click()
     page.locator('#run-target').fill('api.example.test')
     page.locator('[name="api_scan"]').check()
-    page.locator('details.advanced-execution summary').click()
+    page.get_by_text('Advanced execution controls', exact=True).click()
     page.locator('#api-scan-paths').fill('/api/v2\n/health')
     page.locator('#submit-run-button').click()
 
@@ -244,6 +305,104 @@ def test_harvestview_submits_a_target_only_api_scan(
     assert captured['sources'] == []
     assert captured['api_scan'] is True
     assert captured['api_scan_paths'] == ['/api/v2', '/health']
+
+
+def test_harvestview_renders_grouped_virtual_host_observations(
+    harvestview_server_url: str,
+    page: Page,
+) -> None:
+    run = {
+        'run_id': 'vhost-run',
+        'target': 'example.com',
+        'status': 'completed',
+        'origin': 'local',
+        'created_at': '2026-08-05T12:00:00+00:00',
+        'started_at': '2026-08-05T12:00:01+00:00',
+        'completed_at': '2026-08-05T12:00:05+00:00',
+        'cancellation_requested_at': None,
+        'evidence_status': 'complete',
+        'result_count': 2,
+        'activities': ['P0', 'P2'],
+        'sources': ['crtsh'],
+        'request': {
+            'sources': ['crtsh'],
+            'limit': 25,
+            'deadline_seconds': 300,
+            'vhost': True,
+            'vhost_endpoint': '',
+            'vhost_candidates': [],
+            'vhost_request_limit': 100,
+            'vhost_runtime_seconds': 30,
+            'vhost_timeout_seconds': 5,
+            'vhost_concurrency': 5,
+            'vhost_insecure': False,
+        },
+        'source_executions': [],
+        'action_executions': [
+            {'action': 'vhost', 'status': 'completed', 'result_count': 1, 'duration_ms': 125},
+        ],
+        'results': [
+            {
+                'type': 'hostname',
+                'value': 'admin.example.com',
+                'sources': [],
+                'actions': ['vhost'],
+                'observations': [
+                    {
+                        'endpoint': 'https://192.0.2.10:443/',
+                        'phase': 'body',
+                        'status': 200,
+                        'location': None,
+                        'context_status': 200,
+                        'control_status': 200,
+                        'confirmation_body_sha256': 'a' * 64,
+                        'tls_verified': True,
+                        'distinct_signals': ['body_sha256'],
+                    },
+                    {
+                        'endpoint': 'http://198.51.100.20:80/',
+                        'phase': 'body',
+                        'status': 302,
+                        'location': '/login',
+                        'context_status': 404,
+                        'control_status': 404,
+                        'confirmation_body_sha256': None,
+                        'tls_verified': None,
+                        'distinct_signals': ['status', 'location'],
+                    },
+                ],
+            },
+            {
+                'type': 'hostname',
+                'value': 'www.example.com',
+                'sources': ['crtsh'],
+                'actions': [],
+            },
+        ],
+        'screenshots': [],
+        'log': '',
+        'error': None,
+    }
+
+    page.route(f'{harvestview_server_url}/api/v1/runs', lambda route: route.fulfill(json=[run]))
+    page.route(f'{harvestview_server_url}/api/v1/runs/vhost-run', lambda route: route.fulfill(json=run))
+    page.goto(f'{harvestview_server_url}/')
+
+    expect(page.get_by_role('button', name='Hostnames 2')).to_be_enabled()
+    expect(page.get_by_role('button', name='Virtual hosts 1')).to_have_count(0)
+    expect(page.locator('#route-count')).to_have_text('2')
+    expect(page.locator('#results-summary')).to_have_text('2 normalized results across 1 route.')
+    result_row = page.locator('.tabulator-row').first
+    expect(result_row).to_contain_text('admin.example.com')
+    expect(result_row).to_contain_text(
+        'https://192.0.2.10:443/ · HTTP 200 · body_sha256 · IP HTTP 200 · unknown HTTP 200 · body confirmed · TLS verified'
+    )
+    expect(result_row).to_contain_text(
+        'http://198.51.100.20:80/ · HTTP 302 → /login · status, location · IP HTTP 404 · unknown HTTP 404'
+    )
+    expect(result_row).to_contain_text('vhost')
+    expect(page.get_by_role('button', name='Take screenshot of admin.example.com (P2)')).to_be_visible()
+    expect(page.get_by_role('button', name='DNS brute force admin.example.com (P1)')).to_be_visible()
 
 
 def test_hostname_actions_queue_isolated_runs(

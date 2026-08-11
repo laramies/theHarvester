@@ -23,7 +23,6 @@ ResultKind = Literal[
     'takeover',
     'twitter-person',
     'url',
-    'vhost',
 ]
 ExecutionStatus = Literal['completed', 'partial', 'failed', 'rate-limited', 'skipped']
 EvidenceStatus = Literal['complete', 'partial', 'failed']

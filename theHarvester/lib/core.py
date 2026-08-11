@@ -486,10 +486,8 @@ class AsyncFetcher:
         response: aiohttp.ClientResponse,
         *,
         json: bool,
-        delay: int,
         include_metadata: bool = False,
     ) -> Any:
-        await asyncio.sleep(delay)
         if json is False:
             body = await response.text()
         elif include_metadata:
@@ -520,7 +518,6 @@ class AsyncFetcher:
         *,
         json: bool = False,
         json_body: dict[str, Any] | None = None,
-        delay: int = 5,
         request_timeout: int | None = None,
         include_metadata: bool = False,
         **request_kwargs: Any,
@@ -534,7 +531,6 @@ class AsyncFetcher:
                     return await cls._read_response(
                         response,
                         json=json,
-                        delay=delay,
                         include_metadata=include_metadata,
                     )
 
@@ -542,7 +538,6 @@ class AsyncFetcher:
             return await cls._read_response(
                 response,
                 json=json,
-                delay=delay,
                 include_metadata=include_metadata,
             )
 
@@ -611,7 +606,6 @@ class AsyncFetcher:
                         url,
                         json=json,
                         json_body=json_body,
-                        delay=3,
                         include_metadata=include_metadata,
                         **request_kwargs,
                     )
@@ -624,7 +618,6 @@ class AsyncFetcher:
                         data=cls._normalize_data(data) if json_body is None else None,
                         json=json,
                         json_body=json_body,
-                        delay=3,
                         include_metadata=include_metadata,
                     )
             else:
@@ -638,7 +631,6 @@ class AsyncFetcher:
                         params=params,
                         json=json,
                         json_body=json_body,
-                        delay=3,
                         include_metadata=include_metadata,
                     )
         except (aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, UnicodeDecodeError, ValueError):
@@ -697,7 +689,6 @@ class AsyncFetcher:
                     method,
                     url,
                     json=json,
-                    delay=5,
                     request_timeout=request_timeout,
                     include_metadata=include_metadata,
                     **request_kwargs,

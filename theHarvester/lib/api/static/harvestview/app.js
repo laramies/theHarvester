@@ -300,7 +300,15 @@
       ['Recursive DNS runtime', request.dns_recursive_runtime_seconds ? `${request.dns_recursive_runtime_seconds} seconds` : 'Not recorded'],
       ['Screenshots', request.screenshot ? 'Selected' : 'Off'],
       ['Takeover transport', request.takeover ? (request.proxies ? 'Configured proxy' : 'Direct') : 'Off'],
-      ['API endpoint interaction', request.api_scan ? 'Selected' : 'Off']
+      ['API endpoint interaction', request.api_scan ? 'Selected' : 'Off'],
+      ['Virtual-host discovery', request.vhost ? 'Selected' : 'Off'],
+      ['Virtual-host endpoint override', request.vhost ? request.vhost_endpoint || 'Harvested IPs' : 'Not applicable'],
+      ['Virtual-host candidates', request.vhost ? request.vhost_candidates?.join(', ') || 'Harvested hostnames' : 'Not applicable'],
+      ['Virtual-host request budget', request.vhost ? request.vhost_request_limit : 'Not applicable'],
+      ['Virtual-host runtime', request.vhost ? `${request.vhost_runtime_seconds} seconds` : 'Not applicable'],
+      ['Virtual-host timeout', request.vhost ? `${request.vhost_timeout_seconds} seconds` : 'Not applicable'],
+      ['Virtual-host concurrency', request.vhost ? request.vhost_concurrency : 'Not applicable'],
+      ['Virtual-host TLS verification', request.vhost ? (request.vhost_insecure ? 'Disabled' : 'Enabled') : 'Not applicable']
     ];
     if (request.filename) options.unshift(['Imported file', request.filename]);
     nodes.requestOptions.innerHTML = options.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('');
@@ -381,6 +389,40 @@
     </div>`;
   }
 
+  function vhostObservationsFormatter(cell) {
+    const observations = Array.isArray(cell.getValue()) ? cell.getValue() : [];
+    if (!observations.length) return 'No endpoint evidence';
+    return `<div class="vhost-observations">${observations.map(observation => {
+      const status = observation.status == null ? observation.phase || 'No response' : `HTTP ${observation.status}`;
+      const location = observation.location ? ` → ${observation.location}` : '';
+      const signals = Array.isArray(observation.distinct_signals) && observation.distinct_signals.length
+        ? ` · ${observation.distinct_signals.join(', ')}`
+        : '';
+      const baselines = observation.context_status == null || observation.control_status == null
+        ? ''
+        : ` · IP HTTP ${observation.context_status} · unknown HTTP ${observation.control_status}`;
+      const confirmation = observation.confirmation_body_sha256 ? ' · body confirmed' : '';
+      const tls = observation.tls_verified == null ? '' : observation.tls_verified ? ' · TLS verified' : ' · TLS unverified';
+      const text = `${observation.endpoint || 'Unknown endpoint'} · ${status}${location}${signals}${baselines}${confirmation}${tls}`;
+      return `<span title="${escapeHtml(text)}">${escapeHtml(text)}</span>`;
+    }).join('')}</div>`;
+  }
+
+  function vhostObservationsFilter(headerValue, rowValue) {
+    const query = String(headerValue || '').trim().toLowerCase().replaceAll('-', ' ');
+    const text = (Array.isArray(rowValue) ? rowValue : []).flatMap(observation => [
+      observation.endpoint, observation.status, observation.phase, observation.location,
+      observation.context_status, observation.control_status, observation.confirmation_body_sha256,
+      observation.tls_verified, ...(observation.distinct_signals || [])
+    ]).join(' ').toLowerCase().replaceAll('-', ' ');
+    return text.includes(query);
+  }
+
+  function provenanceFormatter(cell) {
+    const values = Array.isArray(cell.getValue()) ? cell.getValue() : [];
+    return escapeHtml(values.join(', ') || '-');
+  }
+
   function mountResultTable(rows) {
     state.resultTable?.destroy();
     nodes.copySelected.disabled = true;
@@ -389,6 +431,13 @@
       {title: 'Value', field: 'value', formatter: cell => `<span class="value-cell">${escapeHtml(cell.getValue())}</span>`, minWidth: 260, widthGrow: 2, headerFilter: 'input', headerFilterFunc: columnTextFilter, headerFilterPlaceholder: 'Filter values'},
       {title: 'DNS', field: 'dns_status', formatter: dnsFormatter, width: 130, responsive: 1, headerFilter: 'input', headerFilterFunc: columnTextFilter, headerFilterPlaceholder: 'Filter DNS'},
     ];
+    if (state.route === 'hostname' && rows.some(row => Array.isArray(row.observations) && row.observations.length)) {
+      columns.push(
+        {title: 'Virtual-host observations', field: 'observations', formatter: vhostObservationsFormatter, minWidth: 420, widthGrow: 4, variableHeight: true, headerFilter: 'input', headerFilterFunc: vhostObservationsFilter, headerFilterPlaceholder: 'Filter endpoint evidence'},
+        {title: 'Sources', field: 'sources', formatter: provenanceFormatter, minWidth: 130, responsive: 2, headerFilter: 'input', headerFilterFunc: columnTextFilter},
+        {title: 'Produced by', field: 'actions', formatter: provenanceFormatter, minWidth: 130, responsive: 2, headerFilter: 'input', headerFilterFunc: columnTextFilter},
+      );
+    }
     if (state.route === 'hostname') {
       columns.push({
         title: 'Actions', field: 'value', formatter: resultActionFormatter, headerSort: false,
@@ -632,15 +681,29 @@
 
   function selectedActivities() {
     const activities = new Set();
+    const vhost = virtualHostSelection();
     for (const source of state.sources) if (state.selectedSources.has(source.name)) activities.add(source.activity);
     for (const action of state.actions) {
       const field = nodes.newRunForm.elements[ACTION_FIELDS[action.name] || action.name.replaceAll('-', '_')];
       const selected = action.name === 'dns-recursive'
         ? Number(field?.value) > 0
+        : action.name === 'vhost'
+          ? vhost.selected
         : field?.checked;
       if (selected) activities.add(action.activity);
     }
     return activities;
+  }
+
+  function virtualHostSelection() {
+    const endpoint = nodes.newRunForm.elements.vhost_endpoint.value.trim();
+    const candidates = nodes.newRunForm.elements.vhost_candidates.value
+      .split(/\r?\n/).map(value => value.trim()).filter(Boolean);
+    return {
+      endpoint,
+      candidates,
+      selected: nodes.newRunForm.elements.vhost.checked || Boolean(endpoint) || candidates.length > 0,
+    };
   }
 
   function updateActivitySummary() {
@@ -731,12 +794,19 @@
     event.preventDefault();
     showFormError(nodes.newRunError, '');
     const form = new FormData(nodes.newRunForm);
+    const vhost = virtualHostSelection();
     const actionSelected = state.actions.some(action => {
       const field = ACTION_FIELDS[action.name] || action.name.replaceAll('-', '_');
-      return action.name === 'dns-recursive' ? Number(form.get(field)) > 0 : form.has(field);
+      if (action.name === 'dns-recursive') return Number(form.get(field)) > 0;
+      if (action.name === 'vhost') return vhost.selected;
+      return form.has(field);
     });
     if (!state.selectedSources.size && !actionSelected) {
       showFormError(nodes.newRunError, 'Select at least one discovery source or additional activity.');
+      return;
+    }
+    if (!state.selectedSources.size && vhost.selected && (!vhost.endpoint || !vhost.candidates.length)) {
+      showFormError(nodes.newRunError, 'Virtual-host discovery without sources requires both a literal-IP endpoint and at least one candidate hostname.');
       return;
     }
     const payload = {
@@ -751,7 +821,15 @@
       takeover: form.has('takeover'), api_scan: form.has('api_scan'),
       api_scan_paths: form.has('api_scan')
         ? String(form.get('api_scan_paths')).split(/\r?\n/).map(value => value.trim()).filter(Boolean)
-        : []
+        : [],
+      vhost: vhost.selected,
+      vhost_endpoint: vhost.endpoint,
+      vhost_candidates: vhost.candidates,
+      vhost_request_limit: Number(form.get('vhost_request_limit')),
+      vhost_runtime_seconds: Number(form.get('vhost_runtime_seconds')),
+      vhost_timeout_seconds: Number(form.get('vhost_timeout_seconds')),
+      vhost_concurrency: Number(form.get('vhost_concurrency')),
+      vhost_insecure: form.has('vhost_insecure')
     };
     setBusy(nodes.submitRun, true, 'Submitting…');
     try {
@@ -931,6 +1009,9 @@
     updateActivitySummary();
   });
   nodes.newRunForm.addEventListener('change', updateActivitySummary);
+  nodes.newRunForm.addEventListener('input', event => {
+    if (event.target.matches('[name="vhost_endpoint"], [name="vhost_candidates"]')) updateActivitySummary();
+  });
   nodes.dnsResolverFile.addEventListener('change', async () => {
     const file = nodes.dnsResolverFile.files[0];
     if (!file) return;

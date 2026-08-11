@@ -577,6 +577,8 @@ a:focus-visible {
 .tabulator .tabulator-footer .tabulator-page-size { min-height: 44px; }
 .tabulator .tabulator-footer .tabulator-page.active { color: var(--nav); background: var(--accent); }
 .value-cell { overflow-wrap: anywhere; font-family: var(--font-mono); font-size: 12px; }
+.vhost-observations { display: grid; gap: 6px; overflow-wrap: anywhere; }
+.vhost-observations span { display: block; font: 11px/1.45 var(--font-mono); }
 .result-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .result-actions .button { flex: 1 1 118px; white-space: nowrap; }
 .dns-label { display: inline-flex; min-width: 82px; align-items: center; gap: 6px; font-size: 11px; font-weight: 750; }

@@ -14,6 +14,7 @@ class _OperatorOutputHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
         try:
             sys.stdout.write(f'{self.format(record)}\n')
+            sys.stdout.flush()
         except Exception:
             self.handleError(record)
 

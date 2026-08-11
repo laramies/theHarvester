@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import ipaddress
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from theHarvester.lib.completed_result import parse_virtual_host_details
 from theHarvester.lib.enumeration import (
     DEFAULT_DNS_RECURSIVE_QUERY_LIMIT,
     DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS,
@@ -14,6 +15,16 @@ from theHarvester.lib.enumeration import (
 from theHarvester.lib.evidence_types import EvidenceStatus  # noqa: TC001 - Pydantic resolves this annotation at runtime
 from theHarvester.lib.resolver_selection import DEFAULT_DNS_RESOLVERS, normalize_resolver_addresses
 from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass, selected_action_names
+from theHarvester.lib.virtual_host import (
+    DEFAULT_VHOST_CONCURRENCY,
+    DEFAULT_VHOST_REQUEST_LIMIT,
+    DEFAULT_VHOST_RUNTIME_SECONDS,
+    DEFAULT_VHOST_TIMEOUT_SECONDS,
+    VirtualHostLimits,
+    VirtualHostRequest,
+    normalize_virtual_host_candidates,
+    normalize_virtual_host_endpoint,
+)
 
 
 def utc_now() -> str:
@@ -124,6 +135,49 @@ class RunRequest(BaseModel):
         max_length=500,
         description='Optional endpoint paths used by API scan instead of its bundled wordlist.',
     )
+    vhost: bool = Field(
+        default=False,
+        description='Test harvested in-scope hostnames against harvested literal IPs within one shared cap.',
+    )
+    vhost_endpoint: str = Field(
+        default='',
+        description='Optional literal-IP HTTP or HTTPS endpoint; providing one also enables virtual-host discovery.',
+    )
+    vhost_candidates: list[str] = Field(
+        default_factory=list,
+        max_length=1000,
+        description='Optional in-scope hostnames added to harvested candidates; providing one also enables discovery.',
+    )
+    vhost_request_limit: int = Field(
+        default=DEFAULT_VHOST_REQUEST_LIMIT,
+        ge=5,
+        le=10_000,
+        description='Hard request cap shared by virtual-host context, controls, candidates, and confirmations.',
+    )
+    vhost_runtime_seconds: float = Field(
+        default=DEFAULT_VHOST_RUNTIME_SECONDS,
+        gt=0,
+        le=3600,
+        allow_inf_nan=False,
+        description='Hard wall-clock cap for virtual-host discovery.',
+    )
+    vhost_timeout_seconds: float = Field(
+        default=DEFAULT_VHOST_TIMEOUT_SECONDS,
+        gt=0,
+        le=300,
+        allow_inf_nan=False,
+        description='Timeout for each virtual-host request.',
+    )
+    vhost_concurrency: int = Field(
+        default=DEFAULT_VHOST_CONCURRENCY,
+        ge=1,
+        le=100,
+        description='Maximum concurrent virtual-host candidate requests.',
+    )
+    vhost_insecure: bool = Field(
+        default=False,
+        description='Disable certificate verification for virtual-host HTTPS probes and retain that fact in evidence.',
+    )
 
     @field_validator('target')
     @classmethod
@@ -160,6 +214,42 @@ class RunRequest(BaseModel):
         return paths
 
     @model_validator(mode='after')
+    def validate_virtual_host_request(self) -> Self:
+        has_endpoint = bool(self.vhost_endpoint.strip())
+        has_candidates = bool(self.vhost_candidates)
+        if not (self.vhost or has_endpoint or has_candidates):
+            return self
+        try:
+            ipaddress.ip_address(self.target)
+        except ValueError:
+            pass
+        else:
+            raise ValueError('Virtual-host discovery requires a hostname target scope')
+        if self.proxies:
+            raise ValueError('Virtual-host discovery supports direct transport only; proxies must be disabled')
+        if not self.sources and not (has_endpoint and has_candidates):
+            raise ValueError('Virtual-host discovery needs a discovery source unless endpoint and candidates are supplied')
+        self.vhost = True
+        if has_endpoint:
+            self.vhost_endpoint = normalize_virtual_host_endpoint(self.vhost_endpoint)
+        if has_candidates:
+            self.vhost_candidates = list(normalize_virtual_host_candidates(self.target, tuple(self.vhost_candidates)))
+        if has_endpoint and has_candidates:
+            VirtualHostRequest(
+                endpoint=self.vhost_endpoint,
+                scope=self.target,
+                candidates=tuple(self.vhost_candidates),
+                limits=VirtualHostLimits(
+                    request_limit=self.vhost_request_limit,
+                    runtime_seconds=self.vhost_runtime_seconds,
+                    timeout_seconds=self.vhost_timeout_seconds,
+                    concurrency=self.vhost_concurrency,
+                ),
+                insecure=self.vhost_insecure,
+            )
+        return self
+
+    @model_validator(mode='after')
     def validate_selected_work(self) -> RunRequest:
         if not self.sources and not selected_action_names(self.model_dump()):
             raise ValueError('Select at least one discovery source or action')
@@ -191,11 +281,58 @@ class DatabaseImportResponse(BaseModel):
     skipped_run_ids: list[str]
 
 
+class VirtualHostObservationResponse(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    endpoint: str
+    http_host: str
+    tls_server_name: str | None
+    classification: Literal['distinct']
+    phase: Literal['body']
+    status: int
+    location: str | None
+    body_sha256: str
+    body_size: int
+    body_truncated: bool
+    context_phase: Literal['body']
+    context_status: int
+    context_location: str | None
+    context_body_sha256: str
+    context_body_size: int
+    context_body_truncated: bool
+    control_phase: Literal['body']
+    control_status: int
+    control_location: str | None
+    control_body_sha256: str
+    control_body_size: int
+    control_body_truncated: bool
+    confirmation_body_sha256: str | None
+    tls_verified: bool | None
+    distinct_signals: list[str]
+    reflection_normalized: bool
+
+
 class NormalizedResult(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
     type: str
     value: str
     sources: list[str] = Field(default_factory=list)
     actions: list[str] = Field(default_factory=list)
+    observations: list[VirtualHostObservationResponse] | None = Field(default=None, min_length=1)
+
+    @model_validator(mode='after')
+    def validate_result(self) -> Self:
+        if self.type == 'vhost':
+            raise ValueError('vhost is not a result type; use hostname with virtual-host observations')
+        if self.observations is not None:
+            if self.type != 'hostname':
+                raise ValueError('Virtual-host observations belong to hostname results')
+            parse_virtual_host_details(self.value, [details.model_dump() for details in self.observations])
+        return self
+
+
+RunResult = NormalizedResult
 
 
 class ScreenshotRecord(BaseModel):
@@ -233,7 +370,7 @@ class RunSummary(BaseModel):
 
 class RunDetail(RunSummary):
     request: RunRequest | ImportedRunRequest
-    results: list[NormalizedResult]
+    results: list[RunResult]
     source_executions: list[dict[str, Any]]
     action_executions: list[dict[str, Any]]
     artifacts: list[dict[str, Any]]

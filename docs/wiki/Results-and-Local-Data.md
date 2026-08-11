@@ -20,6 +20,8 @@ This creates `report.json` and `report.xml`.
 - **XML** contains the command, emails, hosts, and virtual hosts. Use JSON for other result types.
 - Current JSON and XML reports do not record which source found each item.
 
+When virtual host discovery runs, JSON's `vhosts` array and XML's `<vhost>` entries contain confirmed hostnames only. They do not include endpoint or baseline evidence; use JSONL or API run details for that structured data.
+
 Host values may be plain hostnames. When DNS resolution is enabled, they can also use the `hostname:IP` form.
 
 The repository [README output section](https://github.com/laramies/theHarvester/blob/dev/README.md#report-formats) documents the current fields and provides copyable `jq` examples.
@@ -44,6 +46,8 @@ The normalized persistence model can represent active-action provenance and arti
 - `result_origins`: which execution produced each result; and
 - `artifacts`: files such as screenshots, linked to their creating action and subject result.
 
+Virtual-host evidence stays inside this model. `results` holds one `hostname` row, `result_origins` links it to the `vhost` action execution, and the result's `details_json` contains the canonical endpoint observation array. If one hostname is distinct on several IP endpoints, it remains one result with several observations.
+
 Current runtime collection populates passive source executions plus DNS, takeover, Shodan, and API endpoint scan executions and origins. Screenshot actions attach file metadata to their captured hostname or URL without creating fake screenshot findings.
 
 Every discovered URL is stored as the `url` result kind. Its source or action origins identify whether it came from BuiltWith, GitLab, RocketReach, API scanning, or another producer; provider-specific URL kinds are not stored.
@@ -58,7 +62,7 @@ Two operational tables support the API without changing those five evidence conc
 
 ## API results
 
-`GET /api/v1/runs/{run_id}` returns lifecycle state plus a normalized `results` array. Each result has `type`, `value`, `sources`, and `actions`. Run-level source and action outcomes remain available in `source_executions` and `action_executions`, while file metadata is returned through `artifacts`. JSONL imports or exports one run, and SQLite import loads completed runs in bulk. Treat runtime `/docs`, `/redoc`, and OpenAPI as the exact request and response reference.
+`GET /api/v1/runs/{run_id}` returns lifecycle state plus a normalized `results` array. Each result has `type`, `value`, `sources`, and `actions`. A `hostname` found through the `vhost` action also has a native `observations` array with its endpoint, literal-IP context, unknown-host control, and optional body-confirmation evidence. Run-level source and action outcomes remain available in `source_executions` and `action_executions`, while file metadata is returned through `artifacts`. JSONL imports or exports one run, and SQLite import loads completed runs in bulk. Treat runtime `/docs`, `/redoc`, and OpenAPI as the exact request and response reference.
 
 ## Handling and sharing
 

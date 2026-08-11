@@ -25,8 +25,10 @@ class TestBaiduSearch:
         monkeypatch.setattr(baidusearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = baidusearch.SearchBaidu(word='example.com', limit=10)
 
-        with pytest.raises(RuntimeError, match='empty response'):
-            await search.process()
+        await search.process()
+
+        assert search.execution_status == 'failed'
+        assert search.stop_reason == 'no-response'
 
     @pytest.mark.asyncio
     async def test_partial_empty_fetch_response_is_ignored(self, monkeypatch):
@@ -48,8 +50,10 @@ class TestBaiduSearch:
         monkeypatch.setattr(baidusearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = baidusearch.SearchBaidu(word='example.com', limit=10)
 
-        with pytest.raises(RuntimeError, match='security verification'):
-            await search.process()
+        await search.process()
+
+        assert search.execution_status == 'rate-limited'
+        assert search.stop_reason == 'security-verification'
 
     @pytest.mark.asyncio
     async def test_process_and_parsing(self, monkeypatch):

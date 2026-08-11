@@ -16,6 +16,31 @@ from theHarvester.lib.evidence_types import (
     ResultKind,
     format_utc,
 )
+from theHarvester.lib.virtual_host import VirtualHostObservation, normalize_virtual_host_hostname
+
+
+def virtual_host_details(observations: Iterable[VirtualHostObservation]) -> list[dict[str, object]]:
+    details: list[dict[str, object]] = []
+    for observation in sorted(set(observations), key=VirtualHostObservation.sort_key):
+        record = observation.to_record()
+        details.append({key: value for key, value in record.items() if key not in {'type', 'hostname'}})
+    return details
+
+
+def parse_virtual_host_details(hostname: str, details: object) -> tuple[VirtualHostObservation, ...]:
+    if not isinstance(details, list) or not details:
+        raise ValueError('virtual-host details must be a non-empty array')
+    observations: list[VirtualHostObservation] = []
+    for detail in details:
+        if not isinstance(detail, dict) or {'type', 'hostname'} & set(detail):
+            raise ValueError('virtual-host details must contain endpoint evidence objects')
+        observation = VirtualHostObservation.from_record({'type': 'vhost', 'hostname': hostname, **detail})
+        if observation.hostname != hostname:
+            raise ValueError('virtual-host result value must be a canonical hostname')
+        if detail != virtual_host_details((observation,))[0]:
+            raise ValueError('virtual-host details must use canonical structured evidence')
+        observations.append(observation)
+    return tuple(sorted(set(observations), key=VirtualHostObservation.sort_key))
 
 
 def encode_result_jsonl(
@@ -43,9 +68,13 @@ def parse_result_jsonl(payload: bytes | str) -> tuple[dict[str, object], list[di
     for record in findings:
         sources = record.get('sources', [])
         actions = record.get('actions', [])
+        result_kind = record.get('type')
+        allowed_keys = {'type', 'value', 'sources', 'actions'}
+        if result_kind == 'hostname' and 'observations' in record:
+            allowed_keys.add('observations')
         if (
-            set(record) - {'type', 'value', 'sources', 'actions'}
-            or record.get('type') not in RESULT_KINDS
+            set(record) - allowed_keys
+            or result_kind not in RESULT_KINDS
             or not isinstance(record.get('value'), str)
             or not record['value'].strip()
             or not isinstance(sources, list)
@@ -56,6 +85,12 @@ def parse_result_jsonl(payload: bytes | str) -> tuple[dict[str, object], list[di
             raise ValueError('JSONL findings must contain a known type, non-empty value, and producer names')
         record['sources'] = sorted(set(sources))
         record['actions'] = sorted(set(actions))
+        if result_kind == 'hostname' and 'observations' in record:
+            try:
+                observations = parse_virtual_host_details(record['value'], record.get('observations'))
+            except ValueError as error:
+                raise ValueError(f'JSONL hostname has invalid virtual-host observations: {error}') from error
+            record['observations'] = virtual_host_details(observations)
     return summary, findings
 
 
@@ -135,6 +170,7 @@ class CompletedResult:
     source_executions: tuple[SourceExecution, ...] = ()
     observations: tuple[ResultObservation, ...] = ()
     active_evidence: ActiveEvidence = field(default_factory=ActiveEvidence)
+    virtual_hosts: tuple[VirtualHostObservation, ...] = ()
     evidence_status: EvidenceStatus | None = None
 
     def __post_init__(self) -> None:
@@ -175,6 +211,36 @@ class CompletedResult:
             for _action, artifact in self.active_evidence.artifacts
         ):
             raise ValueError('every artifact must reference a completed result')
+        sorted_virtual_hosts = tuple(sorted(set(self.virtual_hosts), key=VirtualHostObservation.sort_key))
+        if self.virtual_hosts != sorted_virtual_hosts:
+            raise ValueError('virtual-host observations must be deduplicated and sorted')
+        if self.virtual_hosts:
+            try:
+                virtual_host_scope = normalize_virtual_host_hostname(self.target)
+            except ValueError as error:
+                raise ValueError('virtual-host observations require a hostname run target scope') from error
+        for observation in self.virtual_hosts:
+            if observation.hostname == virtual_host_scope or not observation.hostname.endswith(f'.{virtual_host_scope}'):
+                raise ValueError('virtual-host observation must be a descendant of the run target scope')
+            try:
+                canonical = parse_virtual_host_details(
+                    observation.hostname,
+                    virtual_host_details((observation,)),
+                )
+            except ValueError as error:
+                raise ValueError('virtual-host observations must contain canonical distinct evidence') from error
+            if canonical != (observation,):
+                raise ValueError('virtual-host observations must contain canonical distinct evidence')
+        structured_vhost_results = {('hostname', observation.hostname) for observation in self.virtual_hosts}
+        if not structured_vhost_results.issubset(result_set):
+            raise ValueError('every virtual-host observation must reference a hostname result')
+        vhost_action_results = {
+            (observation.kind, observation.value)
+            for action, observation in self.active_evidence.observations
+            if action == 'vhost'
+        }
+        if vhost_action_results != structured_vhost_results:
+            raise ValueError('structured virtual-host evidence must exactly match vhost action provenance')
         if self.evidence_status is not None and self.evidence_status not in EVIDENCE_STATUSES:
             raise ValueError('evidence status must be complete, partial, or failed')
 
@@ -190,6 +256,7 @@ class CompletedResult:
         source_executions: Iterable[SourceExecution] = (),
         observations: Iterable[ResultObservation] = (),
         active_evidence: ActiveEvidence | None = None,
+        virtual_hosts: Iterable[VirtualHostObservation] = (),
         evidence_status: EvidenceStatus | None = None,
     ) -> Self:
         completed_active_evidence = active_evidence if active_evidence is not None else ActiveEvidence()
@@ -201,8 +268,11 @@ class CompletedResult:
                 if not isinstance(value, str) or not value.strip():
                     raise ValueError('results must contain non-empty string values')
                 results.add((kind, value.strip()))
-        for _action, observation in completed_active_evidence.observations:
-            results.add((observation.kind, observation.value))
+        for _action, action_observation in completed_active_evidence.observations:
+            results.add((action_observation.kind, action_observation.value))
+        completed_virtual_hosts = tuple(sorted(set(virtual_hosts), key=VirtualHostObservation.sort_key))
+        for virtual_host in completed_virtual_hosts:
+            results.add(('hostname', virtual_host.hostname))
         return cls(
             run_id=run_id or uuid4(),
             target=target.strip(),
@@ -212,6 +282,7 @@ class CompletedResult:
             source_executions=tuple(source_executions),
             observations=tuple(sorted(set(observations))),
             active_evidence=completed_active_evidence,
+            virtual_hosts=completed_virtual_hosts,
             evidence_status=evidence_status,
         )
 
@@ -261,11 +332,16 @@ class CompletedResult:
 
     def _result_records(self, *, include_actions: bool) -> list[dict[str, object]]:
         sources_by_result: dict[tuple[ResultKind, str], list[str]] = {}
-        for observation in self.observations:
-            sources_by_result.setdefault((observation.kind, observation.value), []).append(observation.source)
+        for source_observation in self.observations:
+            sources_by_result.setdefault((source_observation.kind, source_observation.value), []).append(
+                source_observation.source
+            )
         actions_by_result: dict[tuple[ResultKind, str], list[str]] = {}
         for action, action_observation in self.active_evidence.observations:
             actions_by_result.setdefault((action_observation.kind, action_observation.value), []).append(action)
+        vhosts_by_hostname: dict[str, list[VirtualHostObservation]] = {}
+        for virtual_host in self.virtual_hosts:
+            vhosts_by_hostname.setdefault(virtual_host.hostname, []).append(virtual_host)
         records: list[dict[str, object]] = []
         for kind, value in self.results:
             record: dict[str, object] = {
@@ -275,5 +351,7 @@ class CompletedResult:
             }
             if include_actions and (actions := actions_by_result.get((kind, value))):
                 record['actions'] = actions
+            if kind == 'hostname' and (virtual_hosts := vhosts_by_hostname.get(value)):
+                record['observations'] = virtual_host_details(virtual_hosts)
             records.append(record)
         return records

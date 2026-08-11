@@ -19,6 +19,7 @@ ACTION_ACTIVITIES: Final = {
     'api-scan': ActivityClass.DIRECT,
     'screenshot': ActivityClass.DIRECT,
     'takeover': ActivityClass.DIRECT,
+    'vhost': ActivityClass.DIRECT,
 }
 ACTION_REQUEST_FIELDS: Final = {
     **{name: name.replace('-', '_') for name in ACTION_ACTIVITIES},
@@ -28,6 +29,8 @@ ACTION_REQUEST_FIELDS: Final = {
 
 def selected_action_names(request: Mapping[str, object]) -> tuple[str, ...]:
     def selected(name: str) -> bool:
+        if name == 'vhost':
+            return bool(request.get('vhost') or request.get('vhost_endpoint') or request.get('vhost_candidates'))
         value = request.get(ACTION_REQUEST_FIELDS[name])
         return isinstance(value, (int, float)) and value > 0 if name == 'dns-recursive' else bool(value)
 

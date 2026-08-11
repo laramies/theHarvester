@@ -54,6 +54,10 @@ _Avoid_: Raw finding, source result
 One normalized DNS-name merged result. It can be the authorized target itself or a subordinate name and does not by itself imply current DNS addressability.
 _Avoid_: Subdomain result, live host, resolved host
 
+**Virtual-host observation**:
+Structured differential endpoint evidence attached to a canonical hostname result. Several endpoint observations can enrich one hostname without creating another result or count.
+_Avoid_: Virtual-host result, vhost result
+
 **IP result**:
 One canonical IPv4 or IPv6 address merged result.
 _Avoid_: IP-address result, resolved host
