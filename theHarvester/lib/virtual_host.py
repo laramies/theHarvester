@@ -1,3 +1,5 @@
+"""Probe authorized IP endpoints for virtual hosts without resolving candidate names."""
+
 from __future__ import annotations
 
 import asyncio
