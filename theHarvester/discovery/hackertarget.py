@@ -1,5 +1,5 @@
 # theHarvester/discovery/hackertarget.py
-from ipaddress import ip_address
+from ipaddress import ip_address, ip_network
 
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
@@ -25,57 +25,122 @@ class SearchHackerTarget:
     async def do_search(self) -> None:
         headers = {'User-agent': Core.get_user_agent()}
 
-        url = f'{self.hostname}/hostsearch/?q={self.word}'
+        urls = [f'{self.hostname}/hostsearch/?q={self.word}']
+        parsers = [self._parse_hostsearch]
+        address_query = True
+        try:
+            ip_network(self.word.strip(), strict=False)
+        except ValueError:
+            first, separator, last = self.word.strip().partition('-')
+            if not separator:
+                address_query = False
+            else:
+                try:
+                    ip_address(first.strip())
+                except ValueError:
+                    address_query = False
+                else:
+                    last = last.strip()
+                    try:
+                        ip_address(last)
+                    except ValueError:
+                        address_query = last.isdecimal() and 0 <= int(last) <= 255
+        if not address_query:
+            urls.append(f'{self.hostname}/reversedns/?q={self.word}')
+            parsers.append(self._parse_reversedns)
         if self.key:
-            url = f'{url}&apikey={self.key}'
+            urls = [f'{url}&apikey={self.key}' for url in urls]
         responses = await AsyncFetcher.fetch_all(
-            [url],
+            urls,
             headers=headers,
             proxy=self.proxy,
             include_metadata=True,
         )
-        response = responses[0] if responses else None
-        if not isinstance(response, FetcherResponse):
-            self.execution_status = 'failed'
-            self.stop_reason = 'transport-error'
-            return
-        if response.status == 429:
-            self.execution_status = 'rate-limited'
-            self.stop_reason = 'http-429'
-            return
-        if not 200 <= response.status < 300:
-            self.execution_status = 'failed'
-            self.stop_reason = f'http-{response.status}'
-            return
-        if not isinstance(response.body, str) or not response.body.strip():
-            self.execution_status = 'failed'
-            self.stop_reason = 'invalid-response'
-            return
+        failures: list[tuple[str, str]] = []
+        successful_endpoints = 0
+        for index, parser in enumerate(parsers):
+            response = responses[index] if index < len(responses) else None
+            if not isinstance(response, FetcherResponse):
+                failures.append(('failed', 'transport-error'))
+                continue
+            if response.status == 429:
+                failures.append(('rate-limited', 'http-429'))
+                continue
+            if not 200 <= response.status < 300:
+                failures.append(('failed', f'http-{response.status}'))
+                continue
+            if not isinstance(response.body, str) or not response.body.strip():
+                failures.append(('failed', 'invalid-response'))
+                continue
 
-        normalized_body = response.body.casefold().strip()
-        if 'api count exceeded' in normalized_body:
-            self.execution_status = 'rate-limited'
-            self.stop_reason = 'quota-exhausted'
-            return
-        if normalized_body.startswith('no records found'):
-            return
+            normalized_body = response.body.casefold().strip()
+            if 'api count exceeded' in normalized_body:
+                failures.append(('rate-limited', 'quota-exhausted'))
+                continue
+            if normalized_body.startswith(('no records found', 'no ptr records found')):
+                successful_endpoints += 1
+                continue
 
+            parsed_rows, malformed = parser(response.body)
+            if parsed_rows:
+                successful_endpoints += 1
+            if not parsed_rows or malformed:
+                failures.append(('failed', 'invalid-response'))
+
+        if failures:
+            if successful_endpoints:
+                self.execution_status = 'partial'
+                self.stop_reason = failures[0][1]
+            elif all(status == 'rate-limited' for status, _reason in failures):
+                self.execution_status = 'rate-limited'
+                self.stop_reason = failures[0][1]
+            else:
+                self.execution_status = 'failed'
+                self.stop_reason = next(reason for status, reason in failures if status == 'failed')
+
+    def _parse_hostsearch(self, body: str) -> tuple[int, bool]:
         parsed_rows = 0
-        for line in response.body.splitlines():
+        malformed = False
+        for line in body.splitlines():
             hostname, separator, address = line.partition(',')
             normalized_hostname = normalize_scoped_hostname(hostname, self.word)
             if not separator or normalized_hostname is None:
+                malformed = True
                 continue
             try:
                 normalized_address = str(ip_address(address.strip()))
             except ValueError:
+                malformed = True
                 continue
             self.totalhosts.add(normalized_hostname)
             self.totalips.add(normalized_address)
             parsed_rows += 1
-        if not parsed_rows:
-            self.execution_status = 'failed'
-            self.stop_reason = 'invalid-response'
+        return parsed_rows, malformed
+
+    def _parse_reversedns(self, body: str) -> tuple[int, bool]:
+        parsed_rows = 0
+        malformed = False
+        for line in body.splitlines():
+            hostname, separator, address = line.partition(',')
+            if not separator:
+                parts = line.split(maxsplit=1)
+                if len(parts) != 2:
+                    malformed = True
+                    continue
+                address, hostname = parts
+            normalized_hostname = normalize_scoped_hostname(hostname, self.word)
+            if normalized_hostname is None:
+                malformed = True
+                continue
+            try:
+                normalized_address = str(ip_address(address))
+            except ValueError:
+                malformed = True
+                continue
+            self.totalhosts.add(normalized_hostname)
+            self.totalips.add(normalized_address)
+            parsed_rows += 1
+        return parsed_rows, malformed
 
     async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
