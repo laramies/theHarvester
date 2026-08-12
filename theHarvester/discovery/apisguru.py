@@ -11,6 +11,16 @@ from theHarvester.lib.hostnames import normalize_scoped_hostname
 
 
 class SearchApisGuru:
+    """Collect target-scoped API metadata from the public APIs.guru directory.
+
+    Results include descendant hostnames, contact emails, concrete API base URLs,
+    and related in-scope URLs. The adapter does not resolve IP addresses or expand
+    OpenAPI paths into operation endpoints. It checks up to 1,000 matching specs
+    for up to ten minutes; ``--limit`` caps stored results, not spec traversal.
+    The shared fetcher caps each JSON response at 16 MiB. Oversized specs are
+    skipped and leave the source marked partial.
+    """
+
     DIRECTORY_ROOT = 'https://api.apis.guru/v2'
     MAX_DIRECTORY_ENTRIES = 1000
     MAX_SPEC_ITEMS = 1000
