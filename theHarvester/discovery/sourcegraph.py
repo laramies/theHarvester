@@ -71,7 +71,13 @@ def _parse_event(record: str) -> tuple[str, Any]:
 
 
 class SearchSourcegraph:
-    """Collect descendant-hostname candidates mentioned in Sourcegraph code matches."""
+    """Collect descendant-hostname candidates mentioned in Sourcegraph code.
+
+    One query to Sourcegraph requests up to 5,000 matches; ``--limit`` does not
+    change it, and this source never contacts the target. A code mention does not
+    prove ownership, scope, or liveness. Repository and shard limits, along with
+    unstable result ordering, can make the results partial and non-exhaustive.
+    """
 
     ENDPOINT = 'https://sourcegraph.com/.api/search/stream'
     MATCH_COUNT = 5000
