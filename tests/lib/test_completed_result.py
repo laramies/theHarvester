@@ -8,6 +8,8 @@ import pytest
 from theHarvester.lib.active_evidence import ActionExecution, ActionObservation, ActiveEvidence, ArtifactReference
 from theHarvester.lib.completed_result import CompletedResult, ResultObservation, SourceExecution, parse_result_jsonl
 from theHarvester.lib.network_evidence import (
+    MAX_NETWORK_DETAILS_BYTES,
+    MAX_NETWORK_OBSERVATIONS_PER_PREFIX,
     BgpRouteObservation,
     NetworkEvidenceAccumulator,
     NetworkEvidenceLimitError,
@@ -631,6 +633,18 @@ def test_network_evidence_accumulator_owns_incremental_deduplication_and_limits(
             )
         )
     assert len(accumulator.observations()) == 1
+
+
+@pytest.mark.parametrize(
+    'limits',
+    [
+        {'max_observations_per_prefix': MAX_NETWORK_OBSERVATIONS_PER_PREFIX + 1},
+        {'max_details_bytes': MAX_NETWORK_DETAILS_BYTES + 1},
+    ],
+)
+def test_network_evidence_accumulator_cannot_exceed_the_persisted_envelope(limits: dict[str, int]) -> None:
+    with pytest.raises(ValueError, match='persisted envelope'):
+        NetworkEvidenceAccumulator(**limits)
 
 
 def test_jsonl_rejects_excessive_json_nesting() -> None:

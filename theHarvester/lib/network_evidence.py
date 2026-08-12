@@ -209,8 +209,10 @@ class NetworkEvidenceAccumulator:
         max_observations_per_prefix: int = MAX_NETWORK_OBSERVATIONS_PER_PREFIX,
         max_details_bytes: int = MAX_NETWORK_DETAILS_BYTES,
     ) -> None:
-        if max_observations_per_prefix < 1 or max_details_bytes < 2:
-            raise ValueError('network evidence limits must be positive')
+        if not 1 <= max_observations_per_prefix <= MAX_NETWORK_OBSERVATIONS_PER_PREFIX or not (
+            2 <= max_details_bytes <= MAX_NETWORK_DETAILS_BYTES
+        ):
+            raise ValueError('network evidence limits must stay within the persisted envelope')
         self._max_observations_per_prefix = max_observations_per_prefix
         self._max_details_bytes = max_details_bytes
         self._observations: set[NetworkObservation] = set()
