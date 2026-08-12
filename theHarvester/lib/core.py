@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import json as stdlib_json
 import logging
 import random
+import re
 import ssl
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 import aiohttp
 import certifi
@@ -22,7 +24,7 @@ from theHarvester.lib.output import output_logger
 from theHarvester.lib.source_catalog import resolve_sources
 
 if TYPE_CHECKING:
-    from collections.abc import Sized
+    from collections.abc import AsyncIterator, Sized
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +34,19 @@ CONFIG_DIRS = [
     Path('/etc/theHarvester/'),
     Path('/usr/local/etc/theHarvester/'),
 ]
+MAX_PROVIDER_STREAM_BYTES = 64 * 1024 * 1024
+MAX_PROVIDER_JSON_BYTES = 16 * 1024 * 1024
+MAX_STREAM_RECORD_BYTES = 10 * 1024 * 1024
+_STREAM_LINE_END = re.compile(rb'[\r\n]')
+
+StreamErrorReason = Literal['invalid-response', 'response-limit', 'transport-error']
+StreamFraming = Literal['ndjson', 'sse']
+
+
+class ResponseStreamError(Exception):
+    def __init__(self, reason: StreamErrorReason) -> None:
+        self.reason = reason
+        super().__init__(reason)
 
 
 @dataclass(frozen=True)
@@ -39,6 +54,102 @@ class FetcherResponse:
     body: Any
     status: int
     headers: dict[str, str]
+
+
+def _reject_json_constant(value: str) -> None:
+    raise ValueError(f'invalid JSON constant: {value}')
+
+
+async def _bounded_response_chunks(content: Any, byte_limit: int) -> AsyncIterator[bytes]:
+    bytes_read = 0
+    try:
+        async for chunk in content.iter_any():
+            remaining = byte_limit - bytes_read
+            accepted = chunk[:remaining]
+            bytes_read += len(accepted)
+            if accepted:
+                yield accepted
+            if len(accepted) != len(chunk):
+                raise ResponseStreamError('response-limit')
+    except ResponseStreamError:
+        raise
+    except (aiohttp.ClientError, TimeoutError, OSError) as error:
+        raise ResponseStreamError('transport-error') from error
+
+
+@dataclass
+class TextRecordResponse:
+    status: int
+    headers: dict[str, str]
+    _content: Any
+    _framing: StreamFraming
+    _started: bool = False
+
+    def __aiter__(self) -> AsyncIterator[str]:
+        if self._started:
+            raise RuntimeError('response records can only be consumed once')
+        self._started = True
+        return self._records()
+
+    @staticmethod
+    def _decode(line: bytes | bytearray) -> str:
+        try:
+            return bytes(line).decode('utf-8')
+        except UnicodeDecodeError as error:
+            raise ResponseStreamError('invalid-response') from error
+
+    async def _byte_lines(self) -> AsyncIterator[tuple[bytes, bool]]:
+        pending = bytearray()
+        async for chunk in _bounded_response_chunks(self._content, MAX_PROVIDER_STREAM_BYTES):
+            pending.extend(chunk)
+            start = 0
+            while start < len(pending):
+                line_end = _STREAM_LINE_END.search(pending, start)
+                if line_end is None:
+                    break
+                separator = line_end.start()
+                if pending[separator] == ord('\r') and separator + 1 == len(pending):
+                    break
+                terminator_bytes = 2 if pending[separator : separator + 2] == b'\r\n' else 1
+                line = bytes(pending[start:separator])
+                if len(line) > MAX_STREAM_RECORD_BYTES:
+                    raise ResponseStreamError('response-limit')
+                start = separator + terminator_bytes
+                yield line, True
+            if start:
+                del pending[:start]
+            pending_bytes = len(pending) - (1 if pending.endswith(b'\r') else 0)
+            if pending_bytes > MAX_STREAM_RECORD_BYTES:
+                raise ResponseStreamError('response-limit')
+        if pending:
+            if pending[-1] == ord('\r'):
+                yield bytes(pending[:-1]), True
+            else:
+                yield bytes(pending), False
+
+    async def _records(self) -> AsyncIterator[str]:
+        if self._framing == 'ndjson':
+            async for line, _terminated in self._byte_lines():
+                yield self._decode(line)
+            return
+
+        record = bytearray()
+        async for line, terminated in self._byte_lines():
+            if not terminated:
+                raise ResponseStreamError('invalid-response')
+            if not line:
+                if record:
+                    yield self._decode(record)
+                    record.clear()
+                continue
+            added_bytes = len(line) + (1 if record else 0)
+            if len(record) + added_bytes > MAX_STREAM_RECORD_BYTES:
+                raise ResponseStreamError('response-limit')
+            if record:
+                record.append(ord('\n'))
+            record.extend(line)
+        if record:
+            raise ResponseStreamError('invalid-response')
 
 
 class Core:
@@ -698,6 +809,123 @@ class AsyncFetcher:
                     await session.close()
         except (aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, UnicodeDecodeError, ValueError):
             return None if include_metadata else ''
+
+    @classmethod
+    @contextlib.asynccontextmanager
+    async def _open_get_response(
+        cls,
+        url: str,
+        *,
+        params: Sized = '',
+        proxy: str | bool | None = '',
+        headers: dict[str, str] | None = None,
+        follow_redirects: bool = False,
+        request_timeout: int = 60,
+    ) -> AsyncIterator[aiohttp.ClientResponse]:
+        try:
+            ssl_arg = cls._ssl_context()
+            proxy_url, proxy_type = cls._resolve_proxy(proxy)
+            session = await cls._build_session(
+                cls._default_headers(headers),
+                cls._request_timeout(request_timeout),
+                proxy_url,
+                proxy_type,
+                ssl_arg,
+            )
+        except (aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, ValueError) as error:
+            raise ResponseStreamError('transport-error') from error
+        try:
+            request_kwargs: dict[str, Any] = {
+                'ssl': ssl_arg,
+                'allow_redirects': follow_redirects,
+            }
+            if proxy_url and proxy_type == 'http':
+                request_kwargs['proxy'] = proxy_url
+            if params != '':
+                request_kwargs['params'] = params
+            async with contextlib.AsyncExitStack() as stack:
+                try:
+                    response = await stack.enter_async_context(session.request('GET', url, **request_kwargs))
+                except (aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, ValueError) as error:
+                    raise ResponseStreamError('transport-error') from error
+                yield response
+        finally:
+            await session.close()
+
+    @classmethod
+    async def fetch_json(
+        cls,
+        url: str,
+        *,
+        params: Sized = '',
+        proxy: str | bool | None = '',
+        headers: dict[str, str] | None = None,
+        request_timeout: int = 60,
+    ) -> FetcherResponse:
+        """Fetch one bounded JSON response without following redirects."""
+        async with cls._open_get_response(
+            url,
+            params=params,
+            proxy=proxy,
+            headers=headers,
+            follow_redirects=False,
+            request_timeout=request_timeout,
+        ) as response:
+            response_headers = {name.lower(): value for name, value in response.headers.items()}
+            if not 200 <= response.status < 300 or response.status == 204:
+                return FetcherResponse(body=None, status=response.status, headers=response_headers)
+            try:
+                if int(response_headers.get('content-length', '0')) > MAX_PROVIDER_JSON_BYTES:
+                    raise ResponseStreamError('response-limit')
+            except ValueError:
+                pass
+            body = bytearray()
+            async for chunk in _bounded_response_chunks(response.content, MAX_PROVIDER_JSON_BYTES):
+                body.extend(chunk)
+            try:
+                text = body.decode('utf-8')
+                if not text.strip():
+                    raise ValueError('empty JSON response')
+                parsed = stdlib_json.loads(text, parse_constant=_reject_json_constant)
+            except (UnicodeDecodeError, ValueError, RecursionError) as error:
+                raise ResponseStreamError('invalid-response') from error
+            return FetcherResponse(body=parsed, status=response.status, headers=response_headers)
+
+    @classmethod
+    @contextlib.asynccontextmanager
+    async def stream_records(
+        cls,
+        url: str,
+        *,
+        framing: StreamFraming,
+        params: Sized = '',
+        proxy: str | bool | None = '',
+        headers: dict[str, str] | None = None,
+        follow_redirects: bool = False,
+        request_timeout: int = 60,
+    ) -> AsyncIterator[TextRecordResponse]:
+        """Stream bounded UTF-8 NDJSON lines or complete SSE events.
+
+        The returned response is single-use. Redirects are disabled unless the
+        caller explicitly opts in, and transport/body failures use
+        ``ResponseStreamError`` while cancellation and consumer errors pass through.
+        """
+        if framing not in {'ndjson', 'sse'}:
+            raise ValueError(f'unsupported stream framing: {framing}')
+        async with cls._open_get_response(
+            url,
+            params=params,
+            proxy=proxy,
+            headers=headers,
+            follow_redirects=follow_redirects,
+            request_timeout=request_timeout,
+        ) as response:
+            yield TextRecordResponse(
+                status=response.status,
+                headers={name.lower(): value for name, value in response.headers.items()},
+                _content=response.content,
+                _framing=framing,
+            )
 
     @staticmethod
     async def takeover_fetch(

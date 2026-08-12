@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import logging
 
 import pytest
@@ -16,58 +17,29 @@ def _install_response(
     stream_error: Exception | None = None,
 ) -> dict[str, object]:
     requested: dict[str, object] = {}
-    lines_left = list(lines)
-
-    class FakeContent:
-        def __aiter__(self) -> FakeContent:
-            return self
-
-        async def __anext__(self) -> bytes:
-            if not lines_left:
-                if stream_error is not None:
-                    raise stream_error
-                raise StopAsyncIteration
-            return lines_left.pop(0)
 
     class FakeResponse:
         def __init__(self) -> None:
             self.status = status
+            self.headers: dict[str, str] = {}
 
-        content = FakeContent()
+        async def __aiter__(self):
+            for line in lines:
+                yield line.decode()
+            if stream_error is not None:
+                raise stream_error
 
-        async def __aenter__(self) -> FakeResponse:
-            return self
+    @contextlib.asynccontextmanager
+    async def fake_stream_records(url: str, **kwargs: object):
+        requested['url'] = url
+        requested['stream'] = kwargs
+        yield FakeResponse()
 
-        async def __aexit__(self, *_args: object) -> None:
-            return None
+    async def private_transport_is_not_a_public_seam(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError('DNSDB must use AsyncFetcher.stream_records')
 
-    class FakeSession:
-        def get(self, url: str, **kwargs: object) -> FakeResponse:
-            requested['url'] = url
-            requested['request'] = kwargs
-            return FakeResponse()
-
-        async def __aenter__(self) -> FakeSession:
-            return self
-
-        async def __aexit__(self, *_args: object) -> None:
-            return None
-
-    async def fake_build_session(
-        headers: dict[str, str],
-        timeout: object,
-        proxy_url: str | None = None,
-        proxy_type: str | None = None,
-    ) -> FakeSession:
-        requested['session'] = {
-            'headers': headers,
-            'timeout': timeout,
-            'proxy_url': proxy_url,
-            'proxy_type': proxy_type,
-        }
-        return FakeSession()
-
-    monkeypatch.setattr(dnsdb.AsyncFetcher, '_build_session', fake_build_session)
+    monkeypatch.setattr(dnsdb.AsyncFetcher, 'stream_records', fake_stream_records)
+    monkeypatch.setattr(dnsdb.AsyncFetcher, '_build_session', private_transport_is_not_a_public_seam)
     return requested
 
 
@@ -98,13 +70,16 @@ async def test_process_collects_normalized_in_scope_rrset_owners(monkeypatch: py
 
     assert await search.get_hostnames() == {'api.example.com'}
     assert requested['url'] == 'https://api.dnsdb.info/dnsdb/v2/lookup/rrset/name/*.example.com?limit=0'
-    session_options = requested['session']
-    assert isinstance(session_options, dict)
-    assert session_options['headers'] == {
+    stream_options = requested['stream']
+    assert isinstance(stream_options, dict)
+    assert stream_options['headers'] == {
         'Accept': 'application/x-ndjson',
         'User-Agent': f'theHarvester/{dnsdb.__version__}',
         'X-API-Key': 'dnsdb-test-key',
     }
+    assert stream_options['framing'] == 'ndjson'
+    assert stream_options['follow_redirects'] is False
+    assert stream_options['request_timeout'] == 120
 
 
 @pytest.mark.asyncio
@@ -126,9 +101,9 @@ async def test_process_uses_configured_proxy_when_enabled(monkeypatch: pytest.Mo
 
     await dnsdb.SearchDNSDB('example.com').process(True)
 
-    request_options = requested['request']
-    assert isinstance(request_options, dict)
-    assert request_options['proxy'] == 'http://proxy.example:8080'
+    stream_options = requested['stream']
+    assert isinstance(stream_options, dict)
+    assert stream_options['proxy'] is True
 
 
 @pytest.mark.asyncio
@@ -176,7 +151,7 @@ async def test_process_preserves_partial_results_on_midstream_timeout(
             b'{"cond":"begin"}\n',
             b'{"obj":{"rrname":"first.example.com."}}\n',
         ),
-        stream_error=TimeoutError(),
+        stream_error=dnsdb.ResponseStreamError('transport-error'),
     )
 
     search = dnsdb.SearchDNSDB('example.com')
