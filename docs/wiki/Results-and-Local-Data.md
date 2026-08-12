@@ -44,6 +44,7 @@ The normalized persistence model can represent active-action provenance and arti
 - `executions`: each passive source or active action represented by the model;
 - `results`: deduplicated hostnames, IPs, emails, URLs, and structured outputs;
 - `result_origins`: which execution produced each result; and
+- `asn_attributions`: sourced organization labels linking an ASN result to the exact hostname or IP result supplied by the same execution; and
 - `artifacts`: files such as screenshots, linked to their creating action and subject result.
 
 Virtual-host evidence stays inside this model. `results` holds one `hostname` row, `result_origins` links it to the `vhost` action execution, and the result's `details_json` contains the canonical endpoint observation array. If one hostname is distinct on several IP endpoints, it remains one result with several observations.
@@ -51,6 +52,8 @@ Virtual-host evidence stays inside this model. `results` holds one `hostname` ro
 Current runtime collection populates passive source executions plus DNS, takeover, Shodan, and API endpoint scan executions and origins. Screenshot actions attach file metadata to their captured hostname or URL without creating fake screenshot findings.
 
 RouteViews creates `prefix` results with `scope: external-relationship` and `routeviews` action provenance. Native observations distinguish one ASN-prefix origin claim, one collector/peer BGP route, and one RPKI validation state. They are routing evidence, not registration, ownership, authorization, reachability, or expanded target scope.
+
+URLScan, ONYPHE, and Shodan can attach a provider organization label to an ASN. SQLite stores each relationship in `asn_attributions`; JSONL, the API, CLI output, and HarvestView project the same typed observation. Labels remain time-bound provider evidence, so missing or conflicting values are retained rather than replaced by one ASN owner property. Shodan's documented `org` field is used for the organization label; its separate `isp` field remains part of the existing Shodan payload and is not treated as equivalent.
 
 Every discovered URL is stored as the `url` result kind. Its source or action origins identify whether it came from BuiltWith, GitLab, RocketReach, API scanning, or another producer; provider-specific URL kinds are not stored.
 

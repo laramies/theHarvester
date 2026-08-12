@@ -21,6 +21,7 @@ async def test_process_collects_sequential_pages_and_preserves_all_routes(
                             'ip': '192.0.2.10',
                             'url': 'https://first.example.com/path',
                             'asn': 'AS64496',
+                            'asnname': 'Example Transit One',
                         },
                         'sort': [200, 'first'],
                     }
@@ -38,6 +39,7 @@ async def test_process_collects_sequential_pages_and_preserves_all_routes(
                             'ip': '2001:db8::10',
                             'url': 'https://second.example.com/',
                             'asn': 'AS64497',
+                            'asnname': 'Example Transit Two',
                         },
                         'sort': [100, 'second'],
                     }
@@ -66,6 +68,20 @@ async def test_process_collects_sequential_pages_and_preserves_all_routes(
         'https://second.example.com/',
     }
     assert await search.get_asns() == {'AS64496', 'AS64497'}
+    assert {
+        (
+            observation.asn,
+            observation.organization_label,
+            observation.subject_kind,
+            observation.subject_value,
+        )
+        for observation in await search.get_asn_attributions()
+    } == {
+        ('AS64496', 'Example Transit One', 'hostname', 'first.example.com'),
+        ('AS64496', 'Example Transit One', 'ip', '192.0.2.10'),
+        ('AS64497', 'Example Transit Two', 'hostname', 'second.example.com'),
+        ('AS64497', 'Example Transit Two', 'ip', '2001:db8::10'),
+    }
     assert [call['params'] for call in calls] == [
         {'q': 'domain:example.com'},
         {'q': 'domain:example.com', 'search_after': '200,first'},

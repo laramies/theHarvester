@@ -6,6 +6,11 @@ from uuid import UUID
 import pytest
 
 from theHarvester.lib.active_evidence import ActionExecution, ActionObservation, ActiveEvidence, ArtifactReference
+from theHarvester.lib.asn_attribution import (
+    AsnAttributionObservation,
+    asn_attribution_details,
+    parse_asn_attribution_details,
+)
 from theHarvester.lib.completed_result import CompletedResult, ResultObservation, SourceExecution, parse_result_jsonl
 from theHarvester.lib.network_evidence import (
     MAX_NETWORK_DETAILS_BYTES,
@@ -424,6 +429,95 @@ def test_completed_result_groups_canonical_network_evidence_by_prefix() -> None:
         },
     ]
     assert parsed_findings == [{**records[1], 'actions': []}, records[2]]
+
+
+def test_completed_result_groups_sourced_asn_organization_attribution() -> None:
+    collected_at = datetime(2026, 8, 12, 12, 1, tzinfo=UTC)
+    attribution = AsnAttributionObservation(
+        'source',
+        'urlscan',
+        '64500',
+        'Example Network',
+        'hostname',
+        'api.example.com',
+        collected_at,
+    )
+    result = CompletedResult.finish(
+        target='example.com',
+        started_at=collected_at,
+        completed_at=collected_at,
+        groups={'asn': ['AS64500'], 'hostname': ['api.example.com']},
+        source_executions=(SourceExecution('urlscan', 'completed', 1, 2),),
+        observations=(
+            ResultObservation('urlscan', 'asn', 'AS64500'),
+            ResultObservation('urlscan', 'hostname', 'api.example.com'),
+        ),
+        asn_attributions=(attribution, attribution),
+    )
+
+    records = [json.loads(line) for line in result.jsonl().splitlines()]
+    _summary, parsed_findings = parse_result_jsonl(result.jsonl())
+
+    assert result.asn_attributions == (attribution,)
+    assert records[1] == {
+        'type': 'asn',
+        'value': 'AS64500',
+        'sources': ['urlscan'],
+        'observations': [
+            {
+                'type': 'organization-attribution',
+                'producer_kind': 'source',
+                'producer': 'urlscan',
+                'organization_label': 'Example Network',
+                'subject': {'type': 'hostname', 'value': 'api.example.com'},
+                'collected_at': '2026-08-12T12:01:00Z',
+            }
+        ],
+    }
+    assert parsed_findings == [{**record, 'actions': []} for record in records[1:]]
+
+
+@pytest.mark.parametrize(
+    ('field', 'value'),
+    [
+        ('organization_label', 'Example\x00Network'),
+        ('organization_label', 'Example\u202eNetwork'),
+        ('organization_label', 'x' * 256),
+        ('subject_value', 'not-an-ip'),
+    ],
+)
+def test_asn_organization_attribution_rejects_unsafe_or_noncanonical_values(field: str, value: str) -> None:
+    kwargs = {
+        'producer_kind': 'source',
+        'producer': 'urlscan',
+        'asn': 'AS64500',
+        'organization_label': 'Example Network',
+        'subject_kind': 'ip',
+        'subject_value': '192.0.2.10',
+        'collected_at': datetime(2026, 8, 12, 12, 1, tzinfo=UTC),
+    }
+    kwargs[field] = value
+
+    with pytest.raises(ValueError):
+        AsnAttributionObservation(**kwargs)
+
+
+def test_asn_organization_attribution_does_not_apply_an_arbitrary_result_count_ceiling() -> None:
+    collected_at = datetime(2026, 8, 12, 12, 1, tzinfo=UTC)
+    observations = tuple(
+        AsnAttributionObservation(
+            'source',
+            'urlscan',
+            'AS64500',
+            'Example Network',
+            'hostname',
+            f'host-{index:05d}.example.com',
+            collected_at,
+        )
+        for index in range(10_001)
+    )
+
+    assert parse_asn_attribution_details('AS64500', asn_attribution_details(observations)) == observations
 
 
 def test_bgp_route_rejects_provider_time_after_collection() -> None:

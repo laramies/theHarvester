@@ -38,7 +38,7 @@ def normalized_results(evidence: dict[str, Any] | None) -> list[dict[str, Any]]:
                 'sources': sorted({str(source) for source in item.get('sources', [])}),
                 'actions': sorted({str(action) for action in item.get('actions', [])}),
             }
-            if item.get('type') in {'hostname', 'prefix'} and item.get('observations'):
+            if item.get('type') in {'asn', 'hostname', 'prefix'} and item.get('observations'):
                 result['observations'] = [
                     dict(observation) for observation in item.get('observations', []) if isinstance(observation, dict)
                 ]

@@ -151,6 +151,8 @@ curl -s "http://127.0.0.1:5000/api/v1/runs/import?filename=report.jsonl" \
 
 JSONL is a terminal report, so an import is recorded as completed. The summary retains evidence status, source and action outcomes, and screenshot artifact metadata. Each finding's `sources` and `actions` arrays rebuild result attribution and must name an execution in the summary. Result kinds such as `hostname`, `ip`, and `url` use the same names in JSONL, SQLite, and the API.
 
+An `asn` result may include `organization-attribution` observations from URLScan, ONYPHE, or Shodan. Each observation names its producer and related hostname or IP; it is provider attribution rather than ownership or engagement-scope evidence.
+
 To load every completed run from another theHarvester database:
 
 ```bash

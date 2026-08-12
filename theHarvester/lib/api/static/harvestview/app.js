@@ -418,6 +418,26 @@
     return text.includes(query);
   }
 
+  function asnAttributionsFormatter(cell) {
+    const observations = Array.isArray(cell.getValue()) ? cell.getValue() : [];
+    if (!observations.length) return 'No organization attribution';
+    return `<div class="vhost-observations">${observations.map(observation => {
+      const subject = observation.subject || {};
+      const producer = `${observation.producer_kind || 'producer'}:${observation.producer || 'unknown'}`;
+      const text = `${observation.organization_label || 'Unknown organization'} · ${producer} · ${subject.type || 'subject'}:${subject.value || 'unknown'}`;
+      return `<span title="${escapeHtml(text)}">${escapeHtml(text)}</span>`;
+    }).join('')}</div>`;
+  }
+
+  function asnAttributionsFilter(headerValue, rowValue) {
+    const query = String(headerValue || '').trim().toLowerCase().replaceAll('-', ' ');
+    const text = (Array.isArray(rowValue) ? rowValue : []).flatMap(observation => [
+      observation.organization_label, observation.producer_kind, observation.producer,
+      observation.subject?.type, observation.subject?.value
+    ]).join(' ').toLowerCase().replaceAll('-', ' ');
+    return text.includes(query);
+  }
+
   function provenanceFormatter(cell) {
     const values = Array.isArray(cell.getValue()) ? cell.getValue() : [];
     return escapeHtml(values.join(', ') || '-');
@@ -434,6 +454,13 @@
     if (state.route === 'hostname' && rows.some(row => Array.isArray(row.observations) && row.observations.length)) {
       columns.push(
         {title: 'Virtual-host observations', field: 'observations', formatter: vhostObservationsFormatter, minWidth: 420, widthGrow: 4, variableHeight: true, headerFilter: 'input', headerFilterFunc: vhostObservationsFilter, headerFilterPlaceholder: 'Filter endpoint evidence'},
+        {title: 'Sources', field: 'sources', formatter: provenanceFormatter, minWidth: 130, responsive: 2, headerFilter: 'input', headerFilterFunc: columnTextFilter},
+        {title: 'Produced by', field: 'actions', formatter: provenanceFormatter, minWidth: 130, responsive: 2, headerFilter: 'input', headerFilterFunc: columnTextFilter},
+      );
+    }
+    if (state.route === 'asn' && rows.some(row => Array.isArray(row.observations) && row.observations.length)) {
+      columns.push(
+        {title: 'Organization attributions', field: 'observations', formatter: asnAttributionsFormatter, minWidth: 420, widthGrow: 4, variableHeight: true, headerFilter: 'input', headerFilterFunc: asnAttributionsFilter, headerFilterPlaceholder: 'Filter organization evidence'},
         {title: 'Sources', field: 'sources', formatter: provenanceFormatter, minWidth: 130, responsive: 2, headerFilter: 'input', headerFilterFunc: columnTextFilter},
         {title: 'Produced by', field: 'actions', formatter: provenanceFormatter, minWidth: 130, responsive: 2, headerFilter: 'input', headerFilterFunc: columnTextFilter},
       );

@@ -2,11 +2,42 @@ import logging
 import socket
 import sys
 from collections import OrderedDict
+from datetime import UTC
 
 import pytest
 
 
 class TestShodanEngine:
+    @pytest.mark.asyncio
+    async def test_shodan_retains_sourced_asn_organization_attribution(self, monkeypatch):
+        from theHarvester.discovery import shodansearch
+
+        class SuccessfulShodan:
+            def host(self, _ip):
+                return {
+                    'asn': 'AS64496',
+                    'org': 'Example Transit',
+                    'isp': 'Example ISP Label',
+                    'data': [{'ip_str': '198.51.100.20'}],
+                }
+
+        monkeypatch.setattr(shodansearch.Core, 'shodan_key', lambda: 'test-key')
+        monkeypatch.setattr(shodansearch, 'Shodan', lambda _key: SuccessfulShodan())
+        search = shodansearch.SearchShodan()
+
+        await search.search_ip('192.0.2.10')
+
+        attributions = await search.get_asn_attributions()
+        assert len(attributions) == 1
+        attribution = next(iter(attributions))
+        assert attribution.producer_kind == 'action'
+        assert attribution.producer == 'shodan'
+        assert attribution.asn == 'AS64496'
+        assert attribution.organization_label == 'Example Transit'
+        assert attribution.subject_kind == 'ip'
+        assert attribution.subject_value == '192.0.2.10'
+        assert attribution.collected_at.tzinfo is UTC
+
     @pytest.mark.asyncio
     async def test_shodan_provider_failure_returns_attributed_empty_evidence(self, monkeypatch, caplog):
         from theHarvester.discovery import shodansearch

@@ -155,6 +155,57 @@ def _network_jsonl_result() -> str:
     )
 
 
+def _asn_attribution_jsonl_result() -> str:
+    summary = {
+        'type': 'summary',
+        'run_id': 'e149aef3-f4c5-4145-82f3-71d11d51d9cd',
+        'target': 'example.test',
+        'started_at': '2026-08-12T12:00:00Z',
+        'completed_at': '2026-08-12T12:01:00Z',
+        'evidence_status': 'complete',
+        'result_count': 3,
+        'counts': {'asn': 1, 'hostname': 1, 'ip': 1},
+        'source_executions': [
+            {
+                'source': 'urlscan',
+                'status': 'completed',
+                'duration_ms': 1,
+                'result_count': 3,
+                'error_type': None,
+                'stop_reason': None,
+            }
+        ],
+    }
+    findings = [
+        {
+            'type': 'asn',
+            'value': 'AS64500',
+            'sources': ['urlscan'],
+            'observations': [
+                {
+                    'type': 'organization-attribution',
+                    'producer_kind': 'source',
+                    'producer': 'urlscan',
+                    'organization_label': 'Example Network',
+                    'subject': {'type': 'hostname', 'value': 'api.example.test'},
+                    'collected_at': '2026-08-12T12:01:00Z',
+                },
+                {
+                    'type': 'organization-attribution',
+                    'producer_kind': 'source',
+                    'producer': 'urlscan',
+                    'organization_label': 'Example Network',
+                    'subject': {'type': 'ip', 'value': '192.0.2.10'},
+                    'collected_at': '2026-08-12T12:01:00Z',
+                },
+            ],
+        },
+        {'type': 'hostname', 'value': 'api.example.test', 'sources': ['urlscan']},
+        {'type': 'ip', 'value': '192.0.2.10', 'sources': ['urlscan']},
+    ]
+    return '\n'.join((json.dumps(summary), *(json.dumps(finding) for finding in findings), ''))
+
+
 @pytest.mark.parametrize(
     ('finding_type', 'finding_fields'),
     [
@@ -931,6 +982,41 @@ def test_api_jsonl_round_trip_preserves_structured_network_evidence(tmp_path, mo
     assert [json.loads(line) for line in exported.text.splitlines()[1:]] == [
         {key: value for key, value in expected[0].items() if key != 'actions'},
         expected[1],
+    ]
+    assert reimported.status_code == 201
+    assert reimported.json()['results'] == expected
+
+
+def test_api_jsonl_round_trip_preserves_asn_organization_attribution(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+    headers = {'X-API-Key': 'test-key'}
+    expected = [json.loads(line) for line in _asn_attribution_jsonl_result().splitlines()[1:]]
+    for finding in expected:
+        finding['actions'] = []
+
+    with TestClient(api.app, client=('127.0.0.21', 50000)) as client:
+        imported = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'asn-attribution.jsonl'},
+            headers=headers,
+            content=_asn_attribution_jsonl_result(),
+        )
+        assert imported.status_code == 201, imported.text
+        exported = client.get(f'/api/v1/runs/{imported.json()["run_id"]}/export', headers=headers)
+        reimported = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'asn-attribution-round-trip.jsonl'},
+            headers=headers,
+            content=exported.content,
+        )
+
+    assert imported.json()['results'] == expected
+    assert [json.loads(line) for line in exported.text.splitlines()[1:]] == [
+        {key: value for key, value in finding.items() if key != 'actions'} for finding in expected
     ]
     assert reimported.status_code == 201
     assert reimported.json()['results'] == expected

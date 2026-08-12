@@ -7,6 +7,12 @@ from typing import Self
 from uuid import UUID, uuid4
 
 from theHarvester.lib.active_evidence import ActiveEvidence
+from theHarvester.lib.asn_attribution import (
+    AsnAttributionObservation,
+    asn_attribution_details,
+    canonical_asn_attributions,
+    parse_asn_attribution_details,
+)
 from theHarvester.lib.evidence_types import (
     EVIDENCE_STATUSES,
     EXECUTION_STATUSES,
@@ -80,7 +86,7 @@ def parse_result_jsonl(payload: bytes | str) -> tuple[dict[str, object], list[di
         actions = record.get('actions', [])
         result_kind = record.get('type')
         allowed_keys = {'type', 'value', 'sources', 'actions'}
-        if result_kind in {'hostname', 'prefix'} and 'observations' in record:
+        if result_kind in {'asn', 'hostname', 'prefix'} and 'observations' in record:
             allowed_keys.add('observations')
         if result_kind == 'prefix':
             allowed_keys.add('scope')
@@ -120,6 +126,12 @@ def parse_result_jsonl(payload: bytes | str) -> tuple[dict[str, object], list[di
             except ValueError as error:
                 raise ValueError(f'JSONL prefix has invalid network observations: {error}') from error
             record['observations'] = network_observation_details(network_observations)
+        elif result_kind == 'asn' and 'observations' in record:
+            try:
+                asn_attributions = parse_asn_attribution_details(record['value'], record.get('observations'))
+            except ValueError as error:
+                raise ValueError(f'JSONL ASN has invalid organization attributions: {error}') from error
+            record['observations'] = asn_attribution_details(asn_attributions)
     return summary, findings
 
 
@@ -202,6 +214,7 @@ class CompletedResult:
     active_evidence: ActiveEvidence = field(default_factory=ActiveEvidence)
     virtual_hosts: tuple[VirtualHostObservation, ...] = ()
     network_observations: tuple[NetworkObservation, ...] = ()
+    asn_attributions: tuple[AsnAttributionObservation, ...] = ()
     evidence_status: EvidenceStatus | None = None
 
     def __post_init__(self) -> None:
@@ -308,6 +321,32 @@ class CompletedResult:
                 not in origin_observations
             ):
                 raise ValueError('BGP route and RPKI observations require matching observed-origin evidence')
+        sorted_asn_attributions = canonical_asn_attributions(list(self.asn_attributions))
+        if self.asn_attributions != sorted_asn_attributions:
+            raise ValueError('ASN attributions must be deduplicated and sorted')
+        source_results = {(observation.source, observation.kind, observation.value) for observation in self.observations}
+        action_results = {
+            (action, observation.kind, observation.value) for action, observation in self.active_evidence.observations
+        }
+        for attribution in self.asn_attributions:
+            if attribution.collected_at < self.started_at or attribution.collected_at > self.completed_at:
+                raise ValueError('ASN attribution collection time must fall within the completed run')
+            if ('asn', attribution.asn) not in result_set or (
+                attribution.subject_kind,
+                attribution.subject_value,
+            ) not in result_set:
+                raise ValueError('ASN attribution must reference completed ASN and subject results')
+            producer_result_set = source_results if attribution.producer_kind == 'source' else action_results
+            if (
+                attribution.producer,
+                'asn',
+                attribution.asn,
+            ) not in producer_result_set or (
+                attribution.producer,
+                attribution.subject_kind,
+                attribution.subject_value,
+            ) not in producer_result_set:
+                raise ValueError('ASN attribution must reference matching producer provenance')
         if self.evidence_status is not None and self.evidence_status not in EVIDENCE_STATUSES:
             raise ValueError('evidence status must be complete, partial, or failed')
 
@@ -325,6 +364,7 @@ class CompletedResult:
         active_evidence: ActiveEvidence | None = None,
         virtual_hosts: Iterable[VirtualHostObservation] = (),
         network_observations: Iterable[NetworkObservation] = (),
+        asn_attributions: Iterable[AsnAttributionObservation] = (),
         evidence_status: EvidenceStatus | None = None,
     ) -> Self:
         completed_active_evidence = active_evidence if active_evidence is not None else ActiveEvidence()
@@ -353,6 +393,7 @@ class CompletedResult:
             active_evidence=completed_active_evidence,
             virtual_hosts=completed_virtual_hosts,
             network_observations=canonical_network_observations(network_observations),
+            asn_attributions=canonical_asn_attributions(list(asn_attributions)),
             evidence_status=evidence_status,
         )
 
@@ -415,6 +456,9 @@ class CompletedResult:
         network_by_prefix: dict[str, list[NetworkObservation]] = {}
         for observation in self.network_observations:
             network_by_prefix.setdefault(observation.prefix, []).append(observation)
+        attribution_by_asn: dict[str, list[AsnAttributionObservation]] = {}
+        for attribution in self.asn_attributions:
+            attribution_by_asn.setdefault(attribution.asn, []).append(attribution)
         records: list[dict[str, object]] = []
         for kind, value in self.results:
             record: dict[str, object] = {
@@ -430,5 +474,7 @@ class CompletedResult:
                 record['observations'] = virtual_host_details(virtual_hosts)
             elif kind == 'prefix' and (network_observations := network_by_prefix.get(value)):
                 record['observations'] = network_observation_details(tuple(network_observations))
+            elif kind == 'asn' and (asn_attributions := attribution_by_asn.get(value)):
+                record['observations'] = asn_attribution_details(tuple(asn_attributions))
             records.append(record)
         return records

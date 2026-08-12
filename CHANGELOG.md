@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added sourced ASN organization attribution from URLScan, ONYPHE, and Shodan, linked to the exact hostname or IP evidence and retained in SQLite, JSONL, the API, CLI output, and HarvestView without claiming ownership or scope.
 - Added bounded RouteViews routing enrichment for discovered ASNs or explicit ASN, IP, and CIDR targets, retaining typed origin, BGP-route, and RPKI evidence as external relationships without expanding active scope.
 - Added bounded, keyless `crt.name` composite-index discovery as a separate source alongside `crtsh`, retaining only descendant-hostname candidates from its streamed response.
 - Added bounded, keyless APIs.guru discovery through exact target-domain directory lookups, retaining only target-scoped hostnames, contact emails, and URLs from preferred OpenAPI specifications.

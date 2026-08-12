@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 from fastapi import HTTPException, status
 
 from theHarvester.lib.active_evidence import ActionExecution, ActiveEvidence, ArtifactReference
+from theHarvester.lib.asn_attribution import AsnAttributionObservation, parse_asn_attribution_details
 from theHarvester.lib.completed_result import (
     CompletedResult,
     ResultObservation,
@@ -53,6 +54,7 @@ def _completed_result(
     action_groups: dict[str, dict[ResultKind, set[str]]] = defaultdict(lambda: defaultdict(set))
     virtual_hosts: list[VirtualHostObservation] = []
     network_observations: list[NetworkObservation] = []
+    asn_attributions: list[AsnAttributionObservation] = []
     for item in results:
         kind = cast('ResultKind', str(item['type']))
         value = str(item['value'])
@@ -61,6 +63,8 @@ def _completed_result(
             virtual_hosts.extend(parse_virtual_host_details(value, item.get('observations')))
         elif kind == 'prefix' and item.get('observations'):
             network_observations.extend(parse_network_observation_details(value, item.get('observations')))
+        elif kind == 'asn' and item.get('observations'):
+            asn_attributions.extend(parse_asn_attribution_details(value, item.get('observations')))
         for source in set(item.get('sources', [])):
             source_name = str(source)
             source_origins.add(ResultObservation(source_name, kind, value))
@@ -147,6 +151,7 @@ def _completed_result(
         active_evidence=active_evidence,
         virtual_hosts=virtual_hosts,
         network_observations=network_observations,
+        asn_attributions=asn_attributions,
         evidence_status=(
             cast('EvidenceStatus', str(evidence['status']))
             if evidence.get('status') is not None and not execution_status_is_authoritative

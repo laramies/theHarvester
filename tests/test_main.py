@@ -11,6 +11,7 @@ import pytest
 
 from theHarvester import __main__ as theharvester_main
 from theHarvester.discovery.constants import MissingKey
+from theHarvester.lib.asn_attribution import AsnAttributionObservation
 from theHarvester.lib.completed_result import CompletedResult, ResultObservation
 from theHarvester.lib.dns_consensus import Addressability
 from theHarvester.lib.enumeration import EnumerationOptions
@@ -2160,8 +2161,25 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
     class FakeShodan:
         error_type = None
 
+        def __init__(self) -> None:
+            self.attributions: set[AsnAttributionObservation] = set()
+
         async def search_ip(self, ip: str) -> dict[str, dict[str, list[int]]]:
+            self.attributions.add(
+                AsnAttributionObservation(
+                    'action',
+                    'shodan',
+                    'AS64496',
+                    'Example Transit',
+                    'ip',
+                    ip,
+                    datetime.now(UTC),
+                )
+            )
             return {ip: {'ports': [443]}}
+
+        async def get_asn_attributions(self) -> set[AsnAttributionObservation]:
+            return self.attributions
 
     class FakeApiScanner:
         def __init__(self, word: str, wordlist: str, exact_paths: bool = False) -> None:
@@ -2245,6 +2263,8 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
     assert ('url', 'https://example.com/api/v1') in completed.results
     assert ('screenshot', 'api.example.com') not in completed.results
     assert ('shodan', '{"ip":"192.0.2.10","result":{"ports":[443]}}') in completed.results
+    assert ('asn', 'AS64496') in completed.results
+    assert completed.asn_attributions[0].organization_label == 'Example Transit'
     takeover_result = (
         'takeover',
         '{"matches":[{"No such app":"Heroku"}],"url":"https://api.example.com"}',
@@ -2263,7 +2283,7 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
     assert screenshot_execution.artifacts[0].subject_value == 'api.example.com'
     shodan_execution = next(execution for execution in completed.active_evidence.executions if execution.action == 'shodan')
     assert shodan_execution.status == 'completed'
-    assert shodan_execution.result_count == 1
+    assert shodan_execution.result_count == 3
     assert shodan_execution.error_type is None
     assert shodan_execution.stop_reason is None
     api_executions = [execution for execution in completed.active_evidence.executions if execution.action == 'api-scan']
@@ -2564,7 +2584,10 @@ async def test_routeviews_persists_typed_network_evidence_for_explicit_ip_target
     assert isinstance(completed.network_observations[1], RpkiValidationObservation)
     execution = next(item for item in completed.active_evidence.executions if item.action == 'routeviews')
     assert execution.status == 'completed'
-    assert {(item.kind, item.value) for item in execution.observations} == {('prefix', '192.0.2.0/24')}
+    assert {(item.kind, item.value) for item in execution.observations} == {
+        ('asn', 'AS64500'),
+        ('prefix', '192.0.2.0/24'),
+    }
 
 
 @pytest.mark.asyncio
@@ -2626,6 +2649,19 @@ async def test_routeviews_expands_discovered_asns_but_not_harvested_ips(monkeypa
         async def get_urls(self) -> set[str]:
             return set()
 
+        async def get_asn_attributions(self) -> set[AsnAttributionObservation]:
+            return {
+                AsnAttributionObservation(
+                    'source',
+                    'urlscan',
+                    'AS64500',
+                    'Example Transit',
+                    'ip',
+                    '192.0.2.10',
+                    datetime.now(UTC),
+                )
+            }
+
     async def fake_routeviews(asns, network_seeds, *, api_key: str | None = None) -> RouteViewsResult:
         assert api_key is None
         calls.append((tuple(asns), tuple(network_seeds)))
@@ -2645,6 +2681,8 @@ async def test_routeviews_expands_discovered_asns_but_not_harvested_ips(monkeypa
     completed = result[-1]
     assert ('asn', 'AS64500') in completed.results
     assert ('ip', '192.0.2.10') in completed.results
+    assert len(completed.asn_attributions) == 1
+    assert completed.asn_attributions[0].organization_label == 'Example Transit'
     execution = next(item for item in result[-1].active_evidence.executions if item.action == 'routeviews')
     assert execution.status == 'completed'
     assert execution.stop_reason == 'no-results'

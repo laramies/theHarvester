@@ -39,6 +39,7 @@ from theHarvester.lib.active_evidence import (
     ActiveEvidence,
     ArtifactReference,
 )
+from theHarvester.lib.asn_attribution import AsnAttributionObservation, ProducerKind, SubjectKind
 from theHarvester.lib.completed_result import (
     CompletedResult,
     ExecutionStatus,
@@ -180,6 +181,37 @@ class _ResultOriginRow(_Base):
     run_id: Mapped[str] = mapped_column(Text, primary_key=True)
     result_position: Mapped[int] = mapped_column(primary_key=True)
     execution_position: Mapped[int] = mapped_column(primary_key=True)
+
+
+class _AsnAttributionRow(_Base):
+    """One sourced organization label connecting an ASN to a hostname or IP result."""
+
+    __tablename__ = 'asn_attributions'
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ('run_id', 'asn_result_position'),
+            ('results.run_id', 'results.position'),
+            ondelete='CASCADE',
+        ),
+        ForeignKeyConstraint(
+            ('run_id', 'subject_result_position'),
+            ('results.run_id', 'results.position'),
+            ondelete='CASCADE',
+        ),
+        ForeignKeyConstraint(
+            ('run_id', 'execution_position'),
+            ('executions.run_id', 'executions.position'),
+            ondelete='CASCADE',
+        ),
+    )
+
+    run_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    position: Mapped[int] = mapped_column(primary_key=True)
+    asn_result_position: Mapped[int]
+    subject_result_position: Mapped[int]
+    execution_position: Mapped[int]
+    organization_label: Mapped[str] = mapped_column(Text)
+    collected_at: Mapped[str] = mapped_column(Text)
 
 
 class _ArtifactRow(_Base):
@@ -806,6 +838,18 @@ class ResultStore:
                     )
                     for position, (action, artifact) in enumerate(result.active_evidence.artifacts)
                 )
+                session.add_all(
+                    _AsnAttributionRow(
+                        run_id=run_id,
+                        position=position,
+                        asn_result_position=result_positions[('asn', attribution.asn)],
+                        subject_result_position=result_positions[(attribution.subject_kind, attribution.subject_value)],
+                        execution_position=execution_positions[(attribution.producer_kind, attribution.producer)],
+                        organization_label=attribution.organization_label,
+                        collected_at=attribution.collected_at.isoformat(),
+                    )
+                    for position, attribution in enumerate(result.asn_attributions)
+                )
                 await session.commit()
             except IntegrityError as error:
                 duplicate_codes = {
@@ -833,6 +877,13 @@ class ResultStore:
             artifact_rows = (
                 await session.scalars(
                     select(_ArtifactRow).where(_ArtifactRow.run_id == str(run_id)).order_by(_ArtifactRow.position)
+                )
+            ).all()
+            attribution_rows = (
+                await session.scalars(
+                    select(_AsnAttributionRow)
+                    .where(_AsnAttributionRow.run_id == str(run_id))
+                    .order_by(_AsnAttributionRow.position)
                 )
             ).all()
         results_by_position = {row.position: row for row in rows}
@@ -933,6 +984,32 @@ class ResultStore:
                     stop_reason=execution_row.stop_reason,
                 )
             )
+        asn_attributions: list[AsnAttributionObservation] = []
+        for attribution in attribution_rows:
+            asn_result = results_by_position.get(attribution.asn_result_position)
+            subject_result = results_by_position.get(attribution.subject_result_position)
+            attribution_execution = executions_by_position.get(attribution.execution_position)
+            if asn_result is None or subject_result is None or attribution_execution is None:
+                raise ResultStoreError('Persisted ASN attribution references missing evidence')
+            if attribution_execution.producer_kind not in {'source', 'action'} or subject_result.kind not in {
+                'hostname',
+                'ip',
+            }:
+                raise ResultStoreError('Persisted ASN attribution is invalid')
+            try:
+                asn_attributions.append(
+                    AsnAttributionObservation(
+                        cast('ProducerKind', attribution_execution.producer_kind),
+                        attribution_execution.name,
+                        asn_result.value,
+                        attribution.organization_label,
+                        cast('SubjectKind', subject_result.kind),
+                        subject_result.value,
+                        datetime.datetime.fromisoformat(attribution.collected_at),
+                    )
+                )
+            except ValueError as error:
+                raise ResultStoreError('Persisted ASN attribution is invalid') from error
         return CompletedResult(
             run_id=UUID(parent.run_id),
             target=parent.target,
@@ -955,6 +1032,7 @@ class ResultStore:
             active_evidence=ActiveEvidence(executions=tuple(action_executions)),
             virtual_hosts=tuple(sorted(set(virtual_hosts), key=VirtualHostObservation.sort_key)),
             network_observations=tuple(sorted(set(network_observations), key=network_observation_sort_key)),
+            asn_attributions=tuple(sorted(set(asn_attributions), key=AsnAttributionObservation.sort_key)),
             evidence_status=cast('EvidenceStatus', parent.evidence_status) if parent.evidence_status is not None else None,
         )
 

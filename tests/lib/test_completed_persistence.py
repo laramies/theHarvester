@@ -9,6 +9,7 @@ import pytest
 
 from theHarvester.lib import database as database_module
 from theHarvester.lib.active_evidence import ActionExecution, ActiveEvidence, ArtifactReference
+from theHarvester.lib.asn_attribution import AsnAttributionObservation
 from theHarvester.lib.completed_result import CompletedResult, ResultObservation, SourceExecution
 from theHarvester.lib.database import (
     DuplicateRunError,
@@ -475,6 +476,51 @@ async def test_structured_network_evidence_round_trips_in_the_results_table(tmp_
 
 
 @pytest.mark.asyncio
+async def test_asn_organization_attribution_round_trips_in_a_normalized_table(tmp_path) -> None:
+    database = tmp_path / 'stash.sqlite'
+    store = ResultStore(database)
+    await store.initialize()
+    collected_at = datetime(2026, 8, 12, 12, 1, tzinfo=UTC)
+    attribution = AsnAttributionObservation(
+        'source',
+        'urlscan',
+        'AS64500',
+        'Example Network',
+        'ip',
+        '192.0.2.10',
+        collected_at,
+    )
+    result = CompletedResult.finish(
+        target='example.com',
+        started_at=collected_at,
+        completed_at=collected_at,
+        groups={'asn': ['AS64500'], 'ip': ['192.0.2.10']},
+        source_executions=(SourceExecution('urlscan', 'completed', 1, 2),),
+        observations=(
+            ResultObservation('urlscan', 'asn', 'AS64500'),
+            ResultObservation('urlscan', 'ip', '192.0.2.10'),
+        ),
+        asn_attributions=(attribution,),
+    )
+
+    await store.save_run(result)
+
+    assert await store.load_run(result.run_id) == result
+    with sqlite3.connect(database) as db:
+        row = db.execute(
+            'SELECT organization_label, collected_at, asn_result_position, subject_result_position, '
+            'execution_position FROM asn_attributions WHERE run_id = ?',
+            (str(result.run_id),),
+        ).fetchone()
+        result_rows = db.execute(
+            'SELECT position, kind, value FROM results WHERE run_id = ? ORDER BY position',
+            (str(result.run_id),),
+        ).fetchall()
+    assert result_rows == [(0, 'asn', 'AS64500'), (1, 'ip', '192.0.2.10')]
+    assert row == ('Example Network', '2026-08-12T12:01:00+00:00', 0, 1, 0)
+
+
+@pytest.mark.asyncio
 async def test_loading_prefix_details_with_vhost_provenance_fails_closed(tmp_path) -> None:
     database = tmp_path / 'stash.sqlite'
     store = ResultStore(database)
@@ -852,8 +898,9 @@ async def test_mixed_source_action_artifact_round_trip_uses_unified_tables(tmp_p
         'runs',
         'executions',
         'results',
-        'result_origins',
-        'artifacts',
+            'result_origins',
+            'asn_attributions',
+            'artifacts',
         'legacy_observations',
         'run_records',
         'run_worker_leases',

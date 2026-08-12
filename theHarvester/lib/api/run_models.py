@@ -364,6 +364,24 @@ class RpkiValidationObservationResponse(BaseModel):
     collected_at: str
 
 
+class AsnAttributionSubjectResponse(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    type: Literal['hostname', 'ip']
+    value: str
+
+
+class AsnAttributionObservationResponse(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    type: Literal['organization-attribution']
+    producer_kind: Literal['source', 'action']
+    producer: str
+    organization_label: str
+    subject: AsnAttributionSubjectResponse
+    collected_at: str
+
+
 class NormalizedResult(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
@@ -378,6 +396,7 @@ class NormalizedResult(BaseModel):
             | PrefixOriginObservationResponse
             | BgpRouteObservationResponse
             | RpkiValidationObservationResponse
+            | AsnAttributionObservationResponse
         ]
         | None
     ) = Field(default=None, min_length=1)
@@ -396,9 +415,15 @@ class NormalizedResult(BaseModel):
         elif self.scope is not None:
             raise ValueError('Only prefix results have relationship scope')
         elif self.observations is not None:
-            if self.type != 'hostname':
-                raise ValueError('Structured observations belong to hostname or prefix results')
-            parse_virtual_host_details(self.value, [details.model_dump() for details in self.observations])
+            details = [details.model_dump() for details in self.observations]
+            if self.type == 'asn':
+                from theHarvester.lib.asn_attribution import parse_asn_attribution_details
+
+                parse_asn_attribution_details(self.value, details)
+            elif self.type == 'hostname':
+                parse_virtual_host_details(self.value, details)
+            else:
+                raise ValueError('Structured observations belong to ASN, hostname, or prefix results')
         return self
 
 

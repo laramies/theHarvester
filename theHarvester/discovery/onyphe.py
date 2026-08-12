@@ -1,10 +1,13 @@
 import logging
+from datetime import UTC, datetime
 from ipaddress import ip_address
 from urllib.parse import urlparse
 
 from theHarvester.discovery.constants import MissingKey
+from theHarvester.lib.asn_attribution import AsnAttributionObservation, SubjectKind
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
+from theHarvester.lib.result_values import normalize_asn
 
 logger = logging.getLogger(__name__)
 
@@ -12,12 +15,20 @@ logger = logging.getLogger(__name__)
 
 
 class SearchOnyphe:
+    """Collect ONYPHE results and retain physical/logical IP attribution.
+
+    ONYPHE documents the root ``asn``/``organization`` pair as physical
+    hosting data and ``geolocus.asn``/``geolocus.organization`` as logical
+    WHOIS data. Both stay separate and are linked to the record's primary IP.
+    """
+
     def __init__(self, word) -> None:
         self.word = word
         self.response = ''
         self.totalhosts: set = set()
         self.totalips: set = set()
         self.asns: set = set()
+        self.asn_attributions: set[AsnAttributionObservation] = set()
         self.key = Core.onyphe_key()
         if self.key is None:
             raise MissingKey('onyphe')
@@ -93,18 +104,22 @@ class SearchOnyphe:
                 malformed = True
                 continue
 
+            primary_ip = None
             alternative_ips = result.get('alternativeip', [])
             if not isinstance(alternative_ips, list):
                 malformed = True
                 alternative_ips = []
             ip_candidates = [result['ip']] if 'ip' in result else []
             ip_candidates.extend(alternative_ips)
-            for candidate in ip_candidates:
+            for index, candidate in enumerate(ip_candidates):
                 if not isinstance(candidate, str):
                     malformed = True
                     continue
                 try:
-                    self.totalips.add(str(ip_address(candidate.strip())))
+                    normalized_ip = str(ip_address(candidate.strip()))
+                    self.totalips.add(normalized_ip)
+                    if index == 0 and 'ip' in result:
+                        primary_ip = normalized_ip
                 except ValueError:
                     malformed = True
 
@@ -141,10 +156,12 @@ class SearchOnyphe:
 
             geolocus = result.get('geolocus')
             geolocus_asn = None
+            geolocus_organization = None
             if geolocus is not None:
                 if isinstance(geolocus, dict) and isinstance(geolocus.get('domain', []), list):
                     host_candidates.extend(geolocus.get('domain', []))
                     geolocus_asn = geolocus.get('asn')
+                    geolocus_organization = geolocus.get('organization')
                 else:
                     malformed = True
 
@@ -155,13 +172,45 @@ class SearchOnyphe:
                 if hostname := normalize_scoped_hostname(candidate, self.word):
                     self.totalhosts.add(hostname)
 
-            for asn in (result.get('asn'), geolocus_asn):
+            attribution_pairs = (
+                (result.get('asn'), result.get('organization')),
+                (geolocus_asn, geolocus_organization),
+            )
+            for asn, organization in attribution_pairs:
                 if asn is None:
                     continue
                 if isinstance(asn, (str, int)):
-                    self.asns.add(asn)
+                    try:
+                        normalized_asn = normalize_asn(asn)
+                    except ValueError:
+                        malformed = True
+                        continue
+                    self.asns.add(normalized_asn)
                 else:
                     malformed = True
+                    continue
+                if organization is None:
+                    continue
+                if not isinstance(organization, str) or not organization.strip():
+                    malformed = True
+                    continue
+                collected_at = datetime.now(UTC)
+                subjects: list[tuple[SubjectKind, str]] = [('ip', primary_ip)] if primary_ip is not None else []
+                for subject_kind, subject_value in subjects:
+                    try:
+                        self.asn_attributions.add(
+                            AsnAttributionObservation(
+                                'source',
+                                'onyphe',
+                                normalized_asn,
+                                organization,
+                                subject_kind,
+                                subject_value,
+                                collected_at,
+                            )
+                        )
+                    except ValueError:
+                        malformed = True
 
         if malformed:
             self.execution_status = 'partial' if self.totalhosts or self.totalips or self.asns else 'failed'
@@ -172,6 +221,9 @@ class SearchOnyphe:
 
     async def get_asns(self) -> set:
         return self.asns
+
+    async def get_asn_attributions(self) -> set[AsnAttributionObservation]:
+        return self.asn_attributions
 
     async def get_hostnames(self) -> set:
         return self.totalhosts

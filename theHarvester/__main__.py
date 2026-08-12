@@ -90,6 +90,7 @@ from theHarvester.discovery import (
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib import hostchecker
 from theHarvester.lib.active_evidence import ActionExecution, ActiveEvidence, ArtifactReference
+from theHarvester.lib.asn_attribution import AsnAttributionObservation
 from theHarvester.lib.completed_result import (
     EXECUTION_STATUSES,
     CompletedResult,
@@ -564,6 +565,8 @@ async def start(
     action_executions: list[ActionExecution] = []
     network_prefixes: set[str] = set()
     network_observations: list[NetworkObservation] = []
+    asn_attributions: list[AsnAttributionObservation] = []
+    displayed_asn_attributions: set[AsnAttributionObservation] = set()
     dns_resolution_duration_ms = 0.0
     dns_resolution_ips: set[str] = set()
     dns_resolution_completed_count = 0
@@ -577,6 +580,21 @@ async def start(
 
     def confirmed_virtual_hostnames() -> list[str]:
         return sorted({observation.hostname for observation in vhost_observations})
+
+    def display_new_asn_attributions() -> None:
+        pending = sorted(set(asn_attributions) - displayed_asn_attributions, key=AsnAttributionObservation.sort_key)
+        if not pending:
+            return
+        print_section(
+            f'\n[*] ASN organization attributions found: {len(pending)}',
+            (
+                f'{item.asn} | {item.organization_label} | {item.producer_kind}:{item.producer} | '
+                f'{item.subject_kind}:{item.subject_value}'
+                for item in pending
+            ),
+            '------------------------------------',
+        )
+        displayed_asn_attributions.update(pending)
 
     def finish_completed_result(
         *,
@@ -627,6 +645,7 @@ async def start(
                 observations=observations,
                 active_evidence=ActiveEvidence(tuple(action_executions)),
                 network_observations=network_observations,
+                asn_attributions=asn_attributions,
                 virtual_hosts=vhost_observations,
             )
         except (ValueError, TypeError) as error:
@@ -826,6 +845,9 @@ async def start(
             fasns = await search_engine.get_asns()
             total_asns.extend(fasns)
             record_source_observations(source, 'asn', fasns)
+            get_asn_attributions = getattr(search_engine, 'get_asn_attributions', None)
+            if get_asn_attributions is not None:
+                asn_attributions.extend(await get_asn_attributions())
 
         if ResultRoute.BREACHES in routes:
             breach_names = await search_engine.get_breach_names()
@@ -2054,6 +2076,7 @@ async def start(
     if len(total_asns) > 0:
         print_section(f'\n[*] ASNS found: {len(total_asns)}', total_asns, '--------------------')
         total_asns = sorted_unique(total_asns)
+    display_new_asn_attributions()
 
     if len(twitter_people_list_tracker) == 0 and 'twitter' in engines:
         output_logger.info('\n[*] No Twitter users found.\n\n')
@@ -2245,7 +2268,7 @@ async def start(
                     action='routeviews',
                     status=result.status,
                     duration_ms=(time.perf_counter() - routeviews_started) * 1000,
-                    groups={'prefix': result.prefixes},
+                    groups={'asn': result.origin_asns, 'prefix': result.prefixes},
                     error_type=result.error_type,
                     stop_reason=result.stop_reason,
                 )
@@ -2739,6 +2762,8 @@ async def start(
     if shodan is True:
         shodan_started = time.perf_counter()
         shodan_error_types: set[str] = set()
+        shodan_asns: set[str] = set()
+        shodan_ips: set[str] = set()
         output_logger.info('[*] Searching Shodan. ')
         try:
             for ip_index, ip in enumerate(host_ip):
@@ -2746,6 +2771,13 @@ async def start(
                     output_logger.info('\tSearching for ' + ip)
                     shodan_search = shodansearch.SearchShodan()
                     shodandict = await shodan_search.search_ip(ip)
+                    get_asn_attributions = getattr(shodan_search, 'get_asn_attributions', None)
+                    if get_asn_attributions is not None:
+                        collected_attributions = await get_asn_attributions()
+                        asn_attributions.extend(collected_attributions)
+                        shodan_asns.update(attribution.asn for attribution in collected_attributions)
+                        shodan_ips.update(attribution.subject_value for attribution in collected_attributions)
+                        total_asns.extend(attribution.asn for attribution in collected_attributions)
                     if shodan_search.error_type:
                         shodan_error_types.add(shodan_search.error_type)
 
@@ -2781,7 +2813,7 @@ async def start(
                     action='shodan',
                     status='partial' if shodan_evidence else 'failed',
                     duration_ms=(time.perf_counter() - shodan_started) * 1000,
-                    groups={'shodan': shodan_evidence},
+                    groups={'shodan': shodan_evidence, 'asn': shodan_asns, 'ip': shodan_ips},
                     error_type='CancelledError',
                     stop_reason='cancelled',
                 )
@@ -2801,11 +2833,12 @@ async def start(
                 action='shodan',
                 status=shodan_status,
                 duration_ms=(time.perf_counter() - shodan_started) * 1000,
-                groups={'shodan': shodan_evidence},
+                groups={'shodan': shodan_evidence, 'asn': shodan_asns, 'ip': shodan_ips},
                 error_type=next(iter(sorted(shodan_error_types)), None),
                 stop_reason=shodan_stop_reason,
             )
         )
+        display_new_asn_attributions()
         await checkpoint_action_result(extra_hostnames=dnsrev)
     else:
         pass

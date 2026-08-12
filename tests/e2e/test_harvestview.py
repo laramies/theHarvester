@@ -405,6 +405,67 @@ def test_harvestview_renders_grouped_virtual_host_observations(
     expect(page.get_by_role('button', name='DNS brute force admin.example.com (P1)')).to_be_visible()
 
 
+def test_harvestview_renders_sourced_asn_organization_attribution(
+    harvestview_server_url: str,
+    page: Page,
+) -> None:
+    run = {
+        'run_id': 'asn-attribution-run',
+        'target': 'example.test',
+        'status': 'completed',
+        'origin': 'local',
+        'created_at': '2026-08-12T12:00:00+00:00',
+        'started_at': '2026-08-12T12:00:01+00:00',
+        'completed_at': '2026-08-12T12:00:05+00:00',
+        'cancellation_requested_at': None,
+        'evidence_status': 'complete',
+        'result_count': 2,
+        'activities': ['P0'],
+        'sources': ['urlscan'],
+        'request': {'sources': ['urlscan'], 'limit': 25, 'deadline_seconds': 300},
+        'source_executions': [
+            {'source': 'urlscan', 'status': 'completed', 'result_count': 2, 'duration_ms': 125},
+        ],
+        'action_executions': [],
+        'results': [
+            {
+                'type': 'asn',
+                'value': 'AS64500',
+                'sources': ['urlscan'],
+                'actions': [],
+                'observations': [
+                    {
+                        'type': 'organization-attribution',
+                        'producer_kind': 'source',
+                        'producer': 'urlscan',
+                        'organization_label': 'Example Transit',
+                        'subject': {'type': 'hostname', 'value': 'api.example.test'},
+                        'collected_at': '2026-08-12T12:00:03Z',
+                    }
+                ],
+            },
+            {
+                'type': 'hostname',
+                'value': 'api.example.test',
+                'sources': ['urlscan'],
+                'actions': [],
+            },
+        ],
+        'screenshots': [],
+        'log': '',
+        'error': None,
+    }
+
+    page.route(f'{harvestview_server_url}/api/v1/runs', lambda route: route.fulfill(json=[run]))
+    page.route(f'{harvestview_server_url}/api/v1/runs/asn-attribution-run', lambda route: route.fulfill(json=run))
+    page.goto(f'{harvestview_server_url}/')
+
+    page.get_by_role('button', name='ASNs 1').click()
+    result_row = page.locator('.tabulator-row').first
+    expect(result_row).to_contain_text('AS64500')
+    expect(result_row).to_contain_text('Example Transit · source:urlscan · hostname:api.example.test')
+
+
 def test_hostname_actions_queue_isolated_runs(
     harvestview_server_url: str,
     page: Page,

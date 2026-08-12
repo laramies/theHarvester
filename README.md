@@ -286,6 +286,8 @@ Virtual-host observations do not use that string encoding. Each confirmed name r
 
 RouteViews evidence also uses native observations. Each `prefix` finding has `scope: "external-relationship"`, `actions: ["routeviews"]`, and observed-origin, BGP route, or RPKI validation records. These records describe provider-observed routing, never registration, ownership, authorization, reachability, or target scope.
 
+ASN organization labels from URLScan, ONYPHE, and the Shodan host action are also native observations. Each label remains tied to its provider and the exact hostname or IP that supplied the relationship. ONYPHE's physical hosting and logical WHOIS labels remain separate observations. Conflicting labels are retained for review; they do not become an ASN owner field and do not filter RouteViews pivots.
+
 Parse recursive DNS findings as JSON objects:
 
 ```bash
@@ -296,6 +298,12 @@ List the endpoint observations for each confirmed virtual host:
 
 ```bash
 jq -c 'select(.type == "hostname" and .observations) | {hostname: .value, observations}' report.jsonl
+```
+
+List sourced organization labels for ASNs:
+
+```bash
+jq -c 'select(.type == "asn" and .observations) | {asn: .value, observations}' report.jsonl
 ```
 
 Stable Have I Been Pwned breach names use `breach` records. Normalized BuiltWith findings use `framework`, `language`, `server`, `cms`, or `analytics` records. Recursive runs also include classifications and one summary containing query cost, reached depth, zero-yield batches, and the stop reason.

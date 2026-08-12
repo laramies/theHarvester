@@ -1,15 +1,25 @@
 import logging
 from collections import OrderedDict
+from datetime import UTC, datetime
+from ipaddress import ip_address
 
 from shodan import Shodan, exception
 
 from theHarvester.discovery.constants import MissingKey
+from theHarvester.lib.asn_attribution import AsnAttributionObservation
 from theHarvester.lib.core import Core
 
 logger = logging.getLogger(__name__)
 
 
 class SearchShodan:
+    """Collect Shodan host data and retain ``asn`` + ``org`` attribution.
+
+    Shodan documents ``org`` and ``isp`` as separate Host API fields. The
+    organization attribution uses ``org`` and stays linked to the queried IP;
+    ``isp`` remains ordinary Shodan output and is not treated as equivalent.
+    """
+
     def __init__(self) -> None:
         self.key = Core.shodan_key()
         if self.key is None:
@@ -18,6 +28,7 @@ class SearchShodan:
         self.hostdatarow: list = []
         self.tracker: OrderedDict = OrderedDict()
         self.error_type: str | None = None
+        self.asn_attributions: set[AsnAttributionObservation] = set()
 
     async def search_ip(self, ip) -> OrderedDict:
         self.error_type = None
@@ -108,6 +119,23 @@ class SearchShodan:
                 'technologies': technologies,
                 'title': title.strip(),
             }
+            organization_label = results.get('org')
+            if asn.strip() and isinstance(organization_label, str) and organization_label.strip():
+                try:
+                    subject_ip = str(ip_address(str(ip).strip()))
+                    self.asn_attributions.add(
+                        AsnAttributionObservation(
+                            'action',
+                            'shodan',
+                            asn,
+                            organization_label,
+                            'ip',
+                            subject_ip,
+                            datetime.now(UTC),
+                        )
+                    )
+                except ValueError:
+                    logger.info('Shodan returned invalid ASN organization attribution')
 
             return self.tracker
         except exception.APIError as error:
@@ -122,3 +150,6 @@ class SearchShodan:
             self.tracker[ip] = 'Shodan request failed'
 
         return self.tracker
+
+    async def get_asn_attributions(self) -> set[AsnAttributionObservation]:
+        return self.asn_attributions
