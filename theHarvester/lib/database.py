@@ -49,6 +49,12 @@ from theHarvester.lib.completed_result import (
     parse_virtual_host_details,
     virtual_host_details,
 )
+from theHarvester.lib.network_evidence import (
+    NetworkObservation,
+    network_observation_details,
+    network_observation_sort_key,
+    parse_network_observation_json,
+)
 from theHarvester.lib.virtual_host import VirtualHostObservation
 
 if TYPE_CHECKING:
@@ -706,6 +712,9 @@ class ResultStore:
         vhosts_by_hostname: dict[str, list[VirtualHostObservation]] = {}
         for observation in result.virtual_hosts:
             vhosts_by_hostname.setdefault(observation.hostname, []).append(observation)
+        network_by_prefix: dict[str, list[NetworkObservation]] = {}
+        for network_observation in result.network_observations:
+            network_by_prefix.setdefault(network_observation.prefix, []).append(network_observation)
         async with self._session() as session:
             try:
                 session.add(
@@ -732,6 +741,13 @@ class ResultStore:
                                 sort_keys=True,
                             )
                             if kind == 'hostname' and value in vhosts_by_hostname
+                            else json.dumps(
+                                network_observation_details(tuple(network_by_prefix[value])),
+                                ensure_ascii=False,
+                                separators=(',', ':'),
+                                sort_keys=True,
+                            )
+                            if kind == 'prefix' and value in network_by_prefix
                             else None
                         ),
                     )
@@ -828,22 +844,36 @@ class ResultStore:
             row.result_position for row in origin_rows if row.execution_position in vhost_execution_positions
         }
         virtual_hosts: list[VirtualHostObservation] = []
+        network_observations: list[NetworkObservation] = []
         for result_row in rows:
-            is_vhost_result = result_row.position in vhost_result_positions
-            if is_vhost_result and (result_row.kind != 'hostname' or result_row.details_json is None):
-                raise ResultStoreError(f'Persisted virtual-host details are missing: {result_row.value}')
+            has_vhost_provenance = result_row.position in vhost_result_positions
+            if has_vhost_provenance:
+                if result_row.kind != 'hostname' or result_row.details_json is None:
+                    raise ResultStoreError(f'Persisted virtual-host details are missing: {result_row.value}')
+                try:
+                    details = json.loads(result_row.details_json)
+                    parsed_virtual_hosts = parse_virtual_host_details(result_row.value, details)
+                except (json.JSONDecodeError, ValueError) as error:
+                    raise ResultStoreError(f'Persisted virtual-host details are invalid: {result_row.value}') from error
+                if details != virtual_host_details(parsed_virtual_hosts):
+                    raise ResultStoreError(f'Persisted virtual-host details are not canonical: {result_row.value}')
+                virtual_hosts.extend(parsed_virtual_hosts)
+                continue
             if result_row.details_json is None:
                 continue
-            if result_row.kind != 'hostname' or not is_vhost_result:
+            if result_row.kind == 'prefix':
+                try:
+                    parsed_network_observations = parse_network_observation_json(
+                        result_row.value,
+                        result_row.details_json,
+                    )
+                except ValueError as error:
+                    raise ResultStoreError(f'Persisted network details are invalid: {result_row.value}') from error
+                network_observations.extend(parsed_network_observations)
+            elif result_row.kind == 'hostname':
                 raise ResultStoreError('Persisted virtual-host details require hostname results with vhost provenance')
-            try:
-                details = json.loads(result_row.details_json)
-                parsed_virtual_hosts = parse_virtual_host_details(result_row.value, details)
-            except (json.JSONDecodeError, ValueError) as error:
-                raise ResultStoreError(f'Persisted virtual-host details are invalid: {result_row.value}') from error
-            if details != virtual_host_details(parsed_virtual_hosts):
-                raise ResultStoreError(f'Persisted virtual-host details are not canonical: {result_row.value}')
-            virtual_hosts.extend(parsed_virtual_hosts)
+            else:
+                raise ResultStoreError('Persisted structured details require a supported result kind and provenance')
         unknown_producer_kinds = {row.producer_kind for row in execution_rows} - {'source', 'action'}
         if unknown_producer_kinds:
             raise ResultStoreError(f'Unknown persisted producer kind: {min(unknown_producer_kinds)}')
@@ -924,6 +954,7 @@ class ResultStore:
             observations=tuple(sorted(source_observations)),
             active_evidence=ActiveEvidence(executions=tuple(action_executions)),
             virtual_hosts=tuple(sorted(set(virtual_hosts), key=VirtualHostObservation.sort_key)),
+            network_observations=tuple(sorted(set(network_observations), key=network_observation_sort_key)),
             evidence_status=cast('EvidenceStatus', parent.evidence_status) if parent.evidence_status is not None else None,
         )
 

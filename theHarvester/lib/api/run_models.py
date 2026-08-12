@@ -312,6 +312,41 @@ class VirtualHostObservationResponse(BaseModel):
     reflection_normalized: bool
 
 
+class PrefixOriginObservationResponse(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    type: Literal['observed-origin']
+    action: str
+    origin_asn: str
+    collected_at: str
+
+
+class BgpRouteObservationResponse(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    type: Literal['bgp-route']
+    action: str
+    origin_asn: str
+    collector: str
+    peer_asn: str
+    peer_address: str
+    as_path: str
+    communities: str
+    observed_at: str
+    collected_at: str
+
+
+class RpkiValidationObservationResponse(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    type: Literal['rpki-validation']
+    action: str
+    origin_asn: str
+    state: Literal['valid', 'invalid', 'not-found']
+    observed_at: str
+    collected_at: str
+
+
 class NormalizedResult(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
@@ -319,15 +354,33 @@ class NormalizedResult(BaseModel):
     value: str
     sources: list[str] = Field(default_factory=list)
     actions: list[str] = Field(default_factory=list)
-    observations: list[VirtualHostObservationResponse] | None = Field(default=None, min_length=1)
+    scope: Literal['external-relationship'] | None = None
+    observations: (
+        list[
+            VirtualHostObservationResponse
+            | PrefixOriginObservationResponse
+            | BgpRouteObservationResponse
+            | RpkiValidationObservationResponse
+        ]
+        | None
+    ) = Field(default=None, min_length=1)
 
     @model_validator(mode='after')
     def validate_result(self) -> Self:
         if self.type == 'vhost':
             raise ValueError('vhost is not a result type; use hostname with virtual-host observations')
-        if self.observations is not None:
+        if self.type == 'prefix':
+            if self.scope != 'external-relationship':
+                raise ValueError('Prefix results must have external-relationship scope')
+            if self.observations is not None:
+                from theHarvester.lib.network_evidence import parse_network_observation_details
+
+                parse_network_observation_details(self.value, [details.model_dump() for details in self.observations])
+        elif self.scope is not None:
+            raise ValueError('Only prefix results have relationship scope')
+        elif self.observations is not None:
             if self.type != 'hostname':
-                raise ValueError('Virtual-host observations belong to hostname results')
+                raise ValueError('Structured observations belong to hostname or prefix results')
             parse_virtual_host_details(self.value, [details.model_dump() for details in self.observations])
         return self
 

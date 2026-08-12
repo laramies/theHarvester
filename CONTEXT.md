@@ -62,6 +62,22 @@ _Avoid_: Virtual-host result, vhost result
 One canonical IPv4 or IPv6 address merged result.
 _Avoid_: IP-address result, resolved host
 
+**Network prefix result**:
+One canonical IPv4 or IPv6 CIDR merged result retained as external relationship evidence. It is never promoted into the authorized target scope or used as an active-discovery seed without a separate scope decision.
+_Avoid_: Owned netblock, in-scope range, registered network
+
+**Observed route origin**:
+A provider's time-bound assertion that one ASN originates one network prefix. It records routing evidence, not registration, ownership, or authorization.
+_Avoid_: Owned by, registered to, authorized origin
+
+**BGP route observation**:
+One collector and peer's time-bound view of a route, preserving its peer address, peer ASN, AS path, and communities as provider evidence attached to an observed route origin.
+_Avoid_: Network ownership, authoritative route
+
+**RPKI validation observation**:
+A provider's time-bound validation state for one ASN-prefix route origin: valid, invalid, or not found. It reports route-origin authorization evidence, not registration, ownership, reachability, or target scope.
+_Avoid_: Valid network, trusted ASN, owned prefix
+
 **URL result**:
 One normalized URL merged result. Source and action origins identify how it was found; provider-specific URL categories are not separate result kinds.
 _Avoid_: Interesting URL, LinkedIn link, API endpoint result

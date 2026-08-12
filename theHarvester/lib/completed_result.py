@@ -16,6 +16,16 @@ from theHarvester.lib.evidence_types import (
     ResultKind,
     format_utc,
 )
+from theHarvester.lib.network_evidence import (
+    BgpRouteObservation,
+    NetworkObservation,
+    PrefixOriginObservation,
+    RpkiValidationObservation,
+    canonical_network_observations,
+    network_observation_details,
+    parse_network_observation_details,
+)
+from theHarvester.lib.result_values import normalize_result_value
 from theHarvester.lib.virtual_host import VirtualHostObservation, normalize_virtual_host_hostname
 
 
@@ -55,7 +65,7 @@ def parse_result_jsonl(payload: bytes | str) -> tuple[dict[str, object], list[di
     try:
         text = payload.decode('utf-8') if isinstance(payload, bytes) else payload
         records = [json.loads(line) for line in text.splitlines() if line.strip()]
-    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+    except (UnicodeDecodeError, json.JSONDecodeError, RecursionError) as error:
         raise ValueError('result file is not valid JSONL') from error
     if any(not isinstance(record, dict) for record in records):
         raise ValueError('JSONL records must be objects')
@@ -70,8 +80,10 @@ def parse_result_jsonl(payload: bytes | str) -> tuple[dict[str, object], list[di
         actions = record.get('actions', [])
         result_kind = record.get('type')
         allowed_keys = {'type', 'value', 'sources', 'actions'}
-        if result_kind == 'hostname' and 'observations' in record:
+        if result_kind in {'hostname', 'prefix'} and 'observations' in record:
             allowed_keys.add('observations')
+        if result_kind == 'prefix':
+            allowed_keys.add('scope')
         if (
             set(record) - allowed_keys
             or result_kind not in RESULT_KINDS
@@ -83,6 +95,17 @@ def parse_result_jsonl(payload: bytes | str) -> tuple[dict[str, object], list[di
             or any(not isinstance(action, str) or not action.strip() for action in actions)
         ):
             raise ValueError('JSONL findings must contain a known type, non-empty value, and producer names')
+        result_value = record['value']
+        try:
+            normalized_result_value = normalize_result_value(result_kind, result_value)
+            if result_kind == 'prefix' and normalized_result_value != result_value:
+                raise ValueError('prefix result is not canonical')
+        except ValueError as error:
+            label = 'ASN' if result_kind == 'asn' else 'prefix'
+            raise ValueError(f'JSONL findings must use a canonical {label} value') from error
+        record['value'] = normalized_result_value
+        if result_kind == 'prefix' and record.get('scope') != 'external-relationship':
+            raise ValueError('JSONL prefix scope must be external-relationship')
         record['sources'] = sorted(set(sources))
         record['actions'] = sorted(set(actions))
         if result_kind == 'hostname' and 'observations' in record:
@@ -91,6 +114,12 @@ def parse_result_jsonl(payload: bytes | str) -> tuple[dict[str, object], list[di
             except ValueError as error:
                 raise ValueError(f'JSONL hostname has invalid virtual-host observations: {error}') from error
             record['observations'] = virtual_host_details(observations)
+        elif result_kind == 'prefix' and 'observations' in record:
+            try:
+                network_observations = parse_network_observation_details(result_value, record.get('observations'))
+            except ValueError as error:
+                raise ValueError(f'JSONL prefix has invalid network observations: {error}') from error
+            record['observations'] = network_observation_details(network_observations)
     return summary, findings
 
 
@@ -107,6 +136,7 @@ class ResultObservation:
             raise ValueError(f'unknown observation kind: {self.kind}')
         if not isinstance(self.value, str) or not self.value.strip():
             raise ValueError('observation value must be a non-empty string')
+        object.__setattr__(self, 'value', normalize_result_value(self.kind, self.value))
 
 
 @dataclass(frozen=True, slots=True)
@@ -171,6 +201,7 @@ class CompletedResult:
     observations: tuple[ResultObservation, ...] = ()
     active_evidence: ActiveEvidence = field(default_factory=ActiveEvidence)
     virtual_hosts: tuple[VirtualHostObservation, ...] = ()
+    network_observations: tuple[NetworkObservation, ...] = ()
     evidence_status: EvidenceStatus | None = None
 
     def __post_init__(self) -> None:
@@ -188,6 +219,8 @@ class CompletedResult:
             raise ValueError('results must contain known kinds and non-empty string values')
         if self.results != tuple(sorted(set(self.results))):
             raise ValueError('results must be deduplicated and sorted')
+        if any(normalize_result_value(kind, value) != value for kind, value in self.results):
+            raise ValueError('results must contain canonical values')
         if self.observations != tuple(sorted(set(self.observations))):
             raise ValueError('observations must be deduplicated and sorted')
         result_set = set(self.results)
@@ -241,6 +274,40 @@ class CompletedResult:
         }
         if vhost_action_results != structured_vhost_results:
             raise ValueError('structured virtual-host evidence must exactly match vhost action provenance')
+        sorted_network_observations = canonical_network_observations(self.network_observations)
+        if self.network_observations != sorted_network_observations:
+            raise ValueError('network observations must be deduplicated and sorted')
+        if any(
+            observation.collected_at < self.started_at or observation.collected_at > self.completed_at
+            for observation in self.network_observations
+        ):
+            raise ValueError('network observation collection time must fall within the completed run')
+        action_results = {
+            (action, observation.kind, observation.value) for action, observation in self.active_evidence.observations
+        }
+        origin_observations = {
+            (observation.action, observation.prefix, observation.origin_asn)
+            for observation in self.network_observations
+            if isinstance(observation, PrefixOriginObservation)
+        }
+        for network_observation in self.network_observations:
+            if ('prefix', network_observation.prefix) not in result_set or (
+                'asn',
+                network_observation.origin_asn,
+            ) not in result_set:
+                raise ValueError('network observation must reference completed prefix and ASN results')
+            if (network_observation.action, 'prefix', network_observation.prefix) not in action_results:
+                raise ValueError('network observation must reference matching action prefix provenance')
+            if (
+                isinstance(network_observation, BgpRouteObservation | RpkiValidationObservation)
+                and (
+                    network_observation.action,
+                    network_observation.prefix,
+                    network_observation.origin_asn,
+                )
+                not in origin_observations
+            ):
+                raise ValueError('BGP route and RPKI observations require matching observed-origin evidence')
         if self.evidence_status is not None and self.evidence_status not in EVIDENCE_STATUSES:
             raise ValueError('evidence status must be complete, partial, or failed')
 
@@ -257,6 +324,7 @@ class CompletedResult:
         observations: Iterable[ResultObservation] = (),
         active_evidence: ActiveEvidence | None = None,
         virtual_hosts: Iterable[VirtualHostObservation] = (),
+        network_observations: Iterable[NetworkObservation] = (),
         evidence_status: EvidenceStatus | None = None,
     ) -> Self:
         completed_active_evidence = active_evidence if active_evidence is not None else ActiveEvidence()
@@ -267,7 +335,8 @@ class CompletedResult:
             for value in values:
                 if not isinstance(value, str) or not value.strip():
                     raise ValueError('results must contain non-empty string values')
-                results.add((kind, value.strip()))
+                normalized_value = normalize_result_value(kind, value)
+                results.add((kind, normalized_value))
         for _action, action_observation in completed_active_evidence.observations:
             results.add((action_observation.kind, action_observation.value))
         completed_virtual_hosts = tuple(sorted(set(virtual_hosts), key=VirtualHostObservation.sort_key))
@@ -283,6 +352,7 @@ class CompletedResult:
             observations=tuple(sorted(set(observations))),
             active_evidence=completed_active_evidence,
             virtual_hosts=completed_virtual_hosts,
+            network_observations=canonical_network_observations(network_observations),
             evidence_status=evidence_status,
         )
 
@@ -342,6 +412,9 @@ class CompletedResult:
         vhosts_by_hostname: dict[str, list[VirtualHostObservation]] = {}
         for virtual_host in self.virtual_hosts:
             vhosts_by_hostname.setdefault(virtual_host.hostname, []).append(virtual_host)
+        network_by_prefix: dict[str, list[NetworkObservation]] = {}
+        for observation in self.network_observations:
+            network_by_prefix.setdefault(observation.prefix, []).append(observation)
         records: list[dict[str, object]] = []
         for kind, value in self.results:
             record: dict[str, object] = {
@@ -351,7 +424,11 @@ class CompletedResult:
             }
             if include_actions and (actions := actions_by_result.get((kind, value))):
                 record['actions'] = actions
+            if kind == 'prefix':
+                record['scope'] = 'external-relationship'
             if kind == 'hostname' and (virtual_hosts := vhosts_by_hostname.get(value)):
                 record['observations'] = virtual_host_details(virtual_hosts)
+            elif kind == 'prefix' and (network_observations := network_by_prefix.get(value)):
+                record['observations'] = network_observation_details(tuple(network_observations))
             records.append(record)
         return records

@@ -17,6 +17,12 @@ from theHarvester.lib.database import (
     _sqlite_has_wal_reset_fix,
     dispose_sqlite_databases,
 )
+from theHarvester.lib.network_evidence import (
+    BgpRouteObservation,
+    PrefixOriginObservation,
+    RpkiValidationObservation,
+    network_observation_details,
+)
 from theHarvester.lib.virtual_host import VirtualHostObservation
 
 RELEASED_COMPLETED_SCHEMA = """
@@ -407,6 +413,103 @@ async def test_structured_vhost_evidence_round_trips_in_the_results_table(tmp_pa
 
 
 @pytest.mark.asyncio
+async def test_structured_network_evidence_round_trips_in_the_results_table(tmp_path) -> None:
+    database = tmp_path / 'stash.sqlite'
+    store = ResultStore(database)
+    await store.initialize()
+    collected_at = datetime(2026, 8, 11, 12, 1, tzinfo=UTC)
+    observed_at = datetime(2026, 8, 11, 12, 0, tzinfo=UTC)
+    network_observations = (
+        PrefixOriginObservation('routeviews', '198.51.100.7/24', 64500, collected_at),
+        BgpRouteObservation(
+            'routeviews',
+            '198.51.100.0/24',
+            'AS64500',
+            'route-views.test',
+            64496,
+            '192.0.2.7',
+            '64496 64500',
+            '',
+            observed_at,
+            collected_at,
+        ),
+        RpkiValidationObservation(
+            'routeviews',
+            '198.51.100.0/24',
+            64500,
+            'not-found',
+            observed_at,
+            collected_at,
+        ),
+    )
+    result = CompletedResult.finish(
+        run_id=UUID('6db84c57-e459-4a5a-95c5-1c231a160ba6'),
+        target='example.com',
+        started_at=observed_at,
+        completed_at=collected_at,
+        groups={'asn': ['AS64500']},
+        active_evidence=ActiveEvidence(
+            executions=(
+                ActionExecution.finish(
+                    action='routeviews',
+                    status='completed',
+                    duration_ms=15,
+                    groups={'prefix': ['198.51.100.0/24']},
+                ),
+            )
+        ),
+        network_observations=network_observations,
+    )
+
+    await store.save_run(result)
+
+    assert await store.load_run(result.run_id) == result
+    with sqlite3.connect(database) as db:
+        schema_version = db.execute('PRAGMA user_version').fetchone()[0]
+        stored_details = db.execute(
+            "SELECT details_json FROM results WHERE run_id = ? AND kind = 'prefix'",
+            (str(result.run_id),),
+        ).fetchone()[0]
+    assert schema_version == 8
+    assert json.loads(stored_details) == network_observation_details(network_observations)
+
+
+@pytest.mark.asyncio
+async def test_loading_prefix_details_with_vhost_provenance_fails_closed(tmp_path) -> None:
+    database = tmp_path / 'stash.sqlite'
+    store = ResultStore(database)
+    await store.initialize()
+    collected_at = datetime(2026, 8, 11, 12, 1, tzinfo=UTC)
+    result = CompletedResult.finish(
+        target='example.com',
+        started_at=collected_at,
+        completed_at=collected_at,
+        groups={'asn': ['AS64500']},
+        active_evidence=ActiveEvidence(
+            executions=(
+                ActionExecution.finish(
+                    action='routeviews',
+                    status='completed',
+                    duration_ms=1,
+                    groups={'prefix': ['198.51.100.0/24']},
+                ),
+            )
+        ),
+        network_observations=(PrefixOriginObservation('routeviews', '198.51.100.0/24', 'AS64500', collected_at),),
+    )
+    await store.save_run(result)
+    with sqlite3.connect(database) as db:
+        db.execute(
+            "UPDATE executions SET name = 'vhost' WHERE run_id = ? AND name = 'routeviews'",
+            (str(result.run_id),),
+        )
+        db.commit()
+
+    with pytest.raises(ResultStoreError, match=r'Persisted virtual-host details are missing: 198\.51\.100\.0/24'):
+        await store.load_run(result.run_id)
+
+
+@pytest.mark.asyncio
 async def test_schema_v7_migrates_vhost_collision_without_losing_references(tmp_path) -> None:
     database = tmp_path / 'stash.sqlite'
     run_id = UUID('750ab571-778d-490e-b760-70394d936eb4')
@@ -531,6 +634,76 @@ async def test_loading_malformed_vhost_details_fails_closed(tmp_path, details_js
         db.commit()
 
     with pytest.raises(ResultStoreError, match='virtual-host details'):
+        await store.load_run(result.run_id)
+
+
+@pytest.mark.asyncio
+async def test_loading_vhost_details_without_vhost_provenance_preserves_compatibility_error(tmp_path) -> None:
+    database = tmp_path / 'stash.sqlite'
+    store = ResultStore(database)
+    await store.initialize()
+    result = CompletedResult.finish(
+        target='example.com',
+        started_at=datetime(2026, 8, 9, 12, 0, tzinfo=UTC),
+        completed_at=datetime(2026, 8, 9, 12, 1, tzinfo=UTC),
+        groups={},
+        active_evidence=ActiveEvidence(
+            executions=(
+                ActionExecution.finish(
+                    action='vhost',
+                    status='completed',
+                    duration_ms=1,
+                    groups={'hostname': ['admin.example.com']},
+                ),
+            )
+        ),
+        virtual_hosts=(vhost_observation('http://192.0.2.10', status=200, control_status=404),),
+    )
+    await store.save_run(result)
+    with sqlite3.connect(database) as db:
+        db.execute('DELETE FROM result_origins WHERE run_id = ?', (str(result.run_id),))
+        db.commit()
+
+    with pytest.raises(
+        ResultStoreError,
+        match='Persisted virtual-host details require hostname results with vhost provenance',
+    ):
+        await store.load_run(result.run_id)
+
+
+@pytest.mark.asyncio
+async def test_loading_oversized_network_details_fails_before_json_decode(tmp_path, monkeypatch) -> None:
+    database = tmp_path / 'stash.sqlite'
+    store = ResultStore(database)
+    await store.initialize()
+    collected_at = datetime(2026, 8, 11, 12, 1, tzinfo=UTC)
+    result = CompletedResult.finish(
+        target='example.com',
+        started_at=datetime(2026, 8, 11, 12, 0, tzinfo=UTC),
+        completed_at=collected_at,
+        groups={'asn': ['AS64500']},
+        active_evidence=ActiveEvidence(
+            executions=(
+                ActionExecution.finish(
+                    action='routeviews',
+                    status='completed',
+                    duration_ms=1,
+                    groups={'prefix': ['192.0.2.0/24']},
+                ),
+            )
+        ),
+        network_observations=(PrefixOriginObservation('routeviews', '192.0.2.0/24', 'AS64500', collected_at),),
+    )
+    await store.save_run(result)
+    with sqlite3.connect(database) as db:
+        db.execute(
+            'UPDATE results SET details_json = ? WHERE run_id = ? AND kind = ?',
+            ('[]', str(result.run_id), 'prefix'),
+        )
+        db.commit()
+    monkeypatch.setattr('theHarvester.lib.network_evidence.MAX_NETWORK_DETAILS_BYTES', 1)
+
+    with pytest.raises(ResultStoreError, match='Persisted network details are invalid'):
         await store.load_run(result.run_id)
 
 

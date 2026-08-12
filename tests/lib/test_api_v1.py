@@ -94,6 +94,67 @@ def _vhost_jsonl_result(*, target: str = 'example.test', value: str = 'admin.exa
     )
 
 
+def _network_jsonl_result() -> str:
+    summary = {
+        'type': 'summary',
+        'run_id': 'b4e1e2d3-cc10-42fa-b66e-ebacfe3acaa2',
+        'target': 'example.test',
+        'started_at': '2026-08-11T12:00:00Z',
+        'completed_at': '2026-08-11T12:01:00Z',
+        'evidence_status': 'complete',
+        'result_count': 2,
+        'counts': {'asn': 1, 'prefix': 1},
+        'action_executions': [
+            {
+                'action': 'routeviews',
+                'status': 'completed',
+                'duration_ms': 1,
+                'result_count': 1,
+                'error_type': None,
+                'stop_reason': None,
+            }
+        ],
+    }
+    prefix = {
+        'type': 'prefix',
+        'value': '203.0.113.0/24',
+        'scope': 'external-relationship',
+        'sources': [],
+        'actions': ['routeviews'],
+        'observations': [
+            {
+                'type': 'observed-origin',
+                'action': 'routeviews',
+                'origin_asn': 'AS64500',
+                'collected_at': '2026-08-11T12:01:00Z',
+            },
+            {
+                'type': 'bgp-route',
+                'action': 'routeviews',
+                'origin_asn': 'AS64500',
+                'collector': 'route-views.test',
+                'peer_asn': 'AS64496',
+                'peer_address': '192.0.2.7',
+                'as_path': '64496 64500',
+                'communities': '',
+                'observed_at': '2026-08-11T12:00:00Z',
+                'collected_at': '2026-08-11T12:01:00Z',
+            },
+            {
+                'type': 'rpki-validation',
+                'action': 'routeviews',
+                'origin_asn': 'AS64500',
+                'state': 'valid',
+                'observed_at': '2026-08-11T12:00:00Z',
+                'collected_at': '2026-08-11T12:01:00Z',
+            },
+        ],
+    }
+    return '\n'.join(
+        (json.dumps(summary), json.dumps({'type': 'asn', 'value': 'AS64500', 'sources': []}), json.dumps(prefix), '')
+    )
+
+
 @pytest.mark.parametrize(
     ('finding_type', 'finding_fields'),
     [
@@ -314,6 +375,7 @@ def test_openapi_explains_scope_and_execution_controls(tmp_path, monkeypatch) ->
         'value',
         'sources',
         'actions',
+        'scope',
         'observations',
     }
     assert 'VirtualHostResult' not in schema['components']['schemas']
@@ -818,6 +880,73 @@ def test_api_jsonl_round_trip_preserves_grouped_virtual_host_observations(tmp_pa
     assert json.loads(exported.text.splitlines()[1]) == expected
     assert reimported.status_code == 201
     assert reimported.json()['results'] == [expected]
+
+
+def test_api_jsonl_round_trip_preserves_structured_network_evidence(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+    headers = {'X-API-Key': 'test-key'}
+    expected = [json.loads(line) for line in _network_jsonl_result().splitlines()[1:]]
+    expected[0]['actions'] = []
+
+    with TestClient(api.app, client=('127.0.0.20', 50000)) as client:
+        imported = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'network.jsonl'},
+            headers=headers,
+            content=_network_jsonl_result(),
+        )
+        assert imported.status_code == 201, imported.text
+        exported = client.get(f'/api/v1/runs/{imported.json()["run_id"]}/export', headers=headers)
+        reimported = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'network-round-trip.jsonl'},
+            headers=headers,
+            content=exported.content,
+        )
+
+    assert imported.json()['results'] == expected
+    assert imported.json()['result_count'] == 2
+    assert [json.loads(line) for line in exported.text.splitlines()[1:]] == [
+        {key: value for key, value in expected[0].items() if key != 'actions'},
+        expected[1],
+    ]
+    assert reimported.status_code == 201
+    assert reimported.json()['results'] == expected
+
+
+@pytest.mark.parametrize(
+    ('field', 'value'),
+    [
+        ('sources', 'sourcegraph'),
+        ('sources', ['']),
+        ('actions', 'routeviews'),
+        ('actions', ['']),
+    ],
+)
+def test_api_evidence_rejects_invalid_network_producers(field: str, value: object) -> None:
+    from fastapi import HTTPException
+
+    from theHarvester.lib.api.run_evidence import validate_evidence
+
+    records = [json.loads(line) for line in _network_jsonl_result().splitlines()]
+    evidence = {
+        'target': records[0]['target'],
+        'status': records[0]['evidence_status'],
+        'started_at': records[0]['started_at'],
+        'completed_at': records[0]['completed_at'],
+        'results': records[1:],
+        'source_executions': [],
+        'action_executions': records[0]['action_executions'],
+        'artifacts': [],
+    }
+    evidence['results'][1][field] = value
+
+    with pytest.raises(HTTPException, match='Network evidence producers must be arrays of non-empty strings'):
+        validate_evidence(evidence)
 
 
 @pytest.mark.parametrize(
