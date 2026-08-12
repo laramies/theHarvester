@@ -83,6 +83,82 @@ async def test_routeviews_collects_asn_prefixes_and_rpki_without_prefix_fanout(m
 
 
 @pytest.mark.asyncio
+async def test_routeviews_uses_configured_key_for_authenticated_access(monkeypatch) -> None:
+    calls, elapsed = install_runtime(
+        monkeypatch,
+        [
+            response(['192.0.2.0/24']),
+            response({'64500': None}),
+        ],
+    )
+
+    result = await enrich_routeviews(['AS64500'], [], api_key='routeviews-key')
+
+    assert result.status == 'completed'
+    assert [url for url, _kwargs in calls] == [
+        'https://api.routeviews.org/asn/64500',
+        'https://api.routeviews.org/rpki',
+    ]
+    assert [kwargs['headers'] for _url, kwargs in calls] == [
+        {'Api-Key': 'routeviews-key'},
+        {'Api-Key': 'routeviews-key'},
+    ]
+    assert elapsed[0] == 0.1
+
+
+@pytest.mark.asyncio
+async def test_routeviews_invalid_configured_key_fails_without_guest_downgrade(monkeypatch) -> None:
+    calls, _elapsed = install_runtime(monkeypatch, [response(None, status=401)])
+
+    result = await enrich_routeviews(['AS64500'], [], api_key='invalid-key')
+
+    assert result.status == 'failed'
+    assert result.stop_reason == 'http-401'
+    assert calls == [
+        (
+            'https://api.routeviews.org/asn/64500',
+            {
+                'params': '',
+                'headers': {'Api-Key': 'invalid-key'},
+                'request_timeout': 30,
+            },
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_routeviews_uses_authenticated_access_for_prefix_seeds(monkeypatch) -> None:
+    calls, elapsed = install_runtime(monkeypatch, [response([]), response([])])
+
+    result = await enrich_routeviews(
+        [],
+        ['192.0.2.0/24', '198.51.100.0/24'],
+        api_key='routeviews-key',
+    )
+
+    assert result.status == 'completed'
+    assert calls == [
+        (
+            'https://api.routeviews.org/prefix/192.0.2.0%2F24',
+            {
+                'params': {'strict-match': 'yes'},
+                'headers': {'Api-Key': 'routeviews-key'},
+                'request_timeout': 30,
+            },
+        ),
+        (
+            'https://api.routeviews.org/prefix/198.51.100.0%2F24',
+            {
+                'params': {'strict-match': 'yes'},
+                'headers': {'Api-Key': 'routeviews-key'},
+                'request_timeout': 30,
+            },
+        ),
+    ]
+    assert elapsed[0] == 0.1
+
+
+@pytest.mark.asyncio
 async def test_routeviews_collects_moas_routes_and_strict_prefix_evidence(monkeypatch) -> None:
     calls, _elapsed = install_runtime(
         monkeypatch,

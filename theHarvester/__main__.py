@@ -237,7 +237,8 @@ async def start(
         '--routeviews',
         help=(
             'Enrich discovered ASNs and an explicitly targeted IP/prefix through RouteViews. Returned routing '
-            'relationships do not establish ownership or target scope.'
+            'relationships do not establish ownership or target scope. Uses authenticated access when a RouteViews '
+            'API key is configured.'
         ),
         default=False,
         action='store_true',
@@ -2224,6 +2225,7 @@ async def start(
             routeviews_result = await enrich_routeviews(
                 total_asns,
                 explicit_network_seeds,
+                api_key=Core.routeviews_key(),
             )
         except RouteViewsCancelled as error:
             record_routeviews_result(error.result)

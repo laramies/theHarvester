@@ -26,7 +26,7 @@ The following options require additional care:
 
 Use `--dns-resolvers IPS_OR_FILE` to select resolver addresses for DNS brute force, reverse lookup, or recursive DNS without also enabling hostname resolution. The compatible `--dns-resolve` value still selects resolvers and enables hostname resolution.
 
-`--routeviews` is a separately selected P0 provider action. It is never enabled by `-b all` and ignores `-l`; one run is internally bounded to 300 sequential requests and 300 seconds at the guest rate. It does not send harvested IPs unless the IP/CIDR is the explicit run target, does not recursively query returned prefixes, and never promotes returned CIDRs into DNS or direct-action scope. Route origins and RPKI states can include anomalies or leaks and do not establish ownership or authorization.
+`--routeviews` is a separately selected P0 provider action. It is never enabled by `-b all` and ignores `-l`; one run is internally bounded to 300 sequential requests and 300 seconds. With no configured key it uses the documented guest rate of one request per second. A configured `routeviews.key` selects PeeringDB-verified authenticated access and the documented 10-request-per-second allowance. It does not send harvested IPs unless the IP/CIDR is the explicit run target, does not recursively query returned prefixes, and never promotes returned CIDRs into DNS or direct-action scope. Route origins and RPKI states can include anomalies or leaks and do not establish ownership or authorization.
 
 Use an owned or explicitly authorized domain for active examples. Do not substitute universities, public companies, bounty targets, or reserved example domains for recurring active scans.
 

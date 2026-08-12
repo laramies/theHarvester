@@ -88,10 +88,13 @@ def test_readme_matches_declared_source_contracts() -> None:
 
 
 def test_readme_api_key_markers_match_configuration() -> None:
-    requirements = _documented_api_key_requirements(Path('README.md').read_text())
+    readme = Path('README.md').read_text()
+    requirements = _documented_api_key_requirements(readme)
+    configured_source_keys = _configured_api_key_sources() - {'routeviews'}
 
     assert set(requirements.values()) <= {'✓', 'Optional', 'No'}
-    assert {source for source, marker in requirements.items() if marker != 'No'} == _configured_api_key_sources()
+    assert {source for source, marker in requirements.items() if marker != 'No'} == configured_source_keys
+    assert '`routeviews.key`' in readme
     assert {source for source, marker in requirements.items() if marker == 'Optional'} == OPTIONAL_API_KEY_SOURCES
 
 

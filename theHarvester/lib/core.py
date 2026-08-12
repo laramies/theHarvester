@@ -181,6 +181,7 @@ class Core:
         'pentestTools': ('key',),
         'projectDiscovery': ('key',),
         'rocketreach': ('key',),
+        'routeviews': ('key',),
         'securityscorecard': ('key',),
         'securityTrails': ('key',),
         'sherlockeye': ('key',),
@@ -330,6 +331,11 @@ class Core:
     @staticmethod
     def rocketreach_key() -> str:
         return Core._api_key_value('rocketreach')
+
+    @staticmethod
+    def routeviews_key() -> str | None:
+        value = Core.api_keys().get('routeviews', {}).get('key')
+        return value.strip() if isinstance(value, str) and value.strip() else None
 
     @staticmethod
     def securityscorecard_key() -> str:

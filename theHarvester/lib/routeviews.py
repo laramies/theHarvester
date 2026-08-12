@@ -28,13 +28,15 @@ if TYPE_CHECKING:
     from theHarvester.lib.evidence_types import ExecutionStatus
     from theHarvester.lib.network_evidence import NetworkObservation, RpkiState
 
-ROUTEVIEWS_GUEST_BASE = 'https://api.routeviews.org/guest'
+ROUTEVIEWS_BASE = 'https://api.routeviews.org'
+ROUTEVIEWS_GUEST_BASE = f'{ROUTEVIEWS_BASE}/guest'
 MAX_ROUTEVIEWS_REQUESTS = 300
 MAX_ROUTEVIEWS_RUNTIME_SECONDS = 300.0
 MAX_ROUTEVIEWS_INPUT_ITEMS = 1_000
 MAX_ROUTEVIEWS_RUN_ITEMS = 100_000
 MAX_ROUTEVIEWS_RUN_JSON_BYTES = 32 * 1024 * 1024
 ROUTEVIEWS_GUEST_INTERVAL_SECONDS = 1.0
+ROUTEVIEWS_AUTHENTICATED_INTERVAL_SECONDS = 0.1
 ROUTEVIEWS_REQUEST_TIMEOUT_SECONDS = 30
 
 
@@ -142,7 +144,10 @@ def _rpki_state(value: object) -> RpkiState:
 
 
 class _RouteViewsRuntime:
-    def __init__(self) -> None:
+    def __init__(self, api_key: str | None = None) -> None:
+        self.base_url = ROUTEVIEWS_BASE if api_key else ROUTEVIEWS_GUEST_BASE
+        self.headers = {'Api-Key': api_key} if api_key else None
+        self.request_interval = ROUTEVIEWS_AUTHENTICATED_INTERVAL_SECONDS if api_key else ROUTEVIEWS_GUEST_INTERVAL_SECONDS
         self.started_at = _monotonic()
         self.last_request_at: float | None = None
         self.request_count = 0
@@ -259,7 +264,7 @@ class _RouteViewsRuntime:
         if elapsed >= MAX_ROUTEVIEWS_RUNTIME_SECONDS:
             raise _RouteViewsStopError('RouteViewsLimitError', 'runtime-limit')
         if self.last_request_at is not None:
-            delay = ROUTEVIEWS_GUEST_INTERVAL_SECONDS - (_monotonic() - self.last_request_at)
+            delay = self.request_interval - (_monotonic() - self.last_request_at)
             if delay > 0:
                 if elapsed + delay >= MAX_ROUTEVIEWS_RUNTIME_SECONDS:
                     raise _RouteViewsStopError('RouteViewsLimitError', 'runtime-limit')
@@ -269,13 +274,15 @@ class _RouteViewsRuntime:
             raise _RouteViewsStopError('RouteViewsLimitError', 'runtime-limit')
         self.request_count += 1
         self.last_request_at = _monotonic()
+        request_kwargs: dict[str, Any] = {
+            'params': params,
+            'request_timeout': min(ROUTEVIEWS_REQUEST_TIMEOUT_SECONDS, max(1, math.ceil(remaining))),
+        }
+        if self.headers is not None:
+            request_kwargs['headers'] = self.headers
         try:
             async with asyncio.timeout(remaining):
-                response = await _fetch_json(
-                    url,
-                    params=params,
-                    request_timeout=min(ROUTEVIEWS_REQUEST_TIMEOUT_SECONDS, max(1, math.ceil(remaining))),
-                )
+                response = await _fetch_json(url, **request_kwargs)
         except ResponseStreamError as error:
             raise _RouteViewsStopError(
                 type(error).__name__,
@@ -432,17 +439,17 @@ class _RouteViewsRuntime:
         try:
             for origin_asn in canonical_asns:
                 await collect(
-                    f'{ROUTEVIEWS_GUEST_BASE}/asn/{origin_asn[2:]}',
+                    f'{self.base_url}/asn/{origin_asn[2:]}',
                     lambda body, collected_at, asn=origin_asn: self._parse_asn(body, asn, collected_at),
                 )
                 await collect(
-                    f'{ROUTEVIEWS_GUEST_BASE}/rpki',
+                    f'{self.base_url}/rpki',
                     lambda body, collected_at, asn=origin_asn: self._parse_rpki(body, asn, collected_at),
                     params={'asn': origin_asn[2:]},
                 )
             for seed in canonical_seeds:
                 await collect(
-                    f'{ROUTEVIEWS_GUEST_BASE}/prefix/{quote(seed, safe="")}',
+                    f'{self.base_url}/prefix/{quote(seed, safe="")}',
                     lambda body, collected_at, requested_seed=seed: self._parse_prefix(body, requested_seed, collected_at),
                     params={'strict-match': 'yes'} if '/' in seed else '',
                 )
@@ -457,6 +464,8 @@ class _RouteViewsRuntime:
 async def enrich_routeviews(
     asns: Iterable[str | int],
     network_seeds: Iterable[str],
+    *,
+    api_key: str | None = None,
 ) -> RouteViewsResult:
     """Collect bounded RouteViews routing evidence for known ASN/IP/CIDR seeds."""
-    return await _RouteViewsRuntime().run(asns, network_seeds)
+    return await _RouteViewsRuntime(api_key).run(asns, network_seeds)

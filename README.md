@@ -251,7 +251,7 @@ Never commit populated configuration files, API keys, account details, or provid
 - Full CLI pipeline runs are also stored transactionally by run UUID with their completed, deduplicated findings.
 - API executions use the same SQLite database as CLI results. Durable lifecycle rows stay separate from terminal evidence, while typed results and source or action origins remain queryable. JSONL handles individual run interchange, and the API can import completed runs from another theHarvester SQLite database.
 - Bounded [virtual host discovery](docs/wiki/Virtual-Host-Discovery.md) enriches each confirmed `hostname` result with structured endpoint observations and `vhost` action provenance.
-- `--routeviews` enriches discovered ASNs, or an explicitly targeted IP/CIDR, with bounded observed-origin, BGP route, and RPKI evidence. It is a P0 action, is not selected by `-b all`, and does not use `-l`.
+- `--routeviews` enriches discovered ASNs, or an explicitly targeted IP/CIDR, with bounded observed-origin, BGP route, and RPKI evidence. It is a P0 action, is not selected by `-b all`, and does not use `-l`. A configured `routeviews.key` is used automatically for PeeringDB-verified authenticated access; otherwise the action uses the guest allowance.
 
 Treat collected OSINT as potentially sensitive. Keep report files, screenshots, and the local database out of source control and share them only within the authorized engagement.
 
