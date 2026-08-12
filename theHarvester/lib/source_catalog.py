@@ -108,6 +108,7 @@ _SPECS = (
         ResultRoute.ASNS,
         activity=ActivityClass.DIRECT,
     ),
+    _spec('crt-name', ResultRoute.SUBDOMAINS),
     _spec('crtsh', ResultRoute.SUBDOMAINS),
     _spec('dehashed', ResultRoute.EMAILS, ResultRoute.IPS),
     _spec('dnsdb', ResultRoute.SUBDOMAINS),

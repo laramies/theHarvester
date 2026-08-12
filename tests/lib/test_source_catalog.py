@@ -3,7 +3,7 @@ from pathlib import Path
 
 from theHarvester.discovery import apisguru, bevigil, builtwith, gitlabsearch, intelxsearch, rocketreach, urlscan, zoomeyesearch
 from theHarvester.lib.core import Core
-from theHarvester.lib.source_catalog import SOURCE_SPECS, ResultRoute, SourceSpec, get_source_spec
+from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass, ResultRoute, SourceSpec, get_source_spec
 
 
 def _scheduled_source_names() -> list[str]:
@@ -125,3 +125,11 @@ def test_unavailable_venacus_source_is_not_selectable() -> None:
 
 def test_source_lookup_preserves_case_insensitive_legacy_labels() -> None:
     assert get_source_spec('CRTsh') is SOURCE_SPECS['crtsh']
+
+
+def test_crt_name_is_a_separate_passive_hostname_source() -> None:
+    spec = get_source_spec('CRT-NAME')
+
+    assert spec is SOURCE_SPECS['crt-name']
+    assert spec.routes == frozenset({ResultRoute.SUBDOMAINS})
+    assert spec.activity is ActivityClass.PASSIVE
