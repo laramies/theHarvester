@@ -409,7 +409,6 @@ class Core:
             'brave',
             'censys',
             'certspotter',
-            'chaos',
             'commoncrawl',
             'criminalip',
             'crt-name',

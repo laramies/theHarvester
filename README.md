@@ -169,7 +169,6 @@ Read the **API key** column as follows:
 | `brave` | ✓ | ✓ | No | No | No | No | No | No | ✓ |
 | `censys` | ✓ | ✓ | No | No | No | No | No | No | ✓ |
 | `certspotter` | ✓ | No | No | No | No | No | No | No | No |
-| `chaos` | ✓ | No | No | No | No | No | No | No | ✓ |
 | `commoncrawl` | ✓ | No | No | No | No | No | No | No | No |
 | `criminalip` | ✓ | No | ✓ | ✓ | No | No | No | No | ✓ |
 | `crt-name` | ✓ | No | No | No | No | No | No | No | No |

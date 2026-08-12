@@ -75,7 +75,7 @@ async def list_runs(
 async def list_sources(_api_key: Annotated[str, Depends(get_api_key)]) -> SourceCatalogResponse:
     from theHarvester.lib.core import Core
 
-    provider_aliases = {'chaos': 'projectDiscovery', 'github-code': 'github', 'pentesttools': 'pentestTools'}
+    provider_aliases = {'github-code': 'github', 'pentesttools': 'pentestTools'}
     api_key_fields = Core.api_key_fields()
     provider_names = {provider.casefold(): provider for provider in api_key_fields}
 
