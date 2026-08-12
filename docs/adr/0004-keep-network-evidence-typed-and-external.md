@@ -8,7 +8,7 @@ Represent routing evidence with a closed set of typed observations attached to a
 
 Every prefix record is explicitly marked `external-relationship`. Routing evidence never implies registration, ownership, authorized target scope, or permission for active discovery. The model therefore has no generic relationship type and no `owns` or `registered_to` fields.
 
-Persist the structured observations in the existing `results.details_json` column, advance the semantic database version to 9, and project the same nested records through JSONL and the API. No table alteration is needed. A normalized relationship table is deferred until a concrete cross-run query requires it.
+Persist the structured observations in the existing `results.details_json` column within the unreleased schema version 8 and project the same nested records through JSONL and the API. No additional version bump or table alteration is needed. A normalized relationship table is deferred until a concrete cross-run query requires it.
 
 ## Why
 

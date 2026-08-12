@@ -55,7 +55,6 @@ from theHarvester.lib.network_evidence import (
     network_observation_sort_key,
     parse_network_observation_json,
 )
-from theHarvester.lib.result_values import normalize_result_value
 from theHarvester.lib.virtual_host import VirtualHostObservation
 
 if TYPE_CHECKING:
@@ -63,7 +62,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 8
 _DEFAULT_DATABASE = Path('~/.local/share/theHarvester/stash.sqlite').expanduser()
 
 _LEGACY_RESULT_KIND_RENAMES = {
@@ -266,13 +265,13 @@ def _sqlite_engine(database: str | Path) -> AsyncEngine:
 
 
 async def _canonicalize_result_kinds(connection: AsyncConnection) -> None:
-    """Merge result aliases and canonicalize ASN values without losing provenance."""
+    """Merge result-kind aliases without losing provenance or artifact references."""
     aliases = ', '.join(f"'{kind}'" for kind in sorted(_LEGACY_RESULT_KIND_RENAMES))
-    run_rows = await connection.exec_driver_sql(f"SELECT DISTINCT run_id FROM results WHERE kind IN ({aliases}) OR kind = 'asn'")
+    run_rows = await connection.exec_driver_sql(f'SELECT DISTINCT run_id FROM results WHERE kind IN ({aliases})')
     for (run_id,) in run_rows:
         result_rows = list(
             await connection.exec_driver_sql(
-                'SELECT position, kind, value, details_json FROM results WHERE run_id = ? ORDER BY position',
+                'SELECT position, kind, value FROM results WHERE run_id = ? ORDER BY position',
                 (run_id,),
             )
         )
@@ -290,24 +289,12 @@ async def _canonicalize_result_kinds(connection: AsyncConnection) -> None:
             )
         )
 
-        canonical_details: dict[tuple[str, str], str | None] = {}
-        for _position, kind, value, details_json in result_rows:
-            canonical_kind = _LEGACY_RESULT_KIND_RENAMES.get(kind, kind)
-            canonical_result = (canonical_kind, normalize_result_value(canonical_kind, value))
-            if canonical_result not in canonical_details or canonical_details[canonical_result] is None:
-                canonical_details[canonical_result] = details_json
-            elif details_json is not None and details_json != canonical_details[canonical_result]:
-                raise RuntimeError(f'Conflicting structured details for migrated result: {canonical_result[1]}')
-        canonical_results = sorted(canonical_details)
+        canonical_results = sorted(
+            {(_LEGACY_RESULT_KIND_RENAMES.get(kind, kind), value) for _position, kind, value in result_rows}
+        )
         new_positions = {result: position for position, result in enumerate(canonical_results)}
         old_positions = {
-            position: new_positions[
-                (
-                    _LEGACY_RESULT_KIND_RENAMES.get(kind, kind),
-                    normalize_result_value(_LEGACY_RESULT_KIND_RENAMES.get(kind, kind), value),
-                )
-            ]
-            for position, kind, value, _details_json in result_rows
+            position: new_positions[(_LEGACY_RESULT_KIND_RENAMES.get(kind, kind), value)] for position, kind, value in result_rows
         }
         canonical_origins = sorted(
             {(old_positions[result_position], execution_position) for result_position, execution_position in origin_rows}
@@ -318,11 +305,8 @@ async def _canonicalize_result_kinds(connection: AsyncConnection) -> None:
         await connection.exec_driver_sql('DELETE FROM results WHERE run_id = ?', (run_id,))
         if canonical_results:
             await connection.exec_driver_sql(
-                'INSERT INTO results (run_id, position, kind, value, details_json) VALUES (?, ?, ?, ?, ?)',
-                [
-                    (run_id, position, kind, value, canonical_details[(kind, value)])
-                    for position, (kind, value) in enumerate(canonical_results)
-                ],
+                'INSERT INTO results (run_id, position, kind, value) VALUES (?, ?, ?, ?)',
+                [(run_id, position, kind, value) for position, (kind, value) in enumerate(canonical_results)],
             )
         if canonical_origins:
             await connection.exec_driver_sql(
