@@ -54,6 +54,7 @@ def test_source_specs_describe_consolidated_routes_not_getter_presence() -> None
         {ResultRoute.SUBDOMAINS, ResultRoute.EMAILS, ResultRoute.URLS}
     )
     assert SOURCE_SPECS['gitlab'].routes == frozenset({ResultRoute.SUBDOMAINS, ResultRoute.EMAILS, ResultRoute.URLS})
+    assert SOURCE_SPECS['sourcegraph'].routes == frozenset({ResultRoute.SUBDOMAINS})
     assert SOURCE_SPECS['haveibeenpwned'].routes == frozenset({ResultRoute.BREACHES})
     assert SOURCE_SPECS['hibpverified'].routes == frozenset({ResultRoute.EMAILS, ResultRoute.BREACHES})
     assert SOURCE_SPECS['leaklookup'].routes == frozenset({ResultRoute.EMAILS, ResultRoute.BREACHES})

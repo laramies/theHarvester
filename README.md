@@ -206,6 +206,7 @@ Read the **API key** column as follows:
 | `shodan` | ✓ | No | No | No | No | No | No | `-s` / `--shodan` host-enrichment output | ✓ |
 | `shodanInternetDB` | ✓ | No | ✓ | No | No | No | No | No | No |
 | `shodanct` | ✓ | No | No | No | No | No | No | No | No |
+| `sourcegraph` | ✓ | No | No | No | No | No | No | No | No |
 | `subdomaincenter` | ✓ | No | No | No | No | No | No | No | No |
 | `subdomainfinderc99` | ✓ | No | No | No | No | No | No | No | No |
 | `thc` | ✓ | No | No | No | No | No | No | No | No |
@@ -221,6 +222,8 @@ Read the **API key** column as follows:
 </details>
 
 `apis-guru` performs P0 provider-side collection through APIs.guru's public v2 API. It requests the exact target-domain directory entry and follows every matching preferred OpenAPI specification within hard 1,000-entry and 10-minute safety ceilings. `--limit` bounds retained results per output type without truncating catalog traversal. The source retains only target-scoped hostnames, contact emails, and HTTP(S) URLs; external OAuth, CDN, and third-party server references are excluded. API specifications, operations, security declarations, version provenance, and external relationships remain deferred until the normalized evidence model can represent them without flattening their meaning.
+
+`sourcegraph` makes one anonymous, provider-only search capped at 5,000 code matches. It does not use `-l` / `--limit`; returned names are candidates mentioned in indexed code, not proof of ownership or liveness.
 
 Provider pricing is intentionally omitted because plans and quotas change frequently. See [Configuration and API Keys](docs/wiki/Configuration-and-API-Keys.md) and each provider's current documentation.
 

@@ -449,6 +449,7 @@ class Core:
             'shodan',
             'shodanInternetDB',
             'shodanct',
+            'sourcegraph',
             'subdomaincenter',
             'subdomainfinderc99',
             'sublist3r',
