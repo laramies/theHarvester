@@ -50,7 +50,7 @@ class SearchUrlscan:
             values.append(serialized)
         return ','.join(values)
 
-    def _parse_results(self, results: list) -> bool:
+    def _parse_results(self, results: list, collected_at: datetime) -> bool:
         malformed = False
         for result in results:
             if not isinstance(result, dict):
@@ -118,7 +118,6 @@ class SearchUrlscan:
                 malformed = True
                 organization = None
             if normalized_asn is not None and isinstance(organization, str) and organization.strip():
-                collected_at = datetime.now(UTC)
                 subjects: list[tuple[SubjectKind, str]] = [
                     *(('hostname', hostname) for hostname in scoped_hosts),
                     *(('ip', address) for address in scoped_ips),
@@ -142,6 +141,7 @@ class SearchUrlscan:
 
     async def do_search(self) -> None:
         url = 'https://urlscan.io/api/v1/search/'
+        collected_at = datetime.now(UTC)
         cursor = None
         seen_cursors: set[str] = set()
         malformed = False
@@ -188,7 +188,7 @@ class SearchUrlscan:
                     self.stop_reason = None if self._has_results() else 'no-results'
                 return
 
-            malformed = self._parse_results(results) or malformed
+            malformed = self._parse_results(results, collected_at) or malformed
             next_cursor = self._cursor(results[-1])
             if next_cursor is None:
                 self._stop('failed', 'invalid-cursor')

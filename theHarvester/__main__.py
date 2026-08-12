@@ -847,7 +847,12 @@ async def start(
             record_source_observations(source, 'asn', fasns)
             get_asn_attributions = getattr(search_engine, 'get_asn_attributions', None)
             if get_asn_attributions is not None:
-                asn_attributions.extend(await get_asn_attributions())
+                asn_attributions.extend(
+                    attribution
+                    for attribution in await get_asn_attributions()
+                    if ResultObservation(source, 'asn', attribution.asn) in source_observations
+                    and ResultObservation(source, attribution.subject_kind, attribution.subject_value) in source_observations
+                )
 
         if ResultRoute.BREACHES in routes:
             breach_names = await search_engine.get_breach_names()

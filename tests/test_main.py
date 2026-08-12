@@ -2638,7 +2638,7 @@ async def test_routeviews_expands_discovered_asns_but_not_harvested_ips(monkeypa
             return None
 
         async def get_hostnames(self) -> set[str]:
-            return set()
+            return {'example.com'}
 
         async def get_ips(self) -> set[str]:
             return {'192.0.2.10'}
@@ -2659,7 +2659,16 @@ async def test_routeviews_expands_discovered_asns_but_not_harvested_ips(monkeypa
                     'ip',
                     '192.0.2.10',
                     datetime.now(UTC),
-                )
+                ),
+                AsnAttributionObservation(
+                    'source',
+                    'urlscan',
+                    'AS64500',
+                    'Example Transit',
+                    'hostname',
+                    'example.com',
+                    datetime.now(UTC),
+                ),
             }
 
     async def fake_routeviews(asns, network_seeds, *, api_key: str | None = None) -> RouteViewsResult:
@@ -2682,7 +2691,7 @@ async def test_routeviews_expands_discovered_asns_but_not_harvested_ips(monkeypa
     assert ('asn', 'AS64500') in completed.results
     assert ('ip', '192.0.2.10') in completed.results
     assert len(completed.asn_attributions) == 1
-    assert completed.asn_attributions[0].organization_label == 'Example Transit'
+    assert completed.asn_attributions[0].subject_value == '192.0.2.10'
     execution = next(item for item in result[-1].active_evidence.executions if item.action == 'routeviews')
     assert execution.status == 'completed'
     assert execution.stop_reason == 'no-results'
