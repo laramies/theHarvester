@@ -126,7 +126,7 @@ class RunRequest(BaseModel):
     routeviews: bool = Field(
         default=False,
         description=(
-            'Enrich an explicitly targeted ASN or IP address through RouteViews. Returned '
+            'Enrich discovered ASN evidence or an explicitly targeted ASN or IP address through RouteViews. Returned '
             'routing relationships do not establish ownership, authorization, or target scope.'
         ),
     )

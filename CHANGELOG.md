@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Added bounded RouteViews routing enrichment for explicit ASN, IP, or CIDR targets, retaining typed origin, BGP-route, and RPKI evidence as external relationships without expanding ASNs discovered during domain enumeration.
+- Added bounded RouteViews routing enrichment for discovered ASNs or explicit ASN, IP, and CIDR targets, retaining typed origin, BGP-route, and RPKI evidence as external relationships without expanding active scope.
 - Added bounded, keyless `crt.name` composite-index discovery as a separate source alongside `crtsh`, retaining only descendant-hostname candidates from its streamed response.
 - Added bounded, keyless APIs.guru discovery through exact target-domain directory lookups, retaining only target-scoped hostnames, contact emails, and URLs from preferred OpenAPI specifications.
 - Added bounded virtual host discovery over harvested or operator-supplied literal-IP endpoints, with aligned HTTP `Host` and TLS SNI, synthetic unknown-host controls, hard request and runtime limits, and structured observations on canonical hostname results in JSONL, SQLite, the API, and HarvestView.

@@ -242,7 +242,7 @@ async def start(
     parser.add_argument(
         '--routeviews',
         help=(
-            'Enrich an explicitly targeted ASN, IP, or prefix through RouteViews. Returned routing '
+            'Enrich discovered ASNs or an explicitly targeted ASN, IP, or prefix through RouteViews. Returned routing '
             'relationships do not establish ownership or target scope. Uses authenticated access when a RouteViews '
             'API key is configured.'
         ),
@@ -2225,7 +2225,9 @@ async def start(
 
     if routeviews_enabled:
         routeviews_started = time.perf_counter()
-        explicit_asns = {explicit_asn_target} if explicit_asn_target is not None else set()
+        routeviews_asns = set(total_asns)
+        if explicit_asn_target is not None:
+            routeviews_asns.add(explicit_asn_target)
         explicit_network_seeds: set[str] = set()
         try:
             explicit_network_seeds.add(
@@ -2251,7 +2253,7 @@ async def start(
 
         try:
             routeviews_result = await enrich_routeviews(
-                explicit_asns,
+                routeviews_asns,
                 explicit_network_seeds,
                 api_key=Core.routeviews_key(),
             )

@@ -363,7 +363,7 @@ def test_openapi_explains_scope_and_execution_controls(tmp_path, monkeypatch) ->
     assert '/24' in properties['dns_lookup']['description']
     assert 'whole run' in properties['deadline_seconds']['description']
     assert 'not establish ownership' in properties['routeviews']['description']
-    assert 'targeted ASN or IP address' in properties['routeviews']['description']
+    assert 'discovered ASN evidence or an explicitly targeted ASN or IP address' in properties['routeviews']['description']
     assert 'prefix' not in properties['routeviews']['description']
     assert 'three resolver' in properties['dns_recursive_query_limit']['description']
     assert 'discovery sources' in properties['proxies']['description']
