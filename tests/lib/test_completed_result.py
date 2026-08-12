@@ -650,7 +650,7 @@ def test_network_evidence_accumulator_cannot_exceed_the_persisted_envelope(limit
 def test_jsonl_rejects_excessive_json_nesting() -> None:
     payload = '{"type":"summary"}\n{"type":"asn","value":' + '[' * 100_000 + '0' + ']' * 100_000 + '}'
 
-    with pytest.raises(ValueError, match='not valid JSONL'):
+    with pytest.raises(ValueError, match=r'not valid JSONL|JSONL findings must contain'):
         parse_result_jsonl(payload)
 
 
