@@ -29,9 +29,9 @@ class TestBaiduSearch:
         await search.process(proxy=True)
 
         expected_urls = [
-            "https://www.baidu.com/s?wd=%40example.com&pn=0&oq=example.com",
-            "https://www.baidu.com/s?wd=%40example.com&pn=10&oq=example.com",
-            "https://www.baidu.com/s?wd=%40example.com&pn=20&oq=example.com",
+            "https://www.baidu.com/s?wd=example.com&pn=0&oq=example.com",
+            "https://www.baidu.com/s?wd=example.com&pn=10&oq=example.com",
+            "https://www.baidu.com/s?wd=example.com&pn=20&oq=example.com",
         ]
         assert called["urls"] == expected_urls
         assert called["proxy"] is True
@@ -64,6 +64,6 @@ class TestBaiduSearch:
 
         # For limit=20, range(0, 20, 10) yields 0 and 10 only (20 is excluded)
         assert captured["urls"] == [
-            "https://www.baidu.com/s?wd=%40example.com&pn=0&oq=example.com",
-            "https://www.baidu.com/s?wd=%40example.com&pn=10&oq=example.com",
+            "https://www.baidu.com/s?wd=example.com&pn=0&oq=example.com",
+            "https://www.baidu.com/s?wd=example.com&pn=10&oq=example.com",
         ]
