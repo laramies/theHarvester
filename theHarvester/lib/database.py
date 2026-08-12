@@ -49,6 +49,13 @@ from theHarvester.lib.completed_result import (
     parse_virtual_host_details,
     virtual_host_details,
 )
+from theHarvester.lib.network_evidence import (
+    NetworkObservation,
+    network_observation_details,
+    network_observation_sort_key,
+    parse_network_observation_json,
+)
+from theHarvester.lib.result_values import normalize_result_value
 from theHarvester.lib.virtual_host import VirtualHostObservation
 
 if TYPE_CHECKING:
@@ -56,7 +63,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 _DEFAULT_DATABASE = Path('~/.local/share/theHarvester/stash.sqlite').expanduser()
 
 _LEGACY_RESULT_KIND_RENAMES = {
@@ -259,13 +266,13 @@ def _sqlite_engine(database: str | Path) -> AsyncEngine:
 
 
 async def _canonicalize_result_kinds(connection: AsyncConnection) -> None:
-    """Merge result-kind aliases without losing provenance or artifact references."""
+    """Merge result aliases and canonicalize ASN values without losing provenance."""
     aliases = ', '.join(f"'{kind}'" for kind in sorted(_LEGACY_RESULT_KIND_RENAMES))
-    run_rows = await connection.exec_driver_sql(f'SELECT DISTINCT run_id FROM results WHERE kind IN ({aliases})')
+    run_rows = await connection.exec_driver_sql(f"SELECT DISTINCT run_id FROM results WHERE kind IN ({aliases}) OR kind = 'asn'")
     for (run_id,) in run_rows:
         result_rows = list(
             await connection.exec_driver_sql(
-                'SELECT position, kind, value FROM results WHERE run_id = ? ORDER BY position',
+                'SELECT position, kind, value, details_json FROM results WHERE run_id = ? ORDER BY position',
                 (run_id,),
             )
         )
@@ -283,12 +290,24 @@ async def _canonicalize_result_kinds(connection: AsyncConnection) -> None:
             )
         )
 
-        canonical_results = sorted(
-            {(_LEGACY_RESULT_KIND_RENAMES.get(kind, kind), value) for _position, kind, value in result_rows}
-        )
+        canonical_details: dict[tuple[str, str], str | None] = {}
+        for _position, kind, value, details_json in result_rows:
+            canonical_kind = _LEGACY_RESULT_KIND_RENAMES.get(kind, kind)
+            canonical_result = (canonical_kind, normalize_result_value(canonical_kind, value))
+            if canonical_result not in canonical_details or canonical_details[canonical_result] is None:
+                canonical_details[canonical_result] = details_json
+            elif details_json is not None and details_json != canonical_details[canonical_result]:
+                raise RuntimeError(f'Conflicting structured details for migrated result: {canonical_result[1]}')
+        canonical_results = sorted(canonical_details)
         new_positions = {result: position for position, result in enumerate(canonical_results)}
         old_positions = {
-            position: new_positions[(_LEGACY_RESULT_KIND_RENAMES.get(kind, kind), value)] for position, kind, value in result_rows
+            position: new_positions[
+                (
+                    _LEGACY_RESULT_KIND_RENAMES.get(kind, kind),
+                    normalize_result_value(_LEGACY_RESULT_KIND_RENAMES.get(kind, kind), value),
+                )
+            ]
+            for position, kind, value, _details_json in result_rows
         }
         canonical_origins = sorted(
             {(old_positions[result_position], execution_position) for result_position, execution_position in origin_rows}
@@ -299,8 +318,11 @@ async def _canonicalize_result_kinds(connection: AsyncConnection) -> None:
         await connection.exec_driver_sql('DELETE FROM results WHERE run_id = ?', (run_id,))
         if canonical_results:
             await connection.exec_driver_sql(
-                'INSERT INTO results (run_id, position, kind, value) VALUES (?, ?, ?, ?)',
-                [(run_id, position, kind, value) for position, (kind, value) in enumerate(canonical_results)],
+                'INSERT INTO results (run_id, position, kind, value, details_json) VALUES (?, ?, ?, ?, ?)',
+                [
+                    (run_id, position, kind, value, canonical_details[(kind, value)])
+                    for position, (kind, value) in enumerate(canonical_results)
+                ],
             )
         if canonical_origins:
             await connection.exec_driver_sql(
@@ -706,6 +728,9 @@ class ResultStore:
         vhosts_by_hostname: dict[str, list[VirtualHostObservation]] = {}
         for observation in result.virtual_hosts:
             vhosts_by_hostname.setdefault(observation.hostname, []).append(observation)
+        network_by_prefix: dict[str, list[NetworkObservation]] = {}
+        for network_observation in result.network_observations:
+            network_by_prefix.setdefault(network_observation.prefix, []).append(network_observation)
         async with self._session() as session:
             try:
                 session.add(
@@ -732,6 +757,13 @@ class ResultStore:
                                 sort_keys=True,
                             )
                             if kind == 'hostname' and value in vhosts_by_hostname
+                            else json.dumps(
+                                network_observation_details(tuple(network_by_prefix[value])),
+                                ensure_ascii=False,
+                                separators=(',', ':'),
+                                sort_keys=True,
+                            )
+                            if kind == 'prefix' and value in network_by_prefix
                             else None
                         ),
                     )
@@ -828,22 +860,35 @@ class ResultStore:
             row.result_position for row in origin_rows if row.execution_position in vhost_execution_positions
         }
         virtual_hosts: list[VirtualHostObservation] = []
+        network_observations: list[NetworkObservation] = []
         for result_row in rows:
             is_vhost_result = result_row.position in vhost_result_positions
             if is_vhost_result and (result_row.kind != 'hostname' or result_row.details_json is None):
                 raise ResultStoreError(f'Persisted virtual-host details are missing: {result_row.value}')
             if result_row.details_json is None:
                 continue
-            if result_row.kind != 'hostname' or not is_vhost_result:
+            if result_row.kind == 'hostname' and is_vhost_result:
+                try:
+                    details = json.loads(result_row.details_json)
+                    parsed_virtual_hosts = parse_virtual_host_details(result_row.value, details)
+                except (json.JSONDecodeError, ValueError) as error:
+                    raise ResultStoreError(f'Persisted virtual-host details are invalid: {result_row.value}') from error
+                if details != virtual_host_details(parsed_virtual_hosts):
+                    raise ResultStoreError(f'Persisted virtual-host details are not canonical: {result_row.value}')
+                virtual_hosts.extend(parsed_virtual_hosts)
+            elif result_row.kind == 'prefix' and not is_vhost_result:
+                try:
+                    parsed_network_observations = parse_network_observation_json(
+                        result_row.value,
+                        result_row.details_json,
+                    )
+                except ValueError as error:
+                    raise ResultStoreError(f'Persisted network details are invalid: {result_row.value}') from error
+                network_observations.extend(parsed_network_observations)
+            elif result_row.kind == 'hostname':
                 raise ResultStoreError('Persisted virtual-host details require hostname results with vhost provenance')
-            try:
-                details = json.loads(result_row.details_json)
-                parsed_virtual_hosts = parse_virtual_host_details(result_row.value, details)
-            except (json.JSONDecodeError, ValueError) as error:
-                raise ResultStoreError(f'Persisted virtual-host details are invalid: {result_row.value}') from error
-            if details != virtual_host_details(parsed_virtual_hosts):
-                raise ResultStoreError(f'Persisted virtual-host details are not canonical: {result_row.value}')
-            virtual_hosts.extend(parsed_virtual_hosts)
+            else:
+                raise ResultStoreError('Persisted structured details require a supported result kind and provenance')
         unknown_producer_kinds = {row.producer_kind for row in execution_rows} - {'source', 'action'}
         if unknown_producer_kinds:
             raise ResultStoreError(f'Unknown persisted producer kind: {min(unknown_producer_kinds)}')
@@ -924,6 +969,7 @@ class ResultStore:
             observations=tuple(sorted(source_observations)),
             active_evidence=ActiveEvidence(executions=tuple(action_executions)),
             virtual_hosts=tuple(sorted(set(virtual_hosts), key=VirtualHostObservation.sort_key)),
+            network_observations=tuple(sorted(set(network_observations), key=network_observation_sort_key)),
             evidence_status=cast('EvidenceStatus', parent.evidence_status) if parent.evidence_status is not None else None,
         )
 

@@ -17,6 +17,12 @@ from theHarvester.lib.database import (
     _sqlite_has_wal_reset_fix,
     dispose_sqlite_databases,
 )
+from theHarvester.lib.network_evidence import (
+    BgpRouteObservation,
+    PrefixOriginObservation,
+    RpkiValidationObservation,
+    network_observation_details,
+)
 from theHarvester.lib.virtual_host import VirtualHostObservation
 
 RELEASED_COMPLETED_SCHEMA = """
@@ -134,6 +140,13 @@ SCHEMA_V7_EVIDENCE_STATUS = (
     + """
 ALTER TABLE runs ADD COLUMN evidence_status TEXT;
 PRAGMA user_version = 7;
+"""
+)
+SCHEMA_V8_STRUCTURED_DETAILS = (
+    SCHEMA_V7_EVIDENCE_STATUS
+    + """
+ALTER TABLE results ADD COLUMN details_json TEXT;
+PRAGMA user_version = 8;
 """
 )
 
@@ -261,10 +274,10 @@ async def test_newer_schema_is_rejected_without_changing_journal_mode(tmp_path) 
     database = tmp_path / 'stash.sqlite'
     store = ResultStore(database)
     with sqlite3.connect(database) as db:
-        db.execute('PRAGMA user_version = 9')
+        db.execute('PRAGMA user_version = 10')
         original_journal_mode = db.execute('PRAGMA journal_mode').fetchone()[0]
 
-    with pytest.raises(RuntimeError, match='schema version 9 is newer than supported version 8'):
+    with pytest.raises(RuntimeError, match='schema version 10 is newer than supported version 9'):
         await store.initialize()
 
     with sqlite3.connect(database) as db:
@@ -396,7 +409,7 @@ async def test_structured_vhost_evidence_round_trips_in_the_results_table(tmp_pa
             'SELECT COUNT(*) FROM result_origins WHERE run_id = ?',
             (str(result.run_id),),
         ).fetchone()[0]
-    assert schema_version == 8
+    assert schema_version == 9
     assert stored_result[:2] == ('hostname', 'admin.example.com')
     assert json.loads(stored_result[2]) == [
         {key: value for key, value in observation.to_record().items() if key not in {'type', 'hostname'}}
@@ -404,6 +417,68 @@ async def test_structured_vhost_evidence_round_trips_in_the_results_table(tmp_pa
     ]
     assert executions == [('action', 'vhost', 1), ('source', 'crtsh', 1)]
     assert origin_count == 2
+
+
+@pytest.mark.asyncio
+async def test_structured_network_evidence_round_trips_in_the_results_table(tmp_path) -> None:
+    database = tmp_path / 'stash.sqlite'
+    store = ResultStore(database)
+    await store.initialize()
+    collected_at = datetime(2026, 8, 11, 12, 1, tzinfo=UTC)
+    observed_at = datetime(2026, 8, 11, 12, 0, tzinfo=UTC)
+    network_observations = (
+        PrefixOriginObservation('routeviews', '198.51.100.7/24', 64500, collected_at),
+        BgpRouteObservation(
+            'routeviews',
+            '198.51.100.0/24',
+            'AS64500',
+            'route-views.test',
+            64496,
+            '192.0.2.7',
+            '64496 64500',
+            '',
+            observed_at,
+            collected_at,
+        ),
+        RpkiValidationObservation(
+            'routeviews',
+            '198.51.100.0/24',
+            64500,
+            'not-found',
+            observed_at,
+            collected_at,
+        ),
+    )
+    result = CompletedResult.finish(
+        run_id=UUID('6db84c57-e459-4a5a-95c5-1c231a160ba6'),
+        target='example.com',
+        started_at=observed_at,
+        completed_at=collected_at,
+        groups={'asn': ['AS64500']},
+        active_evidence=ActiveEvidence(
+            executions=(
+                ActionExecution.finish(
+                    action='routeviews',
+                    status='completed',
+                    duration_ms=15,
+                    groups={'prefix': ['198.51.100.0/24']},
+                ),
+            )
+        ),
+        network_observations=network_observations,
+    )
+
+    await store.save_run(result)
+
+    assert await store.load_run(result.run_id) == result
+    with sqlite3.connect(database) as db:
+        schema_version = db.execute('PRAGMA user_version').fetchone()[0]
+        stored_details = db.execute(
+            "SELECT details_json FROM results WHERE run_id = ? AND kind = 'prefix'",
+            (str(result.run_id),),
+        ).fetchone()[0]
+    assert schema_version == 9
+    assert json.loads(stored_details) == network_observation_details(network_observations)
 
 
 @pytest.mark.asyncio
@@ -472,7 +547,7 @@ async def test_schema_v7_migrates_vhost_collision_without_losing_references(tmp_
     assert execution == ('vhost', 1)
     assert origins == [(0, 0)]
     assert artifacts == [(0, 0, 'screenshots/admin.example.com.png')]
-    assert schema_version == 8
+    assert schema_version == 9
 
 
 @pytest.mark.asyncio
@@ -531,6 +606,78 @@ async def test_loading_malformed_vhost_details_fails_closed(tmp_path, details_js
         db.commit()
 
     with pytest.raises(ResultStoreError, match='virtual-host details'):
+        await store.load_run(result.run_id)
+
+
+@pytest.mark.asyncio
+async def test_loading_vhost_details_without_vhost_provenance_preserves_compatibility_error(tmp_path) -> None:
+    database = tmp_path / 'stash.sqlite'
+    store = ResultStore(database)
+    await store.initialize()
+    result = CompletedResult.finish(
+        target='example.com',
+        started_at=datetime(2026, 8, 9, 12, 0, tzinfo=UTC),
+        completed_at=datetime(2026, 8, 9, 12, 1, tzinfo=UTC),
+        groups={},
+        active_evidence=ActiveEvidence(
+            executions=(
+                ActionExecution.finish(
+                    action='vhost',
+                    status='completed',
+                    duration_ms=1,
+                    groups={'hostname': ['admin.example.com']},
+                ),
+            )
+        ),
+        virtual_hosts=(vhost_observation('http://192.0.2.10', status=200, control_status=404),),
+    )
+    await store.save_run(result)
+    with sqlite3.connect(database) as db:
+        db.execute('DELETE FROM result_origins WHERE run_id = ?', (str(result.run_id),))
+        db.commit()
+
+    with pytest.raises(
+        ResultStoreError,
+        match='Persisted virtual-host details require hostname results with vhost provenance',
+    ):
+        await store.load_run(result.run_id)
+
+
+@pytest.mark.asyncio
+async def test_loading_oversized_network_details_fails_before_json_decode(tmp_path, monkeypatch) -> None:
+    database = tmp_path / 'stash.sqlite'
+    store = ResultStore(database)
+    await store.initialize()
+    collected_at = datetime(2026, 8, 11, 12, 1, tzinfo=UTC)
+    result = CompletedResult.finish(
+        target='example.com',
+        started_at=datetime(2026, 8, 11, 12, 0, tzinfo=UTC),
+        completed_at=collected_at,
+        groups={'asn': ['AS64500']},
+        active_evidence=ActiveEvidence(
+            executions=(
+                ActionExecution.finish(
+                    action='routeviews',
+                    status='completed',
+                    duration_ms=1,
+                    groups={'prefix': ['192.0.2.0/24']},
+                ),
+            )
+        ),
+        network_observations=(
+            PrefixOriginObservation('routeviews', '192.0.2.0/24', 'AS64500', collected_at),
+        ),
+    )
+    await store.save_run(result)
+    with sqlite3.connect(database) as db:
+        db.execute(
+            'UPDATE results SET details_json = ? WHERE run_id = ? AND kind = ?',
+            ('[]', str(result.run_id), 'prefix'),
+        )
+        db.commit()
+    monkeypatch.setattr('theHarvester.lib.network_evidence.MAX_NETWORK_DETAILS_BYTES', 1)
+
+    with pytest.raises(ResultStoreError, match='Persisted network details are invalid'):
         await store.load_run(result.run_id)
 
 
@@ -813,7 +960,7 @@ async def test_current_schema_reopens_without_running_legacy_migration(tmp_path)
 
 
 @pytest.mark.asyncio
-async def test_schema_v2_upgrades_to_v8_without_rewriting_existing_rows(tmp_path) -> None:
+async def test_schema_v2_upgrades_to_v9_without_rewriting_existing_rows(tmp_path) -> None:
     database = tmp_path / 'stash.sqlite'
     run_id = UUID('251d4047-190b-4a4d-9c4e-9eed3f23c8c7')
     with sqlite3.connect(database) as db:
@@ -857,8 +1004,59 @@ async def test_schema_v2_upgrades_to_v8_without_rewriting_existing_rows(tmp_path
         observations=(ResultObservation('crtsh', 'hostname', 'api.example.com'),),
     )
     with sqlite3.connect(database) as db:
-        assert db.execute('PRAGMA user_version').fetchone()[0] == 8
+        assert db.execute('PRAGMA user_version').fetchone()[0] == 9
         assert db.execute('SELECT COUNT(*) FROM artifacts').fetchone()[0] == 0
+
+
+@pytest.mark.asyncio
+async def test_schema_v8_merges_bare_and_prefixed_asns_without_losing_provenance_or_details(tmp_path) -> None:
+    database = tmp_path / 'stash.sqlite'
+    run_id = UUID('59a257b4-0542-41d0-a1a2-363e86441753')
+    vhost = vhost_observation('http://192.0.2.10', status=200, control_status=404)
+    with sqlite3.connect(database) as db:
+        db.executescript(SCHEMA_V8_STRUCTURED_DETAILS)
+        db.execute(
+            'INSERT INTO runs (run_id, target, started_at, completed_at) VALUES (?, ?, ?, ?)',
+            (str(run_id), 'example.com', '2026-08-09T12:00:00+00:00', '2026-08-09T12:01:00+00:00'),
+        )
+        db.executemany(
+            'INSERT INTO results (run_id, position, kind, value, details_json) VALUES (?, ?, ?, ?, ?)',
+            [
+                (str(run_id), 0, 'asn', '15133', None),
+                (str(run_id), 1, 'asn', 'AS15133', None),
+                (
+                    str(run_id),
+                    2,
+                    'hostname',
+                    'admin.example.com',
+                    json.dumps([{key: value for key, value in vhost.to_record().items() if key not in {'type', 'hostname'}}]),
+                ),
+            ],
+        )
+        db.executemany(
+            'INSERT INTO executions '
+            '(run_id, position, producer_kind, name, status, duration_ms, result_count) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [
+                (str(run_id), 0, 'source', 'criminalip', 'completed', 1.0, 2),
+                (str(run_id), 1, 'action', 'vhost', 'completed', 1.0, 1),
+            ],
+        )
+        db.executemany(
+            'INSERT INTO result_origins (run_id, result_position, execution_position) VALUES (?, ?, ?)',
+            [(str(run_id), 0, 0), (str(run_id), 1, 0), (str(run_id), 2, 1)],
+        )
+
+    store = ResultStore(database)
+    await store.initialize()
+    loaded = await store.load_run(run_id)
+
+    assert loaded.results == (('asn', 'AS15133'), ('hostname', 'admin.example.com'))
+    assert loaded.source_executions == (SourceExecution('criminalip', 'completed', 1.0, 1),)
+    assert loaded.observations == (ResultObservation('criminalip', 'asn', 'AS15133'),)
+    assert loaded.virtual_hosts == (vhost,)
+    with sqlite3.connect(database) as db:
+        assert db.execute('PRAGMA user_version').fetchone()[0] == 9
 
 
 @pytest.mark.asyncio
@@ -894,7 +1092,7 @@ async def test_schema_v6_adds_nullable_evidence_status_without_rewriting_executi
     assert loaded.status == 'partial'
     assert stored_status is None
     assert 'evidence_status' in run_columns
-    assert schema_version == 8
+    assert schema_version == 9
 
 
 @pytest.mark.asyncio
@@ -983,7 +1181,7 @@ async def test_schema_v4_merges_deprecated_url_kinds_without_losing_origins(tmp_
     assert screenshot.artifacts[0].subject_kind == 'url'
     assert screenshot.artifacts[0].subject_value == target_url
     with sqlite3.connect(database) as db:
-        assert db.execute('PRAGMA user_version').fetchone()[0] == 8
+        assert db.execute('PRAGMA user_version').fetchone()[0] == 9
         assert db.execute('SELECT DISTINCT kind FROM legacy_observations').fetchall() == [('url',)]
         assert db.execute('SELECT result_count FROM executions WHERE name = ?', ('api-scan',)).fetchone()[0] == 1
 
@@ -1061,7 +1259,7 @@ async def test_schema_v5_merges_ip_address_into_ip_without_losing_provenance_or_
     assert screenshot.artifacts[0].subject_kind == 'ip'
     assert screenshot.artifacts[0].subject_value == address
     with sqlite3.connect(database) as db:
-        assert db.execute('PRAGMA user_version').fetchone()[0] == 8
+        assert db.execute('PRAGMA user_version').fetchone()[0] == 9
         assert db.execute('SELECT kind, value FROM results').fetchall() == [('ip', address)]
         assert db.execute('SELECT execution_position FROM result_origins ORDER BY execution_position').fetchall() == [
             (0,),
@@ -1109,7 +1307,7 @@ async def test_released_results_migrate_to_legacy_observations(tmp_path) -> None
         ('/api/v1', 'url'),
         ('admin@example.com', 'email'),
     ]
-    assert schema_version == 8
+    assert schema_version == 9
 
 
 @pytest.mark.asyncio
@@ -1258,7 +1456,7 @@ async def test_schema_v1_observations_upgrade_without_losing_rows(tmp_path) -> N
         schema_version = db.execute('PRAGMA user_version').fetchone()[0]
     assert 'discovery_observations' not in tables
     assert rows == [('example.com', 'api.example.com', 'hostname', 'crtsh')]
-    assert schema_version == 8
+    assert schema_version == 9
 
 
 @pytest.mark.asyncio

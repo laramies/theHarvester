@@ -1003,11 +1003,17 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
             for index, source in enumerate(ordered_sources)
         ],
         'results': [
-            {
-                'type': result_type,
-                'value': '192.0.2.10' if result_type == 'ip' else f'{result_type}.example.com',
-                'sources': [ordered_sources[index]['name']] if index < 3 else [],
-            }
+                {
+                    'type': result_type,
+                    'value': (
+                        '192.0.2.10'
+                        if result_type == 'ip'
+                        else 'AS64500'
+                        if result_type == 'asn'
+                        else f'{result_type}.example.com'
+                    ),
+                    'sources': [ordered_sources[index]['name']] if index < 3 else [],
+                }
             for index, result_type in enumerate(('hostname', 'ip', 'asn', 'email', 'url', 'framework', 'person', 'language'))
         ]
         + [

@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Self
 
 from theHarvester.lib.evidence_types import EXECUTION_STATUSES, RESULT_KINDS, ExecutionStatus, ResultKind, format_utc
+from theHarvester.lib.result_values import normalize_result_value
 
 
 @dataclass(frozen=True, order=True, slots=True)
@@ -18,6 +19,7 @@ class ActionObservation:
             raise ValueError('screenshots must be stored as artifacts, not results')
         if not isinstance(self.value, str) or not self.value.strip():
             raise ValueError('action observation value must be a non-empty string')
+        object.__setattr__(self, 'value', normalize_result_value(self.kind, self.value))
 
 
 @dataclass(frozen=True, order=True, slots=True)

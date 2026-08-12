@@ -9,6 +9,11 @@ from fastapi import HTTPException, status
 
 from theHarvester.lib.completed_result import parse_result_jsonl, parse_virtual_host_details, virtual_host_details
 from theHarvester.lib.evidence_types import EVIDENCE_STATUSES
+from theHarvester.lib.network_evidence import (
+    network_observation_details,
+    parse_network_observation_details,
+)
+from theHarvester.lib.result_values import normalize_prefix
 
 from .run_models import _normalize_target
 
@@ -96,6 +101,42 @@ def validate_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail='vhost is not a result type; use hostname with virtual-host observations',
             )
+        if result.get('type') == 'prefix':
+            allowed_keys = {'type', 'value', 'sources', 'actions', 'scope', 'observations'}
+            if set(result) - allowed_keys:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail='Network evidence contains unsupported fields',
+                )
+            result_value = result.get('value')
+            if not isinstance(result_value, str) or result.get('scope') != 'external-relationship':
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail='Network evidence requires a canonical prefix with external-relationship scope',
+                )
+            sources = result.get('sources', [])
+            actions = result.get('actions', [])
+            if (
+                not isinstance(sources, list)
+                or any(not isinstance(source, str) or not source.strip() for source in sources)
+                or not isinstance(actions, list)
+                or any(not isinstance(action, str) or not action.strip() for action in actions)
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail='Network evidence producers must be arrays of non-empty strings',
+                )
+            try:
+                if normalize_prefix(result_value) != result_value:
+                    raise ValueError('network evidence result value must be a canonical prefix')
+                if 'observations' in result:
+                    network_observations = parse_network_observation_details(result_value, result.get('observations'))
+                    result['observations'] = network_observation_details(network_observations)
+            except ValueError as error:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
+            result['sources'] = sorted(set(sources))
+            result['actions'] = sorted(set(actions))
+            continue
         if 'observations' not in result:
             continue
         if result.get('type') != 'hostname':
@@ -134,7 +175,7 @@ def validate_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
                 detail='Virtual-host evidence must identify a hostname',
             )
         try:
-            observations = parse_virtual_host_details(result_value, details)
+            vhost_observations = parse_virtual_host_details(result_value, details)
         except ValueError as error:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
         target = str(evidence['target'])
@@ -147,12 +188,15 @@ def validate_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail='Virtual-host evidence requires a hostname target scope',
             )
-        if any(observation.hostname == target or not observation.hostname.endswith(f'.{target}') for observation in observations):
+        if any(
+            observation.hostname == target or not observation.hostname.endswith(f'.{target}')
+            for observation in vhost_observations
+        ):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail='Virtual-host evidence must be a strict descendant of the run target',
             )
         result['sources'] = sorted(set(sources))
         result['actions'] = sorted(set(actions))
-        result['observations'] = virtual_host_details(observations)
+        result['observations'] = virtual_host_details(vhost_observations)
     return evidence

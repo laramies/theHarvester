@@ -17,6 +17,7 @@ ResultKind = Literal[
     'language',
     'linkedin-person',
     'person',
+    'prefix',
     'server',
     'screenshot',
     'shodan',

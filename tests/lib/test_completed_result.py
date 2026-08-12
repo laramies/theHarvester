@@ -1,5 +1,5 @@
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -7,6 +7,14 @@ import pytest
 
 from theHarvester.lib.active_evidence import ActionExecution, ActionObservation, ActiveEvidence, ArtifactReference
 from theHarvester.lib.completed_result import CompletedResult, ResultObservation, SourceExecution, parse_result_jsonl
+from theHarvester.lib.network_evidence import (
+    BgpRouteObservation,
+    PrefixOriginObservation,
+    RpkiValidationObservation,
+    network_observation_details,
+    parse_network_observation_details,
+    parse_network_observation_json,
+)
 from theHarvester.lib.virtual_host import VirtualHostObservation
 
 
@@ -321,6 +329,433 @@ def test_completed_result_groups_structured_vhost_evidence_by_hostname() -> None
         ],
     }
     assert parsed_findings == records[1:]
+
+
+def test_completed_result_groups_canonical_network_evidence_by_prefix() -> None:
+    collected_at = datetime(2026, 8, 11, 12, 1, tzinfo=UTC)
+    observed_at = datetime(2026, 8, 11, 12, 0, tzinfo=UTC)
+    origin = PrefixOriginObservation('routeviews', '192.0.2.7/24', '64500', collected_at)
+    route = BgpRouteObservation(
+        'routeviews',
+        '192.0.2.7/24',
+        64500,
+        'route-views.test',
+        'AS64496',
+        '2001:db8::1',
+        ' 64496 64500 ',
+        ' 64496:100 64500:200 ',
+        observed_at,
+        collected_at,
+    )
+    validation = RpkiValidationObservation(
+        'routeviews',
+        '192.0.2.0/24',
+        'as64500',
+        'valid',
+        observed_at,
+        collected_at,
+    )
+    result = CompletedResult.finish(
+        target='example.com',
+        started_at=observed_at,
+        completed_at=collected_at,
+        groups={'asn': ['64500']},
+        active_evidence=ActiveEvidence(
+            executions=(
+                ActionExecution.finish(
+                    action='routeviews',
+                    status='completed',
+                    duration_ms=12.5,
+                    groups={'prefix': ['192.0.2.7/24']},
+                ),
+            )
+        ),
+        network_observations=(validation, route, origin, route),
+    )
+
+    records = [json.loads(line) for line in result.jsonl().splitlines()]
+    _summary, parsed_findings = parse_result_jsonl(result.jsonl())
+
+    assert result.results == (('asn', 'AS64500'), ('prefix', '192.0.2.0/24'))
+    assert result.active_evidence.executions[0].observations == (ActionObservation('prefix', '192.0.2.0/24'),)
+    assert result.network_observations == (origin, route, validation)
+    assert route.as_path == ' 64496 64500 '
+    assert route.communities == ' 64496:100 64500:200 '
+    assert records[1:] == [
+        {'sources': [], 'type': 'asn', 'value': 'AS64500'},
+        {
+            'actions': ['routeviews'],
+            'observations': [
+                {
+                    'action': 'routeviews',
+                    'collected_at': '2026-08-11T12:01:00Z',
+                    'origin_asn': 'AS64500',
+                    'type': 'observed-origin',
+                },
+                {
+                    'action': 'routeviews',
+                    'as_path': ' 64496 64500 ',
+                    'collected_at': '2026-08-11T12:01:00Z',
+                    'collector': 'route-views.test',
+                    'communities': ' 64496:100 64500:200 ',
+                    'observed_at': '2026-08-11T12:00:00Z',
+                    'origin_asn': 'AS64500',
+                    'peer_address': '2001:db8::1',
+                    'peer_asn': 'AS64496',
+                    'type': 'bgp-route',
+                },
+                {
+                    'action': 'routeviews',
+                    'collected_at': '2026-08-11T12:01:00Z',
+                    'observed_at': '2026-08-11T12:00:00Z',
+                    'origin_asn': 'AS64500',
+                    'state': 'valid',
+                    'type': 'rpki-validation',
+                },
+            ],
+            'scope': 'external-relationship',
+            'sources': [],
+            'type': 'prefix',
+            'value': '192.0.2.0/24',
+        },
+    ]
+    assert parsed_findings == [{**records[1], 'actions': []}, records[2]]
+
+
+def test_bgp_route_rejects_provider_time_after_collection() -> None:
+    collected_at = datetime(2026, 8, 11, 12, 0, tzinfo=UTC)
+
+    with pytest.raises(ValueError, match='observed_at must not be later than collected_at'):
+        BgpRouteObservation(
+            'routeviews',
+            '192.0.2.0/24',
+            'AS64500',
+            'route-views.test',
+            'AS64496',
+            '2001:db8::1',
+            '64496 64500',
+            '',
+            datetime(2026, 8, 11, 12, 1, tzinfo=UTC),
+            collected_at,
+        )
+
+
+def test_rpki_validation_rejects_provider_time_after_collection() -> None:
+    collected_at = datetime(2026, 8, 11, 12, 0, tzinfo=UTC)
+
+    with pytest.raises(ValueError, match='observed_at must not be later than collected_at'):
+        RpkiValidationObservation(
+            'routeviews',
+            '192.0.2.0/24',
+            'AS64500',
+            'valid',
+            datetime(2026, 8, 11, 12, 1, tzinfo=UTC),
+            collected_at,
+        )
+
+
+def test_network_observation_rejects_non_utf8_text() -> None:
+    collected_at = datetime(2026, 8, 11, 12, 0, tzinfo=UTC)
+
+    with pytest.raises(ValueError, match='collector is invalid'):
+        BgpRouteObservation(
+            'routeviews',
+            '192.0.2.0/24',
+            'AS64500',
+            '\ud800',
+            'AS64496',
+            '2001:db8::1',
+            '64496 64500',
+            '',
+            collected_at,
+            collected_at,
+        )
+
+
+@pytest.mark.parametrize(
+    ('field', 'value'),
+    [
+        ('collector', 'route\x00views'),
+        ('collector', 'route\x1bviews'),
+        ('as_path', '64496\x00 64500'),
+        ('communities', '64500:1\x1b'),
+    ],
+)
+def test_network_observation_rejects_control_characters(field: str, value: str) -> None:
+    collected_at = datetime(2026, 8, 11, 12, 0, tzinfo=UTC)
+    fields = {
+        'collector': 'route-views.test',
+        'as_path': '64496 64500',
+        'communities': '',
+    }
+    fields[field] = value
+
+    with pytest.raises(ValueError, match=f'{field.replace("_", " ").replace("as path", "AS path")} is invalid'):
+        BgpRouteObservation(
+            'routeviews',
+            '192.0.2.0/24',
+            'AS64500',
+            fields['collector'],
+            'AS64496',
+            '2001:db8::1',
+            fields['as_path'],
+            fields['communities'],
+            collected_at,
+            collected_at,
+        )
+
+
+@pytest.mark.parametrize('value', ['fe80::%eth0/64', 'fe80::%?q/64', 'fe80::%\ud800/64', 'fe80::%bad\n/64'])
+def test_network_prefix_rejects_ipv6_scope_identifiers(value: str) -> None:
+    with pytest.raises(ValueError, match='must not contain an IPv6 scope identifier'):
+        PrefixOriginObservation(
+            'routeviews',
+            value,
+            'AS64500',
+            datetime(2026, 8, 11, 12, 0, tzinfo=UTC),
+        )
+
+
+@pytest.mark.parametrize('value', ['fe80::1%eth0', 'fe80::1%?q', 'fe80::1%\ud800'])
+def test_network_peer_rejects_ipv6_scope_identifiers(value: str) -> None:
+    collected_at = datetime(2026, 8, 11, 12, 0, tzinfo=UTC)
+
+    with pytest.raises(ValueError, match='must not contain an IPv6 scope identifier'):
+        BgpRouteObservation(
+            'routeviews',
+            '2001:db8::/32',
+            'AS64500',
+            'route-views.test',
+            'AS64496',
+            value,
+            '64496 64500',
+            '',
+            collected_at,
+            collected_at,
+        )
+
+
+def test_completed_result_rejects_collection_outside_run_window() -> None:
+    started_at = datetime(2026, 8, 11, 12, 0, tzinfo=UTC)
+    completed_at = datetime(2026, 8, 11, 12, 1, tzinfo=UTC)
+    origin = PrefixOriginObservation('routeviews', '192.0.2.0/24', 'AS64500', completed_at + timedelta(seconds=1))
+
+    with pytest.raises(ValueError, match='collection time must fall within the completed run'):
+        CompletedResult.finish(
+            target='example.com',
+            started_at=started_at,
+            completed_at=completed_at,
+            groups={'asn': ['AS64500']},
+            active_evidence=ActiveEvidence(
+                executions=(
+                    ActionExecution.finish(
+                        action='routeviews',
+                        status='completed',
+                        duration_ms=1,
+                        groups={'prefix': ['192.0.2.0/24']},
+                    ),
+                )
+            ),
+            network_observations=(origin,),
+        )
+
+
+def test_network_details_reject_excessive_observation_count(monkeypatch) -> None:
+    monkeypatch.setattr('theHarvester.lib.network_evidence.MAX_NETWORK_OBSERVATIONS_PER_PREFIX', 1)
+    details = [
+        {
+            'type': 'observed-origin',
+            'action': 'routeviews',
+            'origin_asn': f'AS{64500 + index}',
+            'collected_at': '2026-08-11T12:01:00Z',
+        }
+        for index in range(2)
+    ]
+
+    with pytest.raises(ValueError, match='too many observations'):
+        parse_network_observation_details('192.0.2.0/24', details)
+
+
+def test_network_details_reject_excessive_serialized_size(monkeypatch) -> None:
+    collected_at = datetime(2026, 8, 11, 12, 0, tzinfo=UTC)
+    origin = PrefixOriginObservation('routeviews', '192.0.2.0/24', 'AS64500', collected_at)
+    monkeypatch.setattr('theHarvester.lib.network_evidence.MAX_NETWORK_DETAILS_BYTES', 1)
+
+    with pytest.raises(ValueError, match='serialized size limit'):
+        network_observation_details((origin,))
+
+
+def test_network_json_rejects_utf8_byte_size_before_decoding(monkeypatch) -> None:
+    monkeypatch.setattr('theHarvester.lib.network_evidence.MAX_NETWORK_DETAILS_BYTES', 5)
+
+    with pytest.raises(ValueError, match='serialized size limit'):
+        parse_network_observation_json('192.0.2.0/24', '["é"]')
+
+
+def test_network_details_reject_conflicting_rpki_states() -> None:
+    details = [
+        {
+            'type': 'rpki-validation',
+            'action': 'routeviews',
+            'origin_asn': 'AS64500',
+            'state': state,
+            'observed_at': '2026-08-11T12:00:00Z',
+            'collected_at': f'2026-08-11T12:01:0{index}Z',
+        }
+        for index, state in enumerate(('valid', 'invalid'))
+    ]
+
+    with pytest.raises(ValueError, match='conflicting RPKI states'):
+        parse_network_observation_details('192.0.2.0/24', details)
+
+
+def test_jsonl_rejects_excessive_json_nesting() -> None:
+    payload = '{"type":"summary"}\n{"type":"asn","value":' + '[' * 100_000 + '0' + ']' * 100_000 + '}'
+
+    with pytest.raises(ValueError, match='not valid JSONL'):
+        parse_result_jsonl(payload)
+
+
+def test_querying_an_existing_prefix_remains_one_action_result() -> None:
+    completed_at = datetime(2026, 8, 11, 12, 1, tzinfo=UTC)
+    result = CompletedResult.finish(
+        target='example.com',
+        started_at=completed_at,
+        completed_at=completed_at,
+        groups={'prefix': ['192.0.2.0/24']},
+        active_evidence=ActiveEvidence(
+            executions=(
+                ActionExecution.finish(
+                    action='routeviews',
+                    status='completed',
+                    duration_ms=1,
+                    groups={'prefix': ['192.0.2.7/24']},
+                ),
+            )
+        ),
+    )
+
+    assert result.results == (('prefix', '192.0.2.0/24'),)
+    assert result.active_evidence.executions[0].result_count == 1
+    assert result.evidence_dict()['results'] == [
+        {
+            'type': 'prefix',
+            'value': '192.0.2.0/24',
+            'scope': 'external-relationship',
+            'sources': [],
+            'actions': ['routeviews'],
+        }
+    ]
+
+
+@pytest.mark.parametrize(
+    ('field', 'value', 'message'),
+    [
+        ('scope', 'in-scope', 'prefix scope'),
+        ('owns', True, 'known type'),
+        ('registered_to', 'Example Organization', 'known type'),
+    ],
+)
+def test_jsonl_rejects_network_scope_inflation_and_ownership_claims(
+    field: str,
+    value: object,
+    message: str,
+) -> None:
+    finding = {
+        'type': 'prefix',
+        'value': '192.0.2.0/24',
+        'scope': 'external-relationship',
+        'sources': [],
+        'actions': ['routeviews'],
+        'observations': [
+            {
+                'type': 'observed-origin',
+                'action': 'routeviews',
+                'origin_asn': 'AS64500',
+                'collected_at': '2026-08-11T12:01:00Z',
+            }
+        ],
+    }
+    finding[field] = value
+    payload = '\n'.join((json.dumps({'type': 'summary'}), json.dumps(finding)))
+
+    with pytest.raises(ValueError, match=message):
+        parse_result_jsonl(payload)
+
+
+@pytest.mark.parametrize(
+    ('finding', 'message'),
+    [
+        (
+            {
+                'type': 'prefix',
+                'value': '192.0.2.7/24',
+                'scope': 'external-relationship',
+                'sources': [],
+                'actions': [],
+            },
+            'canonical prefix',
+        ),
+    ],
+)
+def test_jsonl_rejects_noncanonical_network_result_values(finding: dict[str, object], message: str) -> None:
+    payload = '\n'.join((json.dumps({'type': 'summary'}), json.dumps(finding)))
+
+    with pytest.raises(ValueError, match=message):
+        parse_result_jsonl(payload)
+
+
+def test_jsonl_normalizes_legacy_bare_asn_value() -> None:
+    payload = '\n'.join(
+        (
+            json.dumps({'type': 'summary'}),
+            json.dumps({'type': 'asn', 'value': '64500', 'sources': ['criminalip'], 'actions': []}),
+        )
+    )
+
+    _summary, findings = parse_result_jsonl(payload)
+
+    assert findings == [{'type': 'asn', 'value': 'AS64500', 'sources': ['criminalip'], 'actions': []}]
+
+
+@pytest.mark.parametrize(
+    'observation',
+    [
+        {
+            'type': [],
+            'action': 'routeviews',
+            'origin_asn': 'AS64500',
+            'collected_at': '2026-08-11T12:01:00Z',
+        },
+        {
+            'type': 'rpki-validation',
+            'action': 'routeviews',
+            'origin_asn': 'AS64500',
+            'state': [],
+            'observed_at': '2026-08-11T12:00:00Z',
+            'collected_at': '2026-08-11T12:01:00Z',
+        },
+    ],
+)
+def test_jsonl_rejects_non_string_network_discriminators(observation: dict[str, object]) -> None:
+    payload = '\n'.join(
+        (
+            json.dumps({'type': 'summary'}),
+            json.dumps(
+                {
+                    'type': 'prefix',
+                    'value': '192.0.2.0/24',
+                    'scope': 'external-relationship',
+                    'sources': [],
+                    'actions': ['routeviews'],
+                    'observations': [observation],
+                }
+            ),
+        )
+    )
+
+    with pytest.raises(ValueError, match='invalid network observations'):
+        parse_result_jsonl(payload)
 
 
 def test_completed_result_rejects_structured_vhost_without_vhost_action_provenance() -> None:
