@@ -580,6 +580,17 @@ async def test_stream_records_preserves_complete_prefix_before_response_limit(mo
 
 
 @pytest.mark.asyncio
+async def test_stream_records_accepts_final_record_ending_exactly_at_response_limit(monkeypatch) -> None:
+    install_stream_response(monkeypatch, chunks=(b'one\ntwo',))
+    monkeypatch.setattr(core_module, 'MAX_PROVIDER_STREAM_BYTES', 7)
+    lines: list[str] = []
+
+    await collect_default_stream(lines)
+
+    assert lines == ['one', 'two']
+
+
+@pytest.mark.asyncio
 async def test_stream_records_rejects_oversized_record_after_complete_prefix(monkeypatch) -> None:
     install_stream_response(monkeypatch, chunks=(b'ok\n123', b'456\n'))
     monkeypatch.setattr(core_module, 'MAX_STREAM_RECORD_BYTES', 5)

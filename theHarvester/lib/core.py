@@ -412,6 +412,7 @@ class Core:
             'chaos',
             'commoncrawl',
             'criminalip',
+            'crt-name',
             'crtsh',
             'dehashed',
             'dnsdb',

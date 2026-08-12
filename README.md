@@ -172,6 +172,7 @@ Read the **API key** column as follows:
 | `chaos` | ✓ | No | No | No | No | No | No | No | ✓ |
 | `commoncrawl` | ✓ | No | No | No | No | No | No | No | No |
 | `criminalip` | ✓ | No | ✓ | ✓ | No | No | No | No | ✓ |
+| `crt-name` | ✓ | No | No | No | No | No | No | No | No |
 | `crtsh` | ✓ | No | No | No | No | No | No | No | No |
 | `dehashed` | No | ✓ | ✓ | No | No | No | No | No | ✓ |
 | `dnsdb` | ✓ | No | No | No | No | No | No | No | ✓ |
@@ -222,6 +223,8 @@ Read the **API key** column as follows:
 </details>
 
 `apis-guru` performs P0 provider-side collection through APIs.guru's public v2 API. It requests the exact target-domain directory entry and follows every matching preferred OpenAPI specification within hard 1,000-entry and 10-minute safety ceilings. `--limit` bounds retained results per output type without truncating catalog traversal. The source retains only target-scoped hostnames, contact emails, and HTTP(S) URLs; external OAuth, CDN, and third-party server references are excluded. API specifications, operations, security declarations, version provenance, and external relationships remain deferred until the normalized evidence model can represent them without flattening their meaning.
+
+`crt-name` requests the provider's single unpaginated composite response for the exact operator-requested scope and retains only names inside that scope. It does not broaden a descendant target to its registrable domain, use `-l` / `--limit`, contact the target, or replace `crtsh`. Its results combine certificate-transparency and other public datasets, so overlap with `crtsh` is expected and a returned hostname is not proof of ownership, scope, or current liveness. The response remains subject to the shared 64 MiB stream and 90-second runtime ceilings.
 
 `sourcegraph` makes one anonymous, provider-only search capped at 5,000 code matches. It does not use `-l` / `--limit`; returned names are candidates mentioned in indexed code, not proof of ownership or liveness.
 

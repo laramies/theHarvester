@@ -38,6 +38,7 @@ from theHarvester.discovery import (
     chaos,
     commoncrawl,
     criminalip,
+    crtname,
     crtsh,
     dnsdb,
     dnssearch,
@@ -1081,6 +1082,13 @@ async def start(
                                 output_logger.info(f'A Missing key error occurred in criminalip: {e}')
                         else:
                             show_default_error_message(engineitem, word, e)
+
+                elif engineitem == 'crt-name':
+                    try:
+                        crt_name_search = crtname.SearchCrtName(word)
+                        stor_lst.append(store(crt_name_search, engineitem))
+                    except Exception as e:
+                        show_default_error_message(engineitem, word, e)
 
                 elif engineitem == 'crtsh':
                     try:

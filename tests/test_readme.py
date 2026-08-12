@@ -81,8 +81,8 @@ def test_readme_matches_declared_source_contracts() -> None:
     declared = _declared_source_contracts()
 
     assert '| Source | Subdomains | Emails | IPs | ASNs | URLs | People | Breaches |' in readme
-    assert len(declared) == 58
-    assert len(documented) == 58
+    assert len(declared) == 59
+    assert len(documented) == 59
     assert documented == declared
     assert {'securitytrails', 'shodaninternetdb'}.isdisjoint(documented)
 
