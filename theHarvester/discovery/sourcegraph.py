@@ -74,7 +74,7 @@ class SearchSourcegraph:
     """Collect descendant-hostname candidates mentioned in Sourcegraph code matches."""
 
     ENDPOINT = 'https://sourcegraph.com/.api/search/stream'
-    MATCH_COUNT = 2000
+    MATCH_COUNT = 5000
     MAX_EVENTS = 10_000
     MAX_HOSTNAMES = 10_000
     MAX_LINE_LENGTH = 4096
