@@ -97,6 +97,7 @@ class TakeOver:
                 shuffle(all_hosts)
                 responses: list[tuple[str, FetcherResponse | None]] = await AsyncFetcher.fetch_all(
                     all_hosts,
+                    headers={'User-Agent': Core.get_browser_user_agent()},
                     takeover=True,
                     proxy=self.proxy,
                     include_metadata=True,

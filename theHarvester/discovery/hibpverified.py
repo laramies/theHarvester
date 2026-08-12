@@ -13,7 +13,7 @@ class SearchHibpVerified:
         if not self.api_key:
             raise MissingKey('HIBP verified domain')
         self.base_url = 'https://haveibeenpwned.com/api/v3'
-        self.headers = {'hibp-api-key': self.api_key, 'user-agent': 'theHarvester'}
+        self.headers = {'hibp-api-key': self.api_key, 'User-Agent': Core.get_user_agent()}
         self.emails: set[str] = set()
         self.breach_names: set[str] = set()
 

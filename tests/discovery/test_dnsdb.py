@@ -74,7 +74,7 @@ async def test_process_collects_normalized_in_scope_rrset_owners(monkeypatch: py
     assert isinstance(stream_options, dict)
     assert stream_options['headers'] == {
         'Accept': 'application/x-ndjson',
-        'User-Agent': f'theHarvester/{dnsdb.__version__}',
+        'User-Agent': dnsdb.Core.get_user_agent(),
         'X-API-Key': 'dnsdb-test-key',
     }
     assert stream_options['framing'] == 'ndjson'

@@ -19,7 +19,7 @@ class SearchRapidDns:
 
     async def do_search(self):
         try:
-            headers = {'User-agent': Core.get_user_agent()}
+            headers = {'User-Agent': Core.get_browser_user_agent()}
             # TODO see if it's worth adding sameip searches
             # f'{self.hostname}/sameip/{self.word}?full=1#result'
             urls = [f'https://rapiddns.io/subdomain/{self.word}?full=1#result']

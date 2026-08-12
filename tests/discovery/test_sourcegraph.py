@@ -95,7 +95,6 @@ async def test_sourcegraph_uses_fixed_chunk_query_and_collects_descendants(
         event('done', {}),
     )
     calls = install_stream(monkeypatch, records)
-    monkeypatch.setattr(sourcegraph.Core, 'get_user_agent', staticmethod(lambda: 'test-agent'))
     search = sourcegraph.SearchSourcegraph(' Scope.TEST. ', limit=1)
 
     await search.process(proxy=True)
@@ -104,7 +103,7 @@ async def test_sourcegraph_uses_fixed_chunk_query_and_collects_descendants(
         {
             'url': 'https://sourcegraph.com/.api/search/stream',
             'framing': 'sse',
-            'headers': {'Accept': 'text/event-stream', 'User-Agent': 'test-agent'},
+            'headers': {'Accept': 'text/event-stream'},
             'params': {
                 'q': '"scope.test" type:file count:5000 timeout:10s patternType:keyword',
                 'v': 'V3',

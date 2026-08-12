@@ -21,7 +21,7 @@ class SearchBaidu:
     async def do_search(self) -> None:
         self.execution_status = None
         self.stop_reason = None
-        headers = {'Host': self.hostname, 'User-agent': Core.get_user_agent()}
+        headers = {'Host': self.hostname, 'User-Agent': Core.get_browser_user_agent()}
         base_url = f'https://{self.server}/s'
         urls = [
             f'{base_url}?{urlencode({"wd": f"site:{self.word}", "pn": num})}'

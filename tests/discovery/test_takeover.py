@@ -13,6 +13,7 @@ async def test_takeover_distinguishes_transport_failure_from_successful_empty_bo
 
     async def fake_fetch_all(urls, **kwargs):
         assert kwargs['include_metadata'] is True
+        assert kwargs['headers'] == {'User-Agent': takeover.Core.get_browser_user_agent()}
         assert set(urls) == {
             'https://api.example.com',
             'http://api.example.com',

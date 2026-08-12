@@ -15,7 +15,11 @@ class SearchSecurityScorecard:
         if self.api_key is None:
             raise MissingKey('SecurityScorecard')
         self.base_url = 'https://api.securityscorecard.io'
-        self.headers = {'Authorization': f'Token {self.api_key}', 'Content-Type': 'application/json'}
+        self.headers = {
+            'Authorization': f'Token {self.api_key}',
+            'Content-Type': 'application/json',
+            'User-Agent': Core.get_user_agent(),
+        }
         self.hosts: set[str] = set()
         self.score: int = 0
         self.grades: dict = {}

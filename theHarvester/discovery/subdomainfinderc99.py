@@ -20,7 +20,7 @@ class SearchSubdomainfinderc99:
 
     async def do_search(self) -> None:
         # Based on https://gist.github.com/th3gundy/bc83580cbe04031e9164362b33600962
-        headers = {'User-Agent': Core.get_user_agent()}
+        headers = {'User-Agent': Core.get_browser_user_agent()}
         resp = await AsyncFetcher.fetch_all([self.server], headers=headers, proxy=self.proxy)
         if not resp or not isinstance(resp[0], str):
             return

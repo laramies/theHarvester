@@ -21,7 +21,7 @@ async def test_yahoo_uses_exact_pages_and_normalizes_evidence(monkeypatch: pytes
             'Ignore outsider@example.net and api.example.net',
         ]
 
-    monkeypatch.setattr(yahoosearch.Core, 'get_user_agent', staticmethod(lambda: 'UA'))
+    monkeypatch.setattr(yahoosearch.Core, 'get_browser_user_agent', staticmethod(lambda: 'UA'))
     monkeypatch.setattr(yahoosearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
 
     search = yahoosearch.SearchYahoo('example.com', 20)
@@ -33,7 +33,7 @@ async def test_yahoo_uses_exact_pages_and_normalizes_evidence(monkeypatch: pytes
                 'https://search.yahoo.com/search?p=%40example.com&b=0&pz=10',
                 'https://search.yahoo.com/search?p=%40example.com&b=10&pz=10',
             ],
-            'headers': {'Host': 'search.yahoo.com', 'User-agent': 'UA'},
+            'headers': {'Host': 'search.yahoo.com', 'User-Agent': 'UA'},
             'proxy': True,
         }
     ]
