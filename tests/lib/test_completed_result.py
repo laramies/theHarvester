@@ -9,6 +9,8 @@ from theHarvester.lib.active_evidence import ActionExecution, ActionObservation,
 from theHarvester.lib.completed_result import CompletedResult, ResultObservation, SourceExecution, parse_result_jsonl
 from theHarvester.lib.network_evidence import (
     BgpRouteObservation,
+    NetworkEvidenceAccumulator,
+    NetworkEvidenceLimitError,
     PrefixOriginObservation,
     RpkiValidationObservation,
     network_observation_details,
@@ -607,6 +609,28 @@ def test_network_details_reject_conflicting_rpki_states() -> None:
 
     with pytest.raises(ValueError, match='conflicting RPKI states'):
         parse_network_observation_details('192.0.2.0/24', details)
+
+
+def test_network_evidence_accumulator_owns_incremental_deduplication_and_limits() -> None:
+    collected_at = datetime(2026, 8, 11, 12, 1, tzinfo=UTC)
+    accumulator = NetworkEvidenceAccumulator(max_observations_per_prefix=1)
+
+    assert accumulator.add(PrefixOriginObservation('routeviews', '192.0.2.0/24', 'AS64500', collected_at))
+    assert not accumulator.add(
+        PrefixOriginObservation('routeviews', '192.0.2.0/24', 'AS64500', collected_at + timedelta(seconds=1))
+    )
+    with pytest.raises(NetworkEvidenceLimitError, match='too many observations'):
+        accumulator.add(
+            RpkiValidationObservation(
+                'routeviews',
+                '192.0.2.0/24',
+                'AS64500',
+                'valid',
+                collected_at,
+                collected_at,
+            )
+        )
+    assert len(accumulator.observations()) == 1
 
 
 def test_jsonl_rejects_excessive_json_nesting() -> None:
