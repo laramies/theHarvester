@@ -536,7 +536,7 @@ async def test_stream_records_rejects_incomplete_sse_after_complete_prefix(monke
 @pytest.mark.asyncio
 async def test_stream_records_preserves_complete_prefix_before_response_limit(monkeypatch) -> None:
     install_stream_response(monkeypatch, chunks=(b'one\n', b'two\n', b'x'))
-    monkeypatch.setattr(core_module, 'MAX_STREAM_RESPONSE_BYTES', 8)
+    monkeypatch.setattr(core_module, 'MAX_PROVIDER_STREAM_BYTES', 8)
     lines: list[str] = []
 
     with pytest.raises(core_module.ResponseStreamError) as raised:
@@ -647,6 +647,131 @@ async def test_stream_records_propagates_cancellation_and_closes_session(monkeyp
 
     with pytest.raises(asyncio.CancelledError) as raised:
         await collect_default_stream([])
+
+    assert raised.value is cancelled
+    assert DummySession.instances[0].closed is True
+
+
+@pytest.mark.asyncio
+async def test_fetch_json_reads_bounded_fragmented_utf8_without_redirects(monkeypatch) -> None:
+    install_stream_response(
+        monkeypatch,
+        chunks=(b'{"name":"caf\xc3', b'\xa9"}'),
+        headers={'X-Provider': 'ready'},
+    )
+
+    result = await AsyncFetcher.fetch_json(
+        'https://provider.example/data',
+        params={'asn': '64500'},
+        headers={'Api-Key': 'secret'},
+        request_timeout=30,
+    )
+
+    assert result == FetcherResponse(
+        body={'name': 'café'},
+        status=200,
+        headers={'x-provider': 'ready'},
+    )
+    assert DummySession.instances[0].closed is True
+    assert DummySession.instances[0].requests == [
+        (
+            'GET',
+            'https://provider.example/data',
+            {
+                'ssl': 'ssl-context',
+                'allow_redirects': False,
+                'params': {'asn': '64500'},
+            },
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_fetch_json_accepts_body_at_shared_limit(monkeypatch) -> None:
+    install_stream_response(monkeypatch, chunks=(b'{"a":1}',))
+    monkeypatch.setattr(core_module, 'MAX_PROVIDER_JSON_BYTES', 7)
+
+    result = await AsyncFetcher.fetch_json('https://provider.example/data')
+
+    assert result.body == {'a': 1}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('headers', [None, {'Content-Length': '1'}])
+async def test_fetch_json_rejects_body_over_shared_limit(monkeypatch, headers: dict[str, str] | None) -> None:
+    install_stream_response(monkeypatch, chunks=(b'{"a":1}', b' '), headers=headers)
+    monkeypatch.setattr(core_module, 'MAX_PROVIDER_JSON_BYTES', 7)
+
+    with pytest.raises(core_module.ResponseStreamError) as raised:
+        await AsyncFetcher.fetch_json('https://provider.example/data')
+
+    assert raised.value.reason == 'response-limit'
+    assert DummySession.instances[0].closed is True
+
+
+@pytest.mark.asyncio
+async def test_fetch_json_rejects_declared_oversized_body(monkeypatch) -> None:
+    install_stream_response(monkeypatch, chunks=(b'{"a":1}',), headers={'Content-Length': '8'})
+    monkeypatch.setattr(core_module, 'MAX_PROVIDER_JSON_BYTES', 7)
+
+    with pytest.raises(core_module.ResponseStreamError) as raised:
+        await AsyncFetcher.fetch_json('https://provider.example/data')
+
+    assert raised.value.reason == 'response-limit'
+
+
+@pytest.mark.asyncio
+async def test_fetch_json_preserves_non_success_status_without_parsing_body(monkeypatch) -> None:
+    install_stream_response(
+        monkeypatch,
+        chunks=(b'<html>limited</html>',),
+        status=429,
+        headers={'Retry-After': '60'},
+    )
+
+    result = await AsyncFetcher.fetch_json('https://provider.example/data')
+
+    assert result == FetcherResponse(body=None, status=429, headers={'retry-after': '60'})
+
+
+@pytest.mark.asyncio
+async def test_fetch_json_returns_none_for_no_content(monkeypatch) -> None:
+    install_stream_response(monkeypatch, chunks=(), status=204)
+
+    result = await AsyncFetcher.fetch_json('https://provider.example/data')
+
+    assert result == FetcherResponse(body=None, status=204, headers={})
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('chunks', [(b'\xff',), (b'{',), (b'{"value":NaN}',)])
+async def test_fetch_json_rejects_invalid_utf8_or_json(monkeypatch, chunks: tuple[bytes, ...]) -> None:
+    install_stream_response(monkeypatch, chunks=chunks)
+
+    with pytest.raises(core_module.ResponseStreamError) as raised:
+        await AsyncFetcher.fetch_json('https://provider.example/data')
+
+    assert raised.value.reason == 'invalid-response'
+
+
+@pytest.mark.asyncio
+async def test_fetch_json_reports_transport_failure_and_closes_session(monkeypatch) -> None:
+    install_stream_response(monkeypatch, chunks=(), error=TimeoutError())
+
+    with pytest.raises(core_module.ResponseStreamError) as raised:
+        await AsyncFetcher.fetch_json('https://provider.example/data')
+
+    assert raised.value.reason == 'transport-error'
+    assert DummySession.instances[0].closed is True
+
+
+@pytest.mark.asyncio
+async def test_fetch_json_propagates_cancellation_and_closes_session(monkeypatch) -> None:
+    cancelled = asyncio.CancelledError()
+    install_stream_response(monkeypatch, chunks=(), error=cancelled)
+
+    with pytest.raises(asyncio.CancelledError) as raised:
+        await AsyncFetcher.fetch_json('https://provider.example/data')
 
     assert raised.value is cancelled
     assert DummySession.instances[0].closed is True
