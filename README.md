@@ -160,6 +160,7 @@ Read the **API key** column as follows:
 
 | Source | Subdomains | Emails | IPs | ASNs | URLs | People | Breaches | Additional action output (not consolidated report) | API key |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | --- | :---: |
+| `apis-guru` | ✓ | ✓ | No | No | ✓ | No | No | No | No |
 | `arquivo` | ✓ | No | No | No | No | No | No | No | No |
 | `baidu` | ✓ | ✓ | No | No | No | No | No | No | No |
 | `bevigil` | ✓ | No | No | No | ✓ | No | No | No | ✓ |
@@ -218,6 +219,8 @@ Read the **API key** column as follows:
 | `zoomeye` | ✓ | ✓ | ✓ | ✓ | ✓ | No | No | No | ✓ |
 
 </details>
+
+`apis-guru` performs P0 provider-side collection through APIs.guru's public v2 API. It requests the exact target-domain directory entry and follows every matching preferred OpenAPI specification within hard 1,000-entry and 10-minute safety ceilings. `--limit` bounds retained results per output type without truncating catalog traversal. The source retains only target-scoped hostnames, contact emails, and HTTP(S) URLs; external OAuth, CDN, and third-party server references are excluded. API specifications, operations, security declarations, version provenance, and external relationships remain deferred until the normalized evidence model can represent them without flattening their meaning.
 
 Provider pricing is intentionally omitted because plans and quotas change frequently. See [Configuration and API Keys](docs/wiki/Configuration-and-API-Keys.md) and each provider's current documentation.
 

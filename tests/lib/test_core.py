@@ -22,6 +22,7 @@ def mock_environ(monkeypatch, tmp_path: Path):
 
 def test_email_capability_expands_to_email_sources() -> None:
     assert Core.expand_source_selection("emails") == [
+        "apis-guru",
         "baidu",
         "brave",
         "censys",
@@ -46,6 +47,7 @@ def test_email_capability_expands_to_email_sources() -> None:
 
 def test_capabilities_and_explicit_sources_form_a_union() -> None:
     assert Core.expand_source_selection("certspotter, urls") == [
+        "apis-guru",
         "bevigil",
         "builtwith",
         "certspotter",

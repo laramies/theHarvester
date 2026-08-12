@@ -294,6 +294,7 @@ async def test_all_schedules_each_passive_catalog_source_once_and_reports_result
     assert findings[('hostname', 'sub.example.test')]['sources']
     assert findings[('email', 'user@example.test')]['sources']
     assert findings[('url', 'https://sub.example.test/evidence')]['sources'] == [
+        'apis-guru',
         'bevigil',
         'builtwith',
         'gitlab',

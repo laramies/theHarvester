@@ -1,7 +1,7 @@
 import ast
 from pathlib import Path
 
-from theHarvester.discovery import bevigil, builtwith, gitlabsearch, intelxsearch, rocketreach, urlscan, zoomeyesearch
+from theHarvester.discovery import apisguru, bevigil, builtwith, gitlabsearch, intelxsearch, rocketreach, urlscan, zoomeyesearch
 from theHarvester.lib.core import Core
 from theHarvester.lib.source_catalog import SOURCE_SPECS, ResultRoute, SourceSpec, get_source_spec
 
@@ -50,6 +50,9 @@ def test_subdomain_route_drives_subdomain_capability() -> None:
 
 
 def test_source_specs_describe_consolidated_routes_not_getter_presence() -> None:
+    assert SOURCE_SPECS['apis-guru'].routes == frozenset(
+        {ResultRoute.SUBDOMAINS, ResultRoute.EMAILS, ResultRoute.URLS}
+    )
     assert SOURCE_SPECS['gitlab'].routes == frozenset({ResultRoute.SUBDOMAINS, ResultRoute.EMAILS, ResultRoute.URLS})
     assert SOURCE_SPECS['haveibeenpwned'].routes == frozenset({ResultRoute.BREACHES})
     assert SOURCE_SPECS['hibpverified'].routes == frozenset({ResultRoute.EMAILS, ResultRoute.BREACHES})
@@ -65,7 +68,7 @@ def test_source_specs_describe_consolidated_routes_not_getter_presence() -> None
 
 
 def test_every_url_source_uses_one_route() -> None:
-    url_sources = {'bevigil', 'builtwith', 'gitlab', 'intelx', 'rocketreach', 'urlscan', 'zoomeye'}
+    url_sources = {'apis-guru', 'bevigil', 'builtwith', 'gitlab', 'intelx', 'rocketreach', 'urlscan', 'zoomeye'}
 
     assert {spec.name for spec in SOURCE_SPECS.values() if ResultRoute.URLS in spec.routes} == url_sources
     assert {route.name for route in ResultRoute} == {
@@ -81,6 +84,7 @@ def test_every_url_source_uses_one_route() -> None:
 
 def test_every_url_adapter_uses_one_getter() -> None:
     adapters = (
+        apisguru.SearchApisGuru,
         bevigil.SearchBeVigil,
         builtwith.SearchBuiltWith,
         gitlabsearch.SearchGitlab,
