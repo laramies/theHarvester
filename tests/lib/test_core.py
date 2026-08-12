@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from pathlib import Path
 from typing import Any
@@ -165,6 +166,18 @@ def test_read_config_copies_default_to_home(name: str, capsys):
 _DEFAULT_JSON = object()
 
 
+class DummyContent:
+    def __init__(self, chunks: tuple[bytes, ...], error: BaseException | None = None):
+        self.chunks = chunks
+        self.error = error
+
+    async def iter_any(self):
+        for chunk in self.chunks:
+            yield chunk
+        if self.error is not None:
+            raise self.error
+
+
 class DummyResponse:
     def __init__(
         self,
@@ -172,11 +185,14 @@ class DummyResponse:
         json_value: Any = _DEFAULT_JSON,
         status: int = 200,
         headers: dict[str, str] | None = None,
+        chunks: tuple[bytes, ...] | None = None,
+        stream_error: BaseException | None = None,
     ):
         self.text_value = text_value
         self.json_value = {'ok': True} if json_value is _DEFAULT_JSON else json_value
         self.status = status
         self.headers = headers or {}
+        self.content = DummyContent(chunks if chunks is not None else (text_value.encode(),), stream_error)
 
     async def __aenter__(self):
         return self
@@ -229,6 +245,35 @@ class DummySession:
 
 def reset_dummy_sessions() -> None:
     DummySession.instances.clear()
+
+
+def install_stream_response(
+    monkeypatch,
+    *,
+    chunks: tuple[bytes, ...],
+    status: int = 200,
+    headers: dict[str, str] | None = None,
+    error: BaseException | None = None,
+) -> None:
+    reset_dummy_sessions()
+    monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
+    monkeypatch.setattr(core_module.ssl, 'create_default_context', lambda cafile=None: 'ssl-context')
+    monkeypatch.setattr(core_module.certifi, 'where', lambda: '/tmp/cacert.pem')
+
+    def request_stream(self, method: str, url: str, **kwargs):
+        self.requests.append((method, url, kwargs))
+        return DummyResponse(status=status, headers=headers, chunks=chunks, stream_error=error)
+
+    monkeypatch.setattr(DummySession, 'request', request_stream)
+
+
+async def collect_default_stream(lines: list[str]) -> None:
+    async with AsyncFetcher.stream_records(
+        'https://provider.example/stream',
+        framing='ndjson',
+    ) as response:
+        async for record in response:
+            lines.append(record)
 
 
 async def fake_sleep(_seconds: float) -> None:
@@ -330,6 +375,281 @@ async def test_fetch_can_include_buffered_response_metadata(monkeypatch) -> None
         status=429,
         headers={'retry-after': '60', 'x-ratelimit-remaining': '0'},
     )
+
+
+@pytest.mark.asyncio
+async def test_stream_records_yields_fragmented_utf8_records_and_response_metadata(monkeypatch) -> None:
+    install_stream_response(
+        monkeypatch,
+        chunks=(b'first\ncaf\xc3', b'\xa9\nlast'),
+        status=206,
+        headers={'X-Stream': 'ready'},
+    )
+
+    async with AsyncFetcher.stream_records(
+        'https://provider.example/stream',
+        framing='ndjson',
+        params={'q': 'example.com'},
+        follow_redirects=False,
+    ) as response:
+        lines = [line async for line in response]
+        assert response.status == 206
+        assert response.headers == {'x-stream': 'ready'}
+
+    assert lines == ['first', 'café', 'last']
+    assert DummySession.instances[0].closed is True
+    assert DummySession.instances[0].requests == [
+        (
+            'GET',
+            'https://provider.example/stream',
+            {
+                'ssl': 'ssl-context',
+                'allow_redirects': False,
+                'params': {'q': 'example.com'},
+            },
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_stream_records_frames_fragmented_sse_events(monkeypatch) -> None:
+    install_stream_response(
+        monkeypatch,
+        chunks=(
+            b'event: matches\r\n',
+            b'data: [{"type":"content"}]\r',
+            b'\n\r\n',
+            b'event: done\n',
+            b'data: {}\n\n',
+        ),
+    )
+
+    async with AsyncFetcher.stream_records(
+        'https://provider.example/stream',
+        framing='sse',
+    ) as response:
+        records = [record async for record in response]
+
+    assert records == [
+        'event: matches\ndata: [{"type":"content"}]',
+        'event: done\ndata: {}',
+    ]
+
+
+@pytest.mark.asyncio
+async def test_stream_records_normalizes_tls_setup_failure(monkeypatch) -> None:
+    def fail_tls_setup(*_args, **_kwargs):
+        raise core_module.ssl.SSLError('TLS unavailable')
+
+    monkeypatch.setattr(
+        AsyncFetcher,
+        '_ssl_context',
+        staticmethod(fail_tls_setup),
+    )
+
+    with pytest.raises(core_module.ResponseStreamError) as raised:
+        await collect_default_stream([])
+
+    assert raised.value.reason == 'transport-error'
+
+
+@pytest.mark.asyncio
+async def test_stream_records_does_not_rewrite_consumer_exceptions(monkeypatch) -> None:
+    install_stream_response(monkeypatch, chunks=(b'ok\n',))
+
+    with pytest.raises(PermissionError, match='provider denied access'):
+        async with AsyncFetcher.stream_records(
+            'https://provider.example/stream',
+            framing='ndjson',
+        ):
+            raise PermissionError('provider denied access')
+
+    assert DummySession.instances[0].closed is True
+
+
+@pytest.mark.asyncio
+async def test_stream_records_uses_resolved_http_proxy_without_redirects(monkeypatch) -> None:
+    install_stream_response(monkeypatch, chunks=(b'ok\n',))
+
+    async def fake_connector(*_args, **_kwargs):
+        return 'proxy-connector'
+
+    monkeypatch.setattr(AsyncFetcher, '_create_connector', fake_connector)
+
+    async with AsyncFetcher.stream_records(
+        'https://provider.example/stream',
+        framing='ndjson',
+        proxy='http://proxy.example:8080',
+    ) as response:
+        assert [record async for record in response] == ['ok']
+
+    session = DummySession.instances[0]
+    assert session.connector == 'proxy-connector'
+    assert session.requests == [
+        (
+            'GET',
+            'https://provider.example/stream',
+            {
+                'ssl': 'ssl-context',
+                'allow_redirects': False,
+                'proxy': 'http://proxy.example:8080',
+            },
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_stream_records_rejects_second_iteration(monkeypatch) -> None:
+    install_stream_response(monkeypatch, chunks=(b'one\ntwo\n',))
+
+    async with AsyncFetcher.stream_records(
+        'https://provider.example/stream',
+        framing='ndjson',
+    ) as response:
+        iterator = response.__aiter__()
+        assert await anext(iterator) == 'one'
+        with pytest.raises(RuntimeError, match='only be consumed once'):
+            response.__aiter__()
+        await iterator.aclose()
+
+
+@pytest.mark.asyncio
+async def test_stream_records_rejects_incomplete_sse_after_complete_prefix(monkeypatch) -> None:
+    install_stream_response(
+        monkeypatch,
+        chunks=(b'event: progress\ndata: {}\n\nevent: matches\ndata: []',),
+    )
+    records: list[str] = []
+
+    with pytest.raises(core_module.ResponseStreamError) as raised:
+        async with AsyncFetcher.stream_records(
+            'https://provider.example/stream',
+            framing='sse',
+        ) as response:
+            async for record in response:
+                records.append(record)
+
+    assert records == ['event: progress\ndata: {}']
+    assert raised.value.reason == 'invalid-response'
+
+
+@pytest.mark.asyncio
+async def test_stream_records_preserves_complete_prefix_before_response_limit(monkeypatch) -> None:
+    install_stream_response(monkeypatch, chunks=(b'one\n', b'two\n', b'x'))
+    monkeypatch.setattr(core_module, 'MAX_STREAM_RESPONSE_BYTES', 8)
+    lines: list[str] = []
+
+    with pytest.raises(core_module.ResponseStreamError) as raised:
+        await collect_default_stream(lines)
+
+    assert lines == ['one', 'two']
+    assert raised.value.reason == 'response-limit'
+    assert DummySession.instances[0].closed is True
+
+
+@pytest.mark.asyncio
+async def test_stream_records_rejects_oversized_record_after_complete_prefix(monkeypatch) -> None:
+    install_stream_response(monkeypatch, chunks=(b'ok\n123', b'456\n'))
+    monkeypatch.setattr(core_module, 'MAX_STREAM_RECORD_BYTES', 5)
+    lines: list[str] = []
+
+    with pytest.raises(core_module.ResponseStreamError) as raised:
+        await collect_default_stream(lines)
+
+    assert lines == ['ok']
+    assert raised.value.reason == 'response-limit'
+
+
+@pytest.mark.asyncio
+async def test_stream_records_accepts_record_at_limit_with_split_crlf(monkeypatch) -> None:
+    install_stream_response(monkeypatch, chunks=(b'abc\r', b'\n'))
+    monkeypatch.setattr(core_module, 'MAX_STREAM_RECORD_BYTES', 3)
+    records: list[str] = []
+
+    await collect_default_stream(records)
+
+    assert records == ['abc']
+
+
+@pytest.mark.asyncio
+async def test_stream_records_bounds_complete_sse_event_across_many_lines(monkeypatch) -> None:
+    install_stream_response(monkeypatch, chunks=(b'a\nb\nc\n\n',))
+    monkeypatch.setattr(core_module, 'MAX_STREAM_RECORD_BYTES', 5)
+
+    async with AsyncFetcher.stream_records(
+        'https://provider.example/stream',
+        framing='sse',
+    ) as response:
+        records = [record async for record in response]
+
+    assert records == ['a\nb\nc']
+
+
+@pytest.mark.asyncio
+async def test_stream_records_reports_invalid_utf8_after_complete_prefix(monkeypatch) -> None:
+    install_stream_response(monkeypatch, chunks=(b'ok\n', b'\xff\n'))
+    lines: list[str] = []
+
+    with pytest.raises(core_module.ResponseStreamError) as raised:
+        await collect_default_stream(lines)
+
+    assert lines == ['ok']
+    assert raised.value.reason == 'invalid-response'
+
+
+@pytest.mark.asyncio
+async def test_stream_records_reports_transport_failure_after_complete_prefix(monkeypatch) -> None:
+    install_stream_response(monkeypatch, chunks=(b'ok\n',), error=TimeoutError())
+    lines: list[str] = []
+
+    with pytest.raises(core_module.ResponseStreamError) as raised:
+        await collect_default_stream(lines)
+
+    assert lines == ['ok']
+    assert raised.value.reason == 'transport-error'
+    assert DummySession.instances[0].closed is True
+
+
+@pytest.mark.asyncio
+async def test_stream_records_reports_connection_failure_and_closes_session(monkeypatch) -> None:
+    install_stream_response(monkeypatch, chunks=())
+
+    def failed_request(self, method: str, url: str, **kwargs):
+        self.requests.append((method, url, kwargs))
+        raise core_module.aiohttp.ClientConnectionError('unavailable')
+
+    monkeypatch.setattr(DummySession, 'request', failed_request)
+
+    with pytest.raises(core_module.ResponseStreamError) as raised:
+        await collect_default_stream([])
+
+    assert raised.value.reason == 'transport-error'
+    assert DummySession.instances[0].closed is True
+
+
+@pytest.mark.asyncio
+async def test_stream_records_reports_session_creation_failure(monkeypatch) -> None:
+    async def failed_build_session(*_args: object, **_kwargs: object):
+        raise core_module.aiohttp.ClientConnectionError('unavailable')
+
+    monkeypatch.setattr(AsyncFetcher, '_build_session', failed_build_session)
+
+    with pytest.raises(core_module.ResponseStreamError) as raised:
+        await collect_default_stream([])
+
+    assert raised.value.reason == 'transport-error'
+
+
+@pytest.mark.asyncio
+async def test_stream_records_propagates_cancellation_and_closes_session(monkeypatch) -> None:
+    cancelled = asyncio.CancelledError()
+    install_stream_response(monkeypatch, chunks=(), error=cancelled)
+
+    with pytest.raises(asyncio.CancelledError) as raised:
+        await collect_default_stream([])
+
+    assert raised.value is cancelled
+    assert DummySession.instances[0].closed is True
 
 
 @pytest.mark.asyncio
