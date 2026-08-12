@@ -467,5 +467,5 @@ async def enrich_routeviews(
     *,
     api_key: str | None = None,
 ) -> RouteViewsResult:
-    """Collect bounded RouteViews routing evidence for known ASN/IP/CIDR seeds."""
+    """Collect bounded routing evidence for explicit operator-supplied ASN/IP/CIDR pivots."""
     return await _RouteViewsRuntime(api_key).run(asns, network_seeds)

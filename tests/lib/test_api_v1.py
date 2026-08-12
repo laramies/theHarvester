@@ -363,7 +363,7 @@ def test_openapi_explains_scope_and_execution_controls(tmp_path, monkeypatch) ->
     assert '/24' in properties['dns_lookup']['description']
     assert 'whole run' in properties['deadline_seconds']['description']
     assert 'not establish ownership' in properties['routeviews']['description']
-    assert 'targeted IP address' in properties['routeviews']['description']
+    assert 'targeted ASN or IP address' in properties['routeviews']['description']
     assert 'prefix' not in properties['routeviews']['description']
     assert 'three resolver' in properties['dns_recursive_query_limit']['description']
     assert 'discovery sources' in properties['proxies']['description']
@@ -433,6 +433,20 @@ def test_api_scan_can_run_without_discovery_sources(tmp_path, monkeypatch) -> No
     assert request.api_scan_paths == ['/api/v2', '/health']
     with pytest.raises(ValidationError):
         RunRequest(target='example.test', sources=[], api_scan=True, api_scan_paths=['https://other.example/api'])
+
+
+def test_routeviews_accepts_only_an_action_only_asn_target() -> None:
+    from pydantic import ValidationError
+
+    from theHarvester.lib.api.run_models import RunRequest
+
+    request = RunRequest(target='as64500', sources=[], routeviews=True)
+
+    assert request.target == 'AS64500'
+    with pytest.raises(ValidationError, match='ASN target requires RouteViews as the only selected work'):
+        RunRequest(target='AS64500', sources=['crtsh'], routeviews=True)
+    with pytest.raises(ValidationError, match='ASN target requires RouteViews as the only selected work'):
+        RunRequest(target='AS64500', sources=[], routeviews=True, shodan=True)
 
 
 def test_fresh_api_uses_catalog_takeover_name_and_rejects_unknown_fields() -> None:

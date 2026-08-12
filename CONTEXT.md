@@ -66,6 +66,10 @@ _Avoid_: IP-address result, resolved host
 One canonical IPv4 or IPv6 CIDR merged result retained as external relationship evidence. It is never promoted into the authorized target scope or used as an active-discovery seed without a separate scope decision.
 _Avoid_: Owned netblock, in-scope range, registered network
 
+**Explicit network pivot**:
+A canonical ASN, IP address, or CIDR supplied by the operator as the run target for passive routing enrichment. It authorizes provider-side lookup of that identifier only; related prefixes and origins remain external relationship evidence and do not expand engagement scope.
+_Avoid_: Discovered network scope, owned ASN, target netblock
+
 **Observed route origin**:
 A provider's time-bound assertion that one ASN originates one network prefix. It records routing evidence, not registration, ownership, or authorization.
 _Avoid_: Owned by, registered to, authorized origin

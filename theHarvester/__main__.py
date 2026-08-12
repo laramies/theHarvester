@@ -115,6 +115,7 @@ from theHarvester.lib.recursive_dns import (
     discover_recursive_dns,
 )
 from theHarvester.lib.resolver_selection import DEFAULT_DNS_RESOLVERS, normalize_resolver_addresses
+from theHarvester.lib.result_values import normalize_asn
 from theHarvester.lib.routeviews import RouteViewsCancelled, RouteViewsResult, enrich_routeviews
 from theHarvester.lib.source_catalog import (
     SOURCE_SPECS,
@@ -204,7 +205,12 @@ async def start(
     parser = argparse.ArgumentParser(
         description='theHarvester is used to gather open source intelligence (OSINT) on a company or domain.'
     )
-    parser.add_argument('-d', '--domain', help='Company name or domain to search.', required=True)
+    parser.add_argument(
+        '-d',
+        '--domain',
+        help='Company name or domain to search, or an explicit ASN/IP/CIDR target for --routeviews.',
+        required=True,
+    )
     parser.add_argument(
         '-l',
         '--limit',
@@ -236,7 +242,7 @@ async def start(
     parser.add_argument(
         '--routeviews',
         help=(
-            'Enrich discovered ASNs and an explicitly targeted IP/prefix through RouteViews. Returned routing '
+            'Enrich an explicitly targeted ASN, IP, or prefix through RouteViews. Returned routing '
             'relationships do not establish ownership or target scope. Uses authenticated access when a RouteViews '
             'API key is configured.'
         ),
@@ -526,6 +532,13 @@ async def start(
     all_urls: list = []
     vhost_observations: list[VirtualHostObservation] = []
     word: str = args.domain.rstrip('\n')
+    explicit_asn_target: str | None = None
+    if word.strip()[:2].casefold() == 'as':
+        try:
+            explicit_asn_target = normalize_asn(word)
+            word = explicit_asn_target
+        except ValueError:
+            pass
     takeover_status = args.take_over
     use_proxy = args.proxies
     linkedin_people_list_tracker: list = []
@@ -907,6 +920,20 @@ async def start(
     stor_lst = []
     if args.source is not None:
         engines = Core.expand_source_selection(args.source)
+    if explicit_asn_target is not None and (
+        not routeviews_enabled
+        or engines
+        or shodan
+        or dnslookup
+        or dnsbrute[0]
+        or dnsresolve != ''
+        or recursive_limits is not None
+        or takeover_status
+        or args.screenshot
+        or args.api_scan
+        or vhost_enabled
+    ):
+        raise ValueError('ASN target requires --routeviews without discovery sources or other actions')
     activities = {get_source_spec(engine).activity for engine in engines if engine in SOURCE_SPECS}
     if shodan:
         activities.add(ActivityClass.PASSIVE)
@@ -2198,6 +2225,7 @@ async def start(
 
     if routeviews_enabled:
         routeviews_started = time.perf_counter()
+        explicit_asns = {explicit_asn_target} if explicit_asn_target is not None else set()
         explicit_network_seeds: set[str] = set()
         try:
             explicit_network_seeds.add(
@@ -2223,7 +2251,7 @@ async def start(
 
         try:
             routeviews_result = await enrich_routeviews(
-                total_asns,
+                explicit_asns,
                 explicit_network_seeds,
                 api_key=Core.routeviews_key(),
             )

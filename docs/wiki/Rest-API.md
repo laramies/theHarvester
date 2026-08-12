@@ -79,11 +79,11 @@ Run submission is asynchronous. Lifecycle status is `queued`, `running`, `cancel
 
 P1 DNS and P2 direct options are fields on the same run request. The OpenAPI schema shows their current defaults, limits, and descriptions. The server uses the operator-selected target and does not impose a public-only egress policy.
 
-RouteViews is the explicit P0 `routeviews` action. It enriches ASN results from selected sources, or an IP address only when that value is the run target. The fixed internal budget is 300 sequential requests and 300 seconds; `limit` does not change it. A server-side `routeviews.key` is used automatically for PeeringDB-verified authenticated access at the documented 10-request-per-second allowance; otherwise the action uses guest access at one request per second. Provider credentials cannot be supplied in a run request. Returned prefixes remain external relationships and are never scheduled as DNS or P2 targets. The CLI also accepts a literal CIDR target; the REST run target remains a hostname or IP address.
+RouteViews is the explicit P0 `routeviews` action. It enriches only an AS-prefixed ASN or IP address supplied as the run target; ASNs and IPs discovered by domain sources are not expanded automatically. The fixed internal budget is 300 sequential requests and 300 seconds; `limit` does not change it. A server-side `routeviews.key` is used automatically for PeeringDB-verified authenticated access at the documented 10-request-per-second allowance; otherwise the action uses guest access at one request per second. Provider credentials cannot be supplied in a run request. Returned prefixes remain external relationships and are never scheduled as DNS or P2 targets. The CLI also accepts a literal CIDR target.
 
 ```json
 {
-  "target": "192.0.2.7",
+  "target": "AS64500",
   "sources": [],
   "routeviews": true
 }

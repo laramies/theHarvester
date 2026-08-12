@@ -14,6 +14,7 @@ from theHarvester.lib.enumeration import (
 )
 from theHarvester.lib.evidence_types import EvidenceStatus  # noqa: TC001 - Pydantic resolves this annotation at runtime
 from theHarvester.lib.resolver_selection import DEFAULT_DNS_RESOLVERS, normalize_resolver_addresses
+from theHarvester.lib.result_values import normalize_asn
 from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass, selected_action_names
 from theHarvester.lib.virtual_host import (
     DEFAULT_VHOST_CONCURRENCY,
@@ -32,7 +33,10 @@ def utc_now() -> str:
 
 
 def _normalize_target(value: str) -> str:
-    target = value.strip().rstrip('.').lower()
+    target = value.strip().rstrip('.')
+    if target[:2].casefold() == 'as' and target[2:].isascii() and target[2:].isdecimal():
+        return normalize_asn(target)
+    target = target.lower()
     if not target or len(target) > 253 or any(character in target for character in '/?#@'):
         raise ValueError('Target must be a hostname or IP address')
     try:
@@ -58,7 +62,9 @@ def _normalize_target(value: str) -> str:
 class RunRequest(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
-    target: str = Field(description='Authorized domain name or IP address to enumerate.')
+    target: str = Field(
+        description='Authorized domain name or IP address, or an explicit AS-prefixed network pivot for RouteViews.'
+    )
     sources: list[str] = Field(
         max_length=len(SOURCE_SPECS),
         description=(
@@ -120,7 +126,7 @@ class RunRequest(BaseModel):
     routeviews: bool = Field(
         default=False,
         description=(
-            'Enrich discovered ASN evidence and an explicitly targeted IP address through RouteViews. Returned '
+            'Enrich an explicitly targeted ASN or IP address through RouteViews. Returned '
             'routing relationships do not establish ownership, authorization, or target scope.'
         ),
     )
@@ -258,8 +264,12 @@ class RunRequest(BaseModel):
 
     @model_validator(mode='after')
     def validate_selected_work(self) -> RunRequest:
-        if not self.sources and not selected_action_names(self.model_dump()):
+        action_names = selected_action_names(self.model_dump())
+        if not self.sources and not action_names:
             raise ValueError('Select at least one discovery source or action')
+        if self.target.startswith('AS') and self.target[2:].isdecimal():
+            if self.sources or action_names != ('routeviews',):
+                raise ValueError('ASN target requires RouteViews as the only selected work')
         if self.dns_recursive_depth > 0 and len(self.dns_resolvers) != 3:
             raise ValueError('Recursive DNS requires exactly three distinct resolver IPs')
         return self
