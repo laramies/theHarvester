@@ -142,6 +142,8 @@ ALTER TABLE runs ADD COLUMN evidence_status TEXT;
 PRAGMA user_version = 7;
 """
 )
+
+
 def completed_result(run_id: str = 'f047261c-0afb-4e18-89d5-28a7d977f51f') -> CompletedResult:
     return CompletedResult.finish(
         run_id=UUID(run_id),
@@ -473,6 +475,41 @@ async def test_structured_network_evidence_round_trips_in_the_results_table(tmp_
 
 
 @pytest.mark.asyncio
+async def test_loading_prefix_details_with_vhost_provenance_fails_closed(tmp_path) -> None:
+    database = tmp_path / 'stash.sqlite'
+    store = ResultStore(database)
+    await store.initialize()
+    collected_at = datetime(2026, 8, 11, 12, 1, tzinfo=UTC)
+    result = CompletedResult.finish(
+        target='example.com',
+        started_at=collected_at,
+        completed_at=collected_at,
+        groups={'asn': ['AS64500']},
+        active_evidence=ActiveEvidence(
+            executions=(
+                ActionExecution.finish(
+                    action='routeviews',
+                    status='completed',
+                    duration_ms=1,
+                    groups={'prefix': ['198.51.100.0/24']},
+                ),
+            )
+        ),
+        network_observations=(PrefixOriginObservation('routeviews', '198.51.100.0/24', 'AS64500', collected_at),),
+    )
+    await store.save_run(result)
+    with sqlite3.connect(database) as db:
+        db.execute(
+            "UPDATE executions SET name = 'vhost' WHERE run_id = ? AND name = 'routeviews'",
+            (str(result.run_id),),
+        )
+        db.commit()
+
+    with pytest.raises(ResultStoreError, match=r'Persisted virtual-host details are missing: 198\.51\.100\.0/24'):
+        await store.load_run(result.run_id)
+
+
+@pytest.mark.asyncio
 async def test_schema_v7_migrates_vhost_collision_without_losing_references(tmp_path) -> None:
     database = tmp_path / 'stash.sqlite'
     run_id = UUID('750ab571-778d-490e-b760-70394d936eb4')
@@ -655,9 +692,7 @@ async def test_loading_oversized_network_details_fails_before_json_decode(tmp_pa
                 ),
             )
         ),
-        network_observations=(
-            PrefixOriginObservation('routeviews', '192.0.2.0/24', 'AS64500', collected_at),
-        ),
+        network_observations=(PrefixOriginObservation('routeviews', '192.0.2.0/24', 'AS64500', collected_at),),
     )
     await store.save_run(result)
     with sqlite3.connect(database) as db:

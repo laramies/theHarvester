@@ -846,12 +846,10 @@ class ResultStore:
         virtual_hosts: list[VirtualHostObservation] = []
         network_observations: list[NetworkObservation] = []
         for result_row in rows:
-            is_vhost_result = result_row.position in vhost_result_positions
-            if is_vhost_result and (result_row.kind != 'hostname' or result_row.details_json is None):
-                raise ResultStoreError(f'Persisted virtual-host details are missing: {result_row.value}')
-            if result_row.details_json is None:
-                continue
-            if result_row.kind == 'hostname' and is_vhost_result:
+            has_vhost_provenance = result_row.position in vhost_result_positions
+            if has_vhost_provenance:
+                if result_row.kind != 'hostname' or result_row.details_json is None:
+                    raise ResultStoreError(f'Persisted virtual-host details are missing: {result_row.value}')
                 try:
                     details = json.loads(result_row.details_json)
                     parsed_virtual_hosts = parse_virtual_host_details(result_row.value, details)
@@ -860,7 +858,10 @@ class ResultStore:
                 if details != virtual_host_details(parsed_virtual_hosts):
                     raise ResultStoreError(f'Persisted virtual-host details are not canonical: {result_row.value}')
                 virtual_hosts.extend(parsed_virtual_hosts)
-            elif result_row.kind == 'prefix' and not is_vhost_result:
+                continue
+            if result_row.details_json is None:
+                continue
+            if result_row.kind == 'prefix':
                 try:
                     parsed_network_observations = parse_network_observation_json(
                         result_row.value,
