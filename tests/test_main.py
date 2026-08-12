@@ -1154,7 +1154,7 @@ async def test_dns_lookup_cancels_sibling_ranges_and_persists_partial_evidence(
 @pytest.mark.parametrize(
     ('source', 'module', 'constructor_name'),
     [
-        ('chaos', theharvester_main.chaos, 'SearchChaos'),
+        ('projectdiscovery', theharvester_main.projectdiscovery, 'SearchDiscovery'),
         ('bevigil', theharvester_main.bevigil, 'SearchBeVigil'),
     ],
 )

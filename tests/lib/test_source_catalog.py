@@ -40,6 +40,15 @@ def test_invalid_bitbucket_domain_source_is_not_selectable() -> None:
     assert 'bitbucket' not in _scheduled_source_names()
 
 
+def test_projectdiscovery_is_the_only_selector_for_the_chaos_corpus() -> None:
+    selected = Core.expand_source_selection('all')
+
+    assert 'projectdiscovery' in selected
+    assert 'chaos' not in selected
+    assert 'chaos' not in Core.get_supportedengines()
+    assert 'chaos' not in _scheduled_source_names()
+
+
 def test_subdomain_route_drives_subdomain_capability() -> None:
     spec = SourceSpec(
         name='example',

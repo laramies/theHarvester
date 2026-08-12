@@ -35,7 +35,6 @@ from theHarvester.discovery import (
     builtwith,
     censysearch,
     certspottersearch,
-    chaos,
     commoncrawl,
     criminalip,
     crtname,
@@ -1036,23 +1035,6 @@ async def start(
                     except Exception as e:
                         if not args.quiet:
                             output_logger.info(f'Unexpected error occurred in Certspotter module: {e}')
-
-                elif engineitem == 'chaos':
-                    try:
-                        chaos_search = chaos.SearchChaos(word)
-                        stor_lst.append(
-                            store(
-                                chaos_search,
-                                engineitem,
-                            )
-                        )
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            record_missing_credentials(engineitem)
-                            if not args.quiet:
-                                output_logger.info(f'A Missing Key error occurred in Chaos: {e}')
-                        else:
-                            show_default_error_message(engineitem, word, e)
 
                 elif engineitem == 'commoncrawl':
                     try:

@@ -34,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Removed the transport-wide delay before reading ready HTTP responses, bounded Wayback Archive to 30 seconds and Common Crawl to 120 seconds, kept both sources within the requested result limit, and made long-source progress visible in verbose mode. Common Crawl now requests one 50-record page at a time instead of bursting page batches.
 - Made Baidu, crt.sh, HackerTarget, Have I Been Pwned, Mojeek, OTX, and Robtex report blocked, malformed, or transport failures truthfully. Also fixed HackerTarget CSV parsing and Robtex AAAA results.
-- Hardened BufferOver, Chaos, DNSDumpster, ONYPHE, and URLScan parsing and result attribution, including scoped typed results and bounded URLScan pagination.
+- Hardened BufferOver, ProjectDiscovery, DNSDumpster, ONYPHE, and URLScan parsing and result attribution, including scoped typed results and bounded URLScan pagination.
 - Made `harvestview` the sole launcher for the local web application and REST API.
 - Standardized SQLite, JSONL, API, and HarvestView result names on `hostname` and `ip` without a presentation alias.
 - Standardized URL-producing adapters, JSON, JSONL, SQLite, and API evidence on one `url` result kind while preserving producer provenance.
@@ -59,6 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - Removed the obsolete bundled IP-range and resolver snapshots.
 - Removed the REST API's built-in SlowAPI request limiter and its launcher option without adding a replacement.
+- Removed the duplicate `chaos` source name and module; ProjectDiscovery remains available through `projectdiscovery` with the same dataset and credential.
 - Removed Bitbucket domain discovery because its current REST APIs require workspace, repository, or user scope that the domain-only CLI contract cannot provide.
 - Removed the nonfunctional ThreatCrowd source because its service hostnames terminate at deleted AWS load balancers and return NXDOMAIN; OTX remains available through its separate adapter.
 
@@ -70,7 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Retained relevant GitLab project, profile, and website URLs in consolidated JSONL and SQLite results while excluding unrelated user URLs.
 - Standardized BuiltWith and every other URL-producing adapter on `get_urls()`.
 - Made no-filename REST `/query` executions reach completed-result construction and SQLite persistence without changing the legacy response fields.
-- Made Chaos reject empty credentials, report HTTP and malformed-response failures, and preserve supported subdomain response shapes.
+- Made ProjectDiscovery reject empty credentials, report HTTP and malformed-response failures, and preserve supported subdomain response shapes.
 - Made Fofa reject incomplete credentials, report HTTP and malformed-response failures, normalize scoped hosts, and discard invalid IP values.
 - Made FullHunt reject empty credentials, report HTTP and malformed-response failures, and isolate malformed host records.
 - Made Hudson Rock HTTP failures status-aware, bounded rate-limit retries, removed trailing request delays, isolated malformed provider items, and retained infostealer details in completed JSONL and SQLite results.

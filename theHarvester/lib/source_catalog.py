@@ -99,7 +99,6 @@ _SPECS = (
     _spec('builtwith', ResultRoute.SUBDOMAINS, ResultRoute.URLS),
     _spec('censys', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec('certspotter', ResultRoute.SUBDOMAINS),
-    _spec('chaos', ResultRoute.SUBDOMAINS),
     _spec('commoncrawl', ResultRoute.SUBDOMAINS),
     _spec(
         'criminalip',
