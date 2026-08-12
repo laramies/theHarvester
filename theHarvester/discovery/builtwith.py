@@ -16,7 +16,11 @@ class SearchBuiltWith:
         if self.api_key is None:
             raise MissingKey('BuiltWith')
         self.base_url = 'https://api.builtwith.com/v21/api.json'
-        self.headers = {'Authorization': f'Bearer {self.api_key}', 'Content-Type': 'application/json'}
+        self.headers = {
+            'Authorization': f'Bearer {self.api_key}',
+            'Content-Type': 'application/json',
+            'User-Agent': Core.get_user_agent(),
+        }
         self.hosts: set[str] = set()
         self.tech_stack: dict[str, Any] = {}
         self.urls: set[str] = set()

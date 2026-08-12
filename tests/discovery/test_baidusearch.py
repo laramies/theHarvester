@@ -54,7 +54,7 @@ class TestBaiduSearch:
                 response('Visit sub.a.example.com. baz@example.com'),
             ],
         )
-        monkeypatch.setattr(baidusearch.Core, 'get_user_agent', staticmethod(lambda: 'UA'))
+        monkeypatch.setattr(baidusearch.Core, 'get_browser_user_agent', staticmethod(lambda: 'UA'))
 
         search = baidusearch.SearchBaidu(word='example.com', limit=21)
         await search.process(proxy=True)

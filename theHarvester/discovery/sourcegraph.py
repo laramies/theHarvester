@@ -4,7 +4,7 @@ import json
 import re
 from typing import Any
 
-from theHarvester.lib.core import AsyncFetcher, Core, ResponseStreamError
+from theHarvester.lib.core import AsyncFetcher, ResponseStreamError
 
 _HOST_TOKEN = re.compile(
     r'(?<![\w*.-])(?:\*|[a-z0-9-]+)(?:\.(?:\*|[a-z0-9-]+))+\.?(?![\w*.-])',
@@ -174,7 +174,7 @@ class SearchSourcegraph:
             async with AsyncFetcher.stream_records(
                 self.ENDPOINT,
                 framing='sse',
-                headers={'Accept': 'text/event-stream', 'User-Agent': Core.get_user_agent()},
+                headers={'Accept': 'text/event-stream'},
                 params=params,
                 proxy=self.proxy,
                 follow_redirects=False,

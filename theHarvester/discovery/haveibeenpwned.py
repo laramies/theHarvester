@@ -1,6 +1,6 @@
 import logging
 
-from theHarvester.lib.core import AsyncFetcher, FetcherResponse
+from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 
 logger = logging.getLogger(__name__)
 
@@ -9,7 +9,7 @@ class SearchHaveIBeenPwned:
     def __init__(self, word: str):
         self.word = word
         self.base_url = 'https://haveibeenpwned.com/api/v3'
-        self.headers = {'user-agent': 'theHarvester', 'Content-Type': 'application/json'}
+        self.headers = {'User-Agent': Core.get_user_agent(), 'Content-Type': 'application/json'}
         self.hosts: set[str] = set()
         self.emails: set[str] = set()
         self.breaches: list[dict] = []

@@ -65,7 +65,7 @@ class SearchApiEndpoints:
             concurrency: Maximum number of requests in flight.
             timeout: Timeout for each request, in seconds.
             proxy: Optional HTTP proxy URL.
-            user_agent: HTTP User-Agent value. The default comes from ``Core``.
+            user_agent: HTTP User-Agent value. The default is the shared Chrome identity.
             follow_redirects: Whether requests follow redirects.
             verify_ssl: Whether to verify TLS certificates.
             additional_headers: Extra HTTP headers to send.
@@ -91,7 +91,7 @@ class SearchApiEndpoints:
         self.follow_redirects = follow_redirects
         self.verify_ssl = verify_ssl
         self.semaphore = asyncio.Semaphore(concurrency)
-        self.user_agent = user_agent or Core.get_user_agent()
+        self.user_agent = user_agent or Core.get_browser_user_agent()
         self.additional_headers = additional_headers or {}
         self._session: aiohttp.ClientSession | None = None
         self.scan_error_type: str | None = None

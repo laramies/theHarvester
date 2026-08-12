@@ -143,7 +143,8 @@ class SearchMojeek:
     async def do_search(self) -> None:
         self.execution_status = None
         self.stop_reason = None
-        headers = {'User-Agent': Core.get_user_agent()}
+        user_agent = Core.get_user_agent() if self.api_key else Core.get_browser_user_agent()
+        headers = {'User-Agent': user_agent}
         if self.api_key:
             await self._search_api(headers)
         else:

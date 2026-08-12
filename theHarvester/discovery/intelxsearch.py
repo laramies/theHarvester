@@ -39,7 +39,7 @@ class SearchIntelx:
         try:
             headers = {
                 'x-key': self.key,
-                'User-Agent': f'{Core.get_user_agent()}-theHarvester',
+                'User-Agent': Core.get_user_agent(),
                 'Content-Type': 'application/json',
             }
             data = {

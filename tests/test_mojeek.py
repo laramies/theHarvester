@@ -37,7 +37,7 @@ class TestMojeekSearch:
             raise AssertionError('keyless Mojeek pages must be requested sequentially')
 
         monkeypatch.setattr(mojeek.Core, 'mojeek_key', staticmethod(lambda: ''))
-        monkeypatch.setattr(mojeek.Core, 'get_user_agent', staticmethod(lambda: 'UA'))
+        monkeypatch.setattr(mojeek.Core, 'get_browser_user_agent', staticmethod(lambda: 'UA'))
         monkeypatch.setattr(mojeek.AsyncFetcher, 'fetch', fake_fetch)
         monkeypatch.setattr(mojeek.AsyncFetcher, 'fetch_all', reject_fetch_all)
         monkeypatch.setattr(mojeek.asyncio, 'sleep', fake_sleep)
@@ -50,6 +50,7 @@ class TestMojeekSearch:
             'https://www.mojeek.com/search?q=example.com&s=10',
         ]
         assert all(call['include_metadata'] is True for call in calls)
+        assert all(call['headers'] == {'User-Agent': 'UA'} for call in calls)
         assert all(call['follow_redirects'] is False for call in calls)
         assert all(call['proxy'] is True for call in calls)
         assert delays == [1.0]

@@ -4,7 +4,6 @@ import json
 import logging
 from urllib.parse import quote
 
-from theHarvester import __version__
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import AsyncFetcher, Core, ResponseStreamError
 
@@ -48,7 +47,7 @@ class SearchDNSDB:
         url = f'{self.BASE_URL}/{query}?limit=0'
         headers = {
             'Accept': 'application/x-ndjson',
-            'User-Agent': f'theHarvester/{__version__}',
+            'User-Agent': Core.get_user_agent(),
             'X-API-Key': self.key,
         }
         async with AsyncFetcher.stream_records(

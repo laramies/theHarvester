@@ -24,7 +24,7 @@ class SearchDNSDumpster:
 
     async def do_search(self) -> None:
         url = f'{self.base_url}/domain/{self.word}'
-        headers = {'User-Agent': 'Mozilla/5.0 (theHarvester)', 'X-API-Key': self.key}
+        headers = {'User-Agent': Core.get_user_agent(), 'X-API-Key': self.key}
         try:
             response = await AsyncFetcher.fetch_all(
                 [url],

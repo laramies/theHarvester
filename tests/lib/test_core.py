@@ -301,6 +301,17 @@ def test_api_keys_yaml_is_in_sync_with_core_accessors():
     assert not missing_fields, f"Missing fields in api-keys.yaml: {missing_fields}"
 
 
+def test_user_agent_policy_separates_provider_and_browser_identities() -> None:
+    assert Core.get_user_agent() == (
+        f'theHarvester/{core_module.__version__} (+https://github.com/laramies/theHarvester)'
+    )
+    assert Core.get_browser_user_agent() == (
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+        'AppleWebKit/537.36 (KHTML, like Gecko) '
+        'Chrome/151.0.0.0 Safari/537.36'
+    )
+
+
 @pytest.mark.parametrize(
     ("accessor_name", "expected"),
     [
@@ -350,6 +361,25 @@ async def test_fetch_creates_session_with_default_headers(monkeypatch) -> None:
     assert session.requests == [
         ('GET', 'https://example.com', {'ssl': 'ssl-context', 'allow_redirects': False})
     ]
+
+
+def test_default_headers_add_project_identity_without_mutating_caller_headers(monkeypatch) -> None:
+    monkeypatch.setattr(Core, 'get_user_agent', staticmethod(lambda: 'test-agent'))
+    supplied = {'Accept': 'application/json'}
+
+    headers = AsyncFetcher._default_headers(supplied)
+
+    assert headers == {'Accept': 'application/json', 'User-Agent': 'test-agent'}
+    assert supplied == {'Accept': 'application/json'}
+
+
+@pytest.mark.parametrize('header_name', ['User-Agent', 'User-agent', 'user-agent'])
+def test_default_headers_preserve_explicit_user_agent_case_insensitively(monkeypatch, header_name: str) -> None:
+    monkeypatch.setattr(Core, 'get_user_agent', staticmethod(lambda: 'default-agent'))
+
+    headers = AsyncFetcher._default_headers({header_name: 'caller-agent', 'Accept': 'application/json'})
+
+    assert headers == {header_name: 'caller-agent', 'Accept': 'application/json'}
 
 
 @pytest.mark.asyncio
@@ -882,6 +912,7 @@ async def test_takeover_fetch_uses_the_shared_transport(
         session,
         url,
         proxy=proxy,
+        headers={'User-Agent': 'browser-agent'},
     )
 
     assert result == (url, 'response-text')
@@ -890,6 +921,7 @@ async def test_takeover_fetch_uses_the_shared_transport(
             'session': session if uses_shared_session else None,
             'url': url,
             'proxy': proxy,
+            'headers': {'User-Agent': 'browser-agent'},
             'request_timeout': 15,
             'include_metadata': False,
         }
@@ -913,7 +945,11 @@ async def test_takeover_fetch_all_falls_back_to_direct_when_proxy_pool_is_empty(
 
     assert result == [('http://example.com', 'direct response')]
     assert len(calls) == 1
-    assert calls[0][1] == {'proxy': None, 'include_metadata': False}
+    assert calls[0][1] == {
+        'proxy': None,
+        'headers': {'User-Agent': Core.get_user_agent()},
+        'include_metadata': False,
+    }
 
 
 @pytest.mark.asyncio
