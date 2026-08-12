@@ -732,6 +732,31 @@ def test_authenticated_operator_can_queue_screenshot_only_run(tmp_path, monkeypa
     assert response.json()['activities'] == ['P2']
 
 
+def test_authenticated_operator_can_queue_routeviews_only_run(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api, run_worker
+
+    async def no_op() -> None:
+        return None
+
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setattr(api, 'start_worker', no_op)
+    monkeypatch.setattr(api, 'stop_worker', no_op)
+    monkeypatch.setattr(run_worker, 'worker_enabled', lambda: True)
+    monkeypatch.setattr(run_worker, '_worker_task', type('RunningTask', (), {'done': lambda self: False})())
+
+    with TestClient(api.app) as client:
+        response = client.post(
+            '/api/v1/runs',
+            headers={'X-API-Key': 'test-key'},
+            json={'target': 'api.example.com', 'sources': [], 'routeviews': True},
+        )
+
+    assert response.status_code == 201
+    assert response.json()['activities'] == ['P0']
+    assert response.json()['request']['routeviews'] is True
+
+
 def test_dns_brute_run_accepts_operator_resolver_list(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api import api, run_worker
 
@@ -797,6 +822,35 @@ def test_dns_brute_child_uses_operator_resolver_list(tmp_path, monkeypatch) -> N
     assert received_options[0].dns_brute is True
     assert received_options[0].dns_resolve == ''
     assert received_options[0].dns_resolvers == ('192.0.2.53',)
+
+
+def test_routeviews_child_receives_explicit_action_without_source_limit_controls(tmp_path, monkeypatch) -> None:
+    from theHarvester import __main__ as main_module
+    from theHarvester.lib.api import run_worker
+    from theHarvester.lib.api.run_models import RunRequest
+    from theHarvester.lib.api.run_store import RunStore
+    from theHarvester.lib.completed_result import CompletedResult
+
+    received_options = []
+
+    async def fake_start(options, **_kwargs):
+        received_options.append(options)
+        now = datetime.now(UTC)
+        return (CompletedResult.finish(target=options.domain, started_at=now, completed_at=now, groups={}),)
+
+    monkeypatch.setattr(main_module, 'start', fake_start)
+
+    async def scenario() -> None:
+        store = RunStore(tmp_path / 'runs.sqlite')
+        created = await store.create(RunRequest(target='api.example.com', sources=[], routeviews=True, limit=9_999))
+        assert await store.claim_next() is not None
+        await run_worker._child_execute(created['run_id'], store.database)
+
+    asyncio.run(scenario())
+
+    assert received_options[0].source == ''
+    assert received_options[0].routeviews is True
+    assert received_options[0].limit == 9_999
 
 
 def test_virtual_host_request_normalizes_a_self_contained_target_action() -> None:

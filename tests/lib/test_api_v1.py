@@ -336,6 +336,7 @@ def test_source_catalog_exposes_shared_action_activities(tmp_path, monkeypatch) 
         {'name': 'dns-lookup', 'activity': 'P1'},
         {'name': 'dns-recursive', 'activity': 'P1'},
         {'name': 'dns-resolve', 'activity': 'P1'},
+        {'name': 'routeviews', 'activity': 'P0'},
         {'name': 'screenshot', 'activity': 'P2'},
         {'name': 'shodan', 'activity': 'P0'},
         {'name': 'takeover', 'activity': 'P2'},
@@ -361,6 +362,9 @@ def test_openapi_explains_scope_and_execution_controls(tmp_path, monkeypatch) ->
     assert 'do not filter' in properties['sources']['description']
     assert '/24' in properties['dns_lookup']['description']
     assert 'whole run' in properties['deadline_seconds']['description']
+    assert 'not establish ownership' in properties['routeviews']['description']
+    assert 'targeted IP address' in properties['routeviews']['description']
+    assert 'prefix' not in properties['routeviews']['description']
     assert 'three resolver' in properties['dns_recursive_query_limit']['description']
     assert 'discovery sources' in properties['proxies']['description']
     assert 'configured proxies' in properties['takeover']['description']

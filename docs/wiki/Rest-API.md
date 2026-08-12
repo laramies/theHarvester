@@ -79,6 +79,16 @@ Run submission is asynchronous. Lifecycle status is `queued`, `running`, `cancel
 
 P1 DNS and P2 direct options are fields on the same run request. The OpenAPI schema shows their current defaults, limits, and descriptions. The server uses the operator-selected target and does not impose a public-only egress policy.
 
+RouteViews is the explicit P0 `routeviews` action. It enriches ASN results from selected sources, or an IP address only when that value is the run target. The fixed internal budget is 300 sequential requests and 300 seconds; `limit` does not change it. Returned prefixes remain external relationships and are never scheduled as DNS or P2 targets. The CLI also accepts a literal CIDR target; the REST run target remains a hostname or IP address.
+
+```json
+{
+  "target": "192.0.2.7",
+  "sources": [],
+  "routeviews": true
+}
+```
+
 ### Run an action against one result
 
 Screenshots and DNS brute force can run directly against an authorized hostname without repeating discovery. Submit an empty `sources` array and select one action:
@@ -162,7 +172,7 @@ curl -s "http://127.0.0.1:5000/api/v1/runs/$run_id/export" \
   -o results.jsonl
 ```
 
-The first line is the `summary` record, including evidence status, source and action outcomes, and artifacts. Each remaining line is one normalized finding with `type`, `value`, `sources`, and optional `actions`. A hostname confirmed by the `vhost` action adds a native `observations` array; it remains one `hostname` finding. This keeps the file easy to stream with `jq -c` and makes API exports importable again without a format conversion. Lifecycle details and the submitted request remain available from `GET /api/v1/runs/{run_id}`.
+The first line is the `summary` record, including evidence status, source and action outcomes, and artifacts. Each remaining line is one normalized finding with `type`, `value`, `sources`, and optional `actions`. A hostname confirmed by the `vhost` action adds native endpoint observations; a RouteViews `prefix` adds native origin, route, and RPKI observations with fixed external-relationship scope. This keeps the file easy to stream with `jq -c` and makes API exports importable again without a format conversion. Lifecycle details and the submitted request remain available from `GET /api/v1/runs/{run_id}`.
 
 ## Security boundary
 

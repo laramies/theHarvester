@@ -19,11 +19,14 @@ The following options require additional care:
 | `-c`, `--dns-brute` | Tries candidate subdomains against DNS. |
 | `-t`, `--take-over` | Checks discovered hosts for takeover indicators. |
 | `-s`, `--shodan` | Enriches discovered hosts through Shodan. |
+| `--routeviews` | Sends discovered public ASN identifiers, or an explicitly targeted IP/CIDR, to RouteViews and records external routing relationships. |
 | `--vhost`, `--vhost-*` | Probes literal IP endpoints with candidate SNI and HTTP `Host` values. |
 | `--screenshot DIR` | Opens discovered web services in a browser. |
 | `-a`, `--api-scan` | Requests common API paths from the target. |
 
 Use `--dns-resolvers IPS_OR_FILE` to select resolver addresses for DNS brute force, reverse lookup, or recursive DNS without also enabling hostname resolution. The compatible `--dns-resolve` value still selects resolvers and enables hostname resolution.
+
+`--routeviews` is a separately selected P0 provider action. It is never enabled by `-b all` and ignores `-l`; one run is internally bounded to 300 sequential requests and 300 seconds at the guest rate. It does not send harvested IPs unless the IP/CIDR is the explicit run target, does not recursively query returned prefixes, and never promotes returned CIDRs into DNS or direct-action scope. Route origins and RPKI states can include anomalies or leaks and do not establish ownership or authorization.
 
 Use an owned or explicitly authorized domain for active examples. Do not substitute universities, public companies, bounty targets, or reserved example domains for recurring active scans.
 

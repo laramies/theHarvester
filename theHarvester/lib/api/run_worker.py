@@ -316,6 +316,7 @@ async def _child_execute(run_id: str, database: Path) -> None:
         limit=request['limit'],
         proxies=request.get('proxies', False),
         quiet=True,
+        routeviews=request.get('routeviews', False),
         screenshot=str(screenshot_dir) if request.get('screenshot') else '',
         shodan=request.get('shodan', False),
         source=','.join(request['sources']),

@@ -117,6 +117,13 @@ class RunRequest(BaseModel):
         allow_inf_nan=False,
         description='Maximum wall-clock seconds spent in recursive DNS discovery.',
     )
+    routeviews: bool = Field(
+        default=False,
+        description=(
+            'Enrich discovered ASN evidence and an explicitly targeted IP address through RouteViews. Returned '
+            'routing relationships do not establish ownership, authorization, or target scope.'
+        ),
+    )
     shodan: bool = Field(default=False, description='Enrich discovered hosts with configured Shodan access.')
     screenshot: bool = Field(
         default=False,

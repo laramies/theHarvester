@@ -91,7 +91,7 @@ One finite execution of theHarvester against an explicit target and selected opt
 _Avoid_: Scan, monitoring cycle, session, job
 
 **Action-only run**:
-An enumeration run with no discovery sources that performs an explicitly selected DNS or direct action against an explicitly authorized target. It creates its own run record and never mutates the evidence of a parent run.
+An enumeration run with no discovery sources that performs an explicitly selected provider, DNS, or direct action against an explicitly authorized target. It creates its own run record and never mutates the evidence of a parent run.
 _Avoid_: Result action, parent-run update, inline scan
 
 **Run record**:

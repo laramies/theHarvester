@@ -15,6 +15,7 @@ ACTION_ACTIVITIES: Final = {
     'dns-lookup': ActivityClass.DNS,
     'dns-recursive': ActivityClass.DNS,
     'dns-resolve': ActivityClass.DNS,
+    'routeviews': ActivityClass.PASSIVE,
     'shodan': ActivityClass.PASSIVE,
     'api-scan': ActivityClass.DIRECT,
     'screenshot': ActivityClass.DIRECT,

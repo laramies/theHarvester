@@ -13,9 +13,9 @@ import time
 from collections.abc import Awaitable, Callable, Iterable, Mapping
 from contextlib import AsyncExitStack
 from datetime import UTC, datetime
-from ipaddress import ip_address
+from ipaddress import ip_address, ip_network
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 
@@ -115,6 +115,7 @@ from theHarvester.lib.recursive_dns import (
     discover_recursive_dns,
 )
 from theHarvester.lib.resolver_selection import DEFAULT_DNS_RESOLVERS, normalize_resolver_addresses
+from theHarvester.lib.routeviews import RouteViewsCancelled, RouteViewsResult, enrich_routeviews
 from theHarvester.lib.source_catalog import (
     SOURCE_SPECS,
     ActivityClass,
@@ -136,6 +137,9 @@ from theHarvester.lib.virtual_host import (
     normalize_virtual_host_hostname,
 )
 from theHarvester.screenshot.screenshot import ScreenShotter
+
+if TYPE_CHECKING:
+    from theHarvester.lib.network_evidence import NetworkObservation
 
 logger = logging.getLogger(__name__)
 
@@ -226,6 +230,15 @@ async def start(
         '-s',
         '--shodan',
         help='Use Shodan to query discovered hosts.',
+        default=False,
+        action='store_true',
+    )
+    parser.add_argument(
+        '--routeviews',
+        help=(
+            'Enrich discovered ASNs and an explicitly targeted IP/prefix through RouteViews. Returned routing '
+            'relationships do not establish ownership or target scope.'
+        ),
         default=False,
         action='store_true',
     )
@@ -506,6 +519,7 @@ async def start(
     ips: list = []
     host_ip: list = []
     limit: int = args.limit
+    routeviews_enabled = args.routeviews
     shodan = args.shodan
     start: int = args.start
     all_urls: list = []
@@ -534,6 +548,8 @@ async def start(
     source_executions: list[SourceExecution] = []
     observations: set[ResultObservation] = set()
     action_executions: list[ActionExecution] = []
+    network_prefixes: set[str] = set()
+    network_observations: list[NetworkObservation] = []
     dns_resolution_duration_ms = 0.0
     dns_resolution_ips: set[str] = set()
     dns_resolution_completed_count = 0
@@ -570,6 +586,7 @@ async def start(
             'language': map(str, all_languages),
             'linkedin-person': map(str, linkedin_people_list_tracker),
             'person': (json.dumps(person, ensure_ascii=False, separators=(',', ':'), sort_keys=True) for person in all_people),
+            'prefix': network_prefixes,
             'server': map(str, all_servers),
             'twitter-person': map(str, twitter_people_list_tracker),
             'url': map(str, all_urls),
@@ -595,6 +612,7 @@ async def start(
                 source_executions=source_executions,
                 observations=observations,
                 active_evidence=ActiveEvidence(tuple(action_executions)),
+                network_observations=network_observations,
                 virtual_hosts=vhost_observations,
             )
         except (ValueError, TypeError) as error:
@@ -890,6 +908,8 @@ async def start(
         engines = Core.expand_source_selection(args.source)
     activities = {get_source_spec(engine).activity for engine in engines if engine in SOURCE_SPECS}
     if shodan:
+        activities.add(ActivityClass.PASSIVE)
+    if routeviews_enabled:
         activities.add(ActivityClass.PASSIVE)
     if dnslookup or dnsbrute[0] or dnsresolve != '' or recursive_limits is not None:
         activities.add(ActivityClass.DNS)
@@ -1968,6 +1988,7 @@ async def start(
         and rest_args.dns_brute is False
         and not dnslookup
         and not return_completed_result
+        and not routeviews_enabled
         and not vhost_enabled
     ):
         # Indicates user is using REST api but not wanting output to be saved to a file
@@ -2173,6 +2194,62 @@ async def start(
         if dnsbrute[1]:
             await persist_result(finish_completed_result())
             return resolved_pair
+
+    if routeviews_enabled:
+        routeviews_started = time.perf_counter()
+        explicit_network_seeds: set[str] = set()
+        try:
+            explicit_network_seeds.add(
+                str(ip_network(word.strip(), strict=False)) if '/' in word else str(ip_address(word.strip()))
+            )
+        except ValueError:
+            pass
+
+        def record_routeviews_result(result: RouteViewsResult) -> None:
+            network_prefixes.update(result.prefixes)
+            total_asns.extend(result.origin_asns)
+            network_observations.extend(result.observations)
+            action_executions.append(
+                ActionExecution.finish(
+                    action='routeviews',
+                    status=result.status,
+                    duration_ms=(time.perf_counter() - routeviews_started) * 1000,
+                    groups={'prefix': result.prefixes},
+                    error_type=result.error_type,
+                    stop_reason=result.stop_reason,
+                )
+            )
+
+        try:
+            routeviews_result = await enrich_routeviews(
+                total_asns,
+                explicit_network_seeds,
+            )
+        except RouteViewsCancelled as error:
+            record_routeviews_result(error.result)
+            cancelled_result = finish_completed_result()
+            try:
+                if completed_result_checkpoint is not None and cancelled_result is not None:
+                    await completed_result_checkpoint(cancelled_result)
+            except (asyncio.CancelledError, Exception) as checkpoint_error:
+                output_logger.info(f'[!] RouteViews cancellation checkpoint failed: {checkpoint_error}')
+            finally:
+                await persist_result(cancelled_result)
+            raise
+        record_routeviews_result(routeviews_result)
+        if routeviews_result.prefixes:
+            print_section(
+                f'\n[*] RouteViews prefixes found: {len(routeviews_result.prefixes)}',
+                routeviews_result.prefixes,
+                '--------------------',
+            )
+        output_logger.info(
+            '[*] RouteViews: '
+            f'prefixes={len(routeviews_result.prefixes)}; origins={len(routeviews_result.origin_asns)}; '
+            f'requests={routeviews_result.request_count}; errors={routeviews_result.error_count}; '
+            f'status={routeviews_result.status}; stop={routeviews_result.stop_reason or "complete"}'
+        )
+        await checkpoint_completed_result()
 
     # TakeOver Checking
     if takeover_status:
@@ -2946,6 +3023,9 @@ async def start(
 
             if len(total_asns) > 0:
                 json_dict['asns'] = total_asns
+
+            if network_prefixes:
+                json_dict['prefixes'] = sorted(network_prefixes)
 
             if len(twitter_people_list_tracker) > 0:
                 json_dict['twitter_people'] = twitter_people_list_tracker

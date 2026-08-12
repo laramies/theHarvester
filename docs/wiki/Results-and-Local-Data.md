@@ -50,6 +50,8 @@ Virtual-host evidence stays inside this model. `results` holds one `hostname` ro
 
 Current runtime collection populates passive source executions plus DNS, takeover, Shodan, and API endpoint scan executions and origins. Screenshot actions attach file metadata to their captured hostname or URL without creating fake screenshot findings.
 
+RouteViews creates `prefix` results with `scope: external-relationship` and `routeviews` action provenance. Native observations distinguish one ASN-prefix origin claim, one collector/peer BGP route, and one RPKI validation state. They are routing evidence, not registration, ownership, authorization, reachability, or expanded target scope.
+
 Every discovered URL is stored as the `url` result kind. Its source or action origins identify whether it came from BuiltWith, GitLab, RocketReach, API scanning, or another producer; provider-specific URL kinds are not stored.
 
 Hostname and IP evidence use the `hostname` and `ip` result kinds in SQLite, JSONL, the API, and HarvestView. A hostname may be the authorized target itself or a subordinate name, so the result kind does not claim that every value is a subdomain.
@@ -62,7 +64,7 @@ Two operational tables support the API without changing those five evidence conc
 
 ## API results
 
-`GET /api/v1/runs/{run_id}` returns lifecycle state plus a normalized `results` array. Each result has `type`, `value`, `sources`, and `actions`. A `hostname` found through the `vhost` action also has a native `observations` array with its endpoint, literal-IP context, unknown-host control, and optional body-confirmation evidence. Run-level source and action outcomes remain available in `source_executions` and `action_executions`, while file metadata is returned through `artifacts`. JSONL imports or exports one run, and SQLite import loads completed runs in bulk. Treat runtime `/docs`, `/redoc`, and OpenAPI as the exact request and response reference.
+`GET /api/v1/runs/{run_id}` returns lifecycle state plus a normalized `results` array. Each result has `type`, `value`, `sources`, and `actions`. A `hostname` found through the `vhost` action has native endpoint observations; a `prefix` found through RouteViews has native origin, route, and RPKI observations with fixed external-relationship scope. Run-level source and action outcomes remain available in `source_executions` and `action_executions`, while file metadata is returned through `artifacts`. JSONL imports or exports one run, and SQLite import loads completed runs in bulk. Treat runtime `/docs`, `/redoc`, and OpenAPI as the exact request and response reference.
 
 ## Handling and sharing
 
