@@ -159,7 +159,7 @@ class Core:
         'brave': ('key',),
         'bufferoverun': ('key',),
         'builtwith': ('key',),
-        'censys': ('id', 'secret'),
+        'censys': ('token',),
         'criminalip': ('key',),
         'dehashed': ('key',),
         'dnsdb': ('key',),
@@ -245,8 +245,9 @@ class Core:
         return Core._api_key_value('builtwith')
 
     @staticmethod
-    def censys_key() -> tuple:
-        return Core._api_key_value('censys')
+    def censys_key() -> tuple[object, object]:
+        credentials = Core.api_keys().get('censys', {})
+        return credentials.get('token'), credentials.get('organization_id')
 
     @staticmethod
     def criminalip_key() -> str:

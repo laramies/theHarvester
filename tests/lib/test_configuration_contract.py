@@ -161,13 +161,13 @@ def test_provider_accessors_return_single_and_multi_field_credentials(
     core = configuration_environment.core
     configuration_dirs = configuration_environment.directories
     (configuration_dirs[0] / 'api-keys.yaml').write_text(
-        'apikeys:\n  bevigil:\n    key: bevigil-key\n  censys:\n    id: censys-id\n    secret: censys-secret\n',
+        'apikeys:\n  bevigil:\n    key: bevigil-key\n  censys:\n    token: censys-token\n    organization_id: censys-org\n',
         encoding='utf-8',
     )
 
     assert (core.bevigil_key(), core.censys_key()) == (
         'bevigil-key',
-        ('censys-id', 'censys-secret'),
+        ('censys-token', 'censys-org'),
     )
 
 

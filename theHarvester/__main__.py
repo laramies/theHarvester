@@ -1142,7 +1142,7 @@ async def start(
                     except MissingKey as mk:
                         record_missing_credentials(engineitem)
                         if not args.quiet:
-                            output_logger.info(f'Censys API key is missing or invalid: {mk}')
+                            output_logger.info(f'Censys Platform credentials are missing or invalid: {mk}')
                     except ConnectionError as ce:
                         if not args.quiet:
                             output_logger.info(f'Network error while querying Censys: {ce}')

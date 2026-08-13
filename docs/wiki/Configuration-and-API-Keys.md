@@ -22,8 +22,8 @@ Keep the complete generated template and fill only the providers you intend to u
 ```yaml
 apikeys:
   censys:
-    id: your-censys-id
-    secret: your-censys-secret
+    token: your-censys-personal-access-token
+    organization_id: your-censys-organization-id
 
   github:
     key: your-github-token
@@ -44,6 +44,8 @@ Do not commit populated configuration files. Prefer provider credentials scoped 
 The [README source matrix](https://github.com/laramies/theHarvester/blob/dev/README.md#discovery-sources) is the canonical source list. It shows whether each source requires a key, accepts an optional key, or has no key setting.
 
 Provider pricing, quotas, and terms change frequently. Check the provider's current documentation for these details.
+
+`censys.token` is a Censys Platform Personal Access Token. `organization_id` is optional; omit it to use the account's personal free wallet. The retired Search API ID and secret fields are not accepted.
 
 `hibpverified` queries [HIBP's authenticated verified-domain endpoint](https://haveibeenpwned.com/API/v3#BreachedDomain). It is selected by its name, the `breaches` capability, and `all`. Without a configured HIBP API key it is skipped like other unavailable keyed sources. Live use requires a user-owned paid HIBP API key and a user-owned domain verified in that account. The keyless `haveibeenpwned` source continues to query only the public breach catalogue.
 

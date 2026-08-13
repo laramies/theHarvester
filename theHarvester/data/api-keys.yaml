@@ -13,8 +13,8 @@ apikeys:
     key:
 
   censys:
-    id:
-    secret:
+    token:
+    organization_id:
 
   criminalip:
     key:

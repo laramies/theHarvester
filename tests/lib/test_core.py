@@ -315,7 +315,7 @@ def test_user_agent_policy_separates_provider_and_browser_identities() -> None:
     ("accessor_name", "expected"),
     [
         ("bevigil_key", "bevigil-key"),
-        ("censys_key", ("censys-id", "censys-secret")),
+        ("censys_key", ("censys-token", "censys-org")),
         ("fofa_key", ("fofa-key", "fofa-email")),
         ("routeviews_key", "routeviews-key"),
         ("tomba_key", ("tomba-key", "tomba-secret")),
@@ -328,7 +328,7 @@ def test_api_key_accessors_read_configured_values(monkeypatch, accessor_name: st
         staticmethod(
             lambda: {
                 'bevigil': {'key': 'bevigil-key'},
-                'censys': {'id': 'censys-id', 'secret': 'censys-secret'},
+                'censys': {'token': 'censys-token', 'organization_id': 'censys-org'},
                 'fofa': {'key': 'fofa-key', 'email': 'fofa-email'},
                 'routeviews': {'key': 'routeviews-key'},
                 'tomba': {'key': 'tomba-key', 'secret': 'tomba-secret'},
