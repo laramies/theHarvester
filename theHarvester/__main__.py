@@ -961,6 +961,11 @@ async def start(
         or vhost_enabled
     ):
         raise ValueError('ASN target requires --routeviews without discovery sources or other actions')
+    if routeviews_enabled and not engines and explicit_asn_target is None:
+        try:
+            ip_network(word, strict=False)
+        except ValueError as error:
+            raise ValueError('RouteViews hostname target requires a discovery source') from error
     activities = {get_source_spec(engine).activity for engine in engines if engine in SOURCE_SPECS}
     if shodan:
         activities.add(ActivityClass.PASSIVE)

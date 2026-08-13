@@ -2630,6 +2630,17 @@ async def test_explicit_asn_target_rejects_discovery_sources(monkeypatch: pytest
 
 
 @pytest.mark.asyncio
+async def test_routeviews_hostname_target_requires_a_discovery_source(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
+
+    with pytest.raises(ValueError, match='RouteViews hostname target requires a discovery source'):
+        await theharvester_main.start(
+            EnumerationOptions(domain='api.example.com', quiet=True, routeviews=True),
+            return_completed_result=True,
+        )
+
+
+@pytest.mark.asyncio
 async def test_routeviews_pivots_from_attributed_ips_without_expanding_discovered_asns(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

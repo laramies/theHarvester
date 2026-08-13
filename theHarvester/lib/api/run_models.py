@@ -270,6 +270,11 @@ class RunRequest(BaseModel):
         if self.target.startswith('AS') and self.target[2:].isdecimal():
             if self.sources or action_names != ('routeviews',):
                 raise ValueError('ASN target requires RouteViews as the only selected work')
+        elif self.routeviews and not self.sources:
+            try:
+                ipaddress.ip_address(self.target)
+            except ValueError as error:
+                raise ValueError('RouteViews hostname target requires a discovery source') from error
         if self.dns_recursive_depth > 0 and len(self.dns_resolvers) != 3:
             raise ValueError('Recursive DNS requires exactly three distinct resolver IPs')
         return self

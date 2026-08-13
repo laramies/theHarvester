@@ -175,6 +175,7 @@ def test_harvestview_can_submit_overridable_execution_controls(
     page.locator('#run-deadline').fill('86400')
     page.locator('[name="proxies"]').check()
     page.locator('[name="shodan"]').check()
+    page.locator('[name="routeviews"]').check()
     page.locator('[name="dns_lookup"]').check()
     page.locator('[name="takeover"]').check()
     page.locator('[name="api_scan"]').check()
@@ -207,6 +208,7 @@ def test_harvestview_can_submit_overridable_execution_controls(
         'dns_recursive_runtime_seconds': 12.5,
         'dns_brute': False,
         'shodan': True,
+        'routeviews': True,
         'screenshot': False,
         'takeover': True,
         'api_scan': True,
@@ -464,6 +466,91 @@ def test_harvestview_renders_sourced_asn_organization_attribution(
     result_row = page.locator('.tabulator-row').first
     expect(result_row).to_contain_text('AS64500')
     expect(result_row).to_contain_text('Example Transit · source:urlscan · hostname:api.example.test')
+
+
+def test_harvestview_summarizes_routeviews_prefix_evidence(
+    harvestview_server_url: str,
+    page: Page,
+) -> None:
+    run = {
+        'run_id': 'routeviews-run',
+        'target': 'example.test',
+        'status': 'completed',
+        'origin': 'local',
+        'created_at': '2026-08-12T12:00:00+00:00',
+        'started_at': '2026-08-12T12:00:01+00:00',
+        'completed_at': '2026-08-12T12:00:05+00:00',
+        'cancellation_requested_at': None,
+        'evidence_status': 'complete',
+        'result_count': 2,
+        'activities': ['P0'],
+        'sources': ['urlscan'],
+        'request': {'sources': ['urlscan'], 'limit': 25, 'deadline_seconds': 300, 'routeviews': True},
+        'source_executions': [],
+        'action_executions': [
+            {'action': 'routeviews', 'status': 'completed', 'result_count': 2, 'duration_ms': 125},
+        ],
+        'results': [
+            {
+                'type': 'asn',
+                'value': 'AS64500',
+                'sources': [],
+                'actions': ['routeviews'],
+            },
+            {
+                'type': 'prefix',
+                'value': '192.0.2.0/24',
+                'scope': 'external-relationship',
+                'sources': [],
+                'actions': ['routeviews'],
+                'observations': [
+                    {
+                        'type': 'observed-origin',
+                        'action': 'routeviews',
+                        'origin_asn': 'AS64500',
+                        'collected_at': '2026-08-12T12:00:03Z',
+                    },
+                    {
+                        'type': 'rpki-validation',
+                        'action': 'routeviews',
+                        'origin_asn': 'AS64500',
+                        'state': 'valid',
+                        'observed_at': '2026-08-12T11:59:00Z',
+                        'collected_at': '2026-08-12T12:00:03Z',
+                    },
+                    {
+                        'type': 'bgp-route',
+                        'action': 'routeviews',
+                        'origin_asn': 'AS64500',
+                        'collector': 'route-views.example',
+                        'peer_asn': 'AS64496',
+                        'peer_address': '198.51.100.1',
+                        'as_path': '64496 64500',
+                        'communities': '64500:1',
+                        'observed_at': '2026-08-12T11:59:00Z',
+                        'collected_at': '2026-08-12T12:00:03Z',
+                    },
+                ],
+            },
+        ],
+        'screenshots': [],
+        'log': '',
+        'error': None,
+    }
+
+    page.route(f'{harvestview_server_url}/api/v1/runs', lambda route: route.fulfill(json=[run]))
+    page.route(f'{harvestview_server_url}/api/v1/runs/routeviews-run', lambda route: route.fulfill(json=run))
+    page.goto(f'{harvestview_server_url}/')
+
+    page.get_by_role('button', name='Network prefixes 1').click()
+    expect(page.locator('#request-options')).to_contain_text('RouteViews enrichmentSelected')
+    result_row = page.locator('.tabulator-row').first
+    expect(result_row).to_contain_text('192.0.2.0/24')
+    expect(result_row).to_contain_text('AS64500 · RPKI valid')
+    expect(result_row.get_by_text('1 BGP route observation')).to_be_visible()
+    result_row.get_by_text('1 BGP route observation').click()
+    expect(result_row).to_contain_text('route-views.example · peer AS64496 (198.51.100.1)')
+    expect(result_row).to_contain_text('path 64496 64500 · communities 64500:1')
 
 
 def test_hostname_actions_queue_isolated_runs(

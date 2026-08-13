@@ -521,6 +521,48 @@ async def test_asn_organization_attribution_round_trips_in_a_normalized_table(tm
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize('corruption', ['non-asn-result', 'duplicate-row'])
+async def test_loading_corrupt_asn_attribution_fails_closed(tmp_path, corruption: str) -> None:
+    database = tmp_path / 'stash.sqlite'
+    store = ResultStore(database)
+    await store.initialize()
+    collected_at = datetime(2026, 8, 12, 12, 1, tzinfo=UTC)
+    attribution = AsnAttributionObservation('source', 'urlscan', 'AS64500', 'Example Network', 'ip', '192.0.2.10', collected_at)
+    result = CompletedResult.finish(
+        target='example.com',
+        started_at=collected_at,
+        completed_at=collected_at,
+        groups={'asn': ['AS64500'], 'ip': ['192.0.2.10']},
+        source_executions=(SourceExecution('urlscan', 'completed', 1, 2),),
+        observations=(
+            ResultObservation('urlscan', 'asn', 'AS64500'),
+            ResultObservation('urlscan', 'ip', '192.0.2.10'),
+        ),
+        asn_attributions=(attribution,),
+    )
+    await store.save_run(result)
+    with sqlite3.connect(database) as db:
+        if corruption == 'non-asn-result':
+            db.execute(
+                'UPDATE asn_attributions SET asn_result_position = subject_result_position WHERE run_id = ?',
+                (str(result.run_id),),
+            )
+        else:
+            db.execute(
+                'INSERT INTO asn_attributions '
+                '(run_id, position, asn_result_position, subject_result_position, execution_position, '
+                'organization_label, collected_at) '
+                'SELECT run_id, position + 1, asn_result_position, subject_result_position, execution_position, '
+                'organization_label, collected_at FROM asn_attributions WHERE run_id = ?',
+                (str(result.run_id),),
+            )
+        db.commit()
+
+    with pytest.raises(ResultStoreError, match='Persisted ASN attribution is invalid'):
+        await store.load_run(result.run_id)
+
+
+@pytest.mark.asyncio
 async def test_loading_prefix_details_with_vhost_provenance_fails_closed(tmp_path) -> None:
     database = tmp_path / 'stash.sqlite'
     store = ResultStore(database)
@@ -898,9 +940,9 @@ async def test_mixed_source_action_artifact_round_trip_uses_unified_tables(tmp_p
         'runs',
         'executions',
         'results',
-            'result_origins',
-            'asn_attributions',
-            'artifacts',
+        'result_origins',
+        'asn_attributions',
+        'artifacts',
         'legacy_observations',
         'run_records',
         'run_worker_leases',

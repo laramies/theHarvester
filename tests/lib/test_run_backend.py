@@ -732,7 +732,7 @@ def test_authenticated_operator_can_queue_screenshot_only_run(tmp_path, monkeypa
     assert response.json()['activities'] == ['P2']
 
 
-def test_authenticated_operator_can_queue_routeviews_only_run(tmp_path, monkeypatch) -> None:
+def test_authenticated_operator_can_queue_routeviews_only_ip_run(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api import api, run_worker
 
     async def no_op() -> None:
@@ -749,7 +749,7 @@ def test_authenticated_operator_can_queue_routeviews_only_run(tmp_path, monkeypa
         response = client.post(
             '/api/v1/runs',
             headers={'X-API-Key': 'test-key'},
-            json={'target': 'api.example.com', 'sources': [], 'routeviews': True},
+            json={'target': '192.0.2.7', 'sources': [], 'routeviews': True},
         )
 
     assert response.status_code == 201
@@ -842,7 +842,7 @@ def test_routeviews_child_receives_explicit_action_without_source_limit_controls
 
     async def scenario() -> None:
         store = RunStore(tmp_path / 'runs.sqlite')
-        created = await store.create(RunRequest(target='api.example.com', sources=[], routeviews=True, limit=9_999))
+        created = await store.create(RunRequest(target='192.0.2.7', sources=[], routeviews=True, limit=9_999))
         assert await store.claim_next() is not None
         await run_worker._child_execute(created['run_id'], store.database)
 

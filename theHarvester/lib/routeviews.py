@@ -463,8 +463,9 @@ class _RouteViewsRuntime:
                     params={'asn': origin_asn[2:]},
                 )
             for seed in canonical_seeds:
+                query_seed = seed if '/' in seed else str(ip_network(seed, strict=False))
                 await collect(
-                    f'{self.base_url}/prefix/{quote(seed, safe="")}',
+                    f'{self.base_url}/prefix/{quote(query_seed, safe="")}',
                     lambda body, collected_at, requested_seed=seed: self._parse_prefix(body, requested_seed, collected_at),
                     params={'strict-match': 'yes'} if '/' in seed else '',
                 )

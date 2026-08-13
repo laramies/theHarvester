@@ -39,7 +39,12 @@ from theHarvester.lib.active_evidence import (
     ActiveEvidence,
     ArtifactReference,
 )
-from theHarvester.lib.asn_attribution import AsnAttributionObservation, ProducerKind, SubjectKind
+from theHarvester.lib.asn_attribution import (
+    AsnAttributionObservation,
+    ProducerKind,
+    SubjectKind,
+    canonical_asn_attributions,
+)
 from theHarvester.lib.completed_result import (
     CompletedResult,
     ExecutionStatus,
@@ -991,10 +996,11 @@ class ResultStore:
             attribution_execution = executions_by_position.get(attribution.execution_position)
             if asn_result is None or subject_result is None or attribution_execution is None:
                 raise ResultStoreError('Persisted ASN attribution references missing evidence')
-            if attribution_execution.producer_kind not in {'source', 'action'} or subject_result.kind not in {
-                'hostname',
-                'ip',
-            }:
+            if (
+                asn_result.kind != 'asn'
+                or attribution_execution.producer_kind not in {'source', 'action'}
+                or subject_result.kind not in {'hostname', 'ip'}
+            ):
                 raise ResultStoreError('Persisted ASN attribution is invalid')
             try:
                 asn_attributions.append(
@@ -1010,6 +1016,9 @@ class ResultStore:
                 )
             except ValueError as error:
                 raise ResultStoreError('Persisted ASN attribution is invalid') from error
+        canonical_attributions = canonical_asn_attributions(asn_attributions)
+        if tuple(asn_attributions) != canonical_attributions:
+            raise ResultStoreError('Persisted ASN attribution is invalid')
         return CompletedResult(
             run_id=UUID(parent.run_id),
             target=parent.target,
@@ -1032,7 +1041,7 @@ class ResultStore:
             active_evidence=ActiveEvidence(executions=tuple(action_executions)),
             virtual_hosts=tuple(sorted(set(virtual_hosts), key=VirtualHostObservation.sort_key)),
             network_observations=tuple(sorted(set(network_observations), key=network_observation_sort_key)),
-            asn_attributions=tuple(sorted(set(asn_attributions), key=AsnAttributionObservation.sort_key)),
+            asn_attributions=canonical_attributions,
             evidence_status=cast('EvidenceStatus', parent.evidence_status) if parent.evidence_status is not None else None,
         )
 

@@ -38,12 +38,12 @@ The database persists across runs. Account for it in engagement cleanup and rete
 
 Completed CLI executions store one normalized terminal record keyed by run UUID. API executions use the same database by default and may override its path with `THEHARVESTER_RUN_DB`. Lifecycle rows keep queue, cancellation, and worker state separate from terminal evidence. Imported JSONL is stored without executing discovery, and source attribution is rebuilt from each finding's `sources` array. A SQLite import copies every completed run after validating the database and keeps the original run IDs.
 
-The normalized persistence model can represent active-action provenance and artifact metadata through five core tables:
+The normalized persistence model can represent active-action provenance and artifact metadata through six core tables:
 
 - `runs`: one finite enumeration run;
 - `executions`: each passive source or active action represented by the model;
 - `results`: deduplicated hostnames, IPs, emails, URLs, and structured outputs;
-- `result_origins`: which execution produced each result; and
+- `result_origins`: which execution produced each result;
 - `asn_attributions`: sourced organization labels linking an ASN result to the exact hostname or IP result supplied by the same execution; and
 - `artifacts`: files such as screenshots, linked to their creating action and subject result.
 
@@ -59,7 +59,7 @@ Every discovered URL is stored as the `url` result kind. Its source or action or
 
 Hostname and IP evidence use the `hostname` and `ip` result kinds in SQLite, JSONL, the API, and HarvestView. A hostname may be the authorized target itself or a subordinate name, so the result kind does not claim that every value is a subdomain.
 
-Two operational tables support the API without changing those five evidence concepts: `run_records` stores queue and lifecycle state, and `run_worker_leases` prevents two local workers from claiming the same queue. Older runless rows remain in `legacy_observations`. SQLite upgrades supported schemas automatically during normal initialization.
+Two operational tables support the API without changing those six evidence concepts: `run_records` stores queue and lifecycle state, and `run_worker_leases` prevents two local workers from claiming the same queue. Older runless rows remain in `legacy_observations`. SQLite upgrades supported schemas automatically during normal initialization.
 
 ## Screenshots
 

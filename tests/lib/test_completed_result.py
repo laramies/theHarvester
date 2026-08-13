@@ -20,6 +20,7 @@ from theHarvester.lib.network_evidence import (
     NetworkEvidenceLimitError,
     PrefixOriginObservation,
     RpkiValidationObservation,
+    canonical_network_observations,
     network_observation_details,
     parse_network_observation_details,
     parse_network_observation_json,
@@ -705,6 +706,41 @@ def test_network_details_reject_conflicting_rpki_states() -> None:
 
     with pytest.raises(ValueError, match='conflicting RPKI states'):
         parse_network_observation_details('192.0.2.0/24', details)
+
+
+def test_rpki_canonicalization_preserves_time_bound_state_changes_deterministically() -> None:
+    collected_at = datetime(2026, 8, 11, 12, 2, tzinfo=UTC)
+    observations = (
+        RpkiValidationObservation(
+            'routeviews', '192.0.2.0/24', 'AS64500', 'valid', collected_at - timedelta(minutes=2), collected_at
+        ),
+        RpkiValidationObservation(
+            'routeviews', '192.0.2.0/24', 'AS64500', 'valid', collected_at - timedelta(minutes=1), collected_at
+        ),
+        RpkiValidationObservation('routeviews', '192.0.2.0/24', 'AS64500', 'invalid', collected_at, collected_at),
+    )
+
+    canonical = canonical_network_observations(observations)
+
+    assert [(item.state, item.observed_at) for item in canonical] == [
+        ('valid', collected_at - timedelta(minutes=2)),
+        ('invalid', collected_at),
+    ]
+    assert canonical_network_observations(tuple(reversed(observations))) == canonical
+
+
+def test_rpki_incremental_dedup_still_rejects_a_same_time_conflict() -> None:
+    collected_at = datetime(2026, 8, 11, 12, 2, tzinfo=UTC)
+    first_time = collected_at - timedelta(minutes=2)
+    second_time = collected_at - timedelta(minutes=1)
+    accumulator = NetworkEvidenceAccumulator()
+
+    assert accumulator.add(RpkiValidationObservation('routeviews', '192.0.2.0/24', 'AS64500', 'valid', first_time, collected_at))
+    assert not accumulator.add(
+        RpkiValidationObservation('routeviews', '192.0.2.0/24', 'AS64500', 'valid', second_time, collected_at)
+    )
+    with pytest.raises(ValueError, match='conflicting RPKI states'):
+        accumulator.add(RpkiValidationObservation('routeviews', '192.0.2.0/24', 'AS64500', 'invalid', second_time, collected_at))
 
 
 def test_network_evidence_accumulator_owns_incremental_deduplication_and_limits() -> None:

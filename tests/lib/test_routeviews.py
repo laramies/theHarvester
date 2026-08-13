@@ -255,8 +255,72 @@ async def test_routeviews_uses_longest_match_for_known_ip(monkeypatch) -> None:
     assert result.stop_reason is None
     assert result.prefixes == ('192.0.2.0/24',)
     assert result.origin_asns == ('AS64502', 'AS64503')
-    assert calls[0][0] == 'https://api.routeviews.org/guest/prefix/192.0.2.7'
+    assert calls[0][0] == 'https://api.routeviews.org/guest/prefix/192.0.2.7%2F32'
     assert calls[0][1]['params'] == ''
+
+
+@pytest.mark.asyncio
+async def test_routeviews_deduplicates_shared_prefix_evidence_across_ip_seeds(monkeypatch) -> None:
+    shared_prefix = [
+        {
+            'prefix': '192.0.2.0/24',
+            'origin_asn': 64500,
+            'rpki_state': 'valid',
+            'reporting_peers': [
+                {
+                    'peer_asn': 64496,
+                    'peer_addr': '198.51.100.1',
+                    'collector': 'route-views.example',
+                    'as_path': '64496 64500',
+                    'communities': '64500:1',
+                    'timestamp': '2026-08-11T11:59:00Z',
+                }
+            ],
+        }
+    ]
+    install_runtime(monkeypatch, [response(shared_prefix), response(shared_prefix)])
+
+    result = await enrich_routeviews([], ['192.0.2.7', '192.0.2.8'])
+
+    assert result.request_count == 2
+    assert result.prefixes == ('192.0.2.0/24',)
+    assert sum(isinstance(item, PrefixOriginObservation) for item in result.observations) == 1
+    assert sum(isinstance(item, BgpRouteObservation) for item in result.observations) == 1
+    assert sum(isinstance(item, RpkiValidationObservation) for item in result.observations) == 1
+
+
+@pytest.mark.asyncio
+async def test_routeviews_records_each_response_collection_time(monkeypatch) -> None:
+    install_runtime(
+        monkeypatch,
+        [
+            response([]),
+            response(
+                [
+                    {
+                        'prefix': '192.0.2.0/24',
+                        'origin_asn': 64500,
+                        'rpki_state': 'valid',
+                        'reporting_peers': [
+                            {
+                                'peer_asn': 64496,
+                                'peer_addr': '198.51.100.1',
+                                'collector': 'route-views.example',
+                                'as_path': '64496 64500',
+                                'communities': '',
+                                'timestamp': '2026-08-11T12:00:00.500Z',
+                            }
+                        ],
+                    }
+                ]
+            ),
+        ],
+    )
+
+    result = await enrich_routeviews([], ['192.0.2.7', '192.0.2.8'])
+
+    route = next(item for item in result.observations if isinstance(item, BgpRouteObservation))
+    assert route.collected_at == datetime(2026, 8, 11, 12, 0, 1, tzinfo=UTC)
 
 
 @pytest.mark.asyncio

@@ -503,6 +503,16 @@ def test_routeviews_accepts_only_an_action_only_asn_target() -> None:
         RunRequest(target='AS64500', sources=[], routeviews=True, shodan=True)
 
 
+def test_routeviews_hostname_target_requires_a_discovery_source() -> None:
+    from pydantic import ValidationError
+
+    from theHarvester.lib.api.run_models import RunRequest
+
+    with pytest.raises(ValidationError, match='RouteViews hostname target requires a discovery source'):
+        RunRequest(target='api.example.com', sources=[], routeviews=True)
+    assert RunRequest(target='192.0.2.7', sources=[], routeviews=True).routeviews is True
+
+
 def test_fresh_api_uses_catalog_takeover_name_and_rejects_unknown_fields() -> None:
     from pydantic import ValidationError
 
