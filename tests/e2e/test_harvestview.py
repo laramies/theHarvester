@@ -200,6 +200,7 @@ def test_harvestview_can_submit_overridable_execution_controls(
         'start': 25,
         'deadline_seconds': 86_400,
         'proxies': True,
+        'no_hosts': False,
         'dns_lookup': True,
         'dns_resolve': False,
         'dns_resolvers': ['192.0.2.53', '198.51.100.53', '203.0.113.53'],
@@ -222,6 +223,35 @@ def test_harvestview_can_submit_overridable_execution_controls(
         'vhost_concurrency': 5,
         'vhost_insecure': False,
     }
+
+
+def test_harvestview_submits_hostname_exclusion(harvestview_server_url: str, page: Page, browser_failures) -> None:
+    browser_failures.allow_response('POST', 503, '/api/v1/runs')
+    browser_failures.allow_console_error(
+        'Failed to load resource: the server responded with a status of 503 (Service Unavailable)'
+    )
+    captured: dict[str, object] = {}
+
+    def capture_submission(route: Route) -> None:
+        if route.request.method != 'POST':
+            route.continue_()
+            return
+        captured.update(route.request.post_data_json)
+        route.fulfill(status=503, json={'detail': 'Hostname exclusion captured'})
+
+    page.route(f'{harvestview_server_url}/api/v1/runs', capture_submission)
+    page.goto(f'{harvestview_server_url}/')
+    page.get_by_role('button', name='Start enumeration').first.click()
+    page.get_by_role('button', name='Clear', exact=True).click()
+    page.locator('#run-target').fill('example.com')
+    page.get_by_text('Advanced execution controls', exact=True).click()
+    page.locator('[name="no_hosts"]').check()
+    page.locator('[data-activity="P0"] input[value="bufferoverun"]').check()
+    page.locator('#submit-run-button').click()
+
+    expect(page.locator('#new-run-error')).to_have_text('Hostname exclusion captured')
+    assert captured['sources'] == ['bufferoverun']
+    assert captured['no_hosts'] is True
 
 
 def test_harvestview_requires_complete_inputs_for_a_vhost_only_run(

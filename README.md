@@ -56,6 +56,14 @@ uv run theHarvester -d example.com -b emails,urls,certspotter
 
 Capability selectors form a union and choose which sources run. They do not discard other result types returned by those sources. Available selectors are `subdomains`, `emails`, `ips`, `asns`, `urls`, `people`, and `breaches`. `-b all` runs every cataloged P0 passive source. P1 DNS and P2 direct sources require explicit selection.
 
+Exclude hostname results while retaining other result types:
+
+```bash
+uv run theHarvester -d example.com -b emails,ips,urls --no-hosts -f non-host-results
+```
+
+`--no-hosts` skips sources whose only declared route is `subdomains`. Mixed sources still run, but their hostname getter is not called; emails, IPs, URLs, ASNs, people, and breach names remain available. Hostname and virtual-host records are omitted from terminal, JSON, XML, JSONL, SQLite, API, and HarvestView output. The option cannot be combined with Shodan enrichment, DNS resolution/lookup/brute force/recursion, takeover checks, screenshots, or virtual-host discovery. Target-only API endpoint interaction remains available because it does not depend on harvested hostnames. HarvestView and `POST /api/v1/runs` expose the same option as `no_hosts`.
+
 Save JSON, XML, and JSONL reports:
 
 ```bash

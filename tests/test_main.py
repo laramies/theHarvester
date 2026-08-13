@@ -42,6 +42,7 @@ async def test_cli_help_explains_proxy_and_direct_action_scope(
         'Enrich discovered IPs with sourced ASN attribution, or an explicitly targeted ASN, IP, or prefix, through '
         'RouteViews.' in help_text
     )
+    assert 'Exclude hostname results while retaining other result types returned by selected sources.' in help_text
     assert 'Accepted for compatibility but currently unused; use --dns-resolvers to select resolvers.' in help_text
     assert 'Select resolver IPs for DNS actions without enabling hostname resolution.' in help_text
     assert 'text file with one IP per line' in help_text
@@ -2654,7 +2655,7 @@ async def test_routeviews_pivots_from_attributed_ips_without_expanding_discovere
             return None
 
         async def get_hostnames(self) -> set[str]:
-            return {'example.com'}
+            raise AssertionError('hostname results must not be retrieved')
 
         async def get_ips(self) -> set[str]:
             return {'192.0.2.10'}
@@ -2698,7 +2699,14 @@ async def test_routeviews_pivots_from_attributed_ips_without_expanding_discovere
     monkeypatch.setattr(theharvester_main.Core, 'routeviews_key', staticmethod(lambda: None))
 
     result = await theharvester_main.start(
-        EnumerationOptions(domain='example.com', quiet=True, routeviews=True, source='urlscan', proxies=True),
+        EnumerationOptions(
+            domain='example.com',
+            quiet=True,
+            routeviews=True,
+            source='urlscan',
+            proxies=True,
+            no_hosts=True,
+        ),
         return_completed_result=True,
     )
 
@@ -2706,6 +2714,7 @@ async def test_routeviews_pivots_from_attributed_ips_without_expanding_discovere
     completed = result[-1]
     assert ('asn', 'AS64500') in completed.results
     assert ('ip', '192.0.2.10') in completed.results
+    assert not any(kind == 'hostname' for kind, _value in completed.results)
     assert len(completed.asn_attributions) == 1
     assert completed.asn_attributions[0].subject_value == '192.0.2.10'
     execution = next(item for item in result[-1].active_evidence.executions if item.action == 'routeviews')
