@@ -26,6 +26,16 @@ ACTION_REQUEST_FIELDS: Final = {
     **{name: name.replace('-', '_') for name in ACTION_ACTIVITIES},
     'dns-recursive': 'dns_recursive_depth',
 }
+HOSTNAME_DEPENDENT_ACTION_OPTIONS: Final = {
+    'shodan': '--shodan',
+    'dns-resolve': '--dns-resolve',
+    'dns-lookup': '--dns-lookup',
+    'dns-brute': '--dns-brute',
+    'dns-recursive': '--dns-recursive-depth',
+    'takeover': '--take-over',
+    'screenshot': '--screenshot',
+    'vhost': '--vhost',
+}
 
 
 def selected_action_names(request: Mapping[str, object]) -> tuple[str, ...]:
@@ -36,6 +46,14 @@ def selected_action_names(request: Mapping[str, object]) -> tuple[str, ...]:
         return isinstance(value, (int, float)) and value > 0 if name == 'dns-recursive' else bool(value)
 
     return tuple(name for name in ACTION_ACTIVITIES if selected(name))
+
+
+def hostname_collection_conflicts(request: Mapping[str, object]) -> tuple[str, ...]:
+    """Return selected actions that require hostname collection."""
+    if not request.get('no_hosts'):
+        return ()
+    selected = set(selected_action_names(request))
+    return tuple(option for action, option in HOSTNAME_DEPENDENT_ACTION_OPTIONS.items() if action in selected)
 
 
 class ResultRoute(Enum):

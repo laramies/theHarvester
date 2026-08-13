@@ -853,6 +853,74 @@ def test_routeviews_child_receives_explicit_action_without_source_limit_controls
     assert received_options[0].limit == 9_999
 
 
+@pytest.mark.parametrize(
+    ('field', 'value', 'option'),
+    [
+        ('shodan', True, '--shodan'),
+        ('dns_resolve', True, '--dns-resolve'),
+        ('dns_lookup', True, '--dns-lookup'),
+        ('dns_brute', True, '--dns-brute'),
+        ('dns_recursive_depth', 1, '--dns-recursive-depth'),
+        ('takeover', True, '--take-over'),
+        ('screenshot', True, '--screenshot'),
+        ('vhost', True, '--vhost'),
+    ],
+)
+def test_no_hosts_rejects_hostname_dependent_actions(field: str, value: object, option: str) -> None:
+    from pydantic import ValidationError
+
+    from theHarvester.lib.api.run_models import RunRequest
+
+    with pytest.raises(ValidationError, match=rf'--no-hosts cannot be combined with: {option}'):
+        RunRequest(target='example.test', sources=['bufferoverun'], no_hosts=True, **{field: value})
+
+
+def test_no_hosts_allows_target_only_api_scan() -> None:
+    from theHarvester.lib.api.run_models import RunRequest
+
+    request = RunRequest(target='example.test', sources=[], no_hosts=True, api_scan=True)
+
+    assert request.no_hosts is True
+    assert request.api_scan is True
+
+
+def test_no_hosts_conflict_precedes_virtual_host_input_validation() -> None:
+    from pydantic import ValidationError
+
+    from theHarvester.lib.api.run_models import RunRequest
+
+    with pytest.raises(ValidationError, match=r'--no-hosts cannot be combined with: --vhost'):
+        RunRequest(target='example.test', sources=[], no_hosts=True, vhost=True)
+
+
+def test_no_hosts_child_preserves_the_run_request(tmp_path, monkeypatch) -> None:
+    from theHarvester import __main__ as main_module
+    from theHarvester.lib.api import run_worker
+    from theHarvester.lib.api.run_models import RunRequest
+    from theHarvester.lib.api.run_store import RunStore
+    from theHarvester.lib.completed_result import CompletedResult
+
+    received_options = []
+
+    async def fake_start(options, **_kwargs):
+        received_options.append(options)
+        now = datetime.now(UTC)
+        return (CompletedResult.finish(target=options.domain, started_at=now, completed_at=now, groups={}),)
+
+    monkeypatch.setattr(main_module, 'start', fake_start)
+
+    async def scenario() -> None:
+        store = RunStore(tmp_path / 'runs.sqlite')
+        created = await store.create(RunRequest(target='example.test', sources=['bufferoverun'], no_hosts=True))
+        assert await store.claim_next() is not None
+        await run_worker._child_execute(created['run_id'], store.database)
+
+    asyncio.run(scenario())
+
+    assert received_options[0].source == 'bufferoverun'
+    assert received_options[0].no_hosts is True
+
+
 def test_virtual_host_request_normalizes_a_self_contained_target_action() -> None:
     from pydantic import ValidationError
 

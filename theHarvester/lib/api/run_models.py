@@ -15,7 +15,12 @@ from theHarvester.lib.enumeration import (
 from theHarvester.lib.evidence_types import EvidenceStatus  # noqa: TC001 - Pydantic resolves this annotation at runtime
 from theHarvester.lib.resolver_selection import DEFAULT_DNS_RESOLVERS, normalize_resolver_addresses
 from theHarvester.lib.result_values import normalize_asn
-from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass, selected_action_names
+from theHarvester.lib.source_catalog import (
+    SOURCE_SPECS,
+    ActivityClass,
+    hostname_collection_conflicts,
+    selected_action_names,
+)
 from theHarvester.lib.virtual_host import (
     DEFAULT_VHOST_CONCURRENCY,
     DEFAULT_VHOST_REQUEST_LIMIT,
@@ -92,6 +97,10 @@ class RunRequest(BaseModel):
     proxies: bool = Field(
         default=False,
         description='Use configured proxies for supported discovery sources and takeover requests.',
+    )
+    no_hosts: bool = Field(
+        default=False,
+        description='Exclude hostname results while retaining other result types returned by selected sources.',
     )
     dns_brute: bool = Field(default=False, description='Try wordlist candidates below the authorized target through DNS.')
     dns_lookup: bool = Field(
@@ -225,6 +234,12 @@ class RunRequest(BaseModel):
         if len(paths) != len(set(paths)):
             raise ValueError('API scan paths must not contain duplicates')
         return paths
+
+    @model_validator(mode='after')
+    def validate_hostname_collection(self) -> Self:
+        if conflicts := hostname_collection_conflicts(self.model_dump()):
+            raise ValueError(f'--no-hosts cannot be combined with: {", ".join(conflicts)}')
+        return self
 
     @model_validator(mode='after')
     def validate_virtual_host_request(self) -> Self:

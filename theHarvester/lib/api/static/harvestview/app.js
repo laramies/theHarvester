@@ -292,6 +292,7 @@
       ['Result start offset', request.start ?? 'Not recorded'],
       ['Whole-run deadline', request.deadline_seconds ? `${request.deadline_seconds} seconds` : 'Not applicable'],
       ['Proxy transport', request.proxies ? 'Selected' : 'Off'],
+      ['Hostname results', request.no_hosts ? 'Excluded' : 'Included'],
       ['DNS lookup (/24 reverse expansion)', request.dns_lookup ? 'Selected' : 'Off'],
       ['DNS resolution', request.dns_resolve ? 'Selected' : 'Off'], ['DNS brute force', request.dns_brute ? 'Selected' : 'Off'],
       ['DNS resolver vantages', request.dns_resolvers?.join(', ') || 'Not recorded'],
@@ -876,7 +877,8 @@
     const payload = {
       target: form.get('target'), sources: [...state.selectedSources], limit: Number(form.get('limit')),
       start: Number(form.get('start')), deadline_seconds: Number(form.get('deadline_seconds')),
-      proxies: form.has('proxies'), dns_lookup: form.has('dns_lookup'), dns_resolve: form.has('dns_resolve'),
+      proxies: form.has('proxies'), no_hosts: form.has('no_hosts'),
+      dns_lookup: form.has('dns_lookup'), dns_resolve: form.has('dns_resolve'),
       dns_resolvers: String(form.get('dns_resolvers')).split(',').map(value => value.trim()),
       dns_recursive_depth: Number(form.get('dns_recursive_depth')),
       dns_recursive_query_limit: Number(form.get('dns_recursive_query_limit')),

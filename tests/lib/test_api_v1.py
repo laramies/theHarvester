@@ -421,6 +421,7 @@ def test_openapi_explains_scope_and_execution_controls(tmp_path, monkeypatch) ->
     assert 'prefix' not in properties['routeviews']['description']
     assert 'three resolver' in properties['dns_recursive_query_limit']['description']
     assert 'discovery sources' in properties['proxies']['description']
+    assert 'Exclude hostname results' in properties['no_hosts']['description']
     assert 'configured proxies' in properties['takeover']['description']
     assert 'take_over' not in properties
     assert 'endpoint paths' in properties['api_scan_paths']['description']

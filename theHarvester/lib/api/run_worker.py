@@ -314,6 +314,7 @@ async def _child_execute(run_id: str, database: Path) -> None:
         domain=run['target'],
         filename='',
         limit=request['limit'],
+        no_hosts=request.get('no_hosts', False),
         proxies=request.get('proxies', False),
         quiet=True,
         routeviews=request.get('routeviews', False),

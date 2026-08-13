@@ -124,6 +124,7 @@ from theHarvester.lib.source_catalog import (
     ResultRoute,
     SourceSpec,
     get_source_spec,
+    hostname_collection_conflicts,
 )
 from theHarvester.lib.virtual_host import (
     DEFAULT_VHOST_CONCURRENCY,
@@ -230,6 +231,12 @@ async def start(
         '-p',
         '--proxies',
         help='Use proxies.yaml for supported discovery-source and takeover requests.',
+        default=False,
+        action='store_true',
+    )
+    parser.add_argument(
+        '--no-hosts',
+        help='Exclude hostname results while retaining other result types returned by selected sources.',
         default=False,
         action='store_true',
     )
@@ -439,6 +446,22 @@ async def start(
         configure_logging(verbose=args.verbose)
         if args.verbose:
             logger.info('Verbose logging enabled')
+    collect_hosts = not args.no_hosts
+    action_request = {
+        'no_hosts': args.no_hosts,
+        'shodan': args.shodan,
+        'dns_resolve': args.dns_resolve != '',
+        'dns_lookup': args.dns_lookup,
+        'dns_brute': args.dns_brute,
+        'dns_recursive_depth': args.dns_recursive_depth,
+        'takeover': args.take_over,
+        'screenshot': args.screenshot,
+        'vhost': args.vhost,
+        'vhost_endpoint': args.vhost_endpoint,
+        'vhost_candidates': args.vhost_candidates,
+    }
+    if conflicts := hostname_collection_conflicts(action_request):
+        raise ValueError(f'--no-hosts cannot be combined with: {", ".join(conflicts)}')
     vhost_enabled = args.vhost or bool(args.vhost_endpoint) or bool(args.vhost_candidates)
     vhost_scope = ''
     vhost_endpoint = ''
@@ -610,7 +633,9 @@ async def start(
             'framework': map(str, all_frameworks),
             'hostname': (
                 _normalize_hosts_for_storage(all_hosts, word) | screenshot_hostnames | set(confirmed_virtual_hostnames())
-            ),
+            )
+            if collect_hosts
+            else (),
             'infostealer': (
                 json.dumps(stealer, ensure_ascii=False, separators=(',', ':'), sort_keys=True) for stealer in all_infostealers
             ),
@@ -628,7 +653,7 @@ async def start(
             for observation in observations:
                 committed_groups.setdefault(observation.kind, []).append(observation.value)
             groups = {kind: iter(values) for kind, values in committed_groups.items()}
-        elif extra_hostnames:
+        elif collect_hosts and extra_hostnames:
             groups['hostname'] = (
                 _normalize_hosts_for_storage((*all_hosts, *extra_hostnames), word)
                 | screenshot_hostnames
@@ -646,7 +671,7 @@ async def start(
                 active_evidence=ActiveEvidence(tuple(action_executions)),
                 network_observations=network_observations,
                 asn_attributions=asn_attributions,
-                virtual_hosts=vhost_observations,
+                virtual_hosts=vhost_observations if collect_hosts else (),
             )
         except (ValueError, TypeError) as error:
             output_logger.info(f'[!] An error occurred while completing the result: {error}')
@@ -767,7 +792,7 @@ async def start(
                 ResultObservation(source_name, kind, value) for item in values if (value := str(item).strip())
             )
 
-        if ResultRoute.SUBDOMAINS in routes:
+        if collect_hosts and ResultRoute.SUBDOMAINS in routes:
             discovered_hosts = await search_engine.get_hostnames()
             host_names = list(_normalize_hosts_for_storage(discovered_hosts, word))
             paired_hosts: set[str] = set()
@@ -947,6 +972,17 @@ async def start(
     stor_lst = []
     if args.source is not None:
         engines = Core.expand_source_selection(args.source)
+        if not collect_hosts:
+            hostname_only_engines = [
+                engine
+                for engine in engines
+                if engine in SOURCE_SPECS and get_source_spec(engine).routes == frozenset({ResultRoute.SUBDOMAINS})
+            ]
+            source_executions.extend(
+                SourceExecution(engine, 'skipped', 0, 0, stop_reason='hostname-collection-disabled')
+                for engine in hostname_only_engines
+            )
+            engines = [engine for engine in engines if engine not in hostname_only_engines]
     if explicit_asn_target is not None and (
         not routeviews_enabled
         or engines
@@ -2149,7 +2185,9 @@ async def start(
         for person in all_people:
             output_logger.info(person)
 
-    if len(all_hosts) == 0:
+    if not collect_hosts:
+        all_hosts = []
+    elif len(all_hosts) == 0:
         output_logger.info('\n[*] No hosts found.\n\n')
     else:
         if dnsresolve != '':
@@ -2869,21 +2907,24 @@ async def start(
                 await file.write('<cmd>' + ' '.join(sanitized_args) + '</cmd>')
                 for email in all_emails:
                     await file.write('<email>' + sanitize_for_xml(email) + '</email>')
-                paired_hosts = {host for host, _ip in reported_host_ip_pairs}
-                for host, ip in sorted(reported_host_ip_pairs):
-                    await file.write(f'<host><ip>{sanitize_for_xml(ip)}</ip><hostname>{sanitize_for_xml(host)}</hostname></host>')
-                for x in full:
-                    host, ip = x.split(':', 1) if ':' in x else (x, '')
-                    if ip and len(ip) > 3:
-                        if (host, ip) in reported_host_ip_pairs:
-                            continue
+                if collect_hosts:
+                    paired_hosts = {host for host, _ip in reported_host_ip_pairs}
+                    for host, ip in sorted(reported_host_ip_pairs):
                         await file.write(
                             f'<host><ip>{sanitize_for_xml(ip)}</ip><hostname>{sanitize_for_xml(host)}</hostname></host>'
                         )
-                    elif host not in paired_hosts:
-                        await file.write(f'<host>{sanitize_for_xml(host)}</host>')
-                for host in confirmed_virtual_hostnames():
-                    await file.write(f'<vhost>{sanitize_for_xml(host)}</vhost>')
+                    for x in full:
+                        host, ip = x.split(':', 1) if ':' in x else (x, '')
+                        if ip and len(ip) > 3:
+                            if (host, ip) in reported_host_ip_pairs:
+                                continue
+                            await file.write(
+                                f'<host><ip>{sanitize_for_xml(ip)}</ip><hostname>{sanitize_for_xml(host)}</hostname></host>'
+                            )
+                        elif host not in paired_hosts:
+                            await file.write(f'<host>{sanitize_for_xml(host)}</host>')
+                    for host in confirmed_virtual_hostnames():
+                        await file.write(f'<vhost>{sanitize_for_xml(host)}</vhost>')
                 # TODO add Shodan output into XML report
                 await file.write('</theHarvester>')
                 output_logger.info('[*] XML File saved.')
@@ -3085,15 +3126,16 @@ async def start(
             if len(all_emails) > 0:
                 json_dict['emails'] = all_emails
 
-            if dnsresolve != '' and len(full) > 0:
-                json_dict['hosts'] = full
-            elif len(all_hosts) > 0:
-                json_dict['hosts'] = all_hosts
-            else:
-                json_dict['hosts'] = []
+            if collect_hosts:
+                if dnsresolve != '' and len(full) > 0:
+                    json_dict['hosts'] = full
+                elif len(all_hosts) > 0:
+                    json_dict['hosts'] = all_hosts
+                else:
+                    json_dict['hosts'] = []
 
-            if virtual_hostnames := confirmed_virtual_hostnames():
-                json_dict['vhosts'] = virtual_hostnames
+                if virtual_hostnames := confirmed_virtual_hostnames():
+                    json_dict['vhosts'] = virtual_hostnames
 
             if len(all_urls) > 0:
                 json_dict['urls'] = all_urls
