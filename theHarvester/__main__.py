@@ -1632,41 +1632,7 @@ async def start(
 
                 elif engineitem == 'shodan':
                     try:
-                        shodan_search = shodansearch.SearchShodan()
-
-                        # For normal module usage, we need to create a wrapper that works with the store function
-                        class ShodanWrapper:
-                            def __init__(self, domain, shodan_client):
-                                self.word = domain
-                                self.hosts = set()
-                                self.shodan = shodan_client
-
-                            async def process(self, use_proxy: bool = False):
-                                import socket
-
-                                try:
-                                    # Resolve domain to IP and search in Shodan
-                                    ip = socket.gethostbyname(self.word)
-                                    output_logger.info(f'\tSearching Shodan for {ip}')
-                                    result = await self.shodan.search_ip(ip)
-                                    if ip in result and isinstance(result[ip], dict):
-                                        # Add the IP as a host for consistency with other modules
-                                        self.hosts.add(ip)
-
-                                        for host in result[ip].get('hostnames', []):
-                                            self.hosts.add(host)
-
-                                        output_logger.info(f'Found Shodan data for {ip}')
-                                    elif ip in result and isinstance(result[ip], str):
-                                        output_logger.info(f'{ip}: {result[ip]}')
-                                except Exception as e:
-                                    output_logger.info(f'Error in Shodan search: {e}')
-
-                            async def get_hostnames(self):
-                                return list(self.hosts)
-
-                        shodan_wrapper = ShodanWrapper(word, shodan_search)
-                        stor_lst.append(store(shodan_wrapper, engineitem))
+                        stor_lst.append(store(shodansearch.SearchShodan(word), engineitem))
                     except Exception as e:
                         if isinstance(e, MissingKey):
                             record_missing_credentials(engineitem)

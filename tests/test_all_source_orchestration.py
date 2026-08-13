@@ -1,5 +1,4 @@
 import json
-import socket
 import sys
 import xml.etree.ElementTree as ElementTree
 from collections import Counter
@@ -167,15 +166,7 @@ async def test_explicit_non_passive_source_is_scheduled_once(
             return set()
 
     if source == 'shodan':
-
-        class FakeShodan:
-            async def search_ip(self, _ip: str) -> dict:
-                nonlocal executions
-                executions += 1
-                return {}
-
-        monkeypatch.setattr(theharvester_main.shodansearch, 'SearchShodan', FakeShodan)
-        monkeypatch.setattr(socket, 'gethostbyname', lambda _domain: '203.0.113.1')
+        monkeypatch.setattr(theharvester_main.shodansearch, 'SearchShodan', lambda *_args: FakeAdapter())
     else:
         module, constructor_name = {
             'criminalip': (theharvester_main.criminalip, 'SearchCriminalIP'),
