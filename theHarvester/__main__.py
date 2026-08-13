@@ -243,9 +243,9 @@ async def start(
     parser.add_argument(
         '--routeviews',
         help=(
-            'Enrich discovered ASNs or an explicitly targeted ASN, IP, or prefix through RouteViews. Returned routing '
-            'relationships do not establish ownership or target scope. Uses authenticated access when a RouteViews '
-            'API key is configured.'
+            'Enrich discovered IPs with sourced ASN attribution, or an explicitly targeted ASN, IP, or prefix, through '
+            'RouteViews. Returned routing relationships do not establish ownership or target scope. Uses authenticated '
+            'access when a RouteViews API key is configured.'
         ),
         default=False,
         action='store_true',
@@ -2253,12 +2253,14 @@ async def start(
 
     if routeviews_enabled:
         routeviews_started = time.perf_counter()
-        routeviews_asns = set(total_asns)
-        if explicit_asn_target is not None:
-            routeviews_asns.add(explicit_asn_target)
-        explicit_network_seeds: set[str] = set()
+        routeviews_asns = {explicit_asn_target} if explicit_asn_target is not None else set()
+        routeviews_network_seeds = {
+            attribution.subject_value
+            for attribution in asn_attributions
+            if attribution.producer_kind == 'source' and attribution.subject_kind == 'ip'
+        }
         try:
-            explicit_network_seeds.add(
+            routeviews_network_seeds.add(
                 str(ip_network(word.strip(), strict=False)) if '/' in word else str(ip_address(word.strip()))
             )
         except ValueError:
@@ -2282,7 +2284,7 @@ async def start(
         try:
             routeviews_result = await enrich_routeviews(
                 routeviews_asns,
-                explicit_network_seeds,
+                routeviews_network_seeds,
                 api_key=Core.routeviews_key(),
             )
         except RouteViewsCancelled as error:

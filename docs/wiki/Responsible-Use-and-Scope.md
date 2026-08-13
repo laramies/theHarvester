@@ -19,14 +19,14 @@ The following options require additional care:
 | `-c`, `--dns-brute` | Tries candidate subdomains against DNS. |
 | `-t`, `--take-over` | Checks discovered hosts for takeover indicators. |
 | `-s`, `--shodan` | Enriches discovered hosts through Shodan. |
-| `--routeviews` | Sends ASNs returned by selected sources, or an explicitly targeted ASN, IP, or CIDR, to RouteViews and records external routing relationships. |
+| `--routeviews` | Sends discovered IPs with sourced ASN attribution, or an explicitly targeted ASN, IP, or CIDR, to RouteViews and records external routing relationships. |
 | `--vhost`, `--vhost-*` | Probes literal IP endpoints with candidate SNI and HTTP `Host` values. |
 | `--screenshot DIR` | Opens discovered web services in a browser. |
 | `-a`, `--api-scan` | Requests common API paths from the target. |
 
 Use `--dns-resolvers IPS_OR_FILE` to select resolver addresses for DNS brute force, reverse lookup, or recursive DNS without also enabling hostname resolution. The compatible `--dns-resolve` value still selects resolvers and enables hostname resolution.
 
-`--routeviews` is a separately selected P0 provider action. It is never enabled by `-b all` and ignores `-l`; one run is internally bounded to 300 sequential requests and 300 seconds. With no configured key it uses the documented guest rate of one request per second. A configured `routeviews.key` selects PeeringDB-verified authenticated access and the documented 10-request-per-second allowance. It queries ASNs returned by the selected sources, or an ASN, IP, or CIDR supplied as the run target. Harvested IPs are not sent automatically. The action does not recursively query returned prefixes and never promotes returned CIDRs into DNS or direct-action scope. Cloud and CDN routes can be useful relationship evidence, but route origins and RPKI states do not establish ownership or authorization.
+`--routeviews` is a separately selected P0 provider action. It is never enabled by `-b all` and ignores `-l`; one run is internally bounded to 300 sequential requests and 300 seconds. With no configured key it uses the documented guest rate of one request per second. A configured `routeviews.key` selects PeeringDB-verified authenticated access and the documented 10-request-per-second allowance. It queries exact discovered IPs backed by sourced ASN attribution, or an ASN, IP, or CIDR supplied as the run target. Other harvested IPs are not sent automatically. IP lookups retain only the most-specific returned prefix, including all origins for a multi-origin prefix; complete prefix inventories require an explicit ASN target. The action does not recursively query returned prefixes and never promotes returned CIDRs into DNS or direct-action scope. Cloud and CDN routes can be useful relationship evidence, but route origins and RPKI states do not establish ownership or authorization.
 
 Use an owned or explicitly authorized domain for active examples. Do not substitute universities, public companies, bounty targets, or reserved example domains for recurring active scans.
 

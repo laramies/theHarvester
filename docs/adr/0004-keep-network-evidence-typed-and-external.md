@@ -18,6 +18,6 @@ The existing result-details seam already preserves structured virtual-host evide
 
 ## Consequences
 
-Provider actions must emit a canonical prefix result, its scalar origin ASN, matching prefix action provenance, and an observed-origin record before adding BGP-route or RPKI observations. Per-peer ASNs and AS-path members remain evidence fields rather than promoted results. When RouteViews is explicitly selected, it may enrich ASNs discovered by the selected sources as well as an operator-supplied ASN, IP, or CIDR pivot. The resulting global prefix relationships remain external evidence and cannot expand active scope.
+Provider actions must emit a canonical prefix result, its scalar origin ASN, matching prefix action provenance, and an observed-origin record before adding BGP-route or RPKI observations. Per-peer ASNs and AS-path members remain evidence fields rather than promoted results. When RouteViews is explicitly selected for an ordinary discovery run, exact IP subjects from sourced ASN attribution become network pivots and only their most-specific matching routes are retained. Complete ASN prefix expansion requires an operator-supplied ASN target; operator-supplied IP and CIDR pivots remain supported. The resulting prefix relationships remain external evidence and cannot expand active scope.
 
 One prefix may carry at most 10,000 observations and 8 MiB of serialized details. These persistence limits fit beneath the existing 10 MiB JSONL import envelope and are independent of provider-response transport budgets.

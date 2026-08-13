@@ -215,12 +215,46 @@ async def test_routeviews_collects_moas_routes_and_strict_prefix_evidence(monkey
 
 @pytest.mark.asyncio
 async def test_routeviews_uses_longest_match_for_known_ip(monkeypatch) -> None:
-    calls, _elapsed = install_runtime(monkeypatch, [response([])])
+    calls, _elapsed = install_runtime(
+        monkeypatch,
+        [
+            response(
+                [
+                    {
+                        'prefix': '0.0.0.0/0',
+                        'origin_asn': 64500,
+                        'rpki_state': 'not-found',
+                        'reporting_peers': [],
+                    },
+                    {
+                        'prefix': '192.0.0.0/16',
+                        'origin_asn': 64501,
+                        'rpki_state': 'valid',
+                        'reporting_peers': [],
+                    },
+                    {
+                        'prefix': '192.0.2.0/24',
+                        'origin_asn': 64502,
+                        'rpki_state': 'valid',
+                        'reporting_peers': [],
+                    },
+                    {
+                        'prefix': '192.0.2.0/24',
+                        'origin_asn': 64503,
+                        'rpki_state': 'not-found',
+                        'reporting_peers': [],
+                    },
+                ]
+            )
+        ],
+    )
 
     result = await enrich_routeviews([], ['192.0.2.7'])
 
     assert result.status == 'completed'
-    assert result.stop_reason == 'no-results'
+    assert result.stop_reason is None
+    assert result.prefixes == ('192.0.2.0/24',)
+    assert result.origin_asns == ('AS64502', 'AS64503')
     assert calls[0][0] == 'https://api.routeviews.org/guest/prefix/192.0.2.7'
     assert calls[0][1]['params'] == ''
 

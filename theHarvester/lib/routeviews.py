@@ -352,6 +352,8 @@ class _RouteViewsRuntime:
     def _parse_prefix(self, body: object, seed: str, collected_at: datetime) -> None:
         requested_network = ip_network(seed, strict=False) if '/' in seed else None
         requested_address = ip_address(seed) if requested_network is None else None
+        matching_groups: list[dict[object, object]] = []
+        longest_prefix_length = -1
         for group in self._require_items(body, 'prefix response'):
             try:
                 if not isinstance(group, dict):
@@ -364,6 +366,19 @@ class _RouteViewsRuntime:
                     requested_address is not None and requested_address not in returned_network
                 ):
                     raise ValueError('RouteViews prefix response is unrelated to its seed')
+                if requested_address is not None:
+                    if returned_network.prefixlen > longest_prefix_length:
+                        matching_groups.clear()
+                        longest_prefix_length = returned_network.prefixlen
+                    elif returned_network.prefixlen < longest_prefix_length:
+                        continue
+                matching_groups.append(group)
+            except ValueError:
+                self._record_error('ValueError', 'invalid-response')
+
+        for group in matching_groups:
+            prefix = group['prefix']
+            try:
                 origin_asn = group.get('origin_asn')
                 self._add_origin(prefix, origin_asn, collected_at)
             except ValueError:
@@ -467,5 +482,5 @@ async def enrich_routeviews(
     *,
     api_key: str | None = None,
 ) -> RouteViewsResult:
-    """Collect bounded routing evidence for selected discovered ASNs or explicit ASN/IP/CIDR pivots."""
+    """Collect bounded routing evidence for attributed IPs or explicit ASN/IP/CIDR pivots."""
     return await _RouteViewsRuntime(api_key).run(asns, network_seeds)

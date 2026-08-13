@@ -38,7 +38,10 @@ async def test_cli_help_explains_proxy_and_direct_action_scope(
     help_text = ' '.join(capsys.readouterr().out.split())
     assert exit_info.value.code == 0
     assert 'Use proxies.yaml for supported discovery-source and takeover requests.' in help_text
-    assert 'Enrich discovered ASNs or an explicitly targeted ASN, IP, or prefix through RouteViews.' in help_text
+    assert (
+        'Enrich discovered IPs with sourced ASN attribution, or an explicitly targeted ASN, IP, or prefix, through '
+        'RouteViews.' in help_text
+    )
     assert 'Accepted for compatibility but currently unused; use --dns-resolvers to select resolvers.' in help_text
     assert 'Select resolver IPs for DNS actions without enabling hostname resolution.' in help_text
     assert 'text file with one IP per line' in help_text
@@ -2627,7 +2630,9 @@ async def test_explicit_asn_target_rejects_discovery_sources(monkeypatch: pytest
 
 
 @pytest.mark.asyncio
-async def test_routeviews_expands_discovered_asns_but_not_harvested_ips(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_routeviews_pivots_from_attributed_ips_without_expanding_discovered_asns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     calls: list[tuple[tuple[object, ...], tuple[str, ...]]] = []
 
     class FakeUrlscan:
@@ -2686,7 +2691,7 @@ async def test_routeviews_expands_discovered_asns_but_not_harvested_ips(monkeypa
         return_completed_result=True,
     )
 
-    assert calls == [(('AS64500',), ())]
+    assert calls == [((), ('192.0.2.10',))]
     completed = result[-1]
     assert ('asn', 'AS64500') in completed.results
     assert ('ip', '192.0.2.10') in completed.results

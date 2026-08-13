@@ -126,8 +126,8 @@ class RunRequest(BaseModel):
     routeviews: bool = Field(
         default=False,
         description=(
-            'Enrich discovered ASN evidence or an explicitly targeted ASN or IP address through RouteViews. Returned '
-            'routing relationships do not establish ownership, authorization, or target scope.'
+            'Enrich discovered IPs with sourced ASN attribution, or an explicitly targeted ASN or IP address, through '
+            'RouteViews. Returned routing relationships do not establish ownership, authorization, or target scope.'
         ),
     )
     shodan: bool = Field(default=False, description='Enrich discovered hosts with configured Shodan access.')
