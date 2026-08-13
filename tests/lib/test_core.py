@@ -318,10 +318,11 @@ def test_user_agent_policy_separates_provider_and_browser_identities() -> None:
         ("bevigil_key", "bevigil-key"),
         ("censys_key", ("censys-id", "censys-secret")),
         ("fofa_key", ("fofa-key", "fofa-email")),
+        ("routeviews_key", "routeviews-key"),
         ("tomba_key", ("tomba-key", "tomba-secret")),
     ],
 )
-def test_api_key_accessors_delegate_to_shared_mapping(monkeypatch, accessor_name: str, expected: Any):
+def test_api_key_accessors_read_configured_values(monkeypatch, accessor_name: str, expected: Any):
     monkeypatch.setattr(
         Core,
         'api_keys',
@@ -330,6 +331,7 @@ def test_api_key_accessors_delegate_to_shared_mapping(monkeypatch, accessor_name
                 'bevigil': {'key': 'bevigil-key'},
                 'censys': {'id': 'censys-id', 'secret': 'censys-secret'},
                 'fofa': {'key': 'fofa-key', 'email': 'fofa-email'},
+                'routeviews': {'key': 'routeviews-key'},
                 'tomba': {'key': 'tomba-key', 'secret': 'tomba-secret'},
             }
         ),
@@ -337,6 +339,19 @@ def test_api_key_accessors_delegate_to_shared_mapping(monkeypatch, accessor_name
 
     accessor = getattr(Core, accessor_name)
     assert accessor() == expected
+
+
+@pytest.mark.parametrize('configured_value', [None, '', '   ', 10])
+def test_routeviews_key_ignores_missing_or_invalid_optional_credentials(monkeypatch, configured_value: object) -> None:
+    monkeypatch.setattr(Core, 'api_keys', staticmethod(lambda: {'routeviews': {'key': configured_value}}))
+
+    assert Core.routeviews_key() is None
+
+
+def test_routeviews_key_strips_configuration_whitespace(monkeypatch) -> None:
+    monkeypatch.setattr(Core, 'api_keys', staticmethod(lambda: {'routeviews': {'key': '  routeviews-key  '}}))
+
+    assert Core.routeviews_key() == 'routeviews-key'
 
 
 @pytest.mark.asyncio

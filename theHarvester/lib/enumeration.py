@@ -26,6 +26,7 @@ class EnumerationOptions:
     limit: int = DEFAULT_RESULT_LIMIT
     start: int = DEFAULT_RESULT_START
     proxies: bool = False
+    routeviews: bool = False
     shodan: bool = False
     screenshot: str = ''
     dns_server: str | None = None
@@ -60,6 +61,7 @@ class EnumerationOptions:
             limit=getattr(value, 'limit', DEFAULT_RESULT_LIMIT),
             start=getattr(value, 'start', DEFAULT_RESULT_START),
             proxies=getattr(value, 'proxies', False),
+            routeviews=getattr(value, 'routeviews', False),
             shodan=getattr(value, 'shodan', False),
             screenshot=getattr(value, 'screenshot', ''),
             dns_server=getattr(value, 'dns_server', None),

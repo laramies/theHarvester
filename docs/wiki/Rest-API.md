@@ -79,6 +79,16 @@ Run submission is asynchronous. Lifecycle status is `queued`, `running`, `cancel
 
 P1 DNS and P2 direct options are fields on the same run request. The OpenAPI schema shows their current defaults, limits, and descriptions. The server uses the operator-selected target and does not impose a public-only egress policy.
 
+RouteViews is the explicit P0 `routeviews` action. When selected for a domain run, it automatically enriches harvested IPs that have sourced IP-to-ASN attribution. It also accepts an AS-prefixed ASN or IP address supplied as the run target. Harvested IPs without that attribution are not sent, and bare ASN findings are not expanded into complete prefix inventories. For IP pivots, only the most-specific matching prefix is retained, including every origin when that prefix is multi-origin. An explicit ASN target still requests its complete prefix inventory. The fixed internal budget is 300 sequential requests and 300 seconds; `limit` does not change it. A server-side `routeviews.key` is used automatically for PeeringDB-verified authenticated access at the documented 10-request-per-second allowance; otherwise the action uses guest access at one request per second. Provider credentials cannot be supplied in a run request. Returned prefixes remain external relationships and are never scheduled as DNS or P2 targets. The CLI also accepts a literal CIDR target.
+
+```json
+{
+  "target": "AS64500",
+  "sources": [],
+  "routeviews": true
+}
+```
+
 ### Run an action against one result
 
 Screenshots and DNS brute force can run directly against an authorized hostname without repeating discovery. Submit an empty `sources` array and select one action:
@@ -141,6 +151,8 @@ curl -s "http://127.0.0.1:5000/api/v1/runs/import?filename=report.jsonl" \
 
 JSONL is a terminal report, so an import is recorded as completed. The summary retains evidence status, source and action outcomes, and screenshot artifact metadata. Each finding's `sources` and `actions` arrays rebuild result attribution and must name an execution in the summary. Result kinds such as `hostname`, `ip`, and `url` use the same names in JSONL, SQLite, and the API.
 
+An `asn` result may include `organization-attribution` observations from URLScan, ONYPHE, or Shodan. Each observation names its producer and related hostname or IP; it is provider attribution rather than ownership or engagement-scope evidence.
+
 To load every completed run from another theHarvester database:
 
 ```bash
@@ -162,7 +174,7 @@ curl -s "http://127.0.0.1:5000/api/v1/runs/$run_id/export" \
   -o results.jsonl
 ```
 
-The first line is the `summary` record, including evidence status, source and action outcomes, and artifacts. Each remaining line is one normalized finding with `type`, `value`, `sources`, and optional `actions`. A hostname confirmed by the `vhost` action adds a native `observations` array; it remains one `hostname` finding. This keeps the file easy to stream with `jq -c` and makes API exports importable again without a format conversion. Lifecycle details and the submitted request remain available from `GET /api/v1/runs/{run_id}`.
+The first line is the `summary` record, including evidence status, source and action outcomes, and artifacts. Each remaining line is one normalized finding with `type`, `value`, `sources`, and optional `actions`. A hostname confirmed by the `vhost` action adds native endpoint observations; a RouteViews `prefix` adds native origin, route, and RPKI observations with fixed external-relationship scope. This keeps the file easy to stream with `jq -c` and makes API exports importable again without a format conversion. Lifecycle details and the submitted request remain available from `GET /api/v1/runs/{run_id}`.
 
 ## Security boundary
 

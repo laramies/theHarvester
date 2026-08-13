@@ -66,6 +66,14 @@ _Avoid_: IP-address result, resolved host
 One canonical IPv4 or IPv6 CIDR merged result retained as external relationship evidence. It is never promoted into the authorized target scope or used as an active-discovery seed without a separate scope decision.
 _Avoid_: Owned netblock, in-scope range, registered network
 
+**ASN organization attribution**:
+One source's time-bound organization label for a canonical ASN, tied to the hostname or IP result that supplied the relationship. It is provider evidence rather than a canonical organization identity, ownership claim, or target-scope decision.
+_Avoid_: ASN owner, owning organization, organization property
+
+**Explicit network pivot**:
+A canonical ASN, IP address, or CIDR supplied by the operator as the run target for passive routing enrichment. It authorizes provider-side lookup of that identifier only; related prefixes and origins remain external relationship evidence and do not expand engagement scope.
+_Avoid_: Discovered network scope, owned ASN, target netblock
+
 **Observed route origin**:
 A provider's time-bound assertion that one ASN originates one network prefix. It records routing evidence, not registration, ownership, or authorization.
 _Avoid_: Owned by, registered to, authorized origin
@@ -91,7 +99,7 @@ One finite execution of theHarvester against an explicit target and selected opt
 _Avoid_: Scan, monitoring cycle, session, job
 
 **Action-only run**:
-An enumeration run with no discovery sources that performs an explicitly selected DNS or direct action against an explicitly authorized target. It creates its own run record and never mutates the evidence of a parent run.
+An enumeration run with no discovery sources that performs an explicitly selected provider, DNS, or direct action against an explicitly authorized target. It creates its own run record and never mutates the evidence of a parent run.
 _Avoid_: Result action, parent-run update, inline scan
 
 **Run record**:

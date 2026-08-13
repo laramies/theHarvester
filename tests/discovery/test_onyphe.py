@@ -30,8 +30,10 @@ async def test_process_keeps_only_canonical_individual_ips_and_preserves_routes(
                             'subnet': '192.0.2.0/24',
                             'url': ['https://www.example.com/path'],
                             'asn': 'AS64496',
+                            'organization': 'Example Physical Network',
                             'geolocus': {
                                 'asn': 'AS64497',
+                                'organization': 'Example Logical Network',
                                 'subnet': '198.51.100.0/24',
                                 'domain': ['geo.example.com'],
                             },
@@ -56,6 +58,22 @@ async def test_process_keeps_only_canonical_individual_ips_and_preserves_routes(
     assert await search.get_ips() == {'192.0.2.10', '2001:db8::10'}
     assert await search.get_hostnames() == {'api.example.com', 'geo.example.com', 'www.example.com'}
     assert await search.get_asns() == {'AS64496', 'AS64497'}
+    assert {
+        (
+            observation.asn,
+            observation.organization_label,
+            observation.subject_kind,
+            observation.subject_value,
+        )
+        for observation in await search.get_asn_attributions()
+    } == {
+        (asn, organization, subject_kind, subject_value)
+        for asn, organization in {
+            ('AS64496', 'Example Physical Network'),
+            ('AS64497', 'Example Logical Network'),
+        }
+        for subject_kind, subject_value in {('ip', '192.0.2.10')}
+    }
     assert search.execution_status == 'completed'
     assert search.stop_reason is None
 

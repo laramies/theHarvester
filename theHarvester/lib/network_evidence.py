@@ -197,7 +197,30 @@ def _encoded_detail_size(observation: NetworkObservation) -> int:
 
 
 def _rpki_identity(observation: RpkiValidationObservation) -> tuple[object, ...]:
+    return observation.action, observation.prefix, observation.origin_asn, observation.state
+
+
+def _rpki_conflict_identity(observation: RpkiValidationObservation) -> tuple[object, ...]:
     return observation.action, observation.prefix, observation.origin_asn, observation.observed_at
+
+
+def _network_observation_identity(observation: NetworkObservation) -> tuple[object, ...]:
+    if isinstance(observation, PrefixOriginObservation):
+        return type(observation), observation.action, observation.prefix, observation.origin_asn
+    if isinstance(observation, BgpRouteObservation):
+        return (
+            type(observation),
+            observation.action,
+            observation.prefix,
+            observation.origin_asn,
+            observation.collector,
+            observation.peer_asn,
+            observation.peer_address,
+            observation.as_path,
+            observation.communities,
+            observation.observed_at,
+        )
+    return type(observation), *_rpki_identity(observation)
 
 
 class NetworkEvidenceAccumulator:
@@ -216,7 +239,7 @@ class NetworkEvidenceAccumulator:
         self._max_observations_per_prefix = max_observations_per_prefix
         self._max_details_bytes = max_details_bytes
         self._observations: set[NetworkObservation] = set()
-        self._origin_identities: set[tuple[str, str, str]] = set()
+        self._observation_identities: set[tuple[object, ...]] = set()
         self._rpki_states: dict[tuple[object, ...], RpkiState] = {}
         self._prefix_counts: Counter[str] = Counter()
         self._prefix_bytes: dict[str, int] = {}
@@ -224,16 +247,15 @@ class NetworkEvidenceAccumulator:
     def add(self, observation: NetworkObservation) -> bool:
         if not isinstance(observation, (PrefixOriginObservation, BgpRouteObservation, RpkiValidationObservation)):
             raise TypeError('network evidence contains an unsupported observation')
-        if isinstance(observation, PrefixOriginObservation):
-            origin_identity = observation.action, observation.prefix, str(observation.origin_asn)
-            if origin_identity in self._origin_identities:
-                return False
-        elif observation in self._observations:
-            return False
         if isinstance(observation, RpkiValidationObservation):
-            identity = _rpki_identity(observation)
+            identity = _rpki_conflict_identity(observation)
             if (existing := self._rpki_states.get(identity)) is not None and existing != observation.state:
                 raise ValueError('network evidence contains conflicting RPKI states')
+        observation_identity = _network_observation_identity(observation)
+        if observation_identity in self._observation_identities:
+            if isinstance(observation, RpkiValidationObservation):
+                self._rpki_states[identity] = observation.state
+            return False
 
         count = self._prefix_counts[observation.prefix] + 1
         if count > self._max_observations_per_prefix:
@@ -243,11 +265,10 @@ class NetworkEvidenceAccumulator:
             raise NetworkEvidenceLimitError('network evidence details exceed the serialized size limit')
 
         self._observations.add(observation)
+        self._observation_identities.add(observation_identity)
         self._prefix_counts[observation.prefix] = count
         self._prefix_bytes[observation.prefix] = encoded_size
-        if isinstance(observation, PrefixOriginObservation):
-            self._origin_identities.add(origin_identity)
-        elif isinstance(observation, RpkiValidationObservation):
+        if isinstance(observation, RpkiValidationObservation):
             self._rpki_states[identity] = observation.state
         return True
 
@@ -268,18 +289,19 @@ def network_observation_sort_key(observation: NetworkObservation) -> tuple[objec
 
 
 def canonical_network_observations(observations: Iterable[NetworkObservation]) -> tuple[NetworkObservation, ...]:
-    canonical = tuple(sorted(set(observations), key=network_observation_sort_key))
+    deduplicated: dict[tuple[object, ...], NetworkObservation] = {}
+    rpki_states: dict[tuple[object, ...], RpkiState] = {}
+    for observation in sorted(set(observations), key=network_observation_sort_key):
+        if isinstance(observation, RpkiValidationObservation):
+            identity = _rpki_conflict_identity(observation)
+            if (existing := rpki_states.get(identity)) is not None and existing != observation.state:
+                raise ValueError('network evidence contains conflicting RPKI states')
+            rpki_states[identity] = observation.state
+        deduplicated.setdefault(_network_observation_identity(observation), observation)
+    canonical = tuple(sorted(deduplicated.values(), key=network_observation_sort_key))
     counts = Counter(observation.prefix for observation in canonical)
     if any(count > MAX_NETWORK_OBSERVATIONS_PER_PREFIX for count in counts.values()):
         raise ValueError('network evidence contains too many observations for one prefix')
-    rpki_states: dict[tuple[object, ...], RpkiState] = {}
-    for observation in canonical:
-        if not isinstance(observation, RpkiValidationObservation):
-            continue
-        identity = _rpki_identity(observation)
-        if (existing := rpki_states.get(identity)) is not None and existing != observation.state:
-            raise ValueError('network evidence contains conflicting RPKI states')
-        rpki_states[identity] = observation.state
     return canonical
 
 

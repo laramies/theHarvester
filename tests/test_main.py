@@ -3,6 +3,7 @@ import json
 import logging
 import sys
 import xml.etree.ElementTree as ElementTree
+from datetime import UTC, datetime
 from pathlib import Path
 from types import ModuleType
 
@@ -10,11 +11,14 @@ import pytest
 
 from theHarvester import __main__ as theharvester_main
 from theHarvester.discovery.constants import MissingKey
+from theHarvester.lib.asn_attribution import AsnAttributionObservation
 from theHarvester.lib.completed_result import CompletedResult, ResultObservation
 from theHarvester.lib.dns_consensus import Addressability
 from theHarvester.lib.enumeration import EnumerationOptions
 from theHarvester.lib.hostchecker import HostDnsRecords
+from theHarvester.lib.network_evidence import PrefixOriginObservation, RpkiValidationObservation
 from theHarvester.lib.recursive_dns import RecursiveDNSClassification, RecursiveDNSFinding, RecursiveDNSResult
+from theHarvester.lib.routeviews import RouteViewsCancelled, RouteViewsResult
 from theHarvester.lib.virtual_host import (
     HarvestedVirtualHostResult,
     VirtualHostDiscoveryCancelled,
@@ -34,6 +38,10 @@ async def test_cli_help_explains_proxy_and_direct_action_scope(
     help_text = ' '.join(capsys.readouterr().out.split())
     assert exit_info.value.code == 0
     assert 'Use proxies.yaml for supported discovery-source and takeover requests.' in help_text
+    assert (
+        'Enrich discovered IPs with sourced ASN attribution, or an explicitly targeted ASN, IP, or prefix, through '
+        'RouteViews.' in help_text
+    )
     assert 'Accepted for compatibility but currently unused; use --dns-resolvers to select resolvers.' in help_text
     assert 'Select resolver IPs for DNS actions without enabling hostname resolution.' in help_text
     assert 'text file with one IP per line' in help_text
@@ -2156,8 +2164,25 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
     class FakeShodan:
         error_type = None
 
+        def __init__(self) -> None:
+            self.attributions: set[AsnAttributionObservation] = set()
+
         async def search_ip(self, ip: str) -> dict[str, dict[str, list[int]]]:
+            self.attributions.add(
+                AsnAttributionObservation(
+                    'action',
+                    'shodan',
+                    'AS64496',
+                    'Example Transit',
+                    'ip',
+                    ip,
+                    datetime.now(UTC),
+                )
+            )
             return {ip: {'ports': [443]}}
+
+        async def get_asn_attributions(self) -> set[AsnAttributionObservation]:
+            return self.attributions
 
     class FakeApiScanner:
         def __init__(self, word: str, wordlist: str, exact_paths: bool = False) -> None:
@@ -2241,6 +2266,8 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
     assert ('url', 'https://example.com/api/v1') in completed.results
     assert ('screenshot', 'api.example.com') not in completed.results
     assert ('shodan', '{"ip":"192.0.2.10","result":{"ports":[443]}}') in completed.results
+    assert ('asn', 'AS64496') in completed.results
+    assert completed.asn_attributions[0].organization_label == 'Example Transit'
     takeover_result = (
         'takeover',
         '{"matches":[{"No such app":"Heroku"}],"url":"https://api.example.com"}',
@@ -2259,7 +2286,7 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
     assert screenshot_execution.artifacts[0].subject_value == 'api.example.com'
     shodan_execution = next(execution for execution in completed.active_evidence.executions if execution.action == 'shodan')
     assert shodan_execution.status == 'completed'
-    assert shodan_execution.result_count == 1
+    assert shodan_execution.result_count == 3
     assert shodan_execution.error_type is None
     assert shodan_execution.stop_reason is None
     api_executions = [execution for execution in completed.active_evidence.executions if execution.action == 'api-scan']
@@ -2513,6 +2540,258 @@ async def test_shodan_without_ips_is_skipped_without_starting(monkeypatch: pytes
     assert shodan_execution.status == 'skipped'
     assert shodan_execution.result_count == 0
     assert shodan_execution.stop_reason == 'no-input'
+
+
+@pytest.mark.asyncio
+async def test_routeviews_persists_typed_network_evidence_for_explicit_ip_target(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[tuple[object, ...], tuple[str, ...], str | None]] = []
+
+    async def fake_routeviews(asns, network_seeds, *, api_key: str | None = None) -> RouteViewsResult:
+        calls.append((tuple(asns), tuple(network_seeds), api_key))
+        collected_at = datetime.now(UTC)
+        origin = PrefixOriginObservation('routeviews', '192.0.2.0/24', 'AS64500', collected_at)
+        rpki = RpkiValidationObservation(
+            'routeviews',
+            '192.0.2.0/24',
+            'AS64500',
+            'valid',
+            collected_at,
+            collected_at,
+        )
+        return RouteViewsResult(
+            prefixes=('192.0.2.0/24',),
+            origin_asns=('AS64500',),
+            observations=(origin, rpki),
+            request_count=1,
+            error_count=0,
+            status='completed',
+        )
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
+    monkeypatch.setattr(theharvester_main, 'enrich_routeviews', fake_routeviews)
+    monkeypatch.setattr(theharvester_main.Core, 'routeviews_key', staticmethod(lambda: 'routeviews-key'))
+
+    result = await theharvester_main.start(
+        EnumerationOptions(domain='192.0.2.7', quiet=True, routeviews=True),
+        return_completed_result=True,
+    )
+
+    completed = result[-1]
+    assert calls == [((), ('192.0.2.7',), 'routeviews-key')]
+    assert {value for kind, value in completed.results if kind == 'prefix'} == {'192.0.2.0/24'}
+    assert {value for kind, value in completed.results if kind == 'asn'} == {'AS64500'}
+    assert len(completed.network_observations) == 2
+    assert isinstance(completed.network_observations[0], PrefixOriginObservation)
+    assert isinstance(completed.network_observations[1], RpkiValidationObservation)
+    execution = next(item for item in completed.active_evidence.executions if item.action == 'routeviews')
+    assert execution.status == 'completed'
+    assert {(item.kind, item.value) for item in execution.observations} == {
+        ('asn', 'AS64500'),
+        ('prefix', '192.0.2.0/24'),
+    }
+
+
+@pytest.mark.asyncio
+async def test_routeviews_pivots_from_an_explicit_asn_target(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[tuple[tuple[object, ...], tuple[str, ...]]] = []
+
+    async def fake_routeviews(asns, network_seeds, *, api_key: str | None = None) -> RouteViewsResult:
+        assert api_key is None
+        calls.append((tuple(asns), tuple(network_seeds)))
+        return RouteViewsResult((), (), (), 2, 0, 'completed', stop_reason='no-results')
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
+    monkeypatch.setattr(theharvester_main, 'enrich_routeviews', fake_routeviews)
+    monkeypatch.setattr(theharvester_main.Core, 'routeviews_key', staticmethod(lambda: None))
+
+    result = await theharvester_main.start(
+        EnumerationOptions(domain='as64500', quiet=True, routeviews=True),
+        return_completed_result=True,
+    )
+
+    assert calls == [(('AS64500',), ())]
+    assert result[-1].target == 'AS64500'
+    execution = next(item for item in result[-1].active_evidence.executions if item.action == 'routeviews')
+    assert execution.status == 'completed'
+    assert execution.stop_reason == 'no-results'
+
+
+@pytest.mark.asyncio
+async def test_explicit_asn_target_rejects_discovery_sources(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
+
+    with pytest.raises(ValueError, match='ASN target requires --routeviews without discovery sources or other actions'):
+        await theharvester_main.start(
+            EnumerationOptions(domain='AS64500', quiet=True, routeviews=True, source='crtsh'),
+            return_completed_result=True,
+        )
+
+
+@pytest.mark.asyncio
+async def test_routeviews_hostname_target_requires_a_discovery_source(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
+
+    with pytest.raises(ValueError, match='RouteViews hostname target requires a discovery source'):
+        await theharvester_main.start(
+            EnumerationOptions(domain='api.example.com', quiet=True, routeviews=True),
+            return_completed_result=True,
+        )
+
+
+@pytest.mark.asyncio
+async def test_routeviews_pivots_from_attributed_ips_without_expanding_discovered_asns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[tuple[object, ...], tuple[str, ...]]] = []
+
+    class FakeUrlscan:
+        def __init__(self, _word: str) -> None:
+            pass
+
+        async def process(self, _proxy: bool) -> None:
+            return None
+
+        async def get_hostnames(self) -> set[str]:
+            return {'example.com'}
+
+        async def get_ips(self) -> set[str]:
+            return {'192.0.2.10'}
+
+        async def get_asns(self) -> set[str]:
+            return {'AS64500'}
+
+        async def get_urls(self) -> set[str]:
+            return set()
+
+        async def get_asn_attributions(self) -> set[AsnAttributionObservation]:
+            return {
+                AsnAttributionObservation(
+                    'source',
+                    'urlscan',
+                    'AS64500',
+                    'Example Transit',
+                    'ip',
+                    '192.0.2.10',
+                    datetime.now(UTC),
+                ),
+                AsnAttributionObservation(
+                    'source',
+                    'urlscan',
+                    'AS64500',
+                    'Example Transit',
+                    'hostname',
+                    'example.com',
+                    datetime.now(UTC),
+                ),
+            }
+
+    async def fake_routeviews(asns, network_seeds, *, api_key: str | None = None) -> RouteViewsResult:
+        assert api_key is None
+        calls.append((tuple(asns), tuple(network_seeds)))
+        return RouteViewsResult((), (), (), 2, 0, 'completed', stop_reason='no-results')
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
+    monkeypatch.setattr(theharvester_main.urlscan, 'SearchUrlscan', FakeUrlscan)
+    monkeypatch.setattr(theharvester_main, 'enrich_routeviews', fake_routeviews)
+    monkeypatch.setattr(theharvester_main.Core, 'routeviews_key', staticmethod(lambda: None))
+
+    result = await theharvester_main.start(
+        EnumerationOptions(domain='example.com', quiet=True, routeviews=True, source='urlscan', proxies=True),
+        return_completed_result=True,
+    )
+
+    assert calls == [((), ('192.0.2.10',))]
+    completed = result[-1]
+    assert ('asn', 'AS64500') in completed.results
+    assert ('ip', '192.0.2.10') in completed.results
+    assert len(completed.asn_attributions) == 1
+    assert completed.asn_attributions[0].subject_value == '192.0.2.10'
+    execution = next(item for item in result[-1].active_evidence.executions if item.action == 'routeviews')
+    assert execution.status == 'completed'
+    assert execution.stop_reason == 'no-results'
+
+
+@pytest.mark.asyncio
+async def test_routeviews_cancellation_persists_partial_network_evidence(monkeypatch: pytest.MonkeyPatch) -> None:
+    saved: list[CompletedResult] = []
+
+    async def cancel_routeviews(asns, network_seeds, *, api_key: str | None = None) -> RouteViewsResult:
+        assert tuple(asns) == ()
+        assert tuple(network_seeds) == ('192.0.2.7',)
+        assert api_key is None
+        collected_at = datetime.now(UTC)
+        origin = PrefixOriginObservation('routeviews', '192.0.2.0/24', 'AS64500', collected_at)
+        raise RouteViewsCancelled(
+            RouteViewsResult(
+                prefixes=('192.0.2.0/24',),
+                origin_asns=('AS64500',),
+                observations=(origin,),
+                request_count=1,
+                error_count=1,
+                status='partial',
+                error_type='CancelledError',
+                stop_reason='cancelled',
+            )
+        )
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _recording_result_store(saved))
+    monkeypatch.setattr(theharvester_main, 'enrich_routeviews', cancel_routeviews)
+    monkeypatch.setattr(theharvester_main.Core, 'routeviews_key', staticmethod(lambda: None))
+
+    with pytest.raises(RouteViewsCancelled):
+        await theharvester_main.start(
+            EnumerationOptions(domain='192.0.2.7', quiet=True, routeviews=True),
+            return_completed_result=True,
+        )
+
+    execution = next(item for item in saved[-1].active_evidence.executions if item.action == 'routeviews')
+    assert execution.status == 'partial'
+    assert execution.error_type == 'CancelledError'
+    assert execution.stop_reason == 'cancelled'
+    assert ('prefix', '192.0.2.0/24') in saved[-1].results
+
+
+@pytest.mark.asyncio
+async def test_routeviews_cancellation_persists_when_the_checkpoint_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    saved: list[CompletedResult] = []
+
+    async def cancel_routeviews(asns, network_seeds, *, api_key: str | None = None) -> RouteViewsResult:
+        assert api_key is None
+        collected_at = datetime.now(UTC)
+        origin = PrefixOriginObservation('routeviews', '192.0.2.0/24', 'AS64500', collected_at)
+        raise RouteViewsCancelled(
+            RouteViewsResult(
+                prefixes=('192.0.2.0/24',),
+                origin_asns=('AS64500',),
+                observations=(origin,),
+                request_count=1,
+                error_count=1,
+                status='partial',
+                error_type='CancelledError',
+                stop_reason='cancelled',
+            )
+        )
+
+    async def failed_checkpoint(result: CompletedResult) -> None:
+        if any(execution.action == 'routeviews' for execution in result.active_evidence.executions):
+            raise RuntimeError('checkpoint failed')
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _recording_result_store(saved))
+    monkeypatch.setattr(theharvester_main, 'enrich_routeviews', cancel_routeviews)
+    monkeypatch.setattr(theharvester_main.Core, 'routeviews_key', staticmethod(lambda: None))
+
+    with pytest.raises(RouteViewsCancelled):
+        await theharvester_main.start(
+            EnumerationOptions(domain='192.0.2.7', quiet=True, routeviews=True),
+            completed_result_checkpoint=failed_checkpoint,
+            return_completed_result=True,
+        )
+
+    execution = next(item for item in saved[-1].active_evidence.executions if item.action == 'routeviews')
+    assert execution.stop_reason == 'cancelled'
+    assert ('prefix', '192.0.2.0/24') in saved[-1].results
 
 
 @pytest.mark.asyncio

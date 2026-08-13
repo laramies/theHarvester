@@ -41,6 +41,15 @@ def test_enumeration_options_preserve_explicit_transport_values() -> None:
     assert options.screenshot == '/tmp/managed-screenshots'
 
 
+def test_routeviews_is_an_explicit_passive_action_independent_of_source_limits() -> None:
+    options = EnumerationOptions.from_namespace(Namespace(domain='example.com', source=None, limit=25, routeviews=True))
+
+    assert options.routeviews is True
+    assert options.limit == 25
+    assert selected_action_names({'routeviews': True, 'limit': 1}) == ('routeviews',)
+    assert selected_action_names({'limit': 10_000}) == ()
+
+
 def test_enumeration_options_preserve_virtual_host_inputs() -> None:
     options = EnumerationOptions.from_namespace(
         Namespace(

@@ -7,6 +7,7 @@ from uuid import UUID
 
 from fastapi import HTTPException, status
 
+from theHarvester.lib.asn_attribution import asn_attribution_details, parse_asn_attribution_details
 from theHarvester.lib.completed_result import parse_result_jsonl, parse_virtual_host_details, virtual_host_details
 from theHarvester.lib.evidence_types import EVIDENCE_STATUSES
 from theHarvester.lib.network_evidence import (
@@ -136,6 +137,25 @@ def validate_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
             result['sources'] = sorted(set(sources))
             result['actions'] = sorted(set(actions))
+            continue
+        if result.get('type') == 'asn' and 'observations' in result:
+            allowed_keys = {'type', 'value', 'sources', 'actions', 'observations'}
+            if set(result) - allowed_keys:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail='ASN attribution contains unsupported fields',
+                )
+            result_value = result.get('value')
+            if not isinstance(result_value, str):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail='ASN attribution must identify a canonical ASN',
+                )
+            try:
+                attributions = parse_asn_attribution_details(result_value, result.get('observations'))
+            except ValueError as error:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
+            result['observations'] = asn_attribution_details(attributions)
             continue
         if 'observations' not in result:
             continue

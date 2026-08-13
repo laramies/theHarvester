@@ -259,6 +259,7 @@
           <legend><span class="heading-with-help">Additional activity <button class="help-tip" type="button" aria-label="Explain additional activity" data-tooltip="These options expand authorization beyond selected sources. P1 performs DNS interaction; P2 can contact the target directly.">?</button></span></legend>
           <div class="action-grid">
             <label class="action-choice p0"><input type="checkbox" name="shodan"><span><strong>P0 · Shodan enrichment</strong><small>Query Shodan for discovered IP evidence.</small></span></label>
+            <label class="action-choice p0"><input type="checkbox" name="routeviews"><span><strong>P0 · RouteViews enrichment</strong><small>Enrich source-attributed IPs with external routing evidence.</small></span></label>
             <label class="action-choice p1"><input type="checkbox" name="dns_lookup"><span><strong>P1 · DNS lookup</strong><small>Reverse-query every discovered IPv4 address and each address in its /24.</small></span></label>
             <label class="action-choice p1"><input type="checkbox" name="dns_resolve"><span><strong>P1 · DNS resolution</strong><small>Resolve with the configured resolver addresses.</small></span></label>
             <label class="action-choice p1"><input type="checkbox" name="dns_brute"><span><strong>P1 · DNS brute force</strong><small>Query candidate labels against DNS.</small></span></label>

@@ -14,6 +14,7 @@ from theHarvester.lib.enumeration import (
 )
 from theHarvester.lib.evidence_types import EvidenceStatus  # noqa: TC001 - Pydantic resolves this annotation at runtime
 from theHarvester.lib.resolver_selection import DEFAULT_DNS_RESOLVERS, normalize_resolver_addresses
+from theHarvester.lib.result_values import normalize_asn
 from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass, selected_action_names
 from theHarvester.lib.virtual_host import (
     DEFAULT_VHOST_CONCURRENCY,
@@ -32,7 +33,10 @@ def utc_now() -> str:
 
 
 def _normalize_target(value: str) -> str:
-    target = value.strip().rstrip('.').lower()
+    target = value.strip().rstrip('.')
+    if target[:2].casefold() == 'as' and target[2:].isascii() and target[2:].isdecimal():
+        return normalize_asn(target)
+    target = target.lower()
     if not target or len(target) > 253 or any(character in target for character in '/?#@'):
         raise ValueError('Target must be a hostname or IP address')
     try:
@@ -58,7 +62,9 @@ def _normalize_target(value: str) -> str:
 class RunRequest(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
-    target: str = Field(description='Authorized domain name or IP address to enumerate.')
+    target: str = Field(
+        description='Authorized domain name or IP address, or an explicit AS-prefixed network pivot for RouteViews.'
+    )
     sources: list[str] = Field(
         max_length=len(SOURCE_SPECS),
         description=(
@@ -116,6 +122,13 @@ class RunRequest(BaseModel):
         gt=0,
         allow_inf_nan=False,
         description='Maximum wall-clock seconds spent in recursive DNS discovery.',
+    )
+    routeviews: bool = Field(
+        default=False,
+        description=(
+            'Enrich discovered IPs with sourced ASN attribution, or an explicitly targeted ASN or IP address, through '
+            'RouteViews. Returned routing relationships do not establish ownership, authorization, or target scope.'
+        ),
     )
     shodan: bool = Field(default=False, description='Enrich discovered hosts with configured Shodan access.')
     screenshot: bool = Field(
@@ -251,8 +264,17 @@ class RunRequest(BaseModel):
 
     @model_validator(mode='after')
     def validate_selected_work(self) -> RunRequest:
-        if not self.sources and not selected_action_names(self.model_dump()):
+        action_names = selected_action_names(self.model_dump())
+        if not self.sources and not action_names:
             raise ValueError('Select at least one discovery source or action')
+        if self.target.startswith('AS') and self.target[2:].isdecimal():
+            if self.sources or action_names != ('routeviews',):
+                raise ValueError('ASN target requires RouteViews as the only selected work')
+        elif self.routeviews and not self.sources:
+            try:
+                ipaddress.ip_address(self.target)
+            except ValueError as error:
+                raise ValueError('RouteViews hostname target requires a discovery source') from error
         if self.dns_recursive_depth > 0 and len(self.dns_resolvers) != 3:
             raise ValueError('Recursive DNS requires exactly three distinct resolver IPs')
         return self
@@ -347,6 +369,24 @@ class RpkiValidationObservationResponse(BaseModel):
     collected_at: str
 
 
+class AsnAttributionSubjectResponse(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    type: Literal['hostname', 'ip']
+    value: str
+
+
+class AsnAttributionObservationResponse(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    type: Literal['organization-attribution']
+    producer_kind: Literal['source', 'action']
+    producer: str
+    organization_label: str
+    subject: AsnAttributionSubjectResponse
+    collected_at: str
+
+
 class NormalizedResult(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
@@ -361,6 +401,7 @@ class NormalizedResult(BaseModel):
             | PrefixOriginObservationResponse
             | BgpRouteObservationResponse
             | RpkiValidationObservationResponse
+            | AsnAttributionObservationResponse
         ]
         | None
     ) = Field(default=None, min_length=1)
@@ -379,9 +420,15 @@ class NormalizedResult(BaseModel):
         elif self.scope is not None:
             raise ValueError('Only prefix results have relationship scope')
         elif self.observations is not None:
-            if self.type != 'hostname':
-                raise ValueError('Structured observations belong to hostname or prefix results')
-            parse_virtual_host_details(self.value, [details.model_dump() for details in self.observations])
+            details = [details.model_dump() for details in self.observations]
+            if self.type == 'asn':
+                from theHarvester.lib.asn_attribution import parse_asn_attribution_details
+
+                parse_asn_attribution_details(self.value, details)
+            elif self.type == 'hostname':
+                parse_virtual_host_details(self.value, details)
+            else:
+                raise ValueError('Structured observations belong to ASN, hostname, or prefix results')
         return self
 
 

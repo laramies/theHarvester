@@ -1,4 +1,5 @@
 import asyncio
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -21,6 +22,7 @@ async def test_process_collects_sequential_pages_and_preserves_all_routes(
                             'ip': '192.0.2.10',
                             'url': 'https://first.example.com/path',
                             'asn': 'AS64496',
+                            'asnname': 'Example Transit One',
                         },
                         'sort': [200, 'first'],
                     }
@@ -38,6 +40,7 @@ async def test_process_collects_sequential_pages_and_preserves_all_routes(
                             'ip': '2001:db8::10',
                             'url': 'https://second.example.com/',
                             'asn': 'AS64497',
+                            'asnname': 'Example Transit Two',
                         },
                         'sort': [100, 'second'],
                     }
@@ -66,6 +69,20 @@ async def test_process_collects_sequential_pages_and_preserves_all_routes(
         'https://second.example.com/',
     }
     assert await search.get_asns() == {'AS64496', 'AS64497'}
+    assert {
+        (
+            observation.asn,
+            observation.organization_label,
+            observation.subject_kind,
+            observation.subject_value,
+        )
+        for observation in await search.get_asn_attributions()
+    } == {
+        ('AS64496', 'Example Transit One', 'hostname', 'first.example.com'),
+        ('AS64496', 'Example Transit One', 'ip', '192.0.2.10'),
+        ('AS64497', 'Example Transit Two', 'hostname', 'second.example.com'),
+        ('AS64497', 'Example Transit Two', 'ip', '2001:db8::10'),
+    }
     assert [call['params'] for call in calls] == [
         {'q': 'domain:example.com'},
         {'q': 'domain:example.com', 'search_after': '200,first'},
@@ -78,6 +95,41 @@ async def test_process_collects_sequential_pages_and_preserves_all_routes(
     assert all(call['request_timeout'] == 60 for call in calls)
     assert search.execution_status == 'completed'
     assert search.stop_reason is None
+
+
+@pytest.mark.asyncio
+async def test_repeated_asn_relationship_is_retained_once_per_source_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    moments = iter((datetime(2026, 8, 12, tzinfo=UTC), datetime(2026, 8, 12, tzinfo=UTC) + timedelta(seconds=1)))
+
+    class TickingDateTime:
+        @classmethod
+        def now(cls, timezone: object) -> datetime:
+            assert timezone is UTC
+            return next(moments)
+
+    page = {
+        'domain': 'api.example.com',
+        'ip': '192.0.2.10',
+        'url': 'https://api.example.com/',
+        'asn': 'AS64496',
+        'asnname': 'Example Transit',
+    }
+    responses = [
+        FetcherResponse(body={'results': [{'page': page, 'sort': [2, 'first']}]}, status=200, headers={}),
+        FetcherResponse(body={'results': [{'page': page, 'sort': [1, 'second']}]}, status=200, headers={}),
+        FetcherResponse(body={'results': []}, status=200, headers={}),
+    ]
+
+    async def fake_fetch(**_kwargs: Any) -> FetcherResponse:
+        return responses.pop(0)
+
+    monkeypatch.setattr(urlscan, 'datetime', TickingDateTime)
+    monkeypatch.setattr(urlscan.AsyncFetcher, 'fetch', fake_fetch)
+    search = urlscan.SearchUrlscan('example.com')
+
+    await search.process()
+
+    assert len(await search.get_asn_attributions()) == 2
 
 
 @pytest.mark.asyncio

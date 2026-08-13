@@ -1,9 +1,12 @@
 import logging
+from datetime import UTC, datetime
 from ipaddress import ip_address
 from urllib.parse import urlsplit
 
+from theHarvester.lib.asn_attribution import AsnAttributionObservation, SubjectKind
 from theHarvester.lib.core import AsyncFetcher, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
+from theHarvester.lib.result_values import normalize_asn
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +21,7 @@ class SearchUrlscan:
         self.totalips: set = set()
         self.urls: set = set()
         self.totalasns: set = set()
+        self.asn_attributions: set[AsnAttributionObservation] = set()
         self.proxy = False
         self.execution_status: str | None = None
         self.stop_reason: str | None = None
@@ -46,7 +50,7 @@ class SearchUrlscan:
             values.append(serialized)
         return ','.join(values)
 
-    def _parse_results(self, results: list) -> bool:
+    def _parse_results(self, results: list, collected_at: datetime) -> bool:
         malformed = False
         for result in results:
             if not isinstance(result, dict):
@@ -59,12 +63,14 @@ class SearchUrlscan:
                 malformed = True
                 continue
             scoped = False
+            scoped_hosts: set[str] = set()
             if 'domain' in page:
                 domain = page['domain']
                 if not isinstance(domain, str) or not domain:
                     malformed = True
                 elif normalized_domain := normalize_scoped_hostname(domain, self.word):
                     self.totalhosts.add(normalized_domain)
+                    scoped_hosts.add(normalized_domain)
                     scoped = True
             if 'url' in page:
                 value = page['url']
@@ -83,30 +89,59 @@ class SearchUrlscan:
                             scoped = True
             if not scoped:
                 continue
+            scoped_ips: set[str] = set()
             if 'ip' in page:
                 address = page['ip']
                 if not isinstance(address, str):
                     malformed = True
                 else:
                     try:
-                        self.totalips.add(str(ip_address(address.strip())))
+                        normalized_ip = str(ip_address(address.strip()))
+                        self.totalips.add(normalized_ip)
+                        scoped_ips.add(normalized_ip)
                     except ValueError:
                         malformed = True
+            normalized_asn = None
             if 'asn' in page:
                 asn = page['asn']
                 if not isinstance(asn, str):
                     malformed = True
                 else:
-                    normalized_asn = asn.strip().upper()
-                    asn_number = normalized_asn.removeprefix('AS')
-                    if normalized_asn.startswith('AS') and asn_number.isdigit() and int(asn_number) > 0:
-                        self.totalasns.add(f'AS{int(asn_number)}')
+                    try:
+                        normalized_asn = normalize_asn(asn)
+                    except ValueError:
+                        malformed = True
                     else:
+                        self.totalasns.add(normalized_asn)
+            organization = page.get('asnname')
+            if organization is not None and not isinstance(organization, str):
+                malformed = True
+                organization = None
+            if normalized_asn is not None and isinstance(organization, str) and organization.strip():
+                subjects: list[tuple[SubjectKind, str]] = [
+                    *(('hostname', hostname) for hostname in scoped_hosts),
+                    *(('ip', address) for address in scoped_ips),
+                ]
+                for subject_kind, subject_value in subjects:
+                    try:
+                        self.asn_attributions.add(
+                            AsnAttributionObservation(
+                                'source',
+                                'urlscan',
+                                normalized_asn,
+                                organization,
+                                subject_kind,
+                                subject_value,
+                                collected_at,
+                            )
+                        )
+                    except ValueError:
                         malformed = True
         return malformed
 
     async def do_search(self) -> None:
         url = 'https://urlscan.io/api/v1/search/'
+        collected_at = datetime.now(UTC)
         cursor = None
         seen_cursors: set[str] = set()
         malformed = False
@@ -153,7 +188,7 @@ class SearchUrlscan:
                     self.stop_reason = None if self._has_results() else 'no-results'
                 return
 
-            malformed = self._parse_results(results) or malformed
+            malformed = self._parse_results(results, collected_at) or malformed
             next_cursor = self._cursor(results[-1])
             if next_cursor is None:
                 self._stop('failed', 'invalid-cursor')
@@ -178,6 +213,9 @@ class SearchUrlscan:
 
     async def get_asns(self) -> set:
         return self.totalasns
+
+    async def get_asn_attributions(self) -> set[AsnAttributionObservation]:
+        return self.asn_attributions
 
     async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy

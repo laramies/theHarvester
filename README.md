@@ -13,7 +13,7 @@ It is built for the early reconnaissance stage of authorized security assessment
 
 - **Broad discovery coverage:** combine many independent sources in one run instead of querying each provider manually.
 - **Useful result types:** collect hostnames, email addresses, IP addresses, URLs, ASNs, and people.
-- **Enrichment after discovery:** optionally resolve DNS, query Shodan, check for subdomain takeovers, brute-force DNS names, scan common API paths, and capture screenshots.
+- **Enrichment after discovery:** optionally enrich routing evidence through RouteViews, resolve DNS, query Shodan, check for subdomain takeovers, brute-force DNS names, scan common API paths, and capture screenshots.
 - **CLI and browser-accessible API:** use the command line interactively or run the FastAPI service for automation and interactive Swagger/ReDoc documentation.
 - **Repeatable output:** print results, write JSON, XML, and JSONL reports, and retain host, email, and IP findings in a local SQLite database.
 - **Operational controls:** select individual sources, set result limits, use HTTP or SOCKS proxies, choose DNS resolvers, and suppress missing-key noise.
@@ -251,6 +251,7 @@ Never commit populated configuration files, API keys, account details, or provid
 - Full CLI pipeline runs are also stored transactionally by run UUID with their completed, deduplicated findings.
 - API executions use the same SQLite database as CLI results. Durable lifecycle rows stay separate from terminal evidence, while typed results and source or action origins remain queryable. JSONL handles individual run interchange, and the API can import completed runs from another theHarvester SQLite database.
 - Bounded [virtual host discovery](docs/wiki/Virtual-Host-Discovery.md) enriches each confirmed `hostname` result with structured endpoint observations and `vhost` action provenance.
+- `--routeviews` enriches exact discovered IPs that carry sourced ASN attribution, or an explicitly targeted ASN, IP, or CIDR, with bounded observed-origin, BGP route, and RPKI evidence. For example, `-d example.com -b asns --routeviews` asks RouteViews for the most-specific routes covering attributed IPs; it does not dump every prefix originated by a shared cloud or CDN ASN. `-d AS16509 --routeviews` remains the intentional way to request a complete ASN prefix inventory. Returned prefixes remain external relationships rather than claimed engagement scope. RouteViews is a P0 action, is not selected by `-b all`, and does not use `-l`. A configured `routeviews.key` is used automatically for PeeringDB-verified authenticated access; otherwise the action uses the guest allowance.
 
 Treat collected OSINT as potentially sensitive. Keep report files, screenshots, and the local database out of source control and share them only within the authorized engagement.
 
@@ -265,7 +266,7 @@ The JSON report is a single object. Host entries remain plain hostnames or `host
 | `cmd` | Always | Command-line arguments used for the run. |
 | `hosts` | Always | Discovered hosts; an empty array when none are found. |
 | `shodan` | Always | Shodan enrichment rows; an empty array when Shodan is not used. |
-| `ips`, `emails`, `vhosts`, `asns` | When non-empty | Network and contact findings. |
+| `ips`, `emails`, `vhosts`, `asns`, `prefixes` | When non-empty | Network and contact findings. RouteViews prefixes are external routing relationships, not claimed target scope. |
 | `urls` | When non-empty | Discovered URLs from every URL-producing source or action. |
 | `people`, `twitter_people`, `linkedin_people` | When non-empty | People and profile findings. |
 | `takeover_results` | When non-empty | Optional takeover-check results. |
@@ -283,6 +284,10 @@ JSONL is easy to stream one record at a time. The summary preserves the evidence
 
 Virtual-host observations do not use that string encoding. Each confirmed name remains one `hostname` finding with `actions: ["vhost"]` and a native `observations` array. Several endpoint observations can enrich the same hostname without creating another result kind or count.
 
+RouteViews evidence also uses native observations. Each `prefix` finding has `scope: "external-relationship"`, `actions: ["routeviews"]`, and observed-origin, BGP route, or RPKI validation records. These records describe provider-observed routing, never registration, ownership, authorization, reachability, or target scope.
+
+ASN organization labels from URLScan, ONYPHE, and the Shodan host action are also native observations. Each label remains tied to its provider and the exact hostname or IP that supplied the relationship. ONYPHE's physical hosting and logical WHOIS labels remain separate observations. Conflicting labels are retained for review; organization text never becomes an ASN owner field or a pivot filter. Before RouteViews runs, the exact source-attributed IP relationship—not the organization label—selects automatic network pivots.
+
 Parse recursive DNS findings as JSON objects:
 
 ```bash
@@ -293,6 +298,12 @@ List the endpoint observations for each confirmed virtual host:
 
 ```bash
 jq -c 'select(.type == "hostname" and .observations) | {hostname: .value, observations}' report.jsonl
+```
+
+List sourced organization labels for ASNs:
+
+```bash
+jq -c 'select(.type == "asn" and .observations) | {asn: .value, observations}' report.jsonl
 ```
 
 Stable Have I Been Pwned breach names use `breach` records. Normalized BuiltWith findings use `framework`, `language`, `server`, `cms`, or `analytics` records. Recursive runs also include classifications and one summary containing query cost, reached depth, zero-yield batches, and the stop reason.

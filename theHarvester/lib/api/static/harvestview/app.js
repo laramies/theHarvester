@@ -4,11 +4,11 @@
   const $ = selector => document.querySelector(selector);
   const $$ = selector => [...document.querySelectorAll(selector)];
   const ROUTE_ORDER = [
-    'hostname', 'ip', 'asn', 'email', 'url', 'person', 'person-link', 'takeover', 'shodan',
+    'hostname', 'ip', 'prefix', 'asn', 'email', 'url', 'person', 'person-link', 'takeover', 'shodan',
     'scope-extension', 'external-relationship', 'other'
   ];
   const ROUTE_LABELS = {
-    hostname: 'Hostnames', ip: 'IP addresses', asn: 'ASNs', email: 'Emails', url: 'URLs',
+    hostname: 'Hostnames', ip: 'IP addresses', prefix: 'Network prefixes', asn: 'ASNs', email: 'Emails', url: 'URLs',
     person: 'People', 'person-link': 'People links', takeover: 'Takeover evidence', shodan: 'Shodan evidence',
     'scope-extension': 'Scope extensions', 'external-relationship': 'External relationships', other: 'Other'
   };
@@ -298,6 +298,7 @@
       ['Recursive DNS depth', request.dns_recursive_depth ?? 'Not recorded'],
       ['Recursive DNS query budget', request.dns_recursive_query_limit ?? 'Not recorded'],
       ['Recursive DNS runtime', request.dns_recursive_runtime_seconds ? `${request.dns_recursive_runtime_seconds} seconds` : 'Not recorded'],
+      ['RouteViews enrichment', request.routeviews ? 'Selected' : 'Off'],
       ['Screenshots', request.screenshot ? 'Selected' : 'Off'],
       ['Takeover transport', request.takeover ? (request.proxies ? 'Configured proxy' : 'Direct') : 'Off'],
       ['API endpoint interaction', request.api_scan ? 'Selected' : 'Off'],
@@ -418,6 +419,56 @@
     return text.includes(query);
   }
 
+  function asnAttributionsFormatter(cell) {
+    const observations = Array.isArray(cell.getValue()) ? cell.getValue() : [];
+    if (!observations.length) return 'No organization attribution';
+    return `<div class="vhost-observations">${observations.map(observation => {
+      const subject = observation.subject || {};
+      const producer = `${observation.producer_kind || 'producer'}:${observation.producer || 'unknown'}`;
+      const text = `${observation.organization_label || 'Unknown organization'} · ${producer} · ${subject.type || 'subject'}:${subject.value || 'unknown'}`;
+      return `<span title="${escapeHtml(text)}">${escapeHtml(text)}</span>`;
+    }).join('')}</div>`;
+  }
+
+  function asnAttributionsFilter(headerValue, rowValue) {
+    const query = String(headerValue || '').trim().toLowerCase().replaceAll('-', ' ');
+    const text = (Array.isArray(rowValue) ? rowValue : []).flatMap(observation => [
+      observation.organization_label, observation.producer_kind, observation.producer,
+      observation.subject?.type, observation.subject?.value
+    ]).join(' ').toLowerCase().replaceAll('-', ' ');
+    return text.includes(query);
+  }
+
+  function networkObservationsFormatter(cell) {
+    const observations = Array.isArray(cell.getValue()) ? cell.getValue() : [];
+    if (!observations.length) return 'No routing evidence';
+    const validations = new Map(observations
+      .filter(observation => observation.type === 'rpki-validation')
+      .map(observation => [observation.origin_asn, observation.state]));
+    const origins = [...new Set(observations.map(observation => observation.origin_asn).filter(Boolean))].sort();
+    const originSummary = origins.map(origin => {
+      const state = validations.get(origin);
+      return `${origin} · RPKI ${state ? state.replaceAll('-', ' ') : 'not recorded'}`;
+    }).join(' · ');
+    const routes = observations.filter(observation => observation.type === 'bgp-route');
+    const routeDetails = routes.length ? `<details><summary>${routes.length.toLocaleString()} BGP route observation${routes.length === 1 ? '' : 's'}</summary>${routes.map(route => {
+      const peer = `${route.peer_asn || 'unknown peer'}${route.peer_address ? ` (${route.peer_address})` : ''}`;
+      const path = route.as_path ? ` · path ${route.as_path}` : '';
+      const communities = route.communities ? ` · communities ${route.communities}` : '';
+      return `<span>${escapeHtml(`${route.collector || 'unknown collector'} · peer ${peer}${path}${communities}`)}</span>`;
+    }).join('')}</details>` : '';
+    return `<div class="vhost-observations"><span>${escapeHtml(originSummary || 'Origin not recorded')}</span>${routeDetails}</div>`;
+  }
+
+  function networkObservationsFilter(headerValue, rowValue) {
+    const query = String(headerValue || '').trim().toLowerCase().replaceAll('-', ' ');
+    const text = (Array.isArray(rowValue) ? rowValue : []).flatMap(observation => [
+      observation.type, observation.origin_asn, observation.state, observation.collector,
+      observation.peer_asn, observation.peer_address, observation.as_path, observation.communities
+    ]).join(' ').toLowerCase().replaceAll('-', ' ');
+    return text.includes(query);
+  }
+
   function provenanceFormatter(cell) {
     const values = Array.isArray(cell.getValue()) ? cell.getValue() : [];
     return escapeHtml(values.join(', ') || '-');
@@ -435,6 +486,19 @@
       columns.push(
         {title: 'Virtual-host observations', field: 'observations', formatter: vhostObservationsFormatter, minWidth: 420, widthGrow: 4, variableHeight: true, headerFilter: 'input', headerFilterFunc: vhostObservationsFilter, headerFilterPlaceholder: 'Filter endpoint evidence'},
         {title: 'Sources', field: 'sources', formatter: provenanceFormatter, minWidth: 130, responsive: 2, headerFilter: 'input', headerFilterFunc: columnTextFilter},
+        {title: 'Produced by', field: 'actions', formatter: provenanceFormatter, minWidth: 130, responsive: 2, headerFilter: 'input', headerFilterFunc: columnTextFilter},
+      );
+    }
+    if (state.route === 'asn' && rows.some(row => Array.isArray(row.observations) && row.observations.length)) {
+      columns.push(
+        {title: 'Organization attributions', field: 'observations', formatter: asnAttributionsFormatter, minWidth: 420, widthGrow: 4, variableHeight: true, headerFilter: 'input', headerFilterFunc: asnAttributionsFilter, headerFilterPlaceholder: 'Filter organization evidence'},
+        {title: 'Sources', field: 'sources', formatter: provenanceFormatter, minWidth: 130, responsive: 2, headerFilter: 'input', headerFilterFunc: columnTextFilter},
+        {title: 'Produced by', field: 'actions', formatter: provenanceFormatter, minWidth: 130, responsive: 2, headerFilter: 'input', headerFilterFunc: columnTextFilter},
+      );
+    }
+    if (state.route === 'prefix' && rows.some(row => Array.isArray(row.observations) && row.observations.length)) {
+      columns.push(
+        {title: 'Routing evidence', field: 'observations', formatter: networkObservationsFormatter, minWidth: 420, widthGrow: 4, variableHeight: true, headerFilter: 'input', headerFilterFunc: networkObservationsFilter, headerFilterPlaceholder: 'Filter routing evidence'},
         {title: 'Produced by', field: 'actions', formatter: provenanceFormatter, minWidth: 130, responsive: 2, headerFilter: 'input', headerFilterFunc: columnTextFilter},
       );
     }
@@ -817,7 +881,8 @@
       dns_recursive_depth: Number(form.get('dns_recursive_depth')),
       dns_recursive_query_limit: Number(form.get('dns_recursive_query_limit')),
       dns_recursive_runtime_seconds: Number(form.get('dns_recursive_runtime_seconds')),
-      dns_brute: form.has('dns_brute'), shodan: form.has('shodan'), screenshot: form.has('screenshot'),
+      dns_brute: form.has('dns_brute'), shodan: form.has('shodan'), routeviews: form.has('routeviews'),
+      screenshot: form.has('screenshot'),
       takeover: form.has('takeover'), api_scan: form.has('api_scan'),
       api_scan_paths: form.has('api_scan')
         ? String(form.get('api_scan_paths')).split(/\r?\n/).map(value => value.trim()).filter(Boolean)
