@@ -483,5 +483,10 @@ async def enrich_routeviews(
     *,
     api_key: str | None = None,
 ) -> RouteViewsResult:
-    """Collect bounded routing evidence for attributed IPs or explicit ASN/IP/CIDR pivots."""
+    """Collect bounded routing evidence for caller-approved network pivots.
+
+    Domain runs automatically pass harvested IPs that have sourced IP-to-ASN
+    attribution. Bare ASN findings are not expanded into complete prefix
+    inventories; that requires an explicit ASN target.
+    """
     return await _RouteViewsRuntime(api_key).run(asns, network_seeds)
