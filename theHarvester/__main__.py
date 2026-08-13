@@ -22,7 +22,6 @@ from uuid import UUID, uuid4
 import anyio
 import netaddr
 import ujson
-from aiomultiprocess import Pool
 
 from theHarvester.discovery import (
     api_endpoints,
@@ -2686,11 +2685,6 @@ async def start(
                 )
             )
         else:
-            try:
-                await screen_shotter.verify_installation()
-            except asyncio.CancelledError:
-                await persist_screenshot_cancellation()
-                raise
             output_logger.info(f'\nScreenshots can be found in: {screen_shotter.output}{screen_shotter.slash}')
             output_logger.info('Filtering domains for ones we can reach')
             if not engines:
@@ -2707,26 +2701,6 @@ async def start(
             if len(unique_resolved_domains) > 0:
                 # First filter out ones that didn't resolve
                 output_logger.info('Attempting to visit unique resolved domains, this is ACTIVE RECON')
-
-                async def visit_screenshot_target(host: str) -> tuple[str, str]:
-                    final_url, body = await screen_shotter.visit(host)
-                    return host, final_url if body else ''
-
-                async with Pool(10) as pool:
-                    try:
-                        results = await pool.map(visit_screenshot_target, list(unique_resolved_domains))
-                    except asyncio.CancelledError:
-                        await persist_screenshot_cancellation()
-                        raise
-                    reachable_targets = sorted((host, final_url) for host, final_url in results if final_url)
-
-                semaphore = asyncio.Semaphore(3)
-
-                async def capture_screenshot_target(target: tuple[str, str]) -> tuple[str, str, Path]:
-                    subject, final_url = target
-                    output_path = screen_shotter.screenshot_path(subject)
-                    async with semaphore:
-                        return subject, await screen_shotter.take_screenshot(final_url, output_path=output_path), output_path
 
                 async def record_screenshot_artifact(subject: str, captured_url: str, screenshot_path: Path) -> None:
                     if not captured_url:
@@ -2770,26 +2744,16 @@ async def start(
                         )
                     )
 
-                capture_tasks = [asyncio.create_task(capture_screenshot_target(target)) for target in reachable_targets]
                 try:
-                    for capture_task in asyncio.as_completed(capture_tasks):
-                        subject, captured_url, screenshot_path = await capture_task
-                        await record_screenshot_artifact(subject, captured_url, screenshot_path)
+                    reachable_targets = await screen_shotter.reachable_targets(sorted(unique_resolved_domains))
+                    if reachable_targets:
+                        await screen_shotter.capture_targets(reachable_targets, record_screenshot_artifact)
                 except asyncio.CancelledError:
-                    for capture_task in capture_tasks:
-                        capture_task.cancel()
-                    outcomes = await asyncio.gather(*capture_tasks, return_exceptions=True)
-                    for outcome in outcomes:
-                        if isinstance(outcome, tuple):
-                            await record_screenshot_artifact(*outcome)
                     await persist_screenshot_cancellation()
                     raise
                 except Exception as ee:
-                    for capture_task in capture_tasks:
-                        capture_task.cancel()
-                    await asyncio.gather(*capture_tasks, return_exceptions=True)
                     capture_error_types.add(type(ee).__name__)
-                    output_logger.info(f'An exception has occurred while mapping: {ee}')
+                    output_logger.info(f'An exception has occurred while taking screenshots: {ee}')
             if not unique_resolved_domains:
                 screenshot_status: ExecutionStatus = 'skipped'
                 screenshot_stop_reason = 'no-input'
@@ -2824,7 +2788,6 @@ async def start(
             hr, mon = divmod(mon, 60)
             total_time = f'{mon:02d}:{sec:02d}'
             output_logger.info(f'Finished taking screenshots in {total_time} seconds')
-            output_logger.info('[+] Note there may be leftover chrome processes you may have to kill manually\n')
 
     # Shodan
     shodanres: list[dict[str, object]] = []

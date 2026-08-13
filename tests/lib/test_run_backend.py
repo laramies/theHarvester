@@ -15,6 +15,38 @@ import pytest
 from fastapi.testclient import TestClient
 
 
+class _FakeScreenshotBatch:
+    async def reachable_targets(self, targets: list[str]) -> list[tuple[str, str]]:
+        reachable: list[tuple[str, str]] = []
+        for subject in targets:
+            final_url, status = await self.visit(subject)
+            if status:
+                reachable.append((subject, final_url))
+        return reachable
+
+    async def capture_targets(self, targets, record) -> None:
+        async def capture(subject: str, final_url: str) -> tuple[str, str, Path]:
+            output_path = self.screenshot_path(subject)
+            return subject, await self.take_screenshot(final_url, output_path=output_path), output_path
+
+        tasks = [asyncio.create_task(capture(*target)) for target in targets]
+        try:
+            for task in asyncio.as_completed(tasks):
+                await record(*await task)
+        except asyncio.CancelledError:
+            for task in tasks:
+                task.cancel()
+            outcomes = await asyncio.gather(*tasks, return_exceptions=True)
+            for outcome in outcomes:
+                if isinstance(outcome, tuple):
+                    await record(*outcome)
+            raise
+        finally:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+
 def test_run_paths_use_one_expanded_database_and_artifact_root(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api.run_store import RunStore
 
@@ -288,7 +320,7 @@ def test_child_screenshot_run_persists_downloadable_artifact_metadata(tmp_path, 
     from theHarvester.lib.api.run_store import RunStore
     from theHarvester.lib.api.run_worker import _child_execute
 
-    class FakeScreenShotter:
+    class FakeScreenShotter(_FakeScreenshotBatch):
         slash = '/'
 
         def __init__(self, output: str) -> None:
@@ -297,15 +329,8 @@ def test_child_screenshot_run_persists_downloadable_artifact_metadata(tmp_path, 
         def verify_path(self) -> bool:
             return True
 
-        async def verify_installation(self) -> None:
-            return None
-
         async def visit(self, host: str) -> tuple[str, str]:
             return f'https://{host}', 'reachable'
-
-        @staticmethod
-        def chunk_list(values: list[str], _size: int) -> list[list[str]]:
-            return [values]
 
         def screenshot_path(self, url: str) -> Path:
             return Path(self.output) / f'{url.removeprefix("https://")}.png'
@@ -315,23 +340,9 @@ def test_child_screenshot_run_persists_downloadable_artifact_metadata(tmp_path, 
             (output_path or self.screenshot_path(captured_url)).write_bytes(b'png')
             return captured_url
 
-    class FakePool:
-        def __init__(self, _workers: int) -> None:
-            pass
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args) -> None:
-            return None
-
-        async def map(self, function, values):
-            return [await function(value) for value in values]
-
     database = tmp_path / 'state' / 'runs.sqlite'
     monkeypatch.setenv('THEHARVESTER_RUN_ARTIFACTS', str(tmp_path / 'artifacts'))
     monkeypatch.setattr(main_module, 'ScreenShotter', FakeScreenShotter)
-    monkeypatch.setattr(main_module, 'Pool', FakePool)
 
     async def scenario():
         store = RunStore(database)
@@ -363,7 +374,7 @@ def test_child_screenshot_cancellation_reuses_the_checkpointed_evidence(tmp_path
 
     first_captured = asyncio.Event()
 
-    class FakeScreenShotter:
+    class FakeScreenShotter(_FakeScreenshotBatch):
         slash = '/'
 
         def __init__(self, output: str) -> None:
@@ -371,9 +382,6 @@ def test_child_screenshot_cancellation_reuses_the_checkpointed_evidence(tmp_path
 
         def verify_path(self) -> bool:
             return True
-
-        async def verify_installation(self) -> None:
-            return None
 
         async def visit(self, host: str) -> tuple[str, str]:
             return f'https://{host}', 'reachable'
@@ -400,24 +408,10 @@ def test_child_screenshot_cancellation_reuses_the_checkpointed_evidence(tmp_path
         async def get_hostnames(self) -> set[str]:
             return {'first.example.test', 'second.example.test'}
 
-    class FakePool:
-        def __init__(self, _workers: int) -> None:
-            pass
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args) -> None:
-            return None
-
-        async def map(self, function, values):
-            return [await function(value) for value in values]
-
     database = tmp_path / 'runs.sqlite'
     monkeypatch.setenv('THEHARVESTER_RUN_ARTIFACTS', str(tmp_path / 'artifacts'))
     monkeypatch.setattr(main_module.crtsh, 'SearchCrtsh', TwoHostSource)
     monkeypatch.setattr(main_module, 'ScreenShotter', FakeScreenShotter)
-    monkeypatch.setattr(main_module, 'Pool', FakePool)
 
     async def scenario():
         store = RunStore(database)

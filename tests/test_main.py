@@ -6,9 +6,11 @@ import xml.etree.ElementTree as ElementTree
 from datetime import UTC, datetime
 from pathlib import Path
 from types import ModuleType
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+import theHarvester.screenshot.screenshot as screenshot_module
 from theHarvester import __main__ as theharvester_main
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.asn_attribution import AsnAttributionObservation
@@ -1614,6 +1616,38 @@ async def test_dns_brute_resolver_configuration_does_not_enable_dns_resolution(
     assert 'dns-resolve' not in actions
 
 
+class _FakeScreenshotBatch:
+    async def reachable_targets(self, targets: list[str]) -> list[tuple[str, str]]:
+        reachable: list[tuple[str, str]] = []
+        for subject in targets:
+            final_url, status = await self.visit(subject)
+            if status:
+                reachable.append((subject, final_url))
+        return reachable
+
+    async def capture_targets(self, targets, record) -> None:
+        async def capture(subject: str, final_url: str) -> tuple[str, str, Path]:
+            output_path = self.screenshot_path(subject)
+            return subject, await self.take_screenshot(final_url, output_path=output_path), output_path
+
+        tasks = [asyncio.create_task(capture(*target)) for target in targets]
+        try:
+            for task in asyncio.as_completed(tasks):
+                await record(*await task)
+        except asyncio.CancelledError:
+            for task in tasks:
+                task.cancel()
+            outcomes = await asyncio.gather(*tasks, return_exceptions=True)
+            for outcome in outcomes:
+                if isinstance(outcome, tuple):
+                    await record(*outcome)
+            raise
+        finally:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+
 @pytest.mark.asyncio
 async def test_dns_proven_cname_hosts_reach_screenshot_filter(
     monkeypatch: pytest.MonkeyPatch,
@@ -1652,7 +1686,7 @@ async def test_dns_proven_cname_hosts_reach_screenshot_filter(
                 ['192.0.2.1'],
             )
 
-    class FakeScreenShotter:
+    class FakeScreenShotter(_FakeScreenshotBatch):
         slash = '/'
 
         def __init__(self, output: str) -> None:
@@ -1661,16 +1695,9 @@ async def test_dns_proven_cname_hosts_reach_screenshot_filter(
         def verify_path(self) -> bool:
             return True
 
-        async def verify_installation(self) -> None:
-            return None
-
         async def visit(self, host: str) -> tuple[str, str]:
             visited.add(host)
             return host, 'https'
-
-        @staticmethod
-        def chunk_list(values: list[str], _size: int) -> list[list[str]]:
-            return [values]
 
         async def take_screenshot(self, host: str, *, output_path: Path | None = None) -> str:
             path = output_path or self.screenshot_path(host)
@@ -1680,24 +1707,10 @@ async def test_dns_proven_cname_hosts_reach_screenshot_filter(
         def screenshot_path(self, host: str) -> Path:
             return Path(self.output) / f'{host.removeprefix("https://")}.png'
 
-    class FakePool:
-        def __init__(self, _workers: int) -> None:
-            pass
-
-        async def __aenter__(self) -> 'FakePool':
-            return self
-
-        async def __aexit__(self, *_args) -> None:
-            return None
-
-        async def map(self, function, values):
-            return [await function(value) for value in values]
-
     monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
     monkeypatch.setattr(theharvester_main.crtsh, 'SearchCrtsh', FakeCrtsh)
     monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', FakeChecker)
     monkeypatch.setattr(theharvester_main, 'ScreenShotter', FakeScreenShotter)
-    monkeypatch.setattr(theharvester_main, 'Pool', FakePool)
     monkeypatch.setattr(
         sys,
         'argv',
@@ -1760,6 +1773,190 @@ def _recording_result_store(saved: list[CompletedResult]) -> type[_NoopResultSto
 
 
 @pytest.mark.asyncio
+async def test_screenshot_scan_uses_one_bounded_reachability_and_capture_lifecycle(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    lifecycle_calls: list[str] = []
+
+    class FakeScreenShotter:
+        slash = '/'
+
+        def __init__(self, output: str) -> None:
+            self.output = output
+
+        def verify_path(self) -> bool:
+            return True
+
+        async def verify_installation(self) -> None:
+            raise AssertionError('the scan must not launch a separate installation-check browser')
+
+        async def reachable_targets(self, targets: list[str]) -> list[tuple[str, str]]:
+            lifecycle_calls.append('reachability')
+            assert targets == ['api.example.test']
+            return [('api.example.test', 'https://login.example.net/session')]
+
+        async def capture_targets(self, targets, record) -> None:
+            lifecycle_calls.append('capture')
+            assert targets == [('api.example.test', 'https://login.example.net/session')]
+            output_path = self.screenshot_path('api.example.test')
+            output_path.write_bytes(b'png')
+            await record('api.example.test', 'https://login.example.net/session', output_path)
+
+        def screenshot_path(self, subject: str) -> Path:
+            return Path(self.output) / f'{subject}.png'
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
+    monkeypatch.setattr(theharvester_main, 'ScreenShotter', FakeScreenShotter)
+
+    result = await theharvester_main.start(
+        EnumerationOptions(domain='api.example.test', screenshot=str(tmp_path), quiet=True),
+        return_completed_result=True,
+    )
+
+    assert lifecycle_calls == ['reachability', 'capture']
+    execution = next(item for item in result[-1].active_evidence.executions if item.action == 'screenshot')
+    assert execution.status == 'completed'
+    assert execution.artifacts[0].subject_value == 'api.example.test'
+
+
+@pytest.mark.asyncio
+async def test_screenshot_cancellation_finishes_owned_artifact_record_before_checkpoint(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    saved: list[CompletedResult] = []
+    record_started = asyncio.Event()
+    release_record = asyncio.Event()
+    original_read_bytes = theharvester_main.anyio.Path.read_bytes
+
+    class RecordingResultStore(_NoopResultStore):
+        async def save_run(self, result: CompletedResult) -> None:
+            saved.append(result)
+
+    class Page:
+        async def goto(self, *_args, **_kwargs) -> None:
+            return None
+
+        async def screenshot(self, *, path: Path) -> None:
+            path.write_bytes(b'png')  # noqa: ASYNC240 - tiny in-memory browser fixture
+
+        async def close(self) -> None:
+            return None
+
+    class Context:
+        async def new_page(self) -> Page:
+            return Page()
+
+        async def close(self) -> None:
+            return None
+
+    class Browser:
+        async def new_context(self) -> Context:
+            return Context()
+
+        async def close(self) -> None:
+            return None
+
+    class Playwright:
+        chromium = None
+
+        def __init__(self) -> None:
+            self.chromium = self
+
+        async def launch(self, **_kwargs) -> Browser:
+            return Browser()
+
+    class Manager:
+        async def __aenter__(self) -> Playwright:
+            return Playwright()
+
+        async def __aexit__(self, *_args) -> None:
+            return None
+
+    async def reachable_targets(_self, targets: list[str]) -> list[tuple[str, str]]:
+        assert targets == ['api.example.test']
+        return [('api.example.test', 'https://api.example.test')]
+
+    async def delayed_read_bytes(path) -> bytes:
+        if path.name == 'api.example.test.png':
+            record_started.set()
+            await release_record.wait()
+        return await original_read_bytes(path)
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', RecordingResultStore)
+    monkeypatch.setattr(screenshot_module, 'async_playwright', lambda: Manager())
+    monkeypatch.setattr(screenshot_module.ScreenShotter, 'reachable_targets', reachable_targets)
+    monkeypatch.setattr(theharvester_main.anyio.Path, 'read_bytes', delayed_read_bytes)
+
+    operation = asyncio.create_task(
+        theharvester_main.start(
+            EnumerationOptions(domain='api.example.test', screenshot=str(tmp_path), quiet=True),
+            return_completed_result=True,
+        )
+    )
+    await asyncio.wait_for(record_started.wait(), timeout=1)
+    operation.cancel('operator-stop')
+    await asyncio.sleep(0)
+    release_record.set()
+    with pytest.raises(asyncio.CancelledError, match='operator-stop'):
+        await operation
+
+    execution = next(item for item in saved[-1].active_evidence.executions if item.action == 'screenshot')
+    assert execution.status == 'partial'
+    assert execution.stop_reason == 'cancelled'
+    assert execution.artifacts[0].subject_value == 'api.example.test'
+    assert not [task for task in asyncio.all_tasks() if task.get_name().startswith('screenshot-')]
+
+
+@pytest.mark.asyncio
+async def test_screenshot_cleanup_failure_marks_the_action_failed(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    page = MagicMock()
+
+    async def write_screenshot(*, path: Path) -> None:
+        path.write_bytes(b'png')  # noqa: ASYNC240 - tiny in-memory browser fixture
+
+    page.goto = AsyncMock()
+    page.screenshot = AsyncMock(side_effect=write_screenshot)
+    page.close = AsyncMock(side_effect=RuntimeError('page close failed'))
+    context = MagicMock()
+    context.new_page = AsyncMock(return_value=page)
+    context.close = AsyncMock()
+    browser = MagicMock()
+    browser.new_context = AsyncMock(return_value=context)
+    browser.close = AsyncMock()
+    playwright = MagicMock()
+    playwright.chromium.launch = AsyncMock(return_value=browser)
+    manager = MagicMock()
+    manager.__aenter__ = AsyncMock(return_value=playwright)
+    manager.__aexit__ = AsyncMock(return_value=False)
+
+    async def reachable_targets(_self, targets: list[str]) -> list[tuple[str, str]]:
+        return [(targets[0], f'https://{targets[0]}')]
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
+    monkeypatch.setattr(screenshot_module, 'async_playwright', MagicMock(return_value=manager))
+    monkeypatch.setattr(screenshot_module.ScreenShotter, 'reachable_targets', reachable_targets)
+
+    result = await theharvester_main.start(
+        EnumerationOptions(domain='api.example.test', screenshot=str(tmp_path), quiet=True),
+        return_completed_result=True,
+    )
+
+    execution = next(item for item in result[-1].active_evidence.executions if item.action == 'screenshot')
+    assert execution.status == 'failed'
+    assert execution.stop_reason == 'capture-errors'
+    assert execution.error_type == 'RuntimeError'
+    page.close.assert_awaited_once()
+    context.close.assert_awaited_once()
+    browser.close.assert_awaited_once()
+    manager.__aexit__.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_cli_can_capture_an_explicit_target_without_discovery_sources(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -1774,7 +1971,7 @@ async def test_cli_can_capture_an_explicit_target_without_discovery_sources(
         async def save_run(self, result: CompletedResult) -> None:
             saved.append(result)
 
-    class FakeScreenShotter:
+    class FakeScreenShotter(_FakeScreenshotBatch):
         slash = '/'
 
         def __init__(self, output: str) -> None:
@@ -1783,15 +1980,8 @@ async def test_cli_can_capture_an_explicit_target_without_discovery_sources(
         def verify_path(self) -> bool:
             return True
 
-        async def verify_installation(self) -> None:
-            return None
-
         async def visit(self, host: str) -> tuple[str, str]:
             return host, 'https'
-
-        @staticmethod
-        def chunk_list(values: list[str], _size: int) -> list[list[str]]:
-            return [values]
 
         async def take_screenshot(self, host: str, *, output_path: Path | None = None) -> str:
             captured.append(host)
@@ -1801,22 +1991,8 @@ async def test_cli_can_capture_an_explicit_target_without_discovery_sources(
         def screenshot_path(self, host: str) -> Path:
             return Path(self.output) / f'{host.removeprefix("https://")}.png'
 
-    class FakePool:
-        def __init__(self, _workers: int) -> None:
-            pass
-
-        async def __aenter__(self) -> 'FakePool':
-            return self
-
-        async def __aexit__(self, *_args) -> None:
-            return None
-
-        async def map(self, function, values):
-            return [await function(value) for value in values]
-
     monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
     monkeypatch.setattr(theharvester_main, 'ScreenShotter', FakeScreenShotter)
-    monkeypatch.setattr(theharvester_main, 'Pool', FakePool)
     monkeypatch.setattr(
         sys,
         'argv',
@@ -1847,7 +2023,7 @@ async def test_screenshot_reports_no_reachable_target_as_failed(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    class FakeScreenShotter:
+    class FakeScreenShotter(_FakeScreenshotBatch):
         slash = '/'
 
         def __init__(self, output: str) -> None:
@@ -1856,28 +2032,11 @@ async def test_screenshot_reports_no_reachable_target_as_failed(
         def verify_path(self) -> bool:
             return True
 
-        async def verify_installation(self) -> None:
-            return None
-
         async def visit(self, _host: str) -> tuple[str, str]:
             return '', ''
 
-    class FakePool:
-        def __init__(self, _workers: int) -> None:
-            pass
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args) -> None:
-            return None
-
-        async def map(self, function, values):
-            return [await function(value) for value in values]
-
     monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
     monkeypatch.setattr(theharvester_main, 'ScreenShotter', FakeScreenShotter)
-    monkeypatch.setattr(theharvester_main, 'Pool', FakePool)
 
     result = await theharvester_main.start(
         EnumerationOptions(domain='api.example.test', screenshot=str(tmp_path), quiet=True),
@@ -1894,7 +2053,7 @@ async def test_screenshot_redirect_stays_attached_to_the_authorized_host(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    class FakeScreenShotter:
+    class FakeScreenShotter(_FakeScreenshotBatch):
         slash = '/'
 
         def __init__(self, output: str) -> None:
@@ -1902,9 +2061,6 @@ async def test_screenshot_redirect_stays_attached_to_the_authorized_host(
 
         def verify_path(self) -> bool:
             return True
-
-        async def verify_installation(self) -> None:
-            return None
 
         async def visit(self, host: str) -> tuple[str, str]:
             assert host == 'api.example.test'
@@ -1917,22 +2073,8 @@ async def test_screenshot_redirect_stays_attached_to_the_authorized_host(
         def screenshot_path(self, _url: str) -> Path:
             return Path(self.output) / 'outside.example.png'
 
-    class FakePool:
-        def __init__(self, _workers: int) -> None:
-            pass
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args) -> None:
-            return None
-
-        async def map(self, function, values):
-            return [await function(value) for value in values]
-
     monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
     monkeypatch.setattr(theharvester_main, 'ScreenShotter', FakeScreenShotter)
-    monkeypatch.setattr(theharvester_main, 'Pool', FakePool)
 
     result = await theharvester_main.start(
         EnumerationOptions(domain='api.example.test', screenshot=str(tmp_path), quiet=True),
@@ -1950,7 +2092,7 @@ async def test_target_only_ip_screenshot_keeps_ip_result_and_artifact_subject(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    class FakeScreenShotter:
+    class FakeScreenShotter(_FakeScreenshotBatch):
         slash = '/'
 
         def __init__(self, output: str) -> None:
@@ -1958,9 +2100,6 @@ async def test_target_only_ip_screenshot_keeps_ip_result_and_artifact_subject(
 
         def verify_path(self) -> bool:
             return True
-
-        async def verify_installation(self) -> None:
-            return None
 
         async def visit(self, host: str) -> tuple[str, str]:
             return f'https://{host}', 'reachable'
@@ -1973,22 +2112,8 @@ async def test_target_only_ip_screenshot_keeps_ip_result_and_artifact_subject(
         def screenshot_path(self, url: str) -> Path:
             return Path(self.output) / f'{url.removeprefix("https://")}.png'
 
-    class FakePool:
-        def __init__(self, _workers: int) -> None:
-            pass
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args) -> None:
-            return None
-
-        async def map(self, function, values):
-            return [await function(value) for value in values]
-
     monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
     monkeypatch.setattr(theharvester_main, 'ScreenShotter', FakeScreenShotter)
-    monkeypatch.setattr(theharvester_main, 'Pool', FakePool)
 
     result = await theharvester_main.start(
         EnumerationOptions(domain='192.0.2.1', screenshot=str(tmp_path), quiet=True),
@@ -2008,7 +2133,7 @@ async def test_screenshot_redirects_to_one_login_keep_distinct_subject_artifacts
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    class FakeScreenShotter:
+    class FakeScreenShotter(_FakeScreenshotBatch):
         slash = '/'
 
         def __init__(self, output: str) -> None:
@@ -2016,9 +2141,6 @@ async def test_screenshot_redirects_to_one_login_keep_distinct_subject_artifacts
 
         def verify_path(self) -> bool:
             return True
-
-        async def verify_installation(self) -> None:
-            return None
 
         async def visit(self, _host: str) -> tuple[str, str]:
             return 'https://login.example.net/session', 'reachable'
@@ -2043,23 +2165,9 @@ async def test_screenshot_redirects_to_one_login_keep_distinct_subject_artifacts
         async def get_hostnames(self) -> set[str]:
             return {'first.example.test', 'second.example.test'}
 
-    class FakePool:
-        def __init__(self, _workers: int) -> None:
-            pass
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args) -> None:
-            return None
-
-        async def map(self, function, values):
-            return [await function(value) for value in values]
-
     monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
     monkeypatch.setattr(theharvester_main.crtsh, 'SearchCrtsh', TwoHostSource)
     monkeypatch.setattr(theharvester_main, 'ScreenShotter', FakeScreenShotter)
-    monkeypatch.setattr(theharvester_main, 'Pool', FakePool)
 
     result = await theharvester_main.start(
         EnumerationOptions(
@@ -2090,7 +2198,7 @@ async def test_screenshot_cancellation_persists_failed_execution_and_propagates(
         async def save_run(self, result: CompletedResult) -> None:
             saved.append(result)
 
-    class FakeScreenShotter:
+    class FakeScreenShotter(_FakeScreenshotBatch):
         slash = '/'
 
         def __init__(self, output: str) -> None:
@@ -2098,9 +2206,6 @@ async def test_screenshot_cancellation_persists_failed_execution_and_propagates(
 
         def verify_path(self) -> bool:
             return True
-
-        async def verify_installation(self) -> None:
-            return None
 
         async def visit(self, host: str) -> tuple[str, str]:
             return f'https://{host}', 'reachable'
@@ -2126,23 +2231,9 @@ async def test_screenshot_cancellation_persists_failed_execution_and_propagates(
         async def get_hostnames(self) -> set[str]:
             return {'first.example.test', 'second.example.test'}
 
-    class FakePool:
-        def __init__(self, _workers: int) -> None:
-            pass
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args) -> None:
-            return None
-
-        async def map(self, function, values):
-            return [await function(value) for value in values]
-
     monkeypatch.setattr(theharvester_main, 'ResultStore', RecordingResultStore)
     monkeypatch.setattr(theharvester_main.crtsh, 'SearchCrtsh', TwoHostSource)
     monkeypatch.setattr(theharvester_main, 'ScreenShotter', FakeScreenShotter)
-    monkeypatch.setattr(theharvester_main, 'Pool', FakePool)
 
     task = asyncio.create_task(
         theharvester_main.start(
@@ -2173,7 +2264,7 @@ async def test_screenshot_capture_failure_cancels_sibling_tasks(
 ) -> None:
     sibling_cancelled = asyncio.Event()
 
-    class FakeScreenShotter:
+    class FakeScreenShotter(_FakeScreenshotBatch):
         slash = '/'
 
         def __init__(self, output: str) -> None:
@@ -2181,9 +2272,6 @@ async def test_screenshot_capture_failure_cancels_sibling_tasks(
 
         def verify_path(self) -> bool:
             return True
-
-        async def verify_installation(self) -> None:
-            return None
 
         async def visit(self, host: str) -> tuple[str, str]:
             return f'https://{host}', 'reachable'
@@ -2210,23 +2298,9 @@ async def test_screenshot_capture_failure_cancels_sibling_tasks(
         async def get_hostnames(self) -> set[str]:
             return {'first.example.test', 'second.example.test'}
 
-    class FakePool:
-        def __init__(self, _workers: int) -> None:
-            pass
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args) -> None:
-            return None
-
-        async def map(self, function, values):
-            return [await function(value) for value in values]
-
     monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
     monkeypatch.setattr(theharvester_main.crtsh, 'SearchCrtsh', TwoHostSource)
     monkeypatch.setattr(theharvester_main, 'ScreenShotter', FakeScreenShotter)
-    monkeypatch.setattr(theharvester_main, 'Pool', FakePool)
 
     result = await theharvester_main.start(
         EnumerationOptions(
@@ -2292,7 +2366,7 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
         async def get_takeover_results(self) -> dict[str, list[dict[str, str]]]:
             return {'https://api.example.com': [{'No such app': 'Heroku'}]}
 
-    class FakeScreenShotter:
+    class FakeScreenShotter(_FakeScreenshotBatch):
         slash = '/'
 
         def __init__(self, output: str) -> None:
@@ -2301,15 +2375,8 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
         def verify_path(self) -> bool:
             return True
 
-        async def verify_installation(self) -> None:
-            return None
-
         async def visit(self, host: str) -> tuple[str, str]:
             return host, 'reachable'
-
-        @staticmethod
-        def chunk_list(values: list[str], _size: int) -> list[list[str]]:
-            return [values]
 
         async def take_screenshot(self, host: str, *, output_path: Path | None = None) -> str:
             (output_path or self.screenshot_path(host)).write_bytes(b'png')
@@ -2386,19 +2453,6 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
         def get_status_codes(self) -> set[int]:
             return {200}
 
-    class FakePool:
-        def __init__(self, _workers: int) -> None:
-            pass
-
-        async def __aenter__(self) -> 'FakePool':
-            return self
-
-        async def __aexit__(self, *_args) -> None:
-            return None
-
-        async def map(self, function, values):
-            return [await function(value) for value in values]
-
     async def no_sleep(_seconds: float) -> None:
         return None
 
@@ -2411,7 +2465,6 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
     monkeypatch.setattr(theharvester_main, 'ScreenShotter', FakeScreenShotter)
     monkeypatch.setattr(theharvester_main.shodansearch, 'SearchShodan', FakeShodan)
     monkeypatch.setattr(theharvester_main.api_endpoints, 'SearchApiEndpoints', FakeApiScanner)
-    monkeypatch.setattr(theharvester_main, 'Pool', FakePool)
     monkeypatch.setattr(theharvester_main.asyncio, 'sleep', no_sleep)
 
     result = await theharvester_main.start(
