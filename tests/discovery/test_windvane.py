@@ -1,4 +1,3 @@
-import asyncio
 import json
 import socket
 
@@ -59,26 +58,24 @@ async def test_authenticated_results_are_normalized_and_scoped(monkeypatch) -> N
 
 
 @pytest.mark.asyncio
-async def test_keyless_fallback_uses_only_the_mocked_dns_boundary(monkeypatch) -> None:
+async def test_keyless_provider_failure_does_not_guess_dns_names(monkeypatch) -> None:
     monkeypatch.setattr(windvane.Core, 'windvane_key', lambda: None)
+    requests = 0
 
     async def fake_post_fetch(*_args, **_kwargs):
+        nonlocal requests
+        requests += 1
         return '{"code":1}'
 
-    async def no_sleep(*_args, **_kwargs):
-        return None
-
-    def fake_gethostbyname(hostname: str) -> str:
-        if hostname == 'api.example.test':
-            return '203.0.113.10'
-        raise socket.gaierror
+    def unexpected_gethostbyname(_hostname: str) -> str:
+        raise AssertionError('Windvane must not guess common DNS names')
 
     monkeypatch.setattr(windvane.AsyncFetcher, 'post_fetch', fake_post_fetch)
-    monkeypatch.setattr(asyncio, 'sleep', no_sleep)
-    monkeypatch.setattr(socket, 'gethostbyname', fake_gethostbyname)
+    monkeypatch.setattr(socket, 'gethostbyname', unexpected_gethostbyname)
 
     search = windvane.SearchWindvane('example.test')
     await search.process()
 
-    assert await search.get_hostnames() == {'api.example.test'}
-    assert await search.get_ips() == {'203.0.113.10'}
+    assert requests == 1
+    assert await search.get_hostnames() == set()
+    assert await search.get_ips() == set()
