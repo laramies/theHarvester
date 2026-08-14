@@ -30,7 +30,7 @@ class SearchWindvane:
 
     Note: This API requires authentication for full access.
     - With API key: Full access to all endpoints with pagination
-    - Without API key: Limited to 5 unauthenticated requests + DNS fallback
+    - Without API key: Limited unauthenticated API access
 
     Set API key via:
     - Environment variable: export WINDVANE_API_KEY="your-key"
@@ -92,7 +92,7 @@ class SearchWindvane:
                 await self._search_dns_history(headers)
                 await self._search_emails(headers)
             else:
-                # Without API key, try alternative/limited approaches
+                # Without API key, use the provider's limited endpoint only.
                 logger.info('[*] Windvane API key not found. Using limited unauthenticated access.')
                 await self._search_subdomains_limited(headers)
 
@@ -235,77 +235,13 @@ class SearchWindvane:
 
                         logger.info(f'[*] Found {len(subdomains)} subdomains with limited access')
                     else:
-                        # If API call fails, try fallback approaches
-                        await self._fallback_search()
+                        logger.info(f'Windvane limited API returned code {response_data.get("code")}')
 
             except Exception as e:
                 logger.info(f'Windvane limited API failed: {e}')
-                await self._fallback_search()
 
         except Exception as e:
             logger.info(f'Windvane limited search error: {e}')
-
-    async def _fallback_search(self) -> None:
-        """Fallback search using common subdomain patterns when API is unavailable"""
-        try:
-            logger.info('[*] API unavailable, using fallback subdomain pattern search...')
-
-            # Common subdomain prefixes to try
-            common_subdomains = [
-                'www',
-                'mail',
-                'ftp',
-                'admin',
-                'test',
-                'dev',
-                'staging',
-                'api',
-                'cdn',
-                'blog',
-                'shop',
-                'portal',
-                'app',
-                'mobile',
-                'secure',
-                'login',
-                'support',
-                'help',
-                'docs',
-                'status',
-            ]
-
-            # Try to resolve common subdomains (basic DNS lookup approach)
-            import asyncio
-            import socket
-
-            found_count = 0
-            for sub in common_subdomains:
-                subdomain = f'{sub}.{self.word}'
-                try:
-                    # Simple DNS resolution check
-                    await asyncio.sleep(0.1)  # Rate limiting
-
-                    # Use a simple DNS lookup (non-blocking)
-                    loop = asyncio.get_event_loop()
-                    try:
-                        result = await loop.run_in_executor(None, socket.gethostbyname, subdomain)
-                        if result:
-                            self.totalhosts.add(subdomain.lower())
-                            self.totalips.add(result)
-                            found_count += 1
-                    except socket.gaierror:
-                        pass  # Subdomain doesn't exist
-
-                except Exception:
-                    continue
-
-            if found_count > 0:
-                logger.info(f'[*] Found {found_count} subdomains using DNS fallback')
-            else:
-                logger.info('[*] No additional subdomains found via fallback methods')
-
-        except Exception as e:
-            logger.info(f'Fallback search error: {e}')
 
     def set_api_key(self, api_key: str) -> None:
         """Set the API key for authenticated requests

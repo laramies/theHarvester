@@ -90,13 +90,12 @@ def test_all_selects_only_passive_catalog_sources() -> None:
         "shodan": ActivityClass.DNS,
         "shodanInternetDB": ActivityClass.DNS,
         "subdomainfinderc99": ActivityClass.DNS,
-        "windvane": ActivityClass.DNS,
     }
 
 
 @pytest.mark.parametrize(
     'source',
-    ['criminalip', 'pentesttools', 'shodan', 'shodanInternetDB', 'subdomainfinderc99', 'windvane'],
+    ['criminalip', 'pentesttools', 'shodan', 'shodanInternetDB', 'subdomainfinderc99'],
 )
 def test_non_passive_sources_run_only_when_explicitly_selected(source: str) -> None:
     assert source not in Core.expand_source_selection('all')

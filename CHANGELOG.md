@@ -70,7 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sent a stable, versioned theHarvester identity with provider and API requests while preserving explicit browser identities for sources that require them.
 - Kept API endpoint scan URLs canonical instead of prefixing targets onto already complete URLs.
 - Made DeHashed pagination honor the CLI limit, retain only normalized email and IP evidence, and discard raw breach rows; aligned LeakIX with its authenticated subdomain endpoint and documented rate-limit retry.
-- Added offline contracts for explicitly selected DNS and direct sources, retained normalized Pentest-Tools host and IP results, and hardened Shodan InternetDB, SubdomainFinder C99, and Windvane evidence boundaries.
+- Added offline contracts for explicitly selected DNS and direct sources, retained normalized Pentest-Tools host and IP results, hardened Shodan InternetDB and SubdomainFinder C99 evidence boundaries, and removed Windvane's implicit DNS-guessing fallback while retaining its provider-backed source.
 - Retained relevant GitLab project, profile, and website URLs in consolidated JSONL and SQLite results while excluding unrelated user URLs.
 - Standardized BuiltWith and every other URL-producing adapter on `get_urls()`.
 - Made no-filename REST `/query` executions reach completed-result construction and SQLite persistence without changing the legacy response fields.

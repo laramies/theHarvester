@@ -180,7 +180,6 @@ _SPECS = (
         ResultRoute.SUBDOMAINS,
         ResultRoute.EMAILS,
         ResultRoute.IPS,
-        activity=ActivityClass.DNS,
     ),
     _spec('yahoo', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec(
