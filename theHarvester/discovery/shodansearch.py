@@ -25,8 +25,10 @@ class SearchShodan:
     ``isp`` remains ordinary Shodan output and is not treated as equivalent.
     """
 
-    REQUEST_TIMEOUT_SECONDS = 30
-    AWAIT_TIMEOUT_SECONDS = REQUEST_TIMEOUT_SECONDS + 5
+    # Keep DNS and provider transport policy independent. The adapter imposes no
+    # source-local numeric deadline by default; the owning run controls cancellation.
+    DNS_RESOLVER_TIMEOUT_SECONDS: float | None = None
+    HTTP_REQUEST_TIMEOUT_SECONDS: float | None = None
 
     def __init__(self, word: str | None = None) -> None:
         self.word = word.strip().lower().rstrip('.') if word is not None else None
@@ -36,8 +38,8 @@ class SearchShodan:
             raise MissingKey('Shodan')
         self.api = Shodan(self.key)
         session = getattr(self.api, '_session', None)
-        if session is not None:
-            session.request = partial(session.request, timeout=self.REQUEST_TIMEOUT_SECONDS)
+        if session is not None and self.HTTP_REQUEST_TIMEOUT_SECONDS is not None:
+            session.request = partial(session.request, timeout=self.HTTP_REQUEST_TIMEOUT_SECONDS)
         self.hostdatarow: list = []
         self.tracker: OrderedDict = OrderedDict()
         self.error_type: str | None = None
@@ -50,8 +52,7 @@ class SearchShodan:
         self.error_type = None
         try:
             ipaddress = ip
-            async with asyncio.timeout(self.AWAIT_TIMEOUT_SECONDS):
-                results = await asyncio.to_thread(self.api.host, ipaddress)
+            results = await asyncio.to_thread(self.api.host, ipaddress)
 
             if not results or 'data' not in results or not results['data']:
                 logger.info(f'Shodan: No data found for IP {ip}')
@@ -174,6 +175,32 @@ class SearchShodan:
     async def get_hostnames(self) -> set[str]:
         return self.totalhosts
 
+    async def _resolve_target_ipv4s(self) -> tuple[str, ...]:
+        assert self.word is not None
+        resolver = (
+            aiodns.DNSResolver()
+            if self.DNS_RESOLVER_TIMEOUT_SECONDS is None
+            else aiodns.DNSResolver(timeout=self.DNS_RESOLVER_TIMEOUT_SECONDS)
+        )
+        try:
+            answer = await resolver.getaddrinfo(self.word, family=socket.AF_INET)
+        finally:
+            close = getattr(resolver, 'close', None)
+            if close is not None:
+                close()
+
+        addresses: set[str] = set()
+        for node in answer.nodes:
+            try:
+                address = ip_address(node.addr[0])
+            except (AttributeError, IndexError, TypeError, ValueError):
+                continue
+            if address.version == 4:
+                addresses.add(str(address))
+        if not addresses:
+            raise ValueError('target has no IPv4 addresses')
+        return tuple(sorted(addresses, key=ip_address))
+
     async def process(self, proxy: bool = False) -> None:
         del proxy  # The Shodan SDK owns its transport configuration.
         if self.word is None:
@@ -184,32 +211,46 @@ class SearchShodan:
         self.execution_status = None
         self.stop_reason = None
         try:
-            resolver = aiodns.DNSResolver(timeout=self.REQUEST_TIMEOUT_SECONDS)
-            async with asyncio.timeout(self.AWAIT_TIMEOUT_SECONDS):
-                answer = await resolver.getaddrinfo(self.word, family=socket.AF_INET)
-            resolved_ip = answer.nodes[0].addr[0]
-            resolved_ip = str(ip_address(resolved_ip))
+            resolved_ips = await self._resolve_target_ipv4s()
         except TimeoutError:
             self.execution_status = 'failed'
             self.stop_reason = 'dns-timeout'
             return
-        except (aiodns.error.DNSError, IndexError, ValueError):
+        except aiodns.error.DNSError as error:
+            self.execution_status = 'failed'
+            self.stop_reason = (
+                'dns-timeout' if error.args and error.args[0] == aiodns.error.ARES_ETIMEOUT else 'dns-resolution-failed'
+            )
+            return
+        except (IndexError, ValueError):
             self.execution_status = 'failed'
             self.stop_reason = 'dns-resolution-failed'
             return
 
-        result = await self.search_ip(resolved_ip)
-        if self.error_type is not None:
-            self.execution_status = 'failed'
-            self.stop_reason = 'provider-timeout' if self.error_type == 'TimeoutError' else 'provider-error'
-            return
+        provider_error_types: set[str] = set()
+        for resolved_ip in resolved_ips:
+            result = await self.search_ip(resolved_ip)
+            if self.error_type is not None:
+                provider_error_types.add(self.error_type)
+                continue
 
-        host_data = result.get(resolved_ip)
-        if isinstance(host_data, dict):
-            for hostname in host_data.get('hostnames', []):
-                normalized = normalize_scoped_hostname(hostname, self.scope)
-                if normalized and normalized != self.scope:
-                    self.totalhosts.add(normalized)
+            host_data = result.get(resolved_ip)
+            if isinstance(host_data, dict):
+                for hostname in host_data.get('hostnames', []):
+                    normalized = normalize_scoped_hostname(hostname, self.scope)
+                    if normalized and normalized != self.scope:
+                        self.totalhosts.add(normalized)
+
+        self.error_type = next(iter(sorted(provider_error_types)), None)
+        if provider_error_types:
+            self.execution_status = 'partial' if self.totalhosts else 'failed'
+            if provider_error_types == {'TimeoutError'}:
+                self.stop_reason = 'provider-timeout'
+            elif len(resolved_ips) == 1:
+                self.stop_reason = 'provider-error'
+            else:
+                self.stop_reason = 'provider-errors'
+            return
 
         self.execution_status = 'completed'
         self.stop_reason = None if self.totalhosts else 'no-results'

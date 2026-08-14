@@ -13,10 +13,12 @@ import pytest
 
 
 def patch_shodan_resolution(monkeypatch, shodansearch, address='203.0.113.10'):
+    addresses = [address] if isinstance(address, str) else address
+
     class Resolver:
         async def getaddrinfo(self, target, *, family):
             assert family == socket.AF_INET
-            return SimpleNamespace(nodes=[SimpleNamespace(addr=(address, 0))])
+            return SimpleNamespace(nodes=[SimpleNamespace(addr=(item, 0)) for item in addresses])
 
     monkeypatch.setattr(shodansearch.aiodns, 'DNSResolver', lambda **_kwargs: Resolver())
 
@@ -135,6 +137,60 @@ class TestShodanEngine:
         assert search.stop_reason is None
 
     @pytest.mark.asyncio
+    async def test_shodan_discovery_queries_every_unique_resolved_ipv4(self, monkeypatch):
+        from theHarvester.discovery import shodansearch
+
+        queried_ips = []
+
+        class SuccessfulShodan:
+            def host(self, ip):
+                queried_ips.append(ip)
+                return {
+                    'data': [{'ip_str': ip}],
+                    'hostnames': {
+                        '203.0.113.10': ['api.example.test'],
+                        '203.0.113.11': ['cdn.example.test'],
+                    }[ip],
+                }
+
+        monkeypatch.setattr(shodansearch.Core, 'shodan_key', lambda: 'test-key')
+        monkeypatch.setattr(shodansearch, 'Shodan', lambda _key: SuccessfulShodan())
+        patch_shodan_resolution(
+            monkeypatch,
+            shodansearch,
+            ('203.0.113.11', '203.0.113.10', '203.0.113.11'),
+        )
+
+        search = shodansearch.SearchShodan('example.test')
+        await search.process()
+
+        assert queried_ips == ['203.0.113.10', '203.0.113.11']
+        assert await search.get_hostnames() == {'api.example.test', 'cdn.example.test'}
+        assert search.execution_status == 'completed'
+        assert search.stop_reason is None
+
+    @pytest.mark.asyncio
+    async def test_shodan_discovery_keeps_other_ip_results_after_one_provider_failure(self, monkeypatch):
+        from theHarvester.discovery import shodansearch
+
+        class PartiallySuccessfulShodan:
+            def host(self, ip):
+                if ip == '203.0.113.10':
+                    raise shodansearch.exception.APIError('provider-secret-payload')
+                return {'data': [{'ip_str': ip}], 'hostnames': ['cdn.example.test']}
+
+        monkeypatch.setattr(shodansearch.Core, 'shodan_key', lambda: 'test-key')
+        monkeypatch.setattr(shodansearch, 'Shodan', lambda _key: PartiallySuccessfulShodan())
+        patch_shodan_resolution(monkeypatch, shodansearch, ('203.0.113.10', '203.0.113.11'))
+
+        search = shodansearch.SearchShodan('example.test')
+        await search.process()
+
+        assert await search.get_hostnames() == {'cdn.example.test'}
+        assert search.execution_status == 'partial'
+        assert search.stop_reason == 'provider-errors'
+
+    @pytest.mark.asyncio
     async def test_shodan_discovery_resolves_www_input_but_uses_the_canonical_scope(self, monkeypatch):
         from theHarvester.discovery import shodansearch
 
@@ -170,6 +226,42 @@ class TestShodanEngine:
 
         with pytest.raises(MissingKey):
             shodansearch.SearchShodan('example.test')
+
+    @pytest.mark.asyncio
+    async def test_shodan_discovery_has_no_source_local_timeout_by_default(self, monkeypatch):
+        from theHarvester.discovery import shodansearch
+
+        resolver_options = []
+        request_options = []
+
+        class Resolver:
+            async def getaddrinfo(self, _target, *, family):
+                return SimpleNamespace(nodes=[SimpleNamespace(addr=('203.0.113.10', 0))])
+
+        class Session:
+            def request(self, *_args, **kwargs):
+                request_options.append(kwargs)
+
+        class SuccessfulShodan:
+            def __init__(self):
+                self._session = Session()
+
+            def host(self, ip):
+                self._session.request('GET')
+                return {'data': [{'ip_str': ip}], 'hostnames': []}
+
+        def resolver_factory(**kwargs):
+            resolver_options.append(kwargs)
+            return Resolver()
+
+        monkeypatch.setattr(shodansearch.Core, 'shodan_key', lambda: 'test-key')
+        monkeypatch.setattr(shodansearch, 'Shodan', lambda _key: SuccessfulShodan())
+        monkeypatch.setattr(shodansearch.aiodns, 'DNSResolver', resolver_factory)
+
+        await shodansearch.SearchShodan('example.test').process()
+
+        assert resolver_options == [{}]
+        assert request_options == [{}]
 
     @pytest.mark.asyncio
     async def test_shodan_discovery_reports_dns_failure_without_calling_provider(self, monkeypatch):
@@ -309,9 +401,10 @@ class TestShodanEngine:
     async def test_shodan_discovery_bounds_blocking_calls(self, monkeypatch, blocking_stage, expected_reason):
         from theHarvester.discovery import shodansearch
 
-        class NeverResolver:
+        class TimingOutResolver:
             async def getaddrinfo(self, _target, *, family):
-                await asyncio.Event().wait()
+                await asyncio.sleep(0.01)
+                raise shodansearch.aiodns.error.DNSError(shodansearch.aiodns.error.ARES_ETIMEOUT, 'timeout')
 
         class TimeoutSession:
             def request(self, *_args, timeout=None, **_kwargs):
@@ -330,10 +423,10 @@ class TestShodanEngine:
 
         monkeypatch.setattr(shodansearch.Core, 'shodan_key', lambda: 'test-key')
         monkeypatch.setattr(shodansearch, 'Shodan', lambda _key: BoundedShodan())
-        monkeypatch.setattr(shodansearch.SearchShodan, 'REQUEST_TIMEOUT_SECONDS', 0.01)
-        monkeypatch.setattr(shodansearch.SearchShodan, 'AWAIT_TIMEOUT_SECONDS', 0.02)
+        monkeypatch.setattr(shodansearch.SearchShodan, 'DNS_RESOLVER_TIMEOUT_SECONDS', 0.01)
+        monkeypatch.setattr(shodansearch.SearchShodan, 'HTTP_REQUEST_TIMEOUT_SECONDS', 0.01)
         if blocking_stage == 'dns':
-            monkeypatch.setattr(shodansearch.aiodns, 'DNSResolver', lambda **_kwargs: NeverResolver())
+            monkeypatch.setattr(shodansearch.aiodns, 'DNSResolver', lambda **_kwargs: TimingOutResolver())
         else:
             patch_shodan_resolution(monkeypatch, shodansearch)
 
