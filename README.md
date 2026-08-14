@@ -247,7 +247,7 @@ On first use, theHarvester creates default configuration files under `~/.theHarv
 
 - `api-keys.yaml` stores provider credentials.
 - `proxies.yaml` configures HTTP and SOCKS5 proxies used with `-p`.
-- The `shodan` source and `-s` / `--shodan` enrichment query Shodan's Host API directly and use `proxies.yaml` when `-p` is enabled.
+- The `shodan` source and `-s` / `--shodan` enrichment call Shodan's Host REST API without the Python SDK. When `-p` is enabled, both send those requests through `proxies.yaml`.
 
 Never commit populated configuration files, API keys, account details, or provider responses.
 
