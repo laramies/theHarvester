@@ -209,7 +209,7 @@ class Checker:
         return resolved, realhosts, sorted(self.addresses)
 
     async def check(self) -> tuple[list[str], list[str], list[str]]:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         resolver = (
             aiodns.DNSResolver(loop=loop, timeout=8)
             if len(self.nameservers) == 0
