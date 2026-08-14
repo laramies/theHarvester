@@ -17,9 +17,9 @@ if TYPE_CHECKING:
 
 
 class _EmptyResponse(AbstractAsyncContextManager):
-    def __init__(self, url: str, active_requests: list[int]) -> None:
+    def __init__(self, url: str, active_requests: list[int], status: int = 204) -> None:
         self.url = url
-        self.status = 204
+        self.status = status
         self._active_requests = active_requests
 
     async def __aenter__(self) -> Self:
@@ -59,6 +59,34 @@ async def test_reachable_targets_reuses_one_session_and_bounds_empty_responses(
     assert session_factory.call_count == 1
     assert session.get.call_count == 25
     assert active_requests == [0, 20]
+
+
+@pytest.mark.asyncio
+async def test_reachable_targets_retains_completed_http_error_responses(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    active_requests = [0, 0]
+    statuses = {
+        'blocked.example.test': 403,
+        'unavailable.example.test': 503,
+    }
+    session = MagicMock()
+    session.get.side_effect = lambda url, **_kwargs: _EmptyResponse(
+        url,
+        active_requests,
+        statuses[url.removeprefix('https://').removeprefix('http://')],
+    )
+    session.__aenter__ = AsyncMock(return_value=session)
+    session.__aexit__ = AsyncMock(return_value=False)
+    monkeypatch.setattr(screenshot_module.aiohttp, 'ClientSession', MagicMock(return_value=session))
+    monkeypatch.setattr(screenshot_module.aiohttp, 'TCPConnector', MagicMock())
+    monkeypatch.setattr(screenshot_module.ssl, 'create_default_context', MagicMock())
+    targets = ['blocked.example.test', 'unavailable.example.test']
+
+    reachable = await ScreenShotter(str(tmp_path)).reachable_targets(targets)
+
+    assert reachable == [(target, f'https://{target}') for target in targets]
 
 
 @pytest.mark.asyncio

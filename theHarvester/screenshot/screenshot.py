@@ -67,8 +67,7 @@ class ScreenShotter:
         for candidate in urls:
             try:
                 async with session.get(candidate, proxy=proxy) as response:
-                    if response.status < 400:
-                        return str(response.url), 'reachable'
+                    return str(response.url), 'reachable'
             except (aiohttp.ClientError, TimeoutError) as e:
                 logger.info(f'An exception has occurred while attempting to visit {candidate} : {e}')
         return '', ''
