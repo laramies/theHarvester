@@ -197,18 +197,18 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
         async def get_ips(self) -> set[str]:
             return {'2001:0DB8::1', '198.51.100.9', 'not-an-ip'}
 
-    async def fake_reverse_all_ips_in_range(
-        iprange: str,
+    async def fake_reverse_ip_ranges(
+        ipranges: tuple[str, ...],
         callback: Any,
         nameservers: list[str] | None = None,
         error_types: set[str] | None = None,
-    ) -> None:
-        assert iprange in {'192.0.2.0/24', '198.51.100.0/24', '2001:d00::/24'}
+    ) -> theharvester_main.dnssearch.ReverseDNSResult:
+        assert ipranges == ('192.0.2.0/24', '198.51.100.0/24')
         assert nameservers is None
         callback('reverse.example.com')
-        if iprange == '198.51.100.0/24':
-            assert error_types is not None
-            error_types.add('TimeoutError')
+        assert error_types is not None
+        error_types.add('TimeoutError')
+        return theharvester_main.dnssearch.ReverseDNSResult(508, 508)
 
     report = tmp_path / 'rapiddns-report'
     monkeypatch.setattr(rapiddns.AsyncFetcher, 'fetch_all', fake_fetch_all)
@@ -217,7 +217,7 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
     monkeypatch.setattr(theharvester_main.search_dehashed, 'SearchDehashed', FakeDehashed)
     monkeypatch.setattr(theharvester_main.api_endpoints, 'SearchApiEndpoints', FakeApiEndpoints)
     monkeypatch.setattr(theharvester_main.securityscorecard, 'SearchSecurityScorecard', FakeSecurityScorecard)
-    monkeypatch.setattr(theharvester_main.dnssearch, 'reverse_all_ips_in_range', fake_reverse_all_ips_in_range)
+    monkeypatch.setattr(theharvester_main.dnssearch, 'reverse_ip_ranges', fake_reverse_ip_ranges)
     monkeypatch.setattr(
         sys,
         'argv',

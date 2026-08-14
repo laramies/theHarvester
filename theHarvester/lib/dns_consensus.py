@@ -29,18 +29,18 @@ class Addressability(StrEnum):
 
 @dataclass(slots=True)
 class DNSQueryBudget:
-    limit: int
+    limit: int | None
     used: int = 0
     blocked: bool = False
 
     def __post_init__(self) -> None:
-        if self.limit <= 0:
+        if self.limit is not None and self.limit <= 0:
             raise ValueError('DNS query budget must be greater than zero')
 
     def consume(self, count: int) -> bool:
         if count <= 0:
             raise ValueError('DNS query count must be greater than zero')
-        if self.used + count > self.limit:
+        if self.limit is not None and self.used + count > self.limit:
             self.blocked = True
             return False
         self.used += count

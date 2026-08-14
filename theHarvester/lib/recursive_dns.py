@@ -22,21 +22,29 @@ if TYPE_CHECKING:
     from theHarvester.lib.hostchecker import HostDnsRecords
 
 
-DEFAULT_RECURSIVE_DNS_QUERY_LIMIT = 3_000
+DEFAULT_RECURSIVE_DNS_QUERY_LIMIT = None
+DEFAULT_RECURSIVE_DNS_RUNTIME_SECONDS = None
 
 
 @dataclass(frozen=True, slots=True)
 class RecursiveDNSLimits:
     depth: int
-    query_limit: int
-    runtime_seconds: float
+    query_limit: int | None = DEFAULT_RECURSIVE_DNS_QUERY_LIMIT
+    runtime_seconds: float | None = DEFAULT_RECURSIVE_DNS_RUNTIME_SECONDS
 
     def __post_init__(self) -> None:
         if self.depth <= 0:
             raise ValueError('recursive DNS depth must be greater than zero')
-        if self.query_limit <= 0:
+        if self.query_limit is not None and (
+            isinstance(self.query_limit, bool) or not isinstance(self.query_limit, int) or self.query_limit <= 0
+        ):
             raise ValueError('recursive DNS query limit must be greater than zero')
-        if not math.isfinite(self.runtime_seconds) or self.runtime_seconds <= 0:
+        if self.runtime_seconds is not None and (
+            isinstance(self.runtime_seconds, bool)
+            or not isinstance(self.runtime_seconds, (int, float))
+            or not math.isfinite(self.runtime_seconds)
+            or self.runtime_seconds <= 0
+        ):
             raise ValueError('recursive DNS runtime must be finite and greater than zero')
 
 
@@ -91,12 +99,12 @@ async def discover_recursive_dns(
     normalized_target = target.strip().lower().rstrip('.')
     if not normalized_target:
         raise ValueError('target must not be empty')
-    deadline = time.monotonic() + limits.runtime_seconds
+    deadline = None if limits.runtime_seconds is None else time.monotonic() + limits.runtime_seconds
     budget = DNSQueryBudget(limits.query_limit)
     stop_reason = 'frontier-exhausted'
     seen: set[str] = set()
     for value in seeds:
-        if time.monotonic() >= deadline:
+        if deadline is not None and time.monotonic() >= deadline:
             stop_reason = 'runtime-limit'
             break
         if (candidate := normalize_scoped_hostname(value, normalized_target)) is not None:
@@ -107,7 +115,7 @@ async def discover_recursive_dns(
         seen_labels: set[str] = set()
         ordered_parents = tuple(sorted(parents))
         for value in labels:
-            if time.monotonic() >= deadline:
+            if deadline is not None and time.monotonic() >= deadline:
                 stop_reason = 'runtime-limit'
                 return
             label = _normalize_label(value)
@@ -115,7 +123,7 @@ async def discover_recursive_dns(
                 continue
             seen_labels.add(label)
             for parent in ordered_parents:
-                if time.monotonic() >= deadline:
+                if deadline is not None and time.monotonic() >= deadline:
                     stop_reason = 'runtime-limit'
                     return
                 candidate = f'{label}.{parent}'
@@ -126,17 +134,20 @@ async def discover_recursive_dns(
 
     async def validate(candidate: str) -> CandidateConsensus | None:
         nonlocal stop_reason
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
+        remaining = None if deadline is None else deadline - time.monotonic()
+        if remaining is not None and remaining <= 0:
             stop_reason = 'runtime-limit'
             return None
         try:
-            async with asyncio.timeout(remaining):
+            if remaining is None:
                 (consensus,) = await validate_dns_candidates(normalized_target, (candidate,), resolvers, budget=budget)
-                if budget.blocked:
-                    stop_reason = 'query-limit'
-                    return None
-                return consensus
+            else:
+                async with asyncio.timeout(remaining):
+                    (consensus,) = await validate_dns_candidates(normalized_target, (candidate,), resolvers, budget=budget)
+            if budget.blocked:
+                stop_reason = 'query-limit'
+                return None
+            return consensus
         except TimeoutError:
             stop_reason = 'runtime-limit'
             return None
@@ -145,15 +156,13 @@ async def discover_recursive_dns(
         nonlocal stop_reason
         ptrs: set[str] = set()
         for address in records.addresses:
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
+            remaining = None if deadline is None else deadline - time.monotonic()
+            if remaining is not None and remaining <= 0:
                 stop_reason = 'runtime-limit'
                 break
             try:
-                async with asyncio.timeout(remaining):
-                    results = await asyncio.gather(
-                        *(resolver.query_ptr(address, budget) for resolver in resolvers), return_exceptions=True
-                    )
+                queries = asyncio.gather(*(resolver.query_ptr(address, budget) for resolver in resolvers), return_exceptions=True)
+                results = await queries if remaining is None else await asyncio.wait_for(queries, remaining)
             except TimeoutError:
                 stop_reason = 'runtime-limit'
                 break
@@ -178,7 +187,6 @@ async def discover_recursive_dns(
     findings: list[RecursiveDNSFinding] = []
     classifications: list[RecursiveDNSClassification] = []
     zero_yield_batches = 0
-    consecutive_zero_yield_batches = 0
     depth_reached = 0
     stopped = stop_reason in {'query-limit', 'runtime-limit'}
     for depth in range(1, limits.depth + 1):
@@ -217,15 +225,8 @@ async def discover_recursive_dns(
                     break
             if stopped:
                 break
-            if batch_yield:
-                consecutive_zero_yield_batches = 0
-            else:
-                consecutive_zero_yield_batches += 1
+            if not batch_yield:
                 zero_yield_batches += 1
-                if consecutive_zero_yield_batches >= 3:
-                    stop_reason = 'zero-yield'
-                    stopped = True
-                    break
         if stop_reason in {'query-limit', 'runtime-limit'}:
             stopped = True
         if stopped:

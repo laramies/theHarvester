@@ -197,8 +197,8 @@
             <small>Applied per selected source.</small>
           </label>
           <label>Whole-run deadline
-            <input id="run-deadline" name="deadline_seconds" type="number" min="30" max="86400" value="1800" required>
-            <small>Termination grace is handled automatically.</small>
+            <input id="run-deadline" name="deadline_seconds" type="number" min="30" max="86400">
+            <small>Optional; resolution, reverse, and recursive DNS are unlimited by default.</small>
           </label>
         </div>
 
@@ -214,12 +214,12 @@
               <small>Zero keeps recursive discovery off.</small>
             </label>
             <label>Recursive query budget
-              <input id="dns-recursive-query-limit" name="dns_recursive_query_limit" type="number" min="1" value="3000" required>
-              <small>Hard cap across all resolver vantages.</small>
+              <input id="dns-recursive-query-limit" name="dns_recursive_query_limit" type="number" min="1">
+              <small>Optional hard cap across all resolver vantages.</small>
             </label>
             <label>Recursive runtime seconds
-              <input id="dns-recursive-runtime-seconds" name="dns_recursive_runtime_seconds" type="number" min="0.1" step="0.1" value="60" required>
-              <small>Finite wall-clock cap for recursive discovery.</small>
+              <input id="dns-recursive-runtime-seconds" name="dns_recursive_runtime_seconds" type="number" min="0.1" step="0.1">
+              <small>Optional wall-clock cap for recursive discovery.</small>
             </label>
             <label>DNS resolver addresses
               <input id="dns-resolvers" name="dns_resolvers" value="{{DNS_RESOLVERS}}" required>
@@ -261,8 +261,8 @@
           <div class="action-grid">
             <label class="action-choice p0"><input type="checkbox" name="shodan"><span><strong>P0 · Shodan enrichment</strong><small>Query Shodan for discovered IP evidence.</small></span></label>
             <label class="action-choice p0"><input type="checkbox" name="routeviews"><span><strong>P0 · RouteViews enrichment</strong><small>Enrich source-attributed IPs with external routing evidence.</small></span></label>
-            <label class="action-choice p1"><input type="checkbox" name="dns_lookup"><span><strong>P1 · DNS lookup</strong><small>Reverse-query every discovered IPv4 address and each address in its /24.</small></span></label>
-            <label class="action-choice p1"><input type="checkbox" name="dns_resolve"><span><strong>P1 · DNS resolution</strong><small>Resolve with the configured resolver addresses.</small></span></label>
+            <label class="action-choice p1"><input type="checkbox" name="dns_lookup"><span><strong>P1 · DNS lookup</strong><small>Deduplicate discovered /24 addresses; use up to 20 PTR jobs with per-query resolver timeouts and no default phase ceiling.</small></span></label>
+            <label class="action-choice p1"><input type="checkbox" name="dns_resolve"><span><strong>P1 · DNS resolution</strong><small>Resolve with the configured resolver addresses. Deduplicate names; use up to 20 hostname jobs with per-query resolver timeouts and no default phase ceiling.</small></span></label>
             <label class="action-choice p1"><input type="checkbox" name="dns_brute"><span><strong>P1 · DNS brute force</strong><small>Query candidate labels against DNS.</small></span></label>
             <label class="action-choice p2"><input type="checkbox" name="screenshot"><span><strong>P2 · Screenshots</strong><small>Contact resolved hosts and capture pages.</small></span></label>
             <label class="action-choice p2"><input type="checkbox" name="takeover"><span><strong>P2 · Takeover checks</strong><small>Contact discovered hosts, through configured proxies when enabled, for takeover evidence.</small></span></label>

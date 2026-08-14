@@ -6,7 +6,7 @@ Status: proposed
 
 The HTTP application owns a durable run record separate from theHarvester's optional terminal `RunResult` evidence. A submission receives its stable ID while queued. One local worker claims one queued run at a time and executes the finite theHarvester core in an isolated child process.
 
-Lifecycle transitions are `queued -> running -> completed|failed`, `queued -> cancelled`, and `running -> cancelling -> cancelled`. A fixed whole-run deadline applies to the child. Running cancellation first requests cooperative termination, waits a short grace period, and then forces termination if needed. Queued cancellation is an atomic transition that prevents the worker claim.
+Lifecycle transitions are `queued -> running -> completed|failed`, `queued -> cancelled`, and `running -> cancelling -> cancelled`. A finite whole-run deadline applies when selected; resolution, reverse, and recursive DNS runs default to unlimited so their complete candidate sets can finish, while other runs retain the 1800-second default. Running cancellation first requests cooperative termination, waits a short grace period, and then forces termination if needed. Queued cancellation is an atomic transition that prevents the worker claim.
 
 Evidence already persisted remains attached after failure or cancellation. Terminal evidence status (`complete`, `partial`, or `failed`) is reported independently from orchestration lifecycle status. On service restart, queued runs may resume; orphaned running or cancelling records become failed because their process ownership cannot be proven.
 

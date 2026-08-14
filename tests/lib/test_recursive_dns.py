@@ -244,20 +244,18 @@ async def test_recursive_dns_runtime_limit_cancels_pending_queries() -> None:
 
 
 @pytest.mark.asyncio
-async def test_recursive_dns_stops_after_three_zero_yield_batches() -> None:
+async def test_recursive_dns_keeps_searching_after_three_zero_yield_batches() -> None:
     class GuardedLabels(list[str]):
         def __init__(self) -> None:
-            super().__init__(f'unused{index}' for index in range(1_000))
+            super().__init__([*(f'unused{index}' for index in range(150)), 'late'])
             self.consumed = 0
 
         def __iter__(self):
             for value in super().__iter__():
                 self.consumed += 1
-                if self.consumed > 150:
-                    pytest.fail('labels beyond the zero-yield stop must remain lazy')
                 yield value
 
-    current = {'api.example.com'}
+    current = {'api.example.com', 'late.api.example.com'}
     resolvers = tuple(FakeResolver(f'resolver-{index}', current) for index in range(3))
     labels = GuardedLabels()
 
@@ -266,15 +264,15 @@ async def test_recursive_dns_stops_after_three_zero_yield_batches() -> None:
         ('api.example.com',),
         labels,
         resolvers,
-        RecursiveDNSLimits(depth=1, query_limit=10_000, runtime_seconds=5),
+        RecursiveDNSLimits(depth=1, query_limit=None, runtime_seconds=None),
     )
 
-    assert labels.consumed == 150
-    assert result.findings == ()
-    assert result.query_count == 9_486
+    assert labels.consumed == 151
+    assert [finding.hostname for finding in result.findings] == ['late.api.example.com']
+    assert result.query_count > 9_486
     assert result.depth_reached == 1
     assert result.zero_yield_batches == 3
-    assert result.stop_reason == 'zero-yield'
+    assert result.stop_reason == 'depth-limit'
 
 
 @pytest.mark.asyncio

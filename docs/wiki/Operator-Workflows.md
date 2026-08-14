@@ -32,7 +32,9 @@ AUTHORIZED_DOMAIN='replace-with-a-domain-you-control'
 uv run theHarvester -d "$AUTHORIZED_DOMAIN" -b crtsh -r resolvers.txt
 ```
 
-DNS requests disclose candidate names to each selected resolver.
+DNS requests disclose candidate names to each selected resolver. Candidates from all selected sources are normalized and deduplicated before one run-wide phase queries A, AAAA, and CNAME at most once per hostname and record type. The phase runs at most 20 hostname jobs concurrently with per-query resolver timeouts and no default query-count or phase-runtime ceiling.
+
+Reverse DNS (`-n`) uses an independent run-wide job set. It deduplicates addresses across overlapping discovered `/24` ranges and runs at most 20 PTR jobs concurrently with per-query resolver timeouts and no default request-count or phase-runtime ceiling.
 
 ## Shodan enrichment
 

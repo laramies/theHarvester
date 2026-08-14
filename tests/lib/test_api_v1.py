@@ -415,6 +415,7 @@ def test_openapi_explains_scope_and_execution_controls(tmp_path, monkeypatch) ->
     assert 'do not filter' in properties['sources']['description']
     assert '/24' in properties['dns_lookup']['description']
     assert 'whole run' in properties['deadline_seconds']['description']
+    assert 'recursive DNS runs default to unlimited' in properties['deadline_seconds']['description']
     assert 'not establish ownership' in properties['routeviews']['description']
     assert (
         'discovered IPs with sourced ASN attribution, or an explicitly targeted ASN or IP address'
@@ -459,6 +460,29 @@ def test_openapi_explains_scope_and_execution_controls(tmp_path, monkeypatch) ->
     for reference in references(schema):
         assert reference.startswith('#/components/schemas/')
         assert reference.removeprefix('#/components/schemas/') in components
+
+
+def test_dns_limits_default_to_unlimited_and_keep_explicit_values() -> None:
+    from theHarvester.lib.api.run_models import RunRequest
+
+    default = RunRequest(target='example.test', sources=['crtsh'])
+    dns_default = RunRequest(target='example.test', sources=['crtsh'], dns_resolve=True)
+    dns_brute_default = RunRequest(target='example.test', sources=[], dns_brute=True)
+    explicit = RunRequest(
+        target='example.test',
+        sources=['crtsh'],
+        deadline_seconds=60,
+        dns_recursive_query_limit=12,
+        dns_recursive_runtime_seconds=1.5,
+    )
+
+    assert default.deadline_seconds == 1800
+    assert dns_default.deadline_seconds is None
+    assert dns_brute_default.deadline_seconds == 1800
+    assert default.dns_recursive_query_limit is None
+    assert default.dns_recursive_runtime_seconds is None
+    assert explicit.deadline_seconds == 60
+    assert (explicit.dns_recursive_query_limit, explicit.dns_recursive_runtime_seconds) == (12, 1.5)
 
 
 def test_run_detail_exposes_one_normalized_evidence_surface(tmp_path, monkeypatch) -> None:

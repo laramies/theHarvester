@@ -47,6 +47,12 @@ def test_harvestview_assets_load_outside_the_repository_directory(tmp_path, monk
 
     assert response.status_code == 200
     assert 'function renderResults' in response.text
+    assert "request.dns_recursive_query_limit === null ? 'Unlimited'" in response.text
+    assert "request.dns_recursive_query_limit === undefined ? 'Not recorded'" in response.text
+    assert "request.dns_recursive_runtime_seconds === null ? 'Unlimited'" in response.text
+    assert "request.dns_recursive_runtime_seconds === undefined ? 'Not recorded'" in response.text
+    assert "request.deadline_seconds === null ? 'Unlimited'" in response.text
+    assert "deadline_seconds: form.get('deadline_seconds') ? Number(form.get('deadline_seconds')) : null" in response.text
 
 
 def test_harvestview_has_an_operator_readable_shodan_host_route(tmp_path, monkeypatch) -> None:
