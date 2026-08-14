@@ -7,6 +7,7 @@ import time
 from collections import OrderedDict
 from datetime import UTC
 from types import SimpleNamespace
+from uuid import UUID
 
 import pytest
 
@@ -345,19 +346,14 @@ class TestShodanEngine:
         assert search.stop_reason == expected_reason
 
     @pytest.mark.asyncio
-    async def test_shodan_engine_processes_without_work_item_error_and_yields_hostnames(self, monkeypatch, capsys):
+    async def test_shodan_engine_processes_and_persists_sourced_hostnames(self, monkeypatch, capsys, tmp_path):
         # Import inside the test so monkeypatching affects the already-imported module namespace.
         import theHarvester.__main__ as main_module
+        from theHarvester.lib.completed_result import ResultObservation, SourceExecution
+        from theHarvester.lib.database import ResultStore
 
-        # Avoid filesystem/sqlite side effects.
-        class DummyResultStore:
-            async def initialize(self) -> None:
-                return None
-
-            async def record_observations(self, domain, all, res_type, source) -> None:
-                return None
-
-        monkeypatch.setattr(main_module, 'ResultStore', DummyResultStore, raising=True)
+        database = tmp_path / 'stash.sqlite'
+        monkeypatch.setattr(main_module, 'ResultStore', lambda: ResultStore(database), raising=True)
 
         # Stub Shodan search to avoid network and API key requirements.
         class DummySearchShodan:
@@ -383,6 +379,20 @@ class TestShodanEngine:
         assert 'An error occurred while processing a "work item"' not in out
         output_tokens = set(out.split())
         assert {'a.example.com', 'b.example.com'} <= output_tokens
+
+        store = ResultStore(database)
+        try:
+            runs = await store.list_runs()
+            completed = await store.load_run(UUID(str(runs[0]['run_id'])))
+            assert len(completed.source_executions) == 1
+            execution = completed.source_executions[0]
+            assert execution == SourceExecution('shodan', 'completed', execution.duration_ms, 2)
+            assert completed.observations == (
+                ResultObservation('shodan', 'hostname', 'a.example.com'),
+                ResultObservation('shodan', 'hostname', 'b.example.com'),
+            )
+        finally:
+            await store.dispose()
 
     @pytest.mark.asyncio
     async def test_shodan_internetdb_ignores_non_string_resolved_addresses(self, monkeypatch):

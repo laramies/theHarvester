@@ -230,7 +230,7 @@ async def start(
     parser.add_argument(
         '-p',
         '--proxies',
-        help='Use proxies.yaml for supported discovery-source and takeover requests.',
+        help='Use proxies.yaml for supported discovery-source and takeover requests; it does not configure Shodan SDK requests.',
         default=False,
         action='store_true',
     )
@@ -243,7 +243,7 @@ async def start(
     parser.add_argument(
         '-s',
         '--shodan',
-        help='Use Shodan to query discovered hosts.',
+        help='Use the Shodan SDK to query discovered hosts; -p and proxies.yaml do not configure these requests.',
         default=False,
         action='store_true',
     )

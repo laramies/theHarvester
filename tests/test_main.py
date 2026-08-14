@@ -37,7 +37,11 @@ async def test_cli_help_explains_proxy_and_direct_action_scope(
 
     help_text = ' '.join(capsys.readouterr().out.split())
     assert exit_info.value.code == 0
-    assert 'Use proxies.yaml for supported discovery-source and takeover requests.' in help_text
+    assert (
+        'Use proxies.yaml for supported discovery-source and takeover requests; it does not configure Shodan SDK requests.'
+        in help_text
+    )
+    assert 'Use the Shodan SDK to query discovered hosts; -p and proxies.yaml do not configure these requests.' in help_text
     assert (
         'Enrich discovered IPs with sourced ASN attribution, or an explicitly targeted ASN, IP, or prefix, through '
         'RouteViews.' in help_text
