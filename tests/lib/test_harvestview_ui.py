@@ -75,7 +75,7 @@ def test_harvestview_offers_jsonl_and_sqlite_imports_with_jsonl_export(tmp_path,
     assert 'linkedin-link' not in script.text
 
 
-def test_harvestview_loads_pinned_tabulator_from_cdnjs(tmp_path, monkeypatch) -> None:
+def test_harvestview_loads_pinned_tabulator_locally(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api import api
 
     monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
@@ -93,20 +93,14 @@ def test_harvestview_loads_pinned_tabulator_from_cdnjs(tmp_path, monkeypatch) ->
     assert root.status_code == 200
     assert 'bootstrap.min.css' not in root.text
     assert 'tabulator_bootstrap5.min.css' not in root.text
-    assert (
-        '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabulator-tables/6.5.2/css/tabulator.min.css" '
-        'integrity="sha512-t8I/asqzdu/MRgVLxVanQ/c5bhUA1qZ/zA432a/3nUh0kkd7P8Qch35wQvTODivf9D6Xv3h7F8p7ezcUyBOQrQ==" '
-        'crossorigin="anonymous" referrerpolicy="no-referrer">'
-    ) in root.text
-    assert (
-        '<script src="https://cdnjs.cloudflare.com/ajax/libs/tabulator-tables/6.5.2/js/tabulator.min.js" '
-        'integrity="sha512-AF0YMSgc0Ui4IJPb4hJNSi16wFidZEQa6ZTCAeguF3h5glVnAPuz/JT2ai9ypKhsc9n6CEXBB+tMdxsv1q+rxg==" '
-        'crossorigin="anonymous" referrerpolicy="no-referrer"></script>'
-    ) in root.text
+    assert '<link rel="stylesheet" href="/static/harvestview/tabulator.min.css">' in root.text
+    assert '<script src="/static/harvestview/tabulator.min.js"></script>' in root.text
+    assert 'cdnjs.cloudflare.com' not in root.text
     assert 'https://unpkg.com' not in root.text
-    assert theme.status_code == 404
-    assert script.status_code == 404
-    assert license_file.status_code == 404
+    assert theme.status_code == 200
+    assert 'Tabulator v6.5.2' in script.text
+    assert license_file.status_code == 200
+    assert 'The MIT License (MIT)' in license_file.text
     assert bootstrap.status_code == 404
     assert old_theme.status_code == 404
 
