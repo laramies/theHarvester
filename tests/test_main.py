@@ -13,6 +13,7 @@ from theHarvester import __main__ as theharvester_main
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.asn_attribution import AsnAttributionObservation
 from theHarvester.lib.completed_result import CompletedResult, ResultObservation
+from theHarvester.lib.core import FetcherResponse
 from theHarvester.lib.dns_consensus import Addressability
 from theHarvester.lib.enumeration import EnumerationOptions
 from theHarvester.lib.hostchecker import HostDnsRecords
@@ -2670,11 +2671,22 @@ async def test_shodan_no_data_is_a_completed_zero_yield_action(monkeypatch: pyte
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ('scan_error', 'request_errors', 'rate_limited', 'expected_status', 'expected_error', 'expected_reason'),
+    (
+        'scan_error',
+        'request_errors',
+        'rate_limited',
+        'scanner_reason',
+        'result_url',
+        'expected_status',
+        'expected_error',
+        'expected_reason',
+    ),
     [
-        ('RuntimeError', 0, False, 'failed', 'RuntimeError', 'scan-error'),
-        (None, 3, False, 'partial', 'TransportError', 'request-errors'),
-        (None, 0, True, 'rate-limited', None, 'rate-limited'),
+        ('RuntimeError', 0, False, None, None, 'failed', 'RuntimeError', 'scan-error'),
+        (None, 3, False, None, None, 'partial', 'TransportError', 'request-errors'),
+        (None, 0, True, None, None, 'rate-limited', None, 'rate-limited'),
+        (None, 0, False, 'request-limit', None, 'failed', None, 'request-limit'),
+        (None, 1, False, None, 'https://example.com/api', 'partial', 'ResponseLimitError', 'request-errors'),
     ],
 )
 async def test_api_scan_records_suppressed_scan_failure(
@@ -2683,6 +2695,8 @@ async def test_api_scan_records_suppressed_scan_failure(
     scan_error: str | None,
     request_errors: int,
     rate_limited: bool,
+    scanner_reason: str | None,
+    result_url: str | None,
     expected_status: str,
     expected_error: str | None,
     expected_reason: str,
@@ -2690,7 +2704,8 @@ async def test_api_scan_records_suppressed_scan_failure(
     class FailedApiScanner:
         scan_error_type = scan_error
         request_error_count = request_errors
-        request_error_types = {'TransportError'} if request_errors else set()
+        request_error_types = {'ResponseLimitError' if result_url else 'TransportError'} if request_errors else set()
+        stop_reason = scanner_reason
 
         def __init__(self, word: str, wordlist: str, exact_paths: bool = False) -> None:
             assert word == 'example.com'
@@ -2701,7 +2716,7 @@ async def test_api_scan_records_suppressed_scan_failure(
             return None
 
         def get_found_endpoints(self) -> dict:
-            return {}
+            return {result_url: object()} if result_url else {}
 
         def get_interesting_endpoints(self) -> dict:
             return {}
@@ -2741,9 +2756,129 @@ async def test_api_scan_records_suppressed_scan_failure(
     completed = result[-1]
     api_execution = next(execution for execution in completed.active_evidence.executions if execution.action == 'api-scan')
     assert api_execution.status == expected_status
-    assert api_execution.result_count == 0
+    assert api_execution.result_count == int(result_url is not None)
     assert api_execution.error_type == expected_error
     assert api_execution.stop_reason == expected_reason
+
+
+@pytest.mark.asyncio
+async def test_api_scan_logs_result_collections_deterministically(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    tmp_path: Path,
+) -> None:
+    def unordered_values(prefix: str) -> set[str]:
+        for index in range(100):
+            values = {f'{prefix}-a-{index}', f'{prefix}-z-{index}'}
+            if list(values) != sorted(values):
+                return values
+        raise AssertionError('could not construct an unordered set fixture')
+
+    endpoint_values = unordered_values('https://example.com/api')
+    method_values = unordered_values('METHOD')
+
+    class FakeApiScanner:
+        scan_error_type = None
+        request_error_count = 0
+        stop_reason = None
+
+        def __init__(self, word: str, wordlist: str, exact_paths: bool = False) -> None:
+            assert word == 'example.com'
+            assert wordlist == str(tmp_path / 'api.txt')
+            assert exact_paths is True
+            self.request_error_types: set[str] = set()
+
+        async def do_search(self) -> None:
+            return None
+
+        def get_found_endpoints(self) -> set[str]:
+            return endpoint_values
+
+        def get_interesting_endpoints(self) -> set[str]:
+            return set()
+
+        def get_auth_required(self) -> set[str]:
+            return set()
+
+        def get_api_versions(self) -> set[str]:
+            return set()
+
+        def get_rate_limits(self) -> dict[str, object]:
+            return {}
+
+        def get_methods(self) -> set[str]:
+            return method_values
+
+        def get_status_codes(self) -> set[int]:
+            return {200}
+
+    wordlist = tmp_path / 'api.txt'
+    wordlist.write_text('/api\n', encoding='utf-8')
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
+    monkeypatch.setattr(theharvester_main.api_endpoints, 'SearchApiEndpoints', FakeApiScanner)
+    caplog.set_level(logging.INFO, logger='theHarvester.output')
+
+    await theharvester_main.start(
+        EnumerationOptions(api_scan=True, domain='example.com', quiet=True, wordlist=str(wordlist)),
+        return_completed_result=True,
+    )
+
+    rendered_endpoints = [
+        message.removeprefix('    - ')
+        for message in caplog.messages
+        if message.startswith('    - https://example.com/api')
+    ]
+    assert rendered_endpoints == sorted(endpoint_values)
+    assert f'[*] HTTP methods used: {", ".join(sorted(method_values))}' in caplog.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('limited_status', 'expected_status', 'expected_error', 'expected_reason'),
+    [
+        (429, 'rate-limited', None, 'rate-limited'),
+        (503, 'partial', 'HTTP503Error', 'request-errors'),
+    ],
+)
+async def test_api_scan_reports_exhausted_retries_truthfully(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    tmp_path: Path,
+    limited_status: int,
+    expected_status: str,
+    expected_error: str | None,
+    expected_reason: str,
+) -> None:
+    wordlist = tmp_path / 'api.txt'
+    wordlist.write_text('/api\n', encoding='utf-8')
+
+    async def detect_schema(self, _path: str = '') -> str:
+        return 'https'
+
+    async def fetch(*_args, **_kwargs) -> FetcherResponse:
+        return FetcherResponse(body='unavailable', status=limited_status, headers={'retry-after': '0'})
+
+    async def no_sleep(_delay: float) -> None:
+        return None
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
+    monkeypatch.setattr(theharvester_main.api_endpoints.SearchApiEndpoints, '_detect_schema', detect_schema)
+    monkeypatch.setattr(theharvester_main.api_endpoints.AsyncFetcher, 'fetch', fetch)
+    monkeypatch.setattr(theharvester_main.api_endpoints.asyncio, 'sleep', no_sleep)
+    caplog.set_level(logging.INFO, logger='theHarvester.output')
+
+    result = await theharvester_main.start(
+        EnumerationOptions(api_scan=True, domain='example.com', quiet=True, wordlist=str(wordlist)),
+        return_completed_result=True,
+    )
+
+    execution = next(item for item in result[-1].active_evidence.executions if item.action == 'api-scan')
+    assert execution.status == expected_status
+    assert execution.result_count == 1
+    assert execution.error_type == expected_error
+    assert execution.stop_reason == expected_reason
+    assert 'API scanning completed successfully.' not in caplog.text
+    assert f'API scanning stopped with reason: {expected_reason}.' in caplog.text
 
 
 @pytest.mark.asyncio
