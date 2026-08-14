@@ -155,13 +155,15 @@ def test_readme_preserves_project_social_attribution() -> None:
         assert f'@{handle}' in readme
 
 
-def test_readme_explains_jsonl_record_and_structured_value_parsing() -> None:
+def test_readme_explains_jsonl_record_and_structured_evidence_parsing() -> None:
     readme = Path('README.md').read_text()
 
     assert '{"sources":[],"type":"hostname","value":"api.example.com"}' in readme
     assert 'select(.type == "dns-recursive-finding") | .value | fromjson' in readme
     assert 'JSONL is easy to stream one record at a time.' in readme
-    assert '`person`, `infostealer`, `shodan`, and `takeover`' in readme
+    assert '`person`, `infostealer`, and `takeover`' in readme
+    assert 'select(.type == "shodan-host") | {ip: .value, services: .details.services}' in readme
+    assert 'Raw banners, response bodies, certificate chains, and Shodan crawler metadata are not retained.' in readme
     assert 'select(.type == "hostname" and .observations) | {hostname: .value, observations}' in readme
     assert 'Several endpoint observations can enrich the same hostname' in readme
     assert 'The summary preserves the evidence status, source and action outcomes' in readme

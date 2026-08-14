@@ -61,6 +61,7 @@ from theHarvester.lib.network_evidence import (
     network_observation_sort_key,
     parse_network_observation_json,
 )
+from theHarvester.lib.shodan_evidence import ShodanHostObservation, canonical_shodan_hosts
 from theHarvester.lib.virtual_host import VirtualHostObservation
 
 if TYPE_CHECKING:
@@ -752,6 +753,7 @@ class ResultStore:
         network_by_prefix: dict[str, list[NetworkObservation]] = {}
         for network_observation in result.network_observations:
             network_by_prefix.setdefault(network_observation.prefix, []).append(network_observation)
+        shodan_by_ip = {observation.ip: observation for observation in result.shodan_hosts}
         async with self._session() as session:
             try:
                 session.add(
@@ -785,6 +787,13 @@ class ResultStore:
                                 sort_keys=True,
                             )
                             if kind == 'prefix' and value in network_by_prefix
+                            else json.dumps(
+                                shodan_by_ip[value].to_details(),
+                                ensure_ascii=False,
+                                separators=(',', ':'),
+                                sort_keys=True,
+                            )
+                            if kind == 'shodan-host' and value in shodan_by_ip
                             else None
                         ),
                     )
@@ -901,6 +910,7 @@ class ResultStore:
         }
         virtual_hosts: list[VirtualHostObservation] = []
         network_observations: list[NetworkObservation] = []
+        shodan_hosts: list[ShodanHostObservation] = []
         for result_row in rows:
             has_vhost_provenance = result_row.position in vhost_result_positions
             if has_vhost_provenance:
@@ -914,6 +924,18 @@ class ResultStore:
                 if details != virtual_host_details(parsed_virtual_hosts):
                     raise ResultStoreError(f'Persisted virtual-host details are not canonical: {result_row.value}')
                 virtual_hosts.extend(parsed_virtual_hosts)
+                continue
+            if result_row.kind == 'shodan-host':
+                if result_row.details_json is None:
+                    raise ResultStoreError(f'Persisted Shodan host details are missing: {result_row.value}')
+                try:
+                    details = json.loads(result_row.details_json)
+                    shodan_host = ShodanHostObservation.from_record(result_row.value, details)
+                except (json.JSONDecodeError, ValueError) as error:
+                    raise ResultStoreError(f'Persisted Shodan host details are invalid: {result_row.value}') from error
+                if shodan_host.to_details() != details:
+                    raise ResultStoreError(f'Persisted Shodan host details are not canonical: {result_row.value}')
+                shodan_hosts.append(shodan_host)
                 continue
             if result_row.details_json is None:
                 continue
@@ -1042,6 +1064,7 @@ class ResultStore:
             virtual_hosts=tuple(sorted(set(virtual_hosts), key=VirtualHostObservation.sort_key)),
             network_observations=tuple(sorted(set(network_observations), key=network_observation_sort_key)),
             asn_attributions=canonical_attributions,
+            shodan_hosts=canonical_shodan_hosts(shodan_hosts),
             evidence_status=cast('EvidenceStatus', parent.evidence_status) if parent.evidence_status is not None else None,
         )
 

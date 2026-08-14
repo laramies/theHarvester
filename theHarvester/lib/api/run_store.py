@@ -19,6 +19,7 @@ from theHarvester.lib.completed_result import (
 from theHarvester.lib.database import DuplicateRunError, ResultStore, ResultStoreError, RunLifecycleStore
 from theHarvester.lib.evidence_types import EXECUTION_STATUSES, EvidenceStatus, ExecutionStatus, ResultKind
 from theHarvester.lib.network_evidence import NetworkObservation, parse_network_observation_details
+from theHarvester.lib.shodan_evidence import ShodanHostObservation
 
 from .run_artifacts import RunPaths, read_child_evidence
 from .run_models import RunRequest, _normalize_target, utc_now
@@ -55,6 +56,7 @@ def _completed_result(
     virtual_hosts: list[VirtualHostObservation] = []
     network_observations: list[NetworkObservation] = []
     asn_attributions: list[AsnAttributionObservation] = []
+    shodan_hosts: list[ShodanHostObservation] = []
     for item in results:
         kind = cast('ResultKind', str(item['type']))
         value = str(item['value'])
@@ -65,6 +67,8 @@ def _completed_result(
             network_observations.extend(parse_network_observation_details(value, item.get('observations')))
         elif kind == 'asn' and item.get('observations'):
             asn_attributions.extend(parse_asn_attribution_details(value, item.get('observations')))
+        elif kind == 'shodan-host':
+            shodan_hosts.append(ShodanHostObservation.from_record(value, item.get('details')))
         for source in set(item.get('sources', [])):
             source_name = str(source)
             source_origins.add(ResultObservation(source_name, kind, value))
@@ -152,6 +156,7 @@ def _completed_result(
         virtual_hosts=virtual_hosts,
         network_observations=network_observations,
         asn_attributions=asn_attributions,
+        shodan_hosts=shodan_hosts,
         evidence_status=(
             cast('EvidenceStatus', str(evidence['status']))
             if evidence.get('status') is not None and not execution_status_is_authoritative

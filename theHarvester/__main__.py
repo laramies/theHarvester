@@ -118,6 +118,7 @@ from theHarvester.lib.recursive_dns import (
 from theHarvester.lib.resolver_selection import DEFAULT_DNS_RESOLVERS, normalize_resolver_addresses
 from theHarvester.lib.result_values import normalize_asn
 from theHarvester.lib.routeviews import RouteViewsCancelled, RouteViewsResult, enrich_routeviews
+from theHarvester.lib.shodan_evidence import ShodanHostObservation, canonical_shodan_hosts
 from theHarvester.lib.source_catalog import (
     SOURCE_SPECS,
     ActivityClass,
@@ -578,7 +579,8 @@ async def start(
     screenshot_artifacts: list[ArtifactReference] = []
     screenshot_hostnames: set[str] = set()
     screenshot_ip_addresses: set[str] = set()
-    shodan_evidence: list[str] = []
+    shodan_hosts: dict[str, ShodanHostObservation] = {}
+    shodan_action_hosts: set[str] = set()
     takeover_results: dict[str, list[dict[str, str]]] = {}
     linkedin_people_list_tracker = []
     twitter_people_list_tracker = []
@@ -618,6 +620,26 @@ async def start(
             '------------------------------------',
         )
         displayed_asn_attributions.update(pending)
+
+    def record_shodan_host_observations(
+        host_observations: Iterable[ShodanHostObservation],
+    ) -> tuple[ShodanHostObservation, ...]:
+        canonical_hosts = canonical_shodan_hosts(list(host_observations))
+        for host in canonical_hosts:
+            existing = shodan_hosts.get(host.ip)
+            if existing is not None and existing != host:
+                raise ValueError(f'Shodan host {host.ip} has conflicting evidence')
+        for host in canonical_hosts:
+            if host.ip not in shodan_hosts:
+                output_logger.info(
+                    ujson.dumps(
+                        {'type': 'shodan-host', 'value': host.ip, 'details': host.to_details()},
+                        indent=4,
+                        sort_keys=True,
+                    )
+                )
+            shodan_hosts[host.ip] = host
+        return canonical_hosts
 
     def finish_completed_result(
         *,
@@ -672,6 +694,7 @@ async def start(
                 network_observations=network_observations,
                 asn_attributions=asn_attributions,
                 virtual_hosts=vhost_observations if collect_hosts else (),
+                shodan_hosts=tuple(shodan_hosts.values()),
             )
         except (ValueError, TypeError) as error:
             output_logger.info(f'[!] An error occurred while completing the result: {error}')
@@ -903,6 +926,9 @@ async def start(
                 'infostealer',
                 (json.dumps(stealer, ensure_ascii=False, separators=(',', ':'), sort_keys=True) for stealer in infostealers),
             )
+        if source == 'shodan':
+            sourced_shodan_hosts = record_shodan_host_observations(await search_engine.get_shodan_hosts())
+            record_source_observations(source, 'shodan-host', (host.ip for host in sourced_shodan_hosts))
 
     async def store(search_engine: Any, source: str) -> None:
         source_spec = get_source_spec(source)
@@ -2774,12 +2800,16 @@ async def start(
             output_logger.info('[+] Note there may be leftover chrome processes you may have to kill manually\n')
 
     # Shodan
-    shodanres = []
+    shodanres: list[dict[str, object]] = []
     if shodan is True:
         shodan_started = time.perf_counter()
         shodan_error_types: set[str] = set()
         shodan_asns: set[str] = set()
         shodan_ips: set[str] = set()
+
+        def has_shodan_action_evidence() -> bool:
+            return bool(shodan_action_hosts or shodan_asns or shodan_ips)
+
         output_logger.info('[*] Searching Shodan. ')
         try:
             shodan_search = None
@@ -2815,18 +2845,11 @@ async def start(
 
                     # Process the results if it's a dictionary
                     if isinstance(shodan_result, dict):
-                        rowdata = []
-                        for _key, value in shodan_result.items():
-                            if isinstance(value, int):
-                                value = str(value)
-                            if isinstance(value, list):
-                                value = ', '.join(map(str, value))
-                            rowdata.append(value)
-                        shodanres.append(rowdata)
-                        shodan_evidence.append(
-                            json.dumps({'ip': ip, 'result': shodan_result}, separators=(',', ':'), sort_keys=True)
+                        current_hosts = record_shodan_host_observations(
+                            host for host in await shodan_search.get_shodan_hosts() if host.ip == ip
                         )
-                        output_logger.info(ujson.dumps(shodan_result, indent=4, sort_keys=True))
+                        shodan_action_hosts.update(host.ip for host in current_hosts)
+                        shodanres.extend({'value': host.ip, 'details': host.to_details()} for host in current_hosts)
                         output_logger.info('\n')
                 except Exception as ip_error:
                     shodan_error_types.add(type(ip_error).__name__)
@@ -2836,9 +2859,9 @@ async def start(
             action_executions.append(
                 ActionExecution.finish(
                     action='shodan',
-                    status='partial' if shodan_evidence else 'failed',
+                    status='partial' if has_shodan_action_evidence() else 'failed',
                     duration_ms=(time.perf_counter() - shodan_started) * 1000,
-                    groups={'shodan': shodan_evidence, 'asn': shodan_asns, 'ip': shodan_ips},
+                    groups={'shodan-host': shodan_action_hosts, 'asn': shodan_asns, 'ip': shodan_ips},
                     error_type='CancelledError',
                     stop_reason='cancelled',
                 )
@@ -2851,14 +2874,14 @@ async def start(
             shodan_status = 'skipped'
             shodan_stop_reason = 'no-input'
         elif shodan_error_types:
-            shodan_status = 'partial' if shodan_evidence else 'failed'
+            shodan_status = 'partial' if has_shodan_action_evidence() else 'failed'
             shodan_stop_reason = 'target-errors'
         action_executions.append(
             ActionExecution.finish(
                 action='shodan',
                 status=shodan_status,
                 duration_ms=(time.perf_counter() - shodan_started) * 1000,
-                groups={'shodan': shodan_evidence, 'asn': shodan_asns, 'ip': shodan_ips},
+                groups={'shodan-host': shodan_action_hosts, 'asn': shodan_asns, 'ip': shodan_ips},
                 error_type=next(iter(sorted(shodan_error_types)), None),
                 stop_reason=shodan_stop_reason,
             )

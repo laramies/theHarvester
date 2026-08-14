@@ -74,20 +74,43 @@ class TestShodanEngine:
             return FetcherResponse(
                 body={
                     'asn': 'AS64496',
-                    'domains': ['example.test'],
-                    'hostnames': ['api.example.test'],
+                    'domains': ['Example.TEST.'],
+                    'hostnames': ['API.Example.TEST.'],
                     'ip_str': '192.0.2.10',
                     'isp': 'Example ISP Label',
                     'org': 'Example Transit',
-                    'ports': [443, 80],
                     'data': [
                         {
+                            'port': 53,
+                            'transport': 'udp',
+                            'product': 'dnsmasq',
+                            'version': '2.90',
+                            'timestamp': '2026-08-14T11:58:00Z',
+                            'cpe': ['cpe:/a:thekelleys:dnsmasq:2.90'],
+                            'data': 'raw provider banner must not be retained',
+                        },
+                        {
+                            'port': 443,
+                            'transport': 'tcp',
+                            'product': 'nginx',
+                            'version': '1.24.0',
+                            'timestamp': '2026-08-14T12:01:00Z',
                             'http': {
                                 'components': {'nginx': {}, 'Python': {}},
                                 'server': 'nginx',
                                 'title': 'Example',
-                            }
-                        }
+                                'html': 'raw response body must not be retained',
+                            },
+                            'ssl': {
+                                'jarm': 'example-jarm',
+                                'cert': {
+                                    'subject': {'CN': 'api.example.test'},
+                                    'issuer': {'CN': 'Example CA'},
+                                    'expires': '2027-08-14T00:00:00Z',
+                                    'fingerprint': {'sha256': '0123456789abcdef'},
+                                },
+                            },
+                        },
                     ],
                 },
                 status=200,
@@ -104,14 +127,37 @@ class TestShodanEngine:
             'asn': 'AS64496',
             'domains': ['example.test'],
             'hostnames': ['api.example.test'],
-            'ip_str': '192.0.2.10',
             'isp': 'Example ISP Label',
-            'org': 'Example Transit',
-            'ports': [80, 443],
-            'product': '',
-            'server': 'nginx',
-            'technologies': ['Python', 'nginx'],
-            'title': 'Example',
+            'organization': 'Example Transit',
+            'services': [
+                {
+                    'cpes': ['cpe:/a:thekelleys:dnsmasq:2.90'],
+                    'observed_at': '2026-08-14T11:58:00Z',
+                    'port': 53,
+                    'product': 'dnsmasq',
+                    'transport': 'udp',
+                    'version': '2.90',
+                },
+                {
+                    'http': {
+                        'components': ['Python', 'nginx'],
+                        'server': 'nginx',
+                        'title': 'Example',
+                    },
+                    'observed_at': '2026-08-14T12:01:00Z',
+                    'port': 443,
+                    'product': 'nginx',
+                    'tls': {
+                        'expires_at': '2027-08-14T00:00:00Z',
+                        'issuer_cn': 'Example CA',
+                        'jarm': 'example-jarm',
+                        'sha256': '0123456789abcdef',
+                        'subject_cn': 'api.example.test',
+                    },
+                    'transport': 'tcp',
+                    'version': '1.24.0',
+                },
+            ],
         }
         attribution = next(iter(await search.get_asn_attributions()))
         assert attribution.producer_kind == 'action'
@@ -192,7 +238,7 @@ class TestShodanEngine:
                 return FetcherResponse(body=None, status=500, headers={})
             return FetcherResponse(
                 body={
-                    'data': [{'ip_str': ip}],
+                    'data': [{'ip_str': ip, 'port': 443, 'transport': 'tcp'}],
                     'hostnames': ['CDN.Example.TEST.', 'outside.test'],
                 },
                 status=200,
@@ -214,6 +260,59 @@ class TestShodanEngine:
         assert await search.get_hostnames() == {'cdn.example.test'}
         assert search.execution_status == 'partial'
         assert search.stop_reason == 'provider-errors'
+
+    @pytest.mark.asyncio
+    async def test_shodan_discovery_counts_service_only_evidence_as_a_result(self, monkeypatch):
+        from theHarvester.discovery import shodansearch
+        from theHarvester.lib.core import FetcherResponse
+
+        async def fetch_json(*_args, **_kwargs):
+            return FetcherResponse(
+                body={'data': [{'port': 53, 'transport': 'udp'}], 'hostnames': []},
+                status=200,
+                headers={},
+            )
+
+        monkeypatch.setattr(shodansearch.Core, 'shodan_key', lambda: 'test-key')
+        monkeypatch.setattr(shodansearch.AsyncFetcher, 'fetch_json', fetch_json)
+        patch_resolution(monkeypatch, shodansearch)
+
+        search = shodansearch.SearchShodan('example.test')
+        await search.process()
+
+        assert search.execution_status == 'completed'
+        assert search.stop_reason is None
+        assert [host.ip for host in await search.get_shodan_hosts()] == ['203.0.113.10']
+
+    @pytest.mark.asyncio
+    async def test_shodan_discovery_retains_valid_services_and_reports_malformed_provider_data(self, monkeypatch):
+        from theHarvester.discovery import shodansearch
+        from theHarvester.lib.core import FetcherResponse
+
+        async def fetch_json(*_args, **_kwargs):
+            return FetcherResponse(
+                body={
+                    'data': [
+                        {'port': 53, 'transport': 'udp', 'product': {'raw': 'provider object'}},
+                        {'transport': 'tcp'},
+                    ],
+                    'hostnames': [],
+                },
+                status=200,
+                headers={},
+            )
+
+        monkeypatch.setattr(shodansearch.Core, 'shodan_key', lambda: 'test-key')
+        monkeypatch.setattr(shodansearch.AsyncFetcher, 'fetch_json', fetch_json)
+        patch_resolution(monkeypatch, shodansearch)
+
+        search = shodansearch.SearchShodan('example.test')
+        await search.process()
+
+        assert search.execution_status == 'partial'
+        assert search.stop_reason == 'provider-error'
+        assert search.error_type == 'InvalidResponseError'
+        assert (await search.get_shodan_hosts())[0].to_details() == {'services': [{'port': 53, 'transport': 'udp'}]}
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -296,6 +395,7 @@ class TestShodanEngine:
         import theHarvester.__main__ as main_module
         from theHarvester.lib.completed_result import ResultObservation, SourceExecution
         from theHarvester.lib.database import ResultStore
+        from theHarvester.lib.shodan_evidence import ShodanHostObservation
 
         database = tmp_path / 'stash.sqlite'
         monkeypatch.setattr(main_module, 'ResultStore', lambda: ResultStore(database), raising=True)
@@ -303,12 +403,26 @@ class TestShodanEngine:
         class DummySearchShodan:
             def __init__(self, domain):
                 assert domain == 'example.com'
+                self.shodan_host = ShodanHostObservation.from_record(
+                    '192.0.2.10',
+                    {
+                        'organization': 'Example Transit',
+                        'hostnames': ['a.example.com', 'b.example.com'],
+                        'services': [
+                            {'port': 53, 'transport': 'udp'},
+                            {'port': 443, 'transport': 'tcp', 'product': 'nginx'},
+                        ],
+                    },
+                )
 
             async def process(self, proxy=False):
                 return None
 
             async def get_hostnames(self):
                 return {'a.example.com', 'b.example.com'}
+
+            async def get_shodan_hosts(self):
+                return (self.shodan_host,)
 
         monkeypatch.setattr(main_module.shodansearch, 'SearchShodan', DummySearchShodan, raising=True)
         monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.com', '-b', 'shodan'], raising=True)
@@ -320,6 +434,10 @@ class TestShodanEngine:
         out = capsys.readouterr().out
         assert 'An error occurred while processing a "work item"' not in out
         assert {'a.example.com', 'b.example.com'} <= set(out.split())
+        assert '"type": "shodan-host"' in out
+        assert '"value": "192.0.2.10"' in out
+        assert '"transport": "udp"' in out
+        assert '"transport": "tcp"' in out
 
         store = ResultStore(database)
         try:
@@ -327,11 +445,13 @@ class TestShodanEngine:
             completed = await store.load_run(UUID(str(runs[0]['run_id'])))
             assert len(completed.source_executions) == 1
             execution = completed.source_executions[0]
-            assert execution == SourceExecution('shodan', 'completed', execution.duration_ms, 2)
+            assert execution == SourceExecution('shodan', 'completed', execution.duration_ms, 3)
             assert completed.observations == (
                 ResultObservation('shodan', 'hostname', 'a.example.com'),
                 ResultObservation('shodan', 'hostname', 'b.example.com'),
+                ResultObservation('shodan', 'shodan-host', '192.0.2.10'),
             )
+            assert completed.shodan_hosts == (DummySearchShodan('example.com').shodan_host,)
         finally:
             await store.dispose()
 

@@ -15,6 +15,7 @@ from theHarvester.lib.network_evidence import (
     parse_network_observation_details,
 )
 from theHarvester.lib.result_values import normalize_prefix
+from theHarvester.lib.shodan_evidence import ShodanHostObservation
 
 from .run_models import _normalize_target
 
@@ -102,6 +103,41 @@ def validate_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail='vhost is not a result type; use hostname with virtual-host observations',
             )
+        if result.get('type') == 'shodan-host':
+            allowed_keys = {'type', 'value', 'sources', 'actions', 'details'}
+            if set(result) - allowed_keys:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail='Shodan host evidence contains unsupported fields',
+                )
+            sources = result.get('sources', [])
+            actions = result.get('actions', [])
+            if (
+                not isinstance(sources, list)
+                or any(not isinstance(source, str) or not source.strip() for source in sources)
+                or not isinstance(actions, list)
+                or any(not isinstance(action, str) or not action.strip() for action in actions)
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail='Shodan host producers must be arrays of non-empty strings',
+                )
+            value = result.get('value')
+            if not isinstance(value, str):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail='Shodan host evidence must identify a canonical IP address',
+                )
+            try:
+                shodan_host = ShodanHostObservation.from_record(value, result.get('details'))
+                if shodan_host.ip != value or shodan_host.to_details() != result.get('details'):
+                    raise ValueError('Shodan host evidence must use canonical structured details')
+            except ValueError as error:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
+            result['sources'] = sorted(set(sources))
+            result['actions'] = sorted(set(actions))
+            result['details'] = shodan_host.to_details()
+            continue
         if result.get('type') == 'prefix':
             allowed_keys = {'type', 'value', 'sources', 'actions', 'scope', 'observations'}
             if set(result) - allowed_keys:

@@ -4,12 +4,12 @@
   const $ = selector => document.querySelector(selector);
   const $$ = selector => [...document.querySelectorAll(selector)];
   const ROUTE_ORDER = [
-    'hostname', 'ip', 'prefix', 'asn', 'email', 'url', 'person', 'person-link', 'takeover', 'shodan',
+    'hostname', 'ip', 'prefix', 'asn', 'shodan-host', 'email', 'url', 'person', 'person-link', 'takeover',
     'scope-extension', 'external-relationship', 'other'
   ];
   const ROUTE_LABELS = {
     hostname: 'Hostnames', ip: 'IP addresses', prefix: 'Network prefixes', asn: 'ASNs', email: 'Emails', url: 'URLs',
-    person: 'People', 'person-link': 'People links', takeover: 'Takeover evidence', shodan: 'Shodan evidence',
+    person: 'People', 'person-link': 'People links', takeover: 'Takeover evidence', 'shodan-host': 'Shodan hosts',
     'scope-extension': 'Scope extensions', 'external-relationship': 'External relationships', other: 'Other'
   };
   const ACTION_FIELDS = {'dns-recursive': 'dns_recursive_depth'};
@@ -470,6 +470,46 @@
     return text.includes(query);
   }
 
+  function shodanNetworkFormatter(cell) {
+    const details = cell.getValue() || {};
+    const network = [details.organization, details.asn, details.isp].filter(Boolean).join(' · ') || 'Not recorded';
+    const names = [
+      details.hostnames?.length ? `Hosts: ${details.hostnames.join(', ')}` : '',
+      details.domains?.length ? `Domains: ${details.domains.join(', ')}` : '',
+    ].filter(Boolean);
+    return `<div class="vhost-observations"><span>${escapeHtml(network)}</span>${names.map(value => `<span>${escapeHtml(value)}</span>`).join('')}</div>`;
+  }
+
+  function shodanServicesFormatter(cell) {
+    const services = Array.isArray(cell.getValue()?.services) ? cell.getValue().services : [];
+    if (!services.length) return 'No service evidence';
+    return `<div class="vhost-observations">${services.map(service => {
+      const identity = `${service.port}/${service.transport}`;
+      const product = [service.product, service.version].filter(Boolean).join(' ');
+      const http = service.http || {};
+      const tls = service.tls || {};
+      const description = [
+        product,
+        service.observed_at ? `Seen ${service.observed_at}` : '',
+        http.title,
+        http.server,
+        http.components?.length ? `HTTP: ${http.components.join(', ')}` : '',
+        service.cpes?.length ? `CPE: ${service.cpes.join(', ')}` : '',
+        tls.subject_cn ? `TLS subject: ${tls.subject_cn}` : '',
+        tls.issuer_cn ? `issuer: ${tls.issuer_cn}` : '',
+        tls.expires_at ? `expires: ${tls.expires_at}` : '',
+        tls.sha256 ? `SHA-256: ${tls.sha256}` : '',
+        tls.jarm ? `JARM: ${tls.jarm}` : '',
+      ].filter(Boolean).join(' · ');
+      return `<span>${escapeHtml(`${identity}${description ? ` · ${description}` : ''}`)}</span>`;
+    }).join('')}</div>`;
+  }
+
+  function shodanDetailsFilter(headerValue, rowValue) {
+    const query = String(headerValue || '').trim().toLowerCase();
+    return JSON.stringify(rowValue || {}).toLowerCase().includes(query);
+  }
+
   function provenanceFormatter(cell) {
     const values = Array.isArray(cell.getValue()) ? cell.getValue() : [];
     return escapeHtml(values.join(', ') || '-');
@@ -480,9 +520,13 @@
     nodes.copySelected.disabled = true;
     nodes.copySelected.textContent = 'Copy selected';
     const columns = [
-      {title: 'Value', field: 'value', formatter: cell => `<span class="value-cell">${escapeHtml(cell.getValue())}</span>`, minWidth: 260, widthGrow: 2, headerFilter: 'input', headerFilterFunc: columnTextFilter, headerFilterPlaceholder: 'Filter values'},
-      {title: 'DNS', field: 'dns_status', formatter: dnsFormatter, width: 130, responsive: 1, headerFilter: 'input', headerFilterFunc: columnTextFilter, headerFilterPlaceholder: 'Filter DNS'},
+      {title: state.route === 'shodan-host' ? 'IP' : 'Value', field: 'value', formatter: cell => `<span class="value-cell">${escapeHtml(cell.getValue())}</span>`, minWidth: 260, widthGrow: 2, headerFilter: 'input', headerFilterFunc: columnTextFilter, headerFilterPlaceholder: 'Filter values'},
     ];
+    if (state.route !== 'shodan-host') {
+      columns.push(
+        {title: 'DNS', field: 'dns_status', formatter: dnsFormatter, width: 130, responsive: 1, headerFilter: 'input', headerFilterFunc: columnTextFilter, headerFilterPlaceholder: 'Filter DNS'},
+      );
+    }
     if (state.route === 'hostname' && rows.some(row => Array.isArray(row.observations) && row.observations.length)) {
       columns.push(
         {title: 'Virtual-host observations', field: 'observations', formatter: vhostObservationsFormatter, minWidth: 420, widthGrow: 4, variableHeight: true, headerFilter: 'input', headerFilterFunc: vhostObservationsFilter, headerFilterPlaceholder: 'Filter endpoint evidence'},
@@ -500,6 +544,14 @@
     if (state.route === 'prefix' && rows.some(row => Array.isArray(row.observations) && row.observations.length)) {
       columns.push(
         {title: 'Routing evidence', field: 'observations', formatter: networkObservationsFormatter, minWidth: 420, widthGrow: 4, variableHeight: true, headerFilter: 'input', headerFilterFunc: networkObservationsFilter, headerFilterPlaceholder: 'Filter routing evidence'},
+        {title: 'Produced by', field: 'actions', formatter: provenanceFormatter, minWidth: 130, responsive: 2, headerFilter: 'input', headerFilterFunc: columnTextFilter},
+      );
+    }
+    if (state.route === 'shodan-host') {
+      columns.push(
+        {title: 'Network', field: 'details', formatter: shodanNetworkFormatter, minWidth: 220, widthGrow: 2, headerFilter: 'input', headerFilterFunc: shodanDetailsFilter},
+        {title: 'Services', field: 'details', formatter: shodanServicesFormatter, minWidth: 360, widthGrow: 4, variableHeight: true, headerFilter: 'input', headerFilterFunc: shodanDetailsFilter},
+        {title: 'Sources', field: 'sources', formatter: provenanceFormatter, minWidth: 130, responsive: 2, headerFilter: 'input', headerFilterFunc: columnTextFilter},
         {title: 'Produced by', field: 'actions', formatter: provenanceFormatter, minWidth: 130, responsive: 2, headerFilter: 'input', headerFilterFunc: columnTextFilter},
       );
     }

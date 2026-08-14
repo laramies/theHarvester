@@ -1040,6 +1040,125 @@ def test_jsonl_rejects_legacy_vhost_result_kind() -> None:
         parse_result_jsonl(payload)
 
 
+def test_shodan_host_jsonl_uses_the_ip_value_and_nonredundant_details() -> None:
+    from theHarvester.lib.shodan_evidence import ShodanHostObservation
+
+    completed_at = datetime(2026, 8, 14, 12, 2, tzinfo=UTC)
+    shodan_host = ShodanHostObservation.from_record(
+        '192.0.2.10',
+        {
+            'asn': 'AS64496',
+            'organization': 'Example Transit',
+            'isp': 'Example ISP',
+            'hostnames': ['api.example.test'],
+            'domains': ['example.test'],
+            'services': [
+                {
+                    'port': 53,
+                    'transport': 'udp',
+                    'product': 'dnsmasq',
+                    'version': '2.90',
+                    'observed_at': '2026-08-14T11:58:00Z',
+                },
+                {
+                    'port': 443,
+                    'transport': 'tcp',
+                    'product': 'nginx',
+                    'version': '1.24.0',
+                    'observed_at': '2026-08-14T12:01:00Z',
+                    'http': {'title': 'Example', 'server': 'nginx', 'components': ['nginx']},
+                },
+            ],
+        },
+    )
+    result = CompletedResult.finish(
+        target='example.com',
+        started_at=completed_at,
+        completed_at=completed_at,
+        groups={},
+        active_evidence=ActiveEvidence(
+            executions=(
+                ActionExecution.finish(
+                    action='shodan',
+                    status='completed',
+                    duration_ms=1,
+                    groups={'shodan-host': ['192.0.2.10']},
+                ),
+            )
+        ),
+        shodan_hosts=(shodan_host,),
+    )
+
+    records = [json.loads(line) for line in result.jsonl().splitlines()]
+
+    assert records[1] == {
+        'actions': ['shodan'],
+        'details': {
+            'asn': 'AS64496',
+            'domains': ['example.test'],
+            'hostnames': ['api.example.test'],
+            'isp': 'Example ISP',
+            'organization': 'Example Transit',
+            'services': [
+                {
+                    'observed_at': '2026-08-14T11:58:00Z',
+                    'port': 53,
+                    'product': 'dnsmasq',
+                    'transport': 'udp',
+                    'version': '2.90',
+                },
+                {
+                    'http': {'components': ['nginx'], 'server': 'nginx', 'title': 'Example'},
+                    'observed_at': '2026-08-14T12:01:00Z',
+                    'port': 443,
+                    'product': 'nginx',
+                    'transport': 'tcp',
+                    'version': '1.24.0',
+                },
+            ],
+        },
+        'sources': [],
+        'type': 'shodan-host',
+        'value': '192.0.2.10',
+    }
+    summary, findings = parse_result_jsonl(result.jsonl())
+    assert summary['result_count'] == 1
+    assert findings == records[1:]
+
+
+def test_completed_result_rejects_conflicting_shodan_hosts_for_one_ip() -> None:
+    from theHarvester.lib.shodan_evidence import ShodanHostObservation
+
+    completed_at = datetime(2026, 8, 14, 12, 2, tzinfo=UTC)
+    first = ShodanHostObservation.from_record(
+        '192.0.2.10',
+        {'services': [{'port': 53, 'transport': 'udp'}]},
+    )
+    second = ShodanHostObservation.from_record(
+        '192.0.2.10',
+        {'services': [{'port': 443, 'transport': 'tcp'}]},
+    )
+
+    with pytest.raises(ValueError, match='conflicting evidence'):
+        CompletedResult.finish(
+            target='example.com',
+            started_at=completed_at,
+            completed_at=completed_at,
+            groups={},
+            active_evidence=ActiveEvidence(
+                executions=(
+                    ActionExecution.finish(
+                        action='shodan',
+                        status='completed',
+                        duration_ms=1,
+                        groups={'shodan-host': ['192.0.2.10']},
+                    ),
+                )
+            ),
+            shodan_hosts=(first, second),
+        )
+
+
 def test_completed_result_rejects_artifact_without_a_real_subject_result() -> None:
     completed_at = datetime(2026, 8, 5, 12, 1, tzinfo=UTC)
     artifact = ArtifactReference(

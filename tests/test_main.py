@@ -2092,6 +2092,8 @@ async def test_screenshot_capture_failure_cancels_sibling_tasks(
 
 @pytest.mark.asyncio
 async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from theHarvester.lib.shodan_evidence import ShodanHostObservation
+
     class FakeResultStore:
         async def initialize(self) -> None:
             return None
@@ -2168,8 +2170,9 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
 
         def __init__(self) -> None:
             self.attributions: set[AsnAttributionObservation] = set()
+            self.hosts: dict[str, ShodanHostObservation] = {}
 
-        async def search_ip(self, ip: str, *, proxy: bool = False) -> dict[str, dict[str, list[int]]]:
+        async def search_ip(self, ip: str, *, proxy: bool = False) -> dict[str, dict[str, object]]:
             assert proxy is True
             self.attributions.add(
                 AsnAttributionObservation(
@@ -2182,10 +2185,21 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
                     datetime.now(UTC),
                 )
             )
-            return {ip: {'ports': [443]}}
+            self.hosts[ip] = ShodanHostObservation.from_record(
+                ip,
+                {
+                    'asn': 'AS64496',
+                    'organization': 'Example Transit',
+                    'services': [{'port': 443, 'transport': 'tcp', 'product': 'nginx'}],
+                },
+            )
+            return {ip: self.hosts[ip].to_details()}
 
         async def get_asn_attributions(self) -> set[AsnAttributionObservation]:
             return self.attributions
+
+        async def get_shodan_hosts(self) -> tuple[ShodanHostObservation, ...]:
+            return tuple(self.hosts.values())
 
     class FakeApiScanner:
         def __init__(self, word: str, wordlist: str, exact_paths: bool = False) -> None:
@@ -2268,7 +2282,12 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
     assert isinstance(completed, CompletedResult)
     assert ('url', 'https://example.com/api/v1') in completed.results
     assert ('screenshot', 'api.example.com') not in completed.results
-    assert ('shodan', '{"ip":"192.0.2.10","result":{"ports":[443]}}') in completed.results
+    assert ('shodan-host', '192.0.2.10') in completed.results
+    assert completed.shodan_hosts[0].to_details() == {
+        'asn': 'AS64496',
+        'organization': 'Example Transit',
+        'services': [{'port': 443, 'transport': 'tcp', 'product': 'nginx'}],
+    }
     assert ('asn', 'AS64496') in completed.results
     assert completed.asn_attributions[0].organization_label == 'Example Transit'
     takeover_result = (
@@ -2301,6 +2320,84 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
     assert api_execution.stop_reason is None
     assert {(observation.kind, observation.value) for observation in api_execution.observations} == {
         ('url', 'https://example.com/api/v1')
+    }
+
+
+@pytest.mark.asyncio
+async def test_shodan_source_evidence_is_not_overwritten_by_conflicting_action_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from theHarvester.lib.shodan_evidence import ShodanHostObservation
+
+    class ConflictingShodan:
+        error_type = None
+
+        def __init__(self, word: str | None = None) -> None:
+            self.word = word
+            self.host = (
+                ShodanHostObservation.from_record(
+                    '192.0.2.10',
+                    {'services': [{'port': 53, 'transport': 'udp'}]},
+                )
+                if word is not None
+                else None
+            )
+
+        async def process(self, proxy: bool = False) -> None:
+            return None
+
+        async def get_hostnames(self) -> set[str]:
+            return {'api.example.com'} if self.word is not None else set()
+
+        async def search_ip(self, ip: str, *, proxy: bool = False) -> dict[str, dict[str, object]]:
+            self.host = ShodanHostObservation.from_record(
+                ip,
+                {'services': [{'port': 443, 'transport': 'tcp'}]},
+            )
+            return {ip: self.host.to_details()}
+
+        async def get_shodan_hosts(self) -> tuple[ShodanHostObservation, ...]:
+            return (self.host,) if self.host is not None else ()
+
+        async def get_asn_attributions(self) -> set:
+            if self.word is not None:
+                return set()
+            return {
+                AsnAttributionObservation(
+                    'action',
+                    'shodan',
+                    'AS64496',
+                    'Example Transit',
+                    'ip',
+                    '192.0.2.10',
+                    datetime.now(UTC),
+                )
+            }
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
+    monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', _ApiHostChecker)
+    monkeypatch.setattr(theharvester_main.shodansearch, 'SearchShodan', ConflictingShodan)
+
+    result = await theharvester_main.start(
+        EnumerationOptions(
+            dns_resolve='192.0.2.53',
+            domain='example.com',
+            quiet=True,
+            shodan=True,
+            source='shodan',
+        ),
+        return_completed_result=True,
+    )
+
+    completed = result[-1]
+    assert completed.shodan_hosts[0].to_details() == {'services': [{'port': 53, 'transport': 'udp'}]}
+    assert ResultObservation('shodan', 'shodan-host', '192.0.2.10') in completed.observations
+    execution = next(item for item in completed.active_evidence.executions if item.action == 'shodan')
+    assert execution.status == 'partial'
+    assert execution.error_type == 'ValueError'
+    assert {(observation.kind, observation.value) for observation in execution.observations} == {
+        ('asn', 'AS64496'),
+        ('ip', '192.0.2.10'),
     }
 
 
@@ -2979,6 +3076,8 @@ async def test_takeover_failure_persists_and_propagates(
 
 @pytest.mark.asyncio
 async def test_shodan_cancellation_persists_failure_and_propagates(monkeypatch: pytest.MonkeyPatch) -> None:
+    from theHarvester.lib.shodan_evidence import ShodanHostObservation
+
     saved: list[CompletedResult] = []
 
     class FakeChecker:
@@ -2997,13 +3096,21 @@ async def test_shodan_cancellation_persists_failure_and_propagates(monkeypatch: 
 
         def __init__(self) -> None:
             self.calls = 0
+            self.hosts: dict[str, ShodanHostObservation] = {}
 
         async def search_ip(self, ip: str, *, proxy: bool = False) -> dict:
             assert proxy is False
             self.calls += 1
             if self.calls == 2:
                 raise asyncio.CancelledError
-            return {ip: {'ports': [443]}}
+            self.hosts[ip] = ShodanHostObservation.from_record(
+                ip,
+                {'services': [{'port': 443, 'transport': 'tcp'}]},
+            )
+            return {ip: self.hosts[ip].to_details()}
+
+        async def get_shodan_hosts(self) -> tuple[ShodanHostObservation, ...]:
+            return tuple(self.hosts.values())
 
     monkeypatch.setattr(theharvester_main, 'ResultStore', _recording_result_store(saved))
     monkeypatch.setattr(theharvester_main.crtsh, 'SearchCrtsh', _ApiHostSource)
@@ -3034,6 +3141,8 @@ async def test_shodan_cancellation_persists_failure_and_propagates(monkeypatch: 
 async def test_direct_action_checkpoint_cancellation_persists_and_propagates(
     monkeypatch: pytest.MonkeyPatch, action: str
 ) -> None:
+    from theHarvester.lib.shodan_evidence import ShodanHostObservation
+
     checkpoints: list[CompletedResult] = []
     saved: list[CompletedResult] = []
 
@@ -3056,9 +3165,19 @@ async def test_direct_action_checkpoint_cancellation_persists_and_propagates(
     class FakeShodan:
         error_type = None
 
+        def __init__(self) -> None:
+            self.hosts: dict[str, ShodanHostObservation] = {}
+
         async def search_ip(self, ip: str, *, proxy: bool = False) -> dict:
             assert proxy is False
-            return {ip: {'ports': [443]}}
+            self.hosts[ip] = ShodanHostObservation.from_record(
+                ip,
+                {'services': [{'port': 443, 'transport': 'tcp'}]},
+            )
+            return {ip: self.hosts[ip].to_details()}
+
+        async def get_shodan_hosts(self) -> tuple[ShodanHostObservation, ...]:
+            return tuple(self.hosts.values())
 
     async def cancel_after_action(result: CompletedResult) -> None:
         if any(execution.action == action for execution in result.active_evidence.executions):
