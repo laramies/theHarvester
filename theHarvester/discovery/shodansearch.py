@@ -3,18 +3,19 @@ import logging
 import socket
 from collections import OrderedDict
 from datetime import UTC, datetime
-from functools import partial
 from ipaddress import ip_address
 
 import aiodns
-from shodan import Shodan, exception
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.asn_attribution import AsnAttributionObservation
-from theHarvester.lib.core import Core
+from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse, ResponseStreamError
+from theHarvester.lib.hostchecker import resolve_ip_addresses
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 
 logger = logging.getLogger(__name__)
+
+HostResult = dict[str, object]
 
 
 class SearchShodan:
@@ -25,10 +26,10 @@ class SearchShodan:
     ``isp`` remains ordinary Shodan output and is not treated as equivalent.
     """
 
-    # Keep DNS and provider transport policy independent. The adapter imposes no
-    # source-local numeric deadline by default; the owning run controls cancellation.
-    DNS_RESOLVER_TIMEOUT_SECONDS: float | None = None
-    HTTP_REQUEST_TIMEOUT_SECONDS: float | None = None
+    API_BASE_URL = 'https://api.shodan.io/shodan/host'
+    # Preserve the official SDK's one-request-per-second pacing without retaining its blocking transport.
+    REQUEST_INTERVAL_SECONDS = 1.0
+    REQUEST_TIMEOUT_SECONDS: int | None = None
 
     def __init__(self, word: str | None = None) -> None:
         self.word = word.strip().lower().rstrip('.') if word is not None else None
@@ -36,137 +37,123 @@ class SearchShodan:
         self.key = Core.shodan_key()
         if self.key is None:
             raise MissingKey('Shodan')
-        self.api = Shodan(self.key)
-        session = getattr(self.api, '_session', None)
-        if session is not None and self.HTTP_REQUEST_TIMEOUT_SECONDS is not None:
-            session.request = partial(session.request, timeout=self.HTTP_REQUEST_TIMEOUT_SECONDS)
-        self.hostdatarow: list = []
-        self.tracker: OrderedDict = OrderedDict()
+        self.tracker: OrderedDict[str, HostResult | str] = OrderedDict()
         self.error_type: str | None = None
         self.asn_attributions: set[AsnAttributionObservation] = set()
         self.totalhosts: set[str] = set()
         self.execution_status: str | None = None
         self.stop_reason: str | None = None
+        self._next_request_at = 0.0
 
-    async def search_ip(self, ip) -> OrderedDict:
+    async def _fetch_host(self, ip: str, proxy: bool) -> FetcherResponse:
+        loop = asyncio.get_running_loop()
+        delay = self._next_request_at - loop.time()
+        if delay > 0:
+            await asyncio.sleep(delay)
+        self._next_request_at = loop.time() + self.REQUEST_INTERVAL_SECONDS
+        return await AsyncFetcher.fetch_json(
+            f'{self.API_BASE_URL}/{ip}',
+            params={'key': self.key},
+            proxy=proxy,
+            request_timeout=self.REQUEST_TIMEOUT_SECONDS,
+        )
+
+    def _record_host(self, ip: str, results: dict[str, object]) -> None:
+        data = results.get('data')
+        if data == []:
+            logger.info(f'Shodan: No data found for IP {ip}')
+            return
+        if not isinstance(data, list) or not data or not isinstance(data[0], dict):
+            raise ValueError('invalid Shodan host response')
+
+        data_first = data[0]
+        http = data_first.get('http')
+        http_data = http if isinstance(http, dict) else {}
+        components = http_data.get('components')
+        technology_values = components if isinstance(components, dict) else {}
+
+        domains = results.get('domains')
+        domain_values = sorted(str(domain) for domain in domains) if isinstance(domains, list) else []
+        hostnames = results.get('hostnames')
+        hostname_values = sorted(str(host).strip() for host in hostnames) if isinstance(hostnames, list) else []
+        ports = results.get('ports')
+        port_values = sorted(port for port in ports if isinstance(port, int)) if isinstance(ports, list) else []
+        product_value = results.get('product')
+        if isinstance(product_value, list):
+            product = ', '.join(str(item) for item in product_value if item is not None)
+        else:
+            product = str(product_value) if product_value is not None else ''
+
+        def normalized_string(value: object) -> str:
+            return '' if value is None or str(value).strip() == 'None' else str(value).strip()
+
+        asn = normalized_string(results.get('asn'))
+        organization = normalized_string(results.get('org'))
+        self.tracker[ip] = {
+            'asn': asn,
+            'domains': domain_values,
+            'hostnames': hostname_values,
+            'ip_str': normalized_string(results.get('ip_str') or data_first.get('ip_str')),
+            'isp': normalized_string(results.get('isp')),
+            'org': organization,
+            'ports': port_values,
+            'product': product,
+            'server': normalized_string(http_data.get('server')),
+            'technologies': sorted(str(name) for name in technology_values),
+            'title': normalized_string(http_data.get('title')),
+        }
+
+        if asn and organization:
+            self.asn_attributions.add(
+                AsnAttributionObservation(
+                    'action',
+                    'shodan',
+                    asn,
+                    organization,
+                    'ip',
+                    ip,
+                    datetime.now(UTC),
+                )
+            )
+
+    async def search_ip(self, ip: str, *, proxy: bool = False) -> OrderedDict[str, HostResult | str]:
         self.error_type = None
         try:
-            ipaddress = ip
-            results = await asyncio.to_thread(self.api.host, ipaddress)
-
-            if not results or 'data' not in results or not results['data']:
-                logger.info(f'Shodan: No data found for IP {ip}')
-                return OrderedDict()
-            asn = ''
-            domains: list = list()
-            hostnames: list = list()
-            ip_str = ''
-            isp = ''
-            org = ''
-            ports: list = list()
-            title = ''
-            server = ''
-            product = ''
-            technologies: list = list()
-
-            data_first_dict = dict(results['data'][0])
-
-            if 'ip_str' in data_first_dict:
-                ip_str += data_first_dict['ip_str']
-
-            if 'http' in data_first_dict:
-                http_results_dict = dict(data_first_dict['http'])
-                if 'title' in http_results_dict:
-                    title_val = str(http_results_dict['title']).strip()
-                    if title_val != 'None':
-                        title += title_val
-                if 'components' in http_results_dict:
-                    for key in http_results_dict['components'].keys():
-                        technologies.append(key)
-                if 'server' in http_results_dict:
-                    server_val = str(http_results_dict['server']).strip()
-                    if server_val != 'None':
-                        server += server_val
-
-            for key, value in results.items():
-                if key == 'asn':
-                    if isinstance(value, str):
-                        asn += value
-                    elif value is not None:
-                        asn += str(value)
-                if key == 'domains':
-                    if isinstance(value, list):
-                        domain_values = [str(domain) for domain in value]
-                        domain_values.sort()
-                        domains.extend(domain_values)
-                if key == 'hostnames':
-                    if isinstance(value, list):
-                        hostname_values = [str(host).strip() for host in value]
-                        hostname_values.sort()
-                        hostnames.extend(hostname_values)
-                if key == 'isp':
-                    if isinstance(value, str):
-                        isp += value
-                    elif value is not None:
-                        isp += str(value)
-                if key == 'org':
-                    org += str(value)
-                if key == 'ports':
-                    if isinstance(value, list):
-                        port_values = [int(port) for port in value if isinstance(port, int)]
-                        port_values.sort()
-                        ports.extend(port_values)
-                if key == 'product':
-                    if isinstance(value, str):
-                        product += value
-                    elif isinstance(value, list):
-                        product += ', '.join(str(item) for item in value if item is not None)
-
-            technologies = list(set(technologies))
-
-            self.tracker[ip] = {
-                'asn': asn.strip(),
-                'domains': domains,
-                'hostnames': hostnames,
-                'ip_str': ip_str.strip(),
-                'isp': isp.strip(),
-                'org': org.strip(),
-                'ports': ports,
-                'product': product.strip(),
-                'server': server.strip(),
-                'technologies': technologies,
-                'title': title.strip(),
-            }
-            organization_label = results.get('org')
-            if asn.strip() and isinstance(organization_label, str) and organization_label.strip():
-                try:
-                    subject_ip = str(ip_address(str(ip).strip()))
-                    self.asn_attributions.add(
-                        AsnAttributionObservation(
-                            'action',
-                            'shodan',
-                            asn,
-                            organization_label,
-                            'ip',
-                            subject_ip,
-                            datetime.now(UTC),
-                        )
-                    )
-                except ValueError:
-                    logger.info('Shodan returned invalid ASN organization attribution')
-
-            return self.tracker
-        except exception.APIError as error:
-            if str(error).strip().rstrip('.').casefold() == 'no information available for that ip':
-                logger.info(f'{ip}: Not in Shodan')
-                self.tracker[ip] = 'Not in Shodan'
-            else:
-                self.error_type = type(error).__name__
-                self.tracker[ip] = 'Shodan request failed'
-        except Exception as e:
-            self.error_type = type(e).__name__
+            normalized_ip = str(ip_address(ip.strip()))
+        except ValueError:
+            self.error_type = 'ValueError'
             self.tracker[ip] = 'Shodan request failed'
+            return self.tracker
 
+        try:
+            response = await self._fetch_host(normalized_ip, proxy)
+            if response.status == 404:
+                logger.info(f'{normalized_ip}: Not in Shodan')
+                self.tracker[normalized_ip] = 'Not in Shodan'
+                return self.tracker
+            if not 200 <= response.status < 300:
+                self.error_type = f'HTTP{response.status}Error'
+                self.tracker[normalized_ip] = 'Shodan request failed'
+                return self.tracker
+            if not isinstance(response.body, dict):
+                self.error_type = 'InvalidResponseError'
+                self.tracker[normalized_ip] = 'Shodan request failed'
+                return self.tracker
+            try:
+                self._record_host(normalized_ip, response.body)
+            except (TypeError, ValueError):
+                self.error_type = 'InvalidResponseError'
+                self.tracker[normalized_ip] = 'Shodan request failed'
+        except ResponseStreamError as error:
+            self.error_type = {
+                'invalid-response': 'InvalidResponseError',
+                'response-limit': 'ResponseLimitError',
+                'transport-error': 'TransportError',
+            }[error.reason]
+            self.tracker[normalized_ip] = 'Shodan request failed'
+        except Exception as error:
+            self.error_type = type(error).__name__
+            self.tracker[normalized_ip] = 'Shodan request failed'
         return self.tracker
 
     async def get_asn_attributions(self) -> set[AsnAttributionObservation]:
@@ -175,34 +162,7 @@ class SearchShodan:
     async def get_hostnames(self) -> set[str]:
         return self.totalhosts
 
-    async def _resolve_target_ipv4s(self) -> tuple[str, ...]:
-        assert self.word is not None
-        resolver = (
-            aiodns.DNSResolver()
-            if self.DNS_RESOLVER_TIMEOUT_SECONDS is None
-            else aiodns.DNSResolver(timeout=self.DNS_RESOLVER_TIMEOUT_SECONDS)
-        )
-        try:
-            answer = await resolver.getaddrinfo(self.word, family=socket.AF_INET)
-        finally:
-            close = getattr(resolver, 'close', None)
-            if close is not None:
-                close()
-
-        addresses: set[str] = set()
-        for node in answer.nodes:
-            try:
-                address = ip_address(node.addr[0])
-            except (AttributeError, IndexError, TypeError, ValueError):
-                continue
-            if address.version == 4:
-                addresses.add(str(address))
-        if not addresses:
-            raise ValueError('target has no IPv4 addresses')
-        return tuple(sorted(addresses, key=ip_address))
-
     async def process(self, proxy: bool = False) -> None:
-        del proxy  # The Shodan SDK owns its transport configuration.
         if self.word is None:
             raise ValueError('A discovery target is required')
         assert self.scope is not None
@@ -211,7 +171,9 @@ class SearchShodan:
         self.execution_status = None
         self.stop_reason = None
         try:
-            resolved_ips = await self._resolve_target_ipv4s()
+            resolved_ips = await resolve_ip_addresses(self.word, family=socket.AF_INET)
+            if not resolved_ips:
+                raise ValueError('target has no IPv4 addresses')
         except TimeoutError:
             self.execution_status = 'failed'
             self.stop_reason = 'dns-timeout'
@@ -222,21 +184,24 @@ class SearchShodan:
                 'dns-timeout' if error.args and error.args[0] == aiodns.error.ARES_ETIMEOUT else 'dns-resolution-failed'
             )
             return
-        except (IndexError, ValueError):
+        except ValueError:
             self.execution_status = 'failed'
             self.stop_reason = 'dns-resolution-failed'
             return
 
         provider_error_types: set[str] = set()
         for resolved_ip in resolved_ips:
-            result = await self.search_ip(resolved_ip)
+            result = await self.search_ip(resolved_ip, proxy=proxy)
             if self.error_type is not None:
                 provider_error_types.add(self.error_type)
                 continue
 
             host_data = result.get(resolved_ip)
             if isinstance(host_data, dict):
-                for hostname in host_data.get('hostnames', []):
+                hostnames = host_data.get('hostnames')
+                if not isinstance(hostnames, list):
+                    continue
+                for hostname in hostnames:
                     normalized = normalize_scoped_hostname(hostname, self.scope)
                     if normalized and normalized != self.scope:
                         self.totalhosts.add(normalized)
@@ -244,8 +209,10 @@ class SearchShodan:
         self.error_type = next(iter(sorted(provider_error_types)), None)
         if provider_error_types:
             self.execution_status = 'partial' if self.totalhosts else 'failed'
-            if provider_error_types == {'TimeoutError'}:
-                self.stop_reason = 'provider-timeout'
+            if provider_error_types <= {'HTTP401Error', 'HTTP403Error'}:
+                self.stop_reason = 'access-denied'
+            elif provider_error_types == {'HTTP429Error'}:
+                self.stop_reason = 'rate-limited'
             elif len(resolved_ips) == 1:
                 self.stop_reason = 'provider-error'
             else:

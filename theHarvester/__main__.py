@@ -230,7 +230,7 @@ async def start(
     parser.add_argument(
         '-p',
         '--proxies',
-        help='Use proxies.yaml for supported discovery-source and takeover requests; it does not configure Shodan SDK requests.',
+        help='Use proxies.yaml for supported discovery-source, Shodan, and takeover requests.',
         default=False,
         action='store_true',
     )
@@ -243,7 +243,7 @@ async def start(
     parser.add_argument(
         '-s',
         '--shodan',
-        help='Use the Shodan SDK to query discovered hosts; -p and proxies.yaml do not configure these requests.',
+        help='Query the Shodan Host API for discovered IPs, using configured proxies when enabled.',
         default=False,
         action='store_true',
     )
@@ -2782,18 +2782,29 @@ async def start(
         shodan_ips: set[str] = set()
         output_logger.info('[*] Searching Shodan. ')
         try:
-            for ip_index, ip in enumerate(host_ip):
+            shodan_search = None
+            if host_ip:
+                try:
+                    shodan_search = shodansearch.SearchShodan()
+                except Exception as init_error:
+                    shodan_error_types.add(type(init_error).__name__)
+                    output_logger.info(f'[SHODAN-error] Error starting Shodan: {type(init_error).__name__}')
+            for ip in host_ip:
+                if shodan_search is None:
+                    break
                 try:
                     output_logger.info('\tSearching for ' + ip)
-                    shodan_search = shodansearch.SearchShodan()
-                    shodandict = await shodan_search.search_ip(ip)
+                    shodandict = await shodan_search.search_ip(ip, proxy=use_proxy)
                     get_asn_attributions = getattr(shodan_search, 'get_asn_attributions', None)
                     if get_asn_attributions is not None:
                         collected_attributions = await get_asn_attributions()
-                        asn_attributions.extend(collected_attributions)
-                        shodan_asns.update(attribution.asn for attribution in collected_attributions)
-                        shodan_ips.update(attribution.subject_value for attribution in collected_attributions)
-                        total_asns.extend(attribution.asn for attribution in collected_attributions)
+                        current_attributions = {
+                            attribution for attribution in collected_attributions if attribution.subject_value == ip
+                        }
+                        asn_attributions.extend(current_attributions)
+                        shodan_asns.update(attribution.asn for attribution in current_attributions)
+                        shodan_ips.update(attribution.subject_value for attribution in current_attributions)
+                        total_asns.extend(attribution.asn for attribution in current_attributions)
                     if shodan_search.error_type:
                         shodan_error_types.add(shodan_search.error_type)
 
@@ -2817,8 +2828,6 @@ async def start(
                         )
                         output_logger.info(ujson.dumps(shodan_result, indent=4, sort_keys=True))
                         output_logger.info('\n')
-                    if ip_index + 1 < len(host_ip):
-                        await asyncio.sleep(5)
                 except Exception as ip_error:
                     shodan_error_types.add(type(ip_error).__name__)
                     output_logger.info(f'[SHODAN-error] Error searching {ip}: {type(ip_error).__name__}')

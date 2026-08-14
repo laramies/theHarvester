@@ -1,9 +1,10 @@
-import asyncio
 import logging
-import socket
 from ipaddress import ip_address
 
+import aiodns
+
 from theHarvester.lib.core import AsyncFetcher
+from theHarvester.lib.hostchecker import resolve_ip_addresses
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 
 logger = logging.getLogger(__name__)
@@ -34,27 +35,17 @@ class SearchShodanInternetDB:
     async def do_search(self) -> None:
         # Resolve the domain to IP addresses first
         try:
-            addr_infos = await asyncio.to_thread(socket.getaddrinfo, self.word, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
-        except socket.gaierror:
+            resolved_ips = await resolve_ip_addresses(self.word)
+        except aiodns.error.DNSError:
             logger.info(f'Shodan InternetDB: Could not resolve domain {self.word}')
             return
-
-        # Deduplicate IPs from the resolution results
-        resolved_ips: set[str] = set()
-        for _family, _type, _proto, _canonname, sockaddr in addr_infos:
-            ip = sockaddr[0]
-            if isinstance(ip, str):
-                try:
-                    resolved_ips.add(str(ip_address(ip)))
-                except ValueError:
-                    continue
 
         if not resolved_ips:
             logger.info(f'Shodan InternetDB: No IPs resolved for {self.word}')
             return
 
         # Query InternetDB for each resolved IP
-        requested_ips = sorted(resolved_ips)
+        requested_ips = list(resolved_ips)
         urls = [f'https://internetdb.shodan.io/{ip}' for ip in requested_ips]
         try:
             responses = await AsyncFetcher.fetch_all(urls, json=True, proxy=self.proxy)

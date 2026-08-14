@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added root contributor and security policies, structured issue forms, repository agent guidance, discovery terminology, and an operator-focused documentation wiki ([d090a29a](https://github.com/laramies/theHarvester/commit/d090a29a), [7c491ef5](https://github.com/laramies/theHarvester/commit/7c491ef5), [8b9d420b](https://github.com/laramies/theHarvester/commit/8b9d420b)).
 
 ### Changed
+- Replaced Shodan's synchronous Python SDK with direct async Host API requests, retaining every resolved IPv4, proxy support, cancellation, and existing persisted evidence without a source-local deadline.
 - Removed the transport-wide delay before reading ready HTTP responses, bounded Wayback Archive to 30 seconds and Common Crawl to 120 seconds, kept both sources within the requested result limit, and made long-source progress visible in verbose mode. Common Crawl now requests one 50-record page at a time instead of bursting page batches.
 - Made Baidu, crt.sh, HackerTarget, Have I Been Pwned, Mojeek, OTX, and Robtex report blocked, malformed, or transport failures truthfully. Also fixed HackerTarget CSV parsing and Robtex AAAA results.
 - Hardened BufferOver, ProjectDiscovery, DNSDumpster, ONYPHE, and URLScan parsing and result attribution, including scoped typed results and bounded URLScan pagination.

@@ -37,11 +37,8 @@ async def test_cli_help_explains_proxy_and_direct_action_scope(
 
     help_text = ' '.join(capsys.readouterr().out.split())
     assert exit_info.value.code == 0
-    assert (
-        'Use proxies.yaml for supported discovery-source and takeover requests; it does not configure Shodan SDK requests.'
-        in help_text
-    )
-    assert 'Use the Shodan SDK to query discovered hosts; -p and proxies.yaml do not configure these requests.' in help_text
+    assert 'Use proxies.yaml for supported discovery-source, Shodan, and takeover requests.' in help_text
+    assert 'Query the Shodan Host API for discovered IPs, using configured proxies when enabled.' in help_text
     assert (
         'Enrich discovered IPs with sourced ASN attribution, or an explicitly targeted ASN, IP, or prefix, through '
         'RouteViews.' in help_text
@@ -2172,7 +2169,8 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
         def __init__(self) -> None:
             self.attributions: set[AsnAttributionObservation] = set()
 
-        async def search_ip(self, ip: str) -> dict[str, dict[str, list[int]]]:
+        async def search_ip(self, ip: str, *, proxy: bool = False) -> dict[str, dict[str, list[int]]]:
+            assert proxy is True
             self.attributions.add(
                 AsnAttributionObservation(
                     'action',
@@ -2366,17 +2364,14 @@ async def test_shodan_action_records_all_target_errors_as_failed(
     class FailedShodan:
         error_type = None
 
-        async def search_ip(self, ip: str) -> dict[str, str]:
+        async def search_ip(self, ip: str, *, proxy: bool = False) -> dict[str, str]:
+            assert proxy is False
             raise RuntimeError(f'provider-secret-payload for {ip}')
-
-    async def no_sleep(_seconds: float) -> None:
-        return None
 
     monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
     monkeypatch.setattr(theharvester_main.crtsh, 'SearchCrtsh', _ApiHostSource)
     monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', _ApiHostChecker)
     monkeypatch.setattr(theharvester_main.shodansearch, 'SearchShodan', FailedShodan)
-    monkeypatch.setattr(theharvester_main.asyncio, 'sleep', no_sleep)
 
     result = await theharvester_main.start(
         EnumerationOptions(
@@ -2403,17 +2398,14 @@ async def test_shodan_no_data_is_a_completed_zero_yield_action(monkeypatch: pyte
     class EmptyShodan:
         error_type = None
 
-        async def search_ip(self, _ip: str) -> dict:
+        async def search_ip(self, _ip: str, *, proxy: bool = False) -> dict:
+            assert proxy is False
             return {}
-
-    async def no_sleep(_seconds: float) -> None:
-        return None
 
     monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
     monkeypatch.setattr(theharvester_main.crtsh, 'SearchCrtsh', _ApiHostSource)
     monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', _ApiHostChecker)
     monkeypatch.setattr(theharvester_main.shodansearch, 'SearchShodan', EmptyShodan)
-    monkeypatch.setattr(theharvester_main.asyncio, 'sleep', no_sleep)
 
     result = await theharvester_main.start(
         EnumerationOptions(dns_resolve='192.0.2.53', domain='example.com', quiet=True, shodan=True, source='crtsh'),
@@ -3003,17 +2995,20 @@ async def test_shodan_cancellation_persists_failure_and_propagates(monkeypatch: 
     class CancelledShodan:
         error_type = None
 
-        async def search_ip(self, ip: str) -> dict:
-            return {ip: {'ports': [443]}}
+        def __init__(self) -> None:
+            self.calls = 0
 
-    async def cancel_during_throttle(_seconds: float) -> None:
-        raise asyncio.CancelledError
+        async def search_ip(self, ip: str, *, proxy: bool = False) -> dict:
+            assert proxy is False
+            self.calls += 1
+            if self.calls == 2:
+                raise asyncio.CancelledError
+            return {ip: {'ports': [443]}}
 
     monkeypatch.setattr(theharvester_main, 'ResultStore', _recording_result_store(saved))
     monkeypatch.setattr(theharvester_main.crtsh, 'SearchCrtsh', _ApiHostSource)
     monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', FakeChecker)
     monkeypatch.setattr(theharvester_main.shodansearch, 'SearchShodan', CancelledShodan)
-    monkeypatch.setattr(theharvester_main.asyncio, 'sleep', cancel_during_throttle)
 
     with pytest.raises(asyncio.CancelledError):
         await theharvester_main.start(
@@ -3061,7 +3056,8 @@ async def test_direct_action_checkpoint_cancellation_persists_and_propagates(
     class FakeShodan:
         error_type = None
 
-        async def search_ip(self, ip: str) -> dict:
+        async def search_ip(self, ip: str, *, proxy: bool = False) -> dict:
+            assert proxy is False
             return {ip: {'ports': [443]}}
 
     async def cancel_after_action(result: CompletedResult) -> None:

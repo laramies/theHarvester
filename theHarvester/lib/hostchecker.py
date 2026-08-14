@@ -7,7 +7,9 @@ Revised to use aiodns & asyncio on 2019-09-23
 from __future__ import annotations
 
 import asyncio
+import inspect
 import ipaddress
+import socket
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -34,6 +36,35 @@ def is_expected_dns_absence(error: BaseException) -> bool:
         and bool(error.args)
         and error.args[0] in {aiodns.error.ARES_ENODATA, aiodns.error.ARES_ENOTFOUND}
     )
+
+
+async def resolve_ip_addresses(hostname: str, *, family: socket.AddressFamily = socket.AF_UNSPEC) -> tuple[str, ...]:
+    """Resolve every unique IP address for a hostname."""
+    resolver = aiodns.DNSResolver()
+    try:
+        answer = await resolver.getaddrinfo(hostname, family=family)
+    finally:
+        close = getattr(resolver, 'close', None)
+        if close is not None:
+            close_result = close()
+            if inspect.isawaitable(close_result):
+                await close_result
+
+    addresses: set[str] = set()
+    for node in answer.nodes:
+        try:
+            value = node.addr[0]
+            if isinstance(value, bytes):
+                value = value.decode('ascii')
+            address = ipaddress.ip_address(value)
+        except (AttributeError, IndexError, TypeError, UnicodeDecodeError, ValueError):
+            continue
+        if family == socket.AF_INET and address.version != 4:
+            continue
+        if family == socket.AF_INET6 and address.version != 6:
+            continue
+        addresses.add(str(address))
+    return tuple(sorted(addresses, key=lambda value: (ipaddress.ip_address(value).version, int(ipaddress.ip_address(value)))))
 
 
 class Checker:

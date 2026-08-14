@@ -37,7 +37,6 @@ dependencies = [
     "python-dateutil==2.9.0.post0",
     "httpx==0.28.1",
     "retrying==1.4.2",
-    "shodan==1.31.0",
     "sqlalchemy==2.0.51",
     "ujson==5.13.0",
     "uvicorn==0.52.1",
