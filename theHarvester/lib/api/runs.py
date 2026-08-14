@@ -11,7 +11,14 @@ from fastapi.responses import FileResponse
 from pydantic import ValidationError
 
 from theHarvester.lib.api.auth import get_api_key
-from theHarvester.lib.source_catalog import ACTION_ACTIVITIES, SOURCE_SPECS, SourceSpec, get_source_spec, resolve_sources
+from theHarvester.lib.source_catalog import (
+    ACTION_ACTIVITIES,
+    RETIRED_SOURCE_MESSAGES,
+    SOURCE_SPECS,
+    SourceSpec,
+    get_source_spec,
+    resolve_sources,
+)
 
 from . import run_worker
 from .run_evidence import parse_jsonl_import
@@ -120,9 +127,17 @@ async def create_run(
     selected_sources = resolve_sources(run_request.sources)
     unsupported_sources = [source for source in selected_sources if source_spec(source) is None]
     if unsupported_sources:
+        detail = f'Unsupported sources: {", ".join(sorted(unsupported_sources))}'
+        retired_messages = [
+            RETIRED_SOURCE_MESSAGES[source.casefold()]
+            for source in unsupported_sources
+            if source.casefold() in RETIRED_SOURCE_MESSAGES
+        ]
+        if retired_messages:
+            detail = f'{detail}. {" ".join(retired_messages)}'
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=f'Unsupported sources: {", ".join(sorted(unsupported_sources))}',
+            detail=detail,
         )
     run_request.sources = [get_source_spec(source).name for source in selected_sources]
     if not run_worker.worker_enabled():

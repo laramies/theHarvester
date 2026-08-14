@@ -57,6 +57,22 @@ async def test_cli_help_explains_proxy_and_direct_action_scope(
     assert 'Candidate names are never resolved through DNS.' in help_text
 
 
+@pytest.mark.asyncio
+async def test_removed_windvane_source_explains_the_explicit_dns_migration(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
+    monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.com', '-b', 'windvane'])
+
+    with pytest.raises(SystemExit) as exit_info:
+        await theharvester_main.start()
+
+    assert exit_info.value.code == 1
+    output = capsys.readouterr().out
+    assert 'implicit DNS name guessing' in output
+    assert 'explicit -c/--dns-brute action' in output
+
+
 def _confirmed_vhost(endpoint: str = 'http://192.0.2.10:80/') -> VirtualHostObservation:
     return VirtualHostObservation(
         endpoint=endpoint,

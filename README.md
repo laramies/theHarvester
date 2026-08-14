@@ -223,7 +223,6 @@ Read the **API key** column as follows:
 | `virustotal` | ✓ | No | No | No | No | No | No | No | ✓ |
 | `waybackarchive` | ✓ | No | No | No | No | No | No | No | No |
 | `whoisxml` | ✓ | No | No | No | No | No | No | No | ✓ |
-| `windvane` | ✓ | ✓ | ✓ | No | No | No | No | No | Optional |
 | `yahoo` | ✓ | ✓ | No | No | No | No | No | No | No |
 | `zoomeye` | ✓ | ✓ | ✓ | ✓ | ✓ | No | No | No | ✓ |
 

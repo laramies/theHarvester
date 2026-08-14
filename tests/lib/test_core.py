@@ -39,7 +39,6 @@ def test_email_capability_expands_to_email_sources() -> None:
         "rocketreach",
         "sherlockeye",
         "tomba",
-        "windvane",
         "yahoo",
         "zoomeye",
     ]
@@ -57,6 +56,10 @@ def test_capabilities_and_explicit_sources_form_a_union() -> None:
         "urlscan",
         "zoomeye",
     ]
+
+
+def test_windvane_is_not_a_registered_source() -> None:
+    assert 'windvane' not in SOURCE_SPECS
 
 
 def test_multiple_capabilities_form_a_union() -> None:
@@ -90,13 +93,12 @@ def test_all_selects_only_passive_catalog_sources() -> None:
         "shodan": ActivityClass.DNS,
         "shodanInternetDB": ActivityClass.DNS,
         "subdomainfinderc99": ActivityClass.DNS,
-        "windvane": ActivityClass.DNS,
     }
 
 
 @pytest.mark.parametrize(
     'source',
-    ['criminalip', 'pentesttools', 'shodan', 'shodanInternetDB', 'subdomainfinderc99', 'windvane'],
+    ['criminalip', 'pentesttools', 'shodan', 'shodanInternetDB', 'subdomainfinderc99'],
 )
 def test_non_passive_sources_run_only_when_explicitly_selected(source: str) -> None:
     assert source not in Core.expand_source_selection('all')

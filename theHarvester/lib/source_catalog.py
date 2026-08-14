@@ -175,13 +175,6 @@ _SPECS = (
     _spec('virustotal', ResultRoute.SUBDOMAINS),
     _spec('waybackarchive', ResultRoute.SUBDOMAINS),
     _spec('whoisxml', ResultRoute.SUBDOMAINS),
-    _spec(
-        'windvane',
-        ResultRoute.SUBDOMAINS,
-        ResultRoute.EMAILS,
-        ResultRoute.IPS,
-        activity=ActivityClass.DNS,
-    ),
     _spec('yahoo', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec(
         'zoomeye',
@@ -195,6 +188,12 @@ _SPECS = (
 
 SOURCE_SPECS = {spec.name: spec for spec in _SPECS}
 _CASEFOLDED_SOURCE_SPECS = {name.casefold(): spec for name, spec in SOURCE_SPECS.items()}
+RETIRED_SOURCE_MESSAGES = {
+    'windvane': (
+        'The windvane source was removed because its unauthenticated fallback performed implicit DNS name guessing. '
+        'Use the explicit -c/--dns-brute action in the CLI or dns_brute: true in REST when authorized.'
+    )
+}
 
 
 def get_source_spec(name: str) -> SourceSpec:

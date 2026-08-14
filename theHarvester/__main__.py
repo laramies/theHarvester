@@ -83,7 +83,6 @@ from theHarvester.discovery import (
     virustotal,
     waybackarchive,
     whoisxml,
-    windvane,
     yahoosearch,
     zoomeyesearch,
 )
@@ -119,6 +118,7 @@ from theHarvester.lib.resolver_selection import DEFAULT_DNS_RESOLVERS, normalize
 from theHarvester.lib.result_values import normalize_asn
 from theHarvester.lib.routeviews import RouteViewsCancelled, RouteViewsResult, enrich_routeviews
 from theHarvester.lib.source_catalog import (
+    RETIRED_SOURCE_MESSAGES,
     SOURCE_SPECS,
     ActivityClass,
     ResultRoute,
@@ -1818,18 +1818,6 @@ async def start(
                         else:
                             output_logger.info(f'An exception has occurred in WhoisXML search: {e}')
 
-                elif engineitem == 'windvane':
-                    try:
-                        windvane_search = windvane.SearchWindvane(word)
-                        stor_lst.append(
-                            store(
-                                windvane_search,
-                                engineitem,
-                            )
-                        )
-                    except Exception as e:
-                        show_default_error_message(engineitem, word, e)
-
                 elif engineitem == 'yahoo':
                     try:
                         yahoo_search = yahoosearch.SearchYahoo(word, limit)
@@ -1881,6 +1869,9 @@ async def start(
             unsupported_engines = set(engines) - set(Core.get_supportedengines())
             if unsupported_engines:
                 output_logger.info(f'The following engines are not supported: {unsupported_engines}')
+                for engine in sorted(unsupported_engines, key=str.casefold):
+                    if message := RETIRED_SOURCE_MESSAGES.get(engine.casefold()):
+                        output_logger.info(message)
             output_logger.info('\n[!] Invalid source.\n')
             sys.exit(1)
 

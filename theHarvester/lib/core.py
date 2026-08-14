@@ -189,7 +189,6 @@ class Core:
         'tomba': ('key', 'secret'),
         'virustotal': ('key',),
         'whoisxml': ('key',),
-        'windvane': ('key',),
         'zoomeye': ('key',),
     }
 
@@ -366,10 +365,6 @@ class Core:
         return Core._api_key_value('whoisxml')
 
     @staticmethod
-    def windvane_key() -> str:
-        return Core._api_key_value('windvane')
-
-    @staticmethod
     def zoomeye_key() -> str:
         return Core._api_key_value('zoomeye')
 
@@ -465,7 +460,6 @@ class Core:
             'virustotal',
             'waybackarchive',
             'whoisxml',
-            'windvane',
             'yahoo',
             'zoomeye',
             'zoomeyeapi',

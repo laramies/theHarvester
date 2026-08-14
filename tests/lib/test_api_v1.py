@@ -490,6 +490,26 @@ def test_api_scan_can_run_without_discovery_sources(tmp_path, monkeypatch) -> No
         RunRequest(target='example.test', sources=[], api_scan=True, api_scan_paths=['https://other.example/api'])
 
 
+def test_api_removed_windvane_source_explains_the_explicit_dns_migration(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+
+    with TestClient(api.app) as client:
+        response = client.post(
+            '/api/v1/runs',
+            headers={'X-API-Key': 'test-key'},
+            json={'target': 'example.test', 'sources': ['windvane']},
+        )
+
+    assert response.status_code == 422
+    detail = response.json()['detail']
+    assert 'implicit DNS name guessing' in detail
+    assert 'dns_brute: true' in detail
+
+
 def test_routeviews_accepts_only_an_action_only_asn_target() -> None:
     from pydantic import ValidationError
 
