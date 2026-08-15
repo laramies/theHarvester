@@ -7,8 +7,8 @@ from ipaddress import ip_address
 from typing import Literal, cast
 
 from theHarvester.lib.evidence_types import format_utc
+from theHarvester.lib.hostnames import normalize_hostname
 from theHarvester.lib.result_values import normalize_asn
-from theHarvester.lib.virtual_host import normalize_virtual_host_hostname
 
 ProducerKind = Literal['source', 'action']
 SubjectKind = Literal['hostname', 'ip']
@@ -29,7 +29,7 @@ def _normalize_name(value: str, label: str, *, max_length: int = 255) -> str:
 
 def _normalize_subject(kind: SubjectKind, value: str) -> str:
     if kind == 'hostname':
-        return normalize_virtual_host_hostname(value)
+        return normalize_hostname(value)
     if kind == 'ip':
         if not isinstance(value, str) or '%' in value:
             raise ValueError('ASN attribution IP subject must be a canonical IP address')

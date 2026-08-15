@@ -5,8 +5,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse, ResponseStreamError
-from theHarvester.lib.hostnames import normalize_scoped_hostname
-from theHarvester.lib.virtual_host import normalize_virtual_host_hostname
+from theHarvester.lib.hostnames import normalize_hostname, normalize_scoped_hostname
 
 
 class SearchBuiltWith:
@@ -15,7 +14,7 @@ class SearchBuiltWith:
     SERVER = 'https://api.builtwith.com/v23/api.json'
 
     def __init__(self, word: str) -> None:
-        self.word = normalize_virtual_host_hostname(word)
+        self.word = normalize_hostname(word)
         self.lookup_domain = self.word.removeprefix('www.')
         self.api_key = Core.builtwith_key()
         if not isinstance(self.api_key, str) or not self.api_key.strip():
@@ -45,7 +44,7 @@ class SearchBuiltWith:
         if not isinstance(domain, str) or not isinstance(subdomain, str):
             return None, True
         try:
-            domain = normalize_virtual_host_hostname(domain)
+            domain = normalize_hostname(domain)
         except ValueError:
             return None, True
         normalized_domain = normalize_scoped_hostname(domain, self.lookup_domain)
@@ -53,7 +52,7 @@ class SearchBuiltWith:
             return None, False
         candidate = normalized_domain if not subdomain.strip() else f'{subdomain.strip()}.{normalized_domain}'
         try:
-            candidate = normalize_virtual_host_hostname(candidate)
+            candidate = normalize_hostname(candidate)
         except ValueError:
             return None, True
         return normalize_scoped_hostname(candidate, self.word), False
@@ -73,7 +72,7 @@ class SearchBuiltWith:
                     or parsed.password is not None
                 ):
                     return None, True
-                parsed_hostname = normalize_virtual_host_hostname(parsed.hostname)
+                parsed_hostname = normalize_hostname(parsed.hostname)
                 scoped_hostname = normalize_scoped_hostname(parsed_hostname, self.word)
                 if scoped_hostname is None:
                     return None, False
