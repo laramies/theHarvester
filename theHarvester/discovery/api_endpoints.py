@@ -15,6 +15,7 @@ from urllib.parse import urljoin, urlparse
 
 import aiohttp
 
+from theHarvester.lib.cancellation import drain_tasks_after_cancellation
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse, ResponseStreamError
 
 logger = logging.getLogger(__name__)
@@ -27,33 +28,6 @@ _DIAGNOSTIC_RESPONSE_HEADERS = {
     'retry-after',
     'www-authenticate',
 }
-
-
-async def _drain_owned_tasks(
-    tasks: list[asyncio.Task[None]],
-    *,
-    cancel: bool,
-) -> tuple[tuple[asyncio.CancelledError, ...], tuple[BaseException, ...]]:
-    if cancel:
-        for task in tasks:
-            if not task.done():
-                task.cancel()
-
-    interruptions: list[asyncio.CancelledError] = []
-    pending = set(tasks)
-    while pending:
-        try:
-            _, pending = await asyncio.wait(pending)
-        except asyncio.CancelledError as error:
-            interruptions.append(error)
-
-    task_errors: list[BaseException] = []
-    for task in tasks:
-        try:
-            task.result()
-        except BaseException as error:
-            task_errors.append(error)
-    return tuple(interruptions), tuple(task_errors)
 
 
 @dataclass
@@ -128,8 +102,8 @@ class SearchApiEndpoints:
         """
         if isinstance(concurrency, bool) or not isinstance(concurrency, int) or concurrency <= 0:
             raise ValueError('concurrency must be a positive integer')
-        if isinstance(timeout, bool) or not isinstance(timeout, int | float) or not math.isfinite(timeout) or timeout <= 0:
-            raise ValueError('timeout must be positive')
+        if isinstance(timeout, bool) or not isinstance(timeout, int) or timeout <= 0:
+            raise ValueError('timeout must be a positive integer')
         if request_limit is not None and (
             isinstance(request_limit, bool) or not isinstance(request_limit, int) or request_limit <= 0
         ):
@@ -525,7 +499,10 @@ class SearchApiEndpoints:
                     await asyncio.gather(*workers)
             except BaseException as error:
                 worker_error = error
-            interruptions, task_errors = await _drain_owned_tasks(workers, cancel=worker_error is not None)
+            interruptions = await drain_tasks_after_cancellation(workers, cancel=worker_error is not None)
+            task_errors = tuple(
+                task_error for task in workers if not task.cancelled() and (task_error := task.exception()) is not None
+            )
             self._order_results(urls)
             if isinstance(worker_error, asyncio.CancelledError):
                 raise worker_error
@@ -563,9 +540,11 @@ class SearchApiEndpoints:
                         await connector.close()
 
                 close_task = asyncio.create_task(close_transport(), name='api-endpoint-session-close')
-                interruptions, task_errors = await _drain_owned_tasks([close_task], cancel=False)
+                interruptions = await drain_tasks_after_cancellation((close_task,), cancel=False)
                 if cancellation is None:
-                    cleanup_error = next(iter((*interruptions, *task_errors)), None)
+                    cleanup_error: BaseException | None = interruptions[0] if interruptions else None
+                    if cleanup_error is None and not close_task.cancelled():
+                        cleanup_error = close_task.exception()
                     if isinstance(cleanup_error, asyncio.CancelledError):
                         self.stop_reason = 'cancelled'
                         self.scan_error_type = 'CancelledError'
@@ -676,12 +655,12 @@ class SearchApiEndpoints:
                     return None
                 try:
                     # Track request time
-                    start_time = asyncio.get_event_loop().time()
+                    start_time = asyncio.get_running_loop().time()
 
                     response, body_truncated = await self._fetch_response(url, method, headers)
 
                     # Calculate response time
-                    response_time = asyncio.get_event_loop().time() - start_time
+                    response_time = asyncio.get_running_loop().time() - start_time
 
                     if response is None:
                         self.request_error_count += 1
@@ -820,7 +799,7 @@ class SearchApiEndpoints:
         self,
         url: str,
         method: str,
-        response,
+        response: FetcherResponse,
         response_time: float,
         *,
         body_truncated: bool = False,

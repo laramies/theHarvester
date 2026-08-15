@@ -171,6 +171,11 @@ def test_api_endpoint_scan_rejects_nonfinite_time_budgets(option: str, value: fl
         api_endpoints.SearchApiEndpoints('example.com', **{option: value})
 
 
+def test_api_endpoint_scan_rejects_fractional_request_timeout() -> None:
+    with pytest.raises(ValueError, match='timeout must be a positive integer'):
+        api_endpoints.SearchApiEndpoints('example.com', timeout=1.5)
+
+
 @pytest.mark.asyncio
 async def test_api_endpoint_scan_bounds_active_and_pending_work_and_preserves_order(monkeypatch) -> None:
     search = api_endpoints.SearchApiEndpoints('example.com', concurrency=3, exact_paths=True)
