@@ -10,7 +10,14 @@ import pytest
 import yaml
 
 import theHarvester.lib.core as core_module
-from theHarvester.lib.core import CONFIG_DIRS, DATA_DIR, AsyncFetcher, Core, FetcherResponse
+from theHarvester.lib.core import (
+    CONFIG_DIRS,
+    DATA_DIR,
+    AsyncFetcher,
+    Core,
+    FetcherResponse,
+    ResponseStreamError,
+)
 from theHarvester.lib.output import configure_logging
 from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass
 
@@ -377,6 +384,19 @@ async def test_fetch_creates_session_with_default_headers(monkeypatch) -> None:
     ]
 
 
+@pytest.mark.asyncio
+async def test_fetch_reused_session_uses_a_stable_explicit_ssl_policy(monkeypatch) -> None:
+    session = DummySession()
+    monkeypatch.setattr(AsyncFetcher, '_ssl_context', staticmethod(lambda _verify=True: object()))
+
+    await AsyncFetcher.fetch(session=session, url='https://example.com/one', verify=True)
+    await AsyncFetcher.fetch(session=session, url='https://example.com/two', verify=True)
+
+    ssl_policies = [request_options['ssl'] for _method, _url, request_options in session.requests]
+    assert ssl_policies == [True, True]
+    assert ssl_policies[0] is ssl_policies[1]
+
+
 def test_default_headers_add_project_identity_without_mutating_caller_headers(monkeypatch) -> None:
     monkeypatch.setattr(Core, 'get_user_agent', staticmethod(lambda: 'test-agent'))
     supplied = {'Accept': 'application/json'}
@@ -421,6 +441,44 @@ async def test_fetch_can_include_buffered_response_metadata(monkeypatch) -> None
         status=429,
         headers={'retry-after': '60', 'x-ratelimit-remaining': '0'},
     )
+
+
+@pytest.mark.asyncio
+async def test_fetch_rejects_a_buffered_response_over_the_explicit_byte_limit(monkeypatch) -> None:
+    reset_dummy_sessions()
+    monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
+    monkeypatch.setattr(core_module.ssl, 'create_default_context', lambda cafile=None: 'ssl-context')
+    monkeypatch.setattr(core_module.certifi, 'where', lambda: '/tmp/cacert.pem')
+
+    def oversized_response(self, method: str, url: str, **kwargs):
+        self.requests.append((method, url, kwargs))
+        return DummyResponse(status=206, headers={'Content-Type': 'application/json', 'X-Evidence': 'kept'})
+
+    monkeypatch.setattr(DummySession, 'request', oversized_response)
+
+    with pytest.raises(ResponseStreamError, match='response-limit') as raised:
+        await AsyncFetcher.fetch(url='https://example.com', include_metadata=True, response_byte_limit=4)
+
+    assert raised.value.status == 206
+    assert raised.value.headers == {'content-type': 'application/json', 'x-evidence': 'kept'}
+    assert DummySession.instances[0].closed is True
+
+
+@pytest.mark.asyncio
+async def test_limited_metadata_fetch_preserves_non_json_response_text(monkeypatch) -> None:
+    reset_dummy_sessions()
+    monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
+    monkeypatch.setattr(core_module.ssl, 'create_default_context', lambda cafile=None: 'ssl-context')
+    monkeypatch.setattr(core_module.certifi, 'where', lambda: '/tmp/cacert.pem')
+
+    result = await AsyncFetcher.fetch(
+        url='https://example.com',
+        json=True,
+        include_metadata=True,
+        response_byte_limit=100,
+    )
+
+    assert result == FetcherResponse(body='response-text', status=200, headers={})
 
 
 @pytest.mark.asyncio

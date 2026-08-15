@@ -44,8 +44,16 @@ StreamFraming = Literal['ndjson', 'sse']
 
 
 class ResponseStreamError(Exception):
-    def __init__(self, reason: StreamErrorReason) -> None:
+    def __init__(
+        self,
+        reason: StreamErrorReason,
+        *,
+        status: int | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> None:
         self.reason = reason
+        self.status = status
+        self.headers = headers or {}
         super().__init__(reason)
 
 
@@ -60,7 +68,10 @@ def _reject_json_constant(value: str) -> None:
     raise ValueError(f'invalid JSON constant: {value}')
 
 
-async def _bounded_response_chunks(content: Any, byte_limit: int) -> AsyncIterator[bytes]:
+async def _bounded_response_chunks(
+    content: Any,
+    byte_limit: int,
+) -> AsyncIterator[bytes]:
     bytes_read = 0
     try:
         async for chunk in content.iter_any():
@@ -553,8 +564,35 @@ class AsyncFetcher:
         *,
         json: bool,
         include_metadata: bool = False,
+        response_byte_limit: int | None = None,
     ) -> Any:
-        if json is False:
+        if response_byte_limit is not None:
+            response_headers = {name.lower(): value for name, value in response.headers.items()}
+            try:
+                try:
+                    if int(response_headers.get('content-length', '0')) > response_byte_limit:
+                        raise ResponseStreamError('response-limit')
+                except ValueError:
+                    pass
+                body_bytes = bytearray()
+                async for chunk in _bounded_response_chunks(response.content, response_byte_limit):
+                    body_bytes.extend(chunk)
+            except ResponseStreamError as error:
+                if error.status is None:
+                    error.status = response.status
+                    error.headers = response_headers
+                raise
+            text_body = bytes(body_bytes).decode(getattr(response, 'charset', None) or 'utf-8', errors='replace')
+            if json and text_body.strip():
+                try:
+                    body = json_loader.loads(text_body)
+                except ValueError:
+                    if not include_metadata:
+                        raise
+                    body = text_body
+            else:
+                body = text_body
+        elif json is False:
             body = await response.text()
         elif include_metadata:
             text_body = await response.text()
@@ -586,6 +624,7 @@ class AsyncFetcher:
         json_body: dict[str, Any] | None = None,
         request_timeout: int | None = None,
         include_metadata: bool = False,
+        response_byte_limit: int | None = None,
         **request_kwargs: Any,
     ) -> Any:
         if json_body is not None:
@@ -598,6 +637,7 @@ class AsyncFetcher:
                         response,
                         json=json,
                         include_metadata=include_metadata,
+                        response_byte_limit=response_byte_limit,
                     )
 
         async with session.request(method.upper(), url, **request_kwargs) as response:
@@ -605,6 +645,7 @@ class AsyncFetcher:
                 response,
                 json=json,
                 include_metadata=include_metadata,
+                response_byte_limit=response_byte_limit,
             )
 
     @staticmethod
@@ -716,20 +757,22 @@ class AsyncFetcher:
         follow_redirects: bool | None = None,
         request_timeout: int | None = None,
         include_metadata: bool = False,
+        response_byte_limit: int | None = None,
     ) -> Any:
         """Generic HTTP request helper.
         - If a session is not provided, one will be created and closed automatically.
         - Supports optional headers, method selection, proxy, ssl verification, redirects and timeout.
+        - An explicit response byte limit raises ``ResponseStreamError`` instead of buffering beyond it.
         - Returns response text or json depending on `json` flag.
         """
         try:
-            ssl_arg = cls._ssl_context(verify)
+            owns_session = session is None
+            ssl_arg = cls._ssl_context(verify) if owns_session or not isinstance(verify, bool) else verify
             proxy_url, proxy_type = cls._resolve_proxy(proxy)
             client_timeout = cls._request_timeout(request_timeout)
             req_headers = cls._default_headers(headers)
 
             # Decide whether we need to manage the session
-            owns_session = session is None
             if owns_session:
                 # Create connector based on proxy type
                 session = (
@@ -757,6 +800,7 @@ class AsyncFetcher:
                     json=json,
                     request_timeout=request_timeout,
                     include_metadata=include_metadata,
+                    response_byte_limit=response_byte_limit,
                     **request_kwargs,
                 )
             finally:

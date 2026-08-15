@@ -3034,39 +3034,40 @@ async def start(
             # Print results
             endpoints_found, interesting_endpoints, api_action_groups = collect_api_action_groups(api_scanner)
             output_logger.info(f'\n[*] API Endpoints found: {len(endpoints_found)}')
-            for endpoint in endpoints_found:
+            for endpoint in sorted(endpoints_found):
                 output_logger.info(f'    - {endpoint}')
 
             output_logger.info(f'\n[*] Interesting endpoints (200, 201, 202): {len(interesting_endpoints)}')
-            for endpoint in interesting_endpoints:
+            for endpoint in sorted(interesting_endpoints):
                 output_logger.info(f'    - {endpoint}')
 
             auth_required = api_scanner.get_auth_required()
             output_logger.info(f'\n[*] Endpoints requiring authentication: {len(auth_required)}')
-            for endpoint in auth_required:
+            for endpoint in sorted(auth_required):
                 output_logger.info(f'    - {endpoint}')
 
             api_versions = api_scanner.get_api_versions()
             output_logger.info(f'\n[*] Detected API versions: {len(api_versions)}')
-            for version in api_versions:
+            for version in sorted(api_versions):
                 output_logger.info(f'    - {version}')
 
             rate_limits = api_scanner.get_rate_limits()
             output_logger.info(f'\n[*] Rate limited endpoints: {len(rate_limits)}')
-            for endpoint, info in rate_limits.items():
+            for endpoint, info in sorted(rate_limits.items()):
                 output_logger.info(f'    - {endpoint} ({info.method})')
 
             methods = api_scanner.get_methods()
-            output_logger.info(f'\n[*] HTTP methods used: {", ".join(methods)}')
+            output_logger.info(f'\n[*] HTTP methods used: {", ".join(sorted(methods))}')
 
             status_codes = api_scanner.get_status_codes()
-            output_logger.info(f'\n[*] HTTP status codes encountered: {", ".join(map(str, status_codes))}')
+            output_logger.info(f'\n[*] HTTP status codes encountered: {", ".join(map(str, sorted(status_codes)))}')
 
             if endpoints_found or interesting_endpoints:
                 all_urls.extend(sorted(endpoints_found | interesting_endpoints))
 
             api_scan_error = api_scanner.scan_error_type
             api_request_errors = api_scanner.request_error_count
+            scanner_stop_reason = getattr(api_scanner, 'stop_reason', None)
             api_scan_status: ExecutionStatus = 'completed'
             api_error_type = None
             api_stop_reason = None
@@ -3074,13 +3075,17 @@ async def start(
                 api_scan_status = 'partial' if any(api_action_groups.values()) else 'failed'
                 api_error_type = api_scan_error
                 api_stop_reason = 'scan-error'
-            elif rate_limits:
-                api_scan_status = 'rate-limited'
-                api_stop_reason = 'rate-limited'
+            elif scanner_stop_reason in {'request-limit', 'runtime-limit'}:
+                api_scan_status = 'partial' if any(api_action_groups.values()) else 'failed'
+                api_error_type = next(iter(sorted(api_scanner.request_error_types)), None)
+                api_stop_reason = scanner_stop_reason
             elif api_request_errors:
                 api_scan_status = 'partial'
                 api_error_type = next(iter(sorted(api_scanner.request_error_types)), None)
                 api_stop_reason = 'request-errors'
+            elif rate_limits:
+                api_scan_status = 'rate-limited'
+                api_stop_reason = 'rate-limited'
             action_executions.append(
                 ActionExecution.finish(
                     action='api-scan',
@@ -3092,7 +3097,10 @@ async def start(
                 )
             )
 
-            output_logger.info('\n[+] API scanning completed successfully.')
+            if api_stop_reason is None:
+                output_logger.info('\n[+] API scanning completed successfully.')
+            else:
+                output_logger.info(f'\n[!] API scanning stopped with reason: {api_stop_reason}.')
 
         except asyncio.CancelledError:
             if not any(execution.action == 'api-scan' for execution in action_executions):
