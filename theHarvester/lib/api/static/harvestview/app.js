@@ -37,6 +37,8 @@
     runCount: $('#run-count'), historySearch: $('#history-search'), runList: $('#run-list'), historyEmpty: $('#history-empty'),
     detailTarget: $('#detail-target'), detailRunId: $('#detail-run-id'), statusChips: $('#status-chips'), cancel: $('#cancel-run-button'),
     runFacts: $('#run-facts'), lifecycleTrack: $('#lifecycle-track'), lifecycleNote: $('#lifecycle-note'),
+    assessmentEvidence: $('#assessment-evidence'), assessmentProducers: $('#assessment-producers'),
+    assessmentReview: $('#assessment-review'), reviewOutcomes: $('#review-outcomes-button'),
     resultsSection: $('#results-section'),
     activityBands: $('#activity-bands'), requestOptions: $('#request-options'), providerBody: $('#provider-body'),
     providerSummary: $('#provider-summary'), providerOutcomeSummary: $('#provider-outcome-summary'), providerEmpty: $('#provider-empty'),
@@ -341,14 +343,19 @@
     return errorType || execution.stop_reason?.replaceAll('-', ' ') || '-';
   }
 
-  function renderExecutions(run) {
-    const executions = [...(run.source_executions || []), ...(run.action_executions || [])];
+  function summarizeExecutions(executions) {
     const counts = {completed: 0, partial: 0, skipped: 0, failed: 0, 'rate-limited': 0};
     let zeroResultCount = 0;
     for (const execution of executions) {
       if (Object.hasOwn(counts, execution.status)) counts[execution.status] += 1;
       if (execution.status === 'completed' && Number(execution.result_count || 0) === 0) zeroResultCount += 1;
     }
+    return {counts, zeroResultCount};
+  }
+
+  function renderExecutions(run) {
+    const executions = [...(run.source_executions || []), ...(run.action_executions || [])];
+    const {counts, zeroResultCount} = summarizeExecutions(executions);
     nodes.providerSummary.textContent = executions.length;
     nodes.providerOutcomeSummary.hidden = executions.length === 0;
     nodes.providerOutcomeSummary.textContent = `${counts.completed} completed (${zeroResultCount} zero-result) / ${counts.partial} partial / ${counts.skipped} skipped / ${counts.failed} failed${counts['rate-limited'] ? ` / ${counts['rate-limited']} rate-limited` : ''}`;
@@ -357,6 +364,35 @@
       <tr><td>${escapeHtml(executionName(execution))}</td><td>${executionKind(execution)}</td><td>${statusChip(execution.status || 'unknown')}</td>
       <td>${Number(execution.result_count || 0).toLocaleString()}</td><td>${execution.duration_ms == null ? '-' : `${Math.round(execution.duration_ms).toLocaleString()} ms`}</td>
       <td>${escapeHtml(executionReason(execution))}</td></tr>`).join('');
+  }
+
+  function renderAssessment(run) {
+    const executions = [...(run.source_executions || []), ...(run.action_executions || [])];
+    const {counts} = summarizeExecutions(executions);
+    const evidenceStatus = run.evidence_status || (isTerminalStatus(run.status) ? 'Not recorded' : 'Pending');
+    const evidenceLabel = evidenceStatus.charAt(0).toUpperCase() + evidenceStatus.slice(1);
+    const resultDetail = formatCount(Number(run.result_count || 0), 'retained result');
+    nodes.assessmentEvidence.innerHTML = `${escapeHtml(evidenceLabel)}<small>${escapeHtml(resultDetail)}</small>`;
+    nodes.assessmentProducers.innerHTML = executions.length
+      ? `${counts.completed} of ${executions.length} completed`
+      : `${isTerminalStatus(run.status) ? 'No' : 'No recorded'} producer outcomes`;
+
+    const issues = [
+      counts.failed ? `${formatCount(counts.failed, 'failed producer')}` : '',
+      counts.partial ? `${formatCount(counts.partial, 'partial producer')}` : '',
+      counts['rate-limited'] ? `${formatCount(counts['rate-limited'], 'rate-limited producer')}` : '',
+      counts.skipped ? `${formatCount(counts.skipped, 'skipped producer')}` : '',
+    ].filter(Boolean);
+    if (issues.length || run.status === 'failed') {
+      nodes.assessmentReview.innerHTML = `Attention needed<small>${escapeHtml(issues.join(' · ') || run.error || 'Lifecycle failed')}</small>`;
+      nodes.reviewOutcomes.hidden = executions.length === 0;
+    } else if (!isTerminalStatus(run.status)) {
+      nodes.assessmentReview.innerHTML = `Collection in progress<small>Review outcomes as producers finish.</small>`;
+      nodes.reviewOutcomes.hidden = true;
+    } else {
+      nodes.assessmentReview.innerHTML = `No producer failures<small>The retained record is ready to inspect or export.</small>`;
+      nodes.reviewOutcomes.hidden = true;
+    }
   }
 
   function groupedResults() {
@@ -522,7 +558,7 @@
     nodes.copySelected.disabled = true;
     nodes.copySelected.textContent = 'Copy selected';
     const columns = [
-      {title: state.route === 'shodan-host' ? 'IP' : 'Value', field: 'value', formatter: cell => `<span class="value-cell">${escapeHtml(cell.getValue())}</span>`, minWidth: 260, widthGrow: 2, headerFilter: 'input', headerFilterFunc: columnTextFilter, headerFilterPlaceholder: 'Filter values'},
+      {title: state.route === 'shodan-host' ? 'IP' : 'Value', field: 'value', formatter: cell => `<span class="value-cell">${escapeHtml(cell.getValue())}</span>`, minWidth: 200, widthGrow: 2, responsive: 0, headerFilter: 'input', headerFilterFunc: columnTextFilter, headerFilterPlaceholder: 'Filter values'},
     ];
     if (state.route !== 'shodan-host') {
       columns.push(
@@ -559,8 +595,8 @@
     }
     if (state.route === 'hostname') {
       columns.push({
-        title: 'Actions', field: 'value', formatter: resultActionFormatter, headerSort: false,
-        minWidth: 265, width: 265, responsive: 0, resizable: false,
+        title: 'Actions', field: 'actions', formatter: resultActionFormatter, headerSort: false,
+        minWidth: 265, width: 265, responsive: 3, resizable: false,
         cellClick: (event, cell) => {
           const button = event.target.closest('[data-run-action]');
           if (!button) return;
@@ -700,6 +736,7 @@
     renderLifecycle(run);
     renderAuthorization(run);
     renderExecutions(run);
+    renderAssessment(run);
     if (!previousRun || previousRun.status !== run.status || JSON.stringify(previousRun.results) !== JSON.stringify(run.results)) {
       renderResults(run);
     }
@@ -1114,6 +1151,12 @@
   nodes.newRunForm.addEventListener('submit', submitRun);
   nodes.importForm.addEventListener('submit', submitImport);
   nodes.cancel.addEventListener('click', requestCancellation);
+  nodes.reviewOutcomes.addEventListener('click', () => {
+    nodes.providerDetails.open = true;
+    const summary = nodes.providerDetails.querySelector('summary');
+    summary.scrollIntoView({behavior: 'smooth', block: 'start'});
+    summary.focus({preventScroll: true});
+  });
   nodes.exportJsonl.addEventListener('click', downloadServerExport);
   nodes.copySelected.addEventListener('click', copySelected);
   nodes.resultSearch.addEventListener('input', event => {

@@ -1209,6 +1209,13 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
     expect(page.locator('#provider-outcome-summary')).to_have_text(
         f'23 completed (20 zero-result) / 0 partial / {len(ordered_sources) - 23} skipped / 0 failed'
     )
+    expect(page.locator('#assessment-evidence')).to_contain_text('Partial')
+    expect(page.locator('#assessment-evidence')).to_contain_text('9 retained results')
+    expect(page.locator('#assessment-producers')).to_have_text(f'23 of {len(ordered_sources)} completed')
+    expect(page.locator('#assessment-review')).to_contain_text(f'{len(ordered_sources) - 23} skipped')
+    page.locator('#review-outcomes-button').click()
+    expect(page.locator('#provider-details')).to_have_attribute('open', '')
+    expect(page.locator('#provider-details summary')).to_be_focused()
     expect(page.locator('#run-count')).to_have_text('1')
     expect(page.locator('#run-list button')).to_have_count(1)
     assert page.locator('#results-title').evaluate(
@@ -1221,7 +1228,6 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
         "node => Boolean(node.compareDocumentPosition(document.querySelector('#run-facts')) & Node.DOCUMENT_POSITION_FOLLOWING)"
     )
 
-    page.locator('.provider-details summary').click()
     missing_credentials_row = page.locator('#provider-body tr').filter(has_text=ordered_sources[23]['name'])
     expect(missing_credentials_row.locator('td').last).to_have_text(
         'Required credentials were not configured; add them, then retry.'
@@ -1291,10 +1297,13 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
 
     page.keyboard.press('Escape')
     expect(page.get_by_role('button', name='Start enumeration').first).to_be_focused()
+    page.get_by_role('button', name='Hostnames 1').click()
     page.set_viewport_size({'width': 390, 'height': 844})
     expect(page.locator('#provider-outcome-summary')).to_be_visible()
     expect(page.get_by_role('columnheader', name='Outcome')).to_be_visible()
     expect(page.get_by_role('columnheader', name='Results')).to_be_hidden()
+    expect(page.locator('.tabulator-col[tabulator-field="value"]')).to_be_visible()
+    assert page.locator('.tabulator-col[tabulator-field="value"]').bounding_box()['width'] >= 250
     expect(page.locator('#route-overflow-cue')).to_be_visible()
     value_filter.scroll_into_view_if_needed()
     expect(value_filter).to_be_visible()

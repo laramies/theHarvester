@@ -404,7 +404,7 @@ a:focus-visible {
 .detail-run-id { margin: 0; overflow-wrap: anywhere; color: var(--muted); font-size: 11px; }
 .detail-status { display: flex; flex: 0 0 auto; flex-direction: column; align-items: end; gap: 12px; }
 .status-chips { display: flex; flex-wrap: wrap; justify-content: end; gap: 6px; }
-.provider-outcome-summary { margin: -4px 0 0; color: var(--muted); font: 11px/1.4 var(--font-mono); }
+.provider-outcome-summary { margin: 5px 0 0; color: var(--muted); font-size: 11px; line-height: 1.4; }
 
 .status-chip {
   display: inline-flex;
@@ -432,6 +432,18 @@ a:focus-visible {
 .run-facts div:last-child { border: 0; }
 .run-facts dt { color: var(--muted); font: 700 10px/1.2 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; }
 .run-facts dd { margin: 6px 0 0; overflow-wrap: anywhere; font-weight: 720; }
+
+.run-assessment { margin-block: 24px 30px; border-block: 1px solid var(--line-strong); }
+.assessment-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 18px; padding: 14px 0 11px; }
+.assessment-heading h3 { margin: 0; font-size: 18px; letter-spacing: -0.02em; }
+.assessment-heading p { margin: 0; color: var(--muted); font-size: 12px; }
+.assessment-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; border-block-start: 1px solid var(--line); }
+.assessment-grid > div { min-width: 0; padding: 15px 16px 17px 0; }
+.assessment-grid > div + div { padding-inline-start: 16px; border-inline-start: 1px solid var(--line); }
+.assessment-grid dt { color: var(--muted); font: 700 10px/1.2 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; }
+.assessment-grid dd { margin: 6px 0 0; overflow-wrap: anywhere; font-size: 17px; font-weight: 760; }
+.assessment-grid dd small { display: block; margin-block-start: 4px; color: var(--muted); font-size: 11px; font-weight: 500; line-height: 1.4; }
+.assessment-review .button { margin-block-start: 10px; }
 
 .section-heading { display: flex; align-items: end; justify-content: space-between; gap: 18px; margin-block-end: 16px; }
 .section-heading.compact { align-items: start; margin-block-end: 13px; }
@@ -724,6 +736,10 @@ dialog[open] { animation: dialog-in 180ms cubic-bezier(0.22, 1, 0.36, 1); }
   .run-facts { grid-template-columns: 1fr 1fr; }
   .run-facts div, .run-facts div:nth-child(3), .run-facts div:nth-child(n+4) { padding: 12px 10px; border: 0; border-block-end: 1px solid var(--line); }
   .run-facts div:nth-child(odd) { padding-inline-start: 0; border-inline-end: 1px solid var(--line); }
+  .assessment-heading { align-items: start; flex-direction: column; gap: 4px; }
+  .assessment-grid { grid-template-columns: 1fr; }
+  .assessment-grid > div, .assessment-grid > div + div { padding: 13px 0 15px; border-inline-start: 0; border-block-end: 1px solid var(--line); }
+  .assessment-grid > div:last-child { border-block-end: 0; }
   .lifecycle-track { grid-template-columns: 1fr; }
   .lifecycle-step { min-height: 65px; padding: 0 0 18px 24px; border-block-start: 0; border-inline-start: 2px solid var(--line); }
   .lifecycle-step::before { inset: 0 auto auto -6px; }
