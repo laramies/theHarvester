@@ -237,7 +237,7 @@
               <textarea id="api-scan-paths" name="api_scan_paths" rows="3" placeholder="/api/v2&#10;/health"></textarea>
               <small>Optional list for API endpoint interaction, one URL path per line. Leave empty to use the bundled list.</small>
             </label>
-            <label class="inline-choice"><input type="checkbox" name="proxies"><span>Use configured proxies for discovery and takeover checks</span></label>
+            <label class="inline-choice"><input type="checkbox" name="proxies"><span>Use configured proxies for discovery and takeover checks. Takeover stops if no proxy is available.</span></label>
             <label class="inline-choice"><input type="checkbox" name="no_hosts"><span>Exclude hostname results and host-dependent processing</span></label>
           </div>
         </details>
@@ -269,7 +269,7 @@
             <label class="action-choice p1"><input type="checkbox" name="dns_resolve"><span><strong>P1 · DNS resolution</strong><small>Resolve with the configured resolver addresses. Deduplicate names; use up to 20 hostname jobs with per-query resolver timeouts and no default phase ceiling.</small></span></label>
             <label class="action-choice p1"><input type="checkbox" name="dns_brute"><span><strong>P1 · DNS brute force</strong><small>Query candidate labels against DNS.</small></span></label>
             <label class="action-choice p2"><input type="checkbox" name="screenshot"><span><strong>P2 · Screenshots</strong><small>Contact resolved hosts and capture pages.</small></span></label>
-            <label class="action-choice p2"><input type="checkbox" name="takeover"><span><strong>P2 · Takeover checks</strong><small>Contact discovered hosts, through configured proxies when enabled, for takeover evidence.</small></span></label>
+            <label class="action-choice p2"><input type="checkbox" name="takeover"><span><strong>P2 · Takeover checks</strong><small>Use provider DNS and wildcard controls before contacting an original discovered host. Redirects stay off. A match is not confirmation.</small></span></label>
             <label class="action-choice p2"><input type="checkbox" name="api_scan"><span><strong>P2 · API endpoint interaction</strong><small>Contact the target for endpoint evidence.</small></span></label>
           </div>
           <details class="advanced-execution">

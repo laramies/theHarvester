@@ -161,7 +161,9 @@ def test_readme_explains_jsonl_record_and_structured_evidence_parsing() -> None:
     assert '{"sources":[],"type":"hostname","value":"api.example.com"}' in readme
     assert 'select(.type == "dns-recursive-finding") | .value | fromjson' in readme
     assert 'JSONL is easy to stream one record at a time.' in readme
-    assert '`person`, `infostealer`, and `takeover`' in readme
+    assert '`person` and `infostealer`' in readme
+    assert 'Takeover outcomes instead keep the canonical hostname in `value`' in readme
+    assert 'typed status, DNS, wildcard, HTTP, rule, and error evidence in `details`' in readme
     assert 'select(.type == "shodan-host") | {ip: .value, services: .details.services}' in readme
     assert 'paginates both hostname and TLS-certificate searches' in readme
     assert 'scoped certificate CNs and SANs' in readme

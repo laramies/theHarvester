@@ -20,6 +20,7 @@ from theHarvester.lib.database import DuplicateRunError, ResultStore, ResultStor
 from theHarvester.lib.evidence_types import EXECUTION_STATUSES, EvidenceStatus, ExecutionStatus, ResultKind
 from theHarvester.lib.network_evidence import NetworkObservation, parse_network_observation_details
 from theHarvester.lib.shodan_evidence import ShodanHostObservation
+from theHarvester.lib.takeover_evidence import TakeoverCandidateOutcome, parse_takeover_details
 
 from .run_artifacts import RunPaths, read_child_evidence
 from .run_models import RunRequest, _normalize_target, utc_now
@@ -57,6 +58,7 @@ def _completed_result(
     network_observations: list[NetworkObservation] = []
     asn_attributions: list[AsnAttributionObservation] = []
     shodan_hosts: list[ShodanHostObservation] = []
+    takeover_outcomes: list[TakeoverCandidateOutcome] = []
     for item in results:
         kind = cast('ResultKind', str(item['type']))
         value = str(item['value'])
@@ -69,6 +71,8 @@ def _completed_result(
             asn_attributions.extend(parse_asn_attribution_details(value, item.get('observations')))
         elif kind == 'shodan-host':
             shodan_hosts.append(ShodanHostObservation.from_record(value, item.get('details')))
+        elif kind == 'takeover':
+            takeover_outcomes.append(parse_takeover_details(value, item.get('details')))
         for source in set(item.get('sources', [])):
             source_name = str(source)
             source_origins.add(ResultObservation(source_name, kind, value))
@@ -157,6 +161,7 @@ def _completed_result(
         network_observations=network_observations,
         asn_attributions=asn_attributions,
         shodan_hosts=shodan_hosts,
+        takeover_outcomes=takeover_outcomes,
         evidence_status=(
             cast('EvidenceStatus', str(evidence['status']))
             if evidence.get('status') is not None and not execution_status_is_authoritative

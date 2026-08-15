@@ -532,6 +532,113 @@ async def test_shodan_host_evidence_round_trips_without_a_json_string_value(tmp_
 
 
 @pytest.mark.asyncio
+async def test_takeover_evidence_round_trips_with_structured_details(tmp_path) -> None:
+    from theHarvester.lib.takeover_evidence import TakeoverCandidateOutcome
+
+    database = tmp_path / 'stash.sqlite'
+    store = ResultStore(database)
+    await store.initialize()
+    collected_at = datetime(2026, 8, 15, 12, 2, tzinfo=UTC)
+    outcome = TakeoverCandidateOutcome.from_record(
+        'bucket.example.test',
+        {
+            'status': 'indicator',
+            'dns': [
+                {
+                    'resolver': '1.1.1.1',
+                    'cname_chain': ['missing-bucket.s3.amazonaws.com'],
+                    'terminal_rcode': 'NOERROR',
+                }
+            ],
+            'wildcard_dns': [
+                {
+                    'resolver': '1.1.1.1',
+                    'cname_chain': [],
+                    'terminal_rcode': 'NXDOMAIN',
+                }
+            ],
+            'http': [{'scheme': 'https', 'status': 404}],
+            'indicators': [
+                {
+                    'classification': 'vulnerable-indicator',
+                    'service': 'AWS/S3',
+                    'rule_id': 'aws-s3',
+                    'rule_revision': 'takeover-rules-v1',
+                    'scheme': 'https',
+                    'matched': ['body:BucketName', 'body:The specified bucket does not exist'],
+                }
+            ],
+            'error_types': [],
+        },
+    )
+    no_indicator = TakeoverCandidateOutcome.from_record(
+        'live.example.test',
+        {
+            'status': 'no-indicator',
+            'dns': [
+                {
+                    'resolver': '1.1.1.1',
+                    'cname_chain': [],
+                    'terminal_rcode': 'NOERROR',
+                }
+            ],
+            'wildcard_dns': [],
+            'http': [],
+            'indicators': [],
+            'error_types': [],
+        },
+    )
+    inconclusive = TakeoverCandidateOutcome.from_record(
+        'uncertain.example.test',
+        {
+            'status': 'inconclusive',
+            'dns': [
+                {
+                    'resolver': '1.1.1.1',
+                    'cname_chain': [],
+                    'terminal_rcode': 'ERROR',
+                    'error_type': 'DNSTimeoutError',
+                }
+            ],
+            'wildcard_dns': [],
+            'http': [],
+            'indicators': [],
+            'error_types': ['DNSTimeoutError'],
+        },
+    )
+    outcomes = (outcome, no_indicator, inconclusive)
+    result = CompletedResult.finish(
+        target='example.test',
+        started_at=collected_at,
+        completed_at=collected_at,
+        groups={},
+        active_evidence=ActiveEvidence(
+            executions=(
+                ActionExecution.finish(
+                    action='takeover',
+                    status='completed',
+                    duration_ms=1,
+                    groups={'takeover': [item.hostname for item in outcomes]},
+                ),
+            )
+        ),
+        takeover_outcomes=outcomes,
+    )
+
+    await store.save_run(result)
+
+    assert await store.load_run(result.run_id) == result
+    with sqlite3.connect(database) as db:
+        stored = db.execute(
+            'SELECT kind, value, details_json FROM results WHERE run_id = ? ORDER BY value',
+            (str(result.run_id),),
+        ).fetchall()
+    assert stored == [
+        ('takeover', item.hostname, json.dumps(item.to_details(), separators=(',', ':'), sort_keys=True)) for item in outcomes
+    ]
+
+
+@pytest.mark.asyncio
 async def test_asn_organization_attribution_round_trips_in_a_normalized_table(tmp_path) -> None:
     database = tmp_path / 'stash.sqlite'
     store = ResultStore(database)
