@@ -17,8 +17,8 @@ def test_enumeration_options_fill_the_shared_execution_defaults() -> None:
     assert options == EnumerationOptions(domain='example.com', source='crtsh')
     assert options.limit == DEFAULT_RESULT_LIMIT == 500
     assert options.start == 0
-    assert options.dns_recursive_query_limit == DEFAULT_DNS_RECURSIVE_QUERY_LIMIT == 3_000
-    assert options.dns_recursive_runtime_seconds == DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS == 60.0
+    assert options.dns_recursive_query_limit == DEFAULT_DNS_RECURSIVE_QUERY_LIMIT is None
+    assert options.dns_recursive_runtime_seconds == DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS is None
 
 
 def test_enumeration_options_preserve_explicit_transport_values() -> None:

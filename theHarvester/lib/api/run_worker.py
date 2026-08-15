@@ -14,8 +14,6 @@ from weakref import WeakKeyDictionary
 import anyio
 
 from theHarvester.lib.enumeration import (
-    DEFAULT_DNS_RECURSIVE_QUERY_LIMIT,
-    DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS,
     DEFAULT_RESULT_START,
     EnumerationOptions,
 )
@@ -142,7 +140,8 @@ async def _execute_claimed(store: RunStore, run: dict[str, Any], owner_id: str |
         return
     wait_task = asyncio.create_task(process.wait())
     output_task = asyncio.create_task(_process_output(process))
-    deadline = asyncio.get_running_loop().time() + int(run['request']['deadline_seconds'])
+    deadline_seconds = run['request'].get('deadline_seconds')
+    deadline = None if deadline_seconds is None else asyncio.get_running_loop().time() + int(deadline_seconds)
     next_heartbeat = 0.0
     while not wait_task.done():
         await asyncio.sleep(0.05)
@@ -166,10 +165,10 @@ async def _execute_claimed(store: RunStore, run: dict[str, Any], owner_id: str |
             failure_message = 'theHarvester stopped before child completion' + (f'; {evidence_error}' if evidence_error else '')
             await store.fail(run_id, failure_message, await output_task, evidence=evidence)
             return
-        if asyncio.get_running_loop().time() >= deadline:
+        if deadline is not None and asyncio.get_running_loop().time() >= deadline:
             await _stop_process(process, wait_task)
             evidence, evidence_error = read_child_evidence(artifact_dir, str(run['target']))
-            failure_message = f'Run exceeded its {run["request"]["deadline_seconds"]} second deadline'
+            failure_message = f'Run exceeded its {deadline_seconds} second deadline'
             if evidence_error:
                 failure_message += f'; {evidence_error}'
             await store.fail(
@@ -306,8 +305,8 @@ async def _child_execute(run_id: str, database: Path) -> None:
         dns_brute=request.get('dns_brute', False),
         dns_lookup=request.get('dns_lookup', False),
         dns_recursive_depth=recursive_depth,
-        dns_recursive_query_limit=request.get('dns_recursive_query_limit', DEFAULT_DNS_RECURSIVE_QUERY_LIMIT),
-        dns_recursive_runtime_seconds=request.get('dns_recursive_runtime_seconds', DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS),
+        dns_recursive_query_limit=request.get('dns_recursive_query_limit'),
+        dns_recursive_runtime_seconds=request.get('dns_recursive_runtime_seconds'),
         dns_resolve=','.join(resolver_list) if request.get('dns_resolve') else '',
         dns_resolvers=tuple(resolver_list),
         dns_server=None,

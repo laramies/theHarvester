@@ -88,11 +88,14 @@ class RunRequest(BaseModel):
         ge=0,
         description='Starting result offset for providers that support pagination.',
     )
-    deadline_seconds: int = Field(
-        default=1800,
+    deadline_seconds: int | None = Field(
+        default=None,
         ge=30,
         le=86_400,
-        description='Hard deadline in seconds for the whole run, including every selected source and action.',
+        description=(
+            'Optional hard deadline for the whole run. Resolution, reverse, and recursive DNS runs default to '
+            'unlimited; other runs default to 1800 seconds.'
+        ),
     )
     proxies: bool = Field(
         default=False,
@@ -105,11 +108,17 @@ class RunRequest(BaseModel):
     dns_brute: bool = Field(default=False, description='Try wordlist candidates below the authorized target through DNS.')
     dns_lookup: bool = Field(
         default=False,
-        description="Perform reverse DNS lookup across each discovered IPv4 address's /24 network.",
+        description=(
+            'Reverse DNS across discovered IPv4 /24 ranges through one deduplicated job set capped at 20 active '
+            'PTR jobs. Query and runtime limits are unlimited by default.'
+        ),
     )
     dns_resolve: bool = Field(
         default=False,
-        description='Validate discovered hostnames through the configured resolver addresses.',
+        description=(
+            'Validate deduplicated discovered hostnames once per A, AAAA, and CNAME record through one run-wide '
+            'phase capped at 20 active hostname jobs. Query and runtime limits are unlimited by default.'
+        ),
     )
     dns_resolvers: list[str] = Field(
         default_factory=lambda: list(DEFAULT_DNS_RESOLVERS),
@@ -121,12 +130,12 @@ class RunRequest(BaseModel):
         ge=0,
         description='Maximum recursive label depth. Zero disables recursive DNS discovery.',
     )
-    dns_recursive_query_limit: int = Field(
+    dns_recursive_query_limit: int | None = Field(
         default=DEFAULT_DNS_RECURSIVE_QUERY_LIMIT,
         gt=0,
         description='Maximum DNS record queries shared across all three resolver vantages.',
     )
-    dns_recursive_runtime_seconds: float = Field(
+    dns_recursive_runtime_seconds: float | None = Field(
         default=DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS,
         gt=0,
         allow_inf_nan=False,
@@ -292,6 +301,8 @@ class RunRequest(BaseModel):
                 raise ValueError('RouteViews hostname target requires a discovery source') from error
         if self.dns_recursive_depth > 0 and len(self.dns_resolvers) != 3:
             raise ValueError('Recursive DNS requires exactly three distinct resolver IPs')
+        if self.deadline_seconds is None and not (self.dns_resolve or self.dns_lookup or self.dns_recursive_depth > 0):
+            self.deadline_seconds = 1800
         return self
 
 

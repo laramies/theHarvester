@@ -290,15 +290,15 @@
     const options = [
       ['Sources', sources], ['Result limit', request.limit ?? 'Imported evidence'],
       ['Result start offset', request.start ?? 'Not recorded'],
-      ['Whole-run deadline', request.deadline_seconds ? `${request.deadline_seconds} seconds` : 'Not applicable'],
+      ['Whole-run deadline', request.deadline_seconds === null ? 'Unlimited' : request.deadline_seconds === undefined ? 'Not recorded' : `${request.deadline_seconds} seconds`],
       ['Proxy transport', request.proxies ? 'Selected' : 'Off'],
       ['Hostname results', request.no_hosts ? 'Excluded' : 'Included'],
       ['DNS lookup (/24 reverse expansion)', request.dns_lookup ? 'Selected' : 'Off'],
       ['DNS resolution', request.dns_resolve ? 'Selected' : 'Off'], ['DNS brute force', request.dns_brute ? 'Selected' : 'Off'],
       ['DNS resolver vantages', request.dns_resolvers?.join(', ') || 'Not recorded'],
       ['Recursive DNS depth', request.dns_recursive_depth ?? 'Not recorded'],
-      ['Recursive DNS query budget', request.dns_recursive_query_limit ?? 'Not recorded'],
-      ['Recursive DNS runtime', request.dns_recursive_runtime_seconds ? `${request.dns_recursive_runtime_seconds} seconds` : 'Not recorded'],
+      ['Recursive DNS query budget', request.dns_recursive_query_limit === null ? 'Unlimited' : request.dns_recursive_query_limit === undefined ? 'Not recorded' : request.dns_recursive_query_limit],
+      ['Recursive DNS runtime', request.dns_recursive_runtime_seconds === null ? 'Unlimited' : request.dns_recursive_runtime_seconds === undefined ? 'Not recorded' : `${request.dns_recursive_runtime_seconds} seconds`],
       ['RouteViews enrichment', request.routeviews ? 'Selected' : 'Off'],
       ['Screenshots', request.screenshot ? 'Selected' : 'Off'],
       ['Takeover transport', request.takeover ? (request.proxies ? 'Configured proxy' : 'Direct') : 'Off'],
@@ -833,7 +833,7 @@
   function openNewRun() {
     nodes.newRunForm.reset();
     nodes.newRunForm.elements.limit.value = 500;
-    nodes.newRunForm.elements.deadline_seconds.value = 1800;
+    nodes.newRunForm.elements.deadline_seconds.value = '';
     state.selectedSources = new Set(state.sources.some(source => source.name === 'crtsh') ? ['crtsh'] : [state.sources[0]?.name].filter(Boolean));
     nodes.sourceSearch.value = '';
     nodes.sourceCapability.value = '';
@@ -929,13 +929,13 @@
     }
     const payload = {
       target: form.get('target'), sources: [...state.selectedSources], limit: Number(form.get('limit')),
-      start: Number(form.get('start')), deadline_seconds: Number(form.get('deadline_seconds')),
+      start: Number(form.get('start')), deadline_seconds: form.get('deadline_seconds') ? Number(form.get('deadline_seconds')) : null,
       proxies: form.has('proxies'), no_hosts: form.has('no_hosts'),
       dns_lookup: form.has('dns_lookup'), dns_resolve: form.has('dns_resolve'),
       dns_resolvers: String(form.get('dns_resolvers')).split(',').map(value => value.trim()),
       dns_recursive_depth: Number(form.get('dns_recursive_depth')),
-      dns_recursive_query_limit: Number(form.get('dns_recursive_query_limit')),
-      dns_recursive_runtime_seconds: Number(form.get('dns_recursive_runtime_seconds')),
+      dns_recursive_query_limit: form.get('dns_recursive_query_limit') ? Number(form.get('dns_recursive_query_limit')) : null,
+      dns_recursive_runtime_seconds: form.get('dns_recursive_runtime_seconds') ? Number(form.get('dns_recursive_runtime_seconds')) : null,
       dns_brute: form.has('dns_brute'), shodan: form.has('shodan'), routeviews: form.has('routeviews'),
       screenshot: form.has('screenshot'),
       takeover: form.has('takeover'), api_scan: form.has('api_scan'),

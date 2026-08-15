@@ -1198,9 +1198,10 @@ def test_worker_fails_run_without_attaching_child_evidence_for_another_target(tm
 
     async def scenario():
         store = RunStore(tmp_path / 'runs.sqlite')
-        await store.create(RunRequest(target='expected.example', sources=['crtsh']))
+        await store.create(RunRequest(target='expected.example', sources=['crtsh'], dns_resolve=True))
         run = await store.claim_next()
         assert run is not None
+        assert run['request']['deadline_seconds'] is None
         await run_worker._execute_claimed(store, run)
         return await store.get(run['run_id'])
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Self
 
-from theHarvester.lib.recursive_dns import DEFAULT_RECURSIVE_DNS_QUERY_LIMIT
+from theHarvester.lib.recursive_dns import DEFAULT_RECURSIVE_DNS_QUERY_LIMIT, DEFAULT_RECURSIVE_DNS_RUNTIME_SECONDS
 from theHarvester.lib.virtual_host import (
     DEFAULT_VHOST_CONCURRENCY,
     DEFAULT_VHOST_REQUEST_LIMIT,
@@ -14,7 +14,7 @@ from theHarvester.lib.virtual_host import (
 DEFAULT_RESULT_LIMIT = 500
 DEFAULT_RESULT_START = 0
 DEFAULT_DNS_RECURSIVE_QUERY_LIMIT = DEFAULT_RECURSIVE_DNS_QUERY_LIMIT
-DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS = 60.0
+DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS = DEFAULT_RECURSIVE_DNS_RUNTIME_SECONDS
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,8 +38,8 @@ class EnumerationOptions:
     dns_lookup: bool = False
     dns_brute: bool = False
     dns_recursive_depth: int = 0
-    dns_recursive_query_limit: int = DEFAULT_DNS_RECURSIVE_QUERY_LIMIT
-    dns_recursive_runtime_seconds: float = DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS
+    dns_recursive_query_limit: int | None = DEFAULT_DNS_RECURSIVE_QUERY_LIMIT
+    dns_recursive_runtime_seconds: float | None = DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS
     filename: str = ''
     wordlist: str = ''
     api_scan: bool = False

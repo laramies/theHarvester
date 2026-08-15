@@ -7,14 +7,18 @@ Explore the space around known hosts & ips for extra catches.
 
 import asyncio
 import logging
+import math
 import re
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from dataclasses import dataclass
 from ipaddress import IPv4Network
+from itertools import chain, islice
 
 from aiodns import DNSResolver
 
 from theHarvester.lib import hostchecker
+from theHarvester.lib.cancellation import drain_tasks_after_cancellation
 from theHarvester.lib.core import DATA_DIR
 
 logger = logging.getLogger(__name__)
@@ -32,6 +36,8 @@ class DnsForce:
         self.subdo = False
         self.verbose = verbose
         self.records: dict[str, hostchecker.HostDnsRecords] = {}
+        self.completed_count = 0
+        self.stop_reason: str | None = None
         self.query_error_count = 0
         self.query_error_types: set[str] = set()
         # self.dnsserver = [dnsserver] if isinstance(dnsserver, str) else dnsserver
@@ -43,9 +49,17 @@ class DnsForce:
 
     async def run(self):
         logger.info(f'Starting DNS brute forcing with {len(self.list)} words')
-        checker = hostchecker.Checker(self.list, nameservers=self.dnsserver)
+        checker = hostchecker.Checker(
+            self.list,
+            nameservers=self.dnsserver,
+            concurrency=50,
+            request_limit=None,
+            runtime_seconds=None,
+        )
         resolved_pair, hosts, ips = await checker.check()
         self.records = checker.records
+        self.completed_count = getattr(checker, 'completed_count', len(self.list))
+        self.stop_reason = getattr(checker, 'stop_reason', None)
         self.query_error_count = getattr(checker, 'query_error_count', 0)
         self.query_error_types = set(getattr(checker, 'query_error_types', set()))
         return resolved_pair, hosts, ips
@@ -93,6 +107,16 @@ def serialize_ip_range(ip: str, netmask: str = '24') -> str:
     return ''
 
 
+def iter_ips_in_network_range(iprange: str) -> Iterator[str]:
+    """Yield usable addresses from a network without materializing the range."""
+    try:
+        network = IPv4Network(iprange, strict=False)
+    except Exception:
+        return
+    for address in network.hosts():
+        yield address.exploded
+
+
 def list_ips_in_network_range(iprange: str) -> list[str]:
     """List all the IPs in the range.
 
@@ -108,11 +132,7 @@ def list_ips_in_network_range(iprange: str) -> list[str]:
         The list of IPs in the range.
 
     """
-    try:
-        __network = IPv4Network(iprange, strict=False)
-        return [__address.exploded for __address in __network.hosts()]
-    except Exception:
-        return []
+    return list(iter_ips_in_network_range(iprange))
 
 
 async def reverse_single_ip(ip: str, resolver: DNSResolver, error_types: set[str] | None = None) -> str:
@@ -137,14 +157,146 @@ async def reverse_single_ip(ip: str, resolver: DNSResolver, error_types: set[str
         return ''
 
 
+@dataclass(frozen=True, slots=True)
+class ReverseDNSResult:
+    request_count: int
+    completed_count: int
+    stop_reason: str | None = None
+
+
+async def reverse_ip_ranges(
+    ipranges: tuple[str, ...],
+    callback: Callable[[str], None],
+    nameservers: list[str] | None = None,
+    error_types: set[str] | None = None,
+    *,
+    concurrency: int = hostchecker.DEFAULT_DNS_CONCURRENCY,
+    request_limit: int | None = hostchecker.DEFAULT_DNS_REQUEST_LIMIT,
+    runtime_seconds: float | None = hostchecker.DEFAULT_DNS_RUNTIME_SECONDS,
+) -> ReverseDNSResult:
+    """Reverse unique addresses from all ranges through one bounded job set."""
+    if isinstance(concurrency, bool) or not isinstance(concurrency, int) or concurrency <= 0:
+        raise ValueError('reverse DNS concurrency must be a positive integer')
+    if request_limit is not None and (
+        isinstance(request_limit, bool) or not isinstance(request_limit, int) or request_limit <= 0
+    ):
+        raise ValueError('reverse DNS request limit must be a positive integer')
+    if runtime_seconds is not None and (
+        isinstance(runtime_seconds, bool)
+        or not isinstance(runtime_seconds, (int, float))
+        or not math.isfinite(runtime_seconds)
+        or runtime_seconds <= 0
+    ):
+        raise ValueError('reverse DNS runtime must be a positive finite number')
+    seen_addresses: set[str] = set()
+
+    def addresses() -> Iterator[str]:
+        for iprange in ipranges:
+            for address in iter_ips_in_network_range(iprange):
+                if address not in seen_addresses:
+                    seen_addresses.add(address)
+                    yield address
+
+    remaining_jobs = addresses()
+    initial_job_limit = concurrency if request_limit is None else min(concurrency, request_limit + 1)
+    initial_jobs = tuple(islice(remaining_jobs, initial_job_limit))
+    if not initial_jobs:
+        return ReverseDNSResult(0, 0)
+    jobs = iter(chain(initial_jobs, remaining_jobs))
+    worker_count = min(concurrency, len(initial_jobs), request_limit or concurrency)
+
+    resolver = DNSResolver(loop=asyncio.get_running_loop(), timeout=8, nameservers=nameservers)
+    tasks: list[asyncio.Task[None]] = []
+    request_count = 0
+    completed_count = 0
+    stop_reason: str | None = None
+    capacity_checked = False
+    primary_cancellation: asyncio.CancelledError | None = None
+
+    def next_address() -> str | None:
+        nonlocal capacity_checked, request_count, stop_reason
+        if request_limit is not None and request_count >= request_limit:
+            if not capacity_checked:
+                capacity_checked = True
+                try:
+                    next(jobs)
+                except StopIteration:
+                    pass
+                else:
+                    stop_reason = 'query-limit'
+            return None
+        try:
+            address = next(jobs)
+        except StopIteration:
+            return None
+        request_count += 1
+        return address
+
+    async def worker() -> None:
+        nonlocal completed_count, primary_cancellation
+        try:
+            while (address := next_address()) is not None:
+                log_query(address)
+                host = await reverse_single_ip(address, resolver, error_types)
+                callback(host)
+                log_result(host)
+                completed_count += 1
+        except asyncio.CancelledError as error:
+            if primary_cancellation is None:
+                primary_cancellation = error
+            current_task = asyncio.current_task()
+            for task in tasks:
+                if task is not current_task and not task.done():
+                    task.cancel()
+            raise
+
+    phase_error: BaseException | None = None
+    try:
+        try:
+
+            async def run_workers() -> None:
+                async with asyncio.TaskGroup() as group:
+                    for index in range(worker_count):
+                        tasks.append(group.create_task(worker(), name=f'reverse-dns:{index}'))
+                if primary_cancellation is not None:
+                    raise primary_cancellation
+
+            if runtime_seconds is None:
+                await run_workers()
+            else:
+                async with asyncio.timeout(runtime_seconds):
+                    await run_workers()
+        except TimeoutError:
+            stop_reason = 'runtime-limit'
+    except BaseException as error:
+        phase_error = error
+
+    cleanup_interruptions: tuple[asyncio.CancelledError, ...] = ()
+    close_error: BaseException | None = None
+    if close := getattr(resolver, 'close', None):
+        close_task = asyncio.create_task(close(), name='reverse-dns-resolver-close')
+        cleanup_interruptions = await drain_tasks_after_cancellation((close_task,), cancel=False)
+        close_error = (
+            asyncio.CancelledError('reverse DNS resolver close cancelled') if close_task.cancelled() else close_task.exception()
+        )
+    if isinstance(phase_error, asyncio.CancelledError):
+        raise phase_error
+    if cleanup_interruptions:
+        raise cleanup_interruptions[0]
+    if phase_error is not None:
+        raise phase_error
+    if close_error is not None:
+        raise close_error
+    return ReverseDNSResult(request_count, completed_count, stop_reason)
+
+
 async def reverse_all_ips_in_range(
     iprange: str,
     callback: Callable,
     nameservers: list[str] | None = None,
     error_types: set[str] | None = None,
 ) -> None:
-    """Reverse all the IPs stored in a network range.
-    All the queries are made concurrently.
+    """Reverse one range through the bounded global reverse-DNS implementation.
 
     Parameters
     ----------
@@ -163,13 +315,7 @@ async def reverse_all_ips_in_range(
     out: None.
 
     """
-    loop = asyncio.get_event_loop()
-    __resolver = DNSResolver(loop=loop, timeout=8, nameservers=nameservers)
-    for __ip in list_ips_in_network_range(iprange):
-        log_query(__ip)
-        __host = await reverse_single_ip(ip=__ip, resolver=__resolver, error_types=error_types)
-        callback(__host)
-        log_result(__host)
+    await reverse_ip_ranges((iprange,), callback, nameservers, error_types)
 
 
 #####################################################################
