@@ -62,6 +62,11 @@ from theHarvester.lib.network_evidence import (
     parse_network_observation_json,
 )
 from theHarvester.lib.shodan_evidence import ShodanHostObservation, canonical_shodan_hosts
+from theHarvester.lib.takeover_evidence import (
+    TakeoverCandidateOutcome,
+    canonical_takeover_outcomes,
+    parse_takeover_details,
+)
 from theHarvester.lib.virtual_host import VirtualHostObservation
 
 if TYPE_CHECKING:
@@ -754,6 +759,7 @@ class ResultStore:
         for network_observation in result.network_observations:
             network_by_prefix.setdefault(network_observation.prefix, []).append(network_observation)
         shodan_by_ip = {observation.ip: observation for observation in result.shodan_hosts}
+        takeover_by_hostname = {outcome.hostname: outcome for outcome in result.takeover_outcomes}
         async with self._session() as session:
             try:
                 session.add(
@@ -794,6 +800,13 @@ class ResultStore:
                                 sort_keys=True,
                             )
                             if kind == 'shodan-host' and value in shodan_by_ip
+                            else json.dumps(
+                                takeover_by_hostname[value].to_details(),
+                                ensure_ascii=False,
+                                separators=(',', ':'),
+                                sort_keys=True,
+                            )
+                            if kind == 'takeover' and value in takeover_by_hostname
                             else None
                         ),
                     )
@@ -911,6 +924,7 @@ class ResultStore:
         virtual_hosts: list[VirtualHostObservation] = []
         network_observations: list[NetworkObservation] = []
         shodan_hosts: list[ShodanHostObservation] = []
+        takeover_outcomes: list[TakeoverCandidateOutcome] = []
         for result_row in rows:
             has_vhost_provenance = result_row.position in vhost_result_positions
             if has_vhost_provenance:
@@ -936,6 +950,18 @@ class ResultStore:
                 if shodan_host.to_details() != details:
                     raise ResultStoreError(f'Persisted Shodan host details are not canonical: {result_row.value}')
                 shodan_hosts.append(shodan_host)
+                continue
+            if result_row.kind == 'takeover':
+                if result_row.details_json is None:
+                    raise ResultStoreError(f'Persisted takeover details are missing: {result_row.value}')
+                try:
+                    details = json.loads(result_row.details_json)
+                    takeover_outcome = parse_takeover_details(result_row.value, details)
+                except (json.JSONDecodeError, ValueError) as error:
+                    raise ResultStoreError(f'Persisted takeover details are invalid: {result_row.value}') from error
+                if takeover_outcome.to_details() != details:
+                    raise ResultStoreError(f'Persisted takeover details are not canonical: {result_row.value}')
+                takeover_outcomes.append(takeover_outcome)
                 continue
             if result_row.details_json is None:
                 continue
@@ -1065,6 +1091,7 @@ class ResultStore:
             network_observations=tuple(sorted(set(network_observations), key=network_observation_sort_key)),
             asn_attributions=canonical_attributions,
             shodan_hosts=canonical_shodan_hosts(shodan_hosts),
+            takeover_outcomes=canonical_takeover_outcomes(takeover_outcomes),
             evidence_status=cast('EvidenceStatus', parent.evidence_status) if parent.evidence_status is not None else None,
         )
 

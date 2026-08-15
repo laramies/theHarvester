@@ -9,7 +9,7 @@ import secrets
 import string
 import sys
 import time
-from collections.abc import Awaitable, Callable, Iterable, Mapping
+from collections.abc import Awaitable, Callable, Iterable
 from contextlib import AsyncExitStack
 from datetime import UTC, datetime
 from ipaddress import ip_address, ip_network
@@ -85,6 +85,7 @@ from theHarvester.screenshot.screenshot import ScreenShotter
 
 if TYPE_CHECKING:
     from theHarvester.lib.network_evidence import NetworkObservation
+    from theHarvester.lib.takeover_evidence import TakeoverCandidateOutcome
 
 logger = logging.getLogger(__name__)
 
@@ -179,7 +180,7 @@ async def start(
     parser.add_argument(
         '-p',
         '--proxies',
-        help='Use proxies.yaml for supported discovery-source, Shodan, and takeover requests.',
+        help='Use proxies.yaml for supported discovery-source, Shodan, and takeover requests. Takeover fails closed if no proxy is available.',
         default=False,
         action='store_true',
     )
@@ -222,7 +223,11 @@ async def start(
     parser.add_argument(
         '-t',
         '--take-over',
-        help='Check discovered hosts for known takeover indicators, using configured proxies when enabled.',
+        help=(
+            'Check discovered hosts for provider-gated takeover indicators. Uses configured DNS resolvers and '
+            'wildcard controls, does not follow redirects, and uses configured proxies when enabled. Indicators '
+            'are not confirmed takeovers.'
+        ),
         default=False,
         action='store_true',
     )
@@ -534,7 +539,8 @@ async def start(
     screenshot_ip_addresses: set[str] = set()
     shodan_hosts: dict[str, ShodanHostObservation] = {}
     shodan_action_hosts: set[str] = set()
-    takeover_results: dict[str, list[dict[str, str]]] = {}
+    takeover_results: dict[str, dict[str, object]] = {}
+    takeover_outcomes: list[TakeoverCandidateOutcome] = []
     linkedin_people_list_tracker = []
     twitter_people_list_tracker = []
     total_asns = []
@@ -646,6 +652,7 @@ async def start(
                 asn_attributions=asn_attributions,
                 virtual_hosts=vhost_observations if collect_hosts else (),
                 shodan_hosts=tuple(shodan_hosts.values()),
+                takeover_outcomes=takeover_outcomes,
             )
         except (ValueError, TypeError) as error:
             output_logger.info(f'[!] An error occurred while completing the result: {error}')
@@ -1373,28 +1380,26 @@ async def start(
                 )
             )
         else:
-            search_take: takeover.TakeOver | None = None
+            search_take: takeover.TakeoverScanner | None = None
 
-            def normalize_takeover_evidence(results: Mapping[str, object]) -> set[str]:
-                return {
-                    json.dumps({'matches': matches, 'url': url}, separators=(',', ':'), sort_keys=True)
-                    for url, matches in results.items()
-                }
-
-            async def collect_takeover_evidence(*, best_effort: bool = False) -> tuple[dict[str, list[dict[str, str]]], set[str]]:
+            async def collect_takeover_evidence(*, best_effort: bool = False) -> tuple[dict[str, dict[str, object]], set[str]]:
                 if search_take is None:
                     return {}, set()
                 try:
-                    results = await search_take.get_takeover_results()
+                    outcomes = await search_take.get_takeover_outcomes()
                 except (asyncio.CancelledError, Exception):
                     if not best_effort:
                         raise
                     return {}, set()
-                return results, normalize_takeover_evidence(results)
+                takeover_outcomes[:] = list(outcomes)
+                return ({outcome.hostname: outcome.to_details() for outcome in outcomes}, {item.hostname for item in outcomes})
 
             try:
-                search_take = takeover.TakeOver(all_hosts)
-                await search_take.populate_fingerprints()
+                search_take = takeover.TakeoverScanner(
+                    all_hosts,
+                    target=word,
+                    nameservers=final_dns_resolver_list or DEFAULT_DNS_RESOLVERS,
+                )
                 await search_take.process(proxy=use_proxy)
                 takeover_results, takeover_evidence = await collect_takeover_evidence()
             except (asyncio.CancelledError, Exception) as error:
@@ -1413,14 +1418,16 @@ async def start(
                 raise
             assert search_take is not None
             takeover_request_errors = search_take.request_error_count
+            takeover_dns_errors = search_take.dns_error_count
+            takeover_inconclusive = getattr(search_take, 'inconclusive_count', 0)
             takeover_scan_error = search_take.scan_error_type
             takeover_status_value: ExecutionStatus = 'completed'
             if takeover_scan_error:
                 takeover_status_value = 'partial' if takeover_evidence else 'failed'
-            elif takeover_request_errors:
-                takeover_status_value = (
-                    'partial' if takeover_evidence or takeover_request_errors < search_take.request_count else 'failed'
-                )
+            elif takeover_inconclusive:
+                takeover_status_value = 'failed' if takeover_inconclusive == search_take.candidate_count else 'partial'
+            elif takeover_request_errors or takeover_dns_errors:
+                takeover_status_value = 'partial'
             action_executions.append(
                 ActionExecution.finish(
                     action='takeover',
@@ -1428,7 +1435,10 @@ async def start(
                     duration_ms=(time.perf_counter() - takeover_started) * 1000,
                     groups={'takeover': takeover_evidence},
                     error_type=takeover_scan_error or next(iter(sorted(search_take.request_error_types)), None),
-                    stop_reason=('scan-error' if takeover_scan_error else 'request-errors' if takeover_request_errors else None),
+                    stop_reason=(
+                        search_take.stop_reason
+                        or ('request-errors' if takeover_request_errors else 'query-errors' if takeover_dns_errors else None)
+                    ),
                 )
             )
         await checkpoint_action_result()

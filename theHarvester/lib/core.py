@@ -488,11 +488,19 @@ class AsyncFetcher:
         proxy_url: str | None = None,
         proxy_type: str | None = None,
         ssl_context: ssl.SSLContext | bool | None = None,
+        cookie_jar: aiohttp.abc.AbstractCookieJar | None = None,
     ) -> aiohttp.ClientSession:
         connector = None
-        if proxy_url is not None or proxy_type is not None:
+        if proxy_url is not None or proxy_type is not None or ssl_context is not None:
             connector = await cls._create_connector(proxy_url, proxy_type, ssl_context)
-        return aiohttp.ClientSession(headers=headers, timeout=client_timeout, connector=connector)
+        session_kwargs: dict[str, Any] = {
+            'headers': headers,
+            'timeout': client_timeout,
+            'connector': connector,
+        }
+        if cookie_jar is not None:
+            session_kwargs['cookie_jar'] = cookie_jar
+        return aiohttp.ClientSession(**session_kwargs)
 
     @staticmethod
     async def _read_response(
@@ -751,29 +759,35 @@ class AsyncFetcher:
         cls,
         url: str,
         *,
+        session: aiohttp.ClientSession | None = None,
         params: Sized = '',
         proxy: str | bool | None = '',
         headers: dict[str, str] | None = None,
         follow_redirects: bool = False,
         request_timeout: int | None = 60,
     ) -> AsyncIterator[aiohttp.ClientResponse]:
+        owns_session = session is None
+        proxy_url, proxy_type = cls._resolve_proxy(proxy)
+        ssl_arg: ssl.SSLContext | bool | None = None
+        if owns_session:
+            try:
+                ssl_arg = cls._ssl_context()
+                session = await cls._build_session(
+                    cls._default_headers(headers),
+                    aiohttp.ClientTimeout(total=request_timeout),
+                    proxy_url,
+                    proxy_type,
+                    ssl_arg,
+                )
+            except (aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, ValueError) as error:
+                raise ResponseStreamError('transport-error') from error
+        assert session is not None
         try:
-            ssl_arg = cls._ssl_context()
-            proxy_url, proxy_type = cls._resolve_proxy(proxy)
-            session = await cls._build_session(
-                cls._default_headers(headers),
-                cls._request_timeout(request_timeout),
-                proxy_url,
-                proxy_type,
-                ssl_arg,
-            )
-        except (aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, ValueError) as error:
-            raise ResponseStreamError('transport-error') from error
-        try:
-            request_kwargs: dict[str, Any] = {
-                'ssl': ssl_arg,
-                'allow_redirects': follow_redirects,
-            }
+            request_kwargs: dict[str, Any] = {'allow_redirects': follow_redirects}
+            if owns_session:
+                request_kwargs['ssl'] = ssl_arg
+            elif headers is not None:
+                request_kwargs['headers'] = cls._default_headers(headers)
             if proxy_url and proxy_type == 'http':
                 request_kwargs['proxy'] = proxy_url
             if params != '':
@@ -785,7 +799,8 @@ class AsyncFetcher:
                     raise ResponseStreamError('transport-error') from error
                 yield response
         finally:
-            await session.close()
+            if owns_session:
+                await session.close()
 
     @classmethod
     async def fetch_json(
@@ -827,6 +842,50 @@ class AsyncFetcher:
             return FetcherResponse(body=parsed, status=response.status, headers=response_headers)
 
     @classmethod
+    async def fetch_text(
+        cls,
+        url: str,
+        *,
+        session: aiohttp.ClientSession | None = None,
+        proxy: str | bool | None = '',
+        headers: dict[str, str] | None = None,
+        follow_redirects: bool = False,
+        request_timeout: int | None = None,
+        response_byte_limit: int = MAX_PROVIDER_JSON_BYTES,
+    ) -> FetcherResponse:
+        """Fetch one bounded text response while preserving status and headers."""
+        if isinstance(response_byte_limit, bool) or not isinstance(response_byte_limit, int) or response_byte_limit <= 0:
+            raise ValueError('response byte limit must be greater than zero')
+        async with cls._open_get_response(
+            url,
+            session=session,
+            proxy=proxy,
+            headers=headers,
+            follow_redirects=follow_redirects,
+            request_timeout=request_timeout,
+        ) as response:
+            response_headers = {name.lower(): value for name, value in response.headers.items()}
+            try:
+                try:
+                    if int(response_headers.get('content-length', '0')) > response_byte_limit:
+                        raise ResponseStreamError('response-limit')
+                except ValueError:
+                    pass
+                body = bytearray()
+                async for chunk in _bounded_response_chunks(response.content, response_byte_limit):
+                    body.extend(chunk)
+            except ResponseStreamError as error:
+                if error.status is None:
+                    error.status = response.status
+                    error.headers = response_headers
+                raise
+            return FetcherResponse(
+                body=bytes(body).decode(getattr(response, 'charset', None) or 'utf-8', errors='replace'),
+                status=response.status,
+                headers=response_headers,
+            )
+
+    @classmethod
     @contextlib.asynccontextmanager
     async def stream_records(
         cls,
@@ -862,25 +921,6 @@ class AsyncFetcher:
                 _framing=framing,
             )
 
-    @staticmethod
-    async def takeover_fetch(
-        session,
-        url: str,
-        proxy: str | None = None,
-        headers: dict[str, str] | None = None,
-        include_metadata: bool = False,
-    ) -> tuple[Any, Any] | str:
-        _, proxy_type = AsyncFetcher._resolve_proxy(proxy)
-        response = await AsyncFetcher.fetch(
-            session=None if proxy_type == 'socks5' else session,
-            url=url,
-            proxy=proxy,
-            headers=headers,
-            request_timeout=15,
-            include_metadata=include_metadata,
-        )
-        return url, response
-
     @classmethod
     async def fetch_all(
         cls,
@@ -888,50 +928,12 @@ class AsyncFetcher:
         headers=None,
         params: Sized = '',
         json: bool = False,
-        takeover: bool = False,
         proxy: bool = False,
         include_metadata: bool = False,
     ) -> list:
         # By default, timeout is 5 minutes; 60 seconds should suffice
         headers = cls._default_headers(headers)
         timeout = cls._request_timeout(60)
-        if takeover:
-            async with aiohttp.ClientSession(
-                headers=headers,
-                timeout=aiohttp.ClientTimeout(total=15),
-            ) as session:
-                if proxy:
-                    # Get random proxy for each URL
-                    proxy_urls = [cls._get_random_proxy(cls().proxy_list)[0] for _ in urls]
-                    return list(
-                        await asyncio.gather(
-                            *[
-                                AsyncFetcher.takeover_fetch(
-                                    session,
-                                    url,
-                                    proxy=proxy_url,
-                                    headers=headers,
-                                    include_metadata=include_metadata,
-                                )
-                                for url, proxy_url in zip(urls, proxy_urls, strict=False)
-                            ]
-                        )
-                    )
-                else:
-                    return list(
-                        await asyncio.gather(
-                            *[
-                                AsyncFetcher.takeover_fetch(
-                                    session,
-                                    url,
-                                    headers=headers,
-                                    include_metadata=include_metadata,
-                                )
-                                for url in urls
-                            ]
-                        )
-                    )
-
         if len(params) == 0:
             async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
                 if proxy:

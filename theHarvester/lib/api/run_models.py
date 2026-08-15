@@ -162,7 +162,11 @@ class RunRequest(BaseModel):
     )
     takeover: bool = Field(
         default=False,
-        description='Check discovered hosts for takeover indicators, using configured proxies when enabled.',
+        description=(
+            'Check discovered hosts for DNS provider-gated takeover indicators, with wildcard controls and no redirects. '
+            'Requests use configured proxies when enabled and fail closed when none are available. '
+            'Indicators are not confirmed takeovers.'
+        ),
     )
     api_scan: bool = Field(
         default=False,
@@ -464,6 +468,47 @@ class ShodanHostDetailsResponse(BaseModel):
     services: list[ShodanServiceResponse] = Field(min_length=1)
 
 
+class TakeoverDNSOutcomeResponse(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    resolver: str
+    cname_chain: list[str]
+    terminal_rcode: Literal['NOERROR', 'NXDOMAIN', 'NODATA', 'ERROR']
+    error_type: str | None = None
+
+
+class TakeoverHTTPOutcomeResponse(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    scheme: Literal['http', 'https']
+    status: int | None = Field(default=None, ge=100, le=599)
+    location: str | None = None
+    error_type: str | None = None
+    body_truncated: bool = False
+
+
+class TakeoverIndicatorResponse(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    classification: Literal['vulnerable-indicator', 'unverified-indicator', 'edge-case']
+    service: str
+    rule_id: str
+    rule_revision: str
+    scheme: Literal['http', 'https'] | None = None
+    matched: list[str] = Field(min_length=1)
+
+
+class TakeoverDetailsResponse(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    status: Literal['indicator', 'no-indicator', 'inconclusive']
+    dns: list[TakeoverDNSOutcomeResponse] = Field(min_length=1)
+    wildcard_dns: list[TakeoverDNSOutcomeResponse]
+    http: list[TakeoverHTTPOutcomeResponse]
+    indicators: list[TakeoverIndicatorResponse]
+    error_types: list[str]
+
+
 class NormalizedResult(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
@@ -472,9 +517,9 @@ class NormalizedResult(BaseModel):
     sources: list[str] = Field(default_factory=list)
     actions: list[str] = Field(default_factory=list)
     scope: Literal['external-relationship'] | None = None
-    details: ShodanHostDetailsResponse | None = Field(
+    details: ShodanHostDetailsResponse | TakeoverDetailsResponse | None = Field(
         default=None,
-        description='Canonical host and service evidence for shodan-host results.',
+        description='Canonical structured evidence for Shodan host and takeover results.',
     )
     observations: (
         list[
@@ -494,12 +539,21 @@ class NormalizedResult(BaseModel):
         if self.type == 'shodan-host':
             from theHarvester.lib.shodan_evidence import ShodanHostObservation
 
-            if self.scope is not None or self.observations is not None or self.details is None:
+            if self.scope is not None or self.observations is not None or not isinstance(self.details, ShodanHostDetailsResponse):
                 raise ValueError('Shodan host results require details without scope or observations')
             shodan_details = self.details.model_dump(exclude_none=True, exclude_defaults=True)
             shodan_host = ShodanHostObservation.from_record(self.value, shodan_details)
             if shodan_host.ip != self.value or shodan_host.to_details() != shodan_details:
                 raise ValueError('Shodan host results must use canonical structured details')
+        elif self.type == 'takeover':
+            from theHarvester.lib.takeover_evidence import parse_takeover_details
+
+            if self.scope is not None or self.observations is not None or not isinstance(self.details, TakeoverDetailsResponse):
+                raise ValueError('Takeover results require details without scope or observations')
+            takeover_record = self.details.model_dump(exclude_none=True, exclude_defaults=True)
+            outcome = parse_takeover_details(self.value, takeover_record)
+            if outcome.hostname != self.value or outcome.to_details() != takeover_record:
+                raise ValueError('Takeover results must use canonical structured details')
         elif self.type == 'prefix':
             if self.scope != 'external-relationship':
                 raise ValueError('Prefix results must have external-relationship scope')
@@ -520,7 +574,7 @@ class NormalizedResult(BaseModel):
             else:
                 raise ValueError('Structured observations belong to ASN, hostname, or prefix results')
         elif self.details is not None:
-            raise ValueError('Structured details belong to Shodan host results')
+            raise ValueError('Structured details belong to Shodan host or takeover results')
         return self
 
 

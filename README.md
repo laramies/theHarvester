@@ -42,7 +42,7 @@ Query several passive sources:
 uv run theHarvester -d example.com -b crtsh,certspotter,commoncrawl
 ```
 
-Six discovery sources run at once by default. Use `-j` or `--source-workers` with a positive number to change that
+Three discovery sources run at once by default. Use `-j` or `--source-workers` with a positive number to change that
 concurrency. The worker count never skips a selected source or limits its results, and it is automatically reduced when
 fewer sources are selected. REST `source_workers` and HarvestView use the same setting.
 
@@ -94,6 +94,10 @@ Options such as DNS brute force (`-c`), bounded recursive DNS (`--dns-recursive-
 Hostname resolution deduplicates normalized candidates from every selected source before one run-wide A, AAAA, and CNAME phase. It runs at most 20 hostname jobs concurrently with no default query-count or phase-runtime ceiling, while retaining completed evidence. Reverse DNS uses a separate run-wide job set: overlapping `/24` ranges are deduplicated and streamed lazily through at most 20 active PTR jobs, also with no default candidate, request, or phase-runtime ceiling. Explicit library limits still report budget or runtime stops as partial when completed evidence exists.
 
 Recursive DNS requires exactly three distinct resolver IPs through `--dns-resolvers` or the compatible `--dns-resolve` value. It advances only names with two-vantage address consensus that are distinguishable from closest-encloser wildcard controls. Depth is required to enable it; the existing query and runtime flags are optional finite overrides, with no default ceiling or zero-yield early stop. PTR names for current addresses are retained as secondary evidence, but they do not establish current addressability or become recursion seeds. HarvestView and `POST /api/v1/runs` expose the same controls.
+
+Takeover checks start with each canonical in-scope hostname and the configured DNS resolvers. HTTP requests run only after a CNAME matches a pinned, reviewed provider rule. Before making those requests, a random sibling control checks whether the same provider response comes from wildcard DNS; indistinguishable cases are reported as inconclusive instead of findings. Requests keep the original hostname for HTTP `Host` and TLS SNI, do not follow redirects, verify TLS, isolate cookies, and stop at a 1 MiB response safety bound. The action uses at most 20 candidate workers, with no default candidate, request, result, or phase-runtime ceiling. Proxy mode stops before active requests when no configured proxy is available.
+
+A match is a takeover indicator, not proof that an operator can claim the provider resource. Every checked hostname is retained as one `indicator`, `no-indicator`, or `inconclusive` outcome. JSONL, SQLite, the API, and HarvestView keep the canonical hostname together with its service, rule revision, resolver-specific CNAME chain and terminal RCODE, wildcard control, HTTP status, redirect location, matched predicates, and errors. The bundled rules are a reviewed translation of [can-i-take-over-xyz](https://github.com/EdOverflow/can-i-take-over-xyz) at `5bd4e128` and selected compound predicates from [Nuclei templates](https://github.com/projectdiscovery/nuclei-templates) at `9090ee10`; no rules are downloaded during a run.
 
 Screenshot capture also requires a Playwright-compatible browser; see the installation guide for setup.
 
@@ -152,7 +156,7 @@ HarvestView can start a screenshot or DNS brute-force run directly from a hostna
 
 API clients send `THEHARVESTER_API_KEY` in the `X-API-Key` header; HarvestView uses its derived browser cookie. Provider credentials stay in server-side configuration and cannot be supplied in a request. Keep the service bound to localhost. If you require remote access, add network access controls and TLS.
 
-When `--proxies` and `--take-over` are combined, supported discovery and takeover requests use the configured proxies.
+When `--proxies` and `--take-over` are combined, takeover requests use a configured proxy or stop before contacting discovered hosts. They never fall back to a direct request.
 
 ## Discovery sources
 
@@ -297,7 +301,7 @@ The JSONL report is finalized after the selected one-shot actions finish. The fi
 {"sources":[],"type":"hostname","value":"api.example.com"}
 ```
 
-JSONL is easy to stream one record at a time. The summary preserves the evidence status, source and action outcomes, and screenshot artifact metadata. Finding lines carry `sources` and, when applicable, `actions`; they inherit their run ID and target from the preceding summary. Hostnames, IP addresses, and URLs use the same `hostname`, `ip`, and `url` result kinds in JSONL, SQLite, the API, and HarvestView. Provenance identifies which source or action produced each finding. Recursive DNS records plus `person`, `infostealer`, and `takeover` store a JSON object inside the string `value`; parse those values a second time with `fromjson`.
+JSONL is easy to stream one record at a time. The summary preserves the evidence status, source and action outcomes, and screenshot artifact metadata. Finding lines carry `sources` and, when applicable, `actions`; they inherit their run ID and target from the preceding summary. Hostnames, IP addresses, and URLs use the same `hostname`, `ip`, and `url` result kinds in JSONL, SQLite, the API, and HarvestView. Provenance identifies which source or action produced each finding. Recursive DNS records plus `person` and `infostealer` store a JSON object inside the string `value`; parse those values a second time with `fromjson`. Takeover outcomes instead keep the canonical hostname in `value` and put their typed status, DNS, wildcard, HTTP, rule, and error evidence in `details`.
 
 Shodan host findings instead use the canonical IP as `value` and place normalized host and per-service evidence in a native `details` object. Shodan discovery paginates both hostname and TLS-certificate searches for the target domain without an adapter-specific result cap, merges duplicate services by IP, and rejects names outside the requested domain. Host metadata appears once, while each service retains its port, TCP or UDP transport, product, version, observation time, CPEs, and available HTTP or TLS summary, including scoped certificate CNs and SANs. Raw banners, response bodies, certificate chains, and Shodan crawler metadata are not retained.
 

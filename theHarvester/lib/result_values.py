@@ -3,6 +3,8 @@ from __future__ import annotations
 from ipaddress import ip_address, ip_network
 from typing import TYPE_CHECKING
 
+from theHarvester.lib.hostnames import normalize_hostname
+
 if TYPE_CHECKING:
     from theHarvester.lib.evidence_types import ResultKind
 
@@ -44,4 +46,6 @@ def normalize_result_value(kind: ResultKind | str, value: str) -> str:
         if '%' in normalized:
             raise ValueError('Shodan host must not contain an IPv6 scope identifier')
         return str(ip_address(normalized))
+    if kind == 'takeover':
+        return normalize_hostname(normalized)
     return normalized

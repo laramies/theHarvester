@@ -9,7 +9,7 @@
   ];
   const ROUTE_LABELS = {
     hostname: 'Hostnames', ip: 'IP addresses', prefix: 'Network prefixes', asn: 'ASNs', email: 'Emails', url: 'URLs',
-    person: 'People', 'person-link': 'People links', takeover: 'Takeover evidence', 'shodan-host': 'Shodan hosts',
+    person: 'People', 'person-link': 'People links', takeover: 'Takeover outcomes', 'shodan-host': 'Shodan hosts',
     'scope-extension': 'Scope extensions', 'external-relationship': 'External relationships', other: 'Other'
   };
   const ACTION_FIELDS = {'dns-recursive': 'dns_recursive_depth'};
@@ -558,6 +558,53 @@
     return JSON.stringify(rowValue || {}).toLowerCase().includes(query);
   }
 
+  function takeoverStatusFormatter(cell) {
+    const details = cell.getValue() || {};
+    const status = String(details.status || 'not recorded').replaceAll('-', ' ');
+    const errors = Array.isArray(details.error_types) && details.error_types.length
+      ? `<span>Errors: ${escapeHtml(details.error_types.join(', '))}</span>`
+      : '';
+    return `<div class="vhost-observations"><span>${escapeHtml(status)}</span>${errors}</div>`;
+  }
+
+  function takeoverIndicatorsFormatter(cell) {
+    const indicators = Array.isArray(cell.getValue()?.indicators) ? cell.getValue().indicators : [];
+    if (!indicators.length) return 'No takeover indicator';
+    return `<div class="vhost-observations">${indicators.map(indicator => {
+      const classification = String(indicator.classification || 'indicator').replaceAll('-', ' ');
+      const rule = [indicator.rule_id, indicator.rule_revision].filter(Boolean).join('@');
+      const matched = Array.isArray(indicator.matched) ? indicator.matched.join(', ') : '';
+      const scheme = indicator.scheme ? indicator.scheme.toUpperCase() : '';
+      return `<span>${escapeHtml([classification, indicator.service, rule, scheme, matched].filter(Boolean).join(' · '))}</span>`;
+    }).join('')}</div>`;
+  }
+
+  function takeoverEvidenceFormatter(cell) {
+    const details = cell.getValue() || {};
+    const dnsLines = (label, outcomes) => (Array.isArray(outcomes) ? outcomes : []).map(outcome => {
+      const chain = Array.isArray(outcome.cname_chain) && outcome.cname_chain.length
+        ? `CNAME ${outcome.cname_chain.join(' → ')}`
+        : 'No CNAME';
+      const error = outcome.error_type ? ` · ${outcome.error_type}` : '';
+      return `${label} ${outcome.resolver || 'unknown resolver'} · ${chain} · ${outcome.terminal_rcode || 'unknown RCODE'}${error}`;
+    });
+    const http = (Array.isArray(details.http) ? details.http : []).map(outcome => {
+      const status = outcome.status == null ? 'no response' : `HTTP ${outcome.status}`;
+      const location = outcome.location ? ` · location ${outcome.location}` : '';
+      const error = outcome.error_type ? ` · ${outcome.error_type}` : '';
+      const truncated = outcome.body_truncated ? ' · body truncated' : '';
+      return `${String(outcome.scheme || 'http').toUpperCase()} · ${status}${location}${error}${truncated}`;
+    });
+    const lines = [
+      ...dnsLines('Candidate', details.dns),
+      ...dnsLines('Wildcard control', details.wildcard_dns),
+      ...http,
+    ];
+    return lines.length
+      ? `<div class="vhost-observations">${lines.map(value => `<span>${escapeHtml(value)}</span>`).join('')}</div>`
+      : 'No evidence recorded';
+  }
+
   function provenanceFormatter(cell) {
     const values = Array.isArray(cell.getValue()) ? cell.getValue() : [];
     return escapeHtml(values.join(', ') || '-');
@@ -570,7 +617,7 @@
     const columns = [
       {title: state.route === 'shodan-host' ? 'IP' : 'Value', field: 'value', formatter: cell => `<span class="value-cell">${escapeHtml(cell.getValue())}</span>`, minWidth: 200, widthGrow: 2, responsive: 0, headerFilter: 'input', headerFilterFunc: columnTextFilter, headerFilterPlaceholder: 'Filter values'},
     ];
-    if (state.route !== 'shodan-host') {
+    if (state.route !== 'shodan-host' && state.route !== 'takeover') {
       columns.push(
         {title: 'DNS', field: 'dns_status', formatter: dnsFormatter, width: 130, responsive: 1, headerFilter: 'input', headerFilterFunc: columnTextFilter, headerFilterPlaceholder: 'Filter DNS'},
       );
@@ -600,6 +647,14 @@
         {title: 'Network', field: 'details', formatter: shodanNetworkFormatter, minWidth: 220, widthGrow: 2, headerFilter: 'input', headerFilterFunc: shodanDetailsFilter},
         {title: 'Services', field: 'details', formatter: shodanServicesFormatter, minWidth: 360, widthGrow: 4, variableHeight: true, headerFilter: 'input', headerFilterFunc: shodanDetailsFilter},
         {title: 'Sources', field: 'sources', formatter: provenanceFormatter, minWidth: 130, responsive: 2, headerFilter: 'input', headerFilterFunc: columnTextFilter},
+        {title: 'Produced by', field: 'actions', formatter: provenanceFormatter, minWidth: 130, responsive: 2, headerFilter: 'input', headerFilterFunc: columnTextFilter},
+      );
+    }
+    if (state.route === 'takeover') {
+      columns.push(
+        {title: 'Outcome', field: 'details', formatter: takeoverStatusFormatter, minWidth: 150, widthGrow: 1, headerFilter: 'input', headerFilterFunc: shodanDetailsFilter, headerFilterPlaceholder: 'Filter status or errors'},
+        {title: 'Indicators', field: 'details', formatter: takeoverIndicatorsFormatter, minWidth: 300, widthGrow: 3, variableHeight: true, headerFilter: 'input', headerFilterFunc: shodanDetailsFilter, headerFilterPlaceholder: 'Filter provider or rule'},
+        {title: 'DNS and HTTP evidence', field: 'details', formatter: takeoverEvidenceFormatter, minWidth: 420, widthGrow: 4, variableHeight: true, headerFilter: 'input', headerFilterFunc: shodanDetailsFilter, headerFilterPlaceholder: 'Filter resolver, CNAME, status, or error'},
         {title: 'Produced by', field: 'actions', formatter: provenanceFormatter, minWidth: 130, responsive: 2, headerFilter: 'input', headerFilterFunc: columnTextFilter},
       );
     }

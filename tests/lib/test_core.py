@@ -273,6 +273,7 @@ def install_stream_response(
 ) -> None:
     reset_dummy_sessions()
     monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
+    monkeypatch.setattr(core_module.aiohttp, 'TCPConnector', lambda *, ssl=None: object())
     monkeypatch.setattr(core_module.ssl, 'create_default_context', lambda cafile=None: 'ssl-context')
     monkeypatch.setattr(core_module.certifi, 'where', lambda: '/tmp/cacert.pem')
 
@@ -810,6 +811,54 @@ async def test_fetch_json_reads_bounded_fragmented_utf8_without_redirects(monkey
 
 
 @pytest.mark.asyncio
+async def test_fetch_text_preserves_non_success_metadata_without_redirects(monkeypatch) -> None:
+    install_stream_response(
+        monkeypatch,
+        chunks=(b'not ', b'found'),
+        status=404,
+        headers={'Location': 'https://outside.example/path'},
+    )
+
+    result = await AsyncFetcher.fetch_text(
+        'https://app.example.test',
+        request_timeout=None,
+        response_byte_limit=32,
+    )
+
+    assert result == FetcherResponse(
+        body='not found',
+        status=404,
+        headers={'location': 'https://outside.example/path'},
+    )
+    assert DummySession.instances[0].closed is True
+    assert DummySession.instances[0].requests[0][2]['allow_redirects'] is False
+    assert isinstance(DummySession.instances[0].timeout, core_module.aiohttp.ClientTimeout)
+    assert DummySession.instances[0].timeout.total is None
+
+
+@pytest.mark.asyncio
+async def test_fetch_text_reuses_caller_owned_session_without_closing_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    install_stream_response(monkeypatch, chunks=(b'provider ', b'evidence'))
+    session = DummySession(
+        headers={'User-Agent': 'shared'},
+        timeout=core_module.aiohttp.ClientTimeout(total=None),
+    )
+
+    result = await AsyncFetcher.fetch_text(
+        'https://app.example.test',
+        session=session,
+        request_timeout=None,
+        response_byte_limit=32,
+    )
+
+    assert result.body == 'provider evidence'
+    assert session.closed is False
+    assert len(DummySession.instances) == 1
+
+
+@pytest.mark.asyncio
 async def test_fetch_json_accepts_body_at_shared_limit(monkeypatch) -> None:
     install_stream_response(monkeypatch, chunks=(b'{"a":1}',))
     monkeypatch.setattr(core_module, 'MAX_PROVIDER_JSON_BYTES', 7)
@@ -973,92 +1022,6 @@ async def test_fetch_all_propagates_metadata_opt_in(monkeypatch) -> None:
 
     assert seen == [True, True]
     assert [result.status for result in results] == [429, 429]
-
-
-@pytest.mark.parametrize(
-    ('url', 'proxy', 'uses_shared_session'),
-    [
-        ('http://100.64.0.1', None, True),
-        ('http://example.com', 'http://proxy.example:8080', True),
-        ('https://example.com', 'socks5://proxy.example:1080', False),
-    ],
-)
-@pytest.mark.asyncio
-async def test_takeover_fetch_uses_the_shared_transport(
-    monkeypatch,
-    url: str,
-    proxy: str | None,
-    uses_shared_session: bool,
-) -> None:
-    calls = []
-    session = DummySession()
-
-    async def fake_fetch(*_args, **kwargs):
-        calls.append(kwargs)
-        return 'response-text'
-
-    monkeypatch.setattr(AsyncFetcher, 'fetch', fake_fetch)
-
-    result = await AsyncFetcher.takeover_fetch(
-        session,
-        url,
-        proxy=proxy,
-        headers={'User-Agent': 'browser-agent'},
-    )
-
-    assert result == (url, 'response-text')
-    assert calls == [
-        {
-            'session': session if uses_shared_session else None,
-            'url': url,
-            'proxy': proxy,
-            'headers': {'User-Agent': 'browser-agent'},
-            'request_timeout': 15,
-            'include_metadata': False,
-        }
-    ]
-
-
-@pytest.mark.asyncio
-async def test_takeover_fetch_all_falls_back_to_direct_when_proxy_pool_is_empty(monkeypatch) -> None:
-    reset_dummy_sessions()
-    calls = []
-    monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
-    monkeypatch.setattr(AsyncFetcher, '_get_random_proxy', staticmethod(lambda _proxy_dict: (None, None)))
-
-    async def fake_takeover_fetch(*args, **kwargs):
-        calls.append((args, kwargs))
-        return 'http://example.com', 'direct response'
-
-    monkeypatch.setattr(AsyncFetcher, 'takeover_fetch', fake_takeover_fetch)
-
-    result = await AsyncFetcher.fetch_all(['http://example.com'], takeover=True, proxy=True)
-
-    assert result == [('http://example.com', 'direct response')]
-    assert len(calls) == 1
-    assert calls[0][1] == {
-        'proxy': None,
-        'headers': {'User-Agent': Core.get_user_agent()},
-        'include_metadata': False,
-    }
-
-
-@pytest.mark.asyncio
-async def test_takeover_fetch_all_propagates_metadata_opt_in(monkeypatch) -> None:
-    reset_dummy_sessions()
-    seen: list[bool] = []
-    monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
-
-    async def fake_takeover_fetch(*_args, include_metadata: bool = False, **_kwargs):
-        seen.append(include_metadata)
-        return 'https://example.com', FetcherResponse(body='', status=204, headers={})
-
-    monkeypatch.setattr(AsyncFetcher, 'takeover_fetch', fake_takeover_fetch)
-
-    result = await AsyncFetcher.fetch_all(['https://example.com'], takeover=True, include_metadata=True)
-
-    assert seen == [True]
-    assert result[0][1].status == 204
 
 
 @pytest.mark.asyncio

@@ -1136,6 +1136,231 @@ def test_api_rejects_virtual_host_evidence_outside_the_run_scope(
     assert response.status_code == 400
 
 
+def test_api_rejects_takeover_evidence_outside_the_run_scope(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    details = {
+        'status': 'no-indicator',
+        'dns': [
+            {
+                'resolver': '1.1.1.1',
+                'cname_chain': [],
+                'terminal_rcode': 'NOERROR',
+            }
+        ],
+        'wildcard_dns': [],
+        'http': [],
+        'indicators': [],
+        'error_types': [],
+    }
+    payload = _jsonl_result(
+        target='example.test',
+        finding_type='takeover',
+        value='outside.example.net',
+        finding_fields={'actions': ['takeover'], 'details': details},
+        summary_fields={
+            'action_executions': [
+                {
+                    'action': 'takeover',
+                    'status': 'completed',
+                    'duration_ms': 1,
+                    'result_count': 1,
+                    'error_type': None,
+                    'stop_reason': None,
+                }
+            ]
+        },
+    )
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+
+    with TestClient(api.app) as client:
+        response = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'out-of-scope-takeover.jsonl'},
+            headers={'X-API-Key': 'test-key'},
+            content=payload,
+        )
+
+    assert response.status_code == 400
+    assert 'run target scope' in response.json()['detail']
+
+
+def test_api_rejects_takeover_indicator_without_same_scheme_http_evidence(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    details = {
+        'status': 'indicator',
+        'dns': [
+            {
+                'resolver': '1.1.1.1',
+                'cname_chain': ['bucket.s3.amazonaws.com'],
+                'terminal_rcode': 'NOERROR',
+            }
+        ],
+        'wildcard_dns': [
+            {
+                'resolver': '1.1.1.1',
+                'cname_chain': [],
+                'terminal_rcode': 'NXDOMAIN',
+            }
+        ],
+        'http': [{'scheme': 'http', 'status': 404}],
+        'indicators': [
+            {
+                'classification': 'vulnerable-indicator',
+                'service': 'AWS/S3',
+                'rule_id': 'aws-s3',
+                'rule_revision': 'takeover-rules-v1',
+                'scheme': 'https',
+                'matched': ['body:BucketName'],
+            }
+        ],
+        'error_types': [],
+    }
+    payload = _jsonl_result(
+        target='example.test',
+        finding_type='takeover',
+        value='bucket.example.test',
+        finding_fields={'actions': ['takeover'], 'details': details},
+        summary_fields={
+            'action_executions': [
+                {
+                    'action': 'takeover',
+                    'status': 'completed',
+                    'duration_ms': 1,
+                    'result_count': 1,
+                    'error_type': None,
+                    'stop_reason': None,
+                }
+            ]
+        },
+    )
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+
+    with TestClient(api.app) as client:
+        response = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'fabricated-takeover.jsonl'},
+            headers={'X-API-Key': 'test-key'},
+            content=payload,
+        )
+
+    assert response.status_code == 400
+    assert 'successful outcome for their matching scheme' in response.json()['detail']
+
+
+def test_api_rejects_takeover_outcome_that_hides_nested_probe_failure(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    details = {
+        'status': 'no-indicator',
+        'dns': [
+            {
+                'resolver': '1.1.1.1',
+                'cname_chain': [],
+                'terminal_rcode': 'NOERROR',
+            }
+        ],
+        'wildcard_dns': [
+            {
+                'resolver': '1.1.1.1',
+                'cname_chain': [],
+                'terminal_rcode': 'NXDOMAIN',
+            }
+        ],
+        'http': [{'scheme': 'https', 'error_type': 'TransportError'}],
+        'indicators': [],
+        'error_types': [],
+    }
+    payload = _jsonl_result(
+        target='example.test',
+        finding_type='takeover',
+        value='bucket.example.test',
+        finding_fields={'actions': ['takeover'], 'details': details},
+        summary_fields={
+            'action_executions': [
+                {
+                    'action': 'takeover',
+                    'status': 'completed',
+                    'duration_ms': 1,
+                    'result_count': 1,
+                    'error_type': None,
+                    'stop_reason': None,
+                }
+            ]
+        },
+    )
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+
+    with TestClient(api.app) as client:
+        response = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'hidden-takeover-error.jsonl'},
+            headers={'X-API-Key': 'test-key'},
+            content=payload,
+        )
+
+    assert response.status_code == 400
+    assert 'candidate errors' in response.json()['detail']
+
+
+def test_api_rejects_takeover_http_evidence_without_wildcard_controls(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    details = {
+        'status': 'no-indicator',
+        'dns': [
+            {
+                'resolver': '1.1.1.1',
+                'cname_chain': ['bucket.s3.amazonaws.com'],
+                'terminal_rcode': 'NOERROR',
+            }
+        ],
+        'wildcard_dns': [],
+        'http': [{'scheme': 'https', 'status': 404}],
+        'indicators': [],
+        'error_types': [],
+    }
+    payload = _jsonl_result(
+        target='example.test',
+        finding_type='takeover',
+        value='bucket.example.test',
+        finding_fields={'actions': ['takeover'], 'details': details},
+        summary_fields={
+            'action_executions': [
+                {
+                    'action': 'takeover',
+                    'status': 'completed',
+                    'duration_ms': 1,
+                    'result_count': 1,
+                    'error_type': None,
+                    'stop_reason': None,
+                }
+            ]
+        },
+    )
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+
+    with TestClient(api.app) as client:
+        response = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'missing-takeover-control.jsonl'},
+            headers={'X-API-Key': 'test-key'},
+            content=payload,
+        )
+
+    assert response.status_code == 400
+    assert 'wildcard control per resolver' in response.json()['detail']
+
+
 def test_api_rejects_partial_virtual_host_observation(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api import api
 
@@ -1310,6 +1535,49 @@ def test_api_schema_exposes_typed_shodan_host_details() -> None:
     assert service['properties']['transport']['enum'] == ['tcp', 'udp']
     tls = schema['$defs']['ShodanTlsDetailsResponse']
     assert tls['properties']['subject_alt_names']['items'] == {'type': 'string'}
+
+
+def test_api_schema_and_result_model_expose_typed_takeover_outcomes() -> None:
+    from theHarvester.lib.api.run_models import NormalizedResult
+
+    details = {
+        'status': 'inconclusive',
+        'dns': [
+            {
+                'resolver': '1.1.1.1',
+                'cname_chain': [],
+                'terminal_rcode': 'ERROR',
+                'error_type': 'DNSTimeoutError',
+            }
+        ],
+        'wildcard_dns': [],
+        'http': [],
+        'indicators': [],
+        'error_types': ['DNSTimeoutError'],
+    }
+
+    result = NormalizedResult(
+        type='takeover',
+        value='uncertain.example.test',
+        actions=['takeover'],
+        details=details,
+    )
+
+    assert result.model_dump(exclude_none=True, exclude_defaults=True)['details'] == details
+    schema = NormalizedResult.model_json_schema()
+    assert {'$ref': '#/$defs/TakeoverDetailsResponse'} in schema['properties']['details']['anyOf']
+    assert schema['$defs']['TakeoverDetailsResponse']['properties']['status']['enum'] == [
+        'indicator',
+        'no-indicator',
+        'inconclusive',
+    ]
+    with pytest.raises(ValueError, match='canonical structured details'):
+        NormalizedResult(
+            type='takeover',
+            value='Uncertain.Example.test.',
+            actions=['takeover'],
+            details=details,
+        )
 
 
 def test_api_evidence_rejects_redundant_shodan_host_fields() -> None:

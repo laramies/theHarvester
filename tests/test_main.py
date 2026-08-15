@@ -23,6 +23,7 @@ from theHarvester.lib.hostchecker import HostDnsRecords
 from theHarvester.lib.network_evidence import PrefixOriginObservation, RpkiValidationObservation
 from theHarvester.lib.recursive_dns import RecursiveDNSClassification, RecursiveDNSFinding, RecursiveDNSResult
 from theHarvester.lib.routeviews import RouteViewsCancelled, RouteViewsResult
+from theHarvester.lib.takeover_evidence import TakeoverCandidateOutcome
 from theHarvester.lib.virtual_host import (
     HarvestedVirtualHostResult,
     VirtualHostDiscoveryCancelled,
@@ -41,7 +42,10 @@ async def test_cli_help_explains_proxy_and_direct_action_scope(
 
     help_text = ' '.join(capsys.readouterr().out.split())
     assert exit_info.value.code == 0
-    assert 'Use proxies.yaml for supported discovery-source, Shodan, and takeover requests.' in help_text
+    assert (
+        'Use proxies.yaml for supported discovery-source, Shodan, and takeover requests. Takeover fails closed if no '
+        'proxy is available.' in help_text
+    )
     assert 'Query the Shodan Host API for discovered IPs, using configured proxies when enabled.' in help_text
     assert (
         'Enrich discovered IPs with sourced ASN attribution, or an explicitly targeted ASN, IP, or prefix, through '
@@ -62,6 +66,7 @@ async def test_cli_help_explains_proxy_and_direct_action_scope(
     assert 'Candidate names are never resolved through DNS.' in help_text
     assert '-j SOURCE_WORKERS' in help_text
     assert '--source-workers SOURCE_WORKERS' in help_text
+    assert 'Indicators are not confirmed takeovers.' in help_text
 
 
 def _confirmed_vhost(endpoint: str = 'http://192.0.2.10:80/') -> VirtualHostObservation:
@@ -95,6 +100,41 @@ def _confirmed_vhost(endpoint: str = 'http://192.0.2.10:80/') -> VirtualHostObse
         control_body_size=5,
         control_body_truncated=False,
         confirmation_body_sha256='a' * 64,
+    )
+
+
+def _takeover_outcome(hostname: str = 'api.example.com') -> TakeoverCandidateOutcome:
+    return TakeoverCandidateOutcome.from_record(
+        hostname,
+        {
+            'status': 'indicator',
+            'dns': [
+                {
+                    'resolver': '1.1.1.1',
+                    'cname_chain': ['missing-bucket.s3.amazonaws.com'],
+                    'terminal_rcode': 'NOERROR',
+                }
+            ],
+            'wildcard_dns': [
+                {
+                    'resolver': '1.1.1.1',
+                    'cname_chain': [],
+                    'terminal_rcode': 'NXDOMAIN',
+                }
+            ],
+            'http': [{'scheme': 'https', 'status': 404}],
+            'indicators': [
+                {
+                    'classification': 'vulnerable-indicator',
+                    'service': 'AWS/S3',
+                    'rule_id': 'aws-s3',
+                    'rule_revision': 'takeover-rules-v1',
+                    'scheme': 'https',
+                    'matched': ['body:BucketName', 'body:The specified bucket does not exist'],
+                }
+            ],
+            'error_types': [],
+        },
     )
 
 
@@ -3011,21 +3051,23 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
             return ['api.example.com:192.0.2.10'], ['api.example.com'], ['192.0.2.10']
 
     class FakeTakeOver:
-        def __init__(self, hosts: list[str]) -> None:
+        def __init__(self, hosts: list[str], *, target: str, nameservers: list[str]) -> None:
             assert hosts == ['api.example.com']
+            assert target == 'example.com'
+            assert nameservers == ['192.0.2.53']
             self.request_count = 2
             self.request_error_count = 0
+            self.dns_error_count = 0
+            self.completed_count = 1
             self.request_error_types: set[str] = set()
             self.scan_error_type = None
-
-        async def populate_fingerprints(self) -> None:
-            return None
+            self.stop_reason = None
 
         async def process(self, proxy: bool = False) -> None:
             assert proxy is True
 
-        async def get_takeover_results(self) -> dict[str, list[dict[str, str]]]:
-            return {'https://api.example.com': [{'No such app': 'Heroku'}]}
+        async def get_takeover_outcomes(self) -> tuple[TakeoverCandidateOutcome, ...]:
+            return (_takeover_outcome(),)
 
     class FakeScreenShotter(_FakeScreenshotBatch):
         slash = '/'
@@ -3122,7 +3164,7 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
     monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
     monkeypatch.setattr(source_runner.crtsh, 'SearchCrtsh', FakeCrtsh)
     monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', FakeChecker)
-    monkeypatch.setattr(theharvester_main.takeover, 'TakeOver', FakeTakeOver)
+    monkeypatch.setattr(theharvester_main.takeover, 'TakeoverScanner', FakeTakeOver)
     monkeypatch.setattr(theharvester_main, 'ScreenShotter', FakeScreenShotter)
     monkeypatch.setattr(theharvester_main.shodansearch, 'SearchShodan', FakeShodan)
     monkeypatch.setattr(theharvester_main.api_endpoints, 'SearchApiEndpoints', FakeApiScanner)
@@ -3159,9 +3201,10 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
     assert completed.asn_attributions[0].organization_label == 'Example Transit'
     takeover_result = (
         'takeover',
-        '{"matches":[{"No such app":"Heroku"}],"url":"https://api.example.com"}',
+        'api.example.com',
     )
     assert takeover_result in completed.results
+    assert completed.takeover_outcomes == (_takeover_outcome(),)
     takeover_execution = next(execution for execution in completed.active_evidence.executions if execution.action == 'takeover')
     assert takeover_execution.status == 'completed'
     assert takeover_execution.result_count == 1
@@ -3270,11 +3313,20 @@ async def test_shodan_source_evidence_is_not_overwritten_by_conflicting_action_e
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ('request_count', 'request_errors', 'scan_error', 'expected_status', 'expected_error', 'expected_reason'),
+    (
+        'request_count',
+        'request_errors',
+        'scan_error',
+        'inconclusive_count',
+        'expected_status',
+        'expected_error',
+        'expected_reason',
+    ),
     [
-        (2, 1, None, 'partial', 'TransportError', 'request-errors'),
-        (2, 2, None, 'failed', 'TransportError', 'request-errors'),
-        (0, 0, 'RuntimeError', 'failed', 'RuntimeError', 'scan-error'),
+        (2, 1, None, 0, 'partial', 'TransportError', 'request-errors'),
+        (2, 2, None, 1, 'failed', 'TransportError', 'incomplete-candidates'),
+        (0, 0, 'RuntimeError', 0, 'failed', 'RuntimeError', 'scan-error'),
+        (0, 0, None, 1, 'failed', 'WildcardIndistinguishableError', 'wildcard-indistinguishable'),
     ],
 )
 async def test_takeover_action_records_suppressed_outcome(
@@ -3282,30 +3334,68 @@ async def test_takeover_action_records_suppressed_outcome(
     request_count: int,
     request_errors: int,
     scan_error: str | None,
+    inconclusive_count: int,
     expected_status: str,
-    expected_error: str,
+    expected_error: str | None,
     expected_reason: str,
 ) -> None:
     class FakeTakeOver:
-        def __init__(self, _hosts: list[str]) -> None:
+        def __init__(self, _hosts: list[str], **_kwargs: object) -> None:
             self.request_count = request_count
             self.request_error_count = request_errors
-            self.request_error_types = {'TransportError'} if request_errors else set()
+            self.dns_error_count = 0
+            self.inconclusive_count = inconclusive_count
+            self.candidate_count = 1
+            self.completed_count = 0 if scan_error else 1
+            self.request_error_types = (
+                {'TransportError'} if request_errors else {'WildcardIndistinguishableError'} if inconclusive_count else set()
+            )
             self.scan_error_type = scan_error
-
-        async def populate_fingerprints(self) -> None:
-            return None
+            if scan_error:
+                self.stop_reason = 'scan-error'
+            elif inconclusive_count:
+                self.stop_reason = 'incomplete-candidates' if request_errors else 'wildcard-indistinguishable'
+            else:
+                self.stop_reason = None
 
         async def process(self, proxy: bool = False) -> None:
             assert proxy is False
             return None
 
-        async def get_takeover_results(self) -> dict:
-            return {}
+        async def get_takeover_outcomes(self) -> tuple[TakeoverCandidateOutcome, ...]:
+            if scan_error:
+                return ()
+            if inconclusive_count:
+                return (
+                    TakeoverCandidateOutcome.from_record(
+                        'api.example.com',
+                        {
+                            'status': 'inconclusive',
+                            'dns': [
+                                {
+                                    'resolver': '1.1.1.1',
+                                    'cname_chain': ['missing-bucket.s3.amazonaws.com'],
+                                    'terminal_rcode': 'NOERROR',
+                                }
+                            ],
+                            'wildcard_dns': [
+                                {
+                                    'resolver': '1.1.1.1',
+                                    'cname_chain': [],
+                                    'terminal_rcode': 'NXDOMAIN',
+                                }
+                            ],
+                            'http': [],
+                            'indicators': [],
+                            'error_types': ['TransportError'] if request_errors else ['WildcardIndistinguishableError'],
+                        },
+                    ),
+                )
+            return (_takeover_outcome(),)
 
     monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
     monkeypatch.setattr(source_runner.crtsh, 'SearchCrtsh', _ApiHostSource)
-    monkeypatch.setattr(theharvester_main.takeover, 'TakeOver', FakeTakeOver)
+    monkeypatch.setattr(theharvester_main.takeover, 'TakeoverScanner', FakeTakeOver)
 
     result = await theharvester_main.start(
         EnumerationOptions(domain='example.com', quiet=True, source='crtsh', take_over=True),
@@ -3314,7 +3404,7 @@ async def test_takeover_action_records_suppressed_outcome(
 
     execution = next(item for item in result[-1].active_evidence.executions if item.action == 'takeover')
     assert execution.status == expected_status
-    assert execution.result_count == 0
+    assert execution.result_count == (0 if scan_error else 1)
     assert execution.error_type == expected_error
     assert execution.stop_reason == expected_reason
 
@@ -3596,11 +3686,11 @@ async def test_api_scan_reports_exhausted_retries_truthfully(
 @pytest.mark.asyncio
 async def test_takeover_without_hosts_is_skipped_without_starting(monkeypatch: pytest.MonkeyPatch) -> None:
     class UnexpectedTakeOver:
-        def __init__(self, _hosts: list[str]) -> None:
+        def __init__(self, _hosts: list[str], **_kwargs: object) -> None:
             raise AssertionError('takeover should not start without hosts')
 
     monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
-    monkeypatch.setattr(theharvester_main.takeover, 'TakeOver', UnexpectedTakeOver)
+    monkeypatch.setattr(theharvester_main.takeover, 'TakeoverScanner', UnexpectedTakeOver)
 
     result = await theharvester_main.start(
         EnumerationOptions(domain='example.com', quiet=True, take_over=True),
@@ -4037,28 +4127,29 @@ async def test_takeover_failure_persists_and_propagates(
     saved: list[CompletedResult] = []
 
     class CancelledTakeOver:
-        def __init__(self, _hosts: list[str]) -> None:
+        def __init__(self, _hosts: list[str], **_kwargs: object) -> None:
+            self.request_count = 0
             self.request_error_count = 0
+            self.dns_error_count = 0
+            self.completed_count = 0
             self.request_error_types: set[str] = set()
             self.scan_error_type = None
+            self.stop_reason = None
             if failure_stage == 'init':
                 raise raised_error
-
-        async def populate_fingerprints(self) -> None:
-            return None
 
         async def process(self, _proxy: bool = False, **_kwargs) -> None:
             if failure_stage == 'process':
                 raise raised_error
 
-        async def get_takeover_results(self) -> dict:
+        async def get_takeover_outcomes(self) -> tuple[TakeoverCandidateOutcome, ...]:
             if failure_stage == 'getter':
                 raise raised_error
-            return {}
+            return ()
 
     monkeypatch.setattr(theharvester_main, 'ResultStore', _recording_result_store(saved))
     monkeypatch.setattr(source_runner.crtsh, 'SearchCrtsh', _ApiHostSource)
-    monkeypatch.setattr(theharvester_main.takeover, 'TakeOver', CancelledTakeOver)
+    monkeypatch.setattr(theharvester_main.takeover, 'TakeoverScanner', CancelledTakeOver)
 
     with pytest.raises(type(raised_error)):
         await theharvester_main.start(
@@ -4146,20 +4237,20 @@ async def test_direct_action_checkpoint_cancellation_persists_and_propagates(
     saved: list[CompletedResult] = []
 
     class FakeTakeOver:
-        def __init__(self, _hosts: list[str]) -> None:
+        def __init__(self, _hosts: list[str], **_kwargs: object) -> None:
             self.request_count = 1
             self.request_error_count = 0
+            self.dns_error_count = 0
+            self.completed_count = 1
             self.request_error_types: set[str] = set()
             self.scan_error_type = None
-
-        async def populate_fingerprints(self) -> None:
-            return None
+            self.stop_reason = None
 
         async def process(self, proxy: bool = False) -> None:
             assert proxy is False
 
-        async def get_takeover_results(self) -> dict:
-            return {}
+        async def get_takeover_outcomes(self) -> tuple[TakeoverCandidateOutcome, ...]:
+            return ()
 
     class FakeShodan:
         error_type = None
@@ -4185,7 +4276,7 @@ async def test_direct_action_checkpoint_cancellation_persists_and_propagates(
 
     monkeypatch.setattr(theharvester_main, 'ResultStore', _recording_result_store(saved))
     monkeypatch.setattr(source_runner.crtsh, 'SearchCrtsh', _ApiHostSource)
-    monkeypatch.setattr(theharvester_main.takeover, 'TakeOver', FakeTakeOver)
+    monkeypatch.setattr(theharvester_main.takeover, 'TakeoverScanner', FakeTakeOver)
     monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', _ApiHostChecker)
     monkeypatch.setattr(theharvester_main.shodansearch, 'SearchShodan', FakeShodan)
 

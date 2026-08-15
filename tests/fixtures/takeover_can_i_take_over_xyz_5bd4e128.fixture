@@ -1,0 +1,28 @@
+{
+  "provenance": {
+    "repository": "EdOverflow/can-i-take-over-xyz",
+    "commit": "5bd4e128",
+    "source_sha256": "a108bf6e6d10d4e4861c4293eef8c224a0fd243ec4f3a39de321de69f284c64f",
+    "selection": "vulnerable == true and cicd_pass == true"
+  },
+  "records": [
+    {"service": "AWS/Elastic Beanstalk", "cname": ["elasticbeanstalk.com"], "fingerprint": "NXDOMAIN", "http_status": null, "nxdomain": true, "vulnerable": true, "cicd_pass": true},
+    {"service": "AWS/S3", "cname": ["s3.amazonaws.com"], "fingerprint": "The specified bucket does not exist", "http_status": null, "nxdomain": false, "vulnerable": true, "cicd_pass": true},
+    {"service": "Airee.ru", "cname": ["airee.ru"], "fingerprint": "Ошибка 402. Сервис Айри.рф не оплачен", "http_status": null, "nxdomain": false, "vulnerable": true, "cicd_pass": true},
+    {"service": "Anima", "cname": ["animaapp.io"], "fingerprint": "The page you were looking for does not exist.", "http_status": null, "nxdomain": false, "vulnerable": true, "cicd_pass": true},
+    {"service": "Bitbucket", "cname": ["bitbucket.io"], "fingerprint": "Repository not found", "http_status": null, "nxdomain": false, "vulnerable": true, "cicd_pass": true},
+    {"service": "Discourse", "cname": ["trydiscourse.com"], "fingerprint": "NXDOMAIN", "http_status": null, "nxdomain": true, "vulnerable": true, "cicd_pass": true},
+    {"service": "HatenaBlog", "cname": ["hatenablog.com"], "fingerprint": "404 Blog is not found", "http_status": null, "nxdomain": false, "vulnerable": true, "cicd_pass": true},
+    {"service": "Help Juice", "cname": ["helpjuice.com"], "fingerprint": "We could not find what you're looking for.", "http_status": null, "nxdomain": false, "vulnerable": true, "cicd_pass": true},
+    {"service": "Help Scout", "cname": ["helpscoutdocs.com"], "fingerprint": "No settings were found for this company:", "http_status": null, "nxdomain": false, "vulnerable": true, "cicd_pass": true},
+    {"service": "Helprace", "cname": ["helprace.com"], "fingerprint": "HTTP_STATUS=301", "http_status": 301, "nxdomain": false, "vulnerable": true, "cicd_pass": true},
+    {"service": "Microsoft Azure", "cname": ["cloudapp.net", "cloudapp.azure.com", "azurewebsites.net", "blob.core.windows.net", "cloudapp.azure.com", "azure-api.net", "azurehdinsight.net", "azureedge.net", "azurecontainer.io", "database.windows.net", "azuredatalakestore.net", "search.windows.net", "azurecr.io", "redis.cache.windows.net", "azurehdinsight.net", "servicebus.windows.net", "visualstudio.com"], "fingerprint": "NXDOMAIN", "http_status": null, "nxdomain": true, "vulnerable": true, "cicd_pass": true},
+    {"service": "SmartJobBoard", "cname": ["52.16.160.97"], "fingerprint": "This job board website is either expired or its domain name is invalid.", "http_status": null, "nxdomain": false, "vulnerable": true, "cicd_pass": true},
+    {"service": "Strikingly", "cname": ["s.strikinglydns.com"], "fingerprint": "PAGE NOT FOUND.", "http_status": null, "nxdomain": false, "vulnerable": true, "cicd_pass": true},
+    {"service": "Surge.sh", "cname": ["na-west1.surge.sh"], "fingerprint": "project not found", "http_status": null, "nxdomain": false, "vulnerable": true, "cicd_pass": true},
+    {"service": "SurveySparrow", "cname": ["surveysparrow.com"], "fingerprint": "Account not found.", "http_status": null, "nxdomain": false, "vulnerable": true, "cicd_pass": true},
+    {"service": "Uberflip", "cname": ["read.uberflip.com"], "fingerprint": "The URL you've accessed does not provide a hub.", "http_status": null, "nxdomain": false, "vulnerable": true, "cicd_pass": true},
+    {"service": "Wordpress", "cname": ["wordpress.com"], "fingerprint": "Do you want to register .*.wordpress.com?", "http_status": null, "nxdomain": false, "vulnerable": true, "cicd_pass": true},
+    {"service": "Worksites", "cname": ["worksites.net", "69.164.223.206"], "fingerprint": "Hello! Sorry, but the website you&rsquo;re looking for doesn&rsquo;t exist.", "http_status": null, "nxdomain": false, "vulnerable": true, "cicd_pass": true}
+  ]
+}

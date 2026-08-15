@@ -34,6 +34,11 @@ from theHarvester.lib.network_evidence import (
 )
 from theHarvester.lib.result_values import normalize_result_value
 from theHarvester.lib.shodan_evidence import ShodanHostObservation, canonical_shodan_hosts
+from theHarvester.lib.takeover_evidence import (
+    TakeoverCandidateOutcome,
+    canonical_takeover_outcomes,
+    parse_takeover_details,
+)
 from theHarvester.lib.virtual_host import VirtualHostObservation
 
 
@@ -92,6 +97,8 @@ def parse_result_jsonl(payload: bytes | str) -> tuple[dict[str, object], list[di
             allowed_keys.add('observations')
         if result_kind == 'shodan-host' and 'details' in record:
             allowed_keys.add('details')
+        if result_kind == 'takeover' and 'details' in record:
+            allowed_keys.add('details')
         if result_kind == 'prefix':
             allowed_keys.add('scope')
         if (
@@ -144,6 +151,12 @@ def parse_result_jsonl(payload: bytes | str) -> tuple[dict[str, object], list[di
             if shodan_host.ip != record['value'] or shodan_host.to_details() != record.get('details'):
                 raise ValueError('JSONL Shodan host must use canonical structured details')
             record['details'] = shodan_host.to_details()
+        elif result_kind == 'takeover':
+            try:
+                takeover_outcome = parse_takeover_details(record['value'], record.get('details'))
+            except ValueError as error:
+                raise ValueError(f'JSONL takeover result has invalid details: {error}') from error
+            record['details'] = takeover_outcome.to_details()
     return summary, findings
 
 
@@ -228,6 +241,7 @@ class CompletedResult:
     network_observations: tuple[NetworkObservation, ...] = ()
     asn_attributions: tuple[AsnAttributionObservation, ...] = ()
     shodan_hosts: tuple[ShodanHostObservation, ...] = ()
+    takeover_outcomes: tuple[TakeoverCandidateOutcome, ...] = ()
     evidence_status: EvidenceStatus | None = None
 
     def __post_init__(self) -> None:
@@ -351,6 +365,24 @@ class CompletedResult:
                 shodan_observation.ip,
             ) not in action_results:
                 raise ValueError('Shodan host evidence must reference Shodan source or action provenance')
+        sorted_takeover_outcomes = canonical_takeover_outcomes(self.takeover_outcomes)
+        if self.takeover_outcomes != sorted_takeover_outcomes:
+            raise ValueError('takeover outcomes must be deduplicated and sorted')
+        if self.takeover_outcomes:
+            try:
+                takeover_scope = normalize_hostname(self.target)
+            except ValueError as error:
+                raise ValueError('takeover outcomes require a hostname run target scope') from error
+            if any(
+                outcome.hostname != takeover_scope and not outcome.hostname.endswith(f'.{takeover_scope}')
+                for outcome in self.takeover_outcomes
+            ):
+                raise ValueError('takeover outcome must remain inside the run target scope')
+        structured_takeover_results = {('takeover', outcome.hostname) for outcome in self.takeover_outcomes}
+        if structured_takeover_results != {result for result in result_set if result[0] == 'takeover'}:
+            raise ValueError('takeover results must contain canonical structured evidence')
+        if any(('takeover', 'takeover', outcome.hostname) not in action_results for outcome in self.takeover_outcomes):
+            raise ValueError('takeover evidence must reference takeover action provenance')
         sorted_asn_attributions = canonical_asn_attributions(list(self.asn_attributions))
         if self.asn_attributions != sorted_asn_attributions:
             raise ValueError('ASN attributions must be deduplicated and sorted')
@@ -392,6 +424,7 @@ class CompletedResult:
         network_observations: Iterable[NetworkObservation] = (),
         asn_attributions: Iterable[AsnAttributionObservation] = (),
         shodan_hosts: Iterable[ShodanHostObservation] = (),
+        takeover_outcomes: Iterable[TakeoverCandidateOutcome] = (),
         evidence_status: EvidenceStatus | None = None,
     ) -> Self:
         completed_active_evidence = active_evidence if active_evidence is not None else ActiveEvidence()
@@ -412,6 +445,9 @@ class CompletedResult:
         completed_shodan_hosts = canonical_shodan_hosts(list(shodan_hosts))
         for shodan_host in completed_shodan_hosts:
             results.add(('shodan-host', shodan_host.ip))
+        completed_takeover_outcomes = canonical_takeover_outcomes(list(takeover_outcomes))
+        for takeover_outcome in completed_takeover_outcomes:
+            results.add(('takeover', takeover_outcome.hostname))
         return cls(
             run_id=run_id or uuid4(),
             target=target.strip(),
@@ -425,6 +461,7 @@ class CompletedResult:
             network_observations=canonical_network_observations(network_observations),
             asn_attributions=canonical_asn_attributions(list(asn_attributions)),
             shodan_hosts=completed_shodan_hosts,
+            takeover_outcomes=completed_takeover_outcomes,
             evidence_status=evidence_status,
         )
 
@@ -491,6 +528,7 @@ class CompletedResult:
         for attribution in self.asn_attributions:
             attribution_by_asn.setdefault(attribution.asn, []).append(attribution)
         shodan_by_ip = {observation.ip: observation for observation in self.shodan_hosts}
+        takeover_by_hostname = {outcome.hostname: outcome for outcome in self.takeover_outcomes}
         records: list[dict[str, object]] = []
         for kind, value in self.results:
             record: dict[str, object] = {
@@ -510,5 +548,7 @@ class CompletedResult:
                 record['observations'] = asn_attribution_details(tuple(asn_attributions))
             elif kind == 'shodan-host' and (shodan_host := shodan_by_ip.get(value)):
                 record['details'] = shodan_host.to_details()
+            elif kind == 'takeover' and (takeover_outcome := takeover_by_hostname.get(value)):
+                record['details'] = takeover_outcome.to_details()
             records.append(record)
         return records
