@@ -21,7 +21,6 @@ from aiohttp_socks import ProxyConnector
 
 from theHarvester import __version__
 from theHarvester.lib.output import output_logger
-from theHarvester.lib.source_catalog import resolve_sources
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Sized
@@ -413,80 +412,6 @@ class Core:
         output_logger.info('* cmartorella@edge-security.com                                   *')
         output_logger.info('*                                                                 *')
         output_logger.info('*******************************************************************')
-
-    @staticmethod
-    def get_supportedengines() -> list[str]:
-        """Returns a list of supported search engines."""
-        return [
-            'apis-guru',
-            'arquivo',
-            'baidu',
-            'bevigil',
-            'bufferoverun',
-            'builtwith',
-            'brave',
-            'censys',
-            'certspotter',
-            'commoncrawl',
-            'criminalip',
-            'crt-name',
-            'crtsh',
-            'dehashed',
-            'dnsdb',
-            'dnsdumpster',
-            'duckduckgo',
-            'dymo',
-            'fofa',
-            'fullhunt',
-            'github-code',
-            'gitlab',
-            'hackertarget',
-            'haveibeenpwned',
-            'hibpverified',
-            'hudsonrock',
-            'hunter',
-            'hunterhow',
-            'intelx',
-            'leakix',
-            'leaklookup',
-            'linkedin',
-            'mojeek',
-            'netcraft',
-            'netlas',
-            'omnisint',
-            'onyphe',
-            'otx',
-            'pentesttools',
-            'projectdiscovery',
-            'rapiddns',
-            'robtex',
-            'rocketreach',
-            'securityscorecard',
-            'securityTrails',
-            'sherlockeye',
-            'shodan',
-            'shodanInternetDB',
-            'shodanct',
-            'sourcegraph',
-            'subdomaincenter',
-            'subdomainfinderc99',
-            'sublist3r',
-            'thc',
-            'tomba',
-            'urlscan',
-            'virustotal',
-            'waybackarchive',
-            'whoisxml',
-            'windvane',
-            'yahoo',
-            'zoomeye',
-            'zoomeyeapi',
-        ]
-
-    @classmethod
-    def expand_source_selection(cls, selection: str) -> list[str]:
-        """Expand result capability selectors into source names."""
-        return resolve_sources(selection)
 
     @staticmethod
     def get_user_agent() -> str:

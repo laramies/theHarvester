@@ -5,8 +5,8 @@ from typing import Any
 
 import pytest
 
-from theHarvester.discovery import gitlabsearch
 from theHarvester import __main__ as theharvester_main
+from theHarvester.discovery import gitlabsearch
 from theHarvester.lib.completed_result import CompletedResult
 
 
@@ -164,7 +164,7 @@ async def test_gitlab_urls_reach_completed_jsonl(
 
     report = tmp_path / 'gitlab-report'
     monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
-    monkeypatch.setattr(theharvester_main.gitlabsearch, 'SearchGitlab', FakeGitlab)
+    monkeypatch.setattr(gitlabsearch, 'SearchGitlab', FakeGitlab)
     monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.test', '-b', 'gitlab', '-f', str(report)])
 
     with pytest.raises(SystemExit) as exit_info:

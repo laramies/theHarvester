@@ -139,7 +139,7 @@ class TestDymoIntegration:
 
         assert hasattr(mod, 'SearchDymo')
 
-    def test_supportedengines_lists_dymo(self):
-        from theHarvester.lib.core import Core
+    def test_source_catalog_lists_dymo(self):
+        from theHarvester.lib.source_catalog import SOURCE_SPECS
 
-        assert 'dymo' in Core.get_supportedengines()
+        assert 'dymo' in SOURCE_SPECS

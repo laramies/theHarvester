@@ -1,7 +1,6 @@
 import argparse
 import asyncio
 import hashlib
-import inspect
 import json
 import logging
 import os
@@ -15,7 +14,7 @@ from contextlib import AsyncExitStack
 from datetime import UTC, datetime
 from ipaddress import ip_address, ip_network
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 
@@ -25,80 +24,22 @@ import ujson
 
 from theHarvester.discovery import (
     api_endpoints,
-    apisguru,
-    arquivo,
-    baidusearch,
-    bevigil,
-    bravesearch,
-    bufferoverun,
-    builtwith,
-    censysearch,
-    certspottersearch,
-    commoncrawl,
-    criminalip,
-    crtname,
-    crtsh,
-    dnsdb,
     dnssearch,
-    duckduckgosearch,
-    dymosearch,
-    fofa,
-    fullhuntsearch,
-    githubcode,
-    gitlabsearch,
-    hackertarget,
-    haveibeenpwned,
-    hibpverified,
-    hudsonrocksearch,
-    huntersearch,
-    intelxsearch,
-    leakix,
-    leaklookup,
-    mojeek,
-    netlas,
-    onyphe,
-    otxsearch,
-    pentesttools,
-    projectdiscovery,
-    rapiddns,
-    robtex,
-    rocketreach,
-    search_dehashed,
-    search_dnsdumpster,
-    searchhunterhow,
-    securityscorecard,
-    securitytrailssearch,
-    sherlockeye,
-    shodan_internetdb,
-    shodanct,
     shodansearch,
-    sourcegraph,
-    subdomaincenter,
-    subdomainfinderc99,
     takeover,
-    thc,
-    tombasearch,
-    urlscan,
-    virustotal,
-    waybackarchive,
-    whoisxml,
-    windvane,
-    yahoosearch,
-    zoomeyesearch,
 )
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib import hostchecker
 from theHarvester.lib.active_evidence import ActionExecution, ActiveEvidence, ArtifactReference
 from theHarvester.lib.asn_attribution import AsnAttributionObservation
 from theHarvester.lib.completed_result import (
-    EXECUTION_STATUSES,
     CompletedResult,
     ExecutionStatus,
     ResultKind,
     ResultObservation,
     SourceExecution,
 )
-from theHarvester.lib.core import DATA_DIR, Core, show_default_error_message
+from theHarvester.lib.core import DATA_DIR, Core
 from theHarvester.lib.database import ResultStore
 from theHarvester.lib.dns_consensus import AioDNSResolverVantage
 from theHarvester.lib.enumeration import (
@@ -122,10 +63,11 @@ from theHarvester.lib.source_catalog import (
     SOURCE_SPECS,
     ActivityClass,
     ResultRoute,
-    SourceSpec,
     get_source_spec,
     hostname_collection_conflicts,
+    resolve_sources,
 )
+from theHarvester.lib.source_runner import SourceJob, SourceOutcome, SourceRequest, run_source_jobs
 from theHarvester.lib.virtual_host import (
     DEFAULT_VHOST_CONCURRENCY,
     DEFAULT_VHOST_REQUEST_LIMIT,
@@ -431,7 +373,7 @@ async def start(
     # indicates this from the rest API
     if rest_args:
         if rest_args.source and rest_args.source == 'getsources':
-            return list(sorted(Core.get_supportedengines()))
+            return list(sorted(SOURCE_SPECS))
         args = EnumerationOptions.from_namespace(rest_args)
         filename = args.filename
         if args.dns_brute:
@@ -601,9 +543,6 @@ async def start(
     dns_resolution_failure_types: set[str] = set()
     dns_resolution_cancelled = False
     dns_resolution_stop_reason: str | None = None
-
-    def record_missing_credentials(source: str) -> None:
-        source_executions.append(SourceExecution(source, 'skipped', 0, 0, 'MissingKeyError', 'missing-credentials'))
 
     def confirmed_virtual_hostnames() -> list[str]:
         return sorted({observation.hostname for observation in vhost_observations})
@@ -797,166 +736,54 @@ async def start(
             )
         )
 
-    async def collect_and_store(
-        search_engine: Any,
-        source_spec: SourceSpec,
-        source_observations: set[ResultObservation],
-    ) -> None:
-        """Process a source and persist its declared consolidated result routes.
-
-        :param search_engine: search engine to fetch details from
-        :param source_spec: canonical source identity and declared result routes
-        """
-        source = source_spec.name
-        routes = source_spec.routes
-        if source:
-            output_logger.info(f'[*] Searching {source[0].upper() + source[1:]}. ')
-        await search_engine.process(use_proxy)
-
-        def record_source_observations(source_name: str, kind: ResultKind, values: Iterable[object]) -> None:
-            source_observations.update(
-                ResultObservation(source_name, kind, value) for item in values if (value := str(item).strip())
-            )
-
-        if collect_hosts and ResultRoute.SUBDOMAINS in routes:
-            discovered_hosts = await search_engine.get_hostnames()
-            host_names = list(_normalize_hosts_for_storage(discovered_hosts, word))
-            if source == 'rapiddns':
-                for host, address in await search_engine.get_host_ip_pairs():
-                    normalized = normalize_scoped_hostname(host, word)
-                    if normalized and normalized in host_names:
-                        reported_host_ip_pairs.add((normalized, address))
-            all_hosts.extend(host_names)
-            record_source_observations(source, 'hostname', host_names)
-
-        if ResultRoute.EMAILS in routes:
-            email_list = await search_engine.get_emails()
-            all_emails.extend(email_list)
-            record_source_observations(source, 'email', email_list)
-
-        if ResultRoute.IPS in routes:
-            ips_list = await search_engine.get_ips()
-            all_ip.extend(ips_list)
-            record_source_observations(source, 'ip', _normalize_ip_addresses(ips_list))
-
-        if ResultRoute.PEOPLE in routes:
-            people_list = await search_engine.get_people()
-            all_people.extend(people_list)
-            people_evidence = (
-                json.dumps(person, ensure_ascii=False, separators=(',', ':'), sort_keys=True) for person in people_list
-            )
-            record_source_observations(source, 'person', people_evidence)
-
-        if ResultRoute.URLS in routes:
-            urls = await search_engine.get_urls()
-            all_urls.extend(urls)
-            record_source_observations(source, 'url', urls)
-
-        if ResultRoute.ASNS in routes:
-            fasns = await search_engine.get_asns()
-            total_asns.extend(fasns)
-            record_source_observations(source, 'asn', fasns)
-            get_asn_attributions = getattr(search_engine, 'get_asn_attributions', None)
-            if get_asn_attributions is not None:
-                asn_attributions.extend(
-                    attribution
-                    for attribution in await get_asn_attributions()
-                    if ResultObservation(source, 'asn', attribution.asn) in source_observations
-                    and ResultObservation(source, attribution.subject_kind, attribution.subject_value) in source_observations
+    def commit_source_outcome(outcome: SourceOutcome) -> None:
+        source_executions.append(outcome.execution)
+        observations.update(outcome.observations)
+        asn_attributions.extend(outcome.asn_attributions)
+        record_shodan_host_observations(outcome.shodan_hosts)
+        reported_host_ip_pairs.update(outcome.reported_host_ip_pairs)
+        if not args.quiet:
+            if outcome.execution.stop_reason == 'missing-credentials':
+                output_logger.info(f'[!] Source {outcome.execution.source} skipped: missing credentials.')
+            elif outcome.execution.status in {'failed', 'partial'} and outcome.execution.error_type is not None:
+                output_logger.info(
+                    f'[!] Source {outcome.execution.source} {outcome.execution.status}: {outcome.execution.error_type}.'
                 )
+        for observation in outcome.observations:
+            if observation.kind == 'hostname':
+                all_hosts.append(observation.value)
+            elif observation.kind == 'email':
+                all_emails.append(observation.value)
+            elif observation.kind == 'ip':
+                all_ip.append(observation.value)
+            elif observation.kind == 'asn':
+                total_asns.append(observation.value)
+            elif observation.kind == 'breach':
+                all_breaches.append(observation.value)
+            elif observation.kind == 'person':
+                all_people.append(json.loads(observation.value))
+            elif observation.kind == 'url':
+                all_urls.append(observation.value)
+            elif observation.kind == 'framework':
+                all_frameworks.append(observation.value)
+            elif observation.kind == 'language':
+                all_languages.append(observation.value)
+            elif observation.kind == 'server':
+                all_servers.append(observation.value)
+            elif observation.kind == 'cms':
+                all_cms.append(observation.value)
+            elif observation.kind == 'analytics':
+                all_analytics.append(observation.value)
+            elif observation.kind == 'infostealer':
+                all_infostealers.append(json.loads(observation.value))
 
-        if ResultRoute.BREACHES in routes:
-            breach_names = await search_engine.get_breach_names()
-            all_breaches.extend(breach_names)
-            record_source_observations(source, 'breach', breach_names)
-        if source == 'builtwith':
-            technology_results: tuple[tuple[str, list[Any], ResultKind], ...] = (
-                ('get_frameworks', all_frameworks, 'framework'),
-                ('get_languages', all_languages, 'language'),
-                ('get_servers', all_servers, 'server'),
-                ('get_cms', all_cms, 'cms'),
-                ('get_analytics', all_analytics, 'analytics'),
-            )
-            for getter_name, results, result_type in technology_results:
-                values = await getattr(search_engine, getter_name)()
-                results.extend(values)
-                record_source_observations(source, result_type, values)
-        if source == 'hudsonrock':
-            infostealers = await search_engine.get_infostealers()
-            all_infostealers.extend(infostealers)
-            record_source_observations(
-                source,
-                'infostealer',
-                (json.dumps(stealer, ensure_ascii=False, separators=(',', ':'), sort_keys=True) for stealer in infostealers),
-            )
-        if source == 'shodan':
-            sourced_shodan_hosts = record_shodan_host_observations(await search_engine.get_shodan_hosts())
-            record_source_observations(source, 'shodan-host', (host.ip for host in sourced_shodan_hosts))
-
-    async def store(search_engine: Any, source: str) -> None:
-        source_spec = get_source_spec(source)
-        source_name = source_spec.name
-        source_observations: set[ResultObservation] = set()
-        logger.info(f'Source {source_name} started')
-        started = time.perf_counter()
+    async def finish_source_outcome(outcome: SourceOutcome) -> None:
         try:
-            await collect_and_store(search_engine, source_spec, source_observations)
-            reported_status = getattr(search_engine, 'execution_status', None)
-            if reported_status is None:
-                execution_status: ExecutionStatus = 'completed'
-            elif isinstance(reported_status, str) and reported_status in EXECUTION_STATUSES:
-                execution_status = cast('ExecutionStatus', reported_status)
-            else:
-                raise ValueError(f'Source {source_name} reported invalid execution status: {reported_status!r}')
+            await checkpoint_completed_result(committed_sources_only=True)
         except asyncio.CancelledError:
-            result_count = len(source_observations)
-            source_executions.append(
-                SourceExecution(
-                    source_name,
-                    'partial' if result_count else 'failed',
-                    (time.perf_counter() - started) * 1000,
-                    result_count,
-                    'CancelledError',
-                    'cancelled',
-                )
-            )
-            observations.update(source_observations)
             raise
         except Exception as error:
-            result_count = len(source_observations)
-            duration_ms = (time.perf_counter() - started) * 1000
-            logger.exception(f'Source {source_name} failed after {duration_ms / 1000:.2f}s with {result_count} result(s)')
-            source_executions.append(
-                SourceExecution(
-                    source_name,
-                    'partial' if result_count else 'failed',
-                    duration_ms,
-                    result_count,
-                    type(error).__name__,
-                )
-            )
-            observations.update(source_observations)
-            await checkpoint_completed_result(committed_sources_only=True)
-            raise
-        result_count = len(source_observations)
-        duration_ms = (time.perf_counter() - started) * 1000
-        stop_reason = getattr(search_engine, 'stop_reason', None)
-        source_executions.append(
-            SourceExecution(
-                source_name,
-                execution_status,
-                duration_ms,
-                result_count,
-                stop_reason=stop_reason if isinstance(stop_reason, str) else None,
-            )
-        )
-        observations.update(source_observations)
-        await checkpoint_completed_result(committed_sources_only=True)
-        stop_summary = f'; stop={stop_reason}' if isinstance(stop_reason, str) else ''
-        logger.info(
-            f'Source {source_name} finished in {duration_ms / 1000:.2f}s: '
-            f'status={execution_status}; results={result_count}{stop_summary}'
-        )
+            output_logger.info(f'\n An error occurred while committing {outcome.execution.source}: {type(error).__name__}.\n')
 
     async def resolve_source_hostnames() -> None:
         nonlocal dns_resolution_cancelled, dns_resolution_completed_count
@@ -967,13 +794,10 @@ async def start(
             full.extend(sorted({item.value for item in hostname_observations}))
             return
 
-        provider_resolved_sources = {'hackertarget', 'pentesttools'}
-        rapiddns_paired_hosts = {host for host, _address in reported_host_ip_pairs}
-        full.extend(
-            sorted(
-                {item.value for item in hostname_observations if item.source in provider_resolved_sources} | rapiddns_paired_hosts
-            )
-        )
+        retained_unresolved_hosts = {
+            item.value for item in hostname_observations if get_source_spec(item.source).retains_unresolved_hostnames
+        }
+        full.extend(sorted(retained_unresolved_hosts))
         if dnsresolve is not None and not final_dns_resolver_list:
             return
 
@@ -981,9 +805,6 @@ async def start(
         if not host_names:
             return
 
-        rapiddns_candidates = {
-            item.value for item in hostname_observations if item.source == 'rapiddns' and item.value not in rapiddns_paired_hosts
-        }
         dns_resolution_started = time.perf_counter()
         full_hosts_checker = hostchecker.Checker(host_names, final_dns_resolver_list)
 
@@ -992,7 +813,6 @@ async def start(
             dns_resolution_ips.update(_normalize_ip_addresses(temp_ips))
             all_ip.extend(temp_ips)
             full.extend(resolved_pair)
-            full.extend(sorted(rapiddns_candidates - set(resolved_hosts)))
             resolved_screenshot_hosts.update(resolved_hosts)
 
         try:
@@ -1022,9 +842,9 @@ async def start(
         dns_resolution_error_types.update(getattr(full_hosts_checker, 'query_error_types', set()))
         dns_resolution_stop_reason = getattr(full_hosts_checker, 'stop_reason', None)
 
-    stor_lst = []
+    source_jobs: list[SourceJob] = []
     if args.source is not None:
-        engines = Core.expand_source_selection(args.source)
+        engines = resolve_sources(args.source)
         if not collect_hosts:
             hostname_only_engines = [
                 engine
@@ -1073,886 +893,28 @@ async def start(
         output_logger.info(f'[*] Activity: {", ".join(activity_labels[item] for item in ActivityClass if item in activities)}')
 
     if args.source is not None:
-        # Iterate through search engines in order
-        if set(engines).issubset(Core.get_supportedengines()):
-            output_logger.info(f'\n[*] Target: {word} \n')
-
-            for engineitem in engines:
-                if engineitem == 'apis-guru':
-                    try:
-                        apis_guru_search = apisguru.SearchApisGuru(word, limit)
-                        stor_lst.append(store(apis_guru_search, engineitem))
-                    except Exception as e:
-                        show_default_error_message(engineitem, word, e)
-
-                elif engineitem == 'arquivo':
-                    try:
-                        arquivo_search = arquivo.SearchArquivo(word, limit)
-                        stor_lst.append(store(arquivo_search, engineitem))
-                    except Exception as e:
-                        show_default_error_message(engineitem, word, e)
-
-                elif engineitem == 'baidu':
-                    try:
-                        baidu_search = baidusearch.SearchBaidu(word, limit)
-                        stor_lst.append(
-                            store(
-                                baidu_search,
-                                engineitem,
-                            )
-                        )
-                    except Exception as e:
-                        show_default_error_message(engineitem, word, e)
-
-                elif engineitem == 'bevigil':
-                    try:
-                        bevigil_search = bevigil.SearchBeVigil(word)
-                        stor_lst.append(
-                            store(
-                                bevigil_search,
-                                engineitem,
-                            )
-                        )
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            record_missing_credentials(engineitem)
-                        show_default_error_message(engineitem, word, error=e)
-
-                elif engineitem == 'brave':
-                    try:
-                        brave_search = bravesearch.SearchBrave(word, limit)
-                        stor_lst.append(
-                            store(
-                                brave_search,
-                                engineitem,
-                            )
-                        )
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            record_missing_credentials(engineitem)
-                        show_default_error_message(engineitem, word, error=e)
-
-                elif engineitem == 'bufferoverun':
-                    try:
-                        bufferoverun_search = bufferoverun.SearchBufferover(word)
-                        stor_lst.append(
-                            store(
-                                bufferoverun_search,
-                                engineitem,
-                            )
-                        )
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            record_missing_credentials(engineitem)
-                        show_default_error_message(engineitem, word, e)
-
-                elif engineitem == 'builtwith':
-                    try:
-                        builtwith_search = builtwith.SearchBuiltWith(word)
-                        stor_lst.append(store(builtwith_search, engineitem))
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            record_missing_credentials(engineitem)
-                            output_logger.info(f"Failed to perform BuiltWith search for word: '{word}'")
-                            output_logger.info(f'A Missing Key Error occurred in builtwith: {e}')
-                        else:
-                            show_default_error_message(engineitem, word, e)
-
-                elif engineitem == 'censys':
-                    try:
-                        censys_search = censysearch.SearchCensys(word, limit)
-                        stor_lst.append(
-                            store(
-                                censys_search,
-                                engineitem,
-                            )
-                        )
-                    except MissingKey as mk:
-                        record_missing_credentials(engineitem)
-                        if not args.quiet:
-                            output_logger.info(f'Censys Platform credentials are missing or invalid: {mk}')
-                    except ConnectionError as ce:
-                        if not args.quiet:
-                            output_logger.info(f'Network error while querying Censys: {ce}')
-                    except TimeoutError as te:
-                        if not args.quiet:
-                            output_logger.info(f'Timeout occurred while contacting Censys: {te}')
-                    except ValueError as ve:
-                        if not args.quiet:
-                            output_logger.info(f'Censys returned unexpected data: {ve}')
-                    except Exception as e:
-                        if not args.quiet:
-                            output_logger.info(f'Unexpected error occurred in Censys module: {e}')
-
-                elif engineitem == 'certspotter':
-                    try:
-                        certspotter_search = certspottersearch.SearchCertspoter(word)
-                        stor_lst.append(store(certspotter_search, engineitem))
-                    except ConnectionError as ce:
-                        if not args.quiet:
-                            output_logger.info(f'Network connection error while accessing Certspotter: {ce}')
-                    except TimeoutError as te:
-                        if not args.quiet:
-                            output_logger.info(f'Request to Certspotter timed out: {te}')
-                    except ValueError as ve:
-                        if not args.quiet:
-                            output_logger.info(f'Certspotter returned invalid data: {ve}')
-                    except MissingKey as mk:
-                        record_missing_credentials(engineitem)
-                        if not args.quiet:
-                            output_logger.info(f'Unexpected response structure from Certspotter (missing key): {mk}')
-                    except Exception as e:
-                        if not args.quiet:
-                            output_logger.info(f'Unexpected error occurred in Certspotter module: {e}')
-
-                elif engineitem == 'commoncrawl':
-                    try:
-                        commoncrawl_search = commoncrawl.SearchCommoncrawl(word, limit)
-                        stor_lst.append(
-                            store(
-                                commoncrawl_search,
-                                engineitem,
-                            )
-                        )
-                    except Exception as e:
-                        show_default_error_message(engineitem, word, e)
-
-                elif engineitem == 'criminalip':
-                    try:
-                        criminalip_search = criminalip.SearchCriminalIP(word)
-                        stor_lst.append(
-                            store(
-                                criminalip_search,
-                                engineitem,
-                            )
-                        )
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            record_missing_credentials(engineitem)
-                            if not args.quiet:
-                                output_logger.info(f'A Missing key error occurred in criminalip: {e}')
-                        else:
-                            show_default_error_message(engineitem, word, e)
-
-                elif engineitem == 'crt-name':
-                    try:
-                        crt_name_search = crtname.SearchCrtName(word)
-                        stor_lst.append(store(crt_name_search, engineitem))
-                    except Exception as e:
-                        show_default_error_message(engineitem, word, e)
-
-                elif engineitem == 'crtsh':
-                    try:
-                        crtsh_search = crtsh.SearchCrtsh(word)
-                        stor_lst.append(store(crtsh_search, 'CRTsh'))
-                    except Exception as e:
-                        output_logger.info(f'[!] A timeout occurred with crtsh, cannot find {args.domain}\n {e}')
-
-                elif engineitem == 'dehashed':
-                    try:
-                        dehashed_search = search_dehashed.SearchDehashed(word, limit=limit)
-                        stor_lst.append(
-                            store(
-                                dehashed_search,
-                                engineitem,
-                            )
-                        )
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            record_missing_credentials(engineitem)
-                            if not args.quiet:
-                                output_logger.info(f'A Missing Key error occurred in dehashed: {e}')
-                        else:
-                            show_default_error_message(engineitem, word, e)
-
-                elif engineitem == 'dnsdb':
-                    try:
-                        dnsdb_search = dnsdb.SearchDNSDB(word)
-                        stor_lst.append(store(dnsdb_search, engineitem))
-                    except MissingKey as e:
-                        record_missing_credentials(engineitem)
-                        if not args.quiet:
-                            output_logger.info(e)
-                    except Exception as e:
-                        show_default_error_message(engineitem, word, e)
-
-                elif engineitem == 'dnsdumpster':
-                    try:
-                        dnsdumpster_search = search_dnsdumpster.SearchDNSDumpster(word)
-                        stor_lst.append(
-                            store(
-                                dnsdumpster_search,
-                                engineitem,
-                            )
-                        )
-                    except MissingKey as e:
-                        record_missing_credentials(engineitem)
-                        if not args.quiet:
-                            output_logger.info(e)
-                    except Exception as e:
-                        show_default_error_message(engineitem, word, e)
-
-                elif engineitem == 'duckduckgo':
-                    duckduckgo_search = duckduckgosearch.SearchDuckDuckGo(word, limit)
-                    stor_lst.append(
-                        store(
-                            duckduckgo_search,
-                            engineitem,
-                        )
-                    )
-
-                elif engineitem == 'dymo':
-                    try:
-                        dymo_search = dymosearch.SearchDymo(word)
-                        stor_lst.append(store(dymo_search, engineitem))
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            record_missing_credentials(engineitem)
-                            if not args.quiet:
-                                output_logger.info(f'A Missing Key error occurred in dymo: {e}')
-                        else:
-                            show_default_error_message(engineitem, word, e)
-
-                elif engineitem == 'fofa':
-                    try:
-                        fofa_search = fofa.SearchFofa(word)
-                        stor_lst.append(
-                            store(
-                                fofa_search,
-                                engineitem,
-                            )
-                        )
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            record_missing_credentials(engineitem)
-                            if not args.quiet:
-                                output_logger.info(f'A Missing Key error occurred in Fofa: {e}')
-                        else:
-                            show_default_error_message(engineitem, word, e)
-
-                elif engineitem == 'fullhunt':
-                    try:
-                        fullhunt_search = fullhuntsearch.SearchFullHunt(word)
-                        stor_lst.append(store(fullhunt_search, engineitem))
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            record_missing_credentials(engineitem)
-                            if not args.quiet:
-                                output_logger.info(f'A Missing Key error occurred in fullhunt: {e}')
-
-                elif engineitem == 'github-code':
-                    try:
-                        github_search = githubcode.SearchGithubCode(word, limit)
-                        stor_lst.append(
-                            store(
-                                github_search,
-                                engineitem,
-                            )
-                        )
-                    except MissingKey as ex:
-                        record_missing_credentials(engineitem)
-                        if not args.quiet:
-                            output_logger.info(f'A Missing Key error occurred in github-code: {ex}')
-
-                elif engineitem == 'gitlab':
-                    try:
-                        gitlab_search = gitlabsearch.SearchGitlab(word)
-                        stor_lst.append(
-                            store(
-                                gitlab_search,
-                                engineitem,
-                            )
-                        )
-                    except Exception as e:
-                        show_default_error_message(engineitem, word, e)
-
-                elif engineitem == 'hackertarget':
-                    try:
-                        hackertarget_search = hackertarget.SearchHackerTarget(word)
-                        stor_lst.append(store(hackertarget_search, engineitem))
-                    except Exception as e:
-                        show_default_error_message(engineitem, word, e)
-
-                elif engineitem == 'haveibeenpwned':
-                    try:
-                        haveibeenpwned_search = haveibeenpwned.SearchHaveIBeenPwned(word)
-                        stor_lst.append(
-                            store(
-                                haveibeenpwned_search,
-                                engineitem,
-                            )
-                        )
-                    except Exception as e:
-                        show_default_error_message(engineitem, word, e)
-
-                elif engineitem == 'hibpverified':
-                    try:
-                        hibp_search = hibpverified.SearchHibpVerified(word)
-                        stor_lst.append(store(hibp_search, engineitem))
-                    except MissingKey as error:
-                        record_missing_credentials(engineitem)
-                        if not args.quiet:
-                            output_logger.info(f'A Missing Key error occurred in hibpverified: {error}')
-                    except Exception as error:
-                        show_default_error_message(engineitem, word, error)
-
-                elif engineitem == 'hudsonrock':
-                    try:
-                        hudsonrock_search = hudsonrocksearch.SearchHudsonRock(word)
-                        stor_lst.append(
-                            store(
-                                hudsonrock_search,
-                                engineitem,
-                            )
-                        )
-                    except Exception as e:
-                        output_logger.info(f'An exception has occurred in Hudson Rock search: {e}')
-
-                elif engineitem == 'hunter':
-                    try:
-                        hunter_search = huntersearch.SearchHunter(word, limit, start)
-                        stor_lst.append(
-                            store(
-                                hunter_search,
-                                engineitem,
-                            )
-                        )
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            record_missing_credentials(engineitem)
-                            if not args.quiet:
-                                output_logger.info(f'A Missing Key error occurred in Hunter: {e}')
-
-                elif engineitem == 'hunterhow':
-                    try:
-                        hunterhow_search = searchhunterhow.SearchHunterHow(word)
-                        stor_lst.append(store(hunterhow_search, engineitem))
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            record_missing_credentials(engineitem)
-                            if not args.quiet:
-                                output_logger.info(f'A Missing Key error occurred in Hunter How: {e}')
-                        else:
-                            output_logger.info(f'An exception has occurred in hunterhow search: {e}')
-
-                elif engineitem == 'intelx':
-                    try:
-                        intelx_search = intelxsearch.SearchIntelx(word)
-                        stor_lst.append(
-                            store(
-                                intelx_search,
-                                engineitem,
-                            )
-                        )
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            record_missing_credentials(engineitem)
-                            if not args.quiet:
-                                output_logger.info(f'A Missing Key error occurred in intelx: {e}')
-                        else:
-                            output_logger.info(f'An exception has occurred in Intelx search: {e}')
-
-                elif engineitem == 'leakix':
-                    try:
-                        leakix_search = leakix.SearchLeakix(word)
-                        stor_lst.append(
-                            store(
-                                leakix_search,
-                                engineitem,
-                            )
-                        )
-                    except MissingKey as e:
-                        record_missing_credentials(engineitem)
-                        if not args.quiet:
-                            output_logger.info(e)
-                    except Exception as e:
-                        show_default_error_message(engineitem, word, e)
-
-                elif engineitem == 'leaklookup':
-                    try:
-                        leaklookup_search = leaklookup.SearchLeakLookup(word)
-                        stor_lst.append(
-                            store(
-                                leaklookup_search,
-                                engineitem,
-                            )
-                        )
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            record_missing_credentials(engineitem)
-                            output_logger.info(f'A Missing Key error occurred in LeakLookup: {e}')
-                        else:
-                            output_logger.info(f'An exception has occurred in LeakLookup search: {e}')
-
-                elif engineitem == 'mojeek':
-                    try:
-                        mojeek_search = mojeek.SearchMojeek(word, limit)
-                        stor_lst.append(
-                            store(
-                                mojeek_search,
-                                engineitem,
-                            )
-                        )
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            record_missing_credentials(engineitem)
-                            output_logger.info(f'A Missing Key error occurred in Mojeek: {e}')
-                        else:
-                            output_logger.info(f'An exception has occurred in Mojeek search: {e}')
-
-                elif engineitem == 'netlas':
-                    try:
-                        netlas_search = netlas.SearchNetlas(word, limit)
-                        stor_lst.append(
-                            store(
-                                netlas_search,
-                                engineitem,
-                            )
-                        )
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            record_missing_credentials(engineitem)
-                            if not args.quiet:
-                                output_logger.info(f'A Missing Key error occurred in Netlas: {e}')
-
-                elif engineitem == 'onyphe':
-                    try:
-                        onyphe_search = onyphe.SearchOnyphe(word)
-                        stor_lst.append(
-                            store(
-                                onyphe_search,
-                                engineitem,
-                            )
-                        )
-                    except ConnectionError as ce:
-                        if not args.quiet:
-                            output_logger.info(f'Network connection error while accessing Onyphe: {ce}')
-                    except TimeoutError as te:
-                        if not args.quiet:
-                            output_logger.info(f'Request to Onyphe timed out: {te}')
-                    except ValueError as ve:
-                        if not args.quiet:
-                            output_logger.info(f'Onyphe returned invalid or unexpected data: {ve}')
-                    except KeyError as ke:
-                        if not args.quiet:
-                            output_logger.info(f'Unexpected response structure from Onyphe (missing key): {ke}')
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            record_missing_credentials(engineitem)
-                        if not args.quiet:
-                            output_logger.info(f'Unexpected error occurred in Onyphe module: {e}')
-
-                elif engineitem == 'otx':
-                    try:
-                        otxsearch_search = otxsearch.SearchOtx(word)
-                        stor_lst.append(
-                            store(
-                                otxsearch_search,
-                                engineitem,
-                            )
-                        )
-                    except ConnectionError as ce:
-                        if not args.quiet:
-                            output_logger.info(f'Network connection error while accessing OTX: {ce}')
-                    except TimeoutError as te:
-                        if not args.quiet:
-                            output_logger.info(f'Request to OTX timed out: {te}')
-                    except ValueError as ve:
-                        if not args.quiet:
-                            output_logger.info(f'OTX returned invalid or unexpected data: {ve}')
-                    except KeyError as ke:
-                        if not args.quiet:
-                            output_logger.info(f'Unexpected response structure from OTX (missing key): {ke}')
-                    except Exception as e:
-                        if not args.quiet:
-                            output_logger.info(f'Unexpected error occurred in OTX module: {e}')
-
-                elif engineitem == 'pentesttools':
-                    try:
-                        pentesttools_search = pentesttools.SearchPentestTools(word)
-                        stor_lst.append(store(pentesttools_search, engineitem))
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            record_missing_credentials(engineitem)
-                            if not args.quiet:
-                                output_logger.info(f'A Missing Key error occurred in PentestTools search: {e}')
-                        else:
-                            output_logger.info(f'An exception has occurred in PentestTools search: {e}')
-
-                elif engineitem == 'projectdiscovery':
-                    try:
-                        projectdiscovery_search = projectdiscovery.SearchDiscovery(word)
-                        stor_lst.append(store(projectdiscovery_search, engineitem))
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            record_missing_credentials(engineitem)
-                            if not args.quiet:
-                                output_logger.info(f'A Missing Key error occurred in ProjectDiscovery: {e}')
-                        else:
-                            output_logger.info('An exception has occurred in ProjectDiscovery')
-
-                elif engineitem == 'rapiddns':
-                    try:
-                        rapiddns_search = rapiddns.SearchRapidDns(word)
-                        stor_lst.append(store(rapiddns_search, engineitem))
-                    except ConnectionError as ce:
-                        if not args.quiet:
-                            output_logger.info(f'Network connection error while accessing RapidDNS: {ce}')
-                    except TimeoutError as te:
-                        if not args.quiet:
-                            output_logger.info(f'Request to RapidDNS timed out: {te}')
-                    except ValueError as ve:
-                        if not args.quiet:
-                            output_logger.info(f'RapidDNS returned invalid or unexpected data: {ve}')
-                    except KeyError as ke:
-                        if not args.quiet:
-                            output_logger.info(f'Unexpected response structure from RapidDNS (missing key): {ke}')
-                    except Exception as e:
-                        if not args.quiet:
-                            output_logger.info(f'Unexpected error occurred in RapidDNS module: {e}')
-
-                elif engineitem == 'robtex':
-                    try:
-                        robtex_search = robtex.SearchRobtex(word)
-                        stor_lst.append(
-                            store(
-                                robtex_search,
-                                engineitem,
-                            )
-                        )
-                    except Exception as e:
-                        show_default_error_message(engineitem, word, e)
-
-                elif engineitem == 'rocketreach':
-                    try:
-                        rocketreach_search = rocketreach.SearchRocketReach(word, limit)
-                        stor_lst.append(store(rocketreach_search, engineitem))
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            record_missing_credentials(engineitem)
-                            if not args.quiet:
-                                output_logger.info(f'A Missing Key error occurred in RocketReach: {e}')
-                        else:
-                            output_logger.info(f'An exception has occurred in RocketReach: {e}')
-
-                elif engineitem == 'securityscorecard':
-                    try:
-                        securityscorecard_search = securityscorecard.SearchSecurityScorecard(word)
-                        stor_lst.append(
-                            store(
-                                securityscorecard_search,
-                                engineitem,
-                            )
-                        )
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            record_missing_credentials(engineitem)
-                            output_logger.info(MissingKey('SecurityScorecard'))
-                        else:
-                            output_logger.info(f'An exception has occurred in SecurityScorecard search: {e}')
-
-                elif engineitem == 'securityTrails':
-                    try:
-                        securitytrails_search = securitytrailssearch.SearchSecuritytrail(word)
-                        stor_lst.append(
-                            store(
-                                securitytrails_search,
-                                engineitem,
-                            )
-                        )
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            record_missing_credentials(engineitem)
-                            if not args.quiet:
-                                output_logger.info(f'A Missing Key error occurred Security Trails: {e}')
-
-                elif engineitem == 'sherlockeye':
-                    try:
-                        sherlockeye_search = sherlockeye.SearchSherlockeye(word)
-                        stor_lst.append(
-                            store(
-                                sherlockeye_search,
-                                engineitem,
-                            )
-                        )
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            record_missing_credentials(engineitem)
-                            if not args.quiet:
-                                output_logger.info(f'A Missing Key error occurred in sherlockeye: {e}')
-                        else:
-                            show_default_error_message(engineitem, word, e)
-
-                elif engineitem == 'shodan':
-                    try:
-                        stor_lst.append(store(shodansearch.SearchShodan(word), engineitem))
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            record_missing_credentials(engineitem)
-                            if not args.quiet:
-                                output_logger.info(f'A Missing Key error occurred in Shodan search: {e}')
-                        else:
-                            output_logger.info(f'An exception has occurred in Shodan search: {e}')
-
-                elif engineitem == 'shodanInternetDB':
-                    try:
-                        shodanidb_search = shodan_internetdb.SearchShodanInternetDB(word)
-                        stor_lst.append(
-                            store(
-                                shodanidb_search,
-                                engineitem,
-                            )
-                        )
-                    except ConnectionError as ce:
-                        if not args.quiet:
-                            output_logger.info(f'Network connection error while accessing Shodan InternetDB: {ce}')
-                    except TimeoutError as te:
-                        if not args.quiet:
-                            output_logger.info(f'Request to Shodan InternetDB timed out: {te}')
-                    except Exception as e:
-                        if not args.quiet:
-                            output_logger.info(f'Unexpected error occurred in Shodan InternetDB module: {e}')
-
-                elif engineitem == 'shodanct':
-                    try:
-                        shodanct_search = shodanct.SearchShodanCt(word)
-                        stor_lst.append(store(shodanct_search, engineitem))
-                    except Exception as e:
-                        show_default_error_message(engineitem, word, e)
-
-                elif engineitem == 'sourcegraph':
-                    sourcegraph_search = sourcegraph.SearchSourcegraph(word, limit)
-                    stor_lst.append(store(sourcegraph_search, engineitem))
-
-                elif engineitem == 'subdomaincenter':
-                    try:
-                        subdomaincenter_search = subdomaincenter.SubdomainCenter(word)
-                        stor_lst.append(store(subdomaincenter_search, engineitem))
-                    except ConnectionError as ce:
-                        if not args.quiet:
-                            output_logger.info(f'Network connection error while accessing SubdomainCenter: {ce}')
-                    except TimeoutError as te:
-                        if not args.quiet:
-                            output_logger.info(f'Request to SubdomainCenter timed out: {te}')
-                    except ValueError as ve:
-                        if not args.quiet:
-                            output_logger.info(f'SubdomainCenter returned invalid or unexpected data: {ve}')
-                    except KeyError as ke:
-                        if not args.quiet:
-                            output_logger.info(f'Unexpected response structure from SubdomainCenter (missing key): {ke}')
-                    except Exception as e:
-                        if not args.quiet:
-                            output_logger.info(f'Unexpected error occurred in SubdomainCenter module: {e}')
-
-                elif engineitem == 'subdomainfinderc99':
-                    try:
-                        subdomainfinderc99_search = subdomainfinderc99.SearchSubdomainfinderc99(word)
-                        stor_lst.append(store(subdomainfinderc99_search, engineitem))
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            record_missing_credentials(engineitem)
-                            if not args.quiet:
-                                output_logger.info(f'A Missing Key error occurred in Subdomainfinderc99 search: {e}')
-                        else:
-                            output_logger.info(f'An exception has occurred in Subdomainfinderc99 search: {e}')
-
-                elif engineitem == 'thc':
-                    try:
-                        thc_search = thc.SearchThc(word)
-                        stor_lst.append(store(thc_search, engineitem))
-                    except Exception as e:
-                        show_default_error_message(engineitem, word, e)
-
-                elif engineitem == 'tomba':
-                    try:
-                        tomba_search = tombasearch.SearchTomba(word, limit, start)
-                        stor_lst.append(
-                            store(
-                                tomba_search,
-                                engineitem,
-                            )
-                        )
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            record_missing_credentials(engineitem)
-                            if not args.quiet:
-                                output_logger.info(f'A Missing Key error occurred in Tomba: {e}')
-
-                elif engineitem == 'urlscan':
-                    try:
-                        urlscan_search = urlscan.SearchUrlscan(word)
-                        stor_lst.append(
-                            store(
-                                urlscan_search,
-                                engineitem,
-                            )
-                        )
-                    except ConnectionError as ce:
-                        if not args.quiet:
-                            output_logger.info(f'Network connection error while accessing Urlscan: {ce}')
-                    except TimeoutError as te:
-                        if not args.quiet:
-                            output_logger.info(f'Request to Urlscan timed out: {te}')
-                    except ValueError as ve:
-                        if not args.quiet:
-                            output_logger.info(f'Urlscan returned invalid or unexpected data: {ve}')
-                    except KeyError as ke:
-                        if not args.quiet:
-                            output_logger.info(f'Unexpected response structure from Urlscan (missing key): {ke}')
-                    except Exception as e:
-                        if not args.quiet:
-                            output_logger.info(f'Unexpected error occurred in Urlscan module: {e}')
-
-                elif engineitem == 'virustotal':
-                    try:
-                        virustotal_search = virustotal.SearchVirustotal(word)
-                        stor_lst.append(store(virustotal_search, engineitem))
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            record_missing_credentials(engineitem)
-                            if not args.quiet:
-                                output_logger.info(f'A Missing Key error occurred in virustotal search: {e}')
-
-                elif engineitem == 'waybackarchive':
-                    try:
-                        waybackarchive_search = waybackarchive.SearchWaybackarchive(word, limit)
-                        stor_lst.append(
-                            store(
-                                waybackarchive_search,
-                                engineitem,
-                            )
-                        )
-                    except Exception as e:
-                        show_default_error_message(engineitem, word, e)
-
-                elif engineitem == 'whoisxml':
-                    try:
-                        whoisxml_search = whoisxml.SearchWhoisXML(word)
-                        stor_lst.append(store(whoisxml_search, engineitem))
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            record_missing_credentials(engineitem)
-                            if not args.quiet:
-                                output_logger.info(f'A Missing Key error occurred in whoisxml search: {e}')
-                        else:
-                            output_logger.info(f'An exception has occurred in WhoisXML search: {e}')
-
-                elif engineitem == 'windvane':
-                    try:
-                        windvane_search = windvane.SearchWindvane(word)
-                        stor_lst.append(
-                            store(
-                                windvane_search,
-                                engineitem,
-                            )
-                        )
-                    except Exception as e:
-                        show_default_error_message(engineitem, word, e)
-
-                elif engineitem == 'yahoo':
-                    try:
-                        yahoo_search = yahoosearch.SearchYahoo(word, limit)
-                        stor_lst.append(
-                            store(
-                                yahoo_search,
-                                engineitem,
-                            )
-                        )
-                    except ConnectionError as ce:
-                        if not args.quiet:
-                            output_logger.info(f'Network connection error while accessing Yahoo: {ce}')
-                    except TimeoutError as te:
-                        if not args.quiet:
-                            output_logger.info(f'Request to Yahoo timed out: {te}')
-                    except ValueError as ve:
-                        if not args.quiet:
-                            output_logger.info(f'Yahoo returned invalid or unexpected data: {ve}')
-                    except KeyError as ke:
-                        if not args.quiet:
-                            output_logger.info(f'Unexpected response structure from Yahoo (missing key): {ke}')
-                    except Exception as e:
-                        if not args.quiet:
-                            output_logger.info(f'Unexpected error occurred in Yahoo module: {e}')
-
-                elif engineitem == 'zoomeye':
-                    try:
-                        zoomeye_search = zoomeyesearch.SearchZoomEye(word, limit)
-                        stor_lst.append(
-                            store(
-                                zoomeye_search,
-                                engineitem,
-                            )
-                        )
-                    except Exception as e:
-                        if isinstance(e, MissingKey):
-                            record_missing_credentials(engineitem)
-                            if not args.quiet:
-                                output_logger.info(f'A Missing Key error occurred in zoomeye: {e}')
-
-        elif rest_args is not None:
-            try:
-                rest_args.dns_brute
-            except AttributeError:
-                output_logger.info('\n[!] Invalid source.\n')
-                sys.exit(1)
-        else:
-            # Print which engines aren't supported
-            unsupported_engines = set(engines) - set(Core.get_supportedengines())
-            if unsupported_engines:
-                output_logger.info(f'The following engines are not supported: {unsupported_engines}')
+        unsupported_engines = set(engines) - set(SOURCE_SPECS)
+        if unsupported_engines:
+            output_logger.info(f'The following engines are not supported: {unsupported_engines}')
             output_logger.info('\n[!] Invalid source.\n')
             sys.exit(1)
+        output_logger.info(f'\n[*] Target: {word} \n')
+        source_jobs.extend(SourceJob(SourceRequest(engine, word, limit, start, use_proxy, collect_hosts)) for engine in engines)
 
-    async def worker(queue):
-        while True:
-            # Get a "work item" out of the queue.
-            stor = await queue.get()
-            try:
-                await stor
-            except Exception as work_item_error:
-                output_logger.info(
-                    f'\n An error occurred while processing a "work item": {type(work_item_error).__name__}: {work_item_error}\n'
-                )
-            finally:
-                # Notify the queue that the "work item" has been processed.
-                queue.task_done()
+    async def handler(jobs: list[SourceJob]) -> tuple[SourceOutcome, ...]:
+        def report_source_started(request: SourceRequest) -> None:
+            source = request.source
+            output_logger.info(f'[*] Searching {source[0].upper() + source[1:]}. ')
 
-    async def handler(lst):
-        queue: asyncio.Queue[Awaitable[Any]] = asyncio.Queue()
-        for stor_method in lst:
-            # enqueue the coroutines
-            queue.put_nowait(stor_method)
-        # Create three worker tasks to process the queue concurrently.
-        tasks = []
-        for _i in range(3):
-            task = asyncio.create_task(worker(queue))
-            tasks.append(task)
-
-        join_task = asyncio.create_task(queue.join())
-        try:
-            done, _pending = await asyncio.wait((join_task, *tasks), return_when=asyncio.FIRST_COMPLETED)
-            finished_workers = [task for task in tasks if task in done]
-            if any(task.cancelled() for task in finished_workers):
-                raise asyncio.CancelledError
-            for task in finished_workers:
-                if error := task.exception():
-                    raise error
-            if finished_workers:
-                raise RuntimeError('A source worker stopped before the queue was drained')
-            await join_task
-        finally:
-            join_task.cancel()
-            for task in tasks:
-                task.cancel()
-            await asyncio.gather(join_task, *tasks, return_exceptions=True)
-            while not queue.empty():
-                pending_work = queue.get_nowait()
-                if inspect.iscoroutine(pending_work):
-                    pending_work.close()
-                queue.task_done()
+        return await run_source_jobs(
+            tuple(jobs),
+            commit=commit_source_outcome,
+            after_commit=finish_source_outcome,
+            on_started=report_source_started,
+        )
 
     try:
-        await handler(lst=stor_lst)
+        await handler(source_jobs)
         await resolve_source_hostnames()
     except asyncio.CancelledError:
         record_dns_resolution_execution(handler_cancelled=True)
@@ -1960,12 +922,6 @@ async def start(
         await persist_result(finish_completed_result(committed_sources_only=True))
         raise
 
-    recorded_sources = {result.source.casefold() for result in source_executions}
-    source_executions.extend(
-        SourceExecution(engine, 'skipped', 0, 0, 'SourceDidNotStart')
-        for engine in engines
-        if engine.casefold() not in recorded_sources
-    )
     record_dns_resolution_execution()
     await checkpoint_completed_result()
 

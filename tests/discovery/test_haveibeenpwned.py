@@ -193,7 +193,7 @@ async def test_public_breach_names_reach_completed_result_and_jsonl(
 
     report = tmp_path / 'hibp-report'
     monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
-    monkeypatch.setattr(theharvester_main.haveibeenpwned, 'SearchHaveIBeenPwned', FakeHaveIBeenPwned)
+    monkeypatch.setattr(haveibeenpwned, 'SearchHaveIBeenPwned', FakeHaveIBeenPwned)
     monkeypatch.setattr(
         sys,
         'argv',

@@ -38,6 +38,8 @@ Use a short branch name that describes the change, such as `fix/certspotter-pagi
 
 ### Discovery providers
 
+Register an ordinary provider with one `SourceSpec` catalog entry and one `SOURCE_FACTORIES` entry. Do not edit CLI orchestration, persistence, or output code: the catalog drives selection/help/activity metadata and the shared runner owns construction, collection, and completed-result output.
+
 If you can add coverage for a new or changed discovery provider, keep it focused and mock HTTP, DNS, and provider responses. Tests must not require API keys or external network access. [The Baidu discovery tests](tests/discovery/test_baidusearch.py) are a small example you can copy and adapt.
 
 Useful cases include:

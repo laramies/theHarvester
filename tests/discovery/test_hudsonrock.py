@@ -241,7 +241,7 @@ async def test_infostealer_data_reaches_completed_result_and_jsonl(
 
     report = tmp_path / 'hudsonrock-report'
     monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
-    monkeypatch.setattr(theharvester_main.hudsonrocksearch, 'SearchHudsonRock', FakeHudsonRock)
+    monkeypatch.setattr(hudsonrocksearch, 'SearchHudsonRock', FakeHudsonRock)
     monkeypatch.setattr(
         sys,
         'argv',

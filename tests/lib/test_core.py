@@ -19,7 +19,7 @@ from theHarvester.lib.core import (
     ResponseStreamError,
 )
 from theHarvester.lib.output import configure_logging
-from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass
+from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass, resolve_sources
 
 
 @pytest.fixture(autouse=True)
@@ -28,7 +28,7 @@ def mock_environ(monkeypatch, tmp_path: Path):
 
 
 def test_email_capability_expands_to_email_sources() -> None:
-    assert Core.expand_source_selection("emails") == [
+    assert resolve_sources("emails") == [
         "apis-guru",
         "baidu",
         "brave",
@@ -53,7 +53,7 @@ def test_email_capability_expands_to_email_sources() -> None:
 
 
 def test_capabilities_and_explicit_sources_form_a_union() -> None:
-    assert Core.expand_source_selection("certspotter, urls") == [
+    assert resolve_sources("certspotter, urls") == [
         "apis-guru",
         "bevigil",
         "builtwith",
@@ -67,7 +67,7 @@ def test_capabilities_and_explicit_sources_form_a_union() -> None:
 
 
 def test_multiple_capabilities_form_a_union() -> None:
-    assert Core.expand_source_selection("asns,people") == [
+    assert resolve_sources("asns,people") == [
         "criminalip",
         "onyphe",
         "urlscan",
@@ -76,15 +76,15 @@ def test_multiple_capabilities_form_a_union() -> None:
 
 
 def test_breach_capability_includes_every_matching_source() -> None:
-    assert Core.expand_source_selection('breaches') == ['haveibeenpwned', 'hibpverified', 'leaklookup']
+    assert resolve_sources('breaches') == ['haveibeenpwned', 'hibpverified', 'leaklookup']
 
 
 def test_named_source_can_be_combined_with_a_capability() -> None:
-    assert Core.expand_source_selection('breaches,hibpverified') == ['haveibeenpwned', 'hibpverified', 'leaklookup']
+    assert resolve_sources('breaches,hibpverified') == ['haveibeenpwned', 'hibpverified', 'leaklookup']
 
 
 def test_all_selects_only_passive_catalog_sources() -> None:
-    assert Core.expand_source_selection("ALL") == sorted(
+    assert resolve_sources("ALL") == sorted(
         spec.name
         for spec in SOURCE_SPECS.values()
         if spec.activity is ActivityClass.PASSIVE
@@ -105,8 +105,8 @@ def test_all_selects_only_passive_catalog_sources() -> None:
     ['criminalip', 'pentesttools', 'shodan', 'shodanInternetDB', 'subdomainfinderc99'],
 )
 def test_non_passive_sources_run_only_when_explicitly_selected(source: str) -> None:
-    assert source not in Core.expand_source_selection('all')
-    assert Core.expand_source_selection(source) == [source]
+    assert source not in resolve_sources('all')
+    assert resolve_sources(source) == [source]
 
 
 def mock_read_text(mocked: dict[Path, str | Exception]):

@@ -367,6 +367,7 @@ def test_child_screenshot_run_persists_downloadable_artifact_metadata(tmp_path, 
 
 def test_child_screenshot_cancellation_reuses_the_checkpointed_evidence(tmp_path, monkeypatch) -> None:
     from theHarvester import __main__ as main_module
+    from theHarvester.lib import source_runner
     from theHarvester.lib.api.run_artifacts import read_child_evidence
     from theHarvester.lib.api.run_models import RunRequest
     from theHarvester.lib.api.run_store import RunStore
@@ -410,7 +411,7 @@ def test_child_screenshot_cancellation_reuses_the_checkpointed_evidence(tmp_path
 
     database = tmp_path / 'runs.sqlite'
     monkeypatch.setenv('THEHARVESTER_RUN_ARTIFACTS', str(tmp_path / 'artifacts'))
-    monkeypatch.setattr(main_module.crtsh, 'SearchCrtsh', TwoHostSource)
+    monkeypatch.setattr(source_runner.crtsh, 'SearchCrtsh', TwoHostSource)
     monkeypatch.setattr(main_module, 'ScreenShotter', FakeScreenShotter)
 
     async def scenario():

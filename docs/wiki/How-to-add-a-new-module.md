@@ -27,13 +27,7 @@ Do not return fields the provider did not supply. Normalize and deduplicate befo
 
 ## 3. Register the source
 
-Update the current symbols rather than following fixed line numbers:
-
-1. Import the adapter in [`theHarvester/__main__.py`](https://github.com/laramies/theHarvester/blob/dev/theHarvester/__main__.py).
-2. Add its source handler to the existing alphabetical source-selection chain.
-3. Call the central `store()` helper once with only the result flags the adapter supports.
-4. Add the source identifier to `Core.get_supportedengines()` in [`theHarvester/lib/core.py`](https://github.com/laramies/theHarvester/blob/dev/theHarvester/lib/core.py).
-5. Add the identifier to the CLI `--source` help list.
+Add one catalog entry in [`theHarvester/lib/source_catalog.py`](https://github.com/laramies/theHarvester/blob/dev/theHarvester/lib/source_catalog.py) and one factory entry in [`theHarvester/lib/source_runner.py`](https://github.com/laramies/theHarvester/blob/dev/theHarvester/lib/source_runner.py). The catalog supplies CLI help, source selection, and activity classification; the factory constructs the adapter; the runner collects declared result routes and persists them through the existing completed-result flow.
 
 Keep the public source identifier stable and use the same spelling everywhere.
 
@@ -64,6 +58,6 @@ Tests must not require external network access or real provider credentials.
 
 ## 6. Update operator documentation
 
-Add the source to the README source/result matrix with its actual output columns and key requirement. The matrix contract test checks that documented result types match the flags passed to `store()`.
+Add the source to the README source/result matrix with its actual output columns and key requirement. The matrix contract test checks that documented result types match the catalog entry.
 
 In the pull request, link the provider API documentation and explain any intentional exception to shared transport behavior.

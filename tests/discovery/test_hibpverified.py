@@ -172,7 +172,7 @@ async def test_verified_domain_results_reach_completed_jsonl_and_sqlite_handoff(
 
     report = tmp_path / 'hibp-verified-report'
     monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
-    monkeypatch.setattr(theharvester_main.hibpverified, 'SearchHibpVerified', FakeHibpVerified)
+    monkeypatch.setattr(hibpverified, 'SearchHibpVerified', FakeHibpVerified)
     monkeypatch.setattr(
         sys,
         'argv',

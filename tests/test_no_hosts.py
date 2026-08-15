@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from theHarvester import __main__ as theharvester_main
+from theHarvester.lib import source_runner
 from theHarvester.lib.completed_result import CompletedResult
 from theHarvester.lib.enumeration import EnumerationOptions
 
@@ -69,7 +70,7 @@ async def test_no_hosts_keeps_mixed_source_ip_without_retrieving_hostnames(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(theharvester_main, 'ResultStore', NoopResultStore)
-    monkeypatch.setattr(theharvester_main.bufferoverun, 'SearchBufferover', lambda _word: MixedResultSource())
+    monkeypatch.setattr(source_runner.bufferoverun, 'SearchBufferover', lambda _word: MixedResultSource())
 
     response = await theharvester_main.start(
         EnumerationOptions(domain='example.com', source='bufferoverun', no_hosts=True, quiet=True),
@@ -92,7 +93,7 @@ async def test_no_hosts_skips_host_only_source_before_construction(monkeypatch: 
             raise AssertionError('host-only source must not be constructed')
 
     monkeypatch.setattr(theharvester_main, 'ResultStore', NoopResultStore)
-    monkeypatch.setattr(theharvester_main.crtsh, 'SearchCrtsh', HostOnlySource)
+    monkeypatch.setattr(source_runner.crtsh, 'SearchCrtsh', HostOnlySource)
 
     response = await theharvester_main.start(
         EnumerationOptions(domain='example.com', source='crtsh', no_hosts=True, quiet=True),
@@ -114,7 +115,7 @@ async def test_no_hosts_omits_hostname_records_from_every_file_report(
 ) -> None:
     output = tmp_path / 'non-host-results'
     monkeypatch.setattr(theharvester_main, 'ResultStore', NoopResultStore)
-    monkeypatch.setattr(theharvester_main.bufferoverun, 'SearchBufferover', lambda _word: MixedResultSource())
+    monkeypatch.setattr(source_runner.bufferoverun, 'SearchBufferover', lambda _word: MixedResultSource())
     monkeypatch.setattr(
         sys,
         'argv',
