@@ -45,7 +45,7 @@ The [README source matrix](https://github.com/laramies/theHarvester/blob/dev/REA
 
 Provider pricing, quotas, and terms change frequently. Check the provider's current documentation for these details.
 
-`censys.token` is a Censys Platform Personal Access Token. `organization_id` is optional; omit it to use the account's personal free wallet. The retired Search API ID and secret fields are not accepted.
+`censys.token` is a Censys Platform Personal Access Token. Set `organization_id` when searches should use an entitled organization. This source uses the Global Search API, which is unavailable to Free accounts because they are limited to asset lookups. The retired Search API ID and secret fields are not accepted.
 
 `hibpverified` queries [HIBP's authenticated verified-domain endpoint](https://haveibeenpwned.com/API/v3#BreachedDomain). It is selected by its name, the `breaches` capability, and `all`. Without a configured HIBP API key it is skipped like other unavailable keyed sources. Live use requires a user-owned paid HIBP API key and a user-owned domain verified in that account. The keyless `haveibeenpwned` source continues to query only the public breach catalogue.
 
