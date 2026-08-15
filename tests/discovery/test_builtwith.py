@@ -1,7 +1,9 @@
+import asyncio
 import json
 import sys
 import types
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -20,6 +22,7 @@ from theHarvester import __main__ as theharvester_main
 from theHarvester.discovery import builtwith
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.completed_result import CompletedResult
+from theHarvester.lib.core import FetcherResponse, ResponseStreamError
 
 
 @pytest.mark.asyncio
@@ -31,103 +34,249 @@ async def test_missing_key_raises(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_process_accepts_text_json_content_type(monkeypatch) -> None:
-    """BuiltWith API returns 'text/json' content-type; response.json(content_type=None)
-    must be used so aiohttp does not raise a ContentTypeError."""
+async def test_process_uses_v23_privacy_controls_and_parses_nested_results(monkeypatch) -> None:
     monkeypatch.setattr(builtwith.Core, 'builtwith_key', lambda: 'dummy-key')
-
+    monkeypatch.setattr(builtwith.Core, 'get_user_agent', lambda: 'test-agent')
     api_payload = {
-        'domains': ['sub.example.com'],
-        'paths': ['https://example.com/login'],
-        'technologies': [
-            None,
-            {'name': 'Django', 'category': 'framework'},
-            {'name': 'Python', 'category': 'language'},
-            {'name': 'nginx', 'category': 'server'},
-            {'name': 'WordPress', 'category': 'cms'},
-            {'name': 'Google Analytics', 'category': 'analytics'},
-            {'category': 'framework'},
-            {'name': ' ', 'category': 'server'},
-            {'name': 7, 'category': 'cms'},
-        ],
+        'Results': [
+            {
+                'Lookup': 'example.com',
+                'Result': {
+                    'Paths': [
+                        {
+                            'Domain': 'example.com',
+                            'SubDomain': 'api',
+                            'Url': 'dd',
+                            'Technologies': [
+                                {'Name': 'Django', 'Tag': 'framework'},
+                                {'Name': 'Python', 'Tag': 'language'},
+                                {'Name': 'nginx', 'Categories': ['Web Server']},
+                                {'Name': 'WordPress', 'Tag': 'cms'},
+                                {'Name': 'Google Analytics', 'Categories': ['Analytics']},
+                            ],
+                        },
+                        {
+                            'Domain': 'example.com',
+                            'SubDomain': '',
+                            'Url': '/login',
+                            'Technologies': [],
+                        },
+                    ]
+                },
+            }
+        ]
     }
+    captured: dict[str, Any] = {}
 
-    class _FakeResponse:
-        status = 200
+    async def fake_fetch_json(url: str, **kwargs: Any) -> FetcherResponse:
+        captured['url'] = url
+        captured.update(kwargs)
+        return FetcherResponse(api_payload, 200, {})
 
-        async def json(self, **kwargs):
-            # Simulate aiohttp accepting content_type=None for 'text/json' responses
-            assert kwargs.get('content_type') is None, (
-                'content_type=None must be passed to accept non-standard MIME types like text/json'
-            )
-            return api_payload
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args):
-            pass
-
-    class _FakeSession:
-        def __init__(self, **_kwargs):
-            pass
-
-        def get(self, *_args, **_kwargs):
-            return _FakeResponse()
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args):
-            pass
-
-    monkeypatch.setattr(builtwith.aiohttp, 'ClientSession', _FakeSession)
-
+    monkeypatch.setattr(builtwith.AsyncFetcher, 'fetch_json', fake_fetch_json)
     search = builtwith.SearchBuiltWith('example.com')
-    await search.process()
+    await search.process(proxy=True)
 
-    assert await search.get_hostnames() == {'sub.example.com'}
+    assert captured == {
+        'url': 'https://api.builtwith.com/v23/api.json',
+        'params': {
+            'HIDEDL': 'yes',
+            'LOOKUP': 'example.com',
+            'NOATTR': 'yes',
+            'NOMETA': 'yes',
+            'NOPII': 'yes',
+        },
+        'proxy': True,
+        'headers': {
+            'Accept': 'application/json',
+            'Authorization': 'API dummy-key',
+            'User-Agent': 'test-agent',
+        },
+    }
+    assert await search.get_hostnames() == {'api.example.com', 'example.com'}
     assert await search.get_urls() == {'https://example.com/login'}
     assert await search.get_frameworks() == {'Django'}
     assert await search.get_languages() == {'Python'}
     assert await search.get_servers() == {'nginx'}
     assert await search.get_cms() == {'WordPress'}
     assert await search.get_analytics() == {'Google Analytics'}
+    assert search.execution_status == 'completed'
+    assert search.stop_reason is None
 
 
 @pytest.mark.asyncio
-async def test_process_handles_non_200_status(monkeypatch) -> None:
+async def test_www_target_does_not_accept_sibling_subdomains(monkeypatch) -> None:
+    monkeypatch.setattr(builtwith.Core, 'builtwith_key', lambda: 'dummy-key')
+    captured: dict[str, Any] = {}
+    payload = {
+        'Results': [
+            {
+                'Result': {
+                    'Paths': [
+                        {'Domain': 'example.com', 'SubDomain': 'www', 'Url': 'dd', 'Technologies': []},
+                        {'Domain': 'example.com', 'SubDomain': 'api', 'Url': 'dd', 'Technologies': []},
+                    ]
+                }
+            }
+        ]
+    }
+
+    async def fake_fetch_json(*_args: Any, **kwargs: Any) -> FetcherResponse:
+        captured.update(kwargs)
+        return FetcherResponse(payload, 200, {})
+
+    monkeypatch.setattr(builtwith.AsyncFetcher, 'fetch_json', fake_fetch_json)
+    search = builtwith.SearchBuiltWith('www.example.com')
+
+    await search.process()
+
+    assert captured['params']['LOOKUP'] == 'example.com'
+    assert await search.get_hostnames() == {'www.example.com'}
+    assert await search.get_urls() == set()
+    assert search.execution_status == 'completed'
+    assert search.stop_reason is None
+
+
+@pytest.mark.asyncio
+async def test_named_technology_without_a_usable_category_is_malformed(monkeypatch) -> None:
+    monkeypatch.setattr(builtwith.Core, 'builtwith_key', lambda: 'dummy-key')
+    payload = {
+        'Results': [
+            {
+                'Result': {
+                    'Paths': [
+                        {
+                            'Domain': 'example.com',
+                            'SubDomain': 'www',
+                            'Url': 'dd',
+                            'Technologies': [{'Name': 'Unclassified Product', 'Tag': ' ', 'Categories': []}],
+                        }
+                    ]
+                }
+            }
+        ]
+    }
+
+    async def fake_fetch_json(*_args: Any, **_kwargs: Any) -> FetcherResponse:
+        return FetcherResponse(payload, 200, {})
+
+    monkeypatch.setattr(builtwith.AsyncFetcher, 'fetch_json', fake_fetch_json)
+    search = builtwith.SearchBuiltWith('example.com')
+
+    await search.process()
+
+    assert await search.get_hostnames() == {'www.example.com'}
+    assert await search.get_urls() == set()
+    assert await search.get_frameworks() == set()
+    assert search.execution_status == 'partial'
+    assert search.stop_reason == 'invalid-response'
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('response', 'expected_status', 'expected_reason'),
+    [
+        (None, 'failed', 'transport-error'),
+        (FetcherResponse(None, 401, {}), 'failed', 'access-denied'),
+        (FetcherResponse(None, 403, {}), 'failed', 'access-denied'),
+        (FetcherResponse(None, 429, {}), 'rate-limited', 'http-429'),
+        (FetcherResponse(None, 503, {}), 'failed', 'http-503'),
+        (FetcherResponse([], 200, {}), 'failed', 'invalid-response'),
+        (FetcherResponse({'Results': {}}, 200, {}), 'failed', 'invalid-response'),
+    ],
+)
+async def test_process_reports_failed_responses_truthfully(
+    monkeypatch,
+    response: FetcherResponse | None,
+    expected_status: str,
+    expected_reason: str,
+) -> None:
     monkeypatch.setattr(builtwith.Core, 'builtwith_key', lambda: 'dummy-key')
 
-    class _FakeResponse:
-        status = 403
+    async def fake_fetch_json(*_args: Any, **_kwargs: Any) -> FetcherResponse | None:
+        return response
 
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args):
-            pass
-
-    class _FakeSession:
-        def __init__(self, **_kwargs):
-            pass
-
-        def get(self, *_args, **_kwargs):
-            return _FakeResponse()
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args):
-            pass
-
-    monkeypatch.setattr(builtwith.aiohttp, 'ClientSession', _FakeSession)
-
+    monkeypatch.setattr(builtwith.AsyncFetcher, 'fetch_json', fake_fetch_json)
     search = builtwith.SearchBuiltWith('example.com')
     await search.process()
 
     assert await search.get_hostnames() == set()
     assert await search.get_tech_stack() == {}
+    assert search.execution_status == expected_status
+    assert search.stop_reason == expected_reason
+
+
+@pytest.mark.asyncio
+async def test_malformed_nested_containers_retain_accepted_evidence(monkeypatch) -> None:
+    monkeypatch.setattr(builtwith.Core, 'builtwith_key', lambda: 'dummy-key')
+    payload = {
+        'Results': [
+            {
+                'Result': {
+                    'Paths': [
+                        {
+                            'Domain': 'example.com',
+                            'SubDomain': 'api',
+                            'Url': 'dd',
+                            'Technologies': [
+                                None,
+                                {'Name': 'Django', 'Tag': 'framework'},
+                                {'Name': 'nginx', 'Categories': ['Web Server', None]},
+                            ],
+                        },
+                        {'Domain': 'outside.invalid', 'SubDomain': '', 'Url': 'dd', 'Technologies': []},
+                        {'Domain': 'example.com', 'SubDomain': 7, 'Url': [], 'Technologies': {}},
+                    ]
+                }
+            },
+            None,
+        ]
+    }
+
+    async def fake_fetch_json(*_args: Any, **_kwargs: Any) -> FetcherResponse:
+        return FetcherResponse(payload, 200, {})
+
+    monkeypatch.setattr(builtwith.AsyncFetcher, 'fetch_json', fake_fetch_json)
+    search = builtwith.SearchBuiltWith('example.com')
+
+    await search.process()
+
+    assert await search.get_hostnames() == {'api.example.com'}
+    assert await search.get_urls() == set()
+    assert await search.get_frameworks() == {'Django'}
+    assert await search.get_servers() == {'nginx'}
+    assert search.execution_status == 'partial'
+    assert search.stop_reason == 'invalid-response'
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('reason', ['invalid-response', 'response-limit', 'transport-error'])
+async def test_bounded_response_failures_are_attributed(monkeypatch, reason: str) -> None:
+    monkeypatch.setattr(builtwith.Core, 'builtwith_key', lambda: 'dummy-key')
+
+    async def fake_fetch_json(*_args: Any, **_kwargs: Any) -> FetcherResponse:
+        raise ResponseStreamError(reason)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(builtwith.AsyncFetcher, 'fetch_json', fake_fetch_json)
+    search = builtwith.SearchBuiltWith('example.com')
+
+    await search.process()
+
+    assert search.execution_status == 'failed'
+    assert search.stop_reason == reason
+
+
+@pytest.mark.asyncio
+async def test_cancellation_propagates(monkeypatch) -> None:
+    monkeypatch.setattr(builtwith.Core, 'builtwith_key', lambda: 'dummy-key')
+
+    async def fake_fetch_json(*_args: Any, **_kwargs: Any) -> FetcherResponse:
+        raise asyncio.CancelledError
+
+    monkeypatch.setattr(builtwith.AsyncFetcher, 'fetch_json', fake_fetch_json)
+
+    with pytest.raises(asyncio.CancelledError):
+        await builtwith.SearchBuiltWith('example.com').process()
 
 
 @pytest.mark.asyncio

@@ -108,7 +108,7 @@ from theHarvester.lib.enumeration import (
     DEFAULT_RESULT_START,
     EnumerationOptions,
 )
-from theHarvester.lib.hostnames import normalize_scoped_hostname
+from theHarvester.lib.hostnames import normalize_hostname, normalize_scoped_hostname
 from theHarvester.lib.output import configure_logging, output_logger, print_linkedin_people, print_section, sorted_unique
 from theHarvester.lib.recursive_dns import (
     DEFAULT_RECURSIVE_DNS_QUERY_LIMIT,
@@ -138,7 +138,6 @@ from theHarvester.lib.virtual_host import (
     discover_harvested_virtual_hosts,
     normalize_virtual_host_candidates,
     normalize_virtual_host_endpoint,
-    normalize_virtual_host_hostname,
 )
 from theHarvester.screenshot.screenshot import ScreenShotter
 
@@ -469,7 +468,7 @@ async def start(
     vhost_candidates: tuple[str, ...] = ()
     vhost_limits: VirtualHostLimits | None = None
     if vhost_enabled:
-        vhost_scope = normalize_virtual_host_hostname(args.domain)
+        vhost_scope = normalize_hostname(args.domain)
         if args.proxies:
             raise ValueError('virtual-host discovery supports direct transport only; do not use --proxies')
         vhost_endpoint = normalize_virtual_host_endpoint(args.vhost_endpoint) if args.vhost_endpoint else ''

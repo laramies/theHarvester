@@ -22,6 +22,7 @@ from theHarvester.lib.evidence_types import (
     ResultKind,
     format_utc,
 )
+from theHarvester.lib.hostnames import normalize_hostname
 from theHarvester.lib.network_evidence import (
     BgpRouteObservation,
     NetworkObservation,
@@ -33,7 +34,7 @@ from theHarvester.lib.network_evidence import (
 )
 from theHarvester.lib.result_values import normalize_result_value
 from theHarvester.lib.shodan_evidence import ShodanHostObservation, canonical_shodan_hosts
-from theHarvester.lib.virtual_host import VirtualHostObservation, normalize_virtual_host_hostname
+from theHarvester.lib.virtual_host import VirtualHostObservation
 
 
 def virtual_host_details(observations: Iterable[VirtualHostObservation]) -> list[dict[str, object]]:
@@ -274,7 +275,7 @@ class CompletedResult:
             raise ValueError('virtual-host observations must be deduplicated and sorted')
         if self.virtual_hosts:
             try:
-                virtual_host_scope = normalize_virtual_host_hostname(self.target)
+                virtual_host_scope = normalize_hostname(self.target)
             except ValueError as error:
                 raise ValueError('virtual-host observations require a hostname run target scope') from error
         for observation in self.virtual_hosts:

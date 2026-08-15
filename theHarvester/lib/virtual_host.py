@@ -15,6 +15,8 @@ from urllib.parse import urlsplit
 
 import aiohttp
 
+from theHarvester.lib.hostnames import normalize_hostname
+
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
@@ -63,33 +65,6 @@ class VirtualHostLimits:
             raise ValueError('virtual-host concurrency must be positive')
 
 
-def normalize_virtual_host_hostname(value: str) -> str:
-    hostname = value.strip().rstrip('.').lower()
-    if not hostname:
-        raise ValueError('virtual-host candidate must not be empty')
-    try:
-        hostname = hostname.encode('idna').decode('ascii')
-    except UnicodeError as error:
-        raise ValueError('virtual-host candidate must be a valid hostname') from error
-    try:
-        ipaddress.ip_address(hostname)
-    except ValueError:
-        pass
-    else:
-        raise ValueError('virtual-host candidate must be a hostname, not an IP address')
-    labels = hostname.split('.')
-    if len(hostname) > 253 or any(
-        not label
-        or len(label) > 63
-        or label.startswith('-')
-        or label.endswith('-')
-        or not all(character.isalnum() or character == '-' for character in label)
-        for label in labels
-    ):
-        raise ValueError('virtual-host candidate must be a valid hostname')
-    return hostname
-
-
 def _candidate_shape(candidate: str, scope: str) -> tuple[int, ...]:
     if candidate == scope:
         return (1,)
@@ -120,10 +95,10 @@ def normalize_virtual_host_endpoint(endpoint: str) -> str:
 
 
 def normalize_virtual_host_candidates(scope: str, candidates: tuple[str, ...]) -> tuple[str, ...]:
-    normalized_scope = normalize_virtual_host_hostname(scope)
+    normalized_scope = normalize_hostname(scope)
     normalized_candidates: list[str] = []
     for candidate in candidates:
-        normalized = normalize_virtual_host_hostname(candidate)
+        normalized = normalize_hostname(candidate)
         if normalized != normalized_scope and not normalized.endswith(f'.{normalized_scope}'):
             raise ValueError(f'virtual-host candidate is outside authorized scope: {candidate}')
         if normalized not in normalized_candidates:
@@ -149,7 +124,7 @@ class VirtualHostRequest:
         insecure: bool = False,
     ) -> None:
         normalized_endpoint = normalize_virtual_host_endpoint(endpoint)
-        normalized_scope = normalize_virtual_host_hostname(scope)
+        normalized_scope = normalize_hostname(scope)
         normalized_candidates = normalize_virtual_host_candidates(normalized_scope, candidates)
         if not normalized_candidates:
             raise ValueError('virtual-host discovery requires at least one candidate')
@@ -248,7 +223,7 @@ class VirtualHostObservation:
         endpoint_value = record.get('endpoint')
         if not isinstance(hostname_value, str) or not isinstance(endpoint_value, str):
             raise ValueError('virtual-host record must identify an endpoint and hostname')
-        hostname = normalize_virtual_host_hostname(hostname_value)
+        hostname = normalize_hostname(hostname_value)
         endpoint = normalize_virtual_host_endpoint(endpoint_value)
         parsed = urlsplit(endpoint)
         port = parsed.port or (443 if parsed.scheme == 'https' else 80)
@@ -948,7 +923,7 @@ async def discover_harvested_virtual_hosts(
     request_error_count = 0
     request_error_types: set[str] = set()
     scan_error_type: str | None = None
-    normalized_scope = normalize_virtual_host_hostname(scope)
+    normalized_scope = normalize_hostname(scope)
     normalized_candidates = normalize_virtual_host_candidates(normalized_scope, candidates)
     endpoints = (normalize_virtual_host_endpoint(endpoint_override),) if endpoint_override else _harvested_endpoints(addresses)
     total_endpoint_count = len(endpoints)
