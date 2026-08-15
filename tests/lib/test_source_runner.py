@@ -23,6 +23,13 @@ from theHarvester.lib.source_runner import (
 )
 
 
+@pytest.mark.parametrize('workers', [0, -1, True, 1.5])
+@pytest.mark.asyncio
+async def test_source_jobs_require_a_positive_worker_count(workers: object) -> None:
+    with pytest.raises(ValueError, match='source workers must be a positive integer'):
+        await run_source_jobs((), workers=workers)  # type: ignore[arg-type]
+
+
 def test_source_contracts_are_immutable() -> None:
     request = SourceRequest('APIS-GURU', 'example.test', 25, 5, True, True)
     job = SourceJob(request)
@@ -634,7 +641,7 @@ async def test_runner_collects_url_before_later_asn_getter_failure(monkeypatch: 
 
 
 @pytest.mark.asyncio
-async def test_source_jobs_use_named_tasks_bounded_to_three_and_isolate_failures(
+async def test_source_jobs_use_a_clamped_worker_pool_and_isolate_failures(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     active = 0
@@ -669,15 +676,51 @@ async def test_source_jobs_use_named_tasks_bounded_to_three_and_isolate_failures
         monkeypatch.setitem(SOURCE_FACTORIES, source, lambda _request, source=source: GatedAdapter(source))
     jobs = tuple(SourceJob(SourceRequest(source, 'example.test', 25, 0, False, True)) for source in source_names)
 
-    outcomes = await run_source_jobs(jobs)
+    outcomes = await run_source_jobs(jobs, workers=3)
 
     assert peak == 3
-    assert task_names == {f'source:{source}' for source in source_names}
+    assert task_names == {'source-worker:0', 'source-worker:1', 'source-worker:2'}
     assert [outcome.execution.source for outcome in outcomes] == list(source_names)
     assert outcomes[0].execution.status == 'partial'
     assert outcomes[0].execution.error_type == 'RuntimeError'
     assert all(outcome.execution.status == 'completed' for outcome in outcomes[1:])
-    assert not [task for task in asyncio.all_tasks() if task.get_name().startswith('source:') and not task.done()]
+    assert not [task for task in asyncio.all_tasks() if task.get_name().startswith('source-worker:') and not task.done()]
+
+
+@pytest.mark.parametrize('workers', [1, 3, 8])
+@pytest.mark.asyncio
+async def test_source_worker_count_does_not_change_completed_sources_or_results(
+    monkeypatch: pytest.MonkeyPatch,
+    workers: int,
+) -> None:
+    starts: list[str] = []
+    task_names: set[str] = set()
+
+    class CompleteAdapter:
+        def __init__(self, source: str) -> None:
+            self.source = source
+
+        async def process(self, _proxy: bool) -> None:
+            task = asyncio.current_task()
+            assert task is not None
+            task_names.add(task.get_name())
+            starts.append(self.source)
+            await asyncio.sleep(0)
+
+        async def get_hostnames(self) -> set[str]:
+            return {f'{self.source}.example.test'}
+
+    source_names = ('apis-guru', 'sourcegraph', 'crtsh', 'crt-name')
+    for source in source_names:
+        monkeypatch.setitem(SOURCE_FACTORIES, source, lambda _request, source=source: CompleteAdapter(source))
+    jobs = tuple(SourceJob(SourceRequest(source, 'example.test', 25, 0, False, True)) for source in source_names)
+
+    outcomes = await run_source_jobs(jobs, workers=workers)
+
+    assert sorted(starts) == sorted(source_names)
+    assert [outcome.execution.source for outcome in outcomes] == list(source_names)
+    assert [outcome.execution.result_count for outcome in outcomes] == [1, 1, 1, 1]
+    assert len(task_names) == min(workers, len(jobs))
 
 
 @pytest.mark.asyncio
@@ -789,4 +832,4 @@ async def test_parent_cancellation_commits_active_jobs_and_cleans_structured_tas
     assert raised.value.args == ('parent-marker',)
     assert {outcome.execution.source for outcome in committed} == set(source_names)
     assert all(outcome.execution.stop_reason == 'cancelled' for outcome in committed)
-    assert not [task for task in asyncio.all_tasks() if task.get_name().startswith('source:') and not task.done()]
+    assert not [task for task in asyncio.all_tasks() if task.get_name().startswith('source-worker:') and not task.done()]

@@ -209,6 +209,10 @@
               <input id="run-start" name="start" type="number" min="0" value="0" required>
               <small>Skip this many provider results before collection.</small>
             </label>
+            <label>Discovery source workers
+              <input id="source-workers" name="source_workers" type="number" min="1" value="{{SOURCE_WORKERS}}" required>
+              <small>Maximum sources run at once. Every selected source still runs.</small>
+            </label>
             <label>Recursive DNS depth
               <input id="dns-recursive-depth" name="dns_recursive_depth" type="number" min="0" value="0" required>
               <small>Zero keeps recursive discovery off.</small>

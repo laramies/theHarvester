@@ -36,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Routed discovery sources through immutable source jobs with bounded `TaskGroup` ownership, typed outcomes, and native cancellation propagation instead of queuing live coroutine objects.
+- Discovery now uses a fixed pool of six source workers by default. CLI `-j` or `--source-workers`, REST
+  `source_workers`, and HarvestView can set another positive count without skipping sources or limiting their results.
 - Replaced Shodan's synchronous Python SDK with cancellable async Host API requests that honor configured proxies, query every unique resolved IPv4, paginate target-bound hostname and TLS-certificate searches without an adapter-specific result cap, retain successful partial results, and add no source-local deadline. Shodan now stores one canonical `shodan-host` result per IP with every normalized TCP or UDP service and scoped certificate CN/SAN metadata in native JSONL, SQLite, API, and HarvestView details instead of an escaped JSON value.
 - Reworked screenshot scans to use one bounded aiohttp session and one shared browser, with isolated per-target contexts, status-based reachability, and deterministic async cleanup.
 - Migrated BuiltWith to the current v23 Domain API with privacy-preserving request controls, nested result parsing, and truthful partial or failed outcomes.

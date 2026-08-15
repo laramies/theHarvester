@@ -23,6 +23,7 @@ def test_harvestview_owns_root_and_issues_an_http_only_session(tmp_path, monkeyp
     assert '<summary>Advanced safety controls</summary>' in root.text
     assert f'value="{",".join(DEFAULT_DNS_RESOLVERS)}"' in root.text
     assert 'Resolve with the configured resolver addresses.' in root.text
+    assert 'id="source-workers" name="source_workers" type="number" min="1"' in root.text
     assert legacy.status_code == 404
     cookie = root.headers['set-cookie']
     assert 'theharvester-api-key=' in cookie
@@ -53,6 +54,7 @@ def test_harvestview_assets_load_outside_the_repository_directory(tmp_path, monk
     assert "request.dns_recursive_runtime_seconds === undefined ? 'Not recorded'" in response.text
     assert "request.deadline_seconds === null ? 'Unlimited'" in response.text
     assert "deadline_seconds: form.get('deadline_seconds') ? Number(form.get('deadline_seconds')) : null" in response.text
+    assert "source_workers: Number(form.get('source_workers'))" in response.text
 
 
 def test_harvestview_has_an_operator_readable_shodan_host_route(tmp_path, monkeypatch) -> None:

@@ -11,6 +11,7 @@ from theHarvester.lib.enumeration import (
     DEFAULT_DNS_RECURSIVE_QUERY_LIMIT,
     DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS,
     DEFAULT_RESULT_START,
+    DEFAULT_SOURCE_WORKERS,
 )
 from theHarvester.lib.evidence_types import EvidenceStatus  # noqa: TC001 - Pydantic resolves this annotation at runtime
 from theHarvester.lib.resolver_selection import DEFAULT_DNS_RESOLVERS, normalize_resolver_addresses
@@ -87,6 +88,12 @@ class RunRequest(BaseModel):
         default=DEFAULT_RESULT_START,
         ge=0,
         description='Starting result offset for providers that support pagination.',
+    )
+    source_workers: int = Field(
+        default=DEFAULT_SOURCE_WORKERS,
+        strict=True,
+        ge=1,
+        description='Maximum discovery sources run concurrently. Every selected source still runs.',
     )
     deadline_seconds: int | None = Field(
         default=None,

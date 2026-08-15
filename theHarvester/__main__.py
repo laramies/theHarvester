@@ -46,6 +46,7 @@ from theHarvester.lib.enumeration import (
     DEFAULT_DNS_RECURSIVE_RUNTIME_SECONDS,
     DEFAULT_RESULT_LIMIT,
     DEFAULT_RESULT_START,
+    DEFAULT_SOURCE_WORKERS,
     EnumerationOptions,
 )
 from theHarvester.lib.hostnames import normalize_hostname, normalize_scoped_hostname
@@ -144,7 +145,7 @@ async def start(
     result_database: str | Path | None = None,
     completed_run_id: UUID | None = None,
 ):
-    """Main program function"""
+    """Run one CLI or transport-neutral enumeration request."""
     parser = argparse.ArgumentParser(
         description='theHarvester is used to gather open source intelligence (OSINT) on a company or domain.'
     )
@@ -166,6 +167,13 @@ async def start(
         '--start',
         help='Result offset for sources that support pagination (default: 0).',
         default=DEFAULT_RESULT_START,
+        type=int,
+    )
+    parser.add_argument(
+        '-j',
+        '--source-workers',
+        help='Maximum discovery sources to run at once (default: %(default)s).',
+        default=DEFAULT_SOURCE_WORKERS,
         type=int,
     )
     parser.add_argument(
@@ -390,6 +398,8 @@ async def start(
         configure_logging(verbose=args.verbose)
         if args.verbose:
             logger.info('Verbose logging enabled')
+    if isinstance(args.source_workers, bool) or not isinstance(args.source_workers, int) or args.source_workers <= 0:
+        raise ValueError('--source-workers must be a positive integer')
     collect_hosts = not args.no_hosts
     action_request = {
         'no_hosts': args.no_hosts,
@@ -913,8 +923,13 @@ async def start(
             source = request.source
             output_logger.info(f'[*] Searching {source[0].upper() + source[1:]}. ')
 
+        if jobs:
+            output_logger.info(
+                f'[*] Source workers: requested={args.source_workers}; effective={min(args.source_workers, len(jobs))}.'
+            )
         return await run_source_jobs(
             tuple(jobs),
+            workers=args.source_workers,
             commit=commit_source_outcome,
             after_commit=finish_source_outcome,
             on_started=report_source_started,
