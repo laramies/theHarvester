@@ -12,23 +12,21 @@ async def _run() -> None:
         await dispose_sqlite_databases()
 
 
-def main():
+def main() -> None:
     platform = sys.platform
+    loop_factory = None  # asyncio's standard event loop
     if platform == 'win32':
-        # Required or things will break if trying to take screenshots
-        import multiprocessing
-
-        multiprocessing.freeze_support()
         try:
-            # See if we have winloop as a performance enhancement on windows
             import winloop
 
-            asyncio.DefaultEventLoopPolicy = winloop.EventLoopPolicy
+            loop_factory = winloop.new_event_loop
         except ModuleNotFoundError:
-            # Fallback to WindowsSelectorEventLoopPolicy if available, else keep default
-            asyncio.DefaultEventLoopPolicy = getattr(asyncio, 'WindowsSelectorEventLoopPolicy', asyncio.DefaultEventLoopPolicy)
+            pass
     else:
-        import uvloop
+        try:
+            import uvloop
 
-        uvloop.install()
-    asyncio.run(_run())
+            loop_factory = uvloop.new_event_loop
+        except ModuleNotFoundError:
+            pass
+    asyncio.run(_run(), loop_factory=loop_factory)
