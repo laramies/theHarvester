@@ -414,6 +414,7 @@ class ShodanTlsDetailsResponse(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
     subject_cn: str | None = None
+    subject_alt_names: list[str] = Field(default_factory=list)
     issuer_cn: str | None = None
     expires_at: str | None = None
     sha256: str | None = None

@@ -70,6 +70,7 @@ def test_harvestview_has_an_operator_readable_shodan_host_route(tmp_path, monkey
     assert 'service.cpes' in script.text
     assert 'http.components' in script.text
     assert 'service.tls' in script.text
+    assert 'tls.subject_alt_names' in script.text
     assert "title: 'Network'" in script.text
     assert "title: 'Services'" in script.text
 

@@ -163,6 +163,8 @@ def test_readme_explains_jsonl_record_and_structured_evidence_parsing() -> None:
     assert 'JSONL is easy to stream one record at a time.' in readme
     assert '`person`, `infostealer`, and `takeover`' in readme
     assert 'select(.type == "shodan-host") | {ip: .value, services: .details.services}' in readme
+    assert 'paginates both hostname and TLS-certificate searches' in readme
+    assert 'scoped certificate CNs and SANs' in readme
     assert 'Raw banners, response bodies, certificate chains, and Shodan crawler metadata are not retained.' in readme
     assert 'select(.type == "hostname" and .observations) | {hostname: .value, observations}' in readme
     assert 'Several endpoint observations can enrich the same hostname' in readme

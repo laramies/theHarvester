@@ -1206,7 +1206,16 @@ def test_api_import_preserves_structured_shodan_host_details(tmp_path, monkeypat
         'organization': 'Example Transit',
         'services': [
             {'port': 53, 'transport': 'udp'},
-            {'port': 443, 'transport': 'tcp', 'product': 'nginx'},
+            {
+                'port': 443,
+                'transport': 'tcp',
+                'product': 'nginx',
+                'tls': {
+                    'subject_cn': '*.example.test',
+                    'subject_alt_names': ['api.example.test'],
+                    'sha256': '0123456789abcdef',
+                },
+            },
         ],
     }
     payload = _jsonl_result(
@@ -1262,6 +1271,8 @@ def test_api_schema_exposes_typed_shodan_host_details() -> None:
     assert service['properties']['port']['minimum'] == 1
     assert service['properties']['port']['maximum'] == 65535
     assert service['properties']['transport']['enum'] == ['tcp', 'udp']
+    tls = schema['$defs']['ShodanTlsDetailsResponse']
+    assert tls['properties']['subject_alt_names']['items'] == {'type': 'string'}
 
 
 def test_api_evidence_rejects_redundant_shodan_host_fields() -> None:

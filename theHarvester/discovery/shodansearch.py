@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 import socket
 from collections import OrderedDict
 from datetime import UTC, datetime
@@ -18,6 +19,10 @@ from theHarvester.lib.shodan_evidence import ShodanHostObservation, canonical_sh
 logger = logging.getLogger(__name__)
 
 HostResult = dict[str, object]
+_CERTIFICATE_HOSTNAME = re.compile(
+    r'(?i)(?<![a-z0-9-])(?:\*\.)?(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+'
+    r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?![a-z0-9.-])'
+)
 
 
 class SearchShodan:
@@ -29,12 +34,40 @@ class SearchShodan:
     """
 
     API_BASE_URL = 'https://api.shodan.io/shodan/host'
+    SEARCH_URL = f'{API_BASE_URL}/search'
+    SEARCH_FIELDS = ','.join(
+        (
+            'ip_str',
+            'asn',
+            'domains',
+            'hostnames',
+            'isp',
+            'org',
+            'port',
+            'transport',
+            'product',
+            'version',
+            'timestamp',
+            'cpe',
+            'http.title',
+            'http.server',
+            'http.components',
+            'ssl.jarm',
+            'ssl.cert.subject',
+            'ssl.cert.issuer',
+            'ssl.cert.expires',
+            'ssl.cert.fingerprint',
+            'ssl.cert.extensions',
+        )
+    )
     # Preserve the official SDK's one-request-per-second pacing without retaining its blocking transport.
     REQUEST_INTERVAL_SECONDS = 1.0
     REQUEST_TIMEOUT_SECONDS: int | None = None
 
     def __init__(self, word: str | None = None) -> None:
         self.word = word.strip().lower().rstrip('.') if word is not None else None
+        if self.word is not None and (self.word.startswith('*.') or _CERTIFICATE_HOSTNAME.fullmatch(self.word) is None):
+            raise ValueError('Shodan discovery target must be a hostname')
         self.scope = self.word.removeprefix('www.') if self.word is not None else None
         self.key = Core.shodan_key()
         if self.key is None:
@@ -48,18 +81,119 @@ class SearchShodan:
         self.stop_reason: str | None = None
         self._next_request_at = 0.0
 
-    async def _fetch_host(self, ip: str, proxy: bool) -> FetcherResponse:
+    async def _fetch_json(self, url: str, params: dict[str, object], proxy: bool) -> FetcherResponse:
         loop = asyncio.get_running_loop()
         delay = self._next_request_at - loop.time()
         if delay > 0:
             await asyncio.sleep(delay)
         self._next_request_at = loop.time() + self.REQUEST_INTERVAL_SECONDS
         return await AsyncFetcher.fetch_json(
-            f'{self.API_BASE_URL}/{ip}',
-            params={'key': self.key},
+            url,
+            params=params,
             proxy=proxy,
             request_timeout=self.REQUEST_TIMEOUT_SECONDS,
         )
+
+    async def _fetch_host(self, ip: str, proxy: bool) -> FetcherResponse:
+        return await self._fetch_json(f'{self.API_BASE_URL}/{ip}', {'key': self.key}, proxy)
+
+    def _certificate_name(self, value: object) -> str | None:
+        if not isinstance(value, str) or not (candidate := value.strip().casefold().rstrip('.')):
+            return None
+        if _CERTIFICATE_HOSTNAME.fullmatch(candidate) is None:
+            return None
+        wildcard = candidate.startswith('*.')
+        hostname = candidate.removeprefix('*.')
+        if self.scope is not None:
+            hostname = normalize_scoped_hostname(hostname, self.scope) or ''
+            if not hostname:
+                return None
+        else:
+            try:
+                ip_address(hostname)
+            except ValueError:
+                pass
+            else:
+                return None
+        return f'*.{hostname}' if wildcard else hostname
+
+    def _certificate_names(self, cert: object) -> tuple[set[str], bool]:
+        if not isinstance(cert, dict):
+            return set(), cert is not None
+        invalid_response = False
+        names: set[str] = set()
+        subject = cert.get('subject')
+        if subject is not None and not isinstance(subject, dict):
+            invalid_response = True
+        elif isinstance(subject, dict):
+            if normalized := self._certificate_name(subject.get('CN')):
+                names.add(normalized)
+
+        extensions = cert.get('extensions')
+        if extensions is not None and not isinstance(extensions, list):
+            invalid_response = True
+        elif isinstance(extensions, list):
+            for extension in extensions:
+                if not isinstance(extension, dict):
+                    invalid_response = True
+                    continue
+                if extension.get('name') != 'subjectAltName':
+                    continue
+                data = extension.get('data')
+                if not isinstance(data, str):
+                    invalid_response = True
+                    continue
+                decoded = re.sub(r'\\x[0-9a-f]{2}', ' ', data, flags=re.IGNORECASE)
+                for match in _CERTIFICATE_HOSTNAME.finditer(decoded):
+                    if normalized := self._certificate_name(match.group()):
+                        names.add(normalized)
+        return names, invalid_response
+
+    def _scoped_banner_names(self, banner: dict[str, object]) -> set[str]:
+        assert self.scope is not None
+        names: set[str] = set()
+        for field in ('hostnames', 'domains'):
+            values = banner.get(field)
+            if isinstance(values, list):
+                for value in values:
+                    if normalized := normalize_scoped_hostname(value, self.scope):
+                        names.add(normalized)
+        ssl = banner.get('ssl')
+        if isinstance(ssl, dict):
+            cert_names, _invalid = self._certificate_names(ssl.get('cert'))
+            names.update(cert_names)
+        return names
+
+    def _merge_host(self, observation: ShodanHostObservation) -> bool:
+        existing = self.shodan_hosts.get(observation.ip)
+        if existing is None:
+            self.shodan_hosts[observation.ip] = observation
+            return False
+
+        invalid_response = False
+        scalars: dict[str, str | None] = {}
+        for field in ('asn', 'organization', 'isp'):
+            previous = getattr(existing, field)
+            current = getattr(observation, field)
+            if previous is not None and current is not None and previous != current:
+                invalid_response = True
+            scalars[field] = previous or current
+        self.shodan_hosts[observation.ip] = ShodanHostObservation.from_record(
+            observation.ip,
+            {
+                **scalars,
+                'hostnames': sorted(set(existing.hostnames) | set(observation.hostnames)),
+                'domains': sorted(set(existing.domains) | set(observation.domains)),
+                'services': [
+                    service.to_record()
+                    for service in sorted(
+                        set(existing.services) | set(observation.services),
+                        key=lambda service: service.sort_key(),
+                    )
+                ],
+            },
+        )
+        return invalid_response
 
     def _record_host(self, ip: str, results: dict[str, object]) -> bool:
         data = results.get('data')
@@ -138,7 +272,7 @@ class SearchShodan:
 
             ssl = banner.get('ssl')
             if isinstance(ssl, dict):
-                tls_details: dict[str, str] = {}
+                tls_details: dict[str, object] = {}
                 if jarm := normalized_string(ssl.get('jarm')):
                     tls_details['jarm'] = jarm
                 cert = ssl.get('cert')
@@ -152,8 +286,15 @@ class SearchShodan:
                         invalid_response = True
                     if fingerprint is not None and not isinstance(fingerprint, dict):
                         invalid_response = True
+                    subject_cn = self._certificate_name(subject.get('CN')) if isinstance(subject, dict) else None
+                    cert_names, invalid_cert = self._certificate_names(cert)
+                    invalid_response = invalid_response or invalid_cert
+                    if subject_cn:
+                        tls_details['subject_cn'] = subject_cn
+                    subject_alt_names = sorted(cert_names - ({subject_cn} if subject_cn else set()))
+                    if subject_alt_names:
+                        tls_details['subject_alt_names'] = subject_alt_names
                     for field, source in (
-                        ('subject_cn', subject.get('CN') if isinstance(subject, dict) else None),
                         ('issuer_cn', issuer.get('CN') if isinstance(issuer, dict) else None),
                         ('expires_at', cert.get('expires')),
                         ('sha256', fingerprint.get('sha256') if isinstance(fingerprint, dict) else None),
@@ -182,6 +323,24 @@ class SearchShodan:
 
         domain_values = normalized_strings(results.get('domains'))
         hostname_values = normalized_strings(results.get('hostnames'))
+        if self.scope is not None:
+            domain_values = sorted(
+                {normalized for value in domain_values if (normalized := normalize_scoped_hostname(value, self.scope))}
+            )
+            hostname_values = sorted(
+                {normalized for value in hostname_values if (normalized := normalize_scoped_hostname(value, self.scope))}
+            )
+            self.totalhosts.update(value for value in domain_values + hostname_values if value != self.scope)
+            for service in services:
+                tls = service.get('tls')
+                if not isinstance(tls, dict):
+                    continue
+                for field in ('subject_cn', 'subject_alt_names'):
+                    tls_value = tls.get(field)
+                    values = tls_value if isinstance(tls_value, list) else [tls_value]
+                    self.totalhosts.update(
+                        name for name in values if isinstance(name, str) and not name.startswith('*.') and name != self.scope
+                    )
         asn = normalized_string(results.get('asn'))
         organization = normalized_string(results.get('org'))
         host_details = {
@@ -193,22 +352,91 @@ class SearchShodan:
             'services': services,
         }
         shodan_host = ShodanHostObservation.from_record(ip, host_details)
-        self.shodan_hosts[ip] = shodan_host
-        self.tracker[ip] = shodan_host.to_details()
+        invalid_response = self._merge_host(shodan_host) or invalid_response
+        stored_host = self.shodan_hosts[ip]
+        self.tracker[ip] = stored_host.to_details()
 
-        if asn and organization:
+        if stored_host.asn and stored_host.organization:
             self.asn_attributions.add(
                 AsnAttributionObservation(
                     'action',
                     'shodan',
-                    asn,
-                    organization,
+                    stored_host.asn,
+                    stored_host.organization,
                     'ip',
                     ip,
                     datetime.now(UTC),
                 )
             )
         return invalid_response
+
+    async def _search_target(self, proxy: bool) -> set[str]:
+        assert self.scope is not None
+        error_types: set[str] = set()
+        for query in (f'hostname:{self.scope}', f'ssl:{self.scope}'):
+            page = 1
+            received = 0
+            while True:
+                try:
+                    response = await self._fetch_json(
+                        self.SEARCH_URL,
+                        {
+                            'key': self.key,
+                            'query': query,
+                            'page': page,
+                            'minify': 'false',
+                            'fields': self.SEARCH_FIELDS,
+                        },
+                        proxy,
+                    )
+                except ResponseStreamError as error:
+                    error_types.add(
+                        {
+                            'invalid-response': 'InvalidResponseError',
+                            'response-limit': 'ResponseLimitError',
+                            'transport-error': 'TransportError',
+                        }[error.reason]
+                    )
+                    break
+                except Exception as error:
+                    error_types.add(type(error).__name__)
+                    break
+                if not 200 <= response.status < 300:
+                    error_types.add(f'HTTP{response.status}Error')
+                    break
+                if not isinstance(response.body, dict):
+                    error_types.add('InvalidResponseError')
+                    break
+                matches = response.body.get('matches')
+                total = response.body.get('total')
+                if not isinstance(matches, list) or isinstance(total, bool) or not isinstance(total, int) or total < 0:
+                    error_types.add('InvalidResponseError')
+                    break
+                for match in matches:
+                    if not isinstance(match, dict):
+                        error_types.add('InvalidResponseError')
+                        continue
+                    if not self._scoped_banner_names(match):
+                        continue
+                    ip_value = match.get('ip_str')
+                    if not isinstance(ip_value, str):
+                        error_types.add('InvalidResponseError')
+                        continue
+                    try:
+                        ip = str(ip_address(ip_value))
+                        if self._record_host(ip, {**match, 'data': [match]}):
+                            error_types.add('InvalidResponseError')
+                    except (TypeError, ValueError):
+                        error_types.add('InvalidResponseError')
+                received += len(matches)
+                if not matches:
+                    if received < total:
+                        error_types.add('InvalidResponseError')
+                    break
+                if received >= total:
+                    break
+                page += 1
+        return error_types
 
     async def search_ip(self, ip: str, *, proxy: bool = False) -> OrderedDict[str, HostResult | str]:
         self.error_type = None
@@ -268,41 +496,35 @@ class SearchShodan:
         self.totalhosts.clear()
         self.execution_status = None
         self.stop_reason = None
+        dns_stop_reason: str | None = None
         try:
             resolved_ips = await resolve_ip_addresses(self.word, family=socket.AF_INET)
             if not resolved_ips:
                 raise ValueError('target has no IPv4 addresses')
         except TimeoutError:
-            self.execution_status = 'failed'
-            self.stop_reason = 'dns-timeout'
-            return
+            resolved_ips = ()
+            dns_stop_reason = 'dns-timeout'
         except aiodns.error.DNSError as error:
-            self.execution_status = 'failed'
-            self.stop_reason = (
+            resolved_ips = ()
+            dns_stop_reason = (
                 'dns-timeout' if error.args and error.args[0] == aiodns.error.ARES_ETIMEOUT else 'dns-resolution-failed'
             )
-            return
         except ValueError:
-            self.execution_status = 'failed'
-            self.stop_reason = 'dns-resolution-failed'
-            return
+            resolved_ips = ()
+            dns_stop_reason = 'dns-resolution-failed'
 
-        provider_error_types: set[str] = set()
+        provider_error_types = await self._search_target(proxy)
         for resolved_ip in resolved_ips:
-            result = await self.search_ip(resolved_ip, proxy=proxy)
-            host_data = result.get(resolved_ip)
-            if isinstance(host_data, dict):
-                hostnames = host_data.get('hostnames')
-                if isinstance(hostnames, list):
-                    for hostname in hostnames:
-                        normalized = normalize_scoped_hostname(hostname, self.scope)
-                        if normalized and normalized != self.scope:
-                            self.totalhosts.add(normalized)
+            await self.search_ip(resolved_ip, proxy=proxy)
             if self.error_type is not None:
                 provider_error_types.add(self.error_type)
 
         self.error_type = next(iter(sorted(provider_error_types)), None)
         retained_evidence = bool(self.totalhosts or self.shodan_hosts)
+        if dns_stop_reason is not None:
+            self.execution_status = 'partial' if retained_evidence else 'failed'
+            self.stop_reason = dns_stop_reason
+            return
         if provider_error_types:
             self.execution_status = 'partial' if retained_evidence else 'failed'
             if provider_error_types <= {'HTTP401Error', 'HTTP403Error'}:

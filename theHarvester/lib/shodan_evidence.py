@@ -39,6 +39,7 @@ class ShodanServiceObservation:
     http_server: str | None = None
     http_components: tuple[str, ...] = ()
     tls_subject_cn: str | None = None
+    tls_subject_alt_names: tuple[str, ...] = ()
     tls_issuer_cn: str | None = None
     tls_expires_at: str | None = None
     tls_sha256: str | None = None
@@ -63,7 +64,8 @@ class ShodanServiceObservation:
             raise ValueError('Shodan HTTP evidence contains unsupported fields')
         tls = record.get('tls')
         if tls is not None and (
-            not isinstance(tls, dict) or set(tls) - {'subject_cn', 'issuer_cn', 'expires_at', 'sha256', 'jarm'}
+            not isinstance(tls, dict)
+            or set(tls) - {'subject_cn', 'subject_alt_names', 'issuer_cn', 'expires_at', 'sha256', 'jarm'}
         ):
             raise ValueError('Shodan TLS evidence contains unsupported fields')
 
@@ -78,6 +80,9 @@ class ShodanServiceObservation:
             http_server=_optional_text(http.get('server'), 'HTTP server') if isinstance(http, dict) else None,
             http_components=_string_tuple(http.get('components'), 'HTTP components') if isinstance(http, dict) else (),
             tls_subject_cn=_optional_text(tls.get('subject_cn'), 'TLS subject CN') if isinstance(tls, dict) else None,
+            tls_subject_alt_names=(
+                _hostname_tuple(tls.get('subject_alt_names'), 'TLS subject alternative names') if isinstance(tls, dict) else ()
+            ),
             tls_issuer_cn=_optional_text(tls.get('issuer_cn'), 'TLS issuer CN') if isinstance(tls, dict) else None,
             tls_expires_at=_optional_text(tls.get('expires_at'), 'TLS expiry') if isinstance(tls, dict) else None,
             tls_sha256=_optional_text(tls.get('sha256'), 'TLS SHA-256') if isinstance(tls, dict) else None,
@@ -95,6 +100,7 @@ class ShodanServiceObservation:
             self.http_server or '',
             self.http_components,
             self.tls_subject_cn or '',
+            self.tls_subject_alt_names,
             self.tls_issuer_cn or '',
             self.tls_expires_at or '',
             self.tls_sha256 or '',
@@ -122,7 +128,9 @@ class ShodanServiceObservation:
             http['components'] = list(self.http_components)
         if http:
             record['http'] = http
-        tls: dict[str, str] = {}
+        tls: dict[str, object] = {}
+        if self.tls_subject_alt_names:
+            tls['subject_alt_names'] = list(self.tls_subject_alt_names)
         for field, value in (
             ('subject_cn', self.tls_subject_cn),
             ('issuer_cn', self.tls_issuer_cn),

@@ -496,6 +496,7 @@
         http.components?.length ? `HTTP: ${http.components.join(', ')}` : '',
         service.cpes?.length ? `CPE: ${service.cpes.join(', ')}` : '',
         tls.subject_cn ? `TLS subject: ${tls.subject_cn}` : '',
+        tls.subject_alt_names?.length ? `TLS SANs: ${tls.subject_alt_names.join(', ')}` : '',
         tls.issuer_cn ? `issuer: ${tls.issuer_cn}` : '',
         tls.expires_at ? `expires: ${tls.expires_at}` : '',
         tls.sha256 ? `SHA-256: ${tls.sha256}` : '',

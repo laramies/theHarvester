@@ -108,6 +108,12 @@ class TestShodanEngine:
                                     'issuer': {'CN': 'Example CA'},
                                     'expires': '2027-08-14T00:00:00Z',
                                     'fingerprint': {'sha256': '0123456789abcdef'},
+                                    'extensions': [
+                                        {
+                                            'name': 'subjectAltName',
+                                            'data': r'0\x82\x10api.example.test\x82\x10www.example.test',
+                                        }
+                                    ],
                                 },
                             },
                         },
@@ -152,6 +158,7 @@ class TestShodanEngine:
                         'issuer_cn': 'Example CA',
                         'jarm': 'example-jarm',
                         'sha256': '0123456789abcdef',
+                        'subject_alt_names': ['www.example.test'],
                         'subject_cn': 'api.example.test',
                     },
                     'transport': 'tcp',
@@ -232,6 +239,8 @@ class TestShodanEngine:
         queried_urls = []
 
         async def fetch_json(url, **_kwargs):
+            if url.endswith('/search'):
+                return FetcherResponse(body={'matches': [], 'total': 0}, status=200, headers={})
             queried_urls.append(url)
             ip = url.rsplit('/', 1)[-1]
             if ip == '203.0.113.10':
@@ -262,11 +271,137 @@ class TestShodanEngine:
         assert search.stop_reason == 'provider-errors'
 
     @pytest.mark.asyncio
+    async def test_shodan_discovery_paginates_hostname_and_tls_searches_with_scoped_certificate_names(self, monkeypatch):
+        from theHarvester.discovery import shodansearch
+        from theHarvester.lib.core import FetcherResponse
+
+        search_calls = []
+
+        def banner(
+            ip,
+            port,
+            *,
+            hostnames=(),
+            subject_cn=None,
+            subject_alt_name='',
+        ):
+            cert = {
+                'extensions': [
+                    {'name': 'subjectAltName', 'data': subject_alt_name},
+                    {'name': 'keyUsage', 'data': 'Digital Signature'},
+                ]
+            }
+            if subject_cn is not None:
+                cert['subject'] = {'CN': subject_cn}
+            return {
+                'ip_str': ip,
+                'hostnames': list(hostnames),
+                'port': port,
+                'transport': 'tcp',
+                'ssl': {'cert': cert},
+            }
+
+        hostname_pages = {
+            1: {
+                'total': 2,
+                'matches': [
+                    banner(
+                        '198.51.100.20',
+                        443,
+                        hostnames=('API.Example.TEST.',),
+                        subject_cn='*.example.test',
+                        subject_alt_name=(r'0\x82\x10api.example.test\x82\x12outside.invalid\x82\x13vpn.example.test'),
+                    )
+                ],
+            },
+            2: {
+                'total': 2,
+                'matches': [banner('198.51.100.20', 8443, hostnames=('api.example.test',))],
+            },
+        }
+        ssl_page = {
+            'total': 3,
+            'matches': [
+                banner(
+                    '198.51.100.20',
+                    443,
+                    hostnames=('api.example.test',),
+                    subject_cn='*.example.test',
+                    subject_alt_name=r'0\x82\x10api.example.test\x82\x13vpn.example.test',
+                ),
+                banner(
+                    '198.51.100.21',
+                    443,
+                    subject_cn='cert.example.test',
+                    subject_alt_name=r'0\x82\x13cert.example.test\x82\x15outside.invalid',
+                ),
+                banner(
+                    '198.51.100.22',
+                    443,
+                    hostnames=('outside.invalid',),
+                    subject_cn='outside.invalid',
+                    subject_alt_name=r'0\x82\x15outside.invalid',
+                ),
+            ],
+        }
+
+        async def fetch_json(url, *, params, proxy, request_timeout):
+            assert proxy is True
+            assert request_timeout is None
+            assert params['key'] == 'test-key'
+            if url.endswith('/search'):
+                search_calls.append(dict(params))
+                query = params['query']
+                if query == 'hostname:example.test':
+                    return FetcherResponse(body=hostname_pages[params['page']], status=200, headers={})
+                assert query == 'ssl:example.test'
+                assert params['page'] == 1
+                return FetcherResponse(body=ssl_page, status=200, headers={})
+            assert url == 'https://api.shodan.io/shodan/host/203.0.113.10'
+            return FetcherResponse(
+                body={'data': [{'port': 80, 'transport': 'tcp'}], 'hostnames': ['www.example.test']},
+                status=200,
+                headers={},
+            )
+
+        monkeypatch.setattr(shodansearch.Core, 'shodan_key', lambda: 'test-key')
+        monkeypatch.setattr(shodansearch.AsyncFetcher, 'fetch_json', fetch_json)
+        patch_resolution(monkeypatch, shodansearch)
+
+        search = shodansearch.SearchShodan('example.test')
+        await search.process(proxy=True)
+
+        assert [(call['query'], call['page']) for call in search_calls] == [
+            ('hostname:example.test', 1),
+            ('hostname:example.test', 2),
+            ('ssl:example.test', 1),
+        ]
+        assert all(call['minify'] == 'false' and call['fields'] == search.SEARCH_FIELDS for call in search_calls)
+        assert await search.get_hostnames() == {
+            'api.example.test',
+            'cert.example.test',
+            'vpn.example.test',
+            'www.example.test',
+        }
+        hosts = {host.ip: host.to_details() for host in await search.get_shodan_hosts()}
+        assert set(hosts) == {'198.51.100.20', '198.51.100.21', '203.0.113.10'}
+        assert [service['port'] for service in hosts['198.51.100.20']['services']] == [443, 8443]
+        assert hosts['198.51.100.20']['services'][0]['tls'] == {
+            'subject_alt_names': ['api.example.test', 'vpn.example.test'],
+            'subject_cn': '*.example.test',
+        }
+        assert hosts['198.51.100.21']['services'][0]['tls'] == {'subject_cn': 'cert.example.test'}
+        assert search.execution_status == 'completed'
+        assert search.stop_reason is None
+
+    @pytest.mark.asyncio
     async def test_shodan_discovery_counts_service_only_evidence_as_a_result(self, monkeypatch):
         from theHarvester.discovery import shodansearch
         from theHarvester.lib.core import FetcherResponse
 
-        async def fetch_json(*_args, **_kwargs):
+        async def fetch_json(url, **_kwargs):
+            if url.endswith('/search'):
+                return FetcherResponse(body={'matches': [], 'total': 0}, status=200, headers={})
             return FetcherResponse(
                 body={'data': [{'port': 53, 'transport': 'udp'}], 'hostnames': []},
                 status=200,
@@ -345,25 +480,39 @@ class TestShodanEngine:
         with pytest.raises(MissingKey):
             shodansearch.SearchShodan('example.test')
 
-    @pytest.mark.asyncio
-    async def test_shodan_discovery_reports_dns_failure_without_calling_provider(self, monkeypatch):
+    def test_shodan_discovery_rejects_query_filter_injection(self, monkeypatch):
         from theHarvester.discovery import shodansearch
+
+        monkeypatch.setattr(shodansearch.Core, 'shodan_key', lambda: 'test-key')
+
+        with pytest.raises(ValueError, match='must be a hostname'):
+            shodansearch.SearchShodan('example.test ssl:true')
+
+    @pytest.mark.asyncio
+    async def test_shodan_discovery_reports_dns_failure_after_searching_provider(self, monkeypatch):
+        from theHarvester.discovery import shodansearch
+        from theHarvester.lib.core import FetcherResponse
+
+        provider_queries = []
 
         async def fail_resolution(_target, *, family):
             assert family == socket.AF_INET
             raise shodansearch.aiodns.error.DNSError(shodansearch.aiodns.error.ARES_ENOTFOUND, 'not found')
 
-        async def fail_fetch(*_args, **_kwargs):
-            raise AssertionError('provider lookup must not run')
+        async def fetch_json(url, *, params, **_kwargs):
+            assert url.endswith('/search')
+            provider_queries.append(params['query'])
+            return FetcherResponse(body={'matches': [], 'total': 0}, status=200, headers={})
 
         monkeypatch.setattr(shodansearch.Core, 'shodan_key', lambda: 'test-key')
         monkeypatch.setattr(shodansearch, 'resolve_ip_addresses', fail_resolution)
-        monkeypatch.setattr(shodansearch.AsyncFetcher, 'fetch_json', fail_fetch)
+        monkeypatch.setattr(shodansearch.AsyncFetcher, 'fetch_json', fetch_json)
 
         search = shodansearch.SearchShodan('example.test')
         await search.process()
 
         assert not await search.get_hostnames()
+        assert provider_queries == ['hostname:example.test', 'ssl:example.test']
         assert search.execution_status == 'failed'
         assert search.stop_reason == 'dns-resolution-failed'
 
