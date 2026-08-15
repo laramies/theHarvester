@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 
 from theHarvester import __main__ as theharvester_main
-from theHarvester.discovery import crtname
+from theHarvester.discovery import crtname, crtsh
 from theHarvester.lib.completed_result import CompletedResult
 from theHarvester.lib.core import ResponseStreamError
 
@@ -302,7 +302,7 @@ async def test_crt_name_and_crtsh_share_one_result_with_both_sources(
 
     report = tmp_path / 'crt-name-overlap'
     monkeypatch.setattr(crtname.AsyncFetcher, 'stream_records', stream_records)
-    monkeypatch.setattr(theharvester_main.crtsh, 'SearchCrtsh', FakeCrtsh)
+    monkeypatch.setattr(crtsh, 'SearchCrtsh', FakeCrtsh)
     monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
     monkeypatch.setattr(
         sys,

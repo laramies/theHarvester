@@ -6,11 +6,11 @@ from typing import Any
 
 import pytest
 
+from theHarvester import __main__ as theharvester_main
 from theHarvester.discovery import leaklookup
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.completed_result import CompletedResult
 from theHarvester.lib.core import FetcherResponse
-from theHarvester import __main__ as theharvester_main
 
 
 @pytest.mark.parametrize('key', [None, '', ' '])
@@ -178,7 +178,7 @@ async def test_leaklookup_emails_and_breaches_reach_completed_result_and_jsonl(m
 
     report = tmp_path / 'leaklookup-report'
     monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
-    monkeypatch.setattr(theharvester_main.leaklookup, 'SearchLeakLookup', FakeLeakLookup)
+    monkeypatch.setattr(leaklookup, 'SearchLeakLookup', FakeLeakLookup)
     monkeypatch.setattr(
         sys,
         'argv',

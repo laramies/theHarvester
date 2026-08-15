@@ -21,7 +21,7 @@ from aiohttp_socks import ProxyConnector
 
 from theHarvester import __version__
 from theHarvester.lib.output import output_logger
-from theHarvester.lib.source_catalog import resolve_sources
+from theHarvester.lib.source_catalog import SOURCE_SPECS, resolve_sources
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Sized
@@ -416,72 +416,8 @@ class Core:
 
     @staticmethod
     def get_supportedengines() -> list[str]:
-        """Returns a list of supported search engines."""
-        return [
-            'apis-guru',
-            'arquivo',
-            'baidu',
-            'bevigil',
-            'bufferoverun',
-            'builtwith',
-            'brave',
-            'censys',
-            'certspotter',
-            'commoncrawl',
-            'criminalip',
-            'crt-name',
-            'crtsh',
-            'dehashed',
-            'dnsdb',
-            'dnsdumpster',
-            'duckduckgo',
-            'dymo',
-            'fofa',
-            'fullhunt',
-            'github-code',
-            'gitlab',
-            'hackertarget',
-            'haveibeenpwned',
-            'hibpverified',
-            'hudsonrock',
-            'hunter',
-            'hunterhow',
-            'intelx',
-            'leakix',
-            'leaklookup',
-            'linkedin',
-            'mojeek',
-            'netcraft',
-            'netlas',
-            'omnisint',
-            'onyphe',
-            'otx',
-            'pentesttools',
-            'projectdiscovery',
-            'rapiddns',
-            'robtex',
-            'rocketreach',
-            'securityscorecard',
-            'securityTrails',
-            'sherlockeye',
-            'shodan',
-            'shodanInternetDB',
-            'shodanct',
-            'sourcegraph',
-            'subdomaincenter',
-            'subdomainfinderc99',
-            'sublist3r',
-            'thc',
-            'tomba',
-            'urlscan',
-            'virustotal',
-            'waybackarchive',
-            'whoisxml',
-            'windvane',
-            'yahoo',
-            'zoomeye',
-            'zoomeyeapi',
-        ]
+        """Return the canonical discovery-source inventory."""
+        return sorted(SOURCE_SPECS)
 
     @classmethod
     def expand_source_selection(cls, selection: str) -> list[str]:

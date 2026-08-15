@@ -172,6 +172,7 @@ def test_harvestview_can_submit_overridable_execution_controls(
     page.locator('#run-target').fill('example.com')
     page.get_by_text('Advanced execution controls', exact=True).click()
     page.locator('#run-start').fill('25')
+    page.locator('#source-workers').fill('7')
     page.locator('#run-deadline').fill('86400')
     page.locator('[name="proxies"]').check()
     page.locator('[name="shodan"]').check()
@@ -198,6 +199,7 @@ def test_harvestview_can_submit_overridable_execution_controls(
         'sources': ['crtsh'],
         'limit': 500,
         'start': 25,
+        'source_workers': 7,
         'deadline_seconds': 86_400,
         'proxies': True,
         'no_hosts': False,
@@ -1181,17 +1183,13 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
             for index, source in enumerate(ordered_sources)
         ],
         'results': [
-                {
-                    'type': result_type,
-                    'value': (
-                        '192.0.2.10'
-                        if result_type == 'ip'
-                        else 'AS64500'
-                        if result_type == 'asn'
-                        else f'{result_type}.example.com'
-                    ),
-                    'sources': [ordered_sources[index]['name']] if index < 3 else [],
-                }
+            {
+                'type': result_type,
+                'value': (
+                    '192.0.2.10' if result_type == 'ip' else 'AS64500' if result_type == 'asn' else f'{result_type}.example.com'
+                ),
+                'sources': [ordered_sources[index]['name']] if index < 3 else [],
+            }
             for index, result_type in enumerate(('hostname', 'ip', 'asn', 'email', 'url', 'framework', 'person', 'language'))
         ]
         + [

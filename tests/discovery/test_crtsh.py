@@ -165,7 +165,7 @@ class TestCrtshSearch:
 
 
 class TestCrtshIntegration:
-    def test_supportedengines_lists_crtsh(self):
-        from theHarvester.lib.core import Core
+    def test_source_catalog_lists_crtsh(self):
+        from theHarvester.lib.source_catalog import SOURCE_SPECS
 
-        assert 'crtsh' in Core.get_supportedengines()
+        assert 'crtsh' in SOURCE_SPECS

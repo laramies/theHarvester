@@ -21,6 +21,7 @@ if 'aiohttp_socks' not in sys.modules:
 from theHarvester import __main__ as theharvester_main
 from theHarvester.discovery import builtwith
 from theHarvester.discovery.constants import MissingKey
+from theHarvester.lib import source_runner
 from theHarvester.lib.completed_result import CompletedResult
 from theHarvester.lib.core import FetcherResponse, ResponseStreamError
 
@@ -326,7 +327,7 @@ async def test_normalized_builtwith_results_reach_completed_jsonl(
 
     report = tmp_path / 'builtwith-report'
     monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
-    monkeypatch.setattr(theharvester_main.builtwith, 'SearchBuiltWith', FakeBuiltWith)
+    monkeypatch.setattr(source_runner.builtwith, 'SearchBuiltWith', FakeBuiltWith)
     monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.com', '-b', 'builtwith', '-f', str(report)])
 
     with pytest.raises(SystemExit) as exit_info:
@@ -341,6 +342,10 @@ async def test_normalized_builtwith_results_reach_completed_jsonl(
         ('server', 'nginx'),
         ('url', 'https://example.com/login'),
     )
+    assert completed_results[0].source_executions[0].source == 'builtwith'
+    assert completed_results[0].source_executions[0].status == 'completed'
+    assert completed_results[0].source_executions[0].result_count == 6
+    assert {observation.source for observation in completed_results[0].observations} == {'builtwith'}
     records = [json.loads(line) for line in report.with_suffix('.jsonl').read_text().splitlines()]
     assert {'type': 'url', 'value': 'https://example.com/login', 'sources': ['builtwith']} in records
     assert {'type': 'framework', 'value': 'Django', 'sources': ['builtwith']} in records

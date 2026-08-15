@@ -290,6 +290,7 @@
     const options = [
       ['Sources', sources], ['Result limit', request.limit ?? 'Imported evidence'],
       ['Result start offset', request.start ?? 'Not recorded'],
+      ['Discovery source workers', request.source_workers ?? 'Not recorded'],
       ['Whole-run deadline', request.deadline_seconds === null ? 'Unlimited' : request.deadline_seconds === undefined ? 'Not recorded' : `${request.deadline_seconds} seconds`],
       ['Proxy transport', request.proxies ? 'Selected' : 'Off'],
       ['Hostname results', request.no_hosts ? 'Excluded' : 'Included'],
@@ -930,6 +931,7 @@
     const payload = {
       target: form.get('target'), sources: [...state.selectedSources], limit: Number(form.get('limit')),
       start: Number(form.get('start')), deadline_seconds: form.get('deadline_seconds') ? Number(form.get('deadline_seconds')) : null,
+      source_workers: Number(form.get('source_workers')),
       proxies: form.has('proxies'), no_hosts: form.has('no_hosts'),
       dns_lookup: form.has('dns_lookup'), dns_resolve: form.has('dns_resolve'),
       dns_resolvers: String(form.get('dns_resolvers')).split(',').map(value => value.trim()),

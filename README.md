@@ -42,6 +42,10 @@ Query several passive sources:
 uv run theHarvester -d example.com -b crtsh,certspotter,commoncrawl
 ```
 
+Six discovery sources run at once by default. Use `-j` or `--source-workers` with a positive number to change that
+concurrency. The worker count never skips a selected source or limits its results, and it is automatically reduced when
+fewer sources are selected. REST `source_workers` and HarvestView use the same setting.
+
 Run every source that can contribute subdomains:
 
 ```bash
@@ -157,6 +161,8 @@ The table shows which result types each source can add to consolidated CLI resul
 JSON and XML group findings by result type without source attribution. JSONL and SQLite retain source attribution when the collection adapter provides it. Empty optional fields may be omitted.
 BuiltWith's normalized frameworks, languages, servers, CMS products, and analytics products are retained in JSONL and completed-result SQLite rows.
 
+Contributors add an ordinary discovery provider with one catalog entry and one factory entry; the shared runner handles CLI execution, persistence, and output. See [the contributor module guide](docs/wiki/How-to-add-a-new-module.md).
+
 A checkmark means the source can add that result type. The **Additional action output** column lists optional actions that return other data.
 
 Read the **API key** column as follows:
@@ -241,7 +247,7 @@ Provider pricing is intentionally omitted because plans and quotas change freque
 
 `haveibeenpwned` remains the keyless public breach catalogue. `hibpverified` is a separate authenticated source for HIBP's `breachedDomain` endpoint. It participates in `all` and matching capability selectors just like every other P0 source, and skips normally when its provider key is absent. API run requests can select it through the shared source contract and return normalized emails plus stable breach names. A live run requires a user-owned paid HIBP API key and a user-owned domain verified in that account; routine tests use offline responses.
 
-The runtime registry also reports the legacy identifiers `linkedin`, `netcraft`, `omnisint`, `sublist3r`, and `zoomeyeapi`. These identifiers have no active CLI handlers. The table does not present them as usable sources.
+The inert legacy identifiers `linkedin`, `netcraft`, `omnisint`, `sublist3r`, and `zoomeyeapi` are no longer registered. Use the table above, `SOURCE_SPECS`, and `SOURCE_FACTORIES` as the supported provider inventory.
 
 ## Configuration
 

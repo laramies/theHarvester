@@ -10,7 +10,8 @@ from uuid import UUID
 import pytest
 
 from theHarvester import __main__ as theharvester_main
-from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass
+from theHarvester.lib import source_catalog, source_runner
+from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass, ResultRoute, SourceSpec
 
 NON_PASSIVE_SOURCES = (
     'criminalip',
@@ -36,6 +37,46 @@ async def test_source_help_uses_the_runtime_catalog(
     help_output = capsys.readouterr().out
     assert 'catalog-only-source' in help_output
     assert 'linkedin_links' not in help_output
+
+
+@pytest.mark.asyncio
+async def test_catalog_and_factory_are_the_only_source_registration_points(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runs = 0
+
+    class FakeResultStore:
+        async def initialize(self) -> None:
+            return None
+
+        async def record_observations(self, *_args: object) -> None:
+            return None
+
+        async def save_run(self, _result: object) -> None:
+            return None
+
+    class CatalogOnlyAdapter:
+        async def process(self, _proxy: bool) -> None:
+            nonlocal runs
+            runs += 1
+            return None
+
+        async def get_hostnames(self) -> set[str]:
+            return {'catalog.example.test'}
+
+    source = 'catalog-only-source'
+    spec = SourceSpec(source, frozenset({ResultRoute.SUBDOMAINS}))
+    monkeypatch.setitem(SOURCE_SPECS, source, spec)
+    monkeypatch.setitem(source_catalog._CASEFOLDED_SOURCE_SPECS, source, spec)
+    monkeypatch.setitem(source_runner.SOURCE_FACTORIES, source, lambda _request: CatalogOnlyAdapter())
+    monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
+    monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.test', '-b', source])
+
+    with pytest.raises(SystemExit) as exit_info:
+        await theharvester_main.start()
+
+    assert exit_info.value.code == 0
+    assert runs == 1
 
 
 @pytest.mark.asyncio
@@ -69,7 +110,10 @@ async def test_activity_summary_includes_source_and_option_classes(
         async def get_asns(self) -> set[str]:
             return set()
 
-    monkeypatch.setattr(theharvester_main.criminalip, 'SearchCriminalIP', FakeCriminalIP)
+        async def get_shodan_hosts(self) -> tuple[()]:
+            return ()
+
+    monkeypatch.setattr(source_runner.criminalip, 'SearchCriminalIP', FakeCriminalIP)
     monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
     monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.test', '-b', 'criminalip', '-n', '-s'])
 
@@ -110,8 +154,11 @@ async def test_activity_summary_covers_api_scan_without_sources(
 
 
 @pytest.mark.asyncio
-async def test_legacy_handlerless_source_does_not_break_activity_summary(
+@pytest.mark.parametrize('source', ['linkedin', 'netcraft', 'omnisint', 'sublist3r', 'zoomeyeapi'])
+async def test_removed_source_is_rejected_before_source_execution(
     monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    source: str,
 ) -> None:
     class FakeResultStore:
         async def initialize(self) -> None:
@@ -121,12 +168,13 @@ async def test_legacy_handlerless_source_does_not_break_activity_summary(
             return None
 
     monkeypatch.setattr(theharvester_main, 'ResultStore', FakeResultStore)
-    monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.test', '-b', 'linkedin'])
+    monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.test', '-b', source])
 
     with pytest.raises(SystemExit) as exit_info:
         await theharvester_main.start()
 
-    assert exit_info.value.code == 0
+    assert exit_info.value.code == 1
+    assert 'SourceDidNotStart' not in capsys.readouterr().out
 
 
 @pytest.mark.asyncio
@@ -168,10 +216,11 @@ async def test_explicit_non_passive_source_is_scheduled_once(
         monkeypatch.setattr(theharvester_main.shodansearch, 'SearchShodan', lambda *_args: FakeAdapter())
     else:
         module, constructor_name = {
-            'criminalip': (theharvester_main.criminalip, 'SearchCriminalIP'),
-            'pentesttools': (theharvester_main.pentesttools, 'SearchPentestTools'),
-            'shodanInternetDB': (theharvester_main.shodan_internetdb, 'SearchShodanInternetDB'),
-            'subdomainfinderc99': (theharvester_main.subdomainfinderc99, 'SearchSubdomainfinderc99'),
+            'criminalip': (source_runner.criminalip, 'SearchCriminalIP'),
+            'pentesttools': (source_runner.pentesttools, 'SearchPentestTools'),
+            'shodanInternetDB': (source_runner.shodan_internetdb, 'SearchShodanInternetDB'),
+            'subdomainfinderc99': (source_runner.subdomainfinderc99, 'SearchSubdomainfinderc99'),
+            'windvane': (source_runner.windvane, 'SearchWindvane'),
         }[source]
         monkeypatch.setattr(module, constructor_name, lambda *_args, **_kwargs: FakeAdapter())
 
@@ -243,7 +292,8 @@ async def test_all_schedules_each_passive_catalog_source_once_and_reports_result
     discovery_modules = sorted(
         {
             value
-            for value in vars(theharvester_main).values()
+            for namespace in (vars(theharvester_main), vars(source_runner))
+            for value in namespace.values()
             if isinstance(value, ModuleType) and value.__name__.startswith('theHarvester.discovery.')
         },
         key=lambda module: module.__name__,

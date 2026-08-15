@@ -90,6 +90,7 @@ class SourceSpec:
     name: str
     routes: frozenset[ResultRoute]
     activity: ActivityClass = ActivityClass.PASSIVE
+    retains_unresolved_hostnames: bool = False
 
     @property
     def capabilities(self) -> frozenset[str]:
@@ -100,11 +101,13 @@ def _spec(
     name: str,
     *routes: ResultRoute,
     activity: ActivityClass = ActivityClass.PASSIVE,
+    retains_unresolved_hostnames: bool = False,
 ) -> SourceSpec:
     return SourceSpec(
         name=name,
         routes=frozenset(routes),
         activity=activity,
+        retains_unresolved_hostnames=retains_unresolved_hostnames,
     )
 
 
@@ -137,7 +140,12 @@ _SPECS = (
     _spec('fullhunt', ResultRoute.SUBDOMAINS),
     _spec('github-code', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec('gitlab', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS, ResultRoute.URLS),
-    _spec('hackertarget', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
+    _spec(
+        'hackertarget',
+        ResultRoute.SUBDOMAINS,
+        ResultRoute.IPS,
+        retains_unresolved_hostnames=True,
+    ),
     _spec('haveibeenpwned', ResultRoute.BREACHES),
     _spec('hibpverified', ResultRoute.EMAILS, ResultRoute.BREACHES),
     _spec('hudsonrock', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS, ResultRoute.IPS),
@@ -150,9 +158,20 @@ _SPECS = (
     _spec('netlas', ResultRoute.SUBDOMAINS),
     _spec('onyphe', ResultRoute.SUBDOMAINS, ResultRoute.IPS, ResultRoute.ASNS),
     _spec('otx', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
-    _spec('pentesttools', ResultRoute.SUBDOMAINS, ResultRoute.IPS, activity=ActivityClass.DNS),
+    _spec(
+        'pentesttools',
+        ResultRoute.SUBDOMAINS,
+        ResultRoute.IPS,
+        activity=ActivityClass.DNS,
+        retains_unresolved_hostnames=True,
+    ),
     _spec('projectdiscovery', ResultRoute.SUBDOMAINS),
-    _spec('rapiddns', ResultRoute.SUBDOMAINS, ResultRoute.IPS),
+    _spec(
+        'rapiddns',
+        ResultRoute.SUBDOMAINS,
+        ResultRoute.IPS,
+        retains_unresolved_hostnames=True,
+    ),
     _spec('robtex', ResultRoute.IPS),
     _spec('rocketreach', ResultRoute.EMAILS, ResultRoute.URLS),
     _spec('securityTrails', ResultRoute.SUBDOMAINS, ResultRoute.IPS),

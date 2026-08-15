@@ -35,6 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added root contributor and security policies, structured issue forms, repository agent guidance, discovery terminology, and an operator-focused documentation wiki ([d090a29a](https://github.com/laramies/theHarvester/commit/d090a29a), [7c491ef5](https://github.com/laramies/theHarvester/commit/7c491ef5), [8b9d420b](https://github.com/laramies/theHarvester/commit/8b9d420b)).
 
 ### Changed
+- Routed discovery sources through immutable source jobs with bounded `TaskGroup` ownership, typed outcomes, and native cancellation propagation instead of queuing live coroutine objects.
+- Discovery now uses a fixed pool of six source workers by default. CLI `-j` or `--source-workers`, REST
+  `source_workers`, and HarvestView can set another positive count without skipping sources or limiting their results.
 - Replaced Shodan's synchronous Python SDK with cancellable async Host API requests that honor configured proxies, query every unique resolved IPv4, paginate target-bound hostname and TLS-certificate searches without an adapter-specific result cap, retain successful partial results, and add no source-local deadline. Shodan now stores one canonical `shodan-host` result per IP with every normalized TCP or UDP service and scoped certificate CN/SAN metadata in native JSONL, SQLite, API, and HarvestView details instead of an escaped JSON value.
 - Reworked screenshot scans to use one bounded aiohttp session and one shared browser, with isolated per-target contexts, status-based reachability, and deterministic async cleanup.
 - Migrated BuiltWith to the current v23 Domain API with privacy-preserving request controls, nested result parsing, and truthful partial or failed outcomes.
@@ -65,6 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Expanded offline regression coverage for discovery providers, configuration contracts, logging, output, documentation, workflow policy, and scope boundaries.
 
 ### Removed
+- Removed the inert legacy source identifiers `linkedin`, `netcraft`, `omnisint`, `sublist3r`, and `zoomeyeapi`; use the source catalog and shared factory registry for supported providers.
 - Removed the obsolete bundled IP-range and resolver snapshots.
 - Removed the REST API's built-in SlowAPI request limiter and its launcher option without adding a replacement.
 - Removed the duplicate `chaos` source name and module; ProjectDiscovery remains available through `projectdiscovery` with the same dataset and credential.
