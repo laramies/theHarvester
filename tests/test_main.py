@@ -718,7 +718,7 @@ async def test_provider_resolved_hostname_survives_no_answer_dns_validation(
 
     assert exit_info.value.code == 0
     assert NoAnswerChecker.calls == 1
-    assert 'provider.example.com' in json.loads(output_path.with_suffix('.json').read_text())['hosts']
+    assert json.loads(output_path.with_suffix('.json').read_text())['hosts'] == ['provider.example.com']
 
 
 @pytest.mark.asyncio
