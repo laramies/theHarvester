@@ -21,6 +21,7 @@ from aiohttp_socks import ProxyConnector
 
 from theHarvester import __version__
 from theHarvester.lib.output import output_logger
+from theHarvester.lib.source_catalog import SOURCE_SPECS, resolve_sources
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Sized
@@ -412,6 +413,16 @@ class Core:
         output_logger.info('* cmartorella@edge-security.com                                   *')
         output_logger.info('*                                                                 *')
         output_logger.info('*******************************************************************')
+
+    @staticmethod
+    def get_supportedengines() -> list[str]:
+        """Return the canonical discovery-source inventory."""
+        return sorted(SOURCE_SPECS)
+
+    @classmethod
+    def expand_source_selection(cls, selection: str) -> list[str]:
+        """Expand result capability selectors into source names."""
+        return resolve_sources(selection)
 
     @staticmethod
     def get_user_agent() -> str:

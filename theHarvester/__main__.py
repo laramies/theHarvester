@@ -784,6 +784,13 @@ async def start(
             raise
         except Exception as error:
             output_logger.info(f'\n An error occurred while committing {outcome.execution.source}: {type(error).__name__}.\n')
+        else:
+            execution = outcome.execution
+            stop_summary = f'; stop={execution.stop_reason}' if execution.stop_reason is not None else ''
+            logger.info(
+                f'Source {execution.source} finished in {execution.duration_ms / 1000:.2f}s: '
+                f'status={execution.status}; results={execution.result_count}{stop_summary}'
+            )
 
     async def resolve_source_hostnames() -> None:
         nonlocal dns_resolution_cancelled, dns_resolution_completed_count

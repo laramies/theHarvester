@@ -83,6 +83,14 @@ def test_named_source_can_be_combined_with_a_capability() -> None:
     assert resolve_sources('breaches,hibpverified') == ['haveibeenpwned', 'hibpverified', 'leaklookup']
 
 
+def test_core_supported_engines_compatibility_uses_the_catalog() -> None:
+    assert Core.get_supportedengines() == sorted(SOURCE_SPECS)
+
+
+def test_core_source_selection_compatibility_uses_the_catalog() -> None:
+    assert Core.expand_source_selection('breaches') == resolve_sources('breaches')
+
+
 def test_all_selects_only_passive_catalog_sources() -> None:
     assert resolve_sources("ALL") == sorted(
         spec.name

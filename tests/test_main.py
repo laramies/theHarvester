@@ -1450,6 +1450,34 @@ async def test_source_progress_waits_for_runner_admission(
     assert '[*] Searching Dymo.' not in interim_output
 
 
+@pytest.mark.asyncio
+async def test_source_completion_reports_verbose_terminal_summary(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    class CompletedCertSpotter:
+        async def process(self, _proxy: bool) -> None:
+            return None
+
+        async def get_hostnames(self) -> set[str]:
+            return {'api.example.test'}
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
+    monkeypatch.setattr(source_runner.certspottersearch, 'SearchCertspoter', lambda _word: CompletedCertSpotter())
+    caplog.set_level(logging.INFO, logger='theHarvester.__main__')
+
+    await theharvester_main.start(
+        EnumerationOptions(domain='example.test', source='certspotter', quiet=True),
+        return_completed_result=True,
+    )
+
+    assert any(
+        message.startswith('Source certspotter finished in ')
+        and message.endswith('s: status=completed; results=1')
+        for message in caplog.messages
+    )
+
+
 @pytest.mark.parametrize(
     ('error', 'expected_status', 'expected_error_type', 'expected_stop_reason', 'expected_diagnostic'),
     [
