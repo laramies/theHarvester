@@ -1,3 +1,5 @@
+import contextlib
+from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
@@ -42,11 +44,16 @@ def install_github_responses(monkeypatch: pytest.MonkeyPatch):
             async def __aexit__(self, *_args: Any) -> None:
                 return None
 
-            def get(self, url: str, *, proxy: str | None) -> FakeResponse:
+            def get(self, url: str, *, proxy: str | None = None) -> FakeResponse:
                 requested_urls.append(url)
                 return next(response_iterator)
 
-        monkeypatch.setattr(githubcode.aiohttp, 'ClientSession', FakeSession)
+        @contextlib.asynccontextmanager
+        async def fake_open_session(**_kwargs: object) -> AsyncIterator[FakeSession]:
+            async with FakeSession(headers={}) as session:
+                yield session
+
+        monkeypatch.setattr(githubcode.AsyncFetcher, 'open_session', fake_open_session)
         return requested_urls
 
     monkeypatch.setattr(githubcode.Core, 'github_key', staticmethod(lambda: 'test-token'))

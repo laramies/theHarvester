@@ -1,4 +1,8 @@
+import asyncio
+import ssl
 from typing import Any
+
+import aiohttp
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
@@ -75,72 +79,74 @@ class SearchCensys:
         records_seen = 0
         malformed = False
 
-        while records_seen < self.limit:
-            body = {
-                'query': f'cert.names: "{self.word}"',
-                'fields': ['cert.names', 'cert.parsed.subject.email_address'],
-                'page_size': min(self.MAX_RESULTS_PER_PAGE, self.limit - records_seen),
-            }
-            if page_token is not None:
-                body['page_token'] = page_token
-            try:
-                response = await AsyncFetcher.post_fetch(
-                    self.SERVER,
-                    headers=headers,
-                    params=params,
-                    json=True,
-                    proxy=self.proxy,
-                    include_metadata=True,
-                    json_body=body,
-                )
-            except Exception:
-                self._stop('failed', 'transport-error')
-                return
-            if not isinstance(response, FetcherResponse):
-                self._stop('failed', 'transport-error')
-                return
-            if response.status == 429:
-                self._stop('rate-limited', 'http-429')
-                return
-            if response.status in {401, 403}:
-                self._stop('failed', 'access-denied')
-                return
-            if not 200 <= response.status < 300:
-                self._stop('failed', f'http-{response.status}')
-                return
-            if not isinstance(response.body, dict) or not isinstance(response.body.get('result'), dict):
-                self._stop('failed', 'invalid-response')
-                return
-            result = response.body['result']
-            hits = result.get('hits')
-            next_page_token = result.get('next_page_token')
-            if not isinstance(hits, list) or (next_page_token is not None and not isinstance(next_page_token, str)):
-                self._stop('failed', 'invalid-response')
-                return
+        async with AsyncFetcher.open_session(headers=headers, proxy=self.proxy, request_timeout=720) as session:
+            while records_seen < self.limit:
+                body = {
+                    'query': f'cert.names: "{self.word}"',
+                    'fields': ['cert.names', 'cert.parsed.subject.email_address'],
+                    'page_size': min(self.MAX_RESULTS_PER_PAGE, self.limit - records_seen),
+                }
+                if page_token is not None:
+                    body['page_token'] = page_token
+                try:
+                    response = await AsyncFetcher.post_fetch(
+                        self.SERVER,
+                        session=session,
+                        headers=headers,
+                        params=params,
+                        json=True,
+                        proxy=self.proxy,
+                        include_metadata=True,
+                        json_body=body,
+                    )
+                except Exception:
+                    self._stop('failed', 'transport-error')
+                    return
+                if not isinstance(response, FetcherResponse):
+                    self._stop('failed', 'transport-error')
+                    return
+                if response.status == 429:
+                    self._stop('rate-limited', 'http-429')
+                    return
+                if response.status in {401, 403}:
+                    self._stop('failed', 'access-denied')
+                    return
+                if not 200 <= response.status < 300:
+                    self._stop('failed', f'http-{response.status}')
+                    return
+                if not isinstance(response.body, dict) or not isinstance(response.body.get('result'), dict):
+                    self._stop('failed', 'invalid-response')
+                    return
+                result = response.body['result']
+                hits = result.get('hits')
+                next_page_token = result.get('next_page_token')
+                if not isinstance(hits, list) or (next_page_token is not None and not isinstance(next_page_token, str)):
+                    self._stop('failed', 'invalid-response')
+                    return
 
-            for hit in hits:
+                for hit in hits:
+                    if records_seen >= self.limit:
+                        break
+                    malformed = self._parse_hit(hit) or malformed
+                    records_seen += 1
                 if records_seen >= self.limit:
-                    break
-                malformed = self._parse_hit(hit) or malformed
-                records_seen += 1
-            if records_seen >= self.limit:
-                if malformed:
-                    self._stop('failed', 'invalid-response')
-                else:
-                    self.execution_status = 'completed'
-                return
-            if not next_page_token:
-                if malformed:
-                    self._stop('failed', 'invalid-response')
-                else:
-                    self.execution_status = 'completed'
-                    self.stop_reason = None if self._has_results() else 'no-results'
-                return
-            if next_page_token in seen_tokens:
-                self._stop('failed', 'repeated-cursor')
-                return
-            seen_tokens.add(next_page_token)
-            page_token = next_page_token
+                    if malformed:
+                        self._stop('failed', 'invalid-response')
+                    else:
+                        self.execution_status = 'completed'
+                    return
+                if not next_page_token:
+                    if malformed:
+                        self._stop('failed', 'invalid-response')
+                    else:
+                        self.execution_status = 'completed'
+                        self.stop_reason = None if self._has_results() else 'no-results'
+                    return
+                if next_page_token in seen_tokens:
+                    self._stop('failed', 'repeated-cursor')
+                    return
+                seen_tokens.add(next_page_token)
+                page_token = next_page_token
 
     async def get_hostnames(self) -> set[str]:
         return self.totalhosts
@@ -150,4 +156,9 @@ class SearchCensys:
 
     async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
-        await self.do_search()
+        try:
+            await self.do_search()
+        except asyncio.CancelledError:
+            raise
+        except (aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, ValueError):
+            self._stop('failed', 'transport-error')

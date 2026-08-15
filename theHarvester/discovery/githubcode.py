@@ -1,13 +1,12 @@
 import asyncio
 import logging
-import random
 import urllib.parse as urlparse
 from typing import Any, NamedTuple
 
 import aiohttp
 
 from theHarvester.discovery.constants import MissingKey, get_delay
-from theHarvester.lib.core import Core
+from theHarvester.lib.core import AsyncFetcher, Core
 from theHarvester.parsers import myparser
 
 logger = logging.getLogger(__name__)
@@ -111,12 +110,18 @@ class SearchGithubCode:
         else:
             return result.last_page
 
-    async def do_search(self, page: int) -> tuple[str, dict, int, Any]:
+    async def do_search(
+        self,
+        page: int,
+        session: aiohttp.ClientSession | None = None,
+    ) -> tuple[str, dict, int, Any]:
         try:
+            if session is None:
+                async with AsyncFetcher.open_session(headers=self.headers, proxy=self.proxy) as owned_session:
+                    return await self.do_search(page, owned_session)
             url = f'{self.base_url}&page={page}' if page else self.base_url
-            async with aiohttp.ClientSession(headers=self.headers) as sess:
-                async with sess.get(url, proxy=random.choice(Core.proxy_list()) if self.proxy else None) as resp:
-                    return await resp.text(), await resp.json(), resp.status, resp.links
+            async with session.get(url) as resp:
+                return await resp.text(), await resp.json(), resp.status, resp.links
         except Exception as e:
             logger.info(f'Error performing search: {e}')
             return '', {}, 500, {}
@@ -124,50 +129,51 @@ class SearchGithubCode:
     async def process(self, proxy: bool = False) -> None:
         try:
             self.proxy = proxy
-            while self.counter < self.limit and self.page != 0:
-                try:
-                    api_response = await self.do_search(self.page)
-                    result = await self.handle_response(api_response)
+            async with AsyncFetcher.open_session(headers=self.headers, proxy=self.proxy) as session:
+                while self.counter < self.limit and self.page != 0:
+                    try:
+                        api_response = await self.do_search(self.page, session)
+                        result = await self.handle_response(api_response)
 
-                    if isinstance(result, SuccessResult):
-                        # Reset retry counter on any successful response
-                        self.retry_count = 0
-                        logger.info(f'\tSearching {self.counter} results.')
-                        remaining = self.limit - self.counter
-                        fragments = result.fragments[:remaining]
-                        if not fragments:
+                        if isinstance(result, SuccessResult):
+                            # Reset retry counter on any successful response
+                            self.retry_count = 0
+                            logger.info(f'\tSearching {self.counter} results.')
+                            remaining = self.limit - self.counter
+                            fragments = result.fragments[:remaining]
+                            if not fragments:
+                                self.page = 0
+                                break
+                            self.total_results += f'{" ".join(fragments)} '
+                            self.counter += len(fragments)
+                            if self.counter >= self.limit:
+                                self.page = 0
+                                break
+                            next_or_last = result.next_page or result.last_page
+                            # Break if pagination does not advance to avoid infinite loop
+                            if next_or_last == self.page:
+                                logger.info('\tNo page advancement detected; exiting to avoid infinite loop.')
+                                self.page = 0
+                                break
+                            self.page = next_or_last
+                            await asyncio.sleep(get_delay())
+                        elif isinstance(result, RetryResult):
+                            self.retry_count += 1
+                            if self.retry_count > self.max_retries:
+                                logger.info('\tMaximum retries reached; exiting to avoid infinite loop.')
+                                self.page = 0
+                                break
+                            sleepy_time = get_delay() + result.time
+                            logger.info(f'\tRetrying page in {sleepy_time} seconds...')
+                            await asyncio.sleep(sleepy_time)
+                        else:
+                            # On error, stop to avoid endless retries on a bad state
+                            logger.info(f'\tGitHub code API request failed with status {result.status_code}')
                             self.page = 0
                             break
-                        self.total_results += f'{" ".join(fragments)} '
-                        self.counter += len(fragments)
-                        if self.counter >= self.limit:
-                            self.page = 0
-                            break
-                        next_or_last = result.next_page or result.last_page
-                        # Break if pagination does not advance to avoid infinite loop
-                        if next_or_last == self.page:
-                            logger.info('\tNo page advancement detected; exiting to avoid infinite loop.')
-                            self.page = 0
-                            break
-                        self.page = next_or_last
+                    except Exception as e:
+                        logger.info(f'Error processing page: {e}')
                         await asyncio.sleep(get_delay())
-                    elif isinstance(result, RetryResult):
-                        self.retry_count += 1
-                        if self.retry_count > self.max_retries:
-                            logger.info('\tMaximum retries reached; exiting to avoid infinite loop.')
-                            self.page = 0
-                            break
-                        sleepy_time = get_delay() + result.time
-                        logger.info(f'\tRetrying page in {sleepy_time} seconds...')
-                        await asyncio.sleep(sleepy_time)
-                    else:
-                        # On error, stop to avoid endless retries on a bad state
-                        logger.info(f'\tGitHub code API request failed with status {result.status_code}')
-                        self.page = 0
-                        break
-                except Exception as e:
-                    logger.info(f'Error processing page: {e}')
-                    await asyncio.sleep(get_delay())
         except Exception as e:
             logger.info(f'An exception has occurred in githubcode process: {e}')
 
