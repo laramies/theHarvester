@@ -118,6 +118,34 @@ def test_versioned_assets_and_tooltips_work_at_supported_viewports(
     assert page.evaluate('document.documentElement.scrollWidth <= document.documentElement.clientWidth')
 
 
+def test_mobile_source_picker_avoids_nested_scroll_and_blocks_unconfigured_sources(
+    harvestview_server_url: str,
+    page: Page,
+) -> None:
+    page.set_viewport_size({'width': 390, 'height': 844})
+    page.goto(f'{harvestview_server_url}/')
+    page.get_by_role('button', name='Start enumeration').first.click()
+
+    assert page.locator('#source-groups').evaluate(
+        'node => ({maxHeight: getComputedStyle(node).maxHeight, overflowY: getComputedStyle(node).overflowY})'
+    ) == {'maxHeight': 'none', 'overflowY': 'visible'}
+    p0_group = page.locator('[data-activity="P0"]')
+    p0_group.locator('summary').click()
+    expect(p0_group).not_to_have_attribute('open', '')
+    expect(page.locator('[data-activity="P1"] summary')).to_be_visible()
+
+    censys = page.locator('.source-choice').filter(has_text='censys')
+    expect(censys.locator('input')).to_be_disabled()
+    expect(censys).to_contain_text('Needs configuration')
+    crtsh = page.locator('.source-choice').filter(has_text='crtsh')
+    expect(crtsh.locator('input')).to_be_enabled()
+    expect(crtsh).to_contain_text('Ready')
+    expect(page.locator('#source-selection-summary')).to_contain_text('Selected 1 ready source')
+    p0_group.locator('summary').click()
+    crtsh.locator('input').uncheck()
+    expect(page.locator('#source-selection-summary')).to_contain_text('Selected 0 ready sources')
+
+
 def test_disabled_worker_rejects_submission_without_creating_a_run(
     harvestview_server_url: str,
     page: Page,
@@ -248,11 +276,11 @@ def test_harvestview_submits_hostname_exclusion(harvestview_server_url: str, pag
     page.locator('#run-target').fill('example.com')
     page.get_by_text('Advanced execution controls', exact=True).click()
     page.locator('[name="no_hosts"]').check()
-    page.locator('[data-activity="P0"] input[value="bufferoverun"]').check()
+    page.locator('[data-activity="P0"] input[value="apis-guru"]').check()
     page.locator('#submit-run-button').click()
 
     expect(page.locator('#new-run-error')).to_have_text('Hostname exclusion captured')
-    assert captured['sources'] == ['bufferoverun']
+    assert captured['sources'] == ['apis-guru']
     assert captured['no_hosts'] is True
 
 
@@ -809,7 +837,7 @@ def test_accepted_cancellation_is_not_reported_as_failed_when_history_refresh_fa
 def test_harvestview_can_select_sources_by_result_capability(harvestview_server_url: str, page: Page) -> None:
     page.goto(f'{harvestview_server_url}/')
     catalog = page.context.request.get(f'{harvestview_server_url}/api/v1/sources').json()
-    expected = {source['name'] for source in catalog['sources'] if 'ips' in source['capabilities']}
+    expected = {source['name'] for source in catalog['sources'] if source['ready'] and 'ips' in source['capabilities']}
 
     page.get_by_role('button', name='Start enumeration').first.click()
     page.get_by_role('button', name='Clear', exact=True).click()
@@ -1288,7 +1316,9 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
     page.get_by_role('button', name='Start enumeration').first.click()
     expect(page.locator('#new-run-dialog').get_by_text('Credentials required:', exact=False).first).to_be_visible()
     page.get_by_role('button', name='Select all P0').click()
-    assert page.locator('[data-activity="P0"] input:checked').count() == len(passive_sources)
+    assert page.locator('[data-activity="P0"] input:checked').count() == len(
+        [source for source in passive_sources if source['ready']]
+    )
     assert page.locator('[data-activity="P1"] input:checked, [data-activity="P2"] input:checked').count() == 0
     assert page.locator('.action-grid input:checked').count() == 0
     page.get_by_role('button', name='Clear', exact=True).click()

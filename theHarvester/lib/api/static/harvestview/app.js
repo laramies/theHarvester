@@ -50,6 +50,7 @@
     exportJsonl: $('#export-jsonl-button'), screenshotSection: $('#screenshot-section'),
     screenshotGallery: $('#screenshot-gallery'), logSection: $('#log-section'), logOutput: $('#run-log-output'),
     newRunDialog: $('#new-run-dialog'), newRunForm: $('#new-run-form'), sourceSearch: $('#source-search'), sourceGroups: $('#source-groups'),
+    sourceSelectionSummary: $('#source-selection-summary'),
     sourceCapability: $('#source-capability'), selectCapability: $('#select-capability-button'),
     selectP0: $('#select-p0-button'), clearP0: $('#clear-p0-button'),
     dnsResolvers: $('#dns-resolvers'), dnsResolverFile: $('#dns-resolver-file'),
@@ -327,6 +328,15 @@
     if (!credentials.length) return '';
     const labels = credentials.map(value => value.replaceAll('-', ' ').replace(/^api /, 'API '));
     return `Credentials required: ${labels.join(', ')}`;
+  }
+
+  function sourceIsReady(source) {
+    return source.ready !== false;
+  }
+
+  function updateSourceSelectionSummary() {
+    const selected = state.sources.filter(source => state.selectedSources.has(source.name) && sourceIsReady(source));
+    nodes.sourceSelectionSummary.textContent = `Selected ${formatCount(selected.length, 'ready source')}.`;
   }
 
   function executionReason(execution) {
@@ -804,18 +814,19 @@
       return !query || haystack.includes(query);
     })]);
     nodes.sourceGroups.innerHTML = groups.map(([activity, sources]) => `
-      <section class="source-group" data-activity="${activity}">
-        <h3>${activity} · ${activity === 'P0' ? 'Passive' : activity === 'P1' ? 'DNS interaction' : 'Direct interaction'}</h3>
+      <details class="source-group" data-activity="${activity}" open>
+        <summary><span class="source-group-title">${activity} · ${activity === 'P0' ? 'Passive' : activity === 'P1' ? 'DNS interaction' : 'Direct interaction'}</span><span>${sources.length}</span></summary>
         ${sources.length ? sources.map(source => `
-          <label class="source-choice" title="${escapeHtml((source.capabilities || []).join(', '))}">
-            <input type="checkbox" value="${escapeHtml(source.name)}" ${state.selectedSources.has(source.name) ? 'checked' : ''}>
-            <span>${escapeHtml(source.name)}<small>${escapeHtml((source.capabilities || []).join(', '))}</small>${credentialRequirement(source) ? `<small class="credential-note">${escapeHtml(credentialRequirement(source))}</small>` : ''}</span>
+          <label class="source-choice ${sourceIsReady(source) ? '' : 'needs-configuration'}" title="${escapeHtml((source.capabilities || []).join(', '))}">
+            <input type="checkbox" value="${escapeHtml(source.name)}" ${state.selectedSources.has(source.name) ? 'checked' : ''} ${sourceIsReady(source) ? '' : 'disabled'}>
+            <span>${escapeHtml(source.name)}<small>${escapeHtml((source.capabilities || []).join(', '))}</small><small class="source-readiness ${sourceIsReady(source) ? 'ready' : 'blocked'}">${sourceIsReady(source) ? 'Ready' : 'Needs configuration'}</small>${credentialRequirement(source) ? `<small class="credential-note">${escapeHtml(credentialRequirement(source))}</small>` : ''}</span>
           </label>`).join('') : '<p class="source-group-empty">No matching sources.</p>'}
-      </section>`).join('');
+      </details>`).join('');
+    updateSourceSelectionSummary();
   }
 
   function setP0Selection(selected) {
-    for (const source of state.sources.filter(source => source.activity === 'P0')) {
+    for (const source of state.sources.filter(source => source.activity === 'P0' && sourceIsReady(source))) {
       if (selected) state.selectedSources.add(source.name);
       else state.selectedSources.delete(source.name);
     }
@@ -828,7 +839,7 @@
     const capability = nodes.sourceCapability.value;
     if (!capability) return;
     for (const source of state.sources) {
-      if ((source.capabilities || []).includes(capability)) state.selectedSources.add(source.name);
+      if (sourceIsReady(source) && (source.capabilities || []).includes(capability)) state.selectedSources.add(source.name);
     }
     renderSourceGroups(nodes.sourceSearch.value);
     updateActivitySummary();
@@ -872,7 +883,8 @@
     nodes.newRunForm.reset();
     nodes.newRunForm.elements.limit.value = 500;
     nodes.newRunForm.elements.deadline_seconds.value = '';
-    state.selectedSources = new Set(state.sources.some(source => source.name === 'crtsh') ? ['crtsh'] : [state.sources[0]?.name].filter(Boolean));
+    const readySources = state.sources.filter(sourceIsReady);
+    state.selectedSources = new Set(readySources.some(source => source.name === 'crtsh') ? ['crtsh'] : [readySources[0]?.name].filter(Boolean));
     nodes.sourceSearch.value = '';
     nodes.sourceCapability.value = '';
     renderSourceGroups();
@@ -1171,6 +1183,7 @@
     if (!event.target.matches('input[type="checkbox"]')) return;
     if (event.target.checked) state.selectedSources.add(event.target.value);
     else state.selectedSources.delete(event.target.value);
+    updateSourceSelectionSummary();
     updateActivitySummary();
   });
   nodes.newRunForm.addEventListener('change', updateActivitySummary);
