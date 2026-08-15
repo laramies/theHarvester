@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>theHarvester capability map</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    html, body { margin: 0; background: #f8f7f3; }
+    body { display: grid; min-height: 100vh; place-items: center; }
+    svg { display: block; width: min(100%, 960px); height: auto; }
+    .title { font: 400 30px 'Instrument Serif', Georgia, serif; fill: #222b33; }
+    .eyebrow { font: 600 8px 'Geist Mono', monospace; letter-spacing: .16em; fill: #6a7880; }
+    .name { font: 600 13px Geist, system-ui, sans-serif; fill: #222b33; }
+    .sub { font: 400 9px 'Geist Mono', monospace; fill: #6a7880; }
+    .flow { font: 500 8px 'Geist Mono', monospace; letter-spacing: .05em; fill: #60717a; }
+    .node { fill: #fff; stroke: #34434c; stroke-width: 1; }
+    .store { fill: #edf1ef; stroke: #60717a; stroke-width: 1; }
+    .external { fill: #f2f3f1; stroke: #a9b0b1; stroke-width: 1; }
+    .focal { fill: #fff0ef; stroke: #ed5158; stroke-width: 1.4; }
+    .zone { fill: rgba(34,43,51,.018); stroke: rgba(34,43,51,.14); stroke-width: .8; }
+    .connector { fill: none; stroke: #60717a; stroke-width: 1.2; }
+    .connector-link { fill: none; stroke: #2b7f7b; stroke-width: 1.2; }
+    .connector-accent { fill: none; stroke: #ed5158; stroke-width: 1.4; }
+  </style>
+</head>
+<body>
+<svg viewBox="0 0 960 600" role="img" aria-labelledby="cap-title cap-desc" xmlns="http://www.w3.org/2000/svg">
+  <title id="cap-title">theHarvester capability map</title>
+  <desc id="cap-desc">Operator interfaces select cataloged sources and optional authorized actions. The runner collects passive provider results and enrichment evidence into a typed evidence model, then writes human-readable reports and durable attributable records.</desc>
+  <defs>
+    <marker id="cap-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#60717a"/></marker>
+    <marker id="cap-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#2b7f7b"/></marker>
+    <marker id="cap-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#ed5158"/></marker>
+  </defs>
+  <rect width="960" height="600" fill="#f8f7f3"/>
+  <text x="40" y="52" class="eyebrow">AUTHORIZED ENUMERATION</text>
+  <text x="40" y="88" class="title">From operator intent to attributable evidence</text>
+
+  <rect x="40" y="128" width="200" height="356" rx="8" class="zone"/>
+  <rect x="56" y="132" width="92" height="16" fill="#f8f7f3"/>
+  <text x="60" y="144" class="eyebrow">INTERFACES</text>
+  <rect x="268" y="128" width="404" height="356" rx="8" class="zone"/>
+  <rect x="284" y="132" width="88" height="16" fill="#f8f7f3"/>
+  <text x="288" y="144" class="eyebrow">ENUMERATION</text>
+  <rect x="700" y="128" width="220" height="356" rx="8" class="zone"/>
+  <rect x="716" y="132" width="68" height="16" fill="#f8f7f3"/>
+  <text x="720" y="144" class="eyebrow">EVIDENCE</text>
+
+  <path d="M228 302 H316" class="connector" marker-end="url(#cap-arrow)"/>
+  <path d="M396 228 V266" class="connector" marker-end="url(#cap-arrow)"/>
+  <path d="M476 302 H492 Q500 302 500 294 V232 Q500 224 508 224 H512" class="connector-link" marker-end="url(#cap-arrow-link)"/>
+  <path d="M476 326 H492 Q500 326 500 334 V392 Q500 400 508 400 H512" class="connector" marker-end="url(#cap-arrow)"/>
+  <path d="M644 224 H672 Q680 224 680 232 V264 Q680 272 688 272 H716" class="connector-accent" marker-end="url(#cap-arrow-accent)"/>
+  <path d="M644 400 H672 Q680 400 680 392 V312 Q680 304 688 304 H716" class="connector-accent" marker-end="url(#cap-arrow-accent)"/>
+  <path d="M810 332 V380" class="connector-link" marker-end="url(#cap-arrow-link)"/>
+
+  <rect x="52" y="254" width="176" height="96" rx="6" class="node"/>
+  <text x="68" y="276" class="eyebrow">CONTROL PLANE</text>
+  <text x="68" y="302" class="name">Operator interfaces</text>
+  <text x="68" y="322" class="sub">CLI · HarvestView · REST</text>
+  <text x="68" y="338" class="sub">scope · sources · actions</text>
+
+  <rect x="316" y="172" width="160" height="56" rx="6" class="store"/>
+  <text x="332" y="192" class="eyebrow">REGISTRY</text>
+  <text x="332" y="214" class="name">Source catalog</text>
+
+  <rect x="316" y="266" width="160" height="72" rx="6" class="node"/>
+  <text x="332" y="286" class="eyebrow">STRUCTURED CONCURRENCY</text>
+  <text x="332" y="310" class="name">Source runner</text>
+  <text x="332" y="326" class="sub">TaskGroup · -j workers</text>
+
+  <rect x="512" y="184" width="132" height="80" rx="6" class="external"/>
+  <text x="528" y="204" class="eyebrow">P0</text>
+  <text x="528" y="228" class="name">Public sources</text>
+  <text x="528" y="246" class="sub">CT · web · code · intel</text>
+
+  <rect x="512" y="360" width="132" height="80" rx="6" class="external"/>
+  <text x="528" y="380" class="eyebrow">P1 / P2</text>
+  <text x="528" y="404" class="name">Optional actions</text>
+  <text x="528" y="422" class="sub">DNS · Shodan · HTTP</text>
+
+  <rect x="716" y="224" width="188" height="108" rx="6" class="focal"/>
+  <text x="732" y="246" class="eyebrow" fill="#c53f46">NORMALIZED MODEL</text>
+  <text x="732" y="274" class="name">Typed evidence</text>
+  <text x="732" y="294" class="sub">value · producer · status</text>
+  <text x="732" y="312" class="sub">typed details · partial-safe</text>
+
+  <rect x="716" y="380" width="188" height="72" rx="6" class="store"/>
+  <text x="732" y="400" class="eyebrow">OPERATOR OUTPUT</text>
+  <text x="732" y="424" class="name">Terminal · JSON · XML</text>
+  <text x="732" y="442" class="sub">JSONL · SQLite · API</text>
+
+  <line x1="40" y1="524" x2="920" y2="524" stroke="rgba(34,43,51,.14)"/>
+  <line x1="48" y1="556" x2="84" y2="556" class="connector-link" marker-end="url(#cap-arrow-link)"/>
+  <text x="96" y="560" class="flow">external request</text>
+  <line x1="252" y1="556" x2="288" y2="556" class="connector" marker-end="url(#cap-arrow)"/>
+  <text x="300" y="560" class="flow">internal handoff</text>
+  <line x1="468" y1="556" x2="504" y2="556" class="connector-accent" marker-end="url(#cap-arrow-accent)"/>
+  <text x="516" y="560" class="flow">evidence boundary</text>
+  <text x="920" y="560" class="sub" text-anchor="end">P0 passive · P1 DNS · P2 direct interaction</text>
+</svg>
+</body>
+</html>

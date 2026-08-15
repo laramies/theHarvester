@@ -20,6 +20,10 @@ It is built for the early reconnaissance stage of authorized security assessment
 
 Source availability, quotas, and response formats are controlled by third parties and can change independently of theHarvester.
 
+![theHarvester capability map](docs/images/theharvester-capabilities.svg)
+
+The source HTML for this diagram is available in [`docs/diagrams/theharvester-capabilities.html`](docs/diagrams/theharvester-capabilities.html).
+
 ## Quick start
 
 theHarvester requires Python 3.12 or newer and uses [uv](https://docs.astral.sh/uv/) for dependency management.

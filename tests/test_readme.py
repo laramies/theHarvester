@@ -116,6 +116,18 @@ def test_wiki_navigation_and_readme_links_resolve() -> None:
     assert all(Path(target).is_file() for target in readme_wiki_links)
 
 
+def test_readme_capability_diagram_assets_are_local_and_accessible() -> None:
+    readme = Path('README.md').read_text()
+    html = Path('docs/diagrams/theharvester-capabilities.html')
+    svg = Path('docs/images/theharvester-capabilities.svg')
+
+    assert f'![theHarvester capability map]({svg})' in readme
+    assert f'[`{html}`]({html})' in readme
+    assert 'role="img"' in svg.read_text()
+    assert '<title id="cap-title">' in svg.read_text()
+    assert '<desc id="cap-desc">' in svg.read_text()
+
+
 def test_virtual_host_wiki_examples_match_the_structured_result_contract() -> None:
     page = Path('docs/wiki/Virtual-Host-Discovery.md').read_text()
 
@@ -131,9 +143,7 @@ def test_virtual_host_wiki_examples_match_the_structured_result_contract() -> No
 
     json_examples = re.findall(r'```json\n(.*?)\n```', page, flags=re.DOTALL)
     finding = next(
-        json.loads(example)
-        for example in json_examples
-        if '"type": "hostname"' in example and '"observations"' in example
+        json.loads(example) for example in json_examples if '"type": "hostname"' in example and '"observations"' in example
     )
     assert finding['value'] == 'admin.authorized.example'
     assert finding['actions'] == ['vhost']
