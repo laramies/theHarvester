@@ -439,6 +439,123 @@ def test_harvestview_renders_grouped_virtual_host_observations(
     expect(page.get_by_role('button', name='DNS brute force admin.example.com (P1)')).to_be_visible()
 
 
+def test_harvestview_renders_and_filters_takeover_outcomes(
+    harvestview_server_url: str,
+    page: Page,
+) -> None:
+    run = {
+        'run_id': 'takeover-run',
+        'target': 'example.test',
+        'status': 'completed',
+        'origin': 'local',
+        'created_at': '2026-08-15T12:00:00+00:00',
+        'started_at': '2026-08-15T12:00:01+00:00',
+        'completed_at': '2026-08-15T12:00:05+00:00',
+        'cancellation_requested_at': None,
+        'evidence_status': 'complete',
+        'result_count': 2,
+        'activities': ['P0', 'P2'],
+        'sources': ['crtsh'],
+        'request': {'sources': ['crtsh'], 'limit': 25, 'deadline_seconds': 300, 'takeover': True},
+        'source_executions': [],
+        'action_executions': [
+            {'action': 'takeover', 'status': 'partial', 'result_count': 2, 'duration_ms': 125},
+        ],
+        'results': [
+            {
+                'type': 'takeover',
+                'value': 'bucket.example.test',
+                'sources': [],
+                'actions': ['takeover'],
+                'details': {
+                    'status': 'indicator',
+                    'dns': [
+                        {
+                            'resolver': '1.1.1.1',
+                            'cname_chain': ['missing-bucket.s3.amazonaws.com'],
+                            'terminal_rcode': 'NOERROR',
+                            'error_type': None,
+                        }
+                    ],
+                    'wildcard_dns': [
+                        {
+                            'resolver': '1.1.1.1',
+                            'cname_chain': [],
+                            'terminal_rcode': 'NXDOMAIN',
+                            'error_type': None,
+                        }
+                    ],
+                    'http': [
+                        {
+                            'scheme': 'https',
+                            'status': 404,
+                            'location': None,
+                            'error_type': None,
+                            'body_truncated': False,
+                        }
+                    ],
+                    'indicators': [
+                        {
+                            'classification': 'vulnerable-indicator',
+                            'service': 'AWS/S3',
+                            'rule_id': 'aws-s3',
+                            'rule_revision': 'takeover-rules-v1',
+                            'scheme': 'https',
+                            'matched': ['body:BucketName', 'body:The specified bucket does not exist'],
+                        }
+                    ],
+                    'error_types': [],
+                },
+            },
+            {
+                'type': 'takeover',
+                'value': 'uncertain.example.test',
+                'sources': [],
+                'actions': ['takeover'],
+                'details': {
+                    'status': 'inconclusive',
+                    'dns': [
+                        {
+                            'resolver': '8.8.8.8',
+                            'cname_chain': [],
+                            'terminal_rcode': 'ERROR',
+                            'error_type': 'DNSTimeoutError',
+                        }
+                    ],
+                    'wildcard_dns': [],
+                    'http': [],
+                    'indicators': [],
+                    'error_types': ['DNSTimeoutError'],
+                },
+            },
+        ],
+        'screenshots': [],
+        'log': '',
+        'error': None,
+    }
+
+    page.route(f'{harvestview_server_url}/api/v1/runs', lambda route: route.fulfill(json=[run]))
+    page.route(f'{harvestview_server_url}/api/v1/runs/takeover-run', lambda route: route.fulfill(json=run))
+    page.goto(f'{harvestview_server_url}/')
+
+    page.get_by_role('button', name='Takeover outcomes 2').click()
+    rows = page.locator('.tabulator-row')
+    expect(rows).to_have_count(2)
+    expect(rows.first).to_contain_text('bucket.example.test')
+    expect(rows.first).to_contain_text('vulnerable indicator · AWS/S3 · aws-s3@takeover-rules-v1 · HTTPS')
+    expect(rows.first).to_contain_text('Candidate 1.1.1.1 · CNAME missing-bucket.s3.amazonaws.com · NOERROR')
+    expect(rows.first).to_contain_text('Wildcard control 1.1.1.1 · No CNAME · NXDOMAIN')
+    expect(rows.first).to_contain_text('HTTPS · HTTP 404')
+    expect(rows.first).not_to_contain_text('DNS: not captured')
+
+    page.get_by_placeholder('Filter status or errors').press_sequentially('DNSTimeoutError')
+    visible_rows = page.locator('.tabulator-row:visible')
+    expect(visible_rows).to_have_count(1)
+    expect(visible_rows.first).to_contain_text('uncertain.example.test')
+    expect(visible_rows.first).to_contain_text('inconclusive')
+    expect(visible_rows.first).to_contain_text('DNSTimeoutError')
+
+
 def test_harvestview_renders_sourced_asn_organization_attribution(
     harvestview_server_url: str,
     page: Page,

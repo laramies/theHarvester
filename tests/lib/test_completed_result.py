@@ -1159,6 +1159,154 @@ def test_completed_result_rejects_conflicting_shodan_hosts_for_one_ip() -> None:
         )
 
 
+def test_takeover_jsonl_uses_hostname_value_and_typed_evidence() -> None:
+    from theHarvester.lib.takeover_evidence import TakeoverCandidateOutcome
+
+    completed_at = datetime(2026, 8, 15, 12, 2, tzinfo=UTC)
+    takeover_outcome = TakeoverCandidateOutcome.from_record(
+        'bucket.example.test',
+        {
+            'status': 'indicator',
+            'dns': [
+                {
+                    'resolver': '1.1.1.1',
+                    'cname_chain': ['missing-bucket.s3.amazonaws.com'],
+                    'terminal_rcode': 'NOERROR',
+                }
+            ],
+            'wildcard_dns': [
+                {
+                    'resolver': '1.1.1.1',
+                    'cname_chain': [],
+                    'terminal_rcode': 'NXDOMAIN',
+                }
+            ],
+            'http': [{'scheme': 'https', 'status': 404}],
+            'indicators': [
+                {
+                    'classification': 'vulnerable-indicator',
+                    'service': 'AWS/S3',
+                    'rule_id': 'aws-s3',
+                    'rule_revision': 'takeover-rules-v1',
+                    'scheme': 'https',
+                    'matched': ['body:BucketName', 'body:The specified bucket does not exist'],
+                }
+            ],
+            'error_types': [],
+        },
+    )
+    no_indicator = TakeoverCandidateOutcome.from_record(
+        'live.example.test',
+        {
+            'status': 'no-indicator',
+            'dns': [
+                {
+                    'resolver': '1.1.1.1',
+                    'cname_chain': [],
+                    'terminal_rcode': 'NOERROR',
+                }
+            ],
+            'wildcard_dns': [],
+            'http': [],
+            'indicators': [],
+            'error_types': [],
+        },
+    )
+    inconclusive = TakeoverCandidateOutcome.from_record(
+        'uncertain.example.test',
+        {
+            'status': 'inconclusive',
+            'dns': [
+                {
+                    'resolver': '1.1.1.1',
+                    'cname_chain': [],
+                    'terminal_rcode': 'ERROR',
+                    'error_type': 'DNSTimeoutError',
+                }
+            ],
+            'wildcard_dns': [],
+            'http': [],
+            'indicators': [],
+            'error_types': ['DNSTimeoutError'],
+        },
+    )
+    result = CompletedResult.finish(
+        target='example.test',
+        started_at=completed_at,
+        completed_at=completed_at,
+        groups={},
+        active_evidence=ActiveEvidence(
+            executions=(
+                ActionExecution.finish(
+                    action='takeover',
+                    status='completed',
+                    duration_ms=1,
+                    groups={'takeover': ['bucket.example.test', 'live.example.test', 'uncertain.example.test']},
+                ),
+            )
+        ),
+        takeover_outcomes=(takeover_outcome, no_indicator, inconclusive),
+    )
+
+    records = [json.loads(line) for line in result.jsonl().splitlines()]
+
+    assert records[1:] == [
+        {
+            'actions': ['takeover'],
+            'details': outcome.to_details(),
+            'sources': [],
+            'type': 'takeover',
+            'value': outcome.hostname,
+        }
+        for outcome in (takeover_outcome, no_indicator, inconclusive)
+    ]
+    summary, findings = parse_result_jsonl(result.jsonl())
+    assert summary['result_count'] == 3
+    assert findings == records[1:]
+
+
+def test_takeover_outcome_must_remain_inside_the_run_target_scope() -> None:
+    from theHarvester.lib.takeover_evidence import TakeoverCandidateOutcome
+
+    completed_at = datetime(2026, 8, 15, 12, 2, tzinfo=UTC)
+    outcome = TakeoverCandidateOutcome.from_record(
+        'outside.example.net',
+        {
+            'status': 'no-indicator',
+            'dns': [
+                {
+                    'resolver': '1.1.1.1',
+                    'cname_chain': [],
+                    'terminal_rcode': 'NOERROR',
+                }
+            ],
+            'wildcard_dns': [],
+            'http': [],
+            'indicators': [],
+            'error_types': [],
+        },
+    )
+
+    with pytest.raises(ValueError, match='inside the run target scope'):
+        CompletedResult.finish(
+            target='example.test',
+            started_at=completed_at,
+            completed_at=completed_at,
+            groups={},
+            active_evidence=ActiveEvidence(
+                executions=(
+                    ActionExecution.finish(
+                        action='takeover',
+                        status='completed',
+                        duration_ms=1,
+                        groups={'takeover': ['outside.example.net']},
+                    ),
+                )
+            ),
+            takeover_outcomes=(outcome,),
+        )
+
+
 def test_completed_result_rejects_artifact_without_a_real_subject_result() -> None:
     completed_at = datetime(2026, 8, 5, 12, 1, tzinfo=UTC)
     artifact = ArtifactReference(

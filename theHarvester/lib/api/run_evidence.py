@@ -16,6 +16,7 @@ from theHarvester.lib.network_evidence import (
 )
 from theHarvester.lib.result_values import normalize_prefix
 from theHarvester.lib.shodan_evidence import ShodanHostObservation
+from theHarvester.lib.takeover_evidence import parse_takeover_details
 
 from .run_models import _normalize_target
 
@@ -137,6 +138,44 @@ def validate_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
             result['sources'] = sorted(set(sources))
             result['actions'] = sorted(set(actions))
             result['details'] = shodan_host.to_details()
+            continue
+        if result.get('type') == 'takeover':
+            allowed_keys = {'type', 'value', 'sources', 'actions', 'details'}
+            if set(result) - allowed_keys:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail='Takeover evidence contains unsupported fields',
+                )
+            sources = result.get('sources', [])
+            actions = result.get('actions', [])
+            if (
+                not isinstance(sources, list)
+                or any(not isinstance(source, str) or not source.strip() for source in sources)
+                or not isinstance(actions, list)
+                or any(not isinstance(action, str) or not action.strip() for action in actions)
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail='Takeover producers must be arrays of non-empty strings',
+                )
+            value = result.get('value')
+            if not isinstance(value, str):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail='Takeover evidence must identify a canonical hostname',
+                )
+            try:
+                outcome = parse_takeover_details(value, result.get('details'))
+            except ValueError as error:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
+            if outcome.hostname != value:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail='Takeover evidence must identify a canonical hostname',
+                )
+            result['sources'] = sorted(set(sources))
+            result['actions'] = sorted(set(actions))
+            result['details'] = outcome.to_details()
             continue
         if result.get('type') == 'prefix':
             allowed_keys = {'type', 'value', 'sources', 'actions', 'scope', 'observations'}

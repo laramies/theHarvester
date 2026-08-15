@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added root contributor and security policies, structured issue forms, repository agent guidance, discovery terminology, and an operator-focused documentation wiki ([d090a29a](https://github.com/laramies/theHarvester/commit/d090a29a), [7c491ef5](https://github.com/laramies/theHarvester/commit/7c491ef5), [8b9d420b](https://github.com/laramies/theHarvester/commit/8b9d420b)).
 
 ### Changed
+- Replaced runtime takeover fingerprint downloads and global body-substring matches with pinned provider-gated DNS, wildcard controls, and compound HTTP rules. Every checked hostname is now stored as an indicator, no-indicator, or inconclusive outcome with typed DNS, HTTP, rule, and error details in JSONL, SQLite, the API, and HarvestView.
 - Routed discovery sources through immutable source jobs with bounded `TaskGroup` ownership, typed outcomes, and native cancellation propagation instead of queuing live coroutine objects.
 - Discovery now uses a fixed pool of six source workers by default. CLI `-j` or `--source-workers`, REST
   `source_workers`, and HarvestView can set another positive count without skipping sources or limiting their results.
@@ -68,6 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Expanded offline regression coverage for discovery providers, configuration contracts, logging, output, documentation, workflow policy, and scope boundaries.
 
 ### Removed
+- Removed the mutable runtime takeover fingerprint download and silent handwritten fallback rules.
 - Removed the inert legacy source identifiers `linkedin`, `netcraft`, `omnisint`, `sublist3r`, and `zoomeyeapi`; use the source catalog and shared factory registry for supported providers.
 - Removed the obsolete bundled IP-range and resolver snapshots.
 - Removed the REST API's built-in SlowAPI request limiter and its launcher option without adding a replacement.
