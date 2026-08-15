@@ -381,6 +381,8 @@ def test_source_catalog_exposes_shared_action_activities(tmp_path, monkeypatch) 
     assert response.status_code == 200
     catalog = response.json()
     assert catalog['sources']
+    censys = next(source for source in catalog['sources'] if source['name'] == 'censys')
+    assert censys['credentials'] == ['api-token']
     assert catalog['actions'] == [
         {'name': 'api-scan', 'activity': 'P2'},
         {'name': 'dns-brute', 'activity': 'P1'},
