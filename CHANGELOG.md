@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Replaced runtime takeover fingerprint downloads and global body-substring matches with pinned provider-gated DNS, wildcard controls, and compound HTTP rules. Every checked hostname is now stored as an indicator, no-indicator, or inconclusive outcome with typed DNS, HTTP, rule, and error details in JSONL, SQLite, the API, and HarvestView. Direct checks share one cookie-free HTTP session, keep bounded response bodies, and rely on the whole-run deadline instead of silently inheriting aiohttp's default timeout.
+- HarvestView now summarizes retained evidence and producer health at a glance, links directly to execution outcomes that need attention, and keeps evidence values ahead of optional actions on mobile. Its source picker reports credential readiness without exposing values, prevents unavailable source selections, and replaces the mobile nested-scroll catalog with collapsible activity groups.
 - Routed discovery sources through immutable source jobs with bounded `TaskGroup` ownership, typed outcomes, and native cancellation propagation instead of queuing live coroutine objects.
 - Discovery now uses a fixed pool of three source workers by default. CLI `-j` or `--source-workers`, REST
   `source_workers`, and HarvestView can set another positive count without skipping sources or limiting their results.

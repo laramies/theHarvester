@@ -321,6 +321,7 @@ class SourceResponse(BaseModel):
     name: str
     activity: ActivityClass
     credentials: list[str]
+    ready: bool
     capabilities: list[str]
 
 

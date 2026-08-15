@@ -87,12 +87,34 @@
             </div>
             <div class="detail-status">
               <div id="status-chips" class="status-chips"></div>
-              <p id="provider-outcome-summary" class="provider-outcome-summary" hidden></p>
               <button id="cancel-run-button" class="button danger" type="button" title="Prevent queued work from starting or ask the running child process to stop. Cancellation may not be immediate." hidden>Request cancellation</button>
             </div>
           </header>
 
           <dl id="run-facts" class="run-facts"></dl>
+
+          <section class="run-assessment" aria-labelledby="assessment-title">
+            <div class="assessment-heading">
+              <h3 id="assessment-title">Run assessment</h3>
+              <p>Lifecycle and retained evidence are reported separately.</p>
+            </div>
+            <dl class="assessment-grid">
+              <div>
+                <dt>Evidence</dt>
+                <dd id="assessment-evidence"></dd>
+              </div>
+              <div>
+                <dt>Producers</dt>
+                <dd id="assessment-producers"></dd>
+                <p id="provider-outcome-summary" class="provider-outcome-summary" hidden></p>
+              </div>
+              <div class="assessment-review">
+                <dt>Review</dt>
+                <dd id="assessment-review"></dd>
+                <button id="review-outcomes-button" class="button small" type="button" hidden>Open execution outcomes</button>
+              </div>
+            </dl>
+          </section>
 
           <section class="lifecycle-section" aria-labelledby="lifecycle-title">
             <div class="section-heading compact">
@@ -257,6 +279,7 @@
               <button id="clear-p0-button" class="button small" type="button" title="Clear all passive P0 source selections.">Clear</button>
             </div>
           </div>
+          <p id="source-selection-summary" class="source-selection-summary" aria-live="polite">Selected 1 ready source.</p>
           <div id="source-groups" class="source-groups"></div>
         </fieldset>
 

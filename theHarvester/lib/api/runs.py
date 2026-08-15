@@ -77,13 +77,24 @@ async def list_sources(_api_key: Annotated[str, Depends(get_api_key)]) -> Source
 
     provider_aliases = {'github-code': 'github', 'pentesttools': 'pentestTools'}
     api_key_fields = Core.api_key_fields()
+    configured_keys = Core.api_keys()
     provider_names = {provider.casefold(): provider for provider in api_key_fields}
 
+    def provider_name(source: SourceSpec) -> str | None:
+        return provider_aliases.get(source.name, provider_names.get(source.name.casefold()))
+
     def credentials(source: SourceSpec) -> list[str]:
-        provider = provider_aliases.get(source.name, provider_names.get(source.name.casefold()))
+        provider = provider_name(source)
         if provider is None:
             return []
         return [f'api-{field}' for field in api_key_fields.get(provider, ())]
+
+    def ready(source: SourceSpec) -> bool:
+        provider = provider_name(source)
+        if provider is None:
+            return True
+        values = configured_keys.get(provider, {})
+        return all(isinstance(values.get(field), str) and values[field].strip() for field in api_key_fields[provider])
 
     return SourceCatalogResponse(
         sources=[
@@ -91,6 +102,7 @@ async def list_sources(_api_key: Annotated[str, Depends(get_api_key)]) -> Source
                 name=source.name,
                 activity=source.activity,
                 credentials=credentials(source),
+                ready=ready(source),
                 capabilities=sorted(source.capabilities),
             )
             for source in sorted(SOURCE_SPECS.values(), key=lambda item: item.name)

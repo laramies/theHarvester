@@ -370,10 +370,16 @@ def test_openapi_names_the_public_response_shapes(tmp_path, monkeypatch) -> None
 
 def test_source_catalog_exposes_shared_action_activities(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api import api
+    from theHarvester.lib.core import Core
 
     monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
     monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
     monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+    monkeypatch.setattr(
+        Core,
+        'api_keys',
+        staticmethod(lambda: {'censys': {'token': 'configured-token'}, 'fofa': {'key': '', 'email': ''}}),
+    )
 
     with TestClient(api.app) as client:
         response = client.get('/api/v1/sources', headers={'X-API-Key': 'test-key'})
@@ -383,6 +389,11 @@ def test_source_catalog_exposes_shared_action_activities(tmp_path, monkeypatch) 
     assert catalog['sources']
     censys = next(source for source in catalog['sources'] if source['name'] == 'censys')
     assert censys['credentials'] == ['api-token']
+    assert censys['ready'] is True
+    fofa = next(source for source in catalog['sources'] if source['name'] == 'fofa')
+    assert fofa['ready'] is False
+    crtsh = next(source for source in catalog['sources'] if source['name'] == 'crtsh')
+    assert crtsh['ready'] is True
     assert catalog['actions'] == [
         {'name': 'api-scan', 'activity': 'P2'},
         {'name': 'dns-brute', 'activity': 'P1'},
