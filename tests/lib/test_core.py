@@ -273,6 +273,7 @@ def install_stream_response(
 ) -> None:
     reset_dummy_sessions()
     monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
+    monkeypatch.setattr(core_module.aiohttp, 'TCPConnector', lambda *, ssl=None: object())
     monkeypatch.setattr(core_module.ssl, 'create_default_context', lambda cafile=None: 'ssl-context')
     monkeypatch.setattr(core_module.certifi, 'where', lambda: '/tmp/cacert.pem')
 
@@ -831,6 +832,30 @@ async def test_fetch_text_preserves_non_success_metadata_without_redirects(monke
     )
     assert DummySession.instances[0].closed is True
     assert DummySession.instances[0].requests[0][2]['allow_redirects'] is False
+    assert isinstance(DummySession.instances[0].timeout, core_module.aiohttp.ClientTimeout)
+    assert DummySession.instances[0].timeout.total is None
+
+
+@pytest.mark.asyncio
+async def test_fetch_text_reuses_caller_owned_session_without_closing_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    install_stream_response(monkeypatch, chunks=(b'provider ', b'evidence'))
+    session = DummySession(
+        headers={'User-Agent': 'shared'},
+        timeout=core_module.aiohttp.ClientTimeout(total=None),
+    )
+
+    result = await AsyncFetcher.fetch_text(
+        'https://app.example.test',
+        session=session,
+        request_timeout=None,
+        response_byte_limit=32,
+    )
+
+    assert result.body == 'provider evidence'
+    assert session.closed is False
+    assert len(DummySession.instances) == 1
 
 
 @pytest.mark.asyncio

@@ -1,12 +1,134 @@
 import asyncio
+import json
+import re
+from ipaddress import ip_address
+from pathlib import Path
 from types import SimpleNamespace
 
+import aiohttp
 import pytest
 
 from theHarvester.discovery import takeover
 from theHarvester.lib.core import FetcherResponse, ResponseStreamError
 from theHarvester.lib.takeover_evidence import TakeoverCandidateOutcome, TakeoverDNSOutcome
 from theHarvester.lib.takeover_rules import TakeoverRule
+
+
+def test_takeover_rules_cover_the_pinned_validated_corpus() -> None:
+    fixture_path = Path(__file__).parents[1] / 'fixtures' / 'takeover_can_i_take_over_xyz_5bd4e128.fixture'
+    fixture = json.loads(fixture_path.read_text())
+    assert fixture['provenance'] == {
+        'repository': 'EdOverflow/can-i-take-over-xyz',
+        'commit': '5bd4e128',
+        'source_sha256': 'a108bf6e6d10d4e4861c4293eef8c224a0fd243ec4f3a39de321de69f284c64f',
+        'selection': 'vulnerable == true and cicd_pass == true',
+    }
+    records = fixture['records']
+    assert len(records) == 18
+    rules_by_service = {rule.service: rule for rule in takeover.TAKEOVER_RULES}
+
+    for record in records:
+        assert record['vulnerable'] is True
+        assert record['cicd_pass'] is True
+        if record['service'] == 'SmartJobBoard':
+            assert all(ip_address(value) for value in record['cname'])
+            assert record['service'] not in rules_by_service
+            continue
+
+        rule = rules_by_service[record['service']]
+        provider_names = []
+        for value in record['cname']:
+            try:
+                ip_address(value)
+            except ValueError:
+                provider_names.append(value)
+        assert provider_names
+        assert all(
+            any(re.search(pattern, name, flags=re.IGNORECASE) for pattern in rule.cname_patterns) for name in provider_names
+        )
+        if record['nxdomain']:
+            assert 'NXDOMAIN' in rule.terminal_rcodes
+        elif record['http_status'] is not None:
+            assert record['http_status'] in rule.status_codes
+        else:
+            fingerprint = record['fingerprint'].casefold()
+            literal_markers = (*rule.body_all, *rule.body_any)
+            assert any(marker.casefold() in fingerprint or fingerprint in marker.casefold() for marker in literal_markers)
+
+
+@pytest.mark.asyncio
+async def test_takeover_reuses_one_cookie_free_unlimited_http_session(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeResolver:
+        def __init__(self, nameserver: str) -> None:
+            self.nameserver = nameserver
+
+        async def query(self, hostname: str) -> TakeoverDNSOutcome:
+            return TakeoverDNSOutcome(
+                resolver=self.nameserver,
+                cname_chain=() if hostname.startswith('takeover-control-') else ('bucket.s3.amazonaws.com',),
+                terminal_rcode='NXDOMAIN' if hostname.startswith('takeover-control-') else 'NOERROR',
+            )
+
+        async def close(self) -> None:
+            return None
+
+    class SharedSession:
+        def __init__(self) -> None:
+            self.close_count = 0
+
+        async def close(self) -> None:
+            self.close_count += 1
+
+    shared_session = SharedSession()
+    build_calls: list[dict[str, object]] = []
+    fetch_sessions: list[object] = []
+
+    async def fake_build_session(
+        headers: dict[str, str],
+        client_timeout: aiohttp.ClientTimeout,
+        proxy_url: str | None = None,
+        proxy_type: str | None = None,
+        ssl_context: object = None,
+        cookie_jar: aiohttp.abc.AbstractCookieJar | None = None,
+    ) -> SharedSession:
+        build_calls.append(
+            {
+                'headers': headers,
+                'client_timeout': client_timeout,
+                'proxy_url': proxy_url,
+                'proxy_type': proxy_type,
+                'ssl_context': ssl_context,
+                'cookie_jar': cookie_jar,
+            }
+        )
+        return shared_session
+
+    async def fake_fetch_text(_url: str, **kwargs: object) -> FetcherResponse:
+        fetch_sessions.append(kwargs['session'])
+        return FetcherResponse(
+            body='The specified bucket does not exist <BucketName>bucket</BucketName>',
+            status=404,
+            headers={},
+        )
+
+    monkeypatch.setattr(takeover, 'TakeoverDNSResolver', FakeResolver)
+    monkeypatch.setattr(takeover.AsyncFetcher, '_build_session', fake_build_session)
+    monkeypatch.setattr(takeover.AsyncFetcher, 'fetch_text', fake_fetch_text)
+    scanner = takeover.TakeoverScanner(
+        ['bucket.example.test'],
+        target='example.test',
+        nameservers=['1.1.1.1'],
+    )
+
+    await scanner.process()
+
+    assert len(build_calls) == 1
+    assert isinstance(build_calls[0]['cookie_jar'], aiohttp.DummyCookieJar)
+    assert build_calls[0]['client_timeout'].total is None
+    assert fetch_sessions == [shared_session, shared_session]
+    assert shared_session.close_count == 1
 
 
 @pytest.mark.asyncio
@@ -752,9 +874,40 @@ def test_takeover_evidence_rejects_runtime_impossible_records() -> None:
 
 
 @pytest.mark.asyncio
+async def test_takeover_reports_http_session_close_failures_truthfully(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Resolver:
+        def __init__(self, nameserver: str) -> None:
+            self.nameserver = nameserver
+
+        async def close(self) -> None:
+            return None
+
+    class SharedSession:
+        async def close(self) -> None:
+            raise RuntimeError('close failed')
+
+    async def fake_build_session(*_args: object, **_kwargs: object) -> SharedSession:
+        return SharedSession()
+
+    monkeypatch.setattr(takeover, 'TakeoverDNSResolver', Resolver)
+    monkeypatch.setattr(takeover.AsyncFetcher, '_build_session', fake_build_session)
+    scanner = takeover.TakeoverScanner([], target='example.test', nameservers=['1.1.1.1'])
+
+    await scanner.process()
+
+    assert scanner.scan_error_type == 'RuntimeError'
+    assert scanner.stop_reason == 'http-session-close-error'
+
+
+@pytest.mark.asyncio
 async def test_takeover_cancellation_closes_resolvers_and_propagates(monkeypatch: pytest.MonkeyPatch) -> None:
     started = asyncio.Event()
-    closed = asyncio.Event()
+    resolver_closed = asyncio.Event()
+    session_close_started = asyncio.Event()
+    allow_session_close = asyncio.Event()
+    session_closed = asyncio.Event()
 
     class BlockingResolver:
         def __init__(self, nameserver: str) -> None:
@@ -766,9 +919,19 @@ async def test_takeover_cancellation_closes_resolvers_and_propagates(monkeypatch
             raise AssertionError('unreachable')
 
         async def close(self) -> None:
-            closed.set()
+            resolver_closed.set()
+
+    class SharedSession:
+        async def close(self) -> None:
+            session_close_started.set()
+            await allow_session_close.wait()
+            session_closed.set()
+
+    async def fake_build_session(*_args: object, **_kwargs: object) -> SharedSession:
+        return SharedSession()
 
     monkeypatch.setattr(takeover, 'TakeoverDNSResolver', BlockingResolver)
+    monkeypatch.setattr(takeover.AsyncFetcher, '_build_session', fake_build_session)
     scanner = takeover.TakeoverScanner(
         ['app.example.test'],
         target='example.test',
@@ -778,8 +941,12 @@ async def test_takeover_cancellation_closes_resolvers_and_propagates(monkeypatch
     await started.wait()
 
     task.cancel('operator-stop')
+    await session_close_started.wait()
+    task.cancel('later-stop')
+    allow_session_close.set()
     with pytest.raises(asyncio.CancelledError, match='operator-stop'):
         await task
 
-    assert closed.is_set()
+    assert resolver_closed.is_set()
+    assert session_closed.is_set()
     assert not [task for task in asyncio.all_tasks() if task.get_name().startswith('takeover-')]

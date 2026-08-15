@@ -7,6 +7,7 @@ import secrets
 from typing import TYPE_CHECKING
 
 import aiodns
+import aiohttp
 
 from theHarvester.lib.cancellation import drain_tasks_after_cancellation
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse, ResponseStreamError
@@ -308,13 +309,18 @@ class TakeoverScanner:
         self.request_error_types.update(item.error_type for item in completed if item.error_type is not None)
         return completed
 
-    async def _fetch_http(self, hostname: str, scheme: HttpScheme) -> tuple[TakeoverHTTPOutcome, FetcherResponse | None]:
+    async def _fetch_http(
+        self,
+        hostname: str,
+        scheme: HttpScheme,
+        session: aiohttp.ClientSession,
+    ) -> tuple[TakeoverHTTPOutcome, FetcherResponse | None]:
         self.request_count += 1
         try:
             response = await AsyncFetcher.fetch_text(
                 f'{scheme}://{hostname}',
+                session=session,
                 proxy=self._proxy or '',
-                headers={'User-Agent': Core.get_browser_user_agent()},
                 follow_redirects=False,
                 request_timeout=None,
                 response_byte_limit=MAX_TAKEOVER_RESPONSE_BYTES,
@@ -335,11 +341,6 @@ class TakeoverScanner:
                 ),
                 None,
             )
-        except Exception as error:
-            error_type = type(error).__name__
-            self.request_error_count += 1
-            self.request_error_types.add(error_type)
-            return TakeoverHTTPOutcome(scheme=scheme, error_type=error_type), None
         return (
             TakeoverHTTPOutcome(
                 scheme=scheme,
@@ -353,6 +354,7 @@ class TakeoverScanner:
         self,
         hostname: str,
         resolvers: tuple[TakeoverDNSResolver, ...],
+        session: aiohttp.ClientSession,
     ) -> None:
         dns_outcomes = await self._query_dns(hostname, resolvers)
         error_types = _dns_outcome_errors(dns_outcomes)
@@ -443,7 +445,7 @@ class TakeoverScanner:
         fetched: list[tuple[TakeoverHTTPOutcome, FetcherResponse | None] | None] = [None, None]
 
         async def fetch(index: int, scheme: HttpScheme) -> None:
-            fetched[index] = await self._fetch_http(hostname, scheme)
+            fetched[index] = await self._fetch_http(hostname, scheme, session)
 
         schemes: tuple[HttpScheme, ...] = ('https', 'http')
         async with asyncio.TaskGroup() as group:
@@ -544,7 +546,8 @@ class TakeoverScanner:
                 self.stop_reason = 'proxy-unavailable'
                 return
             self._proxy = proxy_url
-        resolvers = tuple(TakeoverDNSResolver(nameserver) for nameserver in self.nameservers)
+        resolvers: tuple[TakeoverDNSResolver, ...] = ()
+        session: aiohttp.ClientSession | None = None
         candidates = iter(self.hosts)
         cancellation: asyncio.CancelledError | None = None
         phase_error: Exception | None = None
@@ -552,11 +555,23 @@ class TakeoverScanner:
         async def worker() -> None:
             for hostname in candidates:
                 try:
-                    await self._scan_candidate(hostname, resolvers)
+                    assert session is not None
+                    await self._scan_candidate(hostname, resolvers, session)
                 finally:
                     self.completed_count += 1
 
         try:
+            ssl_context = AsyncFetcher._ssl_context()
+            proxy_url, proxy_type = AsyncFetcher._resolve_proxy(self._proxy or '')
+            session = await AsyncFetcher._build_session(
+                {'User-Agent': Core.get_browser_user_agent()},
+                aiohttp.ClientTimeout(total=None),
+                proxy_url,
+                proxy_type,
+                ssl_context,
+                cookie_jar=aiohttp.DummyCookieJar(),
+            )
+            resolvers = tuple(TakeoverDNSResolver(nameserver) for nameserver in self.nameservers)
             async with asyncio.TaskGroup() as group:
                 for index in range(min(self.concurrency, self.candidate_count)):
                     group.create_task(worker(), name=f'takeover-worker:{index}')
@@ -572,8 +587,10 @@ class TakeoverScanner:
         close_tasks = [
             asyncio.create_task(resolver.close(), name=f'takeover-resolver-close:{resolver.nameserver}') for resolver in resolvers
         ]
+        if session is not None:
+            close_tasks.append(asyncio.create_task(session.close(), name='takeover-http-session-close'))
         interruptions = await drain_tasks_after_cancellation(close_tasks, cancel=False)
-        close_errors = tuple(task.exception() for task in close_tasks if not task.cancelled() and task.exception() is not None)
+        close_errors = tuple(task for task in close_tasks if not task.cancelled() and task.exception() is not None)
         if cancellation is not None:
             raise cancellation
         if interruptions:
@@ -581,8 +598,13 @@ class TakeoverScanner:
         if phase_error is not None:
             return
         if close_errors:
-            self.scan_error_type = type(close_errors[0]).__name__
-            self.stop_reason = 'resolver-close-error'
+            close_task = close_errors[0]
+            close_error = close_task.exception()
+            assert close_error is not None
+            self.scan_error_type = type(close_error).__name__
+            self.stop_reason = (
+                'http-session-close-error' if close_task.get_name() == 'takeover-http-session-close' else 'resolver-close-error'
+            )
         elif self.inconclusive_count and self.stop_reason is None:
             self.stop_reason = 'incomplete-candidates'
 
