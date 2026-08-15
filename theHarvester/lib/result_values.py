@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ipaddress import ip_network
+from ipaddress import ip_address, ip_network
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -40,4 +40,8 @@ def normalize_result_value(kind: ResultKind | str, value: str) -> str:
         return normalize_asn(normalized)
     if kind == 'prefix':
         return normalize_prefix(normalized)
+    if kind == 'shodan-host':
+        if '%' in normalized:
+            raise ValueError('Shodan host must not contain an IPv6 scope identifier')
+        return str(ip_address(normalized))
     return normalized

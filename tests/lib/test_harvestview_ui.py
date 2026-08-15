@@ -49,6 +49,32 @@ def test_harvestview_assets_load_outside_the_repository_directory(tmp_path, monk
     assert 'function renderResults' in response.text
 
 
+def test_harvestview_has_an_operator_readable_shodan_host_route(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+
+    with TestClient(api.app, base_url='http://127.0.0.1', client=('127.0.0.1', 50000)) as client:
+        script = client.get('/static/harvestview/app.js')
+
+    assert script.status_code == 200
+    assert "'shodan-host'" in script.text
+    assert "'Shodan hosts'" in script.text
+    assert 'function shodanNetworkFormatter' in script.text
+    assert 'function shodanServicesFormatter' in script.text
+    assert 'details.hostnames' in script.text
+    assert 'details.domains' in script.text
+    assert 'service.observed_at' in script.text
+    assert 'service.cpes' in script.text
+    assert 'http.components' in script.text
+    assert 'service.tls' in script.text
+    assert 'tls.subject_alt_names' in script.text
+    assert "title: 'Network'" in script.text
+    assert "title: 'Services'" in script.text
+
+
 def test_harvestview_offers_jsonl_and_sqlite_imports_with_jsonl_export(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api import api
 

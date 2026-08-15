@@ -436,6 +436,7 @@ def test_openapi_explains_scope_and_execution_controls(tmp_path, monkeypatch) ->
         'actions',
         'scope',
         'observations',
+        'details',
     }
     assert 'VirtualHostResult' not in schema['components']['schemas']
     assert export_content['application/x-ndjson']['schema']['description'] == (
@@ -1196,6 +1197,111 @@ def test_api_database_upload_preserves_grouped_virtual_host_observations(tmp_pat
         _vhost_observation('https://192.0.2.9:443/'),
     ]
     assert json.loads(exported.text.splitlines()[1]) == detail.json()['results'][0]
+
+
+def test_api_import_preserves_structured_shodan_host_details(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    details = {
+        'organization': 'Example Transit',
+        'services': [
+            {'port': 53, 'transport': 'udp'},
+            {
+                'port': 443,
+                'transport': 'tcp',
+                'product': 'nginx',
+                'tls': {
+                    'subject_cn': '*.example.test',
+                    'subject_alt_names': ['api.example.test'],
+                    'sha256': '0123456789abcdef',
+                },
+            },
+        ],
+    }
+    payload = _jsonl_result(
+        finding_type='shodan-host',
+        value='192.0.2.10',
+        finding_fields={'actions': ['shodan'], 'details': details},
+        summary_fields={
+            'action_executions': [
+                {
+                    'action': 'shodan',
+                    'status': 'completed',
+                    'duration_ms': 1,
+                    'result_count': 1,
+                    'error_type': None,
+                    'stop_reason': None,
+                }
+            ]
+        },
+    )
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+
+    with TestClient(api.app) as client:
+        imported = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'shodan.jsonl'},
+            headers={'X-API-Key': 'test-key'},
+            content=payload,
+        )
+        assert imported.status_code == 201, imported.text
+        detail = client.get(f'/api/v1/runs/{imported.json()["run_id"]}', headers={'X-API-Key': 'test-key'})
+
+    assert detail.status_code == 200
+    assert detail.json()['results'] == [
+        {
+            'type': 'shodan-host',
+            'value': '192.0.2.10',
+            'sources': [],
+            'actions': ['shodan'],
+            'details': details,
+        }
+    ]
+
+
+def test_api_schema_exposes_typed_shodan_host_details() -> None:
+    from theHarvester.lib.api.run_models import NormalizedResult
+
+    schema = NormalizedResult.model_json_schema()
+
+    assert schema['properties']['details']['anyOf'][0] == {'$ref': '#/$defs/ShodanHostDetailsResponse'}
+    service = schema['$defs']['ShodanServiceResponse']
+    assert service['properties']['port']['minimum'] == 1
+    assert service['properties']['port']['maximum'] == 65535
+    assert service['properties']['transport']['enum'] == ['tcp', 'udp']
+    tls = schema['$defs']['ShodanTlsDetailsResponse']
+    assert tls['properties']['subject_alt_names']['items'] == {'type': 'string'}
+
+
+def test_api_evidence_rejects_redundant_shodan_host_fields() -> None:
+    from fastapi import HTTPException
+
+    from theHarvester.lib.api.run_evidence import validate_evidence
+
+    evidence = {
+        'target': 'example.test',
+        'status': 'complete',
+        'results': [
+            {
+                'type': 'shodan-host',
+                'value': '192.0.2.10',
+                'sources': [],
+                'actions': ['shodan'],
+                'details': {
+                    'ip': '192.0.2.10',
+                    'services': [{'port': 443, 'transport': 'tcp'}],
+                },
+            }
+        ],
+        'source_executions': [],
+        'action_executions': [],
+        'artifacts': [],
+    }
+
+    with pytest.raises(HTTPException, match='unsupported fields'):
+        validate_evidence(evidence)
 
 
 def test_api_database_upload_rejects_vhost_evidence_outside_its_stored_target(tmp_path, monkeypatch) -> None:

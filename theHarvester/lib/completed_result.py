@@ -32,6 +32,7 @@ from theHarvester.lib.network_evidence import (
     parse_network_observation_details,
 )
 from theHarvester.lib.result_values import normalize_result_value
+from theHarvester.lib.shodan_evidence import ShodanHostObservation, canonical_shodan_hosts
 from theHarvester.lib.virtual_host import VirtualHostObservation, normalize_virtual_host_hostname
 
 
@@ -88,6 +89,8 @@ def parse_result_jsonl(payload: bytes | str) -> tuple[dict[str, object], list[di
         allowed_keys = {'type', 'value', 'sources', 'actions'}
         if result_kind in {'asn', 'hostname', 'prefix'} and 'observations' in record:
             allowed_keys.add('observations')
+        if result_kind == 'shodan-host' and 'details' in record:
+            allowed_keys.add('details')
         if result_kind == 'prefix':
             allowed_keys.add('scope')
         if (
@@ -107,7 +110,7 @@ def parse_result_jsonl(payload: bytes | str) -> tuple[dict[str, object], list[di
             if result_kind == 'prefix' and normalized_result_value != result_value:
                 raise ValueError('prefix result is not canonical')
         except ValueError as error:
-            label = 'ASN' if result_kind == 'asn' else 'prefix'
+            label = {'asn': 'ASN', 'prefix': 'prefix', 'shodan-host': 'Shodan host'}.get(str(result_kind), 'result')
             raise ValueError(f'JSONL findings must use a canonical {label} value') from error
         record['value'] = normalized_result_value
         if result_kind == 'prefix' and record.get('scope') != 'external-relationship':
@@ -132,6 +135,14 @@ def parse_result_jsonl(payload: bytes | str) -> tuple[dict[str, object], list[di
             except ValueError as error:
                 raise ValueError(f'JSONL ASN has invalid organization attributions: {error}') from error
             record['observations'] = asn_attribution_details(asn_attributions)
+        elif result_kind == 'shodan-host':
+            try:
+                shodan_host = ShodanHostObservation.from_record(record['value'], record.get('details'))
+            except ValueError as error:
+                raise ValueError(f'JSONL Shodan host has invalid details: {error}') from error
+            if shodan_host.ip != record['value'] or shodan_host.to_details() != record.get('details'):
+                raise ValueError('JSONL Shodan host must use canonical structured details')
+            record['details'] = shodan_host.to_details()
     return summary, findings
 
 
@@ -215,6 +226,7 @@ class CompletedResult:
     virtual_hosts: tuple[VirtualHostObservation, ...] = ()
     network_observations: tuple[NetworkObservation, ...] = ()
     asn_attributions: tuple[AsnAttributionObservation, ...] = ()
+    shodan_hosts: tuple[ShodanHostObservation, ...] = ()
     evidence_status: EvidenceStatus | None = None
 
     def __post_init__(self) -> None:
@@ -321,13 +333,26 @@ class CompletedResult:
                 not in origin_observations
             ):
                 raise ValueError('BGP route and RPKI observations require matching observed-origin evidence')
-        sorted_asn_attributions = canonical_asn_attributions(list(self.asn_attributions))
-        if self.asn_attributions != sorted_asn_attributions:
-            raise ValueError('ASN attributions must be deduplicated and sorted')
+        sorted_shodan_hosts = canonical_shodan_hosts(list(self.shodan_hosts))
+        if self.shodan_hosts != sorted_shodan_hosts:
+            raise ValueError('Shodan host observations must be deduplicated and sorted')
+        structured_shodan_results = {('shodan-host', observation.ip) for observation in self.shodan_hosts}
+        if structured_shodan_results != {result for result in result_set if result[0] == 'shodan-host'}:
+            raise ValueError('Shodan host results must contain canonical structured evidence')
         source_results = {(observation.source, observation.kind, observation.value) for observation in self.observations}
         action_results = {
             (action, observation.kind, observation.value) for action, observation in self.active_evidence.observations
         }
+        for shodan_observation in self.shodan_hosts:
+            if ('shodan', 'shodan-host', shodan_observation.ip) not in source_results and (
+                'shodan',
+                'shodan-host',
+                shodan_observation.ip,
+            ) not in action_results:
+                raise ValueError('Shodan host evidence must reference Shodan source or action provenance')
+        sorted_asn_attributions = canonical_asn_attributions(list(self.asn_attributions))
+        if self.asn_attributions != sorted_asn_attributions:
+            raise ValueError('ASN attributions must be deduplicated and sorted')
         for attribution in self.asn_attributions:
             if attribution.collected_at < self.started_at or attribution.collected_at > self.completed_at:
                 raise ValueError('ASN attribution collection time must fall within the completed run')
@@ -365,6 +390,7 @@ class CompletedResult:
         virtual_hosts: Iterable[VirtualHostObservation] = (),
         network_observations: Iterable[NetworkObservation] = (),
         asn_attributions: Iterable[AsnAttributionObservation] = (),
+        shodan_hosts: Iterable[ShodanHostObservation] = (),
         evidence_status: EvidenceStatus | None = None,
     ) -> Self:
         completed_active_evidence = active_evidence if active_evidence is not None else ActiveEvidence()
@@ -382,6 +408,9 @@ class CompletedResult:
         completed_virtual_hosts = tuple(sorted(set(virtual_hosts), key=VirtualHostObservation.sort_key))
         for virtual_host in completed_virtual_hosts:
             results.add(('hostname', virtual_host.hostname))
+        completed_shodan_hosts = canonical_shodan_hosts(list(shodan_hosts))
+        for shodan_host in completed_shodan_hosts:
+            results.add(('shodan-host', shodan_host.ip))
         return cls(
             run_id=run_id or uuid4(),
             target=target.strip(),
@@ -394,6 +423,7 @@ class CompletedResult:
             virtual_hosts=completed_virtual_hosts,
             network_observations=canonical_network_observations(network_observations),
             asn_attributions=canonical_asn_attributions(list(asn_attributions)),
+            shodan_hosts=completed_shodan_hosts,
             evidence_status=evidence_status,
         )
 
@@ -459,6 +489,7 @@ class CompletedResult:
         attribution_by_asn: dict[str, list[AsnAttributionObservation]] = {}
         for attribution in self.asn_attributions:
             attribution_by_asn.setdefault(attribution.asn, []).append(attribution)
+        shodan_by_ip = {observation.ip: observation for observation in self.shodan_hosts}
         records: list[dict[str, object]] = []
         for kind, value in self.results:
             record: dict[str, object] = {
@@ -476,5 +507,7 @@ class CompletedResult:
                 record['observations'] = network_observation_details(tuple(network_observations))
             elif kind == 'asn' and (asn_attributions := attribution_by_asn.get(value)):
                 record['observations'] = asn_attribution_details(tuple(asn_attributions))
+            elif kind == 'shodan-host' and (shodan_host := shodan_by_ip.get(value)):
+                record['details'] = shodan_host.to_details()
             records.append(record)
         return records

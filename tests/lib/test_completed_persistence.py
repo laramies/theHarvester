@@ -476,6 +476,62 @@ async def test_structured_network_evidence_round_trips_in_the_results_table(tmp_
 
 
 @pytest.mark.asyncio
+async def test_shodan_host_evidence_round_trips_without_a_json_string_value(tmp_path) -> None:
+    from theHarvester.lib.shodan_evidence import ShodanHostObservation
+
+    database = tmp_path / 'stash.sqlite'
+    store = ResultStore(database)
+    await store.initialize()
+    collected_at = datetime(2026, 8, 14, 12, 2, tzinfo=UTC)
+    shodan_host = ShodanHostObservation.from_record(
+        '192.0.2.10',
+        {
+            'asn': 'AS64496',
+            'organization': 'Example Transit',
+            'services': [
+                {'port': 53, 'transport': 'udp', 'product': 'dnsmasq'},
+                {'port': 443, 'transport': 'tcp', 'product': 'nginx'},
+            ],
+        },
+    )
+    result = CompletedResult.finish(
+        target='example.com',
+        started_at=collected_at,
+        completed_at=collected_at,
+        groups={},
+        source_executions=(SourceExecution('shodan', 'completed', 1, 1),),
+        observations=(ResultObservation('shodan', 'shodan-host', '192.0.2.10'),),
+        active_evidence=ActiveEvidence(
+            executions=(
+                ActionExecution.finish(
+                    action='shodan',
+                    status='completed',
+                    duration_ms=1,
+                    groups={'shodan-host': ['192.0.2.10']},
+                ),
+            )
+        ),
+        shodan_hosts=(shodan_host,),
+    )
+
+    await store.save_run(result)
+
+    assert await store.load_run(result.run_id) == result
+    with sqlite3.connect(database) as db:
+        stored = db.execute(
+            'SELECT kind, value, details_json FROM results WHERE run_id = ?',
+            (str(result.run_id),),
+        ).fetchone()
+        origins = db.execute(
+            'SELECT COUNT(*) FROM result_origins WHERE run_id = ?',
+            (str(result.run_id),),
+        ).fetchone()[0]
+    assert stored[:2] == ('shodan-host', '192.0.2.10')
+    assert json.loads(stored[2]) == shodan_host.to_details()
+    assert origins == 2
+
+
+@pytest.mark.asyncio
 async def test_asn_organization_attribution_round_trips_in_a_normalized_table(tmp_path) -> None:
     database = tmp_path / 'stash.sqlite'
     store = ResultStore(database)

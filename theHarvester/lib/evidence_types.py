@@ -20,7 +20,7 @@ ResultKind = Literal[
     'prefix',
     'server',
     'screenshot',
-    'shodan',
+    'shodan-host',
     'takeover',
     'twitter-person',
     'url',

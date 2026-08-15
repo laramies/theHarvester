@@ -247,6 +247,7 @@ On first use, theHarvester creates default configuration files under `~/.theHarv
 
 - `api-keys.yaml` stores provider credentials.
 - `proxies.yaml` configures HTTP and SOCKS5 proxies used with `-p`.
+- The `shodan` source and `-s` / `--shodan` enrichment call Shodan's Host REST API without the Python SDK. When `-p` is enabled, both send those requests through `proxies.yaml`.
 
 Never commit populated configuration files, API keys, account details, or provider responses.
 
@@ -273,7 +274,7 @@ The JSON report is a single object. Host entries remain plain hostnames or `host
 | --- | --- | --- |
 | `cmd` | Always | Command-line arguments used for the run. |
 | `hosts` | Always | Discovered hosts; an empty array when none are found. |
-| `shodan` | Always | Shodan enrichment rows; an empty array when Shodan is not used. |
+| `shodan` | Always | Shodan host objects with canonical IP `value` and structured `details`; an empty array when Shodan is not used. |
 | `ips`, `emails`, `vhosts`, `asns`, `prefixes` | When non-empty | Network and contact findings. RouteViews prefixes are external routing relationships, not claimed target scope. |
 | `urls` | When non-empty | Discovered URLs from every URL-producing source or action. |
 | `people`, `twitter_people`, `linkedin_people` | When non-empty | People and profile findings. |
@@ -288,7 +289,9 @@ The JSONL report is finalized after the selected one-shot actions finish. The fi
 {"sources":[],"type":"hostname","value":"api.example.com"}
 ```
 
-JSONL is easy to stream one record at a time. The summary preserves the evidence status, source and action outcomes, and screenshot artifact metadata. Finding lines carry `sources` and, when applicable, `actions`; they inherit their run ID and target from the preceding summary. Hostnames, IP addresses, and URLs use the same `hostname`, `ip`, and `url` result kinds in JSONL, SQLite, the API, and HarvestView. Provenance identifies which source or action produced each finding. Structured result types, including recursive DNS records plus `person`, `infostealer`, `shodan`, and `takeover`, store a JSON object inside the string `value`. Parse those values a second time with `fromjson`.
+JSONL is easy to stream one record at a time. The summary preserves the evidence status, source and action outcomes, and screenshot artifact metadata. Finding lines carry `sources` and, when applicable, `actions`; they inherit their run ID and target from the preceding summary. Hostnames, IP addresses, and URLs use the same `hostname`, `ip`, and `url` result kinds in JSONL, SQLite, the API, and HarvestView. Provenance identifies which source or action produced each finding. Recursive DNS records plus `person`, `infostealer`, and `takeover` store a JSON object inside the string `value`; parse those values a second time with `fromjson`.
+
+Shodan host findings instead use the canonical IP as `value` and place normalized host and per-service evidence in a native `details` object. Shodan discovery paginates both hostname and TLS-certificate searches for the target domain without an adapter-specific result cap, merges duplicate services by IP, and rejects names outside the requested domain. Host metadata appears once, while each service retains its port, TCP or UDP transport, product, version, observation time, CPEs, and available HTTP or TLS summary, including scoped certificate CNs and SANs. Raw banners, response bodies, certificate chains, and Shodan crawler metadata are not retained.
 
 Virtual-host observations do not use that string encoding. Each confirmed name remains one `hostname` finding with `actions: ["vhost"]` and a native `observations` array. Several endpoint observations can enrich the same hostname without creating another result kind or count.
 
@@ -300,6 +303,12 @@ Parse recursive DNS findings as JSON objects:
 
 ```bash
 jq -c 'select(.type == "dns-recursive-finding") | .value | fromjson' report.jsonl
+```
+
+List Shodan services by host:
+
+```bash
+jq -c 'select(.type == "shodan-host") | {ip: .value, services: .details.services}' report.jsonl
 ```
 
 List the endpoint observations for each confirmed virtual host:

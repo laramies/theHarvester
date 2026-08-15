@@ -774,7 +774,7 @@ class AsyncFetcher:
         proxy: str | bool | None = '',
         headers: dict[str, str] | None = None,
         follow_redirects: bool = False,
-        request_timeout: int = 60,
+        request_timeout: int | None = 60,
     ) -> AsyncIterator[aiohttp.ClientResponse]:
         try:
             ssl_arg = cls._ssl_context()
@@ -814,7 +814,7 @@ class AsyncFetcher:
         params: Sized = '',
         proxy: str | bool | None = '',
         headers: dict[str, str] | None = None,
-        request_timeout: int = 60,
+        request_timeout: int | None = 60,
     ) -> FetcherResponse:
         """Fetch one bounded JSON response without following redirects."""
         async with cls._open_get_response(

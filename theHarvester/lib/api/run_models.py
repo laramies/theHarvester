@@ -402,6 +402,49 @@ class AsnAttributionObservationResponse(BaseModel):
     collected_at: str
 
 
+class ShodanHttpDetailsResponse(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    title: str | None = None
+    server: str | None = None
+    components: list[str] = Field(default_factory=list)
+
+
+class ShodanTlsDetailsResponse(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    subject_cn: str | None = None
+    subject_alt_names: list[str] = Field(default_factory=list)
+    issuer_cn: str | None = None
+    expires_at: str | None = None
+    sha256: str | None = None
+    jarm: str | None = None
+
+
+class ShodanServiceResponse(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    port: int = Field(ge=1, le=65535)
+    transport: Literal['tcp', 'udp']
+    product: str | None = None
+    version: str | None = None
+    observed_at: str | None = None
+    cpes: list[str] = Field(default_factory=list)
+    http: ShodanHttpDetailsResponse | None = None
+    tls: ShodanTlsDetailsResponse | None = None
+
+
+class ShodanHostDetailsResponse(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    asn: str | None = None
+    organization: str | None = None
+    isp: str | None = None
+    hostnames: list[str] = Field(default_factory=list)
+    domains: list[str] = Field(default_factory=list)
+    services: list[ShodanServiceResponse] = Field(min_length=1)
+
+
 class NormalizedResult(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
@@ -410,6 +453,10 @@ class NormalizedResult(BaseModel):
     sources: list[str] = Field(default_factory=list)
     actions: list[str] = Field(default_factory=list)
     scope: Literal['external-relationship'] | None = None
+    details: ShodanHostDetailsResponse | None = Field(
+        default=None,
+        description='Canonical host and service evidence for shodan-host results.',
+    )
     observations: (
         list[
             VirtualHostObservationResponse
@@ -425,7 +472,16 @@ class NormalizedResult(BaseModel):
     def validate_result(self) -> Self:
         if self.type == 'vhost':
             raise ValueError('vhost is not a result type; use hostname with virtual-host observations')
-        if self.type == 'prefix':
+        if self.type == 'shodan-host':
+            from theHarvester.lib.shodan_evidence import ShodanHostObservation
+
+            if self.scope is not None or self.observations is not None or self.details is None:
+                raise ValueError('Shodan host results require details without scope or observations')
+            shodan_details = self.details.model_dump(exclude_none=True, exclude_defaults=True)
+            shodan_host = ShodanHostObservation.from_record(self.value, shodan_details)
+            if shodan_host.ip != self.value or shodan_host.to_details() != shodan_details:
+                raise ValueError('Shodan host results must use canonical structured details')
+        elif self.type == 'prefix':
             if self.scope != 'external-relationship':
                 raise ValueError('Prefix results must have external-relationship scope')
             if self.observations is not None:
@@ -444,6 +500,8 @@ class NormalizedResult(BaseModel):
                 parse_virtual_host_details(self.value, details)
             else:
                 raise ValueError('Structured observations belong to ASN, hostname, or prefix results')
+        elif self.details is not None:
+            raise ValueError('Structured details belong to Shodan host results')
         return self
 
 
