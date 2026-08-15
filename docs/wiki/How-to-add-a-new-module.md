@@ -25,6 +25,19 @@ An adapter normally provides:
 
 Do not return fields the provider did not supply. Normalize and deduplicate before returning results.
 
+### Own the provider conversation
+
+A provider conversation is the related request sequence for one source execution: initial request, pagination, retries or polling, and final response handling. Give that sequence one explicit owner.
+
+- Reuse one `AsyncFetcher.open_session()` for related requests so the connection pool, headers, cookie jar, and chosen proxy identity remain stable. Pass the borrowed session to shared fetch methods with `session=` and let only the outer owner close it.
+- Keep the default cookie jar when later provider requests may depend on earlier responses. Use `aiohttp.DummyCookieJar()` for deliberately independent probes, such as takeover candidates, so one target cannot influence another.
+- Scope a session to one provider and authorized target. Never share cookies, authentication state, or proxy identity across source executions or unrelated targets.
+- Preserve cancellation while closing every owned session, response, task, and connector. Cover both successful completion and interruption in focused tests.
+- Treat session construction and teardown as adapter lifecycle stages. Preserve the existing TLS and timeout policy unless the source contract explicitly changes, classify ordinary lifecycle failures through the adapter status fields, and let native cancellation propagate.
+- Before extending a shared fetcher interface, audit positional callers and every owned-versus-borrowed branch. New optional parameters must not reinterpret existing calls.
+
+The completion check is an offline test in which a later page depends on state established by an earlier page, plus a cleanup assertion proving the provider session closes.
+
 ## 3. Register the source
 
 Add one catalog entry in [`theHarvester/lib/source_catalog.py`](https://github.com/laramies/theHarvester/blob/dev/theHarvester/lib/source_catalog.py) and one factory entry in [`theHarvester/lib/source_runner.py`](https://github.com/laramies/theHarvester/blob/dev/theHarvester/lib/source_runner.py). The catalog supplies CLI help, source selection, and activity classification; the factory constructs the adapter; the runner collects declared result routes and persists them through the existing completed-result flow.

@@ -1,7 +1,10 @@
 import asyncio
+import contextlib
 import sys
 import types
+from collections.abc import AsyncIterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -41,9 +44,11 @@ def test_legacy_search_api_credentials_fail_closed(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_search_calls_platform_api_directly_and_follows_page_tokens(monkeypatch) -> None:
+async def test_search_calls_platform_api_directly_and_follows_page_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(censysearch.Core, 'censys_key', lambda: ('platform-token', 'org-id'))
     calls: list[dict[str, object]] = []
+    session_options: list[dict[str, object]] = []
+    session = object()
     responses = [
         FetcherResponse(
             {
@@ -86,11 +91,17 @@ async def test_search_calls_platform_api_directly_and_follows_page_tokens(monkey
         ),
     ]
 
-    async def fake_post_fetch(url: str, **kwargs):
+    async def fake_post_fetch(url: str, **kwargs: Any) -> FetcherResponse:
         calls.append({'url': url, **kwargs})
         return responses.pop(0)
 
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**kwargs: object) -> AsyncIterator[object]:
+        session_options.append(kwargs)
+        yield session
+
     monkeypatch.setattr(censysearch.AsyncFetcher, 'post_fetch', fake_post_fetch)
+    monkeypatch.setattr(censysearch.AsyncFetcher, 'open_session', fake_open_session)
     search = censysearch.SearchCensys('example.com', limit=250)
 
     await search.process(proxy=True)
@@ -116,9 +127,49 @@ async def test_search_calls_platform_api_directly_and_follows_page_tokens(monkey
     assert calls[0]['json'] is True
     assert calls[0]['proxy'] is True
     assert calls[0]['include_metadata'] is True
+    assert session_options == [
+        {
+            'headers': {'Accept': 'application/json', 'Authorization': 'Bearer platform-token'},
+            'proxy': True,
+            'request_timeout': 720,
+        }
+    ]
+    assert all(call['session'] is session for call in calls)
     assert await search.get_hostnames() == {'a.example.com', 'b.example.com'}
     assert await search.get_emails() == {'admin@example.com', 'ops@example.com'}
     assert search.execution_status == 'completed'
+
+
+@pytest.mark.asyncio
+async def test_session_setup_failure_reports_transport_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(censysearch.Core, 'censys_key', lambda: ('platform-token', 'org-id'))
+
+    @contextlib.asynccontextmanager
+    async def failed_open_session(**_kwargs: object) -> AsyncIterator[object]:
+        raise OSError('sensitive provider detail')
+        yield object()
+
+    monkeypatch.setattr(censysearch.AsyncFetcher, 'open_session', failed_open_session)
+    search = censysearch.SearchCensys('example.com')
+
+    await search.process()
+
+    assert search.execution_status == 'failed'
+    assert search.stop_reason == 'transport-error'
+
+
+@pytest.mark.asyncio
+async def test_unexpected_adapter_failure_is_not_misclassified(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(censysearch.Core, 'censys_key', lambda: ('platform-token', 'org-id'))
+    search = censysearch.SearchCensys('example.com')
+
+    async def failed_search() -> None:
+        raise RuntimeError('adapter defect')
+
+    monkeypatch.setattr(search, 'do_search', failed_search)
+
+    with pytest.raises(RuntimeError, match='adapter defect'):
+        await search.process()
 
 
 @pytest.mark.asyncio

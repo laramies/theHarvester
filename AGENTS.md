@@ -18,6 +18,7 @@ Read [CONTEXT.md](CONTEXT.md) when changing discovery terminology, evidence clas
 - **External compatibility:** Flag changes that remove or rename CLI flags, output formats or fields, REST API response fields, or discovery source identifiers without a backward-compatible path and regression coverage. Preserve the existing contract or document and test the migration.
 - **Sensitive-data boundary:** Flag committed credentials, real target or operator data, reconnaissance results, or unsanitized provider payloads, including in logs, fixtures, and examples. Keep only the diagnostic metadata needed, redact sensitive values, and use RFC-reserved domains and TEST-NET IP ranges.
 - **Reconnaissance boundary:** Flag routine tests or CI that contact live third-party targets or providers. Use mocks or local fixtures; live reconnaissance belongs only in intentionally configured integration checks against explicitly authorized targets.
+- **State-lifetime audit:** When changing network, pagination, retry, proxy, cookie, or cancellation behavior, trace the entire provider conversation using [How to add a new discovery module](docs/wiki/How-to-add-a-new-module.md#own-the-provider-conversation). Account for every owned resource and every shared-helper caller before declaring the change complete.
 
 ## Verification
 

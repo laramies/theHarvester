@@ -228,10 +228,20 @@ class DummyResponse:
 class DummySession:
     instances: list[DummySession] = []
 
-    def __init__(self, *, headers=None, timeout=None, connector=None):
+    def __init__(
+        self,
+        *,
+        headers: dict[str, str] | None = None,
+        timeout: Any = None,
+        connector: Any = None,
+        proxy: str | None = None,
+        cookie_jar: Any = None,
+    ) -> None:
         self.headers = headers
         self.timeout = timeout
         self.connector = connector
+        self.proxy = proxy
+        self.cookie_jar = cookie_jar
         self.closed = False
         self.requests: list[tuple[str, str, dict[str, Any]]] = []
         DummySession.instances.append(self)
@@ -404,6 +414,99 @@ async def test_fetch_reused_session_uses_a_stable_explicit_ssl_policy(monkeypatc
     ssl_policies = [request_options['ssl'] for _method, _url, request_options in session.requests]
     assert ssl_policies == [True, True]
     assert ssl_policies[0] is ssl_policies[1]
+
+
+@pytest.mark.asyncio
+async def test_open_session_owns_one_proxy_and_cookie_policy(monkeypatch: pytest.MonkeyPatch) -> None:
+    reset_dummy_sessions()
+    cookie_jar = core_module.aiohttp.DummyCookieJar()
+    monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
+    monkeypatch.setattr(AsyncFetcher, '_ssl_context', staticmethod(lambda: 'ssl-context'))
+
+    async def fake_connector(*_args: object) -> str:
+        return 'provider-connector'
+
+    monkeypatch.setattr(AsyncFetcher, '_create_connector', fake_connector)
+
+    async with AsyncFetcher.open_session(
+        headers={'Accept': 'application/json'},
+        proxy='http://proxy.example:8080',
+        request_timeout=45,
+        cookie_jar=cookie_jar,
+    ) as session:
+        assert session.closed is False
+
+    assert session.closed is True
+    assert session.headers['Accept'] == 'application/json'
+    assert session.proxy == 'http://proxy.example:8080'
+    assert session.connector == 'provider-connector'
+    assert session.cookie_jar is cookie_jar
+    assert session.timeout.total == 45
+
+
+@pytest.mark.asyncio
+async def test_open_session_preserves_project_ca_and_aiohttp_default_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    reset_dummy_sessions()
+    connector_options: list[tuple[str | None, str | None, object]] = []
+    monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
+    monkeypatch.setattr(AsyncFetcher, '_ssl_context', staticmethod(lambda: 'ssl-context'))
+
+    async def fake_connector(
+        proxy_url: str | None,
+        proxy_type: str | None,
+        ssl_context: object,
+    ) -> str:
+        connector_options.append((proxy_url, proxy_type, ssl_context))
+        return 'direct-provider-connector'
+
+    monkeypatch.setattr(AsyncFetcher, '_create_connector', fake_connector)
+
+    async with AsyncFetcher.open_session() as session:
+        assert session.timeout is None
+
+    assert connector_options == [(None, None, 'ssl-context')]
+    assert session.connector == 'direct-provider-connector'
+
+
+@pytest.mark.asyncio
+async def test_open_session_finishes_close_and_preserves_the_first_cancellation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    close_started = asyncio.Event()
+    release_close = asyncio.Event()
+    cancelled = asyncio.CancelledError('provider-cancelled')
+
+    class BlockingCloseSession:
+        closed = False
+
+        async def close(self) -> None:
+            close_started.set()
+            await release_close.wait()
+            self.closed = True
+
+    session = BlockingCloseSession()
+
+    async def fake_build_session(*_args: object, **_kwargs: object) -> BlockingCloseSession:
+        return session
+
+    monkeypatch.setattr(AsyncFetcher, '_build_session', fake_build_session)
+
+    async def use_session() -> None:
+        async with AsyncFetcher.open_session():
+            raise cancelled
+
+    task = asyncio.create_task(use_session())
+    await close_started.wait()
+    task.cancel('second-cancellation')
+    release_close.set()
+
+    with pytest.raises(asyncio.CancelledError) as raised:
+        await task
+
+    assert raised.value is cancelled
+    assert session.closed is True
 
 
 def test_default_headers_add_project_identity_without_mutating_caller_headers(monkeypatch) -> None:
@@ -1057,6 +1160,15 @@ async def test_post_fetch_decodes_string_payload_and_posts_params(monkeypatch) -
     monkeypatch.setattr(core_module.certifi, 'where', lambda: '/tmp/cacert.pem')
     monkeypatch.setattr(Core, 'get_user_agent', staticmethod(lambda: 'test-agent'))
 
+    async def fake_create_connector(
+        _proxy_url: str | None,
+        _proxy_type: str | None,
+        ssl_context: object,
+    ) -> str:
+        return f'connector:{ssl_context}'
+
+    monkeypatch.setattr(AsyncFetcher, '_create_connector', fake_create_connector)
+
     result = await AsyncFetcher.post_fetch(
         'https://example.com/api',
         data='{"query": "example"}',
@@ -1067,8 +1179,9 @@ async def test_post_fetch_decodes_string_payload_and_posts_params(monkeypatch) -
     assert result == {'ok': True}
     session = DummySession.instances[0]
     assert session.headers == {'User-Agent': 'test-agent'}
+    assert session.connector == 'connector:ssl-context'
     assert session.requests == [
-        ('POST', 'https://example.com/api', {'data': {'query': 'example'}, 'ssl': 'ssl-context', 'params': {'page': 2}})
+        ('POST', 'https://example.com/api', {'data': {'query': 'example'}, 'params': {'page': 2}})
     ]
 
 
@@ -1080,6 +1193,15 @@ async def test_post_fetch_sends_json_body(monkeypatch) -> None:
     monkeypatch.setattr(core_module.ssl, 'create_default_context', lambda cafile=None: 'ssl-context')
     monkeypatch.setattr(core_module.certifi, 'where', lambda: '/tmp/cacert.pem')
 
+    async def fake_create_connector(
+        _proxy_url: str | None,
+        _proxy_type: str | None,
+        ssl_context: object,
+    ) -> str:
+        return f'connector:{ssl_context}'
+
+    monkeypatch.setattr(AsyncFetcher, '_create_connector', fake_create_connector)
+
     result = await AsyncFetcher.post_fetch(
         'https://example.com/api',
         json_body={'scan': 'example'},
@@ -1088,6 +1210,7 @@ async def test_post_fetch_sends_json_body(monkeypatch) -> None:
 
     assert result == {'ok': True}
     session = DummySession.instances[0]
+    assert session.connector == 'connector:ssl-context'
     assert session.requests == [
         ('POST', 'https://example.com/api', {'json': {'scan': 'example'}})
     ]
@@ -1138,10 +1261,11 @@ async def test_post_fetch_proxy_branch_posts_body_and_params_with_http_proxy(mon
     assert created_connectors == [('http://proxy.local:8080', 'http', 'ssl-context')]
     session = DummySession.instances[0]
     assert session.connector == 'connector'
+    assert session.proxy == 'http://proxy.local:8080'
     assert session.requests == [
         (
             'POST',
             'https://example.com/resource',
-            {'json': {'scan': 'example'}, 'params': {'page': 2}, 'proxy': 'http://proxy.local:8080'},
+            {'json': {'scan': 'example'}, 'params': {'page': 2}},
         )
     ]

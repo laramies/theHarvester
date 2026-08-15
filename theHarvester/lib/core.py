@@ -20,6 +20,7 @@ import yaml
 from aiohttp_socks import ProxyConnector
 
 from theHarvester import __version__
+from theHarvester.lib.cancellation import drain_tasks_after_cancellation
 from theHarvester.lib.output import output_logger
 from theHarvester.lib.source_catalog import SOURCE_SPECS, resolve_sources
 
@@ -498,9 +499,46 @@ class AsyncFetcher:
             'timeout': client_timeout,
             'connector': connector,
         }
+        if proxy_url is not None and proxy_type == 'http':
+            session_kwargs['proxy'] = proxy_url
         if cookie_jar is not None:
             session_kwargs['cookie_jar'] = cookie_jar
         return aiohttp.ClientSession(**session_kwargs)
+
+    @classmethod
+    @contextlib.asynccontextmanager
+    async def open_session(
+        cls,
+        *,
+        headers: dict[str, str] | None = None,
+        proxy: str | bool | None = '',
+        request_timeout: int | None = None,
+        cookie_jar: aiohttp.abc.AbstractCookieJar | None = None,
+    ) -> AsyncIterator[aiohttp.ClientSession]:
+        """Own one connection pool, proxy identity, and cookie jar for a provider conversation."""
+        proxy_url, proxy_type = cls._resolve_proxy(proxy)
+        session = await cls._build_session(
+            cls._default_headers(headers),
+            cls._request_timeout(request_timeout),
+            proxy_url,
+            proxy_type,
+            cls._ssl_context(),
+            cookie_jar,
+        )
+        body_error: BaseException | None = None
+        try:
+            yield session
+        except BaseException as error:
+            body_error = error
+        close_task = asyncio.create_task(session.close(), name='provider-http-session-close')
+        interruptions = await drain_tasks_after_cancellation((close_task,), cancel=False)
+        close_error = None if close_task.cancelled() else close_task.exception()
+        if body_error is not None:
+            raise body_error
+        if interruptions:
+            raise interruptions[0]
+        if close_error is not None:
+            raise close_error
 
     @staticmethod
     async def _read_response(
@@ -627,63 +665,46 @@ class AsyncFetcher:
     @classmethod
     async def post_fetch(
         cls,
-        url,
-        headers=None,
+        url: str,
+        headers: dict[str, str] | None = None,
         data: str | dict[str, Any] = '',
         params: Sized = '',
         json: bool = False,
-        proxy: bool = False,
+        proxy: str | bool | None = False,
         include_metadata: bool = False,
         json_body: dict[str, Any] | None = None,
-    ):
+        *,
+        session: aiohttp.ClientSession | None = None,
+    ) -> Any:
         headers = cls._default_headers(headers)
-        timeout = cls._request_timeout(720)
         # By default, timeout is 5 minutes, changed to 12-minutes
         # results are well worth the wait
         try:
-            if proxy:
-                proxy_url, proxy_type = cls._resolve_proxy(proxy)
-                sslcontext = cls._ssl_context()
-                request_kwargs: dict[str, Any] = {
-                    'data': cls._normalize_data(data) if json_body is None else None,
-                    'proxy': proxy_url if proxy_type == 'http' else None,
-                }
-                if params != '':
-                    request_kwargs['params'] = params
-                async with await cls._build_session(headers, timeout, proxy_url, proxy_type, sslcontext) as session:
-                    return await cls._request(
-                        session,
-                        'POST',
+            if session is None:
+                async with cls.open_session(headers=headers, proxy=proxy, request_timeout=720) as owned_session:
+                    return await cls.post_fetch(
                         url,
-                        json=json,
-                        json_body=json_body,
-                        include_metadata=include_metadata,
-                        **request_kwargs,
-                    )
-            elif params == '':
-                async with await cls._build_session(headers, timeout) as session:
-                    return await cls._request(
-                        session,
-                        'POST',
-                        url,
-                        data=cls._normalize_data(data) if json_body is None else None,
-                        json=json,
-                        json_body=json_body,
-                        include_metadata=include_metadata,
-                    )
-            else:
-                async with await cls._build_session(headers, timeout) as session:
-                    return await cls._request(
-                        session,
-                        'POST',
-                        url,
-                        data=cls._normalize_data(data) if json_body is None else None,
-                        ssl=cls._ssl_context(),
+                        session=owned_session,
+                        data=data,
                         params=params,
                         json=json,
-                        json_body=json_body,
                         include_metadata=include_metadata,
+                        json_body=json_body,
                     )
+            request_kwargs: dict[str, Any] = {
+                'data': cls._normalize_data(data) if json_body is None else None,
+            }
+            if params != '':
+                request_kwargs['params'] = params
+            return await cls._request(
+                session,
+                'POST',
+                url,
+                json=json,
+                json_body=json_body,
+                include_metadata=include_metadata,
+                **request_kwargs,
+            )
         except (aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, UnicodeDecodeError, ValueError):
             return None if include_metadata else ''
 
