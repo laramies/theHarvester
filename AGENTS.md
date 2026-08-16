@@ -16,7 +16,7 @@ theHarvester is a Python OSINT reconnaissance tool for collecting public informa
 
 ## Domain language
 
-Read [CONTEXT.md](CONTEXT.md) when changing discovery terminology, evidence classification, scope handling, DNS validation, or P0/P1/P2 activity boundaries.
+Read [CONTEXT.md](CONTEXT.md) before changing discovery semantics, result or evidence models, run lifecycle, interchange or persistence, target scope, DNS validation, or P0/P1/P2 activity boundaries.
 
 ## Code review rules
 

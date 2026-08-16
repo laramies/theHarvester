@@ -1,10 +1,61 @@
-# theHarvester discovery context
+# theHarvester release context
 
-This glossary is the source of truth for discussing subdomain discovery and HarvestView lifecycle behavior across code, issues, pull requests, output, and documentation. It separates current addressability from historical, indirect, or unresolved evidence.
+Status: accepted release baseline
 
-The definitions state intended semantics; they do not imply that every discovery adapter already produces every evidence class. Update this glossary when a change alters a term's meaning or boundary.
+Release: Unreleased changes after 4.11.1 on `dev`
 
-## Language
+Reconciled: 2026-08-16
+
+This document is the semantic source of truth for the next release. It defines the product boundary, execution model, evidence contract, scope rules, and shared language used by code, tests, issues, pull requests, output, and operator documentation.
+
+The package version in `theHarvester/__init__.py` and the release headings in `CHANGELOG.md` remain authoritative for the eventual version number. Exact flags, source names, result kinds, schemas, and routes remain authoritative in the executable catalog, type declarations, CLI help, and OpenAPI document. This file records the meanings and boundaries those interfaces must preserve.
+
+When a change alters one of these boundaries, update this document and the nearest decision record in the same pull request. Completion means the implementation, focused regression coverage, operator documentation, and this context express the same contract.
+
+## Release contract
+
+### Product boundary
+
+- theHarvester is a finite, one-shot enumerator. Each invocation or submitted run has an explicit target, selected sources or actions, limits, and a terminal outcome.
+- The CLI, authenticated REST API, and HarvestView project the same normalized terminal evidence. HarvestView is the local browser workspace for submitting and reviewing runs; it is not a separate discovery engine.
+- The local API owns durable run records and one isolated worker. Queue and process ownership remain separate from terminal evidence so a later worker or deployment design can change without rewriting completed results.
+
+### Authorization and scope
+
+- Every provider, DNS, or direct action stays within the operator's explicit target and selected activity. P0, P1, and P2 describe observable network behavior, not confidence or importance.
+- P0 sources query existing providers or datasets. P1 actions query DNS about authorized names or addresses. P2 actions contact a target endpoint or cause equivalent direct interaction.
+- Scope-extension candidates and external relationships remain review evidence. An operator decision is the only path that promotes them into a later run's authorized scope.
+- ASN labels, registry records, BGP origins, RPKI states, DNS answers, and endpoint responses remain time-bound evidence. None establishes ownership, legal control, reachability, or authorization by itself.
+
+### Execution and lifecycle
+
+- The source catalog is the authority for canonical source names, aliases, credentials, result capabilities, and activity class. Explicit source names and capability selectors form a union; `all` selects every cataloged P0 source once.
+- A source adapter returns `None` for ordinary completion or an immutable `SourceExecutionReport` when it must preserve an explicit outcome or stop reason. The central source runner owns observation collection, result counting, no-result classification, exception handling, and final source status.
+- Source execution statuses are `completed`, `partial`, `failed`, `rate-limited`, and `skipped`. Mutable adapter fields such as `execution_status` and `stop_reason` are outside this release contract and are rejected, including when an adapter raises or is cancelled.
+- Run lifecycle statuses are `queued`, `running`, `cancelling`, `cancelled`, `completed`, and `failed`. Terminal evidence status is independently `complete`, `partial`, or `failed`; retained evidence survives a later cancellation or process failure.
+- Imported runs enter as completed run records and execute no source or action. Action-only runs create independent run records instead of mutating the evidence of the run that supplied their candidate.
+
+### Evidence and portability
+
+- A merged result is canonical by result kind and value. Source and action provenance, typed observations, execution outcomes, timestamps, and artifact metadata remain attached through deduplication and persistence.
+- JSONL is the primary single-run interchange format: one summary record followed by sorted finding records. It retains terminal evidence status, producer outcomes, provenance, and supported structured observations.
+- SQLite is the canonical local multi-run store. Portable SQLite export contains every finalized evidence record, preserves original run IDs and canonical structured evidence, and excludes queue, cancellation, worker-lease, and legacy-observation state. Screenshot metadata travels with evidence; screenshot files remain separately managed artifacts.
+- Legacy JSON and XML remain supported grouped reports for existing consumers. They are presentation formats and do not replace JSONL or SQLite when lossless provenance and structured evidence are required.
+
+### Release gates
+
+- Routine tests and CI use mocked provider responses, local services, RFC-reserved domains, and TEST-NET addresses. Live provider or target checks remain explicit operator-run integration work.
+- Every executable source has offline contract coverage for its declared lifecycle, and the catalog gate rejects missing, duplicate, or unknown coverage.
+- Persistence and interchange changes prove canonical export and import round trips. HarvestView changes pass a separate real-browser gate covering the affected operator workflow.
+- Release publication requires green Python, formatting, lint, typing, container, security, documentation, and HarvestView browser checks at the publication head.
+
+### Deferred boundaries
+
+- Continuous monitoring and scheduling remain separate future product decisions; an enumeration run stays finite.
+- Distributed workers, multi-host operation, PostgreSQL, and hosted multi-user authorization require measured demand and new decisions. The release remains SQLite-first and local-operator focused.
+- Automatic scope expansion remains deferred. Evidence can suggest a later target, while the operator controls every scope change.
+
+## Domain language
 
 **Currently addressable subdomain**:
 A normalized, in-scope subdomain with current resolver consensus evidence of an A or AAAA record, or a permitted CNAME chain ending in one, that is neither wildcard-indistinguishable nor resolver-disputed.
@@ -113,6 +164,18 @@ _Avoid_: Internal workflow names, operator app, console, dashboard
 **Imported run**:
 A run record created from an existing theHarvester result file. Import records evidence but never executes discovery or contacts a target.
 _Avoid_: Uploaded scan, replayed run
+
+**Finalized evidence record**:
+A completed-result record with stable run ID, target, timestamps, normalized results, producer outcomes, provenance, typed observations, artifact metadata, and terminal evidence status. A partial or failed terminal evidence status can still be finalized and portable.
+_Avoid_: Successful run, lifecycle row, complete-only result
+
+**JSONL run interchange**:
+One finalized evidence record encoded as a summary line followed by normalized finding lines. It is the primary streamable format for one-run automation and round trips.
+_Avoid_: JSON report, event log, lifecycle export
+
+**Portable SQLite export**:
+A validated database containing finalized evidence records and their original run IDs without API lifecycle, cancellation, worker-lease, or legacy-observation state.
+_Avoid_: Database backup, worker-state export, application clone
 
 **Lifecycle status**:
 The durable state of a run record: queued, running, cancelling, cancelled, completed, or failed. It describes control flow, not evidence quality.
