@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 from bs4.element import Tag
 
 from theHarvester.discovery.constants import get_delay
+from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.parsers import myparser
 
@@ -33,15 +34,10 @@ class SearchSubdomainfinderc99:
                 url=self.server,
                 include_metadata=True,
             )
-            if not isinstance(metadata, FetcherResponse):
-                self._stop('failed', 'transport-error')
+            if error := provider_http_error(metadata):
+                self._stop(*error)
                 return
-            if metadata.status == 429:
-                self._stop('rate-limited', 'http-429')
-                return
-            if not 200 <= metadata.status < 300:
-                self._stop('failed', f'http-{metadata.status}')
-                return
+            assert isinstance(metadata, FetcherResponse)
             if not isinstance(metadata.body, str):
                 self._stop('failed', 'invalid-response')
                 return
@@ -60,15 +56,10 @@ class SearchSubdomainfinderc99:
                 data=ujson.dumps(data),
                 include_metadata=True,
             )
-            if not isinstance(second_resp, FetcherResponse):
-                self._stop('failed', 'transport-error')
+            if error := provider_http_error(second_resp):
+                self._stop(*error)
                 return
-            if second_resp.status == 429:
-                self._stop('rate-limited', 'http-429')
-                return
-            if not 200 <= second_resp.status < 300:
-                self._stop('failed', f'http-{second_resp.status}')
-                return
+            assert isinstance(second_resp, FetcherResponse)
             if not isinstance(second_resp.body, str):
                 self._stop('failed', 'invalid-response')
                 return

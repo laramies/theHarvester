@@ -69,8 +69,20 @@ async def test_empty_initial_response_is_transport_failure(monkeypatch) -> None:
     assert search.stop_reason == 'transport-error'
 
 
+@pytest.mark.parametrize(
+    ('response', 'status', 'reason'),
+    [
+        (FetcherResponse('', 403, {}), 'failed', 'access-denied'),
+        (FetcherResponse(None, 200, {}), 'failed', 'invalid-response'),
+    ],
+)
 @pytest.mark.asyncio
-async def test_malformed_scan_response_completes_without_evidence(monkeypatch) -> None:
+async def test_scan_failures_are_structured(
+    monkeypatch: pytest.MonkeyPatch,
+    response: FetcherResponse,
+    status: str,
+    reason: str,
+) -> None:
     @contextlib.asynccontextmanager
     async def fake_open_session(**_kwargs: Any) -> AsyncIterator[object]:
         yield object()
@@ -79,7 +91,7 @@ async def test_malformed_scan_response_completes_without_evidence(monkeypatch) -
         return FetcherResponse('<div class="input-group"><input name="token" value="abc"></div>', 200, {})
 
     async def fake_post_fetch(*_args, **_kwargs):
-        return FetcherResponse(None, 200, {})
+        return response
 
     async def no_sleep(*_args, **_kwargs):
         return None
@@ -93,13 +105,15 @@ async def test_malformed_scan_response_completes_without_evidence(monkeypatch) -
     await search.process()
 
     assert not await search.get_hostnames()
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'invalid-response'
+    assert search.execution_status == status
+    assert search.stop_reason == reason
 
 
 @pytest.mark.parametrize(
     ('response', 'status', 'reason'),
     [
+        (FetcherResponse('', 401, {}), 'failed', 'access-denied'),
+        (FetcherResponse('', 403, {}), 'failed', 'access-denied'),
         (FetcherResponse('', 429, {}), 'rate-limited', 'http-429'),
         (FetcherResponse('', 503, {}), 'failed', 'http-503'),
         (FetcherResponse({}, 200, {}), 'failed', 'invalid-response'),
