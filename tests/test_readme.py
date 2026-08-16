@@ -116,24 +116,36 @@ def test_wiki_navigation_and_readme_links_resolve() -> None:
     assert all(Path(target).is_file() for target in readme_wiki_links)
 
 
-def test_readme_architecture_diagram_is_local_and_accessible() -> None:
+def test_readme_architecture_diagrams_are_local_and_accessible() -> None:
     readme = Path('README.md').read_text()
-    html = Path('docs/diagrams/run-evidence-architecture.html')
-    svg = Path('docs/images/run-evidence-architecture.svg')
-    html_text = html.read_text()
-    svg_text = svg.read_text()
+    diagrams = (
+        (
+            'theHarvester discovery routes and enrichment',
+            Path('docs/diagrams/run-evidence-architecture.html'),
+            Path('docs/images/run-evidence-architecture.svg'),
+            'run-evidence-architecture',
+            ('subdomains · emails · IPs', 'Shodan host detail', 'RouteViews routes', 'vhost · screenshots · takeover'),
+        ),
+        (
+            'HarvestView run desk architecture',
+            Path('docs/diagrams/harvestview-architecture.html'),
+            Path('docs/images/harvestview-architecture.svg'),
+            'harvestview-architecture',
+            ('Authenticated REST API', 'queued → running → terminal', 'Isolated run worker', 'export JSONL'),
+        ),
+    )
 
-    assert f'![theHarvester run evidence architecture]({svg})' in readme
-    assert f'[`{html}`]({html})' in readme
-    assert 'src="../images/run-evidence-architecture.svg"' in html_text
-    assert '<svg' not in html_text
-    assert 'role="img"' in svg_text
-    assert '<title id="run-evidence-architecture-title">' in svg_text
-    assert '<desc id="run-evidence-architecture-desc">' in svg_text
-    assert 'P0 · P1 · P2 by catalog policy' in svg_text
-    assert 'Durable · JSONL · SQLite' in svg_text
-    assert 'Views · terminal · API' in svg_text
-    assert '>HarvestView</text>' in svg_text
+    for alt, html, svg, slug, expected_text in diagrams:
+        html_text = html.read_text()
+        svg_text = svg.read_text()
+        assert f'![{alt}]({svg})' in readme
+        assert f'[`{html}`]({html})' in readme
+        assert '<svg' in html_text
+        assert '<img' not in html_text
+        assert 'role="img"' in svg_text
+        assert f'<title id="{slug}-title">' in svg_text
+        assert f'<desc id="{slug}-desc">' in svg_text
+        assert all(text in svg_text for text in expected_text)
 
 
 def test_virtual_host_wiki_examples_match_the_structured_result_contract() -> None:

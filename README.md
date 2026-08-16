@@ -20,13 +20,23 @@ It is built for the early reconnaissance stage of authorized security assessment
 
 Source availability, quotas, and response formats are controlled by third parties and can change independently of theHarvester.
 
-![theHarvester run evidence architecture](docs/images/run-evidence-architecture.svg)
-
-Open the diagram in a dedicated browser view with [`docs/diagrams/run-evidence-architecture.html`](docs/diagrams/run-evidence-architecture.html).
-
 ## Package versions
 
 [![Packaging status](https://repology.org/badge/vertical-allrepos/theharvester.svg)](https://repology.org/project/theharvester/versions)
+
+## Architecture at a glance
+
+### Discovery routes and enrichment
+
+![theHarvester discovery routes and enrichment](docs/images/run-evidence-architecture.svg)
+
+Open the diagram in a dedicated browser view with [`docs/diagrams/run-evidence-architecture.html`](docs/diagrams/run-evidence-architecture.html).
+
+### HarvestView run desk
+
+![HarvestView run desk architecture](docs/images/harvestview-architecture.svg)
+
+Open the diagram in a dedicated browser view with [`docs/diagrams/harvestview-architecture.html`](docs/diagrams/harvestview-architecture.html).
 
 ## Quick start
 

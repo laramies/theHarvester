@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="harvestview-architecture-title harvestview-architecture-desc">
+    <title id="harvestview-architecture-title">HarvestView run desk architecture</title>
+    <desc id="harvestview-architecture-desc">HarvestView validates local browser requests through the authenticated API, records one durable run, executes it in an isolated worker, and returns normalized evidence to the route workbench.</desc>
+    <defs>
+      <style>@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap');</style>
+      <style>
+        .title { font: 400 28px "Instrument Serif", Georgia, serif; fill: #0e1d22; }
+        .subtitle { font: 400 12px "Geist", system-ui, sans-serif; fill: #4f5e63; }
+        .eyebrow { font: 600 8px "Geist Mono", ui-monospace, monospace; letter-spacing: .16em; fill: #4f5e63; }
+        .node-title { font: 600 12px "Geist", system-ui, sans-serif; fill: #0e1d22; }
+        .node-copy { font: 400 8px "Geist Mono", ui-monospace, monospace; fill: #4f5e63; }
+        .node-copy-strong { font: 500 8px "Geist Mono", ui-monospace, monospace; fill: #34464c; }
+        .boundary { fill: rgba(14,29,34,.018); stroke: #889ca3; stroke-width: 1; stroke-dasharray: 8 8; }
+        .node { fill: #fdfaf4; stroke: #889ca3; stroke-width: 1; }
+        .node-muted { fill: #ede7dd; stroke: #889ca3; stroke-width: 1; }
+        .node-focal { fill: #bcede4; stroke: #009685; stroke-width: 1.2; }
+        .tag { fill: #f5efe7; stroke: #889ca3; stroke-width: .8; }
+        .tag-teal { fill: #bcede4; stroke: #009685; stroke-width: .8; }
+        .tag-text { font: 600 8px "Geist Mono", ui-monospace, monospace; fill: #34464c; text-anchor: middle; }
+        .tag-text-teal { fill: #00594c; }
+        .connector { fill: none; stroke: #4f5e63; stroke-width: 1.2; }
+        .connector-accent { fill: none; stroke: #009685; stroke-width: 1.2; }
+        .legend { font: 400 8px "Geist Mono", ui-monospace, monospace; fill: #4f5e63; }
+      </style>
+      <marker id="harvestview-architecture-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5e63"/></marker>
+      <marker id="harvestview-architecture-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#009685"/></marker>
+      <marker id="harvestview-architecture-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#00548c"/></marker>
+    </defs>
+
+    <rect width="1280" height="720" fill="#f5efe7"/>
+    <text x="40" y="52" class="eyebrow">HARVESTVIEW · LOCAL OPERATOR WORKFLOW</text>
+    <text x="40" y="88" class="title">One run desk, one durable lifecycle</text>
+    <text x="40" y="112" class="subtitle">The browser reviews scope; the API validates; an isolated worker executes; evidence remains available after terminal state.</text>
+
+    <rect x="40" y="132" width="1200" height="436" rx="8" class="boundary"/>
+    <rect x="56" y="136" width="184" height="16" fill="#f5efe7"/>
+    <text x="60" y="148" class="eyebrow">LOCAL HOST · 127.0.0.1</text>
+
+    <line x1="224" y1="292" x2="264" y2="292" class="connector" marker-end="url(#harvestview-architecture-arrow)"/>
+    <line x1="464" y1="292" x2="504" y2="292" class="connector" marker-end="url(#harvestview-architecture-arrow)"/>
+    <line x1="604" y1="364" x2="604" y2="412" class="connector" marker-end="url(#harvestview-architecture-arrow)"/>
+    <line x1="704" y1="472" x2="744" y2="472" class="connector" marker-end="url(#harvestview-architecture-arrow)"/>
+    <line x1="844" y1="412" x2="844" y2="364" class="connector-accent" marker-end="url(#harvestview-architecture-arrow-accent)"/>
+    <line x1="944" y1="292" x2="984" y2="292" class="connector" marker-end="url(#harvestview-architecture-arrow)"/>
+
+    <rect x="64" y="220" width="160" height="144" rx="8" class="node"/>
+    <rect x="76" y="232" width="72" height="20" rx="4" class="tag"/>
+    <text x="112" y="246" class="tag-text">BROWSER</text>
+    <text x="80" y="276" class="node-title">Create or import</text>
+    <text x="80" y="300" class="node-copy-strong">new run · JSONL · SQLite</text>
+    <text x="80" y="320" class="node-copy-strong">source and action review</text>
+    <text x="80" y="344" class="node-copy">P0 · P1 · P2 authorization</text>
+
+    <rect x="264" y="220" width="200" height="144" rx="8" class="node"/>
+    <rect x="276" y="232" width="96" height="20" rx="4" class="tag"/>
+    <text x="324" y="246" class="tag-text">API GATE</text>
+    <text x="280" y="276" class="node-title">Authenticated REST API</text>
+    <text x="280" y="300" class="node-copy-strong">derived HttpOnly browser session</text>
+    <text x="280" y="320" class="node-copy-strong">X-API-Key for API clients</text>
+    <text x="280" y="344" class="node-copy">target · scope · options · limits</text>
+
+    <rect x="504" y="220" width="200" height="144" rx="8" class="node-muted"/>
+    <rect x="516" y="232" width="96" height="20" rx="4" class="tag"/>
+    <text x="564" y="246" class="tag-text">CONTROL</text>
+    <text x="520" y="276" class="node-title">Durable run control</text>
+    <text x="520" y="300" class="node-copy-strong">queued → running → terminal</text>
+    <text x="520" y="320" class="node-copy-strong">cancel request · source status</text>
+    <text x="520" y="344" class="node-copy">one record per finite run</text>
+
+    <rect x="504" y="412" width="200" height="120" rx="8" class="node"/>
+    <rect x="516" y="424" width="80" height="20" rx="4" class="tag"/>
+    <text x="556" y="438" class="tag-text">WORKER</text>
+    <text x="520" y="468" class="node-title">Isolated run worker</text>
+    <text x="520" y="492" class="node-copy-strong">claim · checkpoint · cancel</text>
+    <text x="520" y="512" class="node-copy">bounded output · child cleanup</text>
+
+    <rect x="744" y="412" width="200" height="120" rx="8" class="node"/>
+    <rect x="756" y="424" width="80" height="20" rx="4" class="tag"/>
+    <text x="796" y="438" class="tag-text">ENGINE</text>
+    <text x="760" y="468" class="node-title">theHarvester engine</text>
+    <text x="760" y="492" class="node-copy-strong">cataloged sources · explicit actions</text>
+    <text x="760" y="512" class="node-copy">DNS · Shodan · RouteViews · vhost</text>
+
+    <rect x="744" y="220" width="200" height="144" rx="8" class="node-focal"/>
+    <rect x="756" y="232" width="96" height="20" rx="4" class="tag-teal"/>
+    <text x="804" y="246" class="tag-text tag-text-teal">EVIDENCE</text>
+    <text x="760" y="276" class="node-title">Evidence &amp; artifacts</text>
+    <text x="760" y="300" class="node-copy-strong">CompletedResult · route records</text>
+    <text x="760" y="320" class="node-copy-strong">SQLite · screenshots · logs</text>
+    <text x="760" y="344" class="node-copy">partial evidence remains inspectable</text>
+
+    <rect x="984" y="220" width="232" height="144" rx="8" class="node"/>
+    <rect x="996" y="232" width="112" height="20" rx="4" class="tag"/>
+    <text x="1052" y="246" class="tag-text">WORKBENCH</text>
+    <text x="1000" y="276" class="node-title">Inspect and export</text>
+    <text x="1000" y="300" class="node-copy-strong">history · assessment · route tabs</text>
+    <text x="1000" y="320" class="node-copy-strong">screenshots · source outcomes · logs</text>
+    <text x="1000" y="340" class="node-copy">review child actions · export JSONL</text>
+
+    <line x1="40" y1="636" x2="1240" y2="636" stroke="rgba(14,29,34,.14)" stroke-width=".8"/>
+    <line x1="48" y1="676" x2="88" y2="676" class="connector" marker-end="url(#harvestview-architecture-arrow)"/>
+    <text x="104" y="680" class="legend">control and lifecycle handoff</text>
+    <line x1="352" y1="676" x2="392" y2="676" class="connector-accent" marker-end="url(#harvestview-architecture-arrow-accent)"/>
+    <text x="408" y="680" class="legend">normalized evidence handoff</text>
+    <rect x="676" y="664" width="20" height="20" rx="4" class="tag-teal"/>
+    <text x="708" y="680" class="legend">durable evidence boundary</text>
+    <text x="1240" y="680" class="legend" text-anchor="end">provider credentials remain server-side</text>
+  </svg>
