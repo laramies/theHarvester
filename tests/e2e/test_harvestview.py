@@ -1377,7 +1377,7 @@ def test_completed_empty_import_explains_terminal_outcome(
     assert exported_records[0]['source_executions'][0]['status'] == 'completed'
 
 
-def test_harvestview_imports_completed_runs_from_sqlite(
+def test_harvestview_exports_and_reimports_completed_runs_as_sqlite(
     harvestview_server,
     page: Page,
     tmp_path: Path,

@@ -7,7 +7,7 @@ Thank you for helping improve theHarvester. This guide explains how to propose a
 - Search the [issues](https://github.com/laramies/theHarvester/issues) and [pull requests](https://github.com/laramies/theHarvester/pulls) for existing work.
 - Open an issue before investing in a large feature, dependency change, or user-visible behavior change.
 - Keep each pull request to one logical change. Leave unrelated cleanup and reformatting for separate work.
-- Base contribution branches on the current upstream `master` branch.
+- Base contribution branches on the current upstream `dev` branch.
 
 For a bug report, include a minimal reproduction, expected and actual behavior, operating system, Python version, and only the output needed to diagnose the problem. Remove credentials, account information, private target data, and raw API responses.
 
@@ -22,7 +22,7 @@ git clone https://github.com/YOUR-GITHUB-USERNAME/theHarvester.git
 cd theHarvester
 git remote add upstream https://github.com/laramies/theHarvester.git
 git fetch upstream
-git switch -c fix/short-description upstream/master
+git switch -c fix/short-description upstream/dev
 uv sync --all-groups
 ```
 
@@ -95,7 +95,7 @@ CI runs additional source smoke tests, CodeQL, dependency review, and container 
 
 ## Open a pull request
 
-Push the topic branch to your fork and open a pull request against `laramies/theHarvester:master`.
+Push the topic branch to your fork and open a pull request against `laramies/theHarvester:dev`.
 
 The pull request should include:
 
