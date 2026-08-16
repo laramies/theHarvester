@@ -37,7 +37,8 @@
     retryWorkspace: $('#retry-workspace-button'),
     runCount: $('#run-count'), historySearch: $('#history-search'), runList: $('#run-list'), historyEmpty: $('#history-empty'),
     detailTarget: $('#detail-target'), detailRunId: $('#detail-run-id'), statusChips: $('#status-chips'), cancel: $('#cancel-run-button'),
-    runFacts: $('#run-facts'), lifecycleTrack: $('#lifecycle-track'), lifecycleNote: $('#lifecycle-note'),
+    runFacts: $('#run-facts'), runAssessment: $('.run-assessment'),
+    lifecycleTrack: $('#lifecycle-track'), lifecycleNote: $('#lifecycle-note'),
     assessmentEvidence: $('#assessment-evidence'), assessmentProducers: $('#assessment-producers'),
     assessmentReview: $('#assessment-review'), reviewOutcomes: $('#review-outcomes-button'),
     resultsSection: $('#results-section'),
@@ -458,8 +459,8 @@
   function resultActionFormatter(cell) {
     const target = escapeHtml(cell.getRow().getData().value);
     return `<div class="result-actions">
-      <button class="button small" type="button" data-run-action="screenshot" aria-label="Take screenshot of ${target} (P2)">Screenshot (P2)</button>
-      <button class="button small" type="button" data-run-action="dns_brute" aria-label="DNS brute force ${target} (P1)">DNS brute (P1)</button>
+      <button class="button small" type="button" data-run-action="screenshot" data-run-target="${target}" aria-label="Take screenshot of ${target} (P2)">Screenshot (P2)</button>
+      <button class="button small" type="button" data-run-action="dns_brute" data-run-target="${target}" aria-label="DNS brute force ${target} (P1)">DNS brute (P1)</button>
     </div>`;
   }
 
@@ -701,12 +702,6 @@
       columns.push({
         title: 'Actions', field: 'actions', formatter: resultActionFormatter, headerSort: false,
         minWidth: 265, width: 265, responsive: 3, resizable: false,
-        cellClick: (event, cell) => {
-          const button = event.target.closest('[data-run-action]');
-          if (!button) return;
-          event.stopPropagation();
-          reviewResultAction(button.dataset.runAction, cell.getRow().getData().value, button);
-        },
       });
     }
     state.resultTable = new Tabulator(nodes.resultWorkbench.querySelector('#result-grid'), {
@@ -781,9 +776,10 @@
     }
     if (!groups.some(([type]) => type === state.route)) state.route = groups[0][0];
     nodes.routeTabs.innerHTML = groups.map(([type, results]) => `
-      <button class="route-tab ${type === state.route ? 'active' : ''}" type="button" data-route="${escapeHtml(type)}" aria-pressed="${type === state.route}">
+      <button class="route-tab ${type === state.route ? 'active' : ''}" type="button" data-route="${escapeHtml(type)}" aria-pressed="${type === state.route}" tabindex="${type === state.route ? '0' : '-1'}">
         ${escapeHtml(ROUTE_LABELS[type] || type)} <span class="count-badge">${results.length}</span>
       </button>`).join('');
+    requestAnimationFrame(updateRouteOverflowCue);
     const rows = groups.find(([type]) => type === state.route)?.[1] || [];
     nodes.routeCount.textContent = rows.length;
     nodes.resultSearch.value = '';
@@ -833,8 +829,10 @@
     nodes.cancel.hidden = !['queued', 'running', 'cancelling'].includes(run.status);
     nodes.cancel.disabled = run.status === 'cancelling';
     nodes.cancel.textContent = run.status === 'cancelling' ? 'Cancellation in progress' : 'Request cancellation';
-    if (isTerminalStatus(run.status)) {
+    if (isTerminalStatus(run.status) && run.status === 'completed' && run.evidence_status === 'complete') {
       nodes.detail.insertBefore(nodes.resultsSection, nodes.runFacts);
+    } else if (isTerminalStatus(run.status)) {
+      nodes.runAssessment.after(nodes.resultsSection);
     } else {
       nodes.detail.insertBefore(nodes.resultsSection, nodes.providerDetails);
     }
@@ -1284,6 +1282,10 @@
     }
   }
 
+  function updateRouteOverflowCue() {
+    nodes.routeOverflowCue.hidden = nodes.routeTabs.hidden || nodes.routeTabs.scrollWidth <= nodes.routeTabs.clientWidth + 1;
+  }
+
   function openScreenshot(index) {
     const screenshot = state.detail?.screenshots?.[index];
     const objectUrl = state.screenshotUrls.get(screenshot?.url);
@@ -1314,6 +1316,27 @@
   });
   nodes.exportJsonl.addEventListener('click', downloadServerExport);
   nodes.copySelected.addEventListener('click', copySelected);
+  nodes.resultWorkbench.addEventListener('click', event => {
+    const button = event.target.closest('[data-run-action]');
+    if (!button) return;
+    event.preventDefault();
+    event.stopPropagation();
+    reviewResultAction(button.dataset.runAction, button.dataset.runTarget, button);
+  }, true);
+  nodes.routeTabs.addEventListener('keydown', event => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    const buttons = [...nodes.routeTabs.querySelectorAll('[data-route]')];
+    if (!buttons.length) return;
+    event.preventDefault();
+    const current = Math.max(0, buttons.indexOf(event.target.closest('[data-route]')));
+    const next = event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? buttons.length - 1
+        : (current + (event.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length;
+    buttons[next].click();
+    requestAnimationFrame(() => nodes.routeTabs.querySelector(`[data-route="${CSS.escape(state.route)}"]`)?.focus({preventScroll: true}));
+  });
   nodes.resultSearch.addEventListener('input', event => {
     const query = event.target.value.trim().toLowerCase();
     state.resultTable?.setFilter(row => !query || row.value.toLowerCase().includes(query));
@@ -1375,6 +1398,7 @@
     stopPolling();
     revokeScreenshots();
   });
+  window.addEventListener('resize', updateRouteOverflowCue);
 
   async function start() {
     applyTheme();

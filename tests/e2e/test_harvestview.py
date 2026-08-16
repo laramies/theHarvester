@@ -820,7 +820,13 @@ def test_hostname_actions_queue_isolated_runs(
                 'stop_reason': 'query-errors',
             }
         ],
-        'results': [{'type': 'hostname', 'value': 'api.example.com'}],
+        'results': [
+            {
+                'type': 'hostname',
+                'value': 'api.example.com',
+                'observations': [{'endpoint': 'https://192.0.2.10', 'status': 200}],
+            }
+        ],
         'screenshots': [],
         'log': '',
         'error': None,
@@ -849,6 +855,8 @@ def test_hostname_actions_queue_isolated_runs(
     expect(action_row).to_contain_text('failed')
     expect(action_row).to_contain_text('TimeoutError')
 
+    collapsed_actions = page.locator('.tabulator-responsive-collapse').get_by_text('Actions', exact=True)
+    expect(collapsed_actions).to_be_visible()
     page.get_by_role('button', name='Take screenshot of api.example.com (P2)').click()
     review = page.locator('#result-action-dialog')
     expect(review.get_by_role('heading')).to_have_text('Review screenshot interaction')
@@ -1305,9 +1313,9 @@ def test_completed_empty_import_explains_terminal_outcome(
         'crtsh returned no normalized evidence. The retained evidence record is complete.'
     )
     expect(page.locator('#lifecycle-track strong')).to_have_text(['Original started', 'Original completed', 'Imported'])
-    expect(page.get_by_role('button', name='All JSONL')).to_be_enabled()
+    expect(page.get_by_role('button', name='Export all JSONL')).to_be_enabled()
     with page.expect_download() as jsonl_download:
-        page.get_by_role('button', name='All JSONL').click()
+        page.get_by_role('button', name='Export all JSONL').click()
     exported_records = [json.loads(line) for line in Path(jsonl_download.value.path()).read_text(encoding='utf-8').splitlines()]
     assert len(exported_records) == 1
     assert exported_records[0]['evidence_status'] == 'complete'
@@ -1428,8 +1436,8 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
     assert page.locator('#results-title').evaluate(
         "node => Boolean(node.compareDocumentPosition(document.querySelector('#lifecycle-title')) & Node.DOCUMENT_POSITION_FOLLOWING)"
     )
-    assert page.locator('#results-title').evaluate(
-        "node => Boolean(node.compareDocumentPosition(document.querySelector('#run-facts')) & Node.DOCUMENT_POSITION_FOLLOWING)"
+    assert page.locator('#run-facts').evaluate(
+        "node => Boolean(node.compareDocumentPosition(document.querySelector('#results-title')) & Node.DOCUMENT_POSITION_FOLLOWING)"
     )
 
     missing_credentials_row = page.locator('#provider-body tr').filter(has_text=ordered_sources[23]['name'])
@@ -1443,7 +1451,16 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
     page.locator('#history-search').fill('not-present')
     expect(page.locator('#history-empty')).to_be_visible()
     page.locator('#history-search').fill('')
-    page.get_by_role('button', name='IP addresses 2').click()
+    ip_route = page.get_by_role('button', name='IP addresses 2')
+    ip_route.click()
+    expect(ip_route).to_have_attribute('tabindex', '0')
+    ip_route.focus()
+    ip_route.press('ArrowRight')
+    asn_route = page.get_by_role('button', name='ASNs 1')
+    expect(asn_route).to_have_attribute('aria-pressed', 'true')
+    expect(asn_route).to_be_focused()
+    asn_route.press('ArrowLeft')
+    expect(page.get_by_role('button', name='IP addresses 2')).to_be_focused()
     expect(page.locator('#route-count')).to_have_text('2')
     value_column = page.locator('.tabulator-col[tabulator-field="value"]')
     value_filter = value_column.locator('.tabulator-header-filter input')
@@ -1469,6 +1486,7 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
 
     resize_handles = page.locator('.tabulator-header .tabulator-col-resize-handle')
     expect(resize_handles).to_have_count(2)
+    page.locator('#result-workbench').scroll_into_view_if_needed()
     selection_column_width = page.locator('.tabulator-header .tabulator-row-header').bounding_box()['width']
     assert 40 <= selection_column_width <= 56
     resize_handle = resize_handles.first
@@ -1487,7 +1505,7 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
     assert page.evaluate('navigator.clipboard.readText()') == '192.0.2.10'
 
     with page.expect_download() as jsonl_download:
-        page.get_by_role('button', name='All JSONL').click()
+        page.get_by_role('button', name='Export all JSONL').click()
     exported_records = [json.loads(line) for line in Path(jsonl_download.value.path()).read_text(encoding='utf-8').splitlines()]
     assert exported_records[0]['type'] == 'summary'
     assert exported_records[0]['evidence_status'] == 'partial'
@@ -1495,6 +1513,9 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
 
     page.get_by_role('button', name='Start enumeration').first.click()
     expect(page.locator('#new-run-dialog').get_by_text('Credentials required:', exact=False).first).to_be_visible()
+    assert page.locator('.source-choice small').first.evaluate('node => parseFloat(getComputedStyle(node).fontSize)') >= 12
+    assert page.locator('.action-choice small').first.evaluate('node => parseFloat(getComputedStyle(node).fontSize)') >= 12
+    assert page.locator('#final-authorization-summary').evaluate('node => parseFloat(getComputedStyle(node).fontSize)') >= 12
     page.get_by_role('button', name='Select all P0').click()
     assert page.locator('[data-activity="P0"] input:checked').count() == len(
         [source for source in passive_sources if source['ready']]
@@ -1512,6 +1533,9 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
     assert page.locator('.app-shell').evaluate("node => getComputedStyle(node).display === 'block'")
     assert page.evaluate('document.documentElement.scrollWidth <= document.documentElement.clientWidth')
     page.set_viewport_size({'width': 390, 'height': 844})
+    assert page.locator('.version-badge').evaluate('node => parseFloat(getComputedStyle(node).fontSize)') >= 11
+    assert page.locator('.run-meta').first.evaluate('node => parseFloat(getComputedStyle(node).fontSize)') >= 12
+    assert page.get_by_role('checkbox', name='Select hostname.example.com').bounding_box()['width'] >= 24
     expect(page.locator('#provider-outcome-summary')).to_be_visible()
     expect(page.get_by_role('columnheader', name='Outcome')).to_be_visible()
     expect(page.get_by_role('columnheader', name='Results')).to_be_hidden()
