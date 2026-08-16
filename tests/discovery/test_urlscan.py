@@ -434,8 +434,7 @@ async def test_pagination_continues_beyond_the_removed_local_page_ceiling(monkey
     await search.process()
 
     assert calls == 1002
-    assert len(await search.get_hostnames()) == 1001
-    assert 'page-1001.example.com' in await search.get_hostnames()
+    assert await search.get_hostnames() == {f'page-{page}.example.com' for page in range(1, 1002)}
     assert search.execution_status == 'completed'
     assert search.stop_reason is None
 
