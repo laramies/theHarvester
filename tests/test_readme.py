@@ -197,6 +197,9 @@ def test_readme_explains_jsonl_record_and_structured_evidence_parsing() -> None:
     readme = Path('README.md').read_text()
 
     assert '{"sources":[],"type":"hostname","value":"api.example.com"}' in readme
+    for result_kind in ('hostname', 'ip', 'asn', 'email', 'url', 'person', 'breach'):
+        assert f'select(.type == "{result_kind}")' in readme
+    assert 'select(.type == "person") | .value | fromjson' in readme
     assert 'select(.type == "dns-recursive-finding") | .value | fromjson' in readme
     assert 'JSONL is easy to stream one record at a time.' in readme
     assert '`person` and `infostealer`' in readme
