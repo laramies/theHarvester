@@ -33,7 +33,7 @@ Providers control their own availability, quotas, and response formats, so indiv
 
 ## Quick start
 
-theHarvester requires Python 3.12 or newer. From a source checkout:
+theHarvester requires Python 3.14. The repository's `.python-version` lets `uv` select it automatically:
 
 ```bash
 git clone https://github.com/laramies/theHarvester.git

@@ -16,7 +16,7 @@ theHarvester -h
 python3 --version
 ```
 
-theHarvester requires Python 3.12 or newer.
+theHarvester requires Python 3.14. Source checkouts managed by `uv` select it from `.python-version`.
 
 ## Configuration file messages
 
