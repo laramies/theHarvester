@@ -6,6 +6,7 @@ from types import ModuleType
 from urllib.parse import urlencode, urlsplit
 
 from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +42,6 @@ class SearchCommoncrawl:
         self.totalhosts: set[str] = set()
         self.proxy = False
         self.hostname = 'https://index.commoncrawl.org'
-        self.execution_status: str | None = None
-        self.stop_reason: str | None = None
 
     @staticmethod
     def _safe_parse_json_lines(payload: str) -> list:
@@ -120,29 +119,23 @@ class SearchCommoncrawl:
                 selected.append(entry)
         return selected
 
-    async def do_search(self) -> None:
+    async def do_search(self) -> SourceExecutionReport | None:
         try:
-            self.execution_status = None
-            self.stop_reason = None
             if self.limit == 0:
-                return
+                return None
 
             headers = {'User-agent': Core.get_user_agent()}
             catalog_response = await AsyncFetcher.fetch_all(
                 [f'{self.hostname}/collinfo.json'], headers=headers, proxy=self.proxy, json=True
             )
             if not catalog_response or not isinstance(catalog_response[0], list) or not catalog_response[0]:
-                self.execution_status = 'failed'
-                self.stop_reason = 'invalid-catalog'
                 logger.error('Common Crawl API error: invalid index catalog')
-                return
+                return SourceExecutionReport('failed', 'invalid-catalog')
 
             indexes = self._select_indexes(catalog_response[0])
             if not indexes:
-                self.execution_status = 'failed'
-                self.stop_reason = 'no-usable-indexes'
                 logger.error('Common Crawl API error: index catalog contains no usable entries')
-                return
+                return SourceExecutionReport('failed', 'no-usable-indexes')
 
             query_total = len(indexes) * 2
             logger.info(
@@ -182,7 +175,7 @@ class SearchCommoncrawl:
                         while first_page < page_limit:
                             remaining = self.limit - len(self.totalhosts)
                             if remaining == 0:
-                                return
+                                return None
                             page_url = f'{endpoint}?{urlencode({"url": query, "output": "json", "pageSize": self.PAGE_SIZE, "page": first_page, "limit": min(remaining, self.MAX_RECORDS_PER_REQUEST)})}'
                             first_page += 1
                             responses = await AsyncFetcher.fetch_all([page_url], headers=headers, proxy=self.proxy)
@@ -198,7 +191,7 @@ class SearchCommoncrawl:
                                         if domain.endswith(f'.{self.word}') or domain == self.word:
                                             self.totalhosts.add(domain)
                                             if len(self.totalhosts) >= self.limit:
-                                                return
+                                                return None
                             except ValueError as error:
                                 message = str(error)
                             except Exception:
@@ -228,32 +221,27 @@ class SearchCommoncrawl:
 
             if failed_queries:
                 if successful_queries or self.totalhosts:
-                    self.execution_status = 'partial'
-                    self.stop_reason = 'query-errors'
-                else:
-                    self.execution_status = 'failed'
-                    self.stop_reason = 'all-queries-failed'
-                    logger.warning(f'Common Crawl failed all {query_total} queries')
-            elif page_limit_reached:
-                self.execution_status = 'partial'
-                self.stop_reason = 'page-limit'
+                    return SourceExecutionReport('partial', 'query-errors')
+                logger.warning(f'Common Crawl failed all {query_total} queries')
+                return SourceExecutionReport('failed', 'all-queries-failed')
+            if page_limit_reached:
+                return SourceExecutionReport('partial', 'page-limit')
 
         except Exception as error:
-            self.execution_status = 'partial' if self.totalhosts else 'failed'
-            self.stop_reason = 'unexpected-error'
             logger.error(f'Common Crawl API error: {error}')
+            return SourceExecutionReport('failed', 'unexpected-error')
+        return None
 
     async def get_hostnames(self) -> set:
         return self.totalhosts
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
         try:
             async with asyncio.timeout(self.RUNTIME_SECONDS):
-                await self.do_search()
+                return await self.do_search()
         except TimeoutError:
-            self.execution_status = 'partial' if self.totalhosts else 'failed'
-            self.stop_reason = 'runtime-limit'
             logger.info(
                 f'Common Crawl runtime limit reached after {self.RUNTIME_SECONDS:g}s; preserved {len(self.totalhosts)} hosts'
             )
+            return SourceExecutionReport('failed', 'runtime-limit')

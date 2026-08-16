@@ -3,6 +3,7 @@ import logging
 from urllib.parse import unquote_plus, urlencode, urlsplit
 
 from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.source_execution import SourceExecutionReport, SourceReportStatus
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +25,6 @@ class SearchWaybackarchive:
         self.totalhosts: set = set()
         self.proxy = False
         self.hostname = 'https://web.archive.org'
-        self.execution_status: str | None = None
-        self.stop_reason: str | None = None
 
     def _extract_domain_from_url(self, url: str) -> str:
         """Extract domain from URL"""
@@ -106,11 +105,9 @@ class SearchWaybackarchive:
         logger.info(f'Wayback Archive page limit reached for pattern {pattern}; results may be incomplete')
         return 'page-limit'
 
-    async def do_search(self) -> None:
-        self.execution_status = None
-        self.stop_reason = None
+    async def do_search(self) -> SourceExecutionReport | None:
         if self.limit == 0:
-            return
+            return None
         try:
             headers = {'User-agent': Core.get_user_agent()}
             degraded_reason: str | None = None
@@ -125,7 +122,7 @@ class SearchWaybackarchive:
                             continue
                         if outcome == 'result-limit':
                             if degraded_reason is None:
-                                self.stop_reason = 'result-limit'
+                                return SourceExecutionReport('completed', 'result-limit')
                             break
                         if outcome == 'page-limit':
                             degraded_reason = degraded_reason or outcome
@@ -133,24 +130,22 @@ class SearchWaybackarchive:
                         if outcome is not None:
                             degraded_reason = degraded_reason or outcome
             except TimeoutError:
-                self.execution_status = 'partial' if self.totalhosts else 'failed'
-                self.stop_reason = 'runtime-limit'
                 logger.info(
                     f'Wayback Archive runtime limit reached after {self.RUNTIME_SECONDS:g}s; '
                     f'preserved {len(self.totalhosts)} hosts'
                 )
-                return
+                return SourceExecutionReport('failed', 'runtime-limit')
             if degraded_reason is not None:
-                self.execution_status = 'partial' if self.totalhosts or degraded_reason == 'page-limit' else 'failed'
-                self.stop_reason = degraded_reason
+                status: SourceReportStatus = 'partial' if degraded_reason == 'page-limit' else 'failed'
+                return SourceExecutionReport(status, degraded_reason)
         except Exception as e:
-            self.execution_status = 'partial' if self.totalhosts else 'failed'
-            self.stop_reason = 'unexpected-error'
             logger.info(f'Wayback Archive API error: {e}')
+            return SourceExecutionReport('failed', 'unexpected-error')
+        return None
 
     async def get_hostnames(self) -> set:
         return self.totalhosts
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        await self.do_search()
+        return await self.do_search()

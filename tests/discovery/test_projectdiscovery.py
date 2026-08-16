@@ -30,11 +30,11 @@ async def test_http_failure_is_reported_without_results(
     search = projectdiscovery.SearchDiscovery('example.com')
 
     with caplog.at_level(logging.INFO, logger=projectdiscovery.__name__):
-        await search.process()
+        report = await search.process()
 
     assert await search.get_hostnames() == set()
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'access-denied'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'access-denied'
     assert 'ProjectDiscovery request failed with HTTP 403' in caplog.text
 
 
@@ -48,11 +48,11 @@ async def test_http_429_is_rate_limited(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setattr(projectdiscovery.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = projectdiscovery.SearchDiscovery('example.com')
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == set()
-    assert search.execution_status == 'rate-limited'
-    assert search.stop_reason == 'http-429'
+    assert report.status == 'rate-limited'
+    assert report.stop_reason == 'http-429'
 
 
 @pytest.mark.parametrize('key', ['', '   '])
@@ -73,11 +73,11 @@ async def test_provider_unauthorized_payload_is_access_denied(monkeypatch: pytes
     monkeypatch.setattr(projectdiscovery.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = projectdiscovery.SearchDiscovery('example.com')
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == set()
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'access-denied'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'access-denied'
 
 
 @pytest.mark.asyncio
@@ -94,11 +94,11 @@ async def test_malformed_response_is_reported(
     search = projectdiscovery.SearchDiscovery('example.com')
 
     with caplog.at_level(logging.INFO, logger=projectdiscovery.__name__):
-        await search.process()
+        report = await search.process()
 
     assert await search.get_hostnames() == set()
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
     assert 'ProjectDiscovery returned malformed data' in caplog.text
 
 
@@ -122,11 +122,11 @@ async def test_success_preserves_supported_subdomain_shapes(
     search = projectdiscovery.SearchDiscovery('example.com')
 
     with caplog.at_level(logging.INFO, logger=projectdiscovery.__name__):
-        await search.process()
+        report = await search.process()
 
     assert await search.get_hostnames() == {'api.example.com', 'www.example.com'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
     assert caplog.text.count('ProjectDiscovery ignored a malformed subdomain item') == 2
 
 
@@ -144,11 +144,11 @@ async def test_malformed_subdomain_collection_is_reported(
     search = projectdiscovery.SearchDiscovery('example.com')
 
     with caplog.at_level(logging.INFO, logger=projectdiscovery.__name__):
-        await search.process()
+        report = await search.process()
 
     assert await search.get_hostnames() == set()
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
     assert 'ProjectDiscovery returned malformed subdomain data' in caplog.text
 
 
@@ -166,11 +166,11 @@ async def test_fetch_exception_is_transport_failure(
     search = projectdiscovery.SearchDiscovery('example.com')
 
     with caplog.at_level(logging.INFO, logger=projectdiscovery.__name__):
-        await search.process()
+        report = await search.process()
 
     assert await search.get_hostnames() == set()
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'transport-error'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'transport-error'
     assert 'private transport details' not in caplog.text
 
 
@@ -199,11 +199,11 @@ async def test_parser_exception_preserves_valid_partial_results(
     search = projectdiscovery.SearchDiscovery('example.com')
 
     with caplog.at_level(logging.INFO, logger=projectdiscovery.__name__):
-        await search.process()
+        report = await search.process()
 
     assert await search.get_hostnames() == {'api.example.com'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
     assert 'private provider payload' not in caplog.text
 
 

@@ -40,8 +40,9 @@ async def test_process_exhausts_current_catalog_index_pages(monkeypatch: pytest.
     monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
 
     search = commoncrawl.SearchCommoncrawl('example.com')
-    await search.process()
+    report = await search.process()
 
+    assert report is None
     assert await search.get_hostnames() == {
         'api.example.com',
         'example.com',
@@ -89,8 +90,9 @@ async def test_process_uses_unique_indexes_from_latest_catalog_year_window_and_s
     monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
 
     search = commoncrawl.SearchCommoncrawl('Example.COM.')
-    await search.process()
+    report = await search.process()
 
+    assert report is None
     assert await search.get_hostnames() == {'api.example.com', 'dev.example.com', 'example.com'}
     assert sum(current_endpoint in url for url in requested_urls) == 4
     assert sum(recent_endpoint in url for url in requested_urls) == 4
@@ -186,12 +188,12 @@ async def test_process_caps_provider_page_counts_and_reports_truncation(
 
     search = commoncrawl.SearchCommoncrawl('example.com', limit=50)
     with caplog.at_level(logging.WARNING, logger=commoncrawl.__name__):
-        await search.process()
+        report = await search.process()
 
     assert requested_pages == [0, 1, 0, 1]
     assert 'Common Crawl page limit reached for index CC-MAIN-2026-30; results may be incomplete' in caplog.text
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'page-limit'
+    assert report.status == 'partial'
+    assert report.stop_reason == 'page-limit'
 
 
 @pytest.mark.asyncio
@@ -224,8 +226,9 @@ async def test_process_respects_the_result_limit_across_page_requests(monkeypatc
     monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
 
     search = commoncrawl.SearchCommoncrawl('example.com', limit=51)
-    await search.process()
+    report = await search.process()
 
+    assert report is None
     assert requested_limits == [50, 1]
     assert len(await search.get_hostnames()) == 51
 
@@ -269,8 +272,9 @@ async def test_process_counts_only_unique_in_scope_hosts_toward_the_result_limit
     monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
 
     search = commoncrawl.SearchCommoncrawl('example.com', limit=3)
-    await search.process()
+    report = await search.process()
 
+    assert report is None
     assert await search.get_hostnames() == {
         'duplicate.example.com',
         'host-3.example.com',
@@ -312,8 +316,11 @@ async def test_process_reports_failed_or_malformed_index_without_discarding_othe
 
     search = commoncrawl.SearchCommoncrawl('example.com')
     with caplog.at_level(logging.WARNING, logger=commoncrawl.__name__):
-        await search.process()
+        report = await search.process()
 
+    assert report is not None
+    assert report.status == 'partial'
+    assert report.stop_reason == 'query-errors'
     assert await search.get_hostnames() == {'survivor.example.com'}
     assert 'CC-MAIN-BROKEN' in caplog.text
     assert 'CC-MAIN-2026-30' in caplog.text
@@ -342,11 +349,11 @@ async def test_process_reports_non_json_upstream_response(
 
     search = commoncrawl.SearchCommoncrawl('example.com')
     with caplog.at_level(logging.WARNING, logger=commoncrawl.__name__):
-        await search.process()
+        report = await search.process()
 
     assert 'unexpected non-JSON response' in caplog.text
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'all-queries-failed'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'all-queries-failed'
 
 
 @pytest.mark.asyncio
@@ -377,13 +384,13 @@ async def test_process_stops_a_query_after_three_entirely_unusable_pages(
 
     search = commoncrawl.SearchCommoncrawl('example.com')
     with caplog.at_level(logging.INFO, logger=commoncrawl.__name__):
-        await search.process()
+        report = await search.process()
 
     assert page_batches == 6
     assert 'Common Crawl selected 1 index and 2 queries' in caplog.text
     assert 'example.com' not in caplog.text
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'all-queries-failed'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'all-queries-failed'
 
 
 @pytest.mark.asyncio
@@ -413,13 +420,12 @@ async def test_process_retains_partial_results_at_the_runtime_limit(monkeypatch:
     monkeypatch.setattr(commoncrawl.SearchCommoncrawl, 'RUNTIME_SECONDS', 0.01)
     search = commoncrawl.SearchCommoncrawl('example.com')
 
-    await asyncio.wait_for(search.process(), timeout=0.1)
+    report = await asyncio.wait_for(search.process(), timeout=0.1)
 
     assert await search.get_hostnames() == {'api.example.com'}
 
-
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'runtime-limit'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'runtime-limit'
 
 
 @pytest.mark.asyncio
@@ -431,11 +437,11 @@ async def test_process_reports_a_runtime_limit_before_collecting_results(monkeyp
     monkeypatch.setattr(commoncrawl.SearchCommoncrawl, 'RUNTIME_SECONDS', 0.01)
     search = commoncrawl.SearchCommoncrawl('example.com')
 
-    await asyncio.wait_for(search.process(), timeout=0.1)
+    report = await asyncio.wait_for(search.process(), timeout=0.1)
 
     assert await search.get_hostnames() == set()
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'runtime-limit'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'runtime-limit'
 
 
 @pytest.mark.asyncio
@@ -488,12 +494,12 @@ async def test_process_keeps_later_valid_page_after_malformed_page(
     search = commoncrawl.SearchCommoncrawl('example.com')
 
     with caplog.at_level(logging.WARNING, logger=commoncrawl.__name__):
-        await search.process()
+        report = await search.process()
 
     assert await search.get_hostnames() == {'api.example.com'}
     assert 'malformed JSON line' in caplog.text
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'query-errors'
+    assert report.status == 'partial'
+    assert report.stop_reason == 'query-errors'
 
 
 @pytest.mark.asyncio
@@ -519,8 +525,9 @@ async def test_process_isolates_malformed_urls_within_a_page(monkeypatch: pytest
     monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
 
     search = commoncrawl.SearchCommoncrawl('example.com')
-    await search.process()
+    report = await search.process()
 
+    assert report is None
     assert await search.get_hostnames() == {'api.example.com', 'mail.example.com'}
 
 
@@ -547,8 +554,11 @@ async def test_process_keeps_results_when_another_query_fails(monkeypatch: pytes
     monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = commoncrawl.SearchCommoncrawl('example.com')
 
-    await search.process()
+    report = await search.process()
 
+    assert report is not None
+    assert report.status == 'partial'
+    assert report.stop_reason == 'query-errors'
     assert await search.get_hostnames() == {'api.example.com'}
 
 

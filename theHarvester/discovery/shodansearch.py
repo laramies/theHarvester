@@ -15,6 +15,7 @@ from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse, ResponseS
 from theHarvester.lib.hostchecker import resolve_ip_addresses
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.shodan_evidence import ShodanHostObservation, canonical_shodan_hosts
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 logger = logging.getLogger(__name__)
 
@@ -77,8 +78,6 @@ class SearchShodan:
         self.error_type: str | None = None
         self.asn_attributions: set[AsnAttributionObservation] = set()
         self.totalhosts: set[str] = set()
-        self.execution_status: str | None = None
-        self.stop_reason: str | None = None
         self._next_request_at = 0.0
 
     async def _fetch_json(self, url: str, params: dict[str, object], proxy: bool) -> FetcherResponse:
@@ -488,14 +487,12 @@ class SearchShodan:
     async def get_shodan_hosts(self) -> tuple[ShodanHostObservation, ...]:
         return canonical_shodan_hosts(list(self.shodan_hosts.values()))
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         if self.word is None:
             raise ValueError('A discovery target is required')
         assert self.scope is not None
 
         self.totalhosts.clear()
-        self.execution_status = None
-        self.stop_reason = None
         dns_stop_reason: str | None = None
         try:
             resolved_ips = await resolve_ip_addresses(self.word, family=socket.AF_INET)
@@ -520,22 +517,13 @@ class SearchShodan:
                 provider_error_types.add(self.error_type)
 
         self.error_type = next(iter(sorted(provider_error_types)), None)
-        retained_evidence = bool(self.totalhosts or self.shodan_hosts)
         if dns_stop_reason is not None:
-            self.execution_status = 'partial' if retained_evidence else 'failed'
-            self.stop_reason = dns_stop_reason
-            return
+            return SourceExecutionReport('failed', dns_stop_reason)
         if provider_error_types:
-            self.execution_status = 'partial' if retained_evidence else 'failed'
             if provider_error_types <= {'HTTP401Error', 'HTTP403Error'}:
-                self.stop_reason = 'access-denied'
-            elif provider_error_types == {'HTTP429Error'}:
-                self.stop_reason = 'rate-limited'
-            elif len(resolved_ips) == 1:
-                self.stop_reason = 'provider-error'
-            else:
-                self.stop_reason = 'provider-errors'
-            return
-
-        self.execution_status = 'completed'
-        self.stop_reason = None if retained_evidence else 'no-results'
+                return SourceExecutionReport('failed', 'access-denied')
+            if provider_error_types == {'HTTP429Error'}:
+                return SourceExecutionReport('rate-limited', 'rate-limited')
+            reason = 'provider-error' if len(resolved_ips) == 1 else 'provider-errors'
+            return SourceExecutionReport('failed', reason)
+        return None

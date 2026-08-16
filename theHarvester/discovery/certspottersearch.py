@@ -2,6 +2,7 @@ import logging
 from urllib.parse import urlencode
 
 from theHarvester.lib.core import AsyncFetcher
+from theHarvester.lib.source_execution import SourceExecutionReport, SourceReportStatus
 
 logger = logging.getLogger(__name__)
 
@@ -19,12 +20,11 @@ class SearchCertspoter:
         self.word = word.strip().lower().rstrip('.')
         self.totalhosts: set = set()
         self.proxy = False
-        self.execution_status: str | None = None
-        self.stop_reason: str | None = None
+        self._report: SourceExecutionReport | None = None
 
     def _mark_incomplete(self, reason: str, *, rate_limited: bool = False) -> None:
-        self.execution_status = 'rate-limited' if rate_limited else 'partial'
-        self.stop_reason = reason
+        status: SourceReportStatus = 'rate-limited' if rate_limited else 'partial'
+        self._report = SourceExecutionReport(status, reason)
 
     async def do_search(self) -> None:
         base_url = 'https://api.certspotter.com/v1/issuances'
@@ -131,7 +131,9 @@ class SearchCertspoter:
     async def get_hostnames(self) -> set:
         return self.totalhosts
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
+        self._report = None
         await self.do_search()
         logger.info('\tSearching results.')
+        return self._report

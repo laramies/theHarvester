@@ -77,11 +77,10 @@ async def test_response_body_is_not_logged_and_scoped_records_are_returned(
 
     monkeypatch.setattr(whoisxml.AsyncFetcher, 'fetch', fake_fetch)
     search = whoisxml.SearchWhoisXML('example.com', 3)
-    await search.process(proxy=True)
+    report = await search.process(proxy=True)
 
     assert await search.get_hostnames() == {'api.example.com', 'www.example.com'}
-    assert search.execution_status == 'completed'
-    assert search.stop_reason is None
+    assert report is None
     assert [call['url'] for call in calls] == ['https://subdomains.whoisxmlapi.com/api/v2'] * 2
     assert all(call['session'] is provider_session for call in calls)
     assert [call['params'] for call in calls] == [
@@ -131,10 +130,10 @@ async def test_provider_failures_are_truthful(
 
     monkeypatch.setattr(whoisxml.AsyncFetcher, 'fetch', fake_fetch)
     search = whoisxml.SearchWhoisXML('example.com', 10)
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == status
-    assert search.stop_reason == reason
+    assert report.status == status
+    assert report.stop_reason == reason
 
 
 @pytest.mark.asyncio
@@ -156,11 +155,11 @@ async def test_malformed_rows_preserve_valid_partial_results(monkeypatch: pytest
 
     monkeypatch.setattr(whoisxml.AsyncFetcher, 'fetch', fake_fetch)
     search = whoisxml.SearchWhoisXML('example.com', 10)
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'ok.example.com'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio
@@ -186,11 +185,11 @@ async def test_later_page_failure_preserves_partial_results(monkeypatch: pytest.
 
     monkeypatch.setattr(whoisxml.AsyncFetcher, 'fetch', fake_fetch)
     search = whoisxml.SearchWhoisXML('example.com', 10)
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'api.example.com'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'http-429'
+    assert report.status == 'rate-limited'
+    assert report.stop_reason == 'http-429'
 
 
 @pytest.mark.asyncio

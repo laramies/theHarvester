@@ -7,6 +7,7 @@ from theHarvester.discovery.constants import MissingKey
 from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
+from theHarvester.lib.source_execution import SourceExecutionReport, SourceReportStatus
 
 
 class SearchSecurityScorecard:
@@ -33,12 +34,10 @@ class SearchSecurityScorecard:
         self.recommendations: list[dict[str, Any]] = []
         self.history: list[dict[str, Any]] = []
         self.ips: set[str] = set()
-        self.execution_status: str | None = None
-        self.stop_reason: str | None = None
+        self._report: SourceExecutionReport | None = None
 
-    def _stop(self, status: str, reason: str) -> None:
-        self.execution_status = 'partial' if self.hosts or self.ips else status
-        self.stop_reason = reason
+    def _stop(self, status: SourceReportStatus, reason: str) -> None:
+        self._report = SourceExecutionReport(status, reason)
 
     def _response_body(self, response: Any) -> dict[str, Any] | None:
         if error := provider_http_error(response):
@@ -118,9 +117,8 @@ class SearchSecurityScorecard:
             page += 1
         return True
 
-    async def process(self, proxy: bool = False) -> None:
-        self.execution_status = None
-        self.stop_reason = None
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
+        self._report = None
         try:
             async with AsyncFetcher.open_session(headers=self.headers, proxy=proxy) as session:
                 response = await AsyncFetcher.fetch(
@@ -131,22 +129,16 @@ class SearchSecurityScorecard:
                 )
                 body = self._response_body(response)
                 if body is None:
-                    return
+                    return self._report
                 if self._extract_summary(body):
                     self._stop('failed', 'invalid-response')
                 if not await self._collect_assets(session, 'domains', 'domain'):
-                    return
+                    return self._report
                 if not await self._collect_assets(session, 'ips', 'ip'):
-                    return
+                    return self._report
         except Exception:
-            self._stop('failed', 'transport-error')
-            return
-
-        if self.execution_status is not None and (self.hosts or self.ips):
-            self.execution_status = 'partial'
-        elif self.execution_status is None:
-            self.execution_status = 'completed'
-            self.stop_reason = None if self.hosts or self.ips else 'no-results'
+            return SourceExecutionReport('failed', 'transport-error')
+        return self._report
 
     async def get_hostnames(self) -> set[str]:
         return self.hosts

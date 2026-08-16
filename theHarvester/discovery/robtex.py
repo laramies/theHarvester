@@ -6,6 +6,7 @@ from types import ModuleType
 import aiohttp
 
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +29,6 @@ class SearchRobtex:
         self.totalips: set = set()
         self.proxy = False
         self.hostname = 'https://freeapi.robtex.com'
-        self.execution_status: str | None = None
-        self.stop_reason: str | None = None
 
     @staticmethod
     def _safe_parse_json_lines(payload: str) -> list:
@@ -46,7 +45,7 @@ class SearchRobtex:
                     continue
         return results
 
-    async def do_search(self) -> None:
+    async def do_search(self) -> SourceExecutionReport | None:
         try:
             headers = {'User-agent': Core.get_user_agent()}
 
@@ -59,43 +58,33 @@ class SearchRobtex:
             )
             response = responses[0] if responses else None
             if response is None:
-                self.execution_status = 'failed'
-                self.stop_reason = 'transport-error'
                 logger.info(f'No response from Robtex API for: {url}')
-                return
+                return SourceExecutionReport('failed', 'transport-error')
             if response.status == 429:
-                self.execution_status = 'rate-limited'
-                self.stop_reason = 'http-429'
                 logger.info('Robtex request was rate limited')
-                return
+                return SourceExecutionReport('rate-limited', 'http-429')
             if not 200 <= response.status < 300:
-                self.execution_status = 'failed'
-                self.stop_reason = f'http-{response.status}'
                 logger.info(f'Robtex request failed with HTTP {response.status}')
-                return
+                return SourceExecutionReport('failed', f'http-{response.status}')
             if not isinstance(response.body, str):
-                self.execution_status = 'failed'
-                self.stop_reason = 'invalid-response'
                 logger.info(f'No response from Robtex API for: {url}')
-                return
+                return SourceExecutionReport('failed', 'invalid-response')
             if not response.body:
-                return
+                return None
 
             try:
                 data = self._safe_parse_json_lines(response.body)
             except (TypeError, ValueError) as e:
                 logger.info(f'Failed to parse JSON lines from Robtex response: {e}')
-                return
+                return SourceExecutionReport('failed', 'invalid-response')
             records = [
                 record
                 for record in data
                 if isinstance(record, dict) and isinstance(record.get('rrtype'), str) and isinstance(record.get('rrdata'), str)
             ]
             if not records:
-                self.execution_status = 'failed'
-                self.stop_reason = 'invalid-response'
                 logger.info('Robtex returned no valid DNS records')
-                return
+                return SourceExecutionReport('failed', 'invalid-response')
 
             for record in records:
                 rrdata = record['rrdata']
@@ -108,19 +97,16 @@ class SearchRobtex:
                         pass
 
         except (aiohttp.ClientError, TimeoutError, OSError) as e:
-            self.execution_status = 'failed'
-            self.stop_reason = 'transport-error'
             logger.info(f'Robtex API error: {e}')
+            return SourceExecutionReport('failed', 'transport-error')
         except (TypeError, ValueError) as e:
-            self.execution_status = 'failed'
-            self.stop_reason = 'invalid-response'
             logger.info(f'Robtex API error: {e}')
+            return SourceExecutionReport('failed', 'invalid-response')
+        return None
 
     async def get_ips(self) -> set:
         return self.totalips
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        self.execution_status = None
-        self.stop_reason = None
-        await self.do_search()
+        return await self.do_search()

@@ -30,14 +30,13 @@ async def test_process_keeps_only_label_scoped_records_and_preserves_proxy(monke
     monkeypatch.setattr(search_dnsdumpster.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = search_dnsdumpster.SearchDNSDumpster('example.com')
 
-    await search.process(proxy=True)
+    report = await search.process(proxy=True)
 
     assert captured['proxy'] is True
     assert captured['include_metadata'] is True
     assert await search.get_hostnames() == {'api.example.com'}
     assert await search.get_ips() == {'192.0.2.10'}
-    assert search.execution_status == 'completed'
-    assert search.stop_reason is None
+    assert report is None
 
 
 @pytest.mark.asyncio
@@ -50,12 +49,11 @@ async def test_valid_empty_response_is_completed(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr(search_dnsdumpster.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = search_dnsdumpster.SearchDNSDumpster('example.com')
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == set()
     assert await search.get_ips() == set()
-    assert search.execution_status == 'completed'
-    assert search.stop_reason == 'no-results'
+    assert report is None
 
 
 @pytest.mark.parametrize(
@@ -87,12 +85,12 @@ async def test_failed_responses_are_attributed(
     monkeypatch.setattr(search_dnsdumpster.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = search_dnsdumpster.SearchDNSDumpster('example.com')
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == set()
     assert await search.get_ips() == set()
-    assert search.execution_status == execution_status
-    assert search.stop_reason == stop_reason
+    assert report.status == execution_status
+    assert report.stop_reason == stop_reason
 
 
 @pytest.mark.asyncio
@@ -118,12 +116,12 @@ async def test_valid_and_malformed_records_preserve_partial_results(monkeypatch:
     monkeypatch.setattr(search_dnsdumpster.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = search_dnsdumpster.SearchDNSDumpster('example.com')
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'api.example.com'}
     assert await search.get_ips() == {'2001:db8::1'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio
@@ -136,10 +134,10 @@ async def test_fetch_exception_is_transport_failure(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(search_dnsdumpster.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = search_dnsdumpster.SearchDNSDumpster('example.com')
 
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'transport-error'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'transport-error'
 
 
 pytestmark = pytest.mark.provider_contract('dnsdumpster')

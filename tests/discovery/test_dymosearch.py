@@ -27,7 +27,7 @@ async def test_process_extracts_scoped_canonical_and_suggested_domains(monkeypat
 
     monkeypatch.setattr(dymosearch.AsyncFetcher, 'post_fetch', fake_post_fetch)
     search = dymosearch.SearchDymo('example.com')
-    await search.process(proxy=True)
+    report = await search.process(proxy=True)
 
     assert await search.get_hostnames() == {'example.com', 'www.example.com'}
     assert (await search.get_results())['domain']['domain'] == 'example.com'
@@ -35,8 +35,7 @@ async def test_process_extracts_scoped_canonical_and_suggested_domains(monkeypat
     assert captured['json_body'] == {'domain': 'example.com', 'url': 'https://example.com'}
     assert captured['include_metadata'] is True
     assert captured['proxy'] is True
-    assert search.execution_status == 'completed'
-    assert search.stop_reason is None
+    assert report is None
 
 
 @pytest.mark.parametrize('key', [None, '', '   '])
@@ -71,10 +70,10 @@ async def test_failures_are_structured(
 
     monkeypatch.setattr(dymosearch.AsyncFetcher, 'post_fetch', fake_post_fetch)
     search = dymosearch.SearchDymo('example.com')
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == status
-    assert search.stop_reason == reason
+    assert report.status == status
+    assert report.stop_reason == reason
 
 
 @pytest.mark.asyncio
@@ -86,10 +85,9 @@ async def test_empty_object_is_completed_without_evidence(monkeypatch: pytest.Mo
 
     monkeypatch.setattr(dymosearch.AsyncFetcher, 'post_fetch', fake_post_fetch)
     search = dymosearch.SearchDymo('example.com')
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == 'completed'
-    assert search.stop_reason == 'no-results'
+    assert report is None
 
 
 @pytest.mark.asyncio

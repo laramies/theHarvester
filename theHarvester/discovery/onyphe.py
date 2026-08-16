@@ -9,6 +9,7 @@ from theHarvester.lib.asn_attribution import AsnAttributionObservation, SubjectK
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.result_values import normalize_asn
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 logger = logging.getLogger(__name__)
 
@@ -39,17 +40,8 @@ class SearchOnyphe:
         if not isinstance(self.key, str) or not self.key.strip():
             raise MissingKey('onyphe')
         self.proxy = False
-        self.execution_status: str | None = None
-        self.stop_reason: str | None = None
 
-    def _has_results(self) -> bool:
-        return bool(self.totalhosts or self.totalips or self.asns)
-
-    def _stop(self, status: str, reason: str) -> None:
-        self.execution_status = 'partial' if self._has_results() else status
-        self.stop_reason = reason
-
-    async def do_search(self) -> None:
+    async def do_search(self) -> SourceExecutionReport | None:
         base_url = 'https://www.onyphe.io/api/v2/search/'
         headers = {
             'User-Agent': Core.get_user_agent(),
@@ -61,6 +53,7 @@ class SearchOnyphe:
         result_limit = min(self.limit, self.MAX_RESULTS)
         page_size = min(result_limit, self.MAX_RESULTS)
         last_total = 0
+        report = None
         try:
             async with AsyncFetcher.open_session(headers=headers, proxy=self.proxy) as session:
                 while records_seen < result_limit:
@@ -73,16 +66,14 @@ class SearchOnyphe:
                         include_metadata=True,
                     )
                     if error := provider_http_error(metadata):
-                        self._stop(*error)
-                        return
+                        return SourceExecutionReport(*error)
                     assert isinstance(metadata, FetcherResponse)
                     if not isinstance(metadata.body, dict):
-                        self._stop('failed', 'invalid-response')
-                        return
+                        return SourceExecutionReport('failed', 'invalid-response')
                     response_text = metadata.body.get('text')
                     if response_text != 'Success':
-                        self._stop('failed', 'provider-error' if isinstance(response_text, str) else 'invalid-response')
-                        return
+                        reason = 'provider-error' if isinstance(response_text, str) else 'invalid-response'
+                        return SourceExecutionReport('failed', reason)
                     results = metadata.body.get('results')
                     max_page = metadata.body.get('max_page', 1)
                     total = metadata.body.get('total', len(results) if isinstance(results, list) else None)
@@ -95,34 +86,27 @@ class SearchOnyphe:
                         or not isinstance(total, int)
                         or total < 0
                     ):
-                        self._stop('failed', 'invalid-response')
-                        return
+                        return SourceExecutionReport('failed', 'invalid-response')
 
                     page_results = results[:remaining]
                     records_seen += len(page_results)
                     last_total = total
                     self.response = {**metadata.body, 'results': page_results}
                     if await self.parse_onyphe_resp_json():
-                        self._stop('failed', 'invalid-response')
+                        report = SourceExecutionReport('failed', 'invalid-response')
                     expected_records = min(total, result_limit)
                     if (not results or page >= max_page) and records_seen < expected_records:
-                        self._stop('failed', 'invalid-response')
-                        break
+                        return SourceExecutionReport('failed', 'invalid-response')
                     if not results or page >= max_page or records_seen >= expected_records:
                         break
                     page += 1
         except Exception as error:
-            self._stop('failed', 'transport-error')
             logger.info('Onyphe request failed: %s', type(error).__name__)
-            return
+            return SourceExecutionReport('failed', 'transport-error')
 
         if self.limit > self.MAX_RESULTS and last_total > self.MAX_RESULTS and records_seen >= self.MAX_RESULTS:
-            self._stop('failed', 'provider-limit')
-        if self.execution_status is not None and self._has_results():
-            self.execution_status = 'partial'
-        elif self.execution_status is None:
-            self.execution_status = 'completed'
-            self.stop_reason = None if self._has_results() else 'no-results'
+            return SourceExecutionReport('failed', 'provider-limit')
+        return report
 
     async def parse_onyphe_resp_json(self) -> bool:
         if not isinstance(self.response, dict):
@@ -259,8 +243,6 @@ class SearchOnyphe:
     async def get_ips(self) -> set:
         return self.totalips
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        self.execution_status = None
-        self.stop_reason = None
-        await self.do_search()
+        return await self.do_search()

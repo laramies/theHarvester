@@ -5,6 +5,7 @@ from ipaddress import ip_address
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 logger = logging.getLogger(__name__)
 
@@ -19,10 +20,8 @@ class SearchDNSDumpster:
         self.ips: set = set()
         self.base_url = 'https://api.dnsdumpster.com'
         self.proxy = False
-        self.execution_status: str | None = None
-        self.stop_reason: str | None = None
 
-    async def do_search(self) -> None:
+    async def do_search(self) -> SourceExecutionReport | None:
         url = f'{self.base_url}/domain/{self.word}'
         headers = {'User-Agent': Core.get_user_agent(), 'X-API-Key': self.key}
         try:
@@ -34,40 +33,24 @@ class SearchDNSDumpster:
                 include_metadata=True,
             )
         except Exception as error:
-            self.execution_status = 'failed'
-            self.stop_reason = 'transport-error'
             logger.info('DNSDumpster request failed: %s', type(error).__name__)
-            return
+            return SourceExecutionReport('failed', 'transport-error')
 
         metadata = response[0] if response and isinstance(response[0], FetcherResponse) else None
         if metadata is None:
-            self.execution_status = 'failed'
-            self.stop_reason = 'transport-error'
-            return
+            return SourceExecutionReport('failed', 'transport-error')
         if metadata.status == 429:
-            self.execution_status = 'rate-limited'
-            self.stop_reason = 'http-429'
-            return
+            return SourceExecutionReport('rate-limited', 'http-429')
         if metadata.status in {401, 403}:
-            self.execution_status = 'failed'
-            self.stop_reason = 'access-denied'
-            return
+            return SourceExecutionReport('failed', 'access-denied')
         if not 200 <= metadata.status < 300:
-            self.execution_status = 'failed'
-            self.stop_reason = f'http-{metadata.status}'
-            return
+            return SourceExecutionReport('failed', f'http-{metadata.status}')
         if not isinstance(metadata.body, dict):
-            self.execution_status = 'failed'
-            self.stop_reason = 'invalid-response'
-            return
+            return SourceExecutionReport('failed', 'invalid-response')
         if 'error' in metadata.body:
-            self.execution_status = 'failed'
-            self.stop_reason = 'provider-error'
-            return
+            return SourceExecutionReport('failed', 'provider-error')
         if not any(record_type in metadata.body for record_type in ('a', 'cname', 'mx', 'ns', 'txt')):
-            self.execution_status = 'failed'
-            self.stop_reason = 'invalid-response'
-            return
+            return SourceExecutionReport('failed', 'invalid-response')
 
         malformed = False
         records = []
@@ -108,15 +91,12 @@ class SearchDNSDumpster:
                     malformed = True
 
         if malformed:
-            self.execution_status = 'partial' if self.hosts or self.ips else 'failed'
-            self.stop_reason = 'invalid-response'
-        else:
-            self.execution_status = 'completed'
-            self.stop_reason = None if self.hosts or self.ips else 'no-results'
+            return SourceExecutionReport('failed', 'invalid-response')
+        return None
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        await self.do_search()
+        return await self.do_search()
 
     async def get_hostnames(self) -> set:
         return self.hosts

@@ -8,6 +8,7 @@ from urllib.parse import unquote, urlsplit, urlunsplit
 
 from theHarvester.lib.core import AsyncFetcher, FetcherResponse, ResponseStreamError
 from theHarvester.lib.hostnames import normalize_scoped_hostname
+from theHarvester.lib.source_execution import SourceExecutionReport, SourceReportStatus
 
 
 class SearchApisGuru:
@@ -31,14 +32,16 @@ class SearchApisGuru:
 
     def __init__(self, word: str, limit: int) -> None:
         self.word = self._domain(word)
-        self.result_limit = max(0, min(limit, self.MAX_RESULTS_PER_ROUTE))
+        requested_limit = max(0, limit)
+        self.result_limit = min(requested_limit, self.MAX_RESULTS_PER_ROUTE)
+        self.result_limit_is_protective = requested_limit > self.MAX_RESULTS_PER_ROUTE
         self.totalhosts: set[str] = set()
         self.totalemails: set[str] = set()
         self.urls: set[str] = set()
         self.proxy = False
-        self.execution_status: str | None = None
-        self.stop_reason: str | None = None
+        self._report: SourceExecutionReport | None = None
         self.result_limit_reached = False
+        self.protective_limit_reached = False
 
     @staticmethod
     def _domain(value: str) -> str:
@@ -68,12 +71,8 @@ class SearchApisGuru:
             return ''
         return candidate
 
-    def _has_results(self) -> bool:
-        return any(host != self.word for host in self.totalhosts) or bool(self.totalemails or self.urls)
-
-    def _stop(self, status: str, reason: str) -> None:
-        self.execution_status = 'partial' if self._has_results() else status
-        self.stop_reason = reason
+    def _stop(self, status: SourceReportStatus, reason: str) -> None:
+        self._report = SourceExecutionReport(status, reason)
 
     async def _fetch(self, url: str) -> FetcherResponse | None:
         try:
@@ -97,7 +96,10 @@ class SearchApisGuru:
 
     def _retain(self, values: set[str], value: str) -> None:
         if value not in values and len(values) >= self.result_limit:
-            self.result_limit_reached = True
+            if self.result_limit_is_protective:
+                self.protective_limit_reached = True
+            else:
+                self.result_limit_reached = True
         else:
             values.add(value)
 
@@ -174,7 +176,7 @@ class SearchApisGuru:
         if isinstance(host, str) and isinstance(schemes, list):
             path = base_path if isinstance(base_path, str) and base_path.startswith('/') else ''
             if len(schemes) > self.MAX_SPEC_ITEMS:
-                self.result_limit_reached = True
+                self.protective_limit_reached = True
             for scheme in islice(schemes, self.MAX_SPEC_ITEMS):
                 if isinstance(scheme, str) and scheme.lower() in {'http', 'https'}:
                     self._add_url(f'{scheme.lower()}://{host}{path}')
@@ -184,7 +186,7 @@ class SearchApisGuru:
         servers = spec.get('servers')
         if isinstance(servers, list):
             if len(servers) > self.MAX_SPEC_ITEMS:
-                self.result_limit_reached = True
+                self.protective_limit_reached = True
             for server in islice(servers, self.MAX_SPEC_ITEMS):
                 if not isinstance(server, dict):
                     malformed = True
@@ -258,12 +260,10 @@ class SearchApisGuru:
             return
         directory_response = await self._fetch(f'{self.DIRECTORY_ROOT}/{self.word}.json')
         if directory_response is None:
-            if self.execution_status is None:
+            if self._report is None:
                 self._stop('failed', 'transport-error')
             return
         if directory_response.status == 404:
-            self.execution_status = 'completed'
-            self.stop_reason = 'no-results'
             return
         if directory_response.status == 429:
             self._stop('rate-limited', 'http-429')
@@ -324,10 +324,10 @@ class SearchApisGuru:
         for spec_url in spec_urls:
             spec_response = await self._fetch(spec_url)
             if spec_response is None:
-                if self.execution_status is None:
+                if self._report is None:
                     self._stop('failed', 'transport-error')
-                elif self.stop_reason in {'invalid-response', 'response-limit'}:
-                    spec_failure = spec_failure or self.stop_reason
+                elif self._report.stop_reason in {'invalid-response', 'response-limit'}:
+                    spec_failure = spec_failure or self._report.stop_reason
                     continue
                 return
             if spec_response.status == 429:
@@ -354,13 +354,12 @@ class SearchApisGuru:
             self._stop('failed', 'invalid-response')
         elif spec_failure is not None:
             self._stop('failed', spec_failure)
+        elif self.protective_limit_reached:
+            self._stop('failed', 'result-cap')
         elif self.result_limit_reached:
-            self._stop('failed', 'result-limit')
+            self._stop('completed', 'result-limit')
         elif directory_limit_reached:
             self._stop('failed', 'directory-entry-limit')
-        else:
-            self.execution_status = 'completed'
-            self.stop_reason = None if self._has_results() else 'no-results'
 
     async def get_hostnames(self) -> set[str]:
         return self.totalhosts
@@ -371,13 +370,14 @@ class SearchApisGuru:
     async def get_urls(self) -> set[str]:
         return self.urls
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        self.execution_status = None
-        self.stop_reason = None
+        self._report = None
         self.result_limit_reached = False
+        self.protective_limit_reached = False
         try:
             async with asyncio.timeout(self.MAX_RUNTIME_SECONDS):
                 await self.do_search()
         except TimeoutError:
             self._stop('failed', 'runtime-limit')
+        return self._report

@@ -26,8 +26,9 @@ async def test_process_collects_more_than_one_cdx_page(monkeypatch: pytest.Monke
     monkeypatch.setattr(waybackarchive.AsyncFetcher, 'fetch_all', fake_fetch_all)
 
     search = waybackarchive.SearchWaybackarchive('example.com')
-    await search.process()
+    report = await search.process()
 
+    assert report is None
     assert await search.get_hostnames() == {f'host-{index}.example.com' for index in range(125)}
     assert [query.get('resumeKey') for query in requests if query['url'] == ['*.example.com']] == [
         None,
@@ -51,8 +52,9 @@ async def test_process_stops_when_a_resume_key_repeats(monkeypatch: pytest.Monke
     monkeypatch.setattr(waybackarchive.AsyncFetcher, 'fetch_all', fake_fetch_all)
 
     search = waybackarchive.SearchWaybackarchive('example.com')
-    await search.process()
+    report = await search.process()
 
+    assert report is None
     wildcard_requests = [query for query in requests if query['url'] == ['*.example.com']]
     assert len(wildcard_requests) == 2
     assert await search.get_hostnames() == {'api.example.com'}
@@ -78,8 +80,9 @@ async def test_process_normalizes_and_scope_checks_each_page(monkeypatch: pytest
     monkeypatch.setattr(waybackarchive.AsyncFetcher, 'fetch_all', fake_fetch_all)
 
     search = waybackarchive.SearchWaybackarchive('example.com')
-    await search.process()
+    report = await search.process()
 
+    assert report is None
     assert await search.get_hostnames() == {'api.example.com', 'example.com'}
 
 
@@ -95,8 +98,9 @@ async def test_process_normalizes_the_requested_domain(monkeypatch: pytest.Monke
     monkeypatch.setattr(waybackarchive.AsyncFetcher, 'fetch_all', fake_fetch_all)
 
     search = waybackarchive.SearchWaybackarchive('Example.COM.')
-    await search.process()
+    report = await search.process()
 
+    assert report is None
     assert await search.get_hostnames() == {'api.example.com'}
     assert requests[0]['url'] == ['*.example.com']
 
@@ -118,12 +122,12 @@ async def test_process_keeps_partial_results_when_a_later_page_times_out(
 
     search = waybackarchive.SearchWaybackarchive('example.com')
     with caplog.at_level(logging.INFO, logger=waybackarchive.__name__):
-        await search.process()
+        report = await search.process()
 
     assert await search.get_hostnames() == {'api.example.com', 'example.com'}
     assert 'Wayback Archive API error for pattern *.example.com' in caplog.text
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'request-error'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'request-error'
 
 
 @pytest.mark.asyncio
@@ -150,12 +154,16 @@ async def test_process_ignores_empty_html_and_non_text_responses(
 
     search = waybackarchive.SearchWaybackarchive('example.com')
     with caplog.at_level(logging.INFO, logger=waybackarchive.__name__):
-        await search.process()
+        report = await search.process()
 
     assert await search.get_hostnames() == set()
     assert expected_log in caplog.text
-    assert search.execution_status == expected_status
-    assert search.stop_reason == expected_stop_reason
+    if expected_status is None:
+        assert report is None
+    else:
+        assert report is not None
+        assert report.status == expected_status
+        assert report.stop_reason == expected_stop_reason
 
 
 @pytest.mark.asyncio
@@ -178,11 +186,14 @@ async def test_process_respects_the_per_query_page_bound(
 
     search = waybackarchive.SearchWaybackarchive('example.com')
     with caplog.at_level(logging.INFO, logger=waybackarchive.__name__):
-        await search.process()
+        report = await search.process()
 
     assert wildcard_requests == 2
     assert await search.get_hostnames() == {'host-1.example.com', 'host-2.example.com'}
     assert 'Wayback Archive page limit reached for pattern *.example.com; results may be incomplete' in caplog.text
+    assert report is not None
+    assert report.status == 'partial'
+    assert report.stop_reason == 'page-limit'
 
 
 @pytest.mark.asyncio
@@ -205,11 +216,11 @@ async def test_process_retains_partial_results_at_the_runtime_limit(
     search = waybackarchive.SearchWaybackarchive('example.com')
 
     with caplog.at_level(logging.INFO, logger=waybackarchive.__name__):
-        await search.process()
+        report = await search.process()
 
     assert await search.get_hostnames() == {'api.example.com'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'runtime-limit'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'runtime-limit'
     assert 'Wayback Archive page 1: hosts=1' in caplog.text
     assert 'example.com' not in caplog.text
 
@@ -225,10 +236,12 @@ async def test_process_stops_at_the_requested_result_limit(monkeypatch: pytest.M
     monkeypatch.setattr(waybackarchive.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = waybackarchive.SearchWaybackarchive('example.com', limit=2)
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'one.example.com', 'two.example.com'}
-    assert search.stop_reason == 'result-limit'
+    assert report is not None
+    assert report.status == 'completed'
+    assert report.stop_reason == 'result-limit'
     assert len(requested_urls) == 1
 
 
@@ -245,11 +258,11 @@ async def test_process_keeps_an_earlier_failure_when_a_later_pattern_reaches_the
     monkeypatch.setattr(waybackarchive.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = waybackarchive.SearchWaybackarchive('example.com', limit=1)
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'example.com'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 pytestmark = pytest.mark.provider_contract('waybackarchive')

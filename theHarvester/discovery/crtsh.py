@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 from theHarvester.lib.core import AsyncFetcher, FetcherResponse
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 logger = logging.getLogger(__name__)
 
@@ -13,10 +14,8 @@ class SearchCrtsh:
         self.word = word
         self.data: list = []
         self.proxy = False
-        self.execution_status: str | None = None
-        self.stop_reason: str | None = None
 
-    async def do_search(self) -> list:
+    async def do_search(self) -> tuple[list, SourceExecutionReport | None]:
         data: set = set()
         url = f'https://crt.sh/?q=%25.{self.word}&exclude=expired&deduplicate=Y&output=json'
         response = None
@@ -37,47 +36,39 @@ class SearchCrtsh:
                         break
                     failure_reason = f'http-{result.status}' if not 200 <= result.status < 300 else 'invalid-response'
                     if result.status == 429:
-                        self.execution_status = 'rate-limited'
-                        self.stop_reason = failure_reason
-                        return []
+                        return [], SourceExecutionReport('rate-limited', failure_reason)
                 if attempt < max_attempts - 1:
                     await asyncio.sleep(2)
 
             if response is None:
-                self.execution_status = 'failed'
-                self.stop_reason = failure_reason
                 logger.info(f'No valid response from crt.sh after {max_attempts} attempts.')
-                return []
+                return [], SourceExecutionReport('failed', failure_reason)
 
             data = set([(dct['name_value'][2:] if dct['name_value'][:2] == '*.' else dct['name_value']) for dct in response])
             data = {domain for domain in data if domain[0] != '*'}
         except KeyError as ke:
-            self.execution_status = 'failed'
-            self.stop_reason = 'invalid-response'
             logger.info(f'Missing expected key in response: {ke}')
+            return [], SourceExecutionReport('failed', 'invalid-response')
         except Exception as e:
-            self.execution_status = 'failed'
-            self.stop_reason = 'unexpected-error'
             logger.info(f'Unexpected error: {e}')
+            return [], SourceExecutionReport('failed', 'unexpected-error')
         clean: list = []
         for x in data:
             pre = x.split()
             for y in pre:
                 clean.append(y)
-        return clean
+        return clean, None
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        self.execution_status = None
-        self.stop_reason = None
         try:
             async with asyncio.timeout(self.RUNTIME_SECONDS):
-                data = await self.do_search()
+                data, report = await self.do_search()
         except TimeoutError:
-            self.execution_status = 'failed'
-            self.stop_reason = 'runtime-limit'
             data = []
+            report = SourceExecutionReport('failed', 'runtime-limit')
         self.data = data
+        return report
 
     async def get_hostnames(self) -> list:
         return self.data

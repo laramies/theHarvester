@@ -2,6 +2,7 @@ import asyncio
 from urllib.parse import urlencode
 
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
+from theHarvester.lib.source_execution import SourceExecutionReport
 from theHarvester.parsers import myparser
 
 
@@ -15,12 +16,8 @@ class SearchBaidu:
         self.hostname = 'www.baidu.com'
         self.limit = limit
         self.proxy = False
-        self.execution_status: str | None = None
-        self.stop_reason: str | None = None
 
-    async def do_search(self) -> None:
-        self.execution_status = None
-        self.stop_reason = None
+    async def do_search(self) -> SourceExecutionReport | None:
         headers = {'Host': self.hostname, 'User-Agent': Core.get_browser_user_agent()}
         base_url = f'https://{self.server}/s'
         urls = [
@@ -49,36 +46,27 @@ class SearchBaidu:
                     include_metadata=True,
                 )
                 if not isinstance(response, FetcherResponse):
-                    self.execution_status = 'partial' if self.total_results else 'failed'
-                    self.stop_reason = 'transport-error'
-                    return
+                    return SourceExecutionReport('failed', 'transport-error')
 
                 location = response.headers.get('location', '')
                 body = response.body if isinstance(response.body, str) else ''
                 if response.status == 429:
-                    self.execution_status = 'partial' if self.total_results else 'rate-limited'
-                    self.stop_reason = 'http-429'
-                    return
+                    return SourceExecutionReport('rate-limited', 'http-429')
                 if '百度安全验证' in body or 'wappass.baidu.com/static/captcha' in f'{location} {body}':
-                    self.execution_status = 'partial' if self.total_results else 'failed'
-                    self.stop_reason = 'security-verification'
-                    return
+                    return SourceExecutionReport('failed', 'security-verification')
                 if response.status >= 300:
-                    self.execution_status = 'partial' if self.total_results else 'failed'
-                    self.stop_reason = f'http-{response.status}'
-                    return
+                    return SourceExecutionReport('failed', f'http-{response.status}')
                 if not body:
-                    self.execution_status = 'partial' if self.total_results else 'failed'
-                    self.stop_reason = 'no-response'
-                    return
+                    return SourceExecutionReport('failed', 'no-response')
                 if url != homepage_url:
                     self.total_results += f' {body}'
         finally:
             await session.close()
+        return None
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        await self.do_search()
+        return await self.do_search()
 
     async def get_emails(self):
         rawres = myparser.Parser(self.total_results, self.word)

@@ -23,6 +23,7 @@ from theHarvester.lib.hostchecker import HostDnsRecords
 from theHarvester.lib.network_evidence import PrefixOriginObservation, RpkiValidationObservation
 from theHarvester.lib.recursive_dns import RecursiveDNSClassification, RecursiveDNSFinding, RecursiveDNSResult
 from theHarvester.lib.routeviews import RouteViewsCancelled, RouteViewsResult
+from theHarvester.lib.source_execution import SourceExecutionReport
 from theHarvester.lib.takeover_evidence import TakeoverCandidateOutcome
 from theHarvester.lib.virtual_host import (
     HarvestedVirtualHostResult,
@@ -602,14 +603,11 @@ async def test_rapiddns_hostnames_honor_explicit_dns_resolution(monkeypatch: pyt
             return {'192.0.2.20'}
 
     class FakeCrtsh:
-        execution_status = 'partial'
-        stop_reason = 'invalid-response'
-
         def __init__(self, _word: str) -> None:
             pass
 
-        async def process(self, _proxy: bool) -> None:
-            return None
+        async def process(self, _proxy: bool) -> SourceExecutionReport:
+            return SourceExecutionReport('failed', 'invalid-response')
 
         async def get_hostnames(self) -> set[str]:
             return {'crt.example.com'}
@@ -1995,11 +1993,9 @@ async def test_limited_source_orchestration_uses_immutable_runner_request(
     processed_with_proxy: list[bool] = []
 
     class FakeAdapter:
-        execution_status = 'partial'
-        stop_reason = 'provider-boundary'
-
-        async def process(self, proxy: bool) -> None:
+        async def process(self, proxy: bool) -> SourceExecutionReport:
             processed_with_proxy.append(proxy)
+            return SourceExecutionReport('partial', 'provider-boundary')
 
         async def get_hostnames(self) -> set[str]:
             return {'sub.example.test'}
@@ -2102,11 +2098,9 @@ async def test_target_only_source_orchestration_uses_immutable_runner_request(
     processed_with_proxy: list[bool] = []
 
     class FakeAdapter:
-        execution_status = 'partial'
-        stop_reason = 'provider-boundary'
-
-        async def process(self, proxy: bool) -> None:
+        async def process(self, proxy: bool) -> SourceExecutionReport:
             processed_with_proxy.append(proxy)
+            return SourceExecutionReport('partial', 'provider-boundary')
 
         async def get_hostnames(self) -> set[str]:
             return {'sub.example.test'}
@@ -2174,13 +2168,11 @@ async def test_invalid_source_outcome_is_not_recorded_as_completed(monkeypatch: 
             completed.append(result)
 
     class InvalidOutcomeCrtsh:
-        execution_status = 'typo'
-
         def __init__(self, _word: str) -> None:
             pass
 
-        async def process(self, _proxy: bool) -> None:
-            return None
+        async def process(self, _proxy: bool) -> object:
+            return {'status': 'typo'}
 
         async def get_hostnames(self) -> set[str]:
             return set()

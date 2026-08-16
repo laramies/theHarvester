@@ -6,6 +6,7 @@ from theHarvester.discovery.constants import MissingKey
 from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 
 class SearchVirustotal:
@@ -19,18 +20,13 @@ class SearchVirustotal:
         self.limit = limit
         self.proxy = False
         self.hostnames: set[str] = set()
-        self.execution_status: str | None = None
-        self.stop_reason: str | None = None
 
-    def _stop(self, status: str, reason: str) -> None:
-        self.execution_status = 'partial' if self.hostnames else status
-        self.stop_reason = reason
-
-    async def do_search(self) -> None:
+    async def do_search(self) -> SourceExecutionReport | None:
         headers = {'Accept': 'application/json', 'x-apikey': self.key}
         cursor: str | None = None
         seen_cursors: set[str] = set()
         records_seen = 0
+        report = None
         try:
             async with AsyncFetcher.open_session(headers=headers, proxy=self.proxy) as session:
                 while records_seen < self.limit:
@@ -46,17 +42,14 @@ class SearchVirustotal:
                         include_metadata=True,
                     )
                     if error := provider_http_error(response):
-                        self._stop(*error)
-                        return
+                        return SourceExecutionReport(*error)
                     assert isinstance(response, FetcherResponse)
                     if not isinstance(response.body, dict):
-                        self._stop('failed', 'invalid-response')
-                        return
+                        return SourceExecutionReport('failed', 'invalid-response')
                     data = response.body.get('data')
                     meta = response.body.get('meta', {})
                     if not isinstance(data, list) or not isinstance(meta, dict):
-                        self._stop('failed', 'invalid-response')
-                        return
+                        return SourceExecutionReport('failed', 'invalid-response')
                     page_data = data[:remaining]
                     records_seen += len(page_data)
                     hostnames, malformed = self.parse_hostnames(page_data, self.word)
@@ -65,24 +58,17 @@ class SearchVirustotal:
                             break
                         self.hostnames.add(hostname)
                     if malformed:
-                        self._stop('failed', 'invalid-response')
+                        report = SourceExecutionReport('failed', 'invalid-response')
                     next_cursor = meta.get('cursor')
                     if not data or not isinstance(next_cursor, str) or not next_cursor:
                         break
                     if next_cursor in seen_cursors:
-                        self._stop('failed', 'repeated-cursor')
-                        break
+                        return SourceExecutionReport('failed', 'repeated-cursor')
                     seen_cursors.add(next_cursor)
                     cursor = next_cursor
         except Exception:
-            self._stop('failed', 'transport-error')
-            return
-
-        if self.execution_status is not None and self.hostnames:
-            self.execution_status = 'partial'
-        elif self.execution_status is None:
-            self.execution_status = 'completed'
-            self.stop_reason = None if self.hostnames else 'no-results'
+            return SourceExecutionReport('failed', 'transport-error')
+        return report
 
     async def get_hostnames(self) -> set[str]:
         return self.hostnames
@@ -132,8 +118,6 @@ class SearchVirustotal:
                 add(name)
         return hostnames, malformed
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        self.execution_status = None
-        self.stop_reason = None
-        await self.do_search()
+        return await self.do_search()

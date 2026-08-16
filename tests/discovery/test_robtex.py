@@ -29,8 +29,9 @@ async def test_robtex_does_not_send_domain_to_reverse_ip_endpoint(monkeypatch: p
 
     monkeypatch.setattr(robtex.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = robtex.SearchRobtex('example.com')
-    await search.process()
+    report = await search.process()
 
+    assert report is None
     assert requested_urls == ['https://freeapi.robtex.com/pdns/forward/example.com']
     assert await search.get_ips() == {'192.0.2.1'}
 
@@ -52,8 +53,9 @@ async def test_robtex_collects_ipv4_and_ipv6_addresses(monkeypatch: pytest.Monke
     monkeypatch.setattr(robtex.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = robtex.SearchRobtex('example.com')
 
-    await search.process()
+    report = await search.process()
 
+    assert report is None
     assert await search.get_ips() == {'192.0.2.1', '2001:db8::1'}
 
 
@@ -69,8 +71,14 @@ async def test_robtex_handles_empty_responses(
     monkeypatch.setattr(robtex.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = robtex.SearchRobtex('example.com')
 
-    await search.process()
+    report = await search.process()
 
+    if response:
+        assert report is None
+    else:
+        assert report is not None
+        assert report.status == 'failed'
+        assert report.stop_reason == 'transport-error'
     assert await search.get_ips() == set()
 
 
@@ -82,10 +90,10 @@ async def test_robtex_reports_malformed_response(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr(robtex.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = robtex.SearchRobtex('example.com')
 
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio
@@ -100,12 +108,12 @@ async def test_robtex_attributes_provider_failures(
     search = robtex.SearchRobtex('example.com')
 
     with caplog.at_level(logging.INFO, logger=robtex.__name__):
-        await search.process()
+        report = await search.process()
 
     assert await search.get_ips() == set()
     assert 'Robtex API error' in caplog.text
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'transport-error'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'transport-error'
 
 
 @pytest.mark.asyncio
@@ -121,12 +129,12 @@ async def test_robtex_attributes_http_failures(
     search = robtex.SearchRobtex('example.com')
 
     with caplog.at_level(logging.INFO, logger=robtex.__name__):
-        await search.process()
+        report = await search.process()
 
     assert await search.get_ips() == set()
     assert 'Robtex request failed with HTTP 503' in caplog.text
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'http-503'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'http-503'
 
 
 @pytest.mark.asyncio
@@ -137,10 +145,10 @@ async def test_robtex_attributes_rate_limits(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setattr(robtex.AsyncFetcher, 'fetch_all', rate_limited)
     search = robtex.SearchRobtex('example.com')
 
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == 'rate-limited'
-    assert search.stop_reason == 'http-429'
+    assert report.status == 'rate-limited'
+    assert report.stop_reason == 'http-429'
 
 
 @pytest.mark.asyncio

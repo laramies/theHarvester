@@ -4,6 +4,7 @@ from theHarvester.discovery.constants import MissingKey
 from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 
 class SearchDymo:
@@ -29,12 +30,6 @@ class SearchDymo:
         if not isinstance(self.key, str) or not self.key.strip():
             raise MissingKey('dymo')
         self.proxy = False
-        self.execution_status: str | None = None
-        self.stop_reason: str | None = None
-
-    def _stop(self, status: str, reason: str) -> None:
-        self.execution_status = 'partial' if self.totalhosts else status
-        self.stop_reason = reason
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -43,7 +38,7 @@ class SearchDymo:
             'Content-Type': 'application/json',
         }
 
-    async def do_search(self) -> None:
+    async def do_search(self) -> SourceExecutionReport | None:
         payload = {
             'domain': self.word,
             'url': f'https://{self.word}',
@@ -57,12 +52,10 @@ class SearchDymo:
             include_metadata=True,
         )
         if error := provider_http_error(response):
-            self._stop(*error)
-            return
+            return SourceExecutionReport(*error)
         assert isinstance(response, FetcherResponse)
         if not isinstance(response.body, dict):
-            self._stop('failed', 'invalid-response')
-            return
+            return SourceExecutionReport('failed', 'invalid-response')
 
         self.results = response.body
 
@@ -86,10 +79,8 @@ class SearchDymo:
                 malformed = True
 
         if malformed:
-            self._stop('failed', 'invalid-response')
-        else:
-            self.execution_status = 'completed'
-            self.stop_reason = None if self.totalhosts else 'no-results'
+            return SourceExecutionReport('failed', 'invalid-response')
+        return None
 
     async def get_hostnames(self) -> set:
         return self.totalhosts
@@ -97,11 +88,9 @@ class SearchDymo:
     async def get_results(self) -> dict[str, Any]:
         return self.results
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        self.execution_status = None
-        self.stop_reason = None
         try:
-            await self.do_search()
+            return await self.do_search()
         except Exception:
-            self._stop('failed', 'transport-error')
+            return SourceExecutionReport('failed', 'transport-error')

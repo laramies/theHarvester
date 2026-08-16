@@ -44,7 +44,8 @@ class TestOtx:
 
         monkeypatch.setattr(otxsearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = otxsearch.SearchOtx(TestOtx.domain())
-        await search.process()
+        report = await search.process()
+        assert report is None
         assert await search.get_hostnames() == {'api.example.com', 'www.example.com'}
         assert await search.get_ips() == {'192.0.2.1', '2001:db8::1'}
 
@@ -61,12 +62,12 @@ class TestOtx:
         monkeypatch.setattr(otxsearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = otxsearch.SearchOtx(TestOtx.domain())
 
-        await search.process()
+        report = await search.process()
 
         assert await search.get_hostnames() == set()
         assert await search.get_ips() == set()
-        assert search.execution_status == 'failed'
-        assert search.stop_reason == 'invalid-response'
+        assert report.status == 'failed'
+        assert report.stop_reason == 'invalid-response'
 
     @pytest.mark.asyncio
     async def test_empty_passive_dns_is_a_valid_zero_yield(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -76,12 +77,11 @@ class TestOtx:
         monkeypatch.setattr(otxsearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = otxsearch.SearchOtx(TestOtx.domain())
 
-        await search.process()
+        report = await search.process()
 
         assert await search.get_hostnames() == set()
         assert await search.get_ips() == set()
-        assert search.execution_status is None
-        assert search.stop_reason is None
+        assert report is None
 
     @pytest.mark.asyncio
     async def test_provider_failures_are_attributed(
@@ -96,12 +96,12 @@ class TestOtx:
         search = otxsearch.SearchOtx(TestOtx.domain())
 
         with caplog.at_level(logging.INFO, logger=otxsearch.__name__):
-            await search.process()
+            report = await search.process()
 
         assert await search.get_hostnames() == set()
         assert await search.get_ips() == set()
-        assert search.execution_status == 'failed'
-        assert search.stop_reason == 'transport-error'
+        assert report.status == 'failed'
+        assert report.stop_reason == 'transport-error'
         assert 'OTX request failed' in caplog.text
 
     @pytest.mark.asyncio
@@ -112,12 +112,12 @@ class TestOtx:
         monkeypatch.setattr(otxsearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = otxsearch.SearchOtx(TestOtx.domain())
 
-        await search.process()
+        report = await search.process()
 
         assert await search.get_hostnames() == set()
         assert await search.get_ips() == set()
-        assert search.execution_status == 'failed'
-        assert search.stop_reason == 'transport-error'
+        assert report.status == 'failed'
+        assert report.stop_reason == 'transport-error'
 
     @pytest.mark.asyncio
     async def test_http_failure_is_attributed(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -127,12 +127,12 @@ class TestOtx:
         monkeypatch.setattr(otxsearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = otxsearch.SearchOtx(TestOtx.domain())
 
-        await search.process()
+        report = await search.process()
 
         assert await search.get_hostnames() == set()
         assert await search.get_ips() == set()
-        assert search.execution_status == 'failed'
-        assert search.stop_reason == 'http-503'
+        assert report.status == 'failed'
+        assert report.stop_reason == 'http-503'
 
     @pytest.mark.asyncio
     async def test_cancellation_propagates(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -168,8 +168,9 @@ class TestOtx:
         monkeypatch.setattr(otxsearch.asyncio, 'sleep', fake_sleep)
         search = otxsearch.SearchOtx(TestOtx.domain())
 
-        await search.process()
+        report = await search.process()
 
+        assert report is None
         assert waits == [2]
         assert await search.get_hostnames() == {'api.example.com'}
         assert await search.get_ips() == {'192.0.2.1'}
@@ -206,14 +207,14 @@ class TestOtx:
         search = otxsearch.SearchOtx(TestOtx.domain())
 
         with caplog.at_level(logging.INFO, logger=otxsearch.__name__):
-            await search.process()
+            report = await search.process()
 
         assert responses == []
         assert waits == expected_waits
         assert await search.get_hostnames() == set()
         assert await search.get_ips() == set()
-        assert search.execution_status == 'rate-limited'
-        assert search.stop_reason == 'http-429'
+        assert report.status == 'rate-limited'
+        assert report.stop_reason == 'http-429'
         assert 'OTX request failed with HTTP 429' in caplog.text
 
 

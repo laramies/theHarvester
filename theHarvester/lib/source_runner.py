@@ -7,7 +7,7 @@ import time
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
 from ipaddress import ip_address
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any
 
 from theHarvester.discovery import (
     apisguru,
@@ -71,17 +71,15 @@ from theHarvester.discovery import (
 )
 from theHarvester.discovery.constants import MissingKeyError
 from theHarvester.lib.asn_attribution import AsnAttributionObservation, canonical_asn_attributions
-from theHarvester.lib.completed_result import (
-    EXECUTION_STATUSES,
-    ExecutionStatus,
-    ResultKind,
-    ResultObservation,
-    SourceExecution,
-)
+from theHarvester.lib.completed_result import ResultKind, ResultObservation, SourceExecution
 from theHarvester.lib.enumeration import DEFAULT_SOURCE_WORKERS
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.shodan_evidence import ShodanHostObservation, canonical_shodan_hosts
 from theHarvester.lib.source_catalog import ResultRoute, get_source_spec
+from theHarvester.lib.source_execution import SourceExecutionReport
+
+if TYPE_CHECKING:
+    from theHarvester.lib.evidence_types import ExecutionStatus
 
 logger = logging.getLogger(__name__)
 
@@ -237,6 +235,12 @@ def create_source(request: SourceRequest) -> Any:
     return SOURCE_FACTORIES[get_source_spec(request.source).name](request)
 
 
+def _reject_removed_execution_fields(source: str, adapter: Any) -> None:
+    fields = tuple(name for name in ('execution_status', 'stop_reason') if hasattr(adapter, name))
+    if fields:
+        raise ValueError(f'Source {source} exposes removed mutable execution fields: {", ".join(fields)}')
+
+
 async def _collect_observations(
     request: SourceRequest,
     adapter: Any,
@@ -316,6 +320,7 @@ async def run_source(
     try:
         source_spec = get_source_spec(request.source)
         created_adapter = create_source(request)
+        _reject_removed_execution_fields(source_spec.name, created_adapter)
         if on_started is not None:
             try:
                 on_started(request)
@@ -324,8 +329,17 @@ async def run_source(
             except Exception as error:
                 logger.warning('Source start reporter failed for %s: %s', request.source, type(error).__name__)
         adapter = created_adapter
-        await adapter.process(request.proxy)
+        report = await adapter.process(request.proxy)
         process_completed = True
+        _reject_removed_execution_fields(source_spec.name, adapter)
+        if report is None:
+            status: ExecutionStatus = 'completed'
+            stop_reason = None
+        elif isinstance(report, SourceExecutionReport):
+            status = report.status
+            stop_reason = report.stop_reason
+        else:
+            raise ValueError(f'Source {source_spec.name} returned invalid execution report: {report!r}')
         await _collect_observations(
             request,
             adapter,
@@ -334,23 +348,17 @@ async def run_source(
             shodan_hosts,
             reported_host_ip_pairs,
         )
-        reported_status = getattr(adapter, 'execution_status', None)
-        if reported_status is None:
-            status: ExecutionStatus = 'completed'
-        elif isinstance(reported_status, str) and reported_status in EXECUTION_STATUSES:
-            status = cast('ExecutionStatus', reported_status)
-        else:
-            raise ValueError(f'Source {source_spec.name} reported invalid execution status: {reported_status!r}')
-        stop_reason = getattr(adapter, 'stop_reason', None)
         result_count = len(observations)
-        if not result_count and status == 'completed' and not isinstance(stop_reason, str):
+        if result_count and status != 'completed':
+            status = 'partial'
+        elif not result_count and status == 'completed' and stop_reason is None:
             stop_reason = 'no-results'
         execution = SourceExecution(
             source_spec.name,
             status,
             (time.perf_counter() - started) * 1000,
             result_count,
-            stop_reason=stop_reason if isinstance(stop_reason, str) else None,
+            stop_reason=stop_reason,
         )
     except MissingKeyError:
         execution = SourceExecution(
@@ -364,6 +372,7 @@ async def run_source(
     except asyncio.CancelledError:
         if adapter is not None and not process_completed:
             try:
+                _reject_removed_execution_fields(request.source, adapter)
                 await _collect_observations(
                     request,
                     adapter,
@@ -396,6 +405,7 @@ async def run_source(
     except Exception as error:
         if adapter is not None and not process_completed:
             try:
+                _reject_removed_execution_fields(request.source, adapter)
                 await _collect_observations(
                     request,
                     adapter,

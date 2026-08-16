@@ -48,7 +48,7 @@ async def test_process_collects_scoped_hostnames_and_urls(monkeypatch: pytest.Mo
     monkeypatch.setattr(bevigil.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = bevigil.SearchBeVigil('example.com')
 
-    await search.process(proxy=True)
+    report = await search.process(proxy=True)
 
     assert await search.get_hostnames() == {'api.example.com'}
     assert await search.get_urls() == {'https://portal.example.com/path'}
@@ -69,8 +69,7 @@ async def test_process_collects_scoped_hostnames_and_urls(monkeypatch: pytest.Mo
         }
     ]
     assert session_exited is True
-    assert search.execution_status == 'completed'
-    assert search.stop_reason is None
+    assert report is None
 
 
 @pytest.mark.parametrize('key', [None, '', '   '])
@@ -107,12 +106,12 @@ async def test_failed_first_response_is_attributed(
     monkeypatch.setattr(bevigil.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = bevigil.SearchBeVigil('example.com')
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == set()
     assert await search.get_urls() == set()
-    assert search.execution_status == execution_status
-    assert search.stop_reason == stop_reason
+    assert report.status == execution_status
+    assert report.stop_reason == stop_reason
 
 
 @pytest.mark.asyncio
@@ -129,12 +128,12 @@ async def test_later_malformed_response_preserves_partial_results(monkeypatch: p
     monkeypatch.setattr(bevigil.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = bevigil.SearchBeVigil('example.com')
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'api.example.com'}
     assert await search.get_urls() == set()
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio
@@ -175,8 +174,8 @@ async def test_early_malformed_rows_and_later_valid_evidence_are_partial(monkeyp
     monkeypatch.setattr(bevigil.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = bevigil.SearchBeVigil('example.com')
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_urls() == {'https://portal.example.com/path'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'

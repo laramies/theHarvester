@@ -51,11 +51,10 @@ async def test_process_uses_current_api_contract_and_keeps_scoped_results(monkey
     monkeypatch.setattr(netlas.AsyncFetcher, 'post_fetch', fake_post_fetch)
 
     search = netlas.SearchNetlas('example.com', limit=2)
-    await search.process(proxy=True)
+    report = await search.process(proxy=True)
 
     assert await search.get_hostnames() == {'api.example.com'}
-    assert search.execution_status == 'completed'
-    assert search.stop_reason is None
+    assert report is None
     assert session_options == [{'headers': {'Authorization': 'Bearer test-key'}, 'proxy': True}]
     assert calls[0]['url'] == 'https://app.netlas.io/api/domains/download/'
     assert calls[0]['session'] is session
@@ -114,10 +113,10 @@ async def test_download_failures_are_truthful(
     monkeypatch.setattr(netlas.AsyncFetcher, 'post_fetch', fake_post_fetch)
     search = netlas.SearchNetlas('example.com', limit=10)
 
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == status
-    assert search.stop_reason == reason
+    assert report.status == status
+    assert report.stop_reason == reason
 
 
 @pytest.mark.asyncio
@@ -138,11 +137,11 @@ async def test_malformed_download_rows_preserve_valid_partial_results(monkeypatc
     monkeypatch.setattr(netlas.AsyncFetcher, 'post_fetch', fake_post_fetch)
     search = netlas.SearchNetlas('example.com', limit=10)
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'ok.example.com'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio

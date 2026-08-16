@@ -7,6 +7,7 @@ from theHarvester.discovery.constants import MissingKey
 from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 logger = logging.getLogger(__name__)
 
@@ -33,15 +34,6 @@ class SearchSherlockeye:
         self.totalips: set[str] = set()
         self.results: list[dict[str, Any]] = []
         self.proxy: bool | str = False
-        self.execution_status: str | None = None
-        self.stop_reason: str | None = None
-
-    def _has_results(self) -> bool:
-        return bool(self.totalhosts or self.totalemails or self.totalips)
-
-    def _stop(self, status: str, reason: str) -> None:
-        self.execution_status = 'partial' if self._has_results() else status
-        self.stop_reason = reason
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -107,21 +99,18 @@ class SearchSherlockeye:
             malformed = True
         return malformed
 
-    def _extract_response(self, response: dict[str, Any]) -> None:
+    def _extract_response(self, response: dict[str, Any]) -> SourceExecutionReport | None:
         if response.get('success') is False:
             logger.info('Sherlockeye API error')
-            self._stop('failed', 'provider-error')
-            return
+            return SourceExecutionReport('failed', 'provider-error')
 
         data = response.get('data')
         if not isinstance(data, dict):
-            self._stop('failed', 'invalid-response')
-            return
+            return SourceExecutionReport('failed', 'invalid-response')
 
         search_results = data.get('results')
         if not isinstance(search_results, list):
-            self._stop('failed', 'invalid-response')
-            return
+            return SourceExecutionReport('failed', 'invalid-response')
 
         self.results = search_results
         malformed = False
@@ -131,12 +120,10 @@ class SearchSherlockeye:
             else:
                 malformed = True
         if malformed:
-            self._stop('failed', 'invalid-response')
-        elif self.execution_status is None:
-            self.execution_status = 'completed'
-            self.stop_reason = None if self._has_results() else 'no-results'
+            return SourceExecutionReport('failed', 'invalid-response')
+        return None
 
-    async def do_search(self) -> None:
+    async def do_search(self) -> SourceExecutionReport | None:
         payload = {
             'type': 'domain',
             'value': self.word,
@@ -156,22 +143,19 @@ class SearchSherlockeye:
                     json_body=payload,
                 )
                 if error := provider_http_error(response):
-                    self._stop(*error)
                     status = response.status if isinstance(response, FetcherResponse) else 'transport'
                     logger.info('Sherlockeye API request failed with status %s: %s', status, error[1])
-                    return
+                    return SourceExecutionReport(*error)
                 assert isinstance(response, FetcherResponse)
                 if response.status != 200:
-                    self._stop('failed', f'http-{response.status}')
                     logger.info('Sherlockeye API request failed with status %s', response.status)
-                    return
+                    return SourceExecutionReport('failed', f'http-{response.status}')
                 if isinstance(response.body, dict):
-                    self._extract_response(response.body)
-                else:
-                    self._stop('failed', 'invalid-response')
+                    return self._extract_response(response.body)
+                return SourceExecutionReport('failed', 'invalid-response')
         except Exception as error:
-            self._stop('failed', 'transport-error')
             logger.info('Sherlockeye API error: %s', type(error).__name__)
+            return SourceExecutionReport('failed', 'transport-error')
 
     async def get_hostnames(self) -> set[str]:
         return self.totalhosts
@@ -185,8 +169,6 @@ class SearchSherlockeye:
     async def get_results(self) -> list[dict[str, Any]]:
         return self.results
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        self.execution_status = None
-        self.stop_reason = None
-        await self.do_search()
+        return await self.do_search()

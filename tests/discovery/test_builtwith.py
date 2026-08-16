@@ -76,7 +76,7 @@ async def test_process_uses_v23_privacy_controls_and_parses_nested_results(monke
 
     monkeypatch.setattr(builtwith.AsyncFetcher, 'fetch_json', fake_fetch_json)
     search = builtwith.SearchBuiltWith('example.com')
-    await search.process(proxy=True)
+    report = await search.process(proxy=True)
 
     assert captured == {
         'url': 'https://api.builtwith.com/v23/api.json',
@@ -101,8 +101,7 @@ async def test_process_uses_v23_privacy_controls_and_parses_nested_results(monke
     assert await search.get_servers() == {'nginx'}
     assert await search.get_cms() == {'WordPress'}
     assert await search.get_analytics() == {'Google Analytics'}
-    assert search.execution_status == 'completed'
-    assert search.stop_reason is None
+    assert report is None
 
 
 @pytest.mark.asyncio
@@ -129,13 +128,12 @@ async def test_www_target_does_not_accept_sibling_subdomains(monkeypatch) -> Non
     monkeypatch.setattr(builtwith.AsyncFetcher, 'fetch_json', fake_fetch_json)
     search = builtwith.SearchBuiltWith('www.example.com')
 
-    await search.process()
+    report = await search.process()
 
     assert captured['params']['LOOKUP'] == 'example.com'
     assert await search.get_hostnames() == {'www.example.com'}
     assert await search.get_urls() == set()
-    assert search.execution_status == 'completed'
-    assert search.stop_reason is None
+    assert report is None
 
 
 @pytest.mark.asyncio
@@ -164,13 +162,13 @@ async def test_named_technology_without_a_usable_category_is_malformed(monkeypat
     monkeypatch.setattr(builtwith.AsyncFetcher, 'fetch_json', fake_fetch_json)
     search = builtwith.SearchBuiltWith('example.com')
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'www.example.com'}
     assert await search.get_urls() == set()
     assert await search.get_frameworks() == set()
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio
@@ -199,12 +197,12 @@ async def test_process_reports_failed_responses_truthfully(
 
     monkeypatch.setattr(builtwith.AsyncFetcher, 'fetch_json', fake_fetch_json)
     search = builtwith.SearchBuiltWith('example.com')
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == set()
     assert await search.get_tech_stack() == {}
-    assert search.execution_status == expected_status
-    assert search.stop_reason == expected_reason
+    assert report.status == expected_status
+    assert report.stop_reason == expected_reason
 
 
 @pytest.mark.asyncio
@@ -240,14 +238,14 @@ async def test_malformed_nested_containers_retain_accepted_evidence(monkeypatch)
     monkeypatch.setattr(builtwith.AsyncFetcher, 'fetch_json', fake_fetch_json)
     search = builtwith.SearchBuiltWith('example.com')
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'api.example.com'}
     assert await search.get_urls() == set()
     assert await search.get_frameworks() == {'Django'}
     assert await search.get_servers() == {'nginx'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio
@@ -261,10 +259,10 @@ async def test_bounded_response_failures_are_attributed(monkeypatch, reason: str
     monkeypatch.setattr(builtwith.AsyncFetcher, 'fetch_json', fake_fetch_json)
     search = builtwith.SearchBuiltWith('example.com')
 
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == reason
+    assert report.status == 'failed'
+    assert report.stop_reason == reason
 
 
 @pytest.mark.asyncio

@@ -7,6 +7,7 @@ from theHarvester.discovery.constants import MissingKey
 from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 
 class SearchSecuritytrail:
@@ -20,20 +21,15 @@ class SearchSecuritytrail:
         self.proxy = False
         self.domain_data: dict[str, Any] = {}
         self.subdomains_data: dict[str, Any] = {}
-        self.execution_status: str | None = None
-        self.stop_reason: str | None = None
-
-    def _stop(self, status: str, reason: str) -> None:
-        self.execution_status = 'partial' if self.info[0] or self.info[1] else status
-        self.stop_reason = reason
+        self._report: SourceExecutionReport | None = None
 
     def _body(self, response: Any) -> dict[str, Any] | None:
         if error := provider_http_error(response):
-            self._stop(*error)
+            self._report = SourceExecutionReport(*error)
             return None
         assert isinstance(response, FetcherResponse)
         if not isinstance(response.body, dict):
-            self._stop('failed', 'invalid-response')
+            self._report = SourceExecutionReport('failed', 'invalid-response')
             return None
         return response.body
 
@@ -72,10 +68,9 @@ class SearchSecuritytrail:
                 hostnames.add(hostname)
         return malformed
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        self.execution_status = None
-        self.stop_reason = None
+        self._report = None
         headers = {'APIKEY': self.key, 'Accept': 'application/json'}
         try:
             async with AsyncFetcher.open_session(headers=headers, proxy=proxy) as session:
@@ -87,7 +82,7 @@ class SearchSecuritytrail:
                 )
                 domain_body = self._body(domain_response)
                 if domain_body is None:
-                    return
+                    return self._report
                 self.domain_data = domain_body
                 malformed = self._parse_domain(domain_body)
 
@@ -99,17 +94,14 @@ class SearchSecuritytrail:
                 )
                 subdomain_body = self._body(subdomain_response)
                 if subdomain_body is None:
-                    return
+                    return self._report
                 self.subdomains_data = subdomain_body
                 malformed = self._parse_subdomains(subdomain_body) or malformed
         except Exception:
-            self._stop('failed', 'transport-error')
-            return
+            return SourceExecutionReport('failed', 'transport-error')
         if malformed:
-            self._stop('failed', 'invalid-response')
-        if self.execution_status is None:
-            self.execution_status = 'completed'
-            self.stop_reason = None if self.info[0] or self.info[1] else 'no-results'
+            return SourceExecutionReport('failed', 'invalid-response')
+        return None
 
     async def get_ips(self) -> set[str]:
         return self.info[0]

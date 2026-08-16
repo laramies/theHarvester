@@ -12,6 +12,7 @@ from theHarvester.discovery.constants import MissingKeyError
 from theHarvester.lib.asn_attribution import AsnAttributionObservation
 from theHarvester.lib.completed_result import ResultObservation, SourceExecution
 from theHarvester.lib.source_catalog import SOURCE_SPECS
+from theHarvester.lib.source_execution import SourceExecutionReport
 from theHarvester.lib.source_runner import (
     SOURCE_FACTORIES,
     SourceJob,
@@ -34,6 +35,7 @@ def test_source_contracts_are_immutable() -> None:
     request = SourceRequest('APIS-GURU', 'example.test', 25, 5, True, True)
     job = SourceJob(request)
     outcome = SourceOutcome(SourceExecution('apis-guru', 'completed', 0, 0))
+    report = SourceExecutionReport('failed', 'provider-failure')
 
     with pytest.raises(FrozenInstanceError):
         request.target = 'changed.test'  # type: ignore[misc]
@@ -41,7 +43,27 @@ def test_source_contracts_are_immutable() -> None:
         job.request = request  # type: ignore[misc]
     with pytest.raises(FrozenInstanceError):
         outcome.observations = ()  # type: ignore[misc]
+    with pytest.raises(FrozenInstanceError):
+        report.stop_reason = 'changed'  # type: ignore[misc]
     assert request.source == 'apis-guru'
+
+
+@pytest.mark.parametrize(
+    ('status', 'stop_reason', 'message'),
+    [
+        ('skipped', 'missing-key', 'cannot report execution status'),
+        ('unknown', 'provider-failure', 'cannot report execution status'),
+        ('failed', '', 'stop reason must not be empty'),
+        ('failed', '   ', 'stop reason must not be empty'),
+    ],
+)
+def test_source_execution_report_rejects_invalid_contract_values(
+    status: str,
+    stop_reason: str,
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        SourceExecutionReport(status, stop_reason)  # type: ignore[arg-type]
 
 
 def test_source_factories_match_the_catalog() -> None:
@@ -199,9 +221,6 @@ def test_factory_constructor_shapes(
 @pytest.mark.asyncio
 async def test_runner_normalizes_only_declared_apis_guru_routes(monkeypatch: pytest.MonkeyPatch) -> None:
     class FakeApisGuru:
-        execution_status = 'completed'
-        stop_reason = None
-
         def __init__(self, target: str, limit: int) -> None:
             assert (target, limit) == ('example.test', 25)
 
@@ -406,31 +425,28 @@ async def test_runner_reports_normal_zero_yield_as_completed_no_results(monkeypa
     assert outcome.execution.result_count == 0
 
 
-@pytest.mark.parametrize('source', ['builtwith', 'hudsonrock', 'shodan'])
 @pytest.mark.parametrize(
-    ('reported_status', 'reported_reason', 'has_results', 'expected_count'),
+    ('report', 'has_results', 'expected_status', 'expected_reason'),
     [
-        ('completed', None, False, 0),
-        ('partial', 'provider-partial', True, 1),
-        ('failed', 'provider-failure', False, 0),
-        ('rate-limited', 'http-429', False, 0),
+        (None, False, 'completed', 'no-results'),
+        (SourceExecutionReport('completed', 'result-limit'), True, 'completed', 'result-limit'),
+        (SourceExecutionReport('completed', 'result-limit'), False, 'completed', 'result-limit'),
+        (SourceExecutionReport('failed', 'provider-failure'), True, 'partial', 'provider-failure'),
+        (SourceExecutionReport('failed', 'provider-failure'), False, 'failed', 'provider-failure'),
+        (SourceExecutionReport('rate-limited', 'http-429'), False, 'rate-limited', 'http-429'),
     ],
 )
 @pytest.mark.asyncio
-async def test_special_sources_share_runner_outcome_semantics(
+async def test_runner_combines_adapter_report_with_normalized_evidence(
     monkeypatch: pytest.MonkeyPatch,
-    source: str,
-    reported_status: str,
-    reported_reason: str | None,
+    report: SourceExecutionReport | None,
     has_results: bool,
-    expected_count: int,
+    expected_status: str,
+    expected_reason: str | None,
 ) -> None:
-    class FakeSpecialSource:
-        execution_status = reported_status
-        stop_reason = reported_reason
-
-        async def process(self, _proxy: bool) -> None:
-            return None
+    class FakeSource:
+        async def process(self, _proxy: bool) -> SourceExecutionReport | None:
+            return report
 
         async def get_hostnames(self) -> set[str]:
             return {'partial.example.test'} if has_results else set()
@@ -444,35 +460,154 @@ async def test_special_sources_share_runner_outcome_semantics(
         async def get_urls(self) -> set[str]:
             return set()
 
-        async def get_frameworks(self) -> set[str]:
+    monkeypatch.setitem(SOURCE_FACTORIES, 'apis-guru', lambda _request: FakeSource())
+
+    outcome = await run_source(SourceRequest('apis-guru', 'example.test', 25, 0, False, True))
+
+    assert outcome.execution.status == expected_status
+    assert outcome.execution.stop_reason == expected_reason
+    assert outcome.execution.result_count == int(has_results)
+
+
+@pytest.mark.asyncio
+async def test_runner_rejects_legacy_or_untyped_execution_reports(monkeypatch: pytest.MonkeyPatch) -> None:
+    class InvalidSource:
+        async def process(self, _proxy: bool) -> object:
+            return {'status': 'failed', 'stop_reason': 'provider-failure'}
+
+        async def get_hostnames(self) -> set[str]:
+            raise AssertionError('result getters must not run after a contract violation')
+
+    monkeypatch.setitem(SOURCE_FACTORIES, 'apis-guru', lambda _request: InvalidSource())
+
+    outcome = await run_source(SourceRequest('apis-guru', 'example.test', 25, 0, False, True))
+
+    assert outcome.execution.status == 'failed'
+    assert outcome.execution.error_type == 'ValueError'
+    assert outcome.execution.result_count == 0
+    assert outcome.observations == ()
+
+
+@pytest.mark.asyncio
+async def test_runner_rejects_removed_mutable_execution_fields_before_provider_work(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    process_called = False
+    getter_called = False
+
+    class LegacySource:
+        def __init__(self) -> None:
+            self.execution_status = 'failed'
+            self.stop_reason = 'provider-failure'
+
+        async def process(self, _proxy: bool) -> None:
+            nonlocal process_called
+            process_called = True
+
+        async def get_hostnames(self) -> set[str]:
+            nonlocal getter_called
+            getter_called = True
             return set()
 
-        async def get_languages(self) -> set[str]:
-            return set()
+    monkeypatch.setitem(SOURCE_FACTORIES, 'apis-guru', lambda _request: LegacySource())
 
-        async def get_servers(self) -> set[str]:
-            return set()
+    outcome = await run_source(SourceRequest('apis-guru', 'example.test', 25, 0, False, True))
 
-        async def get_cms(self) -> set[str]:
-            return set()
+    assert process_called is False
+    assert getter_called is False
+    assert outcome.execution.status == 'failed'
+    assert outcome.execution.error_type == 'ValueError'
+    assert outcome.execution.result_count == 0
+    assert outcome.observations == ()
 
-        async def get_analytics(self) -> set[str]:
-            return set()
 
-        async def get_infostealers(self) -> list[dict[str, object]]:
-            return []
+@pytest.mark.asyncio
+async def test_runner_rejects_mutable_execution_fields_created_during_provider_work(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    getter_called = False
 
-        async def get_shodan_hosts(self) -> tuple[()]:
-            return ()
+    class RuntimeLegacySource:
+        async def process(self, _proxy: bool) -> None:
+            self.execution_status = 'failed'
+            self.stop_reason = 'provider-failure'
 
-    monkeypatch.setitem(SOURCE_FACTORIES, source, lambda _request: FakeSpecialSource())
+        async def get_hostnames(self) -> set[str]:
+            nonlocal getter_called
+            getter_called = True
+            return {'untrusted.example.test'}
 
-    outcome = await run_source(SourceRequest(source, 'example.test', 25, 0, False, True))
+    monkeypatch.setitem(SOURCE_FACTORIES, 'apis-guru', lambda _request: RuntimeLegacySource())
 
-    assert outcome.execution.status == reported_status
-    assert outcome.execution.stop_reason == (reported_reason or 'no-results')
-    assert outcome.execution.result_count == expected_count
-    assert {observation.source for observation in outcome.observations} == ({source} if has_results else set())
+    outcome = await run_source(SourceRequest('apis-guru', 'example.test', 25, 0, False, True))
+
+    assert getter_called is False
+    assert outcome.execution.status == 'failed'
+    assert outcome.execution.error_type == 'ValueError'
+    assert outcome.execution.result_count == 0
+    assert outcome.observations == ()
+
+
+@pytest.mark.asyncio
+async def test_runner_does_not_collect_evidence_after_legacy_process_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    getter_called = False
+
+    class FailingLegacySource:
+        async def process(self, _proxy: bool) -> None:
+            self.execution_status = 'failed'
+            self.stop_reason = 'provider-failure'
+            raise RuntimeError('provider failed')
+
+        async def get_hostnames(self) -> set[str]:
+            nonlocal getter_called
+            getter_called = True
+            return {'untrusted.example.test'}
+
+    monkeypatch.setitem(SOURCE_FACTORIES, 'apis-guru', lambda _request: FailingLegacySource())
+
+    outcome = await run_source(SourceRequest('apis-guru', 'example.test', 25, 0, False, True))
+
+    assert getter_called is False
+    assert outcome.execution.status == 'failed'
+    assert outcome.execution.error_type == 'RuntimeError'
+    assert outcome.execution.result_count == 0
+    assert outcome.observations == ()
+
+
+@pytest.mark.asyncio
+async def test_runner_does_not_collect_evidence_after_legacy_process_cancellation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cancellation = asyncio.CancelledError('operator-stop')
+    getter_called = False
+    committed: list[SourceOutcome] = []
+
+    class CancelledLegacySource:
+        async def process(self, _proxy: bool) -> None:
+            self.execution_status = 'failed'
+            self.stop_reason = 'cancelled'
+            raise cancellation
+
+        async def get_hostnames(self) -> set[str]:
+            nonlocal getter_called
+            getter_called = True
+            return {'untrusted.example.test'}
+
+    monkeypatch.setitem(SOURCE_FACTORIES, 'apis-guru', lambda _request: CancelledLegacySource())
+
+    with pytest.raises(asyncio.CancelledError) as raised:
+        await run_source(
+            SourceRequest('apis-guru', 'example.test', 25, 0, False, True),
+            commit_cancelled=committed.append,
+        )
+
+    assert raised.value is cancellation
+    assert getter_called is False
+    assert committed[0].execution.status == 'failed'
+    assert committed[0].execution.result_count == 0
+    assert committed[0].observations == ()
 
 
 @pytest.mark.asyncio

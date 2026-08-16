@@ -43,7 +43,7 @@ class TestMojeekSearch:
         monkeypatch.setattr(mojeek.asyncio, 'sleep', fake_sleep)
         search = mojeek.SearchMojeek(word='example.com', limit=30)
 
-        await search.process(proxy=True)
+        report = await search.process(proxy=True)
 
         assert [call['url'] for call in calls] == [
             'https://www.mojeek.com/search?q=example.com&s=0',
@@ -56,8 +56,7 @@ class TestMojeekSearch:
         assert delays == [1.0]
         assert await search.get_hostnames() == ['docs.example.com', 'example.com']
         assert await search.get_emails() == {'admin@example.com'}
-        assert search.execution_status == 'completed'
-        assert search.stop_reason == 'no-results'
+        assert report is None
 
     @pytest.mark.parametrize(
         ('http_status', 'execution_status', 'stop_reason'),
@@ -86,13 +85,13 @@ class TestMojeekSearch:
         monkeypatch.setattr(mojeek.asyncio, 'sleep', fake_sleep)
         search = mojeek.SearchMojeek(word='example.com', limit=30)
 
-        await search.process()
+        report = await search.process()
 
         assert len(calls) == 1
         assert calls[0]['follow_redirects'] is False
         assert delays == []
-        assert search.execution_status == execution_status
-        assert search.stop_reason == stop_reason
+        assert report.status == execution_status
+        assert report.stop_reason == stop_reason
         assert await search.get_hostnames() == []
 
     @pytest.mark.parametrize(
@@ -118,10 +117,10 @@ class TestMojeekSearch:
         monkeypatch.setattr(mojeek.AsyncFetcher, 'fetch', fake_fetch)
         search = mojeek.SearchMojeek(word='example.com', limit=10)
 
-        await search.process()
+        report = await search.process()
 
-        assert search.execution_status == execution_status
-        assert search.stop_reason == stop_reason
+        assert report.status == execution_status
+        assert report.stop_reason == stop_reason
         assert await search.get_hostnames() == []
 
     @pytest.mark.asyncio
@@ -140,13 +139,13 @@ class TestMojeekSearch:
         monkeypatch.setattr(mojeek.AsyncFetcher, 'fetch', reject_scrape)
         search = mojeek.SearchMojeek(word='example.com', limit=10)
 
-        await search.process(proxy=True)
+        report = await search.process(proxy=True)
 
         assert len(calls) == 1
         assert calls[0]['include_metadata'] is True
         assert calls[0]['proxy'] is True
-        assert search.execution_status == 'failed'
-        assert search.stop_reason == 'access-denied'
+        assert report.status == 'failed'
+        assert report.stop_reason == 'access-denied'
         assert await search.get_hostnames() == []
 
     @pytest.mark.asyncio
@@ -186,7 +185,7 @@ class TestMojeekSearch:
         monkeypatch.setattr(mojeek.AsyncFetcher, 'fetch', reject_scrape)
 
         search = mojeek.SearchMojeek(word='example.com', limit=20)
-        await search.process(proxy=True)
+        report = await search.process(proxy=True)
 
         assert requests == [
             {
@@ -205,8 +204,7 @@ class TestMojeekSearch:
             'api.example.com',
             'blog.example.com',
         }
-        assert search.execution_status == 'completed'
-        assert search.stop_reason is None
+        assert report is None
 
 
 pytestmark = pytest.mark.provider_contract('mojeek')

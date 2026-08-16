@@ -48,13 +48,13 @@ async def test_censys_pagination_preserves_provider_cookies(
 
     try:
         source = censysearch.SearchCensys('example.com', limit=2)
-        await source.process()
+        report = await source.process()
     finally:
         await runner.cleanup()
 
     assert requests == [(None, None), ('page-two', 'ready')]
     assert await source.get_hostnames() == {'one.example.com', 'two.example.com'}
-    assert source.execution_status == 'completed'
+    assert report is None
 
 
 @pytest.mark.asyncio
