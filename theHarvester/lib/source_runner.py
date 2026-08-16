@@ -235,6 +235,12 @@ def create_source(request: SourceRequest) -> Any:
     return SOURCE_FACTORIES[get_source_spec(request.source).name](request)
 
 
+def _reject_removed_execution_fields(source: str, adapter: Any) -> None:
+    fields = tuple(name for name in ('execution_status', 'stop_reason') if hasattr(adapter, name))
+    if fields:
+        raise ValueError(f'Source {source} exposes removed mutable execution fields: {", ".join(fields)}')
+
+
 async def _collect_observations(
     request: SourceRequest,
     adapter: Any,
@@ -314,6 +320,7 @@ async def run_source(
     try:
         source_spec = get_source_spec(request.source)
         created_adapter = create_source(request)
+        _reject_removed_execution_fields(source_spec.name, created_adapter)
         if on_started is not None:
             try:
                 on_started(request)
@@ -324,6 +331,7 @@ async def run_source(
         adapter = created_adapter
         report = await adapter.process(request.proxy)
         process_completed = True
+        _reject_removed_execution_fields(source_spec.name, adapter)
         if report is None:
             status: ExecutionStatus = 'completed'
             stop_reason = None
@@ -364,6 +372,7 @@ async def run_source(
     except asyncio.CancelledError:
         if adapter is not None and not process_completed:
             try:
+                _reject_removed_execution_fields(request.source, adapter)
                 await _collect_observations(
                     request,
                     adapter,
@@ -396,6 +405,7 @@ async def run_source(
     except Exception as error:
         if adapter is not None and not process_completed:
             try:
+                _reject_removed_execution_fields(request.source, adapter)
                 await _collect_observations(
                     request,
                     adapter,

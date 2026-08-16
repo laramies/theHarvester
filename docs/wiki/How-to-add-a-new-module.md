@@ -25,7 +25,7 @@ An adapter normally provides:
 
 Do not return fields the provider did not supply. Normalize and deduplicate before returning results.
 
-Return `None` when the provider conversation completed normally, including a valid zero-result response. Return an immutable `SourceExecutionReport` with a stable provider-specific reason for another terminal condition: `completed` for a successful early stop such as reaching the requested result limit, `failed` for provider or transport failure, `rate-limited` for a terminal rate limit, or `partial` when the provider itself confirms incomplete coverage. Do not add mutable `execution_status` or `stop_reason` fields to an adapter. The source runner owns finalization: it promotes any incomplete report with retained normalized evidence to `partial`, and records a normal zero-result completion as `completed` with `no-results`.
+Return `None` when the provider conversation completed normally, including a valid zero-result response. Return an immutable `SourceExecutionReport` with a stable provider-specific reason for another terminal condition: `completed` for a successful early stop such as reaching the requested result limit, `failed` for provider or transport failure, `rate-limited` for a terminal rate limit, or `partial` when the provider itself confirms incomplete coverage. Do not add mutable `execution_status` or `stop_reason` fields to an adapter. The source runner rejects adapters that expose either removed field before execution and rechecks before evidence collection. The source runner owns finalization: it promotes any incomplete report with retained normalized evidence to `partial`, and records a normal zero-result completion as `completed` with `no-results`.
 
 ### Own the provider conversation
 

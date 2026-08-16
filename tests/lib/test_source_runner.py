@@ -489,6 +489,128 @@ async def test_runner_rejects_legacy_or_untyped_execution_reports(monkeypatch: p
 
 
 @pytest.mark.asyncio
+async def test_runner_rejects_removed_mutable_execution_fields_before_provider_work(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    process_called = False
+    getter_called = False
+
+    class LegacySource:
+        def __init__(self) -> None:
+            self.execution_status = 'failed'
+            self.stop_reason = 'provider-failure'
+
+        async def process(self, _proxy: bool) -> None:
+            nonlocal process_called
+            process_called = True
+
+        async def get_hostnames(self) -> set[str]:
+            nonlocal getter_called
+            getter_called = True
+            return set()
+
+    monkeypatch.setitem(SOURCE_FACTORIES, 'apis-guru', lambda _request: LegacySource())
+
+    outcome = await run_source(SourceRequest('apis-guru', 'example.test', 25, 0, False, True))
+
+    assert process_called is False
+    assert getter_called is False
+    assert outcome.execution.status == 'failed'
+    assert outcome.execution.error_type == 'ValueError'
+    assert outcome.execution.result_count == 0
+    assert outcome.observations == ()
+
+
+@pytest.mark.asyncio
+async def test_runner_rejects_mutable_execution_fields_created_during_provider_work(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    getter_called = False
+
+    class RuntimeLegacySource:
+        async def process(self, _proxy: bool) -> None:
+            self.execution_status = 'failed'
+            self.stop_reason = 'provider-failure'
+
+        async def get_hostnames(self) -> set[str]:
+            nonlocal getter_called
+            getter_called = True
+            return {'untrusted.example.test'}
+
+    monkeypatch.setitem(SOURCE_FACTORIES, 'apis-guru', lambda _request: RuntimeLegacySource())
+
+    outcome = await run_source(SourceRequest('apis-guru', 'example.test', 25, 0, False, True))
+
+    assert getter_called is False
+    assert outcome.execution.status == 'failed'
+    assert outcome.execution.error_type == 'ValueError'
+    assert outcome.execution.result_count == 0
+    assert outcome.observations == ()
+
+
+@pytest.mark.asyncio
+async def test_runner_does_not_collect_evidence_after_legacy_process_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    getter_called = False
+
+    class FailingLegacySource:
+        async def process(self, _proxy: bool) -> None:
+            self.execution_status = 'failed'
+            self.stop_reason = 'provider-failure'
+            raise RuntimeError('provider failed')
+
+        async def get_hostnames(self) -> set[str]:
+            nonlocal getter_called
+            getter_called = True
+            return {'untrusted.example.test'}
+
+    monkeypatch.setitem(SOURCE_FACTORIES, 'apis-guru', lambda _request: FailingLegacySource())
+
+    outcome = await run_source(SourceRequest('apis-guru', 'example.test', 25, 0, False, True))
+
+    assert getter_called is False
+    assert outcome.execution.status == 'failed'
+    assert outcome.execution.error_type == 'RuntimeError'
+    assert outcome.execution.result_count == 0
+    assert outcome.observations == ()
+
+
+@pytest.mark.asyncio
+async def test_runner_does_not_collect_evidence_after_legacy_process_cancellation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cancellation = asyncio.CancelledError('operator-stop')
+    getter_called = False
+    committed: list[SourceOutcome] = []
+
+    class CancelledLegacySource:
+        async def process(self, _proxy: bool) -> None:
+            self.execution_status = 'failed'
+            self.stop_reason = 'cancelled'
+            raise cancellation
+
+        async def get_hostnames(self) -> set[str]:
+            nonlocal getter_called
+            getter_called = True
+            return {'untrusted.example.test'}
+
+    monkeypatch.setitem(SOURCE_FACTORIES, 'apis-guru', lambda _request: CancelledLegacySource())
+
+    with pytest.raises(asyncio.CancelledError) as raised:
+        await run_source(
+            SourceRequest('apis-guru', 'example.test', 25, 0, False, True),
+            commit_cancelled=committed.append,
+        )
+
+    assert raised.value is cancellation
+    assert getter_called is False
+    assert committed[0].execution.status == 'failed'
+    assert committed[0].execution.result_count == 0
+    assert committed[0].observations == ()
+
+
+@pytest.mark.asyncio
 async def test_runner_collects_builtwith_compatibility_observations(monkeypatch: pytest.MonkeyPatch) -> None:
     class FakeBuiltWith:
         async def process(self, _proxy: bool) -> None:
