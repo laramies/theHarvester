@@ -9,6 +9,11 @@ theHarvester is a Python OSINT reconnaissance tool for collecting public informa
 - For code changes, follow [CONTRIBUTING.md](CONTRIBUTING.md).
 - Make the smallest requested change, reuse existing code, and preserve unrelated worktree changes.
 
+## Upstream publication
+
+- Target every upstream pull request at `dev`.
+- Treat `upstream/master` as maintainer-only and read-only for agents. Leave every `dev`-to-`master` promotion, merge, and direct update to upstream maintainers.
+
 ## Domain language
 
 Read [CONTEXT.md](CONTEXT.md) when changing discovery terminology, evidence classification, scope handling, DNS validation, or P0/P1/P2 activity boundaries.
