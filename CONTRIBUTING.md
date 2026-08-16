@@ -75,13 +75,17 @@ uv run pytest
 uv run mypy theHarvester
 ```
 
-Before a release, run the complete repeatable gate from the repository root:
+Before a release, manually dispatch the **Release validation** workflow against
+the exact release branch or tag. For example:
 
 ```bash
-scripts/release-check.sh
+gh workflow run provider-smoke.yml --ref dev -f run_live=false
 ```
 
-This adds the real HarvestView browser, package, and container checks. Maintainers with explicit authorization may append bounded passive-provider lanes with repeated `--live-domain DOMAIN` arguments; these lanes never enable DNS or direct target interaction.
+This composes the Python, real-browser HarvestView, package, and container checks
+on clean GitHub-hosted runners. Maintainers with explicit authorization may set
+`run_live=true` to add bounded P0 provider checks against `mozilla.org`; the live
+lane never enables DNS or direct target interaction.
 
 Routine verification must use mocks, local fixtures, and reserved example domains. The test harness blocks external Python socket traffic unless a test is marked `live_network` and pytest is invoked with both `--run-live-network` and `-m live_network`. A live-marked test never satisfies the provider-contract coverage gate.
 

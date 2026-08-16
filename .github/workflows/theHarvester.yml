@@ -1,6 +1,7 @@
 name: TheHarvester Python CI
 
 on:
+  workflow_call:
   push:
     branches:
       - '*'

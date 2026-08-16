@@ -1,77 +1,147 @@
-name: Passive provider smoke
+name: Release validation
 
 on:
   workflow_dispatch:
+    inputs:
+      run_live:
+        description: Run bounded P0 provider checks against mozilla.org
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
 
 jobs:
-  Passive-provider-smoke:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      # Mozilla publishes a bug bounty and safe harbor; keep this job passive.
-      SMOKE_TEST_DOMAIN: mozilla.org
+  python-ci:
+    uses: ./.github/workflows/theHarvester.yml
 
+  harvestview-e2e:
+    uses: ./.github/workflows/harvestview-e2e.yml
+
+  container-smoke:
+    uses: ./.github/workflows/harvestview-container.yml
+
+  package-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           python-version: '3.14'
           enable-cache: true
-          cache-dependency-glob: "uv.lock"
+          cache-dependency-glob: uv.lock
+
+      - name: Build distributions
+        run: uv build --out-dir release-dist
+
+      - name: Verify installed distributions
+        run: |
+          wheel_path="$(find release-dist -maxdepth 1 -name '*.whl' -print -quit)"
+          sdist_path="$(find release-dist -maxdepth 1 -name '*.tar.gz' -print -quit)"
+          test -n "$wheel_path"
+          test -n "$sdist_path"
+          uv run --isolated --no-project --with "$wheel_path" theHarvester --help
+          uv run --isolated --no-project --with "$wheel_path" harvestview --help
+          uv run --isolated --no-project --with "$sdist_path" theHarvester --help
+
+      - name: Upload release distributions
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-distributions-${{ github.sha }}
+          path: release-dist/*
+          if-no-files-found: error
+          retention-days: 7
+
+  live-provider-tests:
+    if: ${{ inputs.run_live }}
+    needs: [python-ci, harvestview-e2e, container-smoke, package-smoke]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SMOKE_TEST_DOMAIN: mozilla.org
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
+        with:
+          egress-policy: audit
+
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          python-version: '3.14'
+          enable-cache: true
+          cache-dependency-glob: uv.lock
 
       - name: Install dependencies
-        run: |
-          sudo mkdir -p /usr/local/etc/theHarvester
-          sudo cp theHarvester/data/*.yaml /usr/local/etc/theHarvester/
-          sudo chown -R runner:runner /usr/local/etc/theHarvester/
-          uv sync --all-groups --frozen
-          echo "$GITHUB_WORKSPACE/.venv/bin" >> $GITHUB_PATH
+        run: uv sync --all-groups --frozen
 
       - name: Run opt-in live provider tests
-        timeout-minutes: 5
-        run: pytest --run-live-network -m live_network
+        run: uv run pytest --run-live-network -m live_network
 
-      # These are bounded CLI crash smokes, not provider conformance tests.
-      - name: Run theHarvester module CertSpotter
-        timeout-minutes: 5
-        run: theHarvester -d "$SMOKE_TEST_DOMAIN" -b certspotter -l 10 -q
+  live-cli-smoke:
+    if: ${{ inputs.run_live }}
+    needs: [python-ci, harvestview-e2e, container-smoke, package-smoke]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        source:
+          - certspotter
+          - crtsh
+          - duckduckgo
+          - hackertarget
+          - otx
+          - rapiddns
+          - urlscan
+          - yahoo
+    env:
+      SMOKE_TEST_DOMAIN: mozilla.org
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
+        with:
+          egress-policy: audit
 
-      - name: Run theHarvester module Crtsh
-        timeout-minutes: 5
-        run: theHarvester -d "$SMOKE_TEST_DOMAIN" -b crtsh -l 10 -q
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          python-version: '3.14'
+          enable-cache: true
 
-      - name: Run theHarvester module DuckDuckGo
-        timeout-minutes: 5
-        run: theHarvester -d "$SMOKE_TEST_DOMAIN" -b duckduckgo -l 10 -q
+      - name: Download release distributions
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-distributions-${{ github.sha }}
+          path: release-dist
 
-      - name: Run theHarvester module HackerTarget
-        timeout-minutes: 5
-        run: theHarvester -d "$SMOKE_TEST_DOMAIN" -b hackertarget -l 10 -q
+      - name: Verify source is P0
+        run: |
+          wheel_path="$(find release-dist -maxdepth 1 -name '*.whl' -print -quit)"
+          test -n "$wheel_path"
+          uv run --isolated --no-project --with "$wheel_path" python -c \
+            'import sys; from theHarvester.lib.source_catalog import ActivityClass, get_source_spec; assert get_source_spec(sys.argv[1]).activity is ActivityClass.PASSIVE' \
+            '${{ matrix.source }}'
 
-      - name: Run theHarvester module Otx
-        timeout-minutes: 5
-        run: theHarvester -d "$SMOKE_TEST_DOMAIN" -b otx -l 10 -q
-
-      - name: Run theHarvester module RapidDns
-        timeout-minutes: 5
-        run: theHarvester -d "$SMOKE_TEST_DOMAIN" -b rapiddns -l 10 -q
-
-      - name: Run theHarvester module Urlscan
-        timeout-minutes: 5
-        run: theHarvester -d "$SMOKE_TEST_DOMAIN" -b urlscan -l 10 -q
-
-      - name: Run theHarvester module Yahoo
-        timeout-minutes: 5
-        run: theHarvester -d "$SMOKE_TEST_DOMAIN" -b yahoo -l 10 -q
+      - name: Run installed-wheel P0 CLI smoke
+        run: |
+          wheel_path="$(find release-dist -maxdepth 1 -name '*.whl' -print -quit)"
+          uv run --isolated --no-project --with "$wheel_path" \
+            theHarvester -d "$SMOKE_TEST_DOMAIN" -b '${{ matrix.source }}' -l 10 -q
