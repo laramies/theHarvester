@@ -116,6 +116,18 @@ def test_wiki_navigation_and_readme_links_resolve() -> None:
     assert all(Path(target).is_file() for target in readme_wiki_links)
 
 
+def test_readme_architecture_diagram_is_local_and_accessible() -> None:
+    readme = Path('README.md').read_text()
+    html = Path('docs/diagrams/run-evidence-architecture.html')
+    svg = Path('docs/images/run-evidence-architecture.svg')
+
+    assert f'![theHarvester run evidence architecture]({svg})' in readme
+    assert f'[`{html}`]({html})' in readme
+    assert 'role="img"' in svg.read_text()
+    assert '<title id="run-evidence-architecture-title">' in svg.read_text()
+    assert '<desc id="run-evidence-architecture-desc">' in svg.read_text()
+
+
 def test_virtual_host_wiki_examples_match_the_structured_result_contract() -> None:
     page = Path('docs/wiki/Virtual-Host-Discovery.md').read_text()
 
@@ -131,9 +143,7 @@ def test_virtual_host_wiki_examples_match_the_structured_result_contract() -> No
 
     json_examples = re.findall(r'```json\n(.*?)\n```', page, flags=re.DOTALL)
     finding = next(
-        json.loads(example)
-        for example in json_examples
-        if '"type": "hostname"' in example and '"observations"' in example
+        json.loads(example) for example in json_examples if '"type": "hostname"' in example and '"observations"' in example
     )
     assert finding['value'] == 'admin.authorized.example'
     assert finding['actions'] == ['vhost']
@@ -153,6 +163,20 @@ def test_readme_preserves_project_social_attribution() -> None:
         assert name in readme
         assert f'https://twitter.com/{handle}' in readme
         assert f'@{handle}' in readme
+
+
+def test_operator_docs_recommend_jsonl_and_assume_uv_is_available() -> None:
+    readme = Path('README.md').read_text()
+    installation = Path('docs/wiki/Installation.md').read_text()
+    quick_start = Path('docs/wiki/Quick-Start.md').read_text()
+    workflows = Path('docs/wiki/Operator-Workflows.md').read_text()
+
+    assert '## Releases and packages' in readme
+    assert 'https://github.com/laramies/theHarvester/releases/tag/' in readme
+    assert 'https://pkg.kali.org/pkg/theharvester' in readme
+    assert 'curl -LsSf https://astral.sh/uv/install.sh' not in readme
+    assert 'curl -LsSf https://astral.sh/uv/install.sh' not in installation
+    assert all('`report.jsonl`' in page and 'automation' in page for page in (quick_start, workflows))
 
 
 def test_readme_explains_jsonl_record_and_structured_evidence_parsing() -> None:

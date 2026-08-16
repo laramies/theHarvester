@@ -15,17 +15,31 @@ It is built for the early reconnaissance stage of authorized security assessment
 - **Useful result types:** collect hostnames, email addresses, IP addresses, URLs, ASNs, and people.
 - **Enrichment after discovery:** optionally enrich routing evidence through RouteViews, resolve DNS, query Shodan, check for subdomain takeovers, brute-force DNS names, scan common API paths, and capture screenshots.
 - **CLI and browser-accessible API:** use the command line interactively or run the FastAPI service for automation and interactive Swagger/ReDoc documentation.
-- **Repeatable output:** print results, write JSON, XML, and JSONL reports, and retain host, email, and IP findings in a local SQLite database.
+- **Repeatable output:** print results, write provenance-aware JSONL, retain run evidence in SQLite, and generate legacy JSON and XML reports when needed.
 - **Operational controls:** select individual sources, set result limits, use HTTP or SOCKS proxies, choose DNS resolvers, and suppress missing-key noise.
 
 Source availability, quotas, and response formats are controlled by third parties and can change independently of theHarvester.
 
+![theHarvester run evidence architecture](docs/images/run-evidence-architecture.svg)
+
+The editable diagram source is [`docs/diagrams/run-evidence-architecture.html`](docs/diagrams/run-evidence-architecture.html).
+
+## Releases and packages
+
+| Channel | Current version | Get it |
+| --- | --- | --- |
+| GitHub release | `4.11.1` | [Release notes and source archive](https://github.com/laramies/theHarvester/releases/tag/4.11.1) |
+| Kali Rolling | `4.11.1-0kali1` | [Kali package tracker](https://pkg.kali.org/pkg/theharvester) |
+| Other distributions | Varies | [Repology package list](https://repology.org/project/theharvester/versions) |
+| Development | `dev` | [Current development branch](https://github.com/laramies/theHarvester/tree/dev) |
+
+The [PyPI project](https://pypi.org/project/theHarvester/) currently reports `0.0.1` and does not track this repository's current releases.
+
 ## Quick start
 
-theHarvester requires Python 3.12 or newer and uses [uv](https://docs.astral.sh/uv/) for dependency management.
+theHarvester requires Python 3.12 or newer. From a source checkout:
 
 ```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
 git clone https://github.com/laramies/theHarvester.git
 cd theHarvester
 uv sync
@@ -68,11 +82,13 @@ uv run theHarvester -d example.com -b emails,ips,urls --no-hosts -f non-host-res
 
 `--no-hosts` skips sources whose only declared route is `subdomains`. Mixed sources still run, but their hostname getter is not called; emails, IPs, URLs, ASNs, people, and breach names remain available. Hostname and virtual-host records are omitted from terminal, JSON, XML, JSONL, SQLite, API, and HarvestView output. The option cannot be combined with Shodan enrichment, DNS resolution/lookup/brute force/recursion, takeover checks, screenshots, or virtual-host discovery. Target-only API endpoint interaction remains available because it does not depend on harvested hostnames. HarvestView and `POST /api/v1/runs` expose the same option as `no_hosts`.
 
-Save JSON, XML, and JSONL reports:
+Save a durable JSONL report:
 
 ```bash
 uv run theHarvester -d example.com -b crtsh,certspotter -f report
 ```
+
+This writes `report.jsonl` for automation and interchange. The same command also writes legacy `report.json` and `report.xml` compatibility reports.
 
 Resolve discovered hosts for an authorized domain with the default resolver list:
 
@@ -278,21 +294,7 @@ Treat collected OSINT as potentially sensitive. Keep report files, screenshots, 
 
 ### Report formats
 
-The JSON report is a single object. Host entries remain plain hostnames or `hostname:address[,address...]` values when DNS resolution is enabled. DNS resolution and DNS brute force retain candidates only when A, AAAA, or CNAME evidence is available; CNAME-only candidates remain plain hostnames in existing CLI, REST, JSON, and XML output.
-
-`Checker.check()` and `DnsForce.run()` retain their existing `(resolved, hosts, addresses)` return shape. Normalized A, AAAA, and CNAME values are available through each object's `records` mapping.
-
-| Field | Availability | Contents |
-| --- | --- | --- |
-| `cmd` | Always | Command-line arguments used for the run. |
-| `hosts` | Always | Discovered hosts; an empty array when none are found. |
-| `shodan` | Always | Shodan host objects with canonical IP `value` and structured `details`; an empty array when Shodan is not used. |
-| `ips`, `emails`, `vhosts`, `asns`, `prefixes` | When non-empty | Network and contact findings. RouteViews prefixes are external routing relationships, not claimed target scope. |
-| `urls` | When non-empty | Discovered URLs from every URL-producing source or action. |
-| `people`, `twitter_people`, `linkedin_people` | When non-empty | People and profile findings. |
-| `takeover_results` | When non-empty | Optional takeover-check results. |
-
-The XML report contains the command, emails, hosts, and virtual hosts. Use JSON when you need the additional result types above.
+Use JSONL for automation, run interchange, and structured evidence. Legacy JSON and XML remain available for consumers that depend on their existing grouped schemas.
 
 The JSONL report is finalized after the selected one-shot actions finish. The first line identifies the run with its UUID, target, UTC timestamps, and result counts. Each later line is one sorted, deduplicated finding. When you concatenate report files, treat each summary line as the start of a new run.
 
@@ -309,7 +311,7 @@ Virtual-host observations do not use that string encoding. Each confirmed name r
 
 RouteViews evidence also uses native observations. Each `prefix` finding has `scope: "external-relationship"`, `actions: ["routeviews"]`, and observed-origin, BGP route, or RPKI validation records. These records describe provider-observed routing, never registration, ownership, authorization, reachability, or target scope.
 
-ASN organization labels from URLScan, ONYPHE, and the Shodan host action are also native observations. Each label remains tied to its provider and the exact hostname or IP that supplied the relationship. ONYPHE's physical hosting and logical WHOIS labels remain separate observations. Conflicting labels are retained for review; organization text never becomes an ASN owner field or a pivot filter. Before RouteViews runs, the exact source-attributed IP relationship—not the organization label—selects automatic network pivots.
+ASN organization labels from URLScan, ONYPHE, and the Shodan host action are also native observations. Each label remains tied to its provider and the exact hostname or IP that supplied the relationship. ONYPHE's physical hosting and logical WHOIS labels remain separate observations. Conflicting labels are retained for review; organization text never becomes an ASN owner field or a pivot filter. Before RouteViews runs, the exact source-attributed IP relationship, not the organization label, selects automatic network pivots.
 
 Parse recursive DNS findings as JSON objects:
 
@@ -343,34 +345,23 @@ List every JSONL finding as tab-separated type and value columns:
 jq -r 'select(.type != "summary") | [.type, .value] | @tsv' report.jsonl
 ```
 
-List discovered hosts with [`jq`](https://jqlang.org/):
+#### Legacy JSON and XML
 
-```bash
-jq -r '.hosts[]?' report.json
-```
+The legacy JSON report is one object. Host entries remain plain hostnames or use `hostname:address[,address...]` when DNS resolution is enabled. DNS resolution and brute force retain candidates only when A, AAAA, or CNAME evidence is available. CNAME-only candidates remain plain hostnames in CLI, REST, JSON, and XML output.
 
-Count common result types while safely handling omitted fields:
+`Checker.check()` and `DnsForce.run()` retain their existing `(resolved, hosts, addresses)` return shape. Their `records` mappings contain normalized A, AAAA, and CNAME values.
 
-```bash
-jq '{
-  hosts: (.hosts // [] | length),
-  emails: (.emails // [] | length),
-  ips: (.ips // [] | length),
-  asns: (.asns // [] | length)
-}' report.json
-```
+| Field | Availability | Contents |
+| --- | --- | --- |
+| `cmd` | Always | Command-line arguments used for the run. |
+| `hosts` | Always | Discovered hosts; an empty array when none are found. |
+| `shodan` | Always | Shodan host objects with canonical IP `value` and structured `details`; an empty array when Shodan is not used. |
+| `ips`, `emails`, `vhosts`, `asns`, `prefixes` | When non-empty | Network and contact findings. RouteViews prefixes are external routing relationships, not claimed target scope. |
+| `urls` | When non-empty | Discovered URLs from every URL-producing source or action. |
+| `people`, `twitter_people`, `linkedin_people` | When non-empty | People and profile findings. |
+| `takeover_results` | When non-empty | Optional takeover-check results. |
 
-Export common findings as tab-separated values:
-
-```bash
-jq -r '(
-  ["type", "value"],
-  (.hosts[]? | ["host", .]),
-  (.emails[]? | ["email", .]),
-  (.ips[]? | ["ip", .]),
-  (.asns[]? | ["asn", .])
-) | @tsv' report.json > findings.tsv
-```
+The XML report contains only the command, emails, hosts, and virtual hosts. JSON and XML group findings by type without source attribution, lifecycle outcomes, or structured action evidence.
 
 ## Development and contributing
 
@@ -380,7 +371,7 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) for the development setup, required chec
 
 - Use [GitHub Issues](https://github.com/laramies/theHarvester/issues) for reproducible bugs and focused feature requests.
 - Report suspected vulnerabilities according to [SECURITY.md](SECURITY.md), not in public issues.
-- [Christian Martorella (@laramies)](https://twitter.com/laramies) created theHarvester No [cmartorella@edge-security.com](mailto:cmartorella@edge-security.com).
+- [Christian Martorella (@laramies)](https://twitter.com/laramies) created theHarvester. Contact: [cmartorella@edge-security.com](mailto:cmartorella@edge-security.com).
 - [Matt Brown (@NotoriousRebel1)](https://twitter.com/NotoriousRebel1) and [Jay "L1ghtn1ng" Townsend (@jay_townsend1)](https://twitter.com/jay_townsend1) maintain and develop the project.
 - [Lee Baird (@discoverscripts)](https://twitter.com/discoverscripts) is a main contributor.
 - Thanks to John Matherly for Shodan and Ahmed Aboul Ela for the bundled subdomain dictionaries.

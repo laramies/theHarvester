@@ -16,7 +16,7 @@ Use the [README source matrix](https://github.com/laramies/theHarvester/blob/dev
 uv run theHarvester -d example.com -b crtsh,certspotter -f report
 ```
 
-Use `report.json` for automation and `report.xml` for the smaller legacy host/email representation. See [Results and Local Data](Results-and-Local-Data).
+Use `report.jsonl` for automation, provenance, and run interchange. The same command also writes legacy `report.json` and `report.xml` compatibility files. See [Results and Local Data](Results-and-Local-Data).
 
 ## DNS resolution
 
