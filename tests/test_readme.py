@@ -120,12 +120,20 @@ def test_readme_architecture_diagram_is_local_and_accessible() -> None:
     readme = Path('README.md').read_text()
     html = Path('docs/diagrams/run-evidence-architecture.html')
     svg = Path('docs/images/run-evidence-architecture.svg')
+    html_text = html.read_text()
+    svg_text = svg.read_text()
 
     assert f'![theHarvester run evidence architecture]({svg})' in readme
     assert f'[`{html}`]({html})' in readme
-    assert 'role="img"' in svg.read_text()
-    assert '<title id="run-evidence-architecture-title">' in svg.read_text()
-    assert '<desc id="run-evidence-architecture-desc">' in svg.read_text()
+    assert 'src="../images/run-evidence-architecture.svg"' in html_text
+    assert '<svg' not in html_text
+    assert 'role="img"' in svg_text
+    assert '<title id="run-evidence-architecture-title">' in svg_text
+    assert '<desc id="run-evidence-architecture-desc">' in svg_text
+    assert 'P0 · P1 · P2 by catalog policy' in svg_text
+    assert 'Durable · JSONL · SQLite' in svg_text
+    assert 'Views · terminal · API' in svg_text
+    assert '>HarvestView</text>' in svg_text
 
 
 def test_virtual_host_wiki_examples_match_the_structured_result_contract() -> None:

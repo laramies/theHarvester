@@ -8,104 +8,15 @@
     *, *::before, *::after { box-sizing: border-box; }
     html, body { margin: 0; background: #f5f5f5; }
     body { display: grid; min-height: 100vh; place-items: center; padding: 32px; }
-    svg { display: block; width: min(100%, 960px); height: auto; }
+    img { display: block; width: min(100%, 960px); height: auto; }
   </style>
 </head>
 <body>
-<svg viewBox="0 0 960 580" role="img" aria-labelledby="run-evidence-architecture-title run-evidence-architecture-desc" xmlns="http://www.w3.org/2000/svg">
-  <title id="run-evidence-architecture-title">One run, one evidence model</title>
-  <desc id="run-evidence-architecture-desc">theHarvester architecture showing CLI, HarvestView, and REST requests moving through a validated run contract, the source catalog and enumeration pipeline, then into one normalized CompletedResult written to JSONL, SQLite, terminal output, and the API.</desc>
-  <defs>
-    <style>
-      .title { font: 400 30px 'Instrument Serif', Georgia, serif; fill: #2d3142; }
-      .subtitle { font: 400 10px 'Geist Mono', ui-monospace, monospace; fill: #4f5d75; }
-      .eyebrow { font: 600 8px 'Geist Mono', ui-monospace, monospace; letter-spacing: .16em; fill: #4f5d75; }
-      .name { font: 600 13px Geist, system-ui, sans-serif; fill: #2d3142; }
-      .sub { font: 400 9px 'Geist Mono', ui-monospace, monospace; fill: #4f5d75; }
-      .soft { font: 400 8px 'Geist Mono', ui-monospace, monospace; fill: #7a8399; }
-      .zone { fill: rgba(45,49,66,.018); stroke: rgba(45,49,66,.12); stroke-width: .8; }
-      .node { fill: #fff; stroke: #2d3142; stroke-width: 1; }
-      .store { fill: rgba(45,49,66,.05); stroke: #4f5d75; stroke-width: 1; }
-      .focal { fill: rgba(235,108,54,.08); stroke: #eb6c36; stroke-width: 1.2; }
-      .connector { fill: none; stroke: #4f5d75; stroke-width: 1.2; }
-      .connector-accent { fill: none; stroke: #eb6c36; stroke-width: 1.2; }
-      .connector-link { fill: none; stroke: #2e5aa8; stroke-width: 1.2; }
-      .accent-text { fill: #b64b20; }
-    </style>
-    <marker id="run-evidence-architecture-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#4f5d75"/></marker>
-    <marker id="run-evidence-architecture-arrow-accent" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#eb6c36"/></marker>
-    <marker id="run-evidence-architecture-arrow-link" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#2e5aa8"/></marker>
-  </defs>
-
-  <rect width="960" height="580" fill="#f5f5f5"/>
-  <text x="40" y="40" class="eyebrow">THEHARVESTER ARCHITECTURE</text>
-  <text x="40" y="76" class="title">One run, one evidence model</text>
-  <text x="40" y="96" class="subtitle">Every interface and activity class converges on the same normalized result.</text>
-
-  <rect x="40" y="120" width="208" height="360" rx="8" class="zone"/>
-  <rect x="56" y="124" width="72" height="16" fill="#f5f5f5"/>
-  <text x="60" y="136" class="eyebrow">CONTROL</text>
-
-  <rect x="272" y="120" width="392" height="360" rx="8" class="zone"/>
-  <rect x="288" y="124" width="80" height="16" fill="#f5f5f5"/>
-  <text x="292" y="136" class="eyebrow">EXECUTION</text>
-
-  <rect x="688" y="120" width="232" height="360" rx="8" class="zone"/>
-  <rect x="704" y="124" width="72" height="16" fill="#f5f5f5"/>
-  <text x="708" y="136" class="eyebrow">EVIDENCE</text>
-
-  <path d="M224 272 H252 Q260 272 260 264 V196 Q260 188 268 188 H296" class="connector" marker-end="url(#run-evidence-architecture-arrow)"/>
-  <path d="M348 224 V280" class="connector" marker-end="url(#run-evidence-architecture-arrow)"/>
-  <path d="M544 224 V244" class="connector" marker-end="url(#run-evidence-architecture-arrow)"/>
-  <path d="M428 316 H460" class="connector" marker-end="url(#run-evidence-architecture-arrow)"/>
-  <path d="M628 316 H716" class="connector-accent" marker-end="url(#run-evidence-architecture-arrow-accent)"/>
-  <path d="M804 376 V392" class="connector-link" marker-end="url(#run-evidence-architecture-arrow-link)"/>
-
-  <rect x="64" y="220" width="160" height="104" rx="6" class="node"/>
-  <text x="80" y="244" class="eyebrow">ENTRY POINTS</text>
-  <text x="80" y="272" class="name">Operator interfaces</text>
-  <text x="80" y="292" class="sub">CLI · HarvestView · REST</text>
-  <text x="80" y="308" class="soft">one finite run</text>
-
-  <rect x="296" y="152" width="328" height="72" rx="6" class="node"/>
-  <text x="312" y="172" class="eyebrow">SHARED INPUT</text>
-  <text x="312" y="196" class="name">Validated run contract</text>
-  <text x="312" y="212" class="sub">target · sources · limits · authorization</text>
-
-  <rect x="296" y="280" width="132" height="72" rx="6" class="store"/>
-  <text x="312" y="304" class="eyebrow">REGISTRY</text>
-  <text x="312" y="328" class="name">Source catalog</text>
-  <text x="312" y="344" class="soft">routes · keys · class</text>
-
-  <rect x="460" y="244" width="168" height="144" rx="6" class="node"/>
-  <text x="476" y="268" class="eyebrow">FINITE WORK</text>
-  <text x="476" y="292" class="name">Enumeration pipeline</text>
-  <line x1="476" y1="308" x2="612" y2="308" stroke="rgba(45,49,66,.12)" stroke-width=".8"/>
-  <text x="476" y="328" class="sub">Source runner · P0</text>
-  <text x="476" y="344" class="sub">Explicit actions</text>
-  <text x="476" y="360" class="soft">P0 RouteViews · P1 DNS</text>
-  <text x="476" y="376" class="soft">P2 direct interaction</text>
-
-  <rect x="716" y="256" width="176" height="120" rx="6" class="focal"/>
-  <text x="732" y="280" class="eyebrow accent-text">NORMALIZED RECORD</text>
-  <text x="732" y="308" class="name">CompletedResult</text>
-  <text x="732" y="328" class="sub">findings · origins · outcomes</text>
-  <text x="732" y="344" class="sub">artifacts · evidence status</text>
-  <text x="732" y="360" class="soft">partial evidence stays attributable</text>
-
-  <rect x="716" y="392" width="176" height="72" rx="6" class="store"/>
-  <text x="732" y="416" class="eyebrow">DURABLE OUTPUTS</text>
-  <text x="732" y="440" class="name">JSONL · SQLite</text>
-  <text x="732" y="456" class="soft">terminal · API · HarvestView</text>
-
-  <line x1="40" y1="520" x2="920" y2="520" stroke="rgba(45,49,66,.12)" stroke-width=".8"/>
-  <line x1="48" y1="548" x2="84" y2="548" class="connector" marker-end="url(#run-evidence-architecture-arrow)"/>
-  <text x="96" y="552" class="soft">internal handoff</text>
-  <line x1="244" y1="548" x2="280" y2="548" class="connector-accent" marker-end="url(#run-evidence-architecture-arrow-accent)"/>
-  <text x="292" y="552" class="soft">evidence boundary</text>
-  <line x1="464" y1="548" x2="500" y2="548" class="connector-link" marker-end="url(#run-evidence-architecture-arrow-link)"/>
-  <text x="512" y="552" class="soft">operator output</text>
-  <text x="920" y="552" class="soft" text-anchor="end">P0 provider · P1 DNS · P2 direct interaction</text>
-</svg>
+<img
+  src="../images/run-evidence-architecture.svg"
+  alt="theHarvester run architecture: operator interfaces feed a validated run contract and finite execution pipeline, which produces normalized evidence for durable storage and operator views."
+  width="960"
+  height="580"
+>
 </body>
 </html>

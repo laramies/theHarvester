@@ -22,7 +22,7 @@ Source availability, quotas, and response formats are controlled by third partie
 
 ![theHarvester run evidence architecture](docs/images/run-evidence-architecture.svg)
 
-The editable diagram source is [`docs/diagrams/run-evidence-architecture.html`](docs/diagrams/run-evidence-architecture.html).
+Open the diagram in a dedicated browser view with [`docs/diagrams/run-evidence-architecture.html`](docs/diagrams/run-evidence-architecture.html).
 
 ## Releases and packages
 

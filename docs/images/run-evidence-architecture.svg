@@ -1,16 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg viewBox="0 0 960 580" role="img" aria-labelledby="run-evidence-architecture-title run-evidence-architecture-desc" xmlns="http://www.w3.org/2000/svg">
   <title id="run-evidence-architecture-title">One run, one evidence model</title>
-  <desc id="run-evidence-architecture-desc">theHarvester architecture showing CLI, HarvestView, and REST requests moving through a validated run contract, the source catalog and enumeration pipeline, then into one normalized CompletedResult written to JSONL, SQLite, terminal output, and the API.</desc>
+  <desc id="run-evidence-architecture-desc">theHarvester architecture showing CLI, HarvestView, and REST requests moving through a validated run contract, the source catalog, and a finite enumeration pipeline, then into one normalized CompletedResult that feeds durable JSONL and SQLite evidence plus terminal, API, and HarvestView views.</desc>
   <defs>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif&amp;family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap');
-      .title { font: 400 30px 'Instrument Serif', Georgia, serif; fill: #2d3142; }
-      .subtitle { font: 400 10px 'Geist Mono', ui-monospace, monospace; fill: #4f5d75; }
-      .eyebrow { font: 600 8px 'Geist Mono', ui-monospace, monospace; letter-spacing: .16em; fill: #4f5d75; }
-      .name { font: 600 13px Geist, system-ui, sans-serif; fill: #2d3142; }
-      .sub { font: 400 9px 'Geist Mono', ui-monospace, monospace; fill: #4f5d75; }
-      .soft { font: 400 8px 'Geist Mono', ui-monospace, monospace; fill: #7a8399; }
+      .title { font: 400 30px Georgia, serif; fill: #2d3142; }
+      .subtitle { font: 400 10px ui-monospace, monospace; fill: #4f5d75; }
+      .eyebrow { font: 600 8px ui-monospace, monospace; letter-spacing: .16em; fill: #4f5d75; }
+      .name { font: 600 13px system-ui, sans-serif; fill: #2d3142; }
+      .sub { font: 400 9px ui-monospace, monospace; fill: #4f5d75; }
+      .soft { font: 400 8px ui-monospace, monospace; fill: #7a8399; }
       .zone { fill: rgba(45,49,66,.018); stroke: rgba(45,49,66,.12); stroke-width: .8; }
       .node { fill: #fff; stroke: #2d3142; stroke-width: 1; }
       .store { fill: rgba(45,49,66,.05); stroke: #4f5d75; stroke-width: 1; }
@@ -47,7 +46,7 @@
   <path d="M544 224 V244" class="connector" marker-end="url(#run-evidence-architecture-arrow)"/>
   <path d="M428 316 H460" class="connector" marker-end="url(#run-evidence-architecture-arrow)"/>
   <path d="M628 316 H716" class="connector-accent" marker-end="url(#run-evidence-architecture-arrow-accent)"/>
-  <path d="M804 376 V392" class="connector-link" marker-end="url(#run-evidence-architecture-arrow-link)"/>
+  <path d="M804 376 V388" class="connector-link" marker-end="url(#run-evidence-architecture-arrow-link)"/>
 
   <rect x="64" y="220" width="160" height="104" rx="6" class="node"/>
   <text x="80" y="244" class="eyebrow">ENTRY POINTS</text>
@@ -58,7 +57,7 @@
   <rect x="296" y="152" width="328" height="72" rx="6" class="node"/>
   <text x="312" y="172" class="eyebrow">SHARED INPUT</text>
   <text x="312" y="196" class="name">Validated run contract</text>
-  <text x="312" y="212" class="sub">target · sources · limits · authorization</text>
+  <text x="312" y="212" class="sub">target · sources · limits · activity controls</text>
 
   <rect x="296" y="280" width="132" height="72" rx="6" class="store"/>
   <text x="312" y="304" class="eyebrow">REGISTRY</text>
@@ -69,10 +68,10 @@
   <text x="476" y="268" class="eyebrow">FINITE WORK</text>
   <text x="476" y="292" class="name">Enumeration pipeline</text>
   <line x1="476" y1="308" x2="612" y2="308" stroke="rgba(45,49,66,.12)" stroke-width=".8"/>
-  <text x="476" y="328" class="sub">Source runner · P0</text>
-  <text x="476" y="344" class="sub">Explicit actions</text>
-  <text x="476" y="360" class="soft">P0 RouteViews · P1 DNS</text>
-  <text x="476" y="376" class="soft">P2 direct interaction</text>
+  <text x="476" y="328" class="sub">Selected sources</text>
+  <text x="476" y="344" class="soft">P0 · P1 · P2 by catalog policy</text>
+  <text x="476" y="360" class="sub">Explicit actions</text>
+  <text x="476" y="376" class="soft">RouteViews · DNS · direct</text>
 
   <rect x="716" y="256" width="176" height="120" rx="6" class="focal"/>
   <text x="732" y="280" class="eyebrow accent-text">NORMALIZED RECORD</text>
@@ -81,10 +80,11 @@
   <text x="732" y="344" class="sub">artifacts · evidence status</text>
   <text x="732" y="360" class="soft">partial evidence stays attributable</text>
 
-  <rect x="716" y="392" width="176" height="72" rx="6" class="store"/>
-  <text x="732" y="416" class="eyebrow">DURABLE OUTPUTS</text>
-  <text x="732" y="440" class="name">JSONL · SQLite</text>
-  <text x="732" y="456" class="soft">terminal · API · HarvestView</text>
+  <rect x="716" y="388" width="176" height="80" rx="6" class="store"/>
+  <text x="732" y="410" class="eyebrow">OUTPUTS</text>
+  <text x="732" y="432" class="sub">Durable · JSONL · SQLite</text>
+  <text x="732" y="450" class="soft">Views · terminal · API</text>
+  <text x="732" y="464" class="soft">HarvestView</text>
 
   <line x1="40" y1="520" x2="920" y2="520" stroke="rgba(45,49,66,.12)" stroke-width=".8"/>
   <line x1="48" y1="548" x2="84" y2="548" class="connector" marker-end="url(#run-evidence-architecture-arrow)"/>
