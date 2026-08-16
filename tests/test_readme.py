@@ -121,27 +121,21 @@ def test_readme_architecture_diagrams_are_local_and_accessible() -> None:
     diagrams = (
         (
             'theHarvester discovery routes and enrichment',
-            Path('docs/diagrams/run-evidence-architecture.html'),
             Path('docs/images/run-evidence-architecture.svg'),
             'run-evidence-architecture',
             ('subdomains · emails · IPs', 'Shodan host detail', 'RouteViews routes', 'vhost · screenshots · takeover'),
         ),
         (
             'HarvestView run desk architecture',
-            Path('docs/diagrams/harvestview-architecture.html'),
             Path('docs/images/harvestview-architecture.svg'),
             'harvestview-architecture',
             ('Authenticated REST API', 'queued → running → terminal', 'Isolated run worker', 'export JSONL'),
         ),
     )
 
-    for alt, html, svg, slug, expected_text in diagrams:
-        html_text = html.read_text()
+    for alt, svg, slug, expected_text in diagrams:
         svg_text = svg.read_text()
         assert f'![{alt}]({svg})' in readme
-        assert f'[`{html}`]({html})' in readme
-        assert '<svg' in html_text
-        assert '<img' not in html_text
         assert 'role="img"' in svg_text
         assert f'<title id="{slug}-title">' in svg_text
         assert f'<desc id="{slug}-desc">' in svg_text

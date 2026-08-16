@@ -3,7 +3,6 @@
 *.sqlite
 *.html
 !theHarvester/lib/api/static/harvestview/index.html
-!docs/diagrams/*.html
 *.htm
 *.vscode
 *.xml

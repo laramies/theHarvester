@@ -30,13 +30,9 @@ Source availability, quotas, and response formats are controlled by third partie
 
 ![theHarvester discovery routes and enrichment](docs/images/run-evidence-architecture.svg)
 
-Open the diagram in a dedicated browser view with [`docs/diagrams/run-evidence-architecture.html`](docs/diagrams/run-evidence-architecture.html).
-
 ### HarvestView run desk
 
 ![HarvestView run desk architecture](docs/images/harvestview-architecture.svg)
-
-Open the diagram in a dedicated browser view with [`docs/diagrams/harvestview-architecture.html`](docs/diagrams/harvestview-architecture.html).
 
 ## Quick start
 
