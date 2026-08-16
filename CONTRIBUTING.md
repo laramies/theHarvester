@@ -75,6 +75,18 @@ uv run pytest
 uv run mypy theHarvester
 ```
 
+Before a release, manually dispatch the **Release validation** workflow against
+the exact release branch or tag. For example:
+
+```bash
+gh workflow run provider-smoke.yml --ref dev -f run_live=false
+```
+
+This composes the Python, real-browser HarvestView, package, and container checks
+on clean GitHub-hosted runners. Maintainers with explicit authorization may set
+`run_live=true` to add bounded P0 provider checks against `mozilla.org`; the live
+lane never enables DNS or direct target interaction.
+
 Routine verification must use mocks, local fixtures, and reserved example domains. The test harness blocks external Python socket traffic unless a test is marked `live_network` and pytest is invoked with both `--run-live-network` and `-m live_network`. A live-marked test never satisfies the provider-contract coverage gate.
 
 Do not run broad or active reconnaissance against third-party targets. If live verification is essential, use only a target you own or are explicitly authorized to test, limit the request scope, and keep collected data out of commits, issues, and pull requests. The manually dispatched provider workflow uses `mozilla.org` for small passive CLI crash smokes. Those runs can detect packaging, credential, or provider drift; they are not conformance tests and should not be retried merely to obtain more results.

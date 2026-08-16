@@ -20,6 +20,8 @@ class TestOtx:
         url = f'https://otx.alienvault.com/api/v1/indicators/domain/{live_test_domain}/passive_dns'
         response = httpx.get(url, headers={'User-Agent': Core.get_user_agent()}, timeout=30)
 
+        if response.status_code == 429:
+            pytest.skip('OTX rate limited the anonymous live-network probe')
         assert response.status_code == 200
         assert isinstance(response.json().get('passive_dns'), list)
 

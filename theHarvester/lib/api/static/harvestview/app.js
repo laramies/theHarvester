@@ -26,6 +26,7 @@
     pollTimer: null,
     pollErrorShown: false,
     resultTable: null,
+    pendingResultAction: null,
     screenshotUrls: new Map(),
   };
 
@@ -50,11 +51,16 @@
     exportJsonl: $('#export-jsonl-button'), screenshotSection: $('#screenshot-section'),
     screenshotGallery: $('#screenshot-gallery'), logSection: $('#log-section'), logOutput: $('#run-log-output'),
     newRunDialog: $('#new-run-dialog'), newRunForm: $('#new-run-form'), sourceSearch: $('#source-search'), sourceGroups: $('#source-groups'),
-    sourceSelectionSummary: $('#source-selection-summary'),
+    sourceSelectionSummary: $('#source-selection-summary'), finalAuthorizationSummary: $('#final-authorization-summary'),
     sourceCapability: $('#source-capability'), selectCapability: $('#select-capability-button'),
     selectP0: $('#select-p0-button'), clearP0: $('#clear-p0-button'),
     dnsResolvers: $('#dns-resolvers'), dnsResolverFile: $('#dns-resolver-file'),
     activitySummary: $('#activity-summary'), newRunError: $('#new-run-error'), submitRun: $('#submit-run-button'),
+    resultActionDialog: $('#result-action-dialog'), resultActionForm: $('#result-action-form'),
+    resultActionTitle: $('#result-action-title'), resultActionIntro: $('#result-action-intro'),
+    resultActionTarget: $('#result-action-target'), resultActionBand: $('#result-action-band'),
+    resultActionNetwork: $('#result-action-network'), resultActionResolvers: $('#result-action-resolvers'),
+    confirmResultAction: $('#confirm-result-action-button'),
     importDialog: $('#import-dialog'), importForm: $('#import-form'), resultFile: $('#result-file'), fileLabel: $('#file-label'),
     importError: $('#import-error'), submitImport: $('#submit-import-button'), screenshotDialog: $('#screenshot-dialog'),
     screenshotDialogTitle: $('#screenshot-dialog-title'), screenshotDialogImage: $('#screenshot-dialog-image'),
@@ -260,14 +266,29 @@
   }
 
   function renderFacts(run) {
-    const facts = [
-      ['Origin', run.origin], ['Submitted', formatDate(run.created_at)], ['Started', formatDate(run.started_at)],
-      ['Duration', formatDuration(run.started_at, run.completed_at)], ['Results', Number(run.result_count || 0).toLocaleString()]
-    ];
+    const facts = run.origin === 'imported'
+      ? [
+          ['Origin', 'Imported evidence'], ['Imported', formatDate(run.created_at)],
+          ['Original started', formatDate(run.started_at)], ['Original completed', formatDate(run.completed_at)],
+          ['Duration', formatDuration(run.started_at, run.completed_at)], ['Results', Number(run.result_count || 0).toLocaleString()]
+        ]
+      : [
+          ['Origin', run.origin], ['Submitted', formatDate(run.created_at)], ['Started', formatDate(run.started_at)],
+          ['Duration', formatDuration(run.started_at, run.completed_at)], ['Results', Number(run.result_count || 0).toLocaleString()]
+        ];
     nodes.runFacts.innerHTML = facts.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('');
   }
 
   function renderLifecycle(run) {
+    if (run.origin === 'imported') {
+      const steps = [
+        ['Original started', run.started_at], ['Original completed', run.completed_at], ['Imported', run.created_at]
+      ];
+      nodes.lifecycleTrack.innerHTML = steps.map(([label, time]) => `
+        <li class="lifecycle-step ${time ? 'reached' : ''}"><strong>${escapeHtml(label)}</strong><span>${escapeHtml(formatDate(time))}</span></li>`).join('');
+      nodes.lifecycleNote.textContent = 'Imported evidence retains its original execution timing; local import time is shown separately.';
+      return;
+    }
     const terminalLabel = run.status === 'completed' ? 'Completed' : run.status === 'failed' ? 'Failed' : run.status === 'cancelled' ? 'Cancelled' : 'Terminal';
     const steps = [['Submitted', run.created_at], ['Started', run.started_at]];
     if (run.cancellation_requested_at) steps.push(['Cancellation requested', run.cancellation_requested_at]);
@@ -336,7 +357,11 @@
 
   function updateSourceSelectionSummary() {
     const selected = state.sources.filter(source => state.selectedSources.has(source.name) && sourceIsReady(source));
-    nodes.sourceSelectionSummary.textContent = `Selected ${formatCount(selected.length, 'ready source')}.`;
+    const names = selected.map(source => source.name);
+    const visibleNames = names.slice(0, 4).join(', ');
+    const remainder = names.length > 4 ? ` +${names.length - 4} more` : '';
+    const selection = names.length ? `: ${visibleNames}${remainder}` : '';
+    nodes.sourceSelectionSummary.textContent = `Selected ${formatCount(names.length, 'ready source')}${selection}.`;
   }
 
   function executionReason(execution) {
@@ -610,6 +635,20 @@
     return escapeHtml(values.join(', ') || '-');
   }
 
+  function labelResultTableControls() {
+    const headerSelection = nodes.resultWorkbench.querySelector('.tabulator-header .tabulator-row-header input[type="checkbox"]');
+    headerSelection?.setAttribute('aria-label', 'Select all rows on this route');
+    for (const column of nodes.resultWorkbench.querySelectorAll('.tabulator-col[tabulator-field]')) {
+      const title = column.querySelector('.tabulator-col-title')?.textContent?.trim();
+      const filter = column.querySelector('.tabulator-header-filter input');
+      if (title && filter) filter.setAttribute('aria-label', `Filter ${title} column`);
+    }
+    for (const row of state.resultTable?.getRows() || []) {
+      const checkbox = row.getElement().querySelector('.tabulator-row-header input[type="checkbox"]');
+      if (checkbox) checkbox.setAttribute('aria-label', `Select ${row.getData().value}`);
+    }
+  }
+
   function mountResultTable(rows) {
     state.resultTable?.destroy();
     nodes.copySelected.disabled = true;
@@ -666,7 +705,7 @@
           const button = event.target.closest('[data-run-action]');
           if (!button) return;
           event.stopPropagation();
-          queueResultAction(button.dataset.runAction, cell.getRow().getData().value, button);
+          reviewResultAction(button.dataset.runAction, cell.getRow().getData().value, button);
         },
       });
     }
@@ -695,6 +734,8 @@
       nodes.copySelected.disabled = selected.length === 0;
       nodes.copySelected.textContent = selected.length ? `Copy selected (${selected.length})` : 'Copy selected';
     });
+    state.resultTable.on('renderComplete', labelResultTableControls);
+    requestAnimationFrame(labelResultTableControls);
   }
 
   function renderResults(run) {
@@ -932,6 +973,22 @@
     const activities = selectedActivities();
     nodes.activitySummary.textContent = `P0 ${activities.has('P0') ? 'selected' : 'off'} · P1 ${activities.has('P1') ? 'selected' : 'off'} · P2 ${activities.has('P2') ? 'selected' : 'off'}`;
     nodes.activitySummary.style.borderColor = activities.has('P2') ? 'var(--danger)' : activities.has('P1') ? 'var(--warning)' : 'var(--accent)';
+    const target = nodes.newRunForm.elements.target.value.trim();
+    const selected = state.sources.filter(source => state.selectedSources.has(source.name) && sourceIsReady(source));
+    const names = selected.map(source => source.name);
+    const sourceNames = names.slice(0, 4).join(', ');
+    const sourceRemainder = names.length > 4 ? ` +${names.length - 4} more` : '';
+    const sourceSummary = names.length
+      ? `${formatCount(names.length, 'source')}: ${sourceNames}${sourceRemainder}`
+      : '0 sources';
+    const deadline = nodes.newRunForm.elements.deadline_seconds.value;
+    nodes.finalAuthorizationSummary.textContent = [
+      `Target ${target || 'not set'}`, sourceSummary,
+      `P0 ${activities.has('P0') ? 'selected' : 'off'}`,
+      `P1 ${activities.has('P1') ? 'selected' : 'off'}`,
+      `P2 ${activities.has('P2') ? 'selected' : 'off'}`,
+      `Deadline ${deadline ? `${deadline} seconds` : 'unlimited'}`
+    ].join(' · ');
   }
 
   function openNewRun() {
@@ -1011,6 +1068,36 @@
     } finally {
       setBusy(button, false, '');
     }
+  }
+
+  function reviewResultAction(action, target, button) {
+    const screenshot = action === 'screenshot';
+    const resolvers = state.detail?.request?.dns_resolvers;
+    state.pendingResultAction = {action, target, button};
+    nodes.resultActionTitle.textContent = screenshot
+      ? 'Review screenshot interaction'
+      : 'Review DNS brute force interaction';
+    nodes.resultActionIntro.textContent = screenshot
+      ? 'Confirm a direct browser interaction with this retained hostname.'
+      : 'Confirm DNS candidate-label queries for this retained hostname.';
+    nodes.resultActionTarget.textContent = target;
+    nodes.resultActionBand.textContent = screenshot ? 'P2 · Direct interaction' : 'P1 · DNS interaction';
+    nodes.resultActionNetwork.textContent = screenshot
+      ? 'Launches a browser request to the retained hostname and captures the response.'
+      : 'Queries DNS candidate labels for the retained hostname.';
+    nodes.resultActionResolvers.textContent = screenshot
+      ? 'Not applicable'
+      : Array.isArray(resolvers) && resolvers.length ? resolvers.join(', ') : 'Use the default configured resolvers';
+    nodes.confirmResultAction.textContent = screenshot ? 'Start screenshot run' : 'Start DNS brute force run';
+    openDialog(nodes.resultActionDialog, '#confirm-result-action-button');
+  }
+
+  async function submitResultAction(event) {
+    event.preventDefault();
+    const pending = state.pendingResultAction;
+    if (!pending) return;
+    closeDialog(nodes.resultActionDialog);
+    await queueResultAction(pending.action, pending.target, pending.button);
   }
 
   async function submitRun(event) {
@@ -1216,6 +1303,7 @@
   nodes.importButton.addEventListener('click', openImport);
   nodes.historySearch.addEventListener('input', renderHistory);
   nodes.newRunForm.addEventListener('submit', submitRun);
+  nodes.resultActionForm.addEventListener('submit', submitResultAction);
   nodes.importForm.addEventListener('submit', submitImport);
   nodes.cancel.addEventListener('click', requestCancellation);
   nodes.reviewOutcomes.addEventListener('click', () => {
@@ -1242,9 +1330,7 @@
     updateActivitySummary();
   });
   nodes.newRunForm.addEventListener('change', updateActivitySummary);
-  nodes.newRunForm.addEventListener('input', event => {
-    if (event.target.matches('[name="vhost_endpoint"], [name="vhost_candidates"]')) updateActivitySummary();
-  });
+  nodes.newRunForm.addEventListener('input', updateActivitySummary);
   nodes.dnsResolverFile.addEventListener('change', async () => {
     const file = nodes.dnsResolverFile.files[0];
     if (!file) return;
@@ -1278,11 +1364,12 @@
     if (closeButton) closeDialog(closeButton.closest('dialog'));
   });
 
-  for (const dialog of [nodes.newRunDialog, nodes.importDialog, nodes.screenshotDialog]) {
+  for (const dialog of [nodes.newRunDialog, nodes.resultActionDialog, nodes.importDialog, nodes.screenshotDialog]) {
     dialog.addEventListener('click', event => {
       if (event.target === dialog) closeDialog(dialog);
     });
   }
+  nodes.resultActionDialog.addEventListener('close', () => { state.pendingResultAction = null; });
 
   window.addEventListener('beforeunload', () => {
     stopPolling();
