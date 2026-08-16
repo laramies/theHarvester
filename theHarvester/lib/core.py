@@ -827,6 +827,7 @@ class AsyncFetcher:
         cls,
         url: str,
         *,
+        session: aiohttp.ClientSession | None = None,
         params: Sized = '',
         proxy: str | bool | None = '',
         headers: dict[str, str] | None = None,
@@ -835,6 +836,7 @@ class AsyncFetcher:
         """Fetch one bounded JSON response without following redirects."""
         async with cls._open_get_response(
             url,
+            session=session,
             params=params,
             proxy=proxy,
             headers=headers,

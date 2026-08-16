@@ -962,6 +962,27 @@ async def test_fetch_text_reuses_caller_owned_session_without_closing_it(
 
 
 @pytest.mark.asyncio
+async def test_fetch_json_reuses_caller_owned_session_without_closing_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    install_stream_response(monkeypatch, chunks=(b'{"provider":"evidence"}',))
+    session = DummySession(
+        headers={'User-Agent': 'shared'},
+        timeout=core_module.aiohttp.ClientTimeout(total=None),
+    )
+
+    result = await AsyncFetcher.fetch_json(
+        'https://provider.example/data',
+        session=session,
+        request_timeout=None,
+    )
+
+    assert result.body == {'provider': 'evidence'}
+    assert session.closed is False
+    assert len(DummySession.instances) == 1
+
+
+@pytest.mark.asyncio
 async def test_fetch_json_accepts_body_at_shared_limit(monkeypatch) -> None:
     install_stream_response(monkeypatch, chunks=(b'{"a":1}',))
     monkeypatch.setattr(core_module, 'MAX_PROVIDER_JSON_BYTES', 7)
