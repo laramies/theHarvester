@@ -21,7 +21,7 @@ dynamic = ["version"]
 dependencies = [
     "aiodns==4.0.4",
     "aiofiles==25.1.0",
-    "aiohttp==3.14.1",
+    "aiohttp==3.14.3",
     "aiohttp-socks==0.11.0",
     "aiosqlite==0.22.1",
     "beautifulsoup4==4.15.0",
@@ -91,7 +91,7 @@ check_untyped_defs = true
 [tool.uv]
 python-preference = "managed"
 exclude-newer = "7 days"
-exclude-newer-package = { ty = false}
+exclude-newer-package = { ty = false }
 
 [tool.uv.pip]
 python-version = "3.13"
