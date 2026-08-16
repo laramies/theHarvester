@@ -1,3 +1,6 @@
+import asyncio
+import contextlib
+from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
@@ -11,6 +14,9 @@ from theHarvester.lib.core import FetcherResponse
 @pytest.mark.asyncio
 async def test_process_collects_scoped_hostnames_and_urls(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(bevigil.Core, 'bevigil_key', staticmethod(lambda: 'test-key'))
+    session = object()
+    session_exited = False
+    open_calls: list[dict[str, Any]] = []
     calls: list[tuple[list[str], dict[str, Any]]] = []
     responses = [
         FetcherResponse(
@@ -25,10 +31,20 @@ async def test_process_collects_scoped_hostnames_and_urls(monkeypatch: pytest.Mo
         ),
     ]
 
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**kwargs: Any) -> AsyncIterator[object]:
+        nonlocal session_exited
+        open_calls.append(kwargs)
+        try:
+            yield session
+        finally:
+            session_exited = True
+
     async def fake_fetch_all(urls: list[str], **kwargs: Any) -> list[FetcherResponse]:
         calls.append((urls, kwargs))
         return [responses.pop(0)]
 
+    monkeypatch.setattr(bevigil.AsyncFetcher, 'open_session', fake_open_session)
     monkeypatch.setattr(bevigil.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = bevigil.SearchBeVigil('example.com')
 
@@ -44,6 +60,15 @@ async def test_process_collects_scoped_hostnames_and_urls(monkeypatch: pytest.Mo
     assert all(kwargs['proxy'] is True for _urls, kwargs in calls)
     assert all(kwargs['json'] is True for _urls, kwargs in calls)
     assert all(kwargs['include_metadata'] is True for _urls, kwargs in calls)
+    assert all(kwargs['session'] is session for _urls, kwargs in calls)
+    assert open_calls == [
+        {
+            'headers': {'X-Access-Token': 'test-key'},
+            'proxy': True,
+            'request_timeout': 60,
+        }
+    ]
+    assert session_exited is True
     assert search.execution_status == 'completed'
     assert search.stop_reason is None
 
@@ -110,6 +135,30 @@ async def test_later_malformed_response_preserves_partial_results(monkeypatch: p
     assert await search.get_urls() == set()
     assert search.execution_status == 'partial'
     assert search.stop_reason == 'invalid-response'
+
+
+@pytest.mark.asyncio
+async def test_cancellation_closes_provider_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(bevigil.Core, 'bevigil_key', staticmethod(lambda: 'test-key'))
+    session_exited = False
+
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**_kwargs: Any) -> AsyncIterator[object]:
+        nonlocal session_exited
+        try:
+            yield object()
+        finally:
+            session_exited = True
+
+    async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[FetcherResponse]:
+        raise asyncio.CancelledError('operator-stop')
+
+    monkeypatch.setattr(bevigil.AsyncFetcher, 'open_session', fake_open_session)
+    monkeypatch.setattr(bevigil.AsyncFetcher, 'fetch_all', fake_fetch_all)
+
+    with pytest.raises(asyncio.CancelledError, match='operator-stop'):
+        await bevigil.SearchBeVigil('example.com').process()
+    assert session_exited is True
 
 
 @pytest.mark.asyncio

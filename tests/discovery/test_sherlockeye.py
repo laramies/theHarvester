@@ -1,7 +1,10 @@
 import asyncio
+import contextlib
 import logging
 import sys
 import types
+from collections.abc import AsyncIterator
+from typing import Any
 
 import pytest
 
@@ -18,6 +21,16 @@ if 'aiohttp_socks' not in sys.modules:
 
 from theHarvester.discovery import sherlockeye
 from theHarvester.discovery.constants import MissingKey
+from theHarvester.lib.core import FetcherResponse
+
+
+@pytest.fixture(autouse=True)
+def provider_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**_kwargs: Any) -> AsyncIterator[object]:
+        yield object()
+
+    monkeypatch.setattr(sherlockeye.AsyncFetcher, 'open_session', fake_open_session)
 
 
 @pytest.mark.parametrize('key', [None, '', '   '])
@@ -26,6 +39,58 @@ def test_missing_or_blank_key_raises(monkeypatch: pytest.MonkeyPatch, key: str |
 
     with pytest.raises(MissingKey):
         sherlockeye.SearchSherlockeye('example.com')
+
+
+@pytest.mark.asyncio
+async def test_process_uses_one_shared_provider_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sherlockeye.Core, 'sherlockeye_key', lambda: 'dummy-key')
+    session = object()
+    exited = False
+    calls: list[dict[str, Any]] = []
+
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**kwargs: Any) -> AsyncIterator[object]:
+        nonlocal exited
+        assert kwargs == {
+            'headers': {
+                'User-Agent': sherlockeye.Core.get_user_agent(),
+                'Authorization': 'Bearer dummy-key',
+                'Content-Type': 'application/json',
+            },
+            'proxy': True,
+            'request_timeout': 90,
+        }
+        try:
+            yield session
+        finally:
+            exited = True
+
+    async def fake_post_fetch(*args: Any, **kwargs: Any) -> FetcherResponse:
+        calls.append({'url': args[0], **kwargs})
+        return FetcherResponse({'success': True, 'data': {'results': []}}, 200, {})
+
+    monkeypatch.setattr(sherlockeye.AsyncFetcher, 'open_session', fake_open_session)
+    monkeypatch.setattr(sherlockeye.AsyncFetcher, 'post_fetch', fake_post_fetch)
+    search = sherlockeye.SearchSherlockeye('example.com')
+
+    await search.process(proxy=True)
+
+    assert calls == [
+        {
+            'url': search.SYNC_SEARCH_URL,
+            'session': session,
+            'json': True,
+            'include_metadata': True,
+            'json_body': {
+                'type': 'domain',
+                'value': 'example.com',
+                'timeoutSeconds': 60,
+            },
+        }
+    ]
+    assert exited is True
+    assert search.execution_status == 'completed'
+    assert search.stop_reason == 'no-results'
 
 
 @pytest.mark.asyncio
@@ -67,32 +132,10 @@ async def test_process_extracts_domain_intelligence(monkeypatch) -> None:
         'balance': {'credits': 10},
     }
 
-    class _FakeResponse:
-        status = 200
+    async def fake_post_fetch(*_args: Any, **_kwargs: Any) -> FetcherResponse:
+        return FetcherResponse(api_payload, 200, {})
 
-        async def json(self):
-            return api_payload
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args):
-            pass
-
-    class _FakeSession:
-        def __init__(self, **_kwargs):
-            pass
-
-        def post(self, *_args, **_kwargs):
-            return _FakeResponse()
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args):
-            pass
-
-    monkeypatch.setattr(sherlockeye.aiohttp, 'ClientSession', _FakeSession)
+    monkeypatch.setattr(sherlockeye.AsyncFetcher, 'post_fetch', fake_post_fetch)
 
     search = sherlockeye.SearchSherlockeye('example.com')
     await search.process()
@@ -108,32 +151,10 @@ async def test_process_extracts_domain_intelligence(monkeypatch) -> None:
 async def test_process_handles_api_error(monkeypatch, caplog) -> None:
     monkeypatch.setattr(sherlockeye.Core, 'sherlockeye_key', lambda: 'dummy-key')
 
-    class _FakeResponse:
-        status = 401
+    async def fake_post_fetch(*_args: Any, **_kwargs: Any) -> FetcherResponse:
+        return FetcherResponse({'secret': 'provider-secret-payload'}, 401, {})
 
-        async def text(self):
-            return 'provider-secret-payload'
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args):
-            pass
-
-    class _FakeSession:
-        def __init__(self, **_kwargs):
-            pass
-
-        def post(self, *_args, **_kwargs):
-            return _FakeResponse()
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args):
-            pass
-
-    monkeypatch.setattr(sherlockeye.aiohttp, 'ClientSession', _FakeSession)
+    monkeypatch.setattr(sherlockeye.AsyncFetcher, 'post_fetch', fake_post_fetch)
     caplog.set_level(logging.INFO, logger=sherlockeye.__name__)
 
     search = sherlockeye.SearchSherlockeye('example.com')
@@ -152,32 +173,10 @@ async def test_process_handles_api_error(monkeypatch, caplog) -> None:
 async def test_process_does_not_log_provider_error_message(monkeypatch, caplog) -> None:
     monkeypatch.setattr(sherlockeye.Core, 'sherlockeye_key', lambda: 'dummy-key')
 
-    class _FakeResponse:
-        status = 200
+    async def fake_post_fetch(*_args: Any, **_kwargs: Any) -> FetcherResponse:
+        return FetcherResponse({'success': False, 'message': 'provider-secret-payload'}, 200, {})
 
-        async def json(self):
-            return {'success': False, 'message': 'provider-secret-payload'}
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args):
-            pass
-
-    class _FakeSession:
-        def __init__(self, **_kwargs):
-            pass
-
-        def post(self, *_args, **_kwargs):
-            return _FakeResponse()
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args):
-            pass
-
-    monkeypatch.setattr(sherlockeye.aiohttp, 'ClientSession', _FakeSession)
+    monkeypatch.setattr(sherlockeye.AsyncFetcher, 'post_fetch', fake_post_fetch)
     caplog.set_level(logging.INFO, logger=sherlockeye.__name__)
 
     search = sherlockeye.SearchSherlockeye('example.com')
@@ -202,28 +201,10 @@ async def test_http_failures_are_structured(
 ) -> None:
     monkeypatch.setattr(sherlockeye.Core, 'sherlockeye_key', lambda: 'dummy-key')
 
-    class FakeResponse:
-        async def __aenter__(self):
-            self.status = status
-            return self
+    async def fake_post_fetch(*_args: Any, **_kwargs: Any) -> FetcherResponse:
+        return FetcherResponse({}, status, {})
 
-        async def __aexit__(self, *_args):
-            return None
-
-    class FakeSession:
-        def __init__(self, **_kwargs):
-            pass
-
-        def post(self, *_args, **_kwargs):
-            return FakeResponse()
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args):
-            return None
-
-    monkeypatch.setattr(sherlockeye.aiohttp, 'ClientSession', FakeSession)
+    monkeypatch.setattr(sherlockeye.AsyncFetcher, 'post_fetch', fake_post_fetch)
     search = sherlockeye.SearchSherlockeye('example.com')
     await search.process()
 
@@ -235,32 +216,10 @@ async def test_http_failures_are_structured(
 async def test_malformed_response_is_structured(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(sherlockeye.Core, 'sherlockeye_key', lambda: 'dummy-key')
 
-    class FakeResponse:
-        status = 200
+    async def fake_post_fetch(*_args: Any, **_kwargs: Any) -> FetcherResponse:
+        return FetcherResponse([], 200, {})
 
-        async def json(self):
-            return []
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args):
-            return None
-
-    class FakeSession:
-        def __init__(self, **_kwargs):
-            pass
-
-        def post(self, *_args, **_kwargs):
-            return FakeResponse()
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args):
-            return None
-
-    monkeypatch.setattr(sherlockeye.aiohttp, 'ClientSession', FakeSession)
+    monkeypatch.setattr(sherlockeye.AsyncFetcher, 'post_fetch', fake_post_fetch)
     search = sherlockeye.SearchSherlockeye('example.com')
     await search.process()
 
@@ -292,24 +251,35 @@ def test_malformed_link_does_not_discard_later_valid_results(monkeypatch: pytest
 @pytest.mark.asyncio
 async def test_transport_failure_and_cancellation_are_distinct(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(sherlockeye.Core, 'sherlockeye_key', lambda: 'dummy-key')
+    session_exit_count = 0
 
-    class FailedSession:
-        def __init__(self, **_kwargs):
-            raise RuntimeError('provider-secret')
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**_kwargs: Any) -> AsyncIterator[object]:
+        nonlocal session_exit_count
+        try:
+            yield object()
+        finally:
+            session_exit_count += 1
 
-    monkeypatch.setattr(sherlockeye.aiohttp, 'ClientSession', FailedSession)
+    monkeypatch.setattr(sherlockeye.AsyncFetcher, 'open_session', fake_open_session)
+
+    async def failed_post_fetch(*_args: Any, **_kwargs: Any) -> FetcherResponse:
+        raise RuntimeError('provider-secret')
+
+    monkeypatch.setattr(sherlockeye.AsyncFetcher, 'post_fetch', failed_post_fetch)
     search = sherlockeye.SearchSherlockeye('example.com')
     await search.process()
     assert search.execution_status == 'failed'
     assert search.stop_reason == 'transport-error'
+    assert session_exit_count == 1
 
-    class CancelledSession:
-        def __init__(self, **_kwargs):
-            raise asyncio.CancelledError
+    async def cancelled_post_fetch(*_args: Any, **_kwargs: Any) -> FetcherResponse:
+        raise asyncio.CancelledError
 
-    monkeypatch.setattr(sherlockeye.aiohttp, 'ClientSession', CancelledSession)
+    monkeypatch.setattr(sherlockeye.AsyncFetcher, 'post_fetch', cancelled_post_fetch)
     with pytest.raises(asyncio.CancelledError):
         await sherlockeye.SearchSherlockeye('example.com').process()
+    assert session_exit_count == 2
 
 
 pytestmark = pytest.mark.provider_contract('sherlockeye')

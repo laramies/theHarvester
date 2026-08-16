@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import contextlib
 from typing import TYPE_CHECKING, Any
 
@@ -18,6 +19,7 @@ if TYPE_CHECKING:
 async def test_process_uses_current_api_contract_and_keeps_scoped_results(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(netlas.Core, 'netlas_key', staticmethod(lambda: 'test-key'))
     session = object()
+    session_exited = False
     session_options: list[dict[str, Any]] = []
     calls: list[dict[str, Any]] = []
     responses = [
@@ -34,8 +36,12 @@ async def test_process_uses_current_api_contract_and_keeps_scoped_results(monkey
 
     @contextlib.asynccontextmanager
     async def fake_open_session(**kwargs: Any) -> AsyncIterator[object]:
+        nonlocal session_exited
         session_options.append(kwargs)
-        yield session
+        try:
+            yield session
+        finally:
+            session_exited = True
 
     async def fake_post_fetch(*args: Any, **kwargs: Any) -> FetcherResponse:
         calls.append({'url': args[0], **kwargs})
@@ -59,6 +65,7 @@ async def test_process_uses_current_api_contract_and_keeps_scoped_results(monkey
         'fields': ['domain'],
         'source_type': 'include',
     }
+    assert session_exited is True
 
 
 @pytest.mark.parametrize('key', [None, '', '   '])
@@ -136,3 +143,27 @@ async def test_malformed_download_rows_preserve_valid_partial_results(monkeypatc
     assert await search.get_hostnames() == {'ok.example.com'}
     assert search.execution_status == 'partial'
     assert search.stop_reason == 'invalid-response'
+
+
+@pytest.mark.asyncio
+async def test_cancellation_closes_provider_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(netlas.Core, 'netlas_key', staticmethod(lambda: 'test-key'))
+    session_exited = False
+
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**_kwargs: Any) -> AsyncIterator[object]:
+        nonlocal session_exited
+        try:
+            yield object()
+        finally:
+            session_exited = True
+
+    async def fake_post_fetch(*_args: Any, **_kwargs: Any) -> FetcherResponse:
+        raise asyncio.CancelledError('operator-stop')
+
+    monkeypatch.setattr(netlas.AsyncFetcher, 'open_session', fake_open_session)
+    monkeypatch.setattr(netlas.AsyncFetcher, 'post_fetch', fake_post_fetch)
+
+    with pytest.raises(asyncio.CancelledError, match='operator-stop'):
+        await netlas.SearchNetlas('example.com', limit=10).process()
+    assert session_exited is True

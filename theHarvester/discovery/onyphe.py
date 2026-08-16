@@ -4,6 +4,7 @@ from ipaddress import ip_address
 from urllib.parse import urlparse
 
 from theHarvester.discovery.constants import MissingKey
+from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.asn_attribution import AsnAttributionObservation, SubjectKind
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
@@ -71,18 +72,10 @@ class SearchOnyphe:
                         json=True,
                         include_metadata=True,
                     )
-                    if not isinstance(metadata, FetcherResponse):
-                        self._stop('failed', 'transport-error')
+                    if error := provider_http_error(metadata):
+                        self._stop(*error)
                         return
-                    if metadata.status == 429:
-                        self._stop('rate-limited', 'http-429')
-                        return
-                    if metadata.status in {401, 403}:
-                        self._stop('failed', 'access-denied')
-                        return
-                    if not 200 <= metadata.status < 300:
-                        self._stop('failed', f'http-{metadata.status}')
-                        return
+                    assert isinstance(metadata, FetcherResponse)
                     if not isinstance(metadata.body, dict):
                         self._stop('failed', 'invalid-response')
                         return

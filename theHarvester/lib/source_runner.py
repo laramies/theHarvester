@@ -176,7 +176,7 @@ SOURCE_FACTORIES: dict[str, SourceFactory] = {
     'subdomainfinderc99': lambda request: subdomainfinderc99.SearchSubdomainfinderc99(request.target),
     'thc': lambda request: thc.SearchThc(request.target),
     'tomba': lambda request: tombasearch.SearchTomba(request.target, request.limit, request.start),
-    'urlscan': lambda request: urlscan.SearchUrlscan(request.target),
+    'urlscan': lambda request: urlscan.SearchUrlscan(request.target, request.limit),
     'virustotal': lambda request: virustotal.SearchVirustotal(request.target, request.limit),
     'waybackarchive': lambda request: waybackarchive.SearchWaybackarchive(request.target, request.limit),
     'whoisxml': lambda request: whoisxml.SearchWhoisXML(request.target, request.limit),

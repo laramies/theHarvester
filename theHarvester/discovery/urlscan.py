@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from ipaddress import ip_address
 from urllib.parse import urlsplit
 
+from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.asn_attribution import AsnAttributionObservation, SubjectKind
 from theHarvester.lib.core import AsyncFetcher, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
@@ -12,8 +13,13 @@ logger = logging.getLogger(__name__)
 
 
 class SearchUrlscan:
-    def __init__(self, word) -> None:
+    MAX_PAGE_SIZE = 10_000
+
+    def __init__(self, word: str, limit: int) -> None:
+        if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
+            raise ValueError('URLScan limit must be a positive integer')
         self.word = word
+        self.limit = limit
         self.totalhosts: set = set()
         self.totalips: set = set()
         self.urls: set = set()
@@ -141,11 +147,16 @@ class SearchUrlscan:
         collected_at = datetime.now(UTC)
         cursor = None
         seen_cursors: set[str] = set()
+        records_seen = 0
         malformed = False
         try:
             async with AsyncFetcher.open_session(proxy=self.proxy) as session:
-                while True:
-                    params = {'q': f'domain:{self.word}'}
+                while records_seen < self.limit:
+                    remaining = self.limit - records_seen
+                    params: dict[str, str | int] = {
+                        'q': f'domain:{self.word}',
+                        'size': min(self.MAX_PAGE_SIZE, remaining),
+                    }
                     if cursor is not None:
                         params['search_after'] = cursor
                     response = await AsyncFetcher.fetch(
@@ -156,18 +167,10 @@ class SearchUrlscan:
                         include_metadata=True,
                     )
 
-                    if not isinstance(response, FetcherResponse):
-                        self._stop('failed', 'transport-error')
+                    if error := provider_http_error(response):
+                        self._stop(*error)
                         return
-                    if response.status == 429:
-                        self._stop('rate-limited', 'http-429')
-                        return
-                    if response.status in {401, 403}:
-                        self._stop('failed', 'access-denied')
-                        return
-                    if not 200 <= response.status < 300:
-                        self._stop('failed', f'http-{response.status}')
-                        return
+                    assert isinstance(response, FetcherResponse)
                     if not isinstance(response.body, dict) or not isinstance(response.body.get('results'), list):
                         self._stop('failed', 'invalid-response')
                         return
@@ -181,8 +184,12 @@ class SearchUrlscan:
                             self.stop_reason = None if self._has_results() else 'no-results'
                         return
 
-                    malformed = self._parse_results(results, collected_at) or malformed
-                    next_cursor = self._cursor(results[-1])
+                    page_results = results[:remaining]
+                    records_seen += len(page_results)
+                    malformed = self._parse_results(page_results, collected_at) or malformed
+                    if records_seen >= self.limit:
+                        break
+                    next_cursor = self._cursor(page_results[-1])
                     if next_cursor is None:
                         self._stop('failed', 'invalid-cursor')
                         return
@@ -194,6 +201,13 @@ class SearchUrlscan:
         except Exception as error:
             self._stop('failed', 'transport-error')
             logger.info('URLScan request failed: %s', type(error).__name__)
+            return
+
+        if self.execution_status is not None and self._has_results():
+            self.execution_status = 'partial'
+        elif self.execution_status is None:
+            self.execution_status = 'completed'
+            self.stop_reason = None if self._has_results() else 'no-results'
 
     async def get_hostnames(self) -> set:
         return self.totalhosts

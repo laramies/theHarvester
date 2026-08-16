@@ -945,13 +945,30 @@ class AsyncFetcher:
     @classmethod
     async def fetch_all(
         cls,
-        urls,
-        headers=None,
+        urls: list[str],
+        headers: dict[str, str] | None = None,
         params: Sized = '',
         json: bool = False,
-        proxy: bool = False,
+        proxy: str | bool | None = False,
         include_metadata: bool = False,
-    ) -> list:
+        *,
+        session: aiohttp.ClientSession | None = None,
+    ) -> list[Any]:
+        if session is not None:
+            return list(
+                await asyncio.gather(
+                    *[
+                        AsyncFetcher.fetch(
+                            session=session,
+                            url=url,
+                            params=params,
+                            json=json,
+                            include_metadata=include_metadata,
+                        )
+                        for url in urls
+                    ]
+                )
+            )
         # By default, timeout is 5 minutes; 60 seconds should suffice
         headers = cls._default_headers(headers)
         timeout = cls._request_timeout(60)

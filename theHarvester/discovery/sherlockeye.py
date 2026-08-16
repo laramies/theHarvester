@@ -1,13 +1,11 @@
 import logging
-import random
 from ipaddress import ip_address as normalize_ip_address
 from typing import Any
 from urllib.parse import urlparse
 
-import aiohttp
-
 from theHarvester.discovery.constants import MissingKey
-from theHarvester.lib.core import Core
+from theHarvester.discovery.provider_response import provider_http_error
+from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 
 logger = logging.getLogger(__name__)
@@ -51,19 +49,6 @@ class SearchSherlockeye:
             'Authorization': f'Bearer {self.key}',
             'Content-Type': 'application/json',
         }
-
-    def _proxy_url(self) -> str | None:
-        if isinstance(self.proxy, str) and self.proxy:
-            return self.proxy
-        if isinstance(self.proxy, bool) and self.proxy:
-            try:
-                proxy_list = Core.proxy_list()
-                proxy_urls = [*proxy_list.get('http', []), *proxy_list.get('socks5', [])]
-                if proxy_urls:
-                    return random.choice(proxy_urls)
-            except Exception:
-                return None
-        return None
 
     def _add_hostname(self, hostname: str) -> None:
         if normalized := normalize_scoped_hostname(hostname, self.word):
@@ -157,34 +142,33 @@ class SearchSherlockeye:
             'value': self.word,
             'timeoutSeconds': self.DEFAULT_TIMEOUT_SECONDS,
         }
-        timeout = aiohttp.ClientTimeout(total=self.DEFAULT_TIMEOUT_SECONDS + 30)
-
         try:
-            async with aiohttp.ClientSession(headers=self._headers(), timeout=timeout) as session:
-                async with session.post(
+            async with AsyncFetcher.open_session(
+                headers=self._headers(),
+                proxy=self.proxy,
+                request_timeout=self.DEFAULT_TIMEOUT_SECONDS + 30,
+            ) as session:
+                response = await AsyncFetcher.post_fetch(
                     self.SYNC_SEARCH_URL,
-                    json=payload,
-                    proxy=self._proxy_url(),
-                ) as response:
-                    if response.status != 200:
-                        if response.status in {401, 403}:
-                            self._stop('failed', 'access-denied')
-                        elif response.status == 429:
-                            self._stop('rate-limited', 'http-429')
-                        else:
-                            self._stop('failed', f'http-{response.status}')
-                        logger.info('Sherlockeye API request failed with status %s', response.status)
-                        return
-
-                    try:
-                        response_data = await response.json()
-                    except (aiohttp.ContentTypeError, ValueError):
-                        self._stop('failed', 'invalid-response')
-                        return
-                    if isinstance(response_data, dict):
-                        self._extract_response(response_data)
-                    else:
-                        self._stop('failed', 'invalid-response')
+                    session=session,
+                    json=True,
+                    include_metadata=True,
+                    json_body=payload,
+                )
+                if error := provider_http_error(response):
+                    self._stop(*error)
+                    status = response.status if isinstance(response, FetcherResponse) else 'transport'
+                    logger.info('Sherlockeye API request failed with status %s: %s', status, error[1])
+                    return
+                assert isinstance(response, FetcherResponse)
+                if response.status != 200:
+                    self._stop('failed', f'http-{response.status}')
+                    logger.info('Sherlockeye API request failed with status %s', response.status)
+                    return
+                if isinstance(response.body, dict):
+                    self._extract_response(response.body)
+                else:
+                    self._stop('failed', 'invalid-response')
         except Exception as error:
             self._stop('failed', 'transport-error')
             logger.info('Sherlockeye API error: %s', type(error).__name__)

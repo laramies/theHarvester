@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import contextlib
 from collections.abc import AsyncIterator
@@ -15,6 +16,7 @@ from theHarvester.lib.core import FetcherResponse
 async def test_process_reuses_session_and_collects_all_capabilities(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(zoomeyesearch.Core, 'zoomeye_key', staticmethod(lambda: 'test-key'))
     session = object()
+    session_exited = False
     calls: list[dict[str, Any]] = []
     responses = [
         FetcherResponse(
@@ -39,11 +41,15 @@ async def test_process_reuses_session_and_collects_all_capabilities(monkeypatch:
 
     @contextlib.asynccontextmanager
     async def fake_open_session(**kwargs: Any) -> AsyncIterator[object]:
+        nonlocal session_exited
         assert kwargs == {
             'headers': {'API-KEY': 'test-key', 'Content-Type': 'application/json'},
             'proxy': True,
         }
-        yield session
+        try:
+            yield session
+        finally:
+            session_exited = True
 
     async def fake_post_fetch(*args: Any, **kwargs: Any) -> FetcherResponse:
         calls.append({'url': args[0], **kwargs})
@@ -63,6 +69,7 @@ async def test_process_reuses_session_and_collects_all_capabilities(monkeypatch:
     assert search.stop_reason is None
     assert [call['url'] for call in calls] == [search.baseurl]
     assert all(call['session'] is session for call in calls)
+    assert session_exited is True
     assert base64.b64decode(calls[0]['json_body']['qbase64']).decode() == 'domain="example.com"'
     assert calls[0]['json_body']['page'] == 1
     assert calls[0]['json_body']['pagesize'] == 2
@@ -219,3 +226,27 @@ async def test_banner_urls_are_absolute_http_and_scoped(monkeypatch: pytest.Monk
 
     assert urls == {'https://api.example.com/v1'}
     assert malformed is False
+
+
+@pytest.mark.asyncio
+async def test_cancellation_closes_provider_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(zoomeyesearch.Core, 'zoomeye_key', staticmethod(lambda: 'test-key'))
+    session_exited = False
+
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**_kwargs: Any) -> AsyncIterator[object]:
+        nonlocal session_exited
+        try:
+            yield object()
+        finally:
+            session_exited = True
+
+    async def fake_post_fetch(*_args: Any, **_kwargs: Any) -> FetcherResponse:
+        raise asyncio.CancelledError('operator-stop')
+
+    monkeypatch.setattr(zoomeyesearch.AsyncFetcher, 'open_session', fake_open_session)
+    monkeypatch.setattr(zoomeyesearch.AsyncFetcher, 'post_fetch', fake_post_fetch)
+
+    with pytest.raises(asyncio.CancelledError, match='operator-stop'):
+        await zoomeyesearch.SearchZoomEye('example.com', 10).process()
+    assert session_exited is True

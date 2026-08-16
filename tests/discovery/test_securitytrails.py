@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import contextlib
 from typing import TYPE_CHECKING, Any
 
@@ -18,6 +19,7 @@ if TYPE_CHECKING:
 async def test_process_reuses_session_and_parses_scoped_evidence(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(securitytrailssearch.Core, 'security_trails_key', staticmethod(lambda: 'test-key'))
     session = object()
+    session_exited = False
     calls: list[dict[str, Any]] = []
     responses = [
         FetcherResponse(
@@ -36,8 +38,12 @@ async def test_process_reuses_session_and_parses_scoped_evidence(monkeypatch: py
 
     @contextlib.asynccontextmanager
     async def fake_open_session(**kwargs: Any) -> AsyncIterator[object]:
+        nonlocal session_exited
         assert kwargs == {'headers': {'APIKEY': 'test-key', 'Accept': 'application/json'}, 'proxy': True}
-        yield session
+        try:
+            yield session
+        finally:
+            session_exited = True
 
     async def fake_fetch(**kwargs: Any) -> FetcherResponse:
         calls.append(kwargs)
@@ -57,6 +63,7 @@ async def test_process_reuses_session_and_parses_scoped_evidence(monkeypatch: py
         'https://api.securitytrails.com/v1/domain/example.com/subdomains',
     ]
     assert all(call['session'] is session for call in calls)
+    assert session_exited is True
 
 
 @pytest.mark.parametrize('key', [None, '', '  '])
@@ -99,3 +106,27 @@ async def test_first_request_failures_are_truthful(
 
     assert search.execution_status == status
     assert search.stop_reason == reason
+
+
+@pytest.mark.asyncio
+async def test_cancellation_closes_provider_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(securitytrailssearch.Core, 'security_trails_key', staticmethod(lambda: 'test-key'))
+    session_exited = False
+
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**_kwargs: Any) -> AsyncIterator[object]:
+        nonlocal session_exited
+        try:
+            yield object()
+        finally:
+            session_exited = True
+
+    async def fake_fetch(**_kwargs: Any) -> FetcherResponse:
+        raise asyncio.CancelledError('operator-stop')
+
+    monkeypatch.setattr(securitytrailssearch.AsyncFetcher, 'open_session', fake_open_session)
+    monkeypatch.setattr(securitytrailssearch.AsyncFetcher, 'fetch', fake_fetch)
+
+    with pytest.raises(asyncio.CancelledError, match='operator-stop'):
+        await securitytrailssearch.SearchSecuritytrail('example.com').process()
+    assert session_exited is True

@@ -16,6 +16,7 @@ from theHarvester.lib.core import FetcherResponse
 async def test_process_uses_cursor_api_to_limit_and_retains_scoped_results(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(fofa.Core, 'fofa_key', lambda: ('test-key', 'operator@example.com'))
     session = object()
+    session_exited = False
     calls: list[dict[str, Any]] = []
     responses = [
         FetcherResponse(
@@ -35,8 +36,12 @@ async def test_process_uses_cursor_api_to_limit_and_retains_scoped_results(monke
 
     @contextlib.asynccontextmanager
     async def fake_open_session(**kwargs: Any) -> AsyncIterator[object]:
+        nonlocal session_exited
         assert kwargs['proxy'] is True
-        yield session
+        try:
+            yield session
+        finally:
+            session_exited = True
 
     async def fake_fetch(**kwargs: Any) -> FetcherResponse:
         calls.append(kwargs)
@@ -56,6 +61,7 @@ async def test_process_uses_cursor_api_to_limit_and_retains_scoped_results(monke
     assert [call['params'].get('next') for call in calls] == [None, 'cursor-2']
     assert all(call['url'] == 'https://fofa.info/api/v1/search/next' for call in calls)
     assert all(call['session'] is session for call in calls)
+    assert session_exited is True
     assert base64.b64decode(calls[0]['params']['qbase64']).decode() == 'domain="example.com"'
 
 
@@ -178,10 +184,15 @@ async def test_malformed_url_does_not_discard_later_valid_rows(monkeypatch: pyte
 @pytest.mark.asyncio
 async def test_cancellation_propagates(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(fofa.Core, 'fofa_key', lambda: ('test-key', 'operator@example.com'))
+    session_exited = False
 
     @contextlib.asynccontextmanager
     async def fake_open_session(**_kwargs: Any) -> AsyncIterator[object]:
-        yield object()
+        nonlocal session_exited
+        try:
+            yield object()
+        finally:
+            session_exited = True
 
     async def fake_fetch(**_kwargs: Any) -> FetcherResponse:
         raise asyncio.CancelledError
@@ -190,3 +201,4 @@ async def test_cancellation_propagates(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(fofa.AsyncFetcher, 'fetch', fake_fetch)
     with pytest.raises(asyncio.CancelledError):
         await fofa.SearchFofa('example.com', 10).process()
+    assert session_exited is True

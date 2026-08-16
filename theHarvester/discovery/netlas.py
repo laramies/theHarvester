@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from theHarvester.discovery.constants import MissingKey
+from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 
@@ -26,21 +27,13 @@ class SearchNetlas:
         self.stop_reason = reason
 
     def _response_body(self, response: Any) -> Any | None:
-        if not isinstance(response, FetcherResponse):
-            self._stop('failed', 'transport-error')
-            return None
-        if response.status in {401, 403}:
-            self._stop('failed', 'access-denied')
-            return None
-        if response.status == 402:
+        if isinstance(response, FetcherResponse) and response.status == 402:
             self._stop('failed', 'quota-exhausted')
             return None
-        if response.status == 429:
-            self._stop('rate-limited', 'http-429')
+        if error := provider_http_error(response):
+            self._stop(*error)
             return None
-        if not 200 <= response.status < 300:
-            self._stop('failed', f'http-{response.status}')
-            return None
+        assert isinstance(response, FetcherResponse)
         if response.body is None:
             self._stop('failed', 'invalid-response')
             return None

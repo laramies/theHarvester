@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import contextlib
 from collections.abc import AsyncIterator
 from typing import Any
@@ -17,6 +18,7 @@ async def test_process_paginates_documented_domain_and_ip_asset_routes(monkeypat
     monkeypatch.setattr(securityscorecard.Core, 'securityscorecard_key', staticmethod(lambda: 'test-key'))
     monkeypatch.setattr(securityscorecard.SearchSecurityScorecard, 'PAGE_SIZE', 2)
     session = object()
+    session_exited = False
     calls: list[dict[str, Any]] = []
     post_responses = [
         FetcherResponse(
@@ -31,8 +33,12 @@ async def test_process_paginates_documented_domain_and_ip_asset_routes(monkeypat
 
     @contextlib.asynccontextmanager
     async def fake_open_session(**kwargs: Any) -> AsyncIterator[object]:
+        nonlocal session_exited
         assert kwargs == {'headers': search.headers, 'proxy': True}
-        yield session
+        try:
+            yield session
+        finally:
+            session_exited = True
 
     async def fake_fetch(**kwargs: Any) -> FetcherResponse:
         calls.append(kwargs)
@@ -67,6 +73,7 @@ async def test_process_paginates_documented_domain_and_ip_asset_routes(monkeypat
         ('https://api.securityscorecard.io/parent-domains/example.com/ips', {'page': 1, 'page_size': 2}),
     ]
     assert all(call['session'] is session for call in calls[1:])
+    assert session_exited is True
 
 
 @pytest.mark.parametrize('key', [None, '', '  '])
@@ -147,3 +154,27 @@ async def test_malformed_asset_rows_preserve_valid_partial_results(monkeypatch: 
     assert await search.get_ips() == {'192.0.2.1'}
     assert search.execution_status == 'partial'
     assert search.stop_reason == 'invalid-response'
+
+
+@pytest.mark.asyncio
+async def test_cancellation_closes_provider_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(securityscorecard.Core, 'securityscorecard_key', staticmethod(lambda: 'test-key'))
+    session_exited = False
+
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**_kwargs: Any) -> AsyncIterator[object]:
+        nonlocal session_exited
+        try:
+            yield object()
+        finally:
+            session_exited = True
+
+    async def fake_fetch(**_kwargs: Any) -> FetcherResponse:
+        raise asyncio.CancelledError('operator-stop')
+
+    monkeypatch.setattr(securityscorecard.AsyncFetcher, 'open_session', fake_open_session)
+    monkeypatch.setattr(securityscorecard.AsyncFetcher, 'fetch', fake_fetch)
+
+    with pytest.raises(asyncio.CancelledError, match='operator-stop'):
+        await securityscorecard.SearchSecurityScorecard('example.com', 10).process()
+    assert session_exited is True

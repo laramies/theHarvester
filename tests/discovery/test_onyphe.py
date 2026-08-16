@@ -15,6 +15,7 @@ from theHarvester.lib.core import FetcherResponse
 async def test_process_paginates_to_limit_and_preserves_all_routes(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(onyphe.Core, 'onyphe_key', lambda: 'test-key')
     session = object()
+    session_exited = False
     calls: list[dict[str, Any]] = []
     responses = [
         FetcherResponse(
@@ -51,9 +52,13 @@ async def test_process_paginates_to_limit_and_preserves_all_routes(monkeypatch: 
 
     @contextlib.asynccontextmanager
     async def fake_open_session(**kwargs: Any) -> AsyncIterator[object]:
+        nonlocal session_exited
         assert kwargs['proxy'] is True
         assert kwargs['headers']['Authorization'] == 'bearer test-key'
-        yield session
+        try:
+            yield session
+        finally:
+            session_exited = True
 
     async def fake_fetch(**kwargs: Any) -> FetcherResponse:
         calls.append(kwargs)
@@ -68,8 +73,7 @@ async def test_process_paginates_to_limit_and_preserves_all_routes(monkeypatch: 
     assert await search.get_hostnames() == {'api.example.com', 'geo.example.com', 'mail.example.com', 'www.example.com'}
     assert await search.get_asns() == {'AS64496', 'AS64497'}
     assert {
-        (item.asn, item.organization_label, item.subject_kind, item.subject_value)
-        for item in await search.get_asn_attributions()
+        (item.asn, item.organization_label, item.subject_kind, item.subject_value) for item in await search.get_asn_attributions()
     } == {
         ('AS64496', 'Example Physical Network', 'ip', '192.0.2.10'),
         ('AS64497', 'Example Logical Network', 'ip', '192.0.2.10'),
@@ -79,6 +83,7 @@ async def test_process_paginates_to_limit_and_preserves_all_routes(monkeypatch: 
     assert all(call['session'] is session for call in calls)
     assert search.execution_status == 'completed'
     assert search.stop_reason is None
+    assert session_exited is True
 
 
 @pytest.mark.parametrize('key', [None, '', '   '])
@@ -259,15 +264,24 @@ async def test_malformed_items_preserve_valid_partial_results(monkeypatch: pytes
 @pytest.mark.asyncio
 async def test_cancellation_propagates(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(onyphe.Core, 'onyphe_key', lambda: 'test-key')
+    session_exited = False
 
     @contextlib.asynccontextmanager
     async def fake_open_session(**_kwargs: Any) -> AsyncIterator[object]:
-        yield object()
-
-    async def fake_fetch(**_kwargs: Any) -> FetcherResponse:
-        raise asyncio.CancelledError
+        nonlocal session_exited
+        try:
+            yield object()
+        finally:
+            session_exited = True
 
     monkeypatch.setattr(onyphe.AsyncFetcher, 'open_session', fake_open_session)
+    cancellation = asyncio.CancelledError('operator-stop')
+
+    async def fake_fetch(**_kwargs: Any) -> FetcherResponse:
+        raise cancellation
+
     monkeypatch.setattr(onyphe.AsyncFetcher, 'fetch', fake_fetch)
-    with pytest.raises(asyncio.CancelledError):
+    with pytest.raises(asyncio.CancelledError) as caught:
         await onyphe.SearchOnyphe('example.com', 10).process()
+    assert caught.value is cancellation
+    assert session_exited is True

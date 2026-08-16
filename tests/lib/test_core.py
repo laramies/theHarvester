@@ -1128,6 +1128,26 @@ async def test_fetch_all_propagates_metadata_opt_in(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
+async def test_fetch_all_reuses_a_caller_owned_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = object()
+    seen_sessions: list[object] = []
+
+    async def fake_fetch(*_args: Any, session: object, **_kwargs: Any) -> str:
+        seen_sessions.append(session)
+        return 'ok'
+
+    monkeypatch.setattr(AsyncFetcher, 'fetch', fake_fetch)
+
+    results = await AsyncFetcher.fetch_all(
+        ['https://one.example', 'https://two.example'],
+        session=session,
+    )
+
+    assert results == ['ok', 'ok']
+    assert seen_sessions == [session, session]
+
+
+@pytest.mark.asyncio
 async def test_fetch_uses_http_proxy_when_enabled(monkeypatch) -> None:
     reset_dummy_sessions()
     monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)

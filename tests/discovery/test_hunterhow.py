@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import contextlib
 from collections.abc import AsyncIterator
@@ -15,6 +16,7 @@ from theHarvester.lib.core import FetcherResponse
 async def test_process_paginates_to_limit_and_keeps_scoped_hostnames(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(searchhunterhow.Core, 'hunterhow_key', staticmethod(lambda: 'test-key'))
     session = object()
+    session_exited = False
     session_options: list[dict[str, Any]] = []
     calls: list[dict[str, Any]] = []
     delays: list[float] = []
@@ -39,8 +41,12 @@ async def test_process_paginates_to_limit_and_keeps_scoped_hostnames(monkeypatch
 
     @contextlib.asynccontextmanager
     async def fake_open_session(**kwargs: Any) -> AsyncIterator[object]:
+        nonlocal session_exited
         session_options.append(kwargs)
-        yield session
+        try:
+            yield session
+        finally:
+            session_exited = True
 
     async def fake_fetch(**kwargs: Any) -> FetcherResponse:
         calls.append(kwargs)
@@ -68,6 +74,7 @@ async def test_process_paginates_to_limit_and_keeps_scoped_hostnames(monkeypatch
     assert delays == [2.0]
     assert search.execution_status == 'completed'
     assert search.stop_reason is None
+    assert session_exited is True
 
 
 @pytest.mark.parametrize('key', [None, '', '   '])
@@ -152,3 +159,27 @@ async def test_early_malformed_rows_and_later_valid_evidence_are_partial(monkeyp
     assert await search.get_hostnames() == {'api.example.com'}
     assert search.execution_status == 'partial'
     assert search.stop_reason == 'invalid-response'
+
+
+@pytest.mark.asyncio
+async def test_cancellation_closes_provider_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(searchhunterhow.Core, 'hunterhow_key', staticmethod(lambda: 'test-key'))
+    session_exited = False
+
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**_kwargs: Any) -> AsyncIterator[object]:
+        nonlocal session_exited
+        try:
+            yield object()
+        finally:
+            session_exited = True
+
+    async def fake_fetch(**_kwargs: Any) -> FetcherResponse:
+        raise asyncio.CancelledError('operator-stop')
+
+    monkeypatch.setattr(searchhunterhow.AsyncFetcher, 'open_session', fake_open_session)
+    monkeypatch.setattr(searchhunterhow.AsyncFetcher, 'fetch', fake_fetch)
+
+    with pytest.raises(asyncio.CancelledError, match='operator-stop'):
+        await searchhunterhow.SearchHunterHow('example.com', limit=10).process()
+    assert session_exited is True

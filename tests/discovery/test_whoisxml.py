@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import contextlib
-from collections.abc import AsyncIterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -10,14 +10,25 @@ from theHarvester.discovery import whoisxml
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import FetcherResponse
 
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+
+class ProviderSession:
+    def __init__(self) -> None:
+        self.exited = False
+
 
 @pytest.fixture(autouse=True)
-def provider_session(monkeypatch: pytest.MonkeyPatch) -> object:
-    session = object()
+def provider_session(monkeypatch: pytest.MonkeyPatch) -> ProviderSession:
+    session = ProviderSession()
 
     @contextlib.asynccontextmanager
     async def fake_open_session(**_kwargs: Any) -> AsyncIterator[object]:
-        yield session
+        try:
+            yield session
+        finally:
+            session.exited = True
 
     monkeypatch.setattr(whoisxml.AsyncFetcher, 'open_session', fake_open_session)
     return session
@@ -27,7 +38,7 @@ def provider_session(monkeypatch: pytest.MonkeyPatch) -> object:
 @pytest.mark.asyncio
 async def test_response_body_is_not_logged_and_scoped_records_are_returned(
     monkeypatch: pytest.MonkeyPatch,
-    provider_session: object,
+    provider_session: ProviderSession,
 ) -> None:
     monkeypatch.setattr(whoisxml.Core, 'whoisxml_key', staticmethod(lambda: 'test-key'))
     calls: list[dict[str, Any]] = []
@@ -78,6 +89,7 @@ async def test_response_body_is_not_logged_and_scoped_records_are_returned(
         {'apiKey': 'test-key', 'domainName': 'example.com', 'searchAfter': 'www.example.com'},
     ]
     assert all(call['json'] is True and call['include_metadata'] is True for call in calls)
+    assert provider_session.exited is True
 
 
 @pytest.mark.parametrize('key', [None, '', '  '])
@@ -179,3 +191,20 @@ async def test_later_page_failure_preserves_partial_results(monkeypatch: pytest.
     assert await search.get_hostnames() == {'api.example.com'}
     assert search.execution_status == 'partial'
     assert search.stop_reason == 'http-429'
+
+
+@pytest.mark.asyncio
+async def test_cancellation_closes_provider_session(
+    monkeypatch: pytest.MonkeyPatch,
+    provider_session: ProviderSession,
+) -> None:
+    monkeypatch.setattr(whoisxml.Core, 'whoisxml_key', staticmethod(lambda: 'test-key'))
+
+    async def fake_fetch(**_kwargs: Any) -> FetcherResponse:
+        raise asyncio.CancelledError('operator-stop')
+
+    monkeypatch.setattr(whoisxml.AsyncFetcher, 'fetch', fake_fetch)
+
+    with pytest.raises(asyncio.CancelledError, match='operator-stop'):
+        await whoisxml.SearchWhoisXML('example.com', 10).process()
+    assert provider_session.exited is True

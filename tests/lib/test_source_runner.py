@@ -162,7 +162,7 @@ def test_source_factories_match_the_catalog() -> None:
         ),
         ('thc', 'theHarvester.lib.source_runner.thc.SearchThc', ('example.test',), {}),
         ('tomba', 'theHarvester.lib.source_runner.tombasearch.SearchTomba', ('example.test', 25, 5), {}),
-        ('urlscan', 'theHarvester.lib.source_runner.urlscan.SearchUrlscan', ('example.test',), {}),
+        ('urlscan', 'theHarvester.lib.source_runner.urlscan.SearchUrlscan', ('example.test', 25), {}),
         ('virustotal', 'theHarvester.lib.source_runner.virustotal.SearchVirustotal', ('example.test', 25), {}),
         (
             'waybackarchive',

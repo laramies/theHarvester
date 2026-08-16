@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import contextlib
 from typing import TYPE_CHECKING, Any
 
@@ -20,6 +21,7 @@ async def test_process_paginates_without_fixed_sleeps_and_keeps_scoped_evidence(
 ) -> None:
     monkeypatch.setattr(virustotal.Core, 'virustotal_key', staticmethod(lambda: 'test-key'))
     session = object()
+    session_exited = False
     calls: list[dict[str, Any]] = []
     responses = [
         FetcherResponse(
@@ -49,6 +51,7 @@ async def test_process_paginates_without_fixed_sleeps_and_keeps_scoped_evidence(
 
     @contextlib.asynccontextmanager
     async def fake_open_session(**kwargs: Any) -> AsyncIterator[object]:
+        nonlocal session_exited
         assert kwargs == {
             'headers': {
                 'Accept': 'application/json',
@@ -56,7 +59,10 @@ async def test_process_paginates_without_fixed_sleeps_and_keeps_scoped_evidence(
             },
             'proxy': True,
         }
-        yield session
+        try:
+            yield session
+        finally:
+            session_exited = True
 
     async def fake_fetch(**kwargs: Any) -> FetcherResponse:
         calls.append(kwargs)
@@ -77,6 +83,7 @@ async def test_process_paginates_without_fixed_sleeps_and_keeps_scoped_evidence(
     assert search.stop_reason is None
     assert [call['params'] for call in calls] == [{'limit': 10}, {'limit': 9, 'cursor': 'next-page'}]
     assert all(call['session'] is session for call in calls)
+    assert session_exited is True
 
 
 @pytest.mark.asyncio
@@ -199,3 +206,27 @@ async def test_repeated_cursor_stops_without_spending_more_quota(monkeypatch: py
     assert search.execution_status == 'partial'
     assert search.stop_reason == 'repeated-cursor'
     assert responses == []
+
+
+@pytest.mark.asyncio
+async def test_cancellation_closes_provider_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(virustotal.Core, 'virustotal_key', staticmethod(lambda: 'test-key'))
+    session_exited = False
+
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**_kwargs: Any) -> AsyncIterator[object]:
+        nonlocal session_exited
+        try:
+            yield object()
+        finally:
+            session_exited = True
+
+    async def fake_fetch(**_kwargs: Any) -> FetcherResponse:
+        raise asyncio.CancelledError('operator-stop')
+
+    monkeypatch.setattr(virustotal.AsyncFetcher, 'open_session', fake_open_session)
+    monkeypatch.setattr(virustotal.AsyncFetcher, 'fetch', fake_fetch)
+
+    with pytest.raises(asyncio.CancelledError, match='operator-stop'):
+        await virustotal.SearchVirustotal('example.com', limit=10).process()
+    assert session_exited is True

@@ -12,11 +12,16 @@ from theHarvester.lib.core import FetcherResponse
 @pytest.mark.asyncio
 async def test_successful_response_returns_only_scoped_hostnames(monkeypatch) -> None:
     session = object()
+    session_exited = False
     calls: list[tuple[str, object]] = []
 
     @contextlib.asynccontextmanager
     async def fake_open_session(**_kwargs: Any) -> AsyncIterator[object]:
-        yield session
+        nonlocal session_exited
+        try:
+            yield session
+        finally:
+            session_exited = True
 
     async def fake_fetch(*_args, **kwargs):
         calls.append(('get', kwargs['session']))
@@ -41,6 +46,7 @@ async def test_successful_response_returns_only_scoped_hostnames(monkeypatch) ->
     assert search.execution_status == 'completed'
     assert search.stop_reason is None
     assert calls == [('get', session), ('post', session)]
+    assert session_exited is True
 
 
 @pytest.mark.asyncio
@@ -61,8 +67,6 @@ async def test_empty_initial_response_is_transport_failure(monkeypatch) -> None:
     assert not await search.get_hostnames()
     assert search.execution_status == 'failed'
     assert search.stop_reason == 'transport-error'
-
-
 
 
 @pytest.mark.asyncio
@@ -126,9 +130,15 @@ async def test_initial_failures_are_structured(
 
 @pytest.mark.asyncio
 async def test_cancellation_propagates(monkeypatch: pytest.MonkeyPatch) -> None:
+    session_exited = False
+
     @contextlib.asynccontextmanager
     async def fake_open_session(**_kwargs: Any) -> AsyncIterator[object]:
-        yield object()
+        nonlocal session_exited
+        try:
+            yield object()
+        finally:
+            session_exited = True
 
     async def fake_fetch(*_args: Any, **_kwargs: Any) -> FetcherResponse:
         raise asyncio.CancelledError
@@ -137,6 +147,7 @@ async def test_cancellation_propagates(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(subdomainfinderc99.AsyncFetcher, 'fetch', fake_fetch)
     with pytest.raises(asyncio.CancelledError):
         await subdomainfinderc99.SearchSubdomainfinderc99('example.test').process()
+    assert session_exited is True
 
 
 pytestmark = pytest.mark.provider_contract('subdomainfinderc99')

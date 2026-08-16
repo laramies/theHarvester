@@ -1,6 +1,7 @@
 from typing import Any
 
 from theHarvester.discovery.constants import MissingKey
+from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 
@@ -55,18 +56,10 @@ class SearchDymo:
             proxy=self.proxy,
             include_metadata=True,
         )
-        if not isinstance(response, FetcherResponse):
-            self._stop('failed', 'transport-error')
+        if error := provider_http_error(response):
+            self._stop(*error)
             return
-        if response.status in {401, 403}:
-            self._stop('failed', 'access-denied')
-            return
-        if response.status == 429:
-            self._stop('rate-limited', 'http-429')
-            return
-        if not 200 <= response.status < 300:
-            self._stop('failed', f'http-{response.status}')
-            return
+        assert isinstance(response, FetcherResponse)
         if not isinstance(response.body, dict):
             self._stop('failed', 'invalid-response')
             return

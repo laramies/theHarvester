@@ -1,5 +1,7 @@
 import asyncio
+import contextlib
 import logging
+from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
@@ -7,6 +9,55 @@ import pytest
 from theHarvester.discovery import fullhuntsearch
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import FetcherResponse
+
+
+@pytest.mark.asyncio
+async def test_process_reuses_one_session_for_fallback_requests(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(fullhuntsearch.Core, 'fullhunt_key', lambda: 'test-key')
+    session = object()
+    session_exited = False
+    open_calls: list[dict[str, Any]] = []
+    calls: list[tuple[list[str], dict[str, Any]]] = []
+    responses = [
+        FetcherResponse({'hosts': []}, 200, {}),
+        FetcherResponse({'hosts': ['api.example.com']}, 200, {}),
+    ]
+
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**kwargs: Any) -> AsyncIterator[object]:
+        nonlocal session_exited
+        open_calls.append(kwargs)
+        try:
+            yield session
+        finally:
+            session_exited = True
+
+    async def fake_fetch_all(urls: list[str], **kwargs: Any) -> list[FetcherResponse]:
+        calls.append((urls, kwargs))
+        return [responses.pop(0)]
+
+    monkeypatch.setattr(fullhuntsearch.AsyncFetcher, 'open_session', fake_open_session)
+    monkeypatch.setattr(fullhuntsearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    search = fullhuntsearch.SearchFullHunt('example.com')
+
+    await search.process(proxy=True)
+
+    assert await search.get_hostnames() == ['api.example.com']
+    assert [urls for urls, _kwargs in calls] == [
+        ['https://fullhunt.io/api/v1/domain/example.com/details'],
+        ['https://fullhunt.io/api/v1/domain/example.com/subdomains'],
+    ]
+    assert all(kwargs['session'] is session for _urls, kwargs in calls)
+    assert open_calls == [
+        {
+            'headers': {'User-Agent': fullhuntsearch.Core.get_user_agent(), 'X-API-KEY': 'test-key'},
+            'proxy': True,
+            'request_timeout': 60,
+        }
+    ]
+    assert session_exited is True
+    assert search.execution_status == 'completed'
+    assert search.stop_reason is None
 
 
 @pytest.mark.asyncio
@@ -236,13 +287,24 @@ async def test_failures_are_structured(
 @pytest.mark.asyncio
 async def test_cancellation_propagates(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(fullhuntsearch.Core, 'fullhunt_key', lambda: 'test-key')
+    session_exited = False
+
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**_kwargs: Any) -> AsyncIterator[object]:
+        nonlocal session_exited
+        try:
+            yield object()
+        finally:
+            session_exited = True
 
     async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[FetcherResponse]:
         raise asyncio.CancelledError
 
     monkeypatch.setattr(fullhuntsearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    monkeypatch.setattr(fullhuntsearch.AsyncFetcher, 'open_session', fake_open_session)
     with pytest.raises(asyncio.CancelledError):
         await fullhuntsearch.SearchFullHunt('example.com').process()
+    assert session_exited is True
 
 
 pytestmark = pytest.mark.provider_contract('fullhunt')

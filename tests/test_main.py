@@ -3831,8 +3831,8 @@ async def test_routeviews_pivots_from_attributed_ips_without_expanding_discovere
     calls: list[tuple[tuple[object, ...], tuple[str, ...]]] = []
 
     class FakeUrlscan:
-        def __init__(self, _word: str) -> None:
-            pass
+        def __init__(self, _word: str, limit: int) -> None:
+            assert limit == 500
 
         async def process(self, _proxy: bool) -> None:
             return None

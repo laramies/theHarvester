@@ -1,6 +1,7 @@
 from urllib.parse import urlsplit, urlunsplit
 
 from theHarvester.discovery.constants import MissingKey
+from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 
@@ -49,48 +50,46 @@ class SearchBeVigil:
             (url_endpoint, 'urls'),
         )
 
-        for endpoint, field in requests:
-            try:
-                responses = await AsyncFetcher.fetch_all(
-                    [endpoint],
-                    json=True,
-                    proxy=self.proxy,
-                    headers=headers,
-                    include_metadata=True,
-                )
-            except Exception:
-                self._stop('failed', 'transport-error')
-                return
-            response = responses[0] if responses else None
-            if not isinstance(response, FetcherResponse):
-                self._stop('failed', 'transport-error')
-                return
-            if response.status in {401, 403}:
-                self._stop('failed', 'access-denied')
-                return
-            if response.status == 429:
-                self._stop('rate-limited', 'http-429')
-                return
-            if not 200 <= response.status < 300:
-                self._stop('failed', f'http-{response.status}')
-                return
-            if not isinstance(response.body, dict) or not isinstance(response.body.get(field), list):
-                self._stop('failed', 'invalid-response')
-                return
+        try:
+            async with AsyncFetcher.open_session(
+                headers=headers,
+                proxy=self.proxy,
+                request_timeout=60,
+            ) as session:
+                for endpoint, field in requests:
+                    responses = await AsyncFetcher.fetch_all(
+                        [endpoint],
+                        json=True,
+                        proxy=self.proxy,
+                        headers=headers,
+                        include_metadata=True,
+                        session=session,
+                    )
+                    response = responses[0] if responses else None
+                    if error := provider_http_error(response):
+                        self._stop(*error)
+                        return
+                    assert isinstance(response, FetcherResponse)
+                    if not isinstance(response.body, dict) or not isinstance(response.body.get(field), list):
+                        self._stop('failed', 'invalid-response')
+                        return
 
-            malformed = False
-            for value in response.body[field]:
-                if field == 'subdomains':
-                    if not isinstance(value, str):
-                        malformed = True
-                    elif hostname := normalize_scoped_hostname(value, self.word):
-                        self.totalhosts.add(hostname)
-                elif url := self._scoped_url(value):
-                    self.urls.add(url)
-                elif not isinstance(value, str):
-                    malformed = True
-            if malformed:
-                self._stop('failed', 'invalid-response')
+                    malformed = False
+                    for value in response.body[field]:
+                        if field == 'subdomains':
+                            if not isinstance(value, str):
+                                malformed = True
+                            elif hostname := normalize_scoped_hostname(value, self.word):
+                                self.totalhosts.add(hostname)
+                        elif url := self._scoped_url(value):
+                            self.urls.add(url)
+                        elif not isinstance(value, str):
+                            malformed = True
+                    if malformed:
+                        self._stop('failed', 'invalid-response')
+        except Exception:
+            self._stop('failed', 'transport-error')
+            return
 
         if self.execution_status is not None and self._has_results():
             self.execution_status = 'partial'

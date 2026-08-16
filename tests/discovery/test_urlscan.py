@@ -10,13 +10,21 @@ from theHarvester.discovery import urlscan
 from theHarvester.lib.core import FetcherResponse
 
 
+class ProviderSession:
+    def __init__(self) -> None:
+        self.exited = False
+
+
 @pytest.fixture(autouse=True)
-def provider_session(monkeypatch: pytest.MonkeyPatch) -> object:
-    session = object()
+def provider_session(monkeypatch: pytest.MonkeyPatch) -> ProviderSession:
+    session = ProviderSession()
 
     @contextlib.asynccontextmanager
     async def fake_open_session(**_kwargs: Any) -> AsyncIterator[object]:
-        yield session
+        try:
+            yield session
+        finally:
+            session.exited = True
 
     monkeypatch.setattr(urlscan.AsyncFetcher, 'open_session', fake_open_session)
     return session
@@ -25,7 +33,7 @@ def provider_session(monkeypatch: pytest.MonkeyPatch) -> object:
 @pytest.mark.asyncio
 async def test_process_collects_sequential_pages_and_preserves_all_routes(
     monkeypatch: pytest.MonkeyPatch,
-    provider_session: object,
+    provider_session: ProviderSession,
 ) -> None:
     responses = [
         FetcherResponse(
@@ -64,7 +72,6 @@ async def test_process_collects_sequential_pages_and_preserves_all_routes(
             status=200,
             headers={},
         ),
-        FetcherResponse(body={'results': []}, status=200, headers={}),
     ]
     calls: list[dict[str, Any]] = []
 
@@ -73,7 +80,7 @@ async def test_process_collects_sequential_pages_and_preserves_all_routes(
         return responses.pop(0)
 
     monkeypatch.setattr(urlscan.AsyncFetcher, 'fetch', fake_fetch)
-    search = urlscan.SearchUrlscan('example.com')
+    search = urlscan.SearchUrlscan('example.com', 2)
 
     await search.process(proxy=True)
 
@@ -99,15 +106,15 @@ async def test_process_collects_sequential_pages_and_preserves_all_routes(
         ('AS64497', 'Example Transit Two', 'ip', '2001:db8::10'),
     }
     assert [call['params'] for call in calls] == [
-        {'q': 'domain:example.com'},
-        {'q': 'domain:example.com', 'search_after': '200,first'},
-        {'q': 'domain:example.com', 'search_after': '100,second'},
+        {'q': 'domain:example.com', 'size': 2},
+        {'q': 'domain:example.com', 'size': 1, 'search_after': '200,first'},
     ]
     assert all(call['url'] == 'https://urlscan.io/api/v1/search/' for call in calls)
     assert all(call['session'] is provider_session for call in calls)
     assert all(call['json'] is True for call in calls)
     assert all(call['include_metadata'] is True for call in calls)
     assert all('request_timeout' not in call for call in calls)
+    assert provider_session.exited is True
     assert search.execution_status == 'completed'
     assert search.stop_reason is None
 
@@ -140,7 +147,7 @@ async def test_repeated_asn_relationship_is_retained_once_per_source_run(monkeyp
 
     monkeypatch.setattr(urlscan, 'datetime', TickingDateTime)
     monkeypatch.setattr(urlscan.AsyncFetcher, 'fetch', fake_fetch)
-    search = urlscan.SearchUrlscan('example.com')
+    search = urlscan.SearchUrlscan('example.com', 10)
 
     await search.process()
 
@@ -153,7 +160,7 @@ async def test_valid_empty_response_is_completed(monkeypatch: pytest.MonkeyPatch
         return FetcherResponse(body={'results': []}, status=200, headers={})
 
     monkeypatch.setattr(urlscan.AsyncFetcher, 'fetch', fake_fetch)
-    search = urlscan.SearchUrlscan('example.com')
+    search = urlscan.SearchUrlscan('example.com', 10)
 
     await search.process()
 
@@ -180,7 +187,7 @@ async def test_missing_optional_fields_are_skipped(monkeypatch: pytest.MonkeyPat
         return responses.pop(0)
 
     monkeypatch.setattr(urlscan.AsyncFetcher, 'fetch', fake_fetch)
-    search = urlscan.SearchUrlscan('example.com')
+    search = urlscan.SearchUrlscan('example.com', 10)
 
     await search.process()
 
@@ -209,7 +216,7 @@ async def test_malformed_nested_fields_preserve_valid_partial_results(monkeypatc
         return responses.pop(0)
 
     monkeypatch.setattr(urlscan.AsyncFetcher, 'fetch', fake_fetch)
-    search = urlscan.SearchUrlscan('example.com')
+    search = urlscan.SearchUrlscan('example.com', 10)
 
     await search.process()
 
@@ -255,7 +262,7 @@ async def test_results_are_typed_and_scoped_before_insertion(monkeypatch: pytest
         return responses.pop(0)
 
     monkeypatch.setattr(urlscan.AsyncFetcher, 'fetch', fake_fetch)
-    search = urlscan.SearchUrlscan('example.com')
+    search = urlscan.SearchUrlscan('example.com', 10)
 
     await search.process()
 
@@ -290,7 +297,7 @@ async def test_failed_first_page_is_attributed(
         return response
 
     monkeypatch.setattr(urlscan.AsyncFetcher, 'fetch', fake_fetch)
-    search = urlscan.SearchUrlscan('example.com')
+    search = urlscan.SearchUrlscan('example.com', 10)
 
     await search.process()
 
@@ -327,7 +334,7 @@ async def test_later_failure_preserves_partial_results(
         return responses.pop(0)
 
     monkeypatch.setattr(urlscan.AsyncFetcher, 'fetch', fake_fetch)
-    search = urlscan.SearchUrlscan('example.com')
+    search = urlscan.SearchUrlscan('example.com', 10)
 
     await search.process()
 
@@ -342,7 +349,7 @@ async def test_fetch_exception_is_transport_failure(monkeypatch: pytest.MonkeyPa
         raise OSError('private transport details')
 
     monkeypatch.setattr(urlscan.AsyncFetcher, 'fetch', fake_fetch)
-    search = urlscan.SearchUrlscan('example.com')
+    search = urlscan.SearchUrlscan('example.com', 10)
 
     await search.process()
 
@@ -364,7 +371,7 @@ async def test_missing_cursor_stops_after_first_page(monkeypatch: pytest.MonkeyP
         )
 
     monkeypatch.setattr(urlscan.AsyncFetcher, 'fetch', fake_fetch)
-    search = urlscan.SearchUrlscan('example.com')
+    search = urlscan.SearchUrlscan('example.com', 10)
 
     await search.process()
 
@@ -396,7 +403,7 @@ async def test_repeated_cursor_stops_without_a_third_request(monkeypatch: pytest
         return responses.pop(0)
 
     monkeypatch.setattr(urlscan.AsyncFetcher, 'fetch', fake_fetch)
-    search = urlscan.SearchUrlscan('example.com')
+    search = urlscan.SearchUrlscan('example.com', 10)
 
     await search.process()
 
@@ -408,46 +415,88 @@ async def test_repeated_cursor_stops_without_a_third_request(monkeypatch: pytest
 
 @pytest.mark.asyncio
 async def test_pagination_continues_beyond_the_removed_local_page_ceiling(monkeypatch: pytest.MonkeyPatch) -> None:
-    calls = 0
-
-    async def fake_fetch(**_kwargs: Any) -> FetcherResponse:
-        nonlocal calls
-        calls += 1
-        if calls == 1002:
-            return FetcherResponse(body={'results': []}, status=200, headers={})
-        return FetcherResponse(
+    calls: list[dict[str, Any]] = []
+    first_page = [
+        {'page': {'domain': f'page-{index}.example.com'}, 'sort': [10_001 - index, f'cursor-{index}']}
+        for index in range(1, 10_001)
+    ]
+    responses = [
+        FetcherResponse(body={'results': first_page}, status=200, headers={}),
+        FetcherResponse(
             body={
                 'results': [
                     {
-                        'page': {'domain': f'page-{calls}.example.com'},
-                        'sort': [calls, f'cursor-{calls}'],
+                        'page': {'domain': 'page-10001.example.com'},
+                        'sort': [0, 'cursor-10001'],
                     }
                 ]
             },
             status=200,
             headers={},
-        )
+        ),
+    ]
+
+    async def fake_fetch(**kwargs: Any) -> FetcherResponse:
+        calls.append(kwargs['params'])
+        return responses.pop(0)
 
     monkeypatch.setattr(urlscan.AsyncFetcher, 'fetch', fake_fetch)
-    search = urlscan.SearchUrlscan('example.com')
+    search = urlscan.SearchUrlscan('example.com', 10_001)
 
     await search.process()
 
-    assert calls == 1002
-    assert await search.get_hostnames() == {f'page-{page}.example.com' for page in range(1, 1002)}
+    assert calls == [
+        {'q': 'domain:example.com', 'size': 10_000},
+        {'q': 'domain:example.com', 'size': 1, 'search_after': '1,cursor-10000'},
+    ]
+    assert await search.get_hostnames() == {f'page-{page}.example.com' for page in range(1, 10_002)}
     assert search.execution_status == 'completed'
     assert search.stop_reason is None
 
 
 @pytest.mark.asyncio
-async def test_cancellation_propagates(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_operator_limit_sets_page_size_and_stops_without_an_extra_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[dict[str, Any]] = []
+    results = [
+        {'page': {'domain': f'result-{index}.example.com'}, 'sort': [10 - index, f'cursor-{index}']} for index in range(10)
+    ]
+
+    async def fake_fetch(**kwargs: Any) -> FetcherResponse:
+        calls.append(kwargs['params'])
+        return FetcherResponse(body={'results': results}, status=200, headers={})
+
+    monkeypatch.setattr(urlscan.AsyncFetcher, 'fetch', fake_fetch)
+    search = urlscan.SearchUrlscan('example.com', 10)
+
+    await search.process()
+
+    assert calls == [{'q': 'domain:example.com', 'size': 10}]
+    assert len(await search.get_hostnames()) == 10
+    assert search.execution_status == 'completed'
+    assert search.stop_reason is None
+
+
+@pytest.mark.parametrize('limit', [0, -1, True, 1.5])
+def test_limit_must_be_a_positive_integer(limit: Any) -> None:
+    with pytest.raises(ValueError, match='positive integer'):
+        urlscan.SearchUrlscan('example.com', limit)
+
+
+@pytest.mark.asyncio
+async def test_cancellation_propagates(
+    monkeypatch: pytest.MonkeyPatch,
+    provider_session: ProviderSession,
+) -> None:
     async def fake_fetch(**_kwargs: Any) -> FetcherResponse:
         raise asyncio.CancelledError
 
     monkeypatch.setattr(urlscan.AsyncFetcher, 'fetch', fake_fetch)
 
     with pytest.raises(asyncio.CancelledError):
-        await urlscan.SearchUrlscan('example.com').process()
+        await urlscan.SearchUrlscan('example.com', 10).process()
+    assert provider_session.exited is True
 
 
 pytestmark = pytest.mark.provider_contract('urlscan')
