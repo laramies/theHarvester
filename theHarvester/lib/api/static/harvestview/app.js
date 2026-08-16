@@ -31,7 +31,8 @@
   };
 
   const nodes = {
-    themeButton: $('#theme-button'), importButton: $('#import-button'), newRunButton: $('#new-run-button'),
+    themeButton: $('#theme-button'), importButton: $('#import-button'), exportDatabase: $('#export-database-button'),
+    newRunButton: $('#new-run-button'),
     loading: $('#loading-state'), empty: $('#empty-state'), detail: $('#run-detail'),
     workspaceError: $('#workspace-error'), workspaceErrorMessage: $('#workspace-error-message'),
     retryWorkspace: $('#retry-workspace-button'),
@@ -1249,15 +1250,31 @@
     toast(state.detail.status === 'cancelled' ? 'Queued enumeration cancelled.' : 'Cancellation requested.');
   }
 
-  async function downloadServerExport() {
+  async function downloadServerFile(path, fallbackFilename, failureMessage) {
     try {
-      const response = await api(`/api/v1/runs/${encodeURIComponent(state.selectedId)}/export`);
+      const response = await api(path);
       const disposition = response.headers.get('Content-Disposition') || '';
       const match = disposition.match(/filename="([^"]+)"/);
-      downloadBlob(await response.blob(), match?.[1] || 'harvestview-results.jsonl');
+      downloadBlob(await response.blob(), match?.[1] || fallbackFilename);
     } catch (error) {
-      toast(`Could not export results: ${error.message}. Keep the run open and try again.`, true);
+      toast(`${failureMessage}: ${error.message}`, true);
     }
+  }
+
+  function downloadServerExport() {
+    return downloadServerFile(
+      `/api/v1/runs/${encodeURIComponent(state.selectedId)}/export`,
+      'harvestview-results.jsonl',
+      'Could not export results',
+    );
+  }
+
+  function downloadDatabase() {
+    return downloadServerFile(
+      '/api/v1/runs/export-database',
+      'theharvester-completed-runs.sqlite',
+      'Could not export the database',
+    );
   }
 
   function downloadBlob(blob, filename) {
@@ -1303,6 +1320,7 @@
   nodes.retryWorkspace.addEventListener('click', start);
   nodes.newRunButton.addEventListener('click', openNewRun);
   nodes.importButton.addEventListener('click', openImport);
+  nodes.exportDatabase.addEventListener('click', downloadDatabase);
   nodes.historySearch.addEventListener('input', renderHistory);
   nodes.newRunForm.addEventListener('submit', submitRun);
   nodes.resultActionForm.addEventListener('submit', submitResultAction);

@@ -41,13 +41,13 @@ apikeys:
 
 Do not commit populated configuration files. Prefer provider credentials scoped to the minimum access the provider supports.
 
-The [README source matrix](https://github.com/laramies/theHarvester/blob/dev/README.md#discovery-sources) is the canonical source list. It shows whether each source requires a key, accepts an optional key, or has no key setting.
+The [README source matrix](https://github.com/laramies/theHarvester/blob/dev/README.md#discovery-sources) lists each source's result routes, activity class, and credential requirement. The executable source catalog is the authoritative inventory.
 
 Provider pricing, quotas, and terms change frequently. Check the provider's current documentation for these details.
 
-`censys.token` is a Censys Platform Personal Access Token. Set `organization_id` when searches should use an entitled organization. This source uses the Global Search API, which is unavailable to Free accounts because they are limited to asset lookups. The retired Search API ID and secret fields are not accepted.
+`censys.token` is a Censys Platform Personal Access Token. Set `organization_id` when searches should use an entitled organization. This source uses the Global Search API, which is unavailable to Free accounts because they are limited to asset lookups. Search API ID and secret fields are not accepted.
 
-`hibpverified` queries [HIBP's authenticated verified-domain endpoint](https://haveibeenpwned.com/API/v3#BreachedDomain). It is selected by its name, the `breaches` capability, and `all`. Without a configured HIBP API key it is skipped like other unavailable keyed sources. Live use requires a user-owned paid HIBP API key and a user-owned domain verified in that account. The keyless `haveibeenpwned` source continues to query only the public breach catalogue.
+`hibpverified` queries [HIBP's authenticated verified-domain endpoint](https://haveibeenpwned.com/API/v3#BreachedDomain). It is selected by its name, the `breaches` capability, and `all`. Without a configured HIBP API key it is skipped like other unavailable keyed sources. Live use requires a user-owned paid HIBP API key and a user-owned domain verified in that account. The keyless `haveibeenpwned` source queries only the public breach catalogue.
 
 `routeviews.key` is optional. RouteViews provides authenticated API keys to verified PeeringDB users. `--routeviews` uses the authenticated endpoint and documented 10-request-per-second allowance when the key is configured; otherwise it uses guest access at one request per second. If RouteViews rejects a configured key, the action fails without retrying as a guest; remove the key to select guest access. RouteViews does not document this as a paid subscription.
 

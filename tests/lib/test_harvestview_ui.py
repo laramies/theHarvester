@@ -83,7 +83,7 @@ def test_harvestview_has_an_operator_readable_shodan_host_route(tmp_path, monkey
     assert "title: 'Services'" in script.text
 
 
-def test_harvestview_offers_jsonl_and_sqlite_imports_with_jsonl_export(tmp_path, monkeypatch) -> None:
+def test_harvestview_offers_jsonl_and_sqlite_imports_and_exports(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api import api
 
     monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
@@ -95,11 +95,14 @@ def test_harvestview_offers_jsonl_and_sqlite_imports_with_jsonl_export(tmp_path,
         script = client.get('/static/harvestview/app.js')
 
     assert 'accept=".jsonl,.sqlite,.sqlite3,.db,application/x-ndjson,application/vnd.sqlite3"' in root.text
+    assert 'id="export-database-button"' in root.text
     assert 'id="export-jsonl-button"' in root.text
     assert 'id="route-csv-button"' not in root.text
     assert 'id="export-json-button"' not in root.text
     assert 'id="export-csv-button"' not in root.text
     assert '/export' in script.text
+    assert '/api/v1/runs/export-database' in script.text
+    assert 'theharvester-completed-runs.sqlite' in script.text
     assert "fileKind === 'jsonl' ? '/api/v1/runs/import' : '/api/v1/runs/import-database'" in script.text
     assert '/exports/' not in script.text
     assert 'text/csv' not in script.text

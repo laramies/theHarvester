@@ -6,18 +6,8 @@ from pathlib import Path
 
 import yaml
 
-from theHarvester.lib.source_catalog import SOURCE_SPECS, ResultRoute
+from theHarvester.lib.source_catalog import SOURCE_SPECS
 
-RESULT_COLUMNS = ('Subdomains', 'Emails', 'IPs', 'ASNs', 'URLs', 'People', 'Breaches')
-ROUTE_COLUMNS = {
-    ResultRoute.SUBDOMAINS: 'Subdomains',
-    ResultRoute.EMAILS: 'Emails',
-    ResultRoute.IPS: 'IPs',
-    ResultRoute.ASNS: 'ASNs',
-    ResultRoute.URLS: 'URLs',
-    ResultRoute.PEOPLE: 'People',
-    ResultRoute.BREACHES: 'Breaches',
-}
 OPTIONAL_API_KEY_SOURCES = {'hackertarget', 'mojeek', 'windvane'}
 API_KEY_SOURCE_ALIASES = {
     'github': {'github-code'},
@@ -44,7 +34,7 @@ WIKI_PAGES = {
 
 
 def _declared_source_contracts() -> dict[str, set[str]]:
-    return {source: {ROUTE_COLUMNS[route] for route in spec.routes} for source, spec in SOURCE_SPECS.items()}
+    return {source: set(spec.capabilities) for source, spec in SOURCE_SPECS.items()}
 
 
 def _documented_source_rows(readme: str) -> dict[str, list[str]]:
@@ -58,12 +48,11 @@ def _documented_source_rows(readme: str) -> dict[str, list[str]]:
 
 
 def _documented_source_contracts(readme: str) -> dict[str, set[str]]:
-    contracts: dict[str, set[str]] = {}
-    for source, cells in _documented_source_rows(readme).items():
-        markers = cells[:7]
-        assert set(markers) <= {'✓', 'No'}
-        contracts[source] = {column for column, marker in zip(RESULT_COLUMNS, markers, strict=True) if marker == '✓'}
-    return contracts
+    return {source: {route.strip() for route in cells[0].split(',')} for source, cells in _documented_source_rows(readme).items()}
+
+
+def _documented_source_activities(readme: str) -> dict[str, str]:
+    return {source: cells[1] for source, cells in _documented_source_rows(readme).items()}
 
 
 def _documented_api_key_requirements(readme: str) -> dict[str, str]:
@@ -80,10 +69,11 @@ def test_readme_matches_declared_source_contracts() -> None:
     documented = _documented_source_contracts(readme)
     declared = _declared_source_contracts()
 
-    assert '| Source | Subdomains | Emails | IPs | ASNs | URLs | People | Breaches |' in readme
+    assert '| Source | Result routes | Activity | Credentials |' in readme
     assert len(declared) == 58
     assert len(documented) == 58
     assert documented == declared
+    assert _documented_source_activities(readme) == {source: spec.activity.value for source, spec in SOURCE_SPECS.items()}
     assert {'securitytrails', 'shodaninternetdb'}.isdisjoint(documented)
 
 
@@ -92,7 +82,7 @@ def test_readme_api_key_markers_match_configuration() -> None:
     requirements = _documented_api_key_requirements(readme)
     configured_source_keys = _configured_api_key_sources() - {'routeviews'}
 
-    assert set(requirements.values()) <= {'✓', 'Optional', 'No'}
+    assert set(requirements.values()) <= {'Required', 'Optional', 'No'}
     assert {source for source, marker in requirements.items() if marker != 'No'} == configured_source_keys
     assert '`routeviews.key`' in readme
     assert {source for source, marker in requirements.items() if marker == 'Optional'} == OPTIONAL_API_KEY_SOURCES
@@ -129,7 +119,7 @@ def test_readme_architecture_diagrams_are_local_and_accessible() -> None:
             'HarvestView run desk architecture',
             Path('docs/images/harvestview-architecture.svg'),
             'harvestview-architecture',
-            ('Authenticated REST API', 'queued → running → terminal', 'Isolated run worker', 'export JSONL'),
+            ('Authenticated REST API', 'queued → running → terminal', 'Isolated run worker', 'JSONL / SQLite export'),
         ),
     )
 
@@ -193,6 +183,16 @@ def test_operator_docs_recommend_jsonl_and_assume_uv_is_available() -> None:
     assert all('`report.jsonl`' in page and 'automation' in page for page in (quick_start, workflows))
 
 
+def test_operator_docs_cover_portable_database_export() -> None:
+    readme = Path('README.md').read_text()
+    rest_api = Path('docs/wiki/Rest-API.md').read_text()
+    local_data = Path('docs/wiki/Results-and-Local-Data.md').read_text()
+
+    assert all('/api/v1/runs/export-database' in page for page in (readme, rest_api, local_data))
+    assert 'queue state, cancellation state, worker leases, and legacy observations' in rest_api
+    assert 'no manual WAL handling is required' in rest_api
+
+
 def test_readme_explains_jsonl_record_and_structured_evidence_parsing() -> None:
     readme = Path('README.md').read_text()
 
@@ -201,14 +201,10 @@ def test_readme_explains_jsonl_record_and_structured_evidence_parsing() -> None:
         assert f'select(.type == "{result_kind}")' in readme
     assert 'select(.type == "person") | .value | fromjson' in readme
     assert 'select(.type == "dns-recursive-finding") | .value | fromjson' in readme
-    assert 'JSONL is easy to stream one record at a time.' in readme
-    assert '`person` and `infostealer`' in readme
-    assert 'Takeover outcomes instead keep the canonical hostname in `value`' in readme
-    assert 'typed status, DNS, wildcard, HTTP, rule, and error evidence in `details`' in readme
+    assert 'JSONL is the primary format for automation and one-run interchange.' in readme
+    assert '`person`, `infostealer`' in readme
+    assert 'Takeover results keep the hostname in `value`' in readme
+    assert 'DNS, wildcard, HTTP, rule, status, and error evidence in `details`' in readme
     assert 'select(.type == "shodan-host") | {ip: .value, services: .details.services}' in readme
-    assert 'paginates both hostname and TLS-certificate searches' in readme
-    assert 'scoped certificate CNs and SANs' in readme
-    assert 'Raw banners, response bodies, certificate chains, and Shodan crawler metadata are not retained.' in readme
     assert 'select(.type == "hostname" and .observations) | {hostname: .value, observations}' in readme
-    assert 'Several endpoint observations can enrich the same hostname' in readme
-    assert 'The summary preserves the evidence status, source and action outcomes' in readme
+    assert 'select(.type == "asn" and .observations) | {asn: .value, observations}' in readme
