@@ -24,16 +24,9 @@ Source availability, quotas, and response formats are controlled by third partie
 
 Open the diagram in a dedicated browser view with [`docs/diagrams/run-evidence-architecture.html`](docs/diagrams/run-evidence-architecture.html).
 
-## Releases and packages
+## Package versions
 
-| Channel | Current version | Get it |
-| --- | --- | --- |
-| GitHub release | `4.11.1` | [Release notes and source archive](https://github.com/laramies/theHarvester/releases/tag/4.11.1) |
-| Kali Rolling | `4.11.1-0kali1` | [Kali package tracker](https://pkg.kali.org/pkg/theharvester) |
-| Other distributions | Varies | [Repology package list](https://repology.org/project/theharvester/versions) |
-| Development | `dev` | [Current development branch](https://github.com/laramies/theHarvester/tree/dev) |
-
-The [PyPI project](https://pypi.org/project/theHarvester/) currently reports `0.0.1` and does not track this repository's current releases.
+[![Packaging status](https://repology.org/badge/vertical-allrepos/theharvester.svg)](https://repology.org/project/theharvester/versions)
 
 ## Quick start
 

@@ -1,6 +1,6 @@
 # Installation
 
-theHarvester requires Python 3.12 or newer. Choose one installation lane and finish with its verification step. The README lists the [current GitHub and distribution versions](https://github.com/laramies/theHarvester#releases-and-packages).
+theHarvester requires Python 3.12 or newer. Choose one installation lane and finish with its verification step. The README lists the [current distribution package versions](https://github.com/laramies/theHarvester#package-versions).
 
 ## Kali Linux package
 

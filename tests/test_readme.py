@@ -179,9 +179,9 @@ def test_operator_docs_recommend_jsonl_and_assume_uv_is_available() -> None:
     quick_start = Path('docs/wiki/Quick-Start.md').read_text()
     workflows = Path('docs/wiki/Operator-Workflows.md').read_text()
 
-    assert '## Releases and packages' in readme
-    assert 'https://github.com/laramies/theHarvester/releases/tag/' in readme
-    assert 'https://pkg.kali.org/pkg/theharvester' in readme
+    assert '## Package versions' in readme
+    assert 'https://repology.org/badge/vertical-allrepos/theharvester.svg' in readme
+    assert 'https://repology.org/project/theharvester/versions' in readme
     assert 'curl -LsSf https://astral.sh/uv/install.sh' not in readme
     assert 'curl -LsSf https://astral.sh/uv/install.sh' not in installation
     assert all('`report.jsonl`' in page and 'automation' in page for page in (quick_start, workflows))
