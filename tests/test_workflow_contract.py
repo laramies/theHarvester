@@ -1,15 +1,31 @@
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
 from typing import Any
 
 import yaml
 
 WORKFLOW_DIR = Path(__file__).parents[1] / '.github' / 'workflows'
+PROJECT_ROOT = Path(__file__).parents[1]
 CI_WORKFLOW_PATH = WORKFLOW_DIR / 'theHarvester.yml'
 RELEASE_WORKFLOW_PATH = WORKFLOW_DIR / 'provider-smoke.yml'
 HARVESTVIEW_WORKFLOW_PATH = WORKFLOW_DIR / 'harvestview-e2e.yml'
 CONTAINER_WORKFLOW_PATH = WORKFLOW_DIR / 'harvestview-container.yml'
+
+
+def test_python_version_policy_requires_314() -> None:
+    project = tomllib.loads((PROJECT_ROOT / 'pyproject.toml').read_text(encoding='utf-8'))
+
+    assert (PROJECT_ROOT / '.python-version').read_text(encoding='utf-8') == '3.14\n'
+    assert project['project']['requires-python'] == '>=3.14'
+    assert 'Programming Language :: Python :: 3.12' not in project['project']['classifiers']
+    assert 'Programming Language :: Python :: 3.13' not in project['project']['classifiers']
+    assert project['tool']['mypy']['python_version'] == '3.14'
+    assert project['tool']['uv']['pip']['python-version'] == '3.14'
+    assert project['tool']['ruff']['target-version'] == 'py313'
+    bug_report = (PROJECT_ROOT / '.github' / 'ISSUE_TEMPLATE' / 'bug_report.yml').read_text(encoding='utf-8')
+    assert 'Python version: 3.14.6' in bug_report
 
 
 def _workflow(path: Path) -> dict[str, Any]:
@@ -27,7 +43,7 @@ def test_routine_ci_is_read_only_and_offline() -> None:
     assert 'theHarvester -d' not in commands
     assert '\npytest\n' in f'\n{commands.strip()}\n'
     assert 'mypy theHarvester' in commands
-    assert routine_job['strategy']['matrix']['python-version'] == ['3.12', '3.13', '3.14']
+    assert routine_job['strategy']['matrix']['python-version'] == ['3.14']
 
 
 def test_release_validation_is_manual_and_composes_existing_checks() -> None:
@@ -84,10 +100,12 @@ def test_release_dependencies_are_reusable_workflows() -> None:
 
 def test_harvestview_browser_failures_keep_only_targeted_diagnostics() -> None:
     workflow = _workflow(HARVESTVIEW_WORKFLOW_PATH)
+    setup_uv = next(step for step in workflow['jobs']['harvestview-e2e']['steps'] if step.get('name') == 'Install uv and Python')
     steps = workflow['jobs']['harvestview-e2e']['steps']
     test_command = next(step['run'] for step in steps if step['name'] == 'Run HarvestView browser tests')
     upload = next(step for step in steps if step['name'] == 'Upload browser test artifacts')
 
+    assert setup_uv['with']['python-version'] == '3.14'
     assert '--video' not in test_command
     assert '--tracing=retain-on-failure' in test_command
     assert '--screenshot=only-on-failure' in test_command

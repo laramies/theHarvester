@@ -13,7 +13,7 @@ For a bug report, include a minimal reproduction, expected and actual behavior, 
 
 ## Set up a development environment
 
-theHarvester supports Python 3.12 and newer and uses [uv](https://docs.astral.sh/uv/) for dependency management.
+theHarvester requires Python 3.14 and uses [uv](https://docs.astral.sh/uv/) for dependency management. The repository's `.python-version` lets `uv` select it automatically.
 
 Fork the repository, then clone your fork and add the upstream repository:
 

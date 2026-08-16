@@ -65,7 +65,7 @@ body:
       description: Add your operating system and Python version. Find the OS version in Windows Settings, About This Mac, or `/etc/os-release` on Linux. Use `python --version`, `pipx list`, or `uv run python --version` as appropriate.
       placeholder: |
         Operating system: Ubuntu 24.04
-        Python version: 3.13.5
+        Python version: 3.14.6
     validations:
       required: true
 
