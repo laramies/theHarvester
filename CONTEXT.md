@@ -2,13 +2,13 @@
 
 Status: accepted release baseline
 
-Release: Unreleased changes after 4.11.1 on `dev`
+Release: 5.0.0 development line on `dev`
 
 Reconciled: 2026-08-16
 
-This document is the semantic source of truth for the next release. It defines the product boundary, execution model, evidence contract, scope rules, and shared language used by code, tests, issues, pull requests, output, and operator documentation.
+This document is the semantic source of truth for the 5.0.0 release. It defines the product boundary, execution model, evidence contract, scope rules, and shared language used by code, tests, issues, pull requests, output, and operator documentation.
 
-The package version in `theHarvester/__init__.py` and the release headings in `CHANGELOG.md` remain authoritative for the eventual version number. Exact flags, source names, result kinds, schemas, and routes remain authoritative in the executable catalog, type declarations, CLI help, and OpenAPI document. This file records the meanings and boundaries those interfaces must preserve.
+Version 5.0.0 is the accepted release target. The package version in `theHarvester/__init__.py` and the release heading in `CHANGELOG.md` are updated together when the release is cut. Exact flags, source names, result kinds, schemas, and routes remain authoritative in the executable catalog, type declarations, CLI help, and OpenAPI document. This file records the meanings and boundaries those interfaces must preserve.
 
 When a change alters one of these boundaries, update this document and the nearest decision record in the same pull request. Completion means the implementation, focused regression coverage, operator documentation, and this context express the same contract.
 
