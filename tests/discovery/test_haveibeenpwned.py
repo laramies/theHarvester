@@ -43,8 +43,9 @@ async def test_public_breach_catalog_preserves_metadata(monkeypatch: pytest.Monk
     monkeypatch.setattr(haveibeenpwned.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = haveibeenpwned.SearchHaveIBeenPwned('example.com')
 
-    await search.process()
+    report = await search.process()
 
+    assert report is None
     assert await search.get_hostnames() == {'example.com'}
     assert await search.get_breach_names() == {'ExampleBreach'}
     assert await search.get_breach_dates() == {'2024-01-02'}
@@ -70,8 +71,9 @@ async def test_public_breach_catalog_ignores_blank_names(monkeypatch: pytest.Mon
     monkeypatch.setattr(haveibeenpwned.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = haveibeenpwned.SearchHaveIBeenPwned('example.com')
 
-    await search.process()
+    report = await search.process()
 
+    assert report is None
     assert await search.get_breach_names() == {'ExampleBreach'}
 
 
@@ -83,14 +85,13 @@ async def test_public_breach_catalog_valid_empty_is_completed(monkeypatch: pytes
     monkeypatch.setattr(haveibeenpwned.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = haveibeenpwned.SearchHaveIBeenPwned('example.com')
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_breaches() == []
     assert await search.get_hostnames() == set()
     assert await search.get_breach_dates() == set()
     assert await search.get_affected_data() == set()
-    assert search.execution_status == 'completed'
-    assert search.stop_reason == 'no-results'
+    assert report is None
 
 
 @pytest.mark.asyncio
@@ -111,12 +112,12 @@ async def test_public_breach_catalog_attributes_http_failures(
     search = haveibeenpwned.SearchHaveIBeenPwned('example.com')
 
     with caplog.at_level(logging.INFO, logger=haveibeenpwned.__name__):
-        await search.process()
+        report = await search.process()
 
     assert await search.get_breaches() == []
     assert f'HaveIBeenPwned request failed with HTTP {http_status}' in caplog.text
-    assert search.execution_status == execution_status
-    assert search.stop_reason == f'http-{http_status}'
+    assert report.status == execution_status
+    assert report.stop_reason == f'http-{http_status}'
 
 
 @pytest.mark.asyncio
@@ -131,10 +132,10 @@ async def test_public_breach_catalog_malformed_json_fails(
     monkeypatch.setattr(haveibeenpwned.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = haveibeenpwned.SearchHaveIBeenPwned('example.com')
 
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
     assert await search.get_breaches() == []
 
 
@@ -146,10 +147,10 @@ async def test_public_breach_catalog_missing_metadata_is_transport_failure(monke
     monkeypatch.setattr(haveibeenpwned.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = haveibeenpwned.SearchHaveIBeenPwned('example.com')
 
-    await search.process(proxy=True)
+    report = await search.process(proxy=True)
 
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'transport-error'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'transport-error'
 
 
 @pytest.mark.asyncio

@@ -6,6 +6,7 @@ from theHarvester.discovery.constants import MissingKey
 from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 
 class SearchNetlas:
@@ -19,27 +20,19 @@ class SearchNetlas:
         if not isinstance(self.key, str) or not self.key.strip():
             raise MissingKey('netlas')
         self.proxy = False
-        self.execution_status: str | None = None
-        self.stop_reason: str | None = None
 
-    def _stop(self, status: str, reason: str) -> None:
-        self.execution_status = 'partial' if self.totalhosts else status
-        self.stop_reason = reason
-
-    def _response_body(self, response: Any) -> Any | None:
+    @staticmethod
+    def _response_body(response: Any) -> tuple[Any | None, SourceExecutionReport | None]:
         if isinstance(response, FetcherResponse) and response.status == 402:
-            self._stop('failed', 'quota-exhausted')
-            return None
+            return None, SourceExecutionReport('failed', 'quota-exhausted')
         if error := provider_http_error(response):
-            self._stop(*error)
-            return None
+            return None, SourceExecutionReport(*error)
         assert isinstance(response, FetcherResponse)
         if response.body is None:
-            self._stop('failed', 'invalid-response')
-            return None
-        return response.body
+            return None, SourceExecutionReport('failed', 'invalid-response')
+        return response.body, None
 
-    async def do_search(self, session: Any, size: int) -> None:
+    async def do_search(self, session: Any, size: int) -> SourceExecutionReport | None:
         response = await AsyncFetcher.post_fetch(
             'https://app.netlas.io/api/domains/download/',
             session=session,
@@ -52,12 +45,11 @@ class SearchNetlas:
                 'source_type': 'include',
             },
         )
-        body = self._response_body(response)
-        if body is None:
-            return
+        body, report = self._response_body(response)
+        if report is not None:
+            return report
         if not isinstance(body, list):
-            self._stop('failed', 'invalid-response')
-            return
+            return SourceExecutionReport('failed', 'invalid-response')
 
         malformed = False
         for row in body[:size]:
@@ -71,24 +63,19 @@ class SearchNetlas:
             if hostname := normalize_scoped_hostname(domain, self.word):
                 self.totalhosts.add(hostname)
         if malformed:
-            self._stop('failed', 'invalid-response')
+            return SourceExecutionReport('failed', 'invalid-response')
+        return None
 
     async def get_hostnames(self) -> set[str]:
         return self.totalhosts
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        self.execution_status = None
-        self.stop_reason = None
         try:
             async with AsyncFetcher.open_session(
                 headers={'Authorization': f'Bearer {self.key}'},
                 proxy=proxy,
             ) as session:
-                await self.do_search(session, self.limit)
+                return await self.do_search(session, self.limit)
         except Exception:
-            self._stop('failed', 'transport-error')
-            return
-        if self.execution_status is None:
-            self.execution_status = 'completed'
-            self.stop_reason = None if self.totalhosts else 'no-results'
+            return SourceExecutionReport('failed', 'transport-error')

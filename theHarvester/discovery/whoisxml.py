@@ -4,6 +4,7 @@ from theHarvester.discovery.constants import MissingKey
 from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 
 class SearchWhoisXML:
@@ -17,17 +18,12 @@ class SearchWhoisXML:
             raise MissingKey('whoisxml')
         self.total_results: set[str] = set()
         self.proxy = False
-        self.execution_status: str | None = None
-        self.stop_reason: str | None = None
 
-    def _stop(self, status: str, reason: str) -> None:
-        self.execution_status = 'partial' if self.total_results else status
-        self.stop_reason = reason
-
-    async def do_search(self) -> None:
+    async def do_search(self) -> SourceExecutionReport | None:
         cursor: str | None = None
         seen_cursors: set[str] = set()
         records_seen = 0
+        report = None
         async with AsyncFetcher.open_session(proxy=self.proxy) as session:
             while records_seen < self.limit:
                 params = {'apiKey': self.key, 'domainName': self.word}
@@ -41,20 +37,16 @@ class SearchWhoisXML:
                     include_metadata=True,
                 )
                 if error := provider_http_error(response):
-                    self._stop(*error)
-                    return
+                    return SourceExecutionReport(*error)
                 assert isinstance(response, FetcherResponse)
                 if not isinstance(response.body, dict):
-                    self._stop('failed', 'invalid-response')
-                    return
+                    return SourceExecutionReport('failed', 'invalid-response')
                 result = response.body.get('result')
                 if not isinstance(result, dict) or not isinstance(result.get('records'), list):
-                    self._stop('failed', 'invalid-response')
-                    return
+                    return SourceExecutionReport('failed', 'invalid-response')
                 next_cursor = result.get('nextPageSearchAfter')
                 if not isinstance(next_cursor, str):
-                    self._stop('failed', 'invalid-response')
-                    return
+                    return SourceExecutionReport('failed', 'invalid-response')
 
                 remaining = self.limit - records_seen
                 records = result['records'][:remaining]
@@ -67,26 +59,21 @@ class SearchWhoisXML:
                     if hostname := normalize_scoped_hostname(record['domain'], self.word):
                         self.total_results.add(hostname)
                 if malformed:
-                    self._stop('failed', 'invalid-response')
+                    report = SourceExecutionReport('failed', 'invalid-response')
                 if records_seen >= self.limit or not next_cursor:
                     break
                 if next_cursor in seen_cursors:
-                    self._stop('failed', 'repeated-cursor')
-                    break
+                    return SourceExecutionReport('failed', 'repeated-cursor')
                 seen_cursors.add(next_cursor)
                 cursor = next_cursor
-        if self.execution_status is None:
-            self.execution_status = 'completed'
-            self.stop_reason = None if self.total_results else 'no-results'
+        return report
 
     async def get_hostnames(self) -> set[str]:
         return self.total_results
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        self.execution_status = None
-        self.stop_reason = None
         try:
-            await self.do_search()
+            return await self.do_search()
         except Exception:
-            self._stop('failed', 'transport-error')
+            return SourceExecutionReport('failed', 'transport-error')

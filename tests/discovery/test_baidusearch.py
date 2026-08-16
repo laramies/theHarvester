@@ -57,8 +57,9 @@ class TestBaiduSearch:
         monkeypatch.setattr(baidusearch.Core, 'get_browser_user_agent', staticmethod(lambda: 'UA'))
 
         search = baidusearch.SearchBaidu(word='example.com', limit=21)
-        await search.process(proxy=True)
+        report = await search.process(proxy=True)
 
+        assert report is None
         assert [call['url'] for call in calls] == [
             'https://www.baidu.com/',
             'https://www.baidu.com/s?wd=site%3Aexample.com&pn=0',
@@ -87,13 +88,13 @@ class TestBaiduSearch:
         )
         search = baidusearch.SearchBaidu(word='example.com', limit=20)
 
-        await search.process()
+        report = await search.process()
 
         assert len(calls) == 2
         assert calls[-1]['follow_redirects'] is False
         assert session.delays == [1.0]
-        assert search.execution_status == 'failed'
-        assert search.stop_reason == 'security-verification'
+        assert report.status == 'failed'
+        assert report.stop_reason == 'security-verification'
         assert session.closed is True
 
     @pytest.mark.asyncio
@@ -104,12 +105,12 @@ class TestBaiduSearch:
         )
         search = baidusearch.SearchBaidu(word='example.com', limit=10)
 
-        await search.process()
+        report = await search.process()
 
         assert len(calls) == 1
         assert calls[0]['follow_redirects'] is False
-        assert search.execution_status == 'failed'
-        assert search.stop_reason == 'security-verification'
+        assert report.status == 'failed'
+        assert report.stop_reason == 'security-verification'
 
     @pytest.mark.asyncio
     async def test_later_captcha_preserves_partial_results(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -124,42 +125,42 @@ class TestBaiduSearch:
         )
         search = baidusearch.SearchBaidu(word='example.com', limit=30)
 
-        await search.process()
+        report = await search.process()
 
         assert len(calls) == 3
         assert await search.get_hostnames() == ['api.example.com']
-        assert search.execution_status == 'partial'
-        assert search.stop_reason == 'security-verification'
+        assert report.status == 'failed'
+        assert report.stop_reason == 'security-verification'
 
     @pytest.mark.asyncio
     async def test_transport_failure_is_reported(self, monkeypatch: pytest.MonkeyPatch) -> None:
         patch_requests(monkeypatch, [response('<html>homepage</html>'), None])
         search = baidusearch.SearchBaidu(word='example.com', limit=10)
 
-        await search.process()
+        report = await search.process()
 
-        assert search.execution_status == 'failed'
-        assert search.stop_reason == 'transport-error'
+        assert report.status == 'failed'
+        assert report.stop_reason == 'transport-error'
 
     @pytest.mark.asyncio
     async def test_empty_response_is_reported(self, monkeypatch: pytest.MonkeyPatch) -> None:
         patch_requests(monkeypatch, [response('<html>homepage</html>'), response('')])
         search = baidusearch.SearchBaidu(word='example.com', limit=10)
 
-        await search.process()
+        report = await search.process()
 
-        assert search.execution_status == 'failed'
-        assert search.stop_reason == 'no-response'
+        assert report.status == 'failed'
+        assert report.stop_reason == 'no-response'
 
     @pytest.mark.asyncio
     async def test_http_429_is_reported(self, monkeypatch: pytest.MonkeyPatch) -> None:
         patch_requests(monkeypatch, [response('<html>homepage</html>'), response('', status=429)])
         search = baidusearch.SearchBaidu(word='example.com', limit=10)
 
-        await search.process()
+        report = await search.process()
 
-        assert search.execution_status == 'rate-limited'
-        assert search.stop_reason == 'http-429'
+        assert report.status == 'rate-limited'
+        assert report.stop_reason == 'http-429'
 
     @pytest.mark.asyncio
     async def test_pagination_limit_is_exclusive(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -169,8 +170,9 @@ class TestBaiduSearch:
         )
         search = baidusearch.SearchBaidu(word='example.com', limit=20)
 
-        await search.process()
+        report = await search.process()
 
+        assert report is None
         assert [call['url'] for call in calls[1:]] == [
             'https://www.baidu.com/s?wd=site%3Aexample.com&pn=0',
             'https://www.baidu.com/s?wd=site%3Aexample.com&pn=10',

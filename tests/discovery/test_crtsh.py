@@ -41,7 +41,8 @@ class TestCrtshSearch:
     async def test_process_collects_hostnames(self, monkeypatch):
         _patch_fetch(monkeypatch, [{'name_value': 'www.example.com'}, {'name_value': 'mail.example.com'}])
         search = crtsh.SearchCrtsh('example.com')
-        await search.process(proxy=True)
+        report = await search.process(proxy=True)
+        assert report is None
         assert search.proxy is True
         assert set(await search.get_hostnames()) == {'www.example.com', 'mail.example.com'}
 
@@ -49,7 +50,8 @@ class TestCrtshSearch:
     async def test_wildcard_prefix_is_stripped(self, monkeypatch):
         _patch_fetch(monkeypatch, [{'name_value': '*.example.com'}])
         search = crtsh.SearchCrtsh('example.com')
-        await search.process()
+        report = await search.process()
+        assert report is None
         assert set(await search.get_hostnames()) == {'example.com'}
 
     @pytest.mark.asyncio
@@ -57,14 +59,16 @@ class TestCrtshSearch:
         # crt.sh packs several names into one name_value separated by newlines.
         _patch_fetch(monkeypatch, [{'name_value': 'a.example.com\nb.example.com'}])
         search = crtsh.SearchCrtsh('example.com')
-        await search.process()
+        report = await search.process()
+        assert report is None
         assert set(await search.get_hostnames()) == {'a.example.com', 'b.example.com'}
 
     @pytest.mark.asyncio
     async def test_numeric_prefixed_entries_are_preserved(self, monkeypatch):
         _patch_fetch(monkeypatch, [{'name_value': '1234.example.com'}, {'name_value': 'good.example.com'}])
         search = crtsh.SearchCrtsh('example.com')
-        await search.process()
+        report = await search.process()
+        assert report is None
         assert set(await search.get_hostnames()) == {'1234.example.com', 'good.example.com'}
 
     @pytest.mark.asyncio
@@ -72,13 +76,12 @@ class TestCrtshSearch:
         fetches = _patch_fetch(monkeypatch, [])
         delays = _patch_sleep(monkeypatch)
         search = crtsh.SearchCrtsh('example.com')
-        await search.process()
+        report = await search.process()
 
+        assert report is None
         assert len(fetches) == 1
         assert delays == []
         assert await search.get_hostnames() == []
-        assert search.execution_status is None
-        assert search.stop_reason is None
 
     @pytest.mark.asyncio
     async def test_failed_fetches_are_retried_with_delay(self, monkeypatch):
@@ -97,11 +100,12 @@ class TestCrtshSearch:
         delays = _patch_sleep(monkeypatch)
 
         search = crtsh.SearchCrtsh('example.com')
-        await search.process()
+        report = await search.process()
 
         assert fetch_count == 3
         assert delays == [2, 2]
         assert await search.get_hostnames() == ['api.example.com']
+        assert report is None
 
     @pytest.mark.asyncio
     async def test_exhausted_http_failures_are_reported(self, monkeypatch):
@@ -118,13 +122,13 @@ class TestCrtshSearch:
         delays = _patch_sleep(monkeypatch)
         search = crtsh.SearchCrtsh('example.com')
 
-        await search.process()
+        report = await search.process()
 
         assert fetch_count == 3
         assert delays == [2, 2]
         assert await search.get_hostnames() == []
-        assert search.execution_status == 'failed'
-        assert search.stop_reason == 'http-502'
+        assert report.status == 'failed'
+        assert report.stop_reason == 'http-502'
 
     @pytest.mark.asyncio
     async def test_cancellation_propagates(self, monkeypatch):
@@ -146,19 +150,22 @@ class TestCrtshSearch:
         monkeypatch.setattr(crtsh.SearchCrtsh, 'RUNTIME_SECONDS', 0.01)
         search = crtsh.SearchCrtsh('example.com')
 
-        await asyncio.wait_for(search.process(), timeout=1.0)
+        report = await asyncio.wait_for(search.process(), timeout=1.0)
 
         assert await search.get_hostnames() == []
-        assert search.execution_status == 'failed'
-        assert search.stop_reason == 'runtime-limit'
+        assert report.status == 'failed'
+        assert report.stop_reason == 'runtime-limit'
 
     @pytest.mark.asyncio
     async def test_missing_name_value_key_is_handled(self, monkeypatch):
         fetches = _patch_fetch(monkeypatch, [{'issuer_ca_id': 1}])
         delays = _patch_sleep(monkeypatch)
         search = crtsh.SearchCrtsh('example.com')
-        await search.process()
+        report = await search.process()
 
+        assert report is not None
+        assert report.status == 'failed'
+        assert report.stop_reason == 'invalid-response'
         assert len(fetches) == 1
         assert delays == []
         assert await search.get_hostnames() == []

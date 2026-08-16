@@ -67,7 +67,7 @@ async def test_process_paginates_to_limit_and_preserves_all_routes(monkeypatch: 
     monkeypatch.setattr(onyphe.AsyncFetcher, 'open_session', fake_open_session)
     monkeypatch.setattr(onyphe.AsyncFetcher, 'fetch', fake_fetch)
     search = onyphe.SearchOnyphe('example.com', limit=3)
-    await search.process(proxy=True)
+    report = await search.process(proxy=True)
 
     assert await search.get_ips() == {'192.0.2.10', '2001:db8::10'}
     assert await search.get_hostnames() == {'api.example.com', 'geo.example.com', 'mail.example.com', 'www.example.com'}
@@ -81,8 +81,7 @@ async def test_process_paginates_to_limit_and_preserves_all_routes(monkeypatch: 
     assert [call['params']['page'] for call in calls] == [1, 2]
     assert [call['params']['size'] for call in calls] == [3, 3]
     assert all(call['session'] is session for call in calls)
-    assert search.execution_status == 'completed'
-    assert search.stop_reason is None
+    assert report is None
     assert session_exited is True
 
 
@@ -131,10 +130,10 @@ async def test_failures_are_structured(
     monkeypatch.setattr(onyphe.AsyncFetcher, 'open_session', fake_open_session)
     monkeypatch.setattr(onyphe.AsyncFetcher, 'fetch', fake_fetch)
     search = onyphe.SearchOnyphe('example.com', 10)
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == status
-    assert search.stop_reason == reason
+    assert report.status == status
+    assert report.stop_reason == reason
 
 
 @pytest.mark.asyncio
@@ -159,11 +158,11 @@ async def test_later_page_failure_preserves_partial_evidence(monkeypatch: pytest
     monkeypatch.setattr(onyphe.AsyncFetcher, 'open_session', fake_open_session)
     monkeypatch.setattr(onyphe.AsyncFetcher, 'fetch', fake_fetch)
     search = onyphe.SearchOnyphe('example.com', 2)
-    await search.process()
+    report = await search.process()
 
     assert await search.get_ips() == {'192.0.2.10'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'http-429'
+    assert report.status == 'rate-limited'
+    assert report.stop_reason == 'http-429'
 
 
 @pytest.mark.asyncio
@@ -190,11 +189,10 @@ async def test_operator_limit_is_not_reported_as_a_provider_limit(monkeypatch: p
     monkeypatch.setattr(onyphe.AsyncFetcher, 'open_session', fake_open_session)
     monkeypatch.setattr(onyphe.AsyncFetcher, 'fetch', fake_fetch)
     search = onyphe.SearchOnyphe('example.com', 2)
-    await search.process()
+    report = await search.process()
 
     assert await search.get_ips() == {'192.0.2.10', '192.0.2.11'}
-    assert search.execution_status == 'completed'
-    assert search.stop_reason is None
+    assert report is None
 
 
 @pytest.mark.asyncio
@@ -223,13 +221,13 @@ async def test_search_api_reports_its_documented_total_boundary(monkeypatch: pyt
     monkeypatch.setattr(onyphe.AsyncFetcher, 'open_session', fake_open_session)
     monkeypatch.setattr(onyphe.AsyncFetcher, 'fetch', fake_fetch)
     search = onyphe.SearchOnyphe('example.com', 10_001)
-    await search.process()
+    report = await search.process()
 
     assert [call['params']['page'] for call in calls] == [1]
     assert [call['params']['size'] for call in calls] == [10_000]
     assert await search.get_hostnames() == {'api.example.com'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'provider-limit'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'provider-limit'
 
 
 @pytest.mark.asyncio
@@ -254,11 +252,11 @@ async def test_malformed_items_preserve_valid_partial_results(monkeypatch: pytes
     monkeypatch.setattr(onyphe.AsyncFetcher, 'open_session', fake_open_session)
     monkeypatch.setattr(onyphe.AsyncFetcher, 'fetch', fake_fetch)
     search = onyphe.SearchOnyphe('example.com', 10)
-    await search.process()
+    report = await search.process()
 
     assert await search.get_ips() == {'192.0.2.10'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio

@@ -6,6 +6,7 @@ from urllib.parse import urlsplit, urlunsplit
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse, ResponseStreamError
 from theHarvester.lib.hostnames import normalize_hostname, normalize_scoped_hostname
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 
 class SearchBuiltWith:
@@ -28,15 +29,6 @@ class SearchBuiltWith:
         self.servers: set[str] = set()
         self.cms: set[str] = set()
         self.analytics: set[str] = set()
-        self.execution_status = 'completed'
-        self.stop_reason: str | None = None
-
-    def _has_results(self) -> bool:
-        return bool(self.hosts or self.urls or self.frameworks or self.languages or self.servers or self.cms or self.analytics)
-
-    def _stop(self, status: str, reason: str) -> None:
-        self.execution_status = 'partial' if self._has_results() else status
-        self.stop_reason = reason
 
     def _path_hostname(self, path: dict[str, object]) -> tuple[str | None, bool]:
         domain = path.get('Domain')
@@ -166,7 +158,7 @@ class SearchBuiltWith:
                     malformed = self._extract_technology(technology) or malformed
         return malformed
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         headers = {
             'Accept': 'application/json',
             'Authorization': f'API {self.api_key}',
@@ -187,34 +179,25 @@ class SearchBuiltWith:
                 headers=headers,
             )
         except ResponseStreamError as error:
-            self._stop('failed', error.reason)
-            return
+            return SourceExecutionReport('failed', error.reason)
         except Exception:
-            self._stop('failed', 'transport-error')
-            return
+            return SourceExecutionReport('failed', 'transport-error')
         if not isinstance(response, FetcherResponse):
-            self._stop('failed', 'transport-error')
-            return
+            return SourceExecutionReport('failed', 'transport-error')
         if response.status in {401, 403}:
-            self._stop('failed', 'access-denied')
-            return
+            return SourceExecutionReport('failed', 'access-denied')
         if response.status == 429:
-            self._stop('rate-limited', 'http-429')
-            return
+            return SourceExecutionReport('rate-limited', 'http-429')
         if not 200 <= response.status < 300 or not isinstance(response.body, dict):
             reason = f'http-{response.status}' if not 200 <= response.status < 300 else 'invalid-response'
-            self._stop('failed', reason)
-            return
+            return SourceExecutionReport('failed', reason)
         if not isinstance(response.body.get('Results'), list):
-            self._stop('failed', 'invalid-response')
-            return
+            return SourceExecutionReport('failed', 'invalid-response')
 
         self.tech_stack = response.body
         if self._extract_data():
-            self._stop('failed', 'invalid-response')
-        else:
-            self.execution_status = 'completed'
-            self.stop_reason = None if self._has_results() else 'no-results'
+            return SourceExecutionReport('failed', 'invalid-response')
+        return None
 
     async def get_hostnames(self) -> set[str]:
         return self.hosts

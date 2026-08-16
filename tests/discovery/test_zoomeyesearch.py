@@ -58,15 +58,14 @@ async def test_process_reuses_session_and_collects_all_capabilities(monkeypatch:
     monkeypatch.setattr(zoomeyesearch.AsyncFetcher, 'open_session', fake_open_session)
     monkeypatch.setattr(zoomeyesearch.AsyncFetcher, 'post_fetch', fake_post_fetch)
     search = zoomeyesearch.SearchZoomEye('example.com', 2)
-    await search.process(proxy=True)
+    report = await search.process(proxy=True)
 
     assert await search.get_hostnames() == {'api.example.com', 'host.example.com', 'portal.example.com'}
     assert await search.get_ips() == {'192.0.2.1'}
     assert await search.get_asns() == {'AS64500'}
     assert await search.get_urls() == {'https://portal.example.com/v1'}
     assert await search.get_emails() == {'admin@example.com'}
-    assert search.execution_status == 'completed'
-    assert search.stop_reason is None
+    assert report is None
     assert [call['url'] for call in calls] == [search.baseurl]
     assert all(call['session'] is session for call in calls)
     assert session_exited is True
@@ -119,10 +118,10 @@ async def test_provider_failures_are_truthful(
     monkeypatch.setattr(zoomeyesearch.AsyncFetcher, 'open_session', fake_open_session)
     monkeypatch.setattr(zoomeyesearch.AsyncFetcher, 'post_fetch', fake_post_fetch)
     search = zoomeyesearch.SearchZoomEye('example.com', 1)
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == status
-    assert search.stop_reason == reason
+    assert report.status == status
+    assert report.stop_reason == reason
 
 
 @pytest.mark.asyncio
@@ -151,11 +150,11 @@ async def test_empty_pages_do_not_hide_later_provider_results(monkeypatch: pytes
     monkeypatch.setattr(zoomeyesearch.AsyncFetcher, 'open_session', fake_open_session)
     monkeypatch.setattr(zoomeyesearch.AsyncFetcher, 'post_fetch', fake_post_fetch)
     search = zoomeyesearch.SearchZoomEye('example.com', 70_000)
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'late.example.com'}
     assert responses == []
-    assert search.execution_status == 'completed'
+    assert report is None
 
 
 @pytest.mark.asyncio
@@ -175,8 +174,9 @@ async def test_numbered_pages_keep_a_stable_size_and_slice_the_final_page(monkey
     monkeypatch.setattr(zoomeyesearch.AsyncFetcher, 'post_fetch', fake_post_fetch)
     search = zoomeyesearch.SearchZoomEye('example.com', 10_005)
 
-    await search.process()
+    report = await search.process()
 
+    assert report is None
     assert [(call['page'], call['pagesize']) for call in calls] == [(1, 10_000), (2, 10_000)]
 
 
@@ -200,11 +200,11 @@ async def test_early_malformed_rows_and_later_valid_evidence_are_partial(monkeyp
     monkeypatch.setattr(zoomeyesearch.AsyncFetcher, 'post_fetch', fake_post_fetch)
     search = zoomeyesearch.SearchZoomEye('example.com', 2)
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'api.example.com'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio

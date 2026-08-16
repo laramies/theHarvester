@@ -97,7 +97,7 @@ async def test_sourcegraph_uses_fixed_chunk_query_and_collects_descendants(
     calls = install_stream(monkeypatch, records)
     search = sourcegraph.SearchSourcegraph(' Scope.TEST. ', limit=1)
 
-    await search.process(proxy=True)
+    report = await search.process(proxy=True)
 
     assert calls == [
         {
@@ -118,8 +118,7 @@ async def test_sourcegraph_uses_fixed_chunk_query_and_collects_descendants(
         }
     ]
     assert await search.get_hostnames() == ['api.scope.test', 'deep.api.scope.test']
-    assert search.execution_status == 'completed'
-    assert search.stop_reason is None
+    assert report is None
 
 
 @pytest.mark.asyncio
@@ -150,11 +149,11 @@ async def test_sourcegraph_rejects_unsafe_targets_before_request(
     calls = install_stream(monkeypatch, allow_reserved_target=False)
     search = sourcegraph.SearchSourcegraph(target, limit=500)
 
-    await search.process()
+    report = await search.process()
 
     assert calls == []
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'invalid-target'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-target'
     assert await search.get_hostnames() == []
 
 
@@ -177,10 +176,10 @@ async def test_sourcegraph_attributes_http_failures(
     install_stream(monkeypatch, status=http_status)
     search = sourcegraph.SearchSourcegraph('scope.test', limit=500)
 
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == execution_status
-    assert search.stop_reason == stop_reason
+    assert report.status == execution_status
+    assert report.stop_reason == stop_reason
 
 
 @pytest.mark.asyncio
@@ -192,10 +191,10 @@ async def test_sourcegraph_attributes_stream_failures(
     install_stream(monkeypatch, error=sourcegraph.ResponseStreamError(reason))
     search = sourcegraph.SearchSourcegraph('scope.test', limit=500)
 
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == reason
+    assert report.status == 'failed'
+    assert report.stop_reason == reason
 
 
 @pytest.mark.asyncio
@@ -213,11 +212,11 @@ async def test_sourcegraph_preserves_hosts_before_stream_failure(monkeypatch: py
     )
     search = sourcegraph.SearchSourcegraph('scope.test', limit=500)
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == ['api.scope.test']
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'response-limit'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'response-limit'
 
 
 @pytest.mark.asyncio
@@ -240,10 +239,10 @@ async def test_sourcegraph_rejects_malformed_provider_events(
     install_stream(monkeypatch, (bad_record, event('done', {})))
     search = sourcegraph.SearchSourcegraph('scope.test', limit=500)
 
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio
@@ -263,10 +262,10 @@ async def test_sourcegraph_requires_terminal_progress_and_done(
     install_stream(monkeypatch, records)
     search = sourcegraph.SearchSourcegraph('scope.test', limit=500)
 
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio
@@ -287,10 +286,10 @@ async def test_sourcegraph_attributes_provider_error(
     install_stream(monkeypatch, tuple(records))
     search = sourcegraph.SearchSourcegraph('scope.test', limit=500)
 
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == ('partial' if with_host else 'failed')
-    assert search.stop_reason == 'provider-error'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'provider-error'
 
 
 @pytest.mark.asyncio
@@ -308,11 +307,11 @@ async def test_sourcegraph_final_skipped_progress_marks_provider_limited(
     install_stream(monkeypatch, records)
     search = sourcegraph.SearchSourcegraph('scope.test', limit=500)
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == ['api.scope.test']
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'provider-limited'
+    assert report.status == 'partial'
+    assert report.stop_reason == 'provider-limited'
 
 
 @pytest.mark.asyncio
@@ -330,10 +329,9 @@ async def test_sourcegraph_uses_only_the_final_progress_skipped_value(
     )
     search = sourcegraph.SearchSourcegraph('scope.test', limit=500)
 
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == 'completed'
-    assert search.stop_reason == 'no-results'
+    assert report is None
 
 
 @pytest.mark.asyncio
@@ -348,10 +346,10 @@ async def test_sourcegraph_rejects_match_after_terminal_progress(monkeypatch: py
     )
     search = sourcegraph.SearchSourcegraph('scope.test', limit=500)
 
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio
@@ -359,10 +357,10 @@ async def test_sourcegraph_rejects_events_after_done(monkeypatch: pytest.MonkeyP
     install_stream(monkeypatch, (event('done', {}), event('progress', {'done': True})))
     search = sourcegraph.SearchSourcegraph('scope.test', limit=500)
 
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio
@@ -386,11 +384,11 @@ async def test_sourcegraph_preserves_prefix_at_hostname_limit(monkeypatch: pytes
     monkeypatch.setattr(sourcegraph.SearchSourcegraph, 'MAX_HOSTNAMES', 1)
     search = sourcegraph.SearchSourcegraph('scope.test', limit=500)
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == ['one.scope.test']
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'response-limit'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'response-limit'
 
 
 @pytest.mark.asyncio
@@ -408,11 +406,11 @@ async def test_sourcegraph_preserves_prefix_at_event_limit(monkeypatch: pytest.M
     monkeypatch.setattr(sourcegraph.SearchSourcegraph, 'MAX_EVENTS', 1)
     search = sourcegraph.SearchSourcegraph('scope.test', limit=500)
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == ['api.scope.test']
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'response-limit'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'response-limit'
 
 
 @pytest.mark.asyncio
@@ -421,10 +419,10 @@ async def test_sourcegraph_treats_deep_json_as_invalid(monkeypatch: pytest.Monke
     install_stream(monkeypatch, (f'event: alert\ndata: {nested}',))
     search = sourcegraph.SearchSourcegraph('scope.test', limit=500)
 
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio

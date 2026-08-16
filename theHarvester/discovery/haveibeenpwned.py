@@ -1,6 +1,7 @@
 import logging
 
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 logger = logging.getLogger(__name__)
 
@@ -18,13 +19,9 @@ class SearchHaveIBeenPwned:
         self.breach_dates: set[str] = set()
         self.breach_types: set[str] = set()
         self.affected_data: set[str] = set()
-        self.execution_status: str | None = None
-        self.stop_reason: str | None = None
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         """Search for breaches associated with a domain or email."""
-        self.execution_status = None
-        self.stop_reason = None
         try:
             responses = await AsyncFetcher.fetch_all(
                 [f'{self.base_url}/breaches?domain={self.word}'],
@@ -35,36 +32,25 @@ class SearchHaveIBeenPwned:
             )
         except (OSError, RuntimeError, ValueError):
             logger.info('HaveIBeenPwned request failed')
-            self.execution_status = 'failed'
-            self.stop_reason = 'transport-error'
-            return
+            return SourceExecutionReport('failed', 'transport-error')
 
         response = responses[0] if responses and isinstance(responses[0], FetcherResponse) else None
         if response is None:
             logger.info('HaveIBeenPwned request failed')
-            self.execution_status = 'failed'
-            self.stop_reason = 'transport-error'
-            return
+            return SourceExecutionReport('failed', 'transport-error')
         if response.status == 429:
             logger.info('HaveIBeenPwned request failed with HTTP 429')
-            self.execution_status = 'rate-limited'
-            self.stop_reason = 'http-429'
-            return
+            return SourceExecutionReport('rate-limited', 'http-429')
         if not 200 <= response.status < 300:
             logger.info(f'HaveIBeenPwned request failed with HTTP {response.status}')
-            self.execution_status = 'failed'
-            self.stop_reason = f'http-{response.status}'
-            return
+            return SourceExecutionReport('failed', f'http-{response.status}')
         if not isinstance(response.body, list) or not all(isinstance(breach, dict) for breach in response.body):
             logger.info('HaveIBeenPwned returned malformed breach data')
-            self.execution_status = 'failed'
-            self.stop_reason = 'invalid-response'
-            return
+            return SourceExecutionReport('failed', 'invalid-response')
 
         self.breaches = response.body
         self._extract_data()
-        self.execution_status = 'completed'
-        self.stop_reason = None if self.breaches else 'no-results'
+        return None
 
     def _extract_data(self) -> None:
         """Extract and categorize breach information."""

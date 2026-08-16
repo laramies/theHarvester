@@ -5,6 +5,7 @@ import re
 from typing import Any
 
 from theHarvester.lib.core import AsyncFetcher, ResponseStreamError
+from theHarvester.lib.source_execution import SourceExecutionReport, SourceReportStatus
 
 _HOST_TOKEN = re.compile(
     r'(?<![\w*.-])(?:\*|[a-z0-9-]+)(?:\.(?:\*|[a-z0-9-]+))+\.?(?![\w*.-])',
@@ -92,15 +93,13 @@ class SearchSourcegraph:
             self.word = ''
         self.totalhosts: set[str] = set()
         self.proxy: bool | str = False
-        self.execution_status: str | None = None
-        self.stop_reason: str | None = None
+        self._report: SourceExecutionReport | None = None
         self._saw_done = False
         self._saw_terminal_progress = False
         self._final_progress_skipped = False
 
-    def _stop(self, reason: str, status: str | None = None) -> None:
-        self.execution_status = status or ('partial' if self.totalhosts else 'failed')
-        self.stop_reason = reason
+    def _stop(self, reason: str, status: SourceReportStatus = 'failed') -> None:
+        self._report = SourceExecutionReport(status, reason)
 
     def _add_content(self, content: str) -> None:
         for match in _HOST_TOKEN.finditer(content):
@@ -215,13 +214,12 @@ class SearchSourcegraph:
             self._stop('invalid-response')
         elif self._final_progress_skipped:
             self._stop('provider-limited', 'partial')
-        else:
-            self.execution_status = 'completed'
-            self.stop_reason = None if self.totalhosts else 'no-results'
 
     async def get_hostnames(self) -> list[str]:
         return sorted(self.totalhosts)
 
-    async def process(self, proxy: bool | str = False) -> None:
+    async def process(self, proxy: bool | str = False) -> SourceExecutionReport | None:
         self.proxy = proxy
+        self._report = None
         await self.do_search()
+        return self._report

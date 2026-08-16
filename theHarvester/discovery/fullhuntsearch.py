@@ -7,6 +7,7 @@ from theHarvester.discovery.constants import MissingKey
 from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
+from theHarvester.lib.source_execution import SourceExecutionReport, SourceReportStatus
 
 logger = logging.getLogger(__name__)
 
@@ -141,15 +142,10 @@ class SearchFullHunt:
         }
         self.proxy = False
         self.filters: dict[str, str] = {}  # Store filters for advanced searches
-        self.execution_status: str | None = None
-        self.stop_reason: str | None = None
+        self._report: SourceExecutionReport | None = None
 
-    def _has_results(self) -> bool:
-        return bool(self.total_results['hosts'] or self.total_results['ips'])
-
-    def _stop(self, status: str, reason: str) -> None:
-        self.execution_status = 'partial' if self._has_results() else status
-        self.stop_reason = reason
+    def _stop(self, status: SourceReportStatus, reason: str) -> None:
+        self._report = SourceExecutionReport(status, reason)
 
     def _get_headers(self) -> dict[str, str]:
         """Returns the headers needed for API requests"""
@@ -463,17 +459,11 @@ class SearchFullHunt:
                     await self.extract_data_from_search_results(search_results)
 
         except Exception as error:
-            if self.execution_status is None:
+            if self._report is None:
                 reason = 'invalid-response' if isinstance(error, ValueError) else 'transport-error'
                 self._stop('failed', reason)
             logger.info('Error during FullHunt search: %s', type(error).__name__)
             return
-
-        if self.execution_status is not None and self._has_results():
-            self.execution_status = 'partial'
-        elif self.execution_status is None:
-            self.execution_status = 'completed'
-            self.stop_reason = None if self._has_results() else 'no-results'
 
     async def get_hostnames(self) -> list[str]:
         """Return list of discovered subdomains"""
@@ -519,7 +509,11 @@ class SearchFullHunt:
         """Return all collected results"""
         return self.total_results
 
-    async def process(self, proxy: bool = False, filters: dict[str, str] | None = None) -> None:
+    async def process(
+        self,
+        proxy: bool = False,
+        filters: dict[str, str] | None = None,
+    ) -> SourceExecutionReport | None:
         """Main processing method
 
         Args:
@@ -528,11 +522,11 @@ class SearchFullHunt:
 
         """
         self.proxy = proxy
-        self.execution_status = None
-        self.stop_reason = None
+        self._report = None
 
         # Apply filters if provided
         if filters:
             self.add_filters(filters)
 
         await self.do_search()
+        return self._report

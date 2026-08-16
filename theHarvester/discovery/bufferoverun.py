@@ -4,6 +4,7 @@ from ipaddress import ip_address
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 
 class SearchBufferover:
@@ -15,10 +16,8 @@ class SearchBufferover:
         if self.key is None:
             raise MissingKey('bufferoverun')
         self.proxy = False
-        self.execution_status: str | None = None
-        self.stop_reason: str | None = None
 
-    async def do_search(self) -> None:
+    async def do_search(self) -> SourceExecutionReport | None:
         url = f'https://tls.bufferover.run/dns?q={self.word}'
         response = await AsyncFetcher.fetch_all(
             [url],
@@ -29,25 +28,15 @@ class SearchBufferover:
         )
         metadata = response[0] if response and isinstance(response[0], FetcherResponse) else None
         if metadata is None:
-            self.execution_status = 'failed'
-            self.stop_reason = 'transport-error'
-            return
+            return SourceExecutionReport('failed', 'transport-error')
         if metadata.status == 429:
-            self.execution_status = 'rate-limited'
-            self.stop_reason = 'http-429'
-            return
+            return SourceExecutionReport('rate-limited', 'http-429')
         if metadata.status in {401, 403}:
-            self.execution_status = 'failed'
-            self.stop_reason = 'access-denied'
-            return
+            return SourceExecutionReport('failed', 'access-denied')
         if not 200 <= metadata.status < 300:
-            self.execution_status = 'failed'
-            self.stop_reason = f'http-{metadata.status}'
-            return
+            return SourceExecutionReport('failed', f'http-{metadata.status}')
         if not isinstance(metadata.body, dict) or not isinstance(metadata.body.get('Results'), list):
-            self.execution_status = 'failed'
-            self.stop_reason = 'invalid-response'
-            return
+            return SourceExecutionReport('failed', 'invalid-response')
 
         results = metadata.body['Results']
         malformed = False
@@ -73,11 +62,8 @@ class SearchBufferover:
             if normalized_hostname := normalize_scoped_hostname(hostname, self.word):
                 self.totalhosts.add(normalized_hostname)
         if malformed:
-            self.execution_status = 'partial' if self.totalhosts or self.totalips else 'failed'
-            self.stop_reason = 'invalid-response'
-        else:
-            self.execution_status = 'completed'
-            self.stop_reason = None if results else 'no-results'
+            return SourceExecutionReport('failed', 'invalid-response')
+        return None
 
     async def get_hostnames(self) -> set:
         return self.totalhosts
@@ -85,6 +71,6 @@ class SearchBufferover:
     async def get_ips(self) -> set:
         return self.totalips
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        await self.do_search()
+        return await self.do_search()

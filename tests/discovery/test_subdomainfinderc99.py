@@ -40,11 +40,10 @@ async def test_successful_response_returns_only_scoped_hostnames(monkeypatch) ->
     monkeypatch.setattr(subdomainfinderc99.asyncio, 'sleep', no_sleep)
 
     search = subdomainfinderc99.SearchSubdomainfinderc99('example.test')
-    await search.process()
+    report = await search.process()
 
     assert set(await search.get_hostnames()) == {'api.example.test'}
-    assert search.execution_status == 'completed'
-    assert search.stop_reason is None
+    assert report is None
     assert calls == [('get', session), ('post', session)]
     assert session_exited is True
 
@@ -62,11 +61,11 @@ async def test_empty_initial_response_is_transport_failure(monkeypatch) -> None:
     monkeypatch.setattr(subdomainfinderc99.AsyncFetcher, 'fetch', fake_fetch)
 
     search = subdomainfinderc99.SearchSubdomainfinderc99('example.test')
-    await search.process()
+    report = await search.process()
 
     assert not await search.get_hostnames()
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'transport-error'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'transport-error'
 
 
 @pytest.mark.parametrize(
@@ -102,11 +101,11 @@ async def test_scan_failures_are_structured(
     monkeypatch.setattr(subdomainfinderc99.asyncio, 'sleep', no_sleep)
 
     search = subdomainfinderc99.SearchSubdomainfinderc99('example.test')
-    await search.process()
+    report = await search.process()
 
     assert not await search.get_hostnames()
-    assert search.execution_status == status
-    assert search.stop_reason == reason
+    assert report.status == status
+    assert report.stop_reason == reason
 
 
 @pytest.mark.parametrize(
@@ -136,10 +135,10 @@ async def test_initial_failures_are_structured(
     monkeypatch.setattr(subdomainfinderc99.AsyncFetcher, 'open_session', fake_open_session)
     monkeypatch.setattr(subdomainfinderc99.AsyncFetcher, 'fetch', fake_fetch)
     search = subdomainfinderc99.SearchSubdomainfinderc99('example.test')
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == status
-    assert search.stop_reason == reason
+    assert report.status == status
+    assert report.stop_reason == reason
 
 
 @pytest.mark.asyncio

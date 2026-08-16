@@ -9,6 +9,7 @@ from theHarvester.discovery.constants import MissingKey
 from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 
 class SearchHunterHow:
@@ -24,12 +25,6 @@ class SearchHunterHow:
         if not isinstance(self.key, str) or not self.key.strip():
             raise MissingKey('hunterhow')
         self.proxy = False
-        self.execution_status: str | None = None
-        self.stop_reason: str | None = None
-
-    def _stop(self, status: str, reason: str) -> None:
-        self.execution_status = 'partial' if self.total_hostnames else status
-        self.stop_reason = reason
 
     @staticmethod
     def _page_size(remaining: int) -> int:
@@ -38,9 +33,7 @@ class SearchHunterHow:
                 return size
         return 1000
 
-    async def do_search(self) -> None:
-        self.execution_status = None
-        self.stop_reason = None
+    async def do_search(self) -> SourceExecutionReport | None:
         query = base64.urlsafe_b64encode(f'domain.suffix="{self.word}"'.encode()).decode('ascii')
         end = datetime.now(UTC).date()
         start = end - relativedelta(days=364)
@@ -53,6 +46,7 @@ class SearchHunterHow:
             'end_time': end.isoformat(),
             'fields': 'domain',
         }
+        report = None
         try:
             async with AsyncFetcher.open_session(
                 headers={'User-Agent': Core.get_user_agent()},
@@ -71,28 +65,22 @@ class SearchHunterHow:
                         include_metadata=True,
                     )
                     if error := provider_http_error(response):
-                        self._stop(*error)
-                        return
+                        return SourceExecutionReport(*error)
                     assert isinstance(response, FetcherResponse)
                     if not isinstance(response.body, dict):
-                        self._stop('failed', 'invalid-response')
-                        return
+                        return SourceExecutionReport('failed', 'invalid-response')
                     code = response.body.get('code')
                     if code == 40001:
-                        self._stop('failed', 'access-denied')
-                        return
+                        return SourceExecutionReport('failed', 'access-denied')
                     if code != 200:
-                        self._stop('failed', 'provider-error')
-                        return
+                        return SourceExecutionReport('failed', 'provider-error')
                     data = response.body.get('data')
                     if not isinstance(data, dict):
-                        self._stop('failed', 'invalid-response')
-                        return
+                        return SourceExecutionReport('failed', 'invalid-response')
                     total = data.get('total')
                     rows = data.get('list')
                     if isinstance(total, bool) or not isinstance(total, int) or total < 0 or not isinstance(rows, list):
-                        self._stop('failed', 'invalid-response')
-                        return
+                        return SourceExecutionReport('failed', 'invalid-response')
 
                     remaining = self.limit - returned
                     malformed = False
@@ -103,7 +91,7 @@ class SearchHunterHow:
                         if hostname := normalize_scoped_hostname(row['domain'], self.word):
                             self.total_hostnames.add(hostname)
                     if malformed:
-                        self._stop('failed', 'invalid-response')
+                        report = SourceExecutionReport('failed', 'invalid-response')
 
                     returned += len(rows)
                     if not rows or returned >= min(total, self.limit):
@@ -111,18 +99,12 @@ class SearchHunterHow:
                     page += 1
                     await asyncio.sleep(self.REQUEST_DELAY_SECONDS)
         except Exception:
-            self._stop('failed', 'transport-error')
-            return
-
-        if self.execution_status is not None and self.total_hostnames:
-            self.execution_status = 'partial'
-        elif self.execution_status is None:
-            self.execution_status = 'completed'
-            self.stop_reason = None if self.total_hostnames else 'no-results'
+            return SourceExecutionReport('failed', 'transport-error')
+        return report
 
     async def get_hostnames(self) -> set[str]:
         return self.total_hostnames
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        await self.do_search()
+        return await self.do_search()

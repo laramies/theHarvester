@@ -3,6 +3,7 @@ from ipaddress import ip_address, ip_network
 
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
+from theHarvester.lib.source_execution import SourceExecutionReport, SourceReportStatus
 
 
 class SearchHackerTarget:
@@ -19,10 +20,8 @@ class SearchHackerTarget:
         self.hostname = 'https://api.hackertarget.com'
         self.proxy = False
         self.key = Core.hackertarget_key()
-        self.execution_status: str | None = None
-        self.stop_reason: str | None = None
 
-    async def do_search(self) -> None:
+    async def do_search(self) -> SourceExecutionReport | None:
         headers = {'User-agent': Core.get_user_agent()}
 
         urls = [f'{self.hostname}/hostsearch/?q={self.word}']
@@ -56,7 +55,7 @@ class SearchHackerTarget:
             proxy=self.proxy,
             include_metadata=True,
         )
-        failures: list[tuple[str, str]] = []
+        failures: list[tuple[SourceReportStatus, str]] = []
         successful_endpoints = 0
         for index, parser in enumerate(parsers):
             response = responses[index] if index < len(responses) else None
@@ -89,14 +88,11 @@ class SearchHackerTarget:
 
         if failures:
             if successful_endpoints:
-                self.execution_status = 'partial'
-                self.stop_reason = failures[0][1]
-            elif all(status == 'rate-limited' for status, _reason in failures):
-                self.execution_status = 'rate-limited'
-                self.stop_reason = failures[0][1]
-            else:
-                self.execution_status = 'failed'
-                self.stop_reason = next(reason for status, reason in failures if status == 'failed')
+                return SourceExecutionReport('partial', failures[0][1])
+            if all(status == 'rate-limited' for status, _reason in failures):
+                return SourceExecutionReport('rate-limited', failures[0][1])
+            return SourceExecutionReport('failed', next(reason for status, reason in failures if status == 'failed'))
+        return None
 
     def _parse_hostsearch(self, body: str) -> tuple[int, bool]:
         parsed_rows = 0
@@ -142,11 +138,9 @@ class SearchHackerTarget:
             parsed_rows += 1
         return parsed_rows, malformed
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        self.execution_status = None
-        self.stop_reason = None
-        await self.do_search()
+        return await self.do_search()
 
     async def get_hostnames(self) -> set[str]:
         return self.totalhosts

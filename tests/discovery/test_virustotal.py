@@ -71,7 +71,7 @@ async def test_process_paginates_without_fixed_sleeps_and_keeps_scoped_evidence(
     monkeypatch.setattr(virustotal.AsyncFetcher, 'open_session', fake_open_session)
     monkeypatch.setattr(virustotal.AsyncFetcher, 'fetch', fake_fetch)
     search = virustotal.SearchVirustotal('example.com', limit=10)
-    await search.process(proxy=True)
+    report = await search.process(proxy=True)
 
     assert await search.get_hostnames() == {
         'api.example.com',
@@ -79,8 +79,7 @@ async def test_process_paginates_without_fixed_sleeps_and_keeps_scoped_evidence(
         'mail.example.com',
         'tls.example.com',
     }
-    assert search.execution_status == 'completed'
-    assert search.stop_reason is None
+    assert report is None
     assert [call['params'] for call in calls] == [{'limit': 10}, {'limit': 9, 'cursor': 'next-page'}]
     assert all(call['session'] is session for call in calls)
     assert session_exited is True
@@ -146,10 +145,10 @@ async def test_provider_failures_are_truthful(
     monkeypatch.setattr(virustotal.AsyncFetcher, 'open_session', fake_open_session)
     monkeypatch.setattr(virustotal.AsyncFetcher, 'fetch', fake_fetch)
     search = virustotal.SearchVirustotal('example.com', limit=10)
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == status
-    assert search.stop_reason == reason
+    assert report.status == status
+    assert report.stop_reason == reason
 
 
 @pytest.mark.asyncio
@@ -174,11 +173,11 @@ async def test_later_rate_limit_preserves_partial_results(monkeypatch: pytest.Mo
     monkeypatch.setattr(virustotal.AsyncFetcher, 'open_session', fake_open_session)
     monkeypatch.setattr(virustotal.AsyncFetcher, 'fetch', fake_fetch)
     search = virustotal.SearchVirustotal('example.com', limit=10)
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'api.example.com'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'http-429'
+    assert report.status == 'rate-limited'
+    assert report.stop_reason == 'http-429'
 
 
 @pytest.mark.asyncio
@@ -200,11 +199,11 @@ async def test_repeated_cursor_stops_without_spending_more_quota(monkeypatch: py
     monkeypatch.setattr(virustotal.AsyncFetcher, 'fetch', fake_fetch)
     search = virustotal.SearchVirustotal('example.com', limit=10)
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'api.example.com'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'repeated-cursor'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'repeated-cursor'
     assert responses == []
 
 

@@ -8,6 +8,7 @@ from theHarvester.lib.asn_attribution import AsnAttributionObservation, SubjectK
 from theHarvester.lib.core import AsyncFetcher, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.result_values import normalize_asn
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 logger = logging.getLogger(__name__)
 
@@ -26,15 +27,6 @@ class SearchUrlscan:
         self.totalasns: set = set()
         self.asn_attributions: set[AsnAttributionObservation] = set()
         self.proxy = False
-        self.execution_status: str | None = None
-        self.stop_reason: str | None = None
-
-    def _has_results(self) -> bool:
-        return bool(self.totalhosts or self.totalips or self.urls or self.totalasns)
-
-    def _stop(self, status: str, reason: str) -> None:
-        self.execution_status = 'partial' if self._has_results() else status
-        self.stop_reason = reason
 
     @staticmethod
     def _cursor(result: object) -> str | None:
@@ -142,7 +134,7 @@ class SearchUrlscan:
                         malformed = True
         return malformed
 
-    async def do_search(self) -> None:
+    async def do_search(self) -> SourceExecutionReport | None:
         url = 'https://urlscan.io/api/v1/search/'
         collected_at = datetime.now(UTC)
         cursor = None
@@ -168,21 +160,14 @@ class SearchUrlscan:
                     )
 
                     if error := provider_http_error(response):
-                        self._stop(*error)
-                        return
+                        return SourceExecutionReport(*error)
                     assert isinstance(response, FetcherResponse)
                     if not isinstance(response.body, dict) or not isinstance(response.body.get('results'), list):
-                        self._stop('failed', 'invalid-response')
-                        return
+                        return SourceExecutionReport('failed', 'invalid-response')
 
                     results = response.body['results']
                     if not results:
-                        if malformed:
-                            self._stop('failed', 'invalid-response')
-                        else:
-                            self.execution_status = 'completed'
-                            self.stop_reason = None if self._has_results() else 'no-results'
-                        return
+                        return SourceExecutionReport('failed', 'invalid-response') if malformed else None
 
                     page_results = results[:remaining]
                     records_seen += len(page_results)
@@ -191,23 +176,15 @@ class SearchUrlscan:
                         break
                     next_cursor = self._cursor(page_results[-1])
                     if next_cursor is None:
-                        self._stop('failed', 'invalid-cursor')
-                        return
+                        return SourceExecutionReport('failed', 'invalid-cursor')
                     if next_cursor in seen_cursors:
-                        self._stop('failed', 'repeated-cursor')
-                        return
+                        return SourceExecutionReport('failed', 'repeated-cursor')
                     seen_cursors.add(next_cursor)
                     cursor = next_cursor
         except Exception as error:
-            self._stop('failed', 'transport-error')
             logger.info('URLScan request failed: %s', type(error).__name__)
-            return
-
-        if self.execution_status is not None and self._has_results():
-            self.execution_status = 'partial'
-        elif self.execution_status is None:
-            self.execution_status = 'completed'
-            self.stop_reason = None if self._has_results() else 'no-results'
+            return SourceExecutionReport('failed', 'transport-error')
+        return SourceExecutionReport('failed', 'invalid-response') if malformed else None
 
     async def get_hostnames(self) -> set:
         return self.totalhosts
@@ -224,6 +201,6 @@ class SearchUrlscan:
     async def get_asn_attributions(self) -> set[AsnAttributionObservation]:
         return self.asn_attributions
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        await self.do_search()
+        return await self.do_search()

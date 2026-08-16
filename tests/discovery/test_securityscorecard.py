@@ -2,14 +2,16 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-from collections.abc import AsyncIterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
 from theHarvester.discovery import securityscorecard
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import FetcherResponse
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 
 @pytest.mark.provider_contract('securityscorecard')
@@ -52,14 +54,13 @@ async def test_process_paginates_documented_domain_and_ip_asset_routes(monkeypat
     monkeypatch.setattr(securityscorecard.AsyncFetcher, 'fetch', fake_fetch)
     monkeypatch.setattr(securityscorecard.AsyncFetcher, 'post_fetch', fake_post_fetch)
     search = securityscorecard.SearchSecurityScorecard('example.com', 3)
-    await search.process(proxy=True)
+    report = await search.process(proxy=True)
 
     assert await search.get_hostnames() == {'api.example.com', 'www.example.com'}
     assert await search.get_ips() == {'192.0.2.1', '198.51.100.2', '2001:db8::1'}
     assert await search.get_score() == 92
     assert await search.get_grades() == {'overall': 'A', 'network_security': 'A'}
-    assert search.execution_status == 'completed'
-    assert search.stop_reason is None
+    assert report is None
     assert calls[0] == {
         'session': session,
         'url': 'https://api.securityscorecard.io/companies/example.com',
@@ -120,10 +121,10 @@ async def test_provider_failures_are_truthful(
     monkeypatch.setattr(securityscorecard.AsyncFetcher, 'open_session', fake_open_session)
     monkeypatch.setattr(securityscorecard.AsyncFetcher, 'fetch', fake_fetch)
     search = securityscorecard.SearchSecurityScorecard('example.com', 10)
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == status
-    assert search.stop_reason == reason
+    assert report.status == status
+    assert report.stop_reason == reason
 
 
 @pytest.mark.asyncio
@@ -148,12 +149,12 @@ async def test_malformed_asset_rows_preserve_valid_partial_results(monkeypatch: 
     monkeypatch.setattr(securityscorecard.AsyncFetcher, 'fetch', fake_fetch)
     monkeypatch.setattr(securityscorecard.AsyncFetcher, 'post_fetch', fake_post_fetch)
     search = securityscorecard.SearchSecurityScorecard('example.com', 2)
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'api.example.com'}
     assert await search.get_ips() == {'192.0.2.1'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio

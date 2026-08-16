@@ -52,12 +52,12 @@ async def test_process_reuses_session_and_parses_scoped_evidence(monkeypatch: py
     monkeypatch.setattr(securitytrailssearch.AsyncFetcher, 'open_session', fake_open_session)
     monkeypatch.setattr(securitytrailssearch.AsyncFetcher, 'fetch', fake_fetch)
     search = securitytrailssearch.SearchSecuritytrail('example.com')
-    await search.process(proxy=True)
+    report = await search.process(proxy=True)
 
     assert await search.get_hostnames() == {'api.example.com', 'www.example.com'}
     assert await search.get_ips() == {'192.0.2.1', '2001:db8::1'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
     assert [call['url'] for call in calls] == [
         'https://api.securitytrails.com/v1/domain/example.com',
         'https://api.securitytrails.com/v1/domain/example.com/subdomains',
@@ -102,10 +102,10 @@ async def test_first_request_failures_are_truthful(
     monkeypatch.setattr(securitytrailssearch.AsyncFetcher, 'open_session', fake_open_session)
     monkeypatch.setattr(securitytrailssearch.AsyncFetcher, 'fetch', fake_fetch)
     search = securitytrailssearch.SearchSecuritytrail('example.com')
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == status
-    assert search.stop_reason == reason
+    assert report.status == status
+    assert report.stop_reason == reason
 
 
 @pytest.mark.asyncio

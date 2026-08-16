@@ -1,7 +1,8 @@
 from theHarvester.lib.core import FetcherResponse
+from theHarvester.lib.source_execution import SourceReportStatus
 
 
-def provider_http_error(response: object) -> tuple[str, str] | None:
+def provider_http_error(response: object) -> tuple[SourceReportStatus, str] | None:
     """Classify transport and HTTP failures shared by provider adapters."""
     if not isinstance(response, FetcherResponse):
         return 'failed', 'transport-error'

@@ -68,7 +68,7 @@ async def test_preferred_openapi_three_spec_returns_only_target_scoped_evidence(
     monkeypatch.setattr(apisguru.AsyncFetcher, 'fetch_json', fake_fetch)
     search = apisguru.SearchApisGuru('example.com', limit=5)
 
-    await search.process(proxy=True)
+    report = await search.process(proxy=True)
 
     assert await search.get_hostnames() == {
         'api.example.com',
@@ -90,8 +90,7 @@ async def test_preferred_openapi_three_spec_returns_only_target_scoped_evidence(
     assert all(call['proxy'] is True for call in calls)
     assert all(call['request_timeout'] == 60 for call in calls)
     assert all(set(call) == {'url', 'proxy', 'request_timeout'} for call in calls)
-    assert search.execution_status == 'completed'
-    assert search.stop_reason is None
+    assert report is None
 
 
 @pytest.mark.asyncio
@@ -126,12 +125,11 @@ async def test_templated_server_path_retains_its_concrete_hostname(
     monkeypatch.setattr(apisguru.AsyncFetcher, 'fetch_json', fake_fetch)
     search = apisguru.SearchApisGuru('example.com', limit=500)
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'api.example.com'}
     assert await search.get_urls() == set()
-    assert search.execution_status == 'completed'
-    assert search.stop_reason is None
+    assert report is None
 
 
 @pytest.mark.asyncio
@@ -179,7 +177,7 @@ async def test_unwrapped_directory_and_openapi_two_spec_are_supported(
     monkeypatch.setattr(apisguru.AsyncFetcher, 'fetch_json', fake_fetch)
     search = apisguru.SearchApisGuru('EXAMPLE.com.', limit=5)
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'api.example.com', 'support.example.com'}
     assert await search.get_emails() == {'ops@example.com'}
@@ -188,8 +186,7 @@ async def test_unwrapped_directory_and_openapi_two_spec_are_supported(
         'https://api.example.com/v2',
         'https://support.example.com/help',
     }
-    assert search.execution_status == 'completed'
-    assert search.stop_reason is None
+    assert report is None
 
 
 @pytest.mark.asyncio
@@ -239,12 +236,12 @@ async def test_external_spec_url_is_not_fetched_and_valid_results_remain_partial
     monkeypatch.setattr(apisguru.AsyncFetcher, 'fetch_json', fake_fetch)
     search = apisguru.SearchApisGuru('example.com', limit=5)
 
-    await search.process()
+    report = await search.process()
 
     assert requested_urls == ['https://api.apis.guru/v2/example.com.json', valid_spec_url]
     assert await search.get_hostnames() == {'api.example.com'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio
@@ -276,12 +273,11 @@ async def test_preferred_spec_requests_are_not_artificially_capped_at_five(
     monkeypatch.setattr(apisguru.AsyncFetcher, 'fetch_json', fake_fetch)
     search = apisguru.SearchApisGuru('example.com', limit=500)
 
-    await search.process()
+    report = await search.process()
 
     assert requested_urls == ['https://api.apis.guru/v2/example.com.json', *spec_urls]
     assert await search.get_hostnames() == {f'api-{index}.example.com' for index in range(6)}
-    assert search.execution_status == 'completed'
-    assert search.stop_reason is None
+    assert report is None
 
 
 @pytest.mark.asyncio
@@ -317,12 +313,12 @@ async def test_oversized_preferred_spec_does_not_discard_later_results(
     monkeypatch.setattr(apisguru.AsyncFetcher, 'fetch_json', fake_fetch)
     search = apisguru.SearchApisGuru('example.com', limit=500)
 
-    await search.process()
+    report = await search.process()
 
     assert requested_urls == ['https://api.apis.guru/v2/example.com.json', *spec_urls]
     assert await search.get_hostnames() == {'api.example.com'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'response-limit'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'response-limit'
 
 
 @pytest.mark.asyncio
@@ -358,12 +354,12 @@ async def test_missing_preferred_spec_does_not_discard_later_results(
     monkeypatch.setattr(apisguru.AsyncFetcher, 'fetch_json', fake_fetch)
     search = apisguru.SearchApisGuru('example.com', limit=500)
 
-    await search.process()
+    report = await search.process()
 
     assert requested_urls == ['https://api.apis.guru/v2/example.com.json', *spec_urls]
     assert await search.get_hostnames() == {'api.example.com'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'http-404'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'http-404'
 
 
 @pytest.mark.asyncio
@@ -393,11 +389,11 @@ async def test_access_denied_preferred_spec_stops_before_later_requests(
     monkeypatch.setattr(apisguru.AsyncFetcher, 'fetch_json', fake_fetch)
     search = apisguru.SearchApisGuru('example.com', limit=500)
 
-    await search.process()
+    report = await search.process()
 
     assert requested_urls == ['https://api.apis.guru/v2/example.com.json', spec_urls[0]]
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'access-denied'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'access-denied'
 
 
 @pytest.mark.asyncio
@@ -442,13 +438,13 @@ async def test_result_limit_does_not_truncate_preferred_spec_traversal(monkeypat
     monkeypatch.setattr(apisguru.AsyncFetcher, 'fetch_json', fake_fetch)
     search = apisguru.SearchApisGuru('example.com', limit=2)
 
-    await search.process()
+    report = await search.process()
 
     assert requested_urls == ['https://api.apis.guru/v2/example.com.json', *spec_urls]
     assert await search.get_hostnames() == {'one.example.com', 'two.example.com'}
     assert await search.get_urls() == {'https://one.example.com', 'https://two.example.com'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'result-limit'
+    assert report.status == 'completed'
+    assert report.stop_reason == 'result-limit'
 
 
 @pytest.mark.asyncio
@@ -487,11 +483,11 @@ async def test_malformed_preferred_spec_does_not_discard_later_valid_results(
     monkeypatch.setattr(apisguru.AsyncFetcher, 'fetch_json', fake_fetch)
     search = apisguru.SearchApisGuru('example.com', limit=5)
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'api.example.com'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio
@@ -532,12 +528,12 @@ async def test_malformed_spec_fields_preserve_scoped_results_as_partial(
     monkeypatch.setattr(apisguru.AsyncFetcher, 'fetch_json', fake_fetch)
     search = apisguru.SearchApisGuru('example.com', limit=5)
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'api.example.com'}
     assert await search.get_emails() == set()
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio
@@ -559,11 +555,11 @@ async def test_malformed_matching_directory_entry_is_failed(
     monkeypatch.setattr(apisguru.AsyncFetcher, 'fetch_json', fake_fetch)
     search = apisguru.SearchApisGuru('example.com', limit=5)
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == set()
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio
@@ -599,12 +595,12 @@ async def test_directory_entry_scan_is_bounded(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setattr(apisguru.AsyncFetcher, 'fetch_json', fake_fetch)
     search = apisguru.SearchApisGuru('example.com', limit=5)
 
-    await search.process()
+    report = await search.process()
 
     assert requested_urls == ['https://api.apis.guru/v2/example.com.json', spec_urls[0]]
     assert await search.get_hostnames() == {'api.example.com'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'directory-entry-limit'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'directory-entry-limit'
 
 
 @pytest.mark.asyncio
@@ -641,12 +637,11 @@ async def test_openapi_two_host_is_retained_without_inventing_a_server_scheme(
     monkeypatch.setattr(apisguru.AsyncFetcher, 'fetch_json', fake_fetch)
     search = apisguru.SearchApisGuru('example.com', limit=5)
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'api.example.com'}
     assert await search.get_urls() == set()
-    assert search.execution_status == 'completed'
-    assert search.stop_reason is None
+    assert report is None
 
 
 @pytest.mark.parametrize(
@@ -674,13 +669,11 @@ async def test_directory_failures_are_attributed(
     monkeypatch.setattr(apisguru.AsyncFetcher, 'fetch_json', fake_fetch)
     search = apisguru.SearchApisGuru('example.com', limit=5)
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == set()
-    assert search.execution_status == execution_status
-    assert search.stop_reason == stop_reason
-
-
+    assert report.status == execution_status
+    assert report.stop_reason == stop_reason
 
 
 @pytest.mark.asyncio
@@ -691,10 +684,9 @@ async def test_missing_provider_is_completed_with_no_results(monkeypatch: pytest
     monkeypatch.setattr(apisguru.AsyncFetcher, 'fetch_json', fake_fetch)
     search = apisguru.SearchApisGuru('example.com', limit=5)
 
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == 'completed'
-    assert search.stop_reason == 'no-results'
+    assert report is None
 
 
 @pytest.mark.parametrize('target', ['example.com/path', 'localhost', '192.0.2.1', 'straße.de'])
@@ -709,10 +701,10 @@ async def test_invalid_target_is_rejected_before_provider_request(
     monkeypatch.setattr(apisguru.AsyncFetcher, 'fetch_json', fake_fetch)
     search = apisguru.SearchApisGuru(target, limit=5)
 
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'invalid-target'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-target'
 
 
 @pytest.mark.asyncio
@@ -747,11 +739,10 @@ async def test_malformed_contact_email_is_not_retained(monkeypatch: pytest.Monke
     monkeypatch.setattr(apisguru.AsyncFetcher, 'fetch_json', fake_fetch)
     search = apisguru.SearchApisGuru('example.com', limit=5)
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_emails() == set()
-    assert search.execution_status == 'completed'
-    assert search.stop_reason == 'no-results'
+    assert report is None
 
 
 @pytest.mark.parametrize(
@@ -810,10 +801,10 @@ async def test_directory_response_byte_limit_is_failed(monkeypatch: pytest.Monke
     monkeypatch.setattr(apisguru.AsyncFetcher, 'fetch_json', fake_fetch)
     search = apisguru.SearchApisGuru('example.com', limit=5)
 
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'response-limit'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'response-limit'
 
 
 @pytest.mark.asyncio
@@ -842,11 +833,10 @@ async def test_apex_only_hostname_is_not_counted_as_a_retained_result(monkeypatc
     monkeypatch.setattr(apisguru.AsyncFetcher, 'fetch_json', fake_fetch)
     search = apisguru.SearchApisGuru('example.com', limit=5)
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == set()
-    assert search.execution_status == 'completed'
-    assert search.stop_reason == 'no-results'
+    assert report is None
 
 
 @pytest.mark.asyncio
@@ -886,12 +876,12 @@ async def test_scalar_results_are_hard_bounded(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setattr(apisguru.AsyncFetcher, 'fetch_json', fake_fetch)
     search = apisguru.SearchApisGuru('example.com', limit=5)
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'one.example.com'}
     assert await search.get_urls() == {'https://one.example.com'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'result-limit'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'result-cap'
 
 
 @pytest.mark.asyncio
@@ -905,9 +895,6 @@ async def test_cancellation_is_attributed_and_propagated(monkeypatch: pytest.Mon
     with pytest.raises(asyncio.CancelledError):
         await search.process()
 
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'cancelled'
-
 
 @pytest.mark.asyncio
 async def test_runtime_limit_is_attributed(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -919,10 +906,10 @@ async def test_runtime_limit_is_attributed(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setattr(apisguru.AsyncFetcher, 'fetch_json', fake_fetch)
     search = apisguru.SearchApisGuru('example.com', limit=500)
 
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'runtime-limit'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'runtime-limit'
 
 
 @pytest.mark.parametrize(
@@ -969,10 +956,10 @@ async def test_preferred_spec_failures_are_attributed(
     monkeypatch.setattr(apisguru.AsyncFetcher, 'fetch_json', fake_fetch)
     search = apisguru.SearchApisGuru('example.com', limit=5)
 
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == execution_status
-    assert search.stop_reason == stop_reason
+    assert report.status == execution_status
+    assert report.stop_reason == stop_reason
 
 
 pytestmark = pytest.mark.provider_contract('apis-guru')

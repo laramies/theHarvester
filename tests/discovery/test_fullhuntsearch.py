@@ -40,7 +40,7 @@ async def test_process_reuses_one_session_for_fallback_requests(monkeypatch: pyt
     monkeypatch.setattr(fullhuntsearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = fullhuntsearch.SearchFullHunt('example.com')
 
-    await search.process(proxy=True)
+    report = await search.process(proxy=True)
 
     assert await search.get_hostnames() == ['api.example.com']
     assert [urls for urls, _kwargs in calls] == [
@@ -56,8 +56,7 @@ async def test_process_reuses_one_session_for_fallback_requests(monkeypatch: pyt
         }
     ]
     assert session_exited is True
-    assert search.execution_status == 'completed'
-    assert search.stop_reason is None
+    assert report is None
 
 
 @pytest.mark.asyncio
@@ -78,13 +77,13 @@ async def test_http_failure_is_reported_without_results(
     search = fullhuntsearch.SearchFullHunt('example.com')
 
     with caplog.at_level(logging.INFO, logger=fullhuntsearch.__name__):
-        await search.process()
+        report = await search.process()
 
     assert await search.get_hostnames() == []
     assert await search.get_ips() == []
     assert requests == ['https://fullhunt.io/api/v1/domain/example.com/details']
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'access-denied'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'access-denied'
 
 
 @pytest.mark.parametrize('key', ['', '   '])
@@ -121,12 +120,12 @@ async def test_malformed_domain_details_are_reported_without_fallback(
     search = fullhuntsearch.SearchFullHunt('example.com')
 
     with caplog.at_level(logging.INFO, logger=fullhuntsearch.__name__):
-        await search.process()
+        report = await search.process()
 
     assert await search.get_hostnames() == []
     assert requests == ['https://fullhunt.io/api/v1/domain/example.com/details']
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio
@@ -157,13 +156,13 @@ async def test_malformed_host_does_not_hide_later_valid_results(
     search = fullhuntsearch.SearchFullHunt('example.com')
 
     with caplog.at_level(logging.INFO, logger=fullhuntsearch.__name__):
-        await search.process()
+        report = await search.process()
 
     assert await search.get_hostnames() == ['api.example.com']
     assert await search.get_ips() == ['192.0.2.20']
     assert caplog.text.count('FullHunt ignored a malformed host item') == 4
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio
@@ -184,11 +183,11 @@ async def test_malformed_subdomain_fallback_is_reported(
     search = fullhuntsearch.SearchFullHunt('example.com')
 
     with caplog.at_level(logging.INFO, logger=fullhuntsearch.__name__):
-        await search.process()
+        report = await search.process()
 
     assert await search.get_hostnames() == []
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio
@@ -209,12 +208,12 @@ async def test_fallback_ignores_malformed_and_out_of_scope_hosts(
     search = fullhuntsearch.SearchFullHunt('example.com')
 
     with caplog.at_level(logging.INFO, logger=fullhuntsearch.__name__):
-        await search.process()
+        report = await search.process()
 
     assert await search.get_hostnames() == ['api.example.com']
     assert caplog.text.count('FullHunt ignored a malformed subdomain item') == 2
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio
@@ -244,15 +243,14 @@ async def test_nested_results_use_normalized_hostname(monkeypatch: pytest.Monkey
     monkeypatch.setattr(fullhuntsearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = fullhuntsearch.SearchFullHunt('example.com')
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_dns_records() == {'api.example.com': {'a': ['192.0.2.20']}}
     assert await search.get_http_info() == {'api.example.com': {'status': 200}}
     assert await search.get_geo_info() == {'api.example.com': {'country': 'US'}}
     assert await search.get_cloud_info() == {'api.example.com': {'provider': 'example'}}
     assert await search.get_certificate_info() == [{'issuer': 'Example CA', 'hostname': 'api.example.com'}]
-    assert search.execution_status == 'completed'
-    assert search.stop_reason is None
+    assert report is None
 
 
 @pytest.mark.parametrize(
@@ -278,10 +276,10 @@ async def test_failures_are_structured(
 
     monkeypatch.setattr(fullhuntsearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = fullhuntsearch.SearchFullHunt('example.com')
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == status
-    assert search.stop_reason == reason
+    assert report.status == status
+    assert report.stop_reason == reason
 
 
 @pytest.mark.asyncio

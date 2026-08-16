@@ -36,8 +36,9 @@ class TestHackerTargetApiKey:
         monkeypatch.setattr(ht_mod.AsyncFetcher, 'fetch_all', fake_fetch_all)
 
         s = ht_mod.SearchHackerTarget('example.com')
-        await s.process(proxy=True)
+        report = await s.process(proxy=True)
 
+        assert report is None
         assert requested_urls == [
             'https://api.hackertarget.com/hostsearch/?q=example.com&apikey=TESTKEY',
             'https://api.hackertarget.com/reversedns/?q=example.com&apikey=TESTKEY',
@@ -66,8 +67,9 @@ class TestHackerTargetApiKey:
         monkeypatch.setattr(ht_mod.AsyncFetcher, 'fetch_all', fake_fetch_all)
 
         s = ht_mod.SearchHackerTarget('example.com')
-        await s.process()
+        report = await s.process()
 
+        assert report is None
         assert requested_urls == [
             'https://api.hackertarget.com/hostsearch/?q=example.com',
             'https://api.hackertarget.com/reversedns/?q=example.com',
@@ -92,10 +94,10 @@ class TestHackerTargetApiKey:
         monkeypatch.setattr(ht_mod.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = ht_mod.SearchHackerTarget('example.com')
 
-        await search.process()
+        report = await search.process()
 
-        assert search.execution_status == execution_status
-        assert search.stop_reason == stop_reason
+        assert report.status == execution_status
+        assert report.stop_reason == stop_reason
         assert await search.get_hostnames() == set()
         assert await search.get_ips() == set()
 
@@ -113,10 +115,10 @@ class TestHackerTargetApiKey:
         monkeypatch.setattr(ht_mod.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = ht_mod.SearchHackerTarget('example.com')
 
-        await search.process()
+        report = await search.process()
 
-        assert search.execution_status == 'failed'
-        assert search.stop_reason == 'invalid-response'
+        assert report.status == 'failed'
+        assert report.stop_reason == 'invalid-response'
         assert await search.get_hostnames() == set()
         assert await search.get_ips() == set()
 
@@ -133,10 +135,10 @@ class TestHackerTargetApiKey:
         monkeypatch.setattr(ht_mod.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = ht_mod.SearchHackerTarget('example.com')
 
-        await search.process()
+        report = await search.process()
 
-        assert search.execution_status == 'failed'
-        assert search.stop_reason == 'invalid-response'
+        assert report.status == 'failed'
+        assert report.stop_reason == 'invalid-response'
         assert await search.get_hostnames() == set()
         assert await search.get_ips() == set()
 
@@ -153,10 +155,9 @@ class TestHackerTargetApiKey:
         monkeypatch.setattr(ht_mod.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = ht_mod.SearchHackerTarget('example.com')
 
-        await search.process()
+        report = await search.process()
 
-        assert search.execution_status is None
-        assert search.stop_reason is None
+        assert report is None
         assert await search.get_hostnames() == set()
         assert await search.get_ips() == set()
 
@@ -180,10 +181,10 @@ class TestHackerTargetApiKey:
         monkeypatch.setattr(ht_mod.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = ht_mod.SearchHackerTarget('example.com')
 
-        await search.process()
+        report = await search.process()
 
-        assert search.execution_status == 'partial'
-        assert search.stop_reason == stop_reason
+        assert report.status == 'partial'
+        assert report.stop_reason == stop_reason
         assert await search.get_hostnames() == {'www.example.com'}
         assert await search.get_ips() == {'192.0.2.2'}
 
@@ -200,10 +201,10 @@ class TestHackerTargetApiKey:
         monkeypatch.setattr(ht_mod.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = ht_mod.SearchHackerTarget('example.com')
 
-        await search.process()
+        report = await search.process()
 
-        assert search.execution_status == 'partial'
-        assert search.stop_reason == 'http-503'
+        assert report.status == 'partial'
+        assert report.stop_reason == 'http-503'
         assert await search.get_hostnames() == set()
         assert await search.get_ips() == set()
 
@@ -220,10 +221,10 @@ class TestHackerTargetApiKey:
         monkeypatch.setattr(ht_mod.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = ht_mod.SearchHackerTarget('example.com')
 
-        await search.process()
+        report = await search.process()
 
-        assert search.execution_status == 'partial'
-        assert search.stop_reason == 'invalid-response'
+        assert report.status == 'partial'
+        assert report.stop_reason == 'invalid-response'
         assert await search.get_hostnames() == {'www.example.com', 'ptr.example.com'}
         assert await search.get_ips() == {'192.0.2.2', '192.0.2.3'}
 
@@ -245,10 +246,9 @@ class TestHackerTargetApiKey:
         monkeypatch.setattr(ht_mod.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = ht_mod.SearchHackerTarget(target)
 
-        await search.process()
+        report = await search.process()
 
-        assert search.execution_status is None
-        assert search.stop_reason is None
+        assert report is None
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -274,10 +274,9 @@ class TestHackerTargetApiKey:
         monkeypatch.setattr(ht_mod.AsyncFetcher, 'fetch_all', fake_fetch_all)
         search = ht_mod.SearchHackerTarget(target)
 
-        await search.process()
+        report = await search.process()
 
-        assert search.execution_status is None
-        assert search.stop_reason is None
+        assert report is None
 
     @pytest.mark.asyncio
     async def test_cancellation_propagates(self, monkeypatch):

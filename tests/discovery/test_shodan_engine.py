@@ -259,7 +259,7 @@ class TestShodanEngine:
         targets = patch_resolution(monkeypatch, shodansearch, ('203.0.113.10', '203.0.113.11'))
 
         search = shodansearch.SearchShodan('WWW.Example.TEST.')
-        await search.process(proxy=True)
+        report = await search.process(proxy=True)
 
         assert targets == [('www.example.test', socket.AF_INET)]
         assert queried_urls == [
@@ -267,8 +267,8 @@ class TestShodanEngine:
             'https://api.shodan.io/shodan/host/203.0.113.11',
         ]
         assert await search.get_hostnames() == {'cdn.example.test'}
-        assert search.execution_status == 'partial'
-        assert search.stop_reason == 'provider-errors'
+        assert report.status == 'failed'
+        assert report.stop_reason == 'provider-errors'
 
     @pytest.mark.asyncio
     async def test_shodan_discovery_paginates_hostname_and_tls_searches_with_scoped_certificate_names(self, monkeypatch):
@@ -369,7 +369,7 @@ class TestShodanEngine:
         patch_resolution(monkeypatch, shodansearch)
 
         search = shodansearch.SearchShodan('example.test')
-        await search.process(proxy=True)
+        report = await search.process(proxy=True)
 
         assert [(call['query'], call['page']) for call in search_calls] == [
             ('hostname:example.test', 1),
@@ -391,8 +391,7 @@ class TestShodanEngine:
             'subject_cn': '*.example.test',
         }
         assert hosts['198.51.100.21']['services'][0]['tls'] == {'subject_cn': 'cert.example.test'}
-        assert search.execution_status == 'completed'
-        assert search.stop_reason is None
+        assert report is None
 
     @pytest.mark.asyncio
     async def test_shodan_discovery_counts_service_only_evidence_as_a_result(self, monkeypatch):
@@ -413,10 +412,9 @@ class TestShodanEngine:
         patch_resolution(monkeypatch, shodansearch)
 
         search = shodansearch.SearchShodan('example.test')
-        await search.process()
+        report = await search.process()
 
-        assert search.execution_status == 'completed'
-        assert search.stop_reason is None
+        assert report is None
         assert [host.ip for host in await search.get_shodan_hosts()] == ['203.0.113.10']
 
     @pytest.mark.asyncio
@@ -442,10 +440,10 @@ class TestShodanEngine:
         patch_resolution(monkeypatch, shodansearch)
 
         search = shodansearch.SearchShodan('example.test')
-        await search.process()
+        report = await search.process()
 
-        assert search.execution_status == 'partial'
-        assert search.stop_reason == 'provider-error'
+        assert report.status == 'failed'
+        assert report.stop_reason == 'provider-error'
         assert search.error_type == 'InvalidResponseError'
         assert (await search.get_shodan_hosts())[0].to_details() == {'services': [{'port': 53, 'transport': 'udp'}]}
 
@@ -466,10 +464,10 @@ class TestShodanEngine:
         patch_resolution(monkeypatch, shodansearch)
 
         search = shodansearch.SearchShodan('example.test')
-        await search.process()
+        report = await search.process()
 
-        assert search.execution_status == 'failed'
-        assert search.stop_reason == expected_reason
+        assert report.status == ('rate-limited' if status == 429 else 'failed')
+        assert report.stop_reason == expected_reason
 
     def test_shodan_discovery_requires_a_configured_key(self, monkeypatch):
         from theHarvester.discovery import shodansearch
@@ -509,12 +507,12 @@ class TestShodanEngine:
         monkeypatch.setattr(shodansearch.AsyncFetcher, 'fetch_json', fetch_json)
 
         search = shodansearch.SearchShodan('example.test')
-        await search.process()
+        report = await search.process()
 
         assert not await search.get_hostnames()
         assert provider_queries == ['hostname:example.test', 'ssl:example.test']
-        assert search.execution_status == 'failed'
-        assert search.stop_reason == 'dns-resolution-failed'
+        assert report.status == 'failed'
+        assert report.stop_reason == 'dns-resolution-failed'
 
     @pytest.mark.asyncio
     async def test_shodan_direct_request_cancellation_propagates(self, monkeypatch):

@@ -11,6 +11,7 @@ from theHarvester.discovery.constants import MissingKey
 from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
+from theHarvester.lib.source_execution import SourceExecutionReport, SourceReportStatus
 from theHarvester.parsers import myparser
 
 
@@ -49,13 +50,10 @@ class SearchZoomEye:
         self.urls: set[str] = set()
         self.totalips: set[str] = set()
         self.totalemails: set[str] = set()
-        self.execution_status: str | None = None
-        self.stop_reason: str | None = None
+        self._report: SourceExecutionReport | None = None
 
-    def _stop(self, status: str, reason: str) -> None:
-        has_results = any((self.totalhosts, self.totalemails, self.totalips, self.totalasns, self.urls))
-        self.execution_status = 'partial' if has_results else status
-        self.stop_reason = reason
+    def _stop(self, status: SourceReportStatus, reason: str) -> None:
+        self._report = SourceExecutionReport(status, reason)
 
     def _normalize_url(self, value: Any) -> str | None:
         if not isinstance(value, str):
@@ -200,10 +198,9 @@ class SearchZoomEye:
 
         return hostnames, emails, ips, asns, urls, malformed
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        self.execution_status = None
-        self.stop_reason = None
+        self._report = None
         try:
             async with AsyncFetcher.open_session(
                 headers={'API-KEY': self.key, 'Content-Type': 'application/json'},
@@ -211,14 +208,8 @@ class SearchZoomEye:
             ) as session:
                 await self.do_search(session)
         except Exception:
-            self._stop('failed', 'transport-error')
-            return
-        has_results = any((self.totalhosts, self.totalemails, self.totalips, self.totalasns, self.urls))
-        if self.execution_status is not None and has_results:
-            self.execution_status = 'partial'
-        elif self.execution_status is None:
-            self.execution_status = 'completed'
-            self.stop_reason = None if has_results else 'no-results'
+            return SourceExecutionReport('failed', 'transport-error')
+        return self._report
 
     async def get_hostnames(self) -> set[str]:
         return self.totalhosts

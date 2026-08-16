@@ -8,6 +8,7 @@ import pytest
 
 from theHarvester.discovery import urlscan
 from theHarvester.lib.core import FetcherResponse
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 
 class ProviderSession:
@@ -82,7 +83,7 @@ async def test_process_collects_sequential_pages_and_preserves_all_routes(
     monkeypatch.setattr(urlscan.AsyncFetcher, 'fetch', fake_fetch)
     search = urlscan.SearchUrlscan('example.com', 2)
 
-    await search.process(proxy=True)
+    report = await search.process(proxy=True)
 
     assert await search.get_hostnames() == {'first.example.com', 'second.example.com'}
     assert await search.get_ips() == {'192.0.2.10', '2001:db8::10'}
@@ -115,8 +116,7 @@ async def test_process_collects_sequential_pages_and_preserves_all_routes(
     assert all(call['include_metadata'] is True for call in calls)
     assert all('request_timeout' not in call for call in calls)
     assert provider_session.exited is True
-    assert search.execution_status == 'completed'
-    assert search.stop_reason is None
+    assert report is None
 
 
 @pytest.mark.asyncio
@@ -149,9 +149,10 @@ async def test_repeated_asn_relationship_is_retained_once_per_source_run(monkeyp
     monkeypatch.setattr(urlscan.AsyncFetcher, 'fetch', fake_fetch)
     search = urlscan.SearchUrlscan('example.com', 10)
 
-    await search.process()
+    report = await search.process()
 
     assert len(await search.get_asn_attributions()) == 2
+    assert report is None
 
 
 @pytest.mark.asyncio
@@ -162,14 +163,13 @@ async def test_valid_empty_response_is_completed(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr(urlscan.AsyncFetcher, 'fetch', fake_fetch)
     search = urlscan.SearchUrlscan('example.com', 10)
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == set()
     assert await search.get_ips() == set()
     assert await search.get_urls() == set()
     assert await search.get_asns() == set()
-    assert search.execution_status == 'completed'
-    assert search.stop_reason == 'no-results'
+    assert report is None
 
 
 @pytest.mark.asyncio
@@ -189,11 +189,10 @@ async def test_missing_optional_fields_are_skipped(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(urlscan.AsyncFetcher, 'fetch', fake_fetch)
     search = urlscan.SearchUrlscan('example.com', 10)
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == set()
-    assert search.execution_status == 'completed'
-    assert search.stop_reason == 'no-results'
+    assert report is None
 
 
 @pytest.mark.asyncio
@@ -218,12 +217,11 @@ async def test_malformed_nested_fields_preserve_valid_partial_results(monkeypatc
     monkeypatch.setattr(urlscan.AsyncFetcher, 'fetch', fake_fetch)
     search = urlscan.SearchUrlscan('example.com', 10)
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'valid.example.com'}
     assert await search.get_ips() == set()
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'invalid-response'
+    assert report == SourceExecutionReport('failed', 'invalid-response')
 
 
 @pytest.mark.asyncio
@@ -264,14 +262,13 @@ async def test_results_are_typed_and_scoped_before_insertion(monkeypatch: pytest
     monkeypatch.setattr(urlscan.AsyncFetcher, 'fetch', fake_fetch)
     search = urlscan.SearchUrlscan('example.com', 10)
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'api.example.com'}
     assert await search.get_ips() == {'2001:db8::10'}
     assert await search.get_urls() == {'https://portal.example.com/path'}
     assert await search.get_asns() == {'AS64496'}
-    assert search.execution_status == 'completed'
-    assert search.stop_reason is None
+    assert report is None
 
 
 @pytest.mark.parametrize(
@@ -299,26 +296,26 @@ async def test_failed_first_page_is_attributed(
     monkeypatch.setattr(urlscan.AsyncFetcher, 'fetch', fake_fetch)
     search = urlscan.SearchUrlscan('example.com', 10)
 
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == execution_status
-    assert search.stop_reason == stop_reason
+    assert report == SourceExecutionReport(execution_status, stop_reason)
 
 
 @pytest.mark.parametrize(
-    ('second_response', 'stop_reason'),
+    ('second_response', 'execution_status', 'stop_reason'),
     [
-        (None, 'transport-error'),
-        (FetcherResponse(body={}, status=403, headers={}), 'access-denied'),
-        (FetcherResponse(body={}, status=429, headers={}), 'http-429'),
-        (FetcherResponse(body={}, status=503, headers={}), 'http-503'),
-        (FetcherResponse(body={'results': {}}, status=200, headers={}), 'invalid-response'),
+        (None, 'failed', 'transport-error'),
+        (FetcherResponse(body={}, status=403, headers={}), 'failed', 'access-denied'),
+        (FetcherResponse(body={}, status=429, headers={}), 'rate-limited', 'http-429'),
+        (FetcherResponse(body={}, status=503, headers={}), 'failed', 'http-503'),
+        (FetcherResponse(body={'results': {}}, status=200, headers={}), 'failed', 'invalid-response'),
     ],
 )
 @pytest.mark.asyncio
 async def test_later_failure_preserves_partial_results(
     monkeypatch: pytest.MonkeyPatch,
     second_response: FetcherResponse | None,
+    execution_status: str,
     stop_reason: str,
 ) -> None:
     responses = [
@@ -336,11 +333,10 @@ async def test_later_failure_preserves_partial_results(
     monkeypatch.setattr(urlscan.AsyncFetcher, 'fetch', fake_fetch)
     search = urlscan.SearchUrlscan('example.com', 10)
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'first.example.com'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == stop_reason
+    assert report == SourceExecutionReport(execution_status, stop_reason)
 
 
 @pytest.mark.asyncio
@@ -351,10 +347,9 @@ async def test_fetch_exception_is_transport_failure(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(urlscan.AsyncFetcher, 'fetch', fake_fetch)
     search = urlscan.SearchUrlscan('example.com', 10)
 
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'transport-error'
+    assert report == SourceExecutionReport('failed', 'transport-error')
 
 
 @pytest.mark.asyncio
@@ -373,12 +368,11 @@ async def test_missing_cursor_stops_after_first_page(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(urlscan.AsyncFetcher, 'fetch', fake_fetch)
     search = urlscan.SearchUrlscan('example.com', 10)
 
-    await search.process()
+    report = await search.process()
 
     assert calls == 1
     assert await search.get_hostnames() == {'first.example.com'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'invalid-cursor'
+    assert report == SourceExecutionReport('failed', 'invalid-cursor')
 
 
 @pytest.mark.asyncio
@@ -405,12 +399,11 @@ async def test_repeated_cursor_stops_without_a_third_request(monkeypatch: pytest
     monkeypatch.setattr(urlscan.AsyncFetcher, 'fetch', fake_fetch)
     search = urlscan.SearchUrlscan('example.com', 10)
 
-    await search.process()
+    report = await search.process()
 
     assert calls == 2
     assert await search.get_hostnames() == {'first.example.com', 'second.example.com'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'repeated-cursor'
+    assert report == SourceExecutionReport('failed', 'repeated-cursor')
 
 
 @pytest.mark.asyncio
@@ -443,15 +436,14 @@ async def test_pagination_continues_beyond_the_removed_local_page_ceiling(monkey
     monkeypatch.setattr(urlscan.AsyncFetcher, 'fetch', fake_fetch)
     search = urlscan.SearchUrlscan('example.com', 10_001)
 
-    await search.process()
+    report = await search.process()
 
     assert calls == [
         {'q': 'domain:example.com', 'size': 10_000},
         {'q': 'domain:example.com', 'size': 1, 'search_after': '1,cursor-10000'},
     ]
     assert await search.get_hostnames() == {f'page-{page}.example.com' for page in range(1, 10_002)}
-    assert search.execution_status == 'completed'
-    assert search.stop_reason is None
+    assert report is None
 
 
 @pytest.mark.asyncio
@@ -470,12 +462,11 @@ async def test_operator_limit_sets_page_size_and_stops_without_an_extra_request(
     monkeypatch.setattr(urlscan.AsyncFetcher, 'fetch', fake_fetch)
     search = urlscan.SearchUrlscan('example.com', 10)
 
-    await search.process()
+    report = await search.process()
 
     assert calls == [{'q': 'domain:example.com', 'size': 10}]
     assert len(await search.get_hostnames()) == 10
-    assert search.execution_status == 'completed'
-    assert search.stop_reason is None
+    assert report is None
 
 
 @pytest.mark.parametrize('limit', [0, -1, True, 1.5])

@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
+from theHarvester.lib.source_execution import SourceExecutionReport, SourceReportStatus
 from theHarvester.parsers import myparser
 
 logger = logging.getLogger(__name__)
@@ -17,8 +18,7 @@ class SearchMojeek:
         self.proxy = False
         self.server = 'www.mojeek.com'
         self.api_server = 'api.mojeek.com'
-        self.execution_status: str | None = None
-        self.stop_reason: str | None = None
+        self._report: SourceExecutionReport | None = None
 
         try:
             self.api_key = Core.mojeek_key()
@@ -30,9 +30,8 @@ class SearchMojeek:
         else:
             logger.info('[*] Mojeek: No API key found, using default scraping mode.')
 
-    def _stop(self, status: str, reason: str) -> None:
-        self.execution_status = 'partial' if self.total_results else status
-        self.stop_reason = reason
+    def _stop(self, status: SourceReportStatus, reason: str) -> None:
+        self._report = SourceExecutionReport(status, reason)
 
     async def _search_api(self, headers: dict[str, str]) -> None:
         urls = [
@@ -90,8 +89,6 @@ class SearchMojeek:
                     return
                 self.total_results += f' {url} {title} {description} '
 
-        self.execution_status = 'completed'
-        self.stop_reason = None if self.total_results else 'no-results'
         logger.info('[*] Mojeek: API search completed successfully.')
 
     async def _search_keyless(self, headers: dict[str, str]) -> None:
@@ -130,29 +127,25 @@ class SearchMojeek:
                 self._stop('failed', 'access-denied')
                 return
             if 'no results' in normalized_body or 'no-results' in normalized_body:
-                self.execution_status = 'completed'
-                self.stop_reason = 'no-results'
                 return
             if 'results-standard' not in normalized_body:
                 self._stop('failed', 'invalid-response')
                 return
             self.total_results += f' {response.body}'
 
-        self.execution_status = 'completed'
-
-    async def do_search(self) -> None:
-        self.execution_status = None
-        self.stop_reason = None
+    async def do_search(self) -> SourceExecutionReport | None:
+        self._report = None
         user_agent = Core.get_user_agent() if self.api_key else Core.get_browser_user_agent()
         headers = {'User-Agent': user_agent}
         if self.api_key:
             await self._search_api(headers)
         else:
             await self._search_keyless(headers)
+        return self._report
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        await self.do_search()
+        return await self.do_search()
 
     async def get_emails(self):
         rawres = myparser.Parser(self.total_results, self.word)

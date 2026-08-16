@@ -4,6 +4,7 @@ from ipaddress import ip_address
 from typing import Any
 
 from theHarvester.lib.core import AsyncFetcher, FetcherResponse
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 logger = logging.getLogger(__name__)
 
@@ -17,12 +18,8 @@ class SearchOtx:
         self.totalhosts: set = set()
         self.totalips: set = set()
         self.proxy = False
-        self.execution_status: str | None = None
-        self.stop_reason: str | None = None
 
-    async def do_search(self) -> None:
-        self.execution_status = None
-        self.stop_reason = None
+    async def do_search(self) -> SourceExecutionReport | None:
         url = f'https://otx.alienvault.com/api/v1/indicators/domain/{self.word}/passive_dns'
         try:
             response_list = await AsyncFetcher.fetch_all(
@@ -51,42 +48,32 @@ class SearchOtx:
         except (OSError, RuntimeError, ValueError):
             self.totalhosts = set()
             self.totalips = set()
-            self.execution_status = 'failed'
-            self.stop_reason = 'transport-error'
             logger.info('OTX request failed')
-            return
+            return SourceExecutionReport('failed', 'transport-error')
 
         if response is None:
-            self.execution_status = 'failed'
-            self.stop_reason = 'transport-error'
             logger.info('OTX request failed')
-            return
+            return SourceExecutionReport('failed', 'transport-error')
         if not 200 <= response.status < 300:
             if response.status == 429:
-                self.execution_status = 'rate-limited'
-                self.stop_reason = 'http-429'
+                report = SourceExecutionReport('rate-limited', 'http-429')
             else:
-                self.execution_status = 'failed'
-                self.stop_reason = f'http-{response.status}'
+                report = SourceExecutionReport('failed', f'http-{response.status}')
             logger.info(f'OTX request failed with HTTP {response.status}')
-            return
+            return report
 
         # Expect a list with one JSON-decoded dict
         dct: Any = response.body
         if not isinstance(dct, dict):
             self.totalhosts = set()
             self.totalips = set()
-            self.execution_status = 'failed'
-            self.stop_reason = 'invalid-response'
-            return
+            return SourceExecutionReport('failed', 'invalid-response')
 
         passive = dct.get('passive_dns')
         if not isinstance(passive, list):
             self.totalhosts = set()
             self.totalips = set()
-            self.execution_status = 'failed'
-            self.stop_reason = 'invalid-response'
-            return
+            return SourceExecutionReport('failed', 'invalid-response')
 
         try:
             self.totalhosts = {host['hostname'] for host in passive if isinstance(host, dict) and 'hostname' in host}
@@ -101,8 +88,8 @@ class SearchOtx:
         except (KeyError, TypeError, ValueError):
             self.totalhosts = set()
             self.totalips = set()
-            self.execution_status = 'failed'
-            self.stop_reason = 'invalid-response'
+            return SourceExecutionReport('failed', 'invalid-response')
+        return None
 
     async def get_hostnames(self) -> set:
         return self.totalhosts
@@ -110,6 +97,6 @@ class SearchOtx:
     async def get_ips(self) -> set:
         return self.totalips
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        await self.do_search()
+        return await self.do_search()

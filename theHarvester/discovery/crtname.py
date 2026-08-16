@@ -2,6 +2,7 @@ import asyncio
 
 from theHarvester.lib.core import AsyncFetcher, ResponseStreamError
 from theHarvester.lib.hostnames import normalize_scoped_hostname
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 
 class SearchCrtName:
@@ -13,8 +14,6 @@ class SearchCrtName:
     def __init__(self, word: str) -> None:
         self.word = self._normalize_scope(word)
         self.hostnames: set[str] = set()
-        self.execution_status: str | None = None
-        self.stop_reason: str | None = None
 
     @staticmethod
     def _valid_hostname(value: str) -> bool:
@@ -43,11 +42,7 @@ class SearchCrtName:
             return ''
         return normalized
 
-    def _stop(self, status: str, reason: str) -> None:
-        self.execution_status = 'partial' if self.hostnames else status
-        self.stop_reason = reason
-
-    async def _collect(self, proxy: bool) -> None:
+    async def _collect(self, proxy: bool) -> SourceExecutionReport | None:
         async with AsyncFetcher.stream_records(
             self.ENDPOINT,
             framing='ndjson',
@@ -58,14 +53,11 @@ class SearchCrtName:
             request_timeout=self.RUNTIME_SECONDS,
         ) as response:
             if response.status == 429:
-                self._stop('rate-limited', 'http-429')
-                return
+                return SourceExecutionReport('rate-limited', 'http-429')
             if response.status in {401, 403}:
-                self._stop('failed', 'access-denied')
-                return
+                return SourceExecutionReport('failed', 'access-denied')
             if not 200 <= response.status < 300:
-                self._stop('failed', f'http-{response.status}')
-                return
+                return SourceExecutionReport('failed', f'http-{response.status}')
 
             malformed = False
             async for record in response:
@@ -86,24 +78,19 @@ class SearchCrtName:
                     self.hostnames.add(normalized)
 
             if malformed:
-                self._stop('failed', 'invalid-response')
-            else:
-                self.execution_status = 'completed'
-                self.stop_reason = None if self.hostnames else 'no-results'
+                return SourceExecutionReport('failed', 'invalid-response')
+        return None
 
-    async def process(self, proxy: bool = False) -> None:
-        self.execution_status = None
-        self.stop_reason = None
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         if not self.word:
-            self._stop('failed', 'invalid-target')
-            return
+            return SourceExecutionReport('failed', 'invalid-target')
         try:
             async with asyncio.timeout(self.RUNTIME_SECONDS):
-                await self._collect(proxy)
+                return await self._collect(proxy)
         except ResponseStreamError as error:
-            self._stop('failed', error.reason)
+            return SourceExecutionReport('failed', error.reason)
         except TimeoutError:
-            self._stop('failed', 'runtime-limit')
+            return SourceExecutionReport('failed', 'runtime-limit')
 
     async def get_hostnames(self) -> set[str]:
         return self.hostnames

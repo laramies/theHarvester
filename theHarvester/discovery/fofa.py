@@ -7,6 +7,7 @@ from theHarvester.discovery.constants import MissingKey
 from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 
 class SearchFofa:
@@ -24,8 +25,6 @@ class SearchFofa:
         self.proxy = False
         self.hostname = 'https://fofa.info'
         self.api_key, self.email = self._get_api_credentials()
-        self.execution_status: str | None = None
-        self.stop_reason: str | None = None
 
     def _get_api_credentials(self) -> tuple[str, str]:
         try:
@@ -35,13 +34,6 @@ class SearchFofa:
         if not all(isinstance(value, str) and value.strip() for value in (api_key, email)):
             raise MissingKey('Fofa API (key and email required)')
         return api_key, email
-
-    def _has_results(self) -> bool:
-        return bool(self.totalhosts or self.totalips)
-
-    def _stop(self, status: str, reason: str) -> None:
-        self.execution_status = 'partial' if self._has_results() else status
-        self.stop_reason = reason
 
     def _store_results(self, results: list[Any]) -> bool:
         malformed = False
@@ -69,21 +61,21 @@ class SearchFofa:
                 malformed = True
         return malformed
 
-    def _provider_error(self, body: dict[str, Any]) -> None:
+    def _provider_error(self, body: dict[str, Any]) -> SourceExecutionReport:
         message = body.get('errmsg')
         normalized = message.casefold() if isinstance(message, str) else ''
         if 'invalid' in normalized or '账号无效' in normalized:
-            self._stop('failed', 'access-denied')
-        elif any(term in normalized for term in ('quota', 'limit', 'plan')):
-            self._stop('failed', 'quota-exhausted')
-        else:
-            self._stop('failed', 'provider-error')
+            return SourceExecutionReport('failed', 'access-denied')
+        if any(term in normalized for term in ('quota', 'limit', 'plan')):
+            return SourceExecutionReport('failed', 'quota-exhausted')
+        return SourceExecutionReport('failed', 'provider-error')
 
-    async def do_search(self) -> None:
+    async def do_search(self) -> SourceExecutionReport | None:
         query = base64.b64encode(f'domain="{self.word}"'.encode()).decode()
         cursor: str | None = None
         seen_cursors: set[str] = set()
         records_seen = 0
+        report = None
         try:
             async with AsyncFetcher.open_session(
                 headers={'User-Agent': Core.get_user_agent()},
@@ -108,41 +100,30 @@ class SearchFofa:
                         include_metadata=True,
                     )
                     if error := provider_http_error(response):
-                        self._stop(*error)
-                        return
+                        return SourceExecutionReport(*error)
                     assert isinstance(response, FetcherResponse)
                     if not isinstance(response.body, dict):
-                        self._stop('failed', 'invalid-response')
-                        return
+                        return SourceExecutionReport('failed', 'invalid-response')
                     if response.body.get('error') is True:
-                        self._provider_error(response.body)
-                        return
+                        return self._provider_error(response.body)
                     results = response.body.get('results')
                     if not isinstance(results, list):
-                        self._stop('failed', 'invalid-response')
-                        return
+                        return SourceExecutionReport('failed', 'invalid-response')
 
                     page_results = results[:remaining]
                     records_seen += len(page_results)
                     if self._store_results(page_results):
-                        self._stop('failed', 'invalid-response')
+                        report = SourceExecutionReport('failed', 'invalid-response')
                     next_cursor = response.body.get('next')
                     if not results or not isinstance(next_cursor, str) or not next_cursor:
                         break
                     if next_cursor in seen_cursors:
-                        self._stop('failed', 'repeated-cursor')
-                        break
+                        return SourceExecutionReport('failed', 'repeated-cursor')
                     seen_cursors.add(next_cursor)
                     cursor = next_cursor
         except Exception:
-            self._stop('failed', 'transport-error')
-            return
-
-        if self.execution_status is not None and self._has_results():
-            self.execution_status = 'partial'
-        elif self.execution_status is None:
-            self.execution_status = 'completed'
-            self.stop_reason = None if self._has_results() else 'no-results'
+            return SourceExecutionReport('failed', 'transport-error')
+        return report
 
     async def get_hostnames(self) -> set[str]:
         return self.totalhosts
@@ -150,8 +131,6 @@ class SearchFofa:
     async def get_ips(self) -> set[str]:
         return self.totalips
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        self.execution_status = None
-        self.stop_reason = None
-        await self.do_search()
+        return await self.do_search()

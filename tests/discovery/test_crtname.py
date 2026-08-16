@@ -58,7 +58,7 @@ async def test_crt_name_streams_one_provider_response_and_retains_scoped_descend
     monkeypatch.setattr(crtname.AsyncFetcher, 'stream_records', stream_records)
     search = crtname.SearchCrtName(' Example.COM. ')
 
-    await search.process(proxy=True)
+    report = await search.process(proxy=True)
 
     assert calls == [
         {
@@ -72,8 +72,8 @@ async def test_crt_name_streams_one_provider_response_and_retains_scoped_descend
         }
     ]
     assert await search.get_hostnames() == {'api.example.com', 'wild.example.com'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio
@@ -90,12 +90,11 @@ async def test_crt_name_queries_and_retains_only_the_requested_scope(
     monkeypatch.setattr(crtname.AsyncFetcher, 'stream_records', stream_records)
     search = crtname.SearchCrtName('www.example.com')
 
-    await search.process()
+    report = await search.process()
 
     assert calls[0]['params'] == {'apex': 'www.example.com'}
     assert await search.get_hostnames() == {'deep.www.example.com'}
-    assert search.execution_status == 'completed'
-    assert search.stop_reason is None
+    assert report is None
 
 
 @pytest.mark.asyncio
@@ -140,11 +139,11 @@ async def test_crt_name_attributes_provider_status_without_parsing_error_bodies(
     monkeypatch.setattr(crtname.AsyncFetcher, 'stream_records', stream_records)
     search = crtname.SearchCrtName('example.com')
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == set()
-    assert search.execution_status == execution_status
-    assert search.stop_reason == stop_reason
+    assert report.status == execution_status
+    assert report.stop_reason == stop_reason
 
 
 @pytest.mark.asyncio
@@ -156,11 +155,11 @@ async def test_crt_name_preserves_valid_prefix_when_stream_fails(monkeypatch: py
     monkeypatch.setattr(crtname.AsyncFetcher, 'stream_records', stream_records)
     search = crtname.SearchCrtName('example.com')
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'api.example.com'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'response-limit'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'response-limit'
 
 
 @pytest.mark.asyncio
@@ -181,11 +180,11 @@ async def test_crt_name_preserves_valid_prefix_at_runtime_limit(monkeypatch: pyt
     monkeypatch.setattr(crtname.AsyncFetcher, 'stream_records', stream_records)
     search = crtname.SearchCrtName('example.com')
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'api.example.com'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'runtime-limit'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'runtime-limit'
 
 
 @pytest.mark.asyncio
@@ -197,11 +196,10 @@ async def test_crt_name_empty_response_completes_without_results(monkeypatch: py
     monkeypatch.setattr(crtname.AsyncFetcher, 'stream_records', stream_records)
     search = crtname.SearchCrtName('example.com')
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == set()
-    assert search.execution_status == 'completed'
-    assert search.stop_reason == 'no-results'
+    assert report is None
 
 
 @pytest.mark.asyncio
@@ -228,10 +226,10 @@ async def test_crt_name_rejects_invalid_targets_without_requesting(
     monkeypatch.setattr(crtname.AsyncFetcher, 'stream_records', unexpected_request)
     search = crtname.SearchCrtName(target)
 
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'invalid-target'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-target'
 
 
 @pytest.mark.asyncio
@@ -243,11 +241,11 @@ async def test_crt_name_rejects_non_ascii_provider_records(monkeypatch: pytest.M
     monkeypatch.setattr(crtname.AsyncFetcher, 'stream_records', stream_records)
     search = crtname.SearchCrtName('example.com')
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'api.example.com'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio
@@ -284,9 +282,6 @@ async def test_crt_name_and_crtsh_share_one_result_with_both_sources(
             completed_results.append(result)
 
     class FakeCrtsh:
-        execution_status = 'completed'
-        stop_reason = None
-
         def __init__(self, _word: str) -> None:
             pass
 

@@ -73,7 +73,7 @@ async def test_process_uses_one_shared_provider_session(monkeypatch: pytest.Monk
     monkeypatch.setattr(sherlockeye.AsyncFetcher, 'post_fetch', fake_post_fetch)
     search = sherlockeye.SearchSherlockeye('example.com')
 
-    await search.process(proxy=True)
+    report = await search.process(proxy=True)
 
     assert calls == [
         {
@@ -89,8 +89,7 @@ async def test_process_uses_one_shared_provider_session(monkeypatch: pytest.Monk
         }
     ]
     assert exited is True
-    assert search.execution_status == 'completed'
-    assert search.stop_reason == 'no-results'
+    assert report is None
 
 
 @pytest.mark.asyncio
@@ -138,13 +137,12 @@ async def test_process_extracts_domain_intelligence(monkeypatch) -> None:
     monkeypatch.setattr(sherlockeye.AsyncFetcher, 'post_fetch', fake_post_fetch)
 
     search = sherlockeye.SearchSherlockeye('example.com')
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'sub.example.com', 'www.example.com', 'api.example.com'}
     assert await search.get_emails() == {'user@example.com'}
     assert await search.get_ips() == {'203.0.113.10'}
-    assert search.execution_status == 'completed'
-    assert search.stop_reason is None
+    assert report is None
 
 
 @pytest.mark.asyncio
@@ -158,15 +156,15 @@ async def test_process_handles_api_error(monkeypatch, caplog) -> None:
     caplog.set_level(logging.INFO, logger=sherlockeye.__name__)
 
     search = sherlockeye.SearchSherlockeye('example.com')
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == set()
     assert await search.get_emails() == set()
     assert await search.get_ips() == set()
     assert 'provider-secret-payload' not in caplog.text
     assert '401' in caplog.text
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'access-denied'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'access-denied'
 
 
 @pytest.mark.asyncio
@@ -180,12 +178,12 @@ async def test_process_does_not_log_provider_error_message(monkeypatch, caplog) 
     caplog.set_level(logging.INFO, logger=sherlockeye.__name__)
 
     search = sherlockeye.SearchSherlockeye('example.com')
-    await search.process()
+    report = await search.process()
 
     assert 'provider-secret-payload' not in caplog.text
     assert 'API error' in caplog.text
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'provider-error'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'provider-error'
 
 
 @pytest.mark.parametrize(
@@ -206,10 +204,10 @@ async def test_http_failures_are_structured(
 
     monkeypatch.setattr(sherlockeye.AsyncFetcher, 'post_fetch', fake_post_fetch)
     search = sherlockeye.SearchSherlockeye('example.com')
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == execution_status
-    assert search.stop_reason == stop_reason
+    assert report.status == execution_status
+    assert report.stop_reason == stop_reason
 
 
 @pytest.mark.asyncio
@@ -221,17 +219,17 @@ async def test_malformed_response_is_structured(monkeypatch: pytest.MonkeyPatch)
 
     monkeypatch.setattr(sherlockeye.AsyncFetcher, 'post_fetch', fake_post_fetch)
     search = sherlockeye.SearchSherlockeye('example.com')
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 def test_malformed_link_does_not_discard_later_valid_results(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(sherlockeye.Core, 'sherlockeye_key', lambda: 'dummy-key')
     search = sherlockeye.SearchSherlockeye('example.com')
 
-    search._extract_response(
+    report = search._extract_response(
         {
             'success': True,
             'data': {
@@ -244,8 +242,8 @@ def test_malformed_link_does_not_discard_later_valid_results(monkeypatch: pytest
     )
 
     assert search.totalhosts == {'api.example.com'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio
@@ -268,9 +266,9 @@ async def test_transport_failure_and_cancellation_are_distinct(monkeypatch: pyte
 
     monkeypatch.setattr(sherlockeye.AsyncFetcher, 'post_fetch', failed_post_fetch)
     search = sherlockeye.SearchSherlockeye('example.com')
-    await search.process()
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'transport-error'
+    report = await search.process()
+    assert report.status == 'failed'
+    assert report.stop_reason == 'transport-error'
     assert session_exit_count == 1
 
     async def cancelled_post_fetch(*_args: Any, **_kwargs: Any) -> FetcherResponse:

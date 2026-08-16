@@ -60,7 +60,7 @@ async def test_process_paginates_to_limit_and_keeps_scoped_hostnames(monkeypatch
     monkeypatch.setattr(searchhunterhow.asyncio, 'sleep', fake_sleep)
     search = searchhunterhow.SearchHunterHow('example.com', limit=3)
 
-    await search.process(proxy=True)
+    report = await search.process(proxy=True)
 
     assert await search.get_hostnames() == {'api.example.com', 'www.example.com'}
     assert session_options == [{'headers': {'User-Agent': searchhunterhow.Core.get_user_agent()}, 'proxy': True}]
@@ -72,8 +72,7 @@ async def test_process_paginates_to_limit_and_keeps_scoped_hostnames(monkeypatch
     assert all(call['url'] == 'https://api.hunter.how/search' for call in calls)
     assert all(call['include_metadata'] is True for call in calls)
     assert delays == [2.0]
-    assert search.execution_status == 'completed'
-    assert search.stop_reason is None
+    assert report is None
     assert session_exited is True
 
 
@@ -117,11 +116,11 @@ async def test_failed_response_is_attributed(
     monkeypatch.setattr(searchhunterhow.AsyncFetcher, 'fetch', fake_fetch)
     search = searchhunterhow.SearchHunterHow('example.com', limit=10)
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == set()
-    assert search.execution_status == execution_status
-    assert search.stop_reason == stop_reason
+    assert report.status == execution_status
+    assert report.stop_reason == stop_reason
 
 
 def test_limit_must_be_positive(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -154,11 +153,11 @@ async def test_early_malformed_rows_and_later_valid_evidence_are_partial(monkeyp
     monkeypatch.setattr(searchhunterhow.asyncio, 'sleep', fake_sleep)
     search = searchhunterhow.SearchHunterHow('example.com', limit=2)
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'api.example.com'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio

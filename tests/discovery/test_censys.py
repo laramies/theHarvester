@@ -104,7 +104,7 @@ async def test_search_calls_platform_api_directly_and_follows_page_tokens(monkey
     monkeypatch.setattr(censysearch.AsyncFetcher, 'open_session', fake_open_session)
     search = censysearch.SearchCensys('example.com', limit=250)
 
-    await search.process(proxy=True)
+    report = await search.process(proxy=True)
 
     assert [call['url'] for call in calls] == [
         'https://api.platform.censys.io/v3/global/search/query',
@@ -137,7 +137,7 @@ async def test_search_calls_platform_api_directly_and_follows_page_tokens(monkey
     assert all(call['session'] is session for call in calls)
     assert await search.get_hostnames() == {'a.example.com', 'b.example.com'}
     assert await search.get_emails() == {'admin@example.com', 'ops@example.com'}
-    assert search.execution_status == 'completed'
+    assert report is None
 
 
 @pytest.mark.asyncio
@@ -152,10 +152,10 @@ async def test_session_setup_failure_reports_transport_error(monkeypatch: pytest
     monkeypatch.setattr(censysearch.AsyncFetcher, 'open_session', failed_open_session)
     search = censysearch.SearchCensys('example.com')
 
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'transport-error'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'transport-error'
 
 
 @pytest.mark.asyncio
@@ -193,8 +193,9 @@ async def test_search_uses_free_wallet_and_respects_result_limit(monkeypatch) ->
     monkeypatch.setattr(censysearch.AsyncFetcher, 'post_fetch', fake_post_fetch)
     search = censysearch.SearchCensys('example.com', limit=3)
 
-    await search.process()
+    report = await search.process()
 
+    assert report is None
     assert calls[0]['params'] == ''
     assert calls[0]['json_body']['page_size'] == 3
     assert await search.get_hostnames() == {'1.example.com', '2.example.com', '3.example.com'}
@@ -211,10 +212,9 @@ async def test_search_accepts_missing_terminal_page_token(monkeypatch) -> None:
     monkeypatch.setattr(censysearch.AsyncFetcher, 'post_fetch', fake_post_fetch)
     search = censysearch.SearchCensys('example.com')
 
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == 'completed'
-    assert search.stop_reason == 'no-results'
+    assert report is None
 
 
 @pytest.mark.asyncio
@@ -236,11 +236,11 @@ async def test_malformed_limit_hit_is_partial_when_it_contains_evidence(monkeypa
     monkeypatch.setattr(censysearch.AsyncFetcher, 'post_fetch', fake_post_fetch)
     search = censysearch.SearchCensys('example.com', limit=1)
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'a.example.com'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 @pytest.mark.parametrize(
@@ -264,10 +264,10 @@ async def test_search_reports_provider_failures_truthfully(
     monkeypatch.setattr(censysearch.AsyncFetcher, 'post_fetch', fake_post_fetch)
     search = censysearch.SearchCensys('example.com')
 
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == expected_status
-    assert search.stop_reason == expected_reason
+    assert report.status == expected_status
+    assert report.stop_reason == expected_reason
 
 
 @pytest.mark.asyncio
@@ -302,10 +302,10 @@ async def test_search_classifies_transport_exceptions(monkeypatch) -> None:
     monkeypatch.setattr(censysearch.AsyncFetcher, 'post_fetch', fake_post_fetch)
     search = censysearch.SearchCensys('example.com')
 
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'transport-error'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'transport-error'
 
 
 def test_deprecated_censys_sdk_is_not_a_runtime_dependency() -> None:

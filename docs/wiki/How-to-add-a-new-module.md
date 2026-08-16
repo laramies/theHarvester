@@ -20,10 +20,12 @@ Create the adapter under [`theHarvester/discovery/`](https://github.com/laramies
 An adapter normally provides:
 
 - an initializer for the target and local result sets;
-- an asynchronous `process()` method;
+- an asynchronous `process()` method returning `SourceExecutionReport | None`;
 - only the getters it actually supports, such as `get_hostnames()`, `get_emails()`, `get_ips()`, `get_asns()`, `get_urls()`, or `get_results()`.
 
 Do not return fields the provider did not supply. Normalize and deduplicate before returning results.
+
+Return `None` when the provider conversation completed normally, including a valid zero-result response. Return an immutable `SourceExecutionReport` with a stable provider-specific reason for another terminal condition: `completed` for a successful early stop such as reaching the requested result limit, `failed` for provider or transport failure, `rate-limited` for a terminal rate limit, or `partial` when the provider itself confirms incomplete coverage. Do not add mutable `execution_status` or `stop_reason` fields to an adapter. The source runner owns finalization: it promotes any incomplete report with retained normalized evidence to `partial`, and records a normal zero-result completion as `completed` with `no-results`.
 
 ### Own the provider conversation
 
@@ -33,7 +35,7 @@ A provider conversation is the related request sequence for one source execution
 - Keep the default cookie jar when later provider requests may depend on earlier responses. Use `aiohttp.DummyCookieJar()` for deliberately independent probes, such as takeover candidates, so one target cannot influence another.
 - Scope a session to one provider and authorized target. Never share cookies, authentication state, or proxy identity across source executions or unrelated targets.
 - Preserve cancellation while closing every owned session, response, task, and connector. Cover both successful completion and interruption in focused tests.
-- Treat session construction and teardown as adapter lifecycle stages. Preserve the existing TLS and timeout policy unless the source contract explicitly changes, classify ordinary lifecycle failures through the adapter status fields, and let native cancellation propagate.
+- Treat session construction and teardown as adapter lifecycle stages. Preserve the existing TLS and timeout policy unless the source contract explicitly changes, return a `SourceExecutionReport` for ordinary lifecycle failures, and let native cancellation propagate.
 - Before extending a shared fetcher interface, audit positional callers and every owned-versus-borrowed branch. New optional parameters must not reinterpret existing calls.
 
 The completion check is an offline test in which a later page depends on state established by an earlier page, plus a cleanup assertion proving the provider session closes.
@@ -65,6 +67,7 @@ Useful cases include:
 - missing required credentials;
 - non-success, timeout, empty, or malformed responses;
 - pagination and termination;
+- the returned execution report for incomplete work and `None` for normal completion;
 - normalized and deduplicated results.
 
 Tests must not require external network access or real provider credentials.

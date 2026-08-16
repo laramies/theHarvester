@@ -30,15 +30,13 @@ async def test_process_parses_historical_four_column_rows(monkeypatch: pytest.Mo
     monkeypatch.setattr(bufferoverun.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = bufferoverun.SearchBufferover('example.com')
 
-    await search.process(proxy=True)
+    report = await search.process(proxy=True)
 
     assert captured['proxy'] is True
     assert await search.get_hostnames() == {'api.example.com', 'ipv6.example.com'}
     assert await search.get_ips() == {'192.0.2.10', '2001:db8::10'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'invalid-response'
-
-
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio
@@ -52,12 +50,11 @@ async def test_valid_empty_response_is_completed(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr(bufferoverun.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = bufferoverun.SearchBufferover('example.com')
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == set()
     assert await search.get_ips() == set()
-    assert search.execution_status == 'completed'
-    assert search.stop_reason == 'no-results'
+    assert report is None
 
 
 @pytest.mark.parametrize(
@@ -85,12 +82,12 @@ async def test_failed_responses_are_attributed(
     monkeypatch.setattr(bufferoverun.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = bufferoverun.SearchBufferover('example.com')
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == set()
     assert await search.get_ips() == set()
-    assert search.execution_status == execution_status
-    assert search.stop_reason == stop_reason
+    assert report.status == execution_status
+    assert report.stop_reason == stop_reason
 
 
 @pytest.mark.asyncio
@@ -109,12 +106,12 @@ async def test_domain_first_five_column_row_is_rejected_without_crashing(monkeyp
     monkeypatch.setattr(bufferoverun.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = bufferoverun.SearchBufferover('example.com')
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == set()
     assert await search.get_ips() == set()
-    assert search.execution_status == 'failed'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio
@@ -133,12 +130,12 @@ async def test_non_string_row_preserves_valid_partial_results(monkeypatch: pytes
     monkeypatch.setattr(bufferoverun.AsyncFetcher, 'fetch_all', fake_fetch_all)
     search = bufferoverun.SearchBufferover('example.com')
 
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'api.example.com'}
     assert await search.get_ips() == {'192.0.2.10'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'invalid-response'
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
 
 
 pytestmark = pytest.mark.provider_contract('bufferoverun')

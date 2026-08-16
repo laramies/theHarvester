@@ -9,6 +9,7 @@ import pytest
 from theHarvester.discovery import fofa
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import FetcherResponse
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 
 @pytest.mark.provider_contract('fofa')
@@ -51,12 +52,11 @@ async def test_process_uses_cursor_api_to_limit_and_retains_scoped_results(monke
     monkeypatch.setattr(fofa.AsyncFetcher, 'fetch', fake_fetch)
     search = fofa.SearchFofa('example.com', limit=3)
 
-    await search.process(proxy=True)
+    report = await search.process(proxy=True)
 
     assert await search.get_hostnames() == {'api.example.com', 'mail.example.com'}
     assert await search.get_ips() == {'192.0.2.10', '2001:db8::10'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'invalid-response'
+    assert report == SourceExecutionReport('failed', 'invalid-response')
     assert [call['params']['size'] for call in calls] == [3, 2]
     assert [call['params'].get('next') for call in calls] == [None, 'cursor-2']
     assert all(call['url'] == 'https://fofa.info/api/v1/search/next' for call in calls)
@@ -117,10 +117,9 @@ async def test_failures_are_structured(
     monkeypatch.setattr(fofa.AsyncFetcher, 'open_session', fake_open_session)
     monkeypatch.setattr(fofa.AsyncFetcher, 'fetch', fake_fetch)
     search = fofa.SearchFofa('example.com', 10)
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == status
-    assert search.stop_reason == reason
+    assert report == SourceExecutionReport(status, reason)
 
 
 @pytest.mark.asyncio
@@ -141,10 +140,9 @@ async def test_repeated_cursor_stops_without_a_third_request(monkeypatch: pytest
     monkeypatch.setattr(fofa.AsyncFetcher, 'open_session', fake_open_session)
     monkeypatch.setattr(fofa.AsyncFetcher, 'fetch', fake_fetch)
     search = fofa.SearchFofa('example.com', 10)
-    await search.process()
+    report = await search.process()
 
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'repeated-cursor'
+    assert report == SourceExecutionReport('failed', 'repeated-cursor')
     assert responses == []
 
 
@@ -173,12 +171,11 @@ async def test_malformed_url_does_not_discard_later_valid_rows(monkeypatch: pyte
     monkeypatch.setattr(fofa.AsyncFetcher, 'open_session', fake_open_session)
     monkeypatch.setattr(fofa.AsyncFetcher, 'fetch', fake_fetch)
     search = fofa.SearchFofa('example.com', 2)
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'api.example.com'}
     assert await search.get_ips() == {'192.0.2.10'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'invalid-response'
+    assert report == SourceExecutionReport('failed', 'invalid-response')
 
 
 @pytest.mark.asyncio
