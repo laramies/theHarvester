@@ -6,15 +6,23 @@ theHarvester can print findings, write reports, retain selected records in SQLit
 
 The CLI groups findings by result type. It can also print separate enrichment, such as Shodan output. Use terminal output for operators, not as a stable automation interface.
 
-## JSON and XML reports
+## JSONL reports
 
-Use `-f NAME` to write both formats:
+Use `-f NAME` to write a durable run report:
 
 ```bash
 uv run theHarvester -d example.com -b crtsh,certspotter -f report
 ```
 
-This creates `report.json` and `report.xml`.
+The recommended automation output is `report.jsonl`. Its first record summarizes the run, evidence status, source and action outcomes, and artifacts. Each remaining record is one normalized finding with producer attribution. The API can import this file without executing discovery.
+
+```bash
+jq -c 'select(.type != "summary") | {type, value, sources, actions}' report.jsonl
+```
+
+The same `-f report` command also creates `report.json` and `report.xml` for compatibility.
+
+## Legacy JSON and XML
 
 - **JSON** is one object and contains the broader result set. `cmd`, `hosts`, and `shodan` are always present; other fields appear when non-empty.
 - **XML** contains the command, emails, hosts, and virtual hosts. Use JSON for other result types.
@@ -24,7 +32,7 @@ When virtual host discovery runs, JSON's `vhosts` array and XML's `<vhost>` entr
 
 Host values may be plain hostnames. When DNS resolution is enabled, they can also use the `hostname:IP` form.
 
-The repository [README output section](https://github.com/laramies/theHarvester/blob/dev/README.md#report-formats) documents the current fields and provides copyable `jq` examples.
+The repository [README output section](https://github.com/laramies/theHarvester/blob/dev/README.md#report-formats) documents the current formats and provides copyable `jq` examples for JSONL.
 
 ## SQLite database
 

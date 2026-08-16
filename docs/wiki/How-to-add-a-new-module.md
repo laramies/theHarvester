@@ -57,7 +57,7 @@ If the source accepts an API key:
 
 Never log credentials or include real keys in tests, examples, commits, issues, or pull requests.
 
-## 5. Add focused coverage when possible
+## 5. Add focused coverage
 
 [The Baidu discovery tests](https://github.com/laramies/theHarvester/blob/dev/tests/discovery/test_baidusearch.py) are a small example that can be copied and adapted. They replace network fetching with `pytest` `monkeypatch` and assert normalized results.
 

@@ -116,6 +116,32 @@ def test_wiki_navigation_and_readme_links_resolve() -> None:
     assert all(Path(target).is_file() for target in readme_wiki_links)
 
 
+def test_readme_architecture_diagrams_are_local_and_accessible() -> None:
+    readme = Path('README.md').read_text()
+    diagrams = (
+        (
+            'theHarvester discovery routes and enrichment',
+            Path('docs/images/run-evidence-architecture.svg'),
+            'run-evidence-architecture',
+            ('subdomains · emails · IPs', 'Shodan host detail', 'RouteViews routes', 'vhost · screenshots · takeover'),
+        ),
+        (
+            'HarvestView run desk architecture',
+            Path('docs/images/harvestview-architecture.svg'),
+            'harvestview-architecture',
+            ('Authenticated REST API', 'queued → running → terminal', 'Isolated run worker', 'export JSONL'),
+        ),
+    )
+
+    for alt, svg, slug, expected_text in diagrams:
+        svg_text = svg.read_text()
+        assert f'![{alt}]({svg})' in readme
+        assert 'role="img"' in svg_text
+        assert f'<title id="{slug}-title">' in svg_text
+        assert f'<desc id="{slug}-desc">' in svg_text
+        assert all(text in svg_text for text in expected_text)
+
+
 def test_virtual_host_wiki_examples_match_the_structured_result_contract() -> None:
     page = Path('docs/wiki/Virtual-Host-Discovery.md').read_text()
 
@@ -131,9 +157,7 @@ def test_virtual_host_wiki_examples_match_the_structured_result_contract() -> No
 
     json_examples = re.findall(r'```json\n(.*?)\n```', page, flags=re.DOTALL)
     finding = next(
-        json.loads(example)
-        for example in json_examples
-        if '"type": "hostname"' in example and '"observations"' in example
+        json.loads(example) for example in json_examples if '"type": "hostname"' in example and '"observations"' in example
     )
     assert finding['value'] == 'admin.authorized.example'
     assert finding['actions'] == ['vhost']
@@ -155,10 +179,27 @@ def test_readme_preserves_project_social_attribution() -> None:
         assert f'@{handle}' in readme
 
 
+def test_operator_docs_recommend_jsonl_and_assume_uv_is_available() -> None:
+    readme = Path('README.md').read_text()
+    installation = Path('docs/wiki/Installation.md').read_text()
+    quick_start = Path('docs/wiki/Quick-Start.md').read_text()
+    workflows = Path('docs/wiki/Operator-Workflows.md').read_text()
+
+    assert '## Package versions' in readme
+    assert 'https://repology.org/badge/vertical-allrepos/theharvester.svg' in readme
+    assert 'https://repology.org/project/theharvester/versions' in readme
+    assert 'curl -LsSf https://astral.sh/uv/install.sh' not in readme
+    assert 'curl -LsSf https://astral.sh/uv/install.sh' not in installation
+    assert all('`report.jsonl`' in page and 'automation' in page for page in (quick_start, workflows))
+
+
 def test_readme_explains_jsonl_record_and_structured_evidence_parsing() -> None:
     readme = Path('README.md').read_text()
 
     assert '{"sources":[],"type":"hostname","value":"api.example.com"}' in readme
+    for result_kind in ('hostname', 'ip', 'asn', 'email', 'url', 'person', 'breach'):
+        assert f'select(.type == "{result_kind}")' in readme
+    assert 'select(.type == "person") | .value | fromjson' in readme
     assert 'select(.type == "dns-recursive-finding") | .value | fromjson' in readme
     assert 'JSONL is easy to stream one record at a time.' in readme
     assert '`person` and `infostealer`' in readme
