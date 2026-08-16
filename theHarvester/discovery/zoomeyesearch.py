@@ -167,13 +167,16 @@ class SearchZoomEye:
                 elif (hostname := normalize_scoped_hostname(value, self.target)) and hostname != self.target:
                     hostnames.add(hostname)
 
-            if raw_url := match.get('url'):
-                if normalized_url := self._normalize_url(raw_url):
+            raw_url = match.get('url')
+            if raw_url is not None:
+                if not isinstance(raw_url, str):
+                    malformed = True
+                elif normalized_url := self._normalize_url(raw_url):
                     urls.add(normalized_url)
                     if url_hostname := normalize_scoped_hostname(urlsplit(normalized_url).hostname, self.target):
                         if url_hostname != self.target:
                             hostnames.add(url_hostname)
-                elif isinstance(raw_url, str):
+                else:
                     malformed = True
 
             text_values: list[str] = []

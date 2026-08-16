@@ -181,11 +181,15 @@ async def test_numbered_pages_keep_a_stable_size_and_slice_the_final_page(monkey
 
 
 @pytest.mark.asyncio
-async def test_early_malformed_rows_and_later_valid_evidence_are_partial(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize('malformed_match', [7, {'url': ['https://api.example.com']}])
+async def test_early_malformed_rows_and_later_valid_evidence_are_partial(
+    monkeypatch: pytest.MonkeyPatch,
+    malformed_match: Any,
+) -> None:
     monkeypatch.setattr(zoomeyesearch.Core, 'zoomeye_key', staticmethod(lambda: 'test-key'))
     monkeypatch.setattr(zoomeyesearch.SearchZoomEye, 'PAGE_SIZE', 1)
     responses = [
-        FetcherResponse({'code': 60000, 'total': 2, 'data': [7]}, 200, {}),
+        FetcherResponse({'code': 60000, 'total': 2, 'data': [malformed_match]}, 200, {}),
         FetcherResponse({'code': 60000, 'total': 2, 'data': [{'hostname': 'api.example.com'}]}, 200, {}),
     ]
 
