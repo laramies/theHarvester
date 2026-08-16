@@ -206,3 +206,6 @@ async def test_github_code_malformed_page_terminates_without_following_paginatio
     assert requested_urls == ['https://api.github.com/search/code?q="example.com"&page=1']
     assert await search.get_emails() == set()
     assert await search.get_hostnames() == []
+
+
+pytestmark = pytest.mark.provider_contract('github-code')

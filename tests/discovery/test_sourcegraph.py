@@ -483,3 +483,6 @@ async def test_sourcegraph_partial_outcome_reaches_completed_result(
     assert execution.result_count == 1
     summary = json.loads(report.with_suffix('.jsonl').read_text().splitlines()[0])
     assert summary['source_executions'][0]['stop_reason'] == 'provider-limited'
+
+
+pytestmark = pytest.mark.provider_contract('sourcegraph')

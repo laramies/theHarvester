@@ -175,3 +175,6 @@ class TestBaiduSearch:
             'https://www.baidu.com/s?wd=site%3Aexample.com&pn=0',
             'https://www.baidu.com/s?wd=site%3Aexample.com&pn=10',
         ]
+
+
+pytestmark = pytest.mark.provider_contract('baidu')

@@ -169,3 +169,6 @@ class TestCrtshIntegration:
         from theHarvester.lib.source_catalog import SOURCE_SPECS
 
         assert 'crtsh' in SOURCE_SPECS
+
+
+pytestmark = pytest.mark.provider_contract('crtsh')

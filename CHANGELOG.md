@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added a catalog-derived offline provider-contract gate that fails on missing, unknown, or duplicate source coverage while keeping live checks outside routine CI.
 - Added sourced ASN organization attribution from URLScan, ONYPHE, and Shodan, linked to the exact hostname or IP evidence and retained in SQLite, JSONL, the API, CLI output, and HarvestView without claiming ownership or scope.
 - Added bounded RouteViews routing enrichment for exact discovered IPs with sourced ASN attribution, or explicit ASN, IP, and CIDR targets, retaining typed origin, BGP-route, and RPKI evidence as external relationships without expanding active scope.
 - Added route-aware `--no-hosts` and REST/HarvestView `no_hosts` filtering that skips hostname-only sources while retaining non-host evidence from mixed sources.
@@ -35,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added root contributor and security policies, structured issue forms, repository agent guidance, discovery terminology, and an operator-focused documentation wiki ([d090a29a](https://github.com/laramies/theHarvester/commit/d090a29a), [7c491ef5](https://github.com/laramies/theHarvester/commit/7c491ef5), [8b9d420b](https://github.com/laramies/theHarvester/commit/8b9d420b)).
 
 ### Changed
+- Updated BeVigil, Dymo, FOFA, FullHunt, Hunter.how, Netlas, ONYPHE, SecurityScorecard, SecurityTrails, SherlockEye, SubdomainFinder C99, VirusTotal, WhoisXML, and ZoomEye provider contracts to retain scoped partial evidence and report authentication, quota, transport, HTTP, and malformed-response outcomes truthfully. FOFA and ONYPHE now honor the operator result limit across documented pagination, while ZoomEye uses the current `POST /v2/search` API and no longer stops after five empty result pages.
 - Replaced runtime takeover fingerprint downloads and global body-substring matches with pinned provider-gated DNS, wildcard controls, and compound HTTP rules. Every checked hostname is now stored as an indicator, no-indicator, or inconclusive outcome with typed DNS, HTTP, rule, and error details in JSONL, SQLite, the API, and HarvestView. Direct checks share one cookie-free HTTP session, keep bounded response bodies, and rely on the whole-run deadline instead of silently inheriting aiohttp's default timeout.
 - HarvestView now summarizes retained evidence and producer health at a glance, links directly to execution outcomes that need attention, and keeps evidence values ahead of optional actions on mobile. Its source picker reports credential readiness without exposing values, prevents unavailable source selections, and replaces the mobile nested-scroll catalog with collapsible activity groups.
 - Routed discovery sources through immutable source jobs with bounded `TaskGroup` ownership, typed outcomes, and native cancellation propagation instead of queuing live coroutine objects.

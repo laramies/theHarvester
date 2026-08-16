@@ -120,3 +120,6 @@ async def test_do_search_uses_v2_report_endpoint(monkeypatch) -> None:
 
     assert any('/v2/domain/report/12345' in url for url in called_urls)
     assert all('/v1/domain/report/' not in url for url in called_urls)
+
+
+pytestmark = pytest.mark.provider_contract('criminalip')

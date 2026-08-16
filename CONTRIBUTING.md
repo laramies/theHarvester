@@ -49,6 +49,13 @@ Useful cases include:
 - pagination and retry termination;
 - normalized, deduplicated results.
 
+Every canonical provider has one offline contract module marked with
+`pytest.mark.provider_contract("source-name")`. The catalog-derived coverage
+gate fails when a catalog entry has no contract, when a contract names an
+unknown source, or when two modules claim the same source. Add the marker to
+the provider's deterministic contract module; do not maintain a second source
+list in tests.
+
 Use the shared transport when it can represent the request. If a provider requires behavior the shared transport does not support, keep the exception local and explain it in the pull request. Never log credentials, account information, private target data, or raw API responses.
 
 ## Test safely
@@ -65,15 +72,12 @@ Before submitting, run the non-mutating quality checks and full test suite:
 uv run ruff check .
 uv run ruff format --check .
 uv run pytest
-```
-
-Changes to typed interfaces should also pass:
-
-```bash
 uv run mypy theHarvester
 ```
 
-Routine verification must use mocks, local fixtures, and reserved example domains. Do not run broad or active reconnaissance against third-party targets. If live verification is essential, use only a target you own or are explicitly authorized to test, limit the request scope, and keep collected data out of commits, issues, and pull requests.
+Routine verification must use mocks, local fixtures, and reserved example domains. The test harness blocks external Python socket traffic unless a test is marked `live_network` and pytest is invoked with both `--run-live-network` and `-m live_network`. A live-marked test never satisfies the provider-contract coverage gate.
+
+Do not run broad or active reconnaissance against third-party targets. If live verification is essential, use only a target you own or are explicitly authorized to test, limit the request scope, and keep collected data out of commits, issues, and pull requests. The manually dispatched provider workflow uses `mozilla.org` for small passive CLI crash smokes. Those runs can detect packaging, credential, or provider drift; they are not conformance tests and should not be retried merely to obtain more results.
 
 CI runs additional source smoke tests, CodeQL, dependency review, and container checks. Contributors do not need to reproduce broad live-source checks locally.
 

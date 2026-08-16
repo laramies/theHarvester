@@ -70,6 +70,7 @@ asyncio_default_fixture_loop_scope = "function"
 addopts = "--no-header --strict-markers -m 'not harvestview_e2e'"
 markers = [
     "live_network: contacts an external service and runs only with --run-live-network",
+    "provider_contract(source): deterministic offline contract for one canonical discovery source",
     "harvestview_e2e: real-browser tests against an isolated local HarvestView server",
 ]
 testpaths = ["tests"]

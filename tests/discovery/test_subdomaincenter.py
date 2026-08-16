@@ -82,3 +82,6 @@ async def test_process_attributes_http_failures(
 
     assert await search.get_hostnames() == set()
     assert 'SubdomainCenter request failed with HTTP 429' in caplog.text
+
+
+pytestmark = pytest.mark.provider_contract('subdomaincenter')

@@ -416,6 +416,8 @@ async def test_process_retains_partial_results_at_the_runtime_limit(monkeypatch:
     await asyncio.wait_for(search.process(), timeout=0.1)
 
     assert await search.get_hostnames() == {'api.example.com'}
+
+
     assert search.execution_status == 'partial'
     assert search.stop_reason == 'runtime-limit'
 
@@ -548,3 +550,6 @@ async def test_process_keeps_results_when_another_query_fails(monkeypatch: pytes
     await search.process()
 
     assert await search.get_hostnames() == {'api.example.com'}
+
+
+pytestmark = pytest.mark.provider_contract('commoncrawl')

@@ -142,3 +142,6 @@ async def test_rate_limit_retries_once_and_preserves_earlier_page(monkeypatch, c
     assert sleeps == [0.0]
     assert await search.get_emails() == {'first@example.com', 'second@example.com'}
     assert 'provider-secret-limit-detail' not in caplog.text
+
+
+pytestmark = pytest.mark.provider_contract('dehashed')

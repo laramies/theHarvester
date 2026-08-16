@@ -697,3 +697,9 @@ class TestShodanEngine:
         assert not await search.get_ips()
         assert 'Shodan InternetDB request failed' in caplog.text
         assert 'provider-secret-payload' not in caplog.text
+
+
+pytestmark = [
+    pytest.mark.provider_contract('shodan'),
+    pytest.mark.provider_contract('shodanInternetDB'),
+]

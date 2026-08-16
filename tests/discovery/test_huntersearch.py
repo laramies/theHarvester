@@ -33,6 +33,8 @@ async def test_hunter_http_failures_return_no_results(monkeypatch, caplog, statu
 
     assert await search.get_emails() == []
     assert await search.get_hostnames() == []
+
+
     assert f'Hunter request failed with HTTP {status}' in caplog.text
     assert 'provider detail' not in caplog.text
 
@@ -221,3 +223,6 @@ async def test_paid_hunter_search_stops_before_exceeding_quota(monkeypatch) -> N
     ]
     assert await search.get_emails() == []
     assert await search.get_hostnames() == []
+
+
+pytestmark = pytest.mark.provider_contract('hunter')

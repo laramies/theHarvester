@@ -259,3 +259,6 @@ async def test_brave_never_exceeds_maximum_page_offset(
     await search.process()
 
     assert [request['offset'] for request in requests] == [[str(offset)] for offset in range(10)] * 2
+
+
+pytestmark = pytest.mark.provider_contract('brave')

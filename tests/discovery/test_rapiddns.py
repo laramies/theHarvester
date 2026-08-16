@@ -186,7 +186,8 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
     class FakeSecurityScorecard:
         created = 0
 
-        def __init__(self, _domain: str) -> None:
+        def __init__(self, _domain: str, limit: int) -> None:
+            assert limit == 500
             type(self).created += 1
 
         async def process(self, _proxy: bool) -> None:
@@ -377,3 +378,6 @@ async def test_rapiddns_evidence_reaches_existing_outputs(
     assert failed_write_exit.value.code == 0
     assert len(completed_results) == 3
     assert 'forced completed-result failure' in capsys.readouterr().out
+
+
+pytestmark = pytest.mark.provider_contract('rapiddns')

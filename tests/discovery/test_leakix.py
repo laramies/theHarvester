@@ -124,3 +124,6 @@ async def test_unusable_responses_fail_closed_without_logging_provider_detail(
     assert 'provider-secret-auth-detail' not in caplog.text
     if expected_log is not None:
         assert expected_log in caplog.text
+
+
+pytestmark = pytest.mark.provider_contract('leakix')

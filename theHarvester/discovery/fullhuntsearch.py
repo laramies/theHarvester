@@ -4,6 +4,7 @@ from typing import Any, ClassVar
 from urllib.parse import quote
 
 from theHarvester.discovery.constants import MissingKey
+from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 
@@ -140,12 +141,21 @@ class SearchFullHunt:
         }
         self.proxy = False
         self.filters: dict[str, str] = {}  # Store filters for advanced searches
+        self.execution_status: str | None = None
+        self.stop_reason: str | None = None
+
+    def _has_results(self) -> bool:
+        return bool(self.total_results['hosts'] or self.total_results['ips'])
+
+    def _stop(self, status: str, reason: str) -> None:
+        self.execution_status = 'partial' if self._has_results() else status
+        self.stop_reason = reason
 
     def _get_headers(self) -> dict[str, str]:
         """Returns the headers needed for API requests"""
         return {'User-Agent': Core.get_user_agent(), 'X-API-KEY': self.key}
 
-    async def _fetch_data(self, endpoint: str) -> dict[str, Any]:
+    async def _fetch_data(self, endpoint: str, session: Any | None = None) -> dict[str, Any]:
         """Generic method to fetch data from a specific endpoint"""
         url = f'{self.BASE_URL}/{endpoint}'
         response = await AsyncFetcher.fetch_all(
@@ -154,13 +164,15 @@ class SearchFullHunt:
             headers=self._get_headers(),
             proxy=self.proxy,
             include_metadata=True,
+            session=session,
         )
-        metadata = response[0] if response and isinstance(response[0], FetcherResponse) else None
-        if metadata is None:
-            raise RuntimeError('FullHunt request failed')
-        if not 200 <= metadata.status < 300:
-            raise RuntimeError(f'FullHunt request failed with HTTP {metadata.status}')
+        metadata = response[0] if response else None
+        if error := provider_http_error(metadata):
+            self._stop(*error)
+            raise RuntimeError(f'FullHunt request failed: {error[1]}')
+        assert isinstance(metadata, FetcherResponse)
         if not isinstance(metadata.body, dict):
+            self._stop('failed', 'invalid-response')
             raise ValueError('FullHunt returned malformed data')
         return metadata.body
 
@@ -213,7 +225,7 @@ class SearchFullHunt:
 
         return ' '.join(query_parts)
 
-    async def advanced_search(self) -> dict[str, Any]:
+    async def advanced_search(self, session: Any | None = None) -> dict[str, Any]:
         """Perform an advanced search using the configured filters
 
         This method uses the search endpoint with the filters configured via add_filter
@@ -226,17 +238,17 @@ class SearchFullHunt:
         query = self._build_query_string()
         encoded_query = quote(query)
         endpoint = f'search?query={encoded_query}'
-        return await self._fetch_data(endpoint)
+        return await self._fetch_data(endpoint, session)
 
-    async def get_domain_details(self) -> dict[str, Any]:
+    async def get_domain_details(self, session: Any | None = None) -> dict[str, Any]:
         """Get comprehensive details about a domain"""
         endpoint = f'domain/{self.word}/details'
-        return await self._fetch_data(endpoint)
+        return await self._fetch_data(endpoint, session)
 
-    async def get_subdomains(self) -> dict[str, Any]:
+    async def get_subdomains(self, session: Any | None = None) -> dict[str, Any]:
         """Get subdomains for a domain"""
         endpoint = f'domain/{self.word}/subdomains'
-        return await self._fetch_data(endpoint)
+        return await self._fetch_data(endpoint, session)
 
     async def get_host_details(self, host: str) -> dict[str, Any]:
         """Get detailed information about a specific host"""
@@ -301,6 +313,7 @@ class SearchFullHunt:
         hosts = details['hosts']
         for host_data in hosts:
             if not isinstance(host_data, dict):
+                self._stop('failed', 'invalid-response')
                 logger.info('FullHunt ignored a malformed host item')
                 continue
             hostname = normalize_scoped_hostname(host_data.get('host'), self.word)
@@ -332,6 +345,7 @@ class SearchFullHunt:
                     for field in ('dns_records', 'http_response', 'geo', 'cloud', 'certificate')
                 )
             ):
+                self._stop('failed', 'invalid-response')
                 logger.info('FullHunt ignored a malformed host item')
                 continue
             # Extract subdomains
@@ -418,32 +432,48 @@ class SearchFullHunt:
     async def do_search(self) -> None:
         """Main search method that calls the various endpoints"""
         try:
-            # First get domain details which includes most information
-            domain_details = await self.get_domain_details()
-            if not isinstance(domain_details.get('hosts'), list):
-                raise ValueError('FullHunt returned malformed domain details')
-            self.total_results['domain_details'] = domain_details
-            await self.extract_data_from_domain_details(domain_details)
+            async with AsyncFetcher.open_session(
+                headers=self._get_headers(),
+                proxy=self.proxy,
+                request_timeout=60,
+            ) as session:
+                # First get domain details which includes most information
+                domain_details = await self.get_domain_details(session)
+                if not isinstance(domain_details.get('hosts'), list):
+                    raise ValueError('FullHunt returned malformed domain details')
+                self.total_results['domain_details'] = domain_details
+                await self.extract_data_from_domain_details(domain_details)
 
-            # If no hosts found in domain details, try the dedicated subdomains endpoint
-            if not self.total_results['hosts']:
-                subdomains_response = await self.get_subdomains()
-                hosts = subdomains_response.get('hosts')
-                if not isinstance(hosts, list):
-                    raise ValueError('FullHunt returned malformed subdomains')
-                for host in hosts:
-                    if normalized_host := normalize_scoped_hostname(host, self.word):
-                        self.total_results['hosts'].append(normalized_host)
-                    else:
-                        logger.info('FullHunt ignored a malformed subdomain item')
+                # If no hosts found in domain details, try the dedicated subdomains endpoint
+                if not self.total_results['hosts']:
+                    subdomains_response = await self.get_subdomains(session)
+                    hosts = subdomains_response.get('hosts')
+                    if not isinstance(hosts, list):
+                        raise ValueError('FullHunt returned malformed subdomains')
+                    for host in hosts:
+                        if normalized_host := normalize_scoped_hostname(host, self.word):
+                            self.total_results['hosts'].append(normalized_host)
+                        else:
+                            self._stop('failed', 'invalid-response')
+                            logger.info('FullHunt ignored a malformed subdomain item')
 
-            # If filters are set, perform an advanced search
-            if self.filters:
-                search_results = await self.advanced_search()
-                await self.extract_data_from_search_results(search_results)
+                # If filters are set, perform an advanced search
+                if self.filters:
+                    search_results = await self.advanced_search(session)
+                    await self.extract_data_from_search_results(search_results)
 
-        except Exception as e:
-            logger.info(f'Error during FullHunt search: {e}')
+        except Exception as error:
+            if self.execution_status is None:
+                reason = 'invalid-response' if isinstance(error, ValueError) else 'transport-error'
+                self._stop('failed', reason)
+            logger.info('Error during FullHunt search: %s', type(error).__name__)
+            return
+
+        if self.execution_status is not None and self._has_results():
+            self.execution_status = 'partial'
+        elif self.execution_status is None:
+            self.execution_status = 'completed'
+            self.stop_reason = None if self._has_results() else 'no-results'
 
     async def get_hostnames(self) -> list[str]:
         """Return list of discovered subdomains"""
@@ -498,6 +528,8 @@ class SearchFullHunt:
 
         """
         self.proxy = proxy
+        self.execution_status = None
+        self.stop_reason = None
 
         # Apply filters if provided
         if filters:

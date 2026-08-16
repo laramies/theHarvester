@@ -39,6 +39,8 @@ async def test_process_parses_historical_four_column_rows(monkeypatch: pytest.Mo
     assert search.stop_reason == 'invalid-response'
 
 
+
+
 @pytest.mark.asyncio
 async def test_valid_empty_response_is_completed(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(bufferoverun.Core, 'bufferoverun_key', staticmethod(lambda: 'test-key'))
@@ -137,3 +139,6 @@ async def test_non_string_row_preserves_valid_partial_results(monkeypatch: pytes
     assert await search.get_ips() == {'192.0.2.10'}
     assert search.execution_status == 'partial'
     assert search.stop_reason == 'invalid-response'
+
+
+pytestmark = pytest.mark.provider_contract('bufferoverun')

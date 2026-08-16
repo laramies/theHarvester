@@ -310,3 +310,6 @@ async def test_search_classifies_transport_exceptions(monkeypatch) -> None:
 
 def test_deprecated_censys_sdk_is_not_a_runtime_dependency() -> None:
     assert '"censys==' not in Path('pyproject.toml').read_text()
+
+
+pytestmark = pytest.mark.provider_contract('censys')

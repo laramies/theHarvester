@@ -1,30 +1,33 @@
 import base64
-import logging
 from ipaddress import ip_address
+from typing import Any
 from urllib.parse import urlparse
 
 from theHarvester.discovery.constants import MissingKey
+from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 
-logger = logging.getLogger(__name__)
-
 
 class SearchFofa:
-    """Class uses Fofa API to search for domain and host intelligence
-    Fofa is a Chinese search engine for network-connected devices
-    """
+    """Collect scoped domain assets through FOFA's cursor search API."""
 
-    def __init__(self, word) -> None:
+    MAX_PAGE_SIZE = 10_000
+
+    def __init__(self, word: str, limit: int) -> None:
+        if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
+            raise ValueError('FOFA limit must be a positive integer')
         self.word = word
-        self.totalhosts: set = set()
-        self.totalips: set = set()
+        self.limit = limit
+        self.totalhosts: set[str] = set()
+        self.totalips: set[str] = set()
         self.proxy = False
         self.hostname = 'https://fofa.info'
         self.api_key, self.email = self._get_api_credentials()
+        self.execution_status: str | None = None
+        self.stop_reason: str | None = None
 
     def _get_api_credentials(self) -> tuple[str, str]:
-        """Get Fofa API credentials"""
         try:
             api_key, email = Core.fofa_key()
         except Exception as error:
@@ -33,99 +36,122 @@ class SearchFofa:
             raise MissingKey('Fofa API (key and email required)')
         return api_key, email
 
+    def _has_results(self) -> bool:
+        return bool(self.totalhosts or self.totalips)
+
+    def _stop(self, status: str, reason: str) -> None:
+        self.execution_status = 'partial' if self._has_results() else status
+        self.stop_reason = reason
+
+    def _store_results(self, results: list[Any]) -> bool:
+        malformed = False
+        for result in results:
+            if not isinstance(result, list) or len(result) < 2:
+                malformed = True
+                continue
+            host, address = result[:2]
+            if isinstance(host, str):
+                try:
+                    parsed_hostname = urlparse(host if '://' in host else f'//{host}').hostname
+                except ValueError:
+                    malformed = True
+                else:
+                    if clean_host := normalize_scoped_hostname(parsed_hostname, self.word):
+                        self.totalhosts.add(clean_host)
+            else:
+                malformed = True
+            if isinstance(address, str):
+                try:
+                    self.totalips.add(str(ip_address(address)))
+                except ValueError:
+                    malformed = True
+            else:
+                malformed = True
+        return malformed
+
+    def _provider_error(self, body: dict[str, Any]) -> None:
+        message = body.get('errmsg')
+        normalized = message.casefold() if isinstance(message, str) else ''
+        if 'invalid' in normalized or '账号无效' in normalized:
+            self._stop('failed', 'access-denied')
+        elif any(term in normalized for term in ('quota', 'limit', 'plan')):
+            self._stop('failed', 'quota-exhausted')
+        else:
+            self._stop('failed', 'provider-error')
+
     async def do_search(self) -> None:
+        query = base64.b64encode(f'domain="{self.word}"'.encode()).decode()
+        cursor: str | None = None
+        seen_cursors: set[str] = set()
+        records_seen = 0
         try:
-            headers = {'User-agent': Core.get_user_agent()}
-
-            # Fofa search query - encode in base64
-            query = f'domain="{self.word}"'
-            query_encoded = base64.b64encode(query.encode()).decode()
-
-            # Fofa API endpoint
-            url = f'{self.hostname}/api/v1/search/all'
-            params = {
-                'email': self.email,
-                'key': self.api_key,
-                'qbase64': query_encoded,
-                'fields': 'host,ip,port,protocol,title',
-                'size': 100,  # Limit results
-            }
-
-            # Build URL with parameters
-            param_string = '&'.join([f'{k}={v}' for k, v in params.items()])
-            full_url = f'{url}?{param_string}'
-
-            response = await AsyncFetcher.fetch_all(
-                [full_url],
-                headers=headers,
+            async with AsyncFetcher.open_session(
+                headers={'User-Agent': Core.get_user_agent()},
                 proxy=self.proxy,
-                json=True,
-                include_metadata=True,
-            )
+            ) as session:
+                while records_seen < self.limit:
+                    remaining = self.limit - records_seen
+                    params: dict[str, str | int] = {
+                        'email': self.email,
+                        'key': self.api_key,
+                        'qbase64': query,
+                        'fields': 'host,ip',
+                        'size': min(self.MAX_PAGE_SIZE, remaining),
+                    }
+                    if cursor is not None:
+                        params['next'] = cursor
+                    response = await AsyncFetcher.fetch(
+                        session=session,
+                        url=f'{self.hostname}/api/v1/search/next',
+                        params=params,
+                        json=True,
+                        include_metadata=True,
+                    )
+                    if error := provider_http_error(response):
+                        self._stop(*error)
+                        return
+                    assert isinstance(response, FetcherResponse)
+                    if not isinstance(response.body, dict):
+                        self._stop('failed', 'invalid-response')
+                        return
+                    if response.body.get('error') is True:
+                        self._provider_error(response.body)
+                        return
+                    results = response.body.get('results')
+                    if not isinstance(results, list):
+                        self._stop('failed', 'invalid-response')
+                        return
 
-            metadata = response[0] if response and isinstance(response[0], FetcherResponse) else None
-            if metadata is None:
-                logger.info(f'No response from Fofa API for: {self.word}')
-                return
-            if not 200 <= metadata.status < 300:
-                logger.info(f'Fofa request failed with HTTP {metadata.status}')
-                return
+                    page_results = results[:remaining]
+                    records_seen += len(page_results)
+                    if self._store_results(page_results):
+                        self._stop('failed', 'invalid-response')
+                    next_cursor = response.body.get('next')
+                    if not results or not isinstance(next_cursor, str) or not next_cursor:
+                        break
+                    if next_cursor in seen_cursors:
+                        self._stop('failed', 'repeated-cursor')
+                        break
+                    seen_cursors.add(next_cursor)
+                    cursor = next_cursor
+        except Exception:
+            self._stop('failed', 'transport-error')
+            return
 
-            try:
-                data = metadata.body
-                if not isinstance(data, dict):
-                    logger.info('Fofa returned malformed data')
-                    return
+        if self.execution_status is not None and self._has_results():
+            self.execution_status = 'partial'
+        elif self.execution_status is None:
+            self.execution_status = 'completed'
+            self.stop_reason = None if self._has_results() else 'no-results'
 
-                # Check for errors
-                if data.get('error', False):
-                    error_message = data.get('errmsg')
-                    normalized_error = error_message.casefold() if isinstance(error_message, str) else ''
-                    if 'invalid' in normalized_error or '账号无效' in normalized_error:
-                        logger.info('Fofa API rejected the configured credentials')
-                    elif any(term in normalized_error for term in ('quota', 'limit', 'plan')):
-                        logger.info('Fofa API quota or plan limit was reached')
-                    else:
-                        logger.info('Fofa API returned an error')
-                    return
-
-                # Extract results
-                results = data.get('results', [])
-                if not isinstance(results, list):
-                    logger.info('Fofa returned malformed results')
-                    return
-                for result in results:
-                    if isinstance(result, list) and len(result) >= 2:
-                        host = result[0]  # host field
-                        ip = result[1]  # ip field
-
-                        # Add host if it's related to our domain
-                        if isinstance(host, str):
-                            parsed = urlparse(host if '://' in host else f'//{host}')
-                            if clean_host := normalize_scoped_hostname(parsed.hostname, self.word):
-                                self.totalhosts.add(clean_host)
-
-                        # Add IP
-                        if isinstance(ip, str) and ip:
-                            try:
-                                self.totalips.add(str(ip_address(ip)))
-                            except ValueError:
-                                continue
-
-            except Exception as e:
-                logger.info(f'Failed to parse Fofa response: {e}')
-
-        except MissingKey:
-            raise
-        except Exception as e:
-            logger.info(f'Fofa API error: {e}')
-
-    async def get_hostnames(self) -> set:
+    async def get_hostnames(self) -> set[str]:
         return self.totalhosts
 
-    async def get_ips(self) -> set:
+    async def get_ips(self) -> set[str]:
         return self.totalips
 
     async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
+        self.execution_status = None
+        self.stop_reason = None
         await self.do_search()

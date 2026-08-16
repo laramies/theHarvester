@@ -207,3 +207,6 @@ class TestMojeekSearch:
         }
         assert search.execution_status == 'completed'
         assert search.stop_reason is None
+
+
+pytestmark = pytest.mark.provider_contract('mojeek')

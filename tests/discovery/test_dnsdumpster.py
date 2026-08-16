@@ -140,3 +140,6 @@ async def test_fetch_exception_is_transport_failure(monkeypatch: pytest.MonkeyPa
 
     assert search.execution_status == 'failed'
     assert search.stop_reason == 'transport-error'
+
+
+pytestmark = pytest.mark.provider_contract('dnsdumpster')

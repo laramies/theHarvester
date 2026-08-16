@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from ipaddress import ip_address
 from urllib.parse import urlsplit
 
+from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.asn_attribution import AsnAttributionObservation, SubjectKind
 from theHarvester.lib.core import AsyncFetcher, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
@@ -12,11 +13,13 @@ logger = logging.getLogger(__name__)
 
 
 class SearchUrlscan:
-    # ponytail: hard cap protects against endless unique cursors; raise only if real targets exceed 1,000 pages.
-    MAX_PAGES = 1000
+    MAX_PAGE_SIZE = 10_000
 
-    def __init__(self, word) -> None:
+    def __init__(self, word: str, limit: int) -> None:
+        if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
+            raise ValueError('URLScan limit must be a positive integer')
         self.word = word
+        self.limit = limit
         self.totalhosts: set = set()
         self.totalips: set = set()
         self.urls: set = set()
@@ -144,63 +147,67 @@ class SearchUrlscan:
         collected_at = datetime.now(UTC)
         cursor = None
         seen_cursors: set[str] = set()
+        records_seen = 0
         malformed = False
-        for _ in range(self.MAX_PAGES):
-            params = {'q': f'domain:{self.word}'}
-            if cursor is not None:
-                params['search_after'] = cursor
-            try:
-                response = await AsyncFetcher.fetch(
-                    url=url,
-                    params=params,
-                    json=True,
-                    proxy=self.proxy,
-                    request_timeout=60,
-                    include_metadata=True,
-                )
-            except Exception as error:
-                self._stop('failed', 'transport-error')
-                logger.info('URLScan request failed: %s', type(error).__name__)
-                return
+        try:
+            async with AsyncFetcher.open_session(proxy=self.proxy) as session:
+                while records_seen < self.limit:
+                    remaining = self.limit - records_seen
+                    params: dict[str, str | int] = {
+                        'q': f'domain:{self.word}',
+                        'size': min(self.MAX_PAGE_SIZE, remaining),
+                    }
+                    if cursor is not None:
+                        params['search_after'] = cursor
+                    response = await AsyncFetcher.fetch(
+                        session=session,
+                        url=url,
+                        params=params,
+                        json=True,
+                        include_metadata=True,
+                    )
 
-            if not isinstance(response, FetcherResponse):
-                self._stop('failed', 'transport-error')
-                return
-            if response.status == 429:
-                self._stop('rate-limited', 'http-429')
-                return
-            if response.status in {401, 403}:
-                self._stop('failed', 'access-denied')
-                return
-            if not 200 <= response.status < 300:
-                self._stop('failed', f'http-{response.status}')
-                return
-            if not isinstance(response.body, dict) or not isinstance(response.body.get('results'), list):
-                self._stop('failed', 'invalid-response')
-                return
+                    if error := provider_http_error(response):
+                        self._stop(*error)
+                        return
+                    assert isinstance(response, FetcherResponse)
+                    if not isinstance(response.body, dict) or not isinstance(response.body.get('results'), list):
+                        self._stop('failed', 'invalid-response')
+                        return
 
-            results = response.body['results']
-            if not results:
-                if malformed:
-                    self._stop('failed', 'invalid-response')
-                else:
-                    self.execution_status = 'completed'
-                    self.stop_reason = None if self._has_results() else 'no-results'
-                return
+                    results = response.body['results']
+                    if not results:
+                        if malformed:
+                            self._stop('failed', 'invalid-response')
+                        else:
+                            self.execution_status = 'completed'
+                            self.stop_reason = None if self._has_results() else 'no-results'
+                        return
 
-            malformed = self._parse_results(results, collected_at) or malformed
-            next_cursor = self._cursor(results[-1])
-            if next_cursor is None:
-                self._stop('failed', 'invalid-cursor')
-                return
-            if next_cursor in seen_cursors:
-                self._stop('failed', 'repeated-cursor')
-                return
-            seen_cursors.add(next_cursor)
-            cursor = next_cursor
+                    page_results = results[:remaining]
+                    records_seen += len(page_results)
+                    malformed = self._parse_results(page_results, collected_at) or malformed
+                    if records_seen >= self.limit:
+                        break
+                    next_cursor = self._cursor(page_results[-1])
+                    if next_cursor is None:
+                        self._stop('failed', 'invalid-cursor')
+                        return
+                    if next_cursor in seen_cursors:
+                        self._stop('failed', 'repeated-cursor')
+                        return
+                    seen_cursors.add(next_cursor)
+                    cursor = next_cursor
+        except Exception as error:
+            self._stop('failed', 'transport-error')
+            logger.info('URLScan request failed: %s', type(error).__name__)
+            return
 
-        self.execution_status = 'partial'
-        self.stop_reason = 'page-limit'
+        if self.execution_status is not None and self._has_results():
+            self.execution_status = 'partial'
+        elif self.execution_status is None:
+            self.execution_status = 'completed'
+            self.stop_reason = None if self._has_results() else 'no-results'
 
     async def get_hostnames(self) -> set:
         return self.totalhosts

@@ -169,3 +169,6 @@ async def test_orchestrator_stores_intelx_subdomains_without_dns(monkeypatch: py
 
     assert results[-1] == ['api.example.com']
     assert completed_results[0].observations == (ResultObservation('intelx', 'hostname', 'api.example.com'),)
+
+
+pytestmark = pytest.mark.provider_contract('intelx')

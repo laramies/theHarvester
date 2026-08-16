@@ -319,3 +319,6 @@ async def test_crt_name_and_crtsh_share_one_result_with_both_sources(
     findings = {(record['type'], record['value']): record for record in records[1:]}
     assert findings[('hostname', 'shared.example.com')]['sources'] == ['crt-name', 'crtsh']
     assert findings[('hostname', 'only-crt-name.example.com')]['sources'] == ['crt-name']
+
+
+pytestmark = pytest.mark.provider_contract('crt-name')

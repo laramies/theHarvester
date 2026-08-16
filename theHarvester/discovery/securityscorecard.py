@@ -1,18 +1,24 @@
-import logging
+from __future__ import annotations
 
-import aiohttp
+from ipaddress import ip_address
+from typing import Any
 
 from theHarvester.discovery.constants import MissingKey
-from theHarvester.lib.core import AsyncFetcher, Core
-
-logger = logging.getLogger(__name__)
+from theHarvester.discovery.provider_response import provider_http_error
+from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
+from theHarvester.lib.hostnames import normalize_scoped_hostname
 
 
 class SearchSecurityScorecard:
-    def __init__(self, word: str):
+    PAGE_SIZE = 50
+
+    def __init__(self, word: str, limit: int) -> None:
+        if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
+            raise ValueError('SecurityScorecard limit must be a positive integer')
         self.word = word
+        self.limit = limit
         self.api_key = Core.securityscorecard_key()
-        if self.api_key is None:
+        if not isinstance(self.api_key, str) or not self.api_key.strip():
             raise MissingKey('SecurityScorecard')
         self.base_url = 'https://api.securityscorecard.io'
         self.headers = {
@@ -22,79 +28,143 @@ class SearchSecurityScorecard:
         }
         self.hosts: set[str] = set()
         self.score: int = 0
-        self.grades: dict = {}
-        self.issues: list[dict] = []
-        self.recommendations: list[dict] = []
-        self.history: list[dict] = []
-        self.ips: list[str] = []
+        self.grades: dict[str, Any] = {}
+        self.issues: list[dict[str, Any]] = []
+        self.recommendations: list[dict[str, Any]] = []
+        self.history: list[dict[str, Any]] = []
+        self.ips: set[str] = set()
+        self.execution_status: str | None = None
+        self.stop_reason: str | None = None
+
+    def _stop(self, status: str, reason: str) -> None:
+        self.execution_status = 'partial' if self.hosts or self.ips else status
+        self.stop_reason = reason
+
+    def _response_body(self, response: Any) -> dict[str, Any] | None:
+        if error := provider_http_error(response):
+            self._stop(*error)
+            return None
+        assert isinstance(response, FetcherResponse)
+        if not isinstance(response.body, dict):
+            self._stop('failed', 'invalid-response')
+            return None
+        return response.body
+
+    def _extract_summary(self, data: dict[str, Any]) -> bool:
+        malformed = False
+        score = data.get('score')
+        if score is not None:
+            if isinstance(score, bool) or not isinstance(score, int):
+                malformed = True
+            else:
+                self.score = score
+
+        grade = data.get('grade')
+        if grade is not None:
+            if isinstance(grade, str) and grade.strip():
+                self.grades['overall'] = grade.strip()
+            else:
+                malformed = True
+        factor_grades = data.get('factor_grades')
+        if factor_grades is not None:
+            if isinstance(factor_grades, dict):
+                self.grades.update(factor_grades)
+            else:
+                malformed = True
+        return malformed
+
+    async def _collect_assets(self, session: Any, route: str, field: str) -> bool:
+        page = 0
+        records_seen = 0
+        page_size = min(self.PAGE_SIZE, self.limit)
+        while records_seen < self.limit:
+            response = await AsyncFetcher.post_fetch(
+                f'{self.base_url}/parent-domains/{self.word}/{route}',
+                session=session,
+                json=True,
+                include_metadata=True,
+                json_body={'page': page, 'page_size': page_size},
+            )
+            body = self._response_body(response)
+            if body is None:
+                return False
+            entries = body.get('entries')
+            size = body.get('size')
+            if not isinstance(entries, list) or isinstance(size, bool) or not isinstance(size, int | float) or size < 0:
+                self._stop('failed', 'invalid-response')
+                return False
+
+            remaining = self.limit - records_seen
+            page_entries = entries[:remaining]
+            records_seen += len(page_entries)
+            malformed = False
+            for entry in page_entries:
+                if not isinstance(entry, dict) or not isinstance(entry.get(field), str):
+                    malformed = True
+                    continue
+                value = entry[field]
+                if field == 'domain':
+                    if hostname := normalize_scoped_hostname(value, self.word):
+                        self.hosts.add(hostname)
+                else:
+                    try:
+                        self.ips.add(str(ip_address(value.strip())))
+                    except ValueError:
+                        malformed = True
+            if malformed:
+                self._stop('failed', 'invalid-response')
+            if records_seen >= self.limit or len(entries) < page_size:
+                return True
+            page += 1
+        return True
 
     async def process(self, proxy: bool = False) -> None:
-        """Get security scorecard information for a domain."""
+        self.execution_status = None
+        self.stop_reason = None
         try:
-            if proxy:
+            async with AsyncFetcher.open_session(headers=self.headers, proxy=proxy) as session:
                 response = await AsyncFetcher.fetch(
-                    session=None, url=f'{self.base_url}/companies/{self.word}', headers=self.headers, proxy=proxy
+                    session=session,
+                    url=f'{self.base_url}/companies/{self.word}',
+                    json=True,
+                    include_metadata=True,
                 )
-                if response:
-                    self._extract_data(response)
-            else:
-                async with aiohttp.ClientSession(headers=self.headers) as session:
-                    async with session.get(f'{self.base_url}/companies/{self.word}') as response:
-                        if response.status == 200:
-                            data = await response.json()
-                            self._extract_data(data)
-        except Exception as e:
-            logger.info(f'Error in SecurityScorecard search: {e}')
+                body = self._response_body(response)
+                if body is None:
+                    return
+                if self._extract_summary(body):
+                    self._stop('failed', 'invalid-response')
+                if not await self._collect_assets(session, 'domains', 'domain'):
+                    return
+                if not await self._collect_assets(session, 'ips', 'ip'):
+                    return
+        except Exception:
+            self._stop('failed', 'transport-error')
+            return
 
-    def _extract_data(self, data: dict) -> None:
-        """Extract and categorize security scorecard information."""
-        if 'grade' in data:
-            self.score = data.get('grade', 0)
-
-        if 'factor_grades' in data:
-            self.grades = data['factor_grades']
-
-        if 'issues' in data:
-            self.issues = data['issues']
-
-        if 'recommendations' in data:
-            self.recommendations = data['recommendations']
-
-        if 'history' in data:
-            self.history = data['history']
-
-        if 'domains' in data:
-            self.hosts.update(data['domains'])
-
-        # Some responses may include IP addresses under different keys
-        ips = []
-        if isinstance(data.get('ips'), list):
-            ips = [str(ip) for ip in data.get('ips', []) if isinstance(ip, str | int)]
-        elif isinstance(data.get('ip_addresses'), list):
-            ips = [str(ip) for ip in data.get('ip_addresses', []) if isinstance(ip, str | int)]
-        elif isinstance(data.get('associated_ips'), list):
-            ips = [str(ip) for ip in data.get('associated_ips', []) if isinstance(ip, str | int)]
-        if ips:
-            # Deduplicate while preserving already stored entries
-            self.ips = list({*self.ips, *ips})
+        if self.execution_status is not None and (self.hosts or self.ips):
+            self.execution_status = 'partial'
+        elif self.execution_status is None:
+            self.execution_status = 'completed'
+            self.stop_reason = None if self.hosts or self.ips else 'no-results'
 
     async def get_hostnames(self) -> set[str]:
         return self.hosts
 
-    async def get_ips(self) -> list[str]:
+    async def get_ips(self) -> set[str]:
         return self.ips
 
     async def get_score(self) -> int:
         return self.score
 
-    async def get_grades(self) -> dict:
+    async def get_grades(self) -> dict[str, Any]:
         return self.grades
 
-    async def get_issues(self) -> list[dict]:
+    async def get_issues(self) -> list[dict[str, Any]]:
         return self.issues
 
-    async def get_recommendations(self) -> list[dict]:
+    async def get_recommendations(self) -> list[dict[str, Any]]:
         return self.recommendations
 
-    async def get_history(self) -> list[dict]:
+    async def get_history(self) -> list[dict[str, Any]]:
         return self.history

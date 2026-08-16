@@ -56,5 +56,7 @@ jobs:
           args: format --check
 
       - name: Test with pytest
-        run: |
-          pytest
+        run: pytest
+
+      - name: Type check with mypy
+        run: mypy theHarvester
