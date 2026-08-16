@@ -1,11 +1,15 @@
-import random
+import logging
+from ipaddress import ip_address as normalize_ip_address
 from typing import Any
 from urllib.parse import urlparse
 
-import aiohttp
-
 from theHarvester.discovery.constants import MissingKey
-from theHarvester.lib.core import Core
+from theHarvester.discovery.provider_response import provider_http_error
+from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
+from theHarvester.lib.hostnames import normalize_scoped_hostname
+from theHarvester.lib.source_execution import SourceExecutionReport
+
+logger = logging.getLogger(__name__)
 
 
 class SearchSherlockeye:
@@ -23,7 +27,7 @@ class SearchSherlockeye:
     def __init__(self, word: str) -> None:
         self.word = word
         self.key = Core.sherlockeye_key()
-        if self.key is None:
+        if not isinstance(self.key, str) or not self.key.strip():
             raise MissingKey('sherlockeye')
         self.totalhosts: set[str] = set()
         self.totalemails: set[str] = set()
@@ -38,104 +42,120 @@ class SearchSherlockeye:
             'Content-Type': 'application/json',
         }
 
-    def _proxy_url(self) -> str | None:
-        if isinstance(self.proxy, str) and self.proxy:
-            return self.proxy
-        if isinstance(self.proxy, bool) and self.proxy:
-            try:
-                proxy_list = Core.proxy_list()
-                proxy_urls = [*proxy_list.get('http', []), *proxy_list.get('socks5', [])]
-                if proxy_urls:
-                    return random.choice(proxy_urls)
-            except Exception:
-                return None
-        return None
-
     def _add_hostname(self, hostname: str) -> None:
-        hostname = hostname.strip().lower().removeprefix('www.')
-        if hostname.endswith(f'.{self.word}') or hostname == self.word:
-            self.totalhosts.add(hostname)
+        if normalized := normalize_scoped_hostname(hostname, self.word):
+            self.totalhosts.add(normalized)
 
     def _add_email(self, email: str) -> None:
-        email = email.strip().lower()
-        if '@' in email and self.word in email:
-            self.totalemails.add(email)
+        normalized_email = email.strip().lower()
+        local_part, separator, domain = normalized_email.rpartition('@')
+        if local_part and separator and (normalized_domain := normalize_scoped_hostname(domain, self.word)):
+            self.totalemails.add(f'{local_part}@{normalized_domain}')
 
     def _add_ip(self, ip_address: str) -> None:
-        ip_address = ip_address.strip()
-        if ip_address:
-            self.totalips.add(ip_address)
+        try:
+            self.totalips.add(str(normalize_ip_address(ip_address.strip())))
+        except ValueError:
+            return
 
-    def _extract_from_link(self, link: str) -> None:
-        parsed = urlparse(link.strip())
+    def _extract_from_link(self, link: str) -> bool:
+        try:
+            parsed = urlparse(link.strip())
+        except ValueError:
+            return True
         if parsed.hostname:
             self._add_hostname(parsed.hostname)
+        return False
 
-    def _extract_result(self, result: dict[str, Any]) -> None:
+    def _extract_result(self, result: dict[str, Any]) -> bool:
         attributes = result.get('attributes')
         if not isinstance(attributes, dict):
-            return
+            return True
+
+        malformed = False
 
         domain = attributes.get('domain')
         if isinstance(domain, str):
             self._add_hostname(domain)
+        elif domain is not None:
+            malformed = True
 
         email = attributes.get('email')
         if isinstance(email, str):
             self._add_email(email)
+        elif email is not None:
+            malformed = True
 
         ip_address = attributes.get('ip')
         if isinstance(ip_address, str):
             self._add_ip(ip_address)
+        elif ip_address is not None:
+            malformed = True
 
         link = attributes.get('link')
         if isinstance(link, str):
-            self._extract_from_link(link)
+            malformed |= self._extract_from_link(link)
+        elif link is not None:
+            malformed = True
+        return malformed
 
-    def _extract_response(self, response: dict[str, Any]) -> None:
+    def _extract_response(self, response: dict[str, Any]) -> SourceExecutionReport | None:
         if response.get('success') is False:
-            message = response.get('message', 'Unknown Sherlockeye API error')
-            print(f'Sherlockeye API error: {message}')
-            return
+            logger.info('Sherlockeye API error')
+            return SourceExecutionReport('failed', 'provider-error')
 
         data = response.get('data')
         if not isinstance(data, dict):
-            return
+            return SourceExecutionReport('failed', 'invalid-response')
 
         search_results = data.get('results')
         if not isinstance(search_results, list):
-            return
+            return SourceExecutionReport('failed', 'invalid-response')
 
         self.results = search_results
+        malformed = False
         for result in search_results:
             if isinstance(result, dict):
-                self._extract_result(result)
+                malformed |= self._extract_result(result)
+            else:
+                malformed = True
+        if malformed:
+            return SourceExecutionReport('failed', 'invalid-response')
+        return None
 
-    async def do_search(self) -> None:
+    async def do_search(self) -> SourceExecutionReport | None:
         payload = {
             'type': 'domain',
             'value': self.word,
             'timeoutSeconds': self.DEFAULT_TIMEOUT_SECONDS,
         }
-        timeout = aiohttp.ClientTimeout(total=self.DEFAULT_TIMEOUT_SECONDS + 30)
-
         try:
-            async with aiohttp.ClientSession(headers=self._headers(), timeout=timeout) as session:
-                async with session.post(
+            async with AsyncFetcher.open_session(
+                headers=self._headers(),
+                proxy=self.proxy,
+                request_timeout=self.DEFAULT_TIMEOUT_SECONDS + 30,
+            ) as session:
+                response = await AsyncFetcher.post_fetch(
                     self.SYNC_SEARCH_URL,
-                    json=payload,
-                    proxy=self._proxy_url(),
-                ) as response:
-                    if response.status != 200:
-                        error_body = await response.text()
-                        print(f'Sherlockeye API error ({response.status}): {error_body[:200]}')
-                        return
-
-                    response_data = await response.json()
-                    if isinstance(response_data, dict):
-                        self._extract_response(response_data)
+                    session=session,
+                    json=True,
+                    include_metadata=True,
+                    json_body=payload,
+                )
+                if error := provider_http_error(response):
+                    status = response.status if isinstance(response, FetcherResponse) else 'transport'
+                    logger.info('Sherlockeye API request failed with status %s: %s', status, error[1])
+                    return SourceExecutionReport(*error)
+                assert isinstance(response, FetcherResponse)
+                if response.status != 200:
+                    logger.info('Sherlockeye API request failed with status %s', response.status)
+                    return SourceExecutionReport('failed', f'http-{response.status}')
+                if isinstance(response.body, dict):
+                    return self._extract_response(response.body)
+                return SourceExecutionReport('failed', 'invalid-response')
         except Exception as error:
-            print(f'Sherlockeye API error: {error}')
+            logger.info('Sherlockeye API error: %s', type(error).__name__)
+            return SourceExecutionReport('failed', 'transport-error')
 
     async def get_hostnames(self) -> set[str]:
         return self.totalhosts
@@ -149,6 +169,6 @@ class SearchSherlockeye:
     async def get_results(self) -> list[dict[str, Any]]:
         return self.results
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        await self.do_search()
+        return await self.do_search()

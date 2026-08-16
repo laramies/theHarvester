@@ -1,7 +1,10 @@
 import asyncio
+import logging
 
 from theHarvester.discovery.constants import MissingKey, get_delay
 from theHarvester.lib.core import AsyncFetcher, Core
+
+logger = logging.getLogger(__name__)
 
 
 class SearchRocketReach:
@@ -14,7 +17,7 @@ class SearchRocketReach:
         self.hosts: set = set()
         self.proxy = False
         self.baseurl = 'https://api.rocketreach.co/api/v2/person/search'
-        self.links: set = set()
+        self.urls: set = set()
         self.emails: set = set()
         self.limit = limit
 
@@ -49,7 +52,7 @@ class SearchRocketReach:
 
                 if detail and 'Request was throttled.' in str(detail):
                     # Rate limit has been triggered need to sleep extra
-                    print(
+                    logger.info(
                         f'RocketReach requests have been throttled; '
                         f'{str(detail).split(" ", 3)[-1].replace("available", "availability")}'
                     )
@@ -61,7 +64,7 @@ class SearchRocketReach:
 
                 for profile in profiles:
                     if 'linkedin_url' in profile:
-                        self.links.add(profile['linkedin_url'])
+                        self.urls.add(profile['linkedin_url'])
                     if profile.get('emails'):
                         for email in profile['emails']:
                             if email.get('email'):
@@ -81,10 +84,10 @@ class SearchRocketReach:
             await asyncio.sleep(get_delay() + 5)
 
         except Exception as e:
-            print(f'An exception has occurred rocketreach: {e}')
+            logger.info(f'An exception has occurred rocketreach: {e}')
 
-    async def get_links(self):
-        return self.links
+    async def get_urls(self):
+        return self.urls
 
     async def get_emails(self):
         return self.emails

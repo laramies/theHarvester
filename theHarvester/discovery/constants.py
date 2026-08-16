@@ -61,7 +61,6 @@ async def search(text: str) -> bool:
             or 'http://www.google.com/sorry/index' in line
             or 'https://www.google.com/sorry/index' in line
         ):
-            # print('\tGoogle is blocking your IP due to too many automated requests, wait or change your IP')
             return True
     return False
 
@@ -79,7 +78,7 @@ async def google_workaround(visit_url: str) -> bool | str:
         'type': 'GET&http=1.1',
         'uak': str(random.randint(4, 8)),  # select random UA to send to Google
     }
-    returned_html = await AsyncFetcher.post_fetch(url, headers={'User-Agent': Core.get_user_agent()}, data=data)
+    returned_html = await AsyncFetcher.post_fetch(url, headers={'User-Agent': Core.get_browser_user_agent()}, data=data)
     returned_html = (
         'This page appears when Google automatically detects requests coming from your computer network'
         if returned_html == ''

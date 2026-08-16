@@ -1,113 +1,114 @@
 import asyncio
-import random
-
-import aiohttp
+import logging
+from ipaddress import ip_address
+from typing import Any
 
 from theHarvester.discovery.constants import MissingKey
-from theHarvester.lib.core import Core
+from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
+
+logger = logging.getLogger(__name__)
 
 
 class SearchDehashed:
-    def __init__(self, word) -> None:
+    def __init__(self, word: str, limit: int = 500) -> None:
         self.word = word
-        self.key = Core.dehashed_key()
-        if self.key is None:
+        self.key = (Core.dehashed_key() or '').strip()
+        if not self.key:
             raise MissingKey('Dehashed')
-
         self.api = 'https://api.dehashed.com/v2/search'
         self.headers = {
             'Dehashed-Api-Key': self.key,
             'User-Agent': Core.get_user_agent(),
         }
-        self.results = ''
-        self.data: list[dict] = []
+        self.limit = max(limit, 0)
+        self.emails: set[str] = set()
+        self.ips: set[str] = set()
         self.proxy: bool = False
 
-    async def do_search(self) -> None:
-        print(f'\t[+] Performing Dehashed search for: {self.word}')
-        page = 1
-        size = 100
-        while True:
-            payload = {'query': self.word, 'page': page, 'size': size, 'wildcard': False, 'regex': False, 'de_dupe': False}
-
+    async def _fetch_page(self, payload: dict[str, Any]) -> Any:
+        response = await AsyncFetcher.post_fetch(
+            self.api,
+            headers=self.headers,
+            json_body=payload,
+            proxy=self.proxy,
+            include_metadata=True,
+        )
+        if isinstance(response, FetcherResponse) and response.status == 429:
+            retry_after = response.headers.get('retry-after') or response.headers.get('Retry-After')
             try:
-                # Resolve proxy URL if enabled
-                proxy_url = None
-                if isinstance(self.proxy, str) and self.proxy:
-                    proxy_url = self.proxy
-                elif isinstance(self.proxy, bool) and self.proxy:
-                    try:
-                        proxies = Core.proxy_list()
-                        if proxies:
-                            proxy_url = str(random.choice(proxies))
-                    except Exception:
-                        proxy_url = None
+                delay = float(retry_after) if retry_after is not None else -1
+            except ValueError:
+                delay = -1
+            if 0 <= delay <= 60:
+                logger.info(f'\t[!] Dehashed rate limited; retrying once in {delay:g} seconds')
+                await asyncio.sleep(delay)
+                response = await AsyncFetcher.post_fetch(
+                    self.api,
+                    headers=self.headers,
+                    json_body=payload,
+                    proxy=self.proxy,
+                    include_metadata=True,
+                )
+        return response
 
-                timeout = aiohttp.ClientTimeout(total=120)
-                async with aiohttp.ClientSession(headers=self.headers, timeout=timeout) as session:
-                    async with session.post(self.api, json=payload, proxy=proxy_url) as response:
-                        if response.status == 401:
-                            raise Exception('Unauthorized. Check Dehashed API key.')
-                        if response.status == 403:
-                            raise Exception('Forbidden. API key is not allowed.')
-                        try:
-                            data = await response.json()
-                        except Exception:
-                            text = await response.text()
-                            raise Exception(f'Unexpected response format: {text[:200]}')
+    def _retain_evidence(self, entries: list[object]) -> None:
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            email = entry.get('email')
+            if isinstance(email, str):
+                normalized_email = email.strip().lower()
+                local, separator, domain = normalized_email.partition('@')
+                if local and separator and domain and '@' not in domain:
+                    self.emails.add(normalized_email)
+            address = entry.get('ip_address')
+            if isinstance(address, str):
+                try:
+                    self.ips.add(str(ip_address(address.strip())))
+                except ValueError:
+                    continue
 
-                entries = data.get('entries', [])
+    async def do_search(self) -> None:
+        logger.info(f'\t[+] Performing Dehashed search for: {self.word}')
+        page = 1
+        remaining = self.limit
+        while remaining > 0:
+            size = min(100, remaining)
+            payload = {'query': self.word, 'page': page, 'size': size, 'wildcard': False, 'regex': False, 'de_dupe': False}
+            try:
+                response = await self._fetch_page(payload)
+                if not isinstance(response, FetcherResponse):
+                    logger.info('\t[!] Dehashed request failed')
+                    break
+                if not 200 <= response.status < 300:
+                    logger.info(f'\t[!] Dehashed request failed with HTTP {response.status}')
+                    break
+                data = response.body
+                if not isinstance(data, dict) or not isinstance(entries := data.get('entries'), list):
+                    logger.info('\t[!] Dehashed returned a malformed response')
+                    break
                 if not entries:
                     break
-
-                self.data.extend(entries)
-                print(f'\t[+] Page {page} - Retrieved {len(entries)} entries.')
-
+                retained_entries = entries[:remaining]
+                self._retain_evidence(retained_entries)
+                remaining -= len(retained_entries)
+                logger.info(f'\t[+] Page {page} - Retrieved {len(retained_entries)} entries.')
                 if len(entries) < size:
                     break
                 page += 1
-                await asyncio.sleep(0.5)
-            except Exception as e:
-                print(f'\t[!] Dehashed error: {e}')
+            except (OSError, RuntimeError, ValueError):
+                logger.info('\t[!] Dehashed request failed')
                 break
-
-    async def print_csv_results(self) -> None:
-        if not self.data:
-            print('\t[!] No data found.')
-            return
-
-        print('\n[Dehashed Results]')
-        print('Email,Username,Password,Phone,IP,Source')
-
-        for entry in self.data:
-            email = entry.get('email', '')
-            username = entry.get('username', '')
-            password = entry.get('password', '')
-            phone = entry.get('phone', '')
-            ip = entry.get('ip_address', '')
-            source = entry.get('database_name', '')
-
-            csv_line = f'"{email}","{username}","{password}","{phone}","{ip}","{source}"'
-            print(csv_line)
 
     async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
         await self.do_search()
-        await self.print_csv_results()
 
-    async def get_emails(self) -> set:
-        emails = set()
-        for entry in self.data:
-            if entry.get('email'):
-                emails.add(entry['email'])
-        return emails
+    async def get_emails(self) -> set[str]:
+        return self.emails
 
-    async def get_hostnames(self) -> set:
+    async def get_hostnames(self) -> set[str]:
         return set()
 
-    async def get_ips(self) -> set:
-        ips = set()
-        for entry in self.data:
-            if entry.get('ip_address'):
-                ips.add(entry['ip_address'])
-        return ips
+    async def get_ips(self) -> set[str]:
+        return self.ips

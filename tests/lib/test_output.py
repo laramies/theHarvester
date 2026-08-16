@@ -1,38 +1,25 @@
 from __future__ import annotations
 
-
-from theHarvester.lib.output import print_linkedin_sections, sorted_unique
+from theHarvester.lib.output import configure_logging, print_linkedin_people, sorted_unique
 
 
 def test_sorted_unique_sorts_and_deduplicates() -> None:
-    assert sorted_unique(["b", "a", "b"]) == ["a", "b"]
+    assert sorted_unique(['b', 'a', 'b']) == ['a', 'b']
 
 
-def test_print_linkedin_sections_prints_links_when_present(capsys) -> None:
-    # Regression coverage: the CLI previously never printed LinkedIn links when the list was non-empty.
-    print_linkedin_sections(
-        engines=["linkedin"],
-        people=[],
-        links=["https://b.example", "https://a.example", "https://a.example"],
-    )
+def test_print_linkedin_people_reports_no_users(capsys) -> None:
+    configure_logging(verbose=False)
+    print_linkedin_people(engines=['linkedin'], people=[])
 
     out = capsys.readouterr().out
-    assert "No LinkedIn users found" in out
-    assert "LinkedIn Links found: 3" in out
-    assert "https://a.example" in out
-    assert "https://b.example" in out
+    assert 'No LinkedIn users found' in out
 
 
-def test_print_linkedin_sections_prints_people_and_links(capsys) -> None:
-    print_linkedin_sections(
-        engines=["rocketreach"],
-        people=["bob", "alice", "bob"],
-        links=["https://z.example", "https://z.example"],
-    )
+def test_print_linkedin_people_prints_people(capsys) -> None:
+    configure_logging(verbose=False)
+    print_linkedin_people(engines=['rocketreach'], people=['bob', 'alice', 'bob'])
 
     out = capsys.readouterr().out
-    assert "LinkedIn Users found: 3" in out
-    assert "alice" in out
-    assert "bob" in out
-    assert "LinkedIn Links found: 2" in out
-    assert "https://z.example" in out
+    assert 'LinkedIn Users found: 3' in out
+    assert 'alice' in out
+    assert 'bob' in out

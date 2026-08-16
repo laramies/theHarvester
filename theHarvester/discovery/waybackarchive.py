@@ -1,13 +1,27 @@
-import re
+import asyncio
+import logging
+from urllib.parse import unquote_plus, urlencode, urlsplit
 
 from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.source_execution import SourceExecutionReport, SourceReportStatus
+
+logger = logging.getLogger(__name__)
 
 
 class SearchWaybackarchive:
-    """Class uses Internet Archive's Wayback Machine CDX API to find historical subdomains"""
+    """Use the Internet Archive Wayback CDX API to find historical subdomains.
 
-    def __init__(self, word) -> None:
-        self.word = word
+    API documentation: https://github.com/internetarchive/wayback/tree/master/wayback-cdx-server
+    """
+
+    PAGE_SIZE = 1000
+    RUNTIME_SECONDS = 30.0
+    # ponytail: hard cap protects against endless cursors; raise only if real targets exceed one million rows.
+    MAX_PAGES_PER_QUERY = 1000
+
+    def __init__(self, word, limit: int = 500) -> None:
+        self.word = word.strip().rstrip('.').lower()
+        self.limit = max(limit, 0)
         self.totalhosts: set = set()
         self.proxy = False
         self.hostname = 'https://web.archive.org'
@@ -16,60 +30,122 @@ class SearchWaybackarchive:
         """Extract domain from URL"""
         if not url:
             return ''
+        try:
+            parsed = urlsplit(url if '://' in url else f'//{url}')
+            hostname = (parsed.hostname or '').rstrip('.').lower()
+        except ValueError:
+            return ''
+        if len(hostname) > 253 or any(
+            not label
+            or len(label) > 63
+            or label.startswith('-')
+            or label.endswith('-')
+            or not all(character.isascii() and (character.isalnum() or character == '-') for character in label)
+            for label in hostname.split('.')
+        ):
+            return ''
+        return hostname
 
-        # Remove protocol
-        url = re.sub(r'^https?://', '', url)
+    @staticmethod
+    def _parse_page(payload: object) -> tuple[list[str], str | None] | None:
+        if not isinstance(payload, str) or payload.lstrip().startswith('<'):
+            return None
 
-        # Extract domain part (before first /)
-        domain = url.split('/')[0]
+        body, separator, continuation = payload.replace('\r\n', '\n').rpartition('\n\n')
+        if not separator:
+            return payload.splitlines(), None
 
-        # Remove port if present
-        domain = domain.split(':')[0]
+        continuation_lines = [line.strip() for line in continuation.splitlines() if line.strip()]
+        return body.splitlines(), continuation_lines[0] if len(continuation_lines) == 1 else None
 
-        return domain.lower()
+    async def _search_pattern(self, pattern: str, headers: dict[str, str]) -> str | None:
+        resume_key: str | None = None
+        seen_resume_keys: set[str] = set()
+        for page_number in range(1, self.MAX_PAGES_PER_QUERY + 1):
+            query = {
+                'url': pattern,
+                'fl': 'original',
+                'collapse': 'urlkey',
+                'limit': self.PAGE_SIZE,
+                'showResumeKey': 'true',
+            }
+            if resume_key is not None:
+                query['resumeKey'] = unquote_plus(resume_key)
 
-    async def do_search(self) -> None:
+            url = f'{self.hostname}/cdx/search/cdx?{urlencode(query)}'
+            response = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
+            if not response or not isinstance(response, list):
+                logger.info(f'Wayback Archive returned an invalid response container for pattern {pattern}')
+                return 'invalid-response'
+            if not response[0]:
+                logger.info(f'Wayback Archive returned no page data for pattern {pattern}')
+                return None
+
+            page = self._parse_page(response[0])
+            if page is None:
+                logger.info(f'Wayback Archive returned invalid page data for pattern {pattern}; stopping pagination')
+                return 'invalid-response'
+            lines, next_resume_key = page
+            for line in lines:
+                if not line:
+                    continue
+                domain = self._extract_domain_from_url(line.strip())
+                if domain.endswith(f'.{self.word}') or domain == self.word:
+                    self.totalhosts.add(domain)
+                    if len(self.totalhosts) >= self.limit:
+                        return 'result-limit'
+
+            if page_number == 1 or page_number % 10 == 0:
+                logger.info(f'Wayback Archive page {page_number}: hosts={len(self.totalhosts)}')
+
+            if next_resume_key is None or next_resume_key in seen_resume_keys:
+                return None
+            seen_resume_keys.add(next_resume_key)
+            resume_key = next_resume_key
+        logger.info(f'Wayback Archive page limit reached for pattern {pattern}; results may be incomplete')
+        return 'page-limit'
+
+    async def do_search(self) -> SourceExecutionReport | None:
+        if self.limit == 0:
+            return None
         try:
             headers = {'User-agent': Core.get_user_agent()}
-
-            # Search for subdomains in wayback machine
-            # Using different approaches due to API timeout issues
-
-            # Method 1: Search for wildcard subdomains (limited results to avoid timeout)
-            urls_to_try = [
-                f'{self.hostname}/cdx/search/cdx?url=*.{self.word}&fl=original&collapse=urlkey&limit=100',
-                f'{self.hostname}/cdx/search/cdx?url={self.word}/*&fl=original&collapse=urlkey&limit=50',
-            ]
-
-            for url in urls_to_try:
-                try:
-                    response = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
-
-                    if not response or not isinstance(response, list) or not response[0]:
-                        continue
-
-                    # Parse line-by-line response (not JSON)
-                    lines = response[0].strip().split('\n') if isinstance(response[0], str) else []
-
-                    for line in lines:
-                        if line and not line.startswith('<'):  # Skip HTML error messages
-                            # Each line is a URL
-                            domain = self._extract_domain_from_url(line.strip())
-
-                            # Check if it's a subdomain of our target
-                            if domain.endswith(f'.{self.word}') or domain == self.word:
-                                self.totalhosts.add(domain)
-
-                except Exception as e:
-                    print(f'Wayback Archive API error for URL {url}: {e}')
-                    continue
-
+            degraded_reason: str | None = None
+            try:
+                async with asyncio.timeout(self.RUNTIME_SECONDS):
+                    for pattern in (f'*.{self.word}', f'{self.word}/*'):
+                        try:
+                            outcome = await self._search_pattern(pattern, headers)
+                        except Exception as e:
+                            degraded_reason = degraded_reason or 'request-error'
+                            logger.info(f'Wayback Archive API error for pattern {pattern}: {e}')
+                            continue
+                        if outcome == 'result-limit':
+                            if degraded_reason is None:
+                                return SourceExecutionReport('completed', 'result-limit')
+                            break
+                        if outcome == 'page-limit':
+                            degraded_reason = degraded_reason or outcome
+                            break
+                        if outcome is not None:
+                            degraded_reason = degraded_reason or outcome
+            except TimeoutError:
+                logger.info(
+                    f'Wayback Archive runtime limit reached after {self.RUNTIME_SECONDS:g}s; '
+                    f'preserved {len(self.totalhosts)} hosts'
+                )
+                return SourceExecutionReport('failed', 'runtime-limit')
+            if degraded_reason is not None:
+                status: SourceReportStatus = 'partial' if degraded_reason == 'page-limit' else 'failed'
+                return SourceExecutionReport(status, degraded_reason)
         except Exception as e:
-            print(f'Wayback Archive API error: {e}')
+            logger.info(f'Wayback Archive API error: {e}')
+            return SourceExecutionReport('failed', 'unexpected-error')
+        return None
 
     async def get_hostnames(self) -> set:
         return self.totalhosts
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        await self.do_search()
+        return await self.do_search()

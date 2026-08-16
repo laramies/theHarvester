@@ -1,8 +1,15 @@
+import logging
+from ipaddress import ip_address
 from typing import Any, ClassVar
 from urllib.parse import quote
 
 from theHarvester.discovery.constants import MissingKey
-from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.discovery.provider_response import provider_http_error
+from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
+from theHarvester.lib.hostnames import normalize_scoped_hostname
+from theHarvester.lib.source_execution import SourceExecutionReport, SourceReportStatus
+
+logger = logging.getLogger(__name__)
 
 
 class SearchFullHunt:
@@ -112,8 +119,11 @@ class SearchFullHunt:
 
     def __init__(self, word) -> None:
         self.word = word
-        self.key = Core.fullhunt_key()
-        if self.key is None:
+        try:
+            self.key = Core.fullhunt_key()
+        except Exception as error:
+            raise MissingKey('fullhunt') from error
+        if not isinstance(self.key, str) or not self.key.strip():
             raise MissingKey('fullhunt')
         self.total_results: dict[str, Any] = {
             'hosts': [],  # List of subdomains
@@ -132,12 +142,16 @@ class SearchFullHunt:
         }
         self.proxy = False
         self.filters: dict[str, str] = {}  # Store filters for advanced searches
+        self._report: SourceExecutionReport | None = None
+
+    def _stop(self, status: SourceReportStatus, reason: str) -> None:
+        self._report = SourceExecutionReport(status, reason)
 
     def _get_headers(self) -> dict[str, str]:
         """Returns the headers needed for API requests"""
         return {'User-Agent': Core.get_user_agent(), 'X-API-KEY': self.key}
 
-    async def _fetch_data(self, endpoint: str) -> dict[str, Any]:
+    async def _fetch_data(self, endpoint: str, session: Any | None = None) -> dict[str, Any]:
         """Generic method to fetch data from a specific endpoint"""
         url = f'{self.BASE_URL}/{endpoint}'
         response = await AsyncFetcher.fetch_all(
@@ -145,8 +159,18 @@ class SearchFullHunt:
             json=True,
             headers=self._get_headers(),
             proxy=self.proxy,
+            include_metadata=True,
+            session=session,
         )
-        return response[0]
+        metadata = response[0] if response else None
+        if error := provider_http_error(metadata):
+            self._stop(*error)
+            raise RuntimeError(f'FullHunt request failed: {error[1]}')
+        assert isinstance(metadata, FetcherResponse)
+        if not isinstance(metadata.body, dict):
+            self._stop('failed', 'invalid-response')
+            raise ValueError('FullHunt returned malformed data')
+        return metadata.body
 
     def add_filter(self, filter_name: str, filter_value: str) -> None:
         """Add a search filter to be used in advanced searches
@@ -197,7 +221,7 @@ class SearchFullHunt:
 
         return ' '.join(query_parts)
 
-    async def advanced_search(self) -> dict[str, Any]:
+    async def advanced_search(self, session: Any | None = None) -> dict[str, Any]:
         """Perform an advanced search using the configured filters
 
         This method uses the search endpoint with the filters configured via add_filter
@@ -210,17 +234,17 @@ class SearchFullHunt:
         query = self._build_query_string()
         encoded_query = quote(query)
         endpoint = f'search?query={encoded_query}'
-        return await self._fetch_data(endpoint)
+        return await self._fetch_data(endpoint, session)
 
-    async def get_domain_details(self) -> dict[str, Any]:
+    async def get_domain_details(self, session: Any | None = None) -> dict[str, Any]:
         """Get comprehensive details about a domain"""
         endpoint = f'domain/{self.word}/details'
-        return await self._fetch_data(endpoint)
+        return await self._fetch_data(endpoint, session)
 
-    async def get_subdomains(self) -> dict[str, Any]:
+    async def get_subdomains(self, session: Any | None = None) -> dict[str, Any]:
         """Get subdomains for a domain"""
         endpoint = f'domain/{self.word}/subdomains'
-        return await self._fetch_data(endpoint)
+        return await self._fetch_data(endpoint, session)
 
     async def get_host_details(self, host: str) -> dict[str, Any]:
         """Get detailed information about a specific host"""
@@ -284,13 +308,48 @@ class SearchFullHunt:
 
         hosts = details['hosts']
         for host_data in hosts:
+            if not isinstance(host_data, dict):
+                self._stop('failed', 'invalid-response')
+                logger.info('FullHunt ignored a malformed host item')
+                continue
+            hostname = normalize_scoped_hostname(host_data.get('host'), self.word)
+            address = host_data.get('ip_address')
+            try:
+                normalized_address = str(ip_address(address)) if isinstance(address, str) else None
+            except ValueError:
+                normalized_address = None
+            if (
+                hostname is None
+                or (address is not None and normalized_address is None)
+                or (
+                    'network_ports' in host_data
+                    and (
+                        not isinstance(host_data['network_ports'], (list, set, tuple))
+                        or any(
+                            not isinstance(port, int) or isinstance(port, bool) or not 0 <= port <= 65535
+                            for port in host_data['network_ports']
+                        )
+                    )
+                )
+                or any(
+                    field in host_data
+                    and (not isinstance(host_data[field], list) or any(not isinstance(value, str) for value in host_data[field]))
+                    for field in ('products', 'tags')
+                )
+                or any(
+                    field in host_data and not isinstance(host_data[field], dict)
+                    for field in ('dns_records', 'http_response', 'geo', 'cloud', 'certificate')
+                )
+            ):
+                self._stop('failed', 'invalid-response')
+                logger.info('FullHunt ignored a malformed host item')
+                continue
             # Extract subdomains
-            if host_data.get('host'):
-                self.total_results['hosts'].append(host_data['host'])
+            self.total_results['hosts'].append(hostname)
 
             # Extract IPs
-            if host_data.get('ip_address'):
-                self.total_results['ips'].append(host_data['ip_address'])
+            if normalized_address:
+                self.total_results['ips'].append(normalized_address)
 
             # Extract ports
             if host_data.get('network_ports'):
@@ -307,7 +366,6 @@ class SearchFullHunt:
             # Extract DNS information
             if 'dns_records' in host_data:
                 dns_records = host_data['dns_records']
-                hostname = host_data.get('host', '')
 
                 if hostname not in self.total_results['dns_records']:
                     self.total_results['dns_records'][hostname] = {}
@@ -318,7 +376,6 @@ class SearchFullHunt:
             # Extract HTTP information
             if 'http_response' in host_data:
                 http_info = host_data['http_response']
-                hostname = host_data.get('host', '')
 
                 if hostname not in self.total_results['http_info']:
                     self.total_results['http_info'][hostname] = {}
@@ -329,7 +386,6 @@ class SearchFullHunt:
             # Extract geographic information
             if 'geo' in host_data:
                 geo_info = host_data['geo']
-                hostname = host_data.get('host', '')
 
                 if hostname not in self.total_results['geo_info']:
                     self.total_results['geo_info'][hostname] = {}
@@ -340,7 +396,6 @@ class SearchFullHunt:
             # Extract cloud information
             if 'cloud' in host_data:
                 cloud_info = host_data['cloud']
-                hostname = host_data.get('host', '')
 
                 if hostname not in self.total_results['cloud_info']:
                     self.total_results['cloud_info'][hostname] = {}
@@ -350,8 +405,7 @@ class SearchFullHunt:
 
             # Extract certificate information
             if 'certificate' in host_data:
-                cert_info = host_data['certificate']
-                cert_info['hostname'] = host_data.get('host', '')
+                cert_info = {**host_data['certificate'], 'hostname': hostname}
                 self.total_results['cert_info'].append(cert_info)
 
         # Deduplicate results
@@ -374,24 +428,42 @@ class SearchFullHunt:
     async def do_search(self) -> None:
         """Main search method that calls the various endpoints"""
         try:
-            # First get domain details which includes most information
-            domain_details = await self.get_domain_details()
-            self.total_results['domain_details'] = domain_details
-            await self.extract_data_from_domain_details(domain_details)
+            async with AsyncFetcher.open_session(
+                headers=self._get_headers(),
+                proxy=self.proxy,
+                request_timeout=60,
+            ) as session:
+                # First get domain details which includes most information
+                domain_details = await self.get_domain_details(session)
+                if not isinstance(domain_details.get('hosts'), list):
+                    raise ValueError('FullHunt returned malformed domain details')
+                self.total_results['domain_details'] = domain_details
+                await self.extract_data_from_domain_details(domain_details)
 
-            # If no hosts found in domain details, try the dedicated subdomains endpoint
-            if not self.total_results['hosts']:
-                subdomains_response = await self.get_subdomains()
-                if 'hosts' in subdomains_response:
-                    self.total_results['hosts'] = subdomains_response['hosts']
+                # If no hosts found in domain details, try the dedicated subdomains endpoint
+                if not self.total_results['hosts']:
+                    subdomains_response = await self.get_subdomains(session)
+                    hosts = subdomains_response.get('hosts')
+                    if not isinstance(hosts, list):
+                        raise ValueError('FullHunt returned malformed subdomains')
+                    for host in hosts:
+                        if normalized_host := normalize_scoped_hostname(host, self.word):
+                            self.total_results['hosts'].append(normalized_host)
+                        else:
+                            self._stop('failed', 'invalid-response')
+                            logger.info('FullHunt ignored a malformed subdomain item')
 
-            # If filters are set, perform an advanced search
-            if self.filters:
-                search_results = await self.advanced_search()
-                await self.extract_data_from_search_results(search_results)
+                # If filters are set, perform an advanced search
+                if self.filters:
+                    search_results = await self.advanced_search(session)
+                    await self.extract_data_from_search_results(search_results)
 
-        except Exception as e:
-            print(f'Error during FullHunt search: {e}')
+        except Exception as error:
+            if self._report is None:
+                reason = 'invalid-response' if isinstance(error, ValueError) else 'transport-error'
+                self._stop('failed', reason)
+            logger.info('Error during FullHunt search: %s', type(error).__name__)
+            return
 
     async def get_hostnames(self) -> list[str]:
         """Return list of discovered subdomains"""
@@ -437,7 +509,11 @@ class SearchFullHunt:
         """Return all collected results"""
         return self.total_results
 
-    async def process(self, proxy: bool = False, filters: dict[str, str] | None = None) -> None:
+    async def process(
+        self,
+        proxy: bool = False,
+        filters: dict[str, str] | None = None,
+    ) -> SourceExecutionReport | None:
         """Main processing method
 
         Args:
@@ -446,9 +522,11 @@ class SearchFullHunt:
 
         """
         self.proxy = proxy
+        self._report = None
 
         # Apply filters if provided
         if filters:
             self.add_filters(filters)
 
         await self.do_search()
+        return self._report

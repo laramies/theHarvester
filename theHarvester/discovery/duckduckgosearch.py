@@ -1,5 +1,3 @@
-import ujson
-
 from theHarvester.lib.core import AsyncFetcher, Core
 from theHarvester.parsers import myparser
 
@@ -18,60 +16,12 @@ class SearchDuckDuckGo:
         self.proxy: bool = False
 
     async def do_search(self) -> None:
-        # Do normal scraping.
+        # Query only the provider; URLs in the response are evidence, not crawl targets.
         url = self.api.replace('x', self.word)
         headers = {'User-Agent': Core.get_user_agent()}
         first_resp = await AsyncFetcher.fetch_all([url], headers=headers, proxy=self.proxy)
         self.results = first_resp[0]
         self.totalresults += self.results
-        urls = await self.crawl(self.results)
-        urls = {url for url in urls if len(url) > 5}
-        all_resps = await AsyncFetcher.fetch_all(urls)
-        self.totalresults += ''.join(all_resps)
-
-    async def crawl(self, text: str) -> set[str]:
-        """Function parses json and returns URLs.
-        :param text: formatted json
-        :return: set of URLs
-        """
-        urls = set()
-        try:
-            load = ujson.loads(text)
-            for keys in load.keys():  # Iterate through keys of dict.
-                val = load.get(keys)
-
-                if isinstance(val, int) or isinstance(val, dict) or val is None:
-                    continue
-
-                if isinstance(val, list):
-                    if len(val) == 0:  # Make sure not indexing an empty list.
-                        continue
-                    val = val[0]  # The First value should be dict.
-
-                    if isinstance(val, dict):  # Validation check.
-                        for key in val.keys():
-                            value = val.get(key)
-                            if isinstance(value, str) and value != '' and ('https://' in value or 'http://' in value):
-                                urls.add(value)
-
-                if isinstance(val, str) and val != '' and ('https://' in val or 'http://' in val):
-                    urls.add(val)
-            tmp = set()
-            for url in urls:
-                if '<' in url and 'href=' in url:  # Format is <href="https://www.website.com"/>
-                    equal_index = url.index('=')
-                    true_url = ''
-                    for ch in url[equal_index + 1 :]:
-                        if ch == '"':
-                            tmp.add(true_url)
-                            break
-                        true_url += ch
-                elif url != '':
-                    tmp.add(url)
-            return tmp
-        except Exception as e:
-            print(f'Exception occurred: {e}')
-            return set()
 
     async def get_emails(self):
         rawres = myparser.Parser(self.totalresults, self.word)

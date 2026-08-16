@@ -66,7 +66,6 @@ class TestSearchGithubCode:
         test_result = await test_class_instance.fragments_from_response(
             self.OkResponse().response.json()
         )
-        print("test_result: ", test_result)
         assert test_result == ["test1", "test2"]
 
     @pytest.mark.asyncio

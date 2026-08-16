@@ -1,7 +1,10 @@
 from typing import Any
 
 from theHarvester.discovery.constants import MissingKey
-from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.discovery.provider_response import provider_http_error
+from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
+from theHarvester.lib.hostnames import normalize_scoped_hostname
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 
 class SearchDymo:
@@ -24,7 +27,7 @@ class SearchDymo:
         self.totalhosts: set[str] = set()
         self.results: dict[str, Any] = {}
         self.key = Core.dymo_key()
-        if self.key is None:
+        if not isinstance(self.key, str) or not self.key.strip():
             raise MissingKey('dymo')
         self.proxy = False
 
@@ -35,7 +38,7 @@ class SearchDymo:
             'Content-Type': 'application/json',
         }
 
-    async def do_search(self) -> None:
+    async def do_search(self) -> SourceExecutionReport | None:
         payload = {
             'domain': self.word,
             'url': f'https://{self.word}',
@@ -43,26 +46,41 @@ class SearchDymo:
         response = await AsyncFetcher.post_fetch(
             self.VERIFY_URL,
             headers=self._headers(),
-            data=payload,
             json=True,
+            json_body=payload,
             proxy=self.proxy,
+            include_metadata=True,
         )
-        if not isinstance(response, dict):
-            return
+        if error := provider_http_error(response):
+            return SourceExecutionReport(*error)
+        assert isinstance(response, FetcherResponse)
+        if not isinstance(response.body, dict):
+            return SourceExecutionReport('failed', 'invalid-response')
 
-        self.results = response
+        self.results = response.body
 
-        domain_block = response.get('domain') if isinstance(response.get('domain'), dict) else {}
-        url_block = response.get('url') if isinstance(response.get('url'), dict) else {}
+        raw_domain_block = response.body.get('domain')
+        raw_url_block = response.body.get('url')
+        malformed = any(block is not None and not isinstance(block, dict) for block in (raw_domain_block, raw_url_block))
+        domain_block = raw_domain_block if isinstance(raw_domain_block, dict) else {}
+        url_block = raw_url_block if isinstance(raw_url_block, dict) else {}
 
         for block in (domain_block, url_block):
             candidate = block.get('domain') if isinstance(block, dict) else None
-            if isinstance(candidate, str) and self.word in candidate:
-                self.totalhosts.add(candidate)
+            if normalized := normalize_scoped_hostname(candidate, self.word):
+                self.totalhosts.add(normalized)
+            elif candidate is not None and not isinstance(candidate, str):
+                malformed = True
 
             suggestion = block.get('didYouMean') if isinstance(block, dict) else None
-            if isinstance(suggestion, str) and self.word in suggestion:
-                self.totalhosts.add(suggestion)
+            if normalized := normalize_scoped_hostname(suggestion, self.word):
+                self.totalhosts.add(normalized)
+            elif suggestion is not None and not isinstance(suggestion, str):
+                malformed = True
+
+        if malformed:
+            return SourceExecutionReport('failed', 'invalid-response')
+        return None
 
     async def get_hostnames(self) -> set:
         return self.totalhosts
@@ -70,6 +88,9 @@ class SearchDymo:
     async def get_results(self) -> dict[str, Any]:
         return self.results
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        await self.do_search()
+        try:
+            return await self.do_search()
+        except Exception:
+            return SourceExecutionReport('failed', 'transport-error')

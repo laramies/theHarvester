@@ -12,11 +12,11 @@ class SearchYahoo:
 
     async def do_search(self) -> None:
         base_url = f'https://{self.server}/search?p=%40{self.word}&b=xx&pz=10'
-        headers = {'Host': self.server, 'User-agent': Core.get_user_agent()}
+        headers = {'Host': self.server, 'User-Agent': Core.get_browser_user_agent()}
         urls = [base_url.replace('xx', str(num)) for num in range(0, self.limit, 10) if num <= self.limit]
         responses = await AsyncFetcher.fetch_all(urls, headers=headers, proxy=self.proxy)
         for response in responses:
-            self.total_results += response
+            self.total_results += f' {response}'
 
     async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy

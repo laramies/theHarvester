@@ -1,0 +1,1424 @@
+import json
+from datetime import UTC, datetime, timedelta
+from typing import Any
+from uuid import UUID
+
+import pytest
+
+from theHarvester.lib.active_evidence import ActionExecution, ActionObservation, ActiveEvidence, ArtifactReference
+from theHarvester.lib.asn_attribution import (
+    AsnAttributionObservation,
+    asn_attribution_details,
+    parse_asn_attribution_details,
+)
+from theHarvester.lib.completed_result import CompletedResult, ResultObservation, SourceExecution, parse_result_jsonl
+from theHarvester.lib.network_evidence import (
+    MAX_NETWORK_DETAILS_BYTES,
+    MAX_NETWORK_OBSERVATIONS_PER_PREFIX,
+    BgpRouteObservation,
+    NetworkEvidenceAccumulator,
+    NetworkEvidenceLimitError,
+    PrefixOriginObservation,
+    RpkiValidationObservation,
+    canonical_network_observations,
+    network_observation_details,
+    parse_network_observation_details,
+    parse_network_observation_json,
+)
+from theHarvester.lib.virtual_host import VirtualHostObservation
+
+
+def vhost_observation(
+    endpoint: str,
+    *,
+    status: int,
+    control_status: int,
+    hostname: str = 'admin.example.com',
+) -> VirtualHostObservation:
+    return VirtualHostObservation.from_record(
+        {
+            'type': 'vhost',
+            'endpoint': endpoint,
+            'hostname': hostname,
+            'http_host': hostname,
+            'tls_server_name': None,
+            'classification': 'distinct',
+            'phase': 'body',
+            'status': status,
+            'location': None,
+            'body_sha256': 'a' * 64,
+            'body_size': 5,
+            'body_truncated': False,
+            'context_phase': 'body',
+            'context_status': control_status,
+            'context_location': None,
+            'context_body_sha256': 'a' * 64,
+            'context_body_size': 5,
+            'context_body_truncated': False,
+            'control_phase': 'body',
+            'control_status': control_status,
+            'control_location': None,
+            'control_body_sha256': 'a' * 64,
+            'control_body_size': 5,
+            'control_body_truncated': False,
+            'confirmation_body_sha256': None,
+            'tls_verified': None,
+            'distinct_signals': ['status'],
+            'reflection_normalized': False,
+        }
+    )
+
+
+@pytest.mark.parametrize('evidence_status', ['partial', 'failed'])
+def test_sparse_completed_result_retains_explicit_status(evidence_status: str) -> None:
+    result = CompletedResult.finish(
+        target='example.com',
+        started_at=datetime(2026, 8, 5, 12, 0, tzinfo=UTC),
+        completed_at=datetime(2026, 8, 5, 12, 1, tzinfo=UTC),
+        groups={},
+        evidence_status=evidence_status,
+    )
+
+    assert result.status == evidence_status
+    assert json.loads(result.jsonl().splitlines()[0])['evidence_status'] == evidence_status
+
+
+def test_completed_result_is_deterministic_and_deduplicated() -> None:
+    result = CompletedResult.finish(
+        run_id=UUID('f047261c-0afb-4e18-89d5-28a7d977f51f'),
+        target='example.com',
+        started_at=datetime(2026, 8, 5, 12, 0, tzinfo=UTC),
+        completed_at=datetime(2026, 8, 5, 12, 1, tzinfo=UTC),
+        groups={
+            'hostname': ['www.example.com', 'api.example.com', 'api.example.com'],
+            'email': ['admin@example.com'],
+        },
+    )
+
+    records = [json.loads(line) for line in result.jsonl().splitlines()]
+
+    assert records == [
+        {
+            'completed_at': '2026-08-05T12:01:00Z',
+            'counts': {'email': 1, 'hostname': 2},
+            'evidence_status': 'complete',
+            'result_count': 3,
+            'run_id': 'f047261c-0afb-4e18-89d5-28a7d977f51f',
+            'source_executions': [],
+            'action_executions': [],
+            'artifacts': [],
+            'started_at': '2026-08-05T12:00:00Z',
+            'target': 'example.com',
+            'type': 'summary',
+        },
+        {
+            'sources': [],
+            'type': 'email',
+            'value': 'admin@example.com',
+        },
+        {
+            'sources': [],
+            'type': 'hostname',
+            'value': 'api.example.com',
+        },
+        {
+            'sources': [],
+            'type': 'hostname',
+            'value': 'www.example.com',
+        },
+    ]
+    assert 'schema' not in records[0]
+    assert 'schema_version' not in records[0]
+    assert result.jsonl().endswith('\n')
+
+
+def test_completed_result_exposes_truthful_source_execution_evidence() -> None:
+    started_at = datetime(2026, 8, 5, 12, 0, tzinfo=UTC)
+    result = CompletedResult.finish(
+        target='example.com',
+        started_at=started_at,
+        completed_at=started_at,
+        groups={'hostname': ['www.example.com']},
+        source_executions=(
+            SourceExecution('crtsh', 'completed', 12.5, 1),
+            SourceExecution('builtwith', 'partial', 0, 0, stop_reason='invalid-response'),
+        ),
+        observations=(ResultObservation('crtsh', 'hostname', 'www.example.com'),),
+    )
+
+    evidence = result.evidence_dict()
+
+    assert evidence['status'] == 'partial'
+    assert evidence['source_executions'] == [
+        {
+            'source': 'crtsh',
+            'status': 'completed',
+            'duration_ms': 12.5,
+            'result_count': 1,
+            'error_type': None,
+            'stop_reason': None,
+        },
+        {
+            'source': 'builtwith',
+            'status': 'partial',
+            'duration_ms': 0,
+            'result_count': 0,
+            'error_type': None,
+            'stop_reason': 'invalid-response',
+        },
+    ]
+
+
+def test_completed_result_attributes_each_finding_to_its_sources() -> None:
+    completed_at = datetime(2026, 8, 5, 12, 1, tzinfo=UTC)
+    result = CompletedResult.finish(
+        target='example.com',
+        started_at=completed_at,
+        completed_at=completed_at,
+        groups={'hostname': ['api.example.com', 'mail.example.com']},
+        source_executions=(
+            SourceExecution('crtsh', 'completed', 12.5, 2),
+            SourceExecution('certspotter', 'completed', 8.0, 1),
+        ),
+        observations=(
+            ResultObservation('crtsh', 'hostname', 'api.example.com'),
+            ResultObservation('certspotter', 'hostname', 'api.example.com'),
+            ResultObservation('crtsh', 'hostname', 'mail.example.com'),
+        ),
+    )
+
+    records = [json.loads(line) for line in result.jsonl().splitlines()]
+
+    assert records[1:] == [
+        {
+            'sources': ['certspotter', 'crtsh'],
+            'type': 'hostname',
+            'value': 'api.example.com',
+        },
+        {
+            'sources': ['crtsh'],
+            'type': 'hostname',
+            'value': 'mail.example.com',
+        },
+    ]
+    assert result.evidence_dict()['results'] == records[1:]
+
+
+def test_completed_result_rejects_observation_without_execution() -> None:
+    completed_at = datetime(2026, 8, 5, 12, 1, tzinfo=UTC)
+
+    with pytest.raises(ValueError, match='matching source execution'):
+        CompletedResult.finish(
+            target='example.com',
+            started_at=completed_at,
+            completed_at=completed_at,
+            groups={'hostname': ['api.example.com']},
+            observations=(ResultObservation('crtsh', 'hostname', 'api.example.com'),),
+        )
+
+
+def test_completed_result_rejects_duplicate_source_executions() -> None:
+    completed_at = datetime(2026, 8, 5, 12, 1, tzinfo=UTC)
+
+    with pytest.raises(ValueError, match='source executions must be unique'):
+        CompletedResult.finish(
+            target='example.com',
+            started_at=completed_at,
+            completed_at=completed_at,
+            groups={},
+            source_executions=(
+                SourceExecution('crtsh', 'completed', 1.0, 0),
+                SourceExecution('crtsh', 'failed', 2.0, 0, error_type='RuntimeError'),
+            ),
+        )
+
+
+def test_completed_result_rejects_source_count_without_matching_origins() -> None:
+    completed_at = datetime(2026, 8, 5, 12, 1, tzinfo=UTC)
+
+    with pytest.raises(ValueError, match='result count must match'):
+        CompletedResult.finish(
+            target='example.com',
+            started_at=completed_at,
+            completed_at=completed_at,
+            groups={'hostname': ['api.example.com']},
+            source_executions=(SourceExecution('crtsh', 'completed', 1.0, 1),),
+        )
+
+
+def test_completed_result_merges_active_results_and_keeps_screenshot_as_an_artifact() -> None:
+    completed_at = datetime(2026, 8, 5, 12, 1, tzinfo=UTC)
+    artifact = ArtifactReference(
+        kind='screenshot',
+        subject_kind='hostname',
+        subject_value='api.example.com',
+        path='screenshots/api.example.com.png',
+        media_type='image/png',
+        size_bytes=3,
+        sha256='0' * 64,
+        created_at=completed_at,
+    )
+    result = CompletedResult.finish(
+        target='example.com',
+        started_at=completed_at,
+        completed_at=completed_at,
+        groups={'hostname': ['api.example.com']},
+        active_evidence=ActiveEvidence(
+            executions=(
+                ActionExecution.finish(
+                    action='dns-resolve',
+                    status='completed',
+                    duration_ms=12.5,
+                    groups={'ip': ['192.0.2.10']},
+                ),
+                ActionExecution.finish(
+                    action='screenshot',
+                    status='completed',
+                    duration_ms=4.0,
+                    groups={},
+                    artifacts=(artifact,),
+                ),
+            )
+        ),
+    )
+
+    assert result.results == (('hostname', 'api.example.com'), ('ip', '192.0.2.10'))
+    assert result.active_evidence.executions[0].observations == (ActionObservation('ip', '192.0.2.10'),)
+    assert result.active_evidence.executions[1].artifacts == (artifact,)
+    assert not any(kind == 'screenshot' for kind, _value in result.results)
+    assert result.evidence_dict()['results'] == [
+        {'type': 'hostname', 'value': 'api.example.com', 'sources': []},
+        {'type': 'ip', 'value': '192.0.2.10', 'sources': [], 'actions': ['dns-resolve']},
+    ]
+    assert [json.loads(line) for line in result.jsonl().splitlines()][1:] == [
+        {'type': 'hostname', 'value': 'api.example.com', 'sources': []},
+        {'type': 'ip', 'value': '192.0.2.10', 'sources': [], 'actions': ['dns-resolve']},
+    ]
+
+
+def test_completed_result_groups_structured_vhost_evidence_by_hostname() -> None:
+    completed_at = datetime(2026, 8, 5, 12, 1, tzinfo=UTC)
+    first = vhost_observation('http://192.0.2.10', status=200, control_status=404)
+    second = vhost_observation('http://192.0.2.11', status=201, control_status=404)
+    result = CompletedResult.finish(
+        target='example.com',
+        started_at=completed_at,
+        completed_at=completed_at,
+        groups={'hostname': ['admin.example.com']},
+        source_executions=(SourceExecution('crtsh', 'completed', 4.0, 1),),
+        observations=(ResultObservation('crtsh', 'hostname', 'admin.example.com'),),
+        active_evidence=ActiveEvidence(
+            executions=(
+                ActionExecution.finish(
+                    action='vhost',
+                    status='completed',
+                    duration_ms=12.5,
+                    groups={'hostname': ['admin.example.com', 'admin.example.com']},
+                ),
+            )
+        ),
+        virtual_hosts=(second, first, first),
+    )
+
+    records = [json.loads(line) for line in result.jsonl().splitlines()]
+    _summary, parsed_findings = parse_result_jsonl(result.jsonl())
+
+    assert result.virtual_hosts == (first, second)
+    assert result.results == (('hostname', 'admin.example.com'),)
+    assert result.active_evidence.executions[0].result_count == 1
+    assert records[0]['counts'] == {'hostname': 1}
+    assert records[0]['result_count'] == 1
+    assert records[1] == {
+        'type': 'hostname',
+        'value': 'admin.example.com',
+        'sources': ['crtsh'],
+        'actions': ['vhost'],
+        'observations': [
+            {key: value for key, value in observation.to_record().items() if key not in {'type', 'hostname'}}
+            for observation in (first, second)
+        ],
+    }
+    assert parsed_findings == records[1:]
+
+
+def test_completed_result_groups_canonical_network_evidence_by_prefix() -> None:
+    collected_at = datetime(2026, 8, 11, 12, 1, tzinfo=UTC)
+    observed_at = datetime(2026, 8, 11, 12, 0, tzinfo=UTC)
+    origin = PrefixOriginObservation('routeviews', '192.0.2.7/24', '64500', collected_at)
+    route = BgpRouteObservation(
+        'routeviews',
+        '192.0.2.7/24',
+        64500,
+        'route-views.test',
+        'AS64496',
+        '2001:db8::1',
+        ' 64496 64500 ',
+        ' 64496:100 64500:200 ',
+        observed_at,
+        collected_at,
+    )
+    validation = RpkiValidationObservation(
+        'routeviews',
+        '192.0.2.0/24',
+        'as64500',
+        'valid',
+        observed_at,
+        collected_at,
+    )
+    result = CompletedResult.finish(
+        target='example.com',
+        started_at=observed_at,
+        completed_at=collected_at,
+        groups={'asn': ['64500']},
+        active_evidence=ActiveEvidence(
+            executions=(
+                ActionExecution.finish(
+                    action='routeviews',
+                    status='completed',
+                    duration_ms=12.5,
+                    groups={'prefix': ['192.0.2.7/24']},
+                ),
+            )
+        ),
+        network_observations=(validation, route, origin, route),
+    )
+
+    records = [json.loads(line) for line in result.jsonl().splitlines()]
+    _summary, parsed_findings = parse_result_jsonl(result.jsonl())
+
+    assert result.results == (('asn', 'AS64500'), ('prefix', '192.0.2.0/24'))
+    assert result.active_evidence.executions[0].observations == (ActionObservation('prefix', '192.0.2.0/24'),)
+    assert result.network_observations == (origin, route, validation)
+    assert route.as_path == ' 64496 64500 '
+    assert route.communities == ' 64496:100 64500:200 '
+    assert records[1:] == [
+        {'sources': [], 'type': 'asn', 'value': 'AS64500'},
+        {
+            'actions': ['routeviews'],
+            'observations': [
+                {
+                    'action': 'routeviews',
+                    'collected_at': '2026-08-11T12:01:00Z',
+                    'origin_asn': 'AS64500',
+                    'type': 'observed-origin',
+                },
+                {
+                    'action': 'routeviews',
+                    'as_path': ' 64496 64500 ',
+                    'collected_at': '2026-08-11T12:01:00Z',
+                    'collector': 'route-views.test',
+                    'communities': ' 64496:100 64500:200 ',
+                    'observed_at': '2026-08-11T12:00:00Z',
+                    'origin_asn': 'AS64500',
+                    'peer_address': '2001:db8::1',
+                    'peer_asn': 'AS64496',
+                    'type': 'bgp-route',
+                },
+                {
+                    'action': 'routeviews',
+                    'collected_at': '2026-08-11T12:01:00Z',
+                    'observed_at': '2026-08-11T12:00:00Z',
+                    'origin_asn': 'AS64500',
+                    'state': 'valid',
+                    'type': 'rpki-validation',
+                },
+            ],
+            'scope': 'external-relationship',
+            'sources': [],
+            'type': 'prefix',
+            'value': '192.0.2.0/24',
+        },
+    ]
+    assert parsed_findings == [{**records[1], 'actions': []}, records[2]]
+
+
+def test_completed_result_groups_sourced_asn_organization_attribution() -> None:
+    collected_at = datetime(2026, 8, 12, 12, 1, tzinfo=UTC)
+    attribution = AsnAttributionObservation(
+        'source',
+        'urlscan',
+        '64500',
+        'Example Network',
+        'hostname',
+        'api.example.com',
+        collected_at,
+    )
+    result = CompletedResult.finish(
+        target='example.com',
+        started_at=collected_at,
+        completed_at=collected_at,
+        groups={'asn': ['AS64500'], 'hostname': ['api.example.com']},
+        source_executions=(SourceExecution('urlscan', 'completed', 1, 2),),
+        observations=(
+            ResultObservation('urlscan', 'asn', 'AS64500'),
+            ResultObservation('urlscan', 'hostname', 'api.example.com'),
+        ),
+        asn_attributions=(attribution, attribution),
+    )
+
+    records = [json.loads(line) for line in result.jsonl().splitlines()]
+    _summary, parsed_findings = parse_result_jsonl(result.jsonl())
+
+    assert result.asn_attributions == (attribution,)
+    assert records[1] == {
+        'type': 'asn',
+        'value': 'AS64500',
+        'sources': ['urlscan'],
+        'observations': [
+            {
+                'type': 'organization-attribution',
+                'producer_kind': 'source',
+                'producer': 'urlscan',
+                'organization_label': 'Example Network',
+                'subject': {'type': 'hostname', 'value': 'api.example.com'},
+                'collected_at': '2026-08-12T12:01:00Z',
+            }
+        ],
+    }
+    assert parsed_findings == [{**record, 'actions': []} for record in records[1:]]
+
+
+@pytest.mark.parametrize(
+    ('field', 'value'),
+    [
+        ('organization_label', 'Example\x00Network'),
+        ('organization_label', 'Example\u202eNetwork'),
+        ('organization_label', 'x' * 256),
+        ('subject_value', 'not-an-ip'),
+    ],
+)
+def test_asn_organization_attribution_rejects_unsafe_or_noncanonical_values(field: str, value: str) -> None:
+    kwargs = {
+        'producer_kind': 'source',
+        'producer': 'urlscan',
+        'asn': 'AS64500',
+        'organization_label': 'Example Network',
+        'subject_kind': 'ip',
+        'subject_value': '192.0.2.10',
+        'collected_at': datetime(2026, 8, 12, 12, 1, tzinfo=UTC),
+    }
+    kwargs[field] = value
+
+    with pytest.raises(ValueError):
+        AsnAttributionObservation(**kwargs)
+
+
+def test_asn_organization_attribution_does_not_apply_an_arbitrary_result_count_ceiling() -> None:
+    collected_at = datetime(2026, 8, 12, 12, 1, tzinfo=UTC)
+    observations = tuple(
+        AsnAttributionObservation(
+            'source',
+            'urlscan',
+            'AS64500',
+            'Example Network',
+            'hostname',
+            f'host-{index:05d}.example.com',
+            collected_at,
+        )
+        for index in range(10_001)
+    )
+
+    assert parse_asn_attribution_details('AS64500', asn_attribution_details(observations)) == observations
+
+
+def test_bgp_route_rejects_provider_time_after_collection() -> None:
+    collected_at = datetime(2026, 8, 11, 12, 0, tzinfo=UTC)
+
+    with pytest.raises(ValueError, match='observed_at must not be later than collected_at'):
+        BgpRouteObservation(
+            'routeviews',
+            '192.0.2.0/24',
+            'AS64500',
+            'route-views.test',
+            'AS64496',
+            '2001:db8::1',
+            '64496 64500',
+            '',
+            datetime(2026, 8, 11, 12, 1, tzinfo=UTC),
+            collected_at,
+        )
+
+
+def test_rpki_validation_rejects_provider_time_after_collection() -> None:
+    collected_at = datetime(2026, 8, 11, 12, 0, tzinfo=UTC)
+
+    with pytest.raises(ValueError, match='observed_at must not be later than collected_at'):
+        RpkiValidationObservation(
+            'routeviews',
+            '192.0.2.0/24',
+            'AS64500',
+            'valid',
+            datetime(2026, 8, 11, 12, 1, tzinfo=UTC),
+            collected_at,
+        )
+
+
+def test_network_observation_rejects_non_utf8_text() -> None:
+    collected_at = datetime(2026, 8, 11, 12, 0, tzinfo=UTC)
+
+    with pytest.raises(ValueError, match='collector is invalid'):
+        BgpRouteObservation(
+            'routeviews',
+            '192.0.2.0/24',
+            'AS64500',
+            '\ud800',
+            'AS64496',
+            '2001:db8::1',
+            '64496 64500',
+            '',
+            collected_at,
+            collected_at,
+        )
+
+
+@pytest.mark.parametrize(
+    ('field', 'value'),
+    [
+        ('collector', 'route\x00views'),
+        ('collector', 'route\x1bviews'),
+        ('as_path', '64496\x00 64500'),
+        ('communities', '64500:1\x1b'),
+    ],
+)
+def test_network_observation_rejects_control_characters(field: str, value: str) -> None:
+    collected_at = datetime(2026, 8, 11, 12, 0, tzinfo=UTC)
+    fields = {
+        'collector': 'route-views.test',
+        'as_path': '64496 64500',
+        'communities': '',
+    }
+    fields[field] = value
+
+    with pytest.raises(ValueError, match=f'{field.replace("_", " ").replace("as path", "AS path")} is invalid'):
+        BgpRouteObservation(
+            'routeviews',
+            '192.0.2.0/24',
+            'AS64500',
+            fields['collector'],
+            'AS64496',
+            '2001:db8::1',
+            fields['as_path'],
+            fields['communities'],
+            collected_at,
+            collected_at,
+        )
+
+
+@pytest.mark.parametrize('value', ['fe80::%eth0/64', 'fe80::%?q/64', 'fe80::%\ud800/64', 'fe80::%bad\n/64'])
+def test_network_prefix_rejects_ipv6_scope_identifiers(value: str) -> None:
+    with pytest.raises(ValueError, match='must not contain an IPv6 scope identifier'):
+        PrefixOriginObservation(
+            'routeviews',
+            value,
+            'AS64500',
+            datetime(2026, 8, 11, 12, 0, tzinfo=UTC),
+        )
+
+
+@pytest.mark.parametrize('value', ['fe80::1%eth0', 'fe80::1%?q', 'fe80::1%\ud800'])
+def test_network_peer_rejects_ipv6_scope_identifiers(value: str) -> None:
+    collected_at = datetime(2026, 8, 11, 12, 0, tzinfo=UTC)
+
+    with pytest.raises(ValueError, match='must not contain an IPv6 scope identifier'):
+        BgpRouteObservation(
+            'routeviews',
+            '2001:db8::/32',
+            'AS64500',
+            'route-views.test',
+            'AS64496',
+            value,
+            '64496 64500',
+            '',
+            collected_at,
+            collected_at,
+        )
+
+
+def test_completed_result_rejects_collection_outside_run_window() -> None:
+    started_at = datetime(2026, 8, 11, 12, 0, tzinfo=UTC)
+    completed_at = datetime(2026, 8, 11, 12, 1, tzinfo=UTC)
+    origin = PrefixOriginObservation('routeviews', '192.0.2.0/24', 'AS64500', completed_at + timedelta(seconds=1))
+
+    with pytest.raises(ValueError, match='collection time must fall within the completed run'):
+        CompletedResult.finish(
+            target='example.com',
+            started_at=started_at,
+            completed_at=completed_at,
+            groups={'asn': ['AS64500']},
+            active_evidence=ActiveEvidence(
+                executions=(
+                    ActionExecution.finish(
+                        action='routeviews',
+                        status='completed',
+                        duration_ms=1,
+                        groups={'prefix': ['192.0.2.0/24']},
+                    ),
+                )
+            ),
+            network_observations=(origin,),
+        )
+
+
+def test_network_details_reject_excessive_observation_count(monkeypatch) -> None:
+    monkeypatch.setattr('theHarvester.lib.network_evidence.MAX_NETWORK_OBSERVATIONS_PER_PREFIX', 1)
+    details = [
+        {
+            'type': 'observed-origin',
+            'action': 'routeviews',
+            'origin_asn': f'AS{64500 + index}',
+            'collected_at': '2026-08-11T12:01:00Z',
+        }
+        for index in range(2)
+    ]
+
+    with pytest.raises(ValueError, match='too many observations'):
+        parse_network_observation_details('192.0.2.0/24', details)
+
+
+def test_network_details_reject_excessive_serialized_size(monkeypatch) -> None:
+    collected_at = datetime(2026, 8, 11, 12, 0, tzinfo=UTC)
+    origin = PrefixOriginObservation('routeviews', '192.0.2.0/24', 'AS64500', collected_at)
+    monkeypatch.setattr('theHarvester.lib.network_evidence.MAX_NETWORK_DETAILS_BYTES', 1)
+
+    with pytest.raises(ValueError, match='serialized size limit'):
+        network_observation_details((origin,))
+
+
+def test_network_json_rejects_utf8_byte_size_before_decoding(monkeypatch) -> None:
+    monkeypatch.setattr('theHarvester.lib.network_evidence.MAX_NETWORK_DETAILS_BYTES', 5)
+
+    with pytest.raises(ValueError, match='serialized size limit'):
+        parse_network_observation_json('192.0.2.0/24', '["é"]')
+
+
+def test_network_details_reject_conflicting_rpki_states() -> None:
+    details = [
+        {
+            'type': 'rpki-validation',
+            'action': 'routeviews',
+            'origin_asn': 'AS64500',
+            'state': state,
+            'observed_at': '2026-08-11T12:00:00Z',
+            'collected_at': f'2026-08-11T12:01:0{index}Z',
+        }
+        for index, state in enumerate(('valid', 'invalid'))
+    ]
+
+    with pytest.raises(ValueError, match='conflicting RPKI states'):
+        parse_network_observation_details('192.0.2.0/24', details)
+
+
+def test_rpki_canonicalization_preserves_time_bound_state_changes_deterministically() -> None:
+    collected_at = datetime(2026, 8, 11, 12, 2, tzinfo=UTC)
+    observations = (
+        RpkiValidationObservation(
+            'routeviews', '192.0.2.0/24', 'AS64500', 'valid', collected_at - timedelta(minutes=2), collected_at
+        ),
+        RpkiValidationObservation(
+            'routeviews', '192.0.2.0/24', 'AS64500', 'valid', collected_at - timedelta(minutes=1), collected_at
+        ),
+        RpkiValidationObservation('routeviews', '192.0.2.0/24', 'AS64500', 'invalid', collected_at, collected_at),
+    )
+
+    canonical = canonical_network_observations(observations)
+
+    assert [(item.state, item.observed_at) for item in canonical] == [
+        ('valid', collected_at - timedelta(minutes=2)),
+        ('invalid', collected_at),
+    ]
+    assert canonical_network_observations(tuple(reversed(observations))) == canonical
+
+
+def test_rpki_incremental_dedup_still_rejects_a_same_time_conflict() -> None:
+    collected_at = datetime(2026, 8, 11, 12, 2, tzinfo=UTC)
+    first_time = collected_at - timedelta(minutes=2)
+    second_time = collected_at - timedelta(minutes=1)
+    accumulator = NetworkEvidenceAccumulator()
+
+    assert accumulator.add(RpkiValidationObservation('routeviews', '192.0.2.0/24', 'AS64500', 'valid', first_time, collected_at))
+    assert not accumulator.add(
+        RpkiValidationObservation('routeviews', '192.0.2.0/24', 'AS64500', 'valid', second_time, collected_at)
+    )
+    with pytest.raises(ValueError, match='conflicting RPKI states'):
+        accumulator.add(RpkiValidationObservation('routeviews', '192.0.2.0/24', 'AS64500', 'invalid', second_time, collected_at))
+
+
+def test_network_evidence_accumulator_owns_incremental_deduplication_and_limits() -> None:
+    collected_at = datetime(2026, 8, 11, 12, 1, tzinfo=UTC)
+    accumulator = NetworkEvidenceAccumulator(max_observations_per_prefix=1)
+
+    assert accumulator.add(PrefixOriginObservation('routeviews', '192.0.2.0/24', 'AS64500', collected_at))
+    assert not accumulator.add(
+        PrefixOriginObservation('routeviews', '192.0.2.0/24', 'AS64500', collected_at + timedelta(seconds=1))
+    )
+    with pytest.raises(NetworkEvidenceLimitError, match='too many observations'):
+        accumulator.add(
+            RpkiValidationObservation(
+                'routeviews',
+                '192.0.2.0/24',
+                'AS64500',
+                'valid',
+                collected_at,
+                collected_at,
+            )
+        )
+    assert len(accumulator.observations()) == 1
+
+
+@pytest.mark.parametrize(
+    'limits',
+    [
+        {'max_observations_per_prefix': MAX_NETWORK_OBSERVATIONS_PER_PREFIX + 1},
+        {'max_details_bytes': MAX_NETWORK_DETAILS_BYTES + 1},
+    ],
+)
+def test_network_evidence_accumulator_cannot_exceed_the_persisted_envelope(limits: dict[str, int]) -> None:
+    with pytest.raises(ValueError, match='persisted envelope'):
+        NetworkEvidenceAccumulator(**limits)
+
+
+def test_jsonl_rejects_excessive_json_nesting() -> None:
+    payload = '{"type":"summary"}\n{"type":"asn","value":' + '[' * 100_000 + '0' + ']' * 100_000 + '}'
+
+    with pytest.raises(ValueError, match=r'not valid JSONL|JSONL findings must contain'):
+        parse_result_jsonl(payload)
+
+
+def test_querying_an_existing_prefix_remains_one_action_result() -> None:
+    completed_at = datetime(2026, 8, 11, 12, 1, tzinfo=UTC)
+    result = CompletedResult.finish(
+        target='example.com',
+        started_at=completed_at,
+        completed_at=completed_at,
+        groups={'prefix': ['192.0.2.0/24']},
+        active_evidence=ActiveEvidence(
+            executions=(
+                ActionExecution.finish(
+                    action='routeviews',
+                    status='completed',
+                    duration_ms=1,
+                    groups={'prefix': ['192.0.2.7/24']},
+                ),
+            )
+        ),
+    )
+
+    assert result.results == (('prefix', '192.0.2.0/24'),)
+    assert result.active_evidence.executions[0].result_count == 1
+    assert result.evidence_dict()['results'] == [
+        {
+            'type': 'prefix',
+            'value': '192.0.2.0/24',
+            'scope': 'external-relationship',
+            'sources': [],
+            'actions': ['routeviews'],
+        }
+    ]
+
+
+@pytest.mark.parametrize(
+    ('field', 'value', 'message'),
+    [
+        ('scope', 'in-scope', 'prefix scope'),
+        ('owns', True, 'known type'),
+        ('registered_to', 'Example Organization', 'known type'),
+    ],
+)
+def test_jsonl_rejects_network_scope_inflation_and_ownership_claims(
+    field: str,
+    value: object,
+    message: str,
+) -> None:
+    finding = {
+        'type': 'prefix',
+        'value': '192.0.2.0/24',
+        'scope': 'external-relationship',
+        'sources': [],
+        'actions': ['routeviews'],
+        'observations': [
+            {
+                'type': 'observed-origin',
+                'action': 'routeviews',
+                'origin_asn': 'AS64500',
+                'collected_at': '2026-08-11T12:01:00Z',
+            }
+        ],
+    }
+    finding[field] = value
+    payload = '\n'.join((json.dumps({'type': 'summary'}), json.dumps(finding)))
+
+    with pytest.raises(ValueError, match=message):
+        parse_result_jsonl(payload)
+
+
+@pytest.mark.parametrize(
+    ('finding', 'message'),
+    [
+        (
+            {
+                'type': 'prefix',
+                'value': '192.0.2.7/24',
+                'scope': 'external-relationship',
+                'sources': [],
+                'actions': [],
+            },
+            'canonical prefix',
+        ),
+    ],
+)
+def test_jsonl_rejects_noncanonical_network_result_values(finding: dict[str, object], message: str) -> None:
+    payload = '\n'.join((json.dumps({'type': 'summary'}), json.dumps(finding)))
+
+    with pytest.raises(ValueError, match=message):
+        parse_result_jsonl(payload)
+
+
+def test_jsonl_normalizes_legacy_bare_asn_value() -> None:
+    payload = '\n'.join(
+        (
+            json.dumps({'type': 'summary'}),
+            json.dumps({'type': 'asn', 'value': '64500', 'sources': ['criminalip'], 'actions': []}),
+        )
+    )
+
+    _summary, findings = parse_result_jsonl(payload)
+
+    assert findings == [{'type': 'asn', 'value': 'AS64500', 'sources': ['criminalip'], 'actions': []}]
+
+
+@pytest.mark.parametrize(
+    'observation',
+    [
+        {
+            'type': [],
+            'action': 'routeviews',
+            'origin_asn': 'AS64500',
+            'collected_at': '2026-08-11T12:01:00Z',
+        },
+        {
+            'type': 'rpki-validation',
+            'action': 'routeviews',
+            'origin_asn': 'AS64500',
+            'state': [],
+            'observed_at': '2026-08-11T12:00:00Z',
+            'collected_at': '2026-08-11T12:01:00Z',
+        },
+    ],
+)
+def test_jsonl_rejects_non_string_network_discriminators(observation: dict[str, object]) -> None:
+    payload = '\n'.join(
+        (
+            json.dumps({'type': 'summary'}),
+            json.dumps(
+                {
+                    'type': 'prefix',
+                    'value': '192.0.2.0/24',
+                    'scope': 'external-relationship',
+                    'sources': [],
+                    'actions': ['routeviews'],
+                    'observations': [observation],
+                }
+            ),
+        )
+    )
+
+    with pytest.raises(ValueError, match='invalid network observations'):
+        parse_result_jsonl(payload)
+
+
+def test_completed_result_rejects_structured_vhost_without_vhost_action_provenance() -> None:
+    completed_at = datetime(2026, 8, 5, 12, 1, tzinfo=UTC)
+
+    with pytest.raises(ValueError, match='vhost action'):
+        CompletedResult.finish(
+            target='example.com',
+            started_at=completed_at,
+            completed_at=completed_at,
+            groups={'hostname': ['admin.example.com']},
+            virtual_hosts=(vhost_observation('http://192.0.2.10', status=200, control_status=404),),
+        )
+
+
+def test_completed_result_rejects_unstructured_vhost_action_result() -> None:
+    completed_at = datetime(2026, 8, 5, 12, 1, tzinfo=UTC)
+
+    with pytest.raises(ValueError, match='structured virtual-host evidence'):
+        CompletedResult.finish(
+            target='example.com',
+            started_at=completed_at,
+            completed_at=completed_at,
+            groups={},
+            active_evidence=ActiveEvidence(
+                executions=(
+                    ActionExecution.finish(
+                        action='vhost',
+                        status='completed',
+                        duration_ms=1,
+                        groups={'hostname': ['admin.example.com']},
+                    ),
+                )
+            ),
+        )
+
+
+@pytest.mark.parametrize(
+    ('target', 'hostname'),
+    [
+        ('example.com', 'example.com'),
+        ('example.com', 'admin.other.test'),
+        ('192.0.2.8', 'admin.192.0.2.8'),
+    ],
+)
+def test_completed_result_rejects_structured_vhost_outside_the_run_scope(target: str, hostname: str) -> None:
+    completed_at = datetime(2026, 8, 5, 12, 1, tzinfo=UTC)
+
+    with pytest.raises(ValueError, match='run target scope'):
+        CompletedResult.finish(
+            target=target,
+            started_at=completed_at,
+            completed_at=completed_at,
+            groups={},
+            active_evidence=ActiveEvidence(
+                executions=(
+                    ActionExecution.finish(
+                        action='vhost',
+                        status='completed',
+                        duration_ms=1,
+                        groups={'hostname': [hostname]},
+                    ),
+                )
+            ),
+            virtual_hosts=(
+                vhost_observation(
+                    'http://192.0.2.10',
+                    status=200,
+                    control_status=404,
+                    hostname=hostname,
+                ),
+            ),
+        )
+
+
+def test_jsonl_rejects_noncanonical_structured_vhost_hostname() -> None:
+    observation = vhost_observation('http://192.0.2.10', status=200, control_status=404)
+    details = {key: value for key, value in observation.to_record().items() if key not in {'type', 'hostname'}}
+    payload = '\n'.join(
+        (
+            json.dumps({'type': 'summary'}),
+            json.dumps(
+                {
+                    'type': 'hostname',
+                    'value': 'Admin.Example.com',
+                    'sources': [],
+                    'actions': ['vhost'],
+                    'observations': [details],
+                }
+            ),
+        )
+    )
+
+    with pytest.raises(ValueError, match='canonical hostname'):
+        parse_result_jsonl(payload)
+
+
+def test_jsonl_rejects_legacy_vhost_result_kind() -> None:
+    payload = '\n'.join(
+        (
+            json.dumps({'type': 'summary'}),
+            json.dumps(
+                {
+                    'type': 'vhost',
+                    'value': 'admin.example.com',
+                    'sources': [],
+                    'actions': ['vhost'],
+                }
+            ),
+        )
+    )
+
+    with pytest.raises(ValueError, match='known type'):
+        parse_result_jsonl(payload)
+
+
+def test_shodan_host_jsonl_uses_the_ip_value_and_nonredundant_details() -> None:
+    from theHarvester.lib.shodan_evidence import ShodanHostObservation
+
+    completed_at = datetime(2026, 8, 14, 12, 2, tzinfo=UTC)
+    shodan_host = ShodanHostObservation.from_record(
+        '192.0.2.10',
+        {
+            'asn': 'AS64496',
+            'organization': 'Example Transit',
+            'isp': 'Example ISP',
+            'hostnames': ['api.example.test'],
+            'domains': ['example.test'],
+            'services': [
+                {
+                    'port': 53,
+                    'transport': 'udp',
+                    'product': 'dnsmasq',
+                    'version': '2.90',
+                    'observed_at': '2026-08-14T11:58:00Z',
+                },
+                {
+                    'port': 443,
+                    'transport': 'tcp',
+                    'product': 'nginx',
+                    'version': '1.24.0',
+                    'observed_at': '2026-08-14T12:01:00Z',
+                    'http': {'title': 'Example', 'server': 'nginx', 'components': ['nginx']},
+                },
+            ],
+        },
+    )
+    result = CompletedResult.finish(
+        target='example.com',
+        started_at=completed_at,
+        completed_at=completed_at,
+        groups={},
+        active_evidence=ActiveEvidence(
+            executions=(
+                ActionExecution.finish(
+                    action='shodan',
+                    status='completed',
+                    duration_ms=1,
+                    groups={'shodan-host': ['192.0.2.10']},
+                ),
+            )
+        ),
+        shodan_hosts=(shodan_host,),
+    )
+
+    records = [json.loads(line) for line in result.jsonl().splitlines()]
+
+    assert records[1] == {
+        'actions': ['shodan'],
+        'details': {
+            'asn': 'AS64496',
+            'domains': ['example.test'],
+            'hostnames': ['api.example.test'],
+            'isp': 'Example ISP',
+            'organization': 'Example Transit',
+            'services': [
+                {
+                    'observed_at': '2026-08-14T11:58:00Z',
+                    'port': 53,
+                    'product': 'dnsmasq',
+                    'transport': 'udp',
+                    'version': '2.90',
+                },
+                {
+                    'http': {'components': ['nginx'], 'server': 'nginx', 'title': 'Example'},
+                    'observed_at': '2026-08-14T12:01:00Z',
+                    'port': 443,
+                    'product': 'nginx',
+                    'transport': 'tcp',
+                    'version': '1.24.0',
+                },
+            ],
+        },
+        'sources': [],
+        'type': 'shodan-host',
+        'value': '192.0.2.10',
+    }
+    summary, findings = parse_result_jsonl(result.jsonl())
+    assert summary['result_count'] == 1
+    assert findings == records[1:]
+
+
+def test_completed_result_rejects_conflicting_shodan_hosts_for_one_ip() -> None:
+    from theHarvester.lib.shodan_evidence import ShodanHostObservation
+
+    completed_at = datetime(2026, 8, 14, 12, 2, tzinfo=UTC)
+    first = ShodanHostObservation.from_record(
+        '192.0.2.10',
+        {'services': [{'port': 53, 'transport': 'udp'}]},
+    )
+    second = ShodanHostObservation.from_record(
+        '192.0.2.10',
+        {'services': [{'port': 443, 'transport': 'tcp'}]},
+    )
+
+    with pytest.raises(ValueError, match='conflicting evidence'):
+        CompletedResult.finish(
+            target='example.com',
+            started_at=completed_at,
+            completed_at=completed_at,
+            groups={},
+            active_evidence=ActiveEvidence(
+                executions=(
+                    ActionExecution.finish(
+                        action='shodan',
+                        status='completed',
+                        duration_ms=1,
+                        groups={'shodan-host': ['192.0.2.10']},
+                    ),
+                )
+            ),
+            shodan_hosts=(first, second),
+        )
+
+
+def test_takeover_jsonl_uses_hostname_value_and_typed_evidence() -> None:
+    from theHarvester.lib.takeover_evidence import TakeoverCandidateOutcome
+
+    completed_at = datetime(2026, 8, 15, 12, 2, tzinfo=UTC)
+    takeover_outcome = TakeoverCandidateOutcome.from_record(
+        'bucket.example.test',
+        {
+            'status': 'indicator',
+            'dns': [
+                {
+                    'resolver': '1.1.1.1',
+                    'cname_chain': ['missing-bucket.s3.amazonaws.com'],
+                    'terminal_rcode': 'NOERROR',
+                }
+            ],
+            'wildcard_dns': [
+                {
+                    'resolver': '1.1.1.1',
+                    'cname_chain': [],
+                    'terminal_rcode': 'NXDOMAIN',
+                }
+            ],
+            'http': [{'scheme': 'https', 'status': 404}],
+            'indicators': [
+                {
+                    'classification': 'vulnerable-indicator',
+                    'service': 'AWS/S3',
+                    'rule_id': 'aws-s3',
+                    'rule_revision': 'takeover-rules-v1',
+                    'scheme': 'https',
+                    'matched': ['body:BucketName', 'body:The specified bucket does not exist'],
+                }
+            ],
+            'error_types': [],
+        },
+    )
+    no_indicator = TakeoverCandidateOutcome.from_record(
+        'live.example.test',
+        {
+            'status': 'no-indicator',
+            'dns': [
+                {
+                    'resolver': '1.1.1.1',
+                    'cname_chain': [],
+                    'terminal_rcode': 'NOERROR',
+                }
+            ],
+            'wildcard_dns': [],
+            'http': [],
+            'indicators': [],
+            'error_types': [],
+        },
+    )
+    inconclusive = TakeoverCandidateOutcome.from_record(
+        'uncertain.example.test',
+        {
+            'status': 'inconclusive',
+            'dns': [
+                {
+                    'resolver': '1.1.1.1',
+                    'cname_chain': [],
+                    'terminal_rcode': 'ERROR',
+                    'error_type': 'DNSTimeoutError',
+                }
+            ],
+            'wildcard_dns': [],
+            'http': [],
+            'indicators': [],
+            'error_types': ['DNSTimeoutError'],
+        },
+    )
+    result = CompletedResult.finish(
+        target='example.test',
+        started_at=completed_at,
+        completed_at=completed_at,
+        groups={},
+        active_evidence=ActiveEvidence(
+            executions=(
+                ActionExecution.finish(
+                    action='takeover',
+                    status='completed',
+                    duration_ms=1,
+                    groups={'takeover': ['bucket.example.test', 'live.example.test', 'uncertain.example.test']},
+                ),
+            )
+        ),
+        takeover_outcomes=(takeover_outcome, no_indicator, inconclusive),
+    )
+
+    records = [json.loads(line) for line in result.jsonl().splitlines()]
+
+    assert records[1:] == [
+        {
+            'actions': ['takeover'],
+            'details': outcome.to_details(),
+            'sources': [],
+            'type': 'takeover',
+            'value': outcome.hostname,
+        }
+        for outcome in (takeover_outcome, no_indicator, inconclusive)
+    ]
+    summary, findings = parse_result_jsonl(result.jsonl())
+    assert summary['result_count'] == 3
+    assert findings == records[1:]
+
+
+def test_takeover_outcome_must_remain_inside_the_run_target_scope() -> None:
+    from theHarvester.lib.takeover_evidence import TakeoverCandidateOutcome
+
+    completed_at = datetime(2026, 8, 15, 12, 2, tzinfo=UTC)
+    outcome = TakeoverCandidateOutcome.from_record(
+        'outside.example.net',
+        {
+            'status': 'no-indicator',
+            'dns': [
+                {
+                    'resolver': '1.1.1.1',
+                    'cname_chain': [],
+                    'terminal_rcode': 'NOERROR',
+                }
+            ],
+            'wildcard_dns': [],
+            'http': [],
+            'indicators': [],
+            'error_types': [],
+        },
+    )
+
+    with pytest.raises(ValueError, match='inside the run target scope'):
+        CompletedResult.finish(
+            target='example.test',
+            started_at=completed_at,
+            completed_at=completed_at,
+            groups={},
+            active_evidence=ActiveEvidence(
+                executions=(
+                    ActionExecution.finish(
+                        action='takeover',
+                        status='completed',
+                        duration_ms=1,
+                        groups={'takeover': ['outside.example.net']},
+                    ),
+                )
+            ),
+            takeover_outcomes=(outcome,),
+        )
+
+
+def test_completed_result_rejects_artifact_without_a_real_subject_result() -> None:
+    completed_at = datetime(2026, 8, 5, 12, 1, tzinfo=UTC)
+    artifact = ArtifactReference(
+        kind='screenshot',
+        subject_kind='hostname',
+        subject_value='missing.example.com',
+        path='screenshots/missing.example.com.png',
+        media_type='image/png',
+        size_bytes=3,
+        sha256='0' * 64,
+        created_at=completed_at,
+    )
+
+    with pytest.raises(ValueError, match='artifact must reference a completed result'):
+        CompletedResult.finish(
+            target='example.com',
+            started_at=completed_at,
+            completed_at=completed_at,
+            groups={},
+            active_evidence=ActiveEvidence(
+                executions=(
+                    ActionExecution.finish(
+                        action='screenshot',
+                        status='completed',
+                        duration_ms=4.0,
+                        groups={},
+                        artifacts=(artifact,),
+                    ),
+                )
+            ),
+        )
+
+
+def test_action_status_contributes_to_completed_result_status() -> None:
+    completed_at = datetime(2026, 8, 5, 12, 1, tzinfo=UTC)
+    result = CompletedResult.finish(
+        target='example.com',
+        started_at=completed_at,
+        completed_at=completed_at,
+        groups={},
+        source_executions=(SourceExecution('crtsh', 'completed', 1.0, 0),),
+        active_evidence=ActiveEvidence(
+            executions=(
+                ActionExecution.finish(
+                    action='takeover',
+                    status='failed',
+                    duration_ms=2.0,
+                    groups={},
+                    error_type='RuntimeError',
+                ),
+            )
+        ),
+    )
+
+    assert result.evidence_dict()['status'] == 'partial'
+
+
+@pytest.mark.parametrize('value', ['', '   ', 7])
+def test_completed_result_rejects_invalid_findings(value: Any) -> None:
+    with pytest.raises(ValueError, match='non-empty string'):
+        CompletedResult.finish(
+            target='example.com',
+            started_at=datetime(2026, 8, 5, 12, 0, tzinfo=UTC),
+            completed_at=datetime(2026, 8, 5, 12, 1, tzinfo=UTC),
+            groups={'hostname': [value]},
+        )
+
+
+def test_completed_result_rejects_invalid_completion() -> None:
+    started_at = datetime(2026, 8, 5, 12, 0, tzinfo=UTC)
+
+    with pytest.raises(ValueError, match='target'):
+        CompletedResult.finish(
+            target=' ',
+            started_at=started_at,
+            completed_at=started_at,
+            groups={},
+        )
+    with pytest.raises(ValueError, match='timezone-aware'):
+        CompletedResult.finish(
+            target='example.com',
+            started_at=datetime(2026, 8, 5, 12, 0),
+            completed_at=started_at,
+            groups={},
+        )
+    with pytest.raises(ValueError, match='earlier'):
+        CompletedResult.finish(
+            target='example.com',
+            started_at=started_at,
+            completed_at=datetime(2026, 8, 5, 11, 59, tzinfo=UTC),
+            groups={},
+        )
+
+
+def test_completed_result_rejects_unknown_kind() -> None:
+    groups: Any = {'source-status': ['complete']}
+
+    with pytest.raises(ValueError, match='unknown result kind'):
+        CompletedResult.finish(
+            target='example.com',
+            started_at=datetime(2026, 8, 5, 12, 0, tzinfo=UTC),
+            completed_at=datetime(2026, 8, 5, 12, 1, tzinfo=UTC),
+            groups=groups,
+        )
+
+
+def test_completed_result_rejects_direct_whitespace_finding() -> None:
+    with pytest.raises(ValueError, match='non-empty string'):
+        CompletedResult(
+            run_id=UUID('f047261c-0afb-4e18-89d5-28a7d977f51f'),
+            target='example.com',
+            started_at=datetime(2026, 8, 5, 12, 0, tzinfo=UTC),
+            completed_at=datetime(2026, 8, 5, 12, 1, tzinfo=UTC),
+            results=(('hostname', ' '),),
+        )

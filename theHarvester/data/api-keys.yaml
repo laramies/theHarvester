@@ -3,9 +3,6 @@ apikeys:
   bevigil:
     key:
 
-  bitbucket:
-    key:
-
   brave:
     key:
 
@@ -16,13 +13,16 @@ apikeys:
     key:
 
   censys:
-    id:
-    secret:
+    token:
+    organization_id:
 
   criminalip:
     key:
 
   dehashed:
+    key:
+
+  dnsdb:
     key:
 
   dnsdumpster:
@@ -44,7 +44,7 @@ apikeys:
   hackertarget:
     key:
 
-  haveibeenpwned:
+  hibpverified:
     key:
 
   hunter:
@@ -80,6 +80,9 @@ apikeys:
   rocketreach:
     key:
 
+  routeviews:
+    key:
+
   securityscorecard:
     key:
 
@@ -95,9 +98,6 @@ apikeys:
   tomba:
     key:
     secret:
-
-  venacus:
-    key:
 
   virustotal:
     key:

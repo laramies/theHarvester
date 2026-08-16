@@ -3,67 +3,180 @@ import pytest
 from theHarvester.discovery import baidusearch
 
 
+class FakeSession:
+    def __init__(self) -> None:
+        self.closed = False
+        self.delays: list[float] = []
+
+    async def close(self) -> None:
+        self.closed = True
+
+
+def response(body: str, status: int = 200, location: str = '') -> baidusearch.FetcherResponse:
+    headers = {'location': location} if location else {}
+    return baidusearch.FetcherResponse(body=body, status=status, headers=headers)
+
+
+def patch_requests(monkeypatch: pytest.MonkeyPatch, responses: list[object]) -> tuple[FakeSession, list[dict]]:
+    session = FakeSession()
+    calls: list[dict] = []
+    queued_responses = iter(responses)
+
+    async def fake_build_session(*_args: object, **_kwargs: object) -> FakeSession:
+        return session
+
+    async def fake_fetch(**kwargs: object) -> object:
+        calls.append(kwargs)
+        return next(queued_responses)
+
+    async def fake_sleep(delay: float) -> None:
+        session.delays.append(delay)
+
+    def fake_resolve_proxy(_cls: type, proxy: object) -> tuple[str | None, str | None]:
+        return ('http://proxy.example:8080', 'http') if proxy else (None, None)
+
+    monkeypatch.setattr(baidusearch.AsyncFetcher, '_build_session', fake_build_session)
+    monkeypatch.setattr(baidusearch.AsyncFetcher, 'fetch', fake_fetch)
+    monkeypatch.setattr(baidusearch.AsyncFetcher, '_resolve_proxy', classmethod(fake_resolve_proxy))
+    monkeypatch.setattr(baidusearch.asyncio, 'sleep', fake_sleep)
+    return session, calls
+
+
 class TestBaiduSearch:
     @pytest.mark.asyncio
-    async def test_process_and_parsing(self, monkeypatch):
-        called = {}
+    async def test_process_reuses_one_session_for_sequential_pages(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        session, calls = patch_requests(
+            monkeypatch,
+            [
+                response('<html>homepage</html>'),
+                response('Contact foo@example.com on a.example.com'),
+                response('bar@sub.example.com is here and www.example.com appears'),
+                response('Visit sub.a.example.com. baz@example.com'),
+            ],
+        )
+        monkeypatch.setattr(baidusearch.Core, 'get_browser_user_agent', staticmethod(lambda: 'UA'))
 
-        async def fake_fetch_all(urls, headers=None, proxy=False):
-            called["urls"] = urls
-            called["headers"] = headers
-            called["proxy"] = proxy
-            return [
-                "Contact foo@example.com on a.example.com \n",
-                " bar@sub.example.com is here and www.example.com appears \n",
-                " Visit sub.a.example.com. baz@example.com \n",
-            ]
+        search = baidusearch.SearchBaidu(word='example.com', limit=21)
+        report = await search.process(proxy=True)
 
-        # Patch the AsyncFetcher.fetch_all to avoid network I/O
-        import theHarvester.lib.core as core_module
-
-        monkeypatch.setattr(core_module.AsyncFetcher, "fetch_all", fake_fetch_all)
-        # Make user agent deterministic (not strictly necessary, but stable)
-        monkeypatch.setattr(core_module.Core, "get_user_agent", staticmethod(lambda: "UA"), raising=True)
-
-        search = baidusearch.SearchBaidu(word="example.com", limit=21)
-        await search.process(proxy=True)
-
-        expected_urls = [
-            "https://www.baidu.com/s?wd=%40example.com&pn=0&oq=example.com",
-            "https://www.baidu.com/s?wd=%40example.com&pn=10&oq=example.com",
-            "https://www.baidu.com/s?wd=%40example.com&pn=20&oq=example.com",
+        assert report is None
+        assert [call['url'] for call in calls] == [
+            'https://www.baidu.com/',
+            'https://www.baidu.com/s?wd=site%3Aexample.com&pn=0',
+            'https://www.baidu.com/s?wd=site%3Aexample.com&pn=10',
+            'https://www.baidu.com/s?wd=site%3Aexample.com&pn=20',
         ]
-        assert called["urls"] == expected_urls
-        assert called["proxy"] is True
-
-        emails = await search.get_emails()
-        hosts = await search.get_hostnames()
-
-        # Ensure our expected values are present
-        assert "foo@example.com" in emails
-        assert "bar@sub.example.com" in emails
-        assert "baz@example.com" in emails
-
-        assert {"a.example.com", "www.example.com", "sub.a.example.com"} <= set(hosts)
+        assert all(call['session'] is session for call in calls)
+        assert [call['follow_redirects'] for call in calls] == [False, False, False, False]
+        assert all(call['proxy'] == 'http://proxy.example:8080' for call in calls)
+        assert session.delays == [1.0, 1.0, 1.0]
+        assert session.closed is True
+        assert {'foo@example.com', 'bar@sub.example.com', 'baz@example.com'} <= await search.get_emails()
+        assert {'a.example.com', 'www.example.com', 'sub.a.example.com'} <= set(await search.get_hostnames())
 
     @pytest.mark.asyncio
-    async def test_pagination_limit_exclusive(self, monkeypatch):
-        captured = {}
+    async def test_captcha_redirect_stops_before_following_or_requesting_more_pages(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        session, calls = patch_requests(
+            monkeypatch,
+            [
+                response('<html>homepage</html>'),
+                response('', status=302, location='https://wappass.baidu.com/static/captcha/tuxing_v2.html'),
+                response('must not be requested'),
+            ],
+        )
+        search = baidusearch.SearchBaidu(word='example.com', limit=20)
 
-        async def fake_fetch_all(urls, headers=None, proxy=False):
-            captured["urls"] = urls
-            return [""] * len(urls)
+        report = await search.process()
 
-        import theHarvester.lib.core as core_module
+        assert len(calls) == 2
+        assert calls[-1]['follow_redirects'] is False
+        assert session.delays == [1.0]
+        assert report.status == 'failed'
+        assert report.stop_reason == 'security-verification'
+        assert session.closed is True
 
-        monkeypatch.setattr(core_module.AsyncFetcher, "fetch_all", fake_fetch_all)
-        monkeypatch.setattr(core_module.Core, "get_user_agent", staticmethod(lambda: "UA"), raising=True)
+    @pytest.mark.asyncio
+    async def test_homepage_captcha_redirect_stops_before_search(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        _session, calls = patch_requests(
+            monkeypatch,
+            [response('', status=302, location='https://wappass.baidu.com/static/captcha/tuxing_v2.html')],
+        )
+        search = baidusearch.SearchBaidu(word='example.com', limit=10)
 
-        search = baidusearch.SearchBaidu(word="example.com", limit=20)
-        await search.process()
+        report = await search.process()
 
-        # For limit=20, range(0, 20, 10) yields 0 and 10 only (20 is excluded)
-        assert captured["urls"] == [
-            "https://www.baidu.com/s?wd=%40example.com&pn=0&oq=example.com",
-            "https://www.baidu.com/s?wd=%40example.com&pn=10&oq=example.com",
+        assert len(calls) == 1
+        assert calls[0]['follow_redirects'] is False
+        assert report.status == 'failed'
+        assert report.stop_reason == 'security-verification'
+
+    @pytest.mark.asyncio
+    async def test_later_captcha_preserves_partial_results(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        _session, calls = patch_requests(
+            monkeypatch,
+            [
+                response('<html>homepage</html>'),
+                response('api.example.com'),
+                response('<html>百度安全验证</html>'),
+                response('must not be requested'),
+            ],
+        )
+        search = baidusearch.SearchBaidu(word='example.com', limit=30)
+
+        report = await search.process()
+
+        assert len(calls) == 3
+        assert await search.get_hostnames() == ['api.example.com']
+        assert report.status == 'failed'
+        assert report.stop_reason == 'security-verification'
+
+    @pytest.mark.asyncio
+    async def test_transport_failure_is_reported(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        patch_requests(monkeypatch, [response('<html>homepage</html>'), None])
+        search = baidusearch.SearchBaidu(word='example.com', limit=10)
+
+        report = await search.process()
+
+        assert report.status == 'failed'
+        assert report.stop_reason == 'transport-error'
+
+    @pytest.mark.asyncio
+    async def test_empty_response_is_reported(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        patch_requests(monkeypatch, [response('<html>homepage</html>'), response('')])
+        search = baidusearch.SearchBaidu(word='example.com', limit=10)
+
+        report = await search.process()
+
+        assert report.status == 'failed'
+        assert report.stop_reason == 'no-response'
+
+    @pytest.mark.asyncio
+    async def test_http_429_is_reported(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        patch_requests(monkeypatch, [response('<html>homepage</html>'), response('', status=429)])
+        search = baidusearch.SearchBaidu(word='example.com', limit=10)
+
+        report = await search.process()
+
+        assert report.status == 'rate-limited'
+        assert report.stop_reason == 'http-429'
+
+    @pytest.mark.asyncio
+    async def test_pagination_limit_is_exclusive(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        _session, calls = patch_requests(
+            monkeypatch,
+            [response('<html>homepage</html>'), response('<html></html>'), response('<html></html>')],
+        )
+        search = baidusearch.SearchBaidu(word='example.com', limit=20)
+
+        report = await search.process()
+
+        assert report is None
+        assert [call['url'] for call in calls[1:]] == [
+            'https://www.baidu.com/s?wd=site%3Aexample.com&pn=0',
+            'https://www.baidu.com/s?wd=site%3Aexample.com&pn=10',
         ]
+
+
+pytestmark = pytest.mark.provider_contract('baidu')

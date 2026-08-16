@@ -1,25 +1,24 @@
-from math import ceil
+import asyncio
+import ssl
+from typing import Any
 
-from censys.common import __version__
-from censys.common.exceptions import (
-    CensysRateLimitExceededException,
-    CensysUnauthorizedException,
-)
-from censys.search import CensysCerts
+import aiohttp
 
-from theHarvester import __version__ as thehavester_version
 from theHarvester.discovery.constants import MissingKey
-from theHarvester.lib.core import Core
+from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 
 class SearchCensys:
     MAX_RESULTS_PER_PAGE = 100
+    SERVER = 'https://api.platform.censys.io/v3/global/search/query'
 
-    def __init__(self, domain, limit: int = 500) -> None:
+    def __init__(self, domain: str, limit: int = 500) -> None:
         self.word = domain
-        self.key = Core.censys_key()
-        if self.key[0] is None or self.key[1] is None:
-            raise MissingKey('Censys ID and/or Secret')
+        token, self.organization_id = Core.censys_key()
+        if not isinstance(token, str) or not token.strip():
+            raise MissingKey('Censys Personal Access Token')
+        self.token = token.strip()
         self.totalhosts: set[str] = set()
         self.emails: set[str] = set()
         self.limit = limit
@@ -33,45 +32,111 @@ class SearchCensys:
             return {email for email in email_address if isinstance(email, str)}
         return set()
 
-    async def do_search(self) -> None:
-        try:
-            cert_search = CensysCerts(
-                api_id=self.key[0],
-                api_secret=self.key[1],
-                user_agent=f'censys-python/{__version__} (theHarvester/{thehavester_version}); +https://github.com/laramies/theHarvester)',
-            )
-        except CensysUnauthorizedException:
-            raise MissingKey('Censys ID and/or Secret')
+    def _parse_hit(self, hit: object) -> bool:
+        if not isinstance(hit, dict):
+            return True
+        certificate = hit.get('certificate_v1')
+        if certificate is None:
+            return False
+        if not isinstance(certificate, dict) or not isinstance(certificate.get('resource'), dict):
+            return True
+        resource: dict[str, Any] = certificate['resource']
+        names = resource.get('names', [])
+        if not isinstance(names, list):
+            return True
+        self.totalhosts.update(name for name in names if isinstance(name, str))
+        parsed = resource.get('parsed', {})
+        if not isinstance(parsed, dict):
+            return True
+        subject = parsed.get('subject', {})
+        if not isinstance(subject, dict):
+            return True
+        self.emails.update(self._normalize_emails(subject.get('email_address')))
+        return False
 
+    async def do_search(self) -> SourceExecutionReport | None:
         if self.limit <= 0:
-            return
+            return None
 
-        query = f'names: {self.word}'
-        try:
-            response = cert_search.search(
-                query=query,
-                per_page=min(self.limit, self.MAX_RESULTS_PER_PAGE),
-                pages=ceil(self.limit / self.MAX_RESULTS_PER_PAGE),
-                fields=['names', 'parsed.subject.email_address'],
-            )
-            records_seen = 0
-            for cert_page in response:
-                for cert in cert_page:
+        headers = {'Accept': 'application/json', 'Authorization': f'Bearer {self.token}'}
+        params = (
+            {'organization_id': self.organization_id.strip()}
+            if isinstance(self.organization_id, str) and self.organization_id.strip()
+            else ''
+        )
+        page_token: str | None = None
+        seen_tokens: set[str] = set()
+        records_seen = 0
+        malformed = False
+
+        async with AsyncFetcher.open_session(headers=headers, proxy=self.proxy, request_timeout=720) as session:
+            while records_seen < self.limit:
+                body = {
+                    'query': f'cert.names: "{self.word}"',
+                    'fields': ['cert.names', 'cert.parsed.subject.email_address'],
+                    'page_size': min(self.MAX_RESULTS_PER_PAGE, self.limit - records_seen),
+                }
+                if page_token is not None:
+                    body['page_token'] = page_token
+                try:
+                    response = await AsyncFetcher.post_fetch(
+                        self.SERVER,
+                        session=session,
+                        headers=headers,
+                        params=params,
+                        json=True,
+                        proxy=self.proxy,
+                        include_metadata=True,
+                        json_body=body,
+                    )
+                except Exception:
+                    return SourceExecutionReport('failed', 'transport-error')
+                if not isinstance(response, FetcherResponse):
+                    return SourceExecutionReport('failed', 'transport-error')
+                if response.status == 429:
+                    return SourceExecutionReport('rate-limited', 'http-429')
+                if response.status in {401, 403}:
+                    return SourceExecutionReport('failed', 'access-denied')
+                if not 200 <= response.status < 300:
+                    return SourceExecutionReport('failed', f'http-{response.status}')
+                if not isinstance(response.body, dict) or not isinstance(response.body.get('result'), dict):
+                    return SourceExecutionReport('failed', 'invalid-response')
+                result = response.body['result']
+                hits = result.get('hits')
+                next_page_token = result.get('next_page_token')
+                if not isinstance(hits, list) or (next_page_token is not None and not isinstance(next_page_token, str)):
+                    return SourceExecutionReport('failed', 'invalid-response')
+
+                for hit in hits:
                     if records_seen >= self.limit:
-                        return
-                    self.totalhosts.update(cert.get('names', []))
-                    email_address = cert.get('parsed', {}).get('subject', {}).get('email_address')
-                    self.emails.update(self._normalize_emails(email_address))
+                        break
+                    malformed = self._parse_hit(hit) or malformed
                     records_seen += 1
-        except CensysRateLimitExceededException:
-            print('Censys rate limit exceeded')
+                if records_seen >= self.limit:
+                    if malformed:
+                        return SourceExecutionReport('failed', 'invalid-response')
+                    return None
+                if not next_page_token:
+                    if malformed:
+                        return SourceExecutionReport('failed', 'invalid-response')
+                    return None
+                if next_page_token in seen_tokens:
+                    return SourceExecutionReport('failed', 'repeated-cursor')
+                seen_tokens.add(next_page_token)
+                page_token = next_page_token
+        return None
 
-    async def get_hostnames(self) -> set:
+    async def get_hostnames(self) -> set[str]:
         return self.totalhosts
 
-    async def get_emails(self) -> set:
+    async def get_emails(self) -> set[str]:
         return self.emails
 
-    async def process(self, proxy: bool = False) -> None:
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        await self.do_search()
+        try:
+            return await self.do_search()
+        except asyncio.CancelledError:
+            raise
+        except (aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, ValueError):
+            return SourceExecutionReport('failed', 'transport-error')

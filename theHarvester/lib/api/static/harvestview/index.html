@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en" data-theme="system">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title>HarvestView</title>
+    <link rel="icon" href="/static/harvestview/logo.webp">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabulator-tables/6.5.2/css/tabulator.min.css" integrity="sha512-t8I/asqzdu/MRgVLxVanQ/c5bhUA1qZ/zA432a/3nUh0kkd7P8Qch35wQvTODivf9D6Xv3h7F8p7ezcUyBOQrQ==" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="/static/harvestview/app.css?v={{VERSION}}-{{ASSET_VERSION}}">
+  </head>
+  <body>
+    <a class="skip-link" href="#workbench">Skip to run evidence</a>
+
+    <header class="app-header">
+      <a class="brand" href="/" aria-label="HarvestView home">
+        <img src="/static/harvestview/logo.webp" alt="">
+        <span class="brand-copy"><strong>HarvestView</strong><small>Analysis workspace for theHarvester</small></span>
+        <span class="version-badge" aria-label="theHarvester version {{VERSION}}">v{{VERSION}}</span>
+      </a>
+      <div class="header-context" aria-hidden="true">
+        <span class="signal-dot"></span>
+        <span>Local operator workspace</span>
+      </div>
+      <nav class="header-actions" aria-label="Run desk actions">
+        <button id="theme-button" class="header-button" type="button" aria-label="Change color theme" title="Cycle between system, light, and dark themes.">Theme: system</button>
+        <button id="import-button" class="header-button" type="button" title="Store existing JSONL evidence or completed runs from a theHarvester SQLite database without contacting the target.">Import result file</button>
+        <button id="new-run-button" class="header-button primary" type="button" title="Review the target, sources, and authorized activity before anything is queued." disabled>Start enumeration</button>
+      </nav>
+    </header>
+
+    <main class="app-shell">
+      <aside class="history-panel" aria-labelledby="history-title">
+        <div class="history-heading">
+          <div>
+            <p class="eyebrow">Durable history</p>
+            <h1 id="history-title">Enumeration runs</h1>
+          </div>
+          <span id="run-count" class="count-badge">0</span>
+        </div>
+        <label class="search-field" for="history-search">
+          <span class="sr-only">Search enumeration runs</span>
+          <span aria-hidden="true">⌕</span>
+          <input id="history-search" type="search" autocomplete="off" placeholder="Find target or run ID">
+        </label>
+        <div id="run-list" class="run-list"></div>
+        <div id="history-empty" class="history-empty" hidden>
+          <span aria-hidden="true">◇</span>
+          <p>No runs match this search.</p>
+        </div>
+      </aside>
+
+      <section id="workbench" class="workbench" tabindex="-1">
+        <div id="loading-state" class="center-state">
+          <span class="loader" aria-hidden="true"></span>
+          <h2>Opening the run desk</h2>
+          <p>Loading local lifecycle and evidence records.</p>
+        </div>
+
+        <div id="workspace-error" class="center-state" hidden>
+          <div class="empty-mark" aria-hidden="true">!</div>
+          <h2>Could not open the run desk</h2>
+          <p id="workspace-error-message"></p>
+          <button id="retry-workspace-button" type="button" class="button primary">Retry</button>
+        </div>
+
+        <div id="empty-state" class="center-state empty-state" hidden>
+          <div class="empty-mark" aria-hidden="true">W</div>
+          <h2>No enumeration runs yet</h2>
+          <p>Start an explicitly authorized finite run, or import theHarvester JSONL or SQLite results.</p>
+          <div class="empty-actions">
+            <button type="button" class="button primary" data-action="new-run">Start enumeration</button>
+            <button type="button" class="button" data-action="import">Import result file</button>
+          </div>
+          <dl class="empty-guardrails">
+            <div><dt>P0</dt><dd>Passive collection is the default.</dd></div>
+            <div><dt>P1 / P2</dt><dd>DNS and direct interaction stay off until selected.</dd></div>
+            <div><dt>Local</dt><dd>One isolated worker owns one run at a time.</dd></div>
+          </dl>
+        </div>
+
+        <article id="run-detail" class="run-detail" hidden>
+          <header class="detail-header">
+            <div class="detail-identity">
+              <h2 id="detail-target">-</h2>
+              <p id="detail-run-id" class="mono detail-run-id">-</p>
+            </div>
+            <div class="detail-status">
+              <div id="status-chips" class="status-chips"></div>
+              <button id="cancel-run-button" class="button danger" type="button" title="Prevent queued work from starting or ask the running child process to stop. Cancellation may not be immediate." hidden>Request cancellation</button>
+            </div>
+          </header>
+
+          <dl id="run-facts" class="run-facts"></dl>
+
+          <section class="run-assessment" aria-labelledby="assessment-title">
+            <div class="assessment-heading">
+              <h3 id="assessment-title">Run assessment</h3>
+              <p>Lifecycle and retained evidence are reported separately.</p>
+            </div>
+            <dl class="assessment-grid">
+              <div>
+                <dt>Evidence</dt>
+                <dd id="assessment-evidence"></dd>
+              </div>
+              <div>
+                <dt>Producers</dt>
+                <dd id="assessment-producers"></dd>
+                <p id="provider-outcome-summary" class="provider-outcome-summary" hidden></p>
+              </div>
+              <div class="assessment-review">
+                <dt>Review</dt>
+                <dd id="assessment-review"></dd>
+                <button id="review-outcomes-button" class="button small" type="button" hidden>Open execution outcomes</button>
+              </div>
+            </dl>
+          </section>
+
+          <section class="lifecycle-section" aria-labelledby="lifecycle-title">
+            <div class="section-heading compact">
+              <div class="heading-with-help">
+                <h3 id="lifecycle-title">Lifecycle</h3>
+                <button class="help-tip" type="button" aria-label="Explain lifecycle" data-tooltip="Tracks control flow from submission through completion or cancellation. It does not describe evidence completeness.">?</button>
+              </div>
+              <p id="lifecycle-note" class="section-note"></p>
+            </div>
+            <ol id="lifecycle-track" class="lifecycle-track"></ol>
+          </section>
+
+          <div class="overview-grid">
+            <section class="overview-panel authorization-panel" aria-labelledby="authorization-title">
+              <div class="section-heading compact">
+                <div class="heading-with-help">
+                  <h3 id="authorization-title">Authorized activity</h3>
+                  <button class="help-tip" type="button" aria-label="Explain authorized activity" data-tooltip="P0 queries existing providers, P1 performs DNS interaction, and P2 contacts the target or causes direct interaction.">?</button>
+                </div>
+              </div>
+              <div id="activity-bands" class="activity-bands"></div>
+              <dl id="request-options" class="request-options"></dl>
+            </section>
+
+          </div>
+
+          <section id="results-section" class="results-section" aria-labelledby="results-title">
+            <div class="section-heading results-heading">
+              <div>
+                <div class="heading-with-help">
+                  <h3 id="results-title">Result routes</h3>
+                  <button class="help-tip" type="button" aria-label="Explain result routes" data-tooltip="Routes group normalized evidence by type. Search the route or filter individual columns; drag header dividers to resize. Copy uses selected rows; JSONL export includes the full run.">?</button>
+                </div>
+                <p id="results-summary" class="section-note">Choose a route to inspect its evidence.</p>
+              </div>
+              <div class="section-actions">
+                <button id="copy-route-button" class="button small" type="button" title="Copy only the selected rows from the open result route." disabled>Copy selected</button>
+                <button id="export-jsonl-button" class="button small" type="button" title="Download the complete normalized result stream as JSONL.">All JSONL</button>
+              </div>
+            </div>
+            <nav id="route-tabs" class="route-tabs" aria-label="Result routes"></nav>
+            <p id="route-overflow-cue" class="route-overflow-cue" hidden>Scroll sideways for more result routes →</p>
+            <div id="results-empty" class="results-empty" hidden>
+              <span aria-hidden="true">∅</span>
+              <h4 id="results-empty-title">No normalized evidence yet</h4>
+              <p id="results-empty-copy">Queued and running records remain visible before terminal evidence exists.</p>
+            </div>
+            <div id="result-workbench" class="result-workbench" hidden>
+              <div class="table-toolbar">
+                <label for="result-search">Filter this route
+                  <input id="result-search" type="search" autocomplete="off" placeholder="Search values">
+                </label>
+                <p class="table-guidance">Filter each column below · Drag header dividers to resize</p>
+                <span id="route-count" class="count-badge quiet">0</span>
+              </div>
+              <div id="result-grid" aria-label="Selected result route"></div>
+            </div>
+          </section>
+
+          <details id="provider-details" class="provider-details">
+            <summary title="Show what each selected source and action returned, skipped, or failed, including timing and recovery details."><span id="provider-title">Execution outcomes</span><span id="provider-summary" class="count-badge quiet">0</span></summary>
+            <div class="provider-table-wrap">
+              <table class="provider-table">
+                <thead><tr><th>Producer</th><th>Kind</th><th>Outcome</th><th>Results</th><th>Duration</th><th>Reason</th></tr></thead>
+                <tbody id="provider-body"></tbody>
+              </table>
+            </div>
+            <p id="provider-empty" class="panel-empty" hidden>Execution outcomes appear after a source or action begins.</p>
+          </details>
+
+          <section id="screenshot-section" class="screenshot-section" aria-labelledby="screenshots-title" hidden>
+            <div class="section-heading">
+              <div><h3 id="screenshots-title">Screenshots</h3></div>
+              <p class="section-note">Only files captured inside this enumeration run are served.</p>
+            </div>
+            <div id="screenshot-gallery" class="screenshot-gallery"></div>
+          </section>
+
+          <details id="log-section" class="run-log" hidden>
+            <summary>Child process log</summary>
+            <pre id="run-log-output"></pre>
+          </details>
+        </article>
+      </section>
+    </main>
+
+    <dialog id="new-run-dialog" class="form-dialog wide-dialog" aria-labelledby="new-run-title">
+      <form id="new-run-form" class="dialog-content">
+        <header class="dialog-header">
+          <div><h2 id="new-run-title">Start an enumeration</h2></div>
+          <button class="icon-button dialog-close" type="button" data-close-dialog aria-label="Close new enumeration dialog">×</button>
+        </header>
+        <p>Choose only work you are authorized to perform. Passive sources are P0; DNS and direct interaction remain off until explicitly selected.</p>
+
+        <div class="form-grid three">
+          <label>Target hostname or IP
+            <input id="run-target" name="target" placeholder="example.com" autocomplete="off" required>
+            <small>Use an explicitly authorized target.</small>
+          </label>
+          <label>Result limit
+            <input id="run-limit" name="limit" type="number" min="1" max="10000" value="500" required>
+            <small>Applied per selected source.</small>
+          </label>
+          <label>Whole-run deadline
+            <input id="run-deadline" name="deadline_seconds" type="number" min="30" max="86400">
+            <small>Optional; resolution, reverse, and recursive DNS are unlimited by default.</small>
+          </label>
+        </div>
+
+        <details class="advanced-execution">
+          <summary>Advanced execution controls</summary>
+          <div class="form-grid three">
+            <label>Result start offset
+              <input id="run-start" name="start" type="number" min="0" value="0" required>
+              <small>Skip this many provider results before collection.</small>
+            </label>
+            <label>Discovery source workers
+              <input id="source-workers" name="source_workers" type="number" min="1" value="{{SOURCE_WORKERS}}" required>
+              <small>Maximum sources run at once. Every selected source still runs.</small>
+            </label>
+            <label>Recursive DNS depth
+              <input id="dns-recursive-depth" name="dns_recursive_depth" type="number" min="0" value="0" required>
+              <small>Zero keeps recursive discovery off.</small>
+            </label>
+            <label>Recursive query budget
+              <input id="dns-recursive-query-limit" name="dns_recursive_query_limit" type="number" min="1">
+              <small>Optional hard cap across all resolver vantages.</small>
+            </label>
+            <label>Recursive runtime seconds
+              <input id="dns-recursive-runtime-seconds" name="dns_recursive_runtime_seconds" type="number" min="0.1" step="0.1">
+              <small>Optional wall-clock cap for recursive discovery.</small>
+            </label>
+            <label>DNS resolver addresses
+              <input id="dns-resolvers" name="dns_resolvers" value="{{DNS_RESOLVERS}}" required>
+              <small>One or more IP addresses. Recursive DNS requires exactly three.</small>
+            </label>
+            <label>Resolver text file
+              <input id="dns-resolver-file" type="file" accept=".txt,text/plain">
+              <small>Optional file with one IPv4 or IPv6 address per line.</small>
+            </label>
+            <label class="api-scan-paths">API endpoint paths
+              <textarea id="api-scan-paths" name="api_scan_paths" rows="3" placeholder="/api/v2&#10;/health"></textarea>
+              <small>Optional list for API endpoint interaction, one URL path per line. Leave empty to use the bundled list.</small>
+            </label>
+            <label class="inline-choice"><input type="checkbox" name="proxies"><span>Use configured proxies for discovery and takeover checks. Takeover stops if no proxy is available.</span></label>
+            <label class="inline-choice"><input type="checkbox" name="no_hosts"><span>Exclude hostname results and host-dependent processing</span></label>
+          </div>
+        </details>
+
+        <fieldset class="source-fieldset">
+          <legend><span class="heading-with-help">Discovery sources <button class="help-tip" type="button" aria-label="Explain discovery sources" data-tooltip="Each selected source is queried during this finite run. Credential warnings identify sources that cannot start until configured.">?</button></span></legend>
+          <div class="source-tools">
+            <label class="source-search" for="source-search">Filter sources
+              <input id="source-search" type="search" autocomplete="off" placeholder="Name or capability">
+            </label>
+            <div class="source-actions" role="group" aria-label="Source selection">
+              <label for="source-capability">Add capability
+                <select id="source-capability"><option value="">Choose result type</option></select>
+              </label>
+              <button id="select-capability-button" class="button small" type="button">Add sources</button>
+              <button id="select-p0-button" class="button small" type="button" title="Select every passive P0 source without enabling P1 or P2 activity.">Select all P0</button>
+              <button id="clear-p0-button" class="button small" type="button" title="Clear all passive P0 source selections.">Clear</button>
+            </div>
+          </div>
+          <p id="source-selection-summary" class="source-selection-summary" aria-live="polite">Selected 1 ready source.</p>
+          <div id="source-groups" class="source-groups"></div>
+        </fieldset>
+
+        <fieldset class="action-fieldset">
+          <legend><span class="heading-with-help">Additional activity <button class="help-tip" type="button" aria-label="Explain additional activity" data-tooltip="These options expand authorization beyond selected sources. P1 performs DNS interaction; P2 can contact the target directly.">?</button></span></legend>
+          <div class="action-grid">
+            <label class="action-choice p0"><input type="checkbox" name="shodan"><span><strong>P0 · Shodan enrichment</strong><small>Query Shodan for discovered IP evidence.</small></span></label>
+            <label class="action-choice p0"><input type="checkbox" name="routeviews"><span><strong>P0 · RouteViews enrichment</strong><small>Enrich source-attributed IPs with external routing evidence.</small></span></label>
+            <label class="action-choice p1"><input type="checkbox" name="dns_lookup"><span><strong>P1 · DNS lookup</strong><small>Deduplicate discovered /24 addresses; use up to 20 PTR jobs with per-query resolver timeouts and no default phase ceiling.</small></span></label>
+            <label class="action-choice p1"><input type="checkbox" name="dns_resolve"><span><strong>P1 · DNS resolution</strong><small>Resolve with the configured resolver addresses. Deduplicate names; use up to 20 hostname jobs with per-query resolver timeouts and no default phase ceiling.</small></span></label>
+            <label class="action-choice p1"><input type="checkbox" name="dns_brute"><span><strong>P1 · DNS brute force</strong><small>Query candidate labels against DNS.</small></span></label>
+            <label class="action-choice p2"><input type="checkbox" name="screenshot"><span><strong>P2 · Screenshots</strong><small>Contact resolved hosts and capture pages.</small></span></label>
+            <label class="action-choice p2"><input type="checkbox" name="takeover"><span><strong>P2 · Takeover checks</strong><small>Use provider DNS and wildcard controls before contacting an original discovered host. Redirects stay off. A match is not confirmation.</small></span></label>
+            <label class="action-choice p2"><input type="checkbox" name="api_scan"><span><strong>P2 · API endpoint interaction</strong><small>Contact the target for endpoint evidence.</small></span></label>
+          </div>
+          <details class="advanced-execution">
+            <summary>P2 · Virtual-host discovery</summary>
+            <p>Test harvested in-scope hostnames against every harvested literal IP that fits the shared request cap, breadth-first on HTTPS 443 then HTTP 80. This is harvested-candidate testing, not wordlist brute forcing. HTTP Host and TLS SNI stay aligned; candidate DNS and redirects are never used.</p>
+            <div class="form-grid three">
+              <label class="inline-choice"><input id="vhost-enabled" name="vhost" type="checkbox"><span>Probe harvested IPs for virtual hosts</span></label>
+              <label>Literal-IP endpoint override
+                <input id="vhost-endpoint" name="vhost_endpoint" placeholder="https://192.0.2.10:443/" autocomplete="off">
+                <small>Optional: probe only this endpoint instead of harvested IPs. Providing it also enables discovery.</small>
+              </label>
+              <label>Additional candidate hostnames
+                <textarea id="vhost-candidates" name="vhost_candidates" rows="4" placeholder="admin.example.com&#10;preview.example.com"></textarea>
+                <small>Optional: augment in-scope hostnames harvested during this run. Providing a name also enables discovery.</small>
+              </label>
+            </div>
+            <details class="advanced-execution">
+              <summary>Advanced safety controls</summary>
+              <div class="form-grid three">
+                <label>Request budget
+                  <input id="vhost-request-limit" name="vhost_request_limit" type="number" min="5" max="10000" value="100">
+                  <small>Includes context, controls, candidates, and confirmations.</small>
+                </label>
+                <label>Runtime seconds
+                  <input id="vhost-runtime-seconds" name="vhost_runtime_seconds" type="number" min="0.1" max="3600" step="0.1" value="30">
+                  <small>Hard wall-clock cap.</small>
+                </label>
+                <label>Per-request timeout
+                  <input id="vhost-timeout-seconds" name="vhost_timeout_seconds" type="number" min="0.1" max="300" step="0.1" value="5">
+                  <small>Seconds allowed for each request.</small>
+                </label>
+                <label>Concurrency
+                  <input id="vhost-concurrency" name="vhost_concurrency" type="number" min="1" max="100" value="5">
+                  <small>Maximum simultaneous candidate requests.</small>
+                </label>
+                <label class="inline-choice"><input id="vhost-insecure" name="vhost_insecure" type="checkbox"><span>Disable HTTPS certificate verification and record that choice</span></label>
+              </div>
+            </details>
+          </details>
+        </fieldset>
+
+        <p id="activity-summary" class="activity-summary">P0 selected · P1 off · P2 off</p>
+        <p id="new-run-error" class="form-error" role="alert" hidden></p>
+        <footer class="dialog-actions">
+          <button class="button" type="button" data-close-dialog>Keep reviewing</button>
+          <button id="submit-run-button" class="button primary" type="submit">Start enumeration</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="import-dialog" class="form-dialog" aria-labelledby="import-title">
+      <form id="import-form" class="dialog-content">
+        <header class="dialog-header">
+          <div><h2 id="import-title">Import a result file</h2></div>
+          <button class="icon-button dialog-close" type="button" data-close-dialog aria-label="Close import dialog">×</button>
+        </header>
+        <p>Choose theHarvester JSONL evidence or a closed, checkpointed SQLite database. Import never contacts the target or replays a run. SQLite stores run evidence but does not embed screenshot files.</p>
+        <label class="file-drop" for="result-file">
+          <span class="file-mark" aria-hidden="true">⇧</span>
+          <strong id="file-label">Choose a JSONL or SQLite file</strong>
+          <small>JSONL maximum: 10 MiB. SQLite uses the server import limit.</small>
+          <input id="result-file" name="result-file" type="file" accept=".jsonl,.sqlite,.sqlite3,.db,application/x-ndjson,application/vnd.sqlite3" required>
+        </label>
+        <p id="import-error" class="form-error" role="alert" hidden></p>
+        <footer class="dialog-actions">
+          <button class="button" type="button" data-close-dialog>Keep current view</button>
+          <button id="submit-import-button" class="button primary" type="submit">Import result file</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="screenshot-dialog" class="screenshot-dialog" aria-labelledby="screenshot-dialog-title">
+      <header class="screenshot-dialog-header">
+        <div><h2 id="screenshot-dialog-title">Screenshot</h2></div>
+        <button class="icon-button dialog-close" type="button" data-close-dialog aria-label="Close screenshot">×</button>
+      </header>
+      <img id="screenshot-dialog-image" src="/static/harvestview/logo.webp" alt="">
+    </dialog>
+
+    <div id="toast" class="toast-message" role="status" hidden></div>
+    <div id="announcer" class="sr-only" aria-live="polite"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tabulator-tables/6.5.2/js/tabulator.min.js" integrity="sha512-AF0YMSgc0Ui4IJPb4hJNSi16wFidZEQa6ZTCAeguF3h5glVnAPuz/JT2ai9ypKhsc9n6CEXBB+tMdxsv1q+rxg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="/static/harvestview/app.js?v={{VERSION}}-{{ASSET_VERSION}}"></script>
+  </body>
+</html>

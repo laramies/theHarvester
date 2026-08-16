@@ -1,8 +1,11 @@
 import asyncio
+import logging
 
 import aiohttp
 
 from theHarvester.lib.core import Core
+
+logger = logging.getLogger(__name__)
 
 
 class SearchThc:
@@ -26,13 +29,16 @@ class SearchThc:
                     async with session.get(url) as response:
                         if response.status == 429:
                             rate_remaining = response.headers.get('x-ratelimit-remaining', '0')
+                            if attempt == self.max_retries - 1:
+                                logger.info(f'THC returned status 429 after {self.max_retries} attempts')
+                                return
                             wait_time = self.base_delay * (attempt + 1)
-                            print(f'THC rate limit hit (remaining: {rate_remaining}). Waiting {wait_time}s before retry...')
+                            logger.info(f'THC rate limit hit (remaining: {rate_remaining}). Waiting {wait_time}s before retry...')
                             await asyncio.sleep(wait_time)
                             continue
 
                         if response.status != 200:
-                            print(f'THC returned status {response.status}')
+                            logger.info(f'THC returned status {response.status}')
                             return
 
                         text = await response.text()
@@ -46,11 +52,14 @@ class SearchThc:
             except Exception as e:
                 error_msg = str(e).lower()
                 if '429' in error_msg or 'rate' in error_msg:
+                    if attempt == self.max_retries - 1:
+                        logger.info(f'THC rate limit failure after {self.max_retries} attempts')
+                        return
                     wait_time = self.base_delay * (attempt + 1)
-                    print(f'THC rate limit detected. Waiting {wait_time}s before retry...')
+                    logger.info(f'THC rate limit detected. Waiting {wait_time}s before retry...')
                     await asyncio.sleep(wait_time)
                     continue
-                print(f'An exception has occurred in THC: {e}')
+                logger.info(f'An exception has occurred in THC: {e}')
                 return
 
     async def get_hostnames(self) -> set:

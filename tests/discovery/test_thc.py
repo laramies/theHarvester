@@ -10,8 +10,9 @@ THC provides multiple endpoints:
 
 API Documentation: https://ip.thc.org/docs/
 """
-import os
-from typing import Optional
+from types import TracebackType
+from typing import Any, Self
+from urllib.parse import parse_qs, urlparse
 
 import httpx
 import pytest
@@ -19,60 +20,113 @@ import pytest
 from theHarvester.discovery import thc
 from theHarvester.lib.core import Core
 
-github_ci: Optional[str] = os.getenv('GITHUB_ACTIONS')
+
+class FakeResponse:
+    def __init__(self, text: str, status: int = 200, headers: dict[str, str] | None = None) -> None:
+        self._text = text
+        self.status = status
+        self.headers = headers or {}
+
+    async def __aenter__(self) -> Self:
+        return self
+
+    async def __aexit__(
+        self,
+        _exc_type: type[BaseException] | None,
+        _exc: BaseException | None,
+        _tb: TracebackType | None,
+    ) -> bool:
+        return False
+
+    async def text(self) -> str:
+        return self._text
+
+
+class FakeSession:
+    def __init__(self, **_kwargs: Any) -> None:
+        pass
+
+    async def __aenter__(self) -> Self:
+        return self
+
+    async def __aexit__(
+        self,
+        _exc_type: type[BaseException] | None,
+        _exc: BaseException | None,
+        _tb: TracebackType | None,
+    ) -> bool:
+        return False
+
+    def get(self, url: str) -> FakeResponse:
+        domain = parse_qs(urlparse(url).query).get('domain', ['example.com'])[0]
+        return FakeResponse(f'WWW.{domain}\napi.{domain}\napi.{domain}\n')
+
+
+def session_for(*outcomes: FakeResponse | Exception) -> type[FakeSession]:
+    remaining = iter(outcomes)
+
+    class SequencedSession(FakeSession):
+        def get(self, _url: str) -> FakeResponse:
+            outcome = next(remaining)
+            if isinstance(outcome, Exception):
+                raise outcome
+            return outcome
+
+    return SequencedSession
+
+
+@pytest.fixture(autouse=True)
+def fake_thc_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(thc.aiohttp, 'ClientSession', FakeSession)
+
+
+@pytest.fixture
+def recorded_sleeps(monkeypatch: pytest.MonkeyPatch) -> list[int]:
+    sleeps: list[int] = []
+
+    async def record_sleep(seconds: int) -> None:
+        sleeps.append(seconds)
+
+    monkeypatch.setattr(thc.asyncio, 'sleep', record_sleep)
+    return sleeps
 
 
 # =============================================================================
 # 1. Direct API Tests (Endpoint Validation)
 # =============================================================================
+@pytest.mark.live_network
 class TestThcApi:
     """Tests to validate that the THC API responds correctly."""
 
-    @pytest.mark.asyncio
-    async def test_api_subdomains_download_endpoint_responds(self) -> None:
+    def test_api_subdomains_download_endpoint_responds(self, live_test_domain: str) -> None:
         """Verify that the subdomain download endpoint responds."""
-        url = 'https://ip.thc.org/api/v1/subdomains/download?domain=google.com&limit=10&hide_header=true'
+        url = f'https://ip.thc.org/api/v1/subdomains/download?domain={live_test_domain}&limit=10&hide_header=true'
         headers = {'User-Agent': Core.get_user_agent()}
-        try:
-            response = httpx.get(url, headers=headers, timeout=30)
-            assert response.status_code == 200
-        except (httpx.TimeoutException, httpx.RequestError):
-            pytest.skip('Skipping due to network error')
+        response = httpx.get(url, headers=headers, timeout=30)
+        assert response.status_code == 200
 
-    @pytest.mark.asyncio
-    async def test_api_subdomains_returns_text_format(self) -> None:
+    def test_api_subdomains_returns_text_format(self, live_test_domain: str) -> None:
         """Verify that the response is plain text."""
-        url = 'https://ip.thc.org/api/v1/subdomains/download?domain=google.com&limit=5&hide_header=true'
+        url = f'https://ip.thc.org/api/v1/subdomains/download?domain={live_test_domain}&limit=5&hide_header=true'
         headers = {'User-Agent': Core.get_user_agent()}
-        try:
-            response = httpx.get(url, headers=headers, timeout=30)
-            content_type = response.headers.get('content-type', '')
-            assert 'text' in content_type or 'octet-stream' in content_type or response.status_code == 200
-        except (httpx.TimeoutException, httpx.RequestError):
-            pytest.skip('Skipping due to network error')
+        response = httpx.get(url, headers=headers, timeout=30)
+        content_type = response.headers.get('content-type', '')
+        assert 'text' in content_type or 'octet-stream' in content_type
 
-    @pytest.mark.asyncio
-    async def test_api_cli_subdomain_endpoint(self) -> None:
+    def test_api_cli_subdomain_endpoint(self, live_test_domain: str) -> None:
         """Verify CLI endpoint /sb/{domain}."""
-        url = 'https://ip.thc.org/sb/google.com?l=5&noheader'
+        url = f'https://ip.thc.org/sb/{live_test_domain}?l=5&noheader'
         headers = {'User-Agent': Core.get_user_agent()}
-        try:
-            response = httpx.get(url, headers=headers, timeout=30)
-            assert response.status_code == 200
-        except (httpx.TimeoutException, httpx.RequestError):
-            pytest.skip('Skipping due to network error')
+        response = httpx.get(url, headers=headers, timeout=30)
+        assert response.status_code == 200
 
-    @pytest.mark.asyncio
-    async def test_api_returns_rate_limit_headers(self) -> None:
+    def test_api_returns_rate_limit_headers(self, live_test_domain: str) -> None:
         """Verify that the API returns rate limit headers."""
-        url = 'https://ip.thc.org/api/v1/subdomains/download?domain=example.com&limit=1&hide_header=true'
+        url = f'https://ip.thc.org/api/v1/subdomains/download?domain={live_test_domain}&limit=1&hide_header=true'
         headers = {'User-Agent': Core.get_user_agent()}
-        try:
-            response = httpx.get(url, headers=headers, timeout=30)
-            assert 'x-ratelimit-limit' in response.headers
-            assert 'x-ratelimit-remaining' in response.headers
-        except (httpx.TimeoutException, httpx.RequestError):
-            pytest.skip('Skipping due to network error')
+        response = httpx.get(url, headers=headers, timeout=30)
+        assert 'x-ratelimit-limit' in response.headers
+        assert 'x-ratelimit-remaining' in response.headers
 
 
 # =============================================================================
@@ -83,20 +137,17 @@ class TestThcSubdomainSearch:
 
     @staticmethod
     def domain() -> str:
-        return 'tesla.com'
+        return 'example.com'
 
     @staticmethod
     def small_domain() -> str:
-        return 'thc.org'
+        return 'example.com'
 
     @pytest.mark.asyncio
     async def test_search_returns_set(self) -> None:
         """Verify that get_hostnames() returns a set."""
         search = thc.SearchThc(self.domain())
-        try:
-            await search.process()
-        except (httpx.TimeoutException, httpx.RequestError):
-            pytest.skip('Skipping due to network error')
+        await search.process()
         result = await search.get_hostnames()
         assert isinstance(result, set)
 
@@ -104,21 +155,15 @@ class TestThcSubdomainSearch:
     async def test_search_finds_subdomains(self) -> None:
         """Verify that it finds subdomains for a known domain."""
         search = thc.SearchThc(self.domain())
-        try:
-            await search.process()
-        except (httpx.TimeoutException, httpx.RequestError):
-            pytest.skip('Skipping due to network error')
+        await search.process()
         result = await search.get_hostnames()
-        assert len(result) > 0, 'Should find at least one subdomain for tesla.com'
+        assert len(result) > 0, 'Should find at least one subdomain for example.com'
 
     @pytest.mark.asyncio
     async def test_search_results_contain_target_domain(self) -> None:
         """Verify that all results contain the target domain."""
         search = thc.SearchThc(self.small_domain())
-        try:
-            await search.process()
-        except (httpx.TimeoutException, httpx.RequestError):
-            pytest.skip('Skipping due to network error')
+        await search.process()
         result = await search.get_hostnames()
         for hostname in result:
             assert self.small_domain() in hostname, f'{hostname} should contain {self.small_domain()}'
@@ -127,13 +172,94 @@ class TestThcSubdomainSearch:
     async def test_search_no_duplicates(self) -> None:
         """Verify that there are no duplicates in the results."""
         search = thc.SearchThc(self.domain())
-        try:
-            await search.process()
-        except (httpx.TimeoutException, httpx.RequestError):
-            pytest.skip('Skipping due to network error')
+        await search.process()
         result = await search.get_hostnames()
         result_list = list(result)
         assert len(result_list) == len(set(result_list))
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ('outcomes', 'message'),
+        [
+            (
+                tuple(FakeResponse('', status=429) for _ in range(3)),
+                'THC returned status 429 after 3 attempts',
+            ),
+            (
+                tuple(RuntimeError('429 too many requests') for _ in range(3)),
+                'THC rate limit failure after 3 attempts',
+            ),
+        ],
+    )
+    async def test_final_rate_limit_is_attributed_without_an_extra_sleep(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        recorded_sleeps: list[int],
+        caplog: pytest.LogCaptureFixture,
+        outcomes: tuple[FakeResponse | Exception, ...],
+        message: str,
+    ) -> None:
+        monkeypatch.setattr(
+            thc.aiohttp,
+            'ClientSession',
+            session_for(FakeResponse('kept.example.com\n'), *outcomes),
+        )
+        search = thc.SearchThc(self.domain())
+        await search.process()
+
+        with caplog.at_level('INFO', logger=thc.__name__):
+            await search.process()
+
+        assert await search.get_hostnames() == {'kept.example.com'}
+        assert recorded_sleeps == [2, 4]
+        assert message in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_retry_recovers(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        recorded_sleeps: list[int],
+    ) -> None:
+        monkeypatch.setattr(
+            thc.aiohttp,
+            'ClientSession',
+            session_for(FakeResponse('', status=429), FakeResponse('WWW.example.com\napi.example.com\n')),
+        )
+        search = thc.SearchThc(self.domain())
+
+        await search.process()
+
+        assert recorded_sleeps == [2]
+        assert await search.get_hostnames() == {'www.example.com', 'api.example.com'}
+
+    @pytest.mark.asyncio
+    async def test_non_success_status_is_attributed(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        monkeypatch.setattr(thc.aiohttp, 'ClientSession', session_for(FakeResponse('', status=503)))
+        search = thc.SearchThc(self.domain())
+
+        with caplog.at_level('INFO', logger=thc.__name__):
+            await search.process()
+
+        assert await search.get_hostnames() == set()
+        assert 'THC returned status 503' in caplog.text
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize('payload', ['', '\n\t\n', 'not a hostname'])
+    async def test_empty_or_malformed_payloads_fail_safely(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        payload: str,
+    ) -> None:
+        monkeypatch.setattr(thc.aiohttp, 'ClientSession', session_for(FakeResponse(payload)))
+        search = thc.SearchThc(self.domain())
+
+        await search.process()
+
+        assert await search.get_hostnames() == set()
 
 
 # =============================================================================
@@ -146,12 +272,7 @@ class TestThcEdgeCases:
     async def test_search_nonexistent_domain(self) -> None:
         """Verify behavior with non-existent domain."""
         search = thc.SearchThc('this-domain-definitely-does-not-exist-12345.com')
-        try:
-            await search.process()
-        except (httpx.TimeoutException, httpx.RequestError):
-            pytest.skip('Skipping due to network error')
-        except Exception:
-            pass
+        await search.process()
         result = await search.get_hostnames()
         assert isinstance(result, set)
 
@@ -159,12 +280,7 @@ class TestThcEdgeCases:
     async def test_search_empty_domain(self) -> None:
         """Verify behavior with empty domain."""
         search = thc.SearchThc('')
-        try:
-            await search.process()
-        except (httpx.TimeoutException, httpx.RequestError):
-            pytest.skip('Skipping due to network error')
-        except Exception:
-            pass
+        await search.process()
         result = await search.get_hostnames()
         assert isinstance(result, set)
 
@@ -172,12 +288,7 @@ class TestThcEdgeCases:
     async def test_search_special_characters_domain(self) -> None:
         """Verify behavior with special characters."""
         search = thc.SearchThc('example.com; DROP TABLE domains;--')
-        try:
-            await search.process()
-        except (httpx.TimeoutException, httpx.RequestError):
-            pytest.skip('Skipping due to network error')
-        except Exception:
-            pass
+        await search.process()
         result = await search.get_hostnames()
         assert isinstance(result, set)
 
@@ -185,23 +296,15 @@ class TestThcEdgeCases:
     async def test_search_unicode_domain(self) -> None:
         """Verify behavior with IDN/unicode domain."""
         search = thc.SearchThc('xn--mnchen-3ya.de')
-        try:
-            await search.process()
-        except (httpx.TimeoutException, httpx.RequestError):
-            pytest.skip('Skipping due to network error')
-        except Exception:
-            pass
+        await search.process()
         result = await search.get_hostnames()
         assert isinstance(result, set)
 
     @pytest.mark.asyncio
     async def test_search_subdomain_as_input(self) -> None:
         """Verify behavior when a subdomain is passed as input."""
-        search = thc.SearchThc('www.google.com')
-        try:
-            await search.process()
-        except (httpx.TimeoutException, httpx.RequestError):
-            pytest.skip('Skipping due to network error')
+        search = thc.SearchThc('www.example.com')
+        await search.process()
         result = await search.get_hostnames()
         assert isinstance(result, set)
 
@@ -220,10 +323,7 @@ class TestThcProxy:
     async def test_process_accepts_proxy_parameter(self) -> None:
         """Verify that process() accepts proxy parameter."""
         search = thc.SearchThc(self.domain())
-        try:
-            await search.process(proxy=False)
-        except (httpx.TimeoutException, httpx.RequestError):
-            pytest.skip('Skipping due to network error')
+        await search.process(proxy=False)
         result = await search.get_hostnames()
         assert isinstance(result, set)
 
@@ -284,16 +384,13 @@ class TestThcResponseFormat:
 
     @staticmethod
     def domain() -> str:
-        return 'github.com'
+        return 'example.com'
 
     @pytest.mark.asyncio
     async def test_hostnames_are_strings(self) -> None:
         """Verify that all hostnames are strings."""
         search = thc.SearchThc(self.domain())
-        try:
-            await search.process()
-        except (httpx.TimeoutException, httpx.RequestError):
-            pytest.skip('Skipping due to network error')
+        await search.process()
         result = await search.get_hostnames()
         for hostname in result:
             assert isinstance(hostname, str)
@@ -302,10 +399,7 @@ class TestThcResponseFormat:
     async def test_hostnames_are_valid_format(self) -> None:
         """Verify that hostnames have valid format."""
         search = thc.SearchThc(self.domain())
-        try:
-            await search.process()
-        except (httpx.TimeoutException, httpx.RequestError):
-            pytest.skip('Skipping due to network error')
+        await search.process()
         result = await search.get_hostnames()
         for hostname in result:
             assert ' ' not in hostname
@@ -316,10 +410,7 @@ class TestThcResponseFormat:
     async def test_hostnames_are_lowercase(self) -> None:
         """Verify that hostnames are lowercase."""
         search = thc.SearchThc(self.domain())
-        try:
-            await search.process()
-        except (httpx.TimeoutException, httpx.RequestError):
-            pytest.skip('Skipping due to network error')
+        await search.process()
         result = await search.get_hostnames()
         for hostname in result:
             assert hostname == hostname.lower()
@@ -328,7 +419,6 @@ class TestThcResponseFormat:
 # =============================================================================
 # 7. Integration Tests with theHarvester
 # =============================================================================
-@pytest.mark.skipif(github_ci == 'true', reason='Skip integration tests in CI')
 class TestThcIntegration:
     """Integration tests with theHarvester framework."""
 
@@ -354,3 +444,6 @@ class TestThcIntegration:
 
 if __name__ == '__main__':
     pytest.main()
+
+
+pytestmark = pytest.mark.provider_contract('thc')

@@ -1,17 +1,35 @@
 import asyncio
+import logging
+from typing import Any
 from urllib.parse import quote
 
 from theHarvester.discovery.constants import MissingKey, get_delay
-from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.configuration import CredentialAdapter, FileSystemCredentialAdapter
+from theHarvester.lib.core import AsyncFetcher
 from theHarvester.parsers import myparser
+
+logger = logging.getLogger(__name__)
 
 
 class SearchBrave:
-    def __init__(self, word, limit):
+    """Search Brave while allowing credentials to be supplied without file access.
+
+    Provider API:
+    https://api-dashboard.search.brave.com/app/documentation/web-search/query
+
+    Filesystem credentials remain the production default; injection keeps tests and
+    embedded use independent of operator configuration files.
+    """
+
+    def __init__(self, word: str, limit: int, credential_adapter: CredentialAdapter | None = None) -> None:
         self.word = word
-        self.results = []
+        self.results: list[dict[str, Any]] = []
         self.totalresults = ''
-        self.api_key = Core.brave_key()
+        credentials = credential_adapter if credential_adapter is not None else FileSystemCredentialAdapter()
+        try:
+            self.api_key = credentials.get('brave')
+        except KeyError:
+            raise MissingKey('Brave Search') from None
         if self.api_key is None or self.api_key == '':
             raise MissingKey('Brave Search')
         self.server = 'https://api.search.brave.com/res/v1/web/search'
@@ -26,14 +44,16 @@ class SearchBrave:
         queries = [f'"{self.word}"', f'site:{self.word}']
 
         for query in queries:
+            if len(self.results) >= self.limit:
+                break
             try:
-                # Calculate number of pages based on limit (20 results per page)
-                pages = min((self.limit // 20) + 1, 5)  # Maximum 5 pages
-
-                for offset in range(0, pages * 20, 20):
+                for offset in range(10):
+                    remaining = self.limit - len(self.results)
+                    if remaining <= 0:
+                        break
                     params = {
                         'q': query,
-                        'count': min(20, self.limit - len(self.results)),
+                        'count': min(20, remaining),
                         'offset': offset,
                         'safesearch': 'off',
                         'freshness': 'all',
@@ -50,7 +70,7 @@ class SearchBrave:
 
                     # Handle API response
                     if resp is None:
-                        print('No response received from Brave Search API')
+                        logger.info('No response received from Brave Search API')
                         break
 
                     # Check for API errors (rate limit, quota exceeded, etc.)
@@ -59,19 +79,18 @@ class SearchBrave:
                         error_code = resp.get('error', {}).get('code', 'unknown')
 
                         if 'rate limit' in error_msg.lower() or error_code == 'rate_limit_exceeded':
-                            print(f'Rate limit exceeded. Increasing delay to {self.rate_limit_delay * 2} seconds')
+                            logger.info(f'Rate limit exceeded. Increasing delay to {self.rate_limit_delay * 2} seconds')
                             self.rate_limit_delay *= 2
                             await asyncio.sleep(self.rate_limit_delay)
-                            continue
+                            break
                         elif 'quota' in error_msg.lower() or error_code == 'quota_exceeded':
-                            print(f'API quota exceeded: {error_msg}')
+                            logger.info('Brave Search API quota exceeded')
                             break
                         else:
-                            # print(f'API error ({error_code}): {error_msg}')
                             break
 
                     if 'web' in resp and 'results' in resp['web']:
-                        results = resp['web']['results']
+                        results = resp['web']['results'][:remaining]
                         if not results:
                             break
 
@@ -92,8 +111,10 @@ class SearchBrave:
                         # Stop if we've reached our limit
                         if len(self.results) >= self.limit:
                             break
+                        if not resp.get('query', {}).get('more_results_available', False):
+                            break
                     else:
-                        print('Unexpected response format from Brave Search API')
+                        logger.info('Unexpected response format from Brave Search API')
                         break
 
                     await asyncio.sleep(get_delay())
@@ -103,17 +124,17 @@ class SearchBrave:
 
                 # Handle specific API-related exceptions
                 if 'rate limit' in error_msg or '429' in error_msg:
-                    print(f'Rate limit detected in exception. Increasing delay to {self.rate_limit_delay * 2} seconds')
+                    logger.info(f'Rate limit detected in exception. Increasing delay to {self.rate_limit_delay * 2} seconds')
                     self.rate_limit_delay *= 2
                     await asyncio.sleep(self.rate_limit_delay)
                 elif 'quota' in error_msg or '403' in error_msg:
-                    print(f'Quota exceeded or access denied: {e}')
+                    logger.info(f'Quota exceeded or access denied: {e}')
                     break
                 elif 'timeout' in error_msg:
-                    print(f'Request timeout occurred: {e}')
+                    logger.info(f'Request timeout occurred: {e}')
                     await asyncio.sleep(get_delay() + 2)
                 else:
-                    print(f'An exception has occurred in bravesearch: {e}')
+                    logger.info(f'An exception has occurred in bravesearch: {e}')
                     await asyncio.sleep(get_delay() + 5)
                 continue
 
