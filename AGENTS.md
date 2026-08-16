@@ -30,6 +30,14 @@ Read [CONTEXT.md](CONTEXT.md) when changing discovery terminology, evidence clas
 
 Run focused checks first and expand according to risk. Report any skipped check and its reason.
 
+## GitHub CLI diagnostics
+
+Before reporting broken GitHub authentication, distinguish sandbox or network
+isolation from credential failure. Run `gh api user --jq .login` in the same
+host execution context used for `git push`; a sandboxed `gh auth status`
+failure alone is not credential evidence. Prefer authenticated `gh` or API
+publication, and use browser publication only after the host-side check fails.
+
 ### Test budget
 
 - During implementation, run the narrowest test that covers the changed behavior. Do not rerun the full suite after every small edit.
