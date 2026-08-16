@@ -7,7 +7,7 @@ import yaml
 
 WORKFLOW_DIR = Path(__file__).parents[1] / '.github' / 'workflows'
 CI_WORKFLOW_PATH = WORKFLOW_DIR / 'theHarvester.yml'
-SMOKE_WORKFLOW_PATH = WORKFLOW_DIR / 'provider-smoke.yml'
+RELEASE_WORKFLOW_PATH = WORKFLOW_DIR / 'provider-smoke.yml'
 HARVESTVIEW_WORKFLOW_PATH = WORKFLOW_DIR / 'harvestview-e2e.yml'
 CONTAINER_WORKFLOW_PATH = WORKFLOW_DIR / 'harvestview-container.yml'
 
@@ -31,7 +31,7 @@ def test_routine_ci_is_read_only_and_offline() -> None:
 
 
 def test_release_validation_is_manual_and_composes_existing_checks() -> None:
-    workflow = _workflow(SMOKE_WORKFLOW_PATH)
+    workflow = _workflow(RELEASE_WORKFLOW_PATH)
 
     assert workflow['name'] == 'Release validation'
     assert set(workflow['on']) == {'workflow_dispatch'}
@@ -50,7 +50,7 @@ def test_release_validation_is_manual_and_composes_existing_checks() -> None:
 
 
 def test_release_live_checks_are_opt_in_p0_and_fixed_to_mozilla() -> None:
-    workflow = _workflow(SMOKE_WORKFLOW_PATH)
+    workflow = _workflow(RELEASE_WORKFLOW_PATH)
     live_jobs = [job for name, job in workflow['jobs'].items() if name.startswith('live-')]
 
     assert live_jobs
@@ -69,7 +69,10 @@ def test_release_live_checks_are_opt_in_p0_and_fixed_to_mozilla() -> None:
 
     provider_commands = '\n'.join(step.get('run', '') for step in workflow['jobs']['live-provider-tests']['steps'])
     cli_commands = '\n'.join(step.get('run', '') for step in workflow['jobs']['live-cli-smoke']['steps'])
-    assert 'pytest --run-live-network -m live_network' in provider_commands
+    assert 'ActivityClass.PASSIVE' in provider_commands
+    assert 'tests/discovery/test_certspotter.py::TestCertspotterSearch::test_api' in provider_commands
+    assert 'tests/discovery/test_otx.py::TestOtx::test_api' in provider_commands
+    assert 'tests/discovery/test_thc.py::TestThcApi' in provider_commands
     assert 'ActivityClass.PASSIVE' in cli_commands
     assert '-l 10 -q' in cli_commands
 
