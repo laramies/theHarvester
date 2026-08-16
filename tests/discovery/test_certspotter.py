@@ -337,3 +337,6 @@ class TestCertspotterSearch(object):
 
 if __name__ == '__main__':
     pytest.main()
+
+
+pytestmark = pytest.mark.provider_contract('certspotter')

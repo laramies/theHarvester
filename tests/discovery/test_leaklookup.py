@@ -196,3 +196,6 @@ async def test_leaklookup_emails_and_breaches_reach_completed_result_and_jsonl(m
     records = [json.loads(line) for line in report.with_suffix('.jsonl').read_text().splitlines()]
     assert {'type': 'breach', 'value': 'Example Breach', 'sources': ['leaklookup']} in records
     assert {'type': 'email', 'value': 'alice@example.com', 'sources': ['leaklookup']} in records
+
+
+pytestmark = pytest.mark.provider_contract('leaklookup')

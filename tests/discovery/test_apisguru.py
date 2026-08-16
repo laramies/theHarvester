@@ -681,6 +681,8 @@ async def test_directory_failures_are_attributed(
     assert search.stop_reason == stop_reason
 
 
+
+
 @pytest.mark.asyncio
 async def test_missing_provider_is_completed_with_no_results(monkeypatch: pytest.MonkeyPatch) -> None:
     async def fake_fetch(**_kwargs: Any) -> FetcherResponse:
@@ -971,3 +973,6 @@ async def test_preferred_spec_failures_are_attributed(
 
     assert search.execution_status == execution_status
     assert search.stop_reason == stop_reason
+
+
+pytestmark = pytest.mark.provider_contract('apis-guru')

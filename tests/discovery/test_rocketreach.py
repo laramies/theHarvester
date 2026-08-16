@@ -117,3 +117,6 @@ async def test_do_search_stops_on_throttling_message(monkeypatch) -> None:
     await search.process()
 
     assert len(calls) == 1
+
+
+pytestmark = pytest.mark.provider_contract('rocketreach')

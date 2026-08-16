@@ -205,3 +205,6 @@ async def test_parser_exception_preserves_valid_partial_results(
     assert search.execution_status == 'partial'
     assert search.stop_reason == 'invalid-response'
     assert 'private provider payload' not in caplog.text
+
+
+pytestmark = pytest.mark.provider_contract('projectdiscovery')

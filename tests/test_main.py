@@ -1231,8 +1231,9 @@ async def test_rest_dns_lookup_runs_before_return_and_retains_action_evidence(mo
             completed.append(result)
 
     class FakeSecurityScorecard:
-        def __init__(self, domain: str) -> None:
+        def __init__(self, domain: str, limit: int) -> None:
             assert domain == 'example.com'
+            assert limit == 500
 
         async def process(self, _proxy: bool) -> None:
             return None
@@ -1315,8 +1316,8 @@ async def test_dns_lookup_cancellation_persists_partial_evidence(
             completed.append(result)
 
     class FakeSecurityScorecard:
-        def __init__(self, _domain: str) -> None:
-            pass
+        def __init__(self, _domain: str, limit: int) -> None:
+            assert limit == 500
 
         async def process(self, _proxy: bool) -> None:
             return None

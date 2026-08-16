@@ -353,3 +353,6 @@ async def test_normalized_builtwith_results_reach_completed_jsonl(
     assert {'type': 'server', 'value': 'nginx', 'sources': ['builtwith']} in records
     assert {'type': 'cms', 'value': 'WordPress', 'sources': ['builtwith']} in records
     assert {'type': 'analytics', 'value': 'Google Analytics', 'sources': ['builtwith']} in records
+
+
+pytestmark = pytest.mark.provider_contract('builtwith')

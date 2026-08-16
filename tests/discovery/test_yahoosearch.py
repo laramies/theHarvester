@@ -61,3 +61,6 @@ async def test_yahoo_unusable_responses_return_no_evidence(
 
     assert await search.get_emails() == []
     assert await search.get_hostnames() == []
+
+
+pytestmark = pytest.mark.provider_contract('yahoo')

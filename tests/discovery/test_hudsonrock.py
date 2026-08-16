@@ -259,3 +259,6 @@ async def test_infostealer_data_reaches_completed_result_and_jsonl(
     assert ('infostealer', stealer) in completed_results[0].results
     records = [json.loads(line) for line in report.with_suffix('.jsonl').read_text().splitlines()]
     assert {'type': 'infostealer', 'value': stealer, 'sources': ['hudsonrock']} in records
+
+
+pytestmark = pytest.mark.provider_contract('hudsonrock')

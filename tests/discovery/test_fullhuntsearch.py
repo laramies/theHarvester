@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Any
 
@@ -31,7 +32,8 @@ async def test_http_failure_is_reported_without_results(
     assert await search.get_hostnames() == []
     assert await search.get_ips() == []
     assert requests == ['https://fullhunt.io/api/v1/domain/example.com/details']
-    assert 'FullHunt request failed with HTTP 403' in caplog.text
+    assert search.execution_status == 'failed'
+    assert search.stop_reason == 'access-denied'
 
 
 @pytest.mark.parametrize('key', ['', '   '])
@@ -72,7 +74,8 @@ async def test_malformed_domain_details_are_reported_without_fallback(
 
     assert await search.get_hostnames() == []
     assert requests == ['https://fullhunt.io/api/v1/domain/example.com/details']
-    assert 'FullHunt returned malformed domain details' in caplog.text
+    assert search.execution_status == 'failed'
+    assert search.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio
@@ -108,6 +111,8 @@ async def test_malformed_host_does_not_hide_later_valid_results(
     assert await search.get_hostnames() == ['api.example.com']
     assert await search.get_ips() == ['192.0.2.20']
     assert caplog.text.count('FullHunt ignored a malformed host item') == 4
+    assert search.execution_status == 'partial'
+    assert search.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio
@@ -131,7 +136,8 @@ async def test_malformed_subdomain_fallback_is_reported(
         await search.process()
 
     assert await search.get_hostnames() == []
-    assert 'FullHunt returned malformed subdomains' in caplog.text
+    assert search.execution_status == 'failed'
+    assert search.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio
@@ -156,6 +162,8 @@ async def test_fallback_ignores_malformed_and_out_of_scope_hosts(
 
     assert await search.get_hostnames() == ['api.example.com']
     assert caplog.text.count('FullHunt ignored a malformed subdomain item') == 2
+    assert search.execution_status == 'partial'
+    assert search.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio
@@ -192,3 +200,49 @@ async def test_nested_results_use_normalized_hostname(monkeypatch: pytest.Monkey
     assert await search.get_geo_info() == {'api.example.com': {'country': 'US'}}
     assert await search.get_cloud_info() == {'api.example.com': {'provider': 'example'}}
     assert await search.get_certificate_info() == [{'issuer': 'Example CA', 'hostname': 'api.example.com'}]
+    assert search.execution_status == 'completed'
+    assert search.stop_reason is None
+
+
+@pytest.mark.parametrize(
+    ('response', 'status', 'reason'),
+    [
+        (None, 'failed', 'transport-error'),
+        (FetcherResponse({}, 429, {}), 'rate-limited', 'http-429'),
+        (FetcherResponse({}, 503, {}), 'failed', 'http-503'),
+        (FetcherResponse([], 200, {}), 'failed', 'invalid-response'),
+    ],
+)
+@pytest.mark.asyncio
+async def test_failures_are_structured(
+    monkeypatch: pytest.MonkeyPatch,
+    response: FetcherResponse | None,
+    status: str,
+    reason: str,
+) -> None:
+    monkeypatch.setattr(fullhuntsearch.Core, 'fullhunt_key', lambda: 'test-key')
+
+    async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[FetcherResponse | None]:
+        return [response]
+
+    monkeypatch.setattr(fullhuntsearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    search = fullhuntsearch.SearchFullHunt('example.com')
+    await search.process()
+
+    assert search.execution_status == status
+    assert search.stop_reason == reason
+
+
+@pytest.mark.asyncio
+async def test_cancellation_propagates(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(fullhuntsearch.Core, 'fullhunt_key', lambda: 'test-key')
+
+    async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[FetcherResponse]:
+        raise asyncio.CancelledError
+
+    monkeypatch.setattr(fullhuntsearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    with pytest.raises(asyncio.CancelledError):
+        await fullhuntsearch.SearchFullHunt('example.com').process()
+
+
+pytestmark = pytest.mark.provider_contract('fullhunt')

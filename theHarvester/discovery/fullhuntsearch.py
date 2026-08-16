@@ -140,6 +140,15 @@ class SearchFullHunt:
         }
         self.proxy = False
         self.filters: dict[str, str] = {}  # Store filters for advanced searches
+        self.execution_status: str | None = None
+        self.stop_reason: str | None = None
+
+    def _has_results(self) -> bool:
+        return bool(self.total_results['hosts'] or self.total_results['ips'])
+
+    def _stop(self, status: str, reason: str) -> None:
+        self.execution_status = 'partial' if self._has_results() else status
+        self.stop_reason = reason
 
     def _get_headers(self) -> dict[str, str]:
         """Returns the headers needed for API requests"""
@@ -157,10 +166,19 @@ class SearchFullHunt:
         )
         metadata = response[0] if response and isinstance(response[0], FetcherResponse) else None
         if metadata is None:
+            self._stop('failed', 'transport-error')
             raise RuntimeError('FullHunt request failed')
+        if metadata.status in {401, 403}:
+            self._stop('failed', 'access-denied')
+            raise RuntimeError('FullHunt request was denied')
+        if metadata.status == 429:
+            self._stop('rate-limited', 'http-429')
+            raise RuntimeError('FullHunt request was rate limited')
         if not 200 <= metadata.status < 300:
+            self._stop('failed', f'http-{metadata.status}')
             raise RuntimeError(f'FullHunt request failed with HTTP {metadata.status}')
         if not isinstance(metadata.body, dict):
+            self._stop('failed', 'invalid-response')
             raise ValueError('FullHunt returned malformed data')
         return metadata.body
 
@@ -301,6 +319,7 @@ class SearchFullHunt:
         hosts = details['hosts']
         for host_data in hosts:
             if not isinstance(host_data, dict):
+                self._stop('failed', 'invalid-response')
                 logger.info('FullHunt ignored a malformed host item')
                 continue
             hostname = normalize_scoped_hostname(host_data.get('host'), self.word)
@@ -332,6 +351,7 @@ class SearchFullHunt:
                     for field in ('dns_records', 'http_response', 'geo', 'cloud', 'certificate')
                 )
             ):
+                self._stop('failed', 'invalid-response')
                 logger.info('FullHunt ignored a malformed host item')
                 continue
             # Extract subdomains
@@ -435,6 +455,7 @@ class SearchFullHunt:
                     if normalized_host := normalize_scoped_hostname(host, self.word):
                         self.total_results['hosts'].append(normalized_host)
                     else:
+                        self._stop('failed', 'invalid-response')
                         logger.info('FullHunt ignored a malformed subdomain item')
 
             # If filters are set, perform an advanced search
@@ -442,8 +463,18 @@ class SearchFullHunt:
                 search_results = await self.advanced_search()
                 await self.extract_data_from_search_results(search_results)
 
-        except Exception as e:
-            logger.info(f'Error during FullHunt search: {e}')
+        except Exception as error:
+            if self.execution_status is None:
+                reason = 'invalid-response' if isinstance(error, ValueError) else 'transport-error'
+                self._stop('failed', reason)
+            logger.info('Error during FullHunt search: %s', type(error).__name__)
+            return
+
+        if self.execution_status is not None and self._has_results():
+            self.execution_status = 'partial'
+        elif self.execution_status is None:
+            self.execution_status = 'completed'
+            self.stop_reason = None if self._has_results() else 'no-results'
 
     async def get_hostnames(self) -> list[str]:
         """Return list of discovered subdomains"""
@@ -498,6 +529,8 @@ class SearchFullHunt:
 
         """
         self.proxy = proxy
+        self.execution_status = None
+        self.stop_reason = None
 
         # Apply filters if provided
         if filters:

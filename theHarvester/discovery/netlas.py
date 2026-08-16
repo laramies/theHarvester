@@ -1,63 +1,101 @@
-import json
+from __future__ import annotations
+
+from typing import Any
 
 from theHarvester.discovery.constants import MissingKey
-from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
+from theHarvester.lib.hostnames import normalize_scoped_hostname
 
 
 class SearchNetlas:
-    def __init__(self, word, limit: int) -> None:
+    def __init__(self, word: str, limit: int) -> None:
+        if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
+            raise ValueError('Netlas limit must be a positive integer')
         self.word = word
-        self.totalhosts: list = []
-        self.totalips: list = []
-        self.key = Core.netlas_key()
         self.limit = limit
-        if self.key is None:
+        self.totalhosts: set[str] = set()
+        self.key = Core.netlas_key()
+        if not isinstance(self.key, str) or not self.key.strip():
             raise MissingKey('netlas')
         self.proxy = False
+        self.execution_status: str | None = None
+        self.stop_reason: str | None = None
 
-    async def do_count(self) -> None:
-        """Counts the total number of subdomains
+    def _stop(self, status: str, reason: str) -> None:
+        self.execution_status = 'partial' if self.totalhosts else status
+        self.stop_reason = reason
 
-        :return: None
-        """
-        api = f'https://app.netlas.io/api/domains_count/?q=*.{self.word}'
-        headers = {'X-API-Key': self.key}
-        response = await AsyncFetcher.fetch_all([api], json=True, headers=headers, proxy=self.proxy)
-        amount_size = response[0]['count']
-        self.limit = min(self.limit, amount_size)
+    def _response_body(self, response: Any) -> Any | None:
+        if not isinstance(response, FetcherResponse):
+            self._stop('failed', 'transport-error')
+            return None
+        if response.status in {401, 403}:
+            self._stop('failed', 'access-denied')
+            return None
+        if response.status == 402:
+            self._stop('failed', 'quota-exhausted')
+            return None
+        if response.status == 429:
+            self._stop('rate-limited', 'http-429')
+            return None
+        if not 200 <= response.status < 300:
+            self._stop('failed', f'http-{response.status}')
+            return None
+        if response.body is None:
+            self._stop('failed', 'invalid-response')
+            return None
+        return response.body
 
-    async def do_search(self) -> None:
-        """Download domains for query 'q' size of 'limit'
+    async def do_search(self, session: Any, size: int) -> None:
+        response = await AsyncFetcher.post_fetch(
+            'https://app.netlas.io/api/domains/download/',
+            session=session,
+            json=True,
+            include_metadata=True,
+            json_body={
+                'q': f'*.{self.word}',
+                'size': size,
+                'fields': ['domain'],
+                'source_type': 'include',
+            },
+        )
+        body = self._response_body(response)
+        if body is None:
+            return
+        if not isinstance(body, list):
+            self._stop('failed', 'invalid-response')
+            return
 
-        :return: None
-        """
-        user_agent = Core.get_user_agent()
-        url = 'https://app.netlas.io/api/domains/download/'
+        malformed = False
+        for row in body[:size]:
+            if not isinstance(row, dict) or not isinstance(row.get('data'), dict):
+                malformed = True
+                continue
+            domain = row['data'].get('domain')
+            if not isinstance(domain, str):
+                malformed = True
+                continue
+            if hostname := normalize_scoped_hostname(domain, self.word):
+                self.totalhosts.add(hostname)
+        if malformed:
+            self._stop('failed', 'invalid-response')
 
-        payload = {
-            'q': f'*.{self.word}',
-            'fields': json.dumps(['domain']),  # Convert the list to a JSON string
-            'source_type': 'include',
-            'size': str(self.limit),  # Convert integer to string
-            'type': 'json',
-            'indice': json.dumps([0]),  # Convert the list to a JSON string
-        }
-
-        headers = {
-            'X-API-Key': self.key,
-            'User-Agent': user_agent,
-        }
-        response = await AsyncFetcher.post_fetch(url, data=payload, headers=headers, proxy=self.proxy)
-        resp_json = json.loads(response)
-
-        for data in resp_json:
-            domain = data['data']['domain']
-            self.totalhosts.append(domain)
-
-    async def get_hostnames(self) -> list:
+    async def get_hostnames(self) -> set[str]:
         return self.totalhosts
 
     async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
-        await self.do_count()
-        await self.do_search()
+        self.execution_status = None
+        self.stop_reason = None
+        try:
+            async with AsyncFetcher.open_session(
+                headers={'Authorization': f'Bearer {self.key}'},
+                proxy=proxy,
+            ) as session:
+                await self.do_search(session, self.limit)
+        except Exception:
+            self._stop('failed', 'transport-error')
+            return
+        if self.execution_status is None:
+            self.execution_status = 'completed'
+            self.stop_reason = None if self.totalhosts else 'no-results'

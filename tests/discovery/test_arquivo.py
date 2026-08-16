@@ -91,3 +91,6 @@ async def test_process_reports_http_and_malformed_responses(
     assert await second.get_hostnames() == set()
     assert 'Arquivo.pt request failed with HTTP 429' in caplog.text
     assert 'Arquivo.pt returned malformed CDX data' in caplog.text
+
+
+pytestmark = pytest.mark.provider_contract('arquivo')

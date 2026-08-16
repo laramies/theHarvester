@@ -99,3 +99,6 @@ async def test_process_reports_transport_and_malformed_responses(
 
     assert await search.get_hostnames() == set()
     assert message in caplog.text
+
+
+pytestmark = pytest.mark.provider_contract('shodanct')

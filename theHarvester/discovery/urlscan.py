@@ -12,9 +12,6 @@ logger = logging.getLogger(__name__)
 
 
 class SearchUrlscan:
-    # ponytail: hard cap protects against endless unique cursors; raise only if real targets exceed 1,000 pages.
-    MAX_PAGES = 1000
-
     def __init__(self, word) -> None:
         self.word = word
         self.totalhosts: set = set()
@@ -145,62 +142,58 @@ class SearchUrlscan:
         cursor = None
         seen_cursors: set[str] = set()
         malformed = False
-        for _ in range(self.MAX_PAGES):
-            params = {'q': f'domain:{self.word}'}
-            if cursor is not None:
-                params['search_after'] = cursor
-            try:
-                response = await AsyncFetcher.fetch(
-                    url=url,
-                    params=params,
-                    json=True,
-                    proxy=self.proxy,
-                    request_timeout=60,
-                    include_metadata=True,
-                )
-            except Exception as error:
-                self._stop('failed', 'transport-error')
-                logger.info('URLScan request failed: %s', type(error).__name__)
-                return
+        try:
+            async with AsyncFetcher.open_session(proxy=self.proxy) as session:
+                while True:
+                    params = {'q': f'domain:{self.word}'}
+                    if cursor is not None:
+                        params['search_after'] = cursor
+                    response = await AsyncFetcher.fetch(
+                        session=session,
+                        url=url,
+                        params=params,
+                        json=True,
+                        include_metadata=True,
+                    )
 
-            if not isinstance(response, FetcherResponse):
-                self._stop('failed', 'transport-error')
-                return
-            if response.status == 429:
-                self._stop('rate-limited', 'http-429')
-                return
-            if response.status in {401, 403}:
-                self._stop('failed', 'access-denied')
-                return
-            if not 200 <= response.status < 300:
-                self._stop('failed', f'http-{response.status}')
-                return
-            if not isinstance(response.body, dict) or not isinstance(response.body.get('results'), list):
-                self._stop('failed', 'invalid-response')
-                return
+                    if not isinstance(response, FetcherResponse):
+                        self._stop('failed', 'transport-error')
+                        return
+                    if response.status == 429:
+                        self._stop('rate-limited', 'http-429')
+                        return
+                    if response.status in {401, 403}:
+                        self._stop('failed', 'access-denied')
+                        return
+                    if not 200 <= response.status < 300:
+                        self._stop('failed', f'http-{response.status}')
+                        return
+                    if not isinstance(response.body, dict) or not isinstance(response.body.get('results'), list):
+                        self._stop('failed', 'invalid-response')
+                        return
 
-            results = response.body['results']
-            if not results:
-                if malformed:
-                    self._stop('failed', 'invalid-response')
-                else:
-                    self.execution_status = 'completed'
-                    self.stop_reason = None if self._has_results() else 'no-results'
-                return
+                    results = response.body['results']
+                    if not results:
+                        if malformed:
+                            self._stop('failed', 'invalid-response')
+                        else:
+                            self.execution_status = 'completed'
+                            self.stop_reason = None if self._has_results() else 'no-results'
+                        return
 
-            malformed = self._parse_results(results, collected_at) or malformed
-            next_cursor = self._cursor(results[-1])
-            if next_cursor is None:
-                self._stop('failed', 'invalid-cursor')
-                return
-            if next_cursor in seen_cursors:
-                self._stop('failed', 'repeated-cursor')
-                return
-            seen_cursors.add(next_cursor)
-            cursor = next_cursor
-
-        self.execution_status = 'partial'
-        self.stop_reason = 'page-limit'
+                    malformed = self._parse_results(results, collected_at) or malformed
+                    next_cursor = self._cursor(results[-1])
+                    if next_cursor is None:
+                        self._stop('failed', 'invalid-cursor')
+                        return
+                    if next_cursor in seen_cursors:
+                        self._stop('failed', 'repeated-cursor')
+                        return
+                    seen_cursors.add(next_cursor)
+                    cursor = next_cursor
+        except Exception as error:
+            self._stop('failed', 'transport-error')
+            logger.info('URLScan request failed: %s', type(error).__name__)
 
     async def get_hostnames(self) -> set:
         return self.totalhosts

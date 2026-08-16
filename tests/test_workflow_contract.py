@@ -25,6 +25,8 @@ def test_routine_ci_is_read_only_and_offline() -> None:
     assert 'git push' not in commands
     assert 'theHarvester -d' not in commands
     assert '\npytest\n' in f'\n{commands.strip()}\n'
+    assert 'mypy theHarvester' in commands
+    assert routine_job['strategy']['matrix']['python-version'] == ['3.12', '3.13', '3.14']
 
 
 def test_live_provider_smoke_requires_manual_dispatch() -> None:
@@ -36,6 +38,9 @@ def test_live_provider_smoke_requires_manual_dispatch() -> None:
     assert workflow['permissions'] == {'contents': 'read'}
     assert smoke_job['env']['SMOKE_TEST_DOMAIN'] == 'mozilla.org'
     assert 'pytest --run-live-network -m live_network' in commands
+    cli_smokes = [line for line in commands.splitlines() if line.startswith('theHarvester -d')]
+    assert cli_smokes
+    assert all('-l 10 -q' in command for command in cli_smokes)
 
 
 def test_harvestview_browser_failures_keep_only_targeted_diagnostics() -> None:

@@ -180,3 +180,6 @@ async def test_process_exposes_http_failures(
 
     with pytest.raises(expected_error):
         await dnsdb.SearchDNSDB('example.com').process()
+
+
+pytestmark = pytest.mark.provider_contract('dnsdb')

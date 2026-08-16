@@ -1,7 +1,8 @@
 from typing import Any
 
 from theHarvester.discovery.constants import MissingKey
-from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
+from theHarvester.lib.hostnames import normalize_scoped_hostname
 
 
 class SearchDymo:
@@ -24,9 +25,15 @@ class SearchDymo:
         self.totalhosts: set[str] = set()
         self.results: dict[str, Any] = {}
         self.key = Core.dymo_key()
-        if self.key is None:
+        if not isinstance(self.key, str) or not self.key.strip():
             raise MissingKey('dymo')
         self.proxy = False
+        self.execution_status: str | None = None
+        self.stop_reason: str | None = None
+
+    def _stop(self, status: str, reason: str) -> None:
+        self.execution_status = 'partial' if self.totalhosts else status
+        self.stop_reason = reason
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -43,26 +50,53 @@ class SearchDymo:
         response = await AsyncFetcher.post_fetch(
             self.VERIFY_URL,
             headers=self._headers(),
-            data=payload,
             json=True,
+            json_body=payload,
             proxy=self.proxy,
+            include_metadata=True,
         )
-        if not isinstance(response, dict):
+        if not isinstance(response, FetcherResponse):
+            self._stop('failed', 'transport-error')
+            return
+        if response.status in {401, 403}:
+            self._stop('failed', 'access-denied')
+            return
+        if response.status == 429:
+            self._stop('rate-limited', 'http-429')
+            return
+        if not 200 <= response.status < 300:
+            self._stop('failed', f'http-{response.status}')
+            return
+        if not isinstance(response.body, dict):
+            self._stop('failed', 'invalid-response')
             return
 
-        self.results = response
+        self.results = response.body
 
-        domain_block = response.get('domain') if isinstance(response.get('domain'), dict) else {}
-        url_block = response.get('url') if isinstance(response.get('url'), dict) else {}
+        raw_domain_block = response.body.get('domain')
+        raw_url_block = response.body.get('url')
+        malformed = any(block is not None and not isinstance(block, dict) for block in (raw_domain_block, raw_url_block))
+        domain_block = raw_domain_block if isinstance(raw_domain_block, dict) else {}
+        url_block = raw_url_block if isinstance(raw_url_block, dict) else {}
 
         for block in (domain_block, url_block):
             candidate = block.get('domain') if isinstance(block, dict) else None
-            if isinstance(candidate, str) and self.word in candidate:
-                self.totalhosts.add(candidate)
+            if normalized := normalize_scoped_hostname(candidate, self.word):
+                self.totalhosts.add(normalized)
+            elif candidate is not None and not isinstance(candidate, str):
+                malformed = True
 
             suggestion = block.get('didYouMean') if isinstance(block, dict) else None
-            if isinstance(suggestion, str) and self.word in suggestion:
-                self.totalhosts.add(suggestion)
+            if normalized := normalize_scoped_hostname(suggestion, self.word):
+                self.totalhosts.add(normalized)
+            elif suggestion is not None and not isinstance(suggestion, str):
+                malformed = True
+
+        if malformed:
+            self._stop('failed', 'invalid-response')
+        else:
+            self.execution_status = 'completed'
+            self.stop_reason = None if self.totalhosts else 'no-results'
 
     async def get_hostnames(self) -> set:
         return self.totalhosts
@@ -72,4 +106,9 @@ class SearchDymo:
 
     async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
-        await self.do_search()
+        self.execution_status = None
+        self.stop_reason = None
+        try:
+            await self.do_search()
+        except Exception:
+            self._stop('failed', 'transport-error')

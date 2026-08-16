@@ -22,81 +22,121 @@ class SearchOnyphe:
     WHOIS data. Both stay separate and are linked to the record's primary IP.
     """
 
-    def __init__(self, word) -> None:
+    MAX_RESULTS = 10_000
+
+    def __init__(self, word: str, limit: int) -> None:
+        if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
+            raise ValueError('ONYPHE limit must be a positive integer')
         self.word = word
-        self.response = ''
+        self.limit = limit
+        self.response: object = {}
         self.totalhosts: set = set()
         self.totalips: set = set()
         self.asns: set = set()
         self.asn_attributions: set[AsnAttributionObservation] = set()
         self.key = Core.onyphe_key()
-        if self.key is None:
+        if not isinstance(self.key, str) or not self.key.strip():
             raise MissingKey('onyphe')
         self.proxy = False
         self.execution_status: str | None = None
         self.stop_reason: str | None = None
 
+    def _has_results(self) -> bool:
+        return bool(self.totalhosts or self.totalips or self.asns)
+
+    def _stop(self, status: str, reason: str) -> None:
+        self.execution_status = 'partial' if self._has_results() else status
+        self.stop_reason = reason
+
     async def do_search(self) -> None:
-        # https://www.onyphe.io/docs/apis/search
-        # https://www.onyphe.io/search?q=domain%3Acharter.com&captcharesponse=j5cGT
-        # base_url = f'https://www.onyphe.io/api/v2/search/?q=domain:domain:{self.word}'
-        base_url = f'https://www.onyphe.io/api/v2/search/?q=domain:{self.word}'
+        base_url = 'https://www.onyphe.io/api/v2/search/'
         headers = {
             'User-Agent': Core.get_user_agent(),
             'Content-Type': 'application/json',
             'Authorization': f'bearer {self.key}',
         }
+        page = 1
+        records_seen = 0
+        result_limit = min(self.limit, self.MAX_RESULTS)
+        page_size = min(result_limit, self.MAX_RESULTS)
+        last_total = 0
         try:
-            response = await AsyncFetcher.fetch_all(
-                [base_url],
-                json=True,
-                headers=headers,
-                proxy=self.proxy,
-                include_metadata=True,
-            )
+            async with AsyncFetcher.open_session(headers=headers, proxy=self.proxy) as session:
+                while records_seen < result_limit:
+                    remaining = result_limit - records_seen
+                    metadata = await AsyncFetcher.fetch(
+                        session=session,
+                        url=base_url,
+                        params={'q': f'domain:{self.word}', 'page': page, 'size': page_size},
+                        json=True,
+                        include_metadata=True,
+                    )
+                    if not isinstance(metadata, FetcherResponse):
+                        self._stop('failed', 'transport-error')
+                        return
+                    if metadata.status == 429:
+                        self._stop('rate-limited', 'http-429')
+                        return
+                    if metadata.status in {401, 403}:
+                        self._stop('failed', 'access-denied')
+                        return
+                    if not 200 <= metadata.status < 300:
+                        self._stop('failed', f'http-{metadata.status}')
+                        return
+                    if not isinstance(metadata.body, dict):
+                        self._stop('failed', 'invalid-response')
+                        return
+                    response_text = metadata.body.get('text')
+                    if response_text != 'Success':
+                        self._stop('failed', 'provider-error' if isinstance(response_text, str) else 'invalid-response')
+                        return
+                    results = metadata.body.get('results')
+                    max_page = metadata.body.get('max_page', 1)
+                    total = metadata.body.get('total', len(results) if isinstance(results, list) else None)
+                    if (
+                        not isinstance(results, list)
+                        or isinstance(max_page, bool)
+                        or not isinstance(max_page, int)
+                        or max_page < 1
+                        or isinstance(total, bool)
+                        or not isinstance(total, int)
+                        or total < 0
+                    ):
+                        self._stop('failed', 'invalid-response')
+                        return
+
+                    page_results = results[:remaining]
+                    records_seen += len(page_results)
+                    last_total = total
+                    self.response = {**metadata.body, 'results': page_results}
+                    if await self.parse_onyphe_resp_json():
+                        self._stop('failed', 'invalid-response')
+                    expected_records = min(total, result_limit)
+                    if (not results or page >= max_page) and records_seen < expected_records:
+                        self._stop('failed', 'invalid-response')
+                        break
+                    if not results or page >= max_page or records_seen >= expected_records:
+                        break
+                    page += 1
         except Exception as error:
-            self.execution_status = 'failed'
-            self.stop_reason = 'transport-error'
+            self._stop('failed', 'transport-error')
             logger.info('Onyphe request failed: %s', type(error).__name__)
             return
 
-        metadata = response[0] if response and isinstance(response[0], FetcherResponse) else None
-        if metadata is None:
-            self.execution_status = 'failed'
-            self.stop_reason = 'transport-error'
-            return
-        if metadata.status == 429:
-            self.execution_status = 'rate-limited'
-            self.stop_reason = 'http-429'
-            return
-        if metadata.status in {401, 403}:
-            self.execution_status = 'failed'
-            self.stop_reason = 'access-denied'
-            return
-        if not 200 <= metadata.status < 300:
-            self.execution_status = 'failed'
-            self.stop_reason = f'http-{metadata.status}'
-            return
+        if self.limit > self.MAX_RESULTS and last_total > self.MAX_RESULTS and records_seen >= self.MAX_RESULTS:
+            self._stop('failed', 'provider-limit')
+        if self.execution_status is not None and self._has_results():
+            self.execution_status = 'partial'
+        elif self.execution_status is None:
+            self.execution_status = 'completed'
+            self.stop_reason = None if self._has_results() else 'no-results'
 
-        self.response = metadata.body
-        await self.parse_onyphe_resp_json()
-
-    async def parse_onyphe_resp_json(self):
+    async def parse_onyphe_resp_json(self) -> bool:
         if not isinstance(self.response, dict):
-            self.execution_status = 'failed'
-            self.stop_reason = 'invalid-response'
-            return
-        response_text = self.response.get('text')
-        if response_text != 'Success':
-            self.execution_status = 'failed'
-            self.stop_reason = 'provider-error' if isinstance(response_text, str) else 'invalid-response'
-            logger.info('Onyphe API query did not succeed')
-            return
+            return True
         results = self.response.get('results')
         if not isinstance(results, list):
-            self.execution_status = 'failed'
-            self.stop_reason = 'invalid-response'
-            return
+            return True
 
         malformed = False
         for result in results:
@@ -212,12 +252,7 @@ class SearchOnyphe:
                     except ValueError:
                         malformed = True
 
-        if malformed:
-            self.execution_status = 'partial' if self.totalhosts or self.totalips or self.asns else 'failed'
-            self.stop_reason = 'invalid-response'
-        else:
-            self.execution_status = 'completed'
-            self.stop_reason = None if self.totalhosts or self.totalips or self.asns else 'no-results'
+        return malformed
 
     async def get_asns(self) -> set:
         return self.asns
@@ -233,4 +268,6 @@ class SearchOnyphe:
 
     async def process(self, proxy: bool = False) -> None:
         self.proxy = proxy
+        self.execution_status = None
+        self.stop_reason = None
         await self.do_search()

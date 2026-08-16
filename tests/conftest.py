@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 
 NETWORK_GUARD = pytest.StashKey[pytest.MonkeyPatch]()
+PROVIDER_CONTRACT_SOURCES = pytest.StashKey[tuple[str, ...]]()
 
 _getaddrinfo = socket.getaddrinfo
 _gethostbyaddr = socket.gethostbyaddr
@@ -39,6 +40,11 @@ def live_test_domain() -> str:
     return os.environ.get('SMOKE_TEST_DOMAIN', 'mozilla.org')
 
 
+@pytest.fixture
+def provider_contract_sources(request: pytest.FixtureRequest) -> tuple[str, ...]:
+    return request.config.stash.get(PROVIDER_CONTRACT_SOURCES, ())
+
+
 def pytest_sessionstart(session: pytest.Session) -> None:
     guard = pytest.MonkeyPatch()
     guard.setattr(socket, 'getaddrinfo', _guarded_getaddrinfo)
@@ -53,6 +59,16 @@ def pytest_sessionstart(session: pytest.Session) -> None:
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    contract_modules: set[tuple[str, str]] = set()
+    for item in items:
+        if item.get_closest_marker('live_network') is not None:
+            continue
+        for marker in item.iter_markers('provider_contract'):
+            if len(marker.args) != 1 or marker.kwargs or not isinstance(marker.args[0], str):
+                raise pytest.UsageError(f'{item.nodeid}: provider_contract requires one canonical source name')
+            contract_modules.add((marker.args[0], str(item.path)))
+    config.stash[PROVIDER_CONTRACT_SOURCES] = tuple(source for source, _path in sorted(contract_modules))
+
     if config.getoption('--run-live-network'):
         if config.getoption('markexpr') != 'live_network':
             raise pytest.UsageError('--run-live-network requires -m live_network')

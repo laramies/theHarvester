@@ -55,6 +55,8 @@ async def test_tomba_http_failures_return_no_results(monkeypatch, caplog, status
 
     assert await search.get_emails() == []
     assert await search.get_hostnames() == []
+
+
     assert f'Tomba request failed with HTTP {status}' in caplog.text
     assert 'provider detail' not in caplog.text
 
@@ -294,3 +296,6 @@ async def test_paid_tomba_search_stops_before_exceeding_quota(monkeypatch) -> No
     ]
     assert await search.get_emails() == []
     assert await search.get_hostnames() == []
+
+
+pytestmark = pytest.mark.provider_contract('tomba')

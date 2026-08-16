@@ -1,28 +1,181 @@
-import logging
+from __future__ import annotations
+
+import contextlib
+from collections.abc import AsyncIterator
+from typing import Any
 
 import pytest
 
 from theHarvester.discovery import whoisxml
+from theHarvester.discovery.constants import MissingKey
+from theHarvester.lib.core import FetcherResponse
+
+
+@pytest.fixture(autouse=True)
+def provider_session(monkeypatch: pytest.MonkeyPatch) -> object:
+    session = object()
+
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**_kwargs: Any) -> AsyncIterator[object]:
+        yield session
+
+    monkeypatch.setattr(whoisxml.AsyncFetcher, 'open_session', fake_open_session)
+    return session
+
+
+@pytest.mark.provider_contract('whoisxml')
+@pytest.mark.asyncio
+async def test_response_body_is_not_logged_and_scoped_records_are_returned(
+    monkeypatch: pytest.MonkeyPatch,
+    provider_session: object,
+) -> None:
+    monkeypatch.setattr(whoisxml.Core, 'whoisxml_key', staticmethod(lambda: 'test-key'))
+    calls: list[dict[str, Any]] = []
+    responses = [
+        FetcherResponse(
+            {
+                'secret': 'provider-secret-payload',
+                'result': {
+                    'count': 2,
+                    'nextPageSearchAfter': 'www.example.com',
+                    'records': [
+                        {'domain': 'API.Example.COM.'},
+                        {'domain': 'outside.test'},
+                    ],
+                },
+            },
+            200,
+            {},
+        ),
+        FetcherResponse(
+            {
+                'result': {
+                    'count': 1,
+                    'nextPageSearchAfter': '',
+                    'records': [{'domain': 'www.example.com'}],
+                },
+            },
+            200,
+            {},
+        ),
+    ]
+
+    async def fake_fetch(**kwargs: Any) -> FetcherResponse:
+        calls.append(kwargs)
+        return responses.pop(0)
+
+    monkeypatch.setattr(whoisxml.AsyncFetcher, 'fetch', fake_fetch)
+    search = whoisxml.SearchWhoisXML('example.com', 3)
+    await search.process(proxy=True)
+
+    assert await search.get_hostnames() == {'api.example.com', 'www.example.com'}
+    assert search.execution_status == 'completed'
+    assert search.stop_reason is None
+    assert [call['url'] for call in calls] == ['https://subdomains.whoisxmlapi.com/api/v2'] * 2
+    assert all(call['session'] is provider_session for call in calls)
+    assert [call['params'] for call in calls] == [
+        {'apiKey': 'test-key', 'domainName': 'example.com'},
+        {'apiKey': 'test-key', 'domainName': 'example.com', 'searchAfter': 'www.example.com'},
+    ]
+    assert all(call['json'] is True and call['include_metadata'] is True for call in calls)
+
+
+@pytest.mark.parametrize('key', [None, '', '  '])
+def test_missing_or_blank_key_fails_closed(monkeypatch: pytest.MonkeyPatch, key: str | None) -> None:
+    monkeypatch.setattr(whoisxml.Core, 'whoisxml_key', staticmethod(lambda: key))
+    with pytest.raises(MissingKey):
+        whoisxml.SearchWhoisXML('example.com', 10)
+
+
+@pytest.mark.parametrize('limit', [0, -1, True, 1.5])
+def test_limit_must_be_positive(monkeypatch: pytest.MonkeyPatch, limit: Any) -> None:
+    monkeypatch.setattr(whoisxml.Core, 'whoisxml_key', staticmethod(lambda: 'test-key'))
+    with pytest.raises(ValueError, match='positive integer'):
+        whoisxml.SearchWhoisXML('example.com', limit)
+
+
+@pytest.mark.parametrize(
+    ('response', 'status', 'reason'),
+    [
+        (None, 'failed', 'transport-error'),
+        (FetcherResponse({}, 401, {}), 'failed', 'access-denied'),
+        (FetcherResponse({}, 429, {}), 'rate-limited', 'http-429'),
+        (FetcherResponse({}, 503, {}), 'failed', 'http-503'),
+        (FetcherResponse([], 200, {}), 'failed', 'invalid-response'),
+        (FetcherResponse({'result': {'records': 'many'}}, 200, {}), 'failed', 'invalid-response'),
+    ],
+)
+@pytest.mark.asyncio
+async def test_provider_failures_are_truthful(
+    monkeypatch: pytest.MonkeyPatch,
+    response: FetcherResponse | None,
+    status: str,
+    reason: str,
+) -> None:
+    monkeypatch.setattr(whoisxml.Core, 'whoisxml_key', staticmethod(lambda: 'test-key'))
+
+    async def fake_fetch(**_kwargs: Any) -> FetcherResponse | None:
+        return response
+
+    monkeypatch.setattr(whoisxml.AsyncFetcher, 'fetch', fake_fetch)
+    search = whoisxml.SearchWhoisXML('example.com', 10)
+    await search.process()
+
+    assert search.execution_status == status
+    assert search.stop_reason == reason
 
 
 @pytest.mark.asyncio
-async def test_response_body_is_not_logged_and_records_are_returned(monkeypatch, caplog) -> None:
-    monkeypatch.setattr(whoisxml.Core, 'whoisxml_key', lambda: 'test-key')
-    monkeypatch.setattr(whoisxml.Core, 'get_user_agent', lambda: 'test-agent')
+async def test_malformed_rows_preserve_valid_partial_results(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(whoisxml.Core, 'whoisxml_key', staticmethod(lambda: 'test-key'))
 
-    async def fake_fetch_all(*args, **kwargs):
-        return [
+    async def fake_fetch(**_kwargs: Any) -> FetcherResponse:
+        return FetcherResponse(
             {
-                'secret': 'provider-secret-payload',
-                'result': {'records': [{'domain': 'www.example.com'}]},
-            }
-        ]
+                'result': {
+                    'count': 2,
+                    'nextPageSearchAfter': '',
+                    'records': [{'domain': 'ok.example.com'}, {'domain': 7}],
+                }
+            },
+            200,
+            {},
+        )
 
-    monkeypatch.setattr(whoisxml.AsyncFetcher, 'fetch_all', fake_fetch_all)
-    caplog.set_level(logging.INFO, logger=whoisxml.__name__)
-
-    search = whoisxml.SearchWhoisXML('example.com')
+    monkeypatch.setattr(whoisxml.AsyncFetcher, 'fetch', fake_fetch)
+    search = whoisxml.SearchWhoisXML('example.com', 10)
     await search.process()
 
-    assert await search.get_hostnames() == ['www.example.com']
-    assert 'provider-secret-payload' not in caplog.text
+    assert await search.get_hostnames() == {'ok.example.com'}
+    assert search.execution_status == 'partial'
+    assert search.stop_reason == 'invalid-response'
+
+
+@pytest.mark.asyncio
+async def test_later_page_failure_preserves_partial_results(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(whoisxml.Core, 'whoisxml_key', staticmethod(lambda: 'test-key'))
+    responses = [
+        FetcherResponse(
+            {
+                'result': {
+                    'count': 1,
+                    'nextPageSearchAfter': 'next.example.com',
+                    'records': [{'domain': 'api.example.com'}],
+                }
+            },
+            200,
+            {},
+        ),
+        FetcherResponse({}, 429, {}),
+    ]
+
+    async def fake_fetch(**_kwargs: Any) -> FetcherResponse:
+        return responses.pop(0)
+
+    monkeypatch.setattr(whoisxml.AsyncFetcher, 'fetch', fake_fetch)
+    search = whoisxml.SearchWhoisXML('example.com', 10)
+    await search.process()
+
+    assert await search.get_hostnames() == {'api.example.com'}
+    assert search.execution_status == 'partial'
+    assert search.stop_reason == 'http-429'

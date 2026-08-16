@@ -79,3 +79,6 @@ async def test_keyless_provider_failure_does_not_guess_dns_names(monkeypatch) ->
     assert requests == 1
     assert await search.get_hostnames() == set()
     assert await search.get_ips() == set()
+
+
+pytestmark = pytest.mark.provider_contract('windvane')

@@ -59,3 +59,6 @@ async def test_duckduckgo_unusable_response_returns_no_evidence(
 
     assert await search.get_hostnames() == []
     assert await search.get_emails() == set()
+
+
+pytestmark = pytest.mark.provider_contract('duckduckgo')

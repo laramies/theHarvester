@@ -153,3 +153,6 @@ async def test_robtex_cancellation_propagates(monkeypatch: pytest.MonkeyPatch) -
 
     with pytest.raises(asyncio.CancelledError):
         await search.process(proxy=True)
+
+
+pytestmark = pytest.mark.provider_contract('robtex')

@@ -1,4 +1,6 @@
 import asyncio
+import contextlib
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -8,9 +10,22 @@ from theHarvester.discovery import urlscan
 from theHarvester.lib.core import FetcherResponse
 
 
+@pytest.fixture(autouse=True)
+def provider_session(monkeypatch: pytest.MonkeyPatch) -> object:
+    session = object()
+
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**_kwargs: Any) -> AsyncIterator[object]:
+        yield session
+
+    monkeypatch.setattr(urlscan.AsyncFetcher, 'open_session', fake_open_session)
+    return session
+
+
 @pytest.mark.asyncio
 async def test_process_collects_sequential_pages_and_preserves_all_routes(
     monkeypatch: pytest.MonkeyPatch,
+    provider_session: object,
 ) -> None:
     responses = [
         FetcherResponse(
@@ -89,10 +104,10 @@ async def test_process_collects_sequential_pages_and_preserves_all_routes(
         {'q': 'domain:example.com', 'search_after': '100,second'},
     ]
     assert all(call['url'] == 'https://urlscan.io/api/v1/search/' for call in calls)
+    assert all(call['session'] is provider_session for call in calls)
     assert all(call['json'] is True for call in calls)
     assert all(call['include_metadata'] is True for call in calls)
-    assert all(call['proxy'] is True for call in calls)
-    assert all(call['request_timeout'] == 60 for call in calls)
+    assert all('request_timeout' not in call for call in calls)
     assert search.execution_status == 'completed'
     assert search.stop_reason is None
 
@@ -392,12 +407,14 @@ async def test_repeated_cursor_stops_without_a_third_request(monkeypatch: pytest
 
 
 @pytest.mark.asyncio
-async def test_page_limit_preserves_results(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_pagination_continues_beyond_the_removed_local_page_ceiling(monkeypatch: pytest.MonkeyPatch) -> None:
     calls = 0
 
     async def fake_fetch(**_kwargs: Any) -> FetcherResponse:
         nonlocal calls
         calls += 1
+        if calls == 1002:
+            return FetcherResponse(body={'results': []}, status=200, headers={})
         return FetcherResponse(
             body={
                 'results': [
@@ -412,15 +429,15 @@ async def test_page_limit_preserves_results(monkeypatch: pytest.MonkeyPatch) -> 
         )
 
     monkeypatch.setattr(urlscan.AsyncFetcher, 'fetch', fake_fetch)
-    monkeypatch.setattr(urlscan.SearchUrlscan, 'MAX_PAGES', 2)
     search = urlscan.SearchUrlscan('example.com')
 
     await search.process()
 
-    assert calls == 2
-    assert await search.get_hostnames() == {'page-1.example.com', 'page-2.example.com'}
-    assert search.execution_status == 'partial'
-    assert search.stop_reason == 'page-limit'
+    assert calls == 1002
+    assert len(await search.get_hostnames()) == 1001
+    assert 'page-1001.example.com' in await search.get_hostnames()
+    assert search.execution_status == 'completed'
+    assert search.stop_reason is None
 
 
 @pytest.mark.asyncio
@@ -432,3 +449,6 @@ async def test_cancellation_propagates(monkeypatch: pytest.MonkeyPatch) -> None:
 
     with pytest.raises(asyncio.CancelledError):
         await urlscan.SearchUrlscan('example.com').process()
+
+
+pytestmark = pytest.mark.provider_contract('urlscan')

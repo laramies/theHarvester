@@ -174,3 +174,6 @@ async def test_gitlab_urls_reach_completed_jsonl(
     assert completed_results[0].results == (('url', 'https://gitlab.com/group/project'),)
     records = [json.loads(line) for line in report.with_suffix('.jsonl').read_text().splitlines()]
     assert {'type': 'url', 'value': 'https://gitlab.com/group/project', 'sources': ['gitlab']} in records
+
+
+pytestmark = pytest.mark.provider_contract('gitlab')

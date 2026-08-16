@@ -43,34 +43,35 @@ jobs:
         timeout-minutes: 5
         run: pytest --run-live-network -m live_network
 
+      # These are bounded CLI crash smokes, not provider conformance tests.
       - name: Run theHarvester module CertSpotter
         timeout-minutes: 5
-        run: theHarvester -d "$SMOKE_TEST_DOMAIN" -b certspotter
+        run: theHarvester -d "$SMOKE_TEST_DOMAIN" -b certspotter -l 10 -q
 
       - name: Run theHarvester module Crtsh
         timeout-minutes: 5
-        run: theHarvester -d "$SMOKE_TEST_DOMAIN" -b crtsh
+        run: theHarvester -d "$SMOKE_TEST_DOMAIN" -b crtsh -l 10 -q
 
       - name: Run theHarvester module DuckDuckGo
         timeout-minutes: 5
-        run: theHarvester -d "$SMOKE_TEST_DOMAIN" -b duckduckgo
+        run: theHarvester -d "$SMOKE_TEST_DOMAIN" -b duckduckgo -l 10 -q
 
       - name: Run theHarvester module HackerTarget
         timeout-minutes: 5
-        run: theHarvester -d "$SMOKE_TEST_DOMAIN" -b hackertarget
+        run: theHarvester -d "$SMOKE_TEST_DOMAIN" -b hackertarget -l 10 -q
 
       - name: Run theHarvester module Otx
         timeout-minutes: 5
-        run: theHarvester -d "$SMOKE_TEST_DOMAIN" -b otx
+        run: theHarvester -d "$SMOKE_TEST_DOMAIN" -b otx -l 10 -q
 
       - name: Run theHarvester module RapidDns
         timeout-minutes: 5
-        run: theHarvester -d "$SMOKE_TEST_DOMAIN" -b rapiddns
+        run: theHarvester -d "$SMOKE_TEST_DOMAIN" -b rapiddns -l 10 -q
 
       - name: Run theHarvester module Urlscan
         timeout-minutes: 5
-        run: theHarvester -d "$SMOKE_TEST_DOMAIN" -b urlscan
+        run: theHarvester -d "$SMOKE_TEST_DOMAIN" -b urlscan -l 10 -q
 
       - name: Run theHarvester module Yahoo
         timeout-minutes: 5
-        run: theHarvester -d "$SMOKE_TEST_DOMAIN" -b yahoo
+        run: theHarvester -d "$SMOKE_TEST_DOMAIN" -b yahoo -l 10 -q

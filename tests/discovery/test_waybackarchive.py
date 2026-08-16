@@ -250,3 +250,6 @@ async def test_process_keeps_an_earlier_failure_when_a_later_pattern_reaches_the
     assert await search.get_hostnames() == {'example.com'}
     assert search.execution_status == 'partial'
     assert search.stop_reason == 'invalid-response'
+
+
+pytestmark = pytest.mark.provider_contract('waybackarchive')

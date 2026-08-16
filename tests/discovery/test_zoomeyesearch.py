@@ -1,6 +1,203 @@
+import base64
+import contextlib
+from collections.abc import AsyncIterator
+from typing import Any
+
 import pytest
 
 from theHarvester.discovery import zoomeyesearch
+from theHarvester.discovery.constants import MissingKey
+from theHarvester.lib.core import FetcherResponse
+
+
+@pytest.mark.provider_contract('zoomeye')
+@pytest.mark.asyncio
+async def test_process_reuses_session_and_collects_all_capabilities(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(zoomeyesearch.Core, 'zoomeye_key', staticmethod(lambda: 'test-key'))
+    session = object()
+    calls: list[dict[str, Any]] = []
+    responses = [
+        FetcherResponse(
+            {
+                'code': 60000,
+                'total': 1,
+                'data': [
+                    {
+                        'ip': '192.0.2.1',
+                        'domain': 'api.example.com',
+                        'hostname': 'host.example.com',
+                        'asn': 64500,
+                        'url': 'https://portal.example.com/v1',
+                        'banner': 'admin@example.com',
+                    }
+                ],
+            },
+            200,
+            {},
+        )
+    ]
+
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**kwargs: Any) -> AsyncIterator[object]:
+        assert kwargs == {
+            'headers': {'API-KEY': 'test-key', 'Content-Type': 'application/json'},
+            'proxy': True,
+        }
+        yield session
+
+    async def fake_post_fetch(*args: Any, **kwargs: Any) -> FetcherResponse:
+        calls.append({'url': args[0], **kwargs})
+        return responses.pop(0)
+
+    monkeypatch.setattr(zoomeyesearch.AsyncFetcher, 'open_session', fake_open_session)
+    monkeypatch.setattr(zoomeyesearch.AsyncFetcher, 'post_fetch', fake_post_fetch)
+    search = zoomeyesearch.SearchZoomEye('example.com', 2)
+    await search.process(proxy=True)
+
+    assert await search.get_hostnames() == {'api.example.com', 'host.example.com', 'portal.example.com'}
+    assert await search.get_ips() == {'192.0.2.1'}
+    assert await search.get_asns() == {'AS64500'}
+    assert await search.get_urls() == {'https://portal.example.com/v1'}
+    assert await search.get_emails() == {'admin@example.com'}
+    assert search.execution_status == 'completed'
+    assert search.stop_reason is None
+    assert [call['url'] for call in calls] == [search.baseurl]
+    assert all(call['session'] is session for call in calls)
+    assert base64.b64decode(calls[0]['json_body']['qbase64']).decode() == 'domain="example.com"'
+    assert calls[0]['json_body']['page'] == 1
+    assert calls[0]['json_body']['pagesize'] == 2
+
+
+@pytest.mark.parametrize('key', [None, '', '  '])
+def test_missing_or_blank_key_fails_closed(monkeypatch: pytest.MonkeyPatch, key: str | None) -> None:
+    monkeypatch.setattr(zoomeyesearch.Core, 'zoomeye_key', staticmethod(lambda: key))
+    with pytest.raises(MissingKey):
+        zoomeyesearch.SearchZoomEye('example.com', 1)
+
+
+@pytest.mark.parametrize('limit', [0, -1, True, 1.5])
+def test_limit_must_be_a_positive_integer(monkeypatch: pytest.MonkeyPatch, limit: Any) -> None:
+    monkeypatch.setattr(zoomeyesearch.Core, 'zoomeye_key', staticmethod(lambda: 'test-key'))
+    with pytest.raises(ValueError, match='positive integer'):
+        zoomeyesearch.SearchZoomEye('example.com', limit)
+
+
+@pytest.mark.parametrize(
+    ('response', 'status', 'reason'),
+    [
+        (None, 'failed', 'transport-error'),
+        (FetcherResponse({}, 401, {}), 'failed', 'access-denied'),
+        (FetcherResponse({}, 429, {}), 'rate-limited', 'http-429'),
+        (FetcherResponse({}, 503, {}), 'failed', 'http-503'),
+        (FetcherResponse([], 200, {}), 'failed', 'invalid-response'),
+        (FetcherResponse({'code': 60001}, 200, {}), 'failed', 'provider-error'),
+    ],
+)
+@pytest.mark.asyncio
+async def test_provider_failures_are_truthful(
+    monkeypatch: pytest.MonkeyPatch,
+    response: FetcherResponse | None,
+    status: str,
+    reason: str,
+) -> None:
+    monkeypatch.setattr(zoomeyesearch.Core, 'zoomeye_key', staticmethod(lambda: 'test-key'))
+
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**_kwargs: Any) -> AsyncIterator[object]:
+        yield object()
+
+    async def fake_post_fetch(*_args: Any, **_kwargs: Any) -> FetcherResponse | None:
+        return response
+
+    monkeypatch.setattr(zoomeyesearch.AsyncFetcher, 'open_session', fake_open_session)
+    monkeypatch.setattr(zoomeyesearch.AsyncFetcher, 'post_fetch', fake_post_fetch)
+    search = zoomeyesearch.SearchZoomEye('example.com', 1)
+    await search.process()
+
+    assert search.execution_status == status
+    assert search.stop_reason == reason
+
+
+@pytest.mark.asyncio
+async def test_empty_pages_do_not_hide_later_provider_results(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(zoomeyesearch.Core, 'zoomeye_key', staticmethod(lambda: 'test-key'))
+    responses = [
+        FetcherResponse(
+            {
+                'code': 60000,
+                'total': 70_000,
+                'data': ([{'hostname': 'late.example.com'}] if page == 6 else []),
+            },
+            200,
+            {},
+        )
+        for page in range(1, 8)
+    ]
+
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**_kwargs: Any) -> AsyncIterator[object]:
+        yield object()
+
+    async def fake_post_fetch(*_args: Any, **_kwargs: Any) -> FetcherResponse:
+        return responses.pop(0)
+
+    monkeypatch.setattr(zoomeyesearch.AsyncFetcher, 'open_session', fake_open_session)
+    monkeypatch.setattr(zoomeyesearch.AsyncFetcher, 'post_fetch', fake_post_fetch)
+    search = zoomeyesearch.SearchZoomEye('example.com', 70_000)
+    await search.process()
+
+    assert await search.get_hostnames() == {'late.example.com'}
+    assert responses == []
+    assert search.execution_status == 'completed'
+
+
+@pytest.mark.asyncio
+async def test_numbered_pages_keep_a_stable_size_and_slice_the_final_page(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(zoomeyesearch.Core, 'zoomeye_key', staticmethod(lambda: 'test-key'))
+    calls: list[dict[str, Any]] = []
+
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**_kwargs: Any) -> AsyncIterator[object]:
+        yield object()
+
+    async def fake_post_fetch(*_args: Any, **kwargs: Any) -> FetcherResponse:
+        calls.append(kwargs['json_body'])
+        return FetcherResponse({'code': 60000, 'total': 10_005, 'data': []}, 200, {})
+
+    monkeypatch.setattr(zoomeyesearch.AsyncFetcher, 'open_session', fake_open_session)
+    monkeypatch.setattr(zoomeyesearch.AsyncFetcher, 'post_fetch', fake_post_fetch)
+    search = zoomeyesearch.SearchZoomEye('example.com', 10_005)
+
+    await search.process()
+
+    assert [(call['page'], call['pagesize']) for call in calls] == [(1, 10_000), (2, 10_000)]
+
+
+@pytest.mark.asyncio
+async def test_early_malformed_rows_and_later_valid_evidence_are_partial(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(zoomeyesearch.Core, 'zoomeye_key', staticmethod(lambda: 'test-key'))
+    monkeypatch.setattr(zoomeyesearch.SearchZoomEye, 'PAGE_SIZE', 1)
+    responses = [
+        FetcherResponse({'code': 60000, 'total': 2, 'data': [7]}, 200, {}),
+        FetcherResponse({'code': 60000, 'total': 2, 'data': [{'hostname': 'api.example.com'}]}, 200, {}),
+    ]
+
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**_kwargs: Any) -> AsyncIterator[object]:
+        yield object()
+
+    async def fake_post_fetch(*_args: Any, **_kwargs: Any) -> FetcherResponse:
+        return responses.pop(0)
+
+    monkeypatch.setattr(zoomeyesearch.AsyncFetcher, 'open_session', fake_open_session)
+    monkeypatch.setattr(zoomeyesearch.AsyncFetcher, 'post_fetch', fake_post_fetch)
+    search = zoomeyesearch.SearchZoomEye('example.com', 2)
+
+    await search.process()
+
+    assert await search.get_hostnames() == {'api.example.com'}
+    assert search.execution_status == 'partial'
+    assert search.stop_reason == 'invalid-response'
 
 
 @pytest.mark.asyncio
@@ -18,6 +215,7 @@ async def test_banner_urls_are_absolute_http_and_scoped(monkeypatch: pytest.Monk
         )
     )
 
-    _hostnames, _emails, _ips, _asns, urls = await search.parse_matches([{'service': {'banner': banner}}])
+    _hostnames, _emails, _ips, _asns, urls, malformed = await search.parse_matches([{'banner': banner}])
 
     assert urls == {'https://api.example.com/v1'}
+    assert malformed is False

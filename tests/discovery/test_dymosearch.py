@@ -1,145 +1,104 @@
+import asyncio
+from typing import Any
+
 import pytest
 
 from theHarvester.discovery import dymosearch
 from theHarvester.discovery.constants import MissingKey
+from theHarvester.lib.core import FetcherResponse
 
 
-def _patch_dymo_key(monkeypatch, value):
-    import theHarvester.lib.core as core_module
+@pytest.mark.provider_contract('dymo')
+@pytest.mark.asyncio
+async def test_process_extracts_scoped_canonical_and_suggested_domains(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(dymosearch.Core, 'dymo_key', lambda: 'token-xyz')
+    captured: dict[str, Any] = {}
 
-    monkeypatch.setattr(core_module.Core, 'dymo_key', staticmethod(lambda: value), raising=True)
-    monkeypatch.setattr(core_module.Core, 'get_user_agent', staticmethod(lambda: 'UA'), raising=True)
+    async def fake_post_fetch(url: str, **kwargs: Any) -> FetcherResponse:
+        captured.update({'url': url, **kwargs})
+        return FetcherResponse(
+            {
+                'domain': {'domain': 'example.com', 'didYouMean': 'www.example.com'},
+                'url': {'domain': 'outside.test', 'didYouMean': 'notexample.com'},
+            },
+            200,
+            {},
+        )
 
+    monkeypatch.setattr(dymosearch.AsyncFetcher, 'post_fetch', fake_post_fetch)
+    search = dymosearch.SearchDymo('example.com')
+    await search.process(proxy=True)
 
-class TestDymoSearch:
-    def test_missing_key_raises(self, monkeypatch):
-        _patch_dymo_key(monkeypatch, None)
-        with pytest.raises(MissingKey):
-            dymosearch.SearchDymo('example.com')
-
-    def test_init_sets_state(self, monkeypatch):
-        _patch_dymo_key(monkeypatch, 'token-123')
-        search = dymosearch.SearchDymo('example.com')
-        assert search.word == 'example.com'
-        assert search.key == 'token-123'
-        assert search.proxy is False
-        assert search.totalhosts == set()
-        assert search.results == {}
-
-    def test_headers_use_bearer(self, monkeypatch):
-        _patch_dymo_key(monkeypatch, 'token-abc')
-        search = dymosearch.SearchDymo('example.com')
-        headers = search._headers()
-        assert headers['Authorization'] == 'Bearer token-abc'
-        assert headers['Content-Type'] == 'application/json'
-        assert headers['User-Agent'] == 'UA'
-
-    @pytest.mark.asyncio
-    async def test_process_extracts_canonical_and_suggestion(self, monkeypatch):
-        _patch_dymo_key(monkeypatch, 'token-xyz')
-        captured = {}
-
-        async def fake_post_fetch(url, headers=None, data='', params='', json=False, proxy=False):
-            captured['url'] = url
-            captured['headers'] = headers
-            captured['data'] = data
-            captured['proxy'] = proxy
-            return {
-                'domain': {
-                    'valid': True,
-                    'fraud': False,
-                    'freeSubdomain': False,
-                    'domain': 'exemple.com',
-                    'didYouMean': 'www.exemple.com',
-                },
-                'url': {
-                    'valid': True,
-                    'domain': 'exemple.com',
-                    'didYouMean': None,
-                },
-            }
-
-        import theHarvester.lib.core as core_module
-
-        monkeypatch.setattr(core_module.AsyncFetcher, 'post_fetch', classmethod(lambda cls, *a, **kw: fake_post_fetch(*a, **kw)))
-
-        search = dymosearch.SearchDymo('exemple.com')
-        await search.process(proxy=True)
-
-        assert captured['url'] == dymosearch.SearchDymo.VERIFY_URL
-        assert captured['proxy'] is True
-        assert captured['data'] == {'domain': 'exemple.com', 'url': 'https://exemple.com'}
-        assert captured['headers']['Authorization'] == 'Bearer token-xyz'
-
-        hosts = await search.get_hostnames()
-        results = await search.get_results()
-
-        assert 'exemple.com' in hosts
-        assert 'www.exemple.com' in hosts
-        assert results['domain']['valid'] is True
-
-    @pytest.mark.asyncio
-    async def test_process_handles_empty_payload(self, monkeypatch):
-        _patch_dymo_key(monkeypatch, 'token')
-
-        async def fake_post_fetch(url, headers=None, data='', params='', json=False, proxy=False):
-            return {}
-
-        import theHarvester.lib.core as core_module
-
-        monkeypatch.setattr(core_module.AsyncFetcher, 'post_fetch', classmethod(lambda cls, *a, **kw: fake_post_fetch(*a, **kw)))
-
-        search = dymosearch.SearchDymo('example.com')
-        await search.process()
-        assert await search.get_hostnames() == set()
-        assert await search.get_results() == {}
-
-    @pytest.mark.asyncio
-    async def test_process_ignores_unrelated_suggestion(self, monkeypatch):
-        _patch_dymo_key(monkeypatch, 'token')
-
-        async def fake_post_fetch(url, headers=None, data='', params='', json=False, proxy=False):
-            return {
-                'domain': {
-                    'valid': True,
-                    'domain': 'totally-different.org',
-                    'didYouMean': 'somewhere-else.net',
-                },
-            }
-
-        import theHarvester.lib.core as core_module
-
-        monkeypatch.setattr(core_module.AsyncFetcher, 'post_fetch', classmethod(lambda cls, *a, **kw: fake_post_fetch(*a, **kw)))
-
-        search = dymosearch.SearchDymo('example.com')
-        await search.process()
-        # Neither contains 'example.com', so neither should be added.
-        assert await search.get_hostnames() == set()
-
-    @pytest.mark.asyncio
-    async def test_process_handles_non_dict_response(self, monkeypatch):
-        _patch_dymo_key(monkeypatch, 'token')
-
-        async def fake_post_fetch(url, headers=None, data='', params='', json=False, proxy=False):
-            return '<html>error</html>'
-
-        import theHarvester.lib.core as core_module
-
-        monkeypatch.setattr(core_module.AsyncFetcher, 'post_fetch', classmethod(lambda cls, *a, **kw: fake_post_fetch(*a, **kw)))
-
-        search = dymosearch.SearchDymo('example.com')
-        await search.process()
-        assert await search.get_hostnames() == set()
-        assert search.results == {}
+    assert await search.get_hostnames() == {'example.com', 'www.example.com'}
+    assert (await search.get_results())['domain']['domain'] == 'example.com'
+    assert captured['url'] == dymosearch.SearchDymo.VERIFY_URL
+    assert captured['json_body'] == {'domain': 'example.com', 'url': 'https://example.com'}
+    assert captured['include_metadata'] is True
+    assert captured['proxy'] is True
+    assert search.execution_status == 'completed'
+    assert search.stop_reason is None
 
 
-class TestDymoIntegration:
-    def test_module_exposes_class(self, monkeypatch):
-        from theHarvester.discovery import dymosearch as mod
+@pytest.mark.parametrize('key', [None, '', '   '])
+def test_missing_or_blank_key_fails_closed(monkeypatch: pytest.MonkeyPatch, key: str | None) -> None:
+    monkeypatch.setattr(dymosearch.Core, 'dymo_key', lambda: key)
+    with pytest.raises(MissingKey):
+        dymosearch.SearchDymo('example.com')
 
-        assert hasattr(mod, 'SearchDymo')
 
-    def test_source_catalog_lists_dymo(self):
-        from theHarvester.lib.source_catalog import SOURCE_SPECS
+@pytest.mark.parametrize(
+    ('response', 'status', 'reason'),
+    [
+        (None, 'failed', 'transport-error'),
+        (FetcherResponse({}, 401, {}), 'failed', 'access-denied'),
+        (FetcherResponse({}, 429, {}), 'rate-limited', 'http-429'),
+        (FetcherResponse({}, 503, {}), 'failed', 'http-503'),
+        (FetcherResponse([], 200, {}), 'failed', 'invalid-response'),
+        (FetcherResponse({'domain': []}, 200, {}), 'failed', 'invalid-response'),
+    ],
+)
+@pytest.mark.asyncio
+async def test_failures_are_structured(
+    monkeypatch: pytest.MonkeyPatch,
+    response: FetcherResponse | None,
+    status: str,
+    reason: str,
+) -> None:
+    monkeypatch.setattr(dymosearch.Core, 'dymo_key', lambda: 'token')
 
-        assert 'dymo' in SOURCE_SPECS
+    async def fake_post_fetch(*_args: Any, **_kwargs: Any) -> FetcherResponse | None:
+        return response
+
+    monkeypatch.setattr(dymosearch.AsyncFetcher, 'post_fetch', fake_post_fetch)
+    search = dymosearch.SearchDymo('example.com')
+    await search.process()
+
+    assert search.execution_status == status
+    assert search.stop_reason == reason
+
+
+@pytest.mark.asyncio
+async def test_empty_object_is_completed_without_evidence(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(dymosearch.Core, 'dymo_key', lambda: 'token')
+
+    async def fake_post_fetch(*_args: Any, **_kwargs: Any) -> FetcherResponse:
+        return FetcherResponse({}, 200, {})
+
+    monkeypatch.setattr(dymosearch.AsyncFetcher, 'post_fetch', fake_post_fetch)
+    search = dymosearch.SearchDymo('example.com')
+    await search.process()
+
+    assert search.execution_status == 'completed'
+    assert search.stop_reason == 'no-results'
+
+
+@pytest.mark.asyncio
+async def test_cancellation_propagates(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(dymosearch.Core, 'dymo_key', lambda: 'token')
+
+    async def fake_post_fetch(*_args: Any, **_kwargs: Any) -> FetcherResponse:
+        raise asyncio.CancelledError
+
+    monkeypatch.setattr(dymosearch.AsyncFetcher, 'post_fetch', fake_post_fetch)
+    with pytest.raises(asyncio.CancelledError):
+        await dymosearch.SearchDymo('example.com').process()
