@@ -36,3 +36,12 @@ Run focused checks first and expand according to risk. Report any skipped check 
 - Run the full non-browser suite once at the publication head. Dependent stack layers do not need to repeat it unless they change Python behavior.
 - Run the HarvestView browser suite once at the final UI head or rely on its GitHub workflow. Static UI edits should use focused UI tests and a JavaScript syntax check first.
 - Before retrying a long-running test, confirm the previous process exited. Poll the existing command or stop only its exact owned process instead of starting an overlapping run.
+
+## GitHub CLI diagnostics
+
+Before reporting broken GitHub authentication, distinguish connectivity from
+credential failure. Run `gh api user --silent` in the same host execution
+context used for `git push`, then inspect any error. A sandboxed `gh auth
+status` failure alone is not credential evidence. Report DNS, network, and
+GitHub service failures as connectivity blockers. Use browser publication only
+when the host-side command specifically reports missing or invalid credentials.
