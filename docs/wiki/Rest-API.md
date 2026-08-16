@@ -188,7 +188,7 @@ curl -s "http://127.0.0.1:5000/api/v1/runs/$run_id/export" \
   -o results.jsonl
 ```
 
-The first line is the `summary` record, including evidence status, source and action outcomes, and artifacts. Each remaining line is one normalized finding with `type`, `value`, `sources`, and optional `actions`. A hostname confirmed by the `vhost` action adds native endpoint observations; a RouteViews `prefix` adds native origin, route, and RPKI observations with fixed external-relationship scope. This keeps the file easy to stream with `jq -c` and makes API exports importable again without a format conversion. Lifecycle details and the submitted request remain available from `GET /api/v1/runs/{run_id}`.
+The first line is the `summary` record, including evidence status, source and action outcomes, and artifacts. Each remaining line is one normalized finding with `type`, `value`, `sources`, and optional `actions`. A hostname confirmed by the `vhost` action adds native endpoint observations; a RouteViews `prefix` adds native origin, route, and RPKI observations with fixed external-relationship scope. The file can be streamed with `jq -c` or imported through the API without conversion. Lifecycle details and the submitted request are available from `GET /api/v1/runs/{run_id}`.
 
 ## Security boundary
 

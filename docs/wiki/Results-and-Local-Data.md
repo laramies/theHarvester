@@ -20,19 +20,19 @@ The recommended automation output is `report.jsonl`. Its first record summarizes
 jq -c 'select(.type != "summary") | {type, value, sources, actions}' report.jsonl
 ```
 
-The same `-f report` command also creates `report.json` and `report.xml` for compatibility.
+The same `-f report` command creates `report.json` and `report.xml` compatibility reports.
 
-## Legacy JSON and XML
+## JSON and XML compatibility reports
 
 - **JSON** is one object and contains the broader result set. `cmd`, `hosts`, and `shodan` are always present; other fields appear when non-empty.
 - **XML** contains the command, emails, hosts, and virtual hosts. Use JSON for other result types.
-- Current JSON and XML reports do not record which source found each item.
+- JSON and XML reports do not record which source found each item.
 
 When virtual host discovery runs, JSON's `vhosts` array and XML's `<vhost>` entries contain confirmed hostnames only. They do not include endpoint or baseline evidence; use JSONL or API run details for that structured data.
 
 Host values may be plain hostnames. When DNS resolution is enabled, they can also use the `hostname:IP` form.
 
-The repository [README output section](https://github.com/laramies/theHarvester/blob/dev/README.md#report-formats) documents the current formats and provides copyable `jq` examples for JSONL.
+The repository [README output section](https://github.com/laramies/theHarvester/blob/dev/README.md#output-and-local-data) summarizes the formats and provides copyable `jq` examples for JSONL.
 
 ## SQLite database
 
@@ -57,7 +57,7 @@ The normalized persistence model can represent active-action provenance and arti
 
 Virtual-host evidence stays inside this model. `results` holds one `hostname` row, `result_origins` links it to the `vhost` action execution, and the result's `details_json` contains the canonical endpoint observation array. If one hostname is distinct on several IP endpoints, it remains one result with several observations.
 
-Current runtime collection populates passive source executions plus DNS, takeover, Shodan, and API endpoint scan executions and origins. Screenshot actions attach file metadata to their captured hostname or URL without creating fake screenshot findings.
+Runtime collection records passive source executions plus DNS, takeover, Shodan, and API endpoint scan executions and origins. Screenshot actions attach file metadata to their captured hostname or URL without creating screenshot findings.
 
 RouteViews creates `prefix` results with `scope: external-relationship` and `routeviews` action provenance. Native observations distinguish one ASN-prefix origin claim, one collector/peer BGP route, and one RPKI validation state. They are routing evidence, not registration, ownership, authorization, reachability, or expanded target scope.
 
@@ -67,7 +67,7 @@ Every discovered URL is stored as the `url` result kind. Its source or action or
 
 Hostname and IP evidence use the `hostname` and `ip` result kinds in SQLite, JSONL, the API, and HarvestView. A hostname may be the authorized target itself or a subordinate name, so the result kind does not claim that every value is a subdomain.
 
-Two operational tables support the API without changing those six evidence concepts: `run_records` stores queue and lifecycle state, and `run_worker_leases` prevents two local workers from claiming the same queue. Older runless rows remain in `legacy_observations`. SQLite upgrades supported schemas automatically during normal initialization.
+Two operational tables support the API without changing those six evidence concepts: `run_records` stores queue and lifecycle state, and `run_worker_leases` prevents two local workers from claiming the same queue. Runless rows are stored in `legacy_observations`. SQLite upgrades supported schemas automatically during normal initialization.
 
 ## Screenshots
 

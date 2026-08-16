@@ -24,7 +24,7 @@ This queries two passive certificate sources and prints consolidated findings. P
 uv run theHarvester -d example.com -b crtsh,certspotter -f report
 ```
 
-This writes `report.jsonl` for automation and interchange. It also writes legacy `report.json` and `report.xml` compatibility reports. See [Results and Local Data](Results-and-Local-Data).
+This writes `report.jsonl` for automation and interchange. It also writes `report.json` and `report.xml` compatibility reports. See [Results and Local Data](Results-and-Local-Data).
 
 ## Resolve discovered hosts
 
