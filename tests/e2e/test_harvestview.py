@@ -108,6 +108,7 @@ def test_versioned_assets_and_tooltips_work_at_supported_viewports(
     assert 'Credential warnings identify sources that cannot start' in tooltip.get_attribute('aria-description')
     assert tooltip.bounding_box()['width'] >= 44
     assert tooltip.bounding_box()['height'] >= 44
+    page.locator('#submit-run-button').scroll_into_view_if_needed()
     assert page.locator('#submit-run-button').evaluate(
         """button => {
           const buttonBox = button.getBoundingClientRect();
@@ -140,10 +141,56 @@ def test_mobile_source_picker_avoids_nested_scroll_and_blocks_unconfigured_sourc
     crtsh = page.locator('.source-choice').filter(has_text='crtsh')
     expect(crtsh.locator('input')).to_be_enabled()
     expect(crtsh).to_contain_text('Ready')
-    expect(page.locator('#source-selection-summary')).to_contain_text('Selected 1 ready source')
+    expect(page.locator('#source-selection-summary')).to_have_text('Selected 1 ready source: crtsh.')
+    expect(page.locator('#final-authorization-summary')).to_contain_text('Target not set')
+    expect(page.locator('#final-authorization-summary')).to_contain_text('1 source: crtsh')
+    page.locator('#run-target').fill('example.com')
+    page.locator('[name="screenshot"]').check()
+    expect(page.locator('#final-authorization-summary')).to_contain_text('Target example.com')
+    expect(page.locator('#final-authorization-summary')).to_contain_text('P2 selected')
     p0_group.locator('summary').click()
     crtsh.locator('input').uncheck()
-    expect(page.locator('#source-selection-summary')).to_contain_text('Selected 0 ready sources')
+    expect(page.locator('#source-selection-summary')).to_have_text('Selected 0 ready sources.')
+
+
+def test_imported_run_separates_original_execution_from_local_import(
+    harvestview_server_url: str,
+    page: Page,
+) -> None:
+    run = {
+        'run_id': 'imported-run',
+        'target': 'example.test',
+        'status': 'completed',
+        'origin': 'imported',
+        'created_at': '2026-08-16T05:37:52+00:00',
+        'started_at': '2026-08-15T03:10:00+00:00',
+        'completed_at': '2026-08-15T03:10:08+00:00',
+        'cancellation_requested_at': None,
+        'evidence_status': 'complete',
+        'result_count': 0,
+        'activities': ['P0'],
+        'sources': ['crtsh'],
+        'request': {'sources': ['crtsh'], 'filename': 'evidence.jsonl'},
+        'source_executions': [],
+        'action_executions': [],
+        'results': [],
+        'screenshots': [],
+        'log': '',
+        'error': None,
+    }
+
+    page.route(f'{harvestview_server_url}/api/v1/runs', lambda route: route.fulfill(json=[run]))
+    page.route(f'{harvestview_server_url}/api/v1/runs/imported-run', lambda route: route.fulfill(json=run))
+    page.goto(f'{harvestview_server_url}/')
+
+    facts = page.locator('#run-facts')
+    expect(facts).to_contain_text('OriginImported evidence')
+    expect(facts).to_contain_text('Imported')
+    expect(facts).to_contain_text('Original started')
+    expect(facts).to_contain_text('Original completed')
+    expect(facts).not_to_contain_text('Submitted')
+    expect(page.locator('#lifecycle-track strong')).to_have_text(['Original started', 'Original completed', 'Imported'])
+    expect(page.locator('#lifecycle-note')).to_contain_text('original execution timing')
 
 
 def test_disabled_worker_rejects_submission_without_creating_a_run(
@@ -803,8 +850,19 @@ def test_hostname_actions_queue_isolated_runs(
     expect(action_row).to_contain_text('TimeoutError')
 
     page.get_by_role('button', name='Take screenshot of api.example.com (P2)').click()
+    review = page.locator('#result-action-dialog')
+    expect(review.get_by_role('heading')).to_have_text('Review screenshot interaction')
+    expect(review).to_contain_text('api.example.com')
+    expect(review).to_contain_text('P2 · Direct interaction')
+    expect(review).to_contain_text('Creates a separate finite run')
+    assert submissions == []
+    review.get_by_role('button', name='Start screenshot run').click()
     expect(page.locator('#toast')).to_contain_text('Screenshot captured')
     page.get_by_role('button', name='DNS brute force api.example.com (P1)').click()
+    expect(review.get_by_role('heading')).to_have_text('Review DNS brute force interaction')
+    expect(review).to_contain_text('P1 · DNS interaction')
+    expect(review).to_contain_text('192.0.2.53')
+    review.get_by_role('button', name='Start DNS brute force run').click()
     expect(page.locator('#toast')).to_contain_text('DNS brute captured')
 
     assert submissions == [
@@ -883,6 +941,7 @@ def test_accepted_result_action_is_not_reported_as_failed_when_refresh_fails(
     page.goto(f'{harvestview_server_url}/')
 
     page.get_by_role('button', name='Take screenshot of api.example.com (P2)').click()
+    page.locator('#result-action-dialog').get_by_role('button', name='Start screenshot run').click()
 
     expect(page.locator('#toast')).to_contain_text('was queued, but the run view could not refresh')
     expect(page.locator('#toast')).to_contain_text('Do not submit it again')
@@ -1245,7 +1304,7 @@ def test_completed_empty_import_explains_terminal_outcome(
     expect(page.locator('#results-empty-copy')).to_have_text(
         'crtsh returned no normalized evidence. The retained evidence record is complete.'
     )
-    expect(page.locator('#lifecycle-track strong')).to_have_text(['Submitted', 'Started', 'Completed'])
+    expect(page.locator('#lifecycle-track strong')).to_have_text(['Original started', 'Original completed', 'Imported'])
     expect(page.get_by_role('button', name='All JSONL')).to_be_enabled()
     with page.expect_download() as jsonl_download:
         page.get_by_role('button', name='All JSONL').click()
@@ -1391,6 +1450,10 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
     dns_filter = page.locator('.tabulator-col[tabulator-field="dns_status"] .tabulator-header-filter input')
     expect(value_filter).to_have_attribute('placeholder', 'Filter values')
     expect(dns_filter).to_have_attribute('placeholder', 'Filter DNS')
+    expect(value_filter).to_have_attribute('aria-label', 'Filter Value column')
+    expect(dns_filter).to_have_attribute('aria-label', 'Filter DNS column')
+    expect(page.get_by_role('checkbox', name='Select all rows on this route')).to_be_visible()
+    expect(page.get_by_role('checkbox', name='Select 192.0.2.10')).to_be_visible()
 
     value_filter.press_sequentially('198.51')
     expect(page.locator('.tabulator-row:visible')).to_have_count(1)
@@ -1445,6 +1508,9 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
     page.keyboard.press('Escape')
     expect(page.get_by_role('button', name='Start enumeration').first).to_be_focused()
     page.get_by_role('button', name='Hostnames 1').click()
+    page.set_viewport_size({'width': 820, 'height': 1180})
+    assert page.locator('.app-shell').evaluate("node => getComputedStyle(node).display === 'block'")
+    assert page.evaluate('document.documentElement.scrollWidth <= document.documentElement.clientWidth')
     page.set_viewport_size({'width': 390, 'height': 844})
     expect(page.locator('#provider-outcome-summary')).to_be_visible()
     expect(page.get_by_role('columnheader', name='Outcome')).to_be_visible()
@@ -1456,3 +1522,7 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
     expect(value_filter).to_be_visible()
     assert value_filter.bounding_box()['height'] >= 44
     assert page.locator('#route-tabs').evaluate('node => node.scrollWidth > node.clientWidth')
+    expect(page.get_by_role('button', name='Next Page')).to_be_visible()
+    workbench_box = page.locator('#result-workbench').bounding_box()
+    paginator_box = page.locator('.tabulator-paginator').bounding_box()
+    assert paginator_box['x'] + paginator_box['width'] <= workbench_box['x'] + workbench_box['width'] + 1

@@ -2,7 +2,7 @@
 <html lang="en" data-theme="system">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="color-scheme" content="light dark">
     <title>HarvestView</title>
     <link rel="icon" href="/static/harvestview/logo.webp">
@@ -337,8 +337,33 @@
         <p id="activity-summary" class="activity-summary">P0 selected · P1 off · P2 off</p>
         <p id="new-run-error" class="form-error" role="alert" hidden></p>
         <footer class="dialog-actions">
+          <p class="final-authorization-review">
+            <strong>Final authorization review</strong>
+            <span id="final-authorization-summary" aria-live="polite">Target not set · 1 source: crtsh · P0 selected · P1 off · P2 off · Deadline unlimited</span>
+          </p>
           <button class="button" type="button" data-close-dialog>Keep reviewing</button>
           <button id="submit-run-button" class="button primary" type="submit">Start enumeration</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="result-action-dialog" class="form-dialog" aria-labelledby="result-action-title">
+      <form id="result-action-form" class="dialog-content">
+        <header class="dialog-header">
+          <div><h2 id="result-action-title">Review result interaction</h2></div>
+          <button class="icon-button dialog-close" type="button" data-close-dialog aria-label="Close result action review">×</button>
+        </header>
+        <p id="result-action-intro">Review the exact interaction before creating a child run.</p>
+        <dl class="action-review-grid">
+          <div><dt>Target</dt><dd id="result-action-target"></dd></div>
+          <div><dt>Authorization band</dt><dd id="result-action-band"></dd></div>
+          <div><dt>Network behavior</dt><dd id="result-action-network"></dd></div>
+          <div><dt>Resolver settings</dt><dd id="result-action-resolvers"></dd></div>
+          <div><dt>Evidence boundary</dt><dd>Creates a separate finite run. The parent evidence remains unchanged.</dd></div>
+        </dl>
+        <footer class="dialog-actions">
+          <button class="button" type="button" data-close-dialog>Keep reviewing</button>
+          <button id="confirm-result-action-button" class="button primary" type="submit">Start child run</button>
         </footer>
       </form>
     </dialog>
