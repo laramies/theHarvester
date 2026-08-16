@@ -75,6 +75,14 @@ uv run pytest
 uv run mypy theHarvester
 ```
 
+Before a release, run the complete repeatable gate from the repository root:
+
+```bash
+scripts/release-check.sh
+```
+
+This adds the real HarvestView browser, package, and container checks. Maintainers with explicit authorization may append bounded passive-provider lanes with repeated `--live-domain DOMAIN` arguments; these lanes never enable DNS or direct target interaction.
+
 Routine verification must use mocks, local fixtures, and reserved example domains. The test harness blocks external Python socket traffic unless a test is marked `live_network` and pytest is invoked with both `--run-live-network` and `-m live_network`. A live-marked test never satisfies the provider-contract coverage gate.
 
 Do not run broad or active reconnaissance against third-party targets. If live verification is essential, use only a target you own or are explicitly authorized to test, limit the request scope, and keep collected data out of commits, issues, and pull requests. The manually dispatched provider workflow uses `mozilla.org` for small passive CLI crash smokes. Those runs can detect packaging, credential, or provider drift; they are not conformance tests and should not be retried merely to obtain more results.
