@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added authenticated REST and HarvestView export of every completed run as a portable SQLite database without queue, cancellation, worker-lease, or legacy-observation state.
 - Added a catalog-derived offline provider-contract gate that fails on missing, unknown, or duplicate source coverage while keeping live checks outside routine CI.
 - Added sourced ASN organization attribution from URLScan, ONYPHE, and Shodan, linked to the exact hostname or IP evidence and retained in SQLite, JSONL, the API, CLI output, and HarvestView without claiming ownership or scope.
 - Added bounded RouteViews routing enrichment for exact discovered IPs with sourced ASN attribution, or explicit ASN, IP, and CIDR targets, retaining typed origin, BGP-route, and RPKI evidence as external relationships without expanding active scope.

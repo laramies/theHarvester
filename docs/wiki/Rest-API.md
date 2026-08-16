@@ -32,6 +32,7 @@ Treat the runtime OpenAPI document as the exact request and response reference.
 | `POST /api/v1/runs/{run_id}/cancel` | Cancel queued work or request cancellation of running work. |
 | `POST /api/v1/runs/import` | Import a JSONL result file without executing discovery. |
 | `POST /api/v1/runs/import-database` | Import completed runs from a theHarvester SQLite database. |
+| `GET /api/v1/runs/export-database` | Export all completed run evidence as a portable SQLite database. |
 | `GET /api/v1/runs/{run_id}/export` | Export normalized results as JSONL. |
 | `GET /api/v1/runs/{run_id}/screenshots/{name}` | Retrieve one managed screenshot. |
 
@@ -168,6 +169,16 @@ curl -s "http://127.0.0.1:5000/api/v1/runs/import-database?filename=stash.sqlite
 ```
 
 The server checks the SQLite header, integrity, schema, and each completed run before copying it. Original run IDs are preserved. Exact duplicates are skipped, while a reused ID with different evidence is rejected. Close the source process or checkpoint its WAL before uploading the database. Screenshot metadata is imported, but screenshot files must be copied separately. The default upload ceiling is 1 GiB and can be changed with `THEHARVESTER_MAX_DATABASE_IMPORT_BYTES`.
+
+Export every completed run as a consistent database that can be imported elsewhere:
+
+```bash
+curl -s "http://127.0.0.1:5000/api/v1/runs/export-database" \
+  -H "X-API-Key: $THEHARVESTER_API_KEY" \
+  -o theharvester-completed-runs.sqlite
+```
+
+The export is rebuilt from canonical completed evidence, so it excludes queue state, cancellation state, worker leases, and legacy observations. It includes screenshot metadata but not screenshot files. The server checkpoints and closes the temporary database before download; no manual WAL handling is required.
 
 Export one normalized result set in the same streamable format:
 

@@ -373,6 +373,10 @@ class RunStore:
             'skipped_run_ids': sorted(skipped_run_ids),
         }
 
+    async def export_database(self, destination: Path) -> None:
+        await self.initialize()
+        await self.results.export_database(destination)
+
     async def list_runs(self, *, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
         await self.initialize()
         return [await self._row(record) for record in await self.lifecycle.list_records(limit=limit, offset=offset)]

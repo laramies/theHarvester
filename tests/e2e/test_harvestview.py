@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import asyncio
 import json
+import sqlite3
 from collections import Counter
-from concurrent.futures import ThreadPoolExecutor
-from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -1380,40 +1378,107 @@ def test_completed_empty_import_explains_terminal_outcome(
 
 
 def test_harvestview_imports_completed_runs_from_sqlite(
-    harvestview_server_url: str,
+    harvestview_server,
     page: Page,
     tmp_path: Path,
 ) -> None:
-    from theHarvester.lib.completed_result import CompletedResult
-    from theHarvester.lib.database import ResultStore, dispose_sqlite_databases
-
-    database = tmp_path / 'completed-runs.sqlite'
-    now = datetime.now(UTC)
-    completed = CompletedResult.finish(
-        target='sqlite.example.test',
-        started_at=now,
-        completed_at=now,
-        groups={'hostname': ['api.sqlite.example.test']},
+    harvestview_server_url = harvestview_server.url
+    source_run_id = '4ef278df-ce95-4120-9241-6e71dd96ad74'
+    evidence_file = tmp_path / 'completed-run.jsonl'
+    write_jsonl_evidence(
+        evidence_file,
+        {
+            'run_id': source_run_id,
+            'target': 'sqlite.example.test',
+            'started_at': '2026-08-08T01:00:00Z',
+            'completed_at': '2026-08-08T01:01:00Z',
+            'status': 'complete',
+            'source_executions': [{'source': 'crtsh', 'status': 'completed', 'duration_ms': 2, 'result_count': 1}],
+            'action_executions': [{'action': 'vhost', 'status': 'completed', 'duration_ms': 1, 'result_count': 1}],
+            'results': [
+                {
+                    'type': 'hostname',
+                    'value': 'admin.sqlite.example.test',
+                    'sources': ['crtsh'],
+                    'actions': ['vhost'],
+                    'observations': [
+                        {
+                            'endpoint': 'https://192.0.2.8:443/',
+                            'http_host': 'admin.sqlite.example.test',
+                            'tls_server_name': 'admin.sqlite.example.test',
+                            'classification': 'distinct',
+                            'phase': 'body',
+                            'status': 401,
+                            'location': None,
+                            'body_sha256': 'a' * 64,
+                            'body_size': 12,
+                            'body_truncated': False,
+                            'context_phase': 'body',
+                            'context_status': 200,
+                            'context_location': None,
+                            'context_body_sha256': 'a' * 64,
+                            'context_body_size': 12,
+                            'context_body_truncated': False,
+                            'control_phase': 'body',
+                            'control_status': 200,
+                            'control_location': None,
+                            'control_body_sha256': 'a' * 64,
+                            'control_body_size': 12,
+                            'control_body_truncated': False,
+                            'confirmation_body_sha256': None,
+                            'tls_verified': True,
+                            'distinct_signals': ['status'],
+                            'reflection_normalized': False,
+                        }
+                    ],
+                }
+            ],
+        },
     )
-
-    async def prepare_database() -> None:
-        store = ResultStore(database)
-        await store.initialize()
-        await store.save_run(completed)
-        await dispose_sqlite_databases()
-
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        executor.submit(lambda: asyncio.run(prepare_database())).result()
 
     page.goto(f'{harvestview_server_url}/')
     page.get_by_role('button', name='Import result file').first.click()
-    page.locator('#result-file').set_input_files(database)
+    page.locator('#result-file').set_input_files(evidence_file)
     page.locator('#submit-import-button').click()
 
     expect(page.locator('#detail-target')).to_have_text('sqlite.example.test')
     expect(page.locator('#run-count')).to_have_text('1')
-    expect(page.locator('#toast')).to_have_text('Imported 1 run from completed-runs.sqlite; 0 already present.')
+    expect(page.locator('#toast')).to_have_text('Imported completed-run.jsonl without executing discovery.')
     expect(page.get_by_role('button', name='Hostnames 1')).to_be_enabled()
+    imported_run_id = page.locator('#detail-run-id').inner_text()
+    with page.expect_download() as database_download:
+        page.get_by_role('button', name='Export database').click()
+    assert database_download.value.suggested_filename == 'theharvester-completed-runs.sqlite'
+    exported_database = Path(database_download.value.path())
+    portable_database = tmp_path / database_download.value.suggested_filename
+    portable_database.write_bytes(exported_database.read_bytes())
+    assert portable_database.read_bytes().startswith(b'SQLite format 3\x00')
+    with sqlite3.connect(portable_database) as connection:
+        exported_run_ids = {row[0] for row in connection.execute('SELECT run_id FROM runs')}
+        exported_tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+    assert exported_run_ids == {imported_run_id}
+    assert {'run_records', 'run_worker_leases'}.isdisjoint(exported_tables)
+
+    harvestview_server.stop()
+    database = Path(harvestview_server.environment['THEHARVESTER_RUN_DB'])
+    for database_file in (database, Path(f'{database}-wal'), Path(f'{database}-shm')):
+        database_file.unlink(missing_ok=True)
+    harvestview_server.start()
+
+    page.goto(f'{harvestview_server_url}/')
+    expect(page.get_by_role('heading', name='No enumeration runs yet')).to_be_visible()
+    page.get_by_role('button', name='Import result file').first.click()
+    page.locator('#result-file').set_input_files(portable_database)
+    page.locator('#submit-import-button').click()
+
+    expect(page.locator('#toast')).to_have_text('Imported 1 run from theharvester-completed-runs.sqlite; 0 already present.')
+    expect(page.locator('#detail-run-id')).to_have_text(imported_run_id)
+    expect(page.locator('#detail-target')).to_have_text('sqlite.example.test')
+    result_row = page.locator('.tabulator-row').first
+    expect(result_row).to_contain_text('admin.sqlite.example.test')
+    expect(result_row).to_contain_text('https://192.0.2.8:443/ · HTTP 401 · status')
+    expect(result_row).to_contain_text('crtsh')
+    expect(result_row).to_contain_text('vhost')
 
 
 def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui(

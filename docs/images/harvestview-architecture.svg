@@ -96,7 +96,7 @@
     <text x="1000" y="276" class="node-title">Inspect and export</text>
     <text x="1000" y="300" class="node-copy-strong">history · assessment · route tabs</text>
     <text x="1000" y="320" class="node-copy-strong">screenshots · source outcomes · logs</text>
-    <text x="1000" y="340" class="node-copy">review child actions · export JSONL</text>
+    <text x="1000" y="340" class="node-copy">review actions · JSONL / SQLite export</text>
 
     <line x1="40" y1="636" x2="1240" y2="636" stroke="rgba(14,29,34,.14)" stroke-width=".8"/>
     <line x1="48" y1="676" x2="88" y2="676" class="connector" marker-end="url(#harvestview-architecture-arrow)"/>

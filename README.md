@@ -165,6 +165,7 @@ docker compose down
 | `POST /api/v1/runs/{run_id}/cancel` | Cancel queued or running work. |
 | `POST /api/v1/runs/import` | Import JSONL evidence without executing discovery. |
 | `POST /api/v1/runs/import-database` | Import completed runs from a theHarvester SQLite database. |
+| `GET /api/v1/runs/export-database` | Export all completed run evidence as a portable SQLite database. |
 | `GET /api/v1/runs/{run_id}/export` | Export normalized evidence as JSONL. |
 
 HarvestView can start a screenshot or DNS brute-force run directly from a hostname result. These actions create a separate run record for that hostname and leave the parent evidence unchanged. Resolver addresses may be entered directly or loaded from a text file with one IP address per line. Ordinary DNS actions accept one or more resolvers; recursive DNS requires exactly three.

@@ -642,6 +642,20 @@ DATABASE_IMPORT_REQUEST_OPENAPI = {
         'content': {'application/vnd.sqlite3': {'schema': {'type': 'string', 'format': 'binary'}}},
     }
 }
+DATABASE_EXPORT_RESPONSES: dict[int | str, dict[str, Any]] = {
+    200: {
+        'description': 'Portable completed-run evidence as SQLite.',
+        'content': {
+            'application/vnd.sqlite3': {
+                'schema': {
+                    'type': 'string',
+                    'format': 'binary',
+                    'description': 'Portable SQLite database containing every completed run and no API lifecycle state.',
+                }
+            },
+        },
+    }
+}
 EXPORT_RESPONSES: dict[int | str, dict[str, Any]] = {
     200: {
         'description': 'Normalized run results as JSONL.',

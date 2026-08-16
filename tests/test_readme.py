@@ -129,7 +129,7 @@ def test_readme_architecture_diagrams_are_local_and_accessible() -> None:
             'HarvestView run desk architecture',
             Path('docs/images/harvestview-architecture.svg'),
             'harvestview-architecture',
-            ('Authenticated REST API', 'queued → running → terminal', 'Isolated run worker', 'export JSONL'),
+            ('Authenticated REST API', 'queued → running → terminal', 'Isolated run worker', 'JSONL / SQLite export'),
         ),
     )
 
@@ -191,6 +191,16 @@ def test_operator_docs_recommend_jsonl_and_assume_uv_is_available() -> None:
     assert 'curl -LsSf https://astral.sh/uv/install.sh' not in readme
     assert 'curl -LsSf https://astral.sh/uv/install.sh' not in installation
     assert all('`report.jsonl`' in page and 'automation' in page for page in (quick_start, workflows))
+
+
+def test_operator_docs_cover_portable_database_export() -> None:
+    readme = Path('README.md').read_text()
+    rest_api = Path('docs/wiki/Rest-API.md').read_text()
+    local_data = Path('docs/wiki/Results-and-Local-Data.md').read_text()
+
+    assert all('/api/v1/runs/export-database' in page for page in (readme, rest_api, local_data))
+    assert 'queue state, cancellation state, worker leases, and legacy observations' in rest_api
+    assert 'no manual WAL handling is required' in rest_api
 
 
 def test_readme_explains_jsonl_record_and_structured_evidence_parsing() -> None:
