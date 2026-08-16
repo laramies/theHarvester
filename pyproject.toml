@@ -34,7 +34,6 @@ dependencies = [
     "httpx==0.28.1",
     "retrying==1.4.2",
     "sqlalchemy==2.0.51",
-    "ujson==5.13.0",
     "uvicorn==0.52.1",
     "uvloop==0.22.1; platform_system != 'Windows'",
     "winloop==0.6.3; platform_system == 'Windows'",
@@ -52,7 +51,6 @@ dev = [
     "types-python-dateutil==2.9.0.20260518",
     "types-PyYAML==6.0.12.20250915",
     "ruff==0.16.1",
-    "types-ujson==5.10.0.20250822",
     "wheel==0.47.0",
     "ty==0.0.69",
 ]
