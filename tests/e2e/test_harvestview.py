@@ -777,11 +777,19 @@ def test_harvestview_summarizes_routeviews_prefix_evidence(
     expect(result_row).to_contain_text('path 64496 64500 · communities 64500:1')
 
 
+@pytest.mark.parametrize(
+    ('viewport_width', 'viewport_height'),
+    [(1440, 900), (1024, 768), (820, 1180), (390, 844)],
+    ids=['desktop', 'desktop-compact', 'tablet', 'mobile'],
+)
 def test_hostname_actions_queue_isolated_runs(
     harvestview_server_url: str,
     page: Page,
     browser_failures,
+    viewport_width: int,
+    viewport_height: int,
 ) -> None:
+    page.set_viewport_size({'width': viewport_width, 'height': viewport_height})
     browser_failures.allow_response('POST', 503, '/api/v1/runs')
     browser_failures.allow_response('POST', 503, '/api/v1/runs')
     browser_failures.allow_console_error(
@@ -847,6 +855,7 @@ def test_hostname_actions_queue_isolated_runs(
     page.goto(f'{harvestview_server_url}/')
 
     expect(page.get_by_role('button', name='Hostnames 1')).to_be_enabled()
+    assert page.evaluate('document.documentElement.scrollWidth <= document.documentElement.clientWidth')
 
     page.locator('#provider-details summary').click()
     expect(page.locator('#provider-title')).to_have_text('Execution outcomes')
@@ -863,6 +872,7 @@ def test_hostname_actions_queue_isolated_runs(
     expect(review).to_contain_text('api.example.com')
     expect(review).to_contain_text('P2 · Direct interaction')
     expect(review).to_contain_text('Creates a separate finite run')
+    assert page.evaluate('document.documentElement.scrollWidth <= document.documentElement.clientWidth')
     assert submissions == []
     review.get_by_role('button', name='Start screenshot run').click()
     expect(page.locator('#toast')).to_contain_text('Screenshot captured')
@@ -882,6 +892,7 @@ def test_hostname_actions_queue_isolated_runs(
             'dns_resolvers': ['192.0.2.53'],
         },
     ]
+    assert page.evaluate('document.documentElement.scrollWidth <= document.documentElement.clientWidth')
 
 
 def test_accepted_result_action_is_not_reported_as_failed_when_refresh_fails(
@@ -1279,6 +1290,51 @@ def test_empty_terminal_run_explains_its_lifecycle(
     expect(page.locator('#results-empty-copy')).to_contain_text('The retained evidence record is partial.')
 
 
+def test_failed_run_with_retained_evidence_puts_assessment_before_results(
+    harvestview_server_url: str,
+    page: Page,
+) -> None:
+    run = {
+        'run_id': 'failed-evidence-run',
+        'target': 'example.com',
+        'status': 'failed',
+        'origin': 'local',
+        'created_at': '2026-08-05T12:00:00+00:00',
+        'started_at': '2026-08-05T12:00:01+00:00',
+        'completed_at': '2026-08-05T12:00:02+00:00',
+        'cancellation_requested_at': None,
+        'evidence_status': 'partial',
+        'result_count': 1,
+        'activities': ['P0'],
+        'sources': ['crtsh'],
+        'request': {'sources': ['crtsh'], 'limit': 25, 'deadline_seconds': 300},
+        'source_executions': [
+            {
+                'source': 'crtsh',
+                'status': 'partial',
+                'result_count': 1,
+                'duration_ms': 1000,
+                'error_type': 'TimeoutError',
+                'stop_reason': 'timeout',
+            }
+        ],
+        'results': [{'type': 'hostname', 'value': 'api.example.com', 'sources': ['crtsh']}],
+        'screenshots': [],
+        'log': '',
+        'error': 'Provider process exited.',
+    }
+    page.route(f'{harvestview_server_url}/api/v1/runs', lambda route: route.fulfill(json=[run]))
+    page.route(f'{harvestview_server_url}/api/v1/runs/{run["run_id"]}', lambda route: route.fulfill(json=run))
+
+    page.goto(f'{harvestview_server_url}/')
+
+    expect(page.locator('#assessment-evidence')).to_contain_text('Partial')
+    expect(page.get_by_role('button', name='Hostnames 1')).to_be_enabled()
+    assert page.locator('.run-assessment').evaluate(
+        "node => Boolean(node.compareDocumentPosition(document.querySelector('#results-section')) & Node.DOCUMENT_POSITION_FOLLOWING)"
+    )
+
+
 def test_completed_empty_import_explains_terminal_outcome(
     harvestview_server_url: str,
     page: Page,
@@ -1436,7 +1492,7 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
     assert page.locator('#results-title').evaluate(
         "node => Boolean(node.compareDocumentPosition(document.querySelector('#lifecycle-title')) & Node.DOCUMENT_POSITION_FOLLOWING)"
     )
-    assert page.locator('#run-facts').evaluate(
+    assert page.locator('.run-assessment').evaluate(
         "node => Boolean(node.compareDocumentPosition(document.querySelector('#results-title')) & Node.DOCUMENT_POSITION_FOLLOWING)"
     )
 
@@ -1460,7 +1516,17 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
     expect(asn_route).to_have_attribute('aria-pressed', 'true')
     expect(asn_route).to_be_focused()
     asn_route.press('ArrowLeft')
-    expect(page.get_by_role('button', name='IP addresses 2')).to_be_focused()
+    expect(ip_route).to_be_focused()
+    route_buttons = page.locator('#route-tabs [data-route]')
+    assert page.locator('#route-tabs [data-route][tabindex="-1"]').count() == route_buttons.count() - 1
+    ip_route.press('End')
+    expect(route_buttons.last).to_be_focused()
+    expect(route_buttons.last).to_have_attribute('aria-pressed', 'true')
+    route_buttons.last.press('Home')
+    expect(route_buttons.first).to_be_focused()
+    expect(route_buttons.first).to_have_attribute('aria-pressed', 'true')
+    ip_route.click()
+    expect(ip_route).to_have_attribute('tabindex', '0')
     expect(page.locator('#route-count')).to_have_text('2')
     value_column = page.locator('.tabulator-col[tabulator-field="value"]')
     value_filter = value_column.locator('.tabulator-header-filter input')
@@ -1535,7 +1601,15 @@ def test_harvestview_can_import_and_analyze_fixture_evidence_through_the_real_ui
     page.set_viewport_size({'width': 390, 'height': 844})
     assert page.locator('.version-badge').evaluate('node => parseFloat(getComputedStyle(node).fontSize)') >= 11
     assert page.locator('.run-meta').first.evaluate('node => parseFloat(getComputedStyle(node).fontSize)') >= 12
-    assert page.get_by_role('checkbox', name='Select hostname.example.com').bounding_box()['width'] >= 24
+    assert page.locator('.source-choice small').first.evaluate('node => parseFloat(getComputedStyle(node).fontSize)') >= 16
+    assert page.locator('.action-choice small').first.evaluate('node => parseFloat(getComputedStyle(node).fontSize)') >= 16
+    assert page.locator('#final-authorization-summary').evaluate('node => parseFloat(getComputedStyle(node).fontSize)') >= 16
+    row_checkbox = page.get_by_role('checkbox', name='Select hostname.example.com').bounding_box()
+    header_checkbox = page.get_by_role('checkbox', name='Select all rows on this route').bounding_box()
+    assert row_checkbox['width'] >= 44
+    assert row_checkbox['height'] >= 44
+    assert header_checkbox['width'] >= 44
+    assert header_checkbox['height'] >= 44
     expect(page.locator('#provider-outcome-summary')).to_be_visible()
     expect(page.get_by_role('columnheader', name='Outcome')).to_be_visible()
     expect(page.get_by_role('columnheader', name='Results')).to_be_hidden()
