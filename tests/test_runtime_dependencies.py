@@ -5,11 +5,28 @@ import tomllib
 from pathlib import Path
 
 
+def _dependency_names(requirements: list[str]) -> set[str]:
+    return {requirement.partition('==')[0] for requirement in requirements}
+
+
 def test_json_extensions_are_not_installation_requirements() -> None:
     project = tomllib.loads(Path('pyproject.toml').read_text(encoding='utf-8'))
 
     assert all(not dependency.startswith('ujson') for dependency in project['project']['dependencies'])
     assert all(not dependency.startswith('types-ujson') for dependency in project['dependency-groups']['dev'])
+
+
+def test_unused_packages_are_not_runtime_requirements() -> None:
+    project = tomllib.loads(Path('pyproject.toml').read_text(encoding='utf-8'))
+    lock = tomllib.loads(Path('uv.lock').read_text(encoding='utf-8'))
+
+    runtime = _dependency_names(project['project']['dependencies'])
+    development = _dependency_names(project['dependency-groups']['dev'])
+    locked = {package['name'] for package in lock['package']}
+
+    assert runtime.isdisjoint({'aiofiles', 'dnspython', 'httpx', 'lxml', 'retrying'})
+    assert {'aiofiles', 'dnspython', 'lxml', 'retrying'}.isdisjoint(locked)
+    assert 'httpx' in development
 
 
 def test_runtime_imports_without_optional_json_extensions() -> None:
