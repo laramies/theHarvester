@@ -38,17 +38,12 @@ dependencies = [
 dev = [
     "httpx==0.28.1",
     "mypy==2.1.0",
-    "mypy-extensions==1.1.0",
     "pytest==9.1.1",
     "pytest-asyncio==1.4.0",
     "pytest-playwright==0.8.0",
-    "types-certifi==2021.10.8.3",
-    "types-chardet==5.0.4.6",
     "types-python-dateutil==2.9.0.20260518",
     "types-PyYAML==6.0.12.20250915",
     "ruff==0.16.1",
-    "wheel==0.47.0",
-    "ty==0.0.69",
 ]
 
 [project.scripts]
@@ -83,18 +78,9 @@ check_untyped_defs = true
 [tool.uv]
 python-preference = "managed"
 exclude-newer = "7 days"
-exclude-newer-package = { ty = false }
 
 [tool.uv.pip]
 python-version = "3.14"
-
-[tool.ty.src]
-respect-ignore-files = false
-exclude = [
-    ".venv/**",
-    "tests/**",
-    ".github/*"
-]
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
