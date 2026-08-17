@@ -21,7 +21,7 @@ def _docker_gateway() -> ipaddress.IPv4Address | None:
             fields = line.split()
             if len(fields) >= 3 and fields[1] == '00000000':
                 return ipaddress.IPv4Address(bytes.fromhex(fields[2])[::-1])
-    except (OSError, ValueError):
+    except OSError, ValueError:
         pass
     return None
 

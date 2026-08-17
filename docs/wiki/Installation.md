@@ -1,6 +1,6 @@
 # Installation
 
-theHarvester requires Python 3.12 or newer. Choose one installation lane and finish with its verification step.
+theHarvester requires Python 3.14. The repository's `.python-version` lets `uv` select it automatically. Choose one installation lane and finish with its verification step. The README lists the [current distribution package versions](https://github.com/laramies/theHarvester#package-versions).
 
 ## Kali Linux package
 
@@ -12,14 +12,13 @@ sudo apt install theharvester
 theHarvester -h
 ```
 
-If the installed command or available sources differ from the repository, update Kali first and check the packaged version. Package releases can lag behind the current `master` or `dev` branch.
+If the installed command or available sources differ from the repository, update Kali first and check the packaged version. Distribution packages can lag behind the current stable release or `dev` branch.
 
-## Source installation with uv
+## Source checkout
 
-Install [`uv`](https://docs.astral.sh/uv/getting-started/installation/), clone the repository, and install the locked runtime dependencies:
+Clone the repository and install the locked runtime dependencies:
 
 ```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
 git clone https://github.com/laramies/theHarvester.git
 cd theHarvester
 uv sync

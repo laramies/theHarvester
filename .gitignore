@@ -30,12 +30,12 @@ test-results/
 # Ephemeral output, runtime state, and per-dev overrides.
 # Unanchored: .impeccable may sit at the repo root or under a nested
 # workspace (apps/web/.impeccable/...); anchored patterns would miss it.
-# Shared artifacts stay tracked: config.json, live/config.json,
-# design.json, critique/*.md.
+# Shared artifacts stay tracked: config.json, live/config.json, design.json.
 **/.impeccable/config.local.json
 **/.impeccable/hook.cache.json
 **/.impeccable/hook.pending.json
 **/.impeccable/*.png
+**/.impeccable/critique/
 **/.impeccable/live/server.json
 **/.impeccable/live/sessions/
 **/.impeccable/live/previews/
@@ -53,4 +53,3 @@ test-results/
 !**/.impeccable/config.json
 !**/.impeccable/live/config.json
 !**/.impeccable/design.json
-!**/.impeccable/critique/*.md

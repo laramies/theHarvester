@@ -1,6 +1,6 @@
 # Keep run records separate with one isolated worker
 
-Status: proposed
+Status: accepted
 
 ## Decision
 
@@ -16,4 +16,4 @@ The existing core is a finite one-shot enumerator and its result object is creat
 
 ## Consequences
 
-Run records need one small SQLite table and a lifecycle API. Child-process boundaries make deadline and forced cancellation reliable across blocking provider code. Work is serialized by design. Imported evidence enters as an already completed run record and never enters the queue.
+Run records need one small SQLite table and a lifecycle API. Child-process boundaries make deadline and forced cancellation reliable across blocking provider code. Work is serialized by design. Imported evidence enters as an already completed run record and never enters the queue. Portable database export copies finalized evidence with its original run IDs while omitting lifecycle, cancellation, and worker-lease state.

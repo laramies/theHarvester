@@ -1,6 +1,7 @@
 name: HarvestView container smoke
 
 on:
+  workflow_call:
   workflow_dispatch:
   pull_request:
     paths:

@@ -1,9 +1,7 @@
 import json
 from collections import Counter
-from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Self
+from typing import TYPE_CHECKING, Self
 from uuid import UUID, uuid4
 
 from theHarvester.lib.active_evidence import ActiveEvidence
@@ -40,6 +38,10 @@ from theHarvester.lib.takeover_evidence import (
     parse_takeover_details,
 )
 from theHarvester.lib.virtual_host import VirtualHostObservation
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping
+    from datetime import datetime
 
 
 def virtual_host_details(observations: Iterable[VirtualHostObservation]) -> list[dict[str, object]]:

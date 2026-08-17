@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="run-evidence-architecture-title run-evidence-architecture-desc">
+    <title id="run-evidence-architecture-title">Discovery routes and enrichment</title>
+    <desc id="run-evidence-architecture-desc">theHarvester source selection and adapters feed passive, DNS, and direct actions before normalization into identity, contact, network, and action evidence routes.</desc>
+    <defs>
+      <style>@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap');</style>
+      <style>
+        .title { font: 400 28px "Instrument Serif", Georgia, serif; fill: #0e1d22; }
+        .subtitle { font: 400 12px "Geist", system-ui, sans-serif; fill: #4f5e63; }
+        .eyebrow { font: 600 8px "Geist Mono", ui-monospace, monospace; letter-spacing: .16em; fill: #4f5e63; }
+        .node-title { font: 600 12px "Geist", system-ui, sans-serif; fill: #0e1d22; }
+        .node-copy { font: 400 8px "Geist Mono", ui-monospace, monospace; fill: #4f5e63; }
+        .node-copy-strong { font: 500 8px "Geist Mono", ui-monospace, monospace; fill: #34464c; }
+        .zone { fill: rgba(14,29,34,.018); stroke: rgba(14,29,34,.14); stroke-width: .8; }
+        .node { fill: #fdfaf4; stroke: #889ca3; stroke-width: 1; }
+        .node-muted { fill: #ede7dd; stroke: #889ca3; stroke-width: 1; }
+        .node-focal { fill: #bcede4; stroke: #009685; stroke-width: 1.2; }
+        .node-p1 { fill: #fde4bb; stroke: #723f00; stroke-width: 1; }
+        .node-p2 { fill: #ffddd7; stroke: #a91515; stroke-width: 1; }
+        .tag { fill: #f5efe7; stroke: #889ca3; stroke-width: .8; }
+        .tag-teal { fill: #bcede4; stroke: #009685; stroke-width: .8; }
+        .tag-p1 { fill: #fde4bb; stroke: #723f00; stroke-width: .8; }
+        .tag-p2 { fill: #ffddd7; stroke: #a91515; stroke-width: .8; }
+        .tag-text { font: 600 8px "Geist Mono", ui-monospace, monospace; fill: #34464c; text-anchor: middle; }
+        .tag-text-teal { fill: #00594c; }
+        .tag-text-p1 { fill: #723f00; }
+        .tag-text-p2 { fill: #a91515; }
+        .connector { fill: none; stroke: #4f5e63; stroke-width: 1.2; }
+        .legend { font: 400 8px "Geist Mono", ui-monospace, monospace; fill: #4f5e63; }
+      </style>
+      <marker id="run-evidence-architecture-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5e63"/></marker>
+      <marker id="run-evidence-architecture-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#009685"/></marker>
+      <marker id="run-evidence-architecture-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#00548c"/></marker>
+    </defs>
+
+    <rect width="1280" height="720" fill="#f5efe7"/>
+    <text x="40" y="52" class="eyebrow">DISCOVERY · ENRICHMENT · EVIDENCE</text>
+    <text x="40" y="88" class="title">Sources become attributable evidence</text>
+    <text x="40" y="112" class="subtitle">Catalog policy selects the work; one normalized result preserves routes, producers, outcomes, and partial evidence.</text>
+
+    <rect x="40" y="132" width="432" height="420" rx="8" class="zone"/>
+    <rect x="56" y="136" width="72" height="16" fill="#f5efe7"/>
+    <text x="60" y="148" class="eyebrow">COLLECT</text>
+    <rect x="492" y="132" width="284" height="420" rx="8" class="zone"/>
+    <rect x="508" y="136" width="72" height="16" fill="#f5efe7"/>
+    <text x="512" y="148" class="eyebrow">ACTIONS</text>
+    <rect x="796" y="132" width="444" height="420" rx="8" class="zone"/>
+    <rect x="812" y="136" width="120" height="16" fill="#f5efe7"/>
+    <text x="816" y="148" class="eyebrow">NORMALIZE &amp; ROUTE</text>
+
+    <line x1="224" y1="304" x2="264" y2="304" class="connector" marker-end="url(#run-evidence-architecture-arrow)"/>
+    <path d="M464 256 H480 Q488 256 488 248 V220 Q488 212 496 212 H516" class="connector" marker-end="url(#run-evidence-architecture-arrow)"/>
+    <path d="M464 304 H480 Q488 304 488 312 V324 Q488 332 496 332 H516" class="connector" marker-end="url(#run-evidence-architecture-arrow)"/>
+    <path d="M464 352 H472 Q480 352 480 360 V444 Q480 452 488 452 H516" class="connector" marker-end="url(#run-evidence-architecture-arrow)"/>
+    <path d="M752 212 H768 Q776 212 776 220 V268 Q776 276 784 276 H816" class="connector" marker-end="url(#run-evidence-architecture-arrow)"/>
+    <path d="M752 332 H768 Q776 332 776 324 V312 Q776 304 784 304 H816" class="connector" marker-end="url(#run-evidence-architecture-arrow)"/>
+    <path d="M752 452 H760 Q768 452 768 444 V340 Q768 332 776 332 H816" class="connector" marker-end="url(#run-evidence-architecture-arrow)"/>
+    <path d="M1016 280 H1020 Q1028 280 1028 272 V252 Q1028 244 1036 244 H1040" class="connector" marker-end="url(#run-evidence-architecture-arrow)"/>
+    <path d="M1016 328 H1020 Q1028 328 1028 336 V432 Q1028 440 1036 440 H1040" class="connector" marker-end="url(#run-evidence-architecture-arrow)"/>
+
+    <rect x="64" y="224" width="160" height="160" rx="8" class="node-muted"/>
+    <rect x="76" y="236" width="64" height="20" rx="4" class="tag"/>
+    <text x="108" y="250" class="tag-text">CATALOG</text>
+    <text x="80" y="280" class="node-title">Source selection</text>
+    <text x="80" y="304" class="node-copy-strong">subdomains · emails · IPs</text>
+    <text x="80" y="324" class="node-copy-strong">ASNs · URLs · people</text>
+    <text x="80" y="344" class="node-copy-strong">breaches · explicit names</text>
+    <text x="80" y="368" class="node-copy">activity · keys · routes</text>
+
+    <rect x="264" y="224" width="200" height="160" rx="8" class="node"/>
+    <rect x="276" y="236" width="72" height="20" rx="4" class="tag"/>
+    <text x="312" y="250" class="tag-text">SOURCES</text>
+    <text x="280" y="280" class="node-title">Discovery adapters</text>
+    <text x="280" y="304" class="node-copy-strong">search · certificates · DNS</text>
+    <text x="280" y="324" class="node-copy-strong">code · archives · threat intel</text>
+    <text x="280" y="348" class="node-copy">normalized observations</text>
+    <text x="280" y="368" class="node-copy">truthful source outcomes</text>
+
+    <rect x="516" y="164" width="236" height="96" rx="8" class="node"/>
+    <rect x="528" y="176" width="40" height="20" rx="4" class="tag-teal"/>
+    <text x="548" y="190" class="tag-text tag-text-teal">P0</text>
+    <text x="584" y="192" class="node-title">Passive enrichment</text>
+    <text x="532" y="220" class="node-copy-strong">Shodan host detail</text>
+    <text x="532" y="240" class="node-copy-strong">RouteViews routes · origins · RPKI</text>
+
+    <rect x="516" y="284" width="236" height="96" rx="8" class="node-p1"/>
+    <rect x="528" y="296" width="40" height="20" rx="4" class="tag-p1"/>
+    <text x="548" y="310" class="tag-text tag-text-p1">P1</text>
+    <text x="584" y="312" class="node-title">DNS interaction</text>
+    <text x="532" y="340" class="node-copy-strong">resolve · reverse lookup</text>
+    <text x="532" y="360" class="node-copy-strong">brute force · recursive discovery</text>
+
+    <rect x="516" y="404" width="236" height="96" rx="8" class="node-p2"/>
+    <rect x="528" y="416" width="40" height="20" rx="4" class="tag-p2"/>
+    <text x="548" y="430" class="tag-text tag-text-p2">P2</text>
+    <text x="584" y="432" class="node-title">Direct interaction</text>
+    <text x="532" y="460" class="node-copy-strong">vhost · screenshots · takeover</text>
+    <text x="532" y="480" class="node-copy-strong">API path discovery</text>
+
+    <rect x="816" y="240" width="200" height="128" rx="8" class="node-focal"/>
+    <rect x="828" y="252" width="92" height="20" rx="4" class="tag-teal"/>
+    <text x="874" y="266" class="tag-text tag-text-teal">NORMALIZED</text>
+    <text x="832" y="300" class="node-title">CompletedResult</text>
+    <text x="832" y="324" class="node-copy-strong">dedupe · provenance · outcomes</text>
+    <text x="832" y="344" class="node-copy-strong">artifacts · evidence status</text>
+    <text x="832" y="360" class="node-copy">partial evidence stays attributable</text>
+
+    <rect x="1040" y="164" width="200" height="160" rx="8" class="node"/>
+    <rect x="1052" y="176" width="104" height="20" rx="4" class="tag"/>
+    <text x="1104" y="190" class="tag-text">IDENTITY</text>
+    <text x="1056" y="220" class="node-title">Identity &amp; contact routes</text>
+    <text x="1056" y="244" class="node-copy-strong">hostname / subdomain</text>
+    <text x="1056" y="264" class="node-copy-strong">email · URL</text>
+    <text x="1056" y="284" class="node-copy-strong">person · person-link · breach</text>
+    <text x="1056" y="308" class="node-copy">vhost observations stay on hostname</text>
+
+    <rect x="1040" y="348" width="200" height="184" rx="8" class="node"/>
+    <rect x="1052" y="360" width="96" height="20" rx="4" class="tag"/>
+    <text x="1100" y="374" class="tag-text">NETWORK</text>
+    <text x="1056" y="404" class="node-title">Network &amp; action routes</text>
+    <text x="1056" y="428" class="node-copy-strong">IP · ASN · prefix</text>
+    <text x="1056" y="448" class="node-copy-strong">Shodan host · takeover</text>
+    <text x="1056" y="468" class="node-copy-strong">scope extension</text>
+    <text x="1056" y="488" class="node-copy-strong">external relationship · other</text>
+    <text x="1056" y="516" class="node-copy">JSONL · SQLite · REST · HarvestView</text>
+
+    <line x1="40" y1="636" x2="1240" y2="636" stroke="rgba(14,29,34,.14)" stroke-width=".8"/>
+    <line x1="48" y1="676" x2="88" y2="676" class="connector" marker-end="url(#run-evidence-architecture-arrow)"/>
+    <text x="104" y="680" class="legend">data handoff</text>
+    <rect x="248" y="664" width="20" height="20" rx="4" class="tag-teal"/>
+    <text x="280" y="680" class="legend">normalized evidence</text>
+    <rect x="464" y="664" width="20" height="20" rx="4" class="tag-p1"/>
+    <text x="496" y="680" class="legend">P1 · DNS interaction</text>
+    <rect x="704" y="664" width="20" height="20" rx="4" class="tag-p2"/>
+    <text x="736" y="680" class="legend">P2 · direct interaction</text>
+    <text x="1240" y="680" class="legend" text-anchor="end">P0 sources and enrichments remain passive provider requests</text>
+  </svg>

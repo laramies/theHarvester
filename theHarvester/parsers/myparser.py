@@ -1,7 +1,10 @@
 import re
-from collections.abc import Set
+from typing import TYPE_CHECKING
 
 from theHarvester.lib.hostnames import normalize_scoped_hostname
+
+if TYPE_CHECKING:
+    from collections.abc import Set
 
 
 class Parser:

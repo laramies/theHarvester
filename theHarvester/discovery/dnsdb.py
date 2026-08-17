@@ -5,7 +5,9 @@ import logging
 from urllib.parse import quote
 
 from theHarvester.discovery.constants import MissingKey
-from theHarvester.lib.core import AsyncFetcher, Core, ResponseStreamError
+from theHarvester.discovery.provider_response import provider_http_error
+from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse, ResponseStreamError
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +44,7 @@ class SearchDNSDB:
             return hostname
         return None
 
-    async def do_search(self) -> None:
+    async def do_search(self) -> SourceExecutionReport | None:
         query = quote(f'*.{self.target_domain}', safe='*.')
         url = f'{self.BASE_URL}/{query}?limit=0'
         headers = {
@@ -59,49 +61,56 @@ class SearchDNSDB:
             follow_redirects=False,
             request_timeout=120,
         ) as response:
-            if response.status == 429:
-                raise ConnectionError('DNSDB rate limit reached')
-            if response.status in {401, 403}:
-                raise PermissionError('DNSDB authentication failed')
-            if response.status == 503:
-                raise ConnectionError('DNSDB concurrent connection limit exceeded')
-            if response.status != 200:
-                raise ConnectionError(f'DNSDB returned HTTP {response.status}')
+            if failure := provider_http_error(FetcherResponse(None, response.status, response.headers)):
+                return SourceExecutionReport(*failure)
 
             first_record = True
             async for line in response:
                 try:
                     record = json.loads(line)
-                except json.JSONDecodeError:
+                except json.JSONDecodeError, RecursionError:
                     logger.info('DNSDB returned malformed NDJSON; partial results were preserved.')
-                    return
+                    return SourceExecutionReport('failed', 'invalid-response')
                 if not isinstance(record, dict):
                     logger.info('DNSDB returned an invalid stream record; partial results were preserved.')
-                    return
+                    return SourceExecutionReport('failed', 'invalid-response')
                 if first_record:
                     first_record = False
                     if record.get('cond') != 'begin':
                         logger.info('DNSDB stream did not begin correctly; no results were accepted.')
-                        return
+                        return SourceExecutionReport('failed', 'invalid-response')
                     continue
 
                 condition = record.get('cond')
                 if condition in {'succeeded', 'limited', 'failed'}:
                     if condition != 'succeeded':
                         logger.info(f'DNSDB stream ended with {condition}; partial results were preserved.')
-                    return
+                    if condition == 'limited':
+                        return SourceExecutionReport('rate-limited', 'provider-limited')
+                    if condition == 'failed':
+                        return SourceExecutionReport('failed', 'provider-failed')
+                    return None
+                if condition is not None:
+                    return SourceExecutionReport('failed', 'invalid-response')
                 obj = record.get('obj')
-                if isinstance(obj, dict) and (hostname := self._hostname(obj.get('rrname'))):
+                if not isinstance(obj, dict):
+                    return SourceExecutionReport('failed', 'invalid-response')
+                rrname = obj.get('rrname')
+                if not isinstance(rrname, str) or not rrname.strip():
+                    return SourceExecutionReport('failed', 'invalid-response')
+                if hostname := self._hostname(rrname):
                     self.totalhosts.add(hostname)
 
             logger.info('DNSDB stream ended without a terminal condition; partial results were preserved.')
+            return SourceExecutionReport('failed', 'invalid-response')
 
     async def get_hostnames(self) -> set[str]:
         return self.totalhosts
 
-    async def process(self, proxy: bool | str = False) -> None:
+    async def process(self, proxy: bool | str = False) -> SourceExecutionReport | None:
         self.proxy = proxy
         try:
-            await self.do_search()
+            return await self.do_search()
         except ResponseStreamError as error:
             logger.info(f'DNSDB request failed with {type(error).__name__}; partial results were preserved.')
+            return SourceExecutionReport('failed', error.reason)

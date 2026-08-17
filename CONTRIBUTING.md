@@ -7,13 +7,13 @@ Thank you for helping improve theHarvester. This guide explains how to propose a
 - Search the [issues](https://github.com/laramies/theHarvester/issues) and [pull requests](https://github.com/laramies/theHarvester/pulls) for existing work.
 - Open an issue before investing in a large feature, dependency change, or user-visible behavior change.
 - Keep each pull request to one logical change. Leave unrelated cleanup and reformatting for separate work.
-- Base contribution branches on the current upstream `master` branch.
+- Base contribution branches on the current upstream `dev` branch.
 
 For a bug report, include a minimal reproduction, expected and actual behavior, operating system, Python version, and only the output needed to diagnose the problem. Remove credentials, account information, private target data, and raw API responses.
 
 ## Set up a development environment
 
-theHarvester supports Python 3.12 and newer and uses [uv](https://docs.astral.sh/uv/) for dependency management.
+theHarvester requires Python 3.14 and uses [uv](https://docs.astral.sh/uv/) for dependency management. The repository's `.python-version` lets `uv` select it automatically.
 
 Fork the repository, then clone your fork and add the upstream repository:
 
@@ -22,7 +22,7 @@ git clone https://github.com/YOUR-GITHUB-USERNAME/theHarvester.git
 cd theHarvester
 git remote add upstream https://github.com/laramies/theHarvester.git
 git fetch upstream
-git switch -c fix/short-description upstream/master
+git switch -c fix/short-description upstream/dev
 uv sync --all-groups
 ```
 
@@ -75,6 +75,18 @@ uv run pytest
 uv run mypy theHarvester
 ```
 
+Before a release, manually dispatch the **Release validation** workflow against
+the exact release branch or tag. For example:
+
+```bash
+gh workflow run provider-smoke.yml --ref dev -f run_live=false
+```
+
+This composes the Python, real-browser HarvestView, package, and container checks
+on clean GitHub-hosted runners. Maintainers with explicit authorization may set
+`run_live=true` to add bounded P0 provider checks against `mozilla.org`; the live
+lane never enables DNS or direct target interaction.
+
 Routine verification must use mocks, local fixtures, and reserved example domains. The test harness blocks external Python socket traffic unless a test is marked `live_network` and pytest is invoked with both `--run-live-network` and `-m live_network`. A live-marked test never satisfies the provider-contract coverage gate.
 
 Do not run broad or active reconnaissance against third-party targets. If live verification is essential, use only a target you own or are explicitly authorized to test, limit the request scope, and keep collected data out of commits, issues, and pull requests. The manually dispatched provider workflow uses `mozilla.org` for small passive CLI crash smokes. Those runs can detect packaging, credential, or provider drift; they are not conformance tests and should not be retried merely to obtain more results.
@@ -83,7 +95,7 @@ CI runs additional source smoke tests, CodeQL, dependency review, and container 
 
 ## Open a pull request
 
-Push the topic branch to your fork and open a pull request against `laramies/theHarvester:master`.
+Push the topic branch to your fork and open a pull request against `laramies/theHarvester:dev`.
 
 The pull request should include:
 

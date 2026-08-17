@@ -1,7 +1,9 @@
-from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from enum import Enum, StrEnum, auto
-from typing import Final
+from typing import TYPE_CHECKING, Final
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping
 
 
 class ActivityClass(StrEnum):

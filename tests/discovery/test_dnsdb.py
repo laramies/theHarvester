@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import logging
 
@@ -7,6 +8,7 @@ import pytest
 
 from theHarvester.discovery import dnsdb
 from theHarvester.discovery.constants import MissingKey
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 
 def _install_response(
@@ -108,10 +110,14 @@ async def test_process_uses_configured_proxy_when_enabled(monkeypatch: pytest.Mo
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ('last_line', 'expected_message'),
+    ('last_line', 'expected_message', 'expected_report'),
     [
-        (b'{"cond":"limited"}\n', 'ended with limited'),
-        (b'not-json\n', 'malformed NDJSON'),
+        (
+            b'{"cond":"limited"}\n',
+            'ended with limited',
+            SourceExecutionReport('rate-limited', 'provider-limited'),
+        ),
+        (b'not-json\n', 'malformed NDJSON', SourceExecutionReport('failed', 'invalid-response')),
     ],
 )
 async def test_process_preserves_partial_results(
@@ -119,6 +125,7 @@ async def test_process_preserves_partial_results(
     caplog: pytest.LogCaptureFixture,
     last_line: bytes,
     expected_message: str,
+    expected_report: SourceExecutionReport,
 ) -> None:
     caplog.set_level(logging.INFO, logger=dnsdb.__name__)
     monkeypatch.setattr(dnsdb.Core, 'dnsdb_key', lambda: 'dnsdb-test-key')
@@ -132,10 +139,51 @@ async def test_process_preserves_partial_results(
     )
 
     search = dnsdb.SearchDNSDB('example.com')
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'first.example.com'}
+    assert report == expected_report
     assert any(expected_message in message for message in caplog.messages)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('lines', 'expected_report'),
+    [
+        ((b'[]\n',), SourceExecutionReport('failed', 'invalid-response')),
+        ((b'{"cond":"wrong"}\n',), SourceExecutionReport('failed', 'invalid-response')),
+        (
+            (b'{"cond":"begin"}\n', b'{"cond":"failed"}\n'),
+            SourceExecutionReport('failed', 'provider-failed'),
+        ),
+        ((b'{"cond":"begin"}\n',), SourceExecutionReport('failed', 'invalid-response')),
+        (
+            (b'{"cond":"begin"}\n', b'{"cond":"wrong"}\n', b'{"cond":"succeeded"}\n'),
+            SourceExecutionReport('failed', 'invalid-response'),
+        ),
+        (
+            (b'{"cond":"begin"}\n', b'{"obj":[]}\n', b'{"cond":"succeeded"}\n'),
+            SourceExecutionReport('failed', 'invalid-response'),
+        ),
+        (
+            (b'{"cond":"begin"}\n', b'{"obj":{}}\n', b'{"cond":"succeeded"}\n'),
+            SourceExecutionReport('failed', 'invalid-response'),
+        ),
+        (
+            (b'{"cond":"begin"}\n', b'{"obj":{"rrname":7}}\n', b'{"cond":"succeeded"}\n'),
+            SourceExecutionReport('failed', 'invalid-response'),
+        ),
+    ],
+)
+async def test_process_reports_abnormal_stream_termination(
+    monkeypatch: pytest.MonkeyPatch,
+    lines: tuple[bytes, ...],
+    expected_report: SourceExecutionReport,
+) -> None:
+    monkeypatch.setattr(dnsdb.Core, 'dnsdb_key', lambda: 'dnsdb-test-key')
+    _install_response(monkeypatch, lines)
+
+    assert await dnsdb.SearchDNSDB('example.com').process() == expected_report
 
 
 @pytest.mark.asyncio
@@ -155,31 +203,60 @@ async def test_process_preserves_partial_results_on_midstream_timeout(
     )
 
     search = dnsdb.SearchDNSDB('example.com')
-    await search.process()
+    report = await search.process()
 
     assert await search.get_hostnames() == {'first.example.com'}
+    assert report == SourceExecutionReport('failed', 'transport-error')
     assert any('request failed' in message for message in caplog.messages)
 
 
 @pytest.mark.asyncio
+async def test_process_reports_deeply_nested_json_as_invalid_response(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(dnsdb.Core, 'dnsdb_key', lambda: 'dnsdb-test-key')
+    _install_response(monkeypatch, (b'{"cond":"begin"}\n', b'deeply-nested-json\n'))
+    json_loads = dnsdb.json.loads
+
+    def parse_record(line: str) -> object:
+        if line.strip() == 'deeply-nested-json':
+            raise RecursionError
+        return json_loads(line)
+
+    monkeypatch.setattr(dnsdb.json, 'loads', parse_record)
+
+    assert await dnsdb.SearchDNSDB('example.com').process() == SourceExecutionReport('failed', 'invalid-response')
+
+
+@pytest.mark.asyncio
+async def test_process_propagates_cancellation(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(dnsdb.Core, 'dnsdb_key', lambda: 'dnsdb-test-key')
+    _install_response(
+        monkeypatch,
+        (b'{"cond":"begin"}\n',),
+        stream_error=asyncio.CancelledError(),
+    )
+
+    with pytest.raises(asyncio.CancelledError):
+        await dnsdb.SearchDNSDB('example.com').process()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ('status', 'expected_error'),
+    ('status', 'expected_report'),
     [
-        (401, PermissionError),
-        (429, ConnectionError),
-        (503, ConnectionError),
+        (401, SourceExecutionReport('failed', 'access-denied')),
+        (429, SourceExecutionReport('rate-limited', 'http-429')),
+        (503, SourceExecutionReport('failed', 'http-503')),
     ],
 )
-async def test_process_exposes_http_failures(
+async def test_process_reports_http_failures(
     monkeypatch: pytest.MonkeyPatch,
     status: int,
-    expected_error: type[Exception],
+    expected_report: SourceExecutionReport,
 ) -> None:
     monkeypatch.setattr(dnsdb.Core, 'dnsdb_key', lambda: 'dnsdb-test-key')
     _install_response(monkeypatch, (), status=status)
 
-    with pytest.raises(expected_error):
-        await dnsdb.SearchDNSDB('example.com').process()
+    assert await dnsdb.SearchDNSDB('example.com').process() == expected_report
 
 
 pytestmark = pytest.mark.provider_contract('dnsdb')

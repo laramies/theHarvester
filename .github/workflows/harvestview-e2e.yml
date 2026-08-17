@@ -1,6 +1,7 @@
 name: HarvestView browser E2E
 
 on:
+  workflow_call:
   workflow_dispatch:
   pull_request:
     paths:
@@ -34,7 +35,7 @@ jobs:
       - name: Install uv and Python
         uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
-          python-version: '3.13'
+          python-version: '3.14'
           enable-cache: true
           cache-dependency-glob: uv.lock
 

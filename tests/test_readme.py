@@ -6,23 +6,73 @@ from pathlib import Path
 
 import yaml
 
-from theHarvester.lib.source_catalog import SOURCE_SPECS, ResultRoute
+from theHarvester.lib.source_catalog import SOURCE_SPECS
 
-RESULT_COLUMNS = ('Subdomains', 'Emails', 'IPs', 'ASNs', 'URLs', 'People', 'Breaches')
-ROUTE_COLUMNS = {
-    ResultRoute.SUBDOMAINS: 'Subdomains',
-    ResultRoute.EMAILS: 'Emails',
-    ResultRoute.IPS: 'IPs',
-    ResultRoute.ASNS: 'ASNs',
-    ResultRoute.URLS: 'URLs',
-    ResultRoute.PEOPLE: 'People',
-    ResultRoute.BREACHES: 'Breaches',
-}
 OPTIONAL_API_KEY_SOURCES = {'hackertarget', 'mojeek', 'windvane'}
 API_KEY_SOURCE_ALIASES = {
     'github': {'github-code'},
     'pentestTools': {'pentesttools'},
     'projectDiscovery': {'projectdiscovery'},
+}
+SOURCE_PROVIDER_LINKS = {
+    'apis-guru': 'https://apis.guru/',
+    'arquivo': 'https://arquivo.pt/',
+    'baidu': 'https://www.baidu.com/',
+    'bevigil': 'https://bevigil.com/osint-api',
+    'bufferoverun': 'https://tls.bufferover.run/',
+    'builtwith': 'https://builtwith.com/',
+    'brave': 'https://brave.com/search/api/',
+    'censys': 'https://search.censys.io/',
+    'certspotter': 'https://sslmate.com/certspotter/',
+    'commoncrawl': 'https://commoncrawl.org/',
+    'criminalip': 'https://www.criminalip.io/',
+    'crt-name': 'https://crt.name/',
+    'crtsh': 'https://crt.sh/',
+    'dehashed': 'https://dehashed.com/',
+    'dnsdb': 'https://docs.domaintools.com/api/dnsdb/',
+    'dnsdumpster': 'https://dnsdumpster.com/',
+    'duckduckgo': 'https://duckduckgo.com/',
+    'dymo': 'https://docs.tpeoficial.com/docs/dymo-api/private/data-verifier',
+    'fofa': 'https://en.fofa.info/',
+    'fullhunt': 'https://fullhunt.io/',
+    'github-code': 'https://github.com/',
+    'gitlab': 'https://gitlab.com/',
+    'hackertarget': 'https://hackertarget.com/',
+    'haveibeenpwned': 'https://haveibeenpwned.com/',
+    'hibpverified': 'https://haveibeenpwned.com/API/v3#BreachedDomain',
+    'hudsonrock': 'https://www.hudsonrock.com/',
+    'hunter': 'https://hunter.io/',
+    'hunterhow': 'https://hunter.how/',
+    'intelx': 'https://intelx.io/',
+    'leakix': 'https://leakix.net/',
+    'leaklookup': 'https://leak-lookup.com/',
+    'mojeek': 'https://www.mojeek.com/services/search/web-search-api/',
+    'netlas': 'https://netlas.io/',
+    'onyphe': 'https://www.onyphe.io/',
+    'otx': 'https://otx.alienvault.com/',
+    'pentesttools': 'https://pentest-tools.com/',
+    'projectdiscovery': 'https://chaos.projectdiscovery.io/',
+    'rapiddns': 'https://rapiddns.io/',
+    'robtex': 'https://www.robtex.com/',
+    'rocketreach': 'https://rocketreach.co/',
+    'securityscorecard': 'https://securityscorecard.com/',
+    'securityTrails': 'https://securitytrails.com/',
+    'sherlockeye': 'https://sherlockeye.io/',
+    'shodan': 'https://www.shodan.io/',
+    'shodanInternetDB': 'https://internetdb.shodan.io/',
+    'shodanct': 'https://ctl.shodan.io/',
+    'sourcegraph': 'https://sourcegraph.com/search',
+    'subdomaincenter': 'https://www.subdomain.center/',
+    'subdomainfinderc99': 'https://subdomainfinder.c99.nl/',
+    'thc': 'https://ip.thc.org/',
+    'tomba': 'https://tomba.io/',
+    'urlscan': 'https://urlscan.io/',
+    'virustotal': 'https://www.virustotal.com/',
+    'waybackarchive': 'https://web.archive.org/',
+    'whoisxml': 'https://subdomains.whoisxmlapi.com/',
+    'windvane': 'https://windvane.lichoin.com/',
+    'yahoo': 'https://www.yahoo.com/',
+    'zoomeye': 'https://www.zoomeye.ai/',
 }
 WIKI_PAGES = {
     'Configuration-and-API-Keys.md',
@@ -44,26 +94,38 @@ WIKI_PAGES = {
 
 
 def _declared_source_contracts() -> dict[str, set[str]]:
-    return {source: {ROUTE_COLUMNS[route] for route in spec.routes} for source, spec in SOURCE_SPECS.items()}
+    return {source: set(spec.capabilities) for source, spec in SOURCE_SPECS.items()}
+
+
+def _source_matrix(readme: str) -> str:
+    return readme.split('<summary><strong>View the source and result matrix</strong></summary>', 1)[1].split('</details>', 1)[0]
 
 
 def _documented_source_rows(readme: str) -> dict[str, list[str]]:
-    matrix = readme.split('<summary><strong>View the source and result matrix</strong></summary>', 1)[1].split('</details>', 1)[0]
     rows: dict[str, list[str]] = {}
-    for line in matrix.splitlines():
-        if line.startswith('| `'):
+    for line in _source_matrix(readme).splitlines():
+        if line.startswith('| [`'):
             cells = [cell.strip() for cell in line.strip('|').split('|')]
-            rows[cells[0].strip('`')] = cells[1:]
+            source = re.fullmatch(r'\[`([^`]+)`\]\((https://[^)]+)\)', cells[0])
+            assert source is not None
+            rows[source.group(1)] = cells[1:]
     return rows
 
 
+def _documented_source_links(readme: str) -> list[tuple[str, str]]:
+    return [
+        (match.group(1), match.group(2))
+        for line in _source_matrix(readme).splitlines()
+        if (match := re.match(r'^\| \[`([^`]+)`\]\((https://[^)]+)\)', line))
+    ]
+
+
 def _documented_source_contracts(readme: str) -> dict[str, set[str]]:
-    contracts: dict[str, set[str]] = {}
-    for source, cells in _documented_source_rows(readme).items():
-        markers = cells[:7]
-        assert set(markers) <= {'✓', 'No'}
-        contracts[source] = {column for column, marker in zip(RESULT_COLUMNS, markers, strict=True) if marker == '✓'}
-    return contracts
+    return {source: {route.strip() for route in cells[0].split(',')} for source, cells in _documented_source_rows(readme).items()}
+
+
+def _documented_source_activities(readme: str) -> dict[str, str]:
+    return {source: cells[1] for source, cells in _documented_source_rows(readme).items()}
 
 
 def _documented_api_key_requirements(readme: str) -> dict[str, str]:
@@ -80,10 +142,14 @@ def test_readme_matches_declared_source_contracts() -> None:
     documented = _documented_source_contracts(readme)
     declared = _declared_source_contracts()
 
-    assert '| Source | Subdomains | Emails | IPs | ASNs | URLs | People | Breaches |' in readme
+    assert '| Source | Result routes | Activity | Credentials |' in readme
     assert len(declared) == 58
     assert len(documented) == 58
     assert documented == declared
+    source_links = _documented_source_links(readme)
+    assert len(source_links) == len(declared)
+    assert dict(source_links) == SOURCE_PROVIDER_LINKS
+    assert _documented_source_activities(readme) == {source: spec.activity.value for source, spec in SOURCE_SPECS.items()}
     assert {'securitytrails', 'shodaninternetdb'}.isdisjoint(documented)
 
 
@@ -92,7 +158,7 @@ def test_readme_api_key_markers_match_configuration() -> None:
     requirements = _documented_api_key_requirements(readme)
     configured_source_keys = _configured_api_key_sources() - {'routeviews'}
 
-    assert set(requirements.values()) <= {'✓', 'Optional', 'No'}
+    assert set(requirements.values()) <= {'Required', 'Optional', 'No'}
     assert {source for source, marker in requirements.items() if marker != 'No'} == configured_source_keys
     assert '`routeviews.key`' in readme
     assert {source for source, marker in requirements.items() if marker == 'Optional'} == OPTIONAL_API_KEY_SOURCES
@@ -116,6 +182,32 @@ def test_wiki_navigation_and_readme_links_resolve() -> None:
     assert all(Path(target).is_file() for target in readme_wiki_links)
 
 
+def test_readme_architecture_diagrams_are_local_and_accessible() -> None:
+    readme = Path('README.md').read_text()
+    diagrams = (
+        (
+            'theHarvester discovery routes and enrichment',
+            Path('docs/images/run-evidence-architecture.svg'),
+            'run-evidence-architecture',
+            ('subdomains · emails · IPs', 'Shodan host detail', 'RouteViews routes', 'vhost · screenshots · takeover'),
+        ),
+        (
+            'HarvestView run desk architecture',
+            Path('docs/images/harvestview-architecture.svg'),
+            'harvestview-architecture',
+            ('Authenticated REST API', 'queued → running → terminal', 'Isolated run worker', 'JSONL / SQLite export'),
+        ),
+    )
+
+    for alt, svg, slug, expected_text in diagrams:
+        svg_text = svg.read_text()
+        assert f'![{alt}]({svg})' in readme
+        assert 'role="img"' in svg_text
+        assert f'<title id="{slug}-title">' in svg_text
+        assert f'<desc id="{slug}-desc">' in svg_text
+        assert all(text in svg_text for text in expected_text)
+
+
 def test_virtual_host_wiki_examples_match_the_structured_result_contract() -> None:
     page = Path('docs/wiki/Virtual-Host-Discovery.md').read_text()
 
@@ -131,9 +223,7 @@ def test_virtual_host_wiki_examples_match_the_structured_result_contract() -> No
 
     json_examples = re.findall(r'```json\n(.*?)\n```', page, flags=re.DOTALL)
     finding = next(
-        json.loads(example)
-        for example in json_examples
-        if '"type": "hostname"' in example and '"observations"' in example
+        json.loads(example) for example in json_examples if '"type": "hostname"' in example and '"observations"' in example
     )
     assert finding['value'] == 'admin.authorized.example'
     assert finding['actions'] == ['vhost']
@@ -155,19 +245,42 @@ def test_readme_preserves_project_social_attribution() -> None:
         assert f'@{handle}' in readme
 
 
+def test_operator_docs_recommend_jsonl_and_assume_uv_is_available() -> None:
+    readme = Path('README.md').read_text()
+    installation = Path('docs/wiki/Installation.md').read_text()
+    quick_start = Path('docs/wiki/Quick-Start.md').read_text()
+    workflows = Path('docs/wiki/Operator-Workflows.md').read_text()
+
+    assert '## Package versions' in readme
+    assert 'https://repology.org/badge/vertical-allrepos/theharvester.svg' in readme
+    assert 'https://repology.org/project/theharvester/versions' in readme
+    assert 'curl -LsSf https://astral.sh/uv/install.sh' not in readme
+    assert 'curl -LsSf https://astral.sh/uv/install.sh' not in installation
+    assert all('`report.jsonl`' in page and 'automation' in page for page in (quick_start, workflows))
+
+
+def test_operator_docs_cover_portable_database_export() -> None:
+    readme = Path('README.md').read_text()
+    rest_api = Path('docs/wiki/Rest-API.md').read_text()
+    local_data = Path('docs/wiki/Results-and-Local-Data.md').read_text()
+
+    assert all('/api/v1/runs/export-database' in page for page in (readme, rest_api, local_data))
+    assert 'queue state, cancellation state, worker leases, and legacy observations' in rest_api
+    assert 'no manual WAL handling is required' in rest_api
+
+
 def test_readme_explains_jsonl_record_and_structured_evidence_parsing() -> None:
     readme = Path('README.md').read_text()
 
     assert '{"sources":[],"type":"hostname","value":"api.example.com"}' in readme
+    for result_kind in ('hostname', 'ip', 'asn', 'email', 'url', 'person', 'breach'):
+        assert f'select(.type == "{result_kind}")' in readme
+    assert 'select(.type == "person") | .value | fromjson' in readme
     assert 'select(.type == "dns-recursive-finding") | .value | fromjson' in readme
-    assert 'JSONL is easy to stream one record at a time.' in readme
-    assert '`person` and `infostealer`' in readme
-    assert 'Takeover outcomes instead keep the canonical hostname in `value`' in readme
-    assert 'typed status, DNS, wildcard, HTTP, rule, and error evidence in `details`' in readme
+    assert 'JSONL is the primary format for automation and one-run interchange.' in readme
+    assert '`person`, `infostealer`' in readme
+    assert 'Takeover results keep the hostname in `value`' in readme
+    assert 'DNS, wildcard, HTTP, rule, status, and error evidence in `details`' in readme
     assert 'select(.type == "shodan-host") | {ip: .value, services: .details.services}' in readme
-    assert 'paginates both hostname and TLS-certificate searches' in readme
-    assert 'scoped certificate CNs and SANs' in readme
-    assert 'Raw banners, response bodies, certificate chains, and Shodan crawler metadata are not retained.' in readme
     assert 'select(.type == "hostname" and .observations) | {hostname: .value, observations}' in readme
-    assert 'Several endpoint observations can enrich the same hostname' in readme
-    assert 'The summary preserves the evidence status, source and action outcomes' in readme
+    assert 'select(.type == "asn" and .observations) | {asn: .value, observations}' in readme

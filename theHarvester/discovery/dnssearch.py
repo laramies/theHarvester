@@ -10,16 +10,19 @@ import logging
 import math
 import re
 import sys
-from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from ipaddress import IPv4Network
 from itertools import chain, islice
+from typing import TYPE_CHECKING
 
 from aiodns import DNSResolver
 
 from theHarvester.lib import hostchecker
 from theHarvester.lib.cancellation import drain_tasks_after_cancellation
 from theHarvester.lib.core import DATA_DIR
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
 
 logger = logging.getLogger(__name__)
 

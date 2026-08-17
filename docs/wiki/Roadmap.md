@@ -11,4 +11,4 @@ Released changes are recorded in:
 - [CHANGELOG.md](https://github.com/laramies/theHarvester/blob/dev/CHANGELOG.md)
 - [GitHub Releases](https://github.com/laramies/theHarvester/releases)
 
-This page keeps the historical `Roadmap` URL valid without duplicating work that belongs in issues and milestones.
+This page points to the live project artifacts so plans are not duplicated in the wiki.

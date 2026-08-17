@@ -87,7 +87,7 @@ class SearchDNSDumpster:
                     continue
                 try:
                     self.ips.add(str(ip_address(candidate)))
-                except (TypeError, ValueError):
+                except TypeError, ValueError:
                     malformed = True
 
         if malformed:

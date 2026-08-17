@@ -53,7 +53,7 @@ class SearchArquivo:
         for line in response.body.splitlines():
             try:
                 item = json.loads(line)
-            except (json.JSONDecodeError, TypeError):
+            except json.JSONDecodeError, TypeError:
                 continue
             if not isinstance(item, dict) or not isinstance(url := item.get('url'), str):
                 continue

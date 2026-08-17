@@ -425,7 +425,7 @@ class SearchShodan:
                         ip = str(ip_address(ip_value))
                         if self._record_host(ip, {**match, 'data': [match]}):
                             error_types.add('InvalidResponseError')
-                    except (TypeError, ValueError):
+                    except TypeError, ValueError:
                         error_types.add('InvalidResponseError')
                 received += len(matches)
                 if not matches:
@@ -463,7 +463,7 @@ class SearchShodan:
             try:
                 if self._record_host(normalized_ip, response.body):
                     self.error_type = 'InvalidResponseError'
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 self.error_type = 'InvalidResponseError'
                 self.tracker[normalized_ip] = 'Shodan request failed'
         except ResponseStreamError as error:

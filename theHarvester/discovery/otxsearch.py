@@ -45,7 +45,7 @@ class SearchOtx:
                         include_metadata=True,
                     )
                     response = response_list[0] if response_list and isinstance(response_list[0], FetcherResponse) else None
-        except (OSError, RuntimeError, ValueError):
+        except OSError, RuntimeError, ValueError:
             self.totalhosts = set()
             self.totalips = set()
             logger.info('OTX request failed')
@@ -85,7 +85,7 @@ class SearchOtx:
                     self.totalips.add(str(ip_address(address.strip())))
                 except ValueError:
                     continue
-        except (KeyError, TypeError, ValueError):
+        except KeyError, TypeError, ValueError:
             self.totalhosts = set()
             self.totalips = set()
             return SourceExecutionReport('failed', 'invalid-response')

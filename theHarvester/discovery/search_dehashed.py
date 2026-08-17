@@ -96,7 +96,7 @@ class SearchDehashed:
                 if len(entries) < size:
                     break
                 page += 1
-            except (OSError, RuntimeError, ValueError):
+            except OSError, RuntimeError, ValueError:
                 logger.info('\t[!] Dehashed request failed')
                 break
 

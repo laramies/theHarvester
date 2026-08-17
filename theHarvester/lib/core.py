@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import json as stdlib_json
+import json as json_loader
 import logging
 import random
 import re
@@ -13,9 +13,6 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 import aiohttp
 import certifi
-
-# need to import as different name as to not shadow already existing json var in post_fetch
-import ujson as json_loader
 import yaml
 from aiohttp_socks import ProxyConnector
 
@@ -26,6 +23,8 @@ from theHarvester.lib.source_catalog import SOURCE_SPECS, resolve_sources
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Sized
+
+    from aiohttp.abc import AbstractCookieJar
 
 logger = logging.getLogger(__name__)
 
@@ -477,7 +476,7 @@ class AsyncFetcher:
         if isinstance(proxy, bool) and proxy:
             try:
                 return cls._get_random_proxy(cls().proxy_list)
-            except (IndexError, TypeError, ValueError):
+            except IndexError, TypeError, ValueError:
                 return None, None
         return None, None
 
@@ -489,7 +488,7 @@ class AsyncFetcher:
         proxy_url: str | None = None,
         proxy_type: str | None = None,
         ssl_context: ssl.SSLContext | bool | None = None,
-        cookie_jar: aiohttp.abc.AbstractCookieJar | None = None,
+        cookie_jar: AbstractCookieJar | None = None,
     ) -> aiohttp.ClientSession:
         connector = None
         if proxy_url is not None or proxy_type is not None or ssl_context is not None:
@@ -513,7 +512,7 @@ class AsyncFetcher:
         headers: dict[str, str] | None = None,
         proxy: str | bool | None = '',
         request_timeout: int | None = None,
-        cookie_jar: aiohttp.abc.AbstractCookieJar | None = None,
+        cookie_jar: AbstractCookieJar | None = None,
     ) -> AsyncIterator[aiohttp.ClientSession]:
         """Own one connection pool, proxy identity, and cookie jar for a provider conversation."""
         proxy_url, proxy_type = cls._resolve_proxy(proxy)
@@ -583,7 +582,7 @@ class AsyncFetcher:
             else:
                 try:
                     body = await response.json()
-                except (aiohttp.ContentTypeError, ValueError):
+                except aiohttp.ContentTypeError, ValueError:
                     body = text_body
         else:
             body = await response.json()
@@ -705,7 +704,7 @@ class AsyncFetcher:
                 include_metadata=include_metadata,
                 **request_kwargs,
             )
-        except (aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, UnicodeDecodeError, ValueError):
+        except aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, UnicodeDecodeError, ValueError:
             return None if include_metadata else ''
 
     @classmethod
@@ -771,7 +770,7 @@ class AsyncFetcher:
             finally:
                 if owns_session:
                     await session.close()
-        except (aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, UnicodeDecodeError, ValueError):
+        except aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, UnicodeDecodeError, ValueError:
             return None if include_metadata else ''
 
     @classmethod
@@ -828,6 +827,7 @@ class AsyncFetcher:
         cls,
         url: str,
         *,
+        session: aiohttp.ClientSession | None = None,
         params: Sized = '',
         proxy: str | bool | None = '',
         headers: dict[str, str] | None = None,
@@ -836,6 +836,7 @@ class AsyncFetcher:
         """Fetch one bounded JSON response without following redirects."""
         async with cls._open_get_response(
             url,
+            session=session,
             params=params,
             proxy=proxy,
             headers=headers,
@@ -857,7 +858,7 @@ class AsyncFetcher:
                 text = body.decode('utf-8')
                 if not text.strip():
                     raise ValueError('empty JSON response')
-                parsed = stdlib_json.loads(text, parse_constant=_reject_json_constant)
+                parsed = json_loader.loads(text, parse_constant=_reject_json_constant)
             except (UnicodeDecodeError, ValueError, RecursionError) as error:
                 raise ResponseStreamError('invalid-response') from error
             return FetcherResponse(body=parsed, status=response.status, headers=response_headers)

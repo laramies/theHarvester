@@ -197,7 +197,7 @@ class SearchSourcegraph:
                         return
                     try:
                         failure = self._consume_event(record)
-                    except (json.JSONDecodeError, RecursionError, TypeError, ValueError):
+                    except json.JSONDecodeError, RecursionError, TypeError, ValueError:
                         self._stop('invalid-response')
                         return
                     except OverflowError:

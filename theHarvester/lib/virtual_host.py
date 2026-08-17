@@ -391,7 +391,7 @@ class VirtualHostObservation:
             control_body_sha256=control_body_sha256,
             control_body_size=control_body_size,
             control_body_truncated=control_body_truncated,
-            confirmation_body_sha256=cast('str | None', confirmation_body_sha256),
+            confirmation_body_sha256=confirmation_body_sha256,
         )
 
     def to_record(self) -> dict[str, object]:
@@ -642,7 +642,7 @@ async def _probe_batch(
 
     try:
         completed.update(enumerate(await asyncio.gather(*tasks)))
-    except (asyncio.CancelledError, Exception):
+    except asyncio.CancelledError, Exception:
         for task in tasks:
             if not task.done():
                 task.cancel()
@@ -762,7 +762,7 @@ async def discover_virtual_hosts(
                         completed_candidates: dict[int, ProbeObservation] = {}
                         try:
                             await _probe_batch(session, request, candidate_names, completed_candidates)
-                        except (asyncio.CancelledError, Exception):
+                        except asyncio.CancelledError, Exception:
                             record_request_errors(list(completed_candidates.values()))
                             observations.extend(
                                 _classify_candidate(
@@ -797,7 +797,7 @@ async def discover_virtual_hosts(
                         completed_confirmations: dict[int, ProbeObservation] = {}
                         try:
                             await _probe_batch(session, request, confirmation_names, completed_confirmations)
-                        except (asyncio.CancelledError, Exception):
+                        except asyncio.CancelledError, Exception:
                             record_request_errors(list(completed_confirmations.values()))
                             for confirmation_index, confirmation in completed_confirmations.items():
                                 index = confirmation_indexes[confirmation_index]

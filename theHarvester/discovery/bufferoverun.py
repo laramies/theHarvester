@@ -46,7 +46,7 @@ class SearchBufferover:
                 continue
             try:
                 row = next(csv.reader([result]))
-            except (csv.Error, StopIteration):
+            except csv.Error, StopIteration:
                 malformed = True
                 continue
             if len(row) != 4:

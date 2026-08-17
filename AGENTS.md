@@ -4,14 +4,19 @@ theHarvester is a Python OSINT reconnaissance tool for collecting public informa
 
 ## Essentials
 
-- The project requires Python 3.12 or newer and uses `uv` for environments and commands.
+- The project requires Python 3.14 and uses `uv` for environments and commands.
 - Install development dependencies with `uv sync --all-groups`.
 - For code changes, follow [CONTRIBUTING.md](CONTRIBUTING.md).
 - Make the smallest requested change, reuse existing code, and preserve unrelated worktree changes.
 
+## Upstream publication
+
+- Target every upstream pull request at `dev`.
+- Treat `upstream/master` as maintainer-only and read-only for agents. Leave every `dev`-to-`master` promotion, merge, and direct update to upstream maintainers.
+
 ## Domain language
 
-Read [CONTEXT.md](CONTEXT.md) when changing discovery terminology, evidence classification, scope handling, DNS validation, or P0/P1/P2 activity boundaries.
+Read [CONTEXT.md](CONTEXT.md) before changing discovery semantics, result or evidence models, run lifecycle, interchange or persistence, target scope, DNS validation, or P0/P1/P2 activity boundaries.
 
 ## Code review rules
 

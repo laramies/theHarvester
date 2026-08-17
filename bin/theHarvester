@@ -2,11 +2,16 @@
 # Note: This script runs theHarvester
 import sys
 
-from theHarvester.theHarvester import main
 
-if sys.version_info.major < 3 or sys.version_info.minor < 10:
-    print('[!] Make sure you have Python 3.10+ installed, quitting.\n\n')
-    sys.exit(1)
+def main() -> None:
+    if sys.version_info < (3, 14):
+        print('[!] theHarvester requires Python 3.14 or newer, quitting.\n')
+        sys.exit(1)
+
+    from theHarvester.theHarvester import main as theharvester_main
+
+    theharvester_main()
+
 
 if __name__ == '__main__':
     main()

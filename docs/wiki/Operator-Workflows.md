@@ -16,7 +16,7 @@ Use the [README source matrix](https://github.com/laramies/theHarvester/blob/dev
 uv run theHarvester -d example.com -b crtsh,certspotter -f report
 ```
 
-Use `report.json` for automation and `report.xml` for the smaller legacy host/email representation. See [Results and Local Data](Results-and-Local-Data).
+Use `report.jsonl` for automation, provenance, and run interchange. The same command also writes `report.json` and `report.xml` compatibility files. See [Results and Local Data](Results-and-Local-Data).
 
 ## DNS resolution
 
@@ -45,7 +45,7 @@ AUTHORIZED_DOMAIN='replace-with-a-domain-you-control'
 uv run theHarvester -d "$AUTHORIZED_DOMAIN" -b crtsh -r -s
 ```
 
-Shodan output is enrichment after discovery and is separate from what most discovery sources add to the consolidated result columns.
+Shodan host enrichment runs after discovery and is separate from the `shodan` source's subdomain results.
 
 ## DNS brute force
 

@@ -26,17 +26,20 @@
     pollTimer: null,
     pollErrorShown: false,
     resultTable: null,
+    pendingResultAction: null,
     screenshotUrls: new Map(),
   };
 
   const nodes = {
-    themeButton: $('#theme-button'), importButton: $('#import-button'), newRunButton: $('#new-run-button'),
+    themeButton: $('#theme-button'), importButton: $('#import-button'), exportDatabase: $('#export-database-button'),
+    newRunButton: $('#new-run-button'),
     loading: $('#loading-state'), empty: $('#empty-state'), detail: $('#run-detail'),
     workspaceError: $('#workspace-error'), workspaceErrorMessage: $('#workspace-error-message'),
     retryWorkspace: $('#retry-workspace-button'),
     runCount: $('#run-count'), historySearch: $('#history-search'), runList: $('#run-list'), historyEmpty: $('#history-empty'),
     detailTarget: $('#detail-target'), detailRunId: $('#detail-run-id'), statusChips: $('#status-chips'), cancel: $('#cancel-run-button'),
-    runFacts: $('#run-facts'), lifecycleTrack: $('#lifecycle-track'), lifecycleNote: $('#lifecycle-note'),
+    runFacts: $('#run-facts'), runAssessment: $('.run-assessment'),
+    lifecycleTrack: $('#lifecycle-track'), lifecycleNote: $('#lifecycle-note'),
     assessmentEvidence: $('#assessment-evidence'), assessmentProducers: $('#assessment-producers'),
     assessmentReview: $('#assessment-review'), reviewOutcomes: $('#review-outcomes-button'),
     resultsSection: $('#results-section'),
@@ -50,11 +53,16 @@
     exportJsonl: $('#export-jsonl-button'), screenshotSection: $('#screenshot-section'),
     screenshotGallery: $('#screenshot-gallery'), logSection: $('#log-section'), logOutput: $('#run-log-output'),
     newRunDialog: $('#new-run-dialog'), newRunForm: $('#new-run-form'), sourceSearch: $('#source-search'), sourceGroups: $('#source-groups'),
-    sourceSelectionSummary: $('#source-selection-summary'),
+    sourceSelectionSummary: $('#source-selection-summary'), finalAuthorizationSummary: $('#final-authorization-summary'),
     sourceCapability: $('#source-capability'), selectCapability: $('#select-capability-button'),
     selectP0: $('#select-p0-button'), clearP0: $('#clear-p0-button'),
     dnsResolvers: $('#dns-resolvers'), dnsResolverFile: $('#dns-resolver-file'),
     activitySummary: $('#activity-summary'), newRunError: $('#new-run-error'), submitRun: $('#submit-run-button'),
+    resultActionDialog: $('#result-action-dialog'), resultActionForm: $('#result-action-form'),
+    resultActionTitle: $('#result-action-title'), resultActionIntro: $('#result-action-intro'),
+    resultActionTarget: $('#result-action-target'), resultActionBand: $('#result-action-band'),
+    resultActionNetwork: $('#result-action-network'), resultActionResolvers: $('#result-action-resolvers'),
+    confirmResultAction: $('#confirm-result-action-button'),
     importDialog: $('#import-dialog'), importForm: $('#import-form'), resultFile: $('#result-file'), fileLabel: $('#file-label'),
     importError: $('#import-error'), submitImport: $('#submit-import-button'), screenshotDialog: $('#screenshot-dialog'),
     screenshotDialogTitle: $('#screenshot-dialog-title'), screenshotDialogImage: $('#screenshot-dialog-image'),
@@ -260,14 +268,29 @@
   }
 
   function renderFacts(run) {
-    const facts = [
-      ['Origin', run.origin], ['Submitted', formatDate(run.created_at)], ['Started', formatDate(run.started_at)],
-      ['Duration', formatDuration(run.started_at, run.completed_at)], ['Results', Number(run.result_count || 0).toLocaleString()]
-    ];
+    const facts = run.origin === 'imported'
+      ? [
+          ['Origin', 'Imported evidence'], ['Imported', formatDate(run.created_at)],
+          ['Original started', formatDate(run.started_at)], ['Original completed', formatDate(run.completed_at)],
+          ['Duration', formatDuration(run.started_at, run.completed_at)], ['Results', Number(run.result_count || 0).toLocaleString()]
+        ]
+      : [
+          ['Origin', run.origin], ['Submitted', formatDate(run.created_at)], ['Started', formatDate(run.started_at)],
+          ['Duration', formatDuration(run.started_at, run.completed_at)], ['Results', Number(run.result_count || 0).toLocaleString()]
+        ];
     nodes.runFacts.innerHTML = facts.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('');
   }
 
   function renderLifecycle(run) {
+    if (run.origin === 'imported') {
+      const steps = [
+        ['Original started', run.started_at], ['Original completed', run.completed_at], ['Imported', run.created_at]
+      ];
+      nodes.lifecycleTrack.innerHTML = steps.map(([label, time]) => `
+        <li class="lifecycle-step ${time ? 'reached' : ''}"><strong>${escapeHtml(label)}</strong><span>${escapeHtml(formatDate(time))}</span></li>`).join('');
+      nodes.lifecycleNote.textContent = 'Imported evidence retains its original execution timing; local import time is shown separately.';
+      return;
+    }
     const terminalLabel = run.status === 'completed' ? 'Completed' : run.status === 'failed' ? 'Failed' : run.status === 'cancelled' ? 'Cancelled' : 'Terminal';
     const steps = [['Submitted', run.created_at], ['Started', run.started_at]];
     if (run.cancellation_requested_at) steps.push(['Cancellation requested', run.cancellation_requested_at]);
@@ -336,7 +359,11 @@
 
   function updateSourceSelectionSummary() {
     const selected = state.sources.filter(source => state.selectedSources.has(source.name) && sourceIsReady(source));
-    nodes.sourceSelectionSummary.textContent = `Selected ${formatCount(selected.length, 'ready source')}.`;
+    const names = selected.map(source => source.name);
+    const visibleNames = names.slice(0, 4).join(', ');
+    const remainder = names.length > 4 ? ` +${names.length - 4} more` : '';
+    const selection = names.length ? `: ${visibleNames}${remainder}` : '';
+    nodes.sourceSelectionSummary.textContent = `Selected ${formatCount(names.length, 'ready source')}${selection}.`;
   }
 
   function executionReason(execution) {
@@ -433,8 +460,8 @@
   function resultActionFormatter(cell) {
     const target = escapeHtml(cell.getRow().getData().value);
     return `<div class="result-actions">
-      <button class="button small" type="button" data-run-action="screenshot" aria-label="Take screenshot of ${target} (P2)">Screenshot (P2)</button>
-      <button class="button small" type="button" data-run-action="dns_brute" aria-label="DNS brute force ${target} (P1)">DNS brute (P1)</button>
+      <button class="button small" type="button" data-run-action="screenshot" data-run-target="${target}" aria-label="Take screenshot of ${target} (P2)">Screenshot (P2)</button>
+      <button class="button small" type="button" data-run-action="dns_brute" data-run-target="${target}" aria-label="DNS brute force ${target} (P1)">DNS brute (P1)</button>
     </div>`;
   }
 
@@ -610,6 +637,20 @@
     return escapeHtml(values.join(', ') || '-');
   }
 
+  function labelResultTableControls() {
+    const headerSelection = nodes.resultWorkbench.querySelector('.tabulator-header .tabulator-row-header input[type="checkbox"]');
+    headerSelection?.setAttribute('aria-label', 'Select all rows on this route');
+    for (const column of nodes.resultWorkbench.querySelectorAll('.tabulator-col[tabulator-field]')) {
+      const title = column.querySelector('.tabulator-col-title')?.textContent?.trim();
+      const filter = column.querySelector('.tabulator-header-filter input');
+      if (title && filter) filter.setAttribute('aria-label', `Filter ${title} column`);
+    }
+    for (const row of state.resultTable?.getRows() || []) {
+      const checkbox = row.getElement().querySelector('.tabulator-row-header input[type="checkbox"]');
+      if (checkbox) checkbox.setAttribute('aria-label', `Select ${row.getData().value}`);
+    }
+  }
+
   function mountResultTable(rows) {
     state.resultTable?.destroy();
     nodes.copySelected.disabled = true;
@@ -662,12 +703,6 @@
       columns.push({
         title: 'Actions', field: 'actions', formatter: resultActionFormatter, headerSort: false,
         minWidth: 265, width: 265, responsive: 3, resizable: false,
-        cellClick: (event, cell) => {
-          const button = event.target.closest('[data-run-action]');
-          if (!button) return;
-          event.stopPropagation();
-          queueResultAction(button.dataset.runAction, cell.getRow().getData().value, button);
-        },
       });
     }
     state.resultTable = new Tabulator(nodes.resultWorkbench.querySelector('#result-grid'), {
@@ -695,6 +730,8 @@
       nodes.copySelected.disabled = selected.length === 0;
       nodes.copySelected.textContent = selected.length ? `Copy selected (${selected.length})` : 'Copy selected';
     });
+    state.resultTable.on('renderComplete', labelResultTableControls);
+    requestAnimationFrame(labelResultTableControls);
   }
 
   function renderResults(run) {
@@ -740,9 +777,10 @@
     }
     if (!groups.some(([type]) => type === state.route)) state.route = groups[0][0];
     nodes.routeTabs.innerHTML = groups.map(([type, results]) => `
-      <button class="route-tab ${type === state.route ? 'active' : ''}" type="button" data-route="${escapeHtml(type)}" aria-pressed="${type === state.route}">
+      <button class="route-tab ${type === state.route ? 'active' : ''}" type="button" data-route="${escapeHtml(type)}" aria-pressed="${type === state.route}" tabindex="${type === state.route ? '0' : '-1'}">
         ${escapeHtml(ROUTE_LABELS[type] || type)} <span class="count-badge">${results.length}</span>
       </button>`).join('');
+    requestAnimationFrame(updateRouteOverflowCue);
     const rows = groups.find(([type]) => type === state.route)?.[1] || [];
     nodes.routeCount.textContent = rows.length;
     nodes.resultSearch.value = '';
@@ -792,8 +830,10 @@
     nodes.cancel.hidden = !['queued', 'running', 'cancelling'].includes(run.status);
     nodes.cancel.disabled = run.status === 'cancelling';
     nodes.cancel.textContent = run.status === 'cancelling' ? 'Cancellation in progress' : 'Request cancellation';
-    if (isTerminalStatus(run.status)) {
+    if (isTerminalStatus(run.status) && run.status === 'completed' && run.evidence_status === 'complete') {
       nodes.detail.insertBefore(nodes.resultsSection, nodes.runFacts);
+    } else if (isTerminalStatus(run.status)) {
+      nodes.runAssessment.after(nodes.resultsSection);
     } else {
       nodes.detail.insertBefore(nodes.resultsSection, nodes.providerDetails);
     }
@@ -932,6 +972,22 @@
     const activities = selectedActivities();
     nodes.activitySummary.textContent = `P0 ${activities.has('P0') ? 'selected' : 'off'} · P1 ${activities.has('P1') ? 'selected' : 'off'} · P2 ${activities.has('P2') ? 'selected' : 'off'}`;
     nodes.activitySummary.style.borderColor = activities.has('P2') ? 'var(--danger)' : activities.has('P1') ? 'var(--warning)' : 'var(--accent)';
+    const target = nodes.newRunForm.elements.target.value.trim();
+    const selected = state.sources.filter(source => state.selectedSources.has(source.name) && sourceIsReady(source));
+    const names = selected.map(source => source.name);
+    const sourceNames = names.slice(0, 4).join(', ');
+    const sourceRemainder = names.length > 4 ? ` +${names.length - 4} more` : '';
+    const sourceSummary = names.length
+      ? `${formatCount(names.length, 'source')}: ${sourceNames}${sourceRemainder}`
+      : '0 sources';
+    const deadline = nodes.newRunForm.elements.deadline_seconds.value;
+    nodes.finalAuthorizationSummary.textContent = [
+      `Target ${target || 'not set'}`, sourceSummary,
+      `P0 ${activities.has('P0') ? 'selected' : 'off'}`,
+      `P1 ${activities.has('P1') ? 'selected' : 'off'}`,
+      `P2 ${activities.has('P2') ? 'selected' : 'off'}`,
+      `Deadline ${deadline ? `${deadline} seconds` : 'unlimited'}`
+    ].join(' · ');
   }
 
   function openNewRun() {
@@ -1011,6 +1067,36 @@
     } finally {
       setBusy(button, false, '');
     }
+  }
+
+  function reviewResultAction(action, target, button) {
+    const screenshot = action === 'screenshot';
+    const resolvers = state.detail?.request?.dns_resolvers;
+    state.pendingResultAction = {action, target, button};
+    nodes.resultActionTitle.textContent = screenshot
+      ? 'Review screenshot interaction'
+      : 'Review DNS brute force interaction';
+    nodes.resultActionIntro.textContent = screenshot
+      ? 'Confirm a direct browser interaction with this retained hostname.'
+      : 'Confirm DNS candidate-label queries for this retained hostname.';
+    nodes.resultActionTarget.textContent = target;
+    nodes.resultActionBand.textContent = screenshot ? 'P2 · Direct interaction' : 'P1 · DNS interaction';
+    nodes.resultActionNetwork.textContent = screenshot
+      ? 'Launches a browser request to the retained hostname and captures the response.'
+      : 'Queries DNS candidate labels for the retained hostname.';
+    nodes.resultActionResolvers.textContent = screenshot
+      ? 'Not applicable'
+      : Array.isArray(resolvers) && resolvers.length ? resolvers.join(', ') : 'Use the default configured resolvers';
+    nodes.confirmResultAction.textContent = screenshot ? 'Start screenshot run' : 'Start DNS brute force run';
+    openDialog(nodes.resultActionDialog, '#confirm-result-action-button');
+  }
+
+  async function submitResultAction(event) {
+    event.preventDefault();
+    const pending = state.pendingResultAction;
+    if (!pending) return;
+    closeDialog(nodes.resultActionDialog);
+    await queueResultAction(pending.action, pending.target, pending.button);
   }
 
   async function submitRun(event) {
@@ -1164,15 +1250,31 @@
     toast(state.detail.status === 'cancelled' ? 'Queued enumeration cancelled.' : 'Cancellation requested.');
   }
 
-  async function downloadServerExport() {
+  async function downloadServerFile(path, fallbackFilename, failureMessage) {
     try {
-      const response = await api(`/api/v1/runs/${encodeURIComponent(state.selectedId)}/export`);
+      const response = await api(path);
       const disposition = response.headers.get('Content-Disposition') || '';
       const match = disposition.match(/filename="([^"]+)"/);
-      downloadBlob(await response.blob(), match?.[1] || 'harvestview-results.jsonl');
+      downloadBlob(await response.blob(), match?.[1] || fallbackFilename);
     } catch (error) {
-      toast(`Could not export results: ${error.message}. Keep the run open and try again.`, true);
+      toast(`${failureMessage}: ${error.message}`, true);
     }
+  }
+
+  function downloadServerExport() {
+    return downloadServerFile(
+      `/api/v1/runs/${encodeURIComponent(state.selectedId)}/export`,
+      'harvestview-results.jsonl',
+      'Could not export results',
+    );
+  }
+
+  function downloadDatabase() {
+    return downloadServerFile(
+      '/api/v1/runs/export-database',
+      'theharvester-completed-runs.sqlite',
+      'Could not export the database',
+    );
   }
 
   function downloadBlob(blob, filename) {
@@ -1197,6 +1299,10 @@
     }
   }
 
+  function updateRouteOverflowCue() {
+    nodes.routeOverflowCue.hidden = nodes.routeTabs.hidden || nodes.routeTabs.scrollWidth <= nodes.routeTabs.clientWidth + 1;
+  }
+
   function openScreenshot(index) {
     const screenshot = state.detail?.screenshots?.[index];
     const objectUrl = state.screenshotUrls.get(screenshot?.url);
@@ -1214,8 +1320,10 @@
   nodes.retryWorkspace.addEventListener('click', start);
   nodes.newRunButton.addEventListener('click', openNewRun);
   nodes.importButton.addEventListener('click', openImport);
+  nodes.exportDatabase.addEventListener('click', downloadDatabase);
   nodes.historySearch.addEventListener('input', renderHistory);
   nodes.newRunForm.addEventListener('submit', submitRun);
+  nodes.resultActionForm.addEventListener('submit', submitResultAction);
   nodes.importForm.addEventListener('submit', submitImport);
   nodes.cancel.addEventListener('click', requestCancellation);
   nodes.reviewOutcomes.addEventListener('click', () => {
@@ -1226,6 +1334,27 @@
   });
   nodes.exportJsonl.addEventListener('click', downloadServerExport);
   nodes.copySelected.addEventListener('click', copySelected);
+  nodes.resultWorkbench.addEventListener('click', event => {
+    const button = event.target.closest('[data-run-action]');
+    if (!button) return;
+    event.preventDefault();
+    event.stopPropagation();
+    reviewResultAction(button.dataset.runAction, button.dataset.runTarget, button);
+  }, true);
+  nodes.routeTabs.addEventListener('keydown', event => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    const buttons = [...nodes.routeTabs.querySelectorAll('[data-route]')];
+    if (!buttons.length) return;
+    event.preventDefault();
+    const current = Math.max(0, buttons.indexOf(event.target.closest('[data-route]')));
+    const next = event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? buttons.length - 1
+        : (current + (event.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length;
+    buttons[next].click();
+    requestAnimationFrame(() => nodes.routeTabs.querySelector(`[data-route="${CSS.escape(state.route)}"]`)?.focus({preventScroll: true}));
+  });
   nodes.resultSearch.addEventListener('input', event => {
     const query = event.target.value.trim().toLowerCase();
     state.resultTable?.setFilter(row => !query || row.value.toLowerCase().includes(query));
@@ -1242,9 +1371,7 @@
     updateActivitySummary();
   });
   nodes.newRunForm.addEventListener('change', updateActivitySummary);
-  nodes.newRunForm.addEventListener('input', event => {
-    if (event.target.matches('[name="vhost_endpoint"], [name="vhost_candidates"]')) updateActivitySummary();
-  });
+  nodes.newRunForm.addEventListener('input', updateActivitySummary);
   nodes.dnsResolverFile.addEventListener('change', async () => {
     const file = nodes.dnsResolverFile.files[0];
     if (!file) return;
@@ -1278,16 +1405,18 @@
     if (closeButton) closeDialog(closeButton.closest('dialog'));
   });
 
-  for (const dialog of [nodes.newRunDialog, nodes.importDialog, nodes.screenshotDialog]) {
+  for (const dialog of [nodes.newRunDialog, nodes.resultActionDialog, nodes.importDialog, nodes.screenshotDialog]) {
     dialog.addEventListener('click', event => {
       if (event.target === dialog) closeDialog(dialog);
     });
   }
+  nodes.resultActionDialog.addEventListener('close', () => { state.pendingResultAction = null; });
 
   window.addEventListener('beforeunload', () => {
     stopPolling();
     revokeScreenshots();
   });
+  window.addEventListener('resize', updateRouteOverflowCue);
 
   async function start() {
     applyTheme();

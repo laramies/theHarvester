@@ -25,7 +25,7 @@ An adapter normally provides:
 
 Do not return fields the provider did not supply. Normalize and deduplicate before returning results.
 
-Return `None` when the provider conversation completed normally, including a valid zero-result response. Return an immutable `SourceExecutionReport` with a stable provider-specific reason for another terminal condition: `completed` for a successful early stop such as reaching the requested result limit, `failed` for provider or transport failure, `rate-limited` for a terminal rate limit, or `partial` when the provider itself confirms incomplete coverage. Do not add mutable `execution_status` or `stop_reason` fields to an adapter. The source runner rejects adapters that expose either removed field before execution and rechecks before evidence collection. The source runner owns finalization: it promotes any incomplete report with retained normalized evidence to `partial`, and records a normal zero-result completion as `completed` with `no-results`.
+Return `None` when the provider conversation completed normally, including a valid zero-result response. Return an immutable `SourceExecutionReport` with a stable provider-specific reason for another terminal condition: `completed` for a successful early stop such as reaching the requested result limit, `failed` for provider or transport failure, `rate-limited` for a terminal rate limit, or `partial` when the provider confirms incomplete coverage. Adapters must not define mutable `execution_status` or `stop_reason` fields. The source runner checks for either field before execution and again before evidence collection. It owns finalization, promotes incomplete reports with retained normalized evidence to `partial`, and records a normal zero-result completion as `completed` with `no-results`.
 
 ### Own the provider conversation
 
@@ -42,7 +42,7 @@ The completion check is an offline test in which a later page depends on state e
 
 ## 3. Register the source
 
-Add one catalog entry in [`theHarvester/lib/source_catalog.py`](https://github.com/laramies/theHarvester/blob/dev/theHarvester/lib/source_catalog.py) and one factory entry in [`theHarvester/lib/source_runner.py`](https://github.com/laramies/theHarvester/blob/dev/theHarvester/lib/source_runner.py). The catalog supplies CLI help, source selection, and activity classification; the factory constructs the adapter; the runner collects declared result routes and persists them through the existing completed-result flow.
+Add one catalog entry in [`theHarvester/lib/source_catalog.py`](https://github.com/laramies/theHarvester/blob/dev/theHarvester/lib/source_catalog.py) and one factory entry in [`theHarvester/lib/source_runner.py`](https://github.com/laramies/theHarvester/blob/dev/theHarvester/lib/source_runner.py). The catalog supplies CLI help, source selection, and activity classification. The factory constructs the adapter. The runner collects declared result routes and persists them with the completed run.
 
 Keep the public source identifier stable and use the same spelling everywhere.
 
@@ -57,7 +57,7 @@ If the source accepts an API key:
 
 Never log credentials or include real keys in tests, examples, commits, issues, or pull requests.
 
-## 5. Add focused coverage when possible
+## 5. Add focused coverage
 
 [The Baidu discovery tests](https://github.com/laramies/theHarvester/blob/dev/tests/discovery/test_baidusearch.py) are a small example that can be copied and adapted. They replace network fetching with `pytest` `monkeypatch` and assert normalized results.
 
@@ -74,6 +74,6 @@ Tests must not require external network access or real provider credentials.
 
 ## 6. Update operator documentation
 
-Add the source to the README source/result matrix with its actual output columns and key requirement. The matrix contract test checks that documented result types match the catalog entry.
+Add the source to the README matrix with its result routes, activity class, and credential requirement. The matrix contract test checks those values against the catalog entry.
 
 In the pull request, link the provider API documentation and explain any intentional exception to shared transport behavior.

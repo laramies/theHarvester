@@ -259,7 +259,7 @@ The `context_*` fields contain the literal-IP response, while `control_*` contai
 
 SQLite uses the same shape without inventing another evidence concept: `results` holds one `hostname` row, `result_origins` links it to the `vhost` execution, and that result's details hold the endpoint observation array. JSONL export and API run details expose the array as native JSON. `vhost` is an action name, not a result kind.
 
-Legacy JSON and XML keep their existing virtual host name lists. They do not carry the endpoint and response evidence. Use JSONL or `GET /api/v1/runs/{run_id}` when automation needs the structured observations.
+JSON and XML compatibility reports contain virtual host name lists but not endpoint or response evidence. Use JSONL or `GET /api/v1/runs/{run_id}` when automation needs the structured observations.
 
 ## Troubleshooting
 

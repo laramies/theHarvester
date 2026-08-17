@@ -1,21 +1,10 @@
-import json as _stdlib_json
+import json
 import logging
-from types import ModuleType
 
 from theHarvester.lib.core import AsyncFetcher, Core
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 
 logger = logging.getLogger(__name__)
-
-json: ModuleType = _stdlib_json
-try:
-    import ujson as _ujson
-
-    json = _ujson
-except ImportError:
-    pass
-except Exception:
-    pass
 
 
 class SearchWindvane:
@@ -109,7 +98,12 @@ class SearchWindvane:
                 data = {'domain': self.word, 'page_request': {'page': page, 'count': 30}}
 
                 try:
-                    response = await AsyncFetcher.post_fetch(url, headers=headers, data=json.dumps(data), proxy=self.proxy)
+                    response = await AsyncFetcher.post_fetch(
+                        url,
+                        headers=headers,
+                        data=json.dumps(data, separators=(',', ':')),
+                        proxy=self.proxy,
+                    )
                     if response:
                         response_data = self._safe_parse_json(response)
 
@@ -147,7 +141,12 @@ class SearchWindvane:
                 data = {'domain': self.word, 'page_request': {'page': page, 'count': 30}}
 
                 try:
-                    response = await AsyncFetcher.post_fetch(url, headers=headers, data=json.dumps(data), proxy=self.proxy)
+                    response = await AsyncFetcher.post_fetch(
+                        url,
+                        headers=headers,
+                        data=json.dumps(data, separators=(',', ':')),
+                        proxy=self.proxy,
+                    )
                     if response:
                         response_data = self._safe_parse_json(response)
 
@@ -186,7 +185,12 @@ class SearchWindvane:
             data = {'email': self.word, 'page_request': {'page': 1, 'count': 50}}
 
             try:
-                response = await AsyncFetcher.post_fetch(url, headers=headers, data=json.dumps(data), proxy=self.proxy)
+                response = await AsyncFetcher.post_fetch(
+                    url,
+                    headers=headers,
+                    data=json.dumps(data, separators=(',', ':')),
+                    proxy=self.proxy,
+                )
                 if response:
                     response_data = self._safe_parse_json(response)
 
@@ -221,7 +225,12 @@ class SearchWindvane:
             }
 
             try:
-                response = await AsyncFetcher.post_fetch(url, headers=headers, data=json.dumps(data), proxy=self.proxy)
+                response = await AsyncFetcher.post_fetch(
+                    url,
+                    headers=headers,
+                    data=json.dumps(data, separators=(',', ':')),
+                    proxy=self.proxy,
+                )
                 if response:
                     response_data = self._safe_parse_json(response)
 
@@ -257,7 +266,7 @@ class SearchWindvane:
         try:
             parts = ip.split('.')
             return len(parts) == 4 and all(0 <= int(part) <= 255 for part in parts)
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return False
 
     async def get_hostnames(self) -> set:

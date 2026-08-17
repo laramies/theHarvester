@@ -1,13 +1,14 @@
 import asyncio
 import logging
 import urllib.parse as urlparse
-from typing import Any, NamedTuple
-
-import aiohttp
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 from theHarvester.discovery.constants import MissingKey, get_delay
 from theHarvester.lib.core import AsyncFetcher, Core
 from theHarvester.parsers import myparser
+
+if TYPE_CHECKING:
+    import aiohttp
 
 logger = logging.getLogger(__name__)
 

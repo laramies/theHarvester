@@ -4,7 +4,6 @@ import json
 import logging
 import sqlite3
 from collections import Counter
-from collections.abc import AsyncIterator, Iterable
 from contextlib import asynccontextmanager
 from datetime import date, timedelta
 from pathlib import Path
@@ -41,8 +40,6 @@ from theHarvester.lib.active_evidence import (
 )
 from theHarvester.lib.asn_attribution import (
     AsnAttributionObservation,
-    ProducerKind,
-    SubjectKind,
     canonical_asn_attributions,
 )
 from theHarvester.lib.completed_result import (
@@ -70,12 +67,20 @@ from theHarvester.lib.takeover_evidence import (
 from theHarvester.lib.virtual_host import VirtualHostObservation
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Iterable
+
+    from theHarvester.lib.asn_attribution import ProducerKind, SubjectKind
     from theHarvester.lib.evidence_types import EvidenceStatus
 
 logger = logging.getLogger(__name__)
 
 SCHEMA_VERSION = 8
 _DEFAULT_DATABASE = Path('~/.local/share/theHarvester/stash.sqlite').expanduser()
+_PORTABLE_DATABASE_DROP_STATEMENTS = (
+    'DROP TABLE IF EXISTS legacy_observations',
+    'DROP TABLE IF EXISTS run_records',
+    'DROP TABLE IF EXISTS run_worker_leases',
+)
 
 _LEGACY_RESULT_KIND_RENAMES = {
     'api-endpoint': 'url',
@@ -505,6 +510,16 @@ def _database_for(database: str | Path) -> _SQLiteDatabase:
 
 def _row_count(result: Any) -> int:
     return int(result.rowcount)
+
+
+def _finalize_portable_database(path: Path) -> None:
+    with sqlite3.connect(path) as connection:
+        connection.execute('PRAGMA wal_checkpoint(TRUNCATE)')
+        connection.execute('PRAGMA journal_mode = DELETE')
+        for statement in _PORTABLE_DATABASE_DROP_STATEMENTS:
+            connection.execute(statement)
+        connection.commit()
+        connection.execute('VACUUM')
 
 
 class RunLifecycleStore:
@@ -1050,14 +1065,16 @@ class ResultStore:
                 or subject_result.kind not in {'hostname', 'ip'}
             ):
                 raise ResultStoreError('Persisted ASN attribution is invalid')
+            producer_kind: ProducerKind = 'source' if attribution_execution.producer_kind == 'source' else 'action'
+            subject_kind: SubjectKind = 'hostname' if subject_result.kind == 'hostname' else 'ip'
             try:
                 asn_attributions.append(
                     AsnAttributionObservation(
-                        cast('ProducerKind', attribution_execution.producer_kind),
+                        producer_kind,
                         attribution_execution.name,
                         asn_result.value,
                         attribution.organization_label,
-                        cast('SubjectKind', subject_result.kind),
+                        subject_kind,
                         subject_result.value,
                         datetime.datetime.fromisoformat(attribution.collected_at),
                     )
@@ -1117,6 +1134,20 @@ class ResultStore:
             }
             for run, result_count in rows
         ]
+
+    async def export_database(self, destination: Path) -> None:
+        """Write every completed run to a portable, importable SQLite database."""
+        await self.initialize()
+        exported = ResultStore(destination)
+        try:
+            await exported.initialize()
+            summaries = await self.list_runs(limit=None)
+            for summary in summaries:
+                await exported.save_run(await self.load_run(UUID(str(summary['run_id']))))
+        finally:
+            await exported.dispose()
+        await asyncio.to_thread(_finalize_portable_database, destination)
+        await exported.validate_import_database()
 
     async def validate_import_database(self) -> None:
         engine = create_async_engine(URL.create('sqlite+aiosqlite', database=self.database))

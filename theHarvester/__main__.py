@@ -9,7 +9,6 @@ import secrets
 import string
 import sys
 import time
-from collections.abc import Awaitable, Callable, Iterable
 from contextlib import AsyncExitStack
 from datetime import UTC, datetime
 from ipaddress import ip_address, ip_network
@@ -20,7 +19,6 @@ from uuid import UUID, uuid4
 
 import anyio
 import netaddr
-import ujson
 
 from theHarvester.discovery import (
     api_endpoints,
@@ -84,6 +82,8 @@ from theHarvester.lib.virtual_host import (
 from theHarvester.screenshot.screenshot import ScreenShotter
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable, Iterable
+
     from theHarvester.lib.network_evidence import NetworkObservation
     from theHarvester.lib.takeover_evidence import TakeoverCandidateOutcome
 
@@ -589,7 +589,7 @@ async def start(
         for host in canonical_hosts:
             if host.ip not in shodan_hosts:
                 output_logger.info(
-                    ujson.dumps(
+                    json.dumps(
                         {'type': 'shodan-host', 'value': host.ip, 'details': host.to_details()},
                         indent=4,
                         sort_keys=True,
@@ -1387,7 +1387,7 @@ async def start(
                     return {}, set()
                 try:
                     outcomes = await search_take.get_takeover_outcomes()
-                except (asyncio.CancelledError, Exception):
+                except asyncio.CancelledError, Exception:
                     if not best_effort:
                         raise
                     return {}, set()
@@ -1913,7 +1913,7 @@ async def start(
         api_scanner = None
 
         def collect_api_action_groups(
-            scanner: 'api_endpoints.SearchApiEndpoints | None',
+            scanner: api_endpoints.SearchApiEndpoints | None,
             *,
             best_effort: bool = False,
         ) -> tuple[set[str], set[str], dict[ResultKind, Iterable[str]]]:
@@ -2144,7 +2144,7 @@ async def start(
 
             json_dict['shodan'] = shodanres
             async with await anyio.open_file(filename, 'w+') as fp:
-                dumped_json = ujson.dumps(json_dict, sort_keys=True)
+                dumped_json = json.dumps(json_dict, separators=(',', ':'), sort_keys=True)
                 await fp.write(dumped_json)
             output_logger.info('[*] JSON File saved.')
         except (OSError, ValueError, TypeError, UnicodeEncodeError) as er:

@@ -1,9 +1,13 @@
 # theHarvester/discovery/hackertarget.py
 from ipaddress import ip_address, ip_network
+from typing import TYPE_CHECKING
 
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.source_execution import SourceExecutionReport, SourceReportStatus
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class SearchHackerTarget:
@@ -25,7 +29,7 @@ class SearchHackerTarget:
         headers = {'User-agent': Core.get_user_agent()}
 
         urls = [f'{self.hostname}/hostsearch/?q={self.word}']
-        parsers = [self._parse_hostsearch]
+        parsers: list[Callable[[str], tuple[int, bool]]] = [self._parse_hostsearch]
         address_query = True
         try:
             ip_network(self.word.strip(), strict=False)

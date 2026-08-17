@@ -9,6 +9,7 @@ import anyio
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.responses import FileResponse
 from pydantic import ValidationError
+from starlette.background import BackgroundTask
 
 from theHarvester.lib.api.auth import get_api_key
 from theHarvester.lib.source_catalog import ACTION_ACTIVITIES, SOURCE_SPECS, SourceSpec, get_source_spec, resolve_sources
@@ -16,6 +17,7 @@ from theHarvester.lib.source_catalog import ACTION_ACTIVITIES, SOURCE_SPECS, Sou
 from . import run_worker
 from .run_evidence import parse_jsonl_import
 from .run_models import (
+    DATABASE_EXPORT_RESPONSES,
     DATABASE_IMPORT_REQUEST_OPENAPI,
     EXPORT_RESPONSES,
     IMPORT_REQUEST_OPENAPI,
@@ -35,6 +37,11 @@ router = APIRouter(prefix='/api/v1', tags=['Runs'])
 MAX_IMPORT_BYTES = 10 * 1024 * 1024
 MAX_RUN_REQUEST_BYTES = 64 * 1024
 DEFAULT_MAX_DATABASE_IMPORT_BYTES = 1024 * 1024 * 1024
+
+
+def _remove_database_export(path: Path) -> None:
+    for candidate in (path, Path(f'{path}-wal'), Path(f'{path}-shm')):
+        candidate.unlink(missing_ok=True)
 
 
 async def _read_limited_body(request: Request, limit: int, detail: str) -> bytes:
@@ -223,6 +230,25 @@ async def import_database(
         return DatabaseImportResponse.model_validate(await RunStore().import_database(temporary_path, safe_filename))
     finally:
         await anyio.Path(temporary_path).unlink(missing_ok=True)
+
+
+@router.get('/runs/export-database', response_class=FileResponse, responses=DATABASE_EXPORT_RESPONSES)
+async def export_database(_api_key: Annotated[str, Depends(get_api_key)]) -> FileResponse:
+    descriptor, temporary_name = tempfile.mkstemp(prefix='theharvester-export-', suffix='.sqlite')
+    os.close(descriptor)
+    temporary_path = Path(temporary_name)
+    await anyio.Path(temporary_path).chmod(0o600)
+    try:
+        await RunStore().export_database(temporary_path)
+    except BaseException:
+        _remove_database_export(temporary_path)
+        raise
+    return FileResponse(
+        temporary_path,
+        media_type='application/vnd.sqlite3',
+        filename='theharvester-completed-runs.sqlite',
+        background=BackgroundTask(_remove_database_export, temporary_path),
+    )
 
 
 @router.get('/runs/{run_id}', response_model_exclude_unset=True)

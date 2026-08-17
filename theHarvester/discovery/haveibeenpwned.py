@@ -30,7 +30,7 @@ class SearchHaveIBeenPwned:
                 proxy=proxy,
                 include_metadata=True,
             )
-        except (OSError, RuntimeError, ValueError):
+        except OSError, RuntimeError, ValueError:
             logger.info('HaveIBeenPwned request failed')
             return SourceExecutionReport('failed', 'transport-error')
 

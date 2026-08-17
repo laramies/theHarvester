@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added authenticated REST and HarvestView export of every completed run as a portable SQLite database without queue, cancellation, worker-lease, or legacy-observation state.
 - Added a catalog-derived offline provider-contract gate that fails on missing, unknown, or duplicate source coverage while keeping live checks outside routine CI.
 - Added sourced ASN organization attribution from URLScan, ONYPHE, and Shodan, linked to the exact hostname or IP evidence and retained in SQLite, JSONL, the API, CLI output, and HarvestView without claiming ownership or scope.
 - Added bounded RouteViews routing enrichment for exact discovered IPs with sourced ASN attribution, or explicit ASN, IP, and CIDR targets, retaining typed origin, BGP-route, and RPKI evidence as external relationships without expanding active scope.
@@ -15,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added bounded, keyless `crt.name` composite-index discovery as a separate source alongside `crtsh`, retaining only descendant-hostname candidates from its streamed response.
 - Added bounded, keyless APIs.guru discovery through exact target-domain directory lookups, retaining only target-scoped hostnames, contact emails, and URLs from preferred OpenAPI specifications.
 - Added bounded virtual host discovery over harvested or operator-supplied literal-IP endpoints, with aligned HTTP `Host` and TLS SNI, synthetic unknown-host controls, hard request and runtime limits, and structured observations on canonical hostname results in JSONL, SQLite, the API, and HarvestView.
-- Added HarvestView, an authenticated local browser workspace backed by a durable single-worker `/api/v1` run lifecycle with cancellation, deadlines, JSONL-only file interchange, retained partial evidence, and real-browser regression coverage.
+- Added HarvestView, an authenticated local browser workspace backed by a durable single-worker `/api/v1` run lifecycle with cancellation, deadlines, JSONL and portable SQLite interchange, retained partial evidence, and real-browser regression coverage.
 - Added a pinned, non-root Docker Compose deployment for HarvestView and the REST API with localhost-only publishing, file-secret authentication, private durable run storage, and an authenticated API health check.
 - Added bounded recursive DNS discovery with three-vantage consensus, closest-encloser wildcard controls, exact-address PTR evidence, and hard query, depth, runtime, and zero-yield limits.
 - Added an authenticated HIBP verified-domain source for CLI and `/api/v1` runs that retains normalized account emails and stable breach names without retaining the raw account mapping.
@@ -36,6 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added root contributor and security policies, structured issue forms, repository agent guidance, discovery terminology, and an operator-focused documentation wiki ([d090a29a](https://github.com/laramies/theHarvester/commit/d090a29a), [7c491ef5](https://github.com/laramies/theHarvester/commit/7c491ef5), [8b9d420b](https://github.com/laramies/theHarvester/commit/8b9d420b)).
 
 ### Changed
+- Raised the minimum supported Python version to 3.14, selected it for source checkouts, and limited release validation to that runtime.
+- Replaced the maintenance-only UltraJSON dependency with Python's standard `json` module for provider payloads and legacy reports, removing the native runtime extension without changing JSONL or API serialization.
 - Centralized passive-source completion reporting in an immutable `SourceExecutionReport` returned by adapters, with the source runner alone deriving partial and no-result outcomes from retained evidence; removed mutable per-adapter `execution_status` and `stop_reason` state and made the runner reject adapters that still expose either field.
 - Updated BeVigil, Dymo, FOFA, FullHunt, Hunter.how, Netlas, ONYPHE, SecurityScorecard, SecurityTrails, SherlockEye, SubdomainFinder C99, VirusTotal, WhoisXML, and ZoomEye provider contracts to retain scoped partial evidence and report authentication, quota, transport, HTTP, and malformed-response outcomes truthfully. FOFA and ONYPHE now honor the operator result limit across documented pagination, while ZoomEye uses the current `POST /v2/search` API and no longer stops after five empty result pages.
 - Replaced runtime takeover fingerprint downloads and global body-substring matches with pinned provider-gated DNS, wildcard controls, and compound HTTP rules. Every checked hostname is now stored as an indicator, no-indicator, or inconclusive outcome with typed DNS, HTTP, rule, and error details in JSONL, SQLite, the API, and HarvestView. Direct checks share one cookie-free HTTP session, keep bounded response bodies, and rely on the whole-run deadline instead of silently inheriting aiohttp's default timeout.
@@ -67,8 +70,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replaced deprecated hostname resolution with `getaddrinfo`-based handling ([6a847435](https://github.com/laramies/theHarvester/commit/6a847435)).
 - Reworked routine CI to use read-only permissions, non-mutating Ruff checks, offline tests, and explicit opt-in live provider checks ([72e5820f](https://github.com/laramies/theHarvester/commit/72e5820f)).
 - Grouped GitHub Actions, Python, and Docker Dependabot updates with a seven-day cooldown, and added a seven-day `uv` dependency freshness window ([7a947b66](https://github.com/laramies/theHarvester/commit/7a947b66), [52a79cdb](https://github.com/laramies/theHarvester/commit/52a79cdb)).
-- Updated runtime dependencies: `aiohttp` to `3.14.1`, `beautifulsoup4` to `4.15.0`, `certifi` to `2026.6.17`, `fastapi` to `0.138.1`, `ujson` to `5.13.0`, and `uvicorn` to `0.49.0`.
-- Updated development dependencies: `pytest` to `9.1.1`, `ruff` to `0.15.20`, and `ty` to `0.0.54`.
+- Updated runtime dependencies: `aiohttp` to `3.14.3`, `beautifulsoup4` to `4.15.0`, `certifi` to `2026.6.17`, `fastapi` to `0.138.1`, and `uvicorn` to `0.52.1`.
+- Updated development dependencies: `mypy` to `2.1.0`, `pytest` to `9.1.1`, `pytest-asyncio` to `1.4.0`, `pytest-playwright` to `0.8.0`, and `ruff` to `0.16.1`.
 - Updated CI and container maintenance pins, including `actions/checkout`, `astral-sh/setup-uv`, `astral-sh/ruff-action`, `github/codeql-action`, StepSecurity Harden-Runner, Docker actions, and the Python base image.
 - Expanded offline regression coverage for discovery providers, configuration contracts, logging, output, documentation, workflow policy, and scope boundaries.
 
