@@ -44,7 +44,20 @@ uv run theHarvester -d "$AUTHORIZED_DOMAIN" -b crtsh -r resolvers.txt
 
 DNS requests disclose candidate names to each selected resolver. Candidates from all selected sources are normalized and deduplicated before one run-wide phase queries A, AAAA, and CNAME at most once per hostname and record type. The phase runs at most 20 hostname jobs concurrently with per-query resolver timeouts and no default query-count or phase-runtime ceiling.
 
-Reverse DNS (`-n`) uses an independent run-wide job set. It deduplicates addresses across overlapping discovered `/24` ranges and runs at most 20 PTR jobs concurrently with per-query resolver timeouts and no default request-count or phase-runtime ceiling.
+## Reverse DNS
+
+Network activity: provider-facing discovery followed by resolver-facing PTR queries.
+
+```bash
+AUTHORIZED_DOMAIN='replace-with-a-domain-you-control'
+uv run theHarvester \
+  -d "$AUTHORIZED_DOMAIN" \
+  -b rapiddns \
+  --dns-lookup \
+  -f report
+```
+
+Reverse DNS uses the `/24` network containing each discovered IPv4 address. It deduplicates addresses across overlapping ranges and runs at most 20 PTR jobs concurrently with per-query resolver timeouts. It has no default request-count or phase-runtime ceiling.
 
 ## Shodan enrichment
 
@@ -71,6 +84,24 @@ uv run theHarvester -d "$AUTHORIZED_DOMAIN" -c
 ```
 
 DNS brute force actively tests candidate names. Do not run it against `example.com` or an unrelated third-party domain.
+
+## Recursive DNS
+
+Network activity: provider-facing discovery followed by resolver-facing DNS queries for descendant names.
+
+Create `resolvers.txt` with exactly three distinct resolver IP addresses. Then set a depth and save the structured evidence:
+
+```bash
+AUTHORIZED_DOMAIN='replace-with-a-domain-you-control'
+uv run theHarvester \
+  -d "$AUTHORIZED_DOMAIN" \
+  -b crtsh \
+  --dns-resolvers resolvers.txt \
+  --dns-recursive-depth 1 \
+  -f report
+```
+
+Recursive DNS uses source results as seed names. Set the depth explicitly; query and runtime caps still apply. JSONL keeps the discovered hostnames and addresses along with recursive finding, classification, and summary records.
 
 ## Takeover checks
 

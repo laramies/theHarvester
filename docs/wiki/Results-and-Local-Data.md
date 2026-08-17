@@ -30,6 +30,71 @@ The recommended automation output is `report.jsonl`. Its first record summarizes
 jq -c 'select(.type != "summary") | {type, value, sources, actions}' report.jsonl
 ```
 
+### Action evidence examples
+
+These synthetic reports use reserved names, ASNs, and addresses. Each block starts with a summary and passes the same JSONL parser that handles imports. The summary records action outcomes. Each finding's `actions` array identifies the action that produced it.
+
+<details>
+<summary>DNS resolution, reverse lookup, and brute force</summary>
+
+Resolution contributes IP findings. Reverse lookup contributes hostnames, while brute force can contribute both hostnames and IP addresses.
+
+```jsonl
+{"action_executions":[{"action":"dns-brute","duration_ms":25.0,"error_type":null,"result_count":2,"status":"completed","stop_reason":null},{"action":"dns-lookup","duration_ms":31.0,"error_type":null,"result_count":1,"status":"completed","stop_reason":null},{"action":"dns-resolve","duration_ms":18.0,"error_type":null,"result_count":1,"status":"completed","stop_reason":null}],"artifacts":[],"completed_at":"2026-08-17T12:01:00Z","counts":{"hostname":3,"ip":2},"evidence_status":"complete","result_count":5,"run_id":"123e4567-e89b-12d3-a456-426614174101","source_executions":[{"duration_ms":12.0,"error_type":null,"result_count":1,"source":"crtsh","status":"completed","stop_reason":null},{"duration_ms":15.0,"error_type":null,"result_count":1,"source":"rapiddns","status":"completed","stop_reason":null}],"started_at":"2026-08-17T12:00:00Z","target":"example.com","type":"summary"}
+{"actions":["dns-brute"],"sources":[],"type":"hostname","value":"admin.example.com"}
+{"sources":["crtsh"],"type":"hostname","value":"api.example.com"}
+{"actions":["dns-lookup"],"sources":[],"type":"hostname","value":"ptr.example.com"}
+{"actions":["dns-resolve"],"sources":["rapiddns"],"type":"ip","value":"192.0.2.10"}
+{"actions":["dns-brute"],"sources":[],"type":"ip","value":"192.0.2.20"}
+```
+
+</details>
+
+<details>
+<summary>Recursive DNS</summary>
+
+Recursive DNS contributes ordinary hostname and IP findings. Its structured records keep the parent name, returned addresses, PTR values, depth, query count, and stop reason. The structured `value` fields contain JSON strings, so use `fromjson` when reading them with `jq`.
+
+```jsonl
+{"action_executions":[{"action":"dns-recursive","duration_ms":40.0,"error_type":null,"result_count":5,"status":"completed","stop_reason":"depth-limit"}],"artifacts":[],"completed_at":"2026-08-17T12:01:00Z","counts":{"dns-recursive-classification":1,"dns-recursive-finding":1,"dns-recursive-summary":1,"hostname":2,"ip":1},"evidence_status":"complete","result_count":6,"run_id":"123e4567-e89b-12d3-a456-426614174102","source_executions":[{"duration_ms":12.0,"error_type":null,"result_count":1,"source":"crtsh","status":"completed","stop_reason":null}],"started_at":"2026-08-17T12:00:00Z","target":"example.com","type":"summary"}
+{"actions":["dns-recursive"],"sources":[],"type":"dns-recursive-classification","value":"{\"addressability\":\"not-currently-addressable\",\"addresses\":[],\"cnames\":[\"missing.vendor.test\"],\"hostname\":\"unused.api.example.com\",\"parent\":\"api.example.com\",\"ptrs\":[\"legacy-ptr.example.net\"]}"}
+{"actions":["dns-recursive"],"sources":[],"type":"dns-recursive-finding","value":"{\"addresses\":[\"192.0.2.21\"],\"hostname\":\"dev.api.example.com\",\"parent\":\"api.example.com\",\"ptrs\":[\"ptr.example.net\"]}"}
+{"actions":["dns-recursive"],"sources":[],"type":"dns-recursive-summary","value":"{\"depth_reached\":1,\"query_count\":24,\"stop_reason\":\"depth-limit\",\"zero_yield_batches\":0}"}
+{"sources":["crtsh"],"type":"hostname","value":"api.example.com"}
+{"actions":["dns-recursive"],"sources":[],"type":"hostname","value":"dev.api.example.com"}
+{"actions":["dns-recursive"],"sources":[],"type":"ip","value":"192.0.2.21"}
+```
+
+</details>
+
+<details>
+<summary>Shodan host enrichment</summary>
+
+A `shodan-host` finding uses the IP address as its value. JSONL keeps service details together rather than creating separate result kinds.
+
+```jsonl
+{"action_executions":[{"action":"shodan","duration_ms":22.0,"error_type":null,"result_count":1,"status":"completed","stop_reason":null}],"artifacts":[],"completed_at":"2026-08-17T12:01:00Z","counts":{"ip":1,"shodan-host":1},"evidence_status":"complete","result_count":2,"run_id":"123e4567-e89b-12d3-a456-426614174103","source_executions":[{"duration_ms":15.0,"error_type":null,"result_count":1,"source":"rapiddns","status":"completed","stop_reason":null}],"started_at":"2026-08-17T12:00:00Z","target":"example.com","type":"summary"}
+{"sources":["rapiddns"],"type":"ip","value":"192.0.2.10"}
+{"actions":["shodan"],"details":{"asn":"AS64500","domains":["example.com"],"hostnames":["api.example.com"],"organization":"Example Network","services":[{"http":{"components":["nginx"],"server":"nginx","title":"Example"},"observed_at":"2026-08-17T11:58:00Z","port":443,"product":"nginx","transport":"tcp","version":"1.24.0"}]},"sources":[],"type":"shodan-host","value":"192.0.2.10"}
+```
+
+</details>
+
+<details>
+<summary>RouteViews routing evidence</summary>
+
+RouteViews keeps the ASN as a scalar finding and attaches origin, BGP route, and RPKI observations to a canonical prefix. The prefix remains an external relationship and does not expand target scope.
+
+```jsonl
+{"action_executions":[{"action":"routeviews","duration_ms":55.0,"error_type":null,"result_count":1,"status":"completed","stop_reason":null}],"artifacts":[],"completed_at":"2026-08-17T12:01:00Z","counts":{"asn":1,"prefix":1},"evidence_status":"complete","result_count":2,"run_id":"123e4567-e89b-12d3-a456-426614174104","source_executions":[],"started_at":"2026-08-17T12:00:00Z","target":"AS64500","type":"summary"}
+{"sources":[],"type":"asn","value":"AS64500"}
+{"actions":["routeviews"],"observations":[{"action":"routeviews","collected_at":"2026-08-17T12:01:00Z","origin_asn":"AS64500","type":"observed-origin"},{"action":"routeviews","as_path":"64496 64500","collected_at":"2026-08-17T12:01:00Z","collector":"route-views.example","communities":"64496:100 64500:200","observed_at":"2026-08-17T11:59:00Z","origin_asn":"AS64500","peer_address":"2001:db8::1","peer_asn":"AS64496","type":"bgp-route"},{"action":"routeviews","collected_at":"2026-08-17T12:01:00Z","observed_at":"2026-08-17T11:59:00Z","origin_asn":"AS64500","state":"valid","type":"rpki-validation"}],"scope":"external-relationship","sources":[],"type":"prefix","value":"192.0.2.0/24"}
+```
+
+</details>
+
+The [full virtual-host JSONL finding](Virtual-Host-Discovery#one-finding-multiple-endpoint-observations) shows how one confirmed hostname retains evidence from more than one endpoint.
+
 The same `-f report` command creates `report.json` and `report.xml` compatibility reports.
 
 ## JSON and XML compatibility reports
