@@ -155,77 +155,70 @@ API clients send `THEHARVESTER_API_KEY` in the `X-API-Key` header. Provider API 
 
 Select sources by name or by a result route listed below. `-b all` runs the P0 sources. P1 and P2 sources require explicit selection.
 
-Result types in this table always appear in this order: `subdomains`, `emails`, `ips`, `asns`, `urls`, `people`, `breaches`. The first table contains sources that return only subdomains. The `API key` column refers to provider settings in `api-keys.yaml`; some providers require more than one value. `Optional` means the source can run without a key.
+Result types in this table always appear in this order: `subdomains`, `emails`, `ips`, `asns`, `urls`, `people`, `breaches`. A result followed by `only` means the source contributes no other result type. The `API key` column refers to provider settings in `api-keys.yaml`; some providers require more than one value. `Optional` means the source can run without a key.
 
 The `shodan` source contributes subdomains. Shodan host enrichment through `-s` or `--shodan` is a separate action and is not a source result route.
 
 <details>
-<summary><strong>View all 58 sources by result type</strong></summary>
-
-#### Subdomain-only sources (21)
-
-| Source | Activity | API key |
-| --- | :---: | :---: |
-| [`arquivo`](https://arquivo.pt/) | P0 | No |
-| [`certspotter`](https://sslmate.com/certspotter/) | P0 | No |
-| [`commoncrawl`](https://commoncrawl.org/) | P0 | No |
-| [`crt-name`](https://crt.name/) | P0 | No |
-| [`crtsh`](https://crt.sh/) | P0 | No |
-| [`dnsdb`](https://docs.domaintools.com/api/dnsdb/) | P0 | Required |
-| [`dymo`](https://docs.tpeoficial.com/docs/dymo-api/private/data-verifier) | P0 | Required |
-| [`fullhunt`](https://fullhunt.io/) | P0 | Required |
-| [`hunterhow`](https://hunter.how/) | P0 | Required |
-| [`leakix`](https://leakix.net/) | P0 | Required |
-| [`netlas`](https://netlas.io/) | P0 | Required |
-| [`projectdiscovery`](https://chaos.projectdiscovery.io/) | P0 | Required |
-| [`shodan`](https://www.shodan.io/) | P1 | Required |
-| [`shodanct`](https://ctl.shodan.io/) | P0 | No |
-| [`sourcegraph`](https://sourcegraph.com/search) | P0 | No |
-| [`subdomaincenter`](https://www.subdomain.center/) | P0 | No |
-| [`subdomainfinderc99`](https://subdomainfinder.c99.nl/) | P1 | No |
-| [`thc`](https://ip.thc.org/) | P0 | No |
-| [`virustotal`](https://www.virustotal.com/) | P0 | Required |
-| [`waybackarchive`](https://web.archive.org/) | P0 | No |
-| [`whoisxml`](https://subdomains.whoisxmlapi.com/) | P0 | Required |
-
-#### Sources that return other results (37)
+<summary><strong>View all 58 discovery sources</strong></summary>
 
 | Source | Returns | Activity | API key |
 | --- | --- | :---: | :---: |
 | [`apis-guru`](https://apis.guru/) | subdomains, emails, urls | P0 | No |
+| [`arquivo`](https://arquivo.pt/) | subdomains only | P0 | No |
 | [`baidu`](https://www.baidu.com/) | subdomains, emails | P0 | No |
 | [`bevigil`](https://bevigil.com/osint-api) | subdomains, urls | P0 | Required |
 | [`brave`](https://brave.com/search/api/) | subdomains, emails | P0 | Required |
 | [`bufferoverun`](https://tls.bufferover.run/) | subdomains, ips | P0 | Required |
 | [`builtwith`](https://builtwith.com/) | subdomains, urls | P0 | Required |
 | [`censys`](https://search.censys.io/) | subdomains, emails | P0 | Required |
+| [`certspotter`](https://sslmate.com/certspotter/) | subdomains only | P0 | No |
+| [`commoncrawl`](https://commoncrawl.org/) | subdomains only | P0 | No |
 | [`criminalip`](https://www.criminalip.io/) | subdomains, ips, asns | P2 | Required |
+| [`crt-name`](https://crt.name/) | subdomains only | P0 | No |
+| [`crtsh`](https://crt.sh/) | subdomains only | P0 | No |
 | [`dehashed`](https://dehashed.com/) | emails, ips | P0 | Required |
+| [`dnsdb`](https://docs.domaintools.com/api/dnsdb/) | subdomains only | P0 | Required |
 | [`dnsdumpster`](https://dnsdumpster.com/) | subdomains, ips | P0 | Required |
 | [`duckduckgo`](https://duckduckgo.com/) | subdomains, emails | P0 | No |
+| [`dymo`](https://docs.tpeoficial.com/docs/dymo-api/private/data-verifier) | subdomains only | P0 | Required |
 | [`fofa`](https://en.fofa.info/) | subdomains, ips | P0 | Required |
+| [`fullhunt`](https://fullhunt.io/) | subdomains only | P0 | Required |
 | [`github-code`](https://github.com/) | subdomains, emails | P0 | Required |
 | [`gitlab`](https://gitlab.com/) | subdomains, emails, urls | P0 | No |
 | [`hackertarget`](https://hackertarget.com/) | subdomains, ips | P0 | Optional |
-| [`haveibeenpwned`](https://haveibeenpwned.com/) | breaches | P0 | No |
+| [`haveibeenpwned`](https://haveibeenpwned.com/) | breaches only | P0 | No |
 | [`hibpverified`](https://haveibeenpwned.com/API/v3#BreachedDomain) | emails, breaches | P0 | Required |
 | [`hudsonrock`](https://www.hudsonrock.com/) | subdomains, emails, ips | P0 | No |
 | [`hunter`](https://hunter.io/) | subdomains, emails | P0 | Required |
+| [`hunterhow`](https://hunter.how/) | subdomains only | P0 | Required |
 | [`intelx`](https://intelx.io/) | subdomains, emails, urls | P0 | Required |
+| [`leakix`](https://leakix.net/) | subdomains only | P0 | Required |
 | [`leaklookup`](https://leak-lookup.com/) | emails, breaches | P0 | Required |
 | [`mojeek`](https://www.mojeek.com/services/search/web-search-api/) | subdomains, emails | P0 | Optional |
+| [`netlas`](https://netlas.io/) | subdomains only | P0 | Required |
 | [`onyphe`](https://www.onyphe.io/) | subdomains, ips, asns | P0 | Required |
 | [`otx`](https://otx.alienvault.com/) | subdomains, ips | P0 | No |
 | [`pentesttools`](https://pentest-tools.com/) | subdomains, ips | P1 | Required |
+| [`projectdiscovery`](https://chaos.projectdiscovery.io/) | subdomains only | P0 | Required |
 | [`rapiddns`](https://rapiddns.io/) | subdomains, ips | P0 | No |
-| [`robtex`](https://www.robtex.com/) | ips | P0 | No |
+| [`robtex`](https://www.robtex.com/) | ips only | P0 | No |
 | [`rocketreach`](https://rocketreach.co/) | emails, urls | P0 | Required |
 | [`securityscorecard`](https://securityscorecard.com/) | subdomains, ips | P0 | Required |
 | [`securityTrails`](https://securitytrails.com/) | subdomains, ips | P0 | Required |
 | [`sherlockeye`](https://sherlockeye.io/) | subdomains, emails, ips | P0 | Required |
+| [`shodan`](https://www.shodan.io/) | subdomains only | P1 | Required |
+| [`shodanct`](https://ctl.shodan.io/) | subdomains only | P0 | No |
 | [`shodanInternetDB`](https://internetdb.shodan.io/) | subdomains, ips | P1 | No |
+| [`sourcegraph`](https://sourcegraph.com/search) | subdomains only | P0 | No |
+| [`subdomaincenter`](https://www.subdomain.center/) | subdomains only | P0 | No |
+| [`subdomainfinderc99`](https://subdomainfinder.c99.nl/) | subdomains only | P1 | No |
+| [`thc`](https://ip.thc.org/) | subdomains only | P0 | No |
 | [`tomba`](https://tomba.io/) | subdomains, emails | P0 | Required |
 | [`urlscan`](https://urlscan.io/) | subdomains, ips, asns, urls | P0 | No |
+| [`virustotal`](https://www.virustotal.com/) | subdomains only | P0 | Required |
+| [`waybackarchive`](https://web.archive.org/) | subdomains only | P0 | No |
+| [`whoisxml`](https://subdomains.whoisxmlapi.com/) | subdomains only | P0 | Required |
 | [`windvane`](https://windvane.lichoin.com/) | subdomains, emails, ips | P0 | Optional |
 | [`yahoo`](https://www.yahoo.com/) | subdomains, emails | P0 | No |
 | [`zoomeye`](https://www.zoomeye.ai/) | subdomains, emails, ips, asns, urls | P0 | Required |
@@ -255,9 +248,16 @@ Treat collected OSINT as potentially sensitive. Keep report files, screenshots, 
 
 JSONL is the primary format for automation and one-run interchange. The first line describes the run. Each remaining line is one sorted, deduplicated finding with its source and action provenance.
 
+This example contains six findings from two sources. The `counts` object summarizes the result lines that follow it.
+
 ```jsonl
-{"action_executions":[],"artifacts":[],"completed_at":"2026-08-07T12:01:00Z","counts":{"hostname":1},"evidence_status":"complete","result_count":1,"run_id":"123e4567-e89b-12d3-a456-426614174000","source_executions":[],"started_at":"2026-08-07T12:00:00Z","target":"example.com","type":"summary"}
-{"sources":[],"type":"hostname","value":"api.example.com"}
+{"action_executions":[],"artifacts":[],"completed_at":"2026-08-17T12:01:00Z","counts":{"asn":1,"breach":1,"email":1,"hostname":1,"ip":1,"url":1},"evidence_status":"complete","result_count":6,"run_id":"123e4567-e89b-12d3-a456-426614174000","source_executions":[{"duration_ms":127.4,"error_type":null,"result_count":1,"source":"haveibeenpwned","status":"completed","stop_reason":null},{"duration_ms":482.3,"error_type":null,"result_count":5,"source":"zoomeye","status":"completed","stop_reason":null}],"started_at":"2026-08-17T12:00:00Z","target":"example.com","type":"summary"}
+{"sources":["zoomeye"],"type":"asn","value":"AS64500"}
+{"sources":["haveibeenpwned"],"type":"breach","value":"Example breach"}
+{"sources":["zoomeye"],"type":"email","value":"security@example.com"}
+{"sources":["zoomeye"],"type":"hostname","value":"api.example.com"}
+{"sources":["zoomeye"],"type":"ip","value":"192.0.2.10"}
+{"sources":["zoomeye"],"type":"url","value":"https://api.example.com/login"}
 ```
 
 Extract common result types with `jq`:
