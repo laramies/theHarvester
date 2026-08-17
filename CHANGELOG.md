@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added bounded, keyless `crt.name` composite-index discovery as a separate source alongside `crtsh`, retaining only descendant-hostname candidates from its streamed response.
 - Added bounded, keyless APIs.guru discovery through exact target-domain directory lookups, retaining only target-scoped hostnames, contact emails, and URLs from preferred OpenAPI specifications.
 - Added bounded virtual host discovery over harvested or operator-supplied literal-IP endpoints, with aligned HTTP `Host` and TLS SNI, synthetic unknown-host controls, hard request and runtime limits, and structured observations on canonical hostname results in JSONL, SQLite, the API, and HarvestView.
-- Added HarvestView, an authenticated local browser workspace backed by a durable single-worker `/api/v1` run lifecycle with cancellation, deadlines, JSONL-only file interchange, retained partial evidence, and real-browser regression coverage.
+- Added HarvestView, an authenticated local browser workspace backed by a durable single-worker `/api/v1` run lifecycle with cancellation, deadlines, JSONL and portable SQLite interchange, retained partial evidence, and real-browser regression coverage.
 - Added a pinned, non-root Docker Compose deployment for HarvestView and the REST API with localhost-only publishing, file-secret authentication, private durable run storage, and an authenticated API health check.
 - Added bounded recursive DNS discovery with three-vantage consensus, closest-encloser wildcard controls, exact-address PTR evidence, and hard query, depth, runtime, and zero-yield limits.
 - Added an authenticated HIBP verified-domain source for CLI and `/api/v1` runs that retains normalized account emails and stable breach names without retaining the raw account mapping.
@@ -70,8 +70,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replaced deprecated hostname resolution with `getaddrinfo`-based handling ([6a847435](https://github.com/laramies/theHarvester/commit/6a847435)).
 - Reworked routine CI to use read-only permissions, non-mutating Ruff checks, offline tests, and explicit opt-in live provider checks ([72e5820f](https://github.com/laramies/theHarvester/commit/72e5820f)).
 - Grouped GitHub Actions, Python, and Docker Dependabot updates with a seven-day cooldown, and added a seven-day `uv` dependency freshness window ([7a947b66](https://github.com/laramies/theHarvester/commit/7a947b66), [52a79cdb](https://github.com/laramies/theHarvester/commit/52a79cdb)).
-- Updated runtime dependencies: `aiohttp` to `3.14.1`, `beautifulsoup4` to `4.15.0`, `certifi` to `2026.6.17`, `fastapi` to `0.138.1`, and `uvicorn` to `0.49.0`.
-- Updated development dependencies: `pytest` to `9.1.1`, `ruff` to `0.15.20`, and `ty` to `0.0.54`.
+- Updated runtime dependencies: `aiohttp` to `3.14.3`, `beautifulsoup4` to `4.15.0`, `certifi` to `2026.6.17`, `fastapi` to `0.138.1`, and `uvicorn` to `0.52.1`.
+- Updated development dependencies: `mypy` to `2.1.0`, `pytest` to `9.1.1`, `pytest-asyncio` to `1.4.0`, `pytest-playwright` to `0.8.0`, and `ruff` to `0.16.1`.
 - Updated CI and container maintenance pins, including `actions/checkout`, `astral-sh/setup-uv`, `astral-sh/ruff-action`, `github/codeql-action`, StepSecurity Harden-Runner, Docker actions, and the Python base image.
 - Expanded offline regression coverage for discovery providers, configuration contracts, logging, output, documentation, workflow policy, and scope boundaries.
 
