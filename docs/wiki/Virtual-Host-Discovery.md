@@ -4,6 +4,37 @@ A web server can host several sites on one IP address. The site selected by the 
 
 This is a P2 direct action. It sends requests to harvested IP addresses or to one literal-IP endpoint supplied by the operator. Use it only when the target, addresses, ports, and technique are covered by the assessment authorization.
 
+## Run a bounded sweep
+
+Network activity: provider-facing discovery followed by target-facing requests to harvested IP endpoints.
+
+Harvest hostnames and IP addresses, then run the sweep with its bounded defaults:
+
+```bash
+AUTHORIZED_DOMAIN='replace-with-a-domain-you-control'
+
+uv run theHarvester \
+  -d "$AUTHORIZED_DOMAIN" \
+  -b rapiddns \
+  --vhost \
+  -f report
+```
+
+`rapiddns` is used here because it can return both hostnames and literal IP addresses. If the selected sources return only hostnames, enable a DNS action that contributes IP evidence or supply `--vhost-endpoint`.
+
+Repeat `--vhost-candidate` to add names that are already authorized but were not returned by the selected sources:
+
+```bash
+uv run theHarvester \
+  -d "$AUTHORIZED_DOMAIN" \
+  -b rapiddns \
+  --vhost \
+  --vhost-candidate "admin.${AUTHORIZED_DOMAIN}" \
+  --vhost-candidate "preview.${AUTHORIZED_DOMAIN}"
+```
+
+Virtual host discovery uses direct transport and rejects `--proxies`. HTTPS certificate verification is enabled by default. `--vhost-insecure` disables verification and records `tls_verified: false` in the evidence. Use it only when the engagement requires unverified TLS and the endpoint is authorized.
+
 ## What gets probed
 
 `--vhost` uses the run's collected evidence:
@@ -20,6 +51,8 @@ For a normal harvested run, `--vhost` is the only virtual-host option you need. 
 The shared request cap may stop the sweep before it reaches every endpoint. When that happens, the `vhost` action is `partial` with the stop reason `request-limit`; it does not claim complete coverage.
 
 An explicit endpoint replaces the harvested endpoint set:
+
+Network activity: target-facing requests to the literal IP endpoint.
 
 ```bash
 AUTHORIZED_DOMAIN='replace-with-a-domain-you-control'
@@ -42,28 +75,13 @@ For each endpoint, theHarvester makes a literal-IP context request and at least 
 
 HTTPS candidate and control requests send the same hostname in TLS SNI and the HTTP `Host` header. HTTP requests send the hostname only in `Host`. Redirects are recorded as evidence but are not followed.
 
-```mermaid
-flowchart TD
-    A[Collect hostnames and literal IPs] --> B[Keep candidates inside the exact target scope]
-    A --> C[Build HTTPS endpoints, then HTTP endpoints]
-    B --> D[Select the next endpoint and candidates that fit the shared cap]
-    C --> D
-    D --> E[Request the literal-IP context]
-    D --> F[Request three unknown controls for each candidate shape]
-    D --> G[Request the candidate with aligned SNI and Host]
-    E --> H{Are both baselines usable and controls stable?}
-    F --> H
-    G --> H
-    H -->|No| I[Indeterminate]
-    H -->|Yes| J{Does the candidate match either baseline?}
-    J -->|Yes| K[Default]
-    J -->|No, status or redirect differs| L[Distinct]
-    J -->|Only the body differs| M[Repeat the candidate request]
-    M --> N{Does the body difference repeat?}
-    N -->|Yes| L
-    N -->|No| I
-    L --> O[Store structured virtual host evidence]
-```
+The sweep first turns harvested evidence and any operator override into one bounded set of comparable requests:
+
+![Bounded virtual-host sweep](https://raw.githubusercontent.com/laramies/theHarvester/dev/docs/images/vhost-sweep-overview.svg)
+
+The response set then enters a separate classifier. A status, redirect, or request-phase difference can be accepted immediately. A body-only difference must repeat before it becomes a finding:
+
+![Virtual-host response classifier](https://raw.githubusercontent.com/laramies/theHarvester/dev/docs/images/vhost-classifier.svg)
 
 Before comparison, the classifier replaces an exact reflection of the current authority in the response body or `Location` header. A generic error page that merely repeats the requested hostname should not become a discovery.
 
@@ -123,36 +141,7 @@ Its `stop_reason` explains the outcome in more detail:
 
 Cancellation requested by the operator is different from a runtime limit. It propagates through the worker lifecycle and closes active connections.
 
-## Basic CLI use
-
-Harvest hostnames and IP addresses, then run the bounded sweep:
-
-```bash
-AUTHORIZED_DOMAIN='replace-with-a-domain-you-control'
-
-uv run theHarvester \
-  -d "$AUTHORIZED_DOMAIN" \
-  -b rapiddns \
-  --vhost \
-  -f report
-```
-
-`rapiddns` is used here because it can return both hostnames and literal IP addresses. If the selected sources return only hostnames, enable a DNS action that contributes IP evidence or supply `--vhost-endpoint`.
-
-Repeat `--vhost-candidate` to add names that are already authorized but were not returned by the selected sources:
-
-```bash
-uv run theHarvester \
-  -d "$AUTHORIZED_DOMAIN" \
-  -b rapiddns \
-  --vhost \
-  --vhost-candidate "admin.${AUTHORIZED_DOMAIN}" \
-  --vhost-candidate "preview.${AUTHORIZED_DOMAIN}"
-```
-
-Virtual host discovery uses direct transport. It rejects `--proxies`. HTTPS certificate verification is enabled by default. `--vhost-insecure` disables verification and records `tls_verified: false` in the evidence. Use that option only when the engagement requires it and the endpoint is authorized.
-
-### Reading terminal output
+## Read terminal output
 
 The summary reports confirmed endpoint observations and coverage:
 
@@ -169,6 +158,8 @@ A candidate-endpoint is one hostname tested against one IP endpoint. This pair c
 HarvestView exposes a virtual host discovery checkbox plus optional endpoint and candidate inputs. Advanced safety controls contain the request, runtime, timeout, concurrency, and certificate-verification overrides. Leaving the endpoint blank uses harvested IPs.
 
 The same run can be submitted to `POST /api/v1/runs`:
+
+Network activity: the API request is local, but the queued run performs provider-facing discovery and target-facing virtual host requests.
 
 ```json
 {
@@ -187,6 +178,9 @@ Supplying `vhost_endpoint` or `vhost_candidates` enables the action even when `v
 JSONL is unversioned. After the summary line, it stores one canonical finding for each confirmed hostname. The normal `value` field contains the hostname, `actions` records `vhost` provenance, and `observations` is a native array rather than JSON hidden inside a string.
 
 If a hostname is distinct on two endpoints, both endpoint records stay under that one hostname finding:
+
+<details>
+<summary>Full JSONL finding example</summary>
 
 ```json
 {
@@ -254,6 +248,8 @@ If a hostname is distinct on two endpoints, both endpoint records stay under tha
   ]
 }
 ```
+
+</details>
 
 The `context_*` fields contain the literal-IP response, while `control_*` contains the stable unknown-host response. A distinct candidate must differ from both. `confirmation_body_sha256` is present only when a repeated response confirmed a body-only difference. These fields let a reviewer verify the recorded `distinct_signals` without retaining every synthetic control request. The source list is empty because virtual host discovery is an action, not a passive source.
 

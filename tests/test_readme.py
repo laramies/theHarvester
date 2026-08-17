@@ -6,9 +6,10 @@ from pathlib import Path
 
 import yaml
 
-from theHarvester.lib.source_catalog import SOURCE_SPECS
+from theHarvester.lib.source_catalog import ACTION_ACTIVITIES, RESULT_CAPABILITIES, SOURCE_SPECS
 
 OPTIONAL_API_KEY_SOURCES = {'hackertarget', 'mojeek', 'windvane'}
+SOURCE_ROUTE_ORDER = ('subdomains', 'emails', 'ips', 'asns', 'urls', 'people', 'breaches')
 API_KEY_SOURCE_ALIASES = {
     'github': {'github-code'},
     'pentestTools': {'pentesttools'},
@@ -98,7 +99,7 @@ def _declared_source_contracts() -> dict[str, set[str]]:
 
 
 def _source_matrix(readme: str) -> str:
-    return readme.split('<summary><strong>View the source and result matrix</strong></summary>', 1)[1].split('</details>', 1)[0]
+    return readme.split('<summary><strong>View all 58 sources by result type</strong></summary>', 1)[1].split('</details>', 1)[0]
 
 
 def _documented_source_rows(readme: str) -> dict[str, list[str]]:
@@ -108,7 +109,8 @@ def _documented_source_rows(readme: str) -> dict[str, list[str]]:
             cells = [cell.strip() for cell in line.strip('|').split('|')]
             source = re.fullmatch(r'\[`([^`]+)`\]\((https://[^)]+)\)', cells[0])
             assert source is not None
-            rows[source.group(1)] = cells[1:]
+            values = cells[1:]
+            rows[source.group(1)] = ['subdomains', *values] if len(values) == 2 else values
     return rows
 
 
@@ -142,7 +144,9 @@ def test_readme_matches_declared_source_contracts() -> None:
     documented = _documented_source_contracts(readme)
     declared = _declared_source_contracts()
 
-    assert '| Source | Result routes | Activity | Credentials |' in readme
+    assert '| Source | Activity | API key |' in readme
+    assert '| Source | Returns | Activity | API key |' in readme
+    assert 'Credentials |' not in _source_matrix(readme)
     assert len(declared) == 58
     assert len(documented) == 58
     assert documented == declared
@@ -151,6 +155,31 @@ def test_readme_matches_declared_source_contracts() -> None:
     assert dict(source_links) == SOURCE_PROVIDER_LINKS
     assert _documented_source_activities(readme) == {source: spec.activity.value for source, spec in SOURCE_SPECS.items()}
     assert {'securitytrails', 'shodaninternetdb'}.isdisjoint(documented)
+
+
+def test_readme_source_matrix_is_grouped_and_ordered() -> None:
+    readme = Path('README.md').read_text()
+    matrix = _source_matrix(readme)
+    subdomain_section, other_section = matrix.split('#### Sources that return other results (37)', 1)
+
+    def names(section: str) -> list[str]:
+        return [match.group(1) for line in section.splitlines() if (match := re.match(r'^\| \[`([^`]+)`\]\(https://', line))]
+
+    subdomain_only = names(subdomain_section)
+    other_results = names(other_section)
+    declared_subdomain_only = {source for source, spec in SOURCE_SPECS.items() if spec.capabilities == frozenset({'subdomains'})}
+
+    assert subdomain_only == sorted(subdomain_only, key=str.casefold)
+    assert other_results == sorted(other_results, key=str.casefold)
+    assert len(subdomain_only) == 21
+    assert len(other_results) == 37
+    assert set(subdomain_only) == declared_subdomain_only
+    assert set(other_results) == set(SOURCE_SPECS) - declared_subdomain_only
+
+    route_rank = {route: index for index, route in enumerate(SOURCE_ROUTE_ORDER)}
+    for routes, *_ in _documented_source_rows(readme).values():
+        documented_order = [route.strip() for route in routes.split(',')]
+        assert documented_order == sorted(documented_order, key=route_rank.__getitem__)
 
 
 def test_readme_api_key_markers_match_configuration() -> None:
@@ -182,6 +211,16 @@ def test_wiki_navigation_and_readme_links_resolve() -> None:
     assert all(Path(target).is_file() for target in readme_wiki_links)
 
 
+def test_wiki_examples_use_copy_safe_operator_language() -> None:
+    quick_start = Path('docs/wiki/Quick-Start.md').read_text()
+    configuration = Path('docs/wiki/Configuration-and-API-Keys.md').read_text()
+
+    assert 'inert test data' not in quick_start
+    assert 'Passive providers still receive the target string.' in quick_start
+    assert '${EDITOR:-vi}' not in configuration
+    assert 'vi ~/.theHarvester/api-keys.yaml' in configuration
+
+
 def test_readme_architecture_diagrams_are_local_and_accessible() -> None:
     readme = Path('README.md').read_text()
     diagrams = (
@@ -189,23 +228,77 @@ def test_readme_architecture_diagrams_are_local_and_accessible() -> None:
             'theHarvester discovery routes and enrichment',
             Path('docs/images/run-evidence-architecture.svg'),
             'run-evidence-architecture',
-            ('subdomains · emails · IPs', 'Shodan host detail', 'RouteViews routes', 'vhost · screenshots · takeover'),
+            ('58 discovery adapters', 'CompletedResult evidence contract', 'Terminal · JSONL · SQLite · REST'),
         ),
         (
             'HarvestView run desk architecture',
             Path('docs/images/harvestview-architecture.svg'),
             'harvestview-architecture',
-            ('Authenticated REST API', 'queued → running → terminal', 'Isolated run worker', 'JSONL / SQLite export'),
+            ('Authenticated REST API', 'queued · running', 'Isolated run worker', 'JSONL · one run'),
         ),
     )
 
     for alt, svg, slug, expected_text in diagrams:
         svg_text = svg.read_text()
-        assert f'![{alt}]({svg})' in readme
+        assert f'[![{alt}]({svg})]({svg})' in readme
+        assert 'role="img"' in svg_text
+        assert f'<title id="{slug}-title">' in svg_text
+        assert f'<desc id="{slug}-desc">' in svg_text
+        assert 'viewBox="0 0 960 640"' in svg_text
+        assert '@media (prefers-color-scheme: light)' in svg_text
+        assert "font: 600 16px 'Geist'" in svg_text
+        assert all(text in svg_text for text in expected_text)
+
+    run_diagram = diagrams[0][1].read_text()
+    harvestview_diagram = diagrams[1][1].read_text()
+    assert all(capability in run_diagram for capability in RESULT_CAPABILITIES)
+    assert all(action in run_diagram for action in ACTION_ACTIVITIES)
+    assert f'{len(SOURCE_SPECS)} discovery adapters' in run_diagram
+    assert f'{len(ACTION_ACTIVITIES)} explicit actions' in harvestview_diagram
+
+
+def test_wiki_diagrams_are_local_accessible_and_used_deliberately() -> None:
+    raw_root = 'https://raw.githubusercontent.com/laramies/theHarvester/dev/'
+    diagrams = (
+        (
+            Path('docs/wiki/Virtual-Host-Discovery.md'),
+            'Bounded virtual-host sweep',
+            Path('docs/images/vhost-sweep-overview.svg'),
+            'vhost-sweep-overview',
+            ('exact target scope', 'Literal-IP endpoint pool', 'shared request cap', '3 shape-matched controls'),
+        ),
+        (
+            Path('docs/wiki/Virtual-Host-Discovery.md'),
+            'Virtual-host response classifier',
+            Path('docs/images/vhost-classifier.svg'),
+            'vhost-classifier',
+            ('All responses usable', 'Candidate matches', 'Repeat candidate request', 'Retain hostname'),
+        ),
+        (
+            Path('docs/wiki/Operator-Workflows.md'),
+            'theHarvester discovery routes and enrichment',
+            Path('docs/images/run-evidence-architecture.svg'),
+            'run-evidence-architecture',
+            (),
+        ),
+        (
+            Path('docs/wiki/Rest-API.md'),
+            'HarvestView run desk architecture',
+            Path('docs/images/harvestview-architecture.svg'),
+            'harvestview-architecture',
+            (),
+        ),
+    )
+
+    for page, alt, svg, slug, expected_text in diagrams:
+        svg_text = svg.read_text()
+        assert f'![{alt}]({raw_root}{svg})' in page.read_text()
         assert 'role="img"' in svg_text
         assert f'<title id="{slug}-title">' in svg_text
         assert f'<desc id="{slug}-desc">' in svg_text
         assert all(text in svg_text for text in expected_text)
+
+    assert '```mermaid' not in Path('docs/wiki/Virtual-Host-Discovery.md').read_text()
 
 
 def test_virtual_host_wiki_examples_match_the_structured_result_contract() -> None:

@@ -7,7 +7,7 @@
 
 theHarvester gathers open-source intelligence about a domain or organization from search engines, certificate transparency logs, DNS datasets, code repositories, threat-intelligence platforms, and other public sources.
 
-It is built for the early reconnaissance stage of authorized security assessments. Use it only on targets you own or have explicit permission to test.
+Use theHarvester during the early reconnaissance stage of an authorized security assessment. Run it only against targets you own or have explicit permission to test.
 
 ## What it does
 
@@ -25,11 +25,11 @@ Providers control their own availability, quotas, and response formats, so indiv
 
 ### Discovery routes and enrichment
 
-![theHarvester discovery routes and enrichment](docs/images/run-evidence-architecture.svg)
+[![theHarvester discovery routes and enrichment](docs/images/run-evidence-architecture.svg)](docs/images/run-evidence-architecture.svg)
 
 ### HarvestView run desk
 
-![HarvestView run desk architecture](docs/images/harvestview-architecture.svg)
+[![HarvestView run desk architecture](docs/images/harvestview-architecture.svg)](docs/images/harvestview-architecture.svg)
 
 ## Quick start
 
@@ -76,7 +76,7 @@ uv run theHarvester -d example.com -b emails,ips,urls --no-hosts -f non-host-res
 
 `--no-hosts` skips hostname-only sources and omits hostname results while keeping other result types. It cannot be combined with actions that depend on hostnames. HarvestView and the REST API expose the same option as `no_hosts`.
 
-Save a durable JSONL report:
+Save results as JSONL:
 
 ```bash
 uv run theHarvester -d example.com -b crtsh,certspotter -f report
@@ -114,13 +114,13 @@ export THEHARVESTER_API_KEY='replace-with-a-long-random-value'
 uv run harvestview
 ```
 
-Open [HarvestView](http://127.0.0.1:5000/) to submit and inspect finite runs. The browser receives a derived HttpOnly session cookie and never stores the API key. See the [installation guide](docs/wiki/Installation.md) for local assets, screenshots, and isolated deployments.
+Open [HarvestView](http://127.0.0.1:5000/) to start runs and inspect their results. The browser receives a derived HttpOnly session cookie and never stores the API key. See the [installation guide](docs/wiki/Installation.md) for local assets, screenshots, and isolated deployments.
 
 Open [Swagger](http://127.0.0.1:5000/docs) or [ReDoc](http://127.0.0.1:5000/redoc) for the automation contract.
 
 ### Docker Compose
 
-The Compose service runs as an unprivileged user, stores runs in a named volume, reads the operator key from a file secret, and publishes only to host loopback:
+The Compose service runs as an unprivileged user and binds only to host loopback. It stores runs in a named volume and reads the operator key from a file secret:
 
 ```bash
 install -d -m 0700 .secrets
@@ -149,39 +149,61 @@ docker compose down
 
 HarvestView can start screenshot and DNS brute-force runs from a hostname result. Each action creates its own run and leaves the original evidence unchanged.
 
-API clients send `THEHARVESTER_API_KEY` in the `X-API-Key` header. Provider credentials stay in server-side configuration. Keep the service on localhost unless you add TLS and network access controls. The [REST API guide](docs/wiki/Rest-API.md) documents requests, imports, exports, and authentication.
+API clients send `THEHARVESTER_API_KEY` in the `X-API-Key` header. Provider API settings stay on the server. Keep the service on localhost unless you add TLS and network access controls. The [REST API guide](docs/wiki/Rest-API.md) documents requests, imports, exports, and authentication.
 
 ## Discovery sources
 
-Select sources by name or by any result route listed below. `-b all` runs the P0 sources. P1 and P2 sources require explicit selection. Credentials marked optional can provide additional access but are not required.
+Select sources by name or by a result route listed below. `-b all` runs the P0 sources. P1 and P2 sources require explicit selection.
+
+Result types in this table always appear in this order: `subdomains`, `emails`, `ips`, `asns`, `urls`, `people`, `breaches`. The first table contains sources that return only subdomains. The `API key` column refers to provider settings in `api-keys.yaml`; some providers require more than one value. `Optional` means the source can run without a key.
 
 The `shodan` source contributes subdomains. Shodan host enrichment through `-s` or `--shodan` is a separate action and is not a source result route.
 
 <details>
-<summary><strong>View the source and result matrix</strong></summary>
+<summary><strong>View all 58 sources by result type</strong></summary>
 
-| Source | Result routes | Activity | Credentials |
+#### Subdomain-only sources (21)
+
+| Source | Activity | API key |
+| --- | :---: | :---: |
+| [`arquivo`](https://arquivo.pt/) | P0 | No |
+| [`certspotter`](https://sslmate.com/certspotter/) | P0 | No |
+| [`commoncrawl`](https://commoncrawl.org/) | P0 | No |
+| [`crt-name`](https://crt.name/) | P0 | No |
+| [`crtsh`](https://crt.sh/) | P0 | No |
+| [`dnsdb`](https://docs.domaintools.com/api/dnsdb/) | P0 | Required |
+| [`dymo`](https://docs.tpeoficial.com/docs/dymo-api/private/data-verifier) | P0 | Required |
+| [`fullhunt`](https://fullhunt.io/) | P0 | Required |
+| [`hunterhow`](https://hunter.how/) | P0 | Required |
+| [`leakix`](https://leakix.net/) | P0 | Required |
+| [`netlas`](https://netlas.io/) | P0 | Required |
+| [`projectdiscovery`](https://chaos.projectdiscovery.io/) | P0 | Required |
+| [`shodan`](https://www.shodan.io/) | P1 | Required |
+| [`shodanct`](https://ctl.shodan.io/) | P0 | No |
+| [`sourcegraph`](https://sourcegraph.com/search) | P0 | No |
+| [`subdomaincenter`](https://www.subdomain.center/) | P0 | No |
+| [`subdomainfinderc99`](https://subdomainfinder.c99.nl/) | P1 | No |
+| [`thc`](https://ip.thc.org/) | P0 | No |
+| [`virustotal`](https://www.virustotal.com/) | P0 | Required |
+| [`waybackarchive`](https://web.archive.org/) | P0 | No |
+| [`whoisxml`](https://subdomains.whoisxmlapi.com/) | P0 | Required |
+
+#### Sources that return other results (37)
+
+| Source | Returns | Activity | API key |
 | --- | --- | :---: | :---: |
 | [`apis-guru`](https://apis.guru/) | subdomains, emails, urls | P0 | No |
-| [`arquivo`](https://arquivo.pt/) | subdomains | P0 | No |
 | [`baidu`](https://www.baidu.com/) | subdomains, emails | P0 | No |
 | [`bevigil`](https://bevigil.com/osint-api) | subdomains, urls | P0 | Required |
+| [`brave`](https://brave.com/search/api/) | subdomains, emails | P0 | Required |
 | [`bufferoverun`](https://tls.bufferover.run/) | subdomains, ips | P0 | Required |
 | [`builtwith`](https://builtwith.com/) | subdomains, urls | P0 | Required |
-| [`brave`](https://brave.com/search/api/) | subdomains, emails | P0 | Required |
 | [`censys`](https://search.censys.io/) | subdomains, emails | P0 | Required |
-| [`certspotter`](https://sslmate.com/certspotter/) | subdomains | P0 | No |
-| [`commoncrawl`](https://commoncrawl.org/) | subdomains | P0 | No |
 | [`criminalip`](https://www.criminalip.io/) | subdomains, ips, asns | P2 | Required |
-| [`crt-name`](https://crt.name/) | subdomains | P0 | No |
-| [`crtsh`](https://crt.sh/) | subdomains | P0 | No |
 | [`dehashed`](https://dehashed.com/) | emails, ips | P0 | Required |
-| [`dnsdb`](https://docs.domaintools.com/api/dnsdb/) | subdomains | P0 | Required |
 | [`dnsdumpster`](https://dnsdumpster.com/) | subdomains, ips | P0 | Required |
 | [`duckduckgo`](https://duckduckgo.com/) | subdomains, emails | P0 | No |
-| [`dymo`](https://docs.tpeoficial.com/docs/dymo-api/private/data-verifier) | subdomains | P0 | Required |
 | [`fofa`](https://en.fofa.info/) | subdomains, ips | P0 | Required |
-| [`fullhunt`](https://fullhunt.io/) | subdomains | P0 | Required |
 | [`github-code`](https://github.com/) | subdomains, emails | P0 | Required |
 | [`gitlab`](https://gitlab.com/) | subdomains, emails, urls | P0 | No |
 | [`hackertarget`](https://hackertarget.com/) | subdomains, ips | P0 | Optional |
@@ -189,47 +211,34 @@ The `shodan` source contributes subdomains. Shodan host enrichment through `-s` 
 | [`hibpverified`](https://haveibeenpwned.com/API/v3#BreachedDomain) | emails, breaches | P0 | Required |
 | [`hudsonrock`](https://www.hudsonrock.com/) | subdomains, emails, ips | P0 | No |
 | [`hunter`](https://hunter.io/) | subdomains, emails | P0 | Required |
-| [`hunterhow`](https://hunter.how/) | subdomains | P0 | Required |
 | [`intelx`](https://intelx.io/) | subdomains, emails, urls | P0 | Required |
-| [`leakix`](https://leakix.net/) | subdomains | P0 | Required |
 | [`leaklookup`](https://leak-lookup.com/) | emails, breaches | P0 | Required |
 | [`mojeek`](https://www.mojeek.com/services/search/web-search-api/) | subdomains, emails | P0 | Optional |
-| [`netlas`](https://netlas.io/) | subdomains | P0 | Required |
 | [`onyphe`](https://www.onyphe.io/) | subdomains, ips, asns | P0 | Required |
 | [`otx`](https://otx.alienvault.com/) | subdomains, ips | P0 | No |
 | [`pentesttools`](https://pentest-tools.com/) | subdomains, ips | P1 | Required |
-| [`projectdiscovery`](https://chaos.projectdiscovery.io/) | subdomains | P0 | Required |
 | [`rapiddns`](https://rapiddns.io/) | subdomains, ips | P0 | No |
 | [`robtex`](https://www.robtex.com/) | ips | P0 | No |
 | [`rocketreach`](https://rocketreach.co/) | emails, urls | P0 | Required |
 | [`securityscorecard`](https://securityscorecard.com/) | subdomains, ips | P0 | Required |
 | [`securityTrails`](https://securitytrails.com/) | subdomains, ips | P0 | Required |
 | [`sherlockeye`](https://sherlockeye.io/) | subdomains, emails, ips | P0 | Required |
-| [`shodan`](https://www.shodan.io/) | subdomains | P1 | Required |
 | [`shodanInternetDB`](https://internetdb.shodan.io/) | subdomains, ips | P1 | No |
-| [`shodanct`](https://ctl.shodan.io/) | subdomains | P0 | No |
-| [`sourcegraph`](https://sourcegraph.com/search) | subdomains | P0 | No |
-| [`subdomaincenter`](https://www.subdomain.center/) | subdomains | P0 | No |
-| [`subdomainfinderc99`](https://subdomainfinder.c99.nl/) | subdomains | P1 | No |
-| [`thc`](https://ip.thc.org/) | subdomains | P0 | No |
 | [`tomba`](https://tomba.io/) | subdomains, emails | P0 | Required |
 | [`urlscan`](https://urlscan.io/) | subdomains, ips, asns, urls | P0 | No |
-| [`virustotal`](https://www.virustotal.com/) | subdomains | P0 | Required |
-| [`waybackarchive`](https://web.archive.org/) | subdomains | P0 | No |
-| [`whoisxml`](https://subdomains.whoisxmlapi.com/) | subdomains | P0 | Required |
 | [`windvane`](https://windvane.lichoin.com/) | subdomains, emails, ips | P0 | Optional |
 | [`yahoo`](https://www.yahoo.com/) | subdomains, emails | P0 | No |
 | [`zoomeye`](https://www.zoomeye.ai/) | subdomains, emails, ips, asns, urls | P0 | Required |
 
 </details>
 
-Each source name links to its provider's site or documentation, where current plans, quotas, and terms are published. See [Configuration and API keys](docs/wiki/Configuration-and-API-Keys.md) for credential names and setup. Contributors can add a provider through the [module guide](docs/wiki/How-to-add-a-new-module.md); the source catalog remains the executable inventory.
+Each source name links to its provider's site or documentation for current plans, quotas, and terms. See [Configuration and API keys](docs/wiki/Configuration-and-API-Keys.md) for the required fields and setup instructions. Contributors can add a provider through the [module guide](docs/wiki/How-to-add-a-new-module.md). The CLI and API read their source inventory from the source catalog.
 
 ## Configuration
 
 On first use, theHarvester creates default configuration files under `~/.theHarvester/`. It also reads system configuration from `/etc/theHarvester/` and `/usr/local/etc/theHarvester/`.
 
-- `api-keys.yaml` stores provider credentials.
+- `api-keys.yaml` stores provider API keys and related values such as organization IDs.
 - `proxies.yaml` configures HTTP and SOCKS5 proxies used with `-p`.
 - The `shodan` source and `-s` / `--shodan` enrichment use Shodan's Host REST API. When `-p` is enabled, both send those requests through `proxies.yaml`.
 - `routeviews.key` is optional and enables authenticated RouteViews access for PeeringDB-verified users.
@@ -282,7 +291,7 @@ The `subdomains` capability produces `hostname` records because a result can be 
 
 ### SQLite, JSON, and XML
 
-CLI and API runs use the same SQLite evidence model. JSONL moves one run at a time. The API can import or export completed runs in bulk as a portable SQLite database while leaving queue and worker state behind. Screenshot files are managed separately from their metadata.
+CLI and API runs use the same SQLite evidence model. JSONL moves one run at a time. SQLite import and export handle completed runs in bulk but exclude queue and worker state. Screenshot files remain separate from their metadata.
 
 JSON and XML are compatibility reports grouped by result type. They do not include the full provenance, lifecycle outcomes, or structured action evidence available in JSONL, SQLite, the API, and HarvestView.
 

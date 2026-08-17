@@ -13,7 +13,7 @@ If no file exists, theHarvester creates the default template under `~/.theHarves
 Run theHarvester once to create the user configuration, then edit:
 
 ```bash
-${EDITOR:-vi} ~/.theHarvester/api-keys.yaml
+vi ~/.theHarvester/api-keys.yaml
 chmod 600 ~/.theHarvester/api-keys.yaml
 ```
 
@@ -43,11 +43,13 @@ Do not commit populated configuration files. Prefer provider credentials scoped 
 
 The [README source matrix](https://github.com/laramies/theHarvester/blob/dev/README.md#discovery-sources) lists each source's result routes, activity class, and credential requirement. Every source name links to its provider's site or documentation for current plans, quotas, and terms. The executable source catalog is the authoritative inventory.
 
-`censys.token` is a Censys Platform Personal Access Token. Set `organization_id` when searches should use an entitled organization. This source uses the Global Search API, which is unavailable to Free accounts because they are limited to asset lookups. Search API ID and secret fields are not accepted.
+### Provider notes
 
-`hibpverified` queries [HIBP's authenticated verified-domain endpoint](https://haveibeenpwned.com/API/v3#BreachedDomain). It is selected by its name, the `breaches` capability, and `all`. Without a configured HIBP API key it is skipped like other unavailable keyed sources. Live use requires a user-owned paid HIBP API key and a user-owned domain verified in that account. The keyless `haveibeenpwned` source queries only the public breach catalogue.
-
-`routeviews.key` is optional. RouteViews provides authenticated API keys to verified PeeringDB users. `--routeviews` uses the authenticated endpoint and documented 10-request-per-second allowance when the key is configured; otherwise it uses guest access at one request per second. If RouteViews rejects a configured key, the action fails without retrying as a guest; remove the key to select guest access. RouteViews does not document this as a paid subscription.
+| Provider | Configuration and behavior |
+| --- | --- |
+| Censys | `censys.token` is a Censys Platform Personal Access Token. Set `organization_id` to search through an entitled organization. The source uses the Global Search API, which Free accounts cannot access because they are limited to asset lookups. Search API ID and secret fields are not accepted. |
+| HIBP verified domains | `hibpverified` queries [HIBP's authenticated verified-domain endpoint](https://haveibeenpwned.com/API/v3#BreachedDomain). Select it by name, through the `breaches` capability, or with `all`. Without a configured key, it is skipped like other unavailable keyed sources. Live use requires a user-owned paid HIBP API key and a domain verified in that account. The keyless `haveibeenpwned` source queries only the public breach catalogue. |
+| RouteViews | `routeviews.key` is optional. A configured key selects the authenticated endpoint for PeeringDB-verified users and its documented 10-request-per-second allowance. Without a key, the action uses guest access at one request per second. If RouteViews rejects a configured key, the action fails instead of retrying as a guest. Remove the key to select guest access. RouteViews does not document this as a paid subscription. |
 
 ## Proxies
 
@@ -61,6 +63,8 @@ socks5:
 ```
 
 Enable configured proxies with `-p`:
+
+Network activity: provider-facing passive lookup through a configured proxy.
 
 ```bash
 uv run theHarvester -d example.com -b crtsh -p

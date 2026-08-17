@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1280 720" role="img" aria-labelledby="vhost-sweep-overview-title vhost-sweep-overview-desc" xmlns="http://www.w3.org/2000/svg">
+    <title id="vhost-sweep-overview-title">Bounded virtual-host sweep</title>
+    <desc id="vhost-sweep-overview-desc">Candidate hostnames and literal IP endpoints pass through exact-scope validation and one shared request and runtime budget before context, control, and candidate responses are sent to the classifier.</desc>
+    <defs>
+      <style>@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap');</style>
+      <style>
+        .title { font: 400 32px "Instrument Serif", Georgia, serif; fill: #0e1d22; }
+        .subtitle { font: 400 16px "Geist", system-ui, sans-serif; fill: #4f5e63; }
+        .eyebrow { font: 600 8px "Geist Mono", ui-monospace, monospace; letter-spacing: .16em; fill: #4f5e63; }
+        .node-title { font: 600 16px "Geist", system-ui, sans-serif; fill: #0e1d22; }
+        .node-copy { font: 400 12px "Geist Mono", ui-monospace, monospace; fill: #4f5e63; }
+        .node-copy-strong { font: 500 12px "Geist Mono", ui-monospace, monospace; fill: #34464c; }
+        .node { fill: #fdfaf4; stroke: #889ca3; stroke-width: 1; }
+        .node-muted { fill: #ede7dd; stroke: #889ca3; stroke-width: 1; }
+        .node-focal { fill: #bcede4; stroke: #009685; stroke-width: 1.2; }
+        .tag { fill: #f5efe7; stroke: #889ca3; stroke-width: .8; }
+        .tag-teal { fill: #bcede4; stroke: #009685; stroke-width: .8; }
+        .tag-text { font: 600 8px "Geist Mono", ui-monospace, monospace; fill: #34464c; text-anchor: middle; }
+        .tag-text-teal { fill: #00594c; }
+        .connector { fill: none; stroke: #4f5e63; stroke-width: 1.2; }
+        .connector-accent { fill: none; stroke: #009685; stroke-width: 1.2; }
+        .arrow-label { font: 500 12px "Geist Mono", ui-monospace, monospace; fill: #4f5e63; letter-spacing: .06em; }
+        .legend { font: 400 12px "Geist Mono", ui-monospace, monospace; fill: #4f5e63; }
+      </style>
+      <marker id="vhost-sweep-overview-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5e63"/></marker>
+      <marker id="vhost-sweep-overview-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#009685"/></marker>
+      <marker id="vhost-sweep-overview-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#00548c"/></marker>
+    </defs>
+
+    <rect width="1280" height="720" fill="#f5efe7"/>
+    <text x="40" y="52" class="eyebrow">VIRTUAL HOST DISCOVERY · P2 DIRECT INTERACTION</text>
+    <text x="40" y="88" class="title">The sweep spends one bounded budget</text>
+    <text x="40" y="112" class="subtitle">Names stay inside the exact target boundary; endpoints stay literal IPs; every baseline, candidate, and confirmation counts.</text>
+
+    <path d="M280 292 V316 Q280 324 288 324 H552 Q560 324 560 332 V356" class="connector" marker-end="url(#vhost-sweep-overview-arrow)"/>
+    <path d="M1000 292 V316 Q1000 324 992 324 H728 Q720 324 720 332 V356" class="connector" marker-end="url(#vhost-sweep-overview-arrow)"/>
+    <line x1="640" y1="484" x2="640" y2="540" class="connector-accent" marker-end="url(#vhost-sweep-overview-arrow-accent)"/>
+    <rect x="660" y="496" width="152" height="20" rx="4" fill="#f5efe7"/>
+    <text x="668" y="512" class="arrow-label">ALLOCATES PROBES</text>
+
+    <rect x="80" y="164" width="400" height="128" rx="8" fill="#f5efe7"/>
+    <rect x="80" y="164" width="400" height="128" rx="8" class="node"/>
+    <rect x="96" y="180" width="96" height="20" rx="4" class="tag"/>
+    <text x="144" y="194" class="tag-text">CANDIDATES</text>
+    <text x="96" y="228" class="node-title">In-scope hostname pool</text>
+    <text x="96" y="256" class="node-copy-strong">harvested names · reverse DNS · explicit names</text>
+    <text x="96" y="280" class="node-copy">normalize, deduplicate, enforce exact target scope</text>
+
+    <rect x="800" y="164" width="400" height="128" rx="8" fill="#f5efe7"/>
+    <rect x="800" y="164" width="400" height="128" rx="8" class="node"/>
+    <rect x="816" y="180" width="88" height="20" rx="4" class="tag"/>
+    <text x="860" y="194" class="tag-text">ENDPOINTS</text>
+    <text x="816" y="228" class="node-title">Literal-IP endpoint pool</text>
+    <text x="816" y="256" class="node-copy-strong">harvested IPs or one operator override</text>
+    <text x="816" y="280" class="node-copy">HTTPS :443 across the set, then HTTP :80</text>
+
+    <rect x="440" y="356" width="400" height="128" rx="8" fill="#f5efe7"/>
+    <rect x="440" y="356" width="400" height="128" rx="8" class="node-focal"/>
+    <rect x="456" y="372" width="72" height="20" rx="4" class="tag-teal"/>
+    <text x="492" y="386" class="tag-text tag-text-teal">BOUNDS</text>
+    <text x="456" y="420" class="node-title">Candidate–endpoint sweep planner</text>
+    <text x="456" y="448" class="node-copy-strong">shared request cap · runtime deadline</text>
+    <text x="456" y="472" class="node-copy">per-request timeout · bounded concurrency</text>
+
+    <rect x="360" y="540" width="560" height="104" rx="8" fill="#f5efe7"/>
+    <rect x="360" y="540" width="560" height="104" rx="8" class="node-muted"/>
+    <rect x="376" y="552" width="112" height="20" rx="4" class="tag"/>
+    <text x="432" y="566" class="tag-text">ONE ENDPOINT</text>
+    <text x="504" y="568" class="node-title">Comparable response set</text>
+    <text x="376" y="600" class="node-copy-strong">literal-IP context · 3 shape-matched controls</text>
+    <text x="376" y="624" class="node-copy-strong">candidate with aligned TLS SNI + HTTP Host</text>
+
+    <line x1="40" y1="668" x2="1240" y2="668" stroke="rgba(14,29,34,.14)" stroke-width=".8"/>
+    <line x1="48" y1="696" x2="88" y2="696" class="connector" marker-end="url(#vhost-sweep-overview-arrow)"/>
+    <text x="104" y="700" class="legend">planning handoff</text>
+    <line x1="320" y1="696" x2="360" y2="696" class="connector-accent" marker-end="url(#vhost-sweep-overview-arrow-accent)"/>
+    <text x="376" y="700" class="legend">shared safety budget</text>
+    <text x="1240" y="700" class="legend" text-anchor="end">names are not resolved · redirects are not followed</text>
+  </svg>
