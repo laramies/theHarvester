@@ -25,11 +25,11 @@ Providers control their own availability, quotas, and response formats, so indiv
 
 ### Discovery routes and enrichment
 
-![theHarvester discovery routes and enrichment](docs/images/run-evidence-architecture.svg)
+[![theHarvester discovery routes and enrichment](docs/images/run-evidence-architecture.svg)](docs/images/run-evidence-architecture.svg)
 
 ### HarvestView run desk
 
-![HarvestView run desk architecture](docs/images/harvestview-architecture.svg)
+[![HarvestView run desk architecture](docs/images/harvestview-architecture.svg)](docs/images/harvestview-architecture.svg)
 
 ## Quick start
 
