@@ -41,9 +41,7 @@ apikeys:
 
 Do not commit populated configuration files. Prefer provider credentials scoped to the minimum access the provider supports.
 
-The [README source matrix](https://github.com/laramies/theHarvester/blob/dev/README.md#discovery-sources) lists each source's result routes, activity class, and credential requirement. The executable source catalog is the authoritative inventory.
-
-Provider pricing, quotas, and terms change frequently. Check the provider's current documentation for these details.
+The [README source matrix](https://github.com/laramies/theHarvester/blob/dev/README.md#discovery-sources) lists each source's result routes, activity class, and credential requirement. Every source name links to its provider's site or documentation for current plans, quotas, and terms. The executable source catalog is the authoritative inventory.
 
 `censys.token` is a Censys Platform Personal Access Token. Set `organization_id` when searches should use an entitled organization. This source uses the Global Search API, which is unavailable to Free accounts because they are limited to asset lookups. Search API ID and secret fields are not accepted.
 

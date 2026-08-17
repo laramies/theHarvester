@@ -162,68 +162,68 @@ The `shodan` source contributes subdomains. Shodan host enrichment through `-s` 
 
 | Source | Result routes | Activity | Credentials |
 | --- | --- | :---: | :---: |
-| `apis-guru` | subdomains, emails, urls | P0 | No |
-| `arquivo` | subdomains | P0 | No |
-| `baidu` | subdomains, emails | P0 | No |
-| `bevigil` | subdomains, urls | P0 | Required |
-| `bufferoverun` | subdomains, ips | P0 | Required |
-| `builtwith` | subdomains, urls | P0 | Required |
-| `brave` | subdomains, emails | P0 | Required |
-| `censys` | subdomains, emails | P0 | Required |
-| `certspotter` | subdomains | P0 | No |
-| `commoncrawl` | subdomains | P0 | No |
-| `criminalip` | subdomains, ips, asns | P2 | Required |
-| `crt-name` | subdomains | P0 | No |
-| `crtsh` | subdomains | P0 | No |
-| `dehashed` | emails, ips | P0 | Required |
-| `dnsdb` | subdomains | P0 | Required |
-| `dnsdumpster` | subdomains, ips | P0 | Required |
-| `duckduckgo` | subdomains, emails | P0 | No |
-| `dymo` | subdomains | P0 | Required |
-| `fofa` | subdomains, ips | P0 | Required |
-| `fullhunt` | subdomains | P0 | Required |
-| `github-code` | subdomains, emails | P0 | Required |
-| `gitlab` | subdomains, emails, urls | P0 | No |
-| `hackertarget` | subdomains, ips | P0 | Optional |
-| `haveibeenpwned` | breaches | P0 | No |
-| `hibpverified` | emails, breaches | P0 | Required |
-| `hudsonrock` | subdomains, emails, ips | P0 | No |
-| `hunter` | subdomains, emails | P0 | Required |
-| `hunterhow` | subdomains | P0 | Required |
-| `intelx` | subdomains, emails, urls | P0 | Required |
-| `leakix` | subdomains | P0 | Required |
-| `leaklookup` | emails, breaches | P0 | Required |
-| `mojeek` | subdomains, emails | P0 | Optional |
-| `netlas` | subdomains | P0 | Required |
-| `onyphe` | subdomains, ips, asns | P0 | Required |
-| `otx` | subdomains, ips | P0 | No |
-| `pentesttools` | subdomains, ips | P1 | Required |
-| `projectdiscovery` | subdomains | P0 | Required |
-| `rapiddns` | subdomains, ips | P0 | No |
-| `robtex` | ips | P0 | No |
-| `rocketreach` | emails, urls | P0 | Required |
-| `securityscorecard` | subdomains, ips | P0 | Required |
-| `securityTrails` | subdomains, ips | P0 | Required |
-| `sherlockeye` | subdomains, emails, ips | P0 | Required |
-| `shodan` | subdomains | P1 | Required |
-| `shodanInternetDB` | subdomains, ips | P1 | No |
-| `shodanct` | subdomains | P0 | No |
-| `sourcegraph` | subdomains | P0 | No |
-| `subdomaincenter` | subdomains | P0 | No |
-| `subdomainfinderc99` | subdomains | P1 | No |
-| `thc` | subdomains | P0 | No |
-| `tomba` | subdomains, emails | P0 | Required |
-| `urlscan` | subdomains, ips, asns, urls | P0 | No |
-| `virustotal` | subdomains | P0 | Required |
-| `waybackarchive` | subdomains | P0 | No |
-| `whoisxml` | subdomains | P0 | Required |
-| `windvane` | subdomains, emails, ips | P0 | Optional |
-| `yahoo` | subdomains, emails | P0 | No |
-| `zoomeye` | subdomains, emails, ips, asns, urls | P0 | Required |
+| [`apis-guru`](https://apis.guru/) | subdomains, emails, urls | P0 | No |
+| [`arquivo`](https://arquivo.pt/) | subdomains | P0 | No |
+| [`baidu`](https://www.baidu.com/) | subdomains, emails | P0 | No |
+| [`bevigil`](https://bevigil.com/osint-api) | subdomains, urls | P0 | Required |
+| [`bufferoverun`](https://tls.bufferover.run/) | subdomains, ips | P0 | Required |
+| [`builtwith`](https://builtwith.com/) | subdomains, urls | P0 | Required |
+| [`brave`](https://brave.com/search/api/) | subdomains, emails | P0 | Required |
+| [`censys`](https://search.censys.io/) | subdomains, emails | P0 | Required |
+| [`certspotter`](https://sslmate.com/certspotter/) | subdomains | P0 | No |
+| [`commoncrawl`](https://commoncrawl.org/) | subdomains | P0 | No |
+| [`criminalip`](https://www.criminalip.io/) | subdomains, ips, asns | P2 | Required |
+| [`crt-name`](https://crt.name/) | subdomains | P0 | No |
+| [`crtsh`](https://crt.sh/) | subdomains | P0 | No |
+| [`dehashed`](https://dehashed.com/) | emails, ips | P0 | Required |
+| [`dnsdb`](https://docs.domaintools.com/api/dnsdb/) | subdomains | P0 | Required |
+| [`dnsdumpster`](https://dnsdumpster.com/) | subdomains, ips | P0 | Required |
+| [`duckduckgo`](https://duckduckgo.com/) | subdomains, emails | P0 | No |
+| [`dymo`](https://docs.tpeoficial.com/docs/dymo-api/private/data-verifier) | subdomains | P0 | Required |
+| [`fofa`](https://en.fofa.info/) | subdomains, ips | P0 | Required |
+| [`fullhunt`](https://fullhunt.io/) | subdomains | P0 | Required |
+| [`github-code`](https://github.com/) | subdomains, emails | P0 | Required |
+| [`gitlab`](https://gitlab.com/) | subdomains, emails, urls | P0 | No |
+| [`hackertarget`](https://hackertarget.com/) | subdomains, ips | P0 | Optional |
+| [`haveibeenpwned`](https://haveibeenpwned.com/) | breaches | P0 | No |
+| [`hibpverified`](https://haveibeenpwned.com/API/v3#BreachedDomain) | emails, breaches | P0 | Required |
+| [`hudsonrock`](https://www.hudsonrock.com/) | subdomains, emails, ips | P0 | No |
+| [`hunter`](https://hunter.io/) | subdomains, emails | P0 | Required |
+| [`hunterhow`](https://hunter.how/) | subdomains | P0 | Required |
+| [`intelx`](https://intelx.io/) | subdomains, emails, urls | P0 | Required |
+| [`leakix`](https://leakix.net/) | subdomains | P0 | Required |
+| [`leaklookup`](https://leak-lookup.com/) | emails, breaches | P0 | Required |
+| [`mojeek`](https://www.mojeek.com/services/search/web-search-api/) | subdomains, emails | P0 | Optional |
+| [`netlas`](https://netlas.io/) | subdomains | P0 | Required |
+| [`onyphe`](https://www.onyphe.io/) | subdomains, ips, asns | P0 | Required |
+| [`otx`](https://otx.alienvault.com/) | subdomains, ips | P0 | No |
+| [`pentesttools`](https://pentest-tools.com/) | subdomains, ips | P1 | Required |
+| [`projectdiscovery`](https://chaos.projectdiscovery.io/) | subdomains | P0 | Required |
+| [`rapiddns`](https://rapiddns.io/) | subdomains, ips | P0 | No |
+| [`robtex`](https://www.robtex.com/) | ips | P0 | No |
+| [`rocketreach`](https://rocketreach.co/) | emails, urls | P0 | Required |
+| [`securityscorecard`](https://securityscorecard.com/) | subdomains, ips | P0 | Required |
+| [`securityTrails`](https://securitytrails.com/) | subdomains, ips | P0 | Required |
+| [`sherlockeye`](https://sherlockeye.io/) | subdomains, emails, ips | P0 | Required |
+| [`shodan`](https://www.shodan.io/) | subdomains | P1 | Required |
+| [`shodanInternetDB`](https://internetdb.shodan.io/) | subdomains, ips | P1 | No |
+| [`shodanct`](https://ctl.shodan.io/) | subdomains | P0 | No |
+| [`sourcegraph`](https://sourcegraph.com/search) | subdomains | P0 | No |
+| [`subdomaincenter`](https://www.subdomain.center/) | subdomains | P0 | No |
+| [`subdomainfinderc99`](https://subdomainfinder.c99.nl/) | subdomains | P1 | No |
+| [`thc`](https://ip.thc.org/) | subdomains | P0 | No |
+| [`tomba`](https://tomba.io/) | subdomains, emails | P0 | Required |
+| [`urlscan`](https://urlscan.io/) | subdomains, ips, asns, urls | P0 | No |
+| [`virustotal`](https://www.virustotal.com/) | subdomains | P0 | Required |
+| [`waybackarchive`](https://web.archive.org/) | subdomains | P0 | No |
+| [`whoisxml`](https://subdomains.whoisxmlapi.com/) | subdomains | P0 | Required |
+| [`windvane`](https://windvane.lichoin.com/) | subdomains, emails, ips | P0 | Optional |
+| [`yahoo`](https://www.yahoo.com/) | subdomains, emails | P0 | No |
+| [`zoomeye`](https://www.zoomeye.ai/) | subdomains, emails, ips, asns, urls | P0 | Required |
 
 </details>
 
-Provider plans and quotas change often, so this README does not list prices. See [Configuration and API keys](docs/wiki/Configuration-and-API-Keys.md) for credential names and setup. Contributors can add a provider through the [module guide](docs/wiki/How-to-add-a-new-module.md); the source catalog remains the executable inventory.
+Each source name links to its provider's site or documentation, where current plans, quotas, and terms are published. See [Configuration and API keys](docs/wiki/Configuration-and-API-Keys.md) for credential names and setup. Contributors can add a provider through the [module guide](docs/wiki/How-to-add-a-new-module.md); the source catalog remains the executable inventory.
 
 ## Configuration
 
