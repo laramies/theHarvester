@@ -1,14 +1,16 @@
 import asyncio
-import logging
+import ssl
 from typing import Any
 from urllib.parse import quote
 
-from theHarvester.discovery.constants import MissingKey, get_delay
-from theHarvester.lib.configuration import CredentialAdapter, FileSystemCredentialAdapter
-from theHarvester.lib.core import AsyncFetcher
-from theHarvester.parsers import myparser
+import aiohttp
 
-logger = logging.getLogger(__name__)
+from theHarvester.discovery.constants import MissingKey, get_delay
+from theHarvester.discovery.provider_response import provider_http_error
+from theHarvester.lib.configuration import CredentialAdapter, FileSystemCredentialAdapter
+from theHarvester.lib.core import AsyncFetcher, ResponseStreamError
+from theHarvester.lib.source_execution import SourceExecutionReport
+from theHarvester.parsers import myparser
 
 
 class SearchBrave:
@@ -34,11 +36,20 @@ class SearchBrave:
             raise MissingKey('Brave Search')
         self.server = 'https://api.search.brave.com/res/v1/web/search'
         self.limit = limit
-        self.proxy = False
-        self.rate_limit_delay = 1  # Initial delay for rate limiting
+        self.proxy: bool | str = False
 
-    async def do_search(self):
+    async def do_search(self, session: Any | None = None) -> SourceExecutionReport | None:
         headers = {'Accept': 'application/json', 'Accept-Encoding': 'gzip', 'X-Subscription-Token': self.api_key}
+        if session is None:
+            try:
+                async with AsyncFetcher.open_session(
+                    headers=headers,
+                    proxy=self.proxy,
+                    request_timeout=60,
+                ) as owned_session:
+                    return await self.do_search(owned_session)
+            except ResponseStreamError as error:
+                return SourceExecutionReport('failed', error.reason)
 
         # Search queries: exact match and site-specific
         queries = [f'"{self.word}"', f'site:{self.word}']
@@ -66,77 +77,80 @@ class SearchBrave:
                     param_string = '&'.join([f'{k}={quote(str(v))}' for k, v in params.items()])
                     url = f'{self.server}?{param_string}'
 
-                    resp = await AsyncFetcher.fetch(url=url, headers=headers, proxy=self.proxy, json=True)
+                    response = await AsyncFetcher.fetch_json(
+                        url,
+                        session=session,
+                        headers=headers,
+                    )
+                    if failure := provider_http_error(response):
+                        return SourceExecutionReport(*failure)
+                    resp = response.body
 
                     # Handle API response
                     if resp is None:
-                        logger.info('No response received from Brave Search API')
-                        break
+                        return SourceExecutionReport('failed', 'invalid-response')
+                    if not isinstance(resp, dict):
+                        return SourceExecutionReport('failed', 'invalid-response')
 
                     # Check for API errors (rate limit, quota exceeded, etc.)
                     if 'error' in resp:
-                        error_msg = resp.get('error', {}).get('message', 'Unknown API error')
-                        error_code = resp.get('error', {}).get('code', 'unknown')
+                        provider_error = resp['error']
+                        if not isinstance(provider_error, dict):
+                            return SourceExecutionReport('failed', 'invalid-response')
+                        error_message = str(provider_error.get('message', '')).lower()
+                        error_code = str(provider_error.get('code', '')).lower()
+                        if 'rate limit' in error_message or error_code == 'rate_limit_exceeded':
+                            return SourceExecutionReport('rate-limited', 'provider-rate-limit')
+                        if 'quota' in error_message or error_code == 'quota_exceeded':
+                            return SourceExecutionReport('failed', 'quota-exhausted')
+                        return SourceExecutionReport('failed', 'provider-error')
 
-                        if 'rate limit' in error_msg.lower() or error_code == 'rate_limit_exceeded':
-                            logger.info(f'Rate limit exceeded. Increasing delay to {self.rate_limit_delay * 2} seconds')
-                            self.rate_limit_delay *= 2
-                            await asyncio.sleep(self.rate_limit_delay)
-                            break
-                        elif 'quota' in error_msg.lower() or error_code == 'quota_exceeded':
-                            logger.info('Brave Search API quota exceeded')
-                            break
-                        else:
-                            break
+                    web = resp.get('web')
+                    query_data = resp.get('query')
+                    if not isinstance(web, dict) or not isinstance(web.get('results'), list):
+                        return SourceExecutionReport('failed', 'invalid-response')
+                    if not isinstance(query_data, dict):
+                        return SourceExecutionReport('failed', 'invalid-response')
+                    more_results_available = query_data.get('more_results_available')
+                    if not isinstance(more_results_available, bool):
+                        return SourceExecutionReport('failed', 'invalid-response')
 
-                    if 'web' in resp and 'results' in resp['web']:
-                        results = resp['web']['results'][:remaining]
-                        if not results:
-                            break
+                    results = web['results'][:remaining]
+                    if any(not isinstance(result, dict) for result in results):
+                        return SourceExecutionReport('failed', 'invalid-response')
+                    if not results:
+                        if more_results_available:
+                            return SourceExecutionReport('failed', 'invalid-response')
+                        break
 
-                        # Extract text content from results for parsing (including extra snippets)
-                        for result in results:
-                            result_text = f'{result.get("title", "")} {result.get("description", "")}'
+                    for result in results:
+                        snippets = result.get('extra_snippets', [])
+                        if not isinstance(snippets, list) or any(not isinstance(snippet, str) for snippet in snippets):
+                            return SourceExecutionReport('failed', 'invalid-response')
+                        title = result.get('title', '')
+                        description = result.get('description', '')
+                        result_url = result.get('url', '')
+                        if not all(isinstance(value, str) for value in (title, description, result_url)):
+                            return SourceExecutionReport('failed', 'invalid-response')
+                        result_text = f'{title} {description}'
+                        for snippet in snippets:
+                            result_text += f' {snippet}'
+                        result_text += f' {result_url}'
+                        self.totalresults += result_text + '\n'
 
-                            # Add extra snippets if available
-                            if 'extra_snippets' in result:
-                                for snippet in result['extra_snippets']:
-                                    result_text += f' {snippet}'
-
-                            result_text += f' {result.get("url", "")}'
-                            self.totalresults += result_text + '\n'
-
-                        self.results.extend(results)
-
-                        # Stop if we've reached our limit
-                        if len(self.results) >= self.limit:
-                            break
-                        if not resp.get('query', {}).get('more_results_available', False):
-                            break
-                    else:
-                        logger.info('Unexpected response format from Brave Search API')
+                    self.results.extend(results)
+                    if len(self.results) >= self.limit:
+                        return SourceExecutionReport('completed', 'result-limit')
+                    if not more_results_available:
                         break
 
                     await asyncio.sleep(get_delay())
-
-            except Exception as e:
-                error_msg = str(e).lower()
-
-                # Handle specific API-related exceptions
-                if 'rate limit' in error_msg or '429' in error_msg:
-                    logger.info(f'Rate limit detected in exception. Increasing delay to {self.rate_limit_delay * 2} seconds')
-                    self.rate_limit_delay *= 2
-                    await asyncio.sleep(self.rate_limit_delay)
-                elif 'quota' in error_msg or '403' in error_msg:
-                    logger.info(f'Quota exceeded or access denied: {e}')
-                    break
-                elif 'timeout' in error_msg:
-                    logger.info(f'Request timeout occurred: {e}')
-                    await asyncio.sleep(get_delay() + 2)
                 else:
-                    logger.info(f'An exception has occurred in bravesearch: {e}')
-                    await asyncio.sleep(get_delay() + 5)
-                continue
+                    return SourceExecutionReport('partial', 'pagination-limit')
+
+            except ResponseStreamError as error:
+                return SourceExecutionReport('failed', error.reason)
+        return None
 
     async def get_emails(self):
         rawres = myparser.Parser(self.totalresults, self.word)
@@ -146,6 +160,11 @@ class SearchBrave:
         rawres = myparser.Parser(self.totalresults, self.word)
         return await rawres.hostnames()
 
-    async def process(self, proxy=False):
+    async def process(self, proxy: bool | str = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        await self.do_search()
+        try:
+            return await self.do_search()
+        except asyncio.CancelledError:
+            raise
+        except aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError:
+            return SourceExecutionReport('failed', 'transport-error')

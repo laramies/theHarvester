@@ -1,7 +1,88 @@
 import pytest
-from aiohttp import web
+from aiohttp import ClientSession, web
 
-from theHarvester.discovery import censysearch, githubcode
+from theHarvester.discovery import bravesearch, censysearch, githubcode
+from theHarvester.lib.configuration import InMemoryCredentialAdapter
+from theHarvester.lib.source_execution import SourceExecutionReport
+
+
+@pytest.mark.asyncio
+async def test_brave_pagination_preserves_provider_cookies(
+    monkeypatch: pytest.MonkeyPatch,
+    unused_tcp_port: int,
+) -> None:
+    requests: list[tuple[str | None, str | None]] = []
+    sessions: list[ClientSession] = []
+    original_build_session = bravesearch.AsyncFetcher._build_session
+
+    async def tracked_build_session(*args: object, **kwargs: object) -> ClientSession:
+        session = await original_build_session(*args, **kwargs)  # type: ignore[arg-type]
+        sessions.append(session)
+        return session
+
+    monkeypatch.setattr(bravesearch.AsyncFetcher, '_build_session', tracked_build_session)
+
+    async def search(request: web.Request) -> web.Response:
+        offset = request.query.get('offset')
+        requests.append((offset, request.cookies.get('provider-session')))
+        if offset == '0':
+            response = web.json_response(
+                {
+                    'query': {'more_results_available': True},
+                    'web': {
+                        'results': [
+                            {
+                                'title': 'First',
+                                'description': 'one.example.com',
+                                'url': 'https://one.example.com',
+                            }
+                        ]
+                    },
+                }
+            )
+            response.set_cookie('provider-session', 'ready')
+            return response
+        if request.cookies.get('provider-session') != 'ready':
+            return web.json_response({'error': 'missing provider session'}, status=403)
+        return web.json_response(
+            {
+                'query': {'more_results_available': False},
+                'web': {
+                    'results': [
+                        {
+                            'title': 'Second',
+                            'description': 'two.example.com',
+                            'url': 'https://two.example.com',
+                        }
+                    ]
+                },
+            }
+        )
+
+    app = web.Application()
+    app.router.add_get('/search', search)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '127.0.0.1', unused_tcp_port)
+    await site.start()
+    monkeypatch.setattr(bravesearch, 'get_delay', lambda: 0)
+
+    try:
+        source = bravesearch.SearchBrave(
+            'example.com',
+            limit=2,
+            credential_adapter=InMemoryCredentialAdapter({'brave': {'key': 'test-token'}}),
+        )
+        source.server = f'http://localhost:{unused_tcp_port}/search'
+        report = await source.process()
+    finally:
+        await runner.cleanup()
+
+    assert requests == [('0', None), ('1', 'ready')]
+    assert await source.get_hostnames() == ['one.example.com', 'two.example.com']
+    assert report == SourceExecutionReport('completed', 'result-limit')
+    assert len(sessions) == 1
+    assert sessions[0].closed is True
 
 
 @pytest.mark.asyncio

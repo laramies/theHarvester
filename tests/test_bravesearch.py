@@ -7,28 +7,33 @@ import pytest
 from theHarvester.discovery.bravesearch import SearchBrave
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.configuration import InMemoryCredentialAdapter
-from theHarvester.lib.core import AsyncFetcher
+from theHarvester.lib.core import AsyncFetcher, FetcherResponse
 
 
 @pytest.mark.asyncio
 async def test_brave_collects_with_in_memory_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
     request_headers: list[dict[str, str]] = []
 
-    async def fetch(*, headers: dict[str, str], **_kwargs: Any) -> dict[str, Any]:
+    async def fetch(*_args: Any, headers: dict[str, str], **_kwargs: Any) -> FetcherResponse:
         request_headers.append(headers)
-        return {
-            'web': {
-                'results': [
-                    {
-                        'title': 'Documentation',
-                        'description': 'Example documentation',
-                        'url': 'https://docs.example.com',
-                    }
-                ]
-            }
-        }
+        return FetcherResponse(
+            {
+                'query': {'more_results_available': False},
+                'web': {
+                    'results': [
+                        {
+                            'title': 'Documentation',
+                            'description': 'Example documentation',
+                            'url': 'https://docs.example.com',
+                        }
+                    ]
+                },
+            },
+            200,
+            {},
+        )
 
-    monkeypatch.setattr(AsyncFetcher, 'fetch', fetch)
+    monkeypatch.setattr(AsyncFetcher, 'fetch_json', fetch)
     search = SearchBrave(
         'example.com',
         1,
