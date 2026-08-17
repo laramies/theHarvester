@@ -8,6 +8,8 @@
 
 Set a long random API key before startup:
 
+Network activity: local-only with the default loopback binding.
+
 ```bash
 export THEHARVESTER_API_KEY='replace-with-a-long-random-value'
 uv run harvestview
@@ -60,6 +62,8 @@ Provider credentials remain in theHarvester's server-side configuration. Request
 
 Source names and capability selectors share the `sources` array. Multiple capabilities select the union of matching sources and do not filter fields returned by those sources.
 
+Network activity: the API request is local, but the queued run contacts the selected providers and any enabled action targets.
+
 ```bash
 run_id="$(curl -s http://127.0.0.1:5000/api/v1/runs \
     -X POST \
@@ -79,13 +83,26 @@ curl -s "http://127.0.0.1:5000/api/v1/runs/$run_id" \
   | jq '{status, evidence_status, results, source_executions, action_executions, artifacts}'
 ```
 
-Run submission is asynchronous. Lifecycle status is `queued`, `running`, `cancelling`, `cancelled`, `completed`, or `failed`. Terminal evidence status is reported separately as `complete`, `partial`, or `failed` when evidence exists.
+Run submission is asynchronous. Read the two status fields separately:
+
+| Field | Values | Meaning |
+| --- | --- | --- |
+| `status` | `queued`, `running`, `cancelling`, `cancelled`, `completed`, `failed` | Worker lifecycle state. |
+| `evidence_status` | `complete`, `partial`, `failed` | Quality of terminal evidence when it exists. |
 
 `source_workers` is the same positive concurrency used by CLI `-j` or `--source-workers` and HarvestView. It defaults to three, is reduced when fewer sources are selected, and never skips sources or limits their results.
 
 P1 DNS and P2 direct options are fields on the same run request. The OpenAPI schema shows their current defaults, limits, and descriptions. The server uses the operator-selected target and does not impose a public-only egress policy.
 
-RouteViews is the explicit P0 `routeviews` action. When selected for a domain run, it automatically enriches harvested IPs that have sourced IP-to-ASN attribution. It also accepts an AS-prefixed ASN or IP address supplied as the run target. Harvested IPs without that attribution are not sent, and bare ASN findings are not expanded into complete prefix inventories. For IP pivots, only the most-specific matching prefix is retained, including every origin when that prefix is multi-origin. An explicit ASN target still requests its complete prefix inventory. The fixed internal budget is 300 sequential requests and 300 seconds; `limit` does not change it. A server-side `routeviews.key` is used automatically for PeeringDB-verified authenticated access at the documented 10-request-per-second allowance; otherwise the action uses guest access at one request per second. Provider credentials cannot be supplied in a run request. Returned prefixes remain external relationships and are never scheduled as DNS or P2 targets. The CLI also accepts a literal CIDR target.
+### Query RouteViews
+
+RouteViews is the explicit P0 `routeviews` action.
+
+- A domain run enriches only harvested IPs that have sourced IP-to-ASN attribution. Harvested IPs without that attribution are not sent, and bare ASN findings are not expanded into complete prefix inventories.
+- A run may target an AS-prefixed ASN or IP address. The CLI also accepts a literal CIDR. An IP pivot keeps the most-specific matching prefix and every origin for a multi-origin prefix. An explicit ASN target requests its complete prefix inventory.
+- The fixed budget is 300 sequential requests and 300 seconds. `limit` does not change it.
+- A server-side `routeviews.key` selects PeeringDB-verified authenticated access at the documented 10-request-per-second allowance. Without a key, the action uses guest access at one request per second. Requests cannot supply provider credentials.
+- Returned prefixes remain external relationships. They are never scheduled as DNS or P2 targets.
 
 ```json
 {
@@ -99,13 +116,15 @@ RouteViews is the explicit P0 `routeviews` action. When selected for a domain ru
 
 Screenshots and DNS brute force can run directly against an authorized hostname without repeating discovery. Submit an empty `sources` array and select one action:
 
+Network activity: target-facing for screenshots and resolver-facing for DNS brute force. The API request itself is local.
+
 ```bash
 curl -s http://127.0.0.1:5000/api/v1/runs \
     -X POST \
     -H "X-API-Key: $THEHARVESTER_API_KEY" \
     -H 'Content-Type: application/json' \
     -d '{
-      "target": "subdomain.example.com",
+      "target": "replace-with-an-authorized-hostname",
       "sources": [],
       "screenshot": true
     }' \
@@ -118,7 +137,7 @@ The action catalog and run request use the same names. For example, set `takeove
 
 ```json
 {
-  "target": "api.example.com",
+  "target": "replace-with-an-authorized-hostname",
   "sources": [],
   "api_scan": true,
   "api_scan_paths": ["/api/v2", "/health"]
@@ -128,6 +147,8 @@ The action catalog and run request use the same names. For example, set `takeove
 Every custom API scan entry must be a URL path beginning with `/`. The API does not accept a server-side file path.
 
 Virtual host discovery is the `vhost` action. An action-only run must provide both a literal-IP endpoint and at least one in-scope hostname candidate:
+
+Network activity: target-facing literal-IP requests with the candidate in SNI and HTTP `Host`.
 
 ```json
 {
@@ -144,7 +165,7 @@ HarvestView's subdomain action buttons call this route and create a separate run
 
 ## Import and export
 
-Import records existing evidence and never contacts the target. For one run, send the same JSONL written by `theHarvester -f NAME`:
+These operations are local-only. Import records existing evidence without contacting providers or targets. For one run, send the same JSONL written by `theHarvester -f NAME`:
 
 ```bash
 curl -s "http://127.0.0.1:5000/api/v1/runs/import?filename=report.jsonl" \
@@ -170,7 +191,13 @@ curl -s "http://127.0.0.1:5000/api/v1/runs/import-database?filename=stash.sqlite
   | jq
 ```
 
-The server checks the SQLite header, integrity, schema, and each completed run before copying it. Original run IDs are preserved. Exact duplicates are skipped, while a reused ID with different evidence is rejected. Close the source process or checkpoint its WAL before uploading the database. Screenshot metadata is imported, but screenshot files must be copied separately. The default upload ceiling is 1 GiB and can be changed with `THEHARVESTER_MAX_DATABASE_IMPORT_BYTES`.
+Before importing SQLite:
+
+- Close the source process or checkpoint its WAL.
+- Expect the server to check the SQLite header, integrity, schema, and each completed run before copying it.
+- Original run IDs are preserved. Exact duplicates are skipped; a reused ID with different evidence is rejected.
+- Screenshot metadata is imported, but screenshot files must be copied separately.
+- The default upload ceiling is 1 GiB. Change it with `THEHARVESTER_MAX_DATABASE_IMPORT_BYTES`.
 
 Export every completed run as a consistent database that can be imported elsewhere:
 
@@ -180,7 +207,7 @@ curl -s "http://127.0.0.1:5000/api/v1/runs/export-database" \
   -o theharvester-completed-runs.sqlite
 ```
 
-The export is rebuilt from canonical completed evidence, so it excludes queue state, cancellation state, worker leases, and legacy observations. It includes screenshot metadata but not screenshot files. The server checkpoints and closes the temporary database before download; no manual WAL handling is required.
+The export contains canonical completed evidence and screenshot metadata. It excludes queue state, cancellation state, worker leases, and legacy observations. Screenshot files are also excluded. The server checkpoints and closes the temporary database before download, so no manual WAL handling is required.
 
 Export one normalized result set in the same streamable format:
 

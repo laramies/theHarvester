@@ -3,12 +3,12 @@
 **Get started**
 
 - [Installation](Installation)
-- [Quick Start](Quick-Start)
+- [Configuration and API Keys](Configuration-and-API-Keys)
 - [Responsible Use and Scope](Responsible-Use-and-Scope)
+- [Quick Start](Quick-Start)
 
 **Operate**
 
-- [Configuration and API Keys](Configuration-and-API-Keys)
 - [Operator Workflows](Operator-Workflows)
 - [Virtual Host Discovery](Virtual-Host-Discovery)
 - [Results and Local Data](Results-and-Local-Data)

@@ -182,6 +182,16 @@ def test_wiki_navigation_and_readme_links_resolve() -> None:
     assert all(Path(target).is_file() for target in readme_wiki_links)
 
 
+def test_wiki_examples_use_copy_safe_operator_language() -> None:
+    quick_start = Path('docs/wiki/Quick-Start.md').read_text()
+    configuration = Path('docs/wiki/Configuration-and-API-Keys.md').read_text()
+
+    assert 'inert test data' not in quick_start
+    assert 'Passive providers still receive the target string.' in quick_start
+    assert '${EDITOR:-vi}' not in configuration
+    assert 'vi ~/.theHarvester/api-keys.yaml' in configuration
+
+
 def test_readme_architecture_diagrams_are_local_and_accessible() -> None:
     readme = Path('README.md').read_text()
     diagrams = (

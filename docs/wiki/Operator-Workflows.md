@@ -8,6 +8,8 @@ Sources and explicit actions contribute different result routes and different le
 
 ## Passive subdomain discovery
 
+Network activity: provider-facing passive lookups.
+
 ```bash
 uv run theHarvester -d example.com -b crtsh,certspotter,commoncrawl
 ```
@@ -16,6 +18,8 @@ Use the [README source matrix](https://github.com/laramies/theHarvester/blob/dev
 
 ## Save results for automation
 
+Network activity: provider-facing discovery plus local report writes.
+
 ```bash
 uv run theHarvester -d example.com -b crtsh,certspotter -f report
 ```
@@ -23,6 +27,8 @@ uv run theHarvester -d example.com -b crtsh,certspotter -f report
 Use `report.jsonl` for automation, provenance, and run interchange. The same command also writes `report.json` and `report.xml` compatibility files. See [Results and Local Data](Results-and-Local-Data).
 
 ## DNS resolution
+
+Network activity: provider-facing discovery followed by resolver-facing DNS queries.
 
 ```bash
 AUTHORIZED_DOMAIN='replace-with-a-domain-you-control'
@@ -44,6 +50,8 @@ Reverse DNS (`-n`) uses an independent run-wide job set. It deduplicates address
 
 Configure the Shodan key, then enrich resolved hosts:
 
+Network activity: provider-facing discovery, resolver-facing DNS, and Shodan API requests.
+
 ```bash
 AUTHORIZED_DOMAIN='replace-with-a-domain-you-control'
 uv run theHarvester -d "$AUTHORIZED_DOMAIN" -b crtsh -r -s
@@ -55,6 +63,8 @@ Shodan host enrichment runs after discovery and is separate from the `shodan` so
 
 Use only an owned or explicitly authorized target:
 
+Network activity: resolver-facing DNS queries for generated candidate names.
+
 ```bash
 AUTHORIZED_DOMAIN='replace-with-a-domain-you-control'
 uv run theHarvester -d "$AUTHORIZED_DOMAIN" -c
@@ -64,6 +74,8 @@ DNS brute force actively tests candidate names. Do not run it against `example.c
 
 ## Takeover checks
 
+Network activity: provider-facing discovery followed by target-facing checks.
+
 ```bash
 AUTHORIZED_DOMAIN='replace-with-a-domain-you-control'
 uv run theHarvester -d "$AUTHORIZED_DOMAIN" -b crtsh,certspotter -t
@@ -71,9 +83,35 @@ uv run theHarvester -d "$AUTHORIZED_DOMAIN" -b crtsh,certspotter -t
 
 Treat matches as leads requiring manual confirmation. Do not claim a takeover from a fingerprint match alone.
 
+## RouteViews pivots
+
+Network activity: provider-facing RouteViews requests.
+
+Set an ASN that is part of the authorized assessment scope:
+
+```bash
+AUTHORIZED_ASN='replace-with-an-authorized-asn'
+uv run theHarvester -d "$AUTHORIZED_ASN" --routeviews -f report
+```
+
+The target may also be an authorized IP or CIDR. The action writes external routing relationships and RPKI observations to `report.jsonl`. These records can guide analysis, but they do not establish ownership, authorization, or reachability. RouteViews is never enabled by `-b all`; see [Responsible Use and Scope](Responsible-Use-and-Scope#routeviews) for its fixed limits.
+
+## Virtual host discovery
+
+Network activity: provider-facing discovery followed by target-facing requests to harvested IP endpoints.
+
+```bash
+AUTHORIZED_DOMAIN='replace-with-a-domain-you-control'
+uv run theHarvester -d "$AUTHORIZED_DOMAIN" -b rapiddns --vhost -f report
+```
+
+The action keeps only confirmed hostnames and records endpoint observations in JSONL. Read [Virtual Host Discovery](Virtual-Host-Discovery) before changing its endpoint, candidate, request, runtime, or TLS controls.
+
 ## Screenshots
 
 Install Chromium first, then choose an output directory:
+
+Network activity: provider-facing discovery, resolver-facing DNS, and target-facing browser requests.
 
 ```bash
 uv run playwright install chromium
@@ -85,6 +123,8 @@ Screenshots actively open discovered web services and may retain sensitive page 
 
 ## API-path scanning
 
+Network activity: target-facing HTTP requests.
+
 ```bash
 AUTHORIZED_DOMAIN='replace-with-a-domain-you-control'
 uv run theHarvester -d "$AUTHORIZED_DOMAIN" -a
@@ -95,6 +135,8 @@ Provide a custom path wordlist with `-w FILE`. This sends requests directly to t
 ## Diagnose one provider
 
 When a combined run fails, rerun only the affected source with a conservative result limit:
+
+Network activity: provider-facing lookup to the named source.
 
 ```bash
 uv run theHarvester -d example.com -b source-name -l 10

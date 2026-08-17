@@ -25,7 +25,17 @@ An adapter normally provides:
 
 Do not return fields the provider did not supply. Normalize and deduplicate before returning results.
 
-Return `None` when the provider conversation completed normally, including a valid zero-result response. Return an immutable `SourceExecutionReport` with a stable provider-specific reason for another terminal condition: `completed` for a successful early stop such as reaching the requested result limit, `failed` for provider or transport failure, `rate-limited` for a terminal rate limit, or `partial` when the provider confirms incomplete coverage. Adapters must not define mutable `execution_status` or `stop_reason` fields. The source runner checks for either field before execution and again before evidence collection. It owns finalization, promotes incomplete reports with retained normalized evidence to `partial`, and records a normal zero-result completion as `completed` with `no-results`.
+Return one of these values from `process()`:
+
+| Return | Meaning |
+| --- | --- |
+| `None` | The provider conversation completed normally, including a valid zero-result response. |
+| `SourceExecutionReport('completed', reason)` | The source stopped successfully before its natural end, such as after reaching the requested result limit. |
+| `SourceExecutionReport('failed', reason)` | A provider or transport failure ended the source. |
+| `SourceExecutionReport('rate-limited', reason)` | A terminal rate limit ended the source. |
+| `SourceExecutionReport('partial', reason)` | The provider confirmed incomplete coverage. |
+
+Use a stable provider-specific reason. Do not define mutable `execution_status` or `stop_reason` fields. The source runner rejects either field before execution and before evidence collection. It owns finalization, promotes incomplete reports with retained normalized evidence to `partial`, and records a normal zero-result completion as `completed` with `no-results`.
 
 ### Own the provider conversation
 
