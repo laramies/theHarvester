@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import re
+from collections import Counter
 from pathlib import Path
 
 import yaml
 
+from theHarvester.lib.api.run_evidence import parse_jsonl_import
 from theHarvester.lib.completed_result import parse_result_jsonl
 from theHarvester.lib.source_catalog import ACTION_ACTIVITIES, RESULT_CAPABILITIES, SOURCE_SPECS
 
@@ -315,6 +317,47 @@ def test_virtual_host_wiki_examples_match_the_structured_result_contract() -> No
     assert finding['value'] == 'admin.authorized.example'
     assert finding['actions'] == ['vhost']
     assert len(finding['observations']) == 2
+
+
+def test_wiki_action_jsonl_examples_match_the_result_contract() -> None:
+    page = Path('docs/wiki/Results-and-Local-Data.md').read_text()
+    examples = re.findall(r'```jsonl\n(.*?)\n```', page, flags=re.DOTALL)
+
+    assert len(examples) == 4
+    documented_actions: set[str] = set()
+    for example in examples:
+        summary, findings = parse_result_jsonl(example)
+        imported = parse_jsonl_import(example.encode())
+        finding_counts = Counter(finding['type'] for finding in findings)
+        action_counts = Counter(action for finding in findings for action in finding.get('actions', []))
+        source_counts = Counter(source for finding in findings for source in finding.get('sources', []))
+        execution_counts = {execution['action']: execution['result_count'] for execution in summary['action_executions']}
+        source_execution_counts = {execution['source']: execution['result_count'] for execution in summary['source_executions']}
+
+        assert summary['counts'] == dict(finding_counts)
+        assert summary['result_count'] == len(findings)
+        assert imported['run_id'] == summary['run_id']
+        assert imported['results'] == findings
+        assert execution_counts == dict(action_counts)
+        assert source_execution_counts == dict(source_counts)
+        documented_actions.update(execution_counts)
+
+    assert documented_actions == {
+        'dns-brute',
+        'dns-lookup',
+        'dns-recursive',
+        'dns-resolve',
+        'routeviews',
+        'shodan',
+    }
+    assert '[full virtual-host JSONL finding](Virtual-Host-Discovery#one-finding-multiple-endpoint-observations)' in page
+
+
+def test_operator_workflows_include_reverse_and_recursive_dns_commands() -> None:
+    page = Path('docs/wiki/Operator-Workflows.md').read_text()
+
+    assert '-b rapiddns \\\n  --dns-lookup \\\n  -f report' in page
+    assert '--dns-resolvers resolvers.txt \\\n  --dns-recursive-depth 1 \\\n  -f report' in page
 
 
 def test_readme_preserves_project_social_attribution() -> None:
