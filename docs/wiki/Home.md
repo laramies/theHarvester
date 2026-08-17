@@ -9,17 +9,19 @@ DNS brute force, DNS resolution, virtual host discovery, takeover checks, screen
 ## Start here
 
 1. [Install theHarvester](Installation).
-2. Follow the [Quick Start](Quick-Start) for a small passive run.
-3. Read [Responsible Use and Scope](Responsible-Use-and-Scope) before enabling active features.
+2. Read [Responsible Use and Scope](Responsible-Use-and-Scope) before choosing a target or feature.
+3. Follow the [Quick Start](Quick-Start) for a small passive run.
 4. Add credentials through [Configuration and API Keys](Configuration-and-API-Keys) when a selected provider requires them.
 5. Learn where findings are stored in [Results and Local Data](Results-and-Local-Data).
 
 ## Choose an interface
 
-- **Command line:** best for interactive reconnaissance and report generation.
-- **HarvestView:** best for creating and inspecting durable local enumeration runs in a browser. See [REST API](Rest-API).
-- **REST API:** best for authenticated local integrations and Swagger/ReDoc documentation. See [REST API](Rest-API).
-- **Docker Compose:** packages HarvestView and the REST API, not the normal interactive CLI.
+| Interface | Use it for |
+| --- | --- |
+| Command line | Interactive reconnaissance and report generation. |
+| HarvestView | Creating and inspecting durable local runs in a browser. See [REST API](Rest-API). |
+| REST API | Authenticated local integrations and the generated Swagger/ReDoc reference. See [REST API](Rest-API). |
+| Docker Compose | Running HarvestView and the REST API. It does not provide the normal interactive CLI. |
 
 The repository [README](https://github.com/laramies/theHarvester) owns the current feature summary and source/result matrix. The live `theHarvester -h` output owns the complete CLI reference.
 

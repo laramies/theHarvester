@@ -34,20 +34,25 @@ The first existing file wins.
 
 Check the [README source matrix](https://github.com/laramies/theHarvester/blob/dev/README.md#discovery-sources). Configure credentials for that provider or choose a keyless source. `-q` suppresses missing-key notices; it does not make keyed providers work without credentials.
 
-## Provider errors, timeouts, or empty results
+## A provider fails, times out, or returns no results
 
-Rerun one source with a small limit:
+Rerun one source with a small limit and save its summary:
+
+Network activity: provider-facing lookup plus local report writes.
 
 ```bash
-uv run theHarvester -d example.com -b source-name -l 10
+uv run theHarvester -d example.com -b source-name -l 10 -f diagnostic
+jq -c 'select(.type == "summary") | {evidence_status, source_executions}' diagnostic.jsonl
 ```
 
-Then check:
+Read the source outcome before treating an empty result as a failure. A completed `no-results` outcome means the provider conversation finished normally. A `partial`, `failed`, or `rate-limited` outcome names a separate coverage problem.
+
+If the source did not complete normally, check:
 
 - provider status and current API documentation;
 - credential validity and subscription access;
 - provider rate limits or temporary blocking of shared CI/cloud addresses;
-- whether the source legitimately has no results for the target.
+- whether the provider documents the target or query type as supported.
 
 Do not post credentials, private targets, account details, or raw provider responses in a public issue.
 
@@ -61,6 +66,8 @@ uv run theHarvester -d "$AUTHORIZED_DOMAIN" -b crtsh -r resolvers.txt
 ```
 
 If theHarvester reports invalid resolvers, remove hostnames, comments, blank values, or `host:port` entries; the resolver list accepts IP addresses only. Check local firewall and DNS policy before substituting public resolvers.
+
+The input is accepted when the invalid-resolver message is gone. A valid resolver list does not guarantee that a name has DNS records.
 
 ## Screenshots and Chromium
 
@@ -86,6 +93,8 @@ Then open [http://127.0.0.1:5000/docs](http://127.0.0.1:5000/docs).
 - `503` on `/api/v1/*`: `THEHARVESTER_API_KEY` was not configured before startup.
 - `429`: a reverse proxy or remote provider applied its own rate limit. `harvestview` has no built-in request limiter.
 - `503` when creating a run: the execution worker is disabled or unavailable.
+
+After correcting the cause, retry `GET /api/v1/sources`. A successful authenticated response returns the source catalog.
 
 ## Docker
 

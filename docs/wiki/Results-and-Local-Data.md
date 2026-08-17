@@ -1,6 +1,14 @@
 # Results and local data
 
-theHarvester can print findings, write reports, retain selected records in SQLite, save screenshots, and expose durable run records through the API. These outputs have different schemas and sensitivity.
+Choose the output that matches the next task:
+
+| Output | Use it for | Important limit |
+| --- | --- | --- |
+| Terminal | Interactive review | Not a stable automation interface. |
+| JSONL | Automation, one-run interchange, and provenance | One summary record followed by normalized findings. |
+| SQLite | Local history and bulk transfer of completed runs | Contains sensitive evidence across runs. |
+| JSON or XML | Compatibility with older consumers | Does not preserve per-item source attribution. |
+| REST API | Lifecycle state, normalized results, and local integrations | Requires API authentication. |
 
 ## Terminal output
 
@@ -9,6 +17,8 @@ The CLI groups findings by result type. It can also print separate enrichment, s
 ## JSONL reports
 
 Use `-f NAME` to write a durable run report:
+
+Network activity: provider-facing passive discovery plus local report writes.
 
 ```bash
 uv run theHarvester -d example.com -b crtsh,certspotter -f report
@@ -46,28 +56,28 @@ The database persists across runs. Account for it in engagement cleanup and rete
 
 Completed CLI executions store one normalized terminal record keyed by run UUID. API executions use the same database by default and may override its path with `THEHARVESTER_RUN_DB`. Lifecycle rows keep queue, cancellation, and worker state separate from terminal evidence. Imported JSONL is stored without executing discovery, and source attribution is rebuilt from each finding's `sources` array. A SQLite import copies every completed run after validating the database and keeps the original run IDs.
 
-The normalized persistence model can represent active-action provenance and artifact metadata through six core tables:
+Six tables hold completed evidence:
 
-- `runs`: one finite enumeration run;
-- `executions`: each passive source or active action represented by the model;
-- `results`: deduplicated hostnames, IPs, emails, URLs, and structured outputs;
-- `result_origins`: which execution produced each result;
-- `asn_attributions`: sourced organization labels linking an ASN result to the exact hostname or IP result supplied by the same execution; and
+- `runs`: one finite enumeration run.
+- `executions`: each passive source or active action represented by the model.
+- `results`: deduplicated hostnames, IPs, emails, URLs, and structured outputs.
+- `result_origins`: the execution that produced each result.
+- `asn_attributions`: sourced organization labels linking an ASN result to the exact hostname or IP supplied by the same execution.
 - `artifacts`: files such as screenshots, linked to their creating action and subject result.
 
-Virtual-host evidence stays inside this model. `results` holds one `hostname` row, `result_origins` links it to the `vhost` action execution, and the result's `details_json` contains the canonical endpoint observation array. If one hostname is distinct on several IP endpoints, it remains one result with several observations.
+Virtual-host evidence uses the same model. `results` holds one `hostname` row, `result_origins` links it to the `vhost` action execution, and `details_json` contains the endpoint observations. A hostname that is distinct on several IP endpoints remains one result with several observations.
 
 Runtime collection records passive source executions plus DNS, takeover, Shodan, and API endpoint scan executions and origins. Screenshot actions attach file metadata to their captured hostname or URL without creating screenshot findings.
 
-RouteViews creates `prefix` results with `scope: external-relationship` and `routeviews` action provenance. Native observations distinguish one ASN-prefix origin claim, one collector/peer BGP route, and one RPKI validation state. They are routing evidence, not registration, ownership, authorization, reachability, or expanded target scope.
+RouteViews creates `prefix` results with `scope: external-relationship` and `routeviews` action provenance. Its observations distinguish ASN-prefix origin claims, collector/peer BGP routes, and RPKI validation states. Treat them as routing evidence, not registration, ownership, authorization, reachability, or expanded target scope.
 
-URLScan, ONYPHE, and Shodan can attach a provider organization label to an ASN. SQLite stores each relationship in `asn_attributions`; JSONL, the API, CLI output, and HarvestView project the same typed observation. Labels remain time-bound provider evidence, so missing or conflicting values are retained rather than replaced by one ASN owner property. Shodan's documented `org` field is used for the organization label; its separate `isp` field remains part of the existing Shodan payload and is not treated as equivalent.
+URLScan, ONYPHE, and Shodan can attach a provider organization label to an ASN. SQLite stores each relationship in `asn_attributions`; JSONL, the API, CLI output, and HarvestView expose the same typed observation. These labels are time-bound provider evidence. Missing or conflicting values remain separate instead of being replaced by one ASN owner property. Shodan's documented `org` field supplies the organization label; its `isp` field remains part of the Shodan payload and is not treated as equivalent.
 
 Every discovered URL is stored as the `url` result kind. Its source or action origins identify whether it came from BuiltWith, GitLab, RocketReach, API scanning, or another producer; provider-specific URL kinds are not stored.
 
 Hostname and IP evidence use the `hostname` and `ip` result kinds in SQLite, JSONL, the API, and HarvestView. A hostname may be the authorized target itself or a subordinate name, so the result kind does not claim that every value is a subdomain.
 
-Two operational tables support the API without changing those six evidence concepts: `run_records` stores queue and lifecycle state, and `run_worker_leases` prevents two local workers from claiming the same queue. Runless rows are stored in `legacy_observations`. SQLite upgrades supported schemas automatically during normal initialization.
+Two operational tables support the API: `run_records` stores queue and lifecycle state, and `run_worker_leases` prevents two local workers from claiming the same queue. Runless rows are stored in `legacy_observations`. SQLite upgrades supported schemas during normal initialization.
 
 ## Screenshots
 
