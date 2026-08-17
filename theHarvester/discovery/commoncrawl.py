@@ -1,24 +1,13 @@
 import asyncio
-import json as _stdlib_json
+import json
 import logging
 from datetime import datetime, timedelta
-from types import ModuleType
 from urllib.parse import urlencode, urlsplit
 
 from theHarvester.lib.core import AsyncFetcher, Core
 from theHarvester.lib.source_execution import SourceExecutionReport
 
 logger = logging.getLogger(__name__)
-
-json: ModuleType = _stdlib_json
-try:
-    import ujson as _ujson
-
-    json = _ujson
-except ImportError:
-    pass
-except Exception:
-    pass
 
 
 class SearchCommoncrawl:

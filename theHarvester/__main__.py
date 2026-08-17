@@ -20,7 +20,6 @@ from uuid import UUID, uuid4
 
 import anyio
 import netaddr
-import ujson
 
 from theHarvester.discovery import (
     api_endpoints,
@@ -589,7 +588,7 @@ async def start(
         for host in canonical_hosts:
             if host.ip not in shodan_hosts:
                 output_logger.info(
-                    ujson.dumps(
+                    json.dumps(
                         {'type': 'shodan-host', 'value': host.ip, 'details': host.to_details()},
                         indent=4,
                         sort_keys=True,
@@ -2144,7 +2143,7 @@ async def start(
 
             json_dict['shodan'] = shodanres
             async with await anyio.open_file(filename, 'w+') as fp:
-                dumped_json = ujson.dumps(json_dict, sort_keys=True)
+                dumped_json = json.dumps(json_dict, separators=(',', ':'), sort_keys=True)
                 await fp.write(dumped_json)
             output_logger.info('[*] JSON File saved.')
         except (OSError, ValueError, TypeError, UnicodeEncodeError) as er:

@@ -1,7 +1,6 @@
-import json as _stdlib_json
+import json
 import logging
 from ipaddress import ip_address
-from types import ModuleType
 
 import aiohttp
 
@@ -9,16 +8,6 @@ from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.source_execution import SourceExecutionReport
 
 logger = logging.getLogger(__name__)
-
-json: ModuleType = _stdlib_json
-try:
-    import ujson as _ujson
-
-    json = _ujson
-except ImportError as e:
-    logger.info(f"'ujson' not available. Falling back to standard 'json' module. Reason: {e}")
-except (AttributeError, OSError, RuntimeError, SystemError, ValueError) as e:
-    logger.info(f"Unexpected error while importing 'ujson'. Falling back to standard 'json'. Reason: {e}")
 
 
 class SearchRobtex:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import json as stdlib_json
+import json as json_loader
 import logging
 import random
 import re
@@ -13,9 +13,6 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 import aiohttp
 import certifi
-
-# need to import as different name as to not shadow already existing json var in post_fetch
-import ujson as json_loader
 import yaml
 from aiohttp_socks import ProxyConnector
 
@@ -857,7 +854,7 @@ class AsyncFetcher:
                 text = body.decode('utf-8')
                 if not text.strip():
                     raise ValueError('empty JSON response')
-                parsed = stdlib_json.loads(text, parse_constant=_reject_json_constant)
+                parsed = json_loader.loads(text, parse_constant=_reject_json_constant)
             except (UnicodeDecodeError, ValueError, RecursionError) as error:
                 raise ResponseStreamError('invalid-response') from error
             return FetcherResponse(body=parsed, status=response.status, headers=response_headers)
