@@ -6,6 +6,7 @@ from pathlib import Path
 
 import yaml
 
+from theHarvester.lib.completed_result import parse_result_jsonl
 from theHarvester.lib.source_catalog import ACTION_ACTIVITIES, RESULT_CAPABILITIES, SOURCE_SPECS
 
 OPTIONAL_API_KEY_SOURCES = {'hackertarget', 'mojeek', 'windvane'}
@@ -99,7 +100,7 @@ def _declared_source_contracts() -> dict[str, set[str]]:
 
 
 def _source_matrix(readme: str) -> str:
-    return readme.split('<summary><strong>View all 58 sources by result type</strong></summary>', 1)[1].split('</details>', 1)[0]
+    return readme.split('<summary><strong>View all 58 discovery sources</strong></summary>', 1)[1].split('</details>', 1)[0]
 
 
 def _documented_source_rows(readme: str) -> dict[str, list[str]]:
@@ -109,8 +110,7 @@ def _documented_source_rows(readme: str) -> dict[str, list[str]]:
             cells = [cell.strip() for cell in line.strip('|').split('|')]
             source = re.fullmatch(r'\[`([^`]+)`\]\((https://[^)]+)\)', cells[0])
             assert source is not None
-            values = cells[1:]
-            rows[source.group(1)] = ['subdomains', *values] if len(values) == 2 else values
+            rows[source.group(1)] = cells[1:]
     return rows
 
 
@@ -123,7 +123,10 @@ def _documented_source_links(readme: str) -> list[tuple[str, str]]:
 
 
 def _documented_source_contracts(readme: str) -> dict[str, set[str]]:
-    return {source: {route.strip() for route in cells[0].split(',')} for source, cells in _documented_source_rows(readme).items()}
+    return {
+        source: {route.strip().removesuffix(' only') for route in cells[0].split(',')}
+        for source, cells in _documented_source_rows(readme).items()
+    }
 
 
 def _documented_source_activities(readme: str) -> dict[str, str]:
@@ -144,8 +147,7 @@ def test_readme_matches_declared_source_contracts() -> None:
     documented = _documented_source_contracts(readme)
     declared = _declared_source_contracts()
 
-    assert '| Source | Activity | API key |' in readme
-    assert '| Source | Returns | Activity | API key |' in readme
+    assert _source_matrix(readme).count('| Source | Returns | Activity | API key |') == 1
     assert 'Credentials |' not in _source_matrix(readme)
     assert len(declared) == 58
     assert len(documented) == 58
@@ -157,29 +159,21 @@ def test_readme_matches_declared_source_contracts() -> None:
     assert {'securitytrails', 'shodaninternetdb'}.isdisjoint(documented)
 
 
-def test_readme_source_matrix_is_grouped_and_ordered() -> None:
+def test_readme_source_matrix_is_one_table_and_ordered() -> None:
     readme = Path('README.md').read_text()
     matrix = _source_matrix(readme)
-    subdomain_section, other_section = matrix.split('#### Sources that return other results (37)', 1)
+    rows = _documented_source_rows(readme)
+    names = list(rows)
 
-    def names(section: str) -> list[str]:
-        return [match.group(1) for line in section.splitlines() if (match := re.match(r'^\| \[`([^`]+)`\]\(https://', line))]
-
-    subdomain_only = names(subdomain_section)
-    other_results = names(other_section)
-    declared_subdomain_only = {source for source, spec in SOURCE_SPECS.items() if spec.capabilities == frozenset({'subdomains'})}
-
-    assert subdomain_only == sorted(subdomain_only, key=str.casefold)
-    assert other_results == sorted(other_results, key=str.casefold)
-    assert len(subdomain_only) == 21
-    assert len(other_results) == 37
-    assert set(subdomain_only) == declared_subdomain_only
-    assert set(other_results) == set(SOURCE_SPECS) - declared_subdomain_only
+    assert '#### Subdomain-only sources' not in matrix
+    assert '#### Sources that return other results' not in matrix
+    assert names == sorted(names, key=str.casefold)
 
     route_rank = {route: index for index, route in enumerate(SOURCE_ROUTE_ORDER)}
-    for routes, *_ in _documented_source_rows(readme).values():
-        documented_order = [route.strip() for route in routes.split(',')]
+    for source, (routes, *_) in rows.items():
+        documented_order = [route.strip().removesuffix(' only') for route in routes.split(',')]
         assert documented_order == sorted(documented_order, key=route_rank.__getitem__)
+        assert routes.endswith(' only') == (len(SOURCE_SPECS[source].capabilities) == 1)
 
 
 def test_readme_api_key_markers_match_configuration() -> None:
@@ -364,8 +358,16 @@ def test_operator_docs_cover_portable_database_export() -> None:
 
 def test_readme_explains_jsonl_record_and_structured_evidence_parsing() -> None:
     readme = Path('README.md').read_text()
+    example = re.search(r'```jsonl\n(.*?)\n```', readme, flags=re.DOTALL)
+    assert example is not None
+    summary, findings = parse_result_jsonl(example.group(1))
 
-    assert '{"sources":[],"type":"hostname","value":"api.example.com"}' in readme
+    finding_types = ('asn', 'breach', 'email', 'hostname', 'ip', 'url')
+    assert summary['counts'] == {result_type: 1 for result_type in finding_types}
+    assert summary['result_count'] == len(findings) == 6
+    assert tuple(finding['type'] for finding in findings) == finding_types
+    assert all(finding['sources'] for finding in findings)
+    assert {execution['source'] for execution in summary['source_executions']} == {'haveibeenpwned', 'zoomeye'}
     for result_kind in ('hostname', 'ip', 'asn', 'email', 'url', 'person', 'breach'):
         assert f'select(.type == "{result_kind}")' in readme
     assert 'select(.type == "person") | .value | fromjson' in readme
