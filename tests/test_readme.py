@@ -14,6 +14,66 @@ API_KEY_SOURCE_ALIASES = {
     'pentestTools': {'pentesttools'},
     'projectDiscovery': {'projectdiscovery'},
 }
+SOURCE_PROVIDER_LINKS = {
+    'apis-guru': 'https://apis.guru/',
+    'arquivo': 'https://arquivo.pt/',
+    'baidu': 'https://www.baidu.com/',
+    'bevigil': 'https://bevigil.com/osint-api',
+    'bufferoverun': 'https://tls.bufferover.run/',
+    'builtwith': 'https://builtwith.com/',
+    'brave': 'https://brave.com/search/api/',
+    'censys': 'https://search.censys.io/',
+    'certspotter': 'https://sslmate.com/certspotter/',
+    'commoncrawl': 'https://commoncrawl.org/',
+    'criminalip': 'https://www.criminalip.io/',
+    'crt-name': 'https://crt.name/',
+    'crtsh': 'https://crt.sh/',
+    'dehashed': 'https://dehashed.com/',
+    'dnsdb': 'https://docs.domaintools.com/api/dnsdb/',
+    'dnsdumpster': 'https://dnsdumpster.com/',
+    'duckduckgo': 'https://duckduckgo.com/',
+    'dymo': 'https://docs.tpeoficial.com/docs/dymo-api/private/data-verifier',
+    'fofa': 'https://en.fofa.info/',
+    'fullhunt': 'https://fullhunt.io/',
+    'github-code': 'https://github.com/',
+    'gitlab': 'https://gitlab.com/',
+    'hackertarget': 'https://hackertarget.com/',
+    'haveibeenpwned': 'https://haveibeenpwned.com/',
+    'hibpverified': 'https://haveibeenpwned.com/API/v3#BreachedDomain',
+    'hudsonrock': 'https://www.hudsonrock.com/',
+    'hunter': 'https://hunter.io/',
+    'hunterhow': 'https://hunter.how/',
+    'intelx': 'https://intelx.io/',
+    'leakix': 'https://leakix.net/',
+    'leaklookup': 'https://leak-lookup.com/',
+    'mojeek': 'https://www.mojeek.com/services/search/web-search-api/',
+    'netlas': 'https://netlas.io/',
+    'onyphe': 'https://www.onyphe.io/',
+    'otx': 'https://otx.alienvault.com/',
+    'pentesttools': 'https://pentest-tools.com/',
+    'projectdiscovery': 'https://chaos.projectdiscovery.io/',
+    'rapiddns': 'https://rapiddns.io/',
+    'robtex': 'https://www.robtex.com/',
+    'rocketreach': 'https://rocketreach.co/',
+    'securityscorecard': 'https://securityscorecard.com/',
+    'securityTrails': 'https://securitytrails.com/',
+    'sherlockeye': 'https://sherlockeye.io/',
+    'shodan': 'https://www.shodan.io/',
+    'shodanInternetDB': 'https://internetdb.shodan.io/',
+    'shodanct': 'https://ctl.shodan.io/',
+    'sourcegraph': 'https://sourcegraph.com/search',
+    'subdomaincenter': 'https://www.subdomain.center/',
+    'subdomainfinderc99': 'https://subdomainfinder.c99.nl/',
+    'thc': 'https://ip.thc.org/',
+    'tomba': 'https://tomba.io/',
+    'urlscan': 'https://urlscan.io/',
+    'virustotal': 'https://www.virustotal.com/',
+    'waybackarchive': 'https://web.archive.org/',
+    'whoisxml': 'https://subdomains.whoisxmlapi.com/',
+    'windvane': 'https://windvane.lichoin.com/',
+    'yahoo': 'https://www.yahoo.com/',
+    'zoomeye': 'https://www.zoomeye.ai/',
+}
 WIKI_PAGES = {
     'Configuration-and-API-Keys.md',
     'Contributing-and-Security.md',
@@ -37,14 +97,27 @@ def _declared_source_contracts() -> dict[str, set[str]]:
     return {source: set(spec.capabilities) for source, spec in SOURCE_SPECS.items()}
 
 
+def _source_matrix(readme: str) -> str:
+    return readme.split('<summary><strong>View the source and result matrix</strong></summary>', 1)[1].split('</details>', 1)[0]
+
+
 def _documented_source_rows(readme: str) -> dict[str, list[str]]:
-    matrix = readme.split('<summary><strong>View the source and result matrix</strong></summary>', 1)[1].split('</details>', 1)[0]
     rows: dict[str, list[str]] = {}
-    for line in matrix.splitlines():
-        if line.startswith('| `'):
+    for line in _source_matrix(readme).splitlines():
+        if line.startswith('| [`'):
             cells = [cell.strip() for cell in line.strip('|').split('|')]
-            rows[cells[0].strip('`')] = cells[1:]
+            source = re.fullmatch(r'\[`([^`]+)`\]\((https://[^)]+)\)', cells[0])
+            assert source is not None
+            rows[source.group(1)] = cells[1:]
     return rows
+
+
+def _documented_source_links(readme: str) -> list[tuple[str, str]]:
+    return [
+        (match.group(1), match.group(2))
+        for line in _source_matrix(readme).splitlines()
+        if (match := re.match(r'^\| \[`([^`]+)`\]\((https://[^)]+)\)', line))
+    ]
 
 
 def _documented_source_contracts(readme: str) -> dict[str, set[str]]:
@@ -73,6 +146,9 @@ def test_readme_matches_declared_source_contracts() -> None:
     assert len(declared) == 58
     assert len(documented) == 58
     assert documented == declared
+    source_links = _documented_source_links(readme)
+    assert len(source_links) == len(declared)
+    assert dict(source_links) == SOURCE_PROVIDER_LINKS
     assert _documented_source_activities(readme) == {source: spec.activity.value for source, spec in SOURCE_SPECS.items()}
     assert {'securitytrails', 'shodaninternetdb'}.isdisjoint(documented)
 
