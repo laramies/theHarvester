@@ -2,6 +2,10 @@
 
 Start with the smallest source set and least active behavior that can answer the engagement question. Replace `example.com` only with an authorized target.
 
+Sources and explicit actions contribute different result routes and different levels of network activity. This map shows how they meet in one normalized evidence model:
+
+![theHarvester discovery routes and enrichment](https://raw.githubusercontent.com/laramies/theHarvester/dev/docs/images/run-evidence-architecture.svg)
+
 ## Passive subdomain discovery
 
 ```bash

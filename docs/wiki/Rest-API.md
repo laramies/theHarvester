@@ -2,6 +2,8 @@
 
 `harvestview` serves the web application at `/` and one versioned API for local automation.
 
+![HarvestView run desk architecture](https://raw.githubusercontent.com/laramies/theHarvester/dev/docs/images/harvestview-architecture.svg)
+
 ## Start the service
 
 Set a long random API key before startup:

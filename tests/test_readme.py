@@ -208,6 +208,50 @@ def test_readme_architecture_diagrams_are_local_and_accessible() -> None:
         assert all(text in svg_text for text in expected_text)
 
 
+def test_wiki_diagrams_are_local_accessible_and_used_deliberately() -> None:
+    raw_root = 'https://raw.githubusercontent.com/laramies/theHarvester/dev/'
+    diagrams = (
+        (
+            Path('docs/wiki/Virtual-Host-Discovery.md'),
+            'Bounded virtual-host sweep',
+            Path('docs/images/vhost-sweep-overview.svg'),
+            'vhost-sweep-overview',
+            ('exact target scope', 'Literal-IP endpoint pool', 'shared request cap', '3 shape-matched controls'),
+        ),
+        (
+            Path('docs/wiki/Virtual-Host-Discovery.md'),
+            'Virtual-host response classifier',
+            Path('docs/images/vhost-classifier.svg'),
+            'vhost-classifier',
+            ('All responses usable', 'Candidate matches', 'Repeat candidate request', 'Retain hostname'),
+        ),
+        (
+            Path('docs/wiki/Operator-Workflows.md'),
+            'theHarvester discovery routes and enrichment',
+            Path('docs/images/run-evidence-architecture.svg'),
+            'run-evidence-architecture',
+            (),
+        ),
+        (
+            Path('docs/wiki/Rest-API.md'),
+            'HarvestView run desk architecture',
+            Path('docs/images/harvestview-architecture.svg'),
+            'harvestview-architecture',
+            (),
+        ),
+    )
+
+    for page, alt, svg, slug, expected_text in diagrams:
+        svg_text = svg.read_text()
+        assert f'![{alt}]({raw_root}{svg})' in page.read_text()
+        assert 'role="img"' in svg_text
+        assert f'<title id="{slug}-title">' in svg_text
+        assert f'<desc id="{slug}-desc">' in svg_text
+        assert all(text in svg_text for text in expected_text)
+
+    assert '```mermaid' not in Path('docs/wiki/Virtual-Host-Discovery.md').read_text()
+
+
 def test_virtual_host_wiki_examples_match_the_structured_result_contract() -> None:
     page = Path('docs/wiki/Virtual-Host-Discovery.md').read_text()
 

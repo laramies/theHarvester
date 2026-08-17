@@ -42,28 +42,13 @@ For each endpoint, theHarvester makes a literal-IP context request and at least 
 
 HTTPS candidate and control requests send the same hostname in TLS SNI and the HTTP `Host` header. HTTP requests send the hostname only in `Host`. Redirects are recorded as evidence but are not followed.
 
-```mermaid
-flowchart TD
-    A[Collect hostnames and literal IPs] --> B[Keep candidates inside the exact target scope]
-    A --> C[Build HTTPS endpoints, then HTTP endpoints]
-    B --> D[Select the next endpoint and candidates that fit the shared cap]
-    C --> D
-    D --> E[Request the literal-IP context]
-    D --> F[Request three unknown controls for each candidate shape]
-    D --> G[Request the candidate with aligned SNI and Host]
-    E --> H{Are both baselines usable and controls stable?}
-    F --> H
-    G --> H
-    H -->|No| I[Indeterminate]
-    H -->|Yes| J{Does the candidate match either baseline?}
-    J -->|Yes| K[Default]
-    J -->|No, status or redirect differs| L[Distinct]
-    J -->|Only the body differs| M[Repeat the candidate request]
-    M --> N{Does the body difference repeat?}
-    N -->|Yes| L
-    N -->|No| I
-    L --> O[Store structured virtual host evidence]
-```
+The sweep first turns harvested evidence and any operator override into one bounded set of comparable requests:
+
+![Bounded virtual-host sweep](https://raw.githubusercontent.com/laramies/theHarvester/dev/docs/images/vhost-sweep-overview.svg)
+
+The response set then enters a separate classifier. A status, redirect, or request-phase difference can be accepted immediately. A body-only difference must repeat before it becomes a finding:
+
+![Virtual-host response classifier](https://raw.githubusercontent.com/laramies/theHarvester/dev/docs/images/vhost-classifier.svg)
 
 Before comparison, the classifier replaces an exact reflection of the current authority in the response body or `Location` header. A generic error page that merely repeats the requested hostname should not become a discovery.
 
