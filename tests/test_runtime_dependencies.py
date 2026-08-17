@@ -29,6 +29,19 @@ def test_unused_packages_are_not_runtime_requirements() -> None:
     assert 'httpx' in development
 
 
+def test_unused_packages_are_not_direct_development_requirements() -> None:
+    project = tomllib.loads(Path('pyproject.toml').read_text(encoding='utf-8'))
+    lock = tomllib.loads(Path('uv.lock').read_text(encoding='utf-8'))
+
+    development = _dependency_names(project['dependency-groups']['dev'])
+    locked = {package['name'] for package in lock['package']}
+
+    assert development.isdisjoint({'mypy-extensions', 'ty', 'types-certifi', 'types-chardet', 'wheel'})
+    assert {'ty', 'types-certifi', 'types-chardet', 'wheel'}.isdisjoint(locked)
+    assert 'exclude-newer-package' not in project['tool']['uv']
+    assert 'ty' not in project['tool']
+
+
 def test_runtime_imports_without_optional_json_extensions() -> None:
     script = textwrap.dedent(
         """
