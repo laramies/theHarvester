@@ -23,7 +23,7 @@ def test_python_version_policy_requires_314() -> None:
     assert 'Programming Language :: Python :: 3.13' not in project['project']['classifiers']
     assert project['tool']['mypy']['python_version'] == '3.14'
     assert project['tool']['uv']['pip']['python-version'] == '3.14'
-    assert project['tool']['ruff']['target-version'] == 'py313'
+    assert project['tool']['ruff']['target-version'] == 'py314'
     bug_report = (PROJECT_ROOT / '.github' / 'ISSUE_TEMPLATE' / 'bug_report.yml').read_text(encoding='utf-8')
     assert 'Python version: 3.14.6' in bug_report
 

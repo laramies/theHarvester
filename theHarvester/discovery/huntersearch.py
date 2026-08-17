@@ -115,7 +115,7 @@ class SearchHunter:
         self.proxy = proxy
         try:
             await self.do_search()  # Only need to do it once.
-        except (AttributeError, KeyError, TypeError):
+        except AttributeError, KeyError, TypeError:
             logger.info('Hunter returned malformed data')
 
     async def get_emails(self):

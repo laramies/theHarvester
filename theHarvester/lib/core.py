@@ -24,6 +24,8 @@ from theHarvester.lib.source_catalog import SOURCE_SPECS, resolve_sources
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Sized
 
+    from aiohttp.abc import AbstractCookieJar
+
 logger = logging.getLogger(__name__)
 
 DATA_DIR = Path(__file__).parents[1] / 'data'
@@ -474,7 +476,7 @@ class AsyncFetcher:
         if isinstance(proxy, bool) and proxy:
             try:
                 return cls._get_random_proxy(cls().proxy_list)
-            except (IndexError, TypeError, ValueError):
+            except IndexError, TypeError, ValueError:
                 return None, None
         return None, None
 
@@ -486,7 +488,7 @@ class AsyncFetcher:
         proxy_url: str | None = None,
         proxy_type: str | None = None,
         ssl_context: ssl.SSLContext | bool | None = None,
-        cookie_jar: aiohttp.abc.AbstractCookieJar | None = None,
+        cookie_jar: AbstractCookieJar | None = None,
     ) -> aiohttp.ClientSession:
         connector = None
         if proxy_url is not None or proxy_type is not None or ssl_context is not None:
@@ -510,7 +512,7 @@ class AsyncFetcher:
         headers: dict[str, str] | None = None,
         proxy: str | bool | None = '',
         request_timeout: int | None = None,
-        cookie_jar: aiohttp.abc.AbstractCookieJar | None = None,
+        cookie_jar: AbstractCookieJar | None = None,
     ) -> AsyncIterator[aiohttp.ClientSession]:
         """Own one connection pool, proxy identity, and cookie jar for a provider conversation."""
         proxy_url, proxy_type = cls._resolve_proxy(proxy)
@@ -580,7 +582,7 @@ class AsyncFetcher:
             else:
                 try:
                     body = await response.json()
-                except (aiohttp.ContentTypeError, ValueError):
+                except aiohttp.ContentTypeError, ValueError:
                     body = text_body
         else:
             body = await response.json()
@@ -702,7 +704,7 @@ class AsyncFetcher:
                 include_metadata=include_metadata,
                 **request_kwargs,
             )
-        except (aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, UnicodeDecodeError, ValueError):
+        except aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, UnicodeDecodeError, ValueError:
             return None if include_metadata else ''
 
     @classmethod
@@ -768,7 +770,7 @@ class AsyncFetcher:
             finally:
                 if owns_session:
                     await session.close()
-        except (aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, UnicodeDecodeError, ValueError):
+        except aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, UnicodeDecodeError, ValueError:
             return None if include_metadata else ''
 
     @classmethod

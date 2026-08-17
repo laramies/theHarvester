@@ -124,7 +124,7 @@ exclude = [
 ]
 
 line-length = 130
-target-version = "py313"
+target-version = "py314"
 show-fixes = true
 
 [tool.ruff.lint]

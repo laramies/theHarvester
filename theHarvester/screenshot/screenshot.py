@@ -7,17 +7,20 @@ import logging
 import os
 import ssl
 import sys
-from collections.abc import AsyncIterator, Awaitable, Callable, Collection
 from contextlib import asynccontextmanager
 from datetime import datetime
 from ipaddress import ip_address
 from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
 import aiohttp
 import certifi
 from aiohttp_socks import ProxyConnector
-from playwright.async_api import Browser, async_playwright
+from playwright.async_api import Browser, BrowserContext, Page, async_playwright
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Awaitable, Callable, Collection
 
 logger = logging.getLogger(__name__)
 
@@ -128,9 +131,9 @@ class ScreenShotter:
         return [reachable[index] for index in sorted(reachable)]
 
     @staticmethod
-    async def _close(resource: object, resource_name: str) -> BaseException | None:
+    async def _close(resource: Browser | BrowserContext | Page, resource_name: str) -> BaseException | None:
         try:
-            await resource.close()  # type: ignore[attr-defined]
+            await resource.close()
         except BaseException as error:
             logger.info(f'An exception occurred while closing screenshot {resource_name}: {error}')
             return error

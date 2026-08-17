@@ -1,10 +1,12 @@
-from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Self
+from typing import TYPE_CHECKING, Self
 
 from theHarvester.lib.evidence_types import EXECUTION_STATUSES, RESULT_KINDS, ExecutionStatus, ResultKind, format_utc
 from theHarvester.lib.result_values import normalize_result_value
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping
 
 
 @dataclass(frozen=True, order=True, slots=True)

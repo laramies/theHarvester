@@ -582,7 +582,7 @@ class SearchApiEndpoints:
                 if retry_at.tzinfo is None:
                     retry_at = retry_at.replace(tzinfo=UTC)
                 delay = max(0.0, (retry_at - datetime.now(UTC)).total_seconds())
-            except (TypeError, ValueError, OverflowError):
+            except TypeError, ValueError, OverflowError:
                 pass
         if delay is None:
             delay = cls.DEFAULT_RETRY_DELAY_SECONDS * 2**attempt

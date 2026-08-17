@@ -330,7 +330,7 @@ class RunStore:
                 existing = None
                 try:
                     existing = await self.results.load_run(completed.run_id)
-                except (LookupError, ResultStoreError):
+                except LookupError, ResultStoreError:
                     pass
                 if record is not None or existing is not None:
                     if record is not None and existing == completed:
@@ -529,7 +529,7 @@ class RunStore:
     async def _existing_evidence(self, run_id: str, target: str) -> CompletedResult | None:
         try:
             completed = await self.results.load_run(UUID(run_id))
-        except (LookupError, ResultStoreError, ValueError):
+        except LookupError, ResultStoreError, ValueError:
             return None
         return completed if completed.target == target else None
 

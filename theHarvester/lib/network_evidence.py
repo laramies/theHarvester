@@ -277,13 +277,18 @@ class NetworkEvidenceAccumulator:
 
 
 def network_observation_sort_key(observation: NetworkObservation) -> tuple[object, ...]:
-    type_order = {PrefixOriginObservation: 0, BgpRouteObservation: 1, RpkiValidationObservation: 2}
+    if isinstance(observation, PrefixOriginObservation):
+        type_order = 0
+    elif isinstance(observation, BgpRouteObservation):
+        type_order = 1
+    else:
+        type_order = 2
     record = observation.to_record()
     return (
         observation.prefix,
         observation.origin_asn,
         observation.action,
-        type_order[type(observation)],
+        type_order,
         tuple((key, str(value)) for key, value in sorted(record.items())),
     )
 

@@ -88,7 +88,7 @@ class SearchIntelx:
                 continue
             try:
                 address = Address(addr_spec=email.strip().lower())
-            except (HeaderParseError, ValueError):
+            except HeaderParseError, ValueError:
                 continue
             if address.username and (normalized_domain := normalize_scoped_hostname(address.domain, self.word)):
                 emails.add(f'{address.username}@{normalized_domain}')

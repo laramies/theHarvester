@@ -60,7 +60,7 @@ async def resolve_ip_addresses(hostname: str, *, family: socket.AddressFamily = 
             if isinstance(value, bytes):
                 value = value.decode('ascii')
             address = ipaddress.ip_address(value)
-        except (AttributeError, IndexError, TypeError, UnicodeDecodeError, ValueError):
+        except AttributeError, IndexError, TypeError, UnicodeDecodeError, ValueError:
             continue
         if family == socket.AF_INET and address.version != 4:
             continue

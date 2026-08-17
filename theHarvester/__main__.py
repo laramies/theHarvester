@@ -9,7 +9,6 @@ import secrets
 import string
 import sys
 import time
-from collections.abc import Awaitable, Callable, Iterable
 from contextlib import AsyncExitStack
 from datetime import UTC, datetime
 from ipaddress import ip_address, ip_network
@@ -83,6 +82,8 @@ from theHarvester.lib.virtual_host import (
 from theHarvester.screenshot.screenshot import ScreenShotter
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable, Iterable
+
     from theHarvester.lib.network_evidence import NetworkObservation
     from theHarvester.lib.takeover_evidence import TakeoverCandidateOutcome
 
@@ -1386,7 +1387,7 @@ async def start(
                     return {}, set()
                 try:
                     outcomes = await search_take.get_takeover_outcomes()
-                except (asyncio.CancelledError, Exception):
+                except asyncio.CancelledError, Exception:
                     if not best_effort:
                         raise
                     return {}, set()
@@ -1912,7 +1913,7 @@ async def start(
         api_scanner = None
 
         def collect_api_action_groups(
-            scanner: 'api_endpoints.SearchApiEndpoints | None',
+            scanner: api_endpoints.SearchApiEndpoints | None,
             *,
             best_effort: bool = False,
         ) -> tuple[set[str], set[str], dict[ResultKind, Iterable[str]]]:

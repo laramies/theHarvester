@@ -30,7 +30,7 @@ class SearchRobtex:
             if line.strip():
                 try:
                     results.append(json.loads(line))
-                except (TypeError, ValueError):
+                except TypeError, ValueError:
                     continue
         return results
 

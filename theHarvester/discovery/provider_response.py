@@ -1,5 +1,9 @@
+from typing import TYPE_CHECKING
+
 from theHarvester.lib.core import FetcherResponse
-from theHarvester.lib.source_execution import SourceReportStatus
+
+if TYPE_CHECKING:
+    from theHarvester.lib.source_execution import SourceReportStatus
 
 
 def provider_http_error(response: object) -> tuple[SourceReportStatus, str] | None:

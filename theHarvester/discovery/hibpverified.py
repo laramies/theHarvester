@@ -26,7 +26,7 @@ class SearchHibpVerified:
                 proxy=proxy,
                 include_metadata=True,
             )
-        except (OSError, RuntimeError, ValueError):
+        except OSError, RuntimeError, ValueError:
             logger.info('HIBP verified-domain request failed')
             return
 

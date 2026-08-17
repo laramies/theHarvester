@@ -95,7 +95,7 @@ def _canonical_asns(values: Iterable[str | int]) -> tuple[tuple[str, ...], bool]
             continue
         try:
             normalized.add(normalize_asn(value))
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             continue
     return tuple(sorted(normalized, key=lambda value: int(value[2:]))), truncated
 
@@ -448,7 +448,7 @@ class _RouteViewsRuntime:
                 self._record_error(error.error_type, error.stop_reason, override=error.terminal)
                 if error.terminal:
                     raise
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 self._record_error('ValueError', 'invalid-response')
 
         try:

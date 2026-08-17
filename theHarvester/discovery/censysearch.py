@@ -138,5 +138,5 @@ class SearchCensys:
             return await self.do_search()
         except asyncio.CancelledError:
             raise
-        except (aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, ValueError):
+        except aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, ValueError:
             return SourceExecutionReport('failed', 'transport-error')

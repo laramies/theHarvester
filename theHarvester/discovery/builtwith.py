@@ -76,7 +76,7 @@ class SearchBuiltWith:
             if not parsed.path.startswith('/'):
                 return None, True
             return urlunsplit(('https', hostname, parsed.path, parsed.query, parsed.fragment)), False
-        except (UnicodeError, ValueError):
+        except UnicodeError, ValueError:
             return None, True
 
     def _extract_technology(self, technology: object) -> bool:

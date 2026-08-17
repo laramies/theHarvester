@@ -4,7 +4,6 @@ import json
 import logging
 import sqlite3
 from collections import Counter
-from collections.abc import AsyncIterator, Iterable
 from contextlib import asynccontextmanager
 from datetime import date, timedelta
 from pathlib import Path
@@ -41,8 +40,6 @@ from theHarvester.lib.active_evidence import (
 )
 from theHarvester.lib.asn_attribution import (
     AsnAttributionObservation,
-    ProducerKind,
-    SubjectKind,
     canonical_asn_attributions,
 )
 from theHarvester.lib.completed_result import (
@@ -70,6 +67,9 @@ from theHarvester.lib.takeover_evidence import (
 from theHarvester.lib.virtual_host import VirtualHostObservation
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Iterable
+
+    from theHarvester.lib.asn_attribution import ProducerKind, SubjectKind
     from theHarvester.lib.evidence_types import EvidenceStatus
 
 logger = logging.getLogger(__name__)
@@ -1065,14 +1065,16 @@ class ResultStore:
                 or subject_result.kind not in {'hostname', 'ip'}
             ):
                 raise ResultStoreError('Persisted ASN attribution is invalid')
+            producer_kind: ProducerKind = 'source' if attribution_execution.producer_kind == 'source' else 'action'
+            subject_kind: SubjectKind = 'hostname' if subject_result.kind == 'hostname' else 'ip'
             try:
                 asn_attributions.append(
                     AsnAttributionObservation(
-                        cast('ProducerKind', attribution_execution.producer_kind),
+                        producer_kind,
                         attribution_execution.name,
                         asn_result.value,
                         attribution.organization_label,
-                        cast('SubjectKind', subject_result.kind),
+                        subject_kind,
                         subject_result.value,
                         datetime.datetime.fromisoformat(attribution.collected_at),
                     )

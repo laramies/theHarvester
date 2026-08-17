@@ -4,10 +4,13 @@ Production access retains Core's existing file precedence. In-memory access lets
 tests and embedded callers provide credentials without filesystem or global state.
 """
 
-from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from theHarvester.lib.core import Core
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
 class FileSystemCredentialAdapter:

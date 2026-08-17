@@ -266,7 +266,7 @@ class SearchWindvane:
         try:
             parts = ip.split('.')
             return len(parts) == 4 and all(0 <= int(part) <= 255 for part in parts)
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return False
 
     async def get_hostnames(self) -> set:

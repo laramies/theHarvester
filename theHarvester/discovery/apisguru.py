@@ -151,7 +151,7 @@ class SearchApisGuru:
             return
         try:
             address = Address(addr_spec=candidate)
-        except (HeaderParseError, ValueError):
+        except HeaderParseError, ValueError:
             return
         if len(address.username.encode('utf-8')) > 64:
             return

@@ -54,7 +54,7 @@ class SearchLeakix:
                     logger.info(f'LeakIX rate limited; retrying once in {delay:g} seconds')
                     await asyncio.sleep(delay)
                     response = await self._fetch()
-        except (OSError, RuntimeError, ValueError):
+        except OSError, RuntimeError, ValueError:
             logger.info('LeakIX request failed')
             return
 

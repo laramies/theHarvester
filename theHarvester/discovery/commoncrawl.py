@@ -90,7 +90,7 @@ class SearchCommoncrawl:
                 continue
             try:
                 timestamp = datetime.fromisoformat(str(entry.get('to'))).replace(tzinfo=None)
-            except (KeyError, ValueError):
+            except KeyError, ValueError:
                 logger.warning(f'Common Crawl API error for index {index_id}: invalid catalog entry')
                 continue
             dated_indexes.append((timestamp, entry))

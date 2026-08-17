@@ -1,5 +1,8 @@
-from collections.abc import Iterable
 from ipaddress import ip_address
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 DEFAULT_DNS_RESOLVERS = ('1.1.1.1', '8.8.8.8', '9.9.9.9')
 

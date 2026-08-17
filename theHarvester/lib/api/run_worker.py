@@ -355,7 +355,7 @@ async def _child_execute(run_id: str, database: Path) -> None:
         try:
             loop.add_signal_handler(signal.SIGTERM, task.cancel)
             signal_handler_installed = True
-        except (NotImplementedError, RuntimeError):
+        except NotImplementedError, RuntimeError:
             pass
     try:
         response = await task
