@@ -27,7 +27,7 @@ class SearchWaybackarchive:
         self.hostname = 'https://web.archive.org'
 
     def _extract_domain_from_url(self, url: str) -> str:
-        """Extract domain from URL"""
+        """Return the hostname from a URL."""
         if not url:
             return ''
         try:

@@ -4,9 +4,10 @@ class Parser:
         self.selectors: set[str] = set()
 
     async def parse_dictionaries(self, results: object) -> tuple[set[str], set[str]]:
-        """Parse method to parse json results
-        :param results: Dictionary containing a list of dictionaries known as selectors
-        :return: tuple of emails and non-email selectors
+        """Split Intelligence X selectors into emails and other values.
+
+        :param results: Mapping containing selector records.
+        :return: A tuple of emails and non-email selectors.
         """
         if not isinstance(results, dict):
             return self.emails, self.selectors

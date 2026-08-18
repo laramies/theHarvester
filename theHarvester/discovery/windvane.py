@@ -8,8 +8,9 @@ logger = logging.getLogger(__name__)
 
 
 class SearchWindvane:
-    """Class uses the Windvane API to gather subdomains and domain intelligence
-    API Documentation: https://windvane.lichoin.com
+    """Use the Windvane API to gather subdomains and domain data.
+
+    API documentation: https://windvane.lichoin.com
 
     The API provides several endpoints:
     - /ListSubDomain - Subdomain enumeration
@@ -17,13 +18,10 @@ class SearchWindvane:
     - /ListDomainWhois - Historical whois lookup
     - /ListEmail - Domain name email query
 
-    Note: This API requires authentication for full access.
-    - With API key: Full access to all endpoints with pagination
-    - Without API key: Limited unauthenticated API access
+    The provider grants full endpoint access and pagination with an API key.
+    Unauthenticated requests have limited access.
 
-    Set API key via:
-    - Environment variable: export WINDVANE_API_KEY="your-key"
-    - Or call search.set_api_key("your-key")
+    Set the key with ``WINDVANE_API_KEY`` or ``search.set_api_key("your-key")``.
     """
 
     def __init__(self, word) -> None:
@@ -68,7 +66,7 @@ class SearchWindvane:
         return {}
 
     async def do_search(self) -> None:
-        """Main search function that queries multiple Windvane API endpoints"""
+        """Query the Windvane endpoints used by this source."""
         try:
             headers = {'User-agent': Core.get_user_agent(), 'Content-Type': 'application/json', 'Accept': 'application/json'}
 
@@ -89,7 +87,7 @@ class SearchWindvane:
             logger.info(f'Windvane API error: {e}')
 
     async def _search_subdomains(self, headers: dict) -> None:
-        """Search for subdomains using /ListSubDomain endpoint"""
+        """Search for subdomains with ``/ListSubDomain``."""
         try:
             url = f'{self.hostname}/ListSubDomain'
 
@@ -132,7 +130,7 @@ class SearchWindvane:
             logger.info(f'Windvane subdomain search error: {e}')
 
     async def _search_dns_history(self, headers: dict) -> None:
-        """Search DNS history using /ListDNS endpoint for additional subdomains and IPs"""
+        """Collect subdomains and IP addresses from ``/ListDNS`` history."""
         try:
             url = f'{self.hostname}/ListDNS'
 
@@ -178,7 +176,7 @@ class SearchWindvane:
             logger.info(f'Windvane DNS history search error: {e}')
 
     async def _search_emails(self, headers: dict) -> None:
-        """Search for emails using /ListEmail endpoint"""
+        """Search for email addresses with ``/ListEmail``."""
         try:
             url = f'{self.hostname}/ListEmail'
 
@@ -210,7 +208,7 @@ class SearchWindvane:
             logger.info(f'Windvane email search error: {e}')
 
     async def _search_subdomains_limited(self, headers: dict) -> None:
-        """Limited subdomain search without API key - tries simpler approaches"""
+        """Search the unauthenticated subdomain endpoints."""
         try:
             # Try basic subdomain endpoint with minimal parameters
             url = f'{self.hostname}/ListSubDomain'
@@ -253,16 +251,16 @@ class SearchWindvane:
             logger.info(f'Windvane limited search error: {e}')
 
     def set_api_key(self, api_key: str) -> None:
-        """Set the API key for authenticated requests
+        """Set the API key for authenticated requests.
 
         Args:
-            api_key: Windvane API key for authenticated access
+            api_key: Windvane API key.
 
         """
         self.api_key = api_key
 
     def _is_valid_ip(self, ip: str) -> bool:
-        """Validate if string is a valid IP address"""
+        """Return whether a string is a valid IP address."""
         try:
             parts = ip.split('.')
             return len(parts) == 4 and all(0 <= int(part) <= 255 for part in parts)
@@ -279,10 +277,10 @@ class SearchWindvane:
         return self.totalemails
 
     async def process(self, proxy: bool = False) -> None:
-        """Process the search with optional proxy and API key configuration
+        """Run the Windvane search.
 
         Args:
-            proxy: Whether to use proxy for requests
+            proxy: Whether to use a proxy for requests.
 
         """
         self.proxy = proxy

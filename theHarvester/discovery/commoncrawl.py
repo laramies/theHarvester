@@ -34,7 +34,7 @@ class SearchCommoncrawl:
 
     @staticmethod
     def _safe_parse_json_lines(payload: str) -> list:
-        """Parse JSON lines format"""
+        """Parse JSON Lines records, skipping malformed lines."""
         results: list = []
         malformed = False
         if not payload:
@@ -55,7 +55,7 @@ class SearchCommoncrawl:
         return results
 
     def _extract_domain_from_url(self, url: object) -> str:
-        """Extract domain from URL"""
+        """Return the hostname from a URL."""
         if not isinstance(url, str) or not url:
             return ''
 

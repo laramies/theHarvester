@@ -9,10 +9,10 @@ class Parser:
         self.ips: set = set()
 
     async def parse_text(self) -> tuple[set, set]:
-        """Parse SecurityTrails data and extract IPs and hostnames.
-        - Supports structured dict with keys {"domain": {...}, "subdomains": {...}}
-        - Also supports raw dict from either endpoint.
-        - Falls back to legacy string parsing when input is a string.
+        """Extract IP addresses and hostnames from SecurityTrails data.
+
+        Accept structured ``domain`` and ``subdomains`` mappings, a raw mapping
+        from either endpoint, or the older string representation.
         """
         # sanitize base domain
         base_domain = self.word.replace('www.', '') if 'www' in self.word else self.word

@@ -52,7 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Migrated Censys discovery from the deprecated Python Search SDK to the Censys Platform API, using a Personal Access Token and optional organization ID.
 - API endpoint scans now attempt every configured path by default while retaining fixed concurrency, per-request timeouts, retries, and a per-response body limit; explicit library request and runtime limits still report partial coverage.
 - Removed the transport-wide delay before reading ready HTTP responses, bounded Wayback Archive to 30 seconds and Common Crawl to 120 seconds, kept both sources within the requested result limit, and made long-source progress visible in verbose mode. Common Crawl now requests one 50-record page at a time instead of bursting page batches.
-- Made Baidu, crt.sh, HackerTarget, Have I Been Pwned, Mojeek, OTX, and Robtex report blocked, malformed, or transport failures truthfully. Also fixed HackerTarget CSV parsing and Robtex AAAA results.
+- Made Baidu prefer direct browser-backed site queries with an HTTP fallback, and made Baidu, crt.sh, HackerTarget, Have I Been Pwned, Mojeek, OTX, and Robtex report blocked, malformed, or transport failures truthfully. Also fixed HackerTarget CSV parsing and Robtex AAAA results.
 - Hardened BufferOver, ProjectDiscovery, DNSDumpster, ONYPHE, and URLScan parsing and result attribution, including scoped typed results and bounded URLScan pagination.
 - Made `harvestview` the sole launcher for the local web application and REST API.
 - Standardized SQLite, JSONL, API, and HarvestView result names on `hostname` and `ip` without a presentation alias.

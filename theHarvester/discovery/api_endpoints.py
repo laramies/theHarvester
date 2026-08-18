@@ -32,7 +32,7 @@ _DIAGNOSTIC_RESPONSE_HEADERS = {
 
 @dataclass
 class EndpointResult:
-    """Data class for storing endpoint scan results."""
+    """One endpoint scan result."""
 
     url: str
     status_code: int = 0
@@ -53,7 +53,7 @@ class EndpointResult:
     parameters: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary."""
+        """Return the result as a dictionary."""
         return asdict(self)
 
 
@@ -590,7 +590,7 @@ class SearchApiEndpoints:
         return min(delay + jitter, cls.MAX_RETRY_DELAY_SECONDS)
 
     async def _detect_schema(self, path: str = '') -> str:
-        """Detect if the domain supports HTTPS or fall back to HTTP."""
+        """Use HTTPS when available, otherwise fall back to HTTP."""
         https_url = f'https://{self.word}{path}'
         if self._session is None:
             raise RuntimeError('API endpoint session is not initialized')
@@ -607,7 +607,7 @@ class SearchApiEndpoints:
             return 'http'
 
     def _load_wordlist(self) -> list[str]:
-        """Load endpoints from wordlist file with advanced filtering."""
+        """Load and filter endpoint paths from the wordlist."""
         try:
             with open(self.wordlist) as f:
                 lines = [line.strip() for line in f if line.strip() and not line.strip().startswith('#')]
@@ -634,13 +634,13 @@ class SearchApiEndpoints:
             return []
 
     async def _check_endpoint(self, url: str) -> EndpointResult | None:
-        """Check if an endpoint exists and analyze its properties.
+        """Request one endpoint and describe it when it exists.
 
         Args:
             url: The URL to check.
 
         Returns:
-            Optional[EndpointResult]: Result object or None if not found
+            The endpoint result, or ``None`` if the endpoint was not found.
 
         """
         # Other standard HTTP methods can change or delete data on the target.
@@ -782,7 +782,7 @@ class SearchApiEndpoints:
         return False
 
     def _get_headers(self) -> dict[str, str]:
-        """Get request headers with optional custom additions."""
+        """Build request headers, including operator-supplied additions."""
         headers = {
             'User-Agent': self.user_agent,
             'Accept': 'application/json, text/plain, */*',
@@ -804,10 +804,10 @@ class SearchApiEndpoints:
         *,
         body_truncated: bool = False,
     ) -> EndpointResult | None:
-        """Process and categorize API endpoint response with detailed analysis.
+        """Classify one API endpoint response.
 
         Returns:
-            Optional[EndpointResult]: Result object or None if not relevant
+            The endpoint result, or ``None`` if the response is not relevant.
 
         """
         status = getattr(response, 'status', 0)
@@ -979,7 +979,7 @@ class SearchApiEndpoints:
         return result
 
     async def _post_scan_analysis(self) -> None:
-        """Perform additional analysis after completing the initial scan."""
+        """Log path patterns found among interesting endpoints."""
         # Analyze patterns in successful endpoints
         if self.interesting_endpoints:
             self.logger.info(f'Performing post-scan analysis on {len(self.interesting_endpoints)} interesting endpoints')
@@ -997,10 +997,10 @@ class SearchApiEndpoints:
             self.logger.info(f'Identified {len(path_patterns)} API path patterns for potential further scanning')
 
     def get_results_summary(self) -> dict[str, Any]:
-        """Get a comprehensive summary of scan results.
+        """Summarize the scan results.
 
         Returns:
-            Dict[str, Any]: Summary of scan results
+            Counts and selected scan metadata.
 
         """
         return {
@@ -1026,10 +1026,10 @@ class SearchApiEndpoints:
         return summary
 
     def get_detailed_results(self) -> list[dict[str, Any]]:
-        """Get detailed results for all endpoints.
+        """Return the result record for every endpoint.
 
         Returns:
-            List[Dict[str, Any]]: List of endpoint result dictionaries
+            Endpoint result dictionaries.
 
         """
         return [result.to_dict() for result in self.found_endpoints.values()]
@@ -1043,15 +1043,15 @@ class SearchApiEndpoints:
         return self.endpoints
 
     def get_found_endpoints(self) -> dict[str, EndpointResult]:
-        """Get dictionary of found and accessible endpoints with detailed results."""
+        """Return endpoints that were found and accessible."""
         return self.found_endpoints
 
     def get_interesting_endpoints(self) -> dict[str, EndpointResult]:
-        """Get dictionary of interesting endpoints with detailed results."""
+        """Return endpoints classified as interesting."""
         return self.interesting_endpoints
 
     def get_auth_required(self) -> dict[str, EndpointResult]:
-        """Get dictionary of endpoints requiring authentication with detailed results."""
+        """Return endpoints that require authentication."""
         return self.auth_required
 
     def get_api_versions(self) -> set[str]:
@@ -1083,14 +1083,14 @@ class SearchApiEndpoints:
         return self.schema_detected
 
     def export_results(self, output_file: str | None = None, format: str = 'json') -> str | dict | None:
-        """Export scan results to a file or return as string/dict.
+        """Write scan results to a file or return them to the caller.
 
         Args:
-            output_file: Optional file path to save results
-            format: Export format ('json', 'dict')
+            output_file: Optional destination path.
+            format: Either ``json`` or ``dict``.
 
         Returns:
-            Union[str, Dict, None]: Results in requested format or None if saved to file
+            The requested representation, or ``None`` when saved to a file.
 
         """
         results = {'summary': self.get_results_summary(), 'endpoints': self.get_detailed_results()}
