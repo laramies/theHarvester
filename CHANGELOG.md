@@ -7,8 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [5.0.0] - 2026-08-18
-
 ### Added
 - Added authenticated REST and HarvestView export of every completed run as a portable SQLite database without queue, cancellation, worker-lease, or legacy-observation state.
 - Added a catalog-derived offline provider-contract gate that fails on missing, unknown, or duplicate source coverage while keeping live checks outside routine CI.
@@ -198,8 +196,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Improve input sanitization and add security-focused tests ([3d7489c9](https://github.com/laramies/theHarvester/commit/3d7489c9)).
 
-[Unreleased]: https://github.com/laramies/theHarvester/compare/5.0.0...master
-[5.0.0]: https://github.com/laramies/theHarvester/compare/4.11.1...5.0.0
+[Unreleased]: https://github.com/laramies/theHarvester/compare/4.11.1...master
 [4.11.1]: https://github.com/laramies/theHarvester/compare/4.11.0...4.11.1
 [4.11.0]: https://github.com/laramies/theHarvester/compare/4.10.1...4.11.0
 [4.10.1]: https://github.com/laramies/theHarvester/compare/4.10.0...06520b40
