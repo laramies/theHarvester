@@ -13,16 +13,8 @@ async def _run() -> None:
 
 
 def main() -> None:
-    platform = sys.platform
     loop_factory = None  # asyncio's standard event loop
-    if platform == 'win32':
-        try:
-            import winloop
-
-            loop_factory = winloop.new_event_loop
-        except ModuleNotFoundError:
-            pass
-    else:
+    if sys.platform != 'win32':
         try:
             import uvloop
 

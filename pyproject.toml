@@ -31,7 +31,6 @@ dependencies = [
     "sqlalchemy==2.0.51",
     "uvicorn==0.52.1",
     "uvloop==0.22.1; platform_system != 'Windows'",
-    "winloop==0.6.3; platform_system == 'Windows'",
 ]
 
 [dependency-groups]
