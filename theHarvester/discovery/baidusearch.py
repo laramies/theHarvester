@@ -1,18 +1,23 @@
 from __future__ import annotations
 
 import asyncio
+import importlib
 from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
-from playwright.async_api import Error as PlaywrightError
-from playwright.async_api import async_playwright
-
-from theHarvester.lib.core import AsyncFetcher
+from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
 from theHarvester.lib.source_execution import SourceExecutionReport
 from theHarvester.parsers import myparser
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Collection
+    from types import ModuleType
+
+playwright_api: ModuleType | None
+try:
+    playwright_api = importlib.import_module('playwright.async_api')
+except ImportError:
+    playwright_api = None
 
 
 class SearchBaidu:
@@ -32,6 +37,41 @@ class SearchBaidu:
             return primary
         cancellation = next((error for error in cleanup_errors if isinstance(error, asyncio.CancelledError)), None)
         return cancellation or primary or next(iter(cleanup_errors), None)
+
+    @staticmethod
+    def _response_report(status: int, body: str, redirect: str = '') -> SourceExecutionReport | None:
+        if status == 429:
+            return SourceExecutionReport('rate-limited', 'http-429')
+        if '百度安全验证' in body or 'wappass.baidu.com/static/captcha' in f'{redirect} {body}':
+            return SourceExecutionReport('failed', 'security-verification')
+        if status >= 300:
+            return SourceExecutionReport('failed', f'http-{status}')
+        if not body:
+            return SourceExecutionReport('failed', 'no-response')
+        return None
+
+    async def _http_search(self, urls: list[str], proxy: str | bool) -> SourceExecutionReport | None:
+        headers = {'Host': self.server, 'User-Agent': Core.get_browser_user_agent()}
+        try:
+            async with AsyncFetcher.open_session(headers=headers, proxy=proxy, request_timeout=60) as session:
+                for page_number, url in enumerate(urls):
+                    if page_number:
+                        await asyncio.sleep(self.REQUEST_DELAY_SECONDS)
+                    response = await AsyncFetcher.fetch(
+                        session=session,
+                        url=url,
+                        follow_redirects=False,
+                        include_metadata=True,
+                    )
+                    if not isinstance(response, FetcherResponse):
+                        return SourceExecutionReport('failed', 'transport-error')
+                    body = response.body if isinstance(response.body, str) else ''
+                    if report := self._response_report(response.status, body, response.headers.get('location', '')):
+                        return report
+                    self.total_results += f' {body}'
+        except Exception:
+            return SourceExecutionReport('failed', 'transport-error')
+        return None
 
     def __init__(self, word, limit) -> None:
         self.word = word
@@ -57,8 +97,11 @@ class SearchBaidu:
                 params['pn'] = offset
             urls.append(f'{base_url}?{urlencode(params)}')
 
+        if playwright_api is None:
+            return await self._http_search(urls, self.proxy)
+
         proxy_url, _proxy_type = AsyncFetcher._resolve_proxy(self.proxy)
-        manager = async_playwright()
+        manager = playwright_api.async_playwright()
         manager_entered = False
         browser = context = page = None
         report = None
@@ -81,17 +124,7 @@ class SearchBaidu:
                     report = SourceExecutionReport('failed', 'transport-error')
                     break
                 body = await page.content()
-                if response.status == 429:
-                    report = SourceExecutionReport('rate-limited', 'http-429')
-                    break
-                if '百度安全验证' in body or 'wappass.baidu.com/static/captcha' in page.url:
-                    report = SourceExecutionReport('failed', 'security-verification')
-                    break
-                if response.status >= 300:
-                    report = SourceExecutionReport('failed', f'http-{response.status}')
-                    break
-                if not body:
-                    report = SourceExecutionReport('failed', 'no-response')
+                if report := self._response_report(response.status, body, page.url):
                     break
                 self.total_results += f' {body}'
         except BaseException as error:
@@ -116,10 +149,14 @@ class SearchBaidu:
                     cleanup_errors.append(error)
 
         final_error = self._cleanup_failure(primary_error, cleanup_errors)
-        if isinstance(final_error, PlaywrightError):
+        if isinstance(final_error, playwright_api.Error):
+            if not self.total_results:
+                return await self._http_search(urls, proxy_url or False)
             return SourceExecutionReport('failed', 'transport-error')
         if final_error is not None:
             raise final_error
+        if report is not None and report.stop_reason == 'transport-error' and not self.total_results:
+            return await self._http_search(urls, proxy_url or False)
         return report
 
     async def process(self, proxy: bool = False) -> SourceExecutionReport | None:

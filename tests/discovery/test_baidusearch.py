@@ -32,6 +32,15 @@ class BrowserState:
         self.manager_exited = False
 
 
+class HttpState:
+    def __init__(self, responses: list[baidusearch.FetcherResponse | None]) -> None:
+        self.responses = iter(responses)
+        self.calls: list[dict] = []
+        self.open_kwargs: dict = {}
+        self.delays: list[float] = []
+        self.closed = False
+
+
 class FakeNavigation:
     def __init__(self, status: int) -> None:
         self.status = status
@@ -108,6 +117,20 @@ class FakePlaywright:
         self.chromium = FakeChromium(state)
 
 
+class FakePlaywrightError(Exception):
+    pass
+
+
+class FakePlaywrightApi:
+    Error = FakePlaywrightError
+
+    def __init__(self, state: BrowserState) -> None:
+        self.state = state
+
+    def async_playwright(self) -> FakeManager:
+        return FakeManager(self.state)
+
+
 class FakeManager:
     def __init__(self, state: BrowserState) -> None:
         self.state = state
@@ -134,8 +157,40 @@ def patch_browser(
     def fake_resolve_proxy(_cls: type, proxy: object) -> tuple[str | None, str | None]:
         return ('http://proxy.example:8080', 'http') if proxy else (None, None)
 
-    monkeypatch.setattr(baidusearch, 'async_playwright', lambda: FakeManager(state))
+    monkeypatch.setattr(baidusearch, 'playwright_api', FakePlaywrightApi(state))
     monkeypatch.setattr(baidusearch.AsyncFetcher, '_resolve_proxy', classmethod(fake_resolve_proxy))
+    monkeypatch.setattr(baidusearch.asyncio, 'sleep', fake_sleep)
+    return state
+
+
+def http_response(body: str, status: int = 200, location: str = '') -> baidusearch.FetcherResponse:
+    return baidusearch.FetcherResponse(body=body, status=status, headers={'location': location} if location else {})
+
+
+def patch_http(monkeypatch: pytest.MonkeyPatch, responses: list[baidusearch.FetcherResponse | None]) -> HttpState:
+    state = HttpState(responses)
+
+    class SessionManager:
+        async def __aenter__(self) -> object:
+            return object()
+
+        async def __aexit__(self, *_args: object) -> None:
+            state.closed = True
+
+    def fake_open_session(*_args: object, **kwargs: object) -> SessionManager:
+        state.open_kwargs = kwargs
+        return SessionManager()
+
+    async def fake_fetch(*_args: object, **kwargs: object) -> baidusearch.FetcherResponse | None:
+        state.calls.append(kwargs)
+        return next(state.responses)
+
+    async def fake_sleep(delay: float) -> None:
+        state.delays.append(delay)
+
+    monkeypatch.setattr(baidusearch.AsyncFetcher, 'open_session', fake_open_session)
+    monkeypatch.setattr(baidusearch.AsyncFetcher, 'fetch', fake_fetch)
+    monkeypatch.setattr(baidusearch.Core, 'get_browser_user_agent', staticmethod(lambda: 'UA'))
     monkeypatch.setattr(baidusearch.asyncio, 'sleep', fake_sleep)
     return state
 
@@ -215,18 +270,46 @@ class TestBaiduSearch:
         assert report.stop_reason == 'security-verification'
 
     @pytest.mark.asyncio
-    async def test_transport_failure_is_reported_and_browser_is_closed(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        state = patch_browser(monkeypatch, [baidusearch.PlaywrightError('failure')])
+    async def test_browser_transport_failure_falls_back_to_http(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        state = patch_browser(monkeypatch, [FakePlaywrightError('failure')])
+        http = patch_http(monkeypatch, [http_response('fallback.example.com')])
         search = baidusearch.SearchBaidu(word='example.com', limit=10)
 
         report = await search.process()
 
-        assert report.status == 'failed'
-        assert report.stop_reason == 'transport-error'
+        assert report is None
+        assert await search.get_hostnames() == ['fallback.example.com']
         assert state.page_closed
         assert state.context_closed
         assert state.browser_closed
         assert state.manager_exited
+        assert len(http.calls) == 1
+        assert http.closed
+
+    @pytest.mark.asyncio
+    async def test_missing_playwright_falls_back_to_direct_http_site_query(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(baidusearch, 'playwright_api', None)
+        http = patch_http(
+            monkeypatch,
+            [http_response('one.example.com'), http_response('two.example.com')],
+        )
+        search = baidusearch.SearchBaidu(word='example.com', limit=20)
+
+        report = await search.process(proxy=True)
+
+        assert report is None
+        assert [call['url'] for call in http.calls] == [
+            'https://www.baidu.com/s?ie=utf-8&f=8&tn=baidu&wd=site%3Aexample.com&rqlang=en&rsv_enter=1&rsv_dl=tb_enter',
+            'https://www.baidu.com/s?ie=utf-8&f=8&tn=baidu&wd=site%3Aexample.com&rqlang=en&rsv_enter=1&rsv_dl=tb_enter&pn=10',
+        ]
+        assert all(call['follow_redirects'] is False for call in http.calls)
+        assert http.open_kwargs == {
+            'headers': {'Host': 'www.baidu.com', 'User-Agent': 'UA'},
+            'proxy': True,
+            'request_timeout': 60,
+        }
+        assert http.delays == [1.0]
+        assert http.closed
 
     @pytest.mark.asyncio
     async def test_cancellation_survives_cleanup_failures(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -275,6 +358,7 @@ class TestBaiduSearch:
     @pytest.mark.asyncio
     async def test_missing_navigation_response_is_reported(self, monkeypatch: pytest.MonkeyPatch) -> None:
         patch_browser(monkeypatch, [None])
+        patch_http(monkeypatch, [None])
         search = baidusearch.SearchBaidu(word='example.com', limit=10)
 
         report = await search.process()
