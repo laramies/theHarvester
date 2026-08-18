@@ -52,9 +52,9 @@ Then replace the two CDNjs tags in `theHarvester/lib/api/static/harvestview/inde
 
 Remove the CDN-only `integrity`, `crossorigin`, and `referrerpolicy` attributes from those local tags. Rebuild the package or container after copying the assets.
 
-### Screenshot support
+### Browser-backed Baidu and screenshot support
 
-The screenshot option requires a Playwright-compatible Chromium browser:
+Baidu collection and the screenshot option require a Playwright-compatible Chromium browser:
 
 ```bash
 uv run playwright install chromium

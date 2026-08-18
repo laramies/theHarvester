@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.0] - 2026-08-18
+
 ### Added
 - Added authenticated REST and HarvestView export of every completed run as a portable SQLite database without queue, cancellation, worker-lease, or legacy-observation state.
 - Added a catalog-derived offline provider-contract gate that fails on missing, unknown, or duplicate source coverage while keeping live checks outside routine CI.
@@ -52,7 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Migrated Censys discovery from the deprecated Python Search SDK to the Censys Platform API, using a Personal Access Token and optional organization ID.
 - API endpoint scans now attempt every configured path by default while retaining fixed concurrency, per-request timeouts, retries, and a per-response body limit; explicit library request and runtime limits still report partial coverage.
 - Removed the transport-wide delay before reading ready HTTP responses, bounded Wayback Archive to 30 seconds and Common Crawl to 120 seconds, kept both sources within the requested result limit, and made long-source progress visible in verbose mode. Common Crawl now requests one 50-record page at a time instead of bursting page batches.
-- Made Baidu, crt.sh, HackerTarget, Have I Been Pwned, Mojeek, OTX, and Robtex report blocked, malformed, or transport failures truthfully. Also fixed HackerTarget CSV parsing and Robtex AAAA results.
+- Made Baidu use direct browser-backed site queries, and made Baidu, crt.sh, HackerTarget, Have I Been Pwned, Mojeek, OTX, and Robtex report blocked, malformed, or transport failures truthfully. Also fixed HackerTarget CSV parsing and Robtex AAAA results.
 - Hardened BufferOver, ProjectDiscovery, DNSDumpster, ONYPHE, and URLScan parsing and result attribution, including scoped typed results and bounded URLScan pagination.
 - Made `harvestview` the sole launcher for the local web application and REST API.
 - Standardized SQLite, JSONL, API, and HarvestView result names on `hostname` and `ip` without a presentation alias.
@@ -196,7 +198,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Improve input sanitization and add security-focused tests ([3d7489c9](https://github.com/laramies/theHarvester/commit/3d7489c9)).
 
-[Unreleased]: https://github.com/laramies/theHarvester/compare/4.11.1...master
+[Unreleased]: https://github.com/laramies/theHarvester/compare/5.0.0...master
+[5.0.0]: https://github.com/laramies/theHarvester/compare/4.11.1...5.0.0
 [4.11.1]: https://github.com/laramies/theHarvester/compare/4.11.0...4.11.1
 [4.11.0]: https://github.com/laramies/theHarvester/compare/4.10.1...4.11.0
 [4.10.1]: https://github.com/laramies/theHarvester/compare/4.10.0...06520b40
