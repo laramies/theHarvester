@@ -10,7 +10,7 @@ from theHarvester.__main__ import sanitize_filename, sanitize_for_xml
 
 
 class TestCORSConfiguration:
-    """Test CORS security configuration."""
+    """Check CORS configuration."""
 
     def test_api_does_not_enable_cross_origin_requests(self):
         from theHarvester.lib.api.api import app
@@ -19,14 +19,10 @@ class TestCORSConfiguration:
 
 
 class TestXMLInjectionPrevention:
-    """Test XML injection prevention."""
+    """Check XML escaping."""
 
     def test_sanitize_for_xml_escapes_special_characters(self):
-        """
-        Security Test: Verify XML special characters are properly escaped.
-
-        Prevents XML injection attacks.
-        """
+        """Escape XML special characters."""
         # Test all XML special characters
         test_cases = [
             ('&', '&amp;'),
@@ -44,9 +40,7 @@ class TestXMLInjectionPrevention:
             assert result == expected_output, f'Failed to properly escape: {input_text}'
 
     def test_sanitize_for_xml_prevents_xml_entity_injection(self):
-        """
-        Security Test: Prevent XML entity injection attempts.
-        """
+        """Escape XML entity declarations and references."""
         malicious_inputs = [
             '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>',
             '<!ENTITY xxe SYSTEM "file:///dev/random">',
@@ -61,12 +55,7 @@ class TestXMLInjectionPrevention:
             assert '<' not in result or result == malicious_input.replace('<', '&lt;'), f'XML tags not escaped: {malicious_input}'
 
     def test_command_line_args_are_sanitized_in_xml_output(self):
-        """
-        Security Test: Command line arguments must be sanitized before XML output.
-
-        This test is a conceptual check - in real usage, ensure the XML writing
-        code uses sanitize_for_xml() on all user-controlled data.
-        """
+        """Escape command-line arguments before writing them to XML."""
         # Simulate dangerous command line arguments
         dangerous_args = [
             '--domain=test.com',
@@ -83,21 +72,17 @@ class TestXMLInjectionPrevention:
 
 
 class TestInformationDisclosure:
-    """Test information disclosure prevention."""
+    """Check that API errors do not disclose internal details."""
 
     @pytest.fixture
     def client(self):
-        """Create a test client for API testing."""
+        """Create an API test client."""
         from theHarvester.lib.api.api import app
 
         return TestClient(app)
 
     def test_api_does_not_expose_traceback_in_error_responses(self, client):
-        """
-        Security Test: API should never expose stack traces to clients.
-
-        Stack traces can reveal sensitive information about the system.
-        """
+        """Keep stack traces out of API error responses."""
         response = client.get('/api/v1/sources')
 
         # Even if there's an error, traceback should not be in response
@@ -108,9 +93,7 @@ class TestInformationDisclosure:
             assert 'File "' not in str(response_data), 'File paths exposed in response'
 
     def test_error_responses_do_not_leak_internal_paths(self, client, tmp_path, monkeypatch):
-        """
-        Security Test: Error messages should not reveal internal file paths.
-        """
+        """Keep internal paths out of API error responses."""
         fetch_all = AsyncMock(side_effect=AssertionError('API security test attempted a provider request'))
         monkeypatch.setenv('THEHARVESTER_API_KEY', 'operator-secret')
         monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
@@ -139,9 +122,7 @@ class TestInformationDisclosure:
         fetch_all.assert_not_awaited()
 
     def test_debug_mode_does_not_expose_sensitive_info(self, client, monkeypatch):
-        """
-        Security Test: Even with DEBUG=1, sensitive info should not be exposed to clients.
-        """
+        """Keep sensitive details hidden when ``DEBUG=1``."""
         # Set DEBUG environment variable
         monkeypatch.setenv('DEBUG', '1')
 
@@ -155,11 +136,11 @@ class TestInformationDisclosure:
 
 
 class TestAPIAuthentication:
-    """Test authentication and error handling for the versioned API."""
+    """Check authentication and errors for the versioned API."""
 
     @pytest.fixture
     def client(self):
-        """Create a test client for API testing."""
+        """Create an API test client."""
         from theHarvester.lib.api.api import app
 
         return TestClient(app)
@@ -211,12 +192,10 @@ class TestAPIAuthentication:
 
 
 class TestPathTraversalPrevention:
-    """Test path traversal prevention."""
+    """Check filename sanitization and path containment."""
 
     def test_sanitize_filename_removes_path_components(self):
-        """
-        Security Test: Filenames should not contain path traversal sequences.
-        """
+        """Remove path components from filenames."""
         dangerous_filenames = [
             '../../../etc/passwd',
             '..\\..\\..\\windows\\system32\\config\\sam',
@@ -241,9 +220,7 @@ class TestPathTraversalPrevention:
             assert os.path.dirname(result) == '', f'Path component remains: {result}'
 
     def test_sanitize_filename_removes_dangerous_characters(self):
-        """
-        Security Test: Filenames should only contain safe characters.
-        """
+        """Remove shell metacharacters from filenames."""
         test_cases = [
             'file; rm -rf /',
             'file`whoami`.txt',
@@ -268,9 +245,7 @@ class TestPathTraversalPrevention:
             assert re.match(r'^[a-zA-Z0-9._-]+$', result), f'Invalid characters in sanitized filename: {result}'
 
     def test_sanitize_filename_prevents_hidden_files(self):
-        """
-        Security Test: Prevent creation of hidden files.
-        """
+        """Prevent sanitized filenames from naming hidden files."""
         hidden_files = ['.bashrc', '.ssh_config', '.env', '..hidden', '.']
 
         for hidden_file in hidden_files:
@@ -281,9 +256,7 @@ class TestPathTraversalPrevention:
                 assert not result.startswith('.'), f'Hidden file not prevented: {result}'
 
     def test_filename_sanitization_preserves_safe_filenames(self):
-        """
-        Security Test: Safe filenames should remain mostly unchanged.
-        """
+        """Preserve safe filenames and their extensions."""
         safe_filenames = [
             'report.json',
             'results_2024-01-17.xml',
@@ -299,9 +272,7 @@ class TestPathTraversalPrevention:
             assert '.' in result if '.' in safe_filename else True, 'File extension removed incorrectly'
 
     def test_path_traversal_in_file_operations(self):
-        """
-        Integration Test: Verify file operations don't allow path traversal.
-        """
+        """Keep a sanitized output path inside its destination directory."""
         # This tests the actual usage in the code
         from theHarvester.__main__ import sanitize_filename
 
@@ -321,12 +292,10 @@ class TestPathTraversalPrevention:
 
 
 class TestSecurityBestPractices:
-    """Additional security best practices tests."""
+    """Check repository and API security invariants."""
 
     def test_no_hardcoded_secrets_in_code(self):
-        """
-        Security Test: Ensure no hardcoded secrets in main code files.
-        """
+        """Reject common hard-coded secret patterns in application files."""
         # Check main application files for common secret patterns
         files_to_check = [
             'theHarvester/__main__.py',
@@ -358,9 +327,7 @@ class TestSecurityBestPractices:
                     assert not real_matches, f'Potential hardcoded secret in {file_path}: {real_matches}'
 
     def test_sensitive_endpoints_require_validation(self, monkeypatch):
-        """
-        Security Test: Ensure sensitive endpoints validate input.
-        """
+        """Reject invalid requests to authenticated endpoints."""
         from fastapi.testclient import TestClient
 
         from theHarvester.lib.api.api import app

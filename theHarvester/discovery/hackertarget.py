@@ -11,10 +11,10 @@ if TYPE_CHECKING:
 
 
 class SearchHackerTarget:
-    """Class uses the HackerTarget API to gather subdomains and IPs.
+    """Use the HackerTarget API to gather subdomains and IP addresses.
 
-    This version supports reading a Hackertarget API key (if present) and
-    appending it to the hackertarget request URLs as `apikey=<key>`.
+    When configured, the adapter appends the HackerTarget API key to request
+    URLs as ``apikey=<key>``.
     """
 
     def __init__(self, word) -> None:

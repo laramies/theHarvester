@@ -13,54 +13,51 @@ logger = logging.getLogger(__name__)
 
 
 class SearchFullHunt:
-    """Class to search FullHunt API for domain information
+    """Search the FullHunt API for domain and host data.
 
-    FullHunt provides various endpoints for attack surface discovery:
-    - Domain Details: Full domain information including hosts, DNS records, ports, etc.
-    - Subdomains: Just the list of subdomains for a domain
-    - Host Details: Detailed information about specific hosts
-    - Data Intelligence: Access to FullHunt's attack surface database
+    FullHunt provides endpoints for domain details, subdomains, host details,
+    and its data-intelligence search.
 
     Supported search filters (with examples):
 
-    General Filters:
-    - domain: Domain (required for all filters) - domain:kaspersky.com
-    - ip: IP address associated with the asset - ip:8.8.8.8
-    - tech: Identified Technologies - tech:drupal
-    - host: Specific host - host:ecommerce.kaspersky.com
-    - subdomain: Subdomain - subdomain:video.kaspersky.com
-    - tld: Top-Level Domain - tld:com
-    - tag: Tags - tag:cdn
-    - is_dos_defense: DDoS prevention solution - is_dos_defense:true
+    General filters:
+    - domain: required domain, for example ``domain:kaspersky.com``
+    - ip: asset IP address, for example ``ip:8.8.8.8``
+    - tech: detected technology, for example ``tech:drupal``
+    - host: specific host, for example ``host:ecommerce.kaspersky.com``
+    - subdomain: subdomain, for example ``subdomain:video.kaspersky.com``
+    - tld: top-level domain, for example ``tld:com``
+    - tag: tag, for example ``tag:cdn``
+    - is_dos_defense: DDoS protection flag, for example ``is_dos_defense:true``
 
-    Network Filters:
-    - port: Network Port - port:80
-    - has_private_ip: Has Private IP - has_private_ip:true
-    - has_ipv6: Has IPv6 - has_ipv6:true
-    - is_live: Is the asset live - is_live:true
-    - is_resolvable: Is resolvable - is_resolvable:true
+    Network filters:
+    - port: network port, for example ``port:80``
+    - has_private_ip: private-IP flag, for example ``has_private_ip:true``
+    - has_ipv6: IPv6 flag, for example ``has_ipv6:true``
+    - is_live: live-asset flag, for example ``is_live:true``
+    - is_resolvable: resolvable-asset flag, for example ``is_resolvable:true``
     - dns_a, dns_aaaa, dns_cname, dns_mx, dns_txt, dns_ptr, dns_ns: DNS records
 
-    HTTP Filters:
-    - http_title: HTTP Title - http_title:Nginx
-    - http_status_code: HTTP Status code - http_status_code:302
-    - http_favicon_hash: HTTP Favicon Hash - http_favicon_hash:9888t96t6ctsdgc9gc
+    HTTP filters:
+    - http_title: page title, for example ``http_title:Nginx``
+    - http_status_code: status code, for example ``http_status_code:302``
+    - http_favicon_hash: favicon hash, for example ``http_favicon_hash:9888t96t6ctsdgc9gc``
 
-    Geographic Filters:
-    - country_code/country: Country Code - country_code:us
-    - city: City - city:ashburn
-    - asn: Autonomous System Number - asn:123124
+    Geographic filters:
+    - country_code/country: country code, for example ``country_code:us``
+    - city: city, for example ``city:ashburn``
+    - asn: autonomous system number, for example ``asn:123124``
 
-    Cloud Filters:
-    - is_cloud: Is on cloud - is_cloud:true
-    - cloud_provider: Cloud Provider - cloud_provider:Linode
-    - cloud_region: Cloud Region - cloud_region:us-ca
+    Cloud filters:
+    - is_cloud: cloud-hosted flag, for example ``is_cloud:true``
+    - cloud_provider: provider, for example ``cloud_provider:Linode``
+    - cloud_region: region, for example ``cloud_region:us-ca``
 
-    Technology Filters:
-    - product: Identified Product - product:wordpress
-    - service: Identified Service - service:http
+    Technology filters:
+    - product: detected product, for example ``product:wordpress``
+    - service: detected service, for example ``service:http``
 
-    Certificate Filters:
+    Certificate filters:
     - cert_issuer_common_name, cert_issuer_organization, cert_issuer_country
     - cert_issuer_serial_number, cert_signature_algorithm
     - cert_subject_common_name, cert_subject_country, cert_subject_province
@@ -148,11 +145,11 @@ class SearchFullHunt:
         self._report = SourceExecutionReport(status, reason)
 
     def _get_headers(self) -> dict[str, str]:
-        """Returns the headers needed for API requests"""
+        """Return headers for FullHunt API requests."""
         return {'User-Agent': Core.get_user_agent(), 'X-API-KEY': self.key}
 
     async def _fetch_data(self, endpoint: str, session: Any | None = None) -> dict[str, Any]:
-        """Generic method to fetch data from a specific endpoint"""
+        """Fetch JSON data from one FullHunt endpoint."""
         url = f'{self.BASE_URL}/{endpoint}'
         response = await AsyncFetcher.fetch_all(
             [url],
@@ -173,14 +170,14 @@ class SearchFullHunt:
         return metadata.body
 
     def add_filter(self, filter_name: str, filter_value: str) -> None:
-        """Add a search filter to be used in advanced searches
+        """Add a filter for data-intelligence searches.
 
         Args:
-            filter_name: Name of the filter from the supported filter list
-            filter_value: Value for the filter
+            filter_name: Name from the supported filter list.
+            filter_value: Filter value.
 
         Raises:
-            ValueError: If the filter name is not supported
+            ValueError: If the filter name is unsupported.
 
         """
         if filter_name not in self.ALL_FILTERS:
@@ -190,24 +187,24 @@ class SearchFullHunt:
         self.filters[filter_name] = filter_value
 
     def add_filters(self, filters: dict[str, str]) -> None:
-        """Add multiple search filters at once
+        """Add several data-intelligence search filters.
 
         Args:
-            filters: Dictionary of filter name to filter value
+            filters: Mapping of filter names to values.
 
         Raises:
-            ValueError: If any filter name is not supported
+            ValueError: If any filter name is unsupported.
 
         """
         for name, value in filters.items():
             self.add_filter(name, value)
 
     def clear_filters(self) -> None:
-        """Clear all filters"""
+        """Clear all search filters."""
         self.filters = {}
 
     def _build_query_string(self) -> str:
-        """Build a query string from the current filters"""
+        """Build a query string from the current filters."""
         # Start with the domain filter which is required
         query_parts = [f'domain:{self.word}']
 
@@ -222,13 +219,12 @@ class SearchFullHunt:
         return ' '.join(query_parts)
 
     async def advanced_search(self, session: Any | None = None) -> dict[str, Any]:
-        """Perform an advanced search using the configured filters
+        """Search the data-intelligence endpoint with the configured filters.
 
-        This method uses the search endpoint with the filters configured via add_filter
-        or add_filters methods.
+        Configure filters with ``add_filter`` or ``add_filters`` first.
 
         Returns:
-            Dict containing the search results
+            The search response.
 
         """
         query = self._build_query_string()
@@ -237,52 +233,52 @@ class SearchFullHunt:
         return await self._fetch_data(endpoint, session)
 
     async def get_domain_details(self, session: Any | None = None) -> dict[str, Any]:
-        """Get comprehensive details about a domain"""
+        """Return FullHunt details for the target domain."""
         endpoint = f'domain/{self.word}/details'
         return await self._fetch_data(endpoint, session)
 
     async def get_subdomains(self, session: Any | None = None) -> dict[str, Any]:
-        """Get subdomains for a domain"""
+        """Return subdomains for the target domain."""
         endpoint = f'domain/{self.word}/subdomains'
         return await self._fetch_data(endpoint, session)
 
     async def get_host_details(self, host: str) -> dict[str, Any]:
-        """Get detailed information about a specific host"""
+        """Return FullHunt details for one host."""
         endpoint = f'host?host={host}'
         return await self._fetch_data(endpoint)
 
     async def search_tech(self, tech_name: str) -> dict[str, Any]:
-        """Search for hosts using a specific technology"""
+        """Search for hosts using a technology."""
         self.add_filter('tech', tech_name)
         return await self.advanced_search()
 
     async def search_service(self, service_name: str) -> dict[str, Any]:
-        """Search for hosts running a specific service"""
+        """Search for hosts running a service."""
         self.add_filter('service', service_name)
         return await self.advanced_search()
 
     async def search_port(self, port: int) -> dict[str, Any]:
-        """Search for hosts with a specific open port"""
+        """Search for hosts with an open port."""
         self.add_filter('port', str(port))
         return await self.advanced_search()
 
     async def search_country(self, country_code: str) -> dict[str, Any]:
-        """Search for hosts in a specific country"""
+        """Search for hosts in a country."""
         self.add_filter('country_code', country_code)
         return await self.advanced_search()
 
     async def search_cloud_provider(self, provider: str) -> dict[str, Any]:
-        """Search for hosts on a specific cloud provider"""
+        """Search for hosts on a cloud provider."""
         self.add_filter('cloud_provider', provider)
         return await self.advanced_search()
 
     async def search_http_status(self, status_code: int) -> dict[str, Any]:
-        """Search for hosts with a specific HTTP status code"""
+        """Search for hosts with an HTTP status code."""
         self.add_filter('http_status_code', str(status_code))
         return await self.advanced_search()
 
     async def search_certificate(self, filter_name: str, value: str) -> dict[str, Any]:
-        """Search for hosts with specific certificate properties"""
+        """Search for hosts with matching certificate properties."""
         if filter_name not in self.CERT_FILTERS:
             valid_filters = ', '.join(self.CERT_FILTERS)
             raise ValueError(f'Invalid certificate filter: {filter_name}. Valid filters: {valid_filters}')
@@ -291,7 +287,7 @@ class SearchFullHunt:
         return await self.advanced_search()
 
     async def search_with_dns(self, dns_type: str, value: str) -> dict[str, Any]:
-        """Search for hosts with specific DNS records"""
+        """Search for hosts with a matching DNS record."""
         dns_filter = f'dns_{dns_type.lower()}'
         if dns_filter not in self.NETWORK_FILTERS:
             valid_filters = [f for f in self.NETWORK_FILTERS if f.startswith('dns_')]
@@ -302,7 +298,7 @@ class SearchFullHunt:
         return await self.advanced_search()
 
     async def extract_data_from_domain_details(self, details: dict[str, Any]) -> None:
-        """Extract useful information from domain details response"""
+        """Collect normalized results from a domain-details response."""
         if 'hosts' not in details:
             return
 
@@ -415,7 +411,7 @@ class SearchFullHunt:
         self.total_results['tags'] = list(set(self.total_results['tags']))
 
     async def extract_data_from_search_results(self, results: dict[str, Any]) -> None:
-        """Extract useful information from search results"""
+        """Collect normalized results from a search response."""
         if 'hosts' not in results:
             return
 
@@ -426,7 +422,7 @@ class SearchFullHunt:
         await self.extract_data_from_domain_details(results)
 
     async def do_search(self) -> None:
-        """Main search method that calls the various endpoints"""
+        """Query the FullHunt endpoints used by this source."""
         try:
             async with AsyncFetcher.open_session(
                 headers=self._get_headers(),
@@ -466,47 +462,47 @@ class SearchFullHunt:
             return
 
     async def get_hostnames(self) -> list[str]:
-        """Return list of discovered subdomains"""
+        """Return discovered subdomains."""
         return self.total_results['hosts']
 
     async def get_ips(self) -> list[str]:
-        """Return list of discovered IP addresses"""
+        """Return discovered IP addresses."""
         return self.total_results['ips']
 
     async def get_ports(self) -> list[int]:
-        """Return list of open ports"""
+        """Return open ports."""
         return list(self.total_results['ports'])
 
     async def get_technologies(self) -> list[str]:
-        """Return list of technologies found"""
+        """Return detected technologies."""
         return self.total_results['technologies']
 
     async def get_tags(self) -> list[str]:
-        """Return list of tags"""
+        """Return FullHunt tags."""
         return self.total_results['tags']
 
     async def get_dns_records(self) -> dict[str, dict[str, list[str]]]:
-        """Return DNS records for hosts"""
+        """Return DNS records for hosts."""
         return self.total_results['dns_records']
 
     async def get_http_info(self) -> dict[str, dict[str, Any]]:
-        """Return HTTP information for hosts"""
+        """Return HTTP information for hosts."""
         return self.total_results['http_info']
 
     async def get_geo_info(self) -> dict[str, dict[str, Any]]:
-        """Return geographic information for hosts"""
+        """Return geographic information for hosts."""
         return self.total_results['geo_info']
 
     async def get_cloud_info(self) -> dict[str, dict[str, Any]]:
-        """Return cloud provider information for hosts"""
+        """Return cloud-provider information for hosts."""
         return self.total_results['cloud_info']
 
     async def get_certificate_info(self) -> list[dict[str, Any]]:
-        """Return certificate information for hosts"""
+        """Return certificate information for hosts."""
         return self.total_results['cert_info']
 
     async def get_all_results(self) -> dict[str, Any]:
-        """Return all collected results"""
+        """Return all collected results."""
         return self.total_results
 
     async def process(
@@ -514,11 +510,11 @@ class SearchFullHunt:
         proxy: bool = False,
         filters: dict[str, str] | None = None,
     ) -> SourceExecutionReport | None:
-        """Main processing method
+        """Run the FullHunt search.
 
         Args:
-            proxy: Whether to use a proxy for requests
-            filters: Optional dictionary of filters to apply to the search
+            proxy: Whether to use a proxy for requests.
+            filters: Optional search filters.
 
         """
         self.proxy = proxy

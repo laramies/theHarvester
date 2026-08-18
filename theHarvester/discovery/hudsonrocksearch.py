@@ -6,17 +6,17 @@ from theHarvester.lib.core import AsyncFetcher, FetcherResponse
 
 
 class SearchHudsonRock:
-    """Hudson Rock API integration for discovering compromised credentials and stealer logs.
+    """Search Hudson Rock for compromised credentials and infostealer data.
 
-    This class provides comprehensive search capabilities using Hudson Rock's Cavalier API
-    to discover leaked credentials, compromised hosts, and infostealer intelligence.
+    The adapter queries the Cavalier API for leaked credentials, compromised
+    hosts, and infostealer records.
     """
 
     def __init__(self, word: str) -> None:
-        """Initialize Hudson Rock search.
+        """Configure a Hudson Rock search.
 
         Args:
-            word: Domain or email to search for
+            word: Domain or email address to search.
 
         """
         self.word = word.strip().lower()
@@ -34,10 +34,9 @@ class SearchHudsonRock:
         self.max_retries = 3
 
     async def do_search(self) -> None:
-        """Search Hudson Rock for infostealer intelligence data.
+        """Query by domain and, for email targets, by email address.
 
-        Performs comprehensive search using both domain and email endpoints
-        with proper error handling and rate limiting.
+        Requests are retried when the provider rate limits them.
         """
         self.logger.info(f'Starting Hudson Rock search for: {self.word}')
 
@@ -70,10 +69,10 @@ class SearchHudsonRock:
         """Validate email format.
 
         Args:
-            email: Email address to validate
+            email: Email address to validate.
 
         Returns:
-            True if email format is valid
+            Whether the email address matches the supported format.
 
         """
         import re
@@ -85,7 +84,7 @@ class SearchHudsonRock:
         """Search Hudson Rock by domain with retry logic.
 
         Args:
-            domain: Domain to search for
+            domain: Domain to search.
 
         """
         url = f'{self.base_url}/search-by-domain?domain={domain}'
@@ -97,7 +96,7 @@ class SearchHudsonRock:
         """Search Hudson Rock by email with retry logic.
 
         Args:
-            email: Email address to search for
+            email: Email address to search.
 
         """
         url = f'{self.base_url}/search-by-email?email={email}'
@@ -145,7 +144,7 @@ class SearchHudsonRock:
         """Process domain search response from Hudson Rock API.
 
         Args:
-            response: JSON response from Hudson Rock domain search API
+            response: Hudson Rock domain-search response.
 
         """
         try:
@@ -189,8 +188,8 @@ class SearchHudsonRock:
         """Extract hostnames from URL data.
 
         Args:
-            urls_data: List of URL data dictionaries
-            source_type: Type of source (employee, user, third_party)
+            urls_data: URL records.
+            source_type: Source category: employee, user, or third party.
 
         """
         extracted_count = 0
@@ -219,7 +218,7 @@ class SearchHudsonRock:
         """Extract email addresses from response data.
 
         Args:
-            data: Response data dictionary
+            data: Hudson Rock response data.
 
         """
         # Look for emails in various data fields
@@ -243,7 +242,7 @@ class SearchHudsonRock:
         """Process email search response from Hudson Rock API.
 
         Args:
-            response: JSON response from Hudson Rock email search API
+            response: Hudson Rock email-search response.
 
         """
         try:
@@ -294,10 +293,10 @@ class SearchHudsonRock:
         """Validate IP address format.
 
         Args:
-            ip: IP address to validate
+            ip: IP address to validate.
 
         Returns:
-            True if IP format is valid
+            Whether the value is a supported IPv4 address.
 
         """
         if not ip or '*' in ip or '•' in ip:
@@ -315,7 +314,7 @@ class SearchHudsonRock:
         """Extract hostnames from service data.
 
         Args:
-            services: List of service dictionaries
+            services: Service records.
 
         """
         for service in services:
@@ -342,7 +341,7 @@ class SearchHudsonRock:
         """Return discovered hostnames.
 
         Returns:
-            Set of unique hostnames discovered from Hudson Rock data
+            Unique hostnames found in Hudson Rock data.
 
         """
         return self.totalhosts
@@ -351,7 +350,7 @@ class SearchHudsonRock:
         """Return discovered IP addresses.
 
         Returns:
-            Set of unique IP addresses discovered from Hudson Rock data
+            Unique IP addresses found in Hudson Rock data.
 
         """
         return self.totalips
@@ -360,7 +359,7 @@ class SearchHudsonRock:
         """Return discovered email addresses.
 
         Returns:
-            Set of unique email addresses discovered from Hudson Rock data
+            Unique email addresses found in Hudson Rock data.
 
         """
         return self.emails
@@ -369,7 +368,7 @@ class SearchHudsonRock:
         """Return infostealer intelligence data.
 
         Returns:
-            List of dictionaries containing detailed stealer information
+            Infostealer records.
 
         """
         return self.infostealers
@@ -378,7 +377,7 @@ class SearchHudsonRock:
         """Return compromised data statistics.
 
         Returns:
-            Dictionary containing statistics about compromised data
+            Compromised-data counts.
 
         """
         return self.compromised_data
@@ -387,7 +386,7 @@ class SearchHudsonRock:
         """Get a summary of all discovered data.
 
         Returns:
-            Dictionary containing summary statistics
+            Counts for the collected result types.
 
         """
         return {
@@ -403,10 +402,10 @@ class SearchHudsonRock:
         }
 
     async def process(self, proxy: bool = False) -> None:
-        """Main processing method.
+        """Run the Hudson Rock search.
 
         Args:
-            proxy: Whether to use proxy for requests
+            proxy: Whether to use a proxy for requests.
 
         """
         self.proxy = proxy

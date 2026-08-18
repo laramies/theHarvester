@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 class SearchThc:
-    """Class to search for subdomains using THC (ip.thc.org)."""
+    """Search THC (ip.thc.org) for subdomains."""
 
     def __init__(self, word: str) -> None:
         self.word = word

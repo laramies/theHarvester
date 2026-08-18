@@ -1,9 +1,4 @@
-"""============
-DNS Browsing
-============
-
-Explore the space around known hosts & ips for extra catches.
-"""
+"""DNS brute-force and reverse-lookup helpers."""
 
 import asyncio
 import logging
@@ -80,21 +75,19 @@ NETWORK_REGEX: str = rf'\b({IP_REGEX})(?:\:({PORT_REGEX}))?(?:\/({NETMASK_REGEX}
 
 
 def serialize_ip_range(ip: str, netmask: str = '24') -> str:
-    """Serialize a network range in a constant format, 'x.x.x.x/y'.
+    """Normalize the first IPv4 address in a string as a CIDR range.
 
     Parameters
     ----------
-    ip: str.
-        A serialized ip in the format 'x.x.x.x'.
-        Extra information like port (':z') or subnet ('/n')
-        will be ignored.
-    netmask: str.
-        The subnet subdivision, represented by a 2 digit netmask.
+    ip: str
+        Text containing an IPv4 address. Ports and embedded netmasks are ignored.
+    netmask: str
+        Netmask to apply. The default is ``24``.
 
     Returns
     -------
-    out: str.
-        The network OSI address, like '192.168.0.0/24'.
+    str
+        A range such as ``192.168.0.0/24``, or an empty string for invalid input.
 
     """
     __ip_matches = re.search(NETWORK_REGEX, ip, re.IGNORECASE)
@@ -121,34 +114,36 @@ def iter_ips_in_network_range(iprange: str) -> Iterator[str]:
 
 
 def list_ips_in_network_range(iprange: str) -> list[str]:
-    """List all the IPs in the range.
+    """Return every usable address in an IPv4 range.
 
     Parameters
     ----------
-    iprange: str.
-        A serialized ip range, like '1.2.3.0/24'.
-        The last digit can be set to anything, it will be ignored.
+    iprange: str
+        A range such as ``1.2.3.0/24``. Host bits are ignored.
 
     Returns
     -------
-    out: list.
-        The list of IPs in the range.
+    list[str]
+        Usable addresses in the range.
 
     """
     return list(iter_ips_in_network_range(iprange))
 
 
 async def reverse_single_ip(ip: str, resolver: DNSResolver, error_types: set[str] | None = None) -> str:
-    """Reverse a single IP and output the linked CNAME, if it exists.
+    """Return the PTR hostname for an IP address, or an empty string.
 
     Parameters
     ----------
-        :param ip:  IP address to reverse
-        :param resolver: DNS server to use
+    ip: str
+        IP address to resolve.
+    resolver: DNSResolver
+        Resolver to query.
 
     Returns
     -------
-        :return str: with the corresponding CNAME or None
+    str
+        The resolved hostname, or an empty string when resolution fails.
 
     """
     try:
@@ -299,23 +294,18 @@ async def reverse_all_ips_in_range(
     nameservers: list[str] | None = None,
     error_types: set[str] | None = None,
 ) -> None:
-    """Reverse one range through the bounded global reverse-DNS implementation.
+    """Resolve usable addresses from one range with the shared bounds.
 
     Parameters
     ----------
-    iprange: str.
-        An IPv4 range formatted as 'x.x.x.x/y'.
-        The last 2 digits of the ip can be set to anything,
-        they will be ignored.
-    callback: Callable.
-        Arbitrary postprocessing function.
-    nameservers: List[str].
-        Optional list of DNS servers.
-    error_types: set[str].
-        Optional sink for unexpected resolver or transport error names.
-    Returns
-    -------
-    out: None.
+    iprange: str
+        An IPv4 range formatted as ``x.x.x.x/y``. Host bits are ignored.
+    callback: Callable
+        Function called for each resolved hostname.
+    nameservers: list[str] | None
+        DNS servers to query.
+    error_types: set[str] | None
+        Sink for unexpected resolver or transport error names.
 
     """
     await reverse_ip_ranges((iprange,), callback, nameservers, error_types)
@@ -327,58 +317,20 @@ async def reverse_all_ips_in_range(
 
 
 def log_query(ip: str) -> None:
-    """Display the current query in the console.
-
-    Parameters
-    ----------
-    ip: str.
-        Queried ip.
-
-    Results
-    -------
-    out: None.
-
-    """
+    """Display the IP address currently being queried."""
     sys.stdout.write(chr(27) + '[2K' + chr(27) + '[G')
     sys.stdout.write('\r' + ip + ' - ')
     sys.stdout.flush()
 
 
 def log_result(host: str) -> None:
-    """Display the query result in the console.
-
-    Parameters
-    ----------
-    host: str.
-        Host name returned by the DNS query.
-
-    Results
-    -------
-    out: None.
-
-    """
+    """Log a hostname returned by reverse DNS."""
     if host:
         logger.info(host)
 
 
 def generate_postprocessing_callback(target: str, **allhosts: list[str]) -> Callable:
-    """Postprocess the query results asynchronously too, instead of waiting for
-    the querying stage to be completely finished.
-
-    Parameters
-    ----------
-    target: str.
-        The domain wanted as TLD.
-    allhosts: List.
-        A collection of all the subdomains -of target- found so far.
-
-    Returns
-    -------
-    out: Callable.
-        A function that will update the collection of target subdomains
-        when the query result is satisfying.
-
-    """
+    """Return a callback that appends matching PTR hostnames to each collection."""
 
     def append_matching_hosts(host: str) -> None:
         if host and target in host:
