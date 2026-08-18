@@ -51,7 +51,7 @@ def selected_action_names(request: Mapping[str, object]) -> tuple[str, ...]:
 
 
 def hostname_collection_conflicts(request: Mapping[str, object]) -> tuple[str, ...]:
-    """Return selected actions that require hostname collection."""
+    """Return selected options that cannot run when hostname collection is disabled."""
     if not request.get('no_hosts'):
         return ()
     selected = set(selected_action_names(request))
@@ -59,11 +59,10 @@ def hostname_collection_conflicts(request: Mapping[str, object]) -> tuple[str, .
 
 
 class ResultRoute(Enum):
-    """Normalized result collections a source can contribute.
+    """Result types a source can return.
 
-    ``SUBDOMAINS`` contains in-scope descendant names reported by a source. It
-    does not imply DNS resolution or current addressability. Legacy adapters
-    and output formats may still call these values hosts for compatibility.
+    ``SUBDOMAINS`` contains names found below the target domain. A name can
+    appear here even if it does not currently resolve.
     """
 
     SUBDOMAINS = auto()
@@ -236,7 +235,7 @@ def activity_classes_for_selection(
 
 
 def resolve_sources(selection: str | Iterable[str]) -> list[str]:
-    """Expand source and result-capability selectors into canonical source names."""
+    """Expand ``all`` and capability selectors into source names."""
     values = (selection,) if isinstance(selection, str) else selection
     tokens = [token for value in values for token in map(str.strip, value.split(',')) if token]
     selected: set[str] = set()

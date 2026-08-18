@@ -631,9 +631,7 @@ class AsyncFetcher:
 
     @staticmethod
     def _get_random_proxy(proxy_dict: dict) -> tuple[str | None, str | None]:
-        """Get a random proxy from the proxy dictionary.
-        Returns (proxy_url, proxy_type) where proxy_type is 'http' or 'socks5'
-        """
+        """Return a random proxy URL and its ``http`` or ``socks5`` type."""
         all_proxies = []
         for proxy_type, proxies in proxy_dict.items():
             if proxies:
@@ -649,9 +647,7 @@ class AsyncFetcher:
     async def _create_connector(
         proxy_url: str | None, proxy_type: str | None, ssl_context: ssl.SSLContext | bool | None = None
     ) -> aiohttp.BaseConnector:
-        """Create an appropriate connector for the given proxy type.
-        Returns a connector that can be used with aiohttp.ClientSession.
-        """
+        """Create an aiohttp connector for the selected proxy type."""
         if proxy_url and proxy_type == 'socks5':
             # Create SOCKS5 proxy connector using aiohttp-socks
             # ProxyConnector.from_url can handle socks5://host:port URLs
@@ -723,11 +719,12 @@ class AsyncFetcher:
         include_metadata: bool = False,
         response_byte_limit: int | None = None,
     ) -> Any:
-        """Generic HTTP request helper.
-        - If a session is not provided, one will be created and closed automatically.
-        - Supports optional headers, method selection, proxy, ssl verification, redirects and timeout.
-        - An explicit response byte limit raises ``ResponseStreamError`` instead of buffering beyond it.
-        - Returns response text or json depending on `json` flag.
+        """Send an HTTP request and return its text or JSON body.
+
+        When no session is supplied, this method creates and closes one. It
+        supports custom headers, methods, proxies, TLS verification, redirects,
+        and timeouts. A response that exceeds an explicit byte limit raises
+        ``ResponseStreamError`` instead of buffering the remaining body.
         """
         try:
             owns_session = session is None

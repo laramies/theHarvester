@@ -1,6 +1,4 @@
-"""Screenshot module that utilizes playwright to asynchronously
-take screenshots
-"""
+"""Take screenshots asynchronously with Playwright."""
 
 import asyncio
 import logging

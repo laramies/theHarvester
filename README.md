@@ -103,7 +103,7 @@ Passive sources are P0. DNS resolution, brute force, recursive DNS, and reverse 
 
 Common active options include DNS resolution (`-r`), DNS brute force (`-c`), reverse DNS (`-n`), recursive DNS (`--dns-recursive-depth`), takeover checks (`-t`), API path scanning (`-a`), and screenshots (`--screenshot`). A takeover indicator is evidence for review, not proof that a provider resource can be claimed.
 
-Read [Responsible use and scope](docs/wiki/Responsible-Use-and-Scope.md) before active work. [Operator workflows](docs/wiki/Operator-Workflows.md) covers limits, resolvers, proxies, and action-specific behavior. Screenshot capture requires a Playwright-compatible browser.
+Read [Responsible use and scope](docs/wiki/Responsible-Use-and-Scope.md) before active work. [Operator workflows](docs/wiki/Operator-Workflows.md) covers limits, resolvers, proxies, and action-specific behavior. Screenshot capture requires a Playwright-compatible browser; Baidu uses it when available and otherwise falls back to HTTP.
 
 ## HarvestView and REST API
 

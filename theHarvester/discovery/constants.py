@@ -4,11 +4,10 @@ from theHarvester.lib.core import AsyncFetcher, Core
 
 
 async def splitter(links):
-    """Method that tries to remove duplicates
-    LinkedinLists pulls a lot of profiles with the same name.
-    This method tries to remove duplicates from the list.
-    :param links: list of links to remove duplicates from
-    :return: a unique-ish list
+    """Deduplicate profile URLs using name-like path segments.
+
+    :param links: Profile URLs to deduplicate.
+    :return: URLs with repeated name segments removed.
     """
     unique_list = []
     name_check = []
@@ -28,9 +27,10 @@ async def splitter(links):
 
 
 def filter(lst):
-    """Method that filters list
-    :param lst: list to be filtered
-    :return: new filtered list
+    """Normalize a collection into unique, filtered lowercase strings.
+
+    :param lst: Values to filter.
+    :return: The filtered values.
     """
     if lst is None:
         return []
@@ -46,14 +46,14 @@ def filter(lst):
 
 
 def get_delay() -> float:
-    """Method that is used to generate a random delay"""
+    """Return a random delay between 0.5 and 2.5 seconds."""
     return random.randint(1, 3) - 0.5
 
 
 async def search(text: str) -> bool:
-    """Helper function to check if Google has blocked traffic.
-    :param text: See if specific text is returned, which means Google is blocking us
-    :return bool:
+    """Return whether text contains Google's automated-traffic block page.
+
+    :param text: Response text to inspect.
     """
     for line in text.strip().splitlines():
         if (
@@ -66,9 +66,10 @@ async def search(text: str) -> bool:
 
 
 async def google_workaround(visit_url: str) -> bool | str:
-    """Function that makes a request on our behalf if Google starts to block us
-    :param visit_url: Url to scrape
-    :return: Correct html that can be parsed by BS4
+    """Fetch a Google result page through the websniffer fallback.
+
+    :param visit_url: Google URL to fetch.
+    :return: Decoded HTML, or ``True`` when no usable page is returned.
     """
     url = 'https://websniffer.cc/'
     data = {
@@ -105,7 +106,7 @@ async def google_workaround(visit_url: str) -> bool | str:
 
 
 class MissingKeyError(Exception):
-    """:raise: When there is a module that has not been provided its API key"""
+    """Raised when a discovery source is missing required credentials."""
 
     def __init__(self, source: str | None) -> None:
         if source:

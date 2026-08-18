@@ -33,7 +33,7 @@ class SearchGitlab:
         return {}
 
     def _extract_domains_from_text(self, text: str) -> set:
-        """Extract domain names from text that match our target domain"""
+        """Extract domain names that match the target domain."""
         domains: set[str] = set()
         if not text:
             return domains
@@ -45,7 +45,7 @@ class SearchGitlab:
         return domains
 
     def _extract_emails_from_text(self, text: str) -> set:
-        """Extract email addresses that match our target domain"""
+        """Extract email addresses that match the target domain."""
         emails: set[str] = set()
         if not text:
             return emails
@@ -65,7 +65,7 @@ class SearchGitlab:
         return bool(hosts or emails)
 
     async def search_projects(self) -> None:
-        """Search GitLab projects for domain references"""
+        """Search GitLab projects for references to the target domain."""
         try:
             headers = {'User-agent': Core.get_user_agent()}
 
@@ -127,7 +127,7 @@ class SearchGitlab:
             logger.info(f'GitLab API projects search error: {e}')
 
     async def search_users(self) -> None:
-        """Search GitLab users for domain references"""
+        """Search GitLab users for references to the target domain."""
         try:
             headers = {'User-agent': Core.get_user_agent()}
 

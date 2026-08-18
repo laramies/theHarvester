@@ -93,7 +93,7 @@ class TestSearchGithubCode:
 
     @pytest.mark.asyncio
     async def test_infinite_loop_fix_page_zero(self):
-        """Test that the loop condition properly exits when page becomes 0"""
+        """Stop pagination when the next page is zero."""
         Core.github_key = MagicMock(return_value="test_key")  # type: ignore[method-assign]
         test_class_instance = githubcode.SearchGithubCode(word="test", limit=500)
 
@@ -108,7 +108,7 @@ class TestSearchGithubCode:
 
     @pytest.mark.asyncio
     async def test_infinite_loop_fix_page_nonzero(self):
-        """Test that the loop condition continues when page is non-zero"""
+        """Continue pagination while the next page is nonzero."""
         Core.github_key = MagicMock(return_value="test_key")  # type: ignore[method-assign]
         test_class_instance = githubcode.SearchGithubCode(word="test", limit=500)
 
@@ -123,7 +123,7 @@ class TestSearchGithubCode:
 
     @pytest.mark.asyncio
     async def test_infinite_loop_fix_old_vs_new_condition(self):
-        """Test that demonstrates the difference between old and new conditions"""
+        """Treat zero as the end of pagination, not as another page."""
         Core.github_key = MagicMock(return_value="test_key")  # type: ignore[method-assign]
         test_class_instance = githubcode.SearchGithubCode(word="test", limit=500)
 
