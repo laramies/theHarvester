@@ -85,6 +85,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed the nonfunctional ThreatCrowd source because its service hostnames terminate at deleted AWS load balancers and return NXDOMAIN; OTX remains available through its separate adapter.
 
 ### Fixed
+- Made winloop opt-in on Windows behind `THEHARVESTER_USE_WINLOOP`, so Playwright-backed sources and screenshots no longer fail with `ValueError: startupinfo is not supported` on the default event loop.
 - Reused one connection pool, proxy identity, and cookie jar across Censys and GitHub Code pagination while keeping provider sessions isolated and cancellation-safe.
 - Sent a stable, versioned theHarvester identity with provider and API requests while preserving explicit browser identities for sources that require them.
 - Kept API endpoint scan URLs canonical instead of prefixing targets onto already complete URLs.

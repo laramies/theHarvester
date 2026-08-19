@@ -34,11 +34,30 @@ def test_cli_uses_platform_loop_factory_when_available(monkeypatch: pytest.Monke
     optional_loop.new_event_loop = new_event_loop  # type: ignore[attr-defined]
     observed = _capture_loop_factory(monkeypatch)
     monkeypatch.setattr(sys, 'platform', platform)
+    monkeypatch.setenv(theHarvester.WINLOOP_ENV_VAR, '1')
     monkeypatch.setitem(sys.modules, module_name, optional_loop)
 
     theHarvester.main()
 
     assert observed == [new_event_loop]
+
+
+def test_cli_skips_winloop_on_windows_unless_opted_in(monkeypatch: pytest.MonkeyPatch) -> None:
+    """winloop breaks Playwright's ``startupinfo`` subprocess launch, so it is opt-in."""
+    winloop = ModuleType('winloop')
+
+    def new_event_loop() -> asyncio.AbstractEventLoop:
+        raise AssertionError('winloop must not be used without the opt-in environment variable')
+
+    winloop.new_event_loop = new_event_loop  # type: ignore[attr-defined]
+    observed = _capture_loop_factory(monkeypatch)
+    monkeypatch.setattr(sys, 'platform', 'win32')
+    monkeypatch.delenv(theHarvester.WINLOOP_ENV_VAR, raising=False)
+    monkeypatch.setitem(sys.modules, 'winloop', winloop)
+
+    theHarvester.main()
+
+    assert observed == [None]
 
 
 @pytest.mark.parametrize(('platform', 'module_name'), [('linux', 'uvloop'), ('win32', 'winloop')])
@@ -47,6 +66,7 @@ def test_cli_uses_standard_loop_when_optional_loop_is_unavailable(
 ) -> None:
     observed = _capture_loop_factory(monkeypatch)
     monkeypatch.setattr(sys, 'platform', platform)
+    monkeypatch.setenv(theHarvester.WINLOOP_ENV_VAR, '1')
     monkeypatch.setitem(sys.modules, module_name, None)
 
     theHarvester.main()
