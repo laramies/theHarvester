@@ -399,6 +399,16 @@ def test_operator_docs_cover_portable_database_export() -> None:
     assert 'no manual WAL handling is required' in rest_api
 
 
+def test_operator_docs_explain_the_schedule_control_database() -> None:
+    readme = Path('README.md').read_text()
+    rest_api = Path('docs/wiki/Rest-API.md').read_text()
+    local_data = Path('docs/wiki/Results-and-Local-Data.md').read_text()
+
+    assert all('SQLAlchemy' in page for page in (readme, rest_api, local_data))
+    assert all('THEHARVESTER_SCHEDULE_DB' in page for page in (rest_api, local_data))
+    assert all('portable SQLite' in page for page in (readme, rest_api, local_data))
+
+
 def test_readme_explains_jsonl_record_and_structured_evidence_parsing() -> None:
     readme = Path('README.md').read_text()
     example = re.search(r'```jsonl\n(.*?)\n```', readme, flags=re.DOTALL)

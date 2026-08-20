@@ -11,6 +11,243 @@ from playwright.sync_api import Page, Route, expect
 pytestmark = pytest.mark.harvestview_e2e
 
 
+def test_schedule_page_creates_and_manages_two_target_passive_schedule(
+    harvestview_server_url: str,
+    page: Page,
+) -> None:
+    page.set_viewport_size({'width': 390, 'height': 844})
+    page.goto(f'{harvestview_server_url}/schedules')
+
+    expect(page.get_by_role('heading', name='Create a schedule')).to_be_visible()
+    expect(page.locator('#runtime-health')).to_have_text('Preview mode · execution disabled')
+    expect(page.locator('#source-readiness')).to_contain_text('passive sources are ready')
+    expect(page.locator('.source-option.is-unready').first).to_contain_text('Credentials required:')
+
+    theme_button = page.locator('#theme-button')
+    for theme in ('light', 'dark', 'system'):
+        theme_button.click()
+        expect(page.locator('html')).to_have_attribute('data-theme', theme)
+    assert page.evaluate("localStorage.getItem('runs-theme')") == 'system'
+
+    page.locator('#schedule-name').focus()
+    page.keyboard.press('Tab')
+    expect(page.locator('#schedule-targets')).to_be_focused()
+    page.locator('#schedule-name').fill('Blog inventory')
+    page.locator('#schedule-targets').fill('Example.Test.\nexample.test')
+    expect(page.locator('#target-summary')).to_have_text('1 unique target')
+    page.locator('#schedule-targets').fill('example.test\nexample.org')
+    expect(page.locator('#target-summary')).to_have_text('2 unique targets')
+    page.locator('#schedule-frequency').select_option('monthly')
+    page.locator('#schedule-start').fill('2030-01-31T09:00')
+    page.locator('#schedule-timezone').fill('America/New_York')
+    expect(page.locator('#monthly-help')).to_be_visible()
+    expect(page.locator('#monthly-help')).to_contain_text('final day')
+    crtsh = page.locator('.source-option').filter(has_text='crtsh')
+    expect(crtsh.locator('input')).to_be_enabled()
+    crtsh.locator('input').check()
+
+    page.locator('#create-schedule-button').click()
+
+    card = page.locator('.schedule-card').filter(has_text='Blog inventory')
+    expect(card).to_be_visible()
+    expect(card).to_contain_text('example.test, example.org')
+    expect(card).to_contain_text('2')
+    expect(card).to_contain_text('Monthly')
+    card.get_by_text('Upcoming occurrences').click()
+    expect(card.locator('.upcoming-occurrences')).to_contain_text('Feb 28, 2030')
+    expect(card.get_by_role('button', name='Pause')).to_be_visible()
+    schedules = page.evaluate("fetch('/api/v1/schedules').then((response) => response.json())")
+    assert schedules[0]['run']['dns_resolve'] is False
+    assert page.evaluate('document.documentElement.scrollWidth <= document.documentElement.clientWidth')
+
+    card.get_by_role('button', name='Edit').click()
+    expect(page.get_by_role('heading', name='Edit schedule')).to_be_visible()
+    expect(page.locator('#schedule-name')).to_have_value('Blog inventory')
+    expect(page.locator('#schedule-frequency')).to_have_value('monthly')
+    page.get_by_role('button', name='Cancel edit').click()
+    expect(page.locator('#schedule-name')).to_be_focused()
+    expect(page.get_by_role('heading', name='Create a schedule')).to_be_visible()
+    card.get_by_role('button', name='Edit').click()
+    card.get_by_role('button', name='Pause').click()
+    card = page.locator('.schedule-card').filter(has_text='Blog inventory')
+    expect(card.get_by_role('button', name='Resume')).to_be_visible()
+    page.locator('#schedule-name').fill('Blog inventory every week')
+    page.locator('#schedule-frequency').select_option('daily')
+    expect(page.locator('#monthly-help')).to_be_hidden()
+    page.locator('#schedule-interval').fill('7')
+    page.get_by_role('button', name='Save changes').click()
+
+    card = page.locator('.schedule-card').filter(has_text='Blog inventory every week')
+    expect(card).to_be_visible()
+    expect(card).to_contain_text('Every 7 days')
+    expect(card.get_by_role('button', name='Resume')).to_be_visible()
+    expect(page.get_by_role('heading', name='Create a schedule')).to_be_visible()
+    expect(page.get_by_role('button', name='Cancel edit')).to_be_hidden()
+    updated = page.evaluate("fetch('/api/v1/schedules').then((response) => response.json())")
+    assert updated[0]['timing']['frequency'] == 'daily'
+    assert updated[0]['timing']['interval'] == 7
+    card.get_by_role('button', name='Resume').click()
+    card = page.locator('.schedule-card').filter(has_text='Blog inventory every week')
+    expect(card.get_by_role('button', name='Pause')).to_be_visible()
+
+    card.get_by_role('button', name='Pause').click()
+    card = page.locator('.schedule-card').filter(has_text='Blog inventory')
+    expect(card.get_by_role('button', name='Resume')).to_be_visible()
+    card.get_by_role('button', name='Resume').click()
+    card = page.locator('.schedule-card').filter(has_text='Blog inventory')
+    expect(card.get_by_role('button', name='Pause')).to_be_visible()
+
+    page.route(
+        '**/api/v1/schedules/*/run-now',
+        lambda route: route.fulfill(
+            status=202,
+            json={
+                'schedule_id': 'browser-test',
+                'scheduled_for': '2026-08-20T12:00:00+00:00',
+                'run_ids': ['one', 'two'],
+                'skipped_targets': [],
+                'errors': [],
+            },
+        ),
+    )
+    page.once('dialog', lambda dialog: dialog.accept())
+    card.get_by_role('button', name='Run now').click()
+    expect(page.locator('#toast')).to_have_text('Queued 2 run(s); skipped 0.')
+
+    page.route(
+        '**/api/v1/schedules/*/dispatches?limit=1000',
+        lambda route: route.fulfill(
+            json=[
+                {
+                    'schedule_id': 'browser-test',
+                    'scheduled_for': '2026-08-20T12:00:00+00:00',
+                    'target': target,
+                    'run_id': f'run-{index}',
+                    'state': 'queued',
+                    'error': None,
+                }
+                for index, target in enumerate(('example.test', 'example.org', 'example.net'), start=1)
+            ]
+        ),
+    )
+    history_button = card.get_by_role('button', name='History')
+    history_button.focus()
+    history_button.press('Enter')
+    expect(page.get_by_role('dialog')).to_be_visible()
+    expect(page.locator('#close-dispatch-dialog')).to_be_focused()
+    expect(page.locator('#dispatch-grid.tabulator')).to_be_visible()
+    expect(page.locator('#dispatch-grid')).to_contain_text('example.test')
+    expect(page.locator('#dispatch-grid')).to_contain_text('example.org')
+    expect(page.locator('#dispatch-grid')).to_contain_text('example.net')
+    page.keyboard.press('Escape')
+    expect(page.get_by_role('dialog')).to_be_hidden()
+    expect(history_button).to_be_focused()
+
+    page.once('dialog', lambda dialog: dialog.accept())
+    card.get_by_role('button', name='Delete').click()
+    expect(page.locator('#schedule-empty')).to_be_visible()
+
+
+def test_schedule_page_rejects_a_non_loopback_host_in_browser(
+    harvestview_server_url: str,
+    page: Page,
+    browser_failures,
+) -> None:
+    browser_failures.allow_console_error('Failed to load resource: the server responded with a status of 403 (Forbidden)')
+    remote_url = harvestview_server_url.replace('127.0.0.1', 'attacker.example') + '/schedules'
+
+    def forward_non_loopback_host(route: Route) -> None:
+        rejected = page.context.request.get(
+            f'{harvestview_server_url}/schedules',
+            headers={'Host': 'attacker.example'},
+        )
+        route.fulfill(status=rejected.status, headers=rejected.headers, body=rejected.body())
+
+    page.route(remote_url, forward_non_loopback_host)
+    response = page.goto(remote_url)
+
+    assert response is not None
+    assert response.status == 403
+    expect(page.locator('body')).to_contain_text('theHarvester is available only on localhost')
+
+
+def test_schedule_clone_requires_fresh_authorization_for_active_work(
+    harvestview_server_url: str,
+    page: Page,
+) -> None:
+    run = {
+        'run_id': 'active-template',
+        'target': 'source.example.test',
+        'status': 'completed',
+        'origin': 'local',
+        'created_at': '2026-08-19T12:00:00+00:00',
+        'started_at': '2026-08-19T12:00:00+00:00',
+        'completed_at': '2026-08-19T12:01:00+00:00',
+        'cancellation_requested_at': None,
+        'evidence_status': 'complete',
+        'result_count': 0,
+        'activities': ['P1'],
+        'sources': [],
+        'request': {
+            'target': 'source.example.test',
+            'sources': [],
+            'start': 25,
+            'dns_recursive_depth': 1,
+        },
+        'source_executions': [],
+        'action_executions': [],
+        'results': [],
+        'screenshots': [],
+        'log': '',
+        'error': None,
+    }
+    page.route(
+        f'{harvestview_server_url}/api/v1/runs?limit=500',
+        lambda route: route.fulfill(json=[run]),
+    )
+    page.route(
+        f'{harvestview_server_url}/api/v1/runs/active-template',
+        lambda route: route.fulfill(json=run),
+    )
+    page.goto(f'{harvestview_server_url}/schedules')
+
+    page.get_by_text('Clone all settings from an existing run', exact=True).click()
+    page.locator('#template-run').select_option('active-template')
+    expect(page.locator('#authorization-row')).to_be_visible()
+    page.locator('#schedule-name').fill('Active clone')
+    page.locator('#schedule-targets').fill('example.test')
+    page.locator('#create-schedule-button').click()
+    expect(page.locator('#form-error')).to_have_text(
+        'Could not create schedule: Confirm authorization for the cloned DNS or direct-interaction activity. '
+        'Review the schedule values and try again.'
+    )
+    page.locator('#authorization-confirmation').check()
+    page.locator('#create-schedule-button').click()
+    expect(page.locator('.schedule-card').filter(has_text='Active clone')).to_be_visible()
+    schedules = page.evaluate("fetch('/api/v1/schedules').then((response) => response.json())")
+    active_clone = next(schedule for schedule in schedules if schedule['name'] == 'Active clone')
+    assert active_clone['run']['start'] == 25
+    assert active_clone['run']['dns_recursive_depth'] == 1
+
+    card = page.locator('.schedule-card').filter(has_text='Active clone')
+    card.get_by_role('button', name='Edit').click()
+    expect(page.locator('#authorization-row')).to_be_visible()
+    expect(page.locator('#authorization-confirmation')).not_to_be_checked()
+    page.locator('#schedule-name').fill('Updated active clone')
+    page.get_by_role('button', name='Save changes').click()
+    expect(page.locator('#form-error')).to_have_text(
+        'Could not save schedule: Confirm authorization for the selected DNS or direct-interaction activity. '
+        'Review the schedule values and try again.'
+    )
+    page.locator('#authorization-confirmation').check()
+    page.get_by_role('button', name='Save changes').click()
+    expect(page.locator('.schedule-card').filter(has_text='Updated active clone')).to_be_visible()
+    updated_schedules = page.evaluate("fetch('/api/v1/schedules').then((response) => response.json())")
+    updated_clone = next(schedule for schedule in updated_schedules if schedule['name'] == 'Updated active clone')
+    assert updated_clone['run']['start'] == 25
+    assert updated_clone['run']['dns_recursive_depth'] == 1
+
+
 def write_jsonl_evidence(path: Path, evidence: dict[str, object]) -> None:
     results = evidence.get('results', [])
     assert isinstance(results, list)

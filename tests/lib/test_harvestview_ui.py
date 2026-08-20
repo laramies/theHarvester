@@ -57,6 +57,33 @@ def test_harvestview_assets_load_outside_the_repository_directory(tmp_path, monk
     assert "source_workers: Number(form.get('source_workers'))" in response.text
 
 
+def test_harvestview_exposes_local_schedule_page_and_assets(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_SCHEDULE_DB', str(tmp_path / 'schedules.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+    monkeypatch.setenv('THEHARVESTER_SCHEDULER', 'disabled')
+
+    with TestClient(api.app, base_url='http://127.0.0.1', client=('127.0.0.1', 50000)) as client:
+        root = client.get('/')
+        schedules = client.get('/schedules')
+        stylesheet = client.get('/static/harvestview/schedules.css')
+        script = client.get('/static/harvestview/schedules.js')
+    with TestClient(api.app, base_url='http://attacker.example', client=('203.0.113.10', 50000)) as client:
+        remote = client.get('/schedules')
+
+    assert 'href="/schedules">Schedules</a>' in root.text
+    assert schedules.status_code == 200
+    assert '<h1 id="builder-title">Create a schedule</h1>' in schedules.text
+    assert '/static/harvestview/schedules.css?v=' in schedules.text
+    assert '/static/harvestview/schedules.js?v=' in schedules.text
+    assert stylesheet.status_code == 200
+    assert script.status_code == 200
+    assert remote.status_code == 403
+
+
 def test_harvestview_has_an_operator_readable_shodan_host_route(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api import api
 
@@ -121,6 +148,7 @@ def test_harvestview_loads_pinned_tabulator_from_cdnjs(tmp_path, monkeypatch) ->
 
     with TestClient(api.app, base_url='http://127.0.0.1', client=('127.0.0.1', 50000)) as client:
         root = client.get('/')
+        schedules = client.get('/schedules')
         theme = client.get('/static/harvestview/tabulator.min.css')
         script = client.get('/static/harvestview/tabulator.min.js')
         license_file = client.get('/static/harvestview/TABULATOR-LICENSE')
@@ -128,6 +156,7 @@ def test_harvestview_loads_pinned_tabulator_from_cdnjs(tmp_path, monkeypatch) ->
         old_theme = client.get('/static/harvestview/tabulator_bootstrap5.min.css')
 
     assert root.status_code == 200
+    assert schedules.status_code == 200
     assert 'bootstrap.min.css' not in root.text
     assert 'tabulator_bootstrap5.min.css' not in root.text
     assert (
@@ -136,10 +165,20 @@ def test_harvestview_loads_pinned_tabulator_from_cdnjs(tmp_path, monkeypatch) ->
         'crossorigin="anonymous" referrerpolicy="no-referrer">'
     ) in root.text
     assert (
+        '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabulator-tables/6.5.2/css/tabulator.min.css" '
+        'integrity="sha512-t8I/asqzdu/MRgVLxVanQ/c5bhUA1qZ/zA432a/3nUh0kkd7P8Qch35wQvTODivf9D6Xv3h7F8p7ezcUyBOQrQ==" '
+        'crossorigin="anonymous" referrerpolicy="no-referrer">'
+    ) in schedules.text
+    assert (
         '<script src="https://cdnjs.cloudflare.com/ajax/libs/tabulator-tables/6.5.2/js/tabulator.min.js" '
         'integrity="sha512-AF0YMSgc0Ui4IJPb4hJNSi16wFidZEQa6ZTCAeguF3h5glVnAPuz/JT2ai9ypKhsc9n6CEXBB+tMdxsv1q+rxg==" '
         'crossorigin="anonymous" referrerpolicy="no-referrer"></script>'
     ) in root.text
+    assert (
+        '<script src="https://cdnjs.cloudflare.com/ajax/libs/tabulator-tables/6.5.2/js/tabulator.min.js" '
+        'integrity="sha512-AF0YMSgc0Ui4IJPb4hJNSi16wFidZEQa6ZTCAeguF3h5glVnAPuz/JT2ai9ypKhsc9n6CEXBB+tMdxsv1q+rxg==" '
+        'crossorigin="anonymous" referrerpolicy="no-referrer"></script>'
+    ) in schedules.text
     assert 'https://unpkg.com' not in root.text
     assert theme.status_code == 404
     assert script.status_code == 404

@@ -39,6 +39,17 @@ MAX_RUN_REQUEST_BYTES = 64 * 1024
 DEFAULT_MAX_DATABASE_IMPORT_BYTES = 1024 * 1024 * 1024
 
 
+def canonical_run_sources(sources: list[str]) -> list[str]:
+    selected_sources = resolve_sources(sources)
+    unsupported_sources = [source for source in selected_sources if source_spec(source) is None]
+    if unsupported_sources:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f'Unsupported sources: {", ".join(sorted(unsupported_sources))}',
+        )
+    return [get_source_spec(source).name for source in selected_sources]
+
+
 def _remove_database_export(path: Path) -> None:
     for candidate in (path, Path(f'{path}-wal'), Path(f'{path}-shm')):
         candidate.unlink(missing_ok=True)
@@ -136,14 +147,7 @@ async def create_run(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=error.errors(include_url=False, include_context=False),
         ) from error
-    selected_sources = resolve_sources(run_request.sources)
-    unsupported_sources = [source for source in selected_sources if source_spec(source) is None]
-    if unsupported_sources:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=f'Unsupported sources: {", ".join(sorted(unsupported_sources))}',
-        )
-    run_request.sources = [get_source_spec(source).name for source in selected_sources]
+    run_request.sources = canonical_run_sources(run_request.sources)
     if not run_worker.worker_enabled():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

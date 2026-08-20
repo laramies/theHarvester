@@ -136,6 +136,30 @@ def test_api_lifespan_disposes_shared_sqlite_engines(tmp_path, monkeypatch) -> N
     assert disposed is True
 
 
+def test_api_lifespan_disposes_schedule_sqlite_engines(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    disposed = False
+
+    async def no_op() -> None:
+        return None
+
+    async def dispose() -> None:
+        nonlocal disposed
+        disposed = True
+
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+    monkeypatch.setattr(api, 'start_worker', no_op)
+    monkeypatch.setattr(api, 'stop_worker', no_op)
+    monkeypatch.setattr(api, 'dispose_schedule_databases', dispose)
+
+    with TestClient(api.app):
+        pass
+
+    assert disposed is True
+
+
 def test_static_assets_are_resolved_from_the_installed_module(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api import api
 
@@ -539,6 +563,56 @@ def test_orphan_recovery_reattaches_partial_checkpoint_and_leaves_queued_work(tm
     assert {run['target']: run['status'] for run in history}['third.example'] == 'queued'
 
 
+def test_orphan_recovery_prefers_immutable_persisted_evidence_over_a_newer_checkpoint(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api.run_artifacts import ensure_private_directory, write_child_evidence
+    from theHarvester.lib.api.run_models import RunRequest
+    from theHarvester.lib.api.run_store import RunStore
+    from theHarvester.lib.completed_result import CompletedResult
+
+    monkeypatch.setenv('THEHARVESTER_RUN_ARTIFACTS', str(tmp_path / 'artifacts'))
+
+    async def scenario():
+        store = RunStore(tmp_path / 'runs.sqlite')
+        queued = await store.create(RunRequest(target='expected.example.test', sources=['crtsh']))
+        claimed = await store.claim_next()
+        assert claimed is not None
+        await store.cancel(queued['run_id'])
+        now = datetime.now(UTC)
+        await store.results.save_run(
+            CompletedResult.finish(
+                run_id=UUID(queued['run_id']),
+                target='expected.example.test',
+                started_at=now,
+                completed_at=now,
+                groups={'hostname': ['persisted.expected.example.test']},
+            )
+        )
+        artifact_dir = store.artifact_directory(queued['run_id'])
+        ensure_private_directory(artifact_dir)
+        write_child_evidence(
+            artifact_dir,
+            CompletedResult.finish(
+                target='expected.example.test',
+                started_at=now,
+                completed_at=now,
+                groups={'hostname': ['checkpoint.expected.example.test']},
+            ),
+            partial=True,
+        )
+
+        await store.recover_orphans()
+        return await store.get(queued['run_id'])
+
+    recovered = asyncio.run(scenario())
+
+    assert recovered is not None
+    assert recovered['status'] == 'failed'
+    assert recovered['evidence_status'] == 'complete'
+    assert recovered['results'] == [
+        {'type': 'hostname', 'value': 'persisted.expected.example.test', 'sources': [], 'actions': []}
+    ]
+
+
 def test_orphan_recovery_does_not_attach_same_id_evidence_for_another_target(tmp_path) -> None:
     from theHarvester.lib.api.run_models import RunRequest
     from theHarvester.lib.api.run_store import RunStore
@@ -634,6 +708,74 @@ def test_terminal_run_rejects_evidence_for_another_target(tmp_path, operation) -
             await store.results.load_run(UUID(queued['run_id']))
 
     asyncio.run(scenario())
+
+
+def test_existing_evidence_does_not_bypass_checkpoint_target_validation(tmp_path) -> None:
+    from fastapi import HTTPException
+
+    from theHarvester.lib.api.run_models import RunRequest
+    from theHarvester.lib.api.run_store import RunStore
+    from theHarvester.lib.completed_result import CompletedResult
+
+    async def scenario():
+        store = RunStore(tmp_path / 'runs.sqlite')
+        queued = await store.create(RunRequest(target='expected.example.test', sources=['crtsh']))
+        await store.claim_next()
+        now = datetime.now(UTC)
+        await store.results.save_run(
+            CompletedResult.finish(
+                run_id=UUID(queued['run_id']),
+                target='expected.example.test',
+                started_at=now,
+                completed_at=now,
+                groups={'hostname': ['persisted.expected.example.test']},
+            )
+        )
+        evidence = CompletedResult.finish(
+            target='different.example.test',
+            started_at=now,
+            completed_at=now,
+            groups={},
+        ).evidence_dict()
+        with pytest.raises(HTTPException, match='Evidence target does not match run target'):
+            await store.fail(queued['run_id'], 'failed', '', evidence=evidence)
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(('operation', 'expected_status'), [('finish', 'cancelled'), ('fail', 'failed')])
+def test_terminal_run_without_checkpoint_attaches_existing_evidence(tmp_path, operation, expected_status) -> None:
+    from theHarvester.lib.api.run_models import RunRequest
+    from theHarvester.lib.api.run_store import RunStore
+    from theHarvester.lib.completed_result import CompletedResult
+
+    async def scenario():
+        store = RunStore(tmp_path / 'runs.sqlite')
+        queued = await store.create(RunRequest(target='expected.example.test', sources=['crtsh']))
+        await store.claim_next()
+        await store.cancel(queued['run_id'])
+        now = datetime.now(UTC)
+        await store.results.save_run(
+            CompletedResult.finish(
+                run_id=UUID(queued['run_id']),
+                target='expected.example.test',
+                started_at=now,
+                completed_at=now,
+                groups={'hostname': ['persisted.expected.example.test']},
+            )
+        )
+        if operation == 'finish':
+            await store.finish(queued['run_id'], None, '')
+        else:
+            await store.fail(queued['run_id'], 'failed', '')
+        return await store.get(queued['run_id'])
+
+    run = asyncio.run(scenario())
+
+    assert run is not None
+    assert run['status'] == expected_status
+    assert run['evidence_status'] == 'complete'
+    assert run['results'] == [{'type': 'hostname', 'value': 'persisted.expected.example.test', 'sources': [], 'actions': []}]
 
 
 def test_worker_lease_serializes_execution_owners(tmp_path) -> None:

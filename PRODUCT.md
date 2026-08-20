@@ -11,6 +11,7 @@ The operator is a technically capable security practitioner working at a desk, o
 ## Core jobs
 
 - Launch one explicitly authorized enumeration with P0/P1/P2 boundaries visible before execution.
+- Create a run schedule from one reusable, explicitly authorized run template across one or many targets while preserving the same P0/P1/P2 boundaries.
 - Cancel work and know whether cancellation is requested, in progress, or complete.
 - Reopen prior runs and compare route-specific evidence without rerunning reconnaissance.
 - Import existing theHarvester JSONL evidence.

@@ -270,6 +270,13 @@ def test_api_exposes_one_fresh_run_contract(tmp_path, monkeypatch) -> None:
         '/api/v1/runs/{run_id}/cancel',
         '/api/v1/runs/{run_id}/export',
         '/api/v1/runs/{run_id}/screenshots/{name}',
+        '/api/v1/schedules',
+        '/api/v1/schedules/health',
+        '/api/v1/schedules/{schedule_id}',
+        '/api/v1/schedules/{schedule_id}/dispatches',
+        '/api/v1/schedules/{schedule_id}/pause',
+        '/api/v1/schedules/{schedule_id}/resume',
+        '/api/v1/schedules/{schedule_id}/run-now',
     }
     assert all(response.status_code == 404 for response in old_responses)
 
@@ -1695,6 +1702,36 @@ def test_api_schema_and_result_model_expose_typed_takeover_outcomes() -> None:
             actions=['takeover'],
             details=details,
         )
+
+
+def test_api_projection_preserves_structured_takeover_details() -> None:
+    from theHarvester.lib.api.run_models import NormalizedResult
+    from theHarvester.lib.api.run_projection import normalized_results
+
+    details = {
+        'status': 'no-indicator',
+        'dns': [{'resolver': '192.0.2.53', 'cname_chain': [], 'terminal_rcode': 'NOERROR'}],
+        'wildcard_dns': [],
+        'http': [],
+        'indicators': [],
+        'error_types': [],
+    }
+    projected = normalized_results(
+        {
+            'results': [
+                {
+                    'type': 'takeover',
+                    'value': 'unused.example.test',
+                    'sources': [],
+                    'actions': ['takeover'],
+                    'details': details,
+                }
+            ]
+        }
+    )
+
+    assert projected[0]['details'] == details
+    assert NormalizedResult.model_validate(projected[0]).details is not None
 
 
 def test_api_evidence_rejects_redundant_shodan_host_fields() -> None:
