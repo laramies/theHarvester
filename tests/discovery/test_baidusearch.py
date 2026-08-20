@@ -287,6 +287,23 @@ class TestBaiduSearch:
         assert http.closed
 
     @pytest.mark.asyncio
+    async def test_winloop_playwright_startup_failure_falls_back_to_http(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        async def fail_manager_startup(_manager: FakeManager) -> FakePlaywright:
+            raise ValueError('startupinfo is not supported')
+
+        monkeypatch.setattr(FakeManager, '__aenter__', fail_manager_startup)
+        patch_browser(monkeypatch, [])
+        http = patch_http(monkeypatch, [http_response('fallback.example.com')])
+        search = baidusearch.SearchBaidu(word='example.com', limit=10)
+
+        report = await search.process()
+
+        assert report is None
+        assert await search.get_hostnames() == ['fallback.example.com']
+        assert len(http.calls) == 1
+        assert http.closed
+
+    @pytest.mark.asyncio
     async def test_missing_playwright_falls_back_to_direct_http_site_query(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(baidusearch, 'playwright_api', None)
         http = patch_http(
