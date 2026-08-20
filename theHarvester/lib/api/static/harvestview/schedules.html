@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en" data-theme="system">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="color-scheme" content="light dark">
+    <title>HarvestView schedules</title>
+    <link rel="icon" href="/static/harvestview/logo.webp">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabulator-tables/6.5.2/css/tabulator.min.css" integrity="sha512-t8I/asqzdu/MRgVLxVanQ/c5bhUA1qZ/zA432a/3nUh0kkd7P8Qch35wQvTODivf9D6Xv3h7F8p7ezcUyBOQrQ==" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="/static/harvestview/app.css?v={{VERSION}}-{{ASSET_VERSION}}">
+    <link rel="stylesheet" href="/static/harvestview/schedules.css?v={{VERSION}}-{{ASSET_VERSION}}">
+  </head>
+  <body data-dns-resolvers="{{DNS_RESOLVERS}}" data-source-workers="{{SOURCE_WORKERS}}">
+    <a class="skip-link" href="#schedule-workspace">Skip to schedules</a>
+
+    <header class="app-header">
+      <a class="brand" href="/" aria-label="HarvestView home">
+        <img src="/static/harvestview/logo.webp" alt="">
+        <span class="brand-copy"><strong>HarvestView</strong><small>Scheduled enumeration</small></span>
+        <span class="version-badge" aria-label="theHarvester version {{VERSION}}">v{{VERSION}}</span>
+      </a>
+      <div class="header-context">
+        <span class="signal-dot"></span>
+        <span id="runtime-health" role="status">Checking scheduler…</span>
+      </div>
+      <nav class="header-actions" aria-label="Schedule desk actions">
+        <a class="header-button" href="/">Run desk</a>
+        <button id="theme-button" class="header-button" type="button">Theme: system</button>
+        <button id="refresh-button" class="header-button" type="button">Refresh</button>
+      </nav>
+    </header>
+
+    <main id="schedule-workspace" class="schedule-shell">
+      <section class="schedule-builder" aria-labelledby="builder-title">
+        <div class="schedule-section-heading">
+          <div>
+            <p class="eyebrow">Bulk recurring work</p>
+            <h1 id="builder-title">Create a schedule</h1>
+          </div>
+          <span class="activity-chip p0">Local control plane</span>
+        </div>
+        <p class="schedule-intro">
+          One schedule can enqueue the same validated run for up to 10,000 authorized targets. Each target becomes an
+          ordinary durable HarvestView run and keeps the existing evidence, cancellation, and export behavior.
+        </p>
+
+        <form id="schedule-form" class="schedule-form">
+          <label>Schedule name
+            <input id="schedule-name" maxlength="120" placeholder="Weekly external inventory" required>
+          </label>
+
+          <label>Authorized targets
+            <textarea id="schedule-targets" rows="7" placeholder="example.com&#10;example.org&#10;192.0.2.10" required></textarea>
+            <small>Enter one hostname, IP, or explicit AS-prefixed RouteViews pivot per line. Commas are also accepted.</small>
+          </label>
+          <div id="target-summary" class="inline-summary">0 unique targets</div>
+
+          <fieldset>
+            <legend>Run template</legend>
+            <div class="template-choice">
+              <label class="inline-choice">
+                <input type="radio" name="template-mode" value="passive" checked>
+                <span>Build a passive-source template</span>
+              </label>
+              <label class="inline-choice">
+                <input type="radio" name="template-mode" value="clone">
+                <span>Clone all settings from an existing run</span>
+              </label>
+            </div>
+
+            <div id="clone-template-panel" hidden>
+              <label>Existing run
+                <select id="template-run">
+                  <option value="">Choose a run</option>
+                </select>
+                <small>The target is replaced for every item in the target list; all other request settings are retained.</small>
+              </label>
+            </div>
+
+            <div id="passive-template-panel">
+              <div class="source-toolbar">
+                <div>
+                  <strong>Passive discovery sources</strong>
+                  <small id="source-readiness">Loading source catalog…</small>
+                </div>
+                <div class="compact-actions">
+                  <button id="select-ready-passive" type="button" class="button small">Select ready P0</button>
+                  <button id="clear-sources" type="button" class="button small">Clear</button>
+                </div>
+              </div>
+              <div id="source-grid" class="schedule-source-grid" aria-live="polite"></div>
+
+              <details class="schedule-advanced">
+                <summary>Run limits and optional activity</summary>
+                <div class="schedule-grid three">
+                  <label>Results per source
+                    <input id="run-limit" type="number" min="1" max="10000" value="500" required>
+                  </label>
+                  <label>Source workers
+                    <input id="source-workers" type="number" min="1" value="{{SOURCE_WORKERS}}" required>
+                  </label>
+                  <label>Run deadline seconds
+                    <input id="run-deadline" type="number" min="30" max="86400" value="1800">
+                  </label>
+                </div>
+                <div class="activity-options">
+                  <label class="inline-choice"><input type="checkbox" data-run-flag="dns_brute"><span><b>P1</b> DNS brute force</span></label>
+                  <label class="inline-choice"><input type="checkbox" data-run-flag="dns_resolve"><span><b>P1</b> Resolve discovered hosts</span></label>
+                  <label class="inline-choice"><input type="checkbox" data-run-flag="dns_lookup"><span><b>P1</b> Reverse DNS</span></label>
+                  <label class="inline-choice"><input type="checkbox" data-run-flag="routeviews"><span><b>P0</b> RouteViews enrichment</span></label>
+                  <label class="inline-choice"><input type="checkbox" data-run-flag="shodan"><span><b>P0</b> Shodan enrichment</span></label>
+                  <label class="inline-choice"><input type="checkbox" data-run-flag="screenshot"><span><b>P2</b> Screenshots</span></label>
+                  <label class="inline-choice"><input type="checkbox" data-run-flag="takeover"><span><b>P2</b> Takeover indicators</span></label>
+                  <label class="inline-choice"><input type="checkbox" data-run-flag="api_scan"><span><b>P2</b> API paths</span></label>
+                </div>
+              </details>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Timing</legend>
+            <div class="schedule-grid three">
+              <label>Frequency
+                <select id="schedule-frequency">
+                  <option value="once">Once</option>
+                  <option value="hourly">Hourly</option>
+                  <option value="daily" selected>Daily</option>
+                  <option value="weekly">Weekly</option>
+                </select>
+              </label>
+              <label>Start date and time
+                <input id="schedule-start" type="datetime-local" required>
+              </label>
+              <label>Timezone
+                <input id="schedule-timezone" value="UTC" required>
+              </label>
+              <label id="interval-label">Every
+                <input id="schedule-interval" type="number" min="1" max="365" value="1" required>
+                <small id="interval-unit">day(s)</small>
+              </label>
+              <label>Overlap policy
+                <select id="overlap-policy">
+                  <option value="skip" selected>Skip while prior batch is active</option>
+                  <option value="queue">Queue another batch</option>
+                </select>
+              </label>
+            </div>
+            <div id="weekday-panel" class="weekday-panel" hidden>
+              <span>Run on</span>
+              <label><input type="checkbox" value="1">Mon</label>
+              <label><input type="checkbox" value="2">Tue</label>
+              <label><input type="checkbox" value="3">Wed</label>
+              <label><input type="checkbox" value="4">Thu</label>
+              <label><input type="checkbox" value="5">Fri</label>
+              <label><input type="checkbox" value="6">Sat</label>
+              <label><input type="checkbox" value="7">Sun</label>
+            </div>
+          </fieldset>
+
+          <label id="authorization-row" class="authorization-confirmation" hidden>
+            <input id="authorization-confirmation" type="checkbox">
+            <span>I confirm that every listed target is authorized for the selected DNS or direct-interaction activity.</span>
+          </label>
+
+          <div id="form-error" class="form-error" role="alert" hidden></div>
+          <button id="create-schedule-button" class="button primary schedule-submit" type="submit">Create schedule</button>
+        </form>
+      </section>
+
+      <section class="schedule-list-panel" aria-labelledby="schedule-list-title">
+        <div class="schedule-section-heading">
+          <div>
+            <p class="eyebrow">Durable plans</p>
+            <h2 id="schedule-list-title">Schedules</h2>
+          </div>
+          <span id="schedule-count" class="count-badge">0</span>
+        </div>
+        <div id="schedule-loading" class="schedule-empty">Loading schedules…</div>
+        <div id="schedule-empty" class="schedule-empty" hidden>
+          <strong>No schedules yet.</strong>
+          <span>Create one to enqueue ordinary HarvestView runs at the selected time.</span>
+        </div>
+        <div id="schedule-list" class="schedule-list"></div>
+      </section>
+    </main>
+
+    <dialog id="dispatch-dialog" class="form-dialog wide-dialog" aria-labelledby="dispatch-title">
+      <div class="dialog-content">
+        <header class="dialog-header">
+          <div><h2 id="dispatch-title">Scheduled runs</h2><p id="dispatch-subtitle"></p></div>
+          <button class="icon-button" type="button" id="close-dispatch-dialog" aria-label="Close">×</button>
+        </header>
+        <div class="dispatch-table-wrap">
+          <div id="dispatch-grid" hidden></div>
+          <p id="dispatch-message" class="panel-empty">Loading…</p>
+        </div>
+      </div>
+    </dialog>
+
+    <div id="toast" class="schedule-toast" role="status" aria-live="polite" hidden></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tabulator-tables/6.5.2/js/tabulator.min.js" integrity="sha512-AF0YMSgc0Ui4IJPb4hJNSi16wFidZEQa6ZTCAeguF3h5glVnAPuz/JT2ai9ypKhsc9n6CEXBB+tMdxsv1q+rxg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="/static/harvestview/schedules.js?v={{VERSION}}-{{ASSET_VERSION}}" defer></script>
+  </body>
+</html>

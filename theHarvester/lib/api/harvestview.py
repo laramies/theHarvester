@@ -26,8 +26,7 @@ def _docker_gateway() -> ipaddress.IPv4Address | None:
     return None
 
 
-@router.get('/', include_in_schema=False)
-async def harvestview_app(request: Request) -> HTMLResponse:
+def _require_local_request(request: Request) -> None:
     try:
         client_address = ipaddress.ip_address(request.client.host) if request.client is not None else None
         trusted_gateway = (
@@ -44,9 +43,11 @@ async def harvestview_app(request: Request) -> HTMLResponse:
     if not is_local_client or not is_loopback_host:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='theHarvester is available only on localhost')
 
+
+def _render_page(template_name: str, asset_names: tuple[str, ...]) -> HTMLResponse:
     static_dir = Path(__file__).parent / 'static' / 'harvestview'
-    template = (static_dir / 'index.html').read_text(encoding='utf-8')
-    asset_version = max((static_dir / name).stat().st_mtime_ns for name in ('app.css', 'app.js'))
+    template = (static_dir / template_name).read_text(encoding='utf-8')
+    asset_version = max((static_dir / name).stat().st_mtime_ns for name in asset_names)
     response = HTMLResponse(
         template.replace('{{VERSION}}', __version__)
         .replace('{{ASSET_VERSION}}', str(asset_version))
@@ -62,3 +63,15 @@ async def harvestview_app(request: Request) -> HTMLResponse:
             path='/api/v1',
         )
     return response
+
+
+@router.get('/', include_in_schema=False)
+async def harvestview_app(request: Request) -> HTMLResponse:
+    _require_local_request(request)
+    return _render_page('index.html', ('app.css', 'app.js'))
+
+
+@router.get('/schedules', include_in_schema=False)
+async def harvestview_schedules(request: Request) -> HTMLResponse:
+    _require_local_request(request)
+    return _render_page('schedules.html', ('app.css', 'schedules.css', 'schedules.js'))

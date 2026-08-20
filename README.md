@@ -114,7 +114,7 @@ export THEHARVESTER_API_KEY='replace-with-a-long-random-value'
 uv run harvestview
 ```
 
-Open [HarvestView](http://127.0.0.1:5000/) to start runs and inspect their results. The browser receives a derived HttpOnly session cookie and never stores the API key. See the [installation guide](docs/wiki/Installation.md) for local assets, screenshots, and isolated deployments.
+Open [HarvestView](http://127.0.0.1:5000/) to start runs and inspect their results, or [Schedules](http://127.0.0.1:5000/schedules) to persist timezone-aware run schedules across one or many authorized targets. Each occurrence creates an ordinary finite run per target, and the single local worker executes them serially. The browser receives a derived HttpOnly session cookie and never stores the API key. See the [installation guide](docs/wiki/Installation.md) for local assets, screenshots, and isolated deployments.
 
 Open [Swagger](http://127.0.0.1:5000/docs) or [ReDoc](http://127.0.0.1:5000/redoc) for the automation contract.
 
@@ -146,6 +146,13 @@ docker compose down
 | `POST /api/v1/runs/import-database` | Import completed runs from a theHarvester SQLite database. |
 | `GET /api/v1/runs/export-database` | Export all completed run evidence as a portable SQLite database. |
 | `GET /api/v1/runs/{run_id}/export` | Export normalized evidence as JSONL. |
+| `GET/POST /api/v1/schedules` | List or create persistent local schedules. |
+| `GET /api/v1/schedules/health` | Report scheduler and execution-worker availability. |
+| `GET/PUT/DELETE /api/v1/schedules/{schedule_id}` | Read, replace, or delete a schedule without deleting its runs. |
+| `POST /api/v1/schedules/{schedule_id}/pause` | Pause future occurrences without cancelling queued or running work. |
+| `POST /api/v1/schedules/{schedule_id}/resume` | Resume future occurrences. |
+| `POST /api/v1/schedules/{schedule_id}/run-now` | Queue one extra occurrence without changing recurrence timing. |
+| `GET /api/v1/schedules/{schedule_id}/dispatches` | List per-target dispatch history. |
 
 HarvestView can start screenshot and DNS brute-force runs from a hostname result. Each action creates its own run and leaves the original evidence unchanged.
 

@@ -20,6 +20,7 @@ The service binds to `127.0.0.1:5000` by default. Use `uv run harvestview -h` fo
 Open:
 
 - HarvestView: [http://127.0.0.1:5000/](http://127.0.0.1:5000/)
+- Schedules: [http://127.0.0.1:5000/schedules](http://127.0.0.1:5000/schedules)
 - Swagger UI: [http://127.0.0.1:5000/docs](http://127.0.0.1:5000/docs)
 - ReDoc: [http://127.0.0.1:5000/redoc](http://127.0.0.1:5000/redoc)
 
@@ -39,6 +40,13 @@ Treat the runtime OpenAPI document as the exact request and response reference.
 | `GET /api/v1/runs/export-database` | Export all completed run evidence as a portable SQLite database. |
 | `GET /api/v1/runs/{run_id}/export` | Export normalized results as JSONL. |
 | `GET /api/v1/runs/{run_id}/screenshots/{name}` | Retrieve one managed screenshot. |
+| `GET/POST /api/v1/schedules` | List or create persistent local schedules. |
+| `GET /api/v1/schedules/health` | Report scheduler and execution-worker availability. |
+| `GET/PUT/DELETE /api/v1/schedules/{schedule_id}` | Read, replace, or delete one schedule. |
+| `POST /api/v1/schedules/{schedule_id}/pause` | Prevent future occurrences without cancelling submitted runs. |
+| `POST /api/v1/schedules/{schedule_id}/resume` | Resume future occurrences. |
+| `POST /api/v1/schedules/{schedule_id}/run-now` | Queue one extra occurrence without changing recurrence timing. |
+| `GET /api/v1/schedules/{schedule_id}/dispatches` | List per-target dispatch reservations and lifecycle mirrors. |
 
 There are no provider-specific routes. Sources such as `builtwith`, `haveibeenpwned`, `hibpverified`, `leaklookup`, and `securityscorecard` use the same run request as every other source.
 
@@ -57,6 +65,38 @@ curl -s http://127.0.0.1:5000/api/v1/sources \
 HarvestView receives a derived HttpOnly browser-session cookie when loaded from localhost. The browser never stores or displays the configured API key. Cookie-authenticated mutations also require a matching same-origin request.
 
 Provider credentials remain in theHarvester's server-side configuration. Requests cannot supply provider API keys.
+
+## Schedule finite runs
+
+HarvestView schedules persist an authorized target inventory, one validated run template, recurrence timing, and an overlap policy. Every occurrence creates one ordinary run per target through the existing queue; the default worker executes those runs serially. A single schedule accepts up to 10,000 normalized unique targets.
+
+Daily and weekly recurrences preserve local wall-clock time in the selected IANA timezone across daylight-saving changes. Hourly recurrences use elapsed UTC hours. After downtime, one due occurrence is dispatched and the recurrence advances to the next future time instead of replaying every missed interval.
+
+Network activity: schedule management is local. A due occurrence performs only the provider, DNS, or direct activity explicitly stored in its run template. P1 and P2 activity still requires explicit operator authorization for every listed target.
+
+```bash
+curl -s http://127.0.0.1:5000/api/v1/schedules \
+  -X POST \
+  -H "X-API-Key: $THEHARVESTER_API_KEY" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Weekly external inventory",
+    "targets": ["example.com", "example.org"],
+    "run": {"target": "example.com", "sources": ["crtsh"], "limit": 500},
+    "timing": {
+      "frequency": "weekly",
+      "start_at": "2026-08-24T09:00:00-04:00",
+      "timezone": "America/New_York",
+      "interval": 1,
+      "weekdays": [1]
+    },
+    "enabled": true,
+    "overlap_policy": "skip"
+  }' \
+  | jq
+```
+
+`skip` advances past an occurrence when an earlier batch from the same schedule remains reserved, queued, or running. `queue` submits another finite batch behind it. Pausing or deleting a schedule never cancels runs already submitted, and deleting one does not remove completed evidence. Schedule control state is stored separately from portable SQLite evidence; set `THEHARVESTER_SCHEDULE_DB` to override its default sibling path. Set `THEHARVESTER_SCHEDULER=disabled` only for a persistence-only preview or externally controlled startup.
 
 ## Submit and inspect a run
 

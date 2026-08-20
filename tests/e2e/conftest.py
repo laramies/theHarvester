@@ -156,6 +156,7 @@ def harvestview_server(tmp_path: Path, unused_tcp_port: int) -> HarvestViewServe
             'THEHARVESTER_RUN_ARTIFACTS': str(tmp_path / 'artifacts'),
             'THEHARVESTER_RUN_DB': str(tmp_path / 'runs.sqlite'),
             'THEHARVESTER_RUN_WORKER': 'disabled',
+            'THEHARVESTER_SCHEDULER': 'disabled',
             'ALL_PROXY': 'http://127.0.0.1:9',
             'HTTPS_PROXY': 'http://127.0.0.1:9',
             'HTTP_PROXY': 'http://127.0.0.1:9',

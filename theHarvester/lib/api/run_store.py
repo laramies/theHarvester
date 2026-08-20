@@ -250,9 +250,9 @@ class RunStore:
             )
         return result
 
-    async def create(self, request: RunRequest) -> dict[str, Any]:
+    async def create(self, request: RunRequest, *, run_id: str | None = None) -> dict[str, Any]:
         await self.initialize()
-        run_id = str(uuid4())
+        run_id = run_id or str(uuid4())
         await self.lifecycle.create(
             run_id=run_id,
             target=request.target,
