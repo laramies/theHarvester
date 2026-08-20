@@ -33,193 +33,182 @@ def wake_scheduler() -> None:
         _scheduler_wakeup.set()
 
 
-async def _reconcile_pending_dispatches(
-    schedule_id: str,
-    schedule_store: ScheduleStore,
-    run_store: RunStore,
-    *,
-    current_occurrence: datetime | None = None,
-    reserved_only: bool = False,
-    claim_owner: str | None = None,
-) -> bool:
-    active = False
-    dispatches = await schedule_store.pending_dispatches(schedule_id, reserved_only=reserved_only)
-    for index, dispatch in enumerate(dispatches, start=1):
-        if index % 100 == 0:
-            if claim_owner is not None and not await schedule_store.renew_claim(schedule_id, claim_owner):
-                raise RuntimeError('Scheduler lost its occurrence claim while reconciling scheduled runs')
-            await asyncio.sleep(0)
-        run = await run_store.get(dispatch.run_id)
-        if run is None:
-            if dispatch.state == 'reserved':
-                if current_occurrence is None:
-                    active = True
-                elif parse_utc(dispatch.scheduled_for) != current_occurrence:
-                    await schedule_store.set_dispatch_state(
-                        dispatch.run_id,
-                        'failed',
-                        'Reserved occurrence was superseded before run creation',
-                    )
-                continue
-            await schedule_store.set_dispatch_state(dispatch.run_id, 'failed', 'Scheduled run record is missing')
-            continue
-        status = str(run['status'])
-        if status in {'queued', 'running', 'cancelling'}:
-            if current_occurrence is None or parse_utc(dispatch.scheduled_for) != current_occurrence:
-                active = True
-            state: DispatchState = 'queued' if status == 'queued' else 'running' if status == 'running' else 'cancelling'
-            if dispatch.state != state:
-                await schedule_store.set_dispatch_state(dispatch.run_id, state)
-        elif status == 'completed':
-            await schedule_store.set_dispatch_state(dispatch.run_id, 'completed')
-        elif status == 'cancelled':
-            await schedule_store.set_dispatch_state(dispatch.run_id, 'cancelled', run.get('error'))
-        else:
-            await schedule_store.set_dispatch_state(dispatch.run_id, 'failed', run.get('error'))
-    return active
+class ScheduleDispatcher:
+    """Reserve one scheduled occurrence and submit its ordinary run records."""
 
+    def __init__(self, schedule_store: ScheduleStore | None = None, run_store: RunStore | None = None) -> None:
+        self.schedule_store = schedule_store or ScheduleStore()
+        self.run_store = run_store or RunStore()
 
-async def _enqueue_targets(
-    schedule: ScheduleResponse,
-    *,
-    scheduled_for: datetime,
-    schedule_store: ScheduleStore,
-    run_store: RunStore,
-    claim_owner: str | None = None,
-) -> ScheduleDispatchResponse:
-    run_ids: list[str] = []
-    skipped_targets: list[str] = []
-    errors: list[str] = []
-    template: dict[str, Any] = schedule.run.model_dump()
+    async def refresh(self, schedule_id: str) -> None:
+        await self._reconcile_pending(schedule_id)
 
-    for index, target in enumerate(schedule.targets, start=1):
-        run_request = RunRequest.model_validate({**template, 'target': target})
-        proposed_run_id = str(uuid4())
-        dispatch = await schedule_store.reserve_dispatch(
+    async def dispatch_now(self, schedule_id: str) -> ScheduleDispatchResponse | None:
+        schedule = await self.schedule_store.get(schedule_id)
+        if schedule is None:
+            return None
+        if not run_worker.worker_enabled() or not run_worker.worker_available():
+            raise RuntimeError('theHarvester execution worker is unavailable')
+        return await self._enqueue_targets(schedule, scheduled_for=utc_now_datetime())
+
+    async def dispatch_claimed(self, schedule: ScheduleResponse, owner_id: str) -> None:
+        if not await self.schedule_store.renew_claim(schedule.schedule_id, owner_id):
+            raise RuntimeError('Scheduler lost its occurrence claim before dispatching scheduled runs')
+        if schedule.next_run_at is None:
+            await self.schedule_store.complete_claim(
+                schedule.schedule_id,
+                owner_id,
+                scheduled_for=utc_now_datetime(),
+                next_run_at=None,
+                error='Claimed schedule did not have a next run time',
+            )
+            return
+        scheduled_for = parse_utc(schedule.next_run_at)
+
+        if not run_worker.worker_enabled() or not run_worker.worker_available():
+            await self.schedule_store.defer_claim(
+                schedule.schedule_id,
+                owner_id,
+                seconds=60,
+                error='Execution worker is unavailable; occurrence deferred',
+            )
+            return
+
+        active = await self._reconcile_pending(
             schedule.schedule_id,
-            scheduled_for,
-            target,
-            proposed_run_id,
+            current_occurrence=scheduled_for,
+            reserved_only=schedule.overlap_policy == 'queue',
+            claim_owner=owner_id,
         )
-        if dispatch is None:
-            skipped_targets.append(target)
-            continue
-        if dispatch.state != 'reserved':
-            if claim_owner is not None and await run_store.get(dispatch.run_id) is not None:
-                run_ids.append(dispatch.run_id)
-            else:
-                skipped_targets.append(target)
-            continue
-        run_id = dispatch.run_id
-        existing = await run_store.get(run_id)
-        if existing is None:
-            try:
-                await run_store.create(run_request, run_id=run_id)
-            except Exception as error:  # Preserve idempotency if create partially succeeded.
-                existing = await run_store.get(run_id)
-                if existing is None:
-                    message = f'{target}: {type(error).__name__}: {error}'
-                    await schedule_store.set_dispatch_state(run_id, 'failed', message)
-                    errors.append(message)
-                    continue
-        await schedule_store.set_dispatch_state(run_id, 'queued')
-        run_ids.append(run_id)
-        if index % 100 == 0:
-            if claim_owner is not None and not await schedule_store.renew_claim(schedule.schedule_id, claim_owner):
-                errors.append('Scheduler lost its occurrence claim while enqueueing targets')
-                break
-            await asyncio.sleep(0)
+        if schedule.overlap_policy == 'skip' and active:
+            next_run = schedule.timing.next_future_after(scheduled_for)
+            await self.schedule_store.complete_claim(
+                schedule.schedule_id,
+                owner_id,
+                scheduled_for=scheduled_for,
+                next_run_at=next_run,
+                error='Occurrence skipped because a prior scheduled batch is still active',
+            )
+            return
 
-    if run_ids:
-        run_worker.wake_worker()
-    return ScheduleDispatchResponse(
-        schedule_id=schedule.schedule_id,
-        scheduled_for=utc_iso(scheduled_for),
-        run_ids=run_ids,
-        skipped_targets=skipped_targets,
-        errors=errors,
-    )
-
-
-async def refresh_schedule_dispatches(schedule_id: str) -> None:
-    await _reconcile_pending_dispatches(schedule_id, ScheduleStore(), RunStore())
-
-
-async def dispatch_schedule_now(schedule_id: str) -> ScheduleDispatchResponse | None:
-    schedule_store = ScheduleStore()
-    schedule = await schedule_store.get(schedule_id)
-    if schedule is None:
-        return None
-    if not run_worker.worker_enabled() or not run_worker.worker_available():
-        raise RuntimeError('theHarvester execution worker is unavailable')
-    return await _enqueue_targets(
-        schedule,
-        scheduled_for=utc_now_datetime(),
-        schedule_store=schedule_store,
-        run_store=RunStore(),
-    )
-
-
-async def _dispatch_claimed(schedule: ScheduleResponse, owner_id: str) -> None:
-    schedule_store = ScheduleStore()
-    run_store = RunStore()
-    if schedule.next_run_at is None:
-        await schedule_store.complete_claim(
-            schedule.schedule_id,
-            owner_id,
-            scheduled_for=utc_now_datetime(),
-            next_run_at=None,
-            error='Claimed schedule did not have a next run time',
-        )
-        return
-    scheduled_for = parse_utc(schedule.next_run_at)
-
-    if not run_worker.worker_enabled() or not run_worker.worker_available():
-        await schedule_store.defer_claim(
-            schedule.schedule_id,
-            owner_id,
-            seconds=60,
-            error='Execution worker is unavailable; occurrence deferred',
-        )
-        return
-
-    active = await _reconcile_pending_dispatches(
-        schedule.schedule_id,
-        schedule_store,
-        run_store,
-        current_occurrence=scheduled_for,
-        reserved_only=schedule.overlap_policy == 'queue',
-        claim_owner=owner_id,
-    )
-    if schedule.overlap_policy == 'skip' and active:
+        dispatch = await self._enqueue_targets(schedule, scheduled_for=scheduled_for, claim_owner=owner_id)
         next_run = schedule.timing.next_future_after(scheduled_for)
-        await schedule_store.complete_claim(
+        errors = list(dispatch.errors)
+        if not dispatch.run_ids and dispatch.skipped_targets:
+            errors.append('Every target was already reserved for this occurrence')
+        await self.schedule_store.complete_claim(
             schedule.schedule_id,
             owner_id,
             scheduled_for=scheduled_for,
             next_run_at=next_run,
-            error='Occurrence skipped because a prior scheduled batch is still active',
+            error='; '.join(errors) if errors else None,
         )
-        return
 
-    dispatch = await _enqueue_targets(
-        schedule,
-        scheduled_for=scheduled_for,
-        schedule_store=schedule_store,
-        run_store=run_store,
-        claim_owner=owner_id,
-    )
-    next_run = schedule.timing.next_future_after(scheduled_for)
-    errors = list(dispatch.errors)
-    if not dispatch.run_ids and dispatch.skipped_targets:
-        errors.append('Every target was already reserved for this occurrence')
-    await schedule_store.complete_claim(
-        schedule.schedule_id,
-        owner_id,
-        scheduled_for=scheduled_for,
-        next_run_at=next_run,
-        error='; '.join(errors) if errors else None,
-    )
+    async def _reconcile_pending(
+        self,
+        schedule_id: str,
+        *,
+        current_occurrence: datetime | None = None,
+        reserved_only: bool = False,
+        claim_owner: str | None = None,
+    ) -> bool:
+        active = False
+        dispatches = await self.schedule_store.pending_dispatches(schedule_id, reserved_only=reserved_only)
+        for index, dispatch in enumerate(dispatches, start=1):
+            if index % 100 == 0:
+                if claim_owner is not None and not await self.schedule_store.renew_claim(schedule_id, claim_owner):
+                    raise RuntimeError('Scheduler lost its occurrence claim while reconciling scheduled runs')
+                await asyncio.sleep(0)
+            run = await self.run_store.get(dispatch.run_id)
+            if run is None:
+                if dispatch.state == 'reserved':
+                    if current_occurrence is None:
+                        active = True
+                    elif parse_utc(dispatch.scheduled_for) != current_occurrence:
+                        await self.schedule_store.set_dispatch_state(
+                            dispatch.run_id,
+                            'failed',
+                            'Reserved occurrence was superseded before run creation',
+                        )
+                    continue
+                await self.schedule_store.set_dispatch_state(
+                    dispatch.run_id,
+                    'failed',
+                    'Scheduled run record is missing',
+                )
+                continue
+            status = str(run['status'])
+            if status in {'queued', 'running', 'cancelling'}:
+                if current_occurrence is None or parse_utc(dispatch.scheduled_for) != current_occurrence:
+                    active = True
+                state: DispatchState = 'queued' if status == 'queued' else 'running' if status == 'running' else 'cancelling'
+                if dispatch.state != state:
+                    await self.schedule_store.set_dispatch_state(dispatch.run_id, state)
+            elif status == 'completed':
+                await self.schedule_store.set_dispatch_state(dispatch.run_id, 'completed')
+            elif status == 'cancelled':
+                await self.schedule_store.set_dispatch_state(dispatch.run_id, 'cancelled', run.get('error'))
+            else:
+                await self.schedule_store.set_dispatch_state(dispatch.run_id, 'failed', run.get('error'))
+        return active
+
+    async def _enqueue_targets(
+        self,
+        schedule: ScheduleResponse,
+        *,
+        scheduled_for: datetime,
+        claim_owner: str | None = None,
+    ) -> ScheduleDispatchResponse:
+        run_ids: list[str] = []
+        skipped_targets: list[str] = []
+        errors: list[str] = []
+        template: dict[str, Any] = schedule.run.model_dump()
+        dispatches = await self.schedule_store.reserve_dispatches(
+            schedule.schedule_id,
+            scheduled_for,
+            {target: str(uuid4()) for target in schedule.targets},
+        )
+
+        for index, dispatch in enumerate(dispatches, start=1):
+            target = dispatch.target
+            run_request = RunRequest.model_validate({**template, 'target': target})
+            if dispatch.state != 'reserved':
+                if claim_owner is not None and await self.run_store.get(dispatch.run_id) is not None:
+                    run_ids.append(dispatch.run_id)
+                else:
+                    skipped_targets.append(target)
+                continue
+            run_id = dispatch.run_id
+            existing = await self.run_store.get(run_id)
+            if existing is None:
+                try:
+                    await self.run_store.create(run_request, run_id=run_id)
+                except Exception as error:  # Preserve idempotency if create partially succeeded.
+                    existing = await self.run_store.get(run_id)
+                    if existing is None:
+                        message = f'{target}: {type(error).__name__}: {error}'
+                        await self.schedule_store.set_dispatch_state(run_id, 'failed', message)
+                        errors.append(message)
+                        continue
+            await self.schedule_store.set_dispatch_state(run_id, 'queued')
+            run_ids.append(run_id)
+            if index % 100 == 0:
+                if claim_owner is not None and not await self.schedule_store.renew_claim(
+                    schedule.schedule_id,
+                    claim_owner,
+                ):
+                    raise RuntimeError('Scheduler lost its occurrence claim while enqueueing targets')
+                await asyncio.sleep(0)
+
+        if run_ids:
+            run_worker.wake_worker()
+        return ScheduleDispatchResponse(
+            schedule_id=schedule.schedule_id,
+            scheduled_for=utc_iso(scheduled_for),
+            run_ids=run_ids,
+            skipped_targets=skipped_targets,
+            errors=errors,
+        )
 
 
 async def _wait_for_work(store: ScheduleStore) -> None:
@@ -239,6 +228,7 @@ async def _wait_for_work(store: ScheduleStore) -> None:
 async def _scheduler_loop(owner_id: str) -> None:
     assert _scheduler_stop is not None
     store = ScheduleStore()
+    dispatcher = ScheduleDispatcher(store, RunStore())
     await store.initialize()
     while not _scheduler_stop.is_set():
         claimed = await store.claim_due(owner_id, limit=1)
@@ -247,7 +237,7 @@ async def _scheduler_loop(owner_id: str) -> None:
                 if _scheduler_stop.is_set():
                     break
                 try:
-                    await _dispatch_claimed(schedule, owner_id)
+                    await dispatcher.dispatch_claimed(schedule, owner_id)
                 except Exception as error:
                     await store.defer_claim(
                         schedule.schedule_id,

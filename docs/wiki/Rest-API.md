@@ -98,7 +98,7 @@ curl -s http://127.0.0.1:5000/api/v1/schedules \
   | jq
 ```
 
-`skip` advances past an occurrence when an earlier batch from the same schedule remains reserved, queued, or running. `queue` submits another finite batch behind it. Pausing or deleting a schedule never cancels runs already submitted, and deleting one does not remove completed evidence. Schedule control state is stored separately from portable SQLite evidence; set `THEHARVESTER_SCHEDULE_DB` to override its default sibling path. Set `THEHARVESTER_SCHEDULER=disabled` only for a persistence-only preview or externally controlled startup.
+`skip` advances past an occurrence when an earlier batch from the same schedule remains reserved, queued, or running. `queue` submits another finite batch behind it. Pausing or deleting a schedule never cancels runs already submitted, and deleting one does not remove completed evidence. SQLAlchemy stores schedule control state in a separate mode-`0600` SQLite database. Portable SQLite exports contain finalized run evidence, not schedules, claims, or dispatch reservations. Set `THEHARVESTER_SCHEDULE_DB` to override the schedule database's default sibling path. Set `THEHARVESTER_SCHEDULER=disabled` only for a persistence-only preview or externally controlled startup.
 
 ## Submit and inspect a run
 

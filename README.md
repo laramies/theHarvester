@@ -114,7 +114,7 @@ export THEHARVESTER_API_KEY='replace-with-a-long-random-value'
 uv run harvestview
 ```
 
-Open [HarvestView](http://127.0.0.1:5000/) to start runs and inspect their results, or [Schedules](http://127.0.0.1:5000/schedules) to persist timezone-aware run schedules across one or many authorized targets. Each occurrence creates an ordinary finite run per target, and the single local worker executes them serially. The browser receives a derived HttpOnly session cookie and never stores the API key. See the [installation guide](docs/wiki/Installation.md) for local assets, screenshots, and isolated deployments.
+Open [HarvestView](http://127.0.0.1:5000/) to start runs and inspect their results, or [Schedules](http://127.0.0.1:5000/schedules) to persist timezone-aware run schedules across one or many authorized targets. Each occurrence creates an ordinary finite run per target, and the single local worker executes them serially. SQLAlchemy stores schedule control state in a separate mode-`0600` SQLite database that is excluded from portable SQLite run exports. The browser receives a derived HttpOnly session cookie and never stores the API key. See the [installation guide](docs/wiki/Installation.md) for local assets, screenshots, and isolated deployments.
 
 Open [Swagger](http://127.0.0.1:5000/docs) or [ReDoc](http://127.0.0.1:5000/redoc) for the automation contract.
 

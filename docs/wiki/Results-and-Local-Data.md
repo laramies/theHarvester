@@ -121,6 +121,8 @@ The database persists across runs. Account for it in engagement cleanup and rete
 
 Completed CLI executions store one normalized terminal record keyed by run UUID. API executions use the same database by default and may override its path with `THEHARVESTER_RUN_DB`. Lifecycle rows keep queue, cancellation, and worker state separate from terminal evidence. Imported JSONL is stored without executing discovery, and source attribution is rebuilt from each finding's `sources` array. A SQLite import copies every completed run after validating the database and keeps the original run IDs.
 
+HarvestView keeps schedules, claims, and dispatch reservations in a separate mode-`0600` SQLite database managed through SQLAlchemy. Its default path is `~/.local/share/theHarvester/stash.schedules.sqlite`; set `THEHARVESTER_SCHEDULE_DB` to use another path. This database is local control state and is not included in portable SQLite evidence exports.
+
 Six tables hold completed evidence:
 
 - `runs`: one finite enumeration run.

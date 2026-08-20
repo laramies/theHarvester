@@ -3,11 +3,34 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
-import aiosqlite
+from sqlalchemy import (
+    CheckConstraint,
+    Column,
+    ForeignKey,
+    Index,
+    Integer,
+    MetaData,
+    Table,
+    Text,
+    UniqueConstraint,
+    delete,
+    func,
+    or_,
+    select,
+    update,
+)
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy.engine import URL, RowMapping
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from theHarvester.lib.database import sqlite_engine
 
 from .run_artifacts import RunPaths, ensure_private_directory
 from .schedule_models import (
@@ -21,8 +44,8 @@ from .schedule_models import (
     utc_now_datetime,
 )
 
-_INITIALIZED: set[str] = set()
-_INITIALIZE_LOCKS: dict[str, asyncio.Lock] = {}
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 
 class ScheduleStoreError(RuntimeError):
@@ -37,87 +60,156 @@ def configured_schedule_database(run_database: str | Path | None = None) -> Path
     return run_database_path.with_name(f'{run_database_path.stem}.schedules.sqlite')
 
 
+_SCHEDULE_METADATA = MetaData()
+_SCHEDULES = Table(
+    'schedules',
+    _SCHEDULE_METADATA,
+    Column('schedule_id', Text, primary_key=True),
+    Column('name', Text, nullable=False),
+    Column('targets_json', Text, nullable=False),
+    Column('run_json', Text, nullable=False),
+    Column('timing_json', Text, nullable=False),
+    Column('enabled', Integer, nullable=False),
+    Column('overlap_policy', Text, nullable=False),
+    Column('created_at', Text, nullable=False),
+    Column('updated_at', Text, nullable=False),
+    Column('next_run_at', Text),
+    Column('last_run_at', Text),
+    Column('last_error', Text),
+    Column('claim_owner', Text),
+    Column('claim_until', Text),
+    CheckConstraint('enabled IN (0, 1)'),
+    CheckConstraint("overlap_policy IN ('skip', 'queue')"),
+)
+Index('schedules_due_idx', _SCHEDULES.c.enabled, _SCHEDULES.c.next_run_at, _SCHEDULES.c.claim_until)
+
+_SCHEDULE_DISPATCHES = Table(
+    'schedule_dispatches',
+    _SCHEDULE_METADATA,
+    Column('dispatch_id', Text, primary_key=True),
+    Column('schedule_id', Text, ForeignKey('schedules.schedule_id', ondelete='CASCADE'), nullable=False),
+    Column('scheduled_for', Text, nullable=False),
+    Column('target', Text, nullable=False),
+    Column('run_id', Text, nullable=False, unique=True),
+    Column('state', Text, nullable=False),
+    Column('error', Text),
+    Column('created_at', Text, nullable=False),
+    Column('updated_at', Text, nullable=False),
+    CheckConstraint("state IN ('reserved', 'queued', 'running', 'cancelling', 'completed', 'failed', 'cancelled')"),
+    UniqueConstraint('schedule_id', 'scheduled_for', 'target'),
+)
+Index(
+    'schedule_dispatches_schedule_idx',
+    _SCHEDULE_DISPATCHES.c.schedule_id,
+    _SCHEDULE_DISPATCHES.c.scheduled_for.desc(),
+)
+Index(
+    'schedule_dispatches_pending_idx',
+    _SCHEDULE_DISPATCHES.c.schedule_id,
+    _SCHEDULE_DISPATCHES.c.state,
+)
+
+
+class _ScheduleDatabase:
+    """Own the SQLAlchemy engine and schema for one private schedule database."""
+
+    def __init__(self, database: Path) -> None:
+        self.database = database
+        self.engine = sqlite_engine(database)
+        self.sessions = async_sessionmaker(self.engine, expire_on_commit=False)
+        self._initialize_lock = asyncio.Lock()
+        self._initialized = False
+
+    def reject_symlink(self) -> None:
+        if self.database.is_symlink():
+            raise ScheduleStoreError(f'Refusing symlinked schedule database: {self.database}')
+
+    async def initialize(self) -> None:
+        if self._initialized and self.database.exists():
+            return
+        async with self._initialize_lock:
+            if self._initialized and self.database.exists():
+                return
+            ensure_private_directory(self.database.parent)
+            self.reject_symlink()
+            if self._initialized:
+                await self.engine.dispose()
+                self.engine = sqlite_engine(self.database)
+                self.sessions = async_sessionmaker(self.engine, expire_on_commit=False)
+            initialization_engine = create_async_engine(
+                URL.create('sqlite+aiosqlite', database=str(self.database)),
+                connect_args={'isolation_level': None, 'timeout': 30},
+            )
+            try:
+                async with initialization_engine.connect() as connection:
+                    await connection.exec_driver_sql('BEGIN IMMEDIATE')
+                    try:
+                        await connection.run_sync(_SCHEDULE_METADATA.create_all)
+                        await connection.commit()
+                    except BaseException:
+                        await connection.rollback()
+                        raise
+                    journal_mode = await connection.exec_driver_sql('PRAGMA journal_mode = WAL')
+                    if str(journal_mode.scalar_one()).casefold() != 'wal':
+                        raise ScheduleStoreError('Could not enable WAL mode for schedule database')
+            except SQLAlchemyError as error:
+                raise ScheduleStoreError('Could not initialize schedule database') from error
+            finally:
+                await initialization_engine.dispose()
+            try:
+                async with self.engine.connect() as connection:
+                    foreign_keys = await connection.exec_driver_sql('PRAGMA foreign_keys')
+                    if foreign_keys.scalar_one() != 1:
+                        raise ScheduleStoreError('SQLite foreign-key enforcement is not enabled')
+            except SQLAlchemyError as error:
+                raise ScheduleStoreError('Could not initialize schedule database') from error
+            self.database.chmod(0o600)
+            self._initialized = True
+
+    @asynccontextmanager
+    async def session(self) -> AsyncIterator[AsyncSession]:
+        self.reject_symlink()
+        async with self.sessions() as session:
+            yield session
+
+    async def dispose(self) -> None:
+        self._initialized = False
+        await self.engine.dispose()
+
+
+_SCHEDULE_DATABASES: dict[str, _ScheduleDatabase] = {}
+
+
+def _database_for(database: Path) -> _ScheduleDatabase:
+    key = str(database)
+    if key not in _SCHEDULE_DATABASES:
+        _SCHEDULE_DATABASES[key] = _ScheduleDatabase(database)
+    return _SCHEDULE_DATABASES[key]
+
+
+def _row_count(result: Any) -> int:
+    return int(result.rowcount)
+
+
 class ScheduleStore:
     """Persist scheduler control-plane state separately from portable run evidence."""
 
     def __init__(self, database: str | Path | None = None) -> None:
         self.database = configured_schedule_database(database).expanduser().absolute()
-
-    async def _connect(self) -> aiosqlite.Connection:
-        if self.database.is_symlink():
-            raise ScheduleStoreError(f'Refusing symlinked schedule database: {self.database}')
-        connection = await aiosqlite.connect(self.database, timeout=30)
-        connection.row_factory = aiosqlite.Row
-        await connection.execute('PRAGMA foreign_keys = ON')
-        await connection.execute('PRAGMA busy_timeout = 30000')
-        return connection
+        self._database = _database_for(self.database)
 
     async def initialize(self) -> None:
-        key = str(self.database)
-        if key in _INITIALIZED and self.database.exists():
-            return
-        lock = _INITIALIZE_LOCKS.setdefault(key, asyncio.Lock())
-        async with lock:
-            if key in _INITIALIZED and self.database.exists():
-                return
-            ensure_private_directory(self.database.parent)
-            if self.database.exists() and self.database.is_symlink():
-                raise ScheduleStoreError(f'Refusing symlinked schedule database: {self.database}')
-            connection = await self._connect()
-            try:
-                await connection.execute('PRAGMA journal_mode = WAL')
-                await connection.executescript(
-                    """
-                    CREATE TABLE IF NOT EXISTS schedules (
-                        schedule_id TEXT PRIMARY KEY,
-                        name TEXT NOT NULL,
-                        targets_json TEXT NOT NULL,
-                        run_json TEXT NOT NULL,
-                        timing_json TEXT NOT NULL,
-                        enabled INTEGER NOT NULL CHECK (enabled IN (0, 1)),
-                        overlap_policy TEXT NOT NULL CHECK (overlap_policy IN ('skip', 'queue')),
-                        created_at TEXT NOT NULL,
-                        updated_at TEXT NOT NULL,
-                        next_run_at TEXT,
-                        last_run_at TEXT,
-                        last_error TEXT,
-                        claim_owner TEXT,
-                        claim_until TEXT
-                    );
-                    CREATE INDEX IF NOT EXISTS schedules_due_idx
-                        ON schedules (enabled, next_run_at, claim_until);
+        self._database = _database_for(self.database)
+        await self._database.initialize()
 
-                    CREATE TABLE IF NOT EXISTS schedule_dispatches (
-                        dispatch_id TEXT PRIMARY KEY,
-                        schedule_id TEXT NOT NULL,
-                        scheduled_for TEXT NOT NULL,
-                        target TEXT NOT NULL,
-                        run_id TEXT NOT NULL UNIQUE,
-                        state TEXT NOT NULL CHECK (
-                            state IN ('reserved', 'queued', 'running', 'cancelling', 'completed', 'failed', 'cancelled')
-                        ),
-                        error TEXT,
-                        created_at TEXT NOT NULL,
-                        updated_at TEXT NOT NULL,
-                        UNIQUE (schedule_id, scheduled_for, target),
-                        FOREIGN KEY (schedule_id) REFERENCES schedules(schedule_id) ON DELETE CASCADE
-                    );
-                    CREATE INDEX IF NOT EXISTS schedule_dispatches_schedule_idx
-                        ON schedule_dispatches (schedule_id, scheduled_for DESC);
-                    CREATE INDEX IF NOT EXISTS schedule_dispatches_pending_idx
-                        ON schedule_dispatches (schedule_id, state);
-                    """
-                )
-                await connection.commit()
-            except aiosqlite.Error as error:
-                raise ScheduleStoreError('Could not initialize schedule database') from error
-            finally:
-                await connection.close()
-            self.database.chmod(0o600)
-            _INITIALIZED.add(key)
+    @asynccontextmanager
+    async def _session(self) -> AsyncIterator[AsyncSession]:
+        await self._database.initialize()
+        async with self._database.session() as session:
+            yield session
 
     @staticmethod
-    def _response(row: aiosqlite.Row) -> ScheduleResponse:
+    def _response(row: RowMapping) -> ScheduleResponse:
         timing = ScheduleTiming.model_validate_json(row['timing_json'])
         next_run_at = row['next_run_at']
         return ScheduleResponse.model_validate(
@@ -141,68 +233,60 @@ class ScheduleStore:
             }
         )
 
+    @staticmethod
+    def _dispatch(row: RowMapping) -> ScheduleDispatchRecord:
+        return ScheduleDispatchRecord.model_validate(dict(row))
+
     async def create(self, request: ScheduleCreate) -> ScheduleResponse:
-        await self.initialize()
-        now = utc_now_datetime()
-        now_text = utc_iso(now)
+        now_text = utc_iso(utc_now_datetime())
         schedule_id = str(uuid4())
         next_run_at = utc_iso(request.timing.first_due_at()) if request.enabled else None
-        connection = await self._connect()
         try:
-            await connection.execute(
-                'INSERT INTO schedules '
-                '(schedule_id, name, targets_json, run_json, timing_json, enabled, overlap_policy, created_at, '
-                'updated_at, next_run_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                (
-                    schedule_id,
-                    request.name,
-                    json.dumps(request.targets, separators=(',', ':')),
-                    request.run.model_dump_json(),
-                    request.timing.model_dump_json(),
-                    int(request.enabled),
-                    request.overlap_policy,
-                    now_text,
-                    now_text,
-                    next_run_at,
-                ),
-            )
-            await connection.commit()
-        except aiosqlite.Error as error:
+            async with self._session() as session:
+                await session.execute(
+                    _SCHEDULES.insert().values(
+                        schedule_id=schedule_id,
+                        name=request.name,
+                        targets_json=json.dumps(request.targets, separators=(',', ':')),
+                        run_json=request.run.model_dump_json(),
+                        timing_json=request.timing.model_dump_json(),
+                        enabled=int(request.enabled),
+                        overlap_policy=request.overlap_policy,
+                        created_at=now_text,
+                        updated_at=now_text,
+                        next_run_at=next_run_at,
+                    )
+                )
+                await session.commit()
+        except SQLAlchemyError as error:
             raise ScheduleStoreError('Could not create schedule') from error
-        finally:
-            await connection.close()
         created = await self.get(schedule_id)
         assert created is not None
         return created
 
     async def list_schedules(self, *, limit: int = 100, offset: int = 0) -> list[ScheduleResponse]:
-        await self.initialize()
-        connection = await self._connect()
         try:
-            cursor = await connection.execute(
-                'SELECT * FROM schedules ORDER BY created_at DESC LIMIT ? OFFSET ?',
-                (limit, offset),
-            )
-            return [self._response(row) for row in await cursor.fetchall()]
-        except aiosqlite.Error as error:
+            async with self._session() as session:
+                rows = (
+                    await session.execute(select(_SCHEDULES).order_by(_SCHEDULES.c.created_at.desc()).limit(limit).offset(offset))
+                ).mappings()
+                return [self._response(row) for row in rows]
+        except SQLAlchemyError as error:
             raise ScheduleStoreError('Could not list schedules') from error
-        finally:
-            await connection.close()
 
     async def get(self, schedule_id: str) -> ScheduleResponse | None:
-        await self.initialize()
-        connection = await self._connect()
         try:
-            cursor = await connection.execute('SELECT * FROM schedules WHERE schedule_id = ?', (schedule_id,))
-            row = await cursor.fetchone()
-            return self._response(row) if row is not None else None
-        except aiosqlite.Error as error:
+            async with self._session() as session:
+                row = (
+                    (await session.execute(select(_SCHEDULES).where(_SCHEDULES.c.schedule_id == schedule_id)))
+                    .mappings()
+                    .one_or_none()
+                )
+                return self._response(row) if row is not None else None
+        except SQLAlchemyError as error:
             raise ScheduleStoreError('Could not read schedule') from error
-        finally:
-            await connection.close()
 
     async def replace(self, schedule_id: str, request: ScheduleCreate) -> ScheduleResponse | None:
-        await self.initialize()
         existing = await self.get(schedule_id)
         if existing is None:
             return None
@@ -213,36 +297,32 @@ class ScheduleStore:
             next_value = request.timing.first_due_at()
         else:
             next_value = request.timing.next_after(now - timedelta(microseconds=1)) if request.enabled else None
-        next_run_at = utc_iso(next_value) if next_value is not None else None
-        connection = await self._connect()
         try:
-            cursor = await connection.execute(
-                'UPDATE schedules SET name = ?, targets_json = ?, run_json = ?, timing_json = ?, enabled = ?, '
-                'overlap_policy = ?, updated_at = ?, next_run_at = ?, claim_owner = NULL, '
-                'claim_until = NULL WHERE schedule_id = ?',
-                (
-                    request.name,
-                    json.dumps(request.targets, separators=(',', ':')),
-                    request.run.model_dump_json(),
-                    request.timing.model_dump_json(),
-                    int(request.enabled),
-                    request.overlap_policy,
-                    now_text,
-                    next_run_at,
-                    schedule_id,
-                ),
-            )
-            await connection.commit()
-            if cursor.rowcount == 0:
-                return None
-        except aiosqlite.Error as error:
+            async with self._session() as session:
+                result = await session.execute(
+                    update(_SCHEDULES)
+                    .where(_SCHEDULES.c.schedule_id == schedule_id)
+                    .values(
+                        name=request.name,
+                        targets_json=json.dumps(request.targets, separators=(',', ':')),
+                        run_json=request.run.model_dump_json(),
+                        timing_json=request.timing.model_dump_json(),
+                        enabled=int(request.enabled),
+                        overlap_policy=request.overlap_policy,
+                        updated_at=now_text,
+                        next_run_at=utc_iso(next_value) if next_value is not None else None,
+                        claim_owner=None,
+                        claim_until=None,
+                    )
+                )
+                await session.commit()
+                if _row_count(result) == 0:
+                    return None
+        except SQLAlchemyError as error:
             raise ScheduleStoreError('Could not update schedule') from error
-        finally:
-            await connection.close()
         return await self.get(schedule_id)
 
     async def set_enabled(self, schedule_id: str, enabled: bool) -> ScheduleResponse | None:
-        await self.initialize()
         existing = await self.get(schedule_id)
         if existing is None:
             return None
@@ -262,45 +342,47 @@ class ScheduleStore:
                 next_run_at = utc_iso(next_value) if next_value is not None else None
         else:
             next_run_at = None
-        connection = await self._connect()
         try:
-            cursor = await connection.execute(
-                'UPDATE schedules SET enabled = ?, updated_at = ?, next_run_at = ?, claim_owner = NULL, '
-                'claim_until = NULL WHERE schedule_id = ?',
-                (int(enabled), utc_iso(now), next_run_at, schedule_id),
-            )
-            await connection.commit()
-            if cursor.rowcount == 0:
-                return None
-        except aiosqlite.Error as error:
+            async with self._session() as session:
+                result = await session.execute(
+                    update(_SCHEDULES)
+                    .where(_SCHEDULES.c.schedule_id == schedule_id)
+                    .values(
+                        enabled=int(enabled),
+                        updated_at=utc_iso(now),
+                        next_run_at=next_run_at,
+                        claim_owner=None,
+                        claim_until=None,
+                    )
+                )
+                await session.commit()
+                if _row_count(result) == 0:
+                    return None
+        except SQLAlchemyError as error:
             raise ScheduleStoreError('Could not change schedule state') from error
-        finally:
-            await connection.close()
         return await self.get(schedule_id)
 
     async def delete(self, schedule_id: str) -> bool:
-        await self.initialize()
-        connection = await self._connect()
         try:
-            cursor = await connection.execute('DELETE FROM schedules WHERE schedule_id = ?', (schedule_id,))
-            await connection.commit()
-            return cursor.rowcount > 0
-        except aiosqlite.Error as error:
+            async with self._session() as session:
+                result = await session.execute(delete(_SCHEDULES).where(_SCHEDULES.c.schedule_id == schedule_id))
+                await session.commit()
+                return _row_count(result) > 0
+        except SQLAlchemyError as error:
             raise ScheduleStoreError('Could not delete schedule') from error
-        finally:
-            await connection.close()
 
     async def next_due_at(self) -> datetime | None:
-        await self.initialize()
-        connection = await self._connect()
         try:
-            cursor = await connection.execute(
-                'SELECT MIN(next_run_at) AS next_run_at FROM schedules WHERE enabled = 1 AND next_run_at IS NOT NULL'
-            )
-            row = await cursor.fetchone()
-            return parse_utc(row['next_run_at']) if row is not None and row['next_run_at'] else None
-        finally:
-            await connection.close()
+            async with self._session() as session:
+                value = await session.scalar(
+                    select(func.min(_SCHEDULES.c.next_run_at)).where(
+                        _SCHEDULES.c.enabled == 1,
+                        _SCHEDULES.c.next_run_at.is_not(None),
+                    )
+                )
+                return parse_utc(str(value)) if value else None
+        except SQLAlchemyError as error:
+            raise ScheduleStoreError('Could not read the next due schedule') from error
 
     async def claim_due(
         self,
@@ -310,55 +392,55 @@ class ScheduleStore:
         lease_seconds: int = 60,
         limit: int = 10,
     ) -> list[ScheduleResponse]:
-        await self.initialize()
         current = (now or utc_now_datetime()).astimezone(UTC)
         now_text = utc_iso(current)
-        claim_until = utc_iso(current + timedelta(seconds=lease_seconds))
-        connection = await self._connect()
+        available = (
+            (_SCHEDULES.c.enabled == 1)
+            & _SCHEDULES.c.next_run_at.is_not(None)
+            & (_SCHEDULES.c.next_run_at <= now_text)
+            & or_(_SCHEDULES.c.claim_until.is_(None), _SCHEDULES.c.claim_until < now_text)
+        )
+        candidates = (
+            select(_SCHEDULES.c.schedule_id)
+            .where(available)
+            .order_by(_SCHEDULES.c.next_run_at, _SCHEDULES.c.schedule_id)
+            .limit(limit)
+        )
         try:
-            await connection.execute('BEGIN IMMEDIATE')
-            cursor = await connection.execute(
-                'SELECT schedule_id FROM schedules WHERE enabled = 1 AND next_run_at IS NOT NULL '
-                'AND next_run_at <= ? AND (claim_until IS NULL OR claim_until < ?) '
-                'ORDER BY next_run_at, schedule_id LIMIT ?',
-                (now_text, now_text, limit),
-            )
-            schedule_ids = [row['schedule_id'] for row in await cursor.fetchall()]
-            claimed: list[ScheduleResponse] = []
-            for schedule_id in schedule_ids:
-                update = await connection.execute(
-                    'UPDATE schedules SET claim_owner = ?, claim_until = ? WHERE schedule_id = ? '
-                    'AND enabled = 1 AND next_run_at IS NOT NULL AND next_run_at <= ? '
-                    'AND (claim_until IS NULL OR claim_until < ?)',
-                    (owner_id, claim_until, schedule_id, now_text, now_text),
+            async with self._session() as session:
+                rows = list(
+                    (
+                        await session.execute(
+                            update(_SCHEDULES)
+                            .where(_SCHEDULES.c.schedule_id.in_(candidates), available)
+                            .values(
+                                claim_owner=owner_id,
+                                claim_until=utc_iso(current + timedelta(seconds=lease_seconds)),
+                            )
+                            .returning(_SCHEDULES)
+                        )
+                    )
+                    .mappings()
+                    .all()
                 )
-                if update.rowcount:
-                    row_cursor = await connection.execute('SELECT * FROM schedules WHERE schedule_id = ?', (schedule_id,))
-                    row = await row_cursor.fetchone()
-                    if row is not None:
-                        claimed.append(self._response(row))
-            await connection.commit()
-            return claimed
-        except aiosqlite.Error as error:
-            await connection.rollback()
+                await session.commit()
+        except SQLAlchemyError as error:
             raise ScheduleStoreError('Could not claim due schedules') from error
-        finally:
-            await connection.close()
+        rows.sort(key=lambda row: (str(row['next_run_at']), str(row['schedule_id'])))
+        return [self._response(row) for row in rows]
 
     async def renew_claim(self, schedule_id: str, owner_id: str, *, lease_seconds: int = 60) -> bool:
-        await self.initialize()
-        connection = await self._connect()
         try:
-            cursor = await connection.execute(
-                'UPDATE schedules SET claim_until = ? WHERE schedule_id = ? AND claim_owner = ?',
-                (utc_iso(utc_now_datetime() + timedelta(seconds=lease_seconds)), schedule_id, owner_id),
-            )
-            await connection.commit()
-            return cursor.rowcount > 0
-        except aiosqlite.Error as error:
+            async with self._session() as session:
+                result = await session.execute(
+                    update(_SCHEDULES)
+                    .where(_SCHEDULES.c.schedule_id == schedule_id, _SCHEDULES.c.claim_owner == owner_id)
+                    .values(claim_until=utc_iso(utc_now_datetime() + timedelta(seconds=lease_seconds)))
+                )
+                await session.commit()
+                return _row_count(result) > 0
+        except SQLAlchemyError as error:
             raise ScheduleStoreError('Could not renew schedule claim') from error
-        finally:
-            await connection.close()
 
     async def complete_claim(
         self,
@@ -369,44 +451,43 @@ class ScheduleStore:
         next_run_at: datetime | None,
         error: str | None = None,
     ) -> bool:
-        await self.initialize()
-        connection = await self._connect()
         try:
-            cursor = await connection.execute(
-                'UPDATE schedules SET last_run_at = ?, next_run_at = ?, last_error = ?, updated_at = ?, '
-                'claim_owner = NULL, claim_until = NULL WHERE schedule_id = ? AND claim_owner = ?',
-                (
-                    utc_iso(scheduled_for),
-                    utc_iso(next_run_at) if next_run_at is not None else None,
-                    error,
-                    utc_iso(utc_now_datetime()),
-                    schedule_id,
-                    owner_id,
-                ),
-            )
-            await connection.commit()
-            return cursor.rowcount > 0
-        except aiosqlite.Error as store_error:
+            async with self._session() as session:
+                result = await session.execute(
+                    update(_SCHEDULES)
+                    .where(_SCHEDULES.c.schedule_id == schedule_id, _SCHEDULES.c.claim_owner == owner_id)
+                    .values(
+                        last_run_at=utc_iso(scheduled_for),
+                        next_run_at=utc_iso(next_run_at) if next_run_at is not None else None,
+                        last_error=error,
+                        updated_at=utc_iso(utc_now_datetime()),
+                        claim_owner=None,
+                        claim_until=None,
+                    )
+                )
+                await session.commit()
+                return _row_count(result) > 0
+        except SQLAlchemyError as store_error:
             raise ScheduleStoreError('Could not complete schedule claim') from store_error
-        finally:
-            await connection.close()
 
     async def defer_claim(self, schedule_id: str, owner_id: str, *, seconds: int, error: str) -> bool:
-        await self.initialize()
         now = utc_now_datetime()
-        connection = await self._connect()
         try:
-            cursor = await connection.execute(
-                'UPDATE schedules SET last_error = ?, updated_at = ?, claim_owner = NULL, claim_until = ? '
-                'WHERE schedule_id = ? AND claim_owner = ?',
-                (error, utc_iso(now), utc_iso(now + timedelta(seconds=seconds)), schedule_id, owner_id),
-            )
-            await connection.commit()
-            return cursor.rowcount > 0
-        except aiosqlite.Error as store_error:
+            async with self._session() as session:
+                result = await session.execute(
+                    update(_SCHEDULES)
+                    .where(_SCHEDULES.c.schedule_id == schedule_id, _SCHEDULES.c.claim_owner == owner_id)
+                    .values(
+                        last_error=error,
+                        updated_at=utc_iso(now),
+                        claim_owner=None,
+                        claim_until=utc_iso(now + timedelta(seconds=seconds)),
+                    )
+                )
+                await session.commit()
+                return _row_count(result) > 0
+        except SQLAlchemyError as store_error:
             raise ScheduleStoreError('Could not defer schedule claim') from store_error
-        finally:
-            await connection.close()
 
     async def reserve_dispatch(
         self,
@@ -415,54 +496,80 @@ class ScheduleStore:
         target: str,
         run_id: str,
     ) -> ScheduleDispatchRecord | None:
-        await self.initialize()
+        dispatches = await self.reserve_dispatches(schedule_id, scheduled_for, {target: run_id})
+        return dispatches[0] if dispatches else None
+
+    async def reserve_dispatches(
+        self,
+        schedule_id: str,
+        scheduled_for: datetime,
+        target_run_ids: dict[str, str],
+    ) -> list[ScheduleDispatchRecord]:
+        """Reserve every target together so retries can recover the whole occurrence."""
+        if not target_run_ids:
+            return []
         now_text = utc_iso(utc_now_datetime())
-        dispatch_id = str(uuid4())
-        connection = await self._connect()
+        scheduled_for_text = utc_iso(scheduled_for)
+        reservations = [
+            {
+                'dispatch_id': str(uuid4()),
+                'schedule_id': schedule_id,
+                'scheduled_for': scheduled_for_text,
+                'target': target,
+                'run_id': run_id,
+                'state': 'reserved',
+                'created_at': now_text,
+                'updated_at': now_text,
+            }
+            for target, run_id in target_run_ids.items()
+        ]
         try:
-            cursor = await connection.execute(
-                'INSERT OR IGNORE INTO schedule_dispatches '
-                '(dispatch_id, schedule_id, scheduled_for, target, run_id, state, created_at, updated_at) '
-                "VALUES (?, ?, ?, ?, ?, 'reserved', ?, ?)",
-                (dispatch_id, schedule_id, utc_iso(scheduled_for), target, run_id, now_text, now_text),
-            )
-            await connection.commit()
-            if cursor.rowcount == 0:
-                existing_cursor = await connection.execute(
-                    'SELECT * FROM schedule_dispatches WHERE schedule_id = ? AND scheduled_for = ? AND target = ?',
-                    (schedule_id, utc_iso(scheduled_for), target),
+            async with self._session() as session:
+                await session.execute(sqlite_insert(_SCHEDULE_DISPATCHES).on_conflict_do_nothing(), reservations)
+                rows = (
+                    (
+                        await session.execute(
+                            select(_SCHEDULE_DISPATCHES).where(
+                                _SCHEDULE_DISPATCHES.c.schedule_id == schedule_id,
+                                _SCHEDULE_DISPATCHES.c.scheduled_for == scheduled_for_text,
+                            )
+                        )
+                    )
+                    .mappings()
+                    .all()
                 )
-                existing = await existing_cursor.fetchone()
-                return ScheduleDispatchRecord.model_validate(dict(existing)) if existing is not None else None
-        except aiosqlite.Error as error:
-            raise ScheduleStoreError('Could not reserve scheduled run') from error
-        finally:
-            await connection.close()
-        return await self.get_dispatch(dispatch_id)
+                records = {str(row['target']): self._dispatch(row) for row in rows}
+                if not target_run_ids.keys() <= records.keys():
+                    await session.rollback()
+                    raise ScheduleStoreError('Could not reserve every scheduled run')
+                await session.commit()
+                return [records[target] for target in target_run_ids]
+        except SQLAlchemyError as error:
+            raise ScheduleStoreError('Could not reserve scheduled runs') from error
 
     async def get_dispatch(self, dispatch_id: str) -> ScheduleDispatchRecord | None:
-        await self.initialize()
-        connection = await self._connect()
         try:
-            cursor = await connection.execute('SELECT * FROM schedule_dispatches WHERE dispatch_id = ?', (dispatch_id,))
-            row = await cursor.fetchone()
-            return ScheduleDispatchRecord.model_validate(dict(row)) if row is not None else None
-        finally:
-            await connection.close()
+            async with self._session() as session:
+                row = (
+                    (await session.execute(select(_SCHEDULE_DISPATCHES).where(_SCHEDULE_DISPATCHES.c.dispatch_id == dispatch_id)))
+                    .mappings()
+                    .one_or_none()
+                )
+                return self._dispatch(row) if row is not None else None
+        except SQLAlchemyError as error:
+            raise ScheduleStoreError('Could not read scheduled run') from error
 
     async def set_dispatch_state(self, run_id: str, state: DispatchState, error: str | None = None) -> None:
-        await self.initialize()
-        connection = await self._connect()
         try:
-            await connection.execute(
-                'UPDATE schedule_dispatches SET state = ?, error = ?, updated_at = ? WHERE run_id = ?',
-                (state, error, utc_iso(utc_now_datetime()), run_id),
-            )
-            await connection.commit()
-        except aiosqlite.Error as store_error:
+            async with self._session() as session:
+                await session.execute(
+                    update(_SCHEDULE_DISPATCHES)
+                    .where(_SCHEDULE_DISPATCHES.c.run_id == run_id)
+                    .values(state=state, error=error, updated_at=utc_iso(utc_now_datetime()))
+                )
+                await session.commit()
+        except SQLAlchemyError as store_error:
             raise ScheduleStoreError('Could not update scheduled run state') from store_error
-        finally:
-            await connection.close()
 
     async def pending_dispatches(
         self,
@@ -470,17 +577,22 @@ class ScheduleStore:
         *,
         reserved_only: bool = False,
     ) -> list[ScheduleDispatchRecord]:
-        await self.initialize()
-        connection = await self._connect()
+        states = ('reserved',) if reserved_only else ('reserved', 'queued', 'running', 'cancelling')
         try:
-            states = "state = 'reserved'" if reserved_only else "state IN ('reserved', 'queued', 'running', 'cancelling')"
-            cursor = await connection.execute(
-                f'SELECT * FROM schedule_dispatches WHERE schedule_id = ? AND {states} ORDER BY scheduled_for, target',
-                (schedule_id,),
-            )
-            return [ScheduleDispatchRecord.model_validate(dict(row)) for row in await cursor.fetchall()]
-        finally:
-            await connection.close()
+            async with self._session() as session:
+                rows = (
+                    await session.execute(
+                        select(_SCHEDULE_DISPATCHES)
+                        .where(
+                            _SCHEDULE_DISPATCHES.c.schedule_id == schedule_id,
+                            _SCHEDULE_DISPATCHES.c.state.in_(states),
+                        )
+                        .order_by(_SCHEDULE_DISPATCHES.c.scheduled_for, _SCHEDULE_DISPATCHES.c.target)
+                    )
+                ).mappings()
+                return [self._dispatch(row) for row in rows]
+        except SQLAlchemyError as error:
+            raise ScheduleStoreError('Could not read pending scheduled runs') from error
 
     async def list_dispatches(
         self,
@@ -489,25 +601,34 @@ class ScheduleStore:
         limit: int = 500,
         offset: int = 0,
     ) -> list[ScheduleDispatchRecord]:
-        await self.initialize()
-        connection = await self._connect()
         try:
-            cursor = await connection.execute(
-                'SELECT * FROM schedule_dispatches WHERE schedule_id = ? ORDER BY scheduled_for DESC, target LIMIT ? OFFSET ?',
-                (schedule_id, limit, offset),
-            )
-            return [ScheduleDispatchRecord.model_validate(dict(row)) for row in await cursor.fetchall()]
-        finally:
-            await connection.close()
+            async with self._session() as session:
+                rows = (
+                    await session.execute(
+                        select(_SCHEDULE_DISPATCHES)
+                        .where(_SCHEDULE_DISPATCHES.c.schedule_id == schedule_id)
+                        .order_by(_SCHEDULE_DISPATCHES.c.scheduled_for.desc(), _SCHEDULE_DISPATCHES.c.target)
+                        .limit(limit)
+                        .offset(offset)
+                    )
+                ).mappings()
+                return [self._dispatch(row) for row in rows]
+        except SQLAlchemyError as error:
+            raise ScheduleStoreError('Could not list scheduled runs') from error
 
     async def release_claims(self, owner_id: str) -> None:
-        await self.initialize()
-        connection = await self._connect()
         try:
-            await connection.execute(
-                'UPDATE schedules SET claim_owner = NULL, claim_until = NULL WHERE claim_owner = ?',
-                (owner_id,),
-            )
-            await connection.commit()
-        finally:
-            await connection.close()
+            async with self._session() as session:
+                await session.execute(
+                    update(_SCHEDULES).where(_SCHEDULES.c.claim_owner == owner_id).values(claim_owner=None, claim_until=None)
+                )
+                await session.commit()
+        except SQLAlchemyError as error:
+            raise ScheduleStoreError('Could not release schedule claims') from error
+
+
+async def dispose_schedule_databases() -> None:
+    """Close every shared SQLAlchemy engine used by schedule stores."""
+    databases = tuple(_SCHEDULE_DATABASES.values())
+    _SCHEDULE_DATABASES.clear()
+    await asyncio.gather(*(database.dispose() for database in databases))

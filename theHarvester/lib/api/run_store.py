@@ -420,22 +420,11 @@ class RunStore:
             error = 'theHarvester restarted before child completion'
             if evidence_error:
                 error += f'; {evidence_error}'
-            evidence_run_id = None
-            completed = None
-            if evidence:
-                completed = await self._save_evidence(
-                    evidence,
-                    str(record['started_at'] or record['created_at']),
-                    recovered_at,
-                    run_id=UUID(run_id),
-                    expected_target=target,
-                )
-                evidence_run_id = str(completed.run_id)
-            else:
-                completed = await self._existing_evidence(run_id, target)
-                if completed is not None:
-                    evidence_run_id = str(completed.run_id)
-            evidence_status = completed.status if completed is not None else None
+            evidence_run_id, evidence_status = await self._terminal_evidence_reference(
+                record,
+                evidence,
+                recovered_at,
+            )
             await self.lifecycle.fail(
                 run_id,
                 status='failed',
@@ -465,26 +454,13 @@ class RunStore:
         record = await self.lifecycle.get(run_id)
         if record is None:
             return
-        evidence_run_id = None
-        completed = None
-        if evidence:
-            completed = await self._save_evidence(
-                evidence,
-                str(record['started_at'] or record['created_at']),
-                utc_now(),
-                run_id=UUID(run_id),
-                expected_target=str(record['target']),
-            )
-            evidence_run_id = str(completed.run_id)
-        else:
-            completed = await self._existing_evidence(run_id, str(record['target']))
-            if completed is not None:
-                evidence_run_id = str(completed.run_id)
+        completed_at = utc_now()
+        evidence_run_id, evidence_status = await self._terminal_evidence_reference(record, evidence, completed_at)
         await self.lifecycle.finish(
             run_id,
-            completed_at=utc_now(),
+            completed_at=completed_at,
             evidence_run_id=evidence_run_id,
-            evidence_status=completed.status if completed is not None else None,
+            evidence_status=evidence_status,
             log=log[-200_000:],
         )
 
@@ -501,22 +477,7 @@ class RunStore:
         if record is None:
             return
         completed_at = utc_now()
-        evidence_run_id = None
-        completed = None
-        if evidence:
-            completed = await self._save_evidence(
-                evidence,
-                str(record['started_at'] or record['created_at']),
-                completed_at,
-                run_id=UUID(run_id),
-                expected_target=str(record['target']),
-            )
-            evidence_run_id = str(completed.run_id)
-        else:
-            completed = await self._existing_evidence(run_id, str(record['target']))
-            if completed is not None:
-                evidence_run_id = str(completed.run_id)
-        evidence_status = completed.status if completed is not None else None
+        evidence_run_id, evidence_status = await self._terminal_evidence_reference(record, evidence, completed_at)
         await self.lifecycle.fail(
             run_id,
             status='cancelled' if cancelled else 'failed',
@@ -526,6 +487,28 @@ class RunStore:
             evidence_run_id=evidence_run_id,
             evidence_status=evidence_status,
         )
+
+    async def _terminal_evidence_reference(
+        self,
+        record: dict[str, object],
+        evidence: dict[str, Any] | None,
+        completed_at: str,
+    ) -> tuple[str | None, str | None]:
+        """Return the immutable evidence reference for a terminal lifecycle update."""
+        run_id = str(record['run_id'])
+        target = str(record['target'])
+        completed = (
+            await self._save_evidence(
+                evidence,
+                str(record['started_at'] or record['created_at']),
+                completed_at,
+                run_id=UUID(run_id),
+                expected_target=target,
+            )
+            if evidence
+            else await self._existing_evidence(run_id, target)
+        )
+        return (str(completed.run_id), completed.status) if completed is not None else (None, None)
 
     async def _existing_evidence(self, run_id: str, target: str) -> CompletedResult | None:
         try:

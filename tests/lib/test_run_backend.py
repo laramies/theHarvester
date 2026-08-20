@@ -136,6 +136,30 @@ def test_api_lifespan_disposes_shared_sqlite_engines(tmp_path, monkeypatch) -> N
     assert disposed is True
 
 
+def test_api_lifespan_disposes_schedule_sqlite_engines(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    disposed = False
+
+    async def no_op() -> None:
+        return None
+
+    async def dispose() -> None:
+        nonlocal disposed
+        disposed = True
+
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+    monkeypatch.setattr(api, 'start_worker', no_op)
+    monkeypatch.setattr(api, 'stop_worker', no_op)
+    monkeypatch.setattr(api, 'dispose_schedule_databases', dispose)
+
+    with TestClient(api.app):
+        pass
+
+    assert disposed is True
+
+
 def test_static_assets_are_resolved_from_the_installed_module(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api import api
 
@@ -719,7 +743,8 @@ def test_existing_evidence_does_not_bypass_checkpoint_target_validation(tmp_path
     asyncio.run(scenario())
 
 
-def test_finish_without_checkpoint_attaches_existing_evidence(tmp_path) -> None:
+@pytest.mark.parametrize(('operation', 'expected_status'), [('finish', 'cancelled'), ('fail', 'failed')])
+def test_terminal_run_without_checkpoint_attaches_existing_evidence(tmp_path, operation, expected_status) -> None:
     from theHarvester.lib.api.run_models import RunRequest
     from theHarvester.lib.api.run_store import RunStore
     from theHarvester.lib.completed_result import CompletedResult
@@ -739,13 +764,16 @@ def test_finish_without_checkpoint_attaches_existing_evidence(tmp_path) -> None:
                 groups={'hostname': ['persisted.expected.example.test']},
             )
         )
-        await store.finish(queued['run_id'], None, '')
+        if operation == 'finish':
+            await store.finish(queued['run_id'], None, '')
+        else:
+            await store.fail(queued['run_id'], 'failed', '')
         return await store.get(queued['run_id'])
 
     run = asyncio.run(scenario())
 
     assert run is not None
-    assert run['status'] == 'cancelled'
+    assert run['status'] == expected_status
     assert run['evidence_status'] == 'complete'
     assert run['results'] == [{'type': 'hostname', 'value': 'persisted.expected.example.test', 'sources': [], 'actions': []}]
 

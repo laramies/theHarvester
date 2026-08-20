@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import stat
 from datetime import UTC, datetime, timedelta
+from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
@@ -159,7 +160,7 @@ def test_run_now_queues_one_normal_run_per_target(tmp_path, monkeypatch) -> None
     from theHarvester.lib.api import run_worker
     from theHarvester.lib.api.run_store import RunStore
     from theHarvester.lib.api.schedule_models import ScheduleCreate
-    from theHarvester.lib.api.schedule_service import dispatch_schedule_now
+    from theHarvester.lib.api.schedule_service import ScheduleDispatcher
     from theHarvester.lib.api.schedule_store import ScheduleStore
 
     monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
@@ -173,7 +174,7 @@ def test_run_now_queues_one_normal_run_per_target(tmp_path, monkeypatch) -> None
         schedule = await schedule_store.create(
             ScheduleCreate.model_validate(_payload(targets=['example.test', 'example.org', 'example.net']))
         )
-        dispatched = await dispatch_schedule_now(schedule.schedule_id)
+        dispatched = await ScheduleDispatcher(schedule_store, RunStore()).dispatch_now(schedule.schedule_id)
         assert dispatched is not None
         assert len(dispatched.run_ids) == 3
         runs = await RunStore().list_runs(limit=10)
@@ -281,7 +282,7 @@ def test_replacing_a_recurring_schedule_advances_without_replaying_past_occurren
     async def scenario() -> None:
         store = ScheduleStore()
         created = await store.create(ScheduleCreate.model_validate(payload))
-        claimed = await store.claim_due('scheduler-a', now=datetime(2029, 1, 1, 10, tzinfo=UTC))
+        await store.claim_due('scheduler-a', now=datetime(2029, 1, 1, 10, tzinfo=UTC))
         assert await store.complete_claim(
             created.schedule_id,
             'scheduler-a',
@@ -468,16 +469,57 @@ def test_schedule_database_rechecks_symlink_before_each_connection(tmp_path) -> 
     asyncio.run(scenario())
 
 
+def test_schedule_store_reconnects_after_shared_engines_are_disposed(tmp_path) -> None:
+    from theHarvester.lib.api.schedule_models import ScheduleCreate
+    from theHarvester.lib.api.schedule_store import ScheduleStore, dispose_schedule_databases
+
+    async def scenario() -> None:
+        store = ScheduleStore(tmp_path / 'runs.sqlite')
+        created = await store.create(ScheduleCreate.model_validate(_payload()))
+
+        await dispose_schedule_databases()
+
+        reloaded = await store.get(created.schedule_id)
+        assert reloaded is not None
+        assert reloaded.targets == created.targets
+
+    asyncio.run(scenario())
+
+
+def test_schedule_store_reserves_the_maximum_target_batch(tmp_path) -> None:
+    from theHarvester.lib.api.schedule_models import MAX_SCHEDULE_TARGETS, ScheduleCreate
+    from theHarvester.lib.api.schedule_store import ScheduleStore
+
+    async def scenario() -> None:
+        store = ScheduleStore(tmp_path / 'runs.sqlite')
+        targets = [f'asset-{index}.example.test' for index in range(MAX_SCHEDULE_TARGETS)]
+        schedule = await store.create(ScheduleCreate.model_validate(_payload(targets=targets)))
+        scheduled_for = datetime(2026, 8, 20, 13, tzinfo=UTC)
+
+        dispatches = await store.reserve_dispatches(
+            schedule.schedule_id,
+            scheduled_for,
+            {target: str(UUID(int=index + 1)) for index, target in enumerate(targets)},
+        )
+
+        assert len(dispatches) == MAX_SCHEDULE_TARGETS
+        assert [dispatch.target for dispatch in dispatches] == targets
+
+    asyncio.run(scenario())
+
+
 def test_dispatch_recovery_reuses_reservations_and_run_ids(tmp_path, monkeypatch) -> None:
-    from theHarvester.lib.api import run_worker
+    from theHarvester.lib.api import run_worker, schedule_service
     from theHarvester.lib.api.run_models import RunRequest
     from theHarvester.lib.api.run_store import RunStore
     from theHarvester.lib.api.schedule_models import ScheduleCreate
-    from theHarvester.lib.api.schedule_service import _enqueue_targets
+    from theHarvester.lib.api.schedule_service import ScheduleDispatcher
     from theHarvester.lib.api.schedule_store import ScheduleStore
 
     monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
     monkeypatch.setenv('THEHARVESTER_SCHEDULE_DB', str(tmp_path / 'schedules.sqlite'))
+    monkeypatch.setattr(run_worker, 'worker_enabled', lambda: True)
+    monkeypatch.setattr(run_worker, 'worker_available', lambda: True)
     monkeypatch.setattr(run_worker, 'wake_worker', lambda: None)
 
     async def scenario() -> None:
@@ -485,25 +527,19 @@ def test_dispatch_recovery_reuses_reservations_and_run_ids(tmp_path, monkeypatch
         run_store = RunStore()
         schedule = await schedule_store.create(ScheduleCreate.model_validate(_payload()))
         scheduled_for = datetime(2026, 8, 20, 13, tzinfo=UTC)
+        monkeypatch.setattr(schedule_service, 'utc_now_datetime', lambda: scheduled_for)
         first_run_id = '11111111-1111-4111-8111-111111111111'
         second_run_id = '22222222-2222-4222-8222-222222222222'
         await schedule_store.reserve_dispatch(schedule.schedule_id, scheduled_for, 'example.test', first_run_id)
         await schedule_store.reserve_dispatch(schedule.schedule_id, scheduled_for, 'example.org', second_run_id)
         await run_store.create(RunRequest(target='example.org', sources=['crtsh']), run_id=second_run_id)
 
-        recovered = await _enqueue_targets(
-            schedule,
-            scheduled_for=scheduled_for,
-            schedule_store=schedule_store,
-            run_store=run_store,
-        )
-        duplicate = await _enqueue_targets(
-            schedule,
-            scheduled_for=scheduled_for,
-            schedule_store=schedule_store,
-            run_store=run_store,
-        )
+        dispatcher = ScheduleDispatcher(schedule_store, run_store)
+        recovered = await dispatcher.dispatch_now(schedule.schedule_id)
+        duplicate = await dispatcher.dispatch_now(schedule.schedule_id)
 
+        assert recovered is not None
+        assert duplicate is not None
         assert recovered.run_ids == [first_run_id, second_run_id]
         assert duplicate.run_ids == []
         assert duplicate.skipped_targets == ['example.test', 'example.org']
@@ -518,7 +554,7 @@ def test_overlap_policy_recovers_current_occurrence_reservations(tmp_path, monke
     from theHarvester.lib.api.run_models import RunRequest
     from theHarvester.lib.api.run_store import RunStore
     from theHarvester.lib.api.schedule_models import ScheduleCreate
-    from theHarvester.lib.api.schedule_service import _dispatch_claimed
+    from theHarvester.lib.api.schedule_service import ScheduleDispatcher
     from theHarvester.lib.api.schedule_store import ScheduleStore
 
     monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
@@ -541,7 +577,7 @@ def test_overlap_policy_recovers_current_occurrence_reservations(tmp_path, monke
         await run_store.create(RunRequest(target='example.org', sources=['crtsh']), run_id=second_run_id)
 
         claimed = await store.claim_due('recovery-owner', now=scheduled_for, limit=1)
-        await _dispatch_claimed(claimed[0], 'recovery-owner')
+        await ScheduleDispatcher(store, run_store).dispatch_claimed(claimed[0], 'recovery-owner')
 
         dispatches = await store.list_dispatches(schedule.schedule_id)
         updated = await store.get(schedule.schedule_id)
@@ -560,7 +596,7 @@ def test_recovered_queued_occurrence_completes_without_a_false_error(tmp_path, m
     from theHarvester.lib.api.run_models import RunRequest
     from theHarvester.lib.api.run_store import RunStore
     from theHarvester.lib.api.schedule_models import ScheduleCreate
-    from theHarvester.lib.api.schedule_service import _dispatch_claimed
+    from theHarvester.lib.api.schedule_service import ScheduleDispatcher
     from theHarvester.lib.api.schedule_store import ScheduleStore
 
     monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
@@ -582,7 +618,7 @@ def test_recovered_queued_occurrence_completes_without_a_false_error(tmp_path, m
         await store.set_dispatch_state(run_id, 'queued')
 
         claimed = await store.claim_due('recovery-owner', now=scheduled_for, limit=1)
-        await _dispatch_claimed(claimed[0], 'recovery-owner')
+        await ScheduleDispatcher(store, run_store).dispatch_claimed(claimed[0], 'recovery-owner')
 
         updated = await store.get(schedule.schedule_id)
         assert updated is not None
@@ -604,7 +640,7 @@ def test_newer_occurrence_terminalizes_a_stale_runless_reservation(
     from theHarvester.lib.api import run_worker
     from theHarvester.lib.api.run_store import RunStore
     from theHarvester.lib.api.schedule_models import ScheduleCreate, parse_utc
-    from theHarvester.lib.api.schedule_service import _dispatch_claimed
+    from theHarvester.lib.api.schedule_service import ScheduleDispatcher
     from theHarvester.lib.api.schedule_store import ScheduleStore
 
     monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
@@ -643,7 +679,7 @@ def test_newer_occurrence_terminalizes_a_stale_runless_reservation(
         assert changed.next_run_at is not None
         current = parse_utc(changed.next_run_at)
         claimed = await store.claim_due('current-owner', now=current)
-        await _dispatch_claimed(claimed[0], 'current-owner')
+        await ScheduleDispatcher(store, RunStore()).dispatch_claimed(claimed[0], 'current-owner')
 
         dispatches = await store.list_dispatches(schedule.schedule_id)
         stale_dispatch = next(dispatch for dispatch in dispatches if dispatch.run_id == stale_run_id)
@@ -659,8 +695,9 @@ def test_newer_occurrence_terminalizes_a_stale_runless_reservation(
 
 def test_large_reservation_reconciliation_renews_the_schedule_claim(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api import run_worker
+    from theHarvester.lib.api.run_store import RunStore
     from theHarvester.lib.api.schedule_models import ScheduleCreate, parse_utc
-    from theHarvester.lib.api.schedule_service import _dispatch_claimed
+    from theHarvester.lib.api.schedule_service import ScheduleDispatcher
     from theHarvester.lib.api.schedule_store import ScheduleStore
 
     monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
@@ -703,13 +740,14 @@ def test_large_reservation_reconciliation_renews_the_schedule_claim(tmp_path, mo
 
         assert await store.set_enabled(schedule.schedule_id, False) is not None
         changed = await store.set_enabled(schedule.schedule_id, True)
-        assert changed is not None and changed.next_run_at is not None
+        assert changed is not None
+        assert changed.next_run_at is not None
         current = parse_utc(changed.next_run_at)
         claimed = await store.claim_due('current-owner', now=current)
-        await _dispatch_claimed(claimed[0], 'current-owner')
+        await ScheduleDispatcher(store, RunStore()).dispatch_claimed(claimed[0], 'current-owner')
 
         dispatches = await store.list_dispatches(schedule.schedule_id)
-        assert renewals == 1
+        assert renewals == 2
         assert sum(dispatch.state == 'failed' for dispatch in dispatches) == 100
         assert sum(dispatch.state == 'queued' for dispatch in dispatches) == 1
 
@@ -745,7 +783,7 @@ def test_dispatch_mirrors_cancelling_run_state(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api.run_models import RunRequest
     from theHarvester.lib.api.run_store import RunStore
     from theHarvester.lib.api.schedule_models import ScheduleCreate
-    from theHarvester.lib.api.schedule_service import refresh_schedule_dispatches
+    from theHarvester.lib.api.schedule_service import ScheduleDispatcher
     from theHarvester.lib.api.schedule_store import ScheduleStore
 
     monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
@@ -768,7 +806,7 @@ def test_dispatch_mirrors_cancelling_run_state(tmp_path, monkeypatch) -> None:
         assert cancelled is not None
         assert cancelled['status'] == 'cancelling'
 
-        await refresh_schedule_dispatches(schedule.schedule_id)
+        await ScheduleDispatcher(schedule_store, run_store).refresh(schedule.schedule_id)
 
         dispatch = (await schedule_store.list_dispatches(schedule.schedule_id))[0]
         assert dispatch.state == 'cancelling'
@@ -794,12 +832,83 @@ def test_two_scheduler_instances_cannot_claim_the_same_occurrence(tmp_path, monk
     asyncio.run(scenario())
 
 
+def test_claimed_occurrence_fails_closed_after_claim_loss(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import run_worker
+    from theHarvester.lib.api.run_store import RunStore
+    from theHarvester.lib.api.schedule_models import ScheduleCreate
+    from theHarvester.lib.api.schedule_service import ScheduleDispatcher
+    from theHarvester.lib.api.schedule_store import ScheduleStore
+
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_SCHEDULE_DB', str(tmp_path / 'schedules.sqlite'))
+    monkeypatch.setattr(run_worker, 'worker_enabled', lambda: True)
+    monkeypatch.setattr(run_worker, 'worker_available', lambda: True)
+
+    async def scenario() -> None:
+        store = ScheduleStore()
+        due = datetime(2026, 8, 20, 9, tzinfo=UTC)
+        schedule = await store.create(ScheduleCreate.model_validate(_payload(start_at=due.isoformat())))
+        claimed = (await store.claim_due('first-owner', now=due, limit=1))[0]
+        await store.release_claims('first-owner')
+
+        with pytest.raises(RuntimeError, match='lost its occurrence claim'):
+            await ScheduleDispatcher(store, RunStore()).dispatch_claimed(claimed, 'first-owner')
+
+        assert await store.list_dispatches(schedule.schedule_id) == []
+        assert await RunStore().list_runs(limit=10) == []
+
+    asyncio.run(scenario())
+
+
+def test_claim_loss_during_enqueue_leaves_every_target_auditable(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import run_worker
+    from theHarvester.lib.api.run_store import RunStore
+    from theHarvester.lib.api.schedule_models import ScheduleCreate
+    from theHarvester.lib.api.schedule_service import ScheduleDispatcher
+    from theHarvester.lib.api.schedule_store import ScheduleStore
+
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_SCHEDULE_DB', str(tmp_path / 'schedules.sqlite'))
+    monkeypatch.setattr(run_worker, 'worker_enabled', lambda: True)
+    monkeypatch.setattr(run_worker, 'worker_available', lambda: True)
+    monkeypatch.setattr(run_worker, 'wake_worker', lambda: None)
+    renew_claim = ScheduleStore.renew_claim
+    renewals = 0
+
+    async def lose_second_renewal(self, schedule_id: str, owner_id: str, *, lease_seconds: int = 60) -> bool:
+        nonlocal renewals
+        renewals += 1
+        if renewals == 1:
+            return await renew_claim(self, schedule_id, owner_id, lease_seconds=lease_seconds)
+        await self.release_claims(owner_id)
+        return False
+
+    monkeypatch.setattr(ScheduleStore, 'renew_claim', lose_second_renewal)
+
+    async def scenario() -> None:
+        store = ScheduleStore()
+        due = datetime(2026, 8, 20, 9, tzinfo=UTC)
+        targets = [f'asset-{index}.example.test' for index in range(101)]
+        schedule = await store.create(ScheduleCreate.model_validate(_payload(start_at=due.isoformat(), targets=targets)))
+        claimed = (await store.claim_due('first-owner', now=due, limit=1))[0]
+
+        with pytest.raises(RuntimeError, match='lost its occurrence claim'):
+            await ScheduleDispatcher(store, RunStore()).dispatch_claimed(claimed, 'first-owner')
+
+        dispatches = await store.list_dispatches(schedule.schedule_id)
+        assert len(dispatches) == len(targets)
+        assert sum(dispatch.state == 'queued' for dispatch in dispatches) == 100
+        assert sum(dispatch.state == 'reserved' for dispatch in dispatches) == 1
+
+    asyncio.run(scenario())
+
+
 def test_due_schedules_skip_or_queue_while_a_prior_batch_is_active(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api import run_worker
     from theHarvester.lib.api.run_models import RunRequest
     from theHarvester.lib.api.run_store import RunStore
     from theHarvester.lib.api.schedule_models import ScheduleCreate
-    from theHarvester.lib.api.schedule_service import _dispatch_claimed
+    from theHarvester.lib.api.schedule_service import ScheduleDispatcher
     from theHarvester.lib.api.schedule_store import ScheduleStore
 
     monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
@@ -818,7 +927,7 @@ def test_due_schedules_skip_or_queue_while_a_prior_batch_is_active(tmp_path, mon
         await store.set_dispatch_state(prior_run_id, 'queued')
         claimed = await store.claim_due(owner, now=datetime(2026, 8, 20, 10, tzinfo=UTC), limit=1)
         assert len(claimed) == 1
-        await _dispatch_claimed(claimed[0], owner)
+        await ScheduleDispatcher(store, RunStore()).dispatch_claimed(claimed[0], owner)
         updated = await store.get(schedule.schedule_id)
         assert updated is not None
         return len(await store.list_dispatches(schedule.schedule_id)), updated.last_error

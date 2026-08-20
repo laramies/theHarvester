@@ -15,8 +15,7 @@ from .schedule_models import (
     ScheduleResponse,
 )
 from .schedule_service import (
-    dispatch_schedule_now,
-    refresh_schedule_dispatches,
+    ScheduleDispatcher,
     scheduler_available,
     scheduler_enabled,
     wake_scheduler,
@@ -159,7 +158,7 @@ async def run_schedule_now(
             detail='theHarvester execution worker is unavailable',
         )
     try:
-        dispatch = await dispatch_schedule_now(schedule_id)
+        dispatch = await ScheduleDispatcher().dispatch_now(schedule_id)
     except (RuntimeError, ScheduleStoreError) as error:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)) from error
     if dispatch is None:
@@ -178,7 +177,7 @@ async def list_schedule_dispatches(
     try:
         if await store.get(schedule_id) is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Schedule not found')
-        await refresh_schedule_dispatches(schedule_id)
+        await ScheduleDispatcher(store).refresh(schedule_id)
         return await store.list_dispatches(schedule_id, limit=limit, offset=offset)
     except ScheduleStoreError as error:
         raise _store_error(error) from error
