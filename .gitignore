@@ -3,6 +3,7 @@
 *.sqlite
 *.html
 !theHarvester/lib/api/static/harvestview/index.html
+!theHarvester/lib/api/static/harvestview/schedules.html
 *.htm
 *.vscode
 *.xml

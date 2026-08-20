@@ -24,7 +24,7 @@ def _capture_loop_factory(monkeypatch: pytest.MonkeyPatch) -> list[LoopFactory |
     return observed
 
 
-@pytest.mark.parametrize(('platform', 'module_name'), [('darwin', 'uvloop'), ('win32', 'winloop')])
+@pytest.mark.parametrize(('platform', 'module_name'), [('darwin', 'uvloop')])
 def test_cli_uses_platform_loop_factory_when_available(monkeypatch: pytest.MonkeyPatch, platform: str, module_name: str) -> None:
     optional_loop = ModuleType(module_name)
 
@@ -41,13 +41,48 @@ def test_cli_uses_platform_loop_factory_when_available(monkeypatch: pytest.Monke
     assert observed == [new_event_loop]
 
 
-@pytest.mark.parametrize(('platform', 'module_name'), [('linux', 'uvloop'), ('win32', 'winloop')])
+@pytest.mark.parametrize(('platform', 'module_name'), [('linux', 'uvloop')])
 def test_cli_uses_standard_loop_when_optional_loop_is_unavailable(
     monkeypatch: pytest.MonkeyPatch, platform: str, module_name: str
 ) -> None:
     observed = _capture_loop_factory(monkeypatch)
     monkeypatch.setattr(sys, 'platform', platform)
     monkeypatch.setitem(sys.modules, module_name, None)
+
+    theHarvester.main()
+
+    assert observed == [None]
+
+
+def test_cli_uses_winloop_on_windows_without_screenshots(monkeypatch: pytest.MonkeyPatch) -> None:
+    winloop = ModuleType('winloop')
+
+    def new_event_loop() -> asyncio.AbstractEventLoop:
+        raise AssertionError('factory should be passed to asyncio.run, not called by the bootstrap')
+
+    winloop.new_event_loop = new_event_loop  # type: ignore[attr-defined]
+    observed = _capture_loop_factory(monkeypatch)
+    monkeypatch.setattr(sys, 'platform', 'win32')
+    monkeypatch.setitem(sys.modules, 'winloop', winloop)
+
+    theHarvester.main()
+
+    assert observed == [new_event_loop]
+
+
+@pytest.mark.parametrize('screenshot_args', [('--screenshot', 'screenshots'), ('--screenshot=screenshots',)])
+def test_cli_uses_standard_loop_on_windows_when_screenshots_are_requested(
+    monkeypatch: pytest.MonkeyPatch, screenshot_args: tuple[str, ...]
+) -> None:
+    winloop = ModuleType('winloop')
+    winloop.new_event_loop = lambda: None  # type: ignore[attr-defined]
+    uvloop = ModuleType('uvloop')
+    uvloop.new_event_loop = lambda: None  # type: ignore[attr-defined]
+    observed = _capture_loop_factory(monkeypatch)
+    monkeypatch.setattr(sys, 'platform', 'win32')
+    monkeypatch.setattr(sys, 'argv', ['theHarvester', *screenshot_args])
+    monkeypatch.setitem(sys.modules, 'winloop', winloop)
+    monkeypatch.setitem(sys.modules, 'uvloop', uvloop)
 
     theHarvester.main()
 

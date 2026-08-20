@@ -42,7 +42,7 @@ def normalized_results(evidence: dict[str, Any] | None) -> list[dict[str, Any]]:
                 result['observations'] = [
                     dict(observation) for observation in item.get('observations', []) if isinstance(observation, dict)
                 ]
-            if item.get('type') == 'shodan-host' and isinstance(item.get('details'), dict):
+            if item.get('type') in {'shodan-host', 'takeover'} and isinstance(item.get('details'), dict):
                 result['details'] = dict(item['details'])
             if item.get('type') == 'prefix':
                 result['scope'] = str(item.get('scope', ''))

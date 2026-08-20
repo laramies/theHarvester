@@ -18,7 +18,7 @@ When a change alters one of these boundaries, update this document and the neare
 
 - theHarvester is a finite, one-shot enumerator. Each invocation or submitted run has an explicit target, selected sources or actions, limits, and a terminal outcome.
 - The CLI, authenticated REST API, and HarvestView project the same normalized terminal evidence. HarvestView is the local browser workspace for submitting and reviewing runs; it is not a separate discovery engine.
-- The local API owns durable run records and one isolated worker. Queue and process ownership remain separate from terminal evidence so a later worker or deployment design can change without rewriting completed results.
+- The local API owns durable run records, reusable schedules, and one isolated worker. Every scheduled target becomes an ordinary finite run record; schedule policy and dispatch state remain separate from terminal evidence.
 
 ### Authorization and scope
 
@@ -33,6 +33,7 @@ When a change alters one of these boundaries, update this document and the neare
 - A source adapter returns `None` for ordinary completion or an immutable `SourceExecutionReport` when it must preserve an explicit outcome or stop reason. The central source runner owns observation collection, result counting, no-result classification, exception handling, and final source status.
 - Source execution statuses are `completed`, `partial`, `failed`, `rate-limited`, and `skipped`. Mutable adapter fields such as `execution_status` and `stop_reason` are outside this release contract and are rejected, including when an adapter raises or is cancelled.
 - Run lifecycle statuses are `queued`, `running`, `cancelling`, `cancelled`, `completed`, and `failed`. Terminal evidence status is independently `complete`, `partial`, or `failed`; retained evidence survives a later cancellation or process failure.
+- Run schedules support one-time, hourly, daily, weekly, and monthly recurrence. Daily, weekly, and monthly occurrences preserve the selected local wall-clock time; a monthly day that does not exist falls on that month’s final day.
 - Imported runs enter as completed run records and execute no source or action. Action-only runs create independent run records instead of mutating the evidence of the run that supplied their candidate.
 
 ### Evidence and portability
@@ -51,7 +52,7 @@ When a change alters one of these boundaries, update this document and the neare
 
 ### Deferred boundaries
 
-- Continuous monitoring and scheduling remain separate future product decisions; an enumeration run stays finite.
+- Cross-run change detection, alerts, and automatic reactions remain separate future product decisions. A scheduled occurrence only submits finite enumeration runs.
 - Distributed workers, multi-host operation, PostgreSQL, and hosted multi-user authorization require measured demand and new decisions. The release remains SQLite-first and local-operator focused.
 - Automatic scope expansion remains deferred. Evidence can suggest a later target, while the operator controls every scope change.
 
@@ -149,6 +150,22 @@ _Avoid_: DNS result, resolved host, validation status
 One finite execution of theHarvester against an explicit target and selected options, identified independently from every other execution.
 _Avoid_: Scan, monitoring cycle, session, job
 
+**Run schedule**:
+A durable local plan that combines an explicit authorized target inventory, one validated run template, recurrence timing, and an overlap policy. It creates enumeration runs but is never itself an enumeration run or evidence record.
+_Avoid_: Scan schedule, cron job, monitoring run
+
+**Scheduled occurrence**:
+One due time in a run schedule. It produces at most one ordinary enumeration run per scheduled target and advances past missed recurrence times without replaying each one.
+_Avoid_: Monitoring cycle, recurring run
+
+**Dispatch reservation**:
+The durable association between one scheduled occurrence, one target, and one preselected run ID that prevents duplicate run creation across retries or restarts.
+_Avoid_: Queue item, scheduled result
+
+**Overlap policy**:
+The operator choice to skip a due occurrence while a prior scheduled batch is active or queue another finite batch behind it.
+_Avoid_: Concurrency mode, retry policy
+
 **Action-only run**:
 An enumeration run with no discovery sources that performs an explicitly selected provider, DNS, or direct action against an explicitly authorized target. It creates its own run record and never mutates the evidence of a parent run.
 _Avoid_: Result action, parent-run update, inline scan
@@ -158,7 +175,7 @@ The durable operator-facing record that begins when an enumeration is submitted 
 _Avoid_: Task, worker job, scan record
 
 **HarvestView**:
-The browser-based analysis workspace for creating and inspecting run records, normalized evidence, source outcomes, and managed artifacts from theHarvester.
+The browser-based analysis workspace for creating schedules and run records and inspecting normalized evidence, source outcomes, and managed artifacts from theHarvester.
 _Avoid_: Internal workflow names, operator app, console, dashboard
 
 **Imported run**:

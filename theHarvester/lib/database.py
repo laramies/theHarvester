@@ -302,7 +302,8 @@ def _begin_sqlite_transaction(connection: Any) -> None:
     connection.exec_driver_sql('BEGIN')
 
 
-def _sqlite_engine(database: str | Path) -> AsyncEngine:
+def sqlite_engine(database: str | Path) -> AsyncEngine:
+    """Create an async SQLite engine with the project's transaction settings."""
     engine = create_async_engine(
         URL.create('sqlite+aiosqlite', database=str(Path(database).expanduser().resolve())),
         connect_args={'autocommit': sqlite3.LEGACY_TRANSACTION_CONTROL, 'timeout': 30},
@@ -411,7 +412,7 @@ async def _canonicalize_result_kinds(connection: AsyncConnection) -> None:
 class _SQLiteDatabase:
     def __init__(self, database: str | Path) -> None:
         self.database = str(Path(database).expanduser().resolve())
-        self.engine = _sqlite_engine(database)
+        self.engine = sqlite_engine(database)
         self.sessions = async_sessionmaker(self.engine, expire_on_commit=False)
         self._initialize_lock = asyncio.Lock()
         self._initialized = False
