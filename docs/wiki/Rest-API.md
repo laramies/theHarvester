@@ -70,7 +70,9 @@ Provider credentials remain in theHarvester's server-side configuration. Request
 
 HarvestView schedules persist an authorized target inventory, one validated run template, recurrence timing, and an overlap policy. Every occurrence creates one ordinary run per target through the existing queue; the default worker executes those runs serially. A single schedule accepts up to 10,000 normalized unique targets.
 
-Daily and weekly recurrences preserve local wall-clock time in the selected IANA timezone across daylight-saving changes. Hourly recurrences use elapsed UTC hours. After downtime, one due occurrence is dispatched and the recurrence advances to the next future time instead of replaying every missed interval.
+Daily, weekly, and monthly recurrences preserve local wall-clock time in the selected IANA timezone across daylight-saving changes. A monthly day that does not exist falls on that month’s final day. Hourly recurrences use elapsed UTC hours. After downtime, one due occurrence is dispatched and the recurrence advances to the next future time instead of replaying every missed interval.
+
+Schedule responses include the next five derived `upcoming_occurrences`. HarvestView displays those occurrences on each schedule card and can edit future schedule settings through the existing replacement route without deleting submitted runs or dispatch history.
 
 Network activity: schedule management is local. A due occurrence performs only the provider, DNS, or direct activity explicitly stored in its run template. P1 and P2 activity still requires explicit operator authorization for every listed target.
 

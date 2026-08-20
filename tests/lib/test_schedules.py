@@ -48,6 +48,28 @@ def test_daily_schedule_preserves_local_wall_clock_across_dst() -> None:
     assert next_run == datetime(2026, 11, 1, 14, 0, tzinfo=UTC)
 
 
+def test_monthly_schedule_uses_the_final_day_of_short_months() -> None:
+    from theHarvester.lib.api.schedule_models import ScheduleTiming
+
+    timing = ScheduleTiming.model_validate(
+        {
+            'frequency': 'monthly',
+            'start_at': '2027-01-31T09:00:00-05:00',
+            'timezone': 'America/New_York',
+            'interval': 1,
+        }
+    )
+
+    february = timing.next_after(datetime(2027, 1, 31, 14, tzinfo=UTC))
+    march = timing.next_after(datetime(2027, 2, 28, 14, tzinfo=UTC))
+
+    assert february == datetime(2027, 2, 28, 14, tzinfo=UTC)
+    assert march == datetime(2027, 3, 31, 13, tzinfo=UTC)
+
+    every_two_months = timing.model_copy(update={'interval': 2})
+    assert every_two_months.next_after(datetime(2027, 1, 31, 14, tzinfo=UTC)) == datetime(2027, 3, 31, 13, tzinfo=UTC)
+
+
 def test_schedule_api_persists_bulk_targets_without_enabling_network_work(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api import api
 
@@ -67,6 +89,34 @@ def test_schedule_api_persists_bulk_targets_without_enabling_network_work(tmp_pa
     assert created.json()['run']['sources'] == ['crtsh']
     assert listed.status_code == 200
     assert [schedule['schedule_id'] for schedule in listed.json()] == [created.json()['schedule_id']]
+
+
+def test_schedule_api_exposes_five_upcoming_monthly_occurrences(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_SCHEDULE_DB', str(tmp_path / 'schedules.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+    monkeypatch.setenv('THEHARVESTER_SCHEDULER', 'disabled')
+    headers = {'X-API-Key': 'test-key'}
+    payload = _payload(start_at='2027-01-31T09:00:00-05:00', targets=['example.test'])
+    payload['timing']['frequency'] = 'monthly'
+
+    with TestClient(api.app) as client:
+        created = client.post('/api/v1/schedules', headers=headers, json=payload)
+        schedule_id = created.json()['schedule_id']
+        paused = client.post(f'/api/v1/schedules/{schedule_id}/pause', headers=headers)
+
+    assert created.status_code == 201
+    assert created.json()['upcoming_occurrences'] == [
+        '2027-01-31T14:00:00+00:00',
+        '2027-02-28T14:00:00+00:00',
+        '2027-03-31T13:00:00+00:00',
+        '2027-04-30T13:00:00+00:00',
+        '2027-05-31T13:00:00+00:00',
+    ]
+    assert paused.json()['upcoming_occurrences'] == []
 
 
 def test_schedule_health_reports_disabled_execution_services(tmp_path, monkeypatch) -> None:
@@ -162,10 +212,12 @@ def test_pause_resume_and_delete_schedule(tmp_path, monkeypatch) -> None:
 
 
 def test_replacing_a_completed_once_schedule_resets_occurrence_state(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import schedule_store
     from theHarvester.lib.api.schedule_models import ScheduleCreate
     from theHarvester.lib.api.schedule_store import ScheduleStore
 
     monkeypatch.setenv('THEHARVESTER_SCHEDULE_DB', str(tmp_path / 'schedules.sqlite'))
+    monkeypatch.setattr(schedule_store, 'utc_now_datetime', lambda: datetime(2029, 1, 2, tzinfo=UTC))
     original_payload = _payload(start_at='2029-01-01T09:00:00+00:00')
     original_payload['timing'] = {
         'frequency': 'once',
@@ -187,6 +239,14 @@ def test_replacing_a_completed_once_schedule_resets_occurrence_state(tmp_path, m
     async def scenario() -> None:
         store = ScheduleStore()
         created = await store.create(ScheduleCreate.model_validate(original_payload))
+        run_id = '99999999-9999-4999-8999-999999999999'
+        await store.reserve_dispatch(
+            created.schedule_id,
+            datetime(2029, 1, 1, 9, tzinfo=UTC),
+            'example.test',
+            run_id,
+        )
+        await store.set_dispatch_state(run_id, 'completed')
         claimed = await store.claim_due('scheduler-a', now=datetime(2029, 1, 1, 10, tzinfo=UTC))
         assert [schedule.schedule_id for schedule in claimed] == [created.schedule_id]
         assert await store.complete_claim(
@@ -198,10 +258,73 @@ def test_replacing_a_completed_once_schedule_resets_occurrence_state(tmp_path, m
 
         replaced = await store.replace(created.schedule_id, ScheduleCreate.model_validate(replacement_payload))
         assert replaced is not None
-        assert replaced.last_run_at is None
+        assert replaced.last_run_at == '2029-01-01T09:00:00+00:00'
         resumed = await store.set_enabled(created.schedule_id, True)
         assert resumed is not None
         assert resumed.next_run_at == '2030-01-01T09:00:00+00:00'
+        assert [dispatch.run_id for dispatch in await store.list_dispatches(created.schedule_id)] == [run_id]
+
+    asyncio.run(scenario())
+
+
+def test_replacing_a_recurring_schedule_advances_without_replaying_past_occurrences(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import schedule_store
+    from theHarvester.lib.api.schedule_models import ScheduleCreate
+    from theHarvester.lib.api.schedule_store import ScheduleStore
+
+    monkeypatch.setenv('THEHARVESTER_SCHEDULE_DB', str(tmp_path / 'schedules.sqlite'))
+    now = datetime(2029, 1, 10, 12, tzinfo=UTC)
+    monkeypatch.setattr(schedule_store, 'utc_now_datetime', lambda: now)
+    payload = _payload(start_at='2029-01-01T09:00:00+00:00', targets=['example.test'])
+    payload['timing']['timezone'] = 'UTC'
+
+    async def scenario() -> None:
+        store = ScheduleStore()
+        created = await store.create(ScheduleCreate.model_validate(payload))
+        claimed = await store.claim_due('scheduler-a', now=datetime(2029, 1, 1, 10, tzinfo=UTC))
+        assert await store.complete_claim(
+            created.schedule_id,
+            'scheduler-a',
+            scheduled_for=datetime(2029, 1, 1, 9, tzinfo=UTC),
+            next_run_at=datetime(2029, 1, 2, 9, tzinfo=UTC),
+        )
+        payload['name'] = 'Renamed inventory'
+
+        replaced = await store.replace(created.schedule_id, ScheduleCreate.model_validate(payload))
+
+        assert replaced is not None
+        assert replaced.last_run_at == '2029-01-01T09:00:00+00:00'
+        assert replaced.next_run_at == '2029-01-11T09:00:00+00:00'
+
+    asyncio.run(scenario())
+
+
+def test_replacing_an_unrun_overdue_once_schedule_preserves_its_pending_occurrence(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import schedule_store
+    from theHarvester.lib.api.schedule_models import ScheduleCreate
+    from theHarvester.lib.api.schedule_store import ScheduleStore
+
+    monkeypatch.setenv('THEHARVESTER_SCHEDULE_DB', str(tmp_path / 'schedules.sqlite'))
+    monkeypatch.setattr(schedule_store, 'utc_now_datetime', lambda: datetime(2029, 1, 2, tzinfo=UTC))
+    payload = _payload(start_at='2029-01-01T09:00:00+00:00', targets=['example.test'])
+    payload['timing'] = {
+        'frequency': 'once',
+        'start_at': '2029-01-01T09:00:00+00:00',
+        'timezone': 'UTC',
+        'interval': 1,
+        'weekdays': [],
+    }
+
+    async def scenario() -> None:
+        store = ScheduleStore()
+        created = await store.create(ScheduleCreate.model_validate(payload))
+        payload['name'] = 'Renamed pending inventory'
+
+        replaced = await store.replace(created.schedule_id, ScheduleCreate.model_validate(payload))
+
+        assert replaced is not None
+        assert replaced.last_run_at is None
+        assert replaced.next_run_at == '2029-01-01T09:00:00+00:00'
 
     asyncio.run(scenario())
 
@@ -246,6 +369,23 @@ def test_recurrence_handles_intervals_dst_and_downtime() -> None:
         datetime(2026, 8, 20, 10, tzinfo=UTC),
         datetime(2026, 8, 21, 1, tzinfo=UTC),
     ) == datetime(2026, 8, 21, 4, tzinfo=UTC)
+
+    every_seven_days = ScheduleTiming(
+        frequency='daily',
+        start_at=datetime.fromisoformat('2026-08-20T09:00:00-04:00'),
+        timezone='America/New_York',
+        interval=7,
+    )
+    assert every_seven_days.next_after(datetime(2026, 8, 20, 13, tzinfo=UTC)) == datetime(2026, 8, 27, 13, tzinfo=UTC)
+    assert every_seven_days.upcoming_occurrences(
+        datetime(2026, 8, 20, 13, tzinfo=UTC),
+        limit=3,
+        now=datetime(2026, 8, 30, 13, tzinfo=UTC),
+    ) == [
+        datetime(2026, 8, 20, 13, tzinfo=UTC),
+        datetime(2026, 9, 3, 13, tzinfo=UTC),
+        datetime(2026, 9, 10, 13, tzinfo=UTC),
+    ]
 
     spring = ScheduleTiming(
         frequency='daily',

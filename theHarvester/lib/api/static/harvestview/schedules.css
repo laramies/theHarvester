@@ -107,12 +107,14 @@
 
 .schedule-grid { display: grid; gap: 0.8rem; }
 .schedule-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.schedule-grid.timing-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .schedule-advanced summary { cursor: pointer; font-weight: 700; }
 .schedule-advanced[open] summary { margin-bottom: 1rem; }
 
 .weekday-panel { align-items: center; padding: 0.7rem; border-radius: 0.65rem; background: var(--surface-muted); }
 .weekday-panel > span { font-weight: 700; margin-right: 0.25rem; }
 .weekday-panel label { display: flex !important; gap: 0.3rem !important; align-items: center; }
+.timing-help { margin: 0; color: var(--muted); font-size: 0.85rem; }
 
 .authorization-confirmation {
   padding: 0.85rem;
@@ -122,6 +124,8 @@
 }
 .form-error { padding: 0.75rem; border-radius: 0.6rem; background: var(--danger-soft); color: var(--danger); }
 .schedule-submit { min-height: 2.8rem; }
+.schedule-form-actions { display: flex; gap: 0.65rem; }
+.schedule-form-actions .schedule-submit { flex: 1; }
 
 .schedule-list { display: grid; gap: 0.8rem; margin-top: 1rem; }
 .schedule-card {
@@ -142,6 +146,11 @@
 .schedule-facts dd { margin: 0.25rem 0 0; overflow-wrap: anywhere; }
 .schedule-error { margin: 0; color: var(--danger); font-size: 0.82rem; }
 .schedule-target-preview { margin: 0; font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); }
+.upcoming-schedule { padding: 0.65rem 0.75rem; border-radius: 0.6rem; background: var(--surface-muted); }
+.upcoming-schedule summary { cursor: pointer; font-weight: 700; }
+.upcoming-occurrences { margin: 0.65rem 0 0; padding-inline-start: 1.4rem; color: var(--muted); font-size: 0.82rem; }
+.upcoming-occurrences li + li { margin-top: 0.35rem; }
+.upcoming-empty { margin: 0; color: var(--muted); font-size: 0.82rem; }
 .schedule-card-footer { flex-wrap: wrap; }
 .schedule-card-footer .compact-actions { margin-left: auto; }
 .schedule-empty { display: grid; place-items: center; gap: 0.35rem; min-height: 12rem; text-align: center; color: var(--muted); }
@@ -170,6 +179,7 @@
 @media (max-width: 720px) {
   .schedule-shell { width: min(100% - 1rem, 1600px); margin-top: 0.5rem; }
   .schedule-grid.three,
+  .schedule-grid.timing-grid,
   .schedule-facts { grid-template-columns: 1fr; }
   .schedule-section-heading,
   .source-toolbar,
@@ -194,4 +204,5 @@
     margin-left: 0;
   }
   .schedule-card-footer .button { width: 100%; min-height: 44px; }
+  .schedule-form-actions { flex-direction: column; }
 }

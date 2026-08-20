@@ -6,6 +6,7 @@ const state = {
   schedules: [],
   health: null,
   dispatchTable: null,
+  editingSchedule: null,
 };
 
 const elements = {};
@@ -106,6 +107,12 @@ function localDateTimeValue(date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+function zonedDateTimeValue(value, timeZone) {
+  const parts = zonedParts(new Date(value).valueOf(), timeZone);
+  const pad = (part) => String(part).padStart(2, '0');
+  return `${parts.year}-${pad(parts.month)}-${pad(parts.day)}T${pad(parts.hour)}:${pad(parts.minute)}`;
+}
+
 function zonedParts(epochMilliseconds, timeZone) {
   const formatter = new Intl.DateTimeFormat('en-CA', {
     timeZone,
@@ -178,6 +185,21 @@ function formatDate(value) {
   return new Intl.DateTimeFormat(undefined, {dateStyle: 'medium', timeStyle: 'short'}).format(date);
 }
 
+function formatScheduleDate(value, timeZone) {
+  if (!value) {
+    return '—';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.valueOf())) {
+    return value;
+  }
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone,
+  }).format(date);
+}
+
 function describeTiming(timing) {
   const interval = timing.interval === 1 ? '' : ` every ${timing.interval}`;
   if (timing.frequency === 'once') {
@@ -188,7 +210,7 @@ function describeTiming(timing) {
     const days = timing.weekdays.map((day) => labels[day - 1]).join(', ');
     return `${interval ? `Every ${timing.interval} weeks` : 'Weekly'} on ${days} (${timing.timezone})`;
   }
-  const units = {hourly: 'hours', daily: 'days'};
+  const units = {hourly: 'hours', daily: 'days', monthly: 'months'};
   return `${interval ? `Every ${timing.interval} ${units[timing.frequency]}` : timing.frequency[0].toUpperCase() + timing.frequency.slice(1)} (${timing.timezone})`;
 }
 
@@ -261,6 +283,15 @@ function renderSchedules() {
     const card = document.createElement('article');
     card.className = `schedule-card${schedule.enabled ? '' : ' is-paused'}`;
     const preview = schedule.targets.slice(0, 3).join(', ') + (schedule.targets.length > 3 ? `, +${schedule.targets.length - 3} more` : '');
+    const upcoming = schedule.upcoming_occurrences || [];
+    const upcomingMarkup = schedule.enabled
+      ? `<details class="upcoming-schedule">
+          <summary>Upcoming occurrences</summary>
+          ${upcoming.length > 0
+            ? `<ol class="upcoming-occurrences">${upcoming.map((occurrence) => `<li>${escapeHtml(formatScheduleDate(occurrence, schedule.timing.timezone))}</li>`).join('')}</ol>`
+            : '<p class="upcoming-empty">No future occurrences.</p>'}
+        </details>`
+      : '<p class="upcoming-empty">Paused — resume to calculate upcoming occurrences.</p>';
     card.innerHTML = `
       <div class="schedule-card-header">
         <div>
@@ -272,19 +303,22 @@ function renderSchedules() {
       <p class="schedule-target-preview">${escapeHtml(preview)}</p>
       <dl class="schedule-facts">
         <div><dt>Targets</dt><dd>${schedule.targets.length.toLocaleString()}</dd></div>
-        <div><dt>Next run</dt><dd>${escapeHtml(formatDate(schedule.next_run_at))}</dd></div>
+        <div><dt>Next run</dt><dd>${escapeHtml(formatScheduleDate(schedule.next_run_at, schedule.timing.timezone))}</dd></div>
         <div><dt>Last run</dt><dd>${escapeHtml(formatDate(schedule.last_run_at))}</dd></div>
       </dl>
+      ${upcomingMarkup}
       ${schedule.last_error ? `<p class="schedule-error">${escapeHtml(schedule.last_error)}</p>` : ''}
       <div class="schedule-card-footer">
         <span class="schedule-card-subtitle">${escapeHtml(schedule.overlap_policy === 'skip' ? 'Skips overlapping batches' : 'Queues overlapping batches')}</span>
         <div class="compact-actions">
+          <button type="button" class="button small" data-action="edit">Edit</button>
           <button type="button" class="button small" data-action="dispatches">History</button>
           <button type="button" class="button small" data-action="run-now">Run now</button>
           <button type="button" class="button small" data-action="toggle">${schedule.enabled ? 'Pause' : 'Resume'}</button>
           <button type="button" class="button small danger" data-action="delete">Delete</button>
         </div>
       </div>`;
+    card.querySelector('[data-action="edit"]').addEventListener('click', () => editSchedule(schedule));
     card.querySelector('[data-action="dispatches"]').addEventListener('click', () => openDispatches(schedule));
     card.querySelector('[data-action="run-now"]').addEventListener('click', () => runNow(schedule));
     card.querySelector('[data-action="toggle"]').addEventListener('click', () => toggleSchedule(schedule));
@@ -304,7 +338,8 @@ function updateTimingFields() {
   const frequency = elements.frequency.value;
   elements.intervalLabel.hidden = frequency === 'once';
   elements.weekdayPanel.hidden = frequency !== 'weekly';
-  const units = {hourly: 'hour(s)', daily: 'day(s)', weekly: 'week(s)'};
+  elements.monthlyHelp.hidden = frequency !== 'monthly';
+  const units = {hourly: 'hour(s)', daily: 'day(s)', weekly: 'week(s)', monthly: 'month(s)'};
   elements.intervalUnit.textContent = units[frequency] || '';
   if (frequency === 'once') {
     elements.interval.value = '1';
@@ -330,8 +365,9 @@ function runNeedsAuthorization(run) {
 function updateAuthorization() {
   const mode = document.querySelector('input[name="template-mode"]:checked').value;
   const selectedRun = state.runs.find((run) => run.run_id === elements.templateRun.value);
+  const editedRun = {...(state.editingSchedule?.run || {}), ...selectedFlags()};
   const requiresAuthorization = mode === 'passive'
-    ? Object.entries(selectedFlags()).some(([flag, value]) => value && AUTHORIZATION_FLAGS.has(flag))
+    ? runNeedsAuthorization(editedRun)
     : selectedRun?.activities?.some((activity) => activity === 'P1' || activity === 'P2') || false;
   elements.authorizationRow.hidden = !requiresAuthorization;
   if (!requiresAuthorization) {
@@ -373,31 +409,38 @@ async function buildRunTemplate(targets) {
     return {...detail.request, target: targets[0]};
   }
 
-  const sources = [...elements.sourceGrid.querySelectorAll('input:checked')].map((input) => input.value);
+  const existingRun = state.editingSchedule?.run || {};
+  const knownSources = new Set(state.sources.map((source) => source.name));
+  const preservedSources = (existingRun.sources || []).filter((source) => !knownSources.has(source));
+  const selectedSources = [...elements.sourceGrid.querySelectorAll('input:checked')].map((input) => input.value);
+  const sources = [...preservedSources, ...selectedSources];
   const flags = selectedFlags();
-  if (sources.length === 0 && !Object.values(flags).some(Boolean)) {
+  if (!state.editingSchedule && sources.length === 0 && !Object.values(flags).some(Boolean)) {
     throw new Error('Select at least one passive source or optional action.');
   }
-  if (Object.entries(flags).some(([flag, value]) => value && AUTHORIZATION_FLAGS.has(flag)) && !elements.authorizationConfirmation.checked) {
-    throw new Error('Confirm authorization for the selected DNS or direct-interaction activity.');
-  }
   const deadline = elements.deadline.value.trim();
-  return {
+  const run = {
+    ...existingRun,
     target: targets[0],
     sources,
     limit: Number(elements.limit.value),
-    start: 0,
+    start: existingRun.start ?? 0,
     source_workers: Number(elements.sourceWorkers.value),
     deadline_seconds: deadline ? Number(deadline) : null,
     ...flags,
   };
+  if (runNeedsAuthorization(run) && !elements.authorizationConfirmation.checked) {
+    throw new Error('Confirm authorization for the selected DNS or direct-interaction activity.');
+  }
+  return run;
 }
 
-async function createSchedule(event) {
+async function submitSchedule(event) {
   event.preventDefault();
   showFormError('');
   elements.createButton.disabled = true;
   try {
+    const editing = state.editingSchedule;
     const targets = parseTargets();
     if (targets.length === 0) {
       throw new Error('Enter at least one authorized target.');
@@ -405,25 +448,81 @@ async function createSchedule(event) {
     if (targets.length > 10000) {
       throw new Error('A single schedule supports up to 10,000 targets. Split larger inventories into multiple schedules.');
     }
+    const enabled = editing
+      ? (await api(`/api/v1/schedules/${encodeURIComponent(editing.schedule_id)}`)).enabled
+      : true;
     const payload = {
       name: elements.name.value.trim(),
       targets,
       run: await buildRunTemplate(targets),
       timing: buildTiming(),
-      enabled: true,
+      enabled,
       overlap_policy: elements.overlapPolicy.value,
     };
-    await api('/api/v1/schedules', {method: 'POST', body: JSON.stringify(payload)});
-    showToast(`Created “${payload.name}” for ${targets.length.toLocaleString()} target${targets.length === 1 ? '' : 's'}.`);
-    elements.name.value = '';
-    elements.targets.value = '';
-    updateTargetSummary();
+    const path = editing ? `/api/v1/schedules/${encodeURIComponent(editing.schedule_id)}` : '/api/v1/schedules';
+    await api(path, {method: editing ? 'PUT' : 'POST', body: JSON.stringify(payload)});
+    showToast(editing
+      ? `Saved changes to “${payload.name}”.`
+      : `Created “${payload.name}” for ${targets.length.toLocaleString()} target${targets.length === 1 ? '' : 's'}.`);
+    resetScheduleForm();
     await loadSchedules();
   } catch (error) {
-    showFormError(failureMessage('Could not create schedule', error, 'Review the schedule values and try again.'));
+    showFormError(failureMessage(
+      state.editingSchedule ? 'Could not save schedule' : 'Could not create schedule',
+      error,
+      'Review the schedule values and try again.',
+    ));
   } finally {
     elements.createButton.disabled = false;
   }
+}
+
+function resetScheduleForm() {
+  state.editingSchedule = null;
+  elements.form.reset();
+  elements.builderTitle.textContent = 'Create a schedule';
+  elements.createButton.textContent = 'Create schedule';
+  elements.cancelEditButton.hidden = true;
+  elements.timezone.value = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  elements.start.value = localDateTimeValue(new Date(Date.now() + 5 * 60 * 1000));
+  showFormError('');
+  updateTimingFields();
+  updateTargetSummary();
+  updateTemplatePanels();
+}
+
+function cancelScheduleEdit() {
+  resetScheduleForm();
+  elements.name.focus();
+}
+
+function editSchedule(schedule) {
+  resetScheduleForm();
+  state.editingSchedule = schedule;
+  elements.builderTitle.textContent = 'Edit schedule';
+  elements.createButton.textContent = 'Save changes';
+  elements.cancelEditButton.hidden = false;
+  elements.name.value = schedule.name;
+  elements.targets.value = schedule.targets.join('\n');
+  elements.frequency.value = schedule.timing.frequency;
+  elements.start.value = zonedDateTimeValue(schedule.timing.start_at, schedule.timing.timezone);
+  elements.timezone.value = schedule.timing.timezone;
+  elements.interval.value = String(schedule.timing.interval);
+  elements.overlapPolicy.value = schedule.overlap_policy;
+  const weekdays = new Set(schedule.timing.weekdays);
+  elements.weekdayPanel.querySelectorAll('input').forEach((input) => { input.checked = weekdays.has(Number(input.value)); });
+  const sources = new Set(schedule.run.sources);
+  elements.sourceGrid.querySelectorAll('input').forEach((input) => { input.checked = sources.has(input.value); });
+  document.querySelectorAll('[data-run-flag]').forEach((input) => { input.checked = Boolean(schedule.run[input.dataset.runFlag]); });
+  elements.limit.value = String(schedule.run.limit);
+  elements.sourceWorkers.value = String(schedule.run.source_workers);
+  elements.deadline.value = schedule.run.deadline_seconds == null ? '' : String(schedule.run.deadline_seconds);
+  updateTimingFields();
+  updateTargetSummary();
+  updateTemplatePanels();
+  const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+  elements.form.scrollIntoView({behavior, block: 'start'});
+  elements.name.focus();
 }
 
 async function toggleSchedule(schedule) {
@@ -570,6 +669,7 @@ function initializeElements() {
     interval: byId('schedule-interval'),
     intervalLabel: byId('interval-label'),
     intervalUnit: byId('interval-unit'),
+    monthlyHelp: byId('monthly-help'),
     overlapPolicy: byId('overlap-policy'),
     weekdayPanel: byId('weekday-panel'),
     limit: byId('run-limit'),
@@ -579,6 +679,8 @@ function initializeElements() {
     authorizationConfirmation: byId('authorization-confirmation'),
     formError: byId('form-error'),
     createButton: byId('create-schedule-button'),
+    cancelEditButton: byId('cancel-edit-button'),
+    builderTitle: byId('builder-title'),
     scheduleLoading: byId('schedule-loading'),
     scheduleEmpty: byId('schedule-empty'),
     scheduleList: byId('schedule-list'),
@@ -594,7 +696,8 @@ function initializeElements() {
 function bindEvents() {
   elements.themeButton.addEventListener('click', cycleTheme);
   elements.refreshButton.addEventListener('click', loadInitialData);
-  elements.form.addEventListener('submit', createSchedule);
+  elements.form.addEventListener('submit', submitSchedule);
+  elements.cancelEditButton.addEventListener('click', cancelScheduleEdit);
   elements.targets.addEventListener('input', updateTargetSummary);
   elements.frequency.addEventListener('change', updateTimingFields);
   elements.templateRun.addEventListener('change', updateAuthorization);
@@ -610,13 +713,8 @@ function bindEvents() {
 }
 
 function initializeDefaults() {
-  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-  elements.timezone.value = timezone;
-  elements.start.value = localDateTimeValue(new Date(Date.now() + 5 * 60 * 1000));
   setTheme(localStorage.getItem('runs-theme') || 'system');
-  updateTimingFields();
-  updateTargetSummary();
-  updateTemplatePanels();
+  resetScheduleForm();
 }
 
 document.addEventListener('DOMContentLoaded', () => {

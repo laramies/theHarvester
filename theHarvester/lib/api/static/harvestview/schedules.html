@@ -119,13 +119,14 @@
 
           <fieldset>
             <legend>Timing</legend>
-            <div class="schedule-grid three">
+            <div class="schedule-grid timing-grid">
               <label>Frequency
-                <select id="schedule-frequency">
+                <select id="schedule-frequency" aria-describedby="monthly-help">
                   <option value="once">Once</option>
                   <option value="hourly">Hourly</option>
                   <option value="daily" selected>Daily</option>
                   <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
                 </select>
               </label>
               <label>Start date and time
@@ -145,6 +146,9 @@
                 </select>
               </label>
             </div>
+            <p id="monthly-help" class="timing-help" hidden>
+              Monthly schedules keep the selected local day and time. Short months use their final day.
+            </p>
             <div id="weekday-panel" class="weekday-panel" hidden>
               <span>Run on</span>
               <label><input type="checkbox" value="1">Mon</label>
@@ -163,7 +167,10 @@
           </label>
 
           <div id="form-error" class="form-error" role="alert" hidden></div>
-          <button id="create-schedule-button" class="button primary schedule-submit" type="submit">Create schedule</button>
+          <div class="schedule-form-actions">
+            <button id="create-schedule-button" class="button primary schedule-submit" type="submit">Create schedule</button>
+            <button id="cancel-edit-button" class="button schedule-submit" type="button" hidden>Cancel edit</button>
+          </div>
         </form>
       </section>
 

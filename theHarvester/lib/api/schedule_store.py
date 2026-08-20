@@ -15,6 +15,7 @@ from .schedule_models import (
     ScheduleCreate,
     ScheduleDispatchRecord,
     ScheduleResponse,
+    ScheduleTiming,
     parse_utc,
     utc_iso,
     utc_now_datetime,
@@ -117,18 +118,24 @@ class ScheduleStore:
 
     @staticmethod
     def _response(row: aiosqlite.Row) -> ScheduleResponse:
+        timing = ScheduleTiming.model_validate_json(row['timing_json'])
+        next_run_at = row['next_run_at']
         return ScheduleResponse.model_validate(
             {
                 'schedule_id': row['schedule_id'],
                 'name': row['name'],
                 'targets': json.loads(row['targets_json']),
                 'run': json.loads(row['run_json']),
-                'timing': json.loads(row['timing_json']),
+                'timing': timing,
                 'enabled': bool(row['enabled']),
                 'overlap_policy': row['overlap_policy'],
                 'created_at': row['created_at'],
                 'updated_at': row['updated_at'],
-                'next_run_at': row['next_run_at'],
+                'next_run_at': next_run_at,
+                'upcoming_occurrences': [
+                    utc_iso(occurrence)
+                    for occurrence in timing.upcoming_occurrences(parse_utc(next_run_at) if next_run_at else None)
+                ],
                 'last_run_at': row['last_run_at'],
                 'last_error': row['last_error'],
             }
@@ -196,14 +203,22 @@ class ScheduleStore:
 
     async def replace(self, schedule_id: str, request: ScheduleCreate) -> ScheduleResponse | None:
         await self.initialize()
-        now_text = utc_iso(utc_now_datetime())
-        next_run_at = utc_iso(request.timing.first_due_at()) if request.enabled else None
+        existing = await self.get(schedule_id)
+        if existing is None:
+            return None
+        now = utc_now_datetime()
+        now_text = utc_iso(now)
+        next_value: datetime | None
+        if request.enabled and request.timing.frequency == 'once' and existing.last_run_at is None:
+            next_value = request.timing.first_due_at()
+        else:
+            next_value = request.timing.next_after(now - timedelta(microseconds=1)) if request.enabled else None
+        next_run_at = utc_iso(next_value) if next_value is not None else None
         connection = await self._connect()
         try:
             cursor = await connection.execute(
                 'UPDATE schedules SET name = ?, targets_json = ?, run_json = ?, timing_json = ?, enabled = ?, '
-                'overlap_policy = ?, updated_at = ?, next_run_at = ?, last_run_at = NULL, last_error = NULL, '
-                'claim_owner = NULL, '
+                'overlap_policy = ?, updated_at = ?, next_run_at = ?, claim_owner = NULL, '
                 'claim_until = NULL WHERE schedule_id = ?',
                 (
                     request.name,
@@ -233,10 +248,15 @@ class ScheduleStore:
             return None
         now = utc_now_datetime()
         if enabled:
-            if existing.timing.frequency == 'once' and existing.last_run_at is not None:
+            first_due_at = existing.timing.first_due_at()
+            if (
+                existing.timing.frequency == 'once'
+                and existing.last_run_at is not None
+                and first_due_at <= parse_utc(existing.last_run_at)
+            ):
                 next_run_at = None
             elif existing.last_run_at is None:
-                next_run_at = utc_iso(existing.timing.first_due_at())
+                next_run_at = utc_iso(first_due_at)
             else:
                 next_value = existing.timing.next_after(now - timedelta(microseconds=1))
                 next_run_at = utc_iso(next_value) if next_value is not None else None

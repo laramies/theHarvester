@@ -37,6 +37,11 @@ def test_schedule_page_creates_and_manages_two_target_passive_schedule(
     expect(page.locator('#target-summary')).to_have_text('1 unique target')
     page.locator('#schedule-targets').fill('example.test\nexample.org')
     expect(page.locator('#target-summary')).to_have_text('2 unique targets')
+    page.locator('#schedule-frequency').select_option('monthly')
+    page.locator('#schedule-start').fill('2030-01-31T09:00')
+    page.locator('#schedule-timezone').fill('America/New_York')
+    expect(page.locator('#monthly-help')).to_be_visible()
+    expect(page.locator('#monthly-help')).to_contain_text('final day')
     crtsh = page.locator('.source-option').filter(has_text='crtsh')
     expect(crtsh.locator('input')).to_be_enabled()
     crtsh.locator('input').check()
@@ -47,10 +52,43 @@ def test_schedule_page_creates_and_manages_two_target_passive_schedule(
     expect(card).to_be_visible()
     expect(card).to_contain_text('example.test, example.org')
     expect(card).to_contain_text('2')
+    expect(card).to_contain_text('Monthly')
+    card.get_by_text('Upcoming occurrences').click()
+    expect(card.locator('.upcoming-occurrences')).to_contain_text('Feb 28, 2030')
     expect(card.get_by_role('button', name='Pause')).to_be_visible()
     schedules = page.evaluate("fetch('/api/v1/schedules').then((response) => response.json())")
     assert schedules[0]['run']['dns_resolve'] is False
     assert page.evaluate('document.documentElement.scrollWidth <= document.documentElement.clientWidth')
+
+    card.get_by_role('button', name='Edit').click()
+    expect(page.get_by_role('heading', name='Edit schedule')).to_be_visible()
+    expect(page.locator('#schedule-name')).to_have_value('Blog inventory')
+    expect(page.locator('#schedule-frequency')).to_have_value('monthly')
+    page.get_by_role('button', name='Cancel edit').click()
+    expect(page.locator('#schedule-name')).to_be_focused()
+    expect(page.get_by_role('heading', name='Create a schedule')).to_be_visible()
+    card.get_by_role('button', name='Edit').click()
+    card.get_by_role('button', name='Pause').click()
+    card = page.locator('.schedule-card').filter(has_text='Blog inventory')
+    expect(card.get_by_role('button', name='Resume')).to_be_visible()
+    page.locator('#schedule-name').fill('Blog inventory every week')
+    page.locator('#schedule-frequency').select_option('daily')
+    expect(page.locator('#monthly-help')).to_be_hidden()
+    page.locator('#schedule-interval').fill('7')
+    page.get_by_role('button', name='Save changes').click()
+
+    card = page.locator('.schedule-card').filter(has_text='Blog inventory every week')
+    expect(card).to_be_visible()
+    expect(card).to_contain_text('Every 7 days')
+    expect(card.get_by_role('button', name='Resume')).to_be_visible()
+    expect(page.get_by_role('heading', name='Create a schedule')).to_be_visible()
+    expect(page.get_by_role('button', name='Cancel edit')).to_be_hidden()
+    updated = page.evaluate("fetch('/api/v1/schedules').then((response) => response.json())")
+    assert updated[0]['timing']['frequency'] == 'daily'
+    assert updated[0]['timing']['interval'] == 7
+    card.get_by_role('button', name='Resume').click()
+    card = page.locator('.schedule-card').filter(has_text='Blog inventory every week')
+    expect(card.get_by_role('button', name='Pause')).to_be_visible()
 
     card.get_by_role('button', name='Pause').click()
     card = page.locator('.schedule-card').filter(has_text='Blog inventory')
@@ -148,9 +186,14 @@ def test_schedule_clone_requires_fresh_authorization_for_active_work(
         'cancellation_requested_at': None,
         'evidence_status': 'complete',
         'result_count': 0,
-        'activities': ['P0', 'P2'],
-        'sources': ['crtsh'],
-        'request': {'target': 'source.example.test', 'sources': ['crtsh'], 'screenshot': True},
+        'activities': ['P1'],
+        'sources': [],
+        'request': {
+            'target': 'source.example.test',
+            'sources': [],
+            'start': 25,
+            'dns_recursive_depth': 1,
+        },
         'source_executions': [],
         'action_executions': [],
         'results': [],
@@ -183,7 +226,26 @@ def test_schedule_clone_requires_fresh_authorization_for_active_work(
     expect(page.locator('.schedule-card').filter(has_text='Active clone')).to_be_visible()
     schedules = page.evaluate("fetch('/api/v1/schedules').then((response) => response.json())")
     active_clone = next(schedule for schedule in schedules if schedule['name'] == 'Active clone')
-    assert active_clone['run']['screenshot'] is True
+    assert active_clone['run']['start'] == 25
+    assert active_clone['run']['dns_recursive_depth'] == 1
+
+    card = page.locator('.schedule-card').filter(has_text='Active clone')
+    card.get_by_role('button', name='Edit').click()
+    expect(page.locator('#authorization-row')).to_be_visible()
+    expect(page.locator('#authorization-confirmation')).not_to_be_checked()
+    page.locator('#schedule-name').fill('Updated active clone')
+    page.get_by_role('button', name='Save changes').click()
+    expect(page.locator('#form-error')).to_have_text(
+        'Could not save schedule: Confirm authorization for the selected DNS or direct-interaction activity. '
+        'Review the schedule values and try again.'
+    )
+    page.locator('#authorization-confirmation').check()
+    page.get_by_role('button', name='Save changes').click()
+    expect(page.locator('.schedule-card').filter(has_text='Updated active clone')).to_be_visible()
+    updated_schedules = page.evaluate("fetch('/api/v1/schedules').then((response) => response.json())")
+    updated_clone = next(schedule for schedule in updated_schedules if schedule['name'] == 'Updated active clone')
+    assert updated_clone['run']['start'] == 25
+    assert updated_clone['run']['dns_recursive_depth'] == 1
 
 
 def write_jsonl_evidence(path: Path, evidence: dict[str, object]) -> None:

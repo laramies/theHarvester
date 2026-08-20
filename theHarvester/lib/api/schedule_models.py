@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from calendar import monthrange
 from datetime import UTC, date, datetime, time, timedelta, tzinfo
 from typing import Literal, Self
 
@@ -9,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from .run_models import RunRequest, _normalize_target
 
 MAX_SCHEDULE_TARGETS = 10_000
-ScheduleFrequency = Literal['once', 'hourly', 'daily', 'weekly']
+ScheduleFrequency = Literal['once', 'hourly', 'daily', 'weekly', 'monthly']
 OverlapPolicy = Literal['skip', 'queue']
 DispatchState = Literal['reserved', 'queued', 'running', 'cancelling', 'completed', 'failed', 'cancelled']
 
@@ -45,13 +46,13 @@ def _wall_candidate(day: date, wall_time: time, zone: tzinfo) -> datetime:
 
 
 class ScheduleTiming(BaseModel):
-    """A small, UI-friendly recurrence model with timezone-aware daily and weekly behavior."""
+    """A small, UI-friendly recurrence model with timezone-aware calendar behavior."""
 
     model_config = ConfigDict(extra='forbid')
 
-    frequency: ScheduleFrequency = Field(description='Run once, hourly, daily, or weekly.')
+    frequency: ScheduleFrequency = Field(description='Run once, hourly, daily, weekly, or monthly.')
     start_at: datetime = Field(description='First eligible run time. An explicit UTC offset is required.')
-    timezone: str = Field(default='UTC', description='IANA timezone used for daily and weekly wall-clock recurrence.')
+    timezone: str = Field(default='UTC', description='IANA timezone used for calendar wall-clock recurrence.')
     interval: int = Field(default=1, ge=1, le=365, description='Number of frequency units between occurrences.')
     weekdays: list[int] = Field(
         default_factory=list,
@@ -103,7 +104,7 @@ class ScheduleTiming(BaseModel):
     def next_after(self, after: datetime) -> datetime | None:
         """Return the first occurrence strictly after ``after``.
 
-        Daily and weekly schedules preserve local wall-clock time across DST.
+        Daily, weekly, and monthly schedules preserve local wall-clock time across DST.
         Hourly schedules intentionally use elapsed UTC hours.
         """
         if after.tzinfo is None or after.utcoffset() is None:
@@ -136,6 +137,23 @@ class ScheduleTiming(BaseModel):
                 candidate = _wall_candidate(candidate_day, wall_time, zone)
             return candidate.astimezone(UTC)
 
+        if self.frequency == 'monthly':
+            start_month = local_start.year * 12 + local_start.month - 1
+            after_month = local_after.year * 12 + local_after.month - 1
+            elapsed_months = max(0, after_month - start_month)
+            aligned_months = elapsed_months - (elapsed_months % self.interval)
+            candidate_month = start_month + aligned_months
+            year, month_index = divmod(candidate_month, 12)
+            month = month_index + 1
+            candidate_day = date(year, month, min(local_start.day, monthrange(year, month)[1]))
+            candidate = _wall_candidate(candidate_day, wall_time, zone)
+            if candidate.astimezone(UTC) <= after_utc or candidate < local_start:
+                year, month_index = divmod(candidate_month + self.interval, 12)
+                month = month_index + 1
+                candidate_day = date(year, month, min(local_start.day, monthrange(year, month)[1]))
+                candidate = _wall_candidate(candidate_day, wall_time, zone)
+            return candidate.astimezone(UTC)
+
         start_week = local_start.date() - timedelta(days=local_start.isoweekday() - 1)
         after_week = local_after.date() - timedelta(days=local_after.isoweekday() - 1)
         elapsed_weeks = max(0, (after_week - start_week).days // 7)
@@ -155,6 +173,22 @@ class ScheduleTiming(BaseModel):
         """Advance after an occurrence and coalesce missed times after downtime."""
         reference = max(occurrence.astimezone(UTC), (now or utc_now_datetime()).astimezone(UTC))
         return self.next_after(reference)
+
+    def upcoming_occurrences(
+        self,
+        first: datetime | None,
+        *,
+        limit: int = 5,
+        now: datetime | None = None,
+    ) -> list[datetime]:
+        if first is None or limit < 1:
+            return []
+        occurrences = [first.astimezone(UTC)]
+        current = self.next_future_after(first, now)
+        while current is not None and len(occurrences) < limit:
+            occurrences.append(current.astimezone(UTC))
+            current = self.next_after(current)
+        return occurrences
 
 
 class ScheduleCreate(BaseModel):
@@ -211,6 +245,7 @@ class ScheduleResponse(BaseModel):
     created_at: str
     updated_at: str
     next_run_at: str | None
+    upcoming_occurrences: list[str]
     last_run_at: str | None
     last_error: str | None
 
