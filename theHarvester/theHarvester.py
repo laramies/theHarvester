@@ -12,9 +12,21 @@ async def _run() -> None:
         await dispose_sqlite_databases()
 
 
+def _screenshots_requested() -> bool:
+    return any(argument == '--screenshot' or argument.startswith('--screenshot=') for argument in sys.argv[1:])
+
+
 def main() -> None:
     loop_factory = None  # asyncio's standard event loop
-    if sys.platform != 'win32':
+    if sys.platform == 'win32':
+        if not _screenshots_requested():
+            try:
+                import winloop
+
+                loop_factory = winloop.new_event_loop
+            except ModuleNotFoundError:
+                pass
+    else:
         try:
             import uvloop
 

@@ -149,7 +149,9 @@ class SearchBaidu:
                     cleanup_errors.append(error)
 
         final_error = self._cleanup_failure(primary_error, cleanup_errors)
-        if isinstance(final_error, playwright_api.Error):
+        if isinstance(final_error, playwright_api.Error) or (
+            isinstance(final_error, ValueError) and str(final_error) == 'startupinfo is not supported'
+        ):
             if not self.total_results:
                 return await self._http_search(urls, proxy_url or False)
             return SourceExecutionReport('failed', 'transport-error')
