@@ -372,7 +372,8 @@ def test_dispatch_recovery_reuses_reservations_and_run_ids(tmp_path, monkeypatch
     asyncio.run(scenario())
 
 
-def test_skip_policy_recovers_current_occurrence_reservations(tmp_path, monkeypatch) -> None:
+@pytest.mark.parametrize('overlap_policy', ['skip', 'queue'])
+def test_overlap_policy_recovers_current_occurrence_reservations(tmp_path, monkeypatch, overlap_policy: str) -> None:
     from theHarvester.lib.api import run_worker
     from theHarvester.lib.api.run_models import RunRequest
     from theHarvester.lib.api.run_store import RunStore
@@ -390,7 +391,9 @@ def test_skip_policy_recovers_current_occurrence_reservations(tmp_path, monkeypa
         store = ScheduleStore()
         run_store = RunStore()
         scheduled_for = datetime(2026, 8, 20, 9, tzinfo=UTC)
-        schedule = await store.create(ScheduleCreate.model_validate(_payload(start_at=scheduled_for.isoformat())))
+        payload = _payload(start_at=scheduled_for.isoformat())
+        payload['overlap_policy'] = overlap_policy
+        schedule = await store.create(ScheduleCreate.model_validate(payload))
         first_run_id = '55555555-5555-4555-8555-555555555555'
         second_run_id = '66666666-6666-4666-8666-666666666666'
         await store.reserve_dispatch(schedule.schedule_id, scheduled_for, 'example.test', first_run_id)
@@ -446,6 +449,129 @@ def test_recovered_queued_occurrence_completes_without_a_false_error(tmp_path, m
         assert updated.last_run_at == scheduled_for.isoformat()
         assert updated.last_error is None
         assert [run['run_id'] for run in await run_store.list_runs(limit=10)] == [run_id]
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize('transition', ['pause-resume', 'replace'])
+@pytest.mark.parametrize('overlap_policy', ['skip', 'queue'])
+def test_newer_occurrence_terminalizes_a_stale_runless_reservation(
+    tmp_path,
+    monkeypatch,
+    transition: str,
+    overlap_policy: str,
+) -> None:
+    from theHarvester.lib.api import run_worker
+    from theHarvester.lib.api.run_store import RunStore
+    from theHarvester.lib.api.schedule_models import ScheduleCreate, parse_utc
+    from theHarvester.lib.api.schedule_service import _dispatch_claimed
+    from theHarvester.lib.api.schedule_store import ScheduleStore
+
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_SCHEDULE_DB', str(tmp_path / 'schedules.sqlite'))
+    monkeypatch.setattr(run_worker, 'worker_enabled', lambda: True)
+    monkeypatch.setattr(run_worker, 'worker_available', lambda: True)
+    monkeypatch.setattr(run_worker, 'wake_worker', lambda: None)
+
+    async def scenario() -> None:
+        store = ScheduleStore()
+        first = datetime(2020, 1, 1, tzinfo=UTC)
+        stale = datetime(2020, 1, 1, 1, tzinfo=UTC)
+        payload = _payload(start_at=first.isoformat(), targets=['example.test'])
+        payload['timing']['frequency'] = 'hourly'
+        payload['overlap_policy'] = overlap_policy
+        schedule = await store.create(ScheduleCreate.model_validate(payload))
+        assert (await store.claim_due('first-owner', now=first))[0].schedule_id == schedule.schedule_id
+        assert await store.complete_claim(
+            schedule.schedule_id,
+            'first-owner',
+            scheduled_for=first,
+            next_run_at=stale,
+        )
+        stale_run_id = '88888888-8888-4888-8888-888888888888'
+        await store.reserve_dispatch(schedule.schedule_id, stale, 'example.test', stale_run_id)
+
+        if transition == 'pause-resume':
+            assert await store.set_enabled(schedule.schedule_id, False) is not None
+            changed = await store.set_enabled(schedule.schedule_id, True)
+        else:
+            replacement = _payload(start_at='2030-01-01T09:00:00+00:00', targets=['example.test'])
+            replacement['timing']['frequency'] = 'hourly'
+            replacement['overlap_policy'] = overlap_policy
+            changed = await store.replace(schedule.schedule_id, ScheduleCreate.model_validate(replacement))
+        assert changed is not None
+        assert changed.next_run_at is not None
+        current = parse_utc(changed.next_run_at)
+        claimed = await store.claim_due('current-owner', now=current)
+        await _dispatch_claimed(claimed[0], 'current-owner')
+
+        dispatches = await store.list_dispatches(schedule.schedule_id)
+        stale_dispatch = next(dispatch for dispatch in dispatches if dispatch.run_id == stale_run_id)
+        assert stale_dispatch.state == 'failed'
+        assert stale_dispatch.error == 'Reserved occurrence was superseded before run creation'
+        current_dispatches = [dispatch for dispatch in dispatches if dispatch.scheduled_for == changed.next_run_at]
+        assert len(current_dispatches) == 1
+        assert current_dispatches[0].state == 'queued'
+        assert [run['run_id'] for run in await RunStore().list_runs(limit=10)] == [current_dispatches[0].run_id]
+
+    asyncio.run(scenario())
+
+
+def test_large_reservation_reconciliation_renews_the_schedule_claim(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import run_worker
+    from theHarvester.lib.api.schedule_models import ScheduleCreate, parse_utc
+    from theHarvester.lib.api.schedule_service import _dispatch_claimed
+    from theHarvester.lib.api.schedule_store import ScheduleStore
+
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_SCHEDULE_DB', str(tmp_path / 'schedules.sqlite'))
+    monkeypatch.setattr(run_worker, 'worker_enabled', lambda: True)
+    monkeypatch.setattr(run_worker, 'worker_available', lambda: True)
+    monkeypatch.setattr(run_worker, 'wake_worker', lambda: None)
+    renewals = 0
+    renew_claim = ScheduleStore.renew_claim
+
+    async def track_renewal(self, schedule_id: str, owner_id: str, *, lease_seconds: int = 60) -> bool:
+        nonlocal renewals
+        renewals += 1
+        return await renew_claim(self, schedule_id, owner_id, lease_seconds=lease_seconds)
+
+    monkeypatch.setattr(ScheduleStore, 'renew_claim', track_renewal)
+
+    async def scenario() -> None:
+        store = ScheduleStore()
+        first = datetime(2020, 1, 1, tzinfo=UTC)
+        stale = datetime(2020, 1, 1, 1, tzinfo=UTC)
+        payload = _payload(start_at=first.isoformat(), targets=['example.test'])
+        payload['timing']['frequency'] = 'hourly'
+        payload['overlap_policy'] = 'queue'
+        schedule = await store.create(ScheduleCreate.model_validate(payload))
+        assert (await store.claim_due('first-owner', now=first))[0].schedule_id == schedule.schedule_id
+        assert await store.complete_claim(
+            schedule.schedule_id,
+            'first-owner',
+            scheduled_for=first,
+            next_run_at=stale,
+        )
+        for index in range(100):
+            await store.reserve_dispatch(
+                schedule.schedule_id,
+                stale,
+                f'example-{index}.test',
+                f'00000000-0000-4000-8000-{index:012d}',
+            )
+
+        assert await store.set_enabled(schedule.schedule_id, False) is not None
+        changed = await store.set_enabled(schedule.schedule_id, True)
+        assert changed is not None and changed.next_run_at is not None
+        current = parse_utc(changed.next_run_at)
+        claimed = await store.claim_due('current-owner', now=current)
+        await _dispatch_claimed(claimed[0], 'current-owner')
+
+        dispatches = await store.list_dispatches(schedule.schedule_id)
+        assert renewals == 1
+        assert sum(dispatch.state == 'failed' for dispatch in dispatches) == 100
+        assert sum(dispatch.state == 'queued' for dispatch in dispatches) == 1
 
     asyncio.run(scenario())
 

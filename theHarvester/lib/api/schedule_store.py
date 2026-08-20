@@ -444,14 +444,18 @@ class ScheduleStore:
         finally:
             await connection.close()
 
-    async def pending_dispatches(self, schedule_id: str) -> list[ScheduleDispatchRecord]:
+    async def pending_dispatches(
+        self,
+        schedule_id: str,
+        *,
+        reserved_only: bool = False,
+    ) -> list[ScheduleDispatchRecord]:
         await self.initialize()
         connection = await self._connect()
         try:
+            states = "state = 'reserved'" if reserved_only else "state IN ('reserved', 'queued', 'running', 'cancelling')"
             cursor = await connection.execute(
-                'SELECT * FROM schedule_dispatches WHERE schedule_id = ? '
-                "AND state IN ('reserved', 'queued', 'running', 'cancelling') "
-                'ORDER BY scheduled_for, target',
+                f'SELECT * FROM schedule_dispatches WHERE schedule_id = ? AND {states} ORDER BY scheduled_for, target',
                 (schedule_id,),
             )
             return [ScheduleDispatchRecord.model_validate(dict(row)) for row in await cursor.fetchall()]

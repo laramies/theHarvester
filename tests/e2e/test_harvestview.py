@@ -110,6 +110,29 @@ def test_schedule_page_creates_and_manages_two_target_passive_schedule(
     expect(page.locator('#schedule-empty')).to_be_visible()
 
 
+def test_schedule_page_rejects_a_non_loopback_host_in_browser(
+    harvestview_server_url: str,
+    page: Page,
+    browser_failures,
+) -> None:
+    browser_failures.allow_console_error('Failed to load resource: the server responded with a status of 403 (Forbidden)')
+    remote_url = harvestview_server_url.replace('127.0.0.1', 'attacker.example') + '/schedules'
+
+    def forward_non_loopback_host(route: Route) -> None:
+        rejected = page.context.request.get(
+            f'{harvestview_server_url}/schedules',
+            headers={'Host': 'attacker.example'},
+        )
+        route.fulfill(status=rejected.status, headers=rejected.headers, body=rejected.body())
+
+    page.route(remote_url, forward_non_loopback_host)
+    response = page.goto(remote_url)
+
+    assert response is not None
+    assert response.status == 403
+    expect(page.locator('body')).to_contain_text('theHarvester is available only on localhost')
+
+
 def test_schedule_clone_requires_fresh_authorization_for_active_work(
     harvestview_server_url: str,
     page: Page,

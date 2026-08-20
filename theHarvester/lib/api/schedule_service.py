@@ -33,20 +33,33 @@ def wake_scheduler() -> None:
         _scheduler_wakeup.set()
 
 
-async def _refresh_pending_dispatches(
+async def _reconcile_pending_dispatches(
     schedule_id: str,
     schedule_store: ScheduleStore,
     run_store: RunStore,
     *,
     current_occurrence: datetime | None = None,
+    reserved_only: bool = False,
+    claim_owner: str | None = None,
 ) -> bool:
     active = False
-    for dispatch in await schedule_store.pending_dispatches(schedule_id):
+    dispatches = await schedule_store.pending_dispatches(schedule_id, reserved_only=reserved_only)
+    for index, dispatch in enumerate(dispatches, start=1):
+        if index % 100 == 0:
+            if claim_owner is not None and not await schedule_store.renew_claim(schedule_id, claim_owner):
+                raise RuntimeError('Scheduler lost its occurrence claim while reconciling scheduled runs')
+            await asyncio.sleep(0)
         run = await run_store.get(dispatch.run_id)
         if run is None:
             if dispatch.state == 'reserved':
-                if current_occurrence is None or parse_utc(dispatch.scheduled_for) != current_occurrence:
+                if current_occurrence is None:
                     active = True
+                elif parse_utc(dispatch.scheduled_for) != current_occurrence:
+                    await schedule_store.set_dispatch_state(
+                        dispatch.run_id,
+                        'failed',
+                        'Reserved occurrence was superseded before run creation',
+                    )
                 continue
             await schedule_store.set_dispatch_state(dispatch.run_id, 'failed', 'Scheduled run record is missing')
             continue
@@ -129,7 +142,7 @@ async def _enqueue_targets(
 
 
 async def refresh_schedule_dispatches(schedule_id: str) -> None:
-    await _refresh_pending_dispatches(schedule_id, ScheduleStore(), RunStore())
+    await _reconcile_pending_dispatches(schedule_id, ScheduleStore(), RunStore())
 
 
 async def dispatch_schedule_now(schedule_id: str) -> ScheduleDispatchResponse | None:
@@ -170,12 +183,15 @@ async def _dispatch_claimed(schedule: ScheduleResponse, owner_id: str) -> None:
         )
         return
 
-    if schedule.overlap_policy == 'skip' and await _refresh_pending_dispatches(
+    active = await _reconcile_pending_dispatches(
         schedule.schedule_id,
         schedule_store,
         run_store,
         current_occurrence=scheduled_for,
-    ):
+        reserved_only=schedule.overlap_policy == 'queue',
+        claim_owner=owner_id,
+    )
+    if schedule.overlap_policy == 'skip' and active:
         next_run = schedule.timing.next_future_after(scheduled_for)
         await schedule_store.complete_claim(
             schedule.schedule_id,
