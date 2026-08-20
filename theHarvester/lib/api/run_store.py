@@ -436,8 +436,6 @@ class RunStore:
                 if completed is not None:
                     evidence_run_id = str(completed.run_id)
             evidence_status = completed.status if completed is not None else None
-            if evidence is not None and completed is not None:
-                evidence_status = str(evidence.get('status', completed.status))
             await self.lifecycle.fail(
                 run_id,
                 status='failed',
@@ -468,6 +466,7 @@ class RunStore:
         if record is None:
             return
         evidence_run_id = None
+        completed = None
         if evidence:
             completed = await self._save_evidence(
                 evidence,
@@ -477,11 +476,15 @@ class RunStore:
                 expected_target=str(record['target']),
             )
             evidence_run_id = str(completed.run_id)
+        else:
+            completed = await self._existing_evidence(run_id, str(record['target']))
+            if completed is not None:
+                evidence_run_id = str(completed.run_id)
         await self.lifecycle.finish(
             run_id,
             completed_at=utc_now(),
             evidence_run_id=evidence_run_id,
-            evidence_status=str(evidence.get('status', completed.status)) if evidence else None,
+            evidence_status=completed.status if completed is not None else None,
             log=log[-200_000:],
         )
 
@@ -514,8 +517,6 @@ class RunStore:
             if completed is not None:
                 evidence_run_id = str(completed.run_id)
         evidence_status = completed.status if completed is not None else None
-        if evidence is not None and completed is not None:
-            evidence_status = str(evidence.get('status', completed.status))
         await self.lifecycle.fail(
             run_id,
             status='cancelled' if cancelled else 'failed',
@@ -542,6 +543,14 @@ class RunStore:
         run_id: UUID,
         expected_target: str,
     ) -> CompletedResult:
+        if str(evidence.get('target', '')) != expected_target:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail='Evidence target does not match run target',
+            )
+        existing = await self._existing_evidence(str(run_id), expected_target)
+        if existing is not None:
+            return existing
         try:
             completed = _completed_result(
                 evidence,
