@@ -114,7 +114,7 @@ class SearchBaidu:
                 headless=True,
                 proxy={'server': proxy_url} if proxy_url else None,
             )
-            context = await browser.new_context()
+            context = await browser.new_context(user_agent=Core.get_browser_user_agent())
             page = await context.new_page()
             for page_number, url in enumerate(urls):
                 if page_number:

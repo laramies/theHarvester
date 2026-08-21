@@ -206,6 +206,7 @@ class TestBaiduSearch:
                 PageResponse('Visit sub.a.example.com. baz@example.com'),
             ],
         )
+        monkeypatch.setattr(baidusearch.Core, 'get_browser_user_agent', staticmethod(lambda: 'UA'))
         search = baidusearch.SearchBaidu(word='example.com', limit=21)
         report = await search.process(proxy=True)
 
@@ -218,7 +219,7 @@ class TestBaiduSearch:
         assert all(call['wait_until'] == 'domcontentloaded' for call in state.calls)
         assert all(call['timeout'] == 60_000 for call in state.calls)
         assert state.launch_kwargs == {'headless': True, 'proxy': {'server': 'http://proxy.example:8080'}}
-        assert state.context_kwargs == {}
+        assert state.context_kwargs == {'user_agent': 'UA'}
         assert state.delays == [1.0, 1.0]
         assert state.page_closed
         assert state.context_closed
