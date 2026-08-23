@@ -170,9 +170,11 @@ For a reusable benchmark, keep the authorized target, source set, requested limi
 
 #### Analyze yields from SQLite
 
-The installed `harvest-yields` command reads an existing results database. It reports hostname yields by default; select another result kind or one completed run as needed:
+The installed `harvest-yields` command reads an existing results database. With no arguments it uses the standard `~/.local/share/theHarvester/stash.sqlite` database and reports hostname yields. It fails without creating a file when the selected database does not exist. Select another database, result kind, or one completed run as needed:
 
 ```console
+harvest-yields
+harvest-yields --database results.sqlite
 harvest-yields --database results.sqlite --kind hostname
 harvest-yields --database results.sqlite --kind ip
 harvest-yields --database results.sqlite --kind asn
@@ -180,7 +182,7 @@ harvest-yields --database results.sqlite --run-id 11111111-1111-4111-8111-111111
 harvest-yields --database results.sqlite --format json
 ```
 
-Without `--run-id`, counts are sums of each run's source yields. The top-level `run_count` states how many runs were selected; each source row's `run_count` states how many of those runs executed that source, including zero-yield executions. “Unique” always means unique within one run; aggregate unique totals sum those per-run counts rather than recomputing uniqueness across targets or dates. Hostname output adds resolved and unique-resolved counts. Other result kinds omit those DNS-specific fields.
+Without `--run-id`, counts are sums of each run's source yields. The top-level `run_count` states how many runs were selected; each source row's `run_count` states how many of those runs executed that source, including zero-yield executions. `UNIQUE/RUN` divides the summed unique count by that source's run count and is the default ranking key; JSON calls it `unique_result_count_per_run`. “Unique” always means unique within one run, so aggregate totals sum those per-run counts rather than recomputing uniqueness across targets or dates. Hostname output adds resolved and unique-resolved counts plus `UNIQUE-RESOLVED/RUN` (`unique_resolved_hostname_count_per_run` in JSON). Other result kinds omit those DNS-specific fields.
 
 ## Handling and sharing
 

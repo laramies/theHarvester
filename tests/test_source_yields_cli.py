@@ -8,6 +8,7 @@ from uuid import UUID
 import pytest
 
 from theHarvester import source_yields
+from theHarvester.lib import database as database_module
 from theHarvester.lib.active_evidence import ActionExecution, ActiveEvidence
 from theHarvester.lib.completed_result import CompletedResult, ResultObservation, SourceExecution
 from theHarvester.lib.database import ResultStore
@@ -87,15 +88,15 @@ async def _create_database(database: Path) -> None:
         _completed_run(
             RUN_TWO,
             observations=(
-                ResultObservation('alpha', 'hostname', 'second-alpha.example.test'),
-                ResultObservation('beta', 'hostname', 'second-beta.example.test'),
+                ResultObservation('alpha', 'hostname', 'second-shared.example.test'),
+                ResultObservation('beta', 'hostname', 'second-shared.example.test'),
                 ResultObservation('gamma', 'hostname', 'second-gamma.example.test'),
                 ResultObservation('alpha', 'ip', '192.0.2.1'),
                 ResultObservation('beta', 'ip', '192.0.2.1'),
                 ResultObservation('gamma', 'ip', '198.51.100.2'),
                 ResultObservation('alpha', 'asn', 'AS64496'),
             ),
-            resolved_hostnames=('second-beta.example.test',),
+            resolved_hostnames=('second-shared.example.test',),
         )
     )
     await store.dispose()
@@ -115,7 +116,21 @@ def test_missing_database_fails_without_creating_file(
     assert not database.exists()
 
 
-def test_default_table_sums_per_run_hostname_yields_and_sorts_sources(
+def test_default_database_uses_the_standard_result_store(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    database = tmp_path / 'stash.sqlite'
+    asyncio.run(_create_database(database))
+    monkeypatch.setattr(database_module, '_DEFAULT_DATABASE', database)
+
+    assert source_yields.main([]) == 0
+
+    assert capsys.readouterr().out.startswith('Kind: hostname\nRun count: 2\n')
+
+
+def test_default_table_ranks_by_unique_per_run_and_aligns_columns(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -124,16 +139,13 @@ def test_default_table_sums_per_run_hostname_yields_and_sorts_sources(
 
     assert source_yields.main(['--database', str(database)]) == 0
 
-    lines = capsys.readouterr().out.splitlines()
-    assert lines[:3] == [
+    assert capsys.readouterr().out.splitlines() == [
         'Kind: hostname',
         'Run count: 2',
-        'SOURCE  RUNS  OBSERVED  UNIQUE  SHARED  RESOLVED  UNIQUE-RESOLVED',
-    ]
-    assert [line.split() for line in lines[3:]] == [
-        ['alpha', '2', '3', '2', '1', '2', '1'],
-        ['beta', '2', '3', '2', '1', '2', '1'],
-        ['gamma', '1', '1', '1', '0', '0', '0'],
+        'SOURCE  RUNS  OBSERVED  UNIQUE  UNIQUE/RUN  SHARED  RESOLVED  UNIQUE-RESOLVED  UNIQUE-RESOLVED/RUN',
+        'gamma   1     1         1       1.00        0       0         0                0.00',
+        'alpha   2     3         1       0.50        2       3         1                0.50',
+        'beta    2     3         1       0.50        2       2         0                0.00',
     ]
 
 
@@ -153,9 +165,9 @@ def test_kind_accepts_every_result_kind_and_only_hostname_shows_resolution_colum
     assert ('RESOLVED' in lines[2]) is (kind == 'hostname')
     if kind == 'ip':
         assert [line.split() for line in lines[3:]] == [
-            ['gamma', '1', '1', '1', '0'],
-            ['alpha', '2', '1', '0', '1'],
-            ['beta', '2', '1', '0', '1'],
+            ['gamma', '1', '1', '1', '1.00', '0'],
+            ['alpha', '2', '1', '0', '0.00', '1'],
+            ['beta', '2', '1', '0', '0.00', '1'],
         ]
 
 
@@ -171,8 +183,8 @@ def test_run_id_selects_one_run(
     lines = capsys.readouterr().out.splitlines()
     assert lines[1] == 'Run count: 1'
     assert [line.split() for line in lines[3:]] == [
-        ['alpha', '1', '2', '1', '1', '2', '1'],
-        ['beta', '1', '2', '1', '1', '1', '0'],
+        ['alpha', '1', '2', '1', '1.00', '1', '2', '1', '1.00'],
+        ['beta', '1', '2', '1', '1.00', '1', '1', '0', '0.00'],
     ]
 
 
@@ -205,9 +217,14 @@ def test_json_format_is_machine_readable_and_uses_kind_specific_fields(
     payload = json.loads(capsys.readouterr().out)
     assert payload['kind'] == kind
     assert payload['run_count'] == 2
-    assert [row['source'] for row in payload['source_yields']] == (
-        ['alpha', 'beta', 'gamma'] if kind == 'hostname' else ['gamma', 'alpha', 'beta']
-    )
-    resolution_fields = {'resolved_hostname_count', 'unique_resolved_hostname_count'}
+    assert [row['source'] for row in payload['source_yields']] == ['gamma', 'alpha', 'beta']
+    resolution_fields = {
+        'resolved_hostname_count',
+        'unique_resolved_hostname_count',
+        'unique_resolved_hostname_count_per_run',
+    }
     assert all(resolution_fields <= row.keys() for row in payload['source_yields']) is (kind == 'hostname')
     assert {row['source']: row['run_count'] for row in payload['source_yields']} == {'alpha': 2, 'beta': 2, 'gamma': 1}
+    assert {row['source']: row['unique_result_count_per_run'] for row in payload['source_yields']} == (
+        {'alpha': 0.5, 'beta': 0.5, 'gamma': 1.0} if kind == 'hostname' else {'alpha': 0.0, 'beta': 0.0, 'gamma': 1.0}
+    )
