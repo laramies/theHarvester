@@ -167,7 +167,7 @@ async def test_process_ignores_empty_html_and_non_text_responses(
 
 
 @pytest.mark.asyncio
-async def test_process_respects_the_per_query_page_bound(
+async def test_process_continues_until_provider_exhaustion_without_a_page_bound(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -176,24 +176,24 @@ async def test_process_respects_the_per_query_page_bound(
     async def fake_fetch_all(urls: list[str], **_kwargs: object) -> list[str]:
         nonlocal wildcard_requests
         query = parse_qs(urlparse(urls[0]).query)
-        if query['url'] == ['*.example.com']:
+        if query['url'] == ['*.example.com'] and wildcard_requests < 3:
             wildcard_requests += 1
             return [f'https://host-{wildcard_requests}.example.com/path\n\npage-{wildcard_requests}']
         return ['']
 
     monkeypatch.setattr(waybackarchive.AsyncFetcher, 'fetch_all', fake_fetch_all)
-    monkeypatch.setattr(waybackarchive.SearchWaybackarchive, 'MAX_PAGES_PER_QUERY', 2)
-
     search = waybackarchive.SearchWaybackarchive('example.com')
     with caplog.at_level(logging.INFO, logger=waybackarchive.__name__):
         report = await search.process()
 
-    assert wildcard_requests == 2
-    assert await search.get_hostnames() == {'host-1.example.com', 'host-2.example.com'}
-    assert 'Wayback Archive page limit reached for pattern *.example.com; results may be incomplete' in caplog.text
-    assert report is not None
-    assert report.status == 'partial'
-    assert report.stop_reason == 'page-limit'
+    assert wildcard_requests == 3
+    assert await search.get_hostnames() == {
+        'host-1.example.com',
+        'host-2.example.com',
+        'host-3.example.com',
+    }
+    assert 'Wayback Archive page limit reached' not in caplog.text
+    assert report is None
 
 
 @pytest.mark.asyncio
@@ -219,10 +219,26 @@ async def test_process_retains_partial_results_at_the_runtime_limit(
         report = await search.process()
 
     assert await search.get_hostnames() == {'api.example.com'}
-    assert report.status == 'failed'
+    assert report.status == 'partial'
     assert report.stop_reason == 'runtime-limit'
     assert 'Wayback Archive page 1: hosts=1' in caplog.text
     assert 'example.com' not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_process_reports_a_runtime_limit_before_collecting_results(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def fake_fetch_all(_urls: list[str], **_kwargs: object) -> list[str]:
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(waybackarchive.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    monkeypatch.setattr(waybackarchive.SearchWaybackarchive, 'RUNTIME_SECONDS', 0.01)
+    search = waybackarchive.SearchWaybackarchive('example.com')
+
+    report = await asyncio.wait_for(search.process(), timeout=0.1)
+
+    assert await search.get_hostnames() == set()
+    assert report.status == 'failed'
+    assert report.stop_reason == 'runtime-limit'
 
 
 @pytest.mark.asyncio

@@ -26,9 +26,9 @@ class SearchOnyphe:
 
     MAX_RESULTS = 10_000
 
-    def __init__(self, word: str, limit: int) -> None:
-        if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
-            raise ValueError('ONYPHE limit must be a positive integer')
+    def __init__(self, word: str, limit: int | None) -> None:
+        if limit is not None and (isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0):
+            raise ValueError('ONYPHE limit must be a positive integer or None')
         self.word = word
         self.limit = limit
         self.response: object = {}
@@ -50,7 +50,7 @@ class SearchOnyphe:
         }
         page = 1
         records_seen = 0
-        result_limit = min(self.limit, self.MAX_RESULTS)
+        result_limit = min(self.limit, self.MAX_RESULTS) if self.limit is not None else self.MAX_RESULTS
         page_size = min(result_limit, self.MAX_RESULTS)
         last_total = 0
         report = None
@@ -104,8 +104,15 @@ class SearchOnyphe:
             logger.info('Onyphe request failed: %s', type(error).__name__)
             return SourceExecutionReport('failed', 'transport-error')
 
-        if self.limit > self.MAX_RESULTS and last_total > self.MAX_RESULTS and records_seen >= self.MAX_RESULTS:
-            return SourceExecutionReport('failed', 'provider-limit')
+        if self.limit is None and last_total > self.MAX_RESULTS and records_seen >= self.MAX_RESULTS:
+            return SourceExecutionReport('partial', 'provider-limit')
+        if (
+            self.limit is not None
+            and self.limit > self.MAX_RESULTS
+            and last_total > self.MAX_RESULTS
+            and records_seen >= self.MAX_RESULTS
+        ):
+            return SourceExecutionReport('partial', 'provider-limit')
         return report
 
     async def parse_onyphe_resp_json(self) -> bool:

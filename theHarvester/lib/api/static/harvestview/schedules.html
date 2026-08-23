@@ -94,7 +94,8 @@
                 <summary>Run limits and optional activity</summary>
                 <div class="schedule-grid three">
                   <label>Results per source
-                    <input id="run-limit" type="number" min="1" max="10000" value="500" required>
+                    <input id="run-limit" type="number" min="0" value="500" required>
+                    <small>0 means unlimited; positive values apply per selected source.</small>
                   </label>
                   <label>Source workers
                     <input id="source-workers" type="number" min="1" value="{{SOURCE_WORKERS}}" required>

@@ -33,8 +33,8 @@ class SearchZoomEye:
     )
     URL_PATTERN = re.compile(r'https?://[^\s"\'<>]+')
 
-    def __init__(self, word: str, limit: int) -> None:
-        if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
+    def __init__(self, word: str, limit: int | None) -> None:
+        if limit is not None and (isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0):
             raise ValueError('ZoomEye limit must be a positive integer')
         key = Core.zoomeye_key()
         if not isinstance(key, str) or not key.strip():
@@ -106,14 +106,15 @@ class SearchZoomEye:
         return response.body
 
     async def do_search(self, session: Any) -> None:
-        page_size = min(self.PAGE_SIZE, self.limit)
+        page_size = min(self.PAGE_SIZE, self.limit) if self.limit is not None else self.PAGE_SIZE
         first = await self._fetch_page(session, 1, page_size)
         if first is None:
             return
         await self._store_matches(first['data'][:page_size])
-        page_limit = math.ceil(min(first['total'], self.limit) / page_size) if first['total'] else 1
+        total = min(first['total'], self.limit) if self.limit is not None else first['total']
+        page_limit = math.ceil(total / page_size) if total else 1
         for page in range(2, page_limit + 1):
-            remaining = self.limit - ((page - 1) * page_size)
+            remaining = self.limit - ((page - 1) * page_size) if self.limit is not None else page_size
             response = await self._fetch_page(session, page, page_size)
             if response is None:
                 return

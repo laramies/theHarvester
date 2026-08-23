@@ -180,12 +180,24 @@ async def test_later_rate_limit_preserves_partial_results(monkeypatch: pytest.Mo
     assert report.stop_reason == 'http-429'
 
 
+@pytest.mark.parametrize(
+    ('identifiers', 'expected_status', 'expected_hostnames'),
+    [
+        (('outside.test', 'api.example.com'), 'partial', {'api.example.com'}),
+        (('outside.test', 'other.test'), 'failed', set()),
+    ],
+)
 @pytest.mark.asyncio
-async def test_repeated_cursor_stops_without_spending_more_quota(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_repeated_cursor_status_reflects_retained_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+    identifiers: tuple[str, str],
+    expected_status: str,
+    expected_hostnames: set[str],
+) -> None:
     monkeypatch.setattr(virustotal.Core, 'virustotal_key', staticmethod(lambda: 'test-key'))
     responses = [
-        FetcherResponse({'data': [{'id': 'outside.test', 'attributes': {}}], 'meta': {'cursor': 'same'}}, 200, {}),
-        FetcherResponse({'data': [{'id': 'api.example.com', 'attributes': {}}], 'meta': {'cursor': 'same'}}, 200, {}),
+        FetcherResponse({'data': [{'id': identifiers[0], 'attributes': {}}], 'meta': {'cursor': 'same'}}, 200, {}),
+        FetcherResponse({'data': [{'id': identifiers[1], 'attributes': {}}], 'meta': {'cursor': 'same'}}, 200, {}),
     ]
 
     @contextlib.asynccontextmanager
@@ -201,8 +213,8 @@ async def test_repeated_cursor_stops_without_spending_more_quota(monkeypatch: py
 
     report = await search.process()
 
-    assert await search.get_hostnames() == {'api.example.com'}
-    assert report.status == 'failed'
+    assert await search.get_hostnames() == expected_hostnames
+    assert report.status == expected_status
     assert report.stop_reason == 'repeated-cursor'
     assert responses == []
 

@@ -76,6 +76,28 @@ async def test_process_paginates_to_limit_and_keeps_scoped_hostnames(monkeypatch
     assert session_exited is True
 
 
+@pytest.mark.asyncio
+async def test_unlimited_search_has_no_local_history_window(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(searchhunterhow.Core, 'hunterhow_key', staticmethod(lambda: 'test-key'))
+    calls: list[dict[str, Any]] = []
+
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**_kwargs: Any) -> AsyncIterator[object]:
+        yield object()
+
+    async def fake_fetch(**kwargs: Any) -> FetcherResponse:
+        calls.append(kwargs)
+        return FetcherResponse({'code': 200, 'data': {'total': 0, 'list': []}}, 200, {})
+
+    monkeypatch.setattr(searchhunterhow.AsyncFetcher, 'open_session', fake_open_session)
+    monkeypatch.setattr(searchhunterhow.AsyncFetcher, 'fetch', fake_fetch)
+
+    report = await searchhunterhow.SearchHunterHow('example.com', limit=None).process()
+
+    assert report is None
+    assert calls[0]['params']['start_time'] == '1970-01-01'
+
+
 @pytest.mark.parametrize('key', [None, '', '   '])
 def test_missing_or_empty_key_fails_before_transport(monkeypatch: pytest.MonkeyPatch, key: str | None) -> None:
     monkeypatch.setattr(searchhunterhow.Core, 'hunterhow_key', staticmethod(lambda: key))

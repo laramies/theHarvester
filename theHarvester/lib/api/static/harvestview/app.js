@@ -314,7 +314,7 @@
     const request = run.request || {};
     const sources = request.sources?.join(', ') || 'Not recorded';
     const options = [
-      ['Sources', sources], ['Result limit', request.limit ?? 'Imported evidence'],
+      ['Sources', sources], ['Result limit', request.limit === 0 ? 'Unlimited' : request.limit ?? 'Imported evidence'],
       ['Result start offset', request.start ?? 'Not recorded'],
       ['Discovery source workers', request.source_workers ?? 'Not recorded'],
       ['Whole-run deadline', request.deadline_seconds === null ? 'Unlimited' : request.deadline_seconds === undefined ? 'Not recorded' : `${request.deadline_seconds} seconds`],

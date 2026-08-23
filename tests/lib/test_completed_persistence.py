@@ -1165,6 +1165,16 @@ async def test_source_yields_distinguish_unique_and_shared_results(tmp_path) -> 
             SourceExecution('certspotter', 'completed', 8.0, 2),
             SourceExecution('empty-source', 'completed', 5.0, 0),
         ),
+        active_evidence=ActiveEvidence(
+            (
+                ActionExecution.finish(
+                    action='dns-resolve',
+                    status='completed',
+                    duration_ms=4,
+                    groups={'hostname': ['api.example.com', 'mail.example.com']},
+                ),
+            )
+        ),
     )
     await store.save_run(result)
 
@@ -1176,18 +1186,68 @@ async def test_source_yields_distinguish_unique_and_shared_results(tmp_path) -> 
             'observed_result_count': 2,
             'unique_result_count': 1,
             'shared_result_count': 1,
+            'resolved_hostname_count': 1,
+            'unique_resolved_hostname_count': 0,
         },
         {
             'source': 'crtsh',
             'observed_result_count': 2,
             'unique_result_count': 1,
             'shared_result_count': 1,
+            'resolved_hostname_count': 2,
+            'unique_resolved_hostname_count': 1,
         },
         {
             'source': 'empty-source',
             'observed_result_count': 0,
             'unique_result_count': 0,
             'shared_result_count': 0,
+            'resolved_hostname_count': 0,
+            'unique_resolved_hostname_count': 0,
+        },
+    ]
+
+
+@pytest.mark.asyncio
+async def test_source_yields_can_measure_hostname_contributions_only(tmp_path) -> None:
+    store = ResultStore(tmp_path / 'stash.sqlite')
+    await store.initialize()
+    result = CompletedResult.finish(
+        run_id=UUID('86eafad7-3308-4786-8e85-1e15b24afafc'),
+        target='example.com',
+        started_at=datetime(2026, 8, 23, 12, 0, tzinfo=UTC),
+        completed_at=datetime(2026, 8, 23, 12, 1, tzinfo=UTC),
+        groups={'hostname': ['shared.example.com'], 'url': ['https://unique.example.com/']},
+        observations=(
+            ResultObservation('first', 'hostname', 'shared.example.com'),
+            ResultObservation('second', 'hostname', 'shared.example.com'),
+            ResultObservation('first', 'url', 'https://unique.example.com/'),
+        ),
+        source_executions=(
+            SourceExecution('first', 'completed', 10, 2),
+            SourceExecution('second', 'completed', 10, 1),
+        ),
+    )
+    await store.save_run(result)
+
+    yields = await store.source_yields(result.run_id, kind='hostname')
+
+    assert [item.to_dict() for item in yields] == [
+        {
+            'source': 'first',
+            'observed_result_count': 1,
+            'unique_result_count': 0,
+            'shared_result_count': 1,
+            'resolved_hostname_count': 0,
+            'unique_resolved_hostname_count': 0,
+        },
+        {
+            'source': 'second',
+            'observed_result_count': 1,
+            'unique_result_count': 0,
+            'shared_result_count': 1,
+            'resolved_hostname_count': 0,
+            'unique_resolved_hostname_count': 0,
         },
     ]
 

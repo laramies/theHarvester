@@ -80,9 +80,11 @@ class RunRequest(BaseModel):
     )
     limit: int = Field(
         default=500,
-        ge=1,
-        le=10_000,
-        description='Maximum results requested from each source when that provider supports a limit.',
+        ge=0,
+        description=(
+            'Maximum results requested from each source when supported; 0 continues to provider exhaustion with '
+            'no local result or page-count cap.'
+        ),
     )
     start: int = Field(
         default=DEFAULT_RESULT_START,
@@ -587,6 +589,15 @@ class ScreenshotRecord(BaseModel):
     url: str
 
 
+class SourceYieldSummary(BaseModel):
+    source: str
+    observed_result_count: int = Field(ge=0)
+    unique_result_count: int = Field(ge=0)
+    shared_result_count: int = Field(ge=0)
+    resolved_hostname_count: int = Field(ge=0)
+    unique_resolved_hostname_count: int = Field(ge=0)
+
+
 RunStatus = Literal['queued', 'running', 'cancelling', 'cancelled', 'completed', 'failed']
 Activity = Literal['P0', 'P1', 'P2']
 
@@ -618,6 +629,7 @@ class RunDetail(RunSummary):
     request: RunRequest | ImportedRunRequest
     results: list[RunResult]
     source_executions: list[dict[str, Any]]
+    source_yields: list[SourceYieldSummary]
     action_executions: list[dict[str, Any]]
     artifacts: list[dict[str, Any]]
     screenshots: list[ScreenshotRecord]

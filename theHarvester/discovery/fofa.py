@@ -15,8 +15,8 @@ class SearchFofa:
 
     MAX_PAGE_SIZE = 10_000
 
-    def __init__(self, word: str, limit: int) -> None:
-        if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
+    def __init__(self, word: str, limit: int | None) -> None:
+        if limit is not None and (isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0):
             raise ValueError('FOFA limit must be a positive integer')
         self.word = word
         self.limit = limit
@@ -81,8 +81,8 @@ class SearchFofa:
                 headers={'User-Agent': Core.get_user_agent()},
                 proxy=self.proxy,
             ) as session:
-                while records_seen < self.limit:
-                    remaining = self.limit - records_seen
+                while self.limit is None or records_seen < self.limit:
+                    remaining = self.limit - records_seen if self.limit is not None else self.MAX_PAGE_SIZE
                     params: dict[str, str | int] = {
                         'email': self.email,
                         'key': self.api_key,
@@ -110,7 +110,7 @@ class SearchFofa:
                     if not isinstance(results, list):
                         return SourceExecutionReport('failed', 'invalid-response')
 
-                    page_results = results[:remaining]
+                    page_results = results[:remaining] if self.limit is not None else results
                     records_seen += len(page_results)
                     if self._store_results(page_results):
                         report = SourceExecutionReport('failed', 'invalid-response')
@@ -118,7 +118,10 @@ class SearchFofa:
                     if not results or not isinstance(next_cursor, str) or not next_cursor:
                         break
                     if next_cursor in seen_cursors:
-                        return SourceExecutionReport('failed', 'repeated-cursor')
+                        return SourceExecutionReport(
+                            'partial' if self.totalhosts or self.totalips else 'failed',
+                            'repeated-cursor',
+                        )
                     seen_cursors.add(next_cursor)
                     cursor = next_cursor
         except Exception:

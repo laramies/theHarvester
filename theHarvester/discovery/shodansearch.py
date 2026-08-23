@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import re
 import socket
@@ -15,7 +16,7 @@ from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse, ResponseS
 from theHarvester.lib.hostchecker import resolve_ip_addresses
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.shodan_evidence import ShodanHostObservation, canonical_shodan_hosts
-from theHarvester.lib.source_execution import SourceExecutionReport
+from theHarvester.lib.source_execution import SourceExecutionReport, SourceReportStatus
 
 logger = logging.getLogger(__name__)
 
@@ -375,6 +376,7 @@ class SearchShodan:
         for query in (f'hostname:{self.scope}', f'ssl:{self.scope}'):
             page = 1
             received = 0
+            seen_pages: set[str] = set()
             while True:
                 try:
                     response = await self._fetch_json(
@@ -411,6 +413,11 @@ class SearchShodan:
                 if not isinstance(matches, list) or isinstance(total, bool) or not isinstance(total, int) or total < 0:
                     error_types.add('InvalidResponseError')
                     break
+                signature = json.dumps(matches, sort_keys=True, separators=(',', ':'))
+                if signature in seen_pages:
+                    error_types.add('RepeatedPageError')
+                    break
+                seen_pages.add(signature)
                 for match in matches:
                     if not isinstance(match, dict):
                         error_types.add('InvalidResponseError')
@@ -518,8 +525,12 @@ class SearchShodan:
 
         self.error_type = next(iter(sorted(provider_error_types)), None)
         if dns_stop_reason is not None:
-            return SourceExecutionReport('failed', dns_stop_reason)
+            status: SourceReportStatus = 'partial' if self.shodan_hosts or self.totalhosts else 'failed'
+            return SourceExecutionReport(status, dns_stop_reason)
         if provider_error_types:
+            if 'RepeatedPageError' in provider_error_types:
+                status = 'partial' if self.shodan_hosts or self.totalhosts else 'failed'
+                return SourceExecutionReport(status, 'repeated-page')
             if provider_error_types <= {'HTTP401Error', 'HTTP403Error'}:
                 return SourceExecutionReport('failed', 'access-denied')
             if provider_error_types == {'HTTP429Error'}:

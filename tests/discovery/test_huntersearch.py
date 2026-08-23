@@ -6,6 +6,7 @@ import pytest
 from theHarvester.discovery import huntersearch
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import FetcherResponse
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 
 @pytest.mark.parametrize('key', [None, '  '])
@@ -33,7 +34,6 @@ async def test_hunter_http_failures_return_no_results(monkeypatch, caplog, statu
 
     assert await search.get_emails() == []
     assert await search.get_hostnames() == []
-
 
     assert f'Hunter request failed with HTTP {status}' in caplog.text
     assert 'provider detail' not in caplog.text
@@ -197,12 +197,48 @@ async def test_free_hunter_search_honors_limit_and_offset(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
+async def test_free_hunter_unlimited_reports_saturated_provider_boundary(monkeypatch) -> None:
+    responses = iter(
+        [
+            {'data': {'plan_name': 'Free', 'requests': {'searches': {'available': 10, 'used': 0}}}},
+            {
+                'data': {
+                    'emails': [
+                        {'value': f'user{index}@example.test', 'sources': [{'domain': f'user{index}.example.test'}]}
+                        for index in range(10)
+                    ]
+                }
+            },
+        ]
+    )
+
+    async def fake_fetch_all(*_args, **_kwargs):
+        return [FetcherResponse(body=next(responses), status=200, headers={})]
+
+    monkeypatch.setattr(huntersearch.Core, 'hunter_key', lambda: 'test-key')
+    monkeypatch.setattr(huntersearch.Core, 'get_user_agent', lambda: 'test-agent')
+    monkeypatch.setattr(huntersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+
+    search = huntersearch.SearchHunter('example.test', None, 0)
+
+    assert await search.process() == SourceExecutionReport('partial', 'provider-limit')
+    assert len(await search.get_hostnames()) == 10
+
+
+@pytest.mark.asyncio
 async def test_paid_hunter_search_stops_before_exceeding_quota(monkeypatch) -> None:
     requests: list[str] = []
     responses = iter(
         [
             {'data': {'plan_name': 'Growth', 'requests': {'searches': {'available': 1, 'used': 0}}}},
             {'data': {'total': 250}},
+            {
+                'data': {
+                    'emails': [
+                        {'value': 'alice@example.test', 'sources': [{'domain': 'api.example.test'}]},
+                    ]
+                }
+            },
         ]
     )
 
@@ -215,14 +251,16 @@ async def test_paid_hunter_search_stops_before_exceeding_quota(monkeypatch) -> N
     monkeypatch.setattr(huntersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
 
     search = huntersearch.SearchHunter('example.test', 250, 0)
-    await search.process()
+    report = await search.process()
 
     assert requests == [
         'https://api.hunter.io/v2/account?api_key=test-key',
         'https://api.hunter.io/v2/email-count?domain=example.test',
+        'https://api.hunter.io/v2/domain-search?domain=example.test&api_key=test-key&limit=100&offset=0',
     ]
-    assert await search.get_emails() == []
-    assert await search.get_hostnames() == []
+    assert report == SourceExecutionReport('partial', 'quota-exhausted')
+    assert await search.get_emails() == ['alice@example.test']
+    assert await search.get_hostnames() == ['api.example.test']
 
 
 pytestmark = pytest.mark.provider_contract('hunter')

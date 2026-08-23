@@ -197,6 +197,25 @@ def patch_http(monkeypatch: pytest.MonkeyPatch, responses: list[baidusearch.Fetc
 
 class TestBaiduSearch:
     @pytest.mark.asyncio
+    async def test_unlimited_stops_when_provider_repeats_a_page(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        state = patch_browser(
+            monkeypatch,
+            [
+                PageResponse('one.example.com'),
+                PageResponse('two.example.com'),
+                PageResponse('two.example.com'),
+            ],
+        )
+        search = baidusearch.SearchBaidu(word='example.com', limit=None)
+
+        report = await search.process()
+
+        assert report == baidusearch.SourceExecutionReport('partial', 'repeated-page')
+        assert len(state.calls) == 3
+        assert state.delays == [1.0, 1.0]
+        assert await search.get_hostnames() == ['one.example.com', 'two.example.com']
+
+    @pytest.mark.asyncio
     async def test_process_queries_site_first_and_reuses_one_browser(self, monkeypatch: pytest.MonkeyPatch) -> None:
         state = patch_browser(
             monkeypatch,
@@ -267,7 +286,7 @@ class TestBaiduSearch:
 
         assert len(state.calls) == 2
         assert await search.get_hostnames() == ['api.example.com']
-        assert report.status == 'failed'
+        assert report.status == 'partial'
         assert report.stop_reason == 'security-verification'
 
     @pytest.mark.asyncio
@@ -328,6 +347,24 @@ class TestBaiduSearch:
         }
         assert http.delays == [1.0]
         assert http.closed
+
+    @pytest.mark.asyncio
+    async def test_http_fallback_reports_repeated_page(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(baidusearch, 'playwright_api', None)
+        patch_http(monkeypatch, [http_response('api.example.com'), http_response('api.example.com')])
+
+        report = await baidusearch.SearchBaidu(word='example.com', limit=None).process()
+
+        assert report == baidusearch.SourceExecutionReport('partial', 'repeated-page')
+
+    @pytest.mark.asyncio
+    async def test_http_fallback_reports_malformed_response(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(baidusearch, 'playwright_api', None)
+        patch_http(monkeypatch, [baidusearch.FetcherResponse(body={}, status=200, headers={})])
+
+        report = await baidusearch.SearchBaidu(word='example.com', limit=10).process()
+
+        assert report == baidusearch.SourceExecutionReport('failed', 'invalid-response')
 
     @pytest.mark.asyncio
     async def test_cancellation_survives_cleanup_failures(self, monkeypatch: pytest.MonkeyPatch) -> None:

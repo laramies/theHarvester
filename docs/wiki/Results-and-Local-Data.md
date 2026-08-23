@@ -154,6 +154,34 @@ Two operational tables support the API: `run_records` stores queue and lifecycle
 
 `GET /api/v1/runs/{run_id}` returns lifecycle state plus a normalized `results` array. Each result has `type`, `value`, `sources`, and `actions`. A `hostname` found through the `vhost` action has native endpoint observations; a `prefix` found through RouteViews has native origin, route, and RPKI observations with fixed external-relationship scope. Run-level source and action outcomes remain available in `source_executions` and `action_executions`, while file metadata is returned through `artifacts`. JSONL imports or exports one run. SQLite import and `GET /api/v1/runs/export-database` move completed runs in bulk without queue, cancellation, or worker-lease state. Treat runtime `/docs`, `/redoc`, and OpenAPI as the exact request and response reference.
 
+### Compare source hostname yield
+
+Run details include `source_yields`, derived from persisted normalized hostname provenance. For every selected source it reports:
+
+- `observed_result_count`: distinct hostnames attributed to the source;
+- `unique_result_count`: hostnames no other source in that run reported;
+- `shared_result_count`: hostnames also reported by at least one other source;
+- `resolved_hostname_count`: attributed hostnames for which the run's `dns-resolve` action retained an A, AAAA, or CNAME answer;
+- `unique_resolved_hostname_count`: resolved hostnames attributed to only this source.
+
+Use `unique_result_count` as order-independent marginal coverage and `unique_resolved_hostname_count` as its current-DNS subset. Neither proves that a provider is authoritative or independent, and a DNS answer does not prove service reachability. Check the matching `source_executions` status and stop reason: a failed, rate-limited, skipped, or provider-limited source is not a comparable zero-yield source. Providers that draw on the same certificate-transparency or passive-DNS family can still overlap or repeat the same upstream evidence.
+
+For a reusable benchmark, keep the authorized target, source set, requested limit, release version, resolver set, and collection window fixed. Use requested limit `0` when the comparison requires no shared local result-count cap. Retain the completed runs in SQLite, repeat across several authorized targets and dates, then compare median unique count, median unique-resolved count, resolution rate, and successful-run rate. Treat provider and adapter ceilings as explicit execution evidence rather than silently truncating or ranking them as zero yield. Do not commit target results; add cross-run aggregation only when enough comparable runs exist to justify it.
+
+#### Analyze yields from SQLite
+
+The installed `harvest-yields` command reads an existing results database. It reports hostname yields by default; select another result kind or one completed run as needed:
+
+```console
+harvest-yields --database results.sqlite --kind hostname
+harvest-yields --database results.sqlite --kind ip
+harvest-yields --database results.sqlite --kind asn
+harvest-yields --database results.sqlite --run-id 11111111-1111-4111-8111-111111111111
+harvest-yields --database results.sqlite --format json
+```
+
+Without `--run-id`, counts are sums of each run's source yields. The top-level `run_count` states how many runs were selected; each source row's `run_count` states how many of those runs executed that source, including zero-yield executions. “Unique” always means unique within one run; aggregate unique totals sum those per-run counts rather than recomputing uniqueness across targets or dates. Hostname output adds resolved and unique-resolved counts. Other result kinds omit those DNS-specific fields.
+
 ## Handling and sharing
 
 - Store results only where the engagement permits.

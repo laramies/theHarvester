@@ -9,8 +9,9 @@ from theHarvester.lib.completed_result import CompletedResult, ResultObservation
 
 
 class _Response:
-    def __init__(self, payload: object) -> None:
+    def __init__(self, payload: object, status: int = 200) -> None:
         self.payload = payload
+        self.status = status
 
     async def __aenter__(self):
         return self
@@ -24,8 +25,9 @@ class _Response:
 
 class _Session:
     def __init__(self, result: object, search_result: object | None = None) -> None:
-        self.result = result
+        self.result = list(result) if isinstance(result, list) else result
         self.search_result = {'success': True, 'id': 'search-id'} if search_result is None else search_result
+        self.search_request: dict[str, object] | None = None
 
     async def __aenter__(self):
         return self
@@ -33,11 +35,12 @@ class _Session:
     async def __aexit__(self, *_args) -> None:
         return None
 
-    def post(self, *_args, **_kwargs) -> _Response:
+    def post(self, *_args, **kwargs) -> _Response:
+        self.search_request = kwargs.get('json')
         return _Response(self.search_result)
 
     def get(self, *_args, **_kwargs) -> _Response:
-        return _Response(self.result)
+        return _Response(self.result.pop(0) if isinstance(self.result, list) else self.result)
 
 
 def test_blank_key_is_missing(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -50,6 +53,7 @@ def test_blank_key_is_missing(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.asyncio
 async def test_process_exposes_flat_normalized_in_scope_results(monkeypatch: pytest.MonkeyPatch) -> None:
     result = {
+        'status': 1,
         'selectors': [
             {'selectorvalue': 'ADMIN@Example.COM'},
             {'selectorvalue': 'bad local@example.com'},
@@ -64,7 +68,7 @@ async def test_process_exposes_flat_normalized_in_scope_results(monkeypatch: pyt
             {'selectorvalue': 'http://['},
             {'selectorvalue': None},
             None,
-        ]
+        ],
     }
     session = _Session(result)
 
@@ -81,6 +85,41 @@ async def test_process_exposes_flat_normalized_in_scope_results(monkeypatch: pyt
     assert await search.get_emails() == ['admin@example.com']
     assert await search.get_hostnames() == ['api.example.com', 'portal.example.com']
     assert await search.get_urls() == ['https://portal.example.com/path']
+
+
+@pytest.mark.asyncio
+async def test_unlimited_process_collects_provider_pages_until_terminal_status(monkeypatch: pytest.MonkeyPatch) -> None:
+    pages = [
+        {'status': 0, 'selectors': [{'selectorvalue': 'one.example.com'}]},
+        {'status': 1, 'selectors': [{'selectorvalue': 'two.example.com'}]},
+    ]
+    session = _Session(pages)
+
+    monkeypatch.setattr(intelxsearch.Core, 'intelx_key', staticmethod(lambda: 'test-key'))
+    monkeypatch.setattr(intelxsearch.aiohttp, 'ClientSession', lambda: session)
+
+    search = intelxsearch.SearchIntelx('example.com', limit=None)
+
+    assert await search.process() is None
+    assert await search.get_hostnames() == ['one.example.com', 'two.example.com']
+    assert session.search_request['maxresults'] == intelxsearch.SearchIntelx.UNLIMITED_QUERY_RESULTS
+
+
+@pytest.mark.asyncio
+async def test_finite_process_stops_after_requested_selector_count(monkeypatch: pytest.MonkeyPatch) -> None:
+    pages = [
+        {'status': 0, 'selectors': [{'selectorvalue': 'one.example.com'}, {'selectorvalue': 'two.example.com'}]},
+        {'status': 1, 'selectors': [{'selectorvalue': 'three.example.com'}]},
+    ]
+    session = _Session(pages)
+
+    monkeypatch.setattr(intelxsearch.Core, 'intelx_key', staticmethod(lambda: 'test-key'))
+    monkeypatch.setattr(intelxsearch.aiohttp, 'ClientSession', lambda: session)
+
+    search = intelxsearch.SearchIntelx('example.com', limit=2)
+
+    assert await search.process() is None
+    assert await search.get_hostnames() == ['one.example.com', 'two.example.com']
 
 
 @pytest.mark.asyncio
@@ -125,7 +164,7 @@ async def test_orchestrator_stores_intelx_subdomains_without_dns(monkeypatch: py
             completed_results.append(result)
 
     class _Intelx:
-        def __init__(self, _domain: str) -> None:
+        def __init__(self, _domain: str, _limit: int | None) -> None:
             pass
 
         async def process(self, _proxy: bool) -> None:

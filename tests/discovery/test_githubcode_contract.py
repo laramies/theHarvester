@@ -1,10 +1,15 @@
+from __future__ import annotations
+
+import asyncio
 import contextlib
-from collections.abc import AsyncIterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
 from theHarvester.discovery import githubcode
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 
 class FakeResponse:
@@ -14,7 +19,7 @@ class FakeResponse:
         self.payload = payload
         self.links = links
 
-    async def __aenter__(self) -> 'FakeResponse':
+    async def __aenter__(self) -> FakeResponse:
         return self
 
     async def __aexit__(self, *_args: Any) -> None:
@@ -38,7 +43,7 @@ def install_github_responses(monkeypatch: pytest.MonkeyPatch):
             def __init__(self, *, headers: dict[str, str]) -> None:
                 pass
 
-            async def __aenter__(self) -> 'FakeSession':
+            async def __aenter__(self) -> FakeSession:
                 return self
 
             async def __aexit__(self, *_args: Any) -> None:
@@ -206,6 +211,106 @@ async def test_github_code_malformed_page_terminates_without_following_paginatio
     assert requested_urls == ['https://api.github.com/search/code?q="example.com"&page=1']
     assert await search.get_emails() == set()
     assert await search.get_hostnames() == []
+
+
+@pytest.mark.asyncio
+async def test_github_code_unlimited_pagination_cycle_preserves_partial_evidence(install_github_responses) -> None:
+    requested_urls = install_github_responses(
+        FakeResponse(
+            {'items': [{'text_matches': [{'fragment': 'api.example.com'}]}]},
+            {'next': {'url': 'https://api.github.com/search/code?q=example.com&page=2'}},
+        ),
+        FakeResponse(
+            {'items': [{'text_matches': [{'fragment': 'docs.example.com'}]}]},
+            {'next': {'url': 'https://api.github.com/search/code?q=example.com&page=1'}},
+        ),
+    )
+    search = githubcode.SearchGithubCode('example.com', limit=None)
+
+    report = await search.process()
+
+    assert requested_urls == [
+        'https://api.github.com/search/code?q="example.com"&page=1',
+        'https://api.github.com/search/code?q="example.com"&page=2',
+    ]
+    assert await search.get_hostnames() == ['api.example.com', 'docs.example.com']
+    assert report == githubcode.SourceExecutionReport('partial', 'repeated-page')
+
+
+@pytest.mark.asyncio
+async def test_github_code_unlimited_repeated_content_stops_before_counting_duplicates(
+    install_github_responses,
+) -> None:
+    requested_urls = install_github_responses(
+        FakeResponse(
+            {
+                'items': [
+                    {'text_matches': [{'fragment': 'api.example.com'}, {'fragment': 'docs.example.com'}]},
+                ]
+            },
+            {'next': {'url': 'https://api.github.com/search/code?q=example.com&page=2'}},
+        ),
+        FakeResponse(
+            {
+                'items': [
+                    {'text_matches': [{'fragment': 'docs.example.com'}, {'fragment': 'api.example.com'}]},
+                ]
+            },
+            {'next': {'url': 'https://api.github.com/search/code?q=example.com&page=3'}},
+        ),
+    )
+    search = githubcode.SearchGithubCode('example.com', limit=None)
+
+    report = await search.process()
+
+    assert requested_urls == [
+        'https://api.github.com/search/code?q="example.com"&page=1',
+        'https://api.github.com/search/code?q="example.com"&page=2',
+    ]
+    assert search.counter == 2
+    assert await search.get_hostnames() == ['api.example.com', 'docs.example.com']
+    assert report == githubcode.SourceExecutionReport('partial', 'repeated-page')
+
+
+@pytest.mark.parametrize('fragments', [[], ['api.example.com']], ids=['no-evidence', 'partial-evidence'])
+@pytest.mark.asyncio
+async def test_github_code_persistent_exceptions_stop_with_truthful_report(
+    monkeypatch: pytest.MonkeyPatch,
+    fragments: list[str],
+) -> None:
+    monkeypatch.setattr(githubcode.Core, 'github_key', staticmethod(lambda: 'test-token'))
+    monkeypatch.setattr(githubcode, 'get_delay', lambda: 0)
+    search = githubcode.SearchGithubCode('example.com', limit=None)
+    search.total_results = ' '.join(fragments)
+    search.counter = len(fragments)
+    search.max_retries = 1
+    calls = 0
+
+    async def fail_search(*_args: Any, **_kwargs: Any) -> tuple[str, dict, int, Any]:
+        nonlocal calls
+        calls += 1
+        raise RuntimeError('persistent provider failure')
+
+    monkeypatch.setattr(search, 'do_search', fail_search)
+
+    report = await search.process()
+
+    assert calls == 2
+    assert report == githubcode.SourceExecutionReport('partial' if fragments else 'failed', 'transport-error')
+
+
+@pytest.mark.asyncio
+async def test_github_code_cancellation_propagates(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(githubcode.Core, 'github_key', staticmethod(lambda: 'test-token'))
+    search = githubcode.SearchGithubCode('example.com', limit=None)
+
+    async def cancel_search(*_args: Any, **_kwargs: Any) -> tuple[str, dict, int, Any]:
+        raise asyncio.CancelledError('operator-stop')
+
+    monkeypatch.setattr(search, 'do_search', cancel_search)
+
+    with pytest.raises(asyncio.CancelledError, match='operator-stop'):
+        await search.process()
 
 
 pytestmark = pytest.mark.provider_contract('github-code')

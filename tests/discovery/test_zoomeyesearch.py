@@ -158,6 +158,33 @@ async def test_empty_pages_do_not_hide_later_provider_results(monkeypatch: pytes
 
 
 @pytest.mark.asyncio
+async def test_unlimited_search_uses_provider_total(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(zoomeyesearch.Core, 'zoomeye_key', staticmethod(lambda: 'test-key'))
+    calls: list[dict[str, Any]] = []
+    responses = [
+        FetcherResponse({'code': 60000, 'total': 2, 'data': [{'hostname': 'one.example.com'}]}, 200, {}),
+        FetcherResponse({'code': 60000, 'total': 2, 'data': [{'hostname': 'two.example.com'}]}, 200, {}),
+    ]
+
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**_kwargs: Any) -> AsyncIterator[object]:
+        yield object()
+
+    async def fake_post_fetch(*_args: Any, **kwargs: Any) -> FetcherResponse:
+        calls.append(kwargs['json_body'])
+        return responses.pop(0)
+
+    monkeypatch.setattr(zoomeyesearch.AsyncFetcher, 'open_session', fake_open_session)
+    monkeypatch.setattr(zoomeyesearch.AsyncFetcher, 'post_fetch', fake_post_fetch)
+    monkeypatch.setattr(zoomeyesearch.SearchZoomEye, 'PAGE_SIZE', 1)
+    search = zoomeyesearch.SearchZoomEye('example.com', None)
+
+    assert await search.process() is None
+    assert [call['page'] for call in calls] == [1, 2]
+    assert await search.get_hostnames() == {'one.example.com', 'two.example.com'}
+
+
+@pytest.mark.asyncio
 async def test_numbered_pages_keep_a_stable_size_and_slice_the_final_page(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(zoomeyesearch.Core, 'zoomeye_key', staticmethod(lambda: 'test-key'))
     calls: list[dict[str, Any]] = []

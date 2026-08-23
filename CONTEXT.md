@@ -31,6 +31,7 @@ When a change alters one of these boundaries, update this document and the neare
 
 - The source catalog is the authority for canonical source names, aliases, credentials, result capabilities, and activity class. Explicit source names and capability selectors form a union; `all` selects every cataloged P0 source once.
 - A source adapter returns `None` for ordinary completion or an immutable `SourceExecutionReport` when it must preserve an explicit outcome or stop reason. The central source runner owns observation collection, result counting, no-result classification, exception handling, and final source status.
+- A requested result limit of zero means no shared local result-count cap or arbitrary local page-count ceiling; adapters continue to provider exhaustion. Provider quotas, protocol maxima, response, and runtime safety bounds remain source-owned and must surface an explicit partial stop reason when they prevent natural completion.
 - Source execution statuses are `completed`, `partial`, `failed`, `rate-limited`, and `skipped`. Mutable adapter fields such as `execution_status` and `stop_reason` are outside this release contract and are rejected, including when an adapter raises or is cancelled.
 - Run lifecycle statuses are `queued`, `running`, `cancelling`, `cancelled`, `completed`, and `failed`. Terminal evidence status is independently `complete`, `partial`, or `failed`; retained evidence survives a later cancellation or process failure.
 - Run schedules support one-time, hourly, daily, weekly, and monthly recurrence. Daily, weekly, and monthly occurrences preserve the selected local wall-clock time; a monthly day that does not exist falls on that month’s final day.
@@ -39,6 +40,7 @@ When a change alters one of these boundaries, update this document and the neare
 ### Evidence and portability
 
 - A merged result is canonical by result kind and value. Source and action provenance, typed observations, execution outcomes, timestamps, and artifact metadata remain attached through deduplication and persistence.
+- API run details derive each source's observed, unique, shared, DNS-resolved, and unique DNS-resolved hostname counts from persisted normalized provenance. Unique means no other source in that run reported the hostname; DNS-resolved means that run retained an A, AAAA, or CNAME answer. These measure marginal coverage and current DNS evidence, not independent corroboration or service reachability.
 - JSONL is the primary single-run interchange format: one summary record followed by sorted finding records. It retains terminal evidence status, producer outcomes, provenance, and supported structured observations.
 - SQLite is the canonical local multi-run store. Portable SQLite export contains every finalized evidence record, preserves original run IDs and canonical structured evidence, and excludes queue, cancellation, worker-lease, and legacy-observation state. Screenshot metadata travels with evidence; screenshot files remain separately managed artifacts.
 - Legacy JSON and XML remain supported grouped reports for existing consumers. They are presentation formats and do not replace JSONL or SQLite when lossless provenance and structured evidence are required.
@@ -53,6 +55,7 @@ When a change alters one of these boundaries, update this document and the neare
 ### Deferred boundaries
 
 - Cross-run change detection, alerts, and automatic reactions remain separate future product decisions. A scheduled occurrence only submits finite enumeration runs.
+- Cross-run source ranking remains a reporting decision. One run's hostname-yield summary does not automatically select, disable, or rank sources.
 - Distributed workers, multi-host operation, PostgreSQL, and hosted multi-user authorization require measured demand and new decisions. The release remains SQLite-first and local-operator focused.
 - Automatic scope expansion remains deferred. Evidence can suggest a later target, while the operator controls every scope change.
 
@@ -209,6 +212,10 @@ _Avoid_: Cancelled run, process killed
 **Source execution**:
 One attempt to run one canonical discovery source within an enumeration run, with an explicit completion status and summary counts.
 _Avoid_: Source result, provider response
+
+**Source hostname yield**:
+One source's observed, unique, shared, DNS-resolved, and unique DNS-resolved normalized hostname counts within one enumeration run. A unique hostname is attributed to exactly one source in that run. A DNS-resolved hostname has an A, AAAA, or CNAME answer retained by that run's resolution action. The counts express marginal coverage and current DNS evidence rather than independent corroboration, ownership, or service reachability.
+_Avoid_: Source quality score, authoritative result count, independent confirmation
 
 **Source capability**:
 A declared class of normalized result that a source can contribute to consolidated enumeration output, independent of whether one source execution yields any data.

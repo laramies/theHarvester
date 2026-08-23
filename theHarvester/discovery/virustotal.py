@@ -10,8 +10,8 @@ from theHarvester.lib.source_execution import SourceExecutionReport
 
 
 class SearchVirustotal:
-    def __init__(self, word: str, limit: int) -> None:
-        if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
+    def __init__(self, word: str, limit: int | None) -> None:
+        if limit is not None and (isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0):
             raise ValueError('VirusTotal limit must be a positive integer')
         self.key = Core.virustotal_key()
         if not isinstance(self.key, str) or not self.key.strip():
@@ -29,8 +29,8 @@ class SearchVirustotal:
         report = None
         try:
             async with AsyncFetcher.open_session(headers=headers, proxy=self.proxy) as session:
-                while records_seen < self.limit:
-                    remaining = self.limit - records_seen
+                while self.limit is None or records_seen < self.limit:
+                    remaining = self.limit - records_seen if self.limit is not None else 40
                     params: dict[str, int | str] = {'limit': min(40, remaining)}
                     if cursor:
                         params['cursor'] = cursor
@@ -50,11 +50,11 @@ class SearchVirustotal:
                     meta = response.body.get('meta', {})
                     if not isinstance(data, list) or not isinstance(meta, dict):
                         return SourceExecutionReport('failed', 'invalid-response')
-                    page_data = data[:remaining]
+                    page_data = data[:remaining] if self.limit is not None else data
                     records_seen += len(page_data)
                     hostnames, malformed = self.parse_hostnames(page_data, self.word)
                     for hostname in sorted(hostnames):
-                        if len(self.hostnames) >= self.limit:
+                        if self.limit is not None and len(self.hostnames) >= self.limit:
                             break
                         self.hostnames.add(hostname)
                     if malformed:
@@ -63,7 +63,7 @@ class SearchVirustotal:
                     if not data or not isinstance(next_cursor, str) or not next_cursor:
                         break
                     if next_cursor in seen_cursors:
-                        return SourceExecutionReport('failed', 'repeated-cursor')
+                        return SourceExecutionReport('partial' if self.hostnames else 'failed', 'repeated-cursor')
                     seen_cursors.add(next_cursor)
                     cursor = next_cursor
         except Exception:

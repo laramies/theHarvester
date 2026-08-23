@@ -23,6 +23,7 @@ from theHarvester.lib.hostchecker import HostDnsRecords
 from theHarvester.lib.network_evidence import PrefixOriginObservation, RpkiValidationObservation
 from theHarvester.lib.recursive_dns import RecursiveDNSClassification, RecursiveDNSFinding, RecursiveDNSResult
 from theHarvester.lib.routeviews import RouteViewsCancelled, RouteViewsResult
+from theHarvester.lib.source_catalog import resolve_sources
 from theHarvester.lib.source_execution import SourceExecutionReport
 from theHarvester.lib.takeover_evidence import TakeoverCandidateOutcome
 from theHarvester.lib.virtual_host import (
@@ -67,6 +68,7 @@ async def test_cli_help_explains_proxy_and_direct_action_scope(
     assert 'Candidate names are never resolved through DNS.' in help_text
     assert '-j SOURCE_WORKERS' in help_text
     assert '--source-workers SOURCE_WORKERS' in help_text
+    assert '0 continues to provider exhaustion with no local result or page-count cap' in help_text
     assert 'Indicators are not confirmed takeovers.' in help_text
 
 
@@ -676,6 +678,9 @@ async def test_rapiddns_hostnames_honor_explicit_dns_resolution(monkeypatch: pyt
     assert dns_execution.error_type == 'TimeoutError'
     assert dns_execution.stop_reason == 'query-errors'
     assert {(observation.kind, observation.value) for observation in dns_execution.observations} == {
+        ('hostname', 'api.example.com'),
+        ('hostname', 'crt.example.com'),
+        ('hostname', 'reported.example.com'),
         ('ip', '192.0.2.10'),
         ('ip', '192.0.2.21'),
         ('ip', '192.0.2.30'),
@@ -1490,6 +1495,32 @@ async def test_source_progress_waits_for_runner_admission(
     assert constructed[:requested_workers] == list(admitted_sources)
     assert all(f'[*] Searching {source[0].upper() + source[1:]}.' in interim_output for source in admitted_sources)
     assert '[*] Searching Dymo.' not in interim_output
+
+
+@pytest.mark.asyncio
+async def test_unlimited_subdomain_selection_passes_no_result_cap_to_every_source(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: tuple[source_runner.SourceJob, ...] = ()
+
+    async def capture_jobs(
+        jobs: tuple[source_runner.SourceJob, ...],
+        **_kwargs: object,
+    ) -> tuple[source_runner.SourceOutcome, ...]:
+        nonlocal captured
+        captured = jobs
+        return ()
+
+    monkeypatch.setattr(theharvester_main, 'run_source_jobs', capture_jobs)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
+
+    await theharvester_main.start(
+        EnumerationOptions(domain='example.test', source='subdomains', limit=0, quiet=True),
+        return_completed_result=True,
+    )
+
+    assert [job.request.source for job in captured] == resolve_sources('subdomains')
+    assert all(job.request.limit is None for job in captured)
 
 
 @pytest.mark.asyncio

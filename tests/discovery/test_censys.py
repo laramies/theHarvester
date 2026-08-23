@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 import asyncio
 import contextlib
 import sys
 import types
-from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -22,6 +23,9 @@ if 'aiohttp_socks' not in sys.modules:
 from theHarvester.discovery import censysearch
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import FetcherResponse
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 
 @pytest.mark.asyncio
@@ -138,6 +142,67 @@ async def test_search_calls_platform_api_directly_and_follows_page_tokens(monkey
     assert await search.get_hostnames() == {'a.example.com', 'b.example.com'}
     assert await search.get_emails() == {'admin@example.com', 'ops@example.com'}
     assert report is None
+
+
+@pytest.mark.asyncio
+async def test_unlimited_search_follows_tokens_until_the_provider_terminates(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(censysearch.Core, 'censys_key', lambda: ('platform-token', None))
+    calls: list[dict[str, object]] = []
+    responses = [
+        FetcherResponse({'result': {'hits': [], 'next_page_token': 'next-page'}}, 200, {}),
+        FetcherResponse({'result': {'hits': [], 'next_page_token': ''}}, 200, {}),
+    ]
+
+    async def fake_post_fetch(_url: str, **kwargs: object) -> FetcherResponse:
+        calls.append(kwargs)
+        return responses.pop(0)
+
+    monkeypatch.setattr(censysearch.AsyncFetcher, 'post_fetch', fake_post_fetch)
+    search = censysearch.SearchCensys('example.com', limit=None)
+
+    assert await search.process() is None
+    assert [call['json_body'] for call in calls] == [
+        {
+            'query': 'cert.names: "example.com"',
+            'fields': ['cert.names', 'cert.parsed.subject.email_address'],
+            'page_size': 100,
+        },
+        {
+            'query': 'cert.names: "example.com"',
+            'fields': ['cert.names', 'cert.parsed.subject.email_address'],
+            'page_size': 100,
+            'page_token': 'next-page',
+        },
+    ]
+
+
+@pytest.mark.parametrize(
+    ('hit', 'expected_status'),
+    [
+        ({'certificate_v1': {'resource': {'names': ['api.example.com']}}}, 'partial'),
+        ({'host_v1': {'resource': {'ip': '192.0.2.1'}}}, 'failed'),
+    ],
+)
+@pytest.mark.asyncio
+async def test_repeated_cursor_status_reflects_retained_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+    hit: dict[str, object],
+    expected_status: str,
+) -> None:
+    monkeypatch.setattr(censysearch.Core, 'censys_key', lambda: ('platform-token', None))
+    responses = [
+        FetcherResponse({'result': {'hits': [hit], 'next_page_token': 'same'}}, 200, {}),
+        FetcherResponse({'result': {'hits': [], 'next_page_token': 'same'}}, 200, {}),
+    ]
+
+    async def fake_post_fetch(*_args: object, **_kwargs: object) -> FetcherResponse:
+        return responses.pop(0)
+
+    monkeypatch.setattr(censysearch.AsyncFetcher, 'post_fetch', fake_post_fetch)
+    report = await censysearch.SearchCensys('example.com', limit=None).process()
+
+    assert report.status == expected_status
+    assert report.stop_reason == 'repeated-cursor'
 
 
 @pytest.mark.asyncio

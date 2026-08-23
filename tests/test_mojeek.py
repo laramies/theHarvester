@@ -1,3 +1,4 @@
+import asyncio
 from typing import Any
 
 import pytest
@@ -7,6 +8,120 @@ from theHarvester.lib.core import FetcherResponse
 
 
 class TestMojeekSearch:
+    @pytest.mark.asyncio
+    async def test_unlimited_keyless_stops_when_provider_repeats_a_page(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        calls: list[dict[str, Any]] = []
+        responses = iter(
+            [
+                FetcherResponse(body='<ul class="results-standard">one.example.com</ul>', status=200, headers={}),
+                FetcherResponse(body='<ul class="results-standard">two.example.com</ul>', status=200, headers={}),
+                FetcherResponse(body='<ul class="results-standard">two.example.com</ul>', status=200, headers={}),
+            ]
+        )
+
+        async def fake_fetch(**kwargs: Any) -> FetcherResponse:
+            calls.append(kwargs)
+            return next(responses)
+
+        async def fake_sleep(_delay: float) -> None:
+            return None
+
+        monkeypatch.setattr(mojeek.Core, 'mojeek_key', staticmethod(lambda: ''))
+        monkeypatch.setattr(mojeek.AsyncFetcher, 'fetch', fake_fetch)
+        monkeypatch.setattr(mojeek.asyncio, 'sleep', fake_sleep)
+        search = mojeek.SearchMojeek(word='example.com', limit=None)
+
+        report = await search.process()
+
+        assert report == mojeek.SourceExecutionReport('partial', 'repeated-page')
+        assert [call['url'] for call in calls] == [
+            'https://www.mojeek.com/search?q=example.com&s=0',
+            'https://www.mojeek.com/search?q=example.com&s=10',
+            'https://www.mojeek.com/search?q=example.com&s=20',
+        ]
+        assert await search.get_hostnames() == ['one.example.com', 'two.example.com']
+
+    @pytest.mark.asyncio
+    async def test_unlimited_keyed_api_stops_when_provider_exhausts_results(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        requests: list[list[str]] = []
+        responses = iter(
+            [
+                FetcherResponse(body={'response': {'results': [{'url': 'https://one.example.com'}]}}, status=200, headers={}),
+                FetcherResponse(body={'response': {'results': [{'url': 'https://two.example.com'}]}}, status=200, headers={}),
+                FetcherResponse(body={'response': {'results': []}}, status=200, headers={}),
+            ]
+        )
+
+        async def fake_fetch_all(urls: list[str], **_kwargs: Any) -> list[FetcherResponse]:
+            requests.append(urls)
+            return [next(responses)]
+
+        monkeypatch.setattr(mojeek.Core, 'mojeek_key', staticmethod(lambda: 'test-key'))
+        monkeypatch.setattr(mojeek.AsyncFetcher, 'fetch_all', fake_fetch_all)
+        search = mojeek.SearchMojeek(word='example.com', limit=None)
+
+        report = await search.process()
+
+        assert report is None
+        assert requests == [
+            ['https://api.mojeek.com/search?api_key=test-key&q=example.com&fmt=json&s=1'],
+            ['https://api.mojeek.com/search?api_key=test-key&q=example.com&fmt=json&s=11'],
+            ['https://api.mojeek.com/search?api_key=test-key&q=example.com&fmt=json&s=21'],
+        ]
+        assert await search.get_hostnames() == ['one.example.com', 'two.example.com']
+
+    @pytest.mark.asyncio
+    async def test_unlimited_keyed_api_reports_repeated_page(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        page = FetcherResponse(
+            body={'response': {'results': [{'url': 'https://one.example.com'}]}},
+            status=200,
+            headers={},
+        )
+
+        async def fake_fetch_all(_urls: list[str], **_kwargs: Any) -> list[FetcherResponse]:
+            return [page]
+
+        monkeypatch.setattr(mojeek.Core, 'mojeek_key', staticmethod(lambda: 'test-key'))
+        monkeypatch.setattr(mojeek.AsyncFetcher, 'fetch_all', fake_fetch_all)
+
+        report = await mojeek.SearchMojeek(word='example.com', limit=None).process()
+
+        assert report == mojeek.SourceExecutionReport('partial', 'repeated-page')
+
+    @pytest.mark.asyncio
+    async def test_keyless_later_http_failure_is_partial(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        responses = iter(
+            [
+                FetcherResponse(body='<ul class="results-standard">one.example.com</ul>', status=200, headers={}),
+                FetcherResponse(body='unavailable', status=503, headers={}),
+            ]
+        )
+
+        async def fake_fetch(**_kwargs: Any) -> FetcherResponse:
+            return next(responses)
+
+        async def fake_sleep(_delay: float) -> None:
+            return None
+
+        monkeypatch.setattr(mojeek.Core, 'mojeek_key', staticmethod(lambda: ''))
+        monkeypatch.setattr(mojeek.AsyncFetcher, 'fetch', fake_fetch)
+        monkeypatch.setattr(mojeek.asyncio, 'sleep', fake_sleep)
+
+        report = await mojeek.SearchMojeek(word='example.com', limit=None).process()
+
+        assert report == mojeek.SourceExecutionReport('partial', 'http-503')
+
+    @pytest.mark.asyncio
+    async def test_mojeek_cancellation_propagates(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        async def cancel(**_kwargs: Any) -> FetcherResponse:
+            raise asyncio.CancelledError('operator-stop')
+
+        monkeypatch.setattr(mojeek.Core, 'mojeek_key', staticmethod(lambda: ''))
+        monkeypatch.setattr(mojeek.AsyncFetcher, 'fetch', cancel)
+
+        with pytest.raises(asyncio.CancelledError, match='operator-stop'):
+            await mojeek.SearchMojeek(word='example.com', limit=None).process()
+
     @pytest.mark.asyncio
     async def test_keyless_pages_are_sequential_and_stop_after_first_empty_page(
         self,

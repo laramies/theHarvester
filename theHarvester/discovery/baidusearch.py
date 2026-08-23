@@ -50,8 +50,9 @@ class SearchBaidu:
             return SourceExecutionReport('failed', 'no-response')
         return None
 
-    async def _http_search(self, urls: list[str], proxy: str | bool) -> SourceExecutionReport | None:
+    async def _http_search(self, urls, proxy: str | bool) -> SourceExecutionReport | None:
         headers = {'Host': self.server, 'User-Agent': Core.get_browser_user_agent()}
+        seen_bodies: set[str] = set()
         try:
             async with AsyncFetcher.open_session(headers=headers, proxy=proxy, request_timeout=60) as session:
                 for page_number, url in enumerate(urls):
@@ -64,16 +65,23 @@ class SearchBaidu:
                         include_metadata=True,
                     )
                     if not isinstance(response, FetcherResponse):
-                        return SourceExecutionReport('failed', 'transport-error')
-                    body = response.body if isinstance(response.body, str) else ''
+                        return SourceExecutionReport('partial' if self.total_results else 'failed', 'transport-error')
+                    if not isinstance(response.body, str):
+                        return SourceExecutionReport('partial' if self.total_results else 'failed', 'invalid-response')
+                    body = response.body
                     if report := self._response_report(response.status, body, response.headers.get('location', '')):
-                        return report
+                        return SourceExecutionReport('partial', report.stop_reason) if self.total_results else report
+                    if body in seen_bodies:
+                        return SourceExecutionReport('partial', 'repeated-page')
+                    seen_bodies.add(body)
                     self.total_results += f' {body}'
+        except asyncio.CancelledError:
+            raise
         except Exception:
-            return SourceExecutionReport('failed', 'transport-error')
+            return SourceExecutionReport('partial' if self.total_results else 'failed', 'transport-error')
         return None
 
-    def __init__(self, word, limit) -> None:
+    def __init__(self, word, limit: int | None) -> None:
         self.word = word
         self.total_results = ''
         self.server = 'www.baidu.com'
@@ -82,23 +90,27 @@ class SearchBaidu:
 
     async def do_search(self) -> SourceExecutionReport | None:
         base_url = f'https://{self.server}/s'
-        urls = []
-        for offset in range(0, self.limit, 10):
-            params: dict[str, str | int] = {
-                'ie': 'utf-8',
-                'f': 8,
-                'tn': 'baidu',
-                'wd': f'site:{self.word}',
-                'rqlang': 'en',
-                'rsv_enter': 1,
-                'rsv_dl': 'tb_enter',
-            }
-            if offset:
-                params['pn'] = offset
-            urls.append(f'{base_url}?{urlencode(params)}')
 
+        def urls():
+            offset = 0
+            while self.limit is None or offset < self.limit:
+                params: dict[str, str | int] = {
+                    'ie': 'utf-8',
+                    'f': 8,
+                    'tn': 'baidu',
+                    'wd': f'site:{self.word}',
+                    'rqlang': 'en',
+                    'rsv_enter': 1,
+                    'rsv_dl': 'tb_enter',
+                }
+                if offset:
+                    params['pn'] = offset
+                yield f'{base_url}?{urlencode(params)}'
+                offset += 10
+
+        page_urls = urls()
         if playwright_api is None:
-            return await self._http_search(urls, self.proxy)
+            return await self._http_search(page_urls, self.proxy)
 
         proxy_url, _proxy_type = AsyncFetcher._resolve_proxy(self.proxy)
         manager = playwright_api.async_playwright()
@@ -107,6 +119,7 @@ class SearchBaidu:
         report = None
         primary_error: BaseException | None = None
         cleanup_errors: list[BaseException] = []
+        seen_bodies: set[str] = set()
         try:
             playwright = await manager.__aenter__()
             manager_entered = True
@@ -116,16 +129,23 @@ class SearchBaidu:
             )
             context = await browser.new_context(user_agent=Core.get_browser_user_agent())
             page = await context.new_page()
-            for page_number, url in enumerate(urls):
+            for page_number, url in enumerate(page_urls):
                 if page_number:
                     await asyncio.sleep(self.REQUEST_DELAY_SECONDS)
                 response = await page.goto(url, wait_until='domcontentloaded', timeout=60_000)
                 if response is None:
-                    report = SourceExecutionReport('failed', 'transport-error')
+                    report = SourceExecutionReport('partial' if self.total_results else 'failed', 'transport-error')
                     break
                 body = await page.content()
-                if report := self._response_report(response.status, body, page.url):
+                if response_report := self._response_report(response.status, body, page.url):
+                    report = (
+                        SourceExecutionReport('partial', response_report.stop_reason) if self.total_results else response_report
+                    )
                     break
+                if body in seen_bodies:
+                    report = SourceExecutionReport('partial', 'repeated-page')
+                    break
+                seen_bodies.add(body)
                 self.total_results += f' {body}'
         except BaseException as error:
             primary_error = error
@@ -153,12 +173,12 @@ class SearchBaidu:
             isinstance(final_error, ValueError) and str(final_error) == 'startupinfo is not supported'
         ):
             if not self.total_results:
-                return await self._http_search(urls, proxy_url or False)
-            return SourceExecutionReport('failed', 'transport-error')
+                return await self._http_search(urls(), proxy_url or False)
+            return SourceExecutionReport('partial', 'transport-error')
         if final_error is not None:
             raise final_error
         if report is not None and report.stop_reason == 'transport-error' and not self.total_results:
-            return await self._http_search(urls, proxy_url or False)
+            return await self._http_search(urls(), proxy_url or False)
         return report
 
     async def process(self, proxy: bool = False) -> SourceExecutionReport | None:

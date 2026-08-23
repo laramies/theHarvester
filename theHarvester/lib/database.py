@@ -1199,21 +1199,24 @@ class ResultStore:
         except Exception as error:
             logger.info(f'Unexpected error while storing result: {error}')
 
-    async def source_yields(self, run_id: UUID) -> list[SourceYield]:
+    async def source_yields(self, run_id: UUID, *, kind: ResultKind | None = None) -> list[SourceYield]:
         """Count each source's observed, unique, and shared results for a run.
 
         A result is unique when one source reported it and shared when more than one
-        source reported it. Sources that ran without results still appear with zero counts.
+        source reported it. Sources that ran without matching results still appear with
+        zero counts.
         """
-        yields = await self._producer_yields(run_id, 'source')
+        yields = await self._producer_yields(run_id, 'source', kind=kind)
         return [
             SourceYield(
                 source=name,
                 observed_result_count=observed,
                 unique_result_count=unique,
                 shared_result_count=shared,
+                resolved_hostname_count=resolved,
+                unique_resolved_hostname_count=unique_resolved,
             )
-            for name, observed, unique, shared in yields
+            for name, observed, unique, shared, resolved, unique_resolved in yields
         ]
 
     async def action_yields(self, run_id: UUID) -> list[ActionYield]:
@@ -1225,23 +1228,35 @@ class ResultStore:
                 unique_result_count=unique,
                 shared_result_count=shared,
             )
-            for name, observed, unique, shared in yields
+            for name, observed, unique, shared, _resolved, _unique_resolved in yields
         ]
 
-    async def _producer_yields(self, run_id: UUID, producer_kind: str) -> list[tuple[str, int, int, int]]:
+    async def _producer_yields(
+        self,
+        run_id: UUID,
+        producer_kind: str,
+        *,
+        kind: ResultKind | None = None,
+    ) -> list[tuple[str, int, int, int, int, int]]:
         async with self._session() as session:
-            execution_rows = (
-                await session.scalars(
-                    select(_ExecutionRow).where(
-                        _ExecutionRow.run_id == str(run_id),
-                        _ExecutionRow.producer_kind == producer_kind,
-                    )
-                )
-            ).all()
-            result_rows = (await session.scalars(select(_ResultRow).where(_ResultRow.run_id == str(run_id)))).all()
+            execution_rows = (await session.scalars(select(_ExecutionRow).where(_ExecutionRow.run_id == str(run_id)))).all()
+            result_query = select(_ResultRow).where(_ResultRow.run_id == str(run_id))
+            if kind is not None:
+                result_query = result_query.where(_ResultRow.kind == kind)
+            result_rows = (await session.scalars(result_query)).all()
             origin_rows = (await session.scalars(select(_ResultOriginRow).where(_ResultOriginRow.run_id == str(run_id)))).all()
-        producer_by_position = {row.position: row.name for row in execution_rows}
+        producer_by_position = {row.position: row.name for row in execution_rows if row.producer_kind == producer_kind}
+        dns_resolution_positions = {
+            row.position for row in execution_rows if row.producer_kind == 'action' and row.name == 'dns-resolve'
+        }
         result_by_position = {row.position: (row.kind, row.value) for row in result_rows}
+        resolved_hostnames = {
+            result
+            for origin in origin_rows
+            if origin.execution_position in dns_resolution_positions
+            and (result := result_by_position.get(origin.result_position)) is not None
+            and result[0] == 'hostname'
+        }
         producers_by_result: dict[tuple[str, str], set[str]] = {}
         for origin in origin_rows:
             producer = producer_by_position.get(origin.execution_position)
@@ -1251,12 +1266,25 @@ class ResultStore:
         observed_counts: Counter[str] = Counter()
         unique_counts: Counter[str] = Counter()
         shared_counts: Counter[str] = Counter()
-        for producers in producers_by_result.values():
+        resolved_counts: Counter[str] = Counter()
+        unique_resolved_counts: Counter[str] = Counter()
+        for result, producers in producers_by_result.items():
             for producer in producers:
                 observed_counts[producer] += 1
                 (unique_counts if len(producers) == 1 else shared_counts)[producer] += 1
+                if result in resolved_hostnames:
+                    resolved_counts[producer] += 1
+                    if len(producers) == 1:
+                        unique_resolved_counts[producer] += 1
         return [
-            (name, observed_counts[name], unique_counts[name], shared_counts[name])
+            (
+                name,
+                observed_counts[name],
+                unique_counts[name],
+                shared_counts[name],
+                resolved_counts[name],
+                unique_resolved_counts[name],
+            )
             for name in sorted(producer_by_position.values())
         ]
 
