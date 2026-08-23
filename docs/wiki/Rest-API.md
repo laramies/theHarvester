@@ -33,7 +33,7 @@ Treat the runtime OpenAPI document as the exact request and response reference.
 | `GET /api/v1/sources` | List discovery sources, capabilities, activity classes, and credential names. |
 | `POST /api/v1/runs` | Submit one finite enumeration run. |
 | `GET /api/v1/runs` | List run records with `limit` and `offset` pagination. |
-| `GET /api/v1/runs/{run_id}` | Retrieve lifecycle state, options, results, source outcomes and yields, and artifacts. |
+| `GET /api/v1/runs/{run_id}` | Retrieve lifecycle state, options, results, source outcomes, source yields, and artifacts. |
 | `POST /api/v1/runs/{run_id}/cancel` | Cancel queued work or request cancellation of running work. |
 | `POST /api/v1/runs/import` | Import a JSONL result file without executing discovery. |
 | `POST /api/v1/runs/import-database` | Import completed runs from a theHarvester SQLite database. |
@@ -134,9 +134,9 @@ Run submission is asynchronous. Read the two status fields separately:
 
 `source_workers` is the same positive concurrency used by CLI `-j` or `--source-workers` and HarvestView. It defaults to three, is reduced when fewer sources are selected, and never skips sources or limits their results.
 
-`limit` defaults to 500 per source. Set it to `0` for no shared local result-count cap or arbitrary local page-count ceiling; adapters continue to provider exhaustion and there is no numeric maximum. Provider quotas, protocol maxima, response-size guards, and runtime safety bounds still apply and appear as partial source executions when they prevent natural completion.
+`limit` defaults to 500 per source. A value of `0` removes the shared result cap and local page ceilings, so adapters continue until their provider is exhausted. There is no numeric maximum. Provider quotas, protocol maxima, response-size guards, and runtime limits still apply. If one stops collection after the source retained results, the run keeps those results and records the source as partial with the stop reason.
 
-`source_yields` counts normalized hostname contributions within this run. `unique_result_count` is a hostname found by exactly one selected source. When `dns_resolve` ran, `resolved_hostname_count` and `unique_resolved_hostname_count` report the source's A/AAAA/CNAME-answer subsets. Read all four beside that source's execution status and stop reason. The [results guide](Results-and-Local-Data#compare-source-hostname-yield) gives the fixed-run methodology for comparing sources over time.
+`source_yields` counts normalized hostname contributions within the run. `unique_result_count` counts hostnames found by exactly one selected source. When `dns_resolve` ran, `resolved_hostname_count` and `unique_resolved_hostname_count` report the source's A, AAAA, or CNAME answer subsets. Read these counts with the source's execution status and stop reason. The [results guide](Results-and-Local-Data#compare-source-hostname-yield) explains how to compare fixed runs over time.
 
 P1 DNS and P2 direct options are fields on the same run request. The OpenAPI schema shows their current defaults, limits, and descriptions. The server uses the operator-selected target and does not impose a public-only egress policy.
 

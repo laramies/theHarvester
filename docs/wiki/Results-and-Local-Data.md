@@ -164,13 +164,13 @@ Run details include `source_yields`, derived from persisted normalized hostname 
 - `resolved_hostname_count`: attributed hostnames for which the run's `dns-resolve` action retained an A, AAAA, or CNAME answer;
 - `unique_resolved_hostname_count`: resolved hostnames attributed to only this source.
 
-Use `unique_result_count` as order-independent marginal coverage and `unique_resolved_hostname_count` as its current-DNS subset. Neither proves that a provider is authoritative or independent, and a DNS answer does not prove service reachability. Check the matching `source_executions` status and stop reason: a failed, rate-limited, skipped, or provider-limited source is not a comparable zero-yield source. Providers that draw on the same certificate-transparency or passive-DNS family can still overlap or repeat the same upstream evidence.
+`unique_result_count` measures a source's marginal coverage without depending on source order. `unique_resolved_hostname_count` narrows that count to hostnames with current DNS evidence. Neither proves that a provider is authoritative or independent, and a DNS answer does not prove service reachability. Check the matching `source_executions` status and stop reason. A source that failed, was rate-limited or skipped, or stopped at a provider boundary is not a comparable zero-yield result. Providers that use the same certificate-transparency or passive-DNS family can overlap or repeat the same upstream evidence.
 
-For a reusable benchmark, keep the authorized target, source set, requested limit, release version, resolver set, and collection window fixed. Use requested limit `0` when the comparison requires no shared local result-count cap. Retain the completed runs in SQLite, repeat across several authorized targets and dates, then compare median unique count, median unique-resolved count, resolution rate, and successful-run rate. Treat provider and adapter ceilings as explicit execution evidence rather than silently truncating or ranking them as zero yield. Do not commit target results; add cross-run aggregation only when enough comparable runs exist to justify it.
+For a reusable benchmark, keep the authorized target, source set, requested limit, release version, resolver set, and collection window fixed. Set the limit to `0` when the comparison should have no shared local result cap. Save the completed runs in SQLite and repeat the test across several authorized targets and dates. Compare median unique count, median unique-resolved count, resolution rate, and successful-run rate. Record provider and adapter ceilings as execution evidence instead of treating truncated runs as zero yield. Do not commit target results. Add cross-run aggregation only after you have enough comparable runs to justify it.
 
 #### Analyze yields from SQLite
 
-The installed `harvest-yields` command reads an existing results database. With no arguments it uses the standard `~/.local/share/theHarvester/stash.sqlite` database and reports hostname yields. It fails without creating a file when the selected database does not exist. Select another database, result kind, or one completed run as needed:
+The installed `harvest-yields` command reads an existing results database. With no arguments, it reads `~/.local/share/theHarvester/stash.sqlite` and reports hostname yields. If the selected database does not exist, the command exits without creating it. You can select another database, result kind, or completed run:
 
 ```console
 harvest-yields
@@ -182,7 +182,7 @@ harvest-yields --database results.sqlite --run-id 11111111-1111-4111-8111-111111
 harvest-yields --database results.sqlite --format json
 ```
 
-Without `--run-id`, counts are sums of each run's source yields. The top-level `run_count` states how many runs were selected; each source row's `run_count` states how many of those runs executed that source, including zero-yield executions. `UNIQUE/RUN` divides the summed unique count by that source's run count and is the default ranking key; JSON calls it `unique_result_count_per_run`. “Unique” always means unique within one run, so aggregate totals sum those per-run counts rather than recomputing uniqueness across targets or dates. Hostname output adds resolved and unique-resolved counts plus `UNIQUE-RESOLVED/RUN` (`unique_resolved_hostname_count_per_run` in JSON). Other result kinds omit those DNS-specific fields.
+Without `--run-id`, the command adds each run's source yields. The top-level `run_count` shows how many runs were selected. Each source row has its own `run_count`, including executions that produced no results. `UNIQUE/RUN` divides the summed unique count by that source's run count and is the default ranking key. The JSON field is `unique_result_count_per_run`. "Unique" always means unique within one run, so aggregate totals add the per-run counts instead of recomputing uniqueness across targets or dates. Hostname output also includes resolved and unique-resolved counts plus `UNIQUE-RESOLVED/RUN`, named `unique_resolved_hostname_count_per_run` in JSON. Other result kinds omit the DNS-specific fields.
 
 ## Handling and sharing
 

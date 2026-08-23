@@ -54,7 +54,8 @@ async def test_process_stops_when_a_resume_key_repeats(monkeypatch: pytest.Monke
     search = waybackarchive.SearchWaybackarchive('example.com')
     report = await search.process()
 
-    assert report is None
+    assert report.status == 'failed'
+    assert report.stop_reason == 'repeated-cursor'
     wildcard_requests = [query for query in requests if query['url'] == ['*.example.com']]
     assert len(wildcard_requests) == 2
     assert await search.get_hostnames() == {'api.example.com'}

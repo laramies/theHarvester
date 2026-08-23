@@ -6,7 +6,7 @@ SourceReportStatus = Literal['completed', 'partial', 'failed', 'rate-limited']
 
 @dataclass(frozen=True, slots=True)
 class SourceExecutionReport:
-    """Provider-specific terminal details for one source execution."""
+    """Provider stop details; the source runner determines the final evidence-aware status."""
 
     status: SourceReportStatus
     stop_reason: str

@@ -16,7 +16,7 @@ uv run theHarvester -d example.com -b crtsh,certspotter,commoncrawl
 
 Use the [README source matrix](https://github.com/laramies/theHarvester/blob/dev/README.md#discovery-sources) to choose complementary sources. Adding every source usually increases noise, rate-limit failures, and runtime more than it improves a focused run.
 
-To remove the shared per-source result-count cap and arbitrary local page-count ceilings, pass `--limit 0`; adapters then continue to provider exhaustion. This does not disable provider quotas, protocol maxima, response-size guards, or runtime safety bounds; a source that reaches one records partial evidence with its stop reason.
+Pass `--limit 0` to remove the shared per-source result cap and local page ceilings. Each adapter continues until its provider is exhausted. Provider quotas, protocol maxima, response-size guards, and runtime limits still apply. If one stops collection after the source retained evidence, the run keeps that evidence and records the source as partial with the stop reason.
 
 ## Save results for automation
 

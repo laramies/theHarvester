@@ -458,6 +458,7 @@ async def test_runner_reports_normal_zero_yield_as_completed_no_results(monkeypa
         (SourceExecutionReport('completed', 'result-limit'), False, 'completed', 'result-limit'),
         (SourceExecutionReport('failed', 'provider-failure'), True, 'partial', 'provider-failure'),
         (SourceExecutionReport('failed', 'provider-failure'), False, 'failed', 'provider-failure'),
+        (SourceExecutionReport('rate-limited', 'http-429'), True, 'partial', 'http-429'),
         (SourceExecutionReport('rate-limited', 'http-429'), False, 'rate-limited', 'http-429'),
     ],
 )

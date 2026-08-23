@@ -98,8 +98,10 @@ class SearchWaybackarchive:
             if page_number == 1 or page_number % 10 == 0:
                 logger.info(f'Wayback Archive page {page_number}: hosts={len(self.totalhosts)}')
 
-            if next_resume_key is None or next_resume_key in seen_resume_keys:
+            if next_resume_key is None:
                 return None
+            if next_resume_key in seen_resume_keys:
+                return 'repeated-cursor'
             seen_resume_keys.add(next_resume_key)
             resume_key = next_resume_key
 
