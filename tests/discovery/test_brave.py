@@ -440,7 +440,7 @@ async def test_brave_rate_limit_does_not_skip_to_the_next_page(
 
 
 @pytest.mark.asyncio
-async def test_brave_reports_maximum_page_offset_as_truncation(
+async def test_brave_reports_provider_offset_boundary_as_truncation_when_unlimited(
     monkeypatch: pytest.MonkeyPatch,
     brave_credentials: InMemoryCredentialAdapter,
 ) -> None:
@@ -452,11 +452,11 @@ async def test_brave_reports_maximum_page_offset_as_truncation(
         return _response([_result(len(requests))], more=True)
 
     monkeypatch.setattr(bravesearch.AsyncFetcher, 'fetch_json', fake_fetch)
-    search = bravesearch.SearchBrave('example.com', 1_000, credential_adapter=brave_credentials)
+    search = bravesearch.SearchBrave('example.com', None, credential_adapter=brave_credentials)
     report = await search.process()
 
     assert [request['offset'] for request in requests] == [[str(offset)] for offset in range(10)]
-    assert report == SourceExecutionReport('partial', 'pagination-limit')
+    assert report == SourceExecutionReport('partial', 'provider-limit')
 
 
 pytestmark = pytest.mark.provider_contract('brave')

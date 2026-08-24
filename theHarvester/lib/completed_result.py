@@ -219,6 +219,8 @@ class SourceYield:
     observed_result_count: int
     unique_result_count: int
     shared_result_count: int
+    resolved_hostname_count: int
+    unique_resolved_hostname_count: int
 
     def to_dict(self) -> dict[str, str | int]:
         return {
@@ -226,6 +228,8 @@ class SourceYield:
             'observed_result_count': self.observed_result_count,
             'unique_result_count': self.unique_result_count,
             'shared_result_count': self.shared_result_count,
+            'resolved_hostname_count': self.resolved_hostname_count,
+            'unique_resolved_hostname_count': self.unique_resolved_hostname_count,
         }
 
 

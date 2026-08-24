@@ -67,6 +67,57 @@ async def test_process_uses_current_api_contract_and_keeps_scoped_results(monkey
     assert session_exited is True
 
 
+@pytest.mark.asyncio
+async def test_unlimited_request_covers_the_provider_count_error_margin(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(netlas.Core, 'netlas_key', staticmethod(lambda: 'test-key'))
+
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**_kwargs: Any) -> AsyncIterator[object]:
+        yield object()
+
+    count_calls: list[dict[str, Any]] = []
+    download_calls: list[dict[str, Any]] = []
+
+    async def fake_fetch(*args: Any, **kwargs: Any) -> FetcherResponse:
+        count_calls.append({'url': args[0] if args else kwargs['url'], **kwargs})
+        return FetcherResponse({'count': 12_345}, 200, {})
+
+    async def fake_post_fetch(*_args: Any, **kwargs: Any) -> FetcherResponse:
+        download_calls.append(kwargs)
+        return FetcherResponse([], 200, {})
+
+    monkeypatch.setattr(netlas.AsyncFetcher, 'open_session', fake_open_session)
+    monkeypatch.setattr(netlas.AsyncFetcher, 'fetch', fake_fetch)
+    monkeypatch.setattr(netlas.AsyncFetcher, 'post_fetch', fake_post_fetch)
+
+    report = await netlas.SearchNetlas('example.com', None).process()
+
+    assert count_calls[0]['url'] == 'https://app.netlas.io/api/domains_count/'
+    assert count_calls[0]['params'] == {'q': '*.example.com'}
+    assert download_calls[0]['json_body']['size'] == 12_727
+    assert report is None
+
+
+@pytest.mark.asyncio
+async def test_unlimited_request_rejects_an_invalid_provider_count(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(netlas.Core, 'netlas_key', staticmethod(lambda: 'test-key'))
+
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**_kwargs: Any) -> AsyncIterator[object]:
+        yield object()
+
+    async def fake_fetch(*_args: Any, **_kwargs: Any) -> FetcherResponse:
+        return FetcherResponse({'count': 'many'}, 200, {})
+
+    monkeypatch.setattr(netlas.AsyncFetcher, 'open_session', fake_open_session)
+    monkeypatch.setattr(netlas.AsyncFetcher, 'fetch', fake_fetch)
+
+    report = await netlas.SearchNetlas('example.com', None).process()
+
+    assert report.status == 'failed'
+    assert report.stop_reason == 'invalid-response'
+
+
 @pytest.mark.parametrize('key', [None, '', '   '])
 def test_missing_or_blank_key_fails_closed(monkeypatch: pytest.MonkeyPatch, key: str | None) -> None:
     monkeypatch.setattr(netlas.Core, 'netlas_key', staticmethod(lambda: key))

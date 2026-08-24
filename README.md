@@ -68,6 +68,8 @@ uv run theHarvester -d example.com -b emails,urls,certspotter
 
 Capability selectors form a union and choose which sources run. They do not discard other result types returned by those sources. Available selectors are `subdomains`, `emails`, `ips`, `asns`, `urls`, `people`, and `breaches`. `-b all` runs every cataloged P0 passive source. P1 DNS and P2 direct sources require explicit selection.
 
+Pass `--limit 0` to remove the shared per-source result cap and local page ceilings. Each adapter continues until its provider is exhausted. Provider quotas and runtime safeguards still apply. If one stops collection after the source retained results, the run records a partial source outcome with the stop reason.
+
 Exclude hostname results while retaining other result types:
 
 ```bash
@@ -140,7 +142,7 @@ docker compose down
 | `GET /api/v1/sources` | List registered discovery sources and capabilities. |
 | `POST /api/v1/runs` | Submit a finite enumeration run. |
 | `GET /api/v1/runs` | List durable run records. |
-| `GET /api/v1/runs/{run_id}` | Retrieve lifecycle state, normalized results, and source outcomes. |
+| `GET /api/v1/runs/{run_id}` | Retrieve lifecycle state, normalized results, source outcomes, and hostname yields. |
 | `POST /api/v1/runs/{run_id}/cancel` | Cancel queued or running work. |
 | `POST /api/v1/runs/import` | Import JSONL evidence without executing discovery. |
 | `POST /api/v1/runs/import-database` | Import completed runs from a theHarvester SQLite database. |
@@ -167,7 +169,7 @@ Result types in this table always appear in this order: `subdomains`, `emails`, 
 The `shodan` source contributes subdomains. Shodan host enrichment through `-s` or `--shodan` is a separate action and is not a source result route.
 
 <details>
-<summary><strong>View all 58 discovery sources</strong></summary>
+<summary><strong>View all 59 discovery sources</strong></summary>
 
 | Source | Returns | Activity | API key |
 | --- | --- | :---: | :---: |
@@ -218,6 +220,7 @@ The `shodan` source contributes subdomains. Shodan host enrichment through `-s` 
 | [`shodanct`](https://ctl.shodan.io/) | subdomains only | P0 | No |
 | [`shodanInternetDB`](https://internetdb.shodan.io/) | subdomains, ips | P1 | No |
 | [`sourcegraph`](https://sourcegraph.com/search) | subdomains only | P0 | No |
+| [`subdomainapi`](https://api.subdomain.app/) | subdomains only | P0 | No |
 | [`subdomaincenter`](https://www.subdomain.center/) | subdomains only | P0 | No |
 | [`subdomainfinderc99`](https://subdomainfinder.c99.nl/) | subdomains only | P1 | No |
 | [`thc`](https://ip.thc.org/) | subdomains only | P0 | No |
@@ -295,6 +298,17 @@ jq -r 'select(.type != "summary") | [.type, .value] | @tsv' report.jsonl
 ```
 
 The `subdomains` capability produces `hostname` records because a result can be the target hostname itself. Read [Results and local data](docs/wiki/Results-and-Local-Data.md) for the complete JSONL and evidence contract.
+
+### Compare source yield
+
+`harvest-yields` reads completed runs from an existing SQLite results database. It reports how many values each source observed, how many were unique to that source within a run, and how many hostnames had retained DNS answers. With no arguments, it reads the standard local database:
+
+```bash
+uv run harvest-yields
+uv run harvest-yields --database results.sqlite --kind ip --format json
+```
+
+The command does not run discovery or resolve DNS. Use the same targets, source set, limit, and collection window when comparing sources. The [results guide](docs/wiki/Results-and-Local-Data.md) explains the fields and benchmark method.
 
 ### SQLite, JSON, and XML
 

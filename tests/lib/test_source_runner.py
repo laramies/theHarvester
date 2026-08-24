@@ -99,7 +99,7 @@ def test_source_factories_match_the_catalog() -> None:
         ('fofa', 'theHarvester.lib.source_runner.fofa.SearchFofa', ('example.test', 25), {}),
         ('fullhunt', 'theHarvester.lib.source_runner.fullhuntsearch.SearchFullHunt', ('example.test',), {}),
         ('github-code', 'theHarvester.lib.source_runner.githubcode.SearchGithubCode', ('example.test', 25), {}),
-        ('gitlab', 'theHarvester.lib.source_runner.gitlabsearch.SearchGitlab', ('example.test',), {}),
+        ('gitlab', 'theHarvester.lib.source_runner.gitlabsearch.SearchGitlab', ('example.test', 25), {}),
         (
             'hackertarget',
             'theHarvester.lib.source_runner.hackertarget.SearchHackerTarget',
@@ -121,7 +121,7 @@ def test_source_factories_match_the_catalog() -> None:
         ('hudsonrock', 'theHarvester.lib.source_runner.hudsonrocksearch.SearchHudsonRock', ('example.test',), {}),
         ('hunter', 'theHarvester.lib.source_runner.huntersearch.SearchHunter', ('example.test', 25, 5), {}),
         ('hunterhow', 'theHarvester.lib.source_runner.searchhunterhow.SearchHunterHow', ('example.test', 25), {}),
-        ('intelx', 'theHarvester.lib.source_runner.intelxsearch.SearchIntelx', ('example.test',), {}),
+        ('intelx', 'theHarvester.lib.source_runner.intelxsearch.SearchIntelx', ('example.test', 25), {}),
         ('leakix', 'theHarvester.lib.source_runner.leakix.SearchLeakix', ('example.test',), {}),
         ('leaklookup', 'theHarvester.lib.source_runner.leaklookup.SearchLeakLookup', ('example.test',), {}),
         ('mojeek', 'theHarvester.lib.source_runner.mojeek.SearchMojeek', ('example.test', 25), {}),
@@ -182,7 +182,7 @@ def test_source_factories_match_the_catalog() -> None:
             ('example.test',),
             {},
         ),
-        ('thc', 'theHarvester.lib.source_runner.thc.SearchThc', ('example.test',), {}),
+        ('thc', 'theHarvester.lib.source_runner.thc.SearchThc', ('example.test', 25), {}),
         ('tomba', 'theHarvester.lib.source_runner.tombasearch.SearchTomba', ('example.test', 25, 5), {}),
         ('urlscan', 'theHarvester.lib.source_runner.urlscan.SearchUrlscan', ('example.test', 25), {}),
         ('virustotal', 'theHarvester.lib.source_runner.virustotal.SearchVirustotal', ('example.test', 25), {}),
@@ -193,7 +193,7 @@ def test_source_factories_match_the_catalog() -> None:
             {},
         ),
         ('whoisxml', 'theHarvester.lib.source_runner.whoisxml.SearchWhoisXML', ('example.test', 25), {}),
-        ('windvane', 'theHarvester.lib.source_runner.windvane.SearchWindvane', ('example.test',), {}),
+        ('windvane', 'theHarvester.lib.source_runner.windvane.SearchWindvane', ('example.test', 25), {}),
         ('yahoo', 'theHarvester.lib.source_runner.yahoosearch.SearchYahoo', ('example.test', 25), {}),
         ('zoomeye', 'theHarvester.lib.source_runner.zoomeyesearch.SearchZoomEye', ('example.test', 25), {}),
     ],
@@ -216,6 +216,31 @@ def test_factory_constructor_shapes(
     create_source(SourceRequest(source, 'example.test', 25, 5, True, False))
 
     assert calls == [(expected_args, expected_kwargs)]
+
+
+@pytest.mark.parametrize(
+    ('source', 'patch_target'),
+    [
+        ('gitlab', 'theHarvester.lib.source_runner.gitlabsearch.SearchGitlab'),
+        ('windvane', 'theHarvester.lib.source_runner.windvane.SearchWindvane'),
+    ],
+)
+def test_unlimited_limit_reaches_gitlab_and_windvane_factories(
+    monkeypatch: pytest.MonkeyPatch,
+    source: str,
+    patch_target: str,
+) -> None:
+    calls: list[tuple[object, ...]] = []
+
+    def constructor(*args: object) -> object:
+        calls.append(args)
+        return object()
+
+    monkeypatch.setattr(patch_target, constructor)
+
+    create_source(SourceRequest(source, 'example.test', None, 0, False, True))
+
+    assert calls == [('example.test', None)]
 
 
 @pytest.mark.asyncio
@@ -433,6 +458,7 @@ async def test_runner_reports_normal_zero_yield_as_completed_no_results(monkeypa
         (SourceExecutionReport('completed', 'result-limit'), False, 'completed', 'result-limit'),
         (SourceExecutionReport('failed', 'provider-failure'), True, 'partial', 'provider-failure'),
         (SourceExecutionReport('failed', 'provider-failure'), False, 'failed', 'provider-failure'),
+        (SourceExecutionReport('rate-limited', 'http-429'), True, 'partial', 'http-429'),
         (SourceExecutionReport('rate-limited', 'http-429'), False, 'rate-limited', 'http-429'),
     ],
 )

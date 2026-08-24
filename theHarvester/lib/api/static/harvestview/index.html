@@ -217,8 +217,8 @@
             <small>Use an explicitly authorized target.</small>
           </label>
           <label>Result limit
-            <input id="run-limit" name="limit" type="number" min="1" max="10000" value="500" required>
-            <small>Applied per selected source.</small>
+            <input id="run-limit" name="limit" type="number" min="0" value="500" required>
+            <small>0 means unlimited; positive values apply per selected source.</small>
           </label>
           <label>Whole-run deadline
             <input id="run-deadline" name="deadline_seconds" type="number" min="30" max="86400">

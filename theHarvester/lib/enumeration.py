@@ -24,7 +24,7 @@ class EnumerationOptions:
 
     domain: str
     source: str | None = None
-    limit: int = DEFAULT_RESULT_LIMIT
+    limit: int | None = DEFAULT_RESULT_LIMIT
     start: int = DEFAULT_RESULT_START
     source_workers: int = DEFAULT_SOURCE_WORKERS
     proxies: bool = False
@@ -55,6 +55,12 @@ class EnumerationOptions:
     vhost_insecure: bool = False
     quiet: bool = False
     verbose: bool = False
+
+    def __post_init__(self) -> None:
+        if self.limit is not None and self.limit < 0:
+            raise ValueError('result limit cannot be negative')
+        if self.limit == 0:
+            object.__setattr__(self, 'limit', None)
 
     @classmethod
     def from_namespace(cls, value: Any) -> Self:

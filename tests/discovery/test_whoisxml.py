@@ -192,6 +192,43 @@ async def test_later_page_failure_preserves_partial_results(monkeypatch: pytest.
     assert report.stop_reason == 'http-429'
 
 
+@pytest.mark.parametrize(
+    ('domains', 'expected_status'),
+    [
+        (('api.example.com', 'mail.example.com'), 'partial'),
+        (('outside.test', 'other.test'), 'failed'),
+    ],
+)
+@pytest.mark.asyncio
+async def test_repeated_cursor_status_reflects_retained_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+    domains: tuple[str, str],
+    expected_status: str,
+) -> None:
+    monkeypatch.setattr(whoisxml.Core, 'whoisxml_key', staticmethod(lambda: 'test-key'))
+    responses = [
+        FetcherResponse(
+            {'result': {'nextPageSearchAfter': 'same', 'records': [{'domain': domains[0]}]}},
+            200,
+            {},
+        ),
+        FetcherResponse(
+            {'result': {'nextPageSearchAfter': 'same', 'records': [{'domain': domains[1]}]}},
+            200,
+            {},
+        ),
+    ]
+
+    async def fake_fetch(**_kwargs: Any) -> FetcherResponse:
+        return responses.pop(0)
+
+    monkeypatch.setattr(whoisxml.AsyncFetcher, 'fetch', fake_fetch)
+    report = await whoisxml.SearchWhoisXML('example.com', 10).process()
+
+    assert report.status == expected_status
+    assert report.stop_reason == 'repeated-cursor'
+
+
 @pytest.mark.asyncio
 async def test_cancellation_closes_provider_session(
     monkeypatch: pytest.MonkeyPatch,

@@ -95,7 +95,7 @@ async def test_sourcegraph_uses_fixed_chunk_query_and_collects_descendants(
         event('done', {}),
     )
     calls = install_stream(monkeypatch, records)
-    search = sourcegraph.SearchSourcegraph(' Scope.TEST. ', limit=1)
+    search = sourcegraph.SearchSourcegraph(' Scope.TEST. ', limit=500)
 
     report = await search.process(proxy=True)
 
@@ -364,7 +364,7 @@ async def test_sourcegraph_rejects_events_after_done(monkeypatch: pytest.MonkeyP
 
 
 @pytest.mark.asyncio
-async def test_sourcegraph_preserves_prefix_at_hostname_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_sourcegraph_honors_finite_result_limit_after_terminal_stream(monkeypatch: pytest.MonkeyPatch) -> None:
     install_stream(
         monkeypatch,
         (
@@ -381,36 +381,36 @@ async def test_sourcegraph_preserves_prefix_at_hostname_limit(monkeypatch: pytes
             event('done', {}),
         ),
     )
-    monkeypatch.setattr(sourcegraph.SearchSourcegraph, 'MAX_HOSTNAMES', 1)
-    search = sourcegraph.SearchSourcegraph('scope.test', limit=500)
+    search = sourcegraph.SearchSourcegraph('scope.test', limit=1)
 
     report = await search.process()
 
     assert await search.get_hostnames() == ['one.scope.test']
-    assert report.status == 'failed'
-    assert report.stop_reason == 'response-limit'
+    assert report.status == 'completed'
+    assert report.stop_reason == 'result-limit'
 
 
 @pytest.mark.asyncio
-async def test_sourcegraph_preserves_prefix_at_event_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_sourcegraph_unlimited_mode_has_no_event_or_hostname_cap(monkeypatch: pytest.MonkeyPatch) -> None:
+    hostnames = ' '.join(f'host-{number}.scope.test' for number in range(10_001))
     install_stream(
         monkeypatch,
         (
             event(
                 'matches',
-                [{'type': 'content', 'chunkMatches': [{'content': 'api.scope.test'}]}],
+                [{'type': 'content', 'chunkMatches': [{'content': hostnames}]}],
             ),
-            event('progress', {'done': False, 'skipped': []}),
+            *(event('filters', []) for _ in range(10_000)),
+            event('progress', {'done': True, 'skipped': []}),
+            event('done', {}),
         ),
     )
-    monkeypatch.setattr(sourcegraph.SearchSourcegraph, 'MAX_EVENTS', 1)
-    search = sourcegraph.SearchSourcegraph('scope.test', limit=500)
+    search = sourcegraph.SearchSourcegraph('scope.test', limit=None)
 
     report = await search.process()
 
-    assert await search.get_hostnames() == ['api.scope.test']
-    assert report.status == 'failed'
-    assert report.stop_reason == 'response-limit'
+    assert len(await search.get_hostnames()) == 10_001
+    assert report is None
 
 
 @pytest.mark.asyncio

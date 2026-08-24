@@ -3,7 +3,7 @@ import logging
 from urllib.parse import unquote_plus, urlencode, urlsplit
 
 from theHarvester.lib.core import AsyncFetcher, Core
-from theHarvester.lib.source_execution import SourceExecutionReport, SourceReportStatus
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 logger = logging.getLogger(__name__)
 
@@ -16,12 +16,10 @@ class SearchWaybackarchive:
 
     PAGE_SIZE = 1000
     RUNTIME_SECONDS = 30.0
-    # ponytail: hard cap protects against endless cursors; raise only if real targets exceed one million rows.
-    MAX_PAGES_PER_QUERY = 1000
 
-    def __init__(self, word, limit: int = 500) -> None:
+    def __init__(self, word, limit: int | None = 500) -> None:
         self.word = word.strip().rstrip('.').lower()
-        self.limit = max(limit, 0)
+        self.limit = max(limit, 0) if limit is not None else None
         self.totalhosts: set = set()
         self.proxy = False
         self.hostname = 'https://web.archive.org'
@@ -61,7 +59,9 @@ class SearchWaybackarchive:
     async def _search_pattern(self, pattern: str, headers: dict[str, str]) -> str | None:
         resume_key: str | None = None
         seen_resume_keys: set[str] = set()
-        for page_number in range(1, self.MAX_PAGES_PER_QUERY + 1):
+        page_number = 0
+        while True:
+            page_number += 1
             query = {
                 'url': pattern,
                 'fl': 'original',
@@ -92,18 +92,18 @@ class SearchWaybackarchive:
                 domain = self._extract_domain_from_url(line.strip())
                 if domain.endswith(f'.{self.word}') or domain == self.word:
                     self.totalhosts.add(domain)
-                    if len(self.totalhosts) >= self.limit:
+                    if self.limit is not None and len(self.totalhosts) >= self.limit:
                         return 'result-limit'
 
             if page_number == 1 or page_number % 10 == 0:
                 logger.info(f'Wayback Archive page {page_number}: hosts={len(self.totalhosts)}')
 
-            if next_resume_key is None or next_resume_key in seen_resume_keys:
+            if next_resume_key is None:
                 return None
+            if next_resume_key in seen_resume_keys:
+                return 'repeated-cursor'
             seen_resume_keys.add(next_resume_key)
             resume_key = next_resume_key
-        logger.info(f'Wayback Archive page limit reached for pattern {pattern}; results may be incomplete')
-        return 'page-limit'
 
     async def do_search(self) -> SourceExecutionReport | None:
         if self.limit == 0:
@@ -124,9 +124,6 @@ class SearchWaybackarchive:
                             if degraded_reason is None:
                                 return SourceExecutionReport('completed', 'result-limit')
                             break
-                        if outcome == 'page-limit':
-                            degraded_reason = degraded_reason or outcome
-                            break
                         if outcome is not None:
                             degraded_reason = degraded_reason or outcome
             except TimeoutError:
@@ -134,10 +131,9 @@ class SearchWaybackarchive:
                     f'Wayback Archive runtime limit reached after {self.RUNTIME_SECONDS:g}s; '
                     f'preserved {len(self.totalhosts)} hosts'
                 )
-                return SourceExecutionReport('failed', 'runtime-limit')
+                return SourceExecutionReport('partial' if self.totalhosts else 'failed', 'runtime-limit')
             if degraded_reason is not None:
-                status: SourceReportStatus = 'partial' if degraded_reason == 'page-limit' else 'failed'
-                return SourceExecutionReport(status, degraded_reason)
+                return SourceExecutionReport('failed', degraded_reason)
         except Exception as e:
             logger.info(f'Wayback Archive API error: {e}')
             return SourceExecutionReport('failed', 'unexpected-error')

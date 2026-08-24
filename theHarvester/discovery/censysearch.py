@@ -13,7 +13,7 @@ class SearchCensys:
     MAX_RESULTS_PER_PAGE = 100
     SERVER = 'https://api.platform.censys.io/v3/global/search/query'
 
-    def __init__(self, domain: str, limit: int = 500) -> None:
+    def __init__(self, domain: str, limit: int | None = 500) -> None:
         self.word = domain
         token, self.organization_id = Core.censys_key()
         if not isinstance(token, str) or not token.strip():
@@ -55,7 +55,7 @@ class SearchCensys:
         return False
 
     async def do_search(self) -> SourceExecutionReport | None:
-        if self.limit <= 0:
+        if self.limit is not None and self.limit <= 0:
             return None
 
         headers = {'Accept': 'application/json', 'Authorization': f'Bearer {self.token}'}
@@ -70,11 +70,13 @@ class SearchCensys:
         malformed = False
 
         async with AsyncFetcher.open_session(headers=headers, proxy=self.proxy, request_timeout=720) as session:
-            while records_seen < self.limit:
+            while self.limit is None or records_seen < self.limit:
                 body = {
                     'query': f'cert.names: "{self.word}"',
                     'fields': ['cert.names', 'cert.parsed.subject.email_address'],
-                    'page_size': min(self.MAX_RESULTS_PER_PAGE, self.limit - records_seen),
+                    'page_size': min(self.MAX_RESULTS_PER_PAGE, self.limit - records_seen)
+                    if self.limit is not None
+                    else self.MAX_RESULTS_PER_PAGE,
                 }
                 if page_token is not None:
                     body['page_token'] = page_token
@@ -108,11 +110,11 @@ class SearchCensys:
                     return SourceExecutionReport('failed', 'invalid-response')
 
                 for hit in hits:
-                    if records_seen >= self.limit:
+                    if self.limit is not None and records_seen >= self.limit:
                         break
                     malformed = self._parse_hit(hit) or malformed
                     records_seen += 1
-                if records_seen >= self.limit:
+                if self.limit is not None and records_seen >= self.limit:
                     if malformed:
                         return SourceExecutionReport('failed', 'invalid-response')
                     return None
@@ -121,7 +123,10 @@ class SearchCensys:
                         return SourceExecutionReport('failed', 'invalid-response')
                     return None
                 if next_page_token in seen_tokens:
-                    return SourceExecutionReport('failed', 'repeated-cursor')
+                    return SourceExecutionReport(
+                        'partial' if self.totalhosts or self.emails else 'failed',
+                        'repeated-cursor',
+                    )
                 seen_tokens.add(next_page_token)
                 page_token = next_page_token
         return None

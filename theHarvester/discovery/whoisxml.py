@@ -8,8 +8,8 @@ from theHarvester.lib.source_execution import SourceExecutionReport
 
 
 class SearchWhoisXML:
-    def __init__(self, word: str, limit: int) -> None:
-        if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
+    def __init__(self, word: str, limit: int | None) -> None:
+        if limit is not None and (isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0):
             raise ValueError('WhoisXML limit must be a positive integer')
         self.word = word
         self.limit = limit
@@ -25,7 +25,7 @@ class SearchWhoisXML:
         records_seen = 0
         report = None
         async with AsyncFetcher.open_session(proxy=self.proxy) as session:
-            while records_seen < self.limit:
+            while self.limit is None or records_seen < self.limit:
                 params = {'apiKey': self.key, 'domainName': self.word}
                 if cursor is not None:
                     params['searchAfter'] = cursor
@@ -48,7 +48,7 @@ class SearchWhoisXML:
                 if not isinstance(next_cursor, str):
                     return SourceExecutionReport('failed', 'invalid-response')
 
-                remaining = self.limit - records_seen
+                remaining = self.limit - records_seen if self.limit is not None else len(result['records'])
                 records = result['records'][:remaining]
                 records_seen += len(records)
                 malformed = False
@@ -60,10 +60,10 @@ class SearchWhoisXML:
                         self.total_results.add(hostname)
                 if malformed:
                     report = SourceExecutionReport('failed', 'invalid-response')
-                if records_seen >= self.limit or not next_cursor:
+                if (self.limit is not None and records_seen >= self.limit) or not next_cursor:
                     break
                 if next_cursor in seen_cursors:
-                    return SourceExecutionReport('failed', 'repeated-cursor')
+                    return SourceExecutionReport('partial' if self.total_results else 'failed', 'repeated-cursor')
                 seen_cursors.add(next_cursor)
                 cursor = next_cursor
         return report

@@ -238,11 +238,23 @@ class RunStore:
             ),
         }
         if detail:
+            source_yields = (
+                [
+                    item.to_dict()
+                    for item in await self.results.source_yields(
+                        UUID(str(record['evidence_run_id'])),
+                        kind='hostname',
+                    )
+                ]
+                if evidence
+                else []
+            )
             result.update(
                 request=request,
                 evidence=evidence,
                 results=normalized_results(evidence),
                 source_executions=source_executions(evidence),
+                source_yields=source_yields,
                 action_executions=evidence.get('action_executions', []) if evidence else [],
                 artifacts=evidence.get('artifacts', []) if evidence else [],
                 screenshots=screenshots(evidence, str(record['run_id']), self.artifact_directory(str(record['run_id']))),

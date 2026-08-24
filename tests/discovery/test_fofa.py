@@ -1,8 +1,9 @@
+from __future__ import annotations
+
 import asyncio
 import base64
 import contextlib
-from collections.abc import AsyncIterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -10,6 +11,9 @@ from theHarvester.discovery import fofa
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import FetcherResponse
 from theHarvester.lib.source_execution import SourceExecutionReport
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 
 @pytest.mark.provider_contract('fofa')
@@ -122,12 +126,23 @@ async def test_failures_are_structured(
     assert report == SourceExecutionReport(status, reason)
 
 
+@pytest.mark.parametrize(
+    ('results', 'expected_status'),
+    [
+        ([['api.example.com', '192.0.2.1']], 'partial'),
+        ([['outside.test', 'not-an-ip']], 'failed'),
+    ],
+)
 @pytest.mark.asyncio
-async def test_repeated_cursor_stops_without_a_third_request(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_repeated_cursor_status_reflects_retained_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+    results: list[list[str]],
+    expected_status: str,
+) -> None:
     monkeypatch.setattr(fofa.Core, 'fofa_key', lambda: ('test-key', 'operator@example.com'))
     responses = [
-        FetcherResponse({'error': False, 'results': [['api.example.com', '192.0.2.1']], 'next': 'same'}, 200, {}),
-        FetcherResponse({'error': False, 'results': [['mail.example.com', '192.0.2.2']], 'next': 'same'}, 200, {}),
+        FetcherResponse({'error': False, 'results': results, 'next': 'same'}, 200, {}),
+        FetcherResponse({'error': False, 'results': results, 'next': 'same'}, 200, {}),
     ]
 
     @contextlib.asynccontextmanager
@@ -142,7 +157,7 @@ async def test_repeated_cursor_stops_without_a_third_request(monkeypatch: pytest
     search = fofa.SearchFofa('example.com', 10)
     report = await search.process()
 
-    assert report == SourceExecutionReport('failed', 'repeated-cursor')
+    assert report == SourceExecutionReport(expected_status, 'repeated-cursor')
     assert responses == []
 
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from ipaddress import ip_address
 from typing import Any
 
@@ -13,8 +14,8 @@ from theHarvester.lib.source_execution import SourceExecutionReport, SourceRepor
 class SearchSecurityScorecard:
     PAGE_SIZE = 50
 
-    def __init__(self, word: str, limit: int) -> None:
-        if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
+    def __init__(self, word: str, limit: int | None) -> None:
+        if limit is not None and (isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0):
             raise ValueError('SecurityScorecard limit must be a positive integer')
         self.word = word
         self.limit = limit
@@ -75,8 +76,9 @@ class SearchSecurityScorecard:
     async def _collect_assets(self, session: Any, route: str, field: str) -> bool:
         page = 0
         records_seen = 0
-        page_size = min(self.PAGE_SIZE, self.limit)
-        while records_seen < self.limit:
+        seen_pages: set[str] = set()
+        page_size = min(self.PAGE_SIZE, self.limit) if self.limit is not None else self.PAGE_SIZE
+        while self.limit is None or records_seen < self.limit:
             response = await AsyncFetcher.post_fetch(
                 f'{self.base_url}/parent-domains/{self.word}/{route}',
                 session=session,
@@ -92,8 +94,13 @@ class SearchSecurityScorecard:
             if not isinstance(entries, list) or isinstance(size, bool) or not isinstance(size, int | float) or size < 0:
                 self._stop('failed', 'invalid-response')
                 return False
+            signature = json.dumps(entries, sort_keys=True, separators=(',', ':'))
+            if signature in seen_pages:
+                self._stop('partial' if self.hosts or self.ips else 'failed', 'repeated-page')
+                return False
+            seen_pages.add(signature)
 
-            remaining = self.limit - records_seen
+            remaining = self.limit - records_seen if self.limit is not None else len(entries)
             page_entries = entries[:remaining]
             records_seen += len(page_entries)
             malformed = False
@@ -112,7 +119,7 @@ class SearchSecurityScorecard:
                         malformed = True
             if malformed:
                 self._stop('failed', 'invalid-response')
-            if records_seen >= self.limit or len(entries) < page_size:
+            if (self.limit is not None and records_seen >= self.limit) or len(entries) < page_size:
                 return True
             page += 1
         return True

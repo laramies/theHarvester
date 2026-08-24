@@ -1,13 +1,17 @@
+from __future__ import annotations
+
 import asyncio
 import contextlib
-from collections.abc import AsyncIterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
 from theHarvester.discovery import onyphe
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import FetcherResponse
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 
 @pytest.mark.provider_contract('onyphe')
@@ -196,7 +200,8 @@ async def test_operator_limit_is_not_reported_as_a_provider_limit(monkeypatch: p
 
 
 @pytest.mark.asyncio
-async def test_search_api_reports_its_documented_total_boundary(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize('limit', [None, 10_001])
+async def test_search_api_reports_its_documented_total_boundary(monkeypatch: pytest.MonkeyPatch, limit: int | None) -> None:
     monkeypatch.setattr(onyphe.Core, 'onyphe_key', lambda: 'test-key')
     calls: list[dict[str, Any]] = []
     response = FetcherResponse(
@@ -220,13 +225,13 @@ async def test_search_api_reports_its_documented_total_boundary(monkeypatch: pyt
 
     monkeypatch.setattr(onyphe.AsyncFetcher, 'open_session', fake_open_session)
     monkeypatch.setattr(onyphe.AsyncFetcher, 'fetch', fake_fetch)
-    search = onyphe.SearchOnyphe('example.com', 10_001)
+    search = onyphe.SearchOnyphe('example.com', limit)
     report = await search.process()
 
     assert [call['params']['page'] for call in calls] == [1]
     assert [call['params']['size'] for call in calls] == [10_000]
     assert await search.get_hostnames() == {'api.example.com'}
-    assert report.status == 'failed'
+    assert report.status == 'partial'
     assert report.stop_reason == 'provider-limit'
 
 

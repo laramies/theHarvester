@@ -563,7 +563,7 @@ async def test_malformed_matching_directory_entry_is_failed(
 
 
 @pytest.mark.asyncio
-async def test_directory_entry_scan_is_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_directory_entry_scan_has_no_local_entry_cap(monkeypatch: pytest.MonkeyPatch) -> None:
     spec_urls = [f'https://api.apis.guru/v2/specs/example.com/service-{index}/1.0/openapi.json' for index in range(2)]
     directory = {
         f'example.com:service-{index}': {
@@ -584,6 +584,11 @@ async def test_directory_entry_scan_is_bounded(monkeypatch: pytest.MonkeyPatch) 
             status=200,
             headers={},
         ),
+        FetcherResponse(
+            body={'openapi': '3.0.3', 'servers': [{'url': 'https://second.example.com'}]},
+            status=200,
+            headers={},
+        ),
     ]
     requested_urls: list[str] = []
 
@@ -591,16 +596,14 @@ async def test_directory_entry_scan_is_bounded(monkeypatch: pytest.MonkeyPatch) 
         requested_urls.append(kwargs['url'])
         return responses.pop(0)
 
-    monkeypatch.setattr(apisguru.SearchApisGuru, 'MAX_DIRECTORY_ENTRIES', 1)
     monkeypatch.setattr(apisguru.AsyncFetcher, 'fetch_json', fake_fetch)
     search = apisguru.SearchApisGuru('example.com', limit=5)
 
     report = await search.process()
 
-    assert requested_urls == ['https://api.apis.guru/v2/example.com.json', spec_urls[0]]
-    assert await search.get_hostnames() == {'api.example.com'}
-    assert report.status == 'failed'
-    assert report.stop_reason == 'directory-entry-limit'
+    assert requested_urls == ['https://api.apis.guru/v2/example.com.json', *spec_urls]
+    assert await search.get_hostnames() == {'api.example.com', 'second.example.com'}
+    assert report is None
 
 
 @pytest.mark.asyncio
@@ -840,7 +843,9 @@ async def test_apex_only_hostname_is_not_counted_as_a_retained_result(monkeypatc
 
 
 @pytest.mark.asyncio
-async def test_scalar_results_are_hard_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_scalar_results_use_the_requested_limit_without_a_protective_clamp(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     spec_url = 'https://api.apis.guru/v2/specs/example.com/1.0/openapi.json'
     responses = [
         FetcherResponse(
@@ -872,16 +877,14 @@ async def test_scalar_results_are_hard_bounded(monkeypatch: pytest.MonkeyPatch) 
     async def fake_fetch(**_kwargs: Any) -> FetcherResponse:
         return responses.pop(0)
 
-    monkeypatch.setattr(apisguru.SearchApisGuru, 'MAX_RESULTS_PER_ROUTE', 1)
     monkeypatch.setattr(apisguru.AsyncFetcher, 'fetch_json', fake_fetch)
     search = apisguru.SearchApisGuru('example.com', limit=5)
 
     report = await search.process()
 
-    assert await search.get_hostnames() == {'one.example.com'}
-    assert await search.get_urls() == {'https://one.example.com'}
-    assert report.status == 'failed'
-    assert report.stop_reason == 'result-cap'
+    assert await search.get_hostnames() == {'one.example.com', 'two.example.com'}
+    assert await search.get_urls() == {'https://one.example.com', 'https://two.example.com'}
+    assert report is None
 
 
 @pytest.mark.asyncio

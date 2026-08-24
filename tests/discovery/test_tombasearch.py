@@ -6,6 +6,7 @@ import pytest
 from theHarvester.discovery import tombasearch
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.core import FetcherResponse
+from theHarvester.lib.source_execution import SourceExecutionReport
 
 
 def tomba_page(first: int, count: int = 50) -> dict:
@@ -55,7 +56,6 @@ async def test_tomba_http_failures_return_no_results(monkeypatch, caplog, status
 
     assert await search.get_emails() == []
     assert await search.get_hostnames() == []
-
 
     assert f'Tomba request failed with HTTP {status}' in caplog.text
     assert 'provider detail' not in caplog.text
@@ -265,6 +265,33 @@ async def test_free_tomba_search_honors_limit_and_start(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
+async def test_free_tomba_unlimited_reports_saturated_provider_boundary(monkeypatch) -> None:
+    responses = iter(
+        [
+            {
+                'data': {
+                    'pricing': {'name': 'Free'},
+                    'requests': {'domains': {'available': 10, 'used': 0}},
+                }
+            },
+            tomba_page(0, 10),
+        ]
+    )
+
+    async def fake_fetch_all(*_args, **_kwargs):
+        return [FetcherResponse(body=next(responses), status=200, headers={})]
+
+    monkeypatch.setattr(tombasearch.Core, 'tomba_key', lambda: ('test-key', 'test-secret'))
+    monkeypatch.setattr(tombasearch.Core, 'get_user_agent', lambda: 'test-agent')
+    monkeypatch.setattr(tombasearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+
+    search = tombasearch.SearchTomba('example.test', None, 0)
+
+    assert await search.process() == SourceExecutionReport('partial', 'provider-limit')
+    assert len(await search.get_hostnames()) == 10
+
+
+@pytest.mark.asyncio
 async def test_paid_tomba_search_stops_before_exceeding_quota(monkeypatch) -> None:
     requests: list[str] = []
     responses = iter(
@@ -276,6 +303,8 @@ async def test_paid_tomba_search_stops_before_exceeding_quota(monkeypatch) -> No
                 }
             },
             {'data': {'total': 120}},
+            tomba_page(0),
+            tomba_page(50),
         ]
     )
 
@@ -288,14 +317,17 @@ async def test_paid_tomba_search_stops_before_exceeding_quota(monkeypatch) -> No
     monkeypatch.setattr(tombasearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
 
     search = tombasearch.SearchTomba('example.test', 120, 0)
-    await search.process()
+    report = await search.process()
 
     assert requests == [
         'https://api.tomba.io/v1/me',
         'https://api.tomba.io/v1/email-count?domain=example.test',
+        'https://api.tomba.io/v1/domain-search?domain=example.test&limit=50&page=1',
+        'https://api.tomba.io/v1/domain-search?domain=example.test&limit=50&page=2',
     ]
-    assert await search.get_emails() == []
-    assert await search.get_hostnames() == []
+    assert report == SourceExecutionReport('partial', 'quota-exhausted')
+    assert len(await search.get_emails()) == 100
+    assert len(await search.get_hostnames()) == 100
 
 
 pytestmark = pytest.mark.provider_contract('tomba')

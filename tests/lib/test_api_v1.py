@@ -509,6 +509,16 @@ def test_dns_limits_default_to_unlimited_and_keep_explicit_values() -> None:
     assert (explicit.dns_recursive_query_limit, explicit.dns_recursive_runtime_seconds) == (12, 1.5)
 
 
+def test_result_limit_accepts_unlimited_and_has_no_numeric_ceiling() -> None:
+    from theHarvester.lib.api.run_models import RunRequest
+
+    unlimited = RunRequest(target='example.test', sources=['crtsh'], limit=0)
+    large = RunRequest(target='example.test', sources=['crtsh'], limit=1_000_000)
+
+    assert unlimited.limit == 0
+    assert large.limit == 1_000_000
+
+
 def test_run_detail_exposes_one_normalized_evidence_surface(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api import api
 
@@ -964,6 +974,101 @@ def test_api_jsonl_round_trip_preserves_source_attribution(tmp_path, monkeypatch
     assert reimported.json()['evidence_status'] == 'complete'
     assert reimported.json()['request']['source_run_id'] == imported.json()['run_id']
     assert reimported.json()['source_executions'] == [source_execution]
+
+
+def test_run_detail_reports_unique_hostname_contribution_per_source(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    summary = {
+        'type': 'summary',
+        'run_id': '31ced47a-6354-4f18-b633-2583400c4aad',
+        'target': 'example.test',
+        'started_at': '2026-08-23T12:00:00Z',
+        'completed_at': '2026-08-23T12:01:00Z',
+        'evidence_status': 'partial',
+        'result_count': 2,
+        'counts': {'hostname': 2},
+        'source_executions': [
+            {
+                'source': 'crtsh',
+                'status': 'completed',
+                'duration_ms': 1,
+                'result_count': 1,
+                'error_type': None,
+                'stop_reason': None,
+            },
+            {
+                'source': 'subdomainapi',
+                'status': 'partial',
+                'duration_ms': 2,
+                'result_count': 2,
+                'error_type': None,
+                'stop_reason': 'provider-limit',
+            },
+        ],
+        'action_executions': [
+            {
+                'action': 'dns-resolve',
+                'status': 'completed',
+                'duration_ms': 3,
+                'result_count': 1,
+                'error_type': None,
+                'stop_reason': None,
+            }
+        ],
+    }
+    payload = '\n'.join(
+        (
+            json.dumps(summary),
+            json.dumps(
+                {
+                    'type': 'hostname',
+                    'value': 'shared.example.test',
+                    'sources': ['crtsh', 'subdomainapi'],
+                }
+            ),
+            json.dumps(
+                {
+                    'type': 'hostname',
+                    'value': 'unique.example.test',
+                    'sources': ['subdomainapi'],
+                    'actions': ['dns-resolve'],
+                }
+            ),
+            '',
+        )
+    )
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+
+    with TestClient(api.app) as client:
+        response = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'source-yields.jsonl'},
+            headers={'X-API-Key': 'test-key'},
+            content=payload,
+        )
+
+    assert response.status_code == 201
+    assert response.json()['source_yields'] == [
+        {
+            'source': 'crtsh',
+            'observed_result_count': 1,
+            'unique_result_count': 0,
+            'shared_result_count': 1,
+            'resolved_hostname_count': 0,
+            'unique_resolved_hostname_count': 0,
+        },
+        {
+            'source': 'subdomainapi',
+            'observed_result_count': 2,
+            'unique_result_count': 1,
+            'shared_result_count': 1,
+            'resolved_hostname_count': 1,
+            'unique_resolved_hostname_count': 1,
+        },
+    ]
 
 
 def test_api_jsonl_export_uses_evidence_timestamps_not_lifecycle_timestamps(tmp_path, monkeypatch) -> None:

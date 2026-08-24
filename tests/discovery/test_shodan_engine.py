@@ -394,6 +394,52 @@ class TestShodanEngine:
         assert report is None
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ('hostnames', 'expected_status'),
+        [(('api.example.test',), 'partial'), (('outside.invalid',), 'failed')],
+    )
+    async def test_shodan_repeated_search_page_is_not_counted_toward_provider_total(
+        self,
+        monkeypatch,
+        hostnames,
+        expected_status,
+    ):
+        from theHarvester.discovery import shodansearch
+        from theHarvester.lib.core import FetcherResponse
+
+        search_calls = []
+        repeated_match = {
+            'ip_str': '198.51.100.20',
+            'hostnames': list(hostnames),
+            'port': 443,
+            'transport': 'tcp',
+        }
+
+        async def fetch_json(url, *, params, **_kwargs):
+            if not url.endswith('/search'):
+                return FetcherResponse(body=None, status=404, headers={})
+            search_calls.append((params['query'], params['page']))
+            if params['query'] == 'hostname:example.test':
+                return FetcherResponse(body={'matches': [repeated_match], 'total': 3}, status=200, headers={})
+            return FetcherResponse(body={'matches': [], 'total': 0}, status=200, headers={})
+
+        monkeypatch.setattr(shodansearch.Core, 'shodan_key', lambda: 'test-key')
+        monkeypatch.setattr(shodansearch.AsyncFetcher, 'fetch_json', fetch_json)
+        patch_resolution(monkeypatch, shodansearch)
+        search = shodansearch.SearchShodan('example.test')
+
+        report = await search.process()
+
+        assert search_calls == [
+            ('hostname:example.test', 1),
+            ('hostname:example.test', 2),
+            ('ssl:example.test', 1),
+        ]
+        assert await search.get_hostnames() == ({'api.example.test'} if expected_status == 'partial' else set())
+        assert report.status == expected_status
+        assert report.stop_reason == 'repeated-page'
+
+    @pytest.mark.asyncio
     async def test_shodan_discovery_counts_service_only_evidence_as_a_result(self, monkeypatch):
         from theHarvester.discovery import shodansearch
         from theHarvester.lib.core import FetcherResponse

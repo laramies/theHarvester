@@ -1,6 +1,6 @@
 import asyncio
 import base64
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
 from dateutil.relativedelta import relativedelta
@@ -14,9 +14,10 @@ from theHarvester.lib.source_execution import SourceExecutionReport
 
 class SearchHunterHow:
     REQUEST_DELAY_SECONDS = 2.0
+    ALL_HISTORY_START = date(1970, 1, 1)
 
-    def __init__(self, word: str, limit: int = 500) -> None:
-        if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
+    def __init__(self, word: str, limit: int | None = 500) -> None:
+        if limit is not None and (isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0):
             raise ValueError('Hunter.how limit must be a positive integer')
         self.word = word
         self.limit = limit
@@ -36,7 +37,7 @@ class SearchHunterHow:
     async def do_search(self) -> SourceExecutionReport | None:
         query = base64.urlsafe_b64encode(f'domain.suffix="{self.word}"'.encode()).decode('ascii')
         end = datetime.now(UTC).date()
-        start = end - relativedelta(days=364)
+        start = self.ALL_HISTORY_START if self.limit is None else end - relativedelta(days=364)
         page = 1
         returned = 0
         params: dict[str, Any] = {
@@ -52,11 +53,11 @@ class SearchHunterHow:
                 headers={'User-Agent': Core.get_user_agent()},
                 proxy=self.proxy,
             ) as session:
-                while returned < self.limit:
+                while self.limit is None or returned < self.limit:
                     request_params = {
                         **params,
                         'page': page,
-                        'page_size': self._page_size(self.limit - returned),
+                        'page_size': self._page_size(self.limit - returned) if self.limit is not None else 1000,
                     }
                     response = await AsyncFetcher.fetch(
                         session=session,
@@ -82,7 +83,7 @@ class SearchHunterHow:
                     if isinstance(total, bool) or not isinstance(total, int) or total < 0 or not isinstance(rows, list):
                         return SourceExecutionReport('failed', 'invalid-response')
 
-                    remaining = self.limit - returned
+                    remaining = self.limit - returned if self.limit is not None else len(rows)
                     malformed = False
                     for row in rows[:remaining]:
                         if not isinstance(row, dict) or not isinstance(row.get('domain'), str):
@@ -94,7 +95,7 @@ class SearchHunterHow:
                         report = SourceExecutionReport('failed', 'invalid-response')
 
                     returned += len(rows)
-                    if not rows or returned >= min(total, self.limit):
+                    if not rows or returned >= (min(total, self.limit) if self.limit is not None else total):
                         break
                     page += 1
                     await asyncio.sleep(self.REQUEST_DELAY_SECONDS)
