@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding=utf-8
 """Tests for the THC (ip.thc.org) discovery source.
 
 THC provides multiple endpoints:
@@ -9,8 +8,10 @@ THC provides multiple endpoints:
 
 API documentation: https://ip.thc.org/docs/
 """
-from types import TracebackType
-from typing import Any, Self
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Self
 from urllib.parse import parse_qs, urlparse
 
 import httpx
@@ -18,6 +19,9 @@ import pytest
 
 from theHarvester.discovery import thc
 from theHarvester.lib.core import Core
+
+if TYPE_CHECKING:
+    from types import TracebackType
 
 
 class FakeResponse:
@@ -175,6 +179,27 @@ class TestThcSubdomainSearch:
         result = await search.get_hostnames()
         result_list = list(result)
         assert len(result_list) == len(set(result_list))
+
+    @pytest.mark.asyncio
+    async def test_unlimited_uses_provider_max_and_reports_saturation(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        requested_urls: list[str] = []
+
+        class RecordingSession(FakeSession):
+            def get(self, url: str) -> FakeResponse:
+                requested_urls.append(url)
+                return FakeResponse('one.example.com\ntwo.example.com\n')
+
+        monkeypatch.setattr(thc.SearchThc, 'PROVIDER_MAX_RESULTS', 2)
+        monkeypatch.setattr(thc.aiohttp, 'ClientSession', RecordingSession)
+
+        report = await thc.SearchThc(self.domain(), None).process()
+
+        assert parse_qs(urlparse(requested_urls[0]).query)['limit'] == ['2']
+        assert report.status == 'partial'
+        assert report.stop_reason == 'provider-limit'
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -425,12 +450,14 @@ class TestThcIntegration:
     async def test_module_can_be_imported(self) -> None:
         """Import the THC discovery module."""
         from theHarvester.discovery import thc as thc_module
+
         assert thc_module is not None
 
     @pytest.mark.asyncio
     async def test_search_class_exists(self) -> None:
         """Expose the ``SearchThc`` adapter."""
         from theHarvester.discovery import thc as thc_module
+
         assert hasattr(thc_module, 'SearchThc')
 
     @pytest.mark.asyncio

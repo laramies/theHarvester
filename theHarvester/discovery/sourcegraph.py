@@ -74,29 +74,29 @@ def _parse_event(record: str) -> tuple[str, Any]:
 class SearchSourcegraph:
     """Collect descendant-hostname candidates mentioned in Sourcegraph code.
 
-    One query to Sourcegraph requests up to 5,000 matches; ``--limit`` does not
-    change it, and this source never contacts the target. A code mention does not
-    prove ownership, scope, or liveness. Repository and shard limits, along with
-    unstable result ordering, can make the results partial and non-exhaustive.
+    One query to Sourcegraph requests up to 5,000 matches; ``--limit`` caps
+    emitted hostnames but does not change that provider query. This source never
+    contacts the target. A code mention does not prove ownership, scope, or
+    liveness. Repository and shard limits, along with unstable result ordering,
+    can make the results partial and non-exhaustive.
     """
 
     ENDPOINT = 'https://sourcegraph.com/.api/search/stream'
     MATCH_COUNT = 5000
-    MAX_EVENTS = 10_000
-    MAX_HOSTNAMES = 10_000
     MAX_LINE_LENGTH = 4096
 
-    def __init__(self, word: str, limit: int) -> None:
-        del limit  # Sourcegraph uses one fixed provider query; global --limit is unrelated.
+    def __init__(self, word: str, limit: int | None) -> None:
         self.word = _normalize_hostname(word) or ''
         if '.' not in self.word:
             self.word = ''
+        self.limit = max(limit, 0) if limit is not None else None
         self.totalhosts: set[str] = set()
         self.proxy: bool | str = False
         self._report: SourceExecutionReport | None = None
         self._saw_done = False
         self._saw_terminal_progress = False
         self._final_progress_skipped = False
+        self._result_limit_reached = False
 
     def _stop(self, reason: str, status: SourceReportStatus = 'failed') -> None:
         self._report = SourceExecutionReport(status, reason)
@@ -105,8 +105,9 @@ class SearchSourcegraph:
         for match in _HOST_TOKEN.finditer(content):
             hostname = _normalize_hostname(match.group())
             if hostname and hostname != self.word and hostname.endswith(f'.{self.word}'):
-                if len(self.totalhosts) >= self.MAX_HOSTNAMES and hostname not in self.totalhosts:
-                    raise OverflowError
+                if self.limit is not None and len(self.totalhosts) >= self.limit and hostname not in self.totalhosts:
+                    self._result_limit_reached = True
+                    continue
                 self.totalhosts.add(hostname)
 
     def _consume_matches(self, payload: object) -> None:
@@ -189,19 +190,11 @@ class SearchSourcegraph:
                     self._stop(f'http-{response.status}')
                     return
 
-                event_count = 0
                 async for record in response:
-                    event_count += 1
-                    if event_count > self.MAX_EVENTS:
-                        self._stop('response-limit')
-                        return
                     try:
                         failure = self._consume_event(record)
                     except json.JSONDecodeError, RecursionError, TypeError, ValueError:
                         self._stop('invalid-response')
-                        return
-                    except OverflowError:
-                        self._stop('response-limit')
                         return
                     if failure:
                         self._stop(failure)
@@ -214,6 +207,8 @@ class SearchSourcegraph:
             self._stop('invalid-response')
         elif self._final_progress_skipped:
             self._stop('provider-limited', 'partial')
+        elif self._result_limit_reached:
+            self._stop('result-limit', 'completed')
 
     async def get_hostnames(self) -> list[str]:
         return sorted(self.totalhosts)

@@ -99,7 +99,7 @@
   <rect x="332" y="144" width="200" height="144" rx="8" class="node"/>
   <rect x="344" y="156" width="72" height="20" rx="4" class="tag"/>
   <text x="380" y="172" class="tag-text">SOURCES</text>
-  <text x="348" y="208" class="node-title">58 discovery adapters</text>
+  <text x="348" y="208" class="node-title">59 discovery adapters</text>
   <text x="348" y="232" class="node-copy-strong">search · CT · DNS data</text>
   <text x="348" y="248" class="node-copy-strong">code · archives</text>
   <text x="348" y="264" class="node-copy-strong">threat intelligence</text>

@@ -99,6 +99,25 @@ async def test_process_uses_unique_indexes_from_latest_catalog_year_window_and_s
     assert all(old_endpoint not in url for url in requested_urls)
 
 
+def test_unlimited_index_selection_has_no_local_history_window() -> None:
+    catalog = [
+        {
+            'id': 'CC-MAIN-2026-30',
+            'cdx-api': 'https://index.commoncrawl.org/CC-MAIN-2026-30-index',
+            'to': '2026-07-12T00:00:00',
+        },
+        {
+            'id': 'CC-MAIN-2012',
+            'cdx-api': 'https://index.commoncrawl.org/CC-MAIN-2012-index',
+            'to': '2012-12-31T00:00:00',
+        },
+    ]
+
+    indexes = commoncrawl.SearchCommoncrawl._select_indexes(catalog, include_all=True)
+
+    assert [index['id'] for index in indexes] == ['CC-MAIN-2026-30', 'CC-MAIN-2012']
+
+
 @pytest.mark.asyncio
 async def test_process_rejects_untrusted_catalog_endpoints(
     monkeypatch: pytest.MonkeyPatch,
@@ -161,10 +180,7 @@ async def test_process_requests_provider_pages_sequentially(monkeypatch: pytest.
 
 
 @pytest.mark.asyncio
-async def test_process_caps_provider_page_counts_and_reports_truncation(
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
+async def test_unlimited_process_exhausts_provider_reported_page_count(monkeypatch: pytest.MonkeyPatch) -> None:
     catalog = [
         {
             'id': 'CC-MAIN-2026-30',
@@ -179,21 +195,18 @@ async def test_process_caps_provider_page_counts_and_reports_truncation(
             return [catalog]
         query = parse_qs(urlsplit(urls[0]).query)
         if query.get('showNumPages') == ['true']:
-            return ['{"pages": 1000000, "pageSize": 5, "blocks": 5000000}']
-        requested_pages.extend(int(parse_qs(urlsplit(url).query)['page'][0]) for url in urls)
-        return ['{"url":"https://api.example.com/"}' for _url in urls]
+            return ['{"pages": 3, "pageSize": 5, "blocks": 3}']
+        page = int(query['page'][0])
+        requested_pages.append(page)
+        return [f'{{"url":"https://host-{page}.example.com/"}}']
 
     monkeypatch.setattr(commoncrawl.AsyncFetcher, 'fetch_all', fake_fetch_all)
-    monkeypatch.setattr(commoncrawl.SearchCommoncrawl, 'MAX_PAGES_PER_QUERY', 2)
+    search = commoncrawl.SearchCommoncrawl('example.com', limit=None)
+    report = await search.process()
 
-    search = commoncrawl.SearchCommoncrawl('example.com', limit=50)
-    with caplog.at_level(logging.WARNING, logger=commoncrawl.__name__):
-        report = await search.process()
-
-    assert requested_pages == [0, 1, 0, 1]
-    assert 'Common Crawl page limit reached for index CC-MAIN-2026-30; results may be incomplete' in caplog.text
-    assert report.status == 'partial'
-    assert report.stop_reason == 'page-limit'
+    assert requested_pages == [0, 1, 2, 0, 1, 2]
+    assert await search.get_hostnames() == {'host-0.example.com', 'host-1.example.com', 'host-2.example.com'}
+    assert report is None
 
 
 @pytest.mark.asyncio
@@ -424,7 +437,7 @@ async def test_process_retains_partial_results_at_the_runtime_limit(monkeypatch:
 
     assert await search.get_hostnames() == {'api.example.com'}
 
-    assert report.status == 'failed'
+    assert report.status == 'partial'
     assert report.stop_reason == 'runtime-limit'
 
 

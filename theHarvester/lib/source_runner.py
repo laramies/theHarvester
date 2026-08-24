@@ -57,6 +57,7 @@ from theHarvester.discovery import (
     shodanct,
     shodansearch,
     sourcegraph,
+    subdomainapi,
     subdomaincenter,
     subdomainfinderc99,
     thc,
@@ -95,7 +96,7 @@ class SourceRequest:
 
     source: str
     target: str
-    limit: int
+    limit: int | None
     start: int
     proxy: bool
     include_hostnames: bool
@@ -144,14 +145,14 @@ SOURCE_FACTORIES: dict[str, SourceFactory] = {
     'fofa': lambda request: fofa.SearchFofa(request.target, request.limit),
     'fullhunt': lambda request: fullhuntsearch.SearchFullHunt(request.target),
     'github-code': lambda request: githubcode.SearchGithubCode(request.target, request.limit),
-    'gitlab': lambda request: gitlabsearch.SearchGitlab(request.target),
+    'gitlab': lambda request: gitlabsearch.SearchGitlab(request.target, request.limit),
     'hackertarget': lambda request: hackertarget.SearchHackerTarget(request.target),
     'haveibeenpwned': lambda request: haveibeenpwned.SearchHaveIBeenPwned(request.target),
     'hibpverified': lambda request: hibpverified.SearchHibpVerified(request.target),
     'hudsonrock': lambda request: hudsonrocksearch.SearchHudsonRock(request.target),
     'hunter': lambda request: huntersearch.SearchHunter(request.target, request.limit, request.start),
     'hunterhow': lambda request: searchhunterhow.SearchHunterHow(request.target, request.limit),
-    'intelx': lambda request: intelxsearch.SearchIntelx(request.target),
+    'intelx': lambda request: intelxsearch.SearchIntelx(request.target, request.limit),
     'leakix': lambda request: leakix.SearchLeakix(request.target),
     'leaklookup': lambda request: leaklookup.SearchLeakLookup(request.target),
     'mojeek': lambda request: mojeek.SearchMojeek(request.target, request.limit),
@@ -170,15 +171,16 @@ SOURCE_FACTORIES: dict[str, SourceFactory] = {
     'shodanInternetDB': lambda request: shodan_internetdb.SearchShodanInternetDB(request.target),
     'shodanct': lambda request: shodanct.SearchShodanCt(request.target),
     'sourcegraph': lambda request: sourcegraph.SearchSourcegraph(request.target, request.limit),
+    'subdomainapi': lambda request: subdomainapi.SearchSubdomainApi(request.target),
     'subdomaincenter': lambda request: subdomaincenter.SubdomainCenter(request.target),
     'subdomainfinderc99': lambda request: subdomainfinderc99.SearchSubdomainfinderc99(request.target),
-    'thc': lambda request: thc.SearchThc(request.target),
+    'thc': lambda request: thc.SearchThc(request.target, request.limit),
     'tomba': lambda request: tombasearch.SearchTomba(request.target, request.limit, request.start),
     'urlscan': lambda request: urlscan.SearchUrlscan(request.target, request.limit),
     'virustotal': lambda request: virustotal.SearchVirustotal(request.target, request.limit),
     'waybackarchive': lambda request: waybackarchive.SearchWaybackarchive(request.target, request.limit),
     'whoisxml': lambda request: whoisxml.SearchWhoisXML(request.target, request.limit),
-    'windvane': lambda request: windvane.SearchWindvane(request.target),
+    'windvane': lambda request: windvane.SearchWindvane(request.target, request.limit),
     'yahoo': lambda request: yahoosearch.SearchYahoo(request.target, request.limit),
     'zoomeye': lambda request: zoomeyesearch.SearchZoomEye(request.target, request.limit),
 }

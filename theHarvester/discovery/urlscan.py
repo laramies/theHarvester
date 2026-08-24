@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 class SearchUrlscan:
     MAX_PAGE_SIZE = 10_000
 
-    def __init__(self, word: str, limit: int) -> None:
-        if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
+    def __init__(self, word: str, limit: int | None) -> None:
+        if limit is not None and (isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0):
             raise ValueError('URLScan limit must be a positive integer')
         self.word = word
         self.limit = limit
@@ -143,8 +143,8 @@ class SearchUrlscan:
         malformed = False
         try:
             async with AsyncFetcher.open_session(proxy=self.proxy) as session:
-                while records_seen < self.limit:
-                    remaining = self.limit - records_seen
+                while self.limit is None or records_seen < self.limit:
+                    remaining = self.limit - records_seen if self.limit is not None else self.MAX_PAGE_SIZE
                     params: dict[str, str | int] = {
                         'q': f'domain:{self.word}',
                         'size': min(self.MAX_PAGE_SIZE, remaining),
@@ -169,16 +169,19 @@ class SearchUrlscan:
                     if not results:
                         return SourceExecutionReport('failed', 'invalid-response') if malformed else None
 
-                    page_results = results[:remaining]
+                    page_results = results[:remaining] if self.limit is not None else results
                     records_seen += len(page_results)
                     malformed = self._parse_results(page_results, collected_at) or malformed
-                    if records_seen >= self.limit:
+                    if self.limit is not None and records_seen >= self.limit:
                         break
                     next_cursor = self._cursor(page_results[-1])
                     if next_cursor is None:
                         return SourceExecutionReport('failed', 'invalid-cursor')
                     if next_cursor in seen_cursors:
-                        return SourceExecutionReport('failed', 'repeated-cursor')
+                        return SourceExecutionReport(
+                            'partial' if any((self.totalhosts, self.totalips, self.urls, self.totalasns)) else 'failed',
+                            'repeated-cursor',
+                        )
                     seen_cursors.add(next_cursor)
                     cursor = next_cursor
         except Exception as error:

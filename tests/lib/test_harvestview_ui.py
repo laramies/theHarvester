@@ -24,6 +24,9 @@ def test_harvestview_owns_root_and_issues_an_http_only_session(tmp_path, monkeyp
     assert f'value="{",".join(DEFAULT_DNS_RESOLVERS)}"' in root.text
     assert 'Resolve with the configured resolver addresses.' in root.text
     assert 'id="source-workers" name="source_workers" type="number" min="1"' in root.text
+    assert 'id="run-limit" name="limit" type="number" min="0" value="500"' in root.text
+    assert '0 means unlimited; positive values apply per selected source.' in root.text
+    assert 'id="run-limit" name="limit" type="number" min="0" max="10000"' not in root.text
     assert legacy.status_code == 404
     cookie = root.headers['set-cookie']
     assert 'theharvester-api-key=' in cookie
@@ -55,6 +58,7 @@ def test_harvestview_assets_load_outside_the_repository_directory(tmp_path, monk
     assert "request.deadline_seconds === null ? 'Unlimited'" in response.text
     assert "deadline_seconds: form.get('deadline_seconds') ? Number(form.get('deadline_seconds')) : null" in response.text
     assert "source_workers: Number(form.get('source_workers'))" in response.text
+    assert "request.limit === 0 ? 'Unlimited'" in response.text
 
 
 def test_harvestview_exposes_local_schedule_page_and_assets(tmp_path, monkeypatch) -> None:
@@ -77,6 +81,8 @@ def test_harvestview_exposes_local_schedule_page_and_assets(tmp_path, monkeypatc
     assert 'href="/schedules">Schedules</a>' in root.text
     assert schedules.status_code == 200
     assert '<h1 id="builder-title">Create a schedule</h1>' in schedules.text
+    assert 'id="run-limit" type="number" min="0" value="500"' in schedules.text
+    assert 'id="run-limit" type="number" min="0" max="10000"' not in schedules.text
     assert '/static/harvestview/schedules.css?v=' in schedules.text
     assert '/static/harvestview/schedules.js?v=' in schedules.text
     assert stylesheet.status_code == 200

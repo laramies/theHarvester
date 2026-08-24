@@ -3,7 +3,6 @@ import re
 from email.errors import HeaderParseError
 from email.headerregistry import Address
 from ipaddress import ip_address
-from itertools import islice
 from urllib.parse import unquote, urlsplit, urlunsplit
 
 from theHarvester.lib.core import AsyncFetcher, FetcherResponse, ResponseStreamError
@@ -16,32 +15,26 @@ class SearchApisGuru:
 
     Results include descendant hostnames, contact emails, concrete API base URLs,
     and related in-scope URLs. The adapter does not resolve IP addresses or expand
-    OpenAPI paths into operation endpoints. It checks up to 1,000 matching specs
-    for up to ten minutes; ``--limit`` caps stored results, not spec traversal.
+    OpenAPI paths into operation endpoints. It checks matching specs for up to
+    ten minutes; ``--limit`` caps stored results, not spec traversal.
     The shared fetcher caps each JSON response at 16 MiB. Oversized specs are
     skipped and leave the source marked partial.
     """
 
     DIRECTORY_ROOT = 'https://api.apis.guru/v2'
-    MAX_DIRECTORY_ENTRIES = 1000
-    MAX_SPEC_ITEMS = 1000
-    MAX_RESULTS_PER_ROUTE = 1000
     MAX_URL_LENGTH = 4096
     REQUEST_TIMEOUT = 60
     MAX_RUNTIME_SECONDS = 600
 
-    def __init__(self, word: str, limit: int) -> None:
+    def __init__(self, word: str, limit: int | None) -> None:
         self.word = self._domain(word)
-        requested_limit = max(0, limit)
-        self.result_limit = min(requested_limit, self.MAX_RESULTS_PER_ROUTE)
-        self.result_limit_is_protective = requested_limit > self.MAX_RESULTS_PER_ROUTE
+        self.result_limit = max(0, limit) if limit is not None else None
         self.totalhosts: set[str] = set()
         self.totalemails: set[str] = set()
         self.urls: set[str] = set()
         self.proxy = False
         self._report: SourceExecutionReport | None = None
         self.result_limit_reached = False
-        self.protective_limit_reached = False
 
     @staticmethod
     def _domain(value: str) -> str:
@@ -95,11 +88,8 @@ class SearchApisGuru:
         return bool(domain and normalize_scoped_hostname(domain, self.word))
 
     def _retain(self, values: set[str], value: str) -> None:
-        if value not in values and len(values) >= self.result_limit:
-            if self.result_limit_is_protective:
-                self.protective_limit_reached = True
-            else:
-                self.result_limit_reached = True
+        if self.result_limit is not None and value not in values and len(values) >= self.result_limit:
+            self.result_limit_reached = True
         else:
             values.add(value)
 
@@ -175,9 +165,7 @@ class SearchApisGuru:
             self._add_host(host)
         if isinstance(host, str) and isinstance(schemes, list):
             path = base_path if isinstance(base_path, str) and base_path.startswith('/') else ''
-            if len(schemes) > self.MAX_SPEC_ITEMS:
-                self.protective_limit_reached = True
-            for scheme in islice(schemes, self.MAX_SPEC_ITEMS):
+            for scheme in schemes:
                 if isinstance(scheme, str) and scheme.lower() in {'http', 'https'}:
                     self._add_url(f'{scheme.lower()}://{host}{path}')
                 elif not isinstance(scheme, str):
@@ -185,9 +173,7 @@ class SearchApisGuru:
 
         servers = spec.get('servers')
         if isinstance(servers, list):
-            if len(servers) > self.MAX_SPEC_ITEMS:
-                self.protective_limit_reached = True
-            for server in islice(servers, self.MAX_SPEC_ITEMS):
+            for server in servers:
                 if not isinstance(server, dict):
                     malformed = True
                 elif not isinstance(server.get('url'), str):
@@ -283,11 +269,10 @@ class SearchApisGuru:
             self._stop('failed', 'invalid-response')
             return
 
-        directory_limit_reached = len(directory) > self.MAX_DIRECTORY_ENTRIES
         spec_urls: list[str] = []
         malformed = False
         seen_spec_urls: set[str] = set()
-        for api_id, api in islice(directory.items(), self.MAX_DIRECTORY_ENTRIES):
+        for api_id, api in directory.items():
             if not isinstance(api_id, str):
                 continue
             provider_domain = api_id.partition(':')[0]
@@ -354,12 +339,8 @@ class SearchApisGuru:
             self._stop('failed', 'invalid-response')
         elif spec_failure is not None:
             self._stop('failed', spec_failure)
-        elif self.protective_limit_reached:
-            self._stop('failed', 'result-cap')
         elif self.result_limit_reached:
             self._stop('completed', 'result-limit')
-        elif directory_limit_reached:
-            self._stop('failed', 'directory-entry-limit')
 
     async def get_hostnames(self) -> set[str]:
         return self.totalhosts
@@ -374,7 +355,6 @@ class SearchApisGuru:
         self.proxy = proxy
         self._report = None
         self.result_limit_reached = False
-        self.protective_limit_reached = False
         try:
             async with asyncio.timeout(self.MAX_RUNTIME_SECONDS):
                 await self.do_search()

@@ -23,7 +23,11 @@ class SearchBrave:
     embedded use independent of operator configuration files.
     """
 
-    def __init__(self, word: str, limit: int, credential_adapter: CredentialAdapter | None = None) -> None:
+    # Brave documents offsets 0 through 9; this is a provider boundary, not a
+    # theHarvester result cap.
+    MAX_OFFSET = 9
+
+    def __init__(self, word: str, limit: int | None, credential_adapter: CredentialAdapter | None = None) -> None:
         self.word = word
         self.results: list[dict[str, Any]] = []
         self.totalresults = ''
@@ -55,12 +59,12 @@ class SearchBrave:
         queries = [f'"{self.word}"', f'site:{self.word}']
 
         for query in queries:
-            if len(self.results) >= self.limit:
+            if self.limit is not None and len(self.results) >= self.limit:
                 break
             try:
-                for offset in range(10):
-                    remaining = self.limit - len(self.results)
-                    if remaining <= 0:
+                for offset in range(self.MAX_OFFSET + 1):
+                    remaining = self.limit - len(self.results) if self.limit is not None else 20
+                    if self.limit is not None and remaining <= 0:
                         break
                     params = {
                         'q': query,
@@ -139,14 +143,14 @@ class SearchBrave:
                         self.totalresults += result_text + '\n'
 
                     self.results.extend(results)
-                    if len(self.results) >= self.limit:
+                    if self.limit is not None and len(self.results) >= self.limit:
                         return SourceExecutionReport('completed', 'result-limit')
                     if not more_results_available:
                         break
 
                     await asyncio.sleep(get_delay())
                 else:
-                    return SourceExecutionReport('partial', 'pagination-limit')
+                    return SourceExecutionReport('partial', 'provider-limit')
 
             except ResponseStreamError as error:
                 return SourceExecutionReport('failed', error.reason)

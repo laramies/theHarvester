@@ -157,6 +157,49 @@ async def test_malformed_asset_rows_preserve_valid_partial_results(monkeypatch: 
     assert report.stop_reason == 'invalid-response'
 
 
+@pytest.mark.parametrize(
+    ('entry', 'expected_status', 'expected_hosts'),
+    [
+        ({'domain': 'api.example.com'}, 'partial', {'api.example.com'}),
+        ({'domain': 'outside.test'}, 'failed', set()),
+    ],
+)
+@pytest.mark.asyncio
+async def test_unlimited_repeated_asset_page_stops_with_truthful_report(
+    monkeypatch: pytest.MonkeyPatch,
+    entry: dict[str, str],
+    expected_status: str,
+    expected_hosts: set[str],
+) -> None:
+    monkeypatch.setattr(securityscorecard.Core, 'securityscorecard_key', staticmethod(lambda: 'test-key'))
+    monkeypatch.setattr(securityscorecard.SearchSecurityScorecard, 'PAGE_SIZE', 1)
+    calls = 0
+
+    @contextlib.asynccontextmanager
+    async def fake_open_session(**_kwargs: Any) -> AsyncIterator[object]:
+        yield object()
+
+    async def fake_fetch(**_kwargs: Any) -> FetcherResponse:
+        return FetcherResponse({}, 200, {})
+
+    async def fake_post_fetch(*_args: Any, **_kwargs: Any) -> FetcherResponse:
+        nonlocal calls
+        calls += 1
+        return FetcherResponse({'entries': [entry], 'size': 2}, 200, {})
+
+    monkeypatch.setattr(securityscorecard.AsyncFetcher, 'open_session', fake_open_session)
+    monkeypatch.setattr(securityscorecard.AsyncFetcher, 'fetch', fake_fetch)
+    monkeypatch.setattr(securityscorecard.AsyncFetcher, 'post_fetch', fake_post_fetch)
+    search = securityscorecard.SearchSecurityScorecard('example.com', None)
+
+    report = await search.process()
+
+    assert calls == 2
+    assert await search.get_hostnames() == expected_hosts
+    assert report.status == expected_status
+    assert report.stop_reason == 'repeated-page'
+
+
 @pytest.mark.asyncio
 async def test_cancellation_closes_provider_session(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(securityscorecard.Core, 'securityscorecard_key', staticmethod(lambda: 'test-key'))

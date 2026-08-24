@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 class SearchRocketReach:
-    def __init__(self, word, limit) -> None:
+    def __init__(self, word, limit: int | None) -> None:
         self.ips: set = set()
         self.word = word
         self.key = Core.rocketreach_key()
@@ -23,7 +23,7 @@ class SearchRocketReach:
 
     async def do_search(self) -> None:
         try:
-            if self.limit <= 0:
+            if self.limit is not None and self.limit <= 0:
                 return
 
             headers = {
@@ -34,8 +34,8 @@ class SearchRocketReach:
 
             start = 0
             remaining = self.limit
-            while remaining > 0:
-                page_size = min(100, remaining)
+            while remaining is None or remaining > 0:
+                page_size = min(100, remaining) if remaining is not None else 100
                 data = {
                     'query': {'current_employer_domain': [self.word]},
                     'start': start,
@@ -71,7 +71,8 @@ class SearchRocketReach:
                                 self.emails.add(email['email'])
 
                 found = len(profiles)
-                remaining -= found
+                if remaining is not None:
+                    remaining -= found
                 start += found
 
                 pagination = result.get('pagination', {})

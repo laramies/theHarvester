@@ -7,12 +7,13 @@ import pytest
 from theHarvester import harvestview
 
 
-def test_project_scripts_expose_harvestview() -> None:
+def test_project_scripts_expose_commands() -> None:
     scripts = tomllib.loads(Path('pyproject.toml').read_text(encoding='utf-8'))['project']['scripts']
 
     assert scripts == {
         'theHarvester': 'theHarvester.theHarvester:main',
         'harvestview': 'theHarvester.harvestview:main',
+        'harvest-yields': 'theHarvester.source_yields:main',
     }
 
 

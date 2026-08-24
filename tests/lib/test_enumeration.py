@@ -45,6 +45,17 @@ def test_enumeration_options_preserve_explicit_transport_values() -> None:
     assert options.source_workers == 7
 
 
+def test_zero_result_limit_means_unlimited() -> None:
+    options = EnumerationOptions(domain='example.com', source='crtsh', limit=0)
+
+    assert options.limit is None
+
+
+def test_negative_result_limit_is_rejected() -> None:
+    with pytest.raises(ValueError, match='result limit cannot be negative'):
+        EnumerationOptions(domain='example.com', source='crtsh', limit=-1)
+
+
 def test_routeviews_is_an_explicit_passive_action_independent_of_source_limits() -> None:
     options = EnumerationOptions.from_namespace(Namespace(domain='example.com', source=None, limit=25, routeviews=True))
 

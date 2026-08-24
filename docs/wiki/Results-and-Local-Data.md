@@ -154,6 +154,40 @@ Two operational tables support the API: `run_records` stores queue and lifecycle
 
 `GET /api/v1/runs/{run_id}` returns lifecycle state plus a normalized `results` array. Each result has `type`, `value`, `sources`, and `actions`. A `hostname` found through the `vhost` action has native endpoint observations; a `prefix` found through RouteViews has native origin, route, and RPKI observations with fixed external-relationship scope. Run-level source and action outcomes remain available in `source_executions` and `action_executions`, while file metadata is returned through `artifacts`. JSONL imports or exports one run. SQLite import and `GET /api/v1/runs/export-database` move completed runs in bulk without queue, cancellation, or worker-lease state. Treat runtime `/docs`, `/redoc`, and OpenAPI as the exact request and response reference.
 
+### Compare source hostname yield
+
+Run details derive `source_yields` from persisted normalized hostname provenance. Each selected source has these fields:
+
+- `observed_result_count`: distinct hostnames attributed to the source.
+- `unique_result_count`: hostnames no other source in that run reported.
+- `shared_result_count`: hostnames also reported by at least one other source.
+- `resolved_hostname_count`: attributed hostnames for which the run's `dns-resolve` action retained an A, AAAA, or CNAME answer.
+- `unique_resolved_hostname_count`: resolved hostnames attributed to only this source.
+
+`unique_result_count` measures a source's marginal coverage without depending on source order. `unique_resolved_hostname_count` limits that count to hostnames with current DNS evidence. Neither count proves that a provider is authoritative or independent. A DNS answer also does not prove service reachability.
+
+Read the counts with the matching source execution status and stop reason. A source that failed, was rate-limited or skipped, or stopped at a provider boundary cannot be compared with a source that completed with zero results. Sources in the same certificate-transparency or passive-DNS family may overlap because they depend on the same upstream evidence.
+
+To compare runs, keep the authorized target, source set, requested limit, release version, resolver set, and collection window fixed. Set the limit to `0` only when the comparison should have no shared local result cap. Save completed runs in SQLite and repeat the test across several authorized targets and dates. Compare median unique count, median unique-resolved count, resolution rate, and successful-run rate. Record provider and adapter ceilings as execution evidence instead of treating truncated runs as zero yield. Do not commit target results. Add cross-run aggregation only after you have enough comparable runs to justify it.
+
+#### Analyze yields from SQLite
+
+The installed `harvest-yields` command reads an existing results database. By default, it reads `~/.local/share/theHarvester/stash.sqlite` and reports hostname yields. If the selected database does not exist, the command exits without creating it. Use the flags below to select another database, result kind, or completed run:
+
+```console
+harvest-yields
+harvest-yields --database results.sqlite
+harvest-yields --database results.sqlite --kind hostname
+harvest-yields --database results.sqlite --kind ip
+harvest-yields --database results.sqlite --kind asn
+harvest-yields --database results.sqlite --run-id 11111111-1111-4111-8111-111111111111
+harvest-yields --database results.sqlite --format json
+```
+
+Without `--run-id`, the command adds each run's source yields. The top-level `run_count` shows how many runs were selected. Each source row has its own `run_count`, including executions that produced no results. `UNIQUE/RUN` divides the summed unique count by that source's run count and is the default ranking key. The JSON field is `unique_result_count_per_run`.
+
+"Unique" always means unique within one run, so aggregate totals add the per-run counts instead of recalculating uniqueness across targets or dates. Hostname output also includes resolved and unique-resolved counts plus `UNIQUE-RESOLVED/RUN`, named `unique_resolved_hostname_count_per_run` in JSON. Other result kinds omit the DNS-specific fields.
+
 ## Handling and sharing
 
 - Store results only where the engagement permits.

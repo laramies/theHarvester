@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, NamedTuple
 
 from theHarvester.discovery.constants import MissingKey, get_delay
 from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.source_execution import SourceExecutionReport, SourceReportStatus
 from theHarvester.parsers import myparser
 
 if TYPE_CHECKING:
@@ -29,7 +30,7 @@ class ErrorResult(NamedTuple):
 
 
 class SearchGithubCode:
-    def __init__(self, word, limit) -> None:
+    def __init__(self, word, limit: int | None) -> None:
         try:
             self.word = word
             self.total_results = ''
@@ -127,35 +128,48 @@ class SearchGithubCode:
             logger.info(f'Error performing search: {e}')
             return '', {}, 500, {}
 
-    async def process(self, proxy: bool = False) -> None:
+    def _failure_report(self, reason: str, *, empty_status: SourceReportStatus = 'failed') -> SourceExecutionReport:
+        status = 'partial' if self.counter else empty_status
+        return SourceExecutionReport(status, reason)
+
+    async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         try:
             self.proxy = proxy
+            visited_pages: set[int] = set()
+            seen_page_content: set[tuple[str, ...]] = set()
             async with AsyncFetcher.open_session(headers=self.headers, proxy=self.proxy) as session:
-                while self.counter < self.limit and self.page != 0:
+                while (self.limit is None or self.counter < self.limit) and self.page != 0:
                     try:
+                        visited_pages.add(self.page)
                         api_response = await self.do_search(self.page, session)
                         result = await self.handle_response(api_response)
 
                         if isinstance(result, SuccessResult):
+                            if self.limit is None and result.fragments:
+                                page_content = tuple(sorted(result.fragments))
+                                if page_content in seen_page_content:
+                                    logger.info('\tRepeated result page detected; exiting to avoid infinite loop.')
+                                    self.page = 0
+                                    return self._failure_report('repeated-page')
+                                seen_page_content.add(page_content)
                             # Reset retry counter on any successful response
                             self.retry_count = 0
                             logger.info(f'\tSearching {self.counter} results.')
-                            remaining = self.limit - self.counter
+                            remaining = self.limit - self.counter if self.limit is not None else len(result.fragments)
                             fragments = result.fragments[:remaining]
                             if not fragments:
                                 self.page = 0
                                 break
                             self.total_results += f'{" ".join(fragments)} '
                             self.counter += len(fragments)
-                            if self.counter >= self.limit:
+                            if self.limit is not None and self.counter >= self.limit:
                                 self.page = 0
                                 break
                             next_or_last = result.next_page or result.last_page
-                            # Break if pagination does not advance to avoid infinite loop
-                            if next_or_last == self.page:
-                                logger.info('\tNo page advancement detected; exiting to avoid infinite loop.')
+                            if next_or_last in visited_pages:
+                                logger.info('\tPagination cycle detected; exiting to avoid infinite loop.')
                                 self.page = 0
-                                break
+                                return self._failure_report('repeated-page')
                             self.page = next_or_last
                             await asyncio.sleep(get_delay())
                         elif isinstance(result, RetryResult):
@@ -163,7 +177,7 @@ class SearchGithubCode:
                             if self.retry_count > self.max_retries:
                                 logger.info('\tMaximum retries reached; exiting to avoid infinite loop.')
                                 self.page = 0
-                                break
+                                return self._failure_report('rate-limited', empty_status='rate-limited')
                             sleepy_time = get_delay() + result.time
                             logger.info(f'\tRetrying page in {sleepy_time} seconds...')
                             await asyncio.sleep(sleepy_time)
@@ -171,12 +185,19 @@ class SearchGithubCode:
                             # On error, stop to avoid endless retries on a bad state
                             logger.info(f'\tGitHub code API request failed with status {result.status_code}')
                             self.page = 0
-                            break
+                            reason = 'access-denied' if result.status_code in {401, 403} else 'provider-error'
+                            return self._failure_report(reason)
                     except Exception as e:
                         logger.info(f'Error processing page: {e}')
+                        self.retry_count += 1
+                        if self.retry_count > self.max_retries:
+                            self.page = 0
+                            return self._failure_report('transport-error')
                         await asyncio.sleep(get_delay())
         except Exception as e:
             logger.info(f'An exception has occurred in githubcode process: {e}')
+            return self._failure_report('transport-error')
+        return None
 
     async def get_emails(self):
         try:

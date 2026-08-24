@@ -159,7 +159,10 @@ async def start(
     parser.add_argument(
         '-l',
         '--limit',
-        help='Maximum results requested from each source that supports result limits (default: 500).',
+        help=(
+            'Maximum results requested from each source that supports result limits; 0 continues to provider '
+            'exhaustion with no local result or page-count cap (default: 500).'
+        ),
         default=DEFAULT_RESULT_LIMIT,
         type=int,
     )
@@ -504,11 +507,11 @@ async def start(
     engines: list = []
     # If the user specifies
     full: list = []
-    resolved_screenshot_hosts: set[str] = set()
+    resolved_hostnames: set[str] = set()
     reported_host_ip_pairs: set[tuple[str, str]] = set()
     ips: list = []
     host_ip: list = []
-    limit: int = args.limit
+    limit: int | None = args.limit
     routeviews_enabled = args.routeviews
     shodan = args.shodan
     start: int = args.start
@@ -747,7 +750,7 @@ async def start(
                 action='dns-resolve',
                 status=status,
                 duration_ms=dns_resolution_duration_ms,
-                groups={'ip': dns_resolution_ips},
+                groups={'hostname': resolved_hostnames, 'ip': dns_resolution_ips},
                 error_type=error_type,
                 stop_reason=stop_reason,
             )
@@ -837,7 +840,7 @@ async def start(
             dns_resolution_ips.update(_normalize_ip_addresses(temp_ips))
             all_ip.extend(temp_ips)
             full.extend(resolved_pair)
-            resolved_screenshot_hosts.update(resolved_hosts)
+            resolved_hostnames.update(resolved_hosts)
 
         try:
             retain_results(await full_hosts_checker.check())
@@ -1026,7 +1029,7 @@ async def start(
             recursive_ips = [address for finding in recursive_result.findings for address in finding.records.addresses]
             all_hosts.extend(recursive_hosts)
             all_ip.extend(recursive_ips)
-            resolved_screenshot_hosts.update(recursive_hosts)
+            resolved_hostnames.update(recursive_hosts)
             for finding in recursive_result.findings:
                 if finding.records.addresses:
                     full.extend(f'{finding.hostname}:{address}' for address in finding.records.addresses)
@@ -1253,7 +1256,7 @@ async def start(
             await checkpoint_completed_result()
             await persist_result(finish_completed_result())
             raise
-        resolved_screenshot_hosts.update(hosts)
+        resolved_hostnames.update(hosts)
         normalized_brute_hosts = _normalize_hosts_for_storage(hosts, word)
         normalized_brute_ips = _normalize_ip_addresses(ips)
         temp = set()
@@ -1676,9 +1679,9 @@ async def start(
             output_logger.info(f'\nScreenshots can be found in: {screen_shotter.output}{screen_shotter.slash}')
             output_logger.info('Filtering domains for ones we can reach')
             if not engines:
-                unique_resolved_domains = resolved_screenshot_hosts | {word}
+                unique_resolved_domains = resolved_hostnames | {word}
             elif dnsresolve != '':
-                unique_resolved_domains = resolved_screenshot_hosts
+                unique_resolved_domains = resolved_hostnames
             else:
                 # Technically not resolved in this case, which is not ideal
                 # You should always use dns resolve when doing screenshotting

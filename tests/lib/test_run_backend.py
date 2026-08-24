@@ -990,6 +990,34 @@ def test_routeviews_child_receives_explicit_action_without_source_limit_controls
     assert received_options[0].limit == 9_999
 
 
+def test_persisted_unlimited_result_limit_becomes_no_worker_cap(tmp_path, monkeypatch) -> None:
+    from theHarvester import __main__ as main_module
+    from theHarvester.lib.api import run_worker
+    from theHarvester.lib.api.run_models import RunRequest
+    from theHarvester.lib.api.run_store import RunStore
+    from theHarvester.lib.completed_result import CompletedResult
+
+    received_options = []
+
+    async def fake_start(options, **_kwargs):
+        received_options.append(options)
+        now = datetime.now(UTC)
+        return (CompletedResult.finish(target=options.domain, started_at=now, completed_at=now, groups={}),)
+
+    monkeypatch.setattr(main_module, 'start', fake_start)
+
+    async def scenario() -> None:
+        store = RunStore(tmp_path / 'runs.sqlite')
+        created = await store.create(RunRequest(target='example.test', sources=['crtsh'], limit=0))
+        assert created['request']['limit'] == 0
+        assert await store.claim_next() is not None
+        await run_worker._child_execute(created['run_id'], store.database)
+
+    asyncio.run(scenario())
+
+    assert received_options[0].limit is None
+
+
 @pytest.mark.parametrize(
     ('field', 'value', 'option'),
     [

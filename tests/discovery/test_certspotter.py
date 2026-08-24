@@ -76,7 +76,7 @@ class TestCertspotterSearch:
         ]
 
     @pytest.mark.asyncio
-    async def test_search_preserves_results_at_page_limit(
+    async def test_search_continues_until_provider_exhaustion_without_a_page_cap(
         self,
         monkeypatch: pytest.MonkeyPatch,
         caplog: pytest.LogCaptureFixture,
@@ -86,22 +86,23 @@ class TestCertspotterSearch:
         async def fake_fetch_all(*_args: Any, **_kwargs: Any) -> list[list[dict[str, Any]]]:
             nonlocal requests
             requests += 1
-            if requests > 2:
+            if requests > 3:
                 return [[]]
             return [[{'id': f'cursor-{requests}', 'dns_names': [f'host-{requests}.example.com']}]]
 
         monkeypatch.setattr(certspottersearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
-        monkeypatch.setattr(certspottersearch.SearchCertspoter, 'MAX_PAGES', 2, raising=False)
-
         search = certspottersearch.SearchCertspoter(TestCertspotter.domain())
         with caplog.at_level(logging.WARNING, logger=certspottersearch.__name__):
             report = await search.process()
 
-        assert requests == 2
-        assert await search.get_hostnames() == {'host-1.example.com', 'host-2.example.com'}
-        assert report.status == 'partial'
-        assert report.stop_reason == 'page-limit'
-        assert 'page limit reached; results may be incomplete' in caplog.text
+        assert requests == 4
+        assert await search.get_hostnames() == {
+            'host-1.example.com',
+            'host-2.example.com',
+            'host-3.example.com',
+        }
+        assert report is None
+        assert 'page limit reached' not in caplog.text
 
     @pytest.mark.asyncio
     async def test_search_returns_only_normalized_scoped_names(self, monkeypatch: pytest.MonkeyPatch) -> None:
