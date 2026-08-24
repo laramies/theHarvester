@@ -37,13 +37,13 @@ dependencies = [
 [dependency-groups]
 dev = [
     "httpx==0.28.1",
-    "mypy==2.1.0",
     "pytest==9.1.1",
     "pytest-asyncio==1.4.0",
     "pytest-playwright==0.8.0",
     "types-python-dateutil==2.9.0.20260518",
     "types-PyYAML==6.0.12.20250915",
-    "ruff==0.16.1",
+    "ty==0.0.72",
+    "ruff==0.16.3",
 ]
 
 [project.scripts]
@@ -67,14 +67,8 @@ testpaths = ["tests"]
 requires = ["flit_core >=3.11,<4"]
 build-backend = "flit_core.buildapi"
 
-[tool.mypy]
-python_version = "3.14"
-warn_unused_configs = true
-ignore_missing_imports = true
-show_traceback = true
-show_error_codes = true
-namespace_packages = true
-check_untyped_defs = true
+[tool.ty.src]
+include = ["theHarvester"]
 
 [tool.uv]
 python-preference = "managed"
