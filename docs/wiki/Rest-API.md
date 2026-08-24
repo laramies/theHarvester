@@ -134,9 +134,9 @@ Run submission is asynchronous. Read the two status fields separately:
 
 `source_workers` is the same positive concurrency used by CLI `-j` or `--source-workers` and HarvestView. It defaults to three, is reduced when fewer sources are selected, and never skips sources or limits their results.
 
-`limit` defaults to 500 per source. A value of `0` removes the shared result cap and local page ceilings, so adapters continue until their provider is exhausted. There is no numeric maximum. Provider quotas, protocol maxima, response-size guards, and runtime limits still apply. If one stops collection after the source retained results, the run keeps those results and records the source as partial with the stop reason.
+`limit` defaults to 500 per source. A value of `0` removes the shared cap on results and pages, so adapters continue until their provider is exhausted. There is no numeric maximum. Provider quotas, protocol maxima, response-size guards, and runtime limits still apply. If a provider or safety limit stops a source after it retained results, the run keeps those results and records the source as partial with the stop reason.
 
-`source_yields` counts normalized hostname contributions within the run. `unique_result_count` counts hostnames found by exactly one selected source. When `dns_resolve` ran, `resolved_hostname_count` and `unique_resolved_hostname_count` report the source's A, AAAA, or CNAME answer subsets. Read these counts with the source's execution status and stop reason. The [results guide](Results-and-Local-Data#compare-source-hostname-yield) explains how to compare fixed runs over time.
+`source_yields` reports normalized hostname contributions within the run. `unique_result_count` counts hostnames reported by exactly one selected source. When `dns_resolve` ran, `resolved_hostname_count` and `unique_resolved_hostname_count` show which of those hostnames had retained A, AAAA, or CNAME answers. Read these counts with the source's execution status and stop reason. The [results guide](Results-and-Local-Data#compare-source-hostname-yield) explains how to compare fixed runs over time.
 
 P1 DNS and P2 direct options are fields on the same run request. The OpenAPI schema shows their current defaults, limits, and descriptions. The server uses the operator-selected target and does not impose a public-only egress policy.
 
