@@ -74,7 +74,7 @@ from theHarvester.discovery.constants import MissingKeyError
 from theHarvester.lib.asn_attribution import AsnAttributionObservation, canonical_asn_attributions
 from theHarvester.lib.completed_result import ResultKind, ResultObservation, SourceExecution
 from theHarvester.lib.enumeration import DEFAULT_SOURCE_WORKERS
-from theHarvester.lib.hostnames import normalize_scoped_hostname
+from theHarvester.lib.hostnames import normalize_hostname, normalize_scoped_hostname
 from theHarvester.lib.shodan_evidence import ShodanHostObservation, canonical_shodan_hosts
 from theHarvester.lib.source_catalog import ResultRoute, get_source_spec
 from theHarvester.lib.source_execution import SourceExecutionReport
@@ -206,10 +206,14 @@ _BUILTWITH_GETTERS: tuple[tuple[str, ResultKind], ...] = (
 
 def _normalize_values(request: SourceRequest, kind: ResultKind, values: Iterable[object]) -> set[ResultObservation]:
     observations: set[ResultObservation] = set()
-    target = request.target.strip().lower().removeprefix('www.').rstrip('.')
+    target = request.target.strip().lower().rstrip('.')
     for item in values:
         if kind == 'hostname':
-            value = normalize_scoped_hostname(item, target)
+            try:
+                normalized_hostname = normalize_hostname(item) if isinstance(item, str) else None
+            except ValueError:
+                continue
+            value = normalize_scoped_hostname(normalized_hostname, target)
             if value is None or value == target:
                 continue
         elif kind == 'email':

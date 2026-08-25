@@ -40,6 +40,15 @@ def normalize_result_value(kind: ResultKind | str, value: str) -> str:
     normalized = value.strip()
     if kind == 'asn':
         return normalize_asn(normalized)
+    if kind == 'hostname':
+        return normalize_hostname(normalized)
+    if kind == 'ip':
+        if '%' in normalized:
+            raise ValueError('IP result must not contain an IPv6 scope identifier')
+        try:
+            return str(ip_address(normalized))
+        except ValueError as error:
+            raise ValueError('IP result must be a valid IPv4 or IPv6 address') from error
     if kind == 'prefix':
         return normalize_prefix(normalized)
     if kind == 'shodan-host':

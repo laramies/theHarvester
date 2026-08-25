@@ -40,7 +40,7 @@ class SearchZoomEye:
         if not isinstance(key, str) or not key.strip():
             raise MissingKey('zoomeye')
         self.word = word
-        self.target = word.strip().lower().removeprefix('www.').rstrip('.')
+        self.target = word.strip().lower().rstrip('.')
         self.limit = limit
         self.key = key
         self.baseurl = 'https://api.zoomeye.ai/v2/search'

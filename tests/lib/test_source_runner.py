@@ -281,6 +281,28 @@ async def test_runner_normalizes_only_declared_apis_guru_routes(monkeypatch: pyt
 
 
 @pytest.mark.asyncio
+async def test_runner_preserves_an_explicit_www_target_boundary(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeApisGuru:
+        async def process(self, _proxy: bool) -> None:
+            return None
+
+        async def get_hostnames(self) -> list[str]:
+            return ['www.example.com', 'dev.www.example.com', 'bad_label.www.example.com', 'admin.example.com']
+
+        async def get_emails(self) -> list[str]:
+            return []
+
+        async def get_urls(self) -> list[str]:
+            return []
+
+    monkeypatch.setitem(SOURCE_FACTORIES, 'apis-guru', lambda _request: FakeApisGuru())
+
+    outcome = await run_source(SourceRequest('apis-guru', 'www.example.com', 25, 0, False, True))
+
+    assert outcome.observations == (ResultObservation('apis-guru', 'hostname', 'dev.www.example.com'),)
+
+
+@pytest.mark.asyncio
 async def test_runner_times_construction_and_records_missing_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
     ticks = iter((10.0, 10.125))
     events: list[str] = []

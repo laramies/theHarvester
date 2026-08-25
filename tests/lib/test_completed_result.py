@@ -887,6 +887,75 @@ def test_jsonl_normalizes_legacy_bare_asn_value() -> None:
 
 
 @pytest.mark.parametrize(
+    ('kind', 'value', 'expected'),
+    [
+        ('hostname', 'API.Example.COM.', 'api.example.com'),
+        ('ip', '192.0.2.010', None),
+        ('ip', '2001:0DB8:0:0:0:0:0:1', '2001:db8::1'),
+    ],
+)
+def test_jsonl_canonicalizes_hostname_and_ip_result_values(
+    kind: str,
+    value: str,
+    expected: str | None,
+) -> None:
+    payload = '\n'.join(
+        (
+            json.dumps({'type': 'summary'}),
+            json.dumps({'type': kind, 'value': value, 'sources': [], 'actions': []}),
+        )
+    )
+
+    if expected is None:
+        with pytest.raises(ValueError, match='canonical IP'):
+            parse_result_jsonl(payload)
+        return
+
+    _summary, findings = parse_result_jsonl(payload)
+
+    assert findings[0]['value'] == expected
+
+
+@pytest.mark.parametrize(
+    ('kind', 'value', 'message'),
+    [
+        ('hostname', 'bad host', 'canonical hostname'),
+        ('ip', 'not-an-ip', 'canonical IP'),
+    ],
+)
+def test_jsonl_rejects_invalid_hostname_and_ip_result_values(kind: str, value: str, message: str) -> None:
+    payload = '\n'.join(
+        (
+            json.dumps({'type': 'summary'}),
+            json.dumps({'type': kind, 'value': value, 'sources': [], 'actions': []}),
+        )
+    )
+
+    with pytest.raises(ValueError, match=message):
+        parse_result_jsonl(payload)
+
+
+@pytest.mark.parametrize(
+    ('kind', 'value', 'message'),
+    [
+        ('hostname', 'bad host', 'hostname must be valid'),
+        ('ip', 'not-an-ip', 'IP result must be a valid'),
+        ('ip', 'fe80::1%eth0', 'IP result must not contain'),
+    ],
+)
+def test_completed_result_rejects_invalid_hostname_and_ip_values(kind: str, value: str, message: str) -> None:
+    now = datetime(2026, 8, 25, 12, tzinfo=UTC)
+
+    with pytest.raises(ValueError, match=message):
+        CompletedResult.finish(
+            target='example.com',
+            started_at=now,
+            completed_at=now,
+            groups={kind: [value]},
+        )
+
+
+@pytest.mark.parametrize(
     'observation',
     [
         {
@@ -999,7 +1068,7 @@ def test_completed_result_rejects_structured_vhost_outside_the_run_scope(target:
         )
 
 
-def test_jsonl_rejects_noncanonical_structured_vhost_hostname() -> None:
+def test_jsonl_canonicalizes_structured_vhost_hostname() -> None:
     observation = vhost_observation('http://192.0.2.10', status=200, control_status=404)
     details = {key: value for key, value in observation.to_record().items() if key not in {'type', 'hostname'}}
     payload = '\n'.join(
@@ -1017,8 +1086,9 @@ def test_jsonl_rejects_noncanonical_structured_vhost_hostname() -> None:
         )
     )
 
-    with pytest.raises(ValueError, match='canonical hostname'):
-        parse_result_jsonl(payload)
+    _summary, findings = parse_result_jsonl(payload)
+
+    assert findings[0]['value'] == 'admin.example.com'
 
 
 def test_jsonl_rejects_legacy_vhost_result_kind() -> None:

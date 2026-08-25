@@ -70,7 +70,7 @@ class SearchShodan:
         self.word = word.strip().lower().rstrip('.') if word is not None else None
         if self.word is not None and (self.word.startswith('*.') or _CERTIFICATE_HOSTNAME.fullmatch(self.word) is None):
             raise ValueError('Shodan discovery target must be a hostname')
-        self.scope = self.word.removeprefix('www.') if self.word is not None else None
+        self.scope = self.word
         self.key = Core.shodan_key()
         if self.key is None:
             raise MissingKey('Shodan')

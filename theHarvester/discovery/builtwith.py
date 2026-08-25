@@ -16,7 +16,7 @@ class SearchBuiltWith:
 
     def __init__(self, word: str) -> None:
         self.word = normalize_hostname(word)
-        self.lookup_domain = self.word.removeprefix('www.')
+        self.lookup_domain = self.word
         self.api_key = Core.builtwith_key()
         if not isinstance(self.api_key, str) or not self.api_key.strip():
             raise MissingKey('BuiltWith')
@@ -39,10 +39,7 @@ class SearchBuiltWith:
             domain = normalize_hostname(domain)
         except ValueError:
             return None, True
-        normalized_domain = normalize_scoped_hostname(domain, self.lookup_domain)
-        if normalized_domain is None:
-            return None, False
-        candidate = normalized_domain if not subdomain.strip() else f'{subdomain.strip()}.{normalized_domain}'
+        candidate = domain if not subdomain.strip() else f'{subdomain.strip()}.{domain}'
         try:
             candidate = normalize_hostname(candidate)
         except ValueError:

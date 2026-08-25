@@ -91,7 +91,7 @@ logger = logging.getLogger(__name__)
 
 
 def _normalize_hosts_for_storage(discovered_hosts: Iterable[object], target: str) -> set[str]:
-    normalized_target = target.strip().lower().removeprefix('www.').rstrip('.')
+    normalized_target = target.strip().lower().rstrip('.')
     return {
         normalized
         for host in discovered_hosts
