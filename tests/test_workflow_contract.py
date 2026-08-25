@@ -21,7 +21,7 @@ def test_python_version_policy_requires_314() -> None:
     assert project['project']['requires-python'] == '>=3.14'
     assert 'Programming Language :: Python :: 3.12' not in project['project']['classifiers']
     assert 'Programming Language :: Python :: 3.13' not in project['project']['classifiers']
-    assert project['tool']['mypy']['python_version'] == '3.14'
+    assert project['tool']['ty']['src']['include'] == ['theHarvester']
     assert project['tool']['uv']['pip']['python-version'] == '3.14'
     assert project['tool']['ruff']['target-version'] == 'py314'
     bug_report = (PROJECT_ROOT / '.github' / 'ISSUE_TEMPLATE' / 'bug_report.yml').read_text(encoding='utf-8')
@@ -42,7 +42,7 @@ def test_routine_ci_is_read_only_and_offline() -> None:
     assert 'git push' not in commands
     assert 'theHarvester -d' not in commands
     assert '\npytest\n' in f'\n{commands.strip()}\n'
-    assert 'mypy theHarvester' in commands
+    assert '\nty check\n' in f'\n{commands.strip()}\n'
     assert routine_job['strategy']['matrix']['python-version'] == ['3.14']
 
 

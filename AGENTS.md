@@ -31,7 +31,7 @@ Read [CONTEXT.md](CONTEXT.md) before changing discovery semantics, result or evi
 - Full tests: `uv run pytest`
 - Lint: `uv run ruff check .`
 - Formatting: `uv run ruff format --check .`
-- Typing: `uv run mypy theHarvester`
+- Typing: `uv run ty check`
 
 Run focused checks first and expand according to risk. Report any skipped check and its reason.
 
