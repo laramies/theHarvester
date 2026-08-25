@@ -72,7 +72,7 @@ Before submitting, run the non-mutating quality checks and full test suite:
 uv run ruff check .
 uv run ruff format --check .
 uv run pytest
-uv run mypy theHarvester
+uv run ty check
 ```
 
 Before a release, manually dispatch the **Release validation** workflow against
