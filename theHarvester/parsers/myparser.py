@@ -53,11 +53,10 @@ class Parser:
         # Local part is required, charset is flexible.
         # https://tools.ietf.org/html/rfc6531 (removed * and () as they provide FP mostly)
         candidates = re.findall(r"[a-zA-Z0-9.\-_+#~!$&']+@[a-zA-Z0-9.-]+", self.results)
-        target = self.word.strip().lower().rstrip('.')
         emails: set[str] = set()
         for candidate in candidates:
             local_part, domain = candidate.lstrip('.').lower().split('@', maxsplit=1)
-            if normalized_domain := normalize_scoped_hostname(domain, target):
+            if normalized_domain := normalize_scoped_hostname(domain, self.word):
                 emails.add(f'{local_part}@{normalized_domain}')
         return emails
 
@@ -75,10 +74,9 @@ class Parser:
 
     async def hostnames(self):
         await self.generic_clean()
-        target = self.word.strip().lower().rstrip('.')
         candidates = re.findall(r'[a-zA-Z0-9.-]+', self.results)
         hostnames = {
-            normalized for candidate in candidates if (normalized := normalize_scoped_hostname(candidate.strip('.'), target))
+            normalized for candidate in candidates if (normalized := normalize_scoped_hostname(candidate.strip('.'), self.word))
         }
         return sorted(hostnames)
 

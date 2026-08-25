@@ -36,6 +36,16 @@ def normalize_prefix(value: str) -> str:
         raise ValueError('network prefix must be valid IPv4 or IPv6 CIDR') from error
 
 
+def normalize_ip(value: str, *, label: str = 'IP result') -> str:
+    normalized = value.strip()
+    if '%' in normalized:
+        raise ValueError(f'{label} must not contain an IPv6 scope identifier')
+    try:
+        return str(ip_address(normalized))
+    except ValueError as error:
+        raise ValueError(f'{label} must be a valid IPv4 or IPv6 address') from error
+
+
 def normalize_result_value(kind: ResultKind | str, value: str) -> str:
     normalized = value.strip()
     if kind == 'asn':
@@ -43,18 +53,11 @@ def normalize_result_value(kind: ResultKind | str, value: str) -> str:
     if kind == 'hostname':
         return normalize_hostname(normalized)
     if kind == 'ip':
-        if '%' in normalized:
-            raise ValueError('IP result must not contain an IPv6 scope identifier')
-        try:
-            return str(ip_address(normalized))
-        except ValueError as error:
-            raise ValueError('IP result must be a valid IPv4 or IPv6 address') from error
+        return normalize_ip(normalized)
     if kind == 'prefix':
         return normalize_prefix(normalized)
     if kind == 'shodan-host':
-        if '%' in normalized:
-            raise ValueError('Shodan host must not contain an IPv6 scope identifier')
-        return str(ip_address(normalized))
+        return normalize_ip(normalized, label='Shodan host')
     if kind == 'takeover':
         return normalize_hostname(normalized)
     return normalized

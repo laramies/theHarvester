@@ -16,7 +16,6 @@ class SearchBuiltWith:
 
     def __init__(self, word: str) -> None:
         self.word = normalize_hostname(word)
-        self.lookup_domain = self.word
         self.api_key = Core.builtwith_key()
         if not isinstance(self.api_key, str) or not self.api_key.strip():
             raise MissingKey('BuiltWith')
@@ -163,7 +162,7 @@ class SearchBuiltWith:
         }
         params = {
             'HIDEDL': 'yes',
-            'LOOKUP': self.lookup_domain,
+            'LOOKUP': self.word,
             'NOATTR': 'yes',
             'NOMETA': 'yes',
             'NOPII': 'yes',

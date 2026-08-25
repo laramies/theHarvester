@@ -567,7 +567,7 @@ class TestShodanEngine:
 
         search = shodansearch.SearchShodan('WWW.Example.TEST.')
 
-        assert search.scope == 'www.example.test'
+        assert search.word == 'www.example.test'
 
     @pytest.mark.asyncio
     async def test_shodan_direct_request_cancellation_propagates(self, monkeypatch):
