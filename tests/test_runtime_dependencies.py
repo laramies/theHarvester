@@ -36,10 +36,11 @@ def test_unused_packages_are_not_direct_development_requirements() -> None:
     development = _dependency_names(project['dependency-groups']['dev'])
     locked = {package['name'] for package in lock['package']}
 
-    assert development.isdisjoint({'mypy-extensions', 'ty', 'types-certifi', 'types-chardet', 'wheel'})
-    assert {'ty', 'types-certifi', 'types-chardet', 'wheel'}.isdisjoint(locked)
+    assert development.isdisjoint({'mypy', 'mypy-extensions', 'types-certifi', 'types-chardet', 'wheel'})
+    assert {'mypy', 'mypy-extensions', 'types-certifi', 'types-chardet', 'wheel'}.isdisjoint(locked)
+    assert 'ty' in development
     assert 'exclude-newer-package' not in project['tool']['uv']
-    assert 'ty' not in project['tool']
+    assert 'mypy' not in project['tool']
 
 
 def test_runtime_imports_without_optional_json_extensions() -> None:
