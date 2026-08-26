@@ -11,8 +11,8 @@ theHarvester is a Python OSINT reconnaissance tool for collecting public informa
 
 ## Upstream publication
 
-- Target every upstream pull request at `dev`.
-- Treat `upstream/master` as maintainer-only and read-only for agents. Leave every `dev`-to-`master` promotion, merge, and direct update to upstream maintainers.
+- Target ordinary upstream contribution pull requests at `dev`.
+- Treat `upstream/master` as maintainer-owned. An agent may open a `dev`-to-`master` sync pull request only with explicit operator authorization; leave merging and direct branch updates to upstream maintainers.
 
 ## Domain language
 
