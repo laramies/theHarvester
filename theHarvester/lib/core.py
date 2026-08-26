@@ -106,6 +106,7 @@ async def _bounded_response_chunks(
     except ResponseStreamError:
         raise
     except (aiohttp.ClientError, TimeoutError, OSError) as error:
+        _mark_proxy_transport_failed()
         raise ResponseStreamError('transport-error') from error
 
 

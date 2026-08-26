@@ -3638,9 +3638,25 @@ async def test_shodan_action_records_configured_proxy_transport_failure(monkeypa
         async def get_urls(self) -> set[str]:
             return set()
 
+    class FailingContent:
+        async def iter_any(self):
+            raise OSError('proxy disconnected while streaming')
+            yield b''
+
+    class FailingResponse:
+        status = 200
+        headers: dict[str, str] = {}
+        content = FailingContent()
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
     class FailingSession:
-        def request(self, *_args: object, **_kwargs: object) -> object:
-            raise OSError('proxy endpoint unavailable')
+        def request(self, *_args: object, **_kwargs: object) -> FailingResponse:
+            return FailingResponse()
 
     class FailedShodan:
         error_type = None
