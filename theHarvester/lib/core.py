@@ -45,6 +45,10 @@ StreamErrorReason = Literal['invalid-response', 'response-limit', 'transport-err
 StreamFraming = Literal['ndjson', 'sse']
 
 
+class ProxyUnavailableError(Exception):
+    pass
+
+
 class ResponseStreamError(Exception):
     def __init__(
         self,
@@ -499,9 +503,12 @@ class AsyncFetcher:
             return proxy, 'socks5' if proxy.startswith('socks5://') else 'http'
         if isinstance(proxy, bool) and proxy:
             try:
-                return cls._get_random_proxy(cls().proxy_list)
+                resolved = cls._get_random_proxy(cls().proxy_list)
             except IndexError, TypeError, ValueError:
-                return None, None
+                resolved = (None, None)
+            if resolved[0] is None:
+                raise ProxyUnavailableError('proxy-unavailable')
+            return resolved
         return None, None
 
     @classmethod

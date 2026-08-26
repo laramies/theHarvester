@@ -183,7 +183,7 @@ async def start(
     parser.add_argument(
         '-p',
         '--proxies',
-        help='Use proxies.yaml for supported discovery-source, Shodan, and takeover requests. Takeover fails closed if no proxy is available.',
+        help='Use proxies.yaml for supported discovery-source, Shodan, and takeover requests. Supported requests fail closed with proxy-unavailable if no proxy is configured.',
         default=False,
         action='store_true',
     )

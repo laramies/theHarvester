@@ -196,6 +196,20 @@ def patch_http(monkeypatch: pytest.MonkeyPatch, responses: list[baidusearch.Fetc
 
 
 class TestBaiduSearch:
+    @pytest.mark.parametrize('browser_api', [None, object()])
+    @pytest.mark.asyncio
+    async def test_required_proxy_unavailable_returns_explicit_outcome(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        browser_api: object | None,
+    ) -> None:
+        monkeypatch.setattr(baidusearch, 'playwright_api', browser_api)
+        monkeypatch.setattr(baidusearch.AsyncFetcher, '_proxy_list', {'http': [], 'socks5': []})
+
+        report = await baidusearch.SearchBaidu(word='example.com', limit=10).process(proxy=True)
+
+        assert report == baidusearch.SourceExecutionReport('failed', 'proxy-unavailable')
+
     @pytest.mark.asyncio
     async def test_unlimited_stops_when_provider_repeats_a_page(self, monkeypatch: pytest.MonkeyPatch) -> None:
         state = patch_browser(

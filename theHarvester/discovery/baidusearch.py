@@ -5,7 +5,7 @@ import importlib
 from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
-from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
+from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse, ProxyUnavailableError
 from theHarvester.lib.source_execution import SourceExecutionReport
 from theHarvester.parsers import myparser
 
@@ -77,6 +77,8 @@ class SearchBaidu:
                     self.total_results += f' {body}'
         except asyncio.CancelledError:
             raise
+        except ProxyUnavailableError:
+            return SourceExecutionReport('partial' if self.total_results else 'failed', 'proxy-unavailable')
         except Exception:
             return SourceExecutionReport('partial' if self.total_results else 'failed', 'transport-error')
         return None
@@ -183,7 +185,10 @@ class SearchBaidu:
 
     async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         self.proxy = proxy
-        return await self.do_search()
+        try:
+            return await self.do_search()
+        except ProxyUnavailableError:
+            return SourceExecutionReport('failed', 'proxy-unavailable')
 
     async def get_emails(self):
         rawres = myparser.Parser(self.total_results, self.word)

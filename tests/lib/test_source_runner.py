@@ -11,6 +11,7 @@ import pytest
 from theHarvester.discovery.constants import MissingKeyError
 from theHarvester.lib.asn_attribution import AsnAttributionObservation
 from theHarvester.lib.completed_result import ResultObservation, SourceExecution
+from theHarvester.lib.core import AsyncFetcher
 from theHarvester.lib.source_catalog import SOURCE_SPECS
 from theHarvester.lib.source_execution import SourceExecutionReport
 from theHarvester.lib.source_runner import (
@@ -245,6 +246,8 @@ def test_unlimited_limit_reaches_gitlab_and_windvane_factories(
 
 @pytest.mark.asyncio
 async def test_runner_normalizes_only_declared_apis_guru_routes(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(AsyncFetcher, '_proxy_list', {'http': ['http://proxy.example:8080']})
+
     class FakeApisGuru:
         def __init__(self, target: str, limit: int) -> None:
             assert (target, limit) == ('example.test', 25)
@@ -377,6 +380,39 @@ async def test_runner_times_construction_and_records_missing_credentials(monkeyp
         'MissingKeyError',
         'missing-credentials',
     )
+
+
+@pytest.mark.asyncio
+async def test_runner_reports_unavailable_required_proxy_without_starting_source(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    process_called = False
+
+    class UnstartedAdapter:
+        async def process(self, _proxy: bool) -> SourceExecutionReport:
+            nonlocal process_called
+            process_called = True
+            return SourceExecutionReport('failed', 'should-not-run')
+
+        async def get_hostnames(self) -> tuple[()]:
+            return ()
+
+        async def get_emails(self) -> tuple[()]:
+            return ()
+
+        async def get_urls(self) -> tuple[()]:
+            return ()
+
+    monkeypatch.setattr(AsyncFetcher, '_proxy_list', {'http': [], 'socks5': []})
+    monkeypatch.setitem(SOURCE_FACTORIES, 'apis-guru', lambda _request: UnstartedAdapter())
+
+    outcome = await run_source(SourceRequest('apis-guru', 'example.test', 25, 0, True, True))
+
+    assert process_called is False
+    assert outcome.execution.status == 'failed'
+    assert outcome.execution.error_type == 'ProxyUnavailableError'
+    assert outcome.execution.stop_reason == 'proxy-unavailable'
+    assert outcome.observations == ()
 
 
 @pytest.mark.asyncio

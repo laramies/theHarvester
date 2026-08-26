@@ -45,8 +45,8 @@ async def test_cli_help_explains_proxy_and_direct_action_scope(
     help_text = ' '.join(capsys.readouterr().out.split())
     assert exit_info.value.code == 0
     assert (
-        'Use proxies.yaml for supported discovery-source, Shodan, and takeover requests. Takeover fails closed if no '
-        'proxy is available.' in help_text
+        'Use proxies.yaml for supported discovery-source, Shodan, and takeover requests. Supported requests fail '
+        'closed with proxy-unavailable if no proxy is configured.' in help_text
     )
     assert 'Query the Shodan Host API for discovered IPs, using configured proxies when enabled.' in help_text
     assert (
