@@ -12,7 +12,7 @@ import aiodns
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.asn_attribution import AsnAttributionObservation
-from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse, ProxyUnavailableError, ResponseStreamError
+from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse, ResponseStreamError
 from theHarvester.lib.hostchecker import resolve_ip_addresses
 from theHarvester.lib.hostnames import normalize_hostname, normalize_scoped_hostname
 from theHarvester.lib.shodan_evidence import ShodanHostObservation, canonical_shodan_hosts
@@ -529,12 +529,6 @@ class SearchShodan:
             raise ValueError('A discovery target is required')
         assert self.word is not None
 
-        try:
-            proxy_url, _proxy_type = AsyncFetcher._resolve_proxy(proxy)
-        except ProxyUnavailableError:
-            return SourceExecutionReport('failed', 'proxy-unavailable')
-        selected_proxy = proxy_url or False
-
         self.totalhosts.clear()
         dns_stop_reason: str | None = None
         try:
@@ -554,7 +548,7 @@ class SearchShodan:
             dns_stop_reason = 'dns-resolution-failed'
 
         try:
-            async with AsyncFetcher.open_session(proxy=selected_proxy) as session:
+            async with AsyncFetcher.open_session(proxy=proxy) as session:
                 provider_error_types = await self._search_target(session)
                 for resolved_ip in resolved_ips:
                     await self.search_ip(resolved_ip, session=session)

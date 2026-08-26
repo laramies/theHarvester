@@ -393,7 +393,7 @@ class TestShodanEngine:
         search = shodansearch.SearchShodan('example.test')
         report = await search.process(proxy=True)
 
-        assert session_calls == [{'proxy': 'http://proxy.example:8080'}]
+        assert session_calls == [{'proxy': True}]
         assert [(call['query'], call['page']) for call in search_calls] == [
             ('hostname:example.test', 1),
             ('hostname:example.test', 2),
@@ -415,22 +415,6 @@ class TestShodanEngine:
         }
         assert hosts['198.51.100.21']['services'][0]['tls'] == {'subject_cn': 'cert.example.test'}
         assert report is None
-
-    @pytest.mark.asyncio
-    async def test_shodan_discovery_fails_before_dns_when_required_proxy_is_unavailable(self, monkeypatch):
-        from theHarvester.discovery import shodansearch
-        from theHarvester.lib.source_execution import SourceExecutionReport
-
-        async def resolve_ip_addresses(*_args, **_kwargs):
-            pytest.fail('DNS must not run when required proxy configuration is unavailable')
-
-        monkeypatch.setattr(shodansearch.Core, 'shodan_key', lambda: 'test-key')
-        monkeypatch.setattr(shodansearch.AsyncFetcher, '_proxy_list', {'http': [], 'socks5': []})
-        monkeypatch.setattr(shodansearch, 'resolve_ip_addresses', resolve_ip_addresses)
-
-        report = await shodansearch.SearchShodan('example.test').process(proxy=True)
-
-        assert report == SourceExecutionReport('failed', 'proxy-unavailable')
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(

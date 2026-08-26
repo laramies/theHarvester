@@ -16,7 +16,7 @@ from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib import source_runner
 from theHarvester.lib.asn_attribution import AsnAttributionObservation
 from theHarvester.lib.completed_result import CompletedResult, ResultObservation, SourceExecution
-from theHarvester.lib.core import FetcherResponse
+from theHarvester.lib.core import AsyncFetcher, FetcherResponse, ProxyUnavailableError
 from theHarvester.lib.dns_consensus import Addressability
 from theHarvester.lib.enumeration import EnumerationOptions
 from theHarvester.lib.hostchecker import HostDnsRecords
@@ -45,8 +45,8 @@ async def test_cli_help_explains_proxy_and_direct_action_scope(
     help_text = ' '.join(capsys.readouterr().out.split())
     assert exit_info.value.code == 0
     assert (
-        'Use proxies.yaml for supported discovery-source, Shodan, and takeover requests. Supported requests fail '
-        'closed with proxy-unavailable if no proxy is configured.' in help_text
+        'Use proxies.yaml for supported discovery-source, Shodan, and takeover requests. The run fails immediately '
+        'with proxy-unavailable if no proxy is configured.' in help_text
     )
     assert 'Query the Shodan Host API for discovered IPs, using configured proxies when enabled.' in help_text
     assert (
@@ -199,6 +199,21 @@ async def test_virtual_host_inputs_fail_before_result_store_initialization(monke
                 vhost_endpoint='https://192.0.2.10/',
                 vhost_candidates=('admin.example.com',),
             )
+        )
+
+
+@pytest.mark.asyncio
+async def test_proxy_mode_fails_before_result_store_initialization(monkeypatch: pytest.MonkeyPatch) -> None:
+    class UnexpectedResultStore:
+        def __init__(self, *_args: object) -> None:
+            raise AssertionError('result store initialization must follow proxy validation')
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', UnexpectedResultStore)
+    monkeypatch.setattr(AsyncFetcher, '_proxy_list', {'http': [], 'socks5': []})
+
+    with pytest.raises(ProxyUnavailableError, match='proxy-unavailable'):
+        await theharvester_main.start(
+            EnumerationOptions(domain='example.com', proxies=True, quiet=True, source='crtsh')
         )
 
 
@@ -3580,50 +3595,6 @@ async def test_shodan_action_reuses_one_session_and_proxy_identity(monkeypatch: 
 
 
 @pytest.mark.asyncio
-async def test_shodan_action_fails_before_adapter_when_required_proxy_becomes_unavailable(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from theHarvester.lib.core import AsyncFetcher, ProxyUnavailableError
-
-    selections = 0
-
-    class UnstartedShodan:
-        def __init__(self) -> None:
-            pytest.fail('Shodan adapter must not start without a required proxy')
-
-    def resolve_proxy(_cls: type[AsyncFetcher], proxy: str | bool | None) -> tuple[str, str]:
-        nonlocal selections
-        assert proxy is True
-        selections += 1
-        if selections == 1:
-            return 'http://source-proxy.example:8080', 'http'
-        raise ProxyUnavailableError('proxy-unavailable')
-
-    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
-    monkeypatch.setattr(source_runner.crtsh, 'SearchCrtsh', _ApiHostSource)
-    monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', _ApiHostChecker)
-    monkeypatch.setattr(theharvester_main.shodansearch, 'SearchShodan', UnstartedShodan)
-    monkeypatch.setattr(source_runner.AsyncFetcher, '_resolve_proxy', classmethod(resolve_proxy))
-
-    result = await theharvester_main.start(
-        EnumerationOptions(
-            dns_resolve='192.0.2.53',
-            domain='example.com',
-            proxies=True,
-            quiet=True,
-            shodan=True,
-            source='crtsh',
-        ),
-        return_completed_result=True,
-    )
-
-    execution = next(item for item in result[-1].active_evidence.executions if item.action == 'shodan')
-    assert selections == 2
-    assert execution.status == 'failed'
-    assert execution.error_type == 'ProxyUnavailableError'
-    assert execution.stop_reason == 'proxy-unavailable'
-
-
 @pytest.mark.asyncio
 async def test_shodan_no_data_is_a_completed_zero_yield_action(monkeypatch: pytest.MonkeyPatch) -> None:
     class EmptyShodan:

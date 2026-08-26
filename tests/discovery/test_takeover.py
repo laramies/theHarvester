@@ -271,25 +271,6 @@ async def test_takeover_keeps_dns_only_nxdomain_evidence_without_http(
 
 
 @pytest.mark.asyncio
-async def test_takeover_fails_closed_when_proxy_mode_has_no_proxy(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(takeover.AsyncFetcher, '_proxy_list', {'http': [], 'socks5': []})
-    scanner = takeover.TakeoverScanner(
-        ['app.example.test'],
-        target='example.test',
-        nameservers=['1.1.1.1'],
-    )
-
-    await scanner.process(proxy=True)
-
-    assert await scanner.get_takeover_outcomes() == ()
-    assert scanner.scan_error_type == 'ProxyUnavailableError'
-    assert scanner.stop_reason == 'proxy-unavailable'
-    assert scanner.completed_count == 0
-
-
-@pytest.mark.asyncio
 async def test_takeover_response_limit_is_partial_and_does_not_stop_siblings(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

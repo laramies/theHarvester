@@ -183,7 +183,7 @@ async def start(
     parser.add_argument(
         '-p',
         '--proxies',
-        help='Use proxies.yaml for supported discovery-source, Shodan, and takeover requests. Supported requests fail closed with proxy-unavailable if no proxy is configured.',
+        help='Use proxies.yaml for supported discovery-source, Shodan, and takeover requests. The run fails immediately with proxy-unavailable if no proxy is configured.',
         default=False,
         action='store_true',
     )
@@ -441,6 +441,8 @@ async def start(
             timeout_seconds=args.vhost_timeout_seconds,
             concurrency=args.vhost_concurrency,
         )
+    if args.proxies and not any(AsyncFetcher().proxy_list.values()):
+        raise ProxyUnavailableError('proxy-unavailable')
     Core.quiet = getattr(args, 'quiet', False)
     try:
         db = ResultStore() if result_database is None else ResultStore(result_database)
@@ -1837,8 +1839,6 @@ async def start(
                                 shodan_error_types.add(type(ip_error).__name__)
                                 output_logger.info(f'[SHODAN-error] Error searching {ip}: {type(ip_error).__name__}')
                                 continue
-        except ProxyUnavailableError:
-            shodan_error_types.add('ProxyUnavailableError')
         except asyncio.CancelledError:
             action_executions.append(
                 ActionExecution.finish(
@@ -1861,7 +1861,7 @@ async def start(
             shodan_stop_reason = 'no-input'
         elif shodan_error_types:
             shodan_status = 'partial' if has_shodan_action_evidence() else 'failed'
-            shodan_stop_reason = 'proxy-unavailable' if shodan_error_types == {'ProxyUnavailableError'} else 'target-errors'
+            shodan_stop_reason = 'target-errors'
         action_executions.append(
             ActionExecution.finish(
                 action='shodan',
