@@ -1,5 +1,6 @@
 from argparse import Namespace
 from contextlib import asynccontextmanager
+import json
 from typing import Any
 
 import pytest
@@ -14,6 +15,9 @@ class _Response:
     def __init__(self, payload: object, status: int = 200) -> None:
         self.payload = payload
         self.status = status
+        self.headers: dict[str, str] = {}
+        self.charset = 'utf-8'
+        self.content = self
 
     async def __aenter__(self):
         return self
@@ -23,6 +27,9 @@ class _Response:
 
     async def json(self) -> object:
         return self.payload
+
+    async def iter_any(self):
+        yield json.dumps(self.payload).encode()
 
 
 class _Session:
@@ -43,6 +50,11 @@ class _Session:
 
     def get(self, *_args, **_kwargs) -> _Response:
         return _Response(self.result.pop(0) if isinstance(self.result, list) else self.result)
+
+    def request(self, method: str, *args, **kwargs) -> _Response:
+        if method == 'POST':
+            return self.post(*args, **kwargs)
+        return self.get(*args, **kwargs)
 
 
 @pytest.fixture(autouse=True)

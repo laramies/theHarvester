@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -18,6 +19,8 @@ class FakeResponse:
     def __init__(self, payload: dict[str, Any], links: dict[str, Any]) -> None:
         self.payload = payload
         self.links = links
+        self.headers: dict[str, str] = {}
+        self.content = self
 
     async def __aenter__(self) -> FakeResponse:
         return self
@@ -30,6 +33,9 @@ class FakeResponse:
 
     async def json(self) -> dict[str, Any]:
         return self.payload
+
+    async def iter_any(self):
+        yield json.dumps(self.payload).encode()
 
 
 @pytest.fixture
@@ -52,6 +58,10 @@ def install_github_responses(monkeypatch: pytest.MonkeyPatch):
             def get(self, url: str, *, proxy: str | None = None) -> FakeResponse:
                 requested_urls.append(url)
                 return next(response_iterator)
+
+            def request(self, method: str, url: str, **_kwargs: Any) -> FakeResponse:
+                assert method == 'GET'
+                return self.get(url)
 
         @contextlib.asynccontextmanager
         async def fake_open_session(**_kwargs: object) -> AsyncIterator[FakeSession]:

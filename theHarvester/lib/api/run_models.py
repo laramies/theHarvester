@@ -273,6 +273,8 @@ class RunRequest(BaseModel):
     def validate_proxy_transport(self) -> Self:
         if not self.proxies:
             return self
+        if self.screenshot:
+            raise ValueError('Screenshot capture supports direct transport only; proxies must be disabled')
         direct_sources = [
             source for source in resolve_sources(self.sources) if source in SOURCE_SPECS and source_requires_direct_dns(source)
         ]

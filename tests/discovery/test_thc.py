@@ -30,6 +30,8 @@ class FakeResponse:
         self._text = text
         self.status = status
         self.headers = headers or {}
+        self.charset = 'utf-8'
+        self.content = self
 
     async def __aenter__(self) -> Self:
         return self
@@ -44,6 +46,9 @@ class FakeResponse:
 
     async def text(self) -> str:
         return self._text
+
+    async def iter_any(self):
+        yield self._text.encode()
 
 
 class FakeSession:
@@ -64,6 +69,10 @@ class FakeSession:
     def get(self, url: str) -> FakeResponse:
         domain = parse_qs(urlparse(url).query).get('domain', ['example.com'])[0]
         return FakeResponse(f'WWW.{domain}\napi.{domain}\napi.{domain}\n')
+
+    def request(self, method: str, url: str, **_kwargs: Any) -> FakeResponse:
+        assert method == 'GET'
+        return self.get(url)
 
 
 def session_for(*outcomes: FakeResponse | Exception) -> type[FakeSession]:

@@ -502,4 +502,9 @@ async def enrich_routeviews(
     attribution. Bare ASN findings are not expanded into complete prefix
     inventories; that requires an explicit ASN target.
     """
-    return await _RouteViewsRuntime(api_key, proxy=proxy).run(asns, network_seeds)
+    runtime = _RouteViewsRuntime(api_key, proxy=proxy)
+    try:
+        return await runtime.run(asns, network_seeds)
+    except ResponseStreamError as error:
+        runtime._record_error(type(error).__name__, error.reason, override=True)
+        return runtime._result()

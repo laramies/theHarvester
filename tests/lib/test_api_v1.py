@@ -606,6 +606,15 @@ def test_api_rejects_direct_dns_work_in_proxy_mode(request_fields: dict[str, obj
         RunRequest(target='example.test', proxies=True, **request_fields)
 
 
+def test_api_rejects_screenshot_capture_in_proxy_mode() -> None:
+    from pydantic import ValidationError
+
+    from theHarvester.lib.api.run_models import RunRequest
+
+    with pytest.raises(ValidationError, match='Screenshot capture supports direct transport only'):
+        RunRequest(target='example.test', sources=[], screenshot=True, proxies=True)
+
+
 @pytest.mark.parametrize(
     ('evidence_status', 'execution_status'),
     [('complete', 'failed'), ('partial', 'completed')],

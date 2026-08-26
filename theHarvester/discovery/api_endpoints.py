@@ -466,29 +466,18 @@ class SearchApiEndpoints:
                 return
             worker_count = min(self.concurrency, len(endpoints))
             self._ssl_policy = self.verify_ssl
-            proxy_url, proxy_type = AsyncFetcher._resolve_proxy(self.proxy)
-            self.proxy = proxy_url
-            if proxy_type == 'socks5':
-                connector = await AsyncFetcher._create_connector(
-                    proxy_url,
-                    proxy_type,
-                    AsyncFetcher._ssl_context(self.verify_ssl),
-                )
-            else:
+            if not (self.proxy and self.proxy.startswith('socks5://')):
                 connector = aiohttp.TCPConnector(
                     limit=worker_count,
                     limit_per_host=worker_count,
                     ssl=self._ssl_policy,
                 )
-            session_options: dict[str, Any] = {
-                'headers': self._get_headers(),
-                'timeout': aiohttp.ClientTimeout(total=self.timeout),
-                'connector': connector,
-            }
-            if proxy_type == 'http':
-                session_options['proxy'] = proxy_url
-            session = aiohttp.ClientSession(
-                **session_options,
+            session = await AsyncFetcher.create_session(
+                headers=self._get_headers(),
+                proxy=self.proxy,
+                request_timeout=self.timeout,
+                verify=self.verify_ssl,
+                connector=connector,
             )
             self._session = session
 
@@ -539,6 +528,10 @@ class SearchApiEndpoints:
             cancellation = error
         except TimeoutError:
             self.stop_reason = 'runtime-limit'
+        except ResponseStreamError as e:
+            self.scan_error_type = type(e).__name__
+            self.stop_reason = e.reason
+            self.logger.error(f'Error in API endpoint scan: {e!s}', exc_info=True)
         except Exception as e:
             self.scan_error_type = type(e).__name__
             self.stop_reason = 'scan-error'
@@ -737,7 +730,7 @@ class SearchApiEndpoints:
                     url=current_url,
                     method=method,
                     headers=headers,
-                    proxy=self.proxy,
+                    proxy=False,
                     verify=self._ssl_policy,
                     follow_redirects=False,
                     request_timeout=self.timeout,

@@ -551,15 +551,11 @@ class TakeoverScanner:
                     self.completed_count += 1
 
         try:
-            ssl_context = AsyncFetcher._ssl_context()
-            proxy_url, proxy_type = AsyncFetcher._resolve_proxy(proxy)
-            session = await AsyncFetcher._build_session(
-                {'User-Agent': Core.get_browser_user_agent()},
-                aiohttp.ClientTimeout(total=None),
-                proxy_url,
-                proxy_type,
-                ssl_context,
+            session = await AsyncFetcher.create_session(
+                headers={'User-Agent': Core.get_browser_user_agent()},
+                proxy=proxy,
                 cookie_jar=aiohttp.DummyCookieJar(),
+                unlimited_timeout=True,
             )
             resolvers = tuple(TakeoverDNSResolver(nameserver) for nameserver in self.nameservers)
             async with asyncio.TaskGroup() as group:
@@ -569,6 +565,10 @@ class TakeoverScanner:
             self.scan_error_type = 'CancelledError'
             self.stop_reason = 'cancelled'
             cancellation = error
+        except ResponseStreamError as error:
+            phase_error = error
+            self.scan_error_type = type(error).__name__
+            self.stop_reason = error.reason
         except Exception as error:
             phase_error = error
             self.scan_error_type = type(error).__name__

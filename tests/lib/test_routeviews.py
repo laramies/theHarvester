@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 
 import theHarvester.lib.routeviews as routeviews_module
-from theHarvester.lib.core import FetcherResponse
+from theHarvester.lib.core import FetcherResponse, ResponseStreamError
 from theHarvester.lib.network_evidence import (
     BgpRouteObservation,
     PrefixOriginObservation,
@@ -139,6 +139,22 @@ async def test_routeviews_reuses_one_session_for_every_request(monkeypatch) -> N
     assert len(sessions) == 2
     assert sessions[0] is not None
     assert sessions[0] is sessions[1]
+
+
+@pytest.mark.asyncio
+async def test_routeviews_reports_session_construction_failure(monkeypatch) -> None:
+    @asynccontextmanager
+    async def failed_open_session(**_kwargs: Any):
+        raise ResponseStreamError('transport-error')
+        yield
+
+    monkeypatch.setattr(routeviews_module.AsyncFetcher, 'open_session', failed_open_session)
+
+    result = await enrich_routeviews(['AS64500'], [], proxy=True)
+
+    assert result.status == 'failed'
+    assert result.error_type == 'ResponseStreamError'
+    assert result.stop_reason == 'transport-error'
 
 
 @pytest.mark.asyncio

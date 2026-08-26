@@ -1107,7 +1107,7 @@ async def test_api_endpoint_scan_uses_a_configured_proxy(monkeypatch) -> None:
 
     await search.do_search()
 
-    assert requests == [(proxy, False), (proxy, False), (proxy, False)]
+    assert requests == [(False, False), (False, False), (False, False)]
 
 
 @pytest.mark.asyncio
@@ -1155,8 +1155,22 @@ async def test_api_endpoint_scan_builds_one_socks_proxy_session(monkeypatch: pyt
 
     assert connector_calls == [(proxy, 'socks5')]
     assert len(owned_sessions) == 1
-    assert requests == [(owned_sessions[0], proxy)] * 3
+    assert requests == [(owned_sessions[0], False)] * 3
     assert owned_sessions[0].closed is True
+
+
+@pytest.mark.asyncio
+async def test_api_endpoint_scan_normalizes_proxy_session_construction_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    search = api_endpoints.SearchApiEndpoints('192.0.2.1', proxy='socks5://')
+    search.common_api_paths = ['/api']
+    monkeypatch.setattr(search, '_load_wordlist', lambda: [])
+
+    await search.do_search()
+
+    assert search.scan_error_type == 'ResponseStreamError'
+    assert search.stop_reason == 'transport-error'
 
 
 @pytest.mark.parametrize('error', [aiohttp.ClientConnectionError(), TimeoutError()])

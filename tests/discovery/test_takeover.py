@@ -148,6 +148,17 @@ async def test_takeover_reuses_one_cookie_free_unlimited_http_session(
 
 
 @pytest.mark.asyncio
+async def test_takeover_normalizes_proxy_session_construction_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(takeover.AsyncFetcher, '_proxy_list', {'http': [], 'socks5': ['socks5://']})
+    scanner = takeover.TakeoverScanner([], target='example.test', nameservers=['1.1.1.1'])
+
+    await scanner.process(proxy=True)
+
+    assert scanner.scan_error_type == 'ResponseStreamError'
+    assert scanner.stop_reason == 'transport-error'
+
+
+@pytest.mark.asyncio
 async def test_takeover_requires_provider_dns_evidence_and_compound_http_predicates(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

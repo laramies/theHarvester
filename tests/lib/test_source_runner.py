@@ -507,6 +507,23 @@ async def test_source_runner_preserves_configured_proxy_transport_failure(
 
 
 @pytest.mark.asyncio
+async def test_source_runner_detects_proxy_failure_swallowed_by_adapter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(AsyncFetcher, '_proxy_list', {'http': [], 'socks5': ['socks5://']})
+    monkeypatch.setattr(
+        'theHarvester.lib.source_runner.rocketreach.Core.rocketreach_key',
+        staticmethod(lambda: 'test-key'),
+    )
+
+    outcome = await run_source(SourceRequest('rocketreach', 'example.test', 25, 0, True, True))
+
+    assert outcome.execution.status == 'failed'
+    assert outcome.execution.stop_reason == 'transport-error'
+    assert outcome.observations == ()
+
+
+@pytest.mark.asyncio
 async def test_source_runner_normalizes_structured_transport_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

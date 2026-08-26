@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 import aiohttp
 
 from theHarvester.discovery.constants import MissingKey
-from theHarvester.lib.core import AsyncFetcher, Core
+from theHarvester.lib.core import MAX_PROVIDER_JSON_BYTES, AsyncFetcher, Core, ResponseStreamError
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.source_execution import SourceExecutionReport
 from theHarvester.parsers import intelxparser
@@ -56,14 +56,24 @@ class SearchIntelx:
         try:
             async with asyncio.timeout(self.MAX_RUNTIME_SECONDS):
                 async with AsyncFetcher.open_session(headers=headers, proxy=self.proxy) as session:
-                    async with session.post(f'{self.database}/phonebook/search', headers=headers, json=data) as response:
-                        if response.status in {401, 403}:
-                            return SourceExecutionReport('failed', 'access-denied')
-                        if response.status == 429:
-                            return SourceExecutionReport('rate-limited', 'http-429')
-                        if not 200 <= response.status < 300:
-                            return SourceExecutionReport('failed', f'http-{response.status}')
-                        search_data = await response.json()
+                    search_response = await AsyncFetcher.post_fetch(
+                        f'{self.database}/phonebook/search',
+                        session=session,
+                        headers=headers,
+                        json=True,
+                        json_body=data,
+                        include_metadata=True,
+                        response_byte_limit=MAX_PROVIDER_JSON_BYTES,
+                    )
+                    if search_response is None:
+                        return SourceExecutionReport('failed', 'transport-error')
+                    if search_response.status in {401, 403}:
+                        return SourceExecutionReport('failed', 'access-denied')
+                    if search_response.status == 429:
+                        return SourceExecutionReport('rate-limited', 'http-429')
+                    if not 200 <= search_response.status < 300:
+                        return SourceExecutionReport('failed', f'http-{search_response.status}')
+                    search_data = search_response.body
                     if (
                         not isinstance(search_data, dict)
                         or search_data.get('success') is False
@@ -74,18 +84,19 @@ class SearchIntelx:
                     phonebook_id = search_data['id']
                     while self.limit is None or collected < self.limit:
                         page_size = min(self.PAGE_SIZE, self.limit - collected) if self.limit is not None else self.PAGE_SIZE
-                        async with session.get(
+                        page_response = await AsyncFetcher.fetch_json(
                             f'{self.database}/phonebook/search/result',
+                            session=session,
                             headers=headers,
                             params={'id': phonebook_id, 'limit': page_size},
-                        ) as response:
-                            if response.status in {401, 403}:
-                                return SourceExecutionReport('failed', 'access-denied')
-                            if response.status == 429:
-                                return SourceExecutionReport('rate-limited', 'http-429')
-                            if not 200 <= response.status < 300:
-                                return SourceExecutionReport('failed', f'http-{response.status}')
-                            page = await response.json()
+                        )
+                        if page_response.status in {401, 403}:
+                            return SourceExecutionReport('failed', 'access-denied')
+                        if page_response.status == 429:
+                            return SourceExecutionReport('rate-limited', 'http-429')
+                        if not 200 <= page_response.status < 300:
+                            return SourceExecutionReport('failed', f'http-{page_response.status}')
+                        page = page_response.body
                         if (
                             not isinstance(page, dict)
                             or isinstance(page.get('status'), bool)
@@ -120,6 +131,8 @@ class SearchIntelx:
             return SourceExecutionReport('partial', 'runtime-limit')
         except asyncio.CancelledError:
             raise
+        except ResponseStreamError as error:
+            return SourceExecutionReport('failed', error.reason)
         except aiohttp.ClientError, OSError:
             return SourceExecutionReport('failed', 'transport-error')
         return None
