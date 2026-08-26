@@ -108,7 +108,10 @@ class RunRequest(BaseModel):
     )
     proxies: bool = Field(
         default=False,
-        description='Use configured proxies for supported discovery sources and takeover requests.',
+        description=(
+            'Use configured proxies for supported discovery sources and takeover requests. Supported requests fail '
+            'closed with proxy-unavailable if no proxy is configured.'
+        ),
     )
     no_hosts: bool = Field(
         default=False,

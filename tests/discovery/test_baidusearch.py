@@ -204,7 +204,7 @@ class TestBaiduSearch:
         browser_api: object | None,
     ) -> None:
         monkeypatch.setattr(baidusearch, 'playwright_api', browser_api)
-        monkeypatch.setattr(baidusearch.AsyncFetcher, '_proxy_list', {})
+        monkeypatch.setattr(baidusearch.AsyncFetcher, '_proxy_list', {'http': [], 'socks5': []})
 
         report = await baidusearch.SearchBaidu(word='example.com', limit=10).process(proxy=True)
 

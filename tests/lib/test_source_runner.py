@@ -403,7 +403,7 @@ async def test_runner_reports_unavailable_required_proxy_without_starting_source
         async def get_urls(self) -> tuple[()]:
             return ()
 
-    monkeypatch.setattr(AsyncFetcher, '_proxy_list', {})
+    monkeypatch.setattr(AsyncFetcher, '_proxy_list', {'http': [], 'socks5': []})
     monkeypatch.setitem(SOURCE_FACTORIES, 'apis-guru', lambda _request: UnstartedAdapter())
 
     outcome = await run_source(SourceRequest('apis-guru', 'example.test', 25, 0, True, True))
