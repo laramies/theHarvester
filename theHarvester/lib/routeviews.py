@@ -144,9 +144,10 @@ def _rpki_state(value: object) -> RpkiState:
 
 
 class _RouteViewsRuntime:
-    def __init__(self, api_key: str | None = None) -> None:
+    def __init__(self, api_key: str | None = None, *, proxy: bool = False) -> None:
         self.base_url = ROUTEVIEWS_BASE if api_key else ROUTEVIEWS_GUEST_BASE
         self.headers = {'Api-Key': api_key} if api_key else None
+        self.proxy = proxy
         self.request_interval = ROUTEVIEWS_AUTHENTICATED_INTERVAL_SECONDS if api_key else ROUTEVIEWS_GUEST_INTERVAL_SECONDS
         self.started_at = _monotonic()
         self.last_request_at: float | None = None
@@ -280,6 +281,8 @@ class _RouteViewsRuntime:
         }
         if self.headers is not None:
             request_kwargs['headers'] = self.headers
+        if self.proxy:
+            request_kwargs['proxy'] = True
         try:
             async with asyncio.timeout(remaining):
                 response = await _fetch_json(url, **request_kwargs)
@@ -482,6 +485,7 @@ async def enrich_routeviews(
     network_seeds: Iterable[str],
     *,
     api_key: str | None = None,
+    proxy: bool = False,
 ) -> RouteViewsResult:
     """Collect bounded routing evidence for caller-approved network pivots.
 
@@ -489,4 +493,4 @@ async def enrich_routeviews(
     attribution. Bare ASN findings are not expanded into complete prefix
     inventories; that requires an explicit ASN target.
     """
-    return await _RouteViewsRuntime(api_key).run(asns, network_seeds)
+    return await _RouteViewsRuntime(api_key, proxy=proxy).run(asns, network_seeds)

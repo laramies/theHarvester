@@ -1349,11 +1349,13 @@ async def start(
             )
 
         try:
-            routeviews_result = await enrich_routeviews(
-                routeviews_asns,
-                routeviews_network_seeds,
-                api_key=Core.routeviews_key(),
-            )
+            with AsyncFetcher.proxy_scope(use_proxy) as routeviews_proxy:
+                routeviews_result = await enrich_routeviews(
+                    routeviews_asns,
+                    routeviews_network_seeds,
+                    api_key=Core.routeviews_key(),
+                    proxy=routeviews_proxy,
+                )
         except RouteViewsCancelled as error:
             record_routeviews_result(error.result)
             cancelled_result = finish_completed_result()
@@ -1800,6 +1802,7 @@ async def start(
         shodan_error_types: set[str] = set()
         shodan_asns: set[str] = set()
         shodan_ips: set[str] = set()
+        shodan_proxy_transport_failed = False
 
         def has_shodan_action_evidence() -> bool:
             return bool(shodan_action_hosts or shodan_asns or shodan_ips)
@@ -1850,6 +1853,7 @@ async def start(
                                 shodan_error_types.add(type(ip_error).__name__)
                                 output_logger.info(f'[SHODAN-error] Error searching {ip}: {type(ip_error).__name__}')
                                 continue
+                shodan_proxy_transport_failed = AsyncFetcher.proxy_transport_failed()
         except asyncio.CancelledError:
             action_executions.append(
                 ActionExecution.finish(
@@ -1867,7 +1871,10 @@ async def start(
             shodan_error_types.add(type(action_error).__name__)
         shodan_status: ExecutionStatus = 'completed'
         shodan_stop_reason = None
-        if not host_ip:
+        if shodan_proxy_transport_failed:
+            shodan_status = 'partial' if has_shodan_action_evidence() else 'failed'
+            shodan_stop_reason = 'transport-error'
+        elif not host_ip:
             shodan_status = 'skipped'
             shodan_stop_reason = 'no-input'
         elif shodan_error_types:
@@ -1930,6 +1937,7 @@ async def start(
     if args.api_scan or 'api_endpoints' in engines:
         api_scan_started = time.perf_counter()
         api_scanner = None
+        api_proxy_transport_failed = False
 
         def collect_api_action_groups(
             scanner: api_endpoints.SearchApiEndpoints | None,
@@ -1991,35 +1999,34 @@ async def start(
                 output_logger.info(f'Basic API wordlist created with {len(basic_endpoints)} endpoints.')
 
             output_logger.info(f'\n[*] Starting API endpoint scanning with wordlist: {wordlist}')
-            api_proxy = None
-            if use_proxy:
-                api_proxy = AsyncFetcher._resolve_proxy(True)[0]
-                assert api_proxy is not None
-            if args.wordlist and api_proxy is not None:
-                api_scanner = api_endpoints.SearchApiEndpoints(
-                    word=args.domain,
-                    wordlist=wordlist,
-                    exact_paths=True,
-                    proxy=api_proxy,
-                )
-            elif args.wordlist:
-                api_scanner = api_endpoints.SearchApiEndpoints(
-                    word=args.domain,
-                    wordlist=wordlist,
-                    exact_paths=True,
-                )
-            elif api_proxy is not None:
-                api_scanner = api_endpoints.SearchApiEndpoints(
-                    word=args.domain,
-                    wordlist=wordlist,
-                    proxy=api_proxy,
-                )
-            else:
-                api_scanner = api_endpoints.SearchApiEndpoints(
-                    word=args.domain,
-                    wordlist=wordlist,
-                )
-            await api_scanner.do_search()
+            with AsyncFetcher.proxy_scope(use_proxy) as api_proxy_selected:
+                api_proxy = AsyncFetcher._resolve_proxy(api_proxy_selected)[0]
+                if args.wordlist and api_proxy is not None:
+                    api_scanner = api_endpoints.SearchApiEndpoints(
+                        word=args.domain,
+                        wordlist=wordlist,
+                        exact_paths=True,
+                        proxy=api_proxy,
+                    )
+                elif args.wordlist:
+                    api_scanner = api_endpoints.SearchApiEndpoints(
+                        word=args.domain,
+                        wordlist=wordlist,
+                        exact_paths=True,
+                    )
+                elif api_proxy is not None:
+                    api_scanner = api_endpoints.SearchApiEndpoints(
+                        word=args.domain,
+                        wordlist=wordlist,
+                        proxy=api_proxy,
+                    )
+                else:
+                    api_scanner = api_endpoints.SearchApiEndpoints(
+                        word=args.domain,
+                        wordlist=wordlist,
+                    )
+                await api_scanner.do_search()
+                api_proxy_transport_failed = AsyncFetcher.proxy_transport_failed()
 
             # Print results
             endpoints_found, interesting_endpoints, api_action_groups = collect_api_action_groups(api_scanner)
@@ -2061,7 +2068,11 @@ async def start(
             api_scan_status: ExecutionStatus = 'completed'
             api_error_type = None
             api_stop_reason = None
-            if api_scan_error:
+            if api_proxy_transport_failed:
+                api_scan_status = 'partial' if any(api_action_groups.values()) else 'failed'
+                api_error_type = next(iter(sorted(api_scanner.request_error_types)), None)
+                api_stop_reason = 'transport-error'
+            elif api_scan_error:
                 api_scan_status = 'partial' if any(api_action_groups.values()) else 'failed'
                 api_error_type = api_scan_error
                 api_stop_reason = 'scan-error'

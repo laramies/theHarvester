@@ -107,6 +107,22 @@ async def test_routeviews_uses_configured_key_for_authenticated_access(monkeypat
 
 
 @pytest.mark.asyncio
+async def test_routeviews_forwards_the_selected_proxy_to_every_request(monkeypatch) -> None:
+    calls, _elapsed = install_runtime(
+        monkeypatch,
+        [
+            response(['192.0.2.0/24']),
+            response({'64500': None}),
+        ],
+    )
+
+    result = await enrich_routeviews(['AS64500'], [], proxy=True)
+
+    assert result.status == 'completed'
+    assert [kwargs['proxy'] for _url, kwargs in calls] == [True, True]
+
+
+@pytest.mark.asyncio
 async def test_routeviews_invalid_configured_key_fails_without_guest_downgrade(monkeypatch) -> None:
     calls, _elapsed = install_runtime(monkeypatch, [response(None, status=401)])
 

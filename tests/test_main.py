@@ -3621,6 +3621,56 @@ async def test_shodan_action_reuses_one_session_and_proxy_identity(monkeypatch: 
 
 
 @pytest.mark.asyncio
+async def test_shodan_action_records_configured_proxy_transport_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    class OneIpSource:
+        async def process(self, proxy: bool) -> None:
+            assert proxy is True
+
+        async def get_hostnames(self) -> set[str]:
+            return set()
+
+        async def get_ips(self) -> set[str]:
+            return {'192.0.2.10'}
+
+        async def get_asns(self) -> set[str]:
+            return set()
+
+        async def get_urls(self) -> set[str]:
+            return set()
+
+    class FailingSession:
+        def request(self, *_args: object, **_kwargs: object) -> object:
+            raise OSError('proxy endpoint unavailable')
+
+    class FailedShodan:
+        error_type = None
+
+        async def search_ip(
+            self,
+            _ip: str,
+            *,
+            proxy: bool = False,
+            session: object | None = None,
+        ) -> dict[str, object]:
+            assert session is not None
+            assert await AsyncFetcher.fetch(session=FailingSession(), url='https://api.shodan.io/') == ''
+            return {}
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
+    monkeypatch.setitem(source_runner.SOURCE_FACTORIES, 'urlscan', lambda _request: OneIpSource())
+    monkeypatch.setattr(theharvester_main.shodansearch, 'SearchShodan', FailedShodan)
+    monkeypatch.setattr(AsyncFetcher, '_proxy_list', {'http': ['http://proxy.example:8080'], 'socks5': []})
+
+    result = await theharvester_main.start(
+        EnumerationOptions(domain='example.com', proxies=True, quiet=True, shodan=True, source='urlscan'),
+        return_completed_result=True,
+    )
+
+    execution = next(item for item in result[-1].active_evidence.executions if item.action == 'shodan')
+    assert execution.status == 'failed'
+    assert execution.stop_reason == 'transport-error'
+
+
 @pytest.mark.asyncio
 async def test_shodan_no_data_is_a_completed_zero_yield_action(monkeypatch: pytest.MonkeyPatch) -> None:
     class EmptyShodan:
@@ -3737,6 +3787,73 @@ async def test_api_scan_records_suppressed_scan_failure(
     assert api_execution.result_count == int(result_url is not None)
     assert api_execution.error_type == expected_error
     assert api_execution.stop_reason == expected_reason
+
+
+@pytest.mark.asyncio
+async def test_api_scan_records_configured_proxy_transport_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    class FailingSession:
+        def request(self, *_args: object, **_kwargs: object) -> object:
+            raise OSError('proxy endpoint unavailable')
+
+    class FailedApiScanner:
+        scan_error_type = None
+        request_error_count = 1
+        request_error_types = {'TransportError'}
+        stop_reason = None
+
+        def __init__(self, word: str, wordlist: str, exact_paths: bool = False, proxy: str | None = None) -> None:
+            assert word == 'example.com'
+            assert wordlist == str(tmp_path / 'api.txt')
+            assert exact_paths is True
+            assert proxy == 'http://proxy.example:8080'
+
+        async def do_search(self) -> None:
+            assert await AsyncFetcher.fetch(session=FailingSession(), url='https://example.com/api') == ''
+
+        def get_found_endpoints(self) -> set[str]:
+            return set()
+
+        def get_interesting_endpoints(self) -> set[str]:
+            return set()
+
+        def get_auth_required(self) -> set[str]:
+            return set()
+
+        def get_api_versions(self) -> set[str]:
+            return set()
+
+        def get_rate_limits(self) -> dict[str, object]:
+            return {}
+
+        def get_methods(self) -> set[str]:
+            return set()
+
+        def get_status_codes(self) -> set[int]:
+            return set()
+
+    wordlist = tmp_path / 'api.txt'
+    wordlist.write_text('/api\n', encoding='utf-8')
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
+    monkeypatch.setattr(theharvester_main.api_endpoints, 'SearchApiEndpoints', FailedApiScanner)
+    monkeypatch.setattr(AsyncFetcher, '_proxy_list', {'http': ['http://proxy.example:8080'], 'socks5': []})
+
+    result = await theharvester_main.start(
+        EnumerationOptions(
+            api_scan=True,
+            domain='example.com',
+            proxies=True,
+            quiet=True,
+            wordlist=str(wordlist),
+        ),
+        return_completed_result=True,
+    )
+
+    execution = next(item for item in result[-1].active_evidence.executions if item.action == 'api-scan')
+    assert execution.status == 'failed'
+    assert execution.stop_reason == 'transport-error'
 
 
 @pytest.mark.asyncio
@@ -3905,7 +4022,8 @@ async def test_routeviews_persists_typed_network_evidence_for_explicit_ip_target
 ) -> None:
     calls: list[tuple[tuple[object, ...], tuple[str, ...], str | None]] = []
 
-    async def fake_routeviews(asns, network_seeds, *, api_key: str | None = None) -> RouteViewsResult:
+    async def fake_routeviews(asns, network_seeds, *, api_key: str | None = None, proxy: bool = False) -> RouteViewsResult:
+        assert proxy is False
         calls.append((tuple(asns), tuple(network_seeds), api_key))
         collected_at = datetime.now(UTC)
         origin = PrefixOriginObservation('routeviews', '192.0.2.0/24', 'AS64500', collected_at)
@@ -3954,7 +4072,8 @@ async def test_routeviews_persists_typed_network_evidence_for_explicit_ip_target
 async def test_routeviews_pivots_from_an_explicit_asn_target(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[tuple[tuple[object, ...], tuple[str, ...]]] = []
 
-    async def fake_routeviews(asns, network_seeds, *, api_key: str | None = None) -> RouteViewsResult:
+    async def fake_routeviews(asns, network_seeds, *, api_key: str | None = None, proxy: bool = False) -> RouteViewsResult:
+        assert proxy is False
         assert api_key is None
         calls.append((tuple(asns), tuple(network_seeds)))
         return RouteViewsResult((), (), (), 2, 0, 'completed', stop_reason='no-results')
@@ -4001,7 +4120,7 @@ async def test_routeviews_hostname_target_requires_a_discovery_source(monkeypatc
 async def test_routeviews_pivots_from_attributed_ips_without_expanding_discovered_asns(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls: list[tuple[tuple[object, ...], tuple[str, ...]]] = []
+    calls: list[tuple[tuple[object, ...], tuple[str, ...], bool]] = []
 
     class FakeUrlscan:
         def __init__(self, _word: str, limit: int) -> None:
@@ -4044,9 +4163,15 @@ async def test_routeviews_pivots_from_attributed_ips_without_expanding_discovere
                 ),
             }
 
-    async def fake_routeviews(asns, network_seeds, *, api_key: str | None = None) -> RouteViewsResult:
+    async def fake_routeviews(
+        asns,
+        network_seeds,
+        *,
+        api_key: str | None = None,
+        proxy: bool = False,
+    ) -> RouteViewsResult:
         assert api_key is None
-        calls.append((tuple(asns), tuple(network_seeds)))
+        calls.append((tuple(asns), tuple(network_seeds), proxy))
         return RouteViewsResult((), (), (), 2, 0, 'completed', stop_reason='no-results')
 
     monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
@@ -4066,7 +4191,7 @@ async def test_routeviews_pivots_from_attributed_ips_without_expanding_discovere
         return_completed_result=True,
     )
 
-    assert calls == [((), ('192.0.2.10',))]
+    assert calls == [((), ('192.0.2.10',), True)]
     completed = result[-1]
     assert ('asn', 'AS64500') in completed.results
     assert ('ip', '192.0.2.10') in completed.results
@@ -4082,7 +4207,8 @@ async def test_routeviews_pivots_from_attributed_ips_without_expanding_discovere
 async def test_routeviews_cancellation_persists_partial_network_evidence(monkeypatch: pytest.MonkeyPatch) -> None:
     saved: list[CompletedResult] = []
 
-    async def cancel_routeviews(asns, network_seeds, *, api_key: str | None = None) -> RouteViewsResult:
+    async def cancel_routeviews(asns, network_seeds, *, api_key: str | None = None, proxy: bool = False) -> RouteViewsResult:
+        assert proxy is False
         assert tuple(asns) == ()
         assert tuple(network_seeds) == ('192.0.2.7',)
         assert api_key is None
@@ -4122,7 +4248,8 @@ async def test_routeviews_cancellation_persists_partial_network_evidence(monkeyp
 async def test_routeviews_cancellation_persists_when_the_checkpoint_fails(monkeypatch: pytest.MonkeyPatch) -> None:
     saved: list[CompletedResult] = []
 
-    async def cancel_routeviews(asns, network_seeds, *, api_key: str | None = None) -> RouteViewsResult:
+    async def cancel_routeviews(asns, network_seeds, *, api_key: str | None = None, proxy: bool = False) -> RouteViewsResult:
+        assert proxy is False
         assert api_key is None
         collected_at = datetime.now(UTC)
         origin = PrefixOriginObservation('routeviews', '192.0.2.0/24', 'AS64500', collected_at)

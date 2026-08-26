@@ -45,7 +45,14 @@ _STREAM_LINE_END = re.compile(rb'[\r\n]')
 StreamErrorReason = Literal['invalid-response', 'response-limit', 'transport-error']
 StreamFraming = Literal['ndjson', 'sse']
 _SELECTED_PROXY: ContextVar[tuple[str, str] | None] = ContextVar('selected_proxy', default=None)
-_PROXY_TRANSPORT_FAILED: ContextVar[bool] = ContextVar('proxy_transport_failed', default=False)
+
+
+@dataclass
+class _ProxyTransportState:
+    failed: bool = False
+
+
+_PROXY_TRANSPORT_STATE: ContextVar[_ProxyTransportState | None] = ContextVar('proxy_transport_state', default=None)
 
 
 class ProxyUnavailableError(Exception):
@@ -526,16 +533,17 @@ class AsyncFetcher:
         assert proxy_url is not None
         assert proxy_type is not None
         token = _SELECTED_PROXY.set((proxy_url, proxy_type))
-        failure_token = _PROXY_TRANSPORT_FAILED.set(False)
+        transport_token = _PROXY_TRANSPORT_STATE.set(_ProxyTransportState())
         try:
             yield True
         finally:
-            _PROXY_TRANSPORT_FAILED.reset(failure_token)
+            _PROXY_TRANSPORT_STATE.reset(transport_token)
             _SELECTED_PROXY.reset(token)
 
     @staticmethod
     def proxy_transport_failed() -> bool:
-        return _PROXY_TRANSPORT_FAILED.get()
+        state = _PROXY_TRANSPORT_STATE.get()
+        return state is not None and state.failed
 
     @classmethod
     async def _build_session(
@@ -687,8 +695,8 @@ class AsyncFetcher:
                     response_byte_limit=response_byte_limit,
                 )
         except aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError:
-            if _SELECTED_PROXY.get() is not None:
-                _PROXY_TRANSPORT_FAILED.set(True)
+            if state := _PROXY_TRANSPORT_STATE.get():
+                state.failed = True
             raise
 
     @staticmethod

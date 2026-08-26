@@ -483,7 +483,10 @@ async def test_source_runner_preserves_configured_proxy_transport_failure(
     class LegacyFetcherAdapter:
         async def process(self, proxy: str | bool) -> None:
             assert proxy is True
-            assert await AsyncFetcher.fetch(session=FailingSession(), url='https://provider.example/data') == ''
+            assert await AsyncFetcher.fetch_all(
+                ['https://provider.example/data'],
+                session=FailingSession(),
+            ) == ['']
 
         async def get_hostnames(self) -> tuple[()]:
             return ()
