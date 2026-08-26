@@ -41,7 +41,7 @@ Use a stable provider-specific reason. Do not define mutable `execution_status` 
 
 A provider conversation is the related request sequence for one source execution: initial request, pagination, retries or polling, and final response handling. Give that sequence one explicit owner.
 
-- Reuse one `AsyncFetcher.open_session()` for related requests so the connection pool, headers, cookie jar, and chosen proxy identity remain stable. Pass the borrowed session to shared fetch methods with `session=` and let only the outer owner close it.
+- Reuse one `AsyncFetcher.open_session()` for related requests so the connection pool, headers, cookie jar, and chosen proxy identity remain stable. The source runner pins one selected proxy for the execution; use the supplied proxy flag when opening the session, pass the borrowed session to shared fetch methods with `session=`, and let only the outer owner close it.
 - Keep the default cookie jar when later provider requests may depend on earlier responses. Use `aiohttp.DummyCookieJar()` for deliberately independent probes, such as takeover candidates, so one target cannot influence another.
 - Scope a session to one provider and authorized target. Never share cookies, authentication state, or proxy identity across source executions or unrelated targets.
 - Preserve cancellation while closing every owned session, response, task, and connector. Cover both successful completion and interruption in focused tests.

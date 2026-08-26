@@ -321,20 +321,19 @@ async def run_source(
     adapter: Any | None = None
     process_completed = False
     try:
-        if request.proxy and not any(AsyncFetcher().proxy_list.values()):
-            raise ProxyUnavailableError('proxy-unavailable')
-        source_spec = get_source_spec(request.source)
-        created_adapter = create_source(request)
-        _reject_removed_execution_fields(source_spec.name, created_adapter)
-        if on_started is not None:
-            try:
-                on_started(request)
-            except asyncio.CancelledError:
-                raise
-            except Exception as error:
-                logger.warning('Source start reporter failed for %s: %s', request.source, type(error).__name__)
-        adapter = created_adapter
-        report = await adapter.process(request.proxy)
+        with AsyncFetcher.proxy_scope(request.proxy) as selected_proxy:
+            source_spec = get_source_spec(request.source)
+            created_adapter = create_source(request)
+            _reject_removed_execution_fields(source_spec.name, created_adapter)
+            if on_started is not None:
+                try:
+                    on_started(request)
+                except asyncio.CancelledError:
+                    raise
+                except Exception as error:
+                    logger.warning('Source start reporter failed for %s: %s', request.source, type(error).__name__)
+            adapter = created_adapter
+            report = await adapter.process(selected_proxy)
         process_completed = True
         _reject_removed_execution_fields(source_spec.name, adapter)
         if report is None:

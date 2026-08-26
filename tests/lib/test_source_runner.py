@@ -416,6 +416,43 @@ async def test_runner_reports_unavailable_required_proxy_without_starting_source
 
 
 @pytest.mark.asyncio
+async def test_source_runner_selects_one_proxy_identity_for_the_adapter_execution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    selected: list[dict[str, list[str]]] = []
+    received: list[str | bool] = []
+
+    class SuccessfulAdapter:
+        async def process(self, proxy: str | bool) -> None:
+            received.append(proxy)
+            AsyncFetcher._resolve_proxy(proxy)
+            AsyncFetcher._resolve_proxy(proxy)
+
+        async def get_hostnames(self) -> tuple[()]:
+            return ()
+
+        async def get_emails(self) -> tuple[()]:
+            return ()
+
+        async def get_urls(self) -> tuple[()]:
+            return ()
+
+    def select_proxy(proxy_list: dict[str, list[str]]) -> tuple[str, str]:
+        selected.append(proxy_list)
+        return 'http://proxy-one.example:8080', 'http'
+
+    monkeypatch.setattr(AsyncFetcher, '_proxy_list', {'http': ['http://proxy-one.example:8080'], 'socks5': []})
+    monkeypatch.setattr(AsyncFetcher, '_get_random_proxy', staticmethod(select_proxy))
+    monkeypatch.setitem(SOURCE_FACTORIES, 'apis-guru', lambda _request: SuccessfulAdapter())
+
+    outcome = await run_source(SourceRequest('apis-guru', 'example.test', 25, 0, True, True))
+
+    assert selected == [{'http': ['http://proxy-one.example:8080'], 'socks5': []}]
+    assert received == [True]
+    assert outcome.execution.status == 'completed'
+
+
+@pytest.mark.asyncio
 async def test_start_reporter_failure_is_sanitized_and_does_not_change_provider_outcome(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,

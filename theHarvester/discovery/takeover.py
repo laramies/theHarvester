@@ -320,7 +320,6 @@ class TakeoverScanner:
             response = await AsyncFetcher.fetch_text(
                 f'{scheme}://{hostname}',
                 session=session,
-                proxy=self._proxy or '',
                 follow_redirects=False,
                 request_timeout=None,
                 response_byte_limit=MAX_TAKEOVER_RESPONSE_BYTES,

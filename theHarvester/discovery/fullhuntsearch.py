@@ -155,7 +155,7 @@ class SearchFullHunt:
             [url],
             json=True,
             headers=self._get_headers(),
-            proxy=self.proxy,
+            proxy=self.proxy if session is None else False,
             include_metadata=True,
             session=session,
         )

@@ -9,6 +9,7 @@ import random
 import re
 import ssl
 import tempfile
+from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Literal
@@ -24,7 +25,7 @@ from theHarvester.lib.output import output_logger
 from theHarvester.lib.source_catalog import SOURCE_SPECS, resolve_sources
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Sized
+    from collections.abc import AsyncIterator, Iterator, Sized
 
     from aiohttp.abc import AbstractCookieJar
 
@@ -43,6 +44,7 @@ _STREAM_LINE_END = re.compile(rb'[\r\n]')
 
 StreamErrorReason = Literal['invalid-response', 'response-limit', 'transport-error']
 StreamFraming = Literal['ndjson', 'sse']
+_SELECTED_PROXY: ContextVar[tuple[str, str] | None] = ContextVar('selected_proxy', default=None)
 
 
 class ProxyUnavailableError(Exception):
@@ -502,6 +504,8 @@ class AsyncFetcher:
         if isinstance(proxy, str) and proxy != '':
             return proxy, 'socks5' if proxy.startswith('socks5://') else 'http'
         if isinstance(proxy, bool) and proxy:
+            if selected := _SELECTED_PROXY.get():
+                return selected
             try:
                 resolved = cls._get_random_proxy(cls().proxy_list)
             except IndexError, TypeError, ValueError:
@@ -510,6 +514,21 @@ class AsyncFetcher:
                 raise ProxyUnavailableError('proxy-unavailable')
             return resolved
         return None, None
+
+    @classmethod
+    @contextlib.contextmanager
+    def proxy_scope(cls, required: bool) -> Iterator[bool]:
+        if not required:
+            yield False
+            return
+        proxy_url, proxy_type = cls._resolve_proxy(True)
+        assert proxy_url is not None
+        assert proxy_type is not None
+        token = _SELECTED_PROXY.set((proxy_url, proxy_type))
+        try:
+            yield True
+        finally:
+            _SELECTED_PROXY.reset(token)
 
     @classmethod
     async def _build_session(

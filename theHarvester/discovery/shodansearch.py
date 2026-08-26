@@ -6,13 +6,13 @@ import socket
 from collections import OrderedDict
 from datetime import UTC, datetime
 from ipaddress import ip_address
-from typing import cast
+from typing import Any, cast
 
 import aiodns
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.asn_attribution import AsnAttributionObservation
-from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse, ResponseStreamError
+from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse, ProxyUnavailableError, ResponseStreamError
 from theHarvester.lib.hostchecker import resolve_ip_addresses
 from theHarvester.lib.hostnames import normalize_hostname, normalize_scoped_hostname
 from theHarvester.lib.shodan_evidence import ShodanHostObservation, canonical_shodan_hosts
@@ -86,7 +86,14 @@ class SearchShodan:
         self.totalhosts: set[str] = set()
         self._next_request_at = 0.0
 
-    async def _fetch_json(self, url: str, params: dict[str, object], proxy: bool) -> FetcherResponse:
+    async def _fetch_json(
+        self,
+        url: str,
+        params: dict[str, object],
+        *,
+        proxy: str | bool = False,
+        session: Any | None = None,
+    ) -> FetcherResponse:
         loop = asyncio.get_running_loop()
         delay = self._next_request_at - loop.time()
         if delay > 0:
@@ -94,13 +101,25 @@ class SearchShodan:
         self._next_request_at = loop.time() + self.REQUEST_INTERVAL_SECONDS
         return await AsyncFetcher.fetch_json(
             url,
+            session=session,
             params=params,
-            proxy=proxy,
+            proxy=proxy if session is None else '',
             request_timeout=self.REQUEST_TIMEOUT_SECONDS,
         )
 
-    async def _fetch_host(self, ip: str, proxy: bool) -> FetcherResponse:
-        return await self._fetch_json(f'{self.API_BASE_URL}/{ip}', {'key': self.key}, proxy)
+    async def _fetch_host(
+        self,
+        ip: str,
+        *,
+        proxy: str | bool = False,
+        session: Any | None = None,
+    ) -> FetcherResponse:
+        return await self._fetch_json(
+            f'{self.API_BASE_URL}/{ip}',
+            {'key': self.key},
+            proxy=proxy,
+            session=session,
+        )
 
     def _certificate_name(self, value: object) -> str | None:
         if not isinstance(value, str) or not (candidate := value.strip().casefold().rstrip('.')):
@@ -375,7 +394,7 @@ class SearchShodan:
             )
         return invalid_response
 
-    async def _search_target(self, proxy: bool) -> set[str]:
+    async def _search_target(self, session: Any) -> set[str]:
         assert self.word is not None
         error_types: set[str] = set()
         for query in (f'hostname:{self.word}', f'ssl:{self.word}'):
@@ -393,7 +412,7 @@ class SearchShodan:
                             'minify': 'false',
                             'fields': self.SEARCH_FIELDS,
                         },
-                        proxy,
+                        session=session,
                     )
                 except ResponseStreamError as error:
                     error_types.add(
@@ -449,7 +468,13 @@ class SearchShodan:
                 page += 1
         return error_types
 
-    async def search_ip(self, ip: str, *, proxy: bool = False) -> OrderedDict[str, HostResult | str]:
+    async def search_ip(
+        self,
+        ip: str,
+        *,
+        proxy: str | bool = False,
+        session: Any | None = None,
+    ) -> OrderedDict[str, HostResult | str]:
         self.error_type = None
         try:
             normalized_ip = str(ip_address(ip.strip()))
@@ -459,7 +484,7 @@ class SearchShodan:
             return self.tracker
 
         try:
-            response = await self._fetch_host(normalized_ip, proxy)
+            response = await self._fetch_host(normalized_ip, proxy=proxy, session=session)
             if response.status == 404:
                 logger.info(f'{normalized_ip}: Not in Shodan')
                 self.tracker[normalized_ip] = 'Not in Shodan'
@@ -504,6 +529,12 @@ class SearchShodan:
             raise ValueError('A discovery target is required')
         assert self.word is not None
 
+        try:
+            proxy_url, _proxy_type = AsyncFetcher._resolve_proxy(proxy)
+        except ProxyUnavailableError:
+            return SourceExecutionReport('failed', 'proxy-unavailable')
+        selected_proxy = proxy_url or False
+
         self.totalhosts.clear()
         dns_stop_reason: str | None = None
         try:
@@ -522,11 +553,17 @@ class SearchShodan:
             resolved_ips = ()
             dns_stop_reason = 'dns-resolution-failed'
 
-        provider_error_types = await self._search_target(proxy)
-        for resolved_ip in resolved_ips:
-            await self.search_ip(resolved_ip, proxy=proxy)
-            if self.error_type is not None:
-                provider_error_types.add(self.error_type)
+        try:
+            async with AsyncFetcher.open_session(proxy=selected_proxy) as session:
+                provider_error_types = await self._search_target(session)
+                for resolved_ip in resolved_ips:
+                    await self.search_ip(resolved_ip, session=session)
+                    if self.error_type is not None:
+                        provider_error_types.add(self.error_type)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            return SourceExecutionReport('failed', 'transport-error')
 
         self.error_type = next(iter(sorted(provider_error_types)), None)
         if dns_stop_reason is not None:

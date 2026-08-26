@@ -17,5 +17,8 @@ requirement and could expose network identity without a visible failure.
 
 ## Consequences
 
-Shared session construction rejects empty proxy configuration, the source runner records the normalized terminal
-outcome, and direct adapter callers preserve the same reason. Tests cover configured selection and empty proxy lists.
+Shared session construction rejects empty proxy configuration. The source runner selects and pins one concrete proxy
+before it starts an adapter, keeps that identity through the complete source execution, and records the normalized
+terminal outcome. Direct action owners use the same selection boundary; source adapters are not a separate transport
+policy boundary. Tests cover one selection per execution and action, configured transport, and empty proxy
+lists.

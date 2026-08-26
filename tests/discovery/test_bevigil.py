@@ -57,7 +57,7 @@ async def test_process_collects_scoped_hostnames_and_urls(monkeypatch: pytest.Mo
         ['https://osint.bevigil.com/api/example.com/urls/'],
     ]
     assert all(kwargs['headers'] == {'X-Access-Token': 'test-key'} for _urls, kwargs in calls)
-    assert all(kwargs['proxy'] is True for _urls, kwargs in calls)
+    assert all(not kwargs.get('proxy', False) for _urls, kwargs in calls)
     assert all(kwargs['json'] is True for _urls, kwargs in calls)
     assert all(kwargs['include_metadata'] is True for _urls, kwargs in calls)
     assert all(kwargs['session'] is session for _urls, kwargs in calls)

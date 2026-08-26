@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 from theHarvester.discovery.constants import MissingKey, get_delay
-from theHarvester.lib.core import AsyncFetcher, Core, ProxyUnavailableError
+from theHarvester.lib.core import AsyncFetcher, Core
 from theHarvester.lib.source_execution import SourceExecutionReport
 
 if TYPE_CHECKING:
@@ -339,7 +339,5 @@ class SearchCriminalIP:
                 return await self.do_search(session)
         except asyncio.CancelledError:
             raise
-        except ProxyUnavailableError:
-            return SourceExecutionReport('failed', 'proxy-unavailable')
         except Exception:
             return SourceExecutionReport('failed', 'transport-error')

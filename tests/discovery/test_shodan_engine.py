@@ -65,9 +65,10 @@ class TestShodanEngine:
         from theHarvester.discovery import shodansearch
         from theHarvester.lib.core import FetcherResponse
 
-        async def fetch_json(url, *, params, proxy, request_timeout):
+        async def fetch_json(url, *, session, params, proxy, request_timeout):
             assert url == 'https://api.shodan.io/shodan/host/192.0.2.10'
             assert 'test-key' not in url
+            assert session is None
             assert params == {'key': 'test-key'}
             assert proxy is True
             assert request_timeout is None
@@ -256,6 +257,11 @@ class TestShodanEngine:
 
         monkeypatch.setattr(shodansearch.Core, 'shodan_key', lambda: 'test-key')
         monkeypatch.setattr(shodansearch.AsyncFetcher, 'fetch_json', fetch_json)
+        monkeypatch.setattr(
+            shodansearch.AsyncFetcher,
+            '_proxy_list',
+            {'http': ['http://proxy.example:8080'], 'socks5': []},
+        )
         targets = patch_resolution(monkeypatch, shodansearch, ('203.0.113.10', '203.0.113.11'))
 
         search = shodansearch.SearchShodan('WWW.Example.TEST.')
@@ -272,10 +278,19 @@ class TestShodanEngine:
 
     @pytest.mark.asyncio
     async def test_shodan_discovery_paginates_hostname_and_tls_searches_with_scoped_certificate_names(self, monkeypatch):
+        from contextlib import asynccontextmanager
+
         from theHarvester.discovery import shodansearch
         from theHarvester.lib.core import FetcherResponse
 
         search_calls = []
+        session = object()
+        session_calls = []
+
+        @asynccontextmanager
+        async def open_session(**kwargs):
+            session_calls.append(kwargs)
+            yield session
 
         def banner(
             ip,
@@ -345,8 +360,9 @@ class TestShodanEngine:
             ],
         }
 
-        async def fetch_json(url, *, params, proxy, request_timeout):
-            assert proxy is True
+        async def fetch_json(url, *, params, session: object | None = None, proxy='', request_timeout):
+            assert session is not None
+            assert proxy == ''
             assert request_timeout is None
             assert params['key'] == 'test-key'
             if url.endswith('/search'):
@@ -366,11 +382,18 @@ class TestShodanEngine:
 
         monkeypatch.setattr(shodansearch.Core, 'shodan_key', lambda: 'test-key')
         monkeypatch.setattr(shodansearch.AsyncFetcher, 'fetch_json', fetch_json)
+        monkeypatch.setattr(shodansearch.AsyncFetcher, 'open_session', open_session)
+        monkeypatch.setattr(
+            shodansearch.AsyncFetcher,
+            '_proxy_list',
+            {'http': ['http://proxy.example:8080'], 'socks5': []},
+        )
         patch_resolution(monkeypatch, shodansearch)
 
         search = shodansearch.SearchShodan('example.test')
         report = await search.process(proxy=True)
 
+        assert session_calls == [{'proxy': 'http://proxy.example:8080'}]
         assert [(call['query'], call['page']) for call in search_calls] == [
             ('hostname:example.test', 1),
             ('hostname:example.test', 2),
@@ -392,6 +415,22 @@ class TestShodanEngine:
         }
         assert hosts['198.51.100.21']['services'][0]['tls'] == {'subject_cn': 'cert.example.test'}
         assert report is None
+
+    @pytest.mark.asyncio
+    async def test_shodan_discovery_fails_before_dns_when_required_proxy_is_unavailable(self, monkeypatch):
+        from theHarvester.discovery import shodansearch
+        from theHarvester.lib.source_execution import SourceExecutionReport
+
+        async def resolve_ip_addresses(*_args, **_kwargs):
+            pytest.fail('DNS must not run when required proxy configuration is unavailable')
+
+        monkeypatch.setattr(shodansearch.Core, 'shodan_key', lambda: 'test-key')
+        monkeypatch.setattr(shodansearch.AsyncFetcher, '_proxy_list', {'http': [], 'socks5': []})
+        monkeypatch.setattr(shodansearch, 'resolve_ip_addresses', resolve_ip_addresses)
+
+        report = await shodansearch.SearchShodan('example.test').process(proxy=True)
+
+        assert report == SourceExecutionReport('failed', 'proxy-unavailable')
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(

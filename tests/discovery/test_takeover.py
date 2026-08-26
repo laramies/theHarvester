@@ -84,6 +84,12 @@ async def test_takeover_reuses_one_cookie_free_unlimited_http_session(
     shared_session = SharedSession()
     build_calls: list[dict[str, object]] = []
     fetch_sessions: list[object] = []
+    proxy_selections = 0
+
+    def select_proxy(_proxy_list: dict[str, list[str]]) -> tuple[str, str]:
+        nonlocal proxy_selections
+        proxy_selections += 1
+        return 'http://proxy.example:8080', 'http'
 
     async def fake_build_session(
         headers: dict[str, str],
@@ -106,6 +112,7 @@ async def test_takeover_reuses_one_cookie_free_unlimited_http_session(
         return shared_session
 
     async def fake_fetch_text(_url: str, **kwargs: object) -> FetcherResponse:
+        assert 'proxy' not in kwargs
         fetch_sessions.append(kwargs['session'])
         return FetcherResponse(
             body='The specified bucket does not exist <BucketName>bucket</BucketName>',
@@ -114,6 +121,12 @@ async def test_takeover_reuses_one_cookie_free_unlimited_http_session(
         )
 
     monkeypatch.setattr(takeover, 'TakeoverDNSResolver', FakeResolver)
+    monkeypatch.setattr(takeover.AsyncFetcher, '_get_random_proxy', staticmethod(select_proxy))
+    monkeypatch.setattr(
+        takeover.AsyncFetcher,
+        '_proxy_list',
+        {'http': ['http://proxy.example:8080'], 'socks5': []},
+    )
     monkeypatch.setattr(takeover.AsyncFetcher, '_build_session', fake_build_session)
     monkeypatch.setattr(takeover.AsyncFetcher, 'fetch_text', fake_fetch_text)
     scanner = takeover.TakeoverScanner(
@@ -122,9 +135,12 @@ async def test_takeover_reuses_one_cookie_free_unlimited_http_session(
         nameservers=['1.1.1.1'],
     )
 
-    await scanner.process()
+    await scanner.process(proxy=True)
 
+    assert proxy_selections == 1
     assert len(build_calls) == 1
+    assert build_calls[0]['proxy_url'] == 'http://proxy.example:8080'
+    assert build_calls[0]['proxy_type'] == 'http'
     assert isinstance(build_calls[0]['cookie_jar'], aiohttp.DummyCookieJar)
     assert build_calls[0]['client_timeout'].total is None
     assert fetch_sessions == [shared_session, shared_session]
