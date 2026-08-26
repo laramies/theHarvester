@@ -183,7 +183,7 @@ async def start(
     parser.add_argument(
         '-p',
         '--proxies',
-        help='Use proxies.yaml for supported discovery-source, Shodan, and takeover requests. The run fails immediately with proxy-unavailable if no proxy is configured.',
+        help='Use proxies.yaml for supported discovery sources and actions. The run fails immediately with proxy-unavailable if no proxy is configured.',
         default=False,
         action='store_true',
     )
@@ -441,6 +441,8 @@ async def start(
             timeout_seconds=args.vhost_timeout_seconds,
             concurrency=args.vhost_concurrency,
         )
+    if args.proxies and args.screenshot:
+        raise ValueError('screenshot capture supports direct transport only; do not use --proxies')
     if args.proxies and not any(AsyncFetcher().proxy_list.values()):
         raise ProxyUnavailableError('proxy-unavailable')
     Core.quiet = getattr(args, 'quiet', False)
@@ -1976,14 +1978,34 @@ async def start(
                 output_logger.info(f'Basic API wordlist created with {len(basic_endpoints)} endpoints.')
 
             output_logger.info(f'\n[*] Starting API endpoint scanning with wordlist: {wordlist}')
-            if args.wordlist:
+            api_proxy = None
+            if use_proxy:
+                api_proxy = AsyncFetcher._resolve_proxy(True)[0]
+                assert api_proxy is not None
+            if args.wordlist and api_proxy is not None:
+                api_scanner = api_endpoints.SearchApiEndpoints(
+                    word=args.domain,
+                    wordlist=wordlist,
+                    exact_paths=True,
+                    proxy=api_proxy,
+                )
+            elif args.wordlist:
                 api_scanner = api_endpoints.SearchApiEndpoints(
                     word=args.domain,
                     wordlist=wordlist,
                     exact_paths=True,
                 )
+            elif api_proxy is not None:
+                api_scanner = api_endpoints.SearchApiEndpoints(
+                    word=args.domain,
+                    wordlist=wordlist,
+                    proxy=api_proxy,
+                )
             else:
-                api_scanner = api_endpoints.SearchApiEndpoints(word=args.domain, wordlist=wordlist)
+                api_scanner = api_endpoints.SearchApiEndpoints(
+                    word=args.domain,
+                    wordlist=wordlist,
+                )
             await api_scanner.do_search()
 
             # Print results

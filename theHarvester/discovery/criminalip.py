@@ -22,7 +22,6 @@ class SearchCriminalIP:
         self.key = Core.criminalip_key()
         if self.key is None:
             raise MissingKey('criminalip')
-        self.proxy = False
 
     def _normalize_host(self, hostname: str | None) -> str | None:
         if not isinstance(hostname, str):
@@ -329,7 +328,6 @@ class SearchCriminalIP:
         return self.totalips
 
     async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
-        self.proxy = proxy
         try:
             async with AsyncFetcher.open_session(
                 headers={'User-Agent': Core.get_user_agent(), 'x-api-key': f'{self.key}'},

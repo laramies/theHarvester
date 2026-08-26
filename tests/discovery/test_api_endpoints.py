@@ -1110,6 +1110,55 @@ async def test_api_endpoint_scan_uses_a_configured_proxy(monkeypatch) -> None:
     assert requests == [(proxy, False), (proxy, False), (proxy, False)]
 
 
+@pytest.mark.asyncio
+async def test_api_endpoint_scan_builds_one_socks_proxy_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    proxy = 'socks5://proxy.example:1080'
+    search = api_endpoints.SearchApiEndpoints('192.0.2.1', proxy=proxy)
+    search.common_api_paths = ['/api']
+    connector_calls: list[tuple[str | None, str | None]] = []
+    requests: list[tuple[object, str | None]] = []
+    connector = object()
+
+    class OwnedSession:
+        def __init__(self, **kwargs: object) -> None:
+            assert kwargs['connector'] is connector
+            self.closed = False
+            owned_sessions.append(self)
+
+        async def close(self) -> None:
+            self.closed = True
+
+    owned_sessions: list[OwnedSession] = []
+
+    async def create_connector(
+        proxy_url: str | None,
+        proxy_type: str | None,
+        _ssl_context: object,
+    ) -> object:
+        connector_calls.append((proxy_url, proxy_type))
+        return connector
+
+    async def detect_schema() -> str:
+        return 'https'
+
+    async def fetch(*_args, **kwargs) -> None:
+        requests.append((kwargs['session'], kwargs['proxy']))
+        return None
+
+    monkeypatch.setattr(search, '_load_wordlist', lambda: [])
+    monkeypatch.setattr(search, '_detect_schema', detect_schema)
+    monkeypatch.setattr(api_endpoints.AsyncFetcher, '_create_connector', create_connector)
+    monkeypatch.setattr(api_endpoints.aiohttp, 'ClientSession', OwnedSession)
+    monkeypatch.setattr(api_endpoints.AsyncFetcher, 'fetch', fetch)
+
+    await search.do_search()
+
+    assert connector_calls == [(proxy, 'socks5')]
+    assert len(owned_sessions) == 1
+    assert requests == [(owned_sessions[0], proxy)] * 3
+    assert owned_sessions[0].closed is True
+
+
 @pytest.mark.parametrize('error', [aiohttp.ClientConnectionError(), TimeoutError()])
 @pytest.mark.asyncio
 async def test_detect_schema_falls_back_only_when_https_cannot_connect(monkeypatch, error: Exception) -> None:
@@ -1144,6 +1193,6 @@ async def test_detect_schema_reuses_session_with_configured_request_policy(monke
     assert session.requests == [
         (
             'https://example.com',
-            {'proxy': None, 'ssl': True, 'allow_redirects': False},
+            {'ssl': True, 'allow_redirects': False},
         )
     ]

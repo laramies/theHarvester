@@ -466,15 +466,29 @@ class SearchApiEndpoints:
                 return
             worker_count = min(self.concurrency, len(endpoints))
             self._ssl_policy = self.verify_ssl
-            connector = aiohttp.TCPConnector(
-                limit=worker_count,
-                limit_per_host=worker_count,
-                ssl=self._ssl_policy,
-            )
+            proxy_url, proxy_type = AsyncFetcher._resolve_proxy(self.proxy)
+            self.proxy = proxy_url
+            if proxy_type == 'socks5':
+                connector = await AsyncFetcher._create_connector(
+                    proxy_url,
+                    proxy_type,
+                    AsyncFetcher._ssl_context(self.verify_ssl),
+                )
+            else:
+                connector = aiohttp.TCPConnector(
+                    limit=worker_count,
+                    limit_per_host=worker_count,
+                    ssl=self._ssl_policy,
+                )
+            session_options: dict[str, Any] = {
+                'headers': self._get_headers(),
+                'timeout': aiohttp.ClientTimeout(total=self.timeout),
+                'connector': connector,
+            }
+            if proxy_type == 'http':
+                session_options['proxy'] = proxy_url
             session = aiohttp.ClientSession(
-                headers=self._get_headers(),
-                timeout=aiohttp.ClientTimeout(total=self.timeout),
-                connector=connector,
+                **session_options,
             )
             self._session = session
 
@@ -597,7 +611,6 @@ class SearchApiEndpoints:
         try:
             async with self._session.get(
                 https_url,
-                proxy=self.proxy,
                 ssl=self._ssl_policy,
                 allow_redirects=False,
             ):

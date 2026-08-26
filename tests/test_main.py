@@ -44,10 +44,8 @@ async def test_cli_help_explains_proxy_and_direct_action_scope(
 
     help_text = ' '.join(capsys.readouterr().out.split())
     assert exit_info.value.code == 0
-    assert (
-        'Use proxies.yaml for supported discovery-source, Shodan, and takeover requests. The run fails immediately '
-        'with proxy-unavailable if no proxy is configured.' in help_text
-    )
+    assert 'Use proxies.yaml for supported discovery sources and actions.' in help_text
+    assert 'unavailable if no proxy is configured.' in help_text
     assert 'Query the Shodan Host API for discovered IPs, using configured proxies when enabled.' in help_text
     assert (
         'Enrich discovered IPs with sourced ASN attribution, or an explicitly targeted ASN, IP, or prefix, through '
@@ -214,6 +212,23 @@ async def test_proxy_mode_fails_before_result_store_initialization(monkeypatch: 
     with pytest.raises(ProxyUnavailableError, match='proxy-unavailable'):
         await theharvester_main.start(
             EnumerationOptions(domain='example.com', proxies=True, quiet=True, source='crtsh')
+        )
+
+
+@pytest.mark.asyncio
+async def test_proxy_mode_rejects_direct_screenshot_action_before_result_store_initialization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class UnexpectedResultStore:
+        def __init__(self, *_args: object) -> None:
+            raise AssertionError('result store initialization must follow proxy validation')
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', UnexpectedResultStore)
+    monkeypatch.setattr(AsyncFetcher, '_proxy_list', {'http': ['http://proxy.example:8080'], 'socks5': []})
+
+    with pytest.raises(ValueError, match='screenshot capture supports direct transport only'):
+        await theharvester_main.start(
+            EnumerationOptions(domain='example.com', proxies=True, quiet=True, screenshot='screenshots')
         )
 
 
@@ -3149,25 +3164,6 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
         async def get_takeover_outcomes(self) -> tuple[TakeoverCandidateOutcome, ...]:
             return (_takeover_outcome(),)
 
-    class FakeScreenShotter(_FakeScreenshotBatch):
-        slash = '/'
-
-        def __init__(self, output: str) -> None:
-            self.output = output
-
-        def verify_path(self) -> bool:
-            return True
-
-        async def visit(self, host: str) -> tuple[str, str]:
-            return host, 'reachable'
-
-        async def take_screenshot(self, host: str, *, output_path: Path | None = None) -> str:
-            (output_path or self.screenshot_path(host)).write_bytes(b'png')
-            return f'https://{host}'
-
-        def screenshot_path(self, host: str) -> Path:
-            return Path(self.output) / f'{host.removeprefix("https://")}.png'
-
     class FakeShodan:
         error_type = None
 
@@ -3207,9 +3203,16 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
             return tuple(self.hosts.values())
 
     class FakeApiScanner:
-        def __init__(self, word: str, wordlist: str, exact_paths: bool = False) -> None:
+        def __init__(
+            self,
+            word: str,
+            wordlist: str,
+            exact_paths: bool = False,
+            proxy: str | None = None,
+        ) -> None:
             assert word == 'example.com'
             assert wordlist == str(tmp_path / 'api.txt')
+            assert proxy == 'http://proxy.example:8080'
             self.scan_error_type = None
             self.request_error_count = 0
             self.request_error_types: set[str] = set()
@@ -3247,7 +3250,6 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
     monkeypatch.setattr(source_runner.crtsh, 'SearchCrtsh', FakeCrtsh)
     monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', FakeChecker)
     monkeypatch.setattr(theharvester_main.takeover, 'TakeoverScanner', FakeTakeOver)
-    monkeypatch.setattr(theharvester_main, 'ScreenShotter', FakeScreenShotter)
     monkeypatch.setattr(theharvester_main.shodansearch, 'SearchShodan', FakeShodan)
     monkeypatch.setattr(theharvester_main.api_endpoints, 'SearchApiEndpoints', FakeApiScanner)
     monkeypatch.setattr(theharvester_main.asyncio, 'sleep', no_sleep)
@@ -3260,7 +3262,6 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
             domain='example.com',
             proxies=True,
             quiet=True,
-            screenshot=str(tmp_path),
             shodan=True,
             source='crtsh',
             take_over=True,
@@ -3273,7 +3274,6 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
     completed = result[-1]
     assert isinstance(completed, CompletedResult)
     assert ('url', 'https://example.com/api/v1') in completed.results
-    assert ('screenshot', 'api.example.com') not in completed.results
     assert ('shodan-host', '192.0.2.10') in completed.results
     assert completed.shodan_hosts[0].to_details() == {
         'asn': 'AS64496',
@@ -3293,12 +3293,6 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
     assert takeover_execution.result_count == 1
     assert takeover_execution.error_type is None
     assert takeover_execution.stop_reason is None
-    screenshot_execution = next(
-        execution for execution in completed.active_evidence.executions if execution.action == 'screenshot'
-    )
-    assert screenshot_execution.status == 'completed'
-    assert screenshot_execution.result_count == 0
-    assert screenshot_execution.artifacts[0].subject_value == 'api.example.com'
     shodan_execution = next(execution for execution in completed.active_evidence.executions if execution.action == 'shodan')
     assert shodan_execution.status == 'completed'
     assert shodan_execution.result_count == 3
