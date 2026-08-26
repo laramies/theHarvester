@@ -66,7 +66,7 @@ from theHarvester.lib.source_catalog import (
     hostname_collection_conflicts,
     resolve_sources,
 )
-from theHarvester.lib.source_runner import SourceJob, SourceOutcome, SourceRequest, run_source_jobs
+from theHarvester.lib.source_runner import SourceOutcome, SourceRequest, run_source_jobs
 from theHarvester.lib.virtual_host import (
     DEFAULT_VHOST_CONCURRENCY,
     DEFAULT_VHOST_REQUEST_LIMIT,
@@ -475,7 +475,6 @@ async def start(
     all_people: list[dict[str, str]] = []
     all_infostealers: list[dict[str, object]] = []
     dnslookup = args.dns_lookup
-    dnsserver = args.dns_server  # TODO arg is not used anywhere replace with resolvers wordlist arg dnsresolve
     dnsresolve: str | None = args.dns_resolve
     final_dns_resolver_list = normalize_resolver_addresses(args.dns_resolvers) if args.dns_resolvers else []
     if args.dns_resolver_input and dnsresolve not in {'', None}:
@@ -546,9 +545,6 @@ async def start(
     shodan_action_hosts: set[str] = set()
     takeover_results: dict[str, dict[str, object]] = {}
     takeover_outcomes: list[TakeoverCandidateOutcome] = []
-    linkedin_people_list_tracker = []
-    twitter_people_list_tracker = []
-    total_asns = []
     source_executions: list[SourceExecution] = []
     observations: set[ResultObservation] = set()
     action_executions: list[ActionExecution] = []
@@ -871,7 +867,7 @@ async def start(
         dns_resolution_error_types.update(getattr(full_hosts_checker, 'query_error_types', set()))
         dns_resolution_stop_reason = getattr(full_hosts_checker, 'stop_reason', None)
 
-    source_jobs: list[SourceJob] = []
+    source_jobs: list[SourceRequest] = []
     if args.source is not None:
         engines = resolve_sources(args.source)
         if not collect_hosts:
@@ -928,9 +924,9 @@ async def start(
             output_logger.info('\n[!] Invalid source.\n')
             sys.exit(1)
         output_logger.info(f'\n[*] Target: {word} \n')
-        source_jobs.extend(SourceJob(SourceRequest(engine, word, limit, start, use_proxy, collect_hosts)) for engine in engines)
+        source_jobs.extend(SourceRequest(engine, word, limit, start, use_proxy, collect_hosts) for engine in engines)
 
-    async def handler(jobs: list[SourceJob]) -> tuple[SourceOutcome, ...]:
+    async def handler(jobs: list[SourceRequest]) -> tuple[SourceOutcome, ...]:
         def report_source_started(request: SourceRequest) -> None:
             source = request.source
             output_logger.info(f'[*] Searching {source[0].upper() + source[1:]}. ')

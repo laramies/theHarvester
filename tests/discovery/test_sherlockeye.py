@@ -1,23 +1,10 @@
 import asyncio
 import contextlib
 import logging
-import sys
-import types
 from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
-
-if 'aiohttp_socks' not in sys.modules:
-    aiohttp_socks_stub = types.ModuleType('aiohttp_socks')
-
-    class _ProxyConnector:
-        @staticmethod
-        def from_url(*_args, **_kwargs):
-            return None
-
-    aiohttp_socks_stub.ProxyConnector = _ProxyConnector  # type: ignore[attr-defined]
-    sys.modules['aiohttp_socks'] = aiohttp_socks_stub
 
 from theHarvester.discovery import sherlockeye
 from theHarvester.discovery.constants import MissingKey

@@ -117,13 +117,6 @@ class SourceOutcome:
     reported_host_ip_pairs: tuple[tuple[str, str], ...] = ()
 
 
-@dataclass(frozen=True, slots=True)
-class SourceJob:
-    """A queued source request owned by the structured worker pool."""
-
-    request: SourceRequest
-
-
 SOURCE_FACTORIES: dict[str, SourceFactory] = {
     'apis-guru': lambda request: apisguru.SearchApisGuru(request.target, request.limit),
     'arquivo': lambda request: arquivo.SearchArquivo(request.target, request.limit),
@@ -448,7 +441,7 @@ async def run_source(
 
 
 async def run_source_jobs(
-    jobs: tuple[SourceJob, ...],
+    jobs: tuple[SourceRequest, ...],
     *,
     workers: int = DEFAULT_SOURCE_WORKERS,
     commit: OutcomeCommit | None = None,
@@ -475,14 +468,14 @@ async def run_source_jobs(
         while next_index < len(jobs):
             index = next_index
             next_index += 1
-            job = jobs[index]
+            request = jobs[index]
 
             def commit_current_cancelled(outcome: SourceOutcome, current_index: int = index) -> None:
                 commit_cancelled(current_index, outcome)
 
             try:
                 outcome = await run_source(
-                    job.request,
+                    request,
                     commit_cancelled=commit_current_cancelled,
                     on_started=on_started,
                 )
@@ -497,7 +490,7 @@ async def run_source_jobs(
                 if outcomes[index] is None:
                     commit_cancelled(
                         index,
-                        SourceOutcome(SourceExecution(job.request.source, 'failed', 0, 0, 'CancelledError', 'cancelled')),
+                        SourceOutcome(SourceExecution(request.source, 'failed', 0, 0, 'CancelledError', 'cancelled')),
                     )
                 current_task = asyncio.current_task()
                 for task in owned_tasks:
@@ -517,7 +510,7 @@ async def run_source_jobs(
         cancellation = caught_cancellation or primary_cancellation
         for index, outcome in enumerate(outcomes):
             if outcome is None:
-                request = jobs[index].request
+                request = jobs[index]
                 commit_cancelled(
                     index,
                     SourceOutcome(SourceExecution(request.source, 'failed', 0, 0, 'CancelledError', 'cancelled')),

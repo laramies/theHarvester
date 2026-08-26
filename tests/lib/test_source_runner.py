@@ -16,7 +16,6 @@ from theHarvester.lib.source_catalog import SOURCE_SPECS
 from theHarvester.lib.source_execution import SourceExecutionReport
 from theHarvester.lib.source_runner import (
     SOURCE_FACTORIES,
-    SourceJob,
     SourceOutcome,
     SourceRequest,
     create_source,
@@ -34,14 +33,11 @@ async def test_source_jobs_require_a_positive_worker_count(workers: object) -> N
 
 def test_source_contracts_are_immutable() -> None:
     request = SourceRequest('APIS-GURU', 'example.test', 25, 5, True, True)
-    job = SourceJob(request)
     outcome = SourceOutcome(SourceExecution('apis-guru', 'completed', 0, 0))
     report = SourceExecutionReport('failed', 'provider-failure')
 
     with pytest.raises(FrozenInstanceError):
         request.target = 'changed.test'  # type: ignore[misc]
-    with pytest.raises(FrozenInstanceError):
-        job.request = request  # type: ignore[misc]
     with pytest.raises(FrozenInstanceError):
         outcome.observations = ()  # type: ignore[misc]
     with pytest.raises(FrozenInstanceError):
@@ -979,7 +975,7 @@ async def test_source_jobs_use_a_clamped_worker_pool_and_isolate_failures(
     source_names = ('apis-guru', 'sourcegraph', 'crtsh', 'crt-name')
     for source in source_names:
         monkeypatch.setitem(SOURCE_FACTORIES, source, lambda _request, source=source: GatedAdapter(source))
-    jobs = tuple(SourceJob(SourceRequest(source, 'example.test', 25, 0, False, True)) for source in source_names)
+    jobs = tuple(SourceRequest(source, 'example.test', 25, 0, False, True) for source in source_names)
 
     outcomes = await run_source_jobs(jobs, workers=3)
 
@@ -1018,7 +1014,7 @@ async def test_source_worker_count_does_not_change_completed_sources_or_results(
     source_names = ('apis-guru', 'sourcegraph', 'crtsh', 'crt-name')
     for source in source_names:
         monkeypatch.setitem(SOURCE_FACTORIES, source, lambda _request, source=source: CompleteAdapter(source))
-    jobs = tuple(SourceJob(SourceRequest(source, 'example.test', 25, 0, False, True)) for source in source_names)
+    jobs = tuple(SourceRequest(source, 'example.test', 25, 0, False, True) for source in source_names)
 
     outcomes = await run_source_jobs(jobs, workers=workers)
 
@@ -1091,7 +1087,7 @@ async def test_child_cancellation_promptly_cleans_blocking_sibling_and_preserves
 
     monkeypatch.setitem(SOURCE_FACTORIES, 'sourcegraph', lambda _request: CancellingAdapter())
     monkeypatch.setitem(SOURCE_FACTORIES, 'crtsh', lambda _request: BlockingAdapter())
-    jobs = tuple(SourceJob(SourceRequest(source, 'example.test', 25, 0, False, True)) for source in ('crtsh', 'sourcegraph'))
+    jobs = tuple(SourceRequest(source, 'example.test', 25, 0, False, True) for source in ('crtsh', 'sourcegraph'))
 
     with pytest.raises(asyncio.CancelledError) as raised:
         async with asyncio.timeout(0.5):
@@ -1126,7 +1122,7 @@ async def test_parent_cancellation_commits_active_jobs_and_cleans_structured_tas
     source_names = ('sourcegraph', 'crtsh', 'crt-name', 'apis-guru')
     for source in source_names:
         monkeypatch.setitem(SOURCE_FACTORIES, source, lambda _request, source=source: BlockingAdapter(source))
-    jobs = tuple(SourceJob(SourceRequest(source, 'example.test', 25, 0, False, True)) for source in source_names)
+    jobs = tuple(SourceRequest(source, 'example.test', 25, 0, False, True) for source in source_names)
     task = asyncio.create_task(run_source_jobs(jobs, commit=committed.append))
     await started.wait()
     task.cancel('parent-marker')

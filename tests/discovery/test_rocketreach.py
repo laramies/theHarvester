@@ -1,20 +1,7 @@
-import sys
-import types
 from contextlib import asynccontextmanager
 from typing import Any
 
 import pytest
-
-if 'aiohttp_socks' not in sys.modules:
-    aiohttp_socks_stub = types.ModuleType('aiohttp_socks')
-
-    class _ProxyConnector:
-        @staticmethod
-        def from_url(*_args, **_kwargs):
-            return None
-
-    aiohttp_socks_stub.ProxyConnector = _ProxyConnector  # type: ignore[attr-defined]
-    sys.modules['aiohttp_socks'] = aiohttp_socks_stub
 
 from theHarvester.discovery import rocketreach
 from theHarvester.discovery.constants import MissingKey

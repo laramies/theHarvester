@@ -1534,10 +1534,10 @@ async def test_source_progress_waits_for_runner_admission(
 async def test_unlimited_subdomain_selection_passes_no_result_cap_to_every_source(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    captured: tuple[source_runner.SourceJob, ...] = ()
+    captured: tuple[source_runner.SourceRequest, ...] = ()
 
     async def capture_jobs(
-        jobs: tuple[source_runner.SourceJob, ...],
+        jobs: tuple[source_runner.SourceRequest, ...],
         **_kwargs: object,
     ) -> tuple[source_runner.SourceOutcome, ...]:
         nonlocal captured
@@ -1552,16 +1552,16 @@ async def test_unlimited_subdomain_selection_passes_no_result_cap_to_every_sourc
         return_completed_result=True,
     )
 
-    assert [job.request.source for job in captured] == resolve_sources('subdomains')
-    assert all(job.request.limit is None for job in captured)
+    assert [request.source for request in captured] == resolve_sources('subdomains')
+    assert all(request.limit is None for request in captured)
 
 
 @pytest.mark.asyncio
 async def test_cli_canonicalizes_a_case_insensitive_legacy_source(monkeypatch: pytest.MonkeyPatch) -> None:
-    captured: tuple[source_runner.SourceJob, ...] = ()
+    captured: tuple[source_runner.SourceRequest, ...] = ()
 
     async def capture_jobs(
-        jobs: tuple[source_runner.SourceJob, ...],
+        jobs: tuple[source_runner.SourceRequest, ...],
         **_kwargs: object,
     ) -> tuple[source_runner.SourceOutcome, ...]:
         nonlocal captured
@@ -1576,7 +1576,7 @@ async def test_cli_canonicalizes_a_case_insensitive_legacy_source(monkeypatch: p
         return_completed_result=True,
     )
 
-    assert [job.request.source for job in captured] == ['crtsh']
+    assert [request.source for request in captured] == ['crtsh']
 
 
 @pytest.mark.asyncio
