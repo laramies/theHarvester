@@ -4,9 +4,11 @@ import asyncio
 import contextlib
 import json as json_loader
 import logging
+import os
 import random
 import re
 import ssl
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Literal
@@ -218,8 +220,30 @@ class Core:
         # Fallback to creating default in the user's home dir
         default = (DATA_DIR / filename).read_text()
         dest = CONFIG_DIRS[0].expanduser() / filename
-        dest.parent.mkdir(exist_ok=True)
-        dest.write_text(default)
+        dest.parent.mkdir(mode=0o700, exist_ok=True)
+        temporary_file = tempfile.NamedTemporaryFile(
+            mode='w',
+            encoding='utf-8',
+            dir=dest.parent,
+            prefix=f'.{filename}.',
+            delete=False,
+        )
+        temporary_path = Path(temporary_file.name)
+        try:
+            with temporary_file:
+                os.chmod(temporary_path, 0o600)
+                temporary_file.write(default)
+                temporary_file.flush()
+                os.fsync(temporary_file.fileno())
+            try:
+                os.link(temporary_path, dest)
+            except FileExistsError:
+                config = dest.read_text()
+                if not Core.quiet:
+                    logger.info(f'Read {filename} from {dest}')
+                return config
+        finally:
+            temporary_path.unlink(missing_ok=True)
         output_logger.info(f'Created default {filename} at {dest}')
         return default
 
@@ -953,6 +977,8 @@ class AsyncFetcher:
         session: aiohttp.ClientSession | None = None,
     ) -> list[Any]:
         if session is not None:
+            if proxy:
+                raise ValueError('proxy selection is not supported with a caller-owned session')
             return list(
                 await asyncio.gather(
                     *[
@@ -968,59 +994,21 @@ class AsyncFetcher:
                 )
             )
         # By default, timeout is 5 minutes; 60 seconds should suffice
-        headers = cls._default_headers(headers)
-        timeout = cls._request_timeout(60)
-        if len(params) == 0:
-            async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
-                if proxy:
-                    # Get random proxy for each URL (returns tuple of proxy_url and proxy_type)
-                    proxy_data = [cls._get_random_proxy(cls().proxy_list) for _ in urls]
-                    return list(
-                        await asyncio.gather(
-                            *[
-                                AsyncFetcher.fetch(
-                                    session,
-                                    url,
-                                    json=json,
-                                    proxy=proxy_url,
-                                    include_metadata=include_metadata,
-                                )
-                                for url, (proxy_url, proxy_type) in zip(urls, proxy_data, strict=False)
-                            ]
+        async with cls.open_session(headers=headers, proxy=proxy, request_timeout=60) as owned_session:
+            return list(
+                await asyncio.gather(
+                    *[
+                        cls.fetch(
+                            session=owned_session,
+                            url=url,
+                            params=params,
+                            json=json,
+                            include_metadata=include_metadata,
                         )
-                    )
-                else:
-                    return list(
-                        await asyncio.gather(
-                            *[AsyncFetcher.fetch(session, url, json=json, include_metadata=include_metadata) for url in urls]
-                        )
-                    )
-        else:
-            # Indicates the request has certain params
-            async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
-                if proxy:
-                    proxy_data = [cls._get_random_proxy(cls().proxy_list) for _ in urls]
-                    return list(
-                        await asyncio.gather(
-                            *[
-                                AsyncFetcher.fetch(
-                                    session,
-                                    url,
-                                    params,
-                                    json,
-                                    proxy=proxy_url,
-                                    include_metadata=include_metadata,
-                                )
-                                for url, (proxy_url, proxy_type) in zip(urls, proxy_data, strict=False)
-                            ]
-                        )
-                    )
-                else:
-                    return list(
-                        await asyncio.gather(
-                            *[AsyncFetcher.fetch(session, url, params, json, include_metadata=include_metadata) for url in urls]
-                        )
-                    )
+                        for url in urls
+                    ]
+                )
+            )
 
 
 def show_default_error_message(engine_name: str, word: str, error) -> None:

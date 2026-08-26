@@ -10,7 +10,7 @@ from urllib.parse import urlsplit, urlunsplit
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.discovery.provider_response import provider_http_error
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
-from theHarvester.lib.hostnames import normalize_scoped_hostname
+from theHarvester.lib.hostnames import normalize_hostname, normalize_scoped_hostname
 from theHarvester.lib.source_execution import SourceExecutionReport, SourceReportStatus
 from theHarvester.parsers import myparser
 
@@ -40,7 +40,7 @@ class SearchZoomEye:
         if not isinstance(key, str) or not key.strip():
             raise MissingKey('zoomeye')
         self.word = word
-        self.target = word.strip().lower().removeprefix('www.').rstrip('.')
+        self.target = normalize_hostname(word)
         self.limit = limit
         self.key = key
         self.baseurl = 'https://api.zoomeye.ai/v2/search'

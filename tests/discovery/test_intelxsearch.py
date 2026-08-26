@@ -1,4 +1,6 @@
 from argparse import Namespace
+from contextlib import asynccontextmanager
+from typing import Any
 
 import pytest
 
@@ -43,6 +45,20 @@ class _Session:
         return _Response(self.result.pop(0) if isinstance(self.result, list) else self.result)
 
 
+@pytest.fixture(autouse=True)
+def proxy_aware_session(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
+    session_options: list[dict[str, Any]] = []
+
+    @asynccontextmanager
+    async def open_session(**kwargs: Any):
+        session_options.append(kwargs)
+        async with intelxsearch.aiohttp.ClientSession() as session:
+            yield session
+
+    monkeypatch.setattr(intelxsearch.AsyncFetcher, 'open_session', open_session)
+    return session_options
+
+
 def test_blank_key_is_missing(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(intelxsearch.Core, 'intelx_key', staticmethod(lambda: '  '))
 
@@ -51,7 +67,10 @@ def test_blank_key_is_missing(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_process_exposes_flat_normalized_in_scope_results(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_process_exposes_flat_normalized_in_scope_results(
+    monkeypatch: pytest.MonkeyPatch,
+    proxy_aware_session: list[dict[str, Any]],
+) -> None:
     result = {
         'status': 1,
         'selectors': [
@@ -80,11 +99,13 @@ async def test_process_exposes_flat_normalized_in_scope_results(monkeypatch: pyt
     monkeypatch.setattr(intelxsearch.asyncio, 'sleep', no_sleep)
 
     search = intelxsearch.SearchIntelx('example.com')
-    await search.process()
+    await search.process(proxy=True)
 
     assert await search.get_emails() == ['admin@example.com']
     assert await search.get_hostnames() == ['api.example.com', 'portal.example.com']
     assert await search.get_urls() == ['https://portal.example.com/path']
+    assert len(proxy_aware_session) == 1
+    assert proxy_aware_session[0]['proxy'] is True
 
 
 @pytest.mark.asyncio

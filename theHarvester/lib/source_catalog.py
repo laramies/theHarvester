@@ -246,5 +246,6 @@ def resolve_sources(selection: str | Iterable[str]) -> list[str]:
         elif token in RESULT_CAPABILITIES:
             selected.update(spec.name for spec in SOURCE_SPECS.values() if token in spec.capabilities)
         else:
-            selected.add(token)
+            spec = _CASEFOLDED_SOURCE_SPECS.get(token.casefold())
+            selected.add(spec.name if spec is not None else token)
     return sorted(selected)

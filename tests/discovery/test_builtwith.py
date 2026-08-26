@@ -130,7 +130,7 @@ async def test_www_target_does_not_accept_sibling_subdomains(monkeypatch) -> Non
 
     report = await search.process()
 
-    assert captured['params']['LOOKUP'] == 'example.com'
+    assert captured['params']['LOOKUP'] == 'www.example.com'
     assert await search.get_hostnames() == {'www.example.com'}
     assert await search.get_urls() == set()
     assert report is None
