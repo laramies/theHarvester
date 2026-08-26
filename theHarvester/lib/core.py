@@ -45,6 +45,7 @@ _STREAM_LINE_END = re.compile(rb'[\r\n]')
 StreamErrorReason = Literal['invalid-response', 'response-limit', 'transport-error']
 StreamFraming = Literal['ndjson', 'sse']
 _SELECTED_PROXY: ContextVar[tuple[str, str] | None] = ContextVar('selected_proxy', default=None)
+_PROXY_TRANSPORT_FAILED: ContextVar[bool] = ContextVar('proxy_transport_failed', default=False)
 
 
 class ProxyUnavailableError(Exception):
@@ -525,10 +526,16 @@ class AsyncFetcher:
         assert proxy_url is not None
         assert proxy_type is not None
         token = _SELECTED_PROXY.set((proxy_url, proxy_type))
+        failure_token = _PROXY_TRANSPORT_FAILED.set(False)
         try:
             yield True
         finally:
+            _PROXY_TRANSPORT_FAILED.reset(failure_token)
             _SELECTED_PROXY.reset(token)
+
+    @staticmethod
+    def proxy_transport_failed() -> bool:
+        return _PROXY_TRANSPORT_FAILED.get()
 
     @classmethod
     async def _build_session(
@@ -661,23 +668,28 @@ class AsyncFetcher:
         if json_body is not None:
             request_kwargs.pop('data', None)
             request_kwargs['json'] = json_body
-        if request_timeout:
-            async with asyncio.timeout(request_timeout):
-                async with session.request(method.upper(), url, **request_kwargs) as response:
-                    return await cls._read_response(
-                        response,
-                        json=json,
-                        include_metadata=include_metadata,
-                        response_byte_limit=response_byte_limit,
-                    )
+        try:
+            if request_timeout:
+                async with asyncio.timeout(request_timeout):
+                    async with session.request(method.upper(), url, **request_kwargs) as response:
+                        return await cls._read_response(
+                            response,
+                            json=json,
+                            include_metadata=include_metadata,
+                            response_byte_limit=response_byte_limit,
+                        )
 
-        async with session.request(method.upper(), url, **request_kwargs) as response:
-            return await cls._read_response(
-                response,
-                json=json,
-                include_metadata=include_metadata,
-                response_byte_limit=response_byte_limit,
-            )
+            async with session.request(method.upper(), url, **request_kwargs) as response:
+                return await cls._read_response(
+                    response,
+                    json=json,
+                    include_metadata=include_metadata,
+                    response_byte_limit=response_byte_limit,
+                )
+        except aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError:
+            if _SELECTED_PROXY.get() is not None:
+                _PROXY_TRANSPORT_FAILED.set(True)
+            raise
 
     @staticmethod
     def _get_random_proxy(proxy_dict: dict) -> tuple[str | None, str | None]:

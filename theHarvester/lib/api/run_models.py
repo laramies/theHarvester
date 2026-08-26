@@ -17,10 +17,13 @@ from theHarvester.lib.evidence_types import EvidenceStatus  # noqa: TC001 - Pyda
 from theHarvester.lib.resolver_selection import DEFAULT_DNS_RESOLVERS, normalize_resolver_addresses
 from theHarvester.lib.result_values import normalize_asn
 from theHarvester.lib.source_catalog import (
+    DIRECT_DNS_ACTIONS,
     SOURCE_SPECS,
     ActivityClass,
     hostname_collection_conflicts,
+    resolve_sources,
     selected_action_names,
+    source_requires_direct_dns,
 )
 from theHarvester.lib.virtual_host import (
     DEFAULT_VHOST_CONCURRENCY,
@@ -110,7 +113,7 @@ class RunRequest(BaseModel):
         default=False,
         description=(
             'Use configured proxies for supported discovery sources and actions. Supported requests fail '
-            'closed with proxy-unavailable if no proxy is configured.'
+            'closed with proxy-unavailable if no proxy is configured. Direct DNS sources and actions are rejected.'
         ),
     )
     no_hosts: bool = Field(
@@ -169,7 +172,7 @@ class RunRequest(BaseModel):
         default=False,
         description=(
             'Check discovered hosts for DNS provider-gated takeover indicators, with wildcard controls and no redirects. '
-            'Requests use configured proxies when enabled and fail closed when none are available. '
+            'DNS requires direct transport, so proxy mode rejects this action before execution. '
             'Indicators are not confirmed takeovers.'
         ),
     )
@@ -264,6 +267,18 @@ class RunRequest(BaseModel):
     def validate_hostname_collection(self) -> Self:
         if conflicts := hostname_collection_conflicts(self.model_dump()):
             raise ValueError(f'--no-hosts cannot be combined with: {", ".join(conflicts)}')
+        return self
+
+    @model_validator(mode='after')
+    def validate_proxy_transport(self) -> Self:
+        if not self.proxies:
+            return self
+        direct_sources = [
+            source for source in resolve_sources(self.sources) if source in SOURCE_SPECS and source_requires_direct_dns(source)
+        ]
+        direct_actions = [action for action in selected_action_names(self.model_dump()) if action in DIRECT_DNS_ACTIONS]
+        if direct_work := (*direct_sources, *direct_actions):
+            raise ValueError(f'Direct DNS work cannot use proxies: {", ".join(direct_work)}')
         return self
 
     @model_validator(mode='after')

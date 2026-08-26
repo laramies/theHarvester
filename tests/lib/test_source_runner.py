@@ -11,7 +11,7 @@ import pytest
 from theHarvester.discovery.constants import MissingKeyError
 from theHarvester.lib.asn_attribution import AsnAttributionObservation
 from theHarvester.lib.completed_result import ResultObservation, SourceExecution
-from theHarvester.lib.core import AsyncFetcher
+from theHarvester.lib.core import AsyncFetcher, ResponseStreamError
 from theHarvester.lib.source_catalog import SOURCE_SPECS
 from theHarvester.lib.source_execution import SourceExecutionReport
 from theHarvester.lib.source_runner import (
@@ -412,6 +412,30 @@ async def test_runner_reports_unavailable_required_proxy_without_starting_source
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize('source', ['shodan', 'shodanInternetDB'])
+async def test_runner_rejects_direct_dns_source_before_starting_adapter(
+    monkeypatch: pytest.MonkeyPatch,
+    source: str,
+) -> None:
+    adapter_created = False
+
+    def create_adapter(_request: SourceRequest) -> object:
+        nonlocal adapter_created
+        adapter_created = True
+        return object()
+
+    monkeypatch.setitem(SOURCE_FACTORIES, source, create_adapter)
+    monkeypatch.setattr(AsyncFetcher, '_proxy_list', {'http': ['http://proxy.example:8080'], 'socks5': []})
+
+    outcome = await run_source(SourceRequest(source, 'example.test', 25, 0, True, True))
+
+    assert adapter_created is False
+    assert outcome.execution.status == 'failed'
+    assert outcome.execution.stop_reason == 'direct-transport-only'
+    assert outcome.observations == ()
+
+
+@pytest.mark.asyncio
 async def test_source_runner_selects_one_proxy_identity_for_the_adapter_execution(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -446,6 +470,62 @@ async def test_source_runner_selects_one_proxy_identity_for_the_adapter_executio
     assert selected == [{'http': ['http://proxy-one.example:8080'], 'socks5': []}]
     assert received == [True]
     assert outcome.execution.status == 'completed'
+
+
+@pytest.mark.asyncio
+async def test_source_runner_preserves_configured_proxy_transport_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FailingSession:
+        def request(self, *_args: object, **_kwargs: object) -> object:
+            raise OSError('proxy endpoint unavailable')
+
+    class LegacyFetcherAdapter:
+        async def process(self, proxy: str | bool) -> None:
+            assert proxy is True
+            assert await AsyncFetcher.fetch(session=FailingSession(), url='https://provider.example/data') == ''
+
+        async def get_hostnames(self) -> tuple[()]:
+            return ()
+
+        async def get_emails(self) -> tuple[()]:
+            return ()
+
+        async def get_urls(self) -> tuple[()]:
+            return ()
+
+    monkeypatch.setattr(AsyncFetcher, '_proxy_list', {'http': ['http://proxy.example:8080'], 'socks5': []})
+    monkeypatch.setitem(SOURCE_FACTORIES, 'apis-guru', lambda _request: LegacyFetcherAdapter())
+
+    outcome = await run_source(SourceRequest('apis-guru', 'example.test', 25, 0, True, True))
+
+    assert outcome.execution.status == 'failed'
+    assert outcome.execution.stop_reason == 'transport-error'
+
+
+@pytest.mark.asyncio
+async def test_source_runner_normalizes_structured_transport_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FailingAdapter:
+        async def process(self, _proxy: str | bool) -> None:
+            raise ResponseStreamError('transport-error')
+
+        async def get_hostnames(self) -> tuple[()]:
+            return ()
+
+        async def get_emails(self) -> tuple[()]:
+            return ()
+
+        async def get_urls(self) -> tuple[()]:
+            return ()
+
+    monkeypatch.setitem(SOURCE_FACTORIES, 'apis-guru', lambda _request: FailingAdapter())
+
+    outcome = await run_source(SourceRequest('apis-guru', 'example.test', 25, 0, False, True))
+
+    assert outcome.execution.status == 'failed'
+    assert outcome.execution.stop_reason == 'transport-error'
 
 
 @pytest.mark.asyncio

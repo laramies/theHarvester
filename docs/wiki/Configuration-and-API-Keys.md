@@ -72,7 +72,8 @@ uv run theHarvester -d example.com -b crtsh -p
 
 A proxy does not make an assessment anonymous and does not change the authorization boundary. When proxy mode is
 enabled, every supported discovery source and action fails closed with `proxy-unavailable` instead of making a direct
-request if no configured proxy is available.
+request if no configured proxy is available. Sources and actions that require direct DNS are rejected before result
+persistence; disable proxy mode to run them. A configured proxy transport failure is recorded as `transport-error`.
 
 ## API protection
 

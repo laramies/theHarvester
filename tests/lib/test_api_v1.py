@@ -443,8 +443,9 @@ def test_openapi_explains_scope_and_execution_controls(tmp_path, monkeypatch) ->
     assert 'prefix' not in properties['routeviews']['description']
     assert 'three resolver' in properties['dns_recursive_query_limit']['description']
     assert 'discovery sources' in properties['proxies']['description']
+    assert 'Direct DNS' in properties['proxies']['description']
     assert 'Exclude hostname results' in properties['no_hosts']['description']
-    assert 'configured proxies' in properties['takeover']['description']
+    assert 'direct transport' in properties['takeover']['description']
     assert 'take_over' not in properties
     assert 'endpoint paths' in properties['api_scan_paths']['description']
     import_content = schema['paths']['/api/v1/runs/import']['post']['requestBody']['content']
@@ -585,6 +586,24 @@ def test_fresh_api_uses_catalog_takeover_name_and_rejects_unknown_fields() -> No
     assert request.takeover is True
     with pytest.raises(ValidationError):
         RunRequest(target='example.test', sources=[], take_over=True)
+
+
+@pytest.mark.parametrize(
+    'request_fields',
+    [
+        {'sources': ['shodan']},
+        {'sources': ['shodanInternetDB']},
+        {'sources': [], 'takeover': True},
+        {'sources': [], 'dns_lookup': True},
+    ],
+)
+def test_api_rejects_direct_dns_work_in_proxy_mode(request_fields: dict[str, object]) -> None:
+    from pydantic import ValidationError
+
+    from theHarvester.lib.api.run_models import RunRequest
+
+    with pytest.raises(ValidationError, match='Direct DNS'):
+        RunRequest(target='example.test', proxies=True, **request_fields)
 
 
 @pytest.mark.parametrize(

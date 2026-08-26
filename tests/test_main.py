@@ -46,6 +46,7 @@ async def test_cli_help_explains_proxy_and_direct_action_scope(
     assert exit_info.value.code == 0
     assert 'Use proxies.yaml for supported discovery sources and actions.' in help_text
     assert 'unavailable if no proxy is configured.' in help_text
+    assert 'Direct DNS sources and actions are rejected.' in help_text
     assert 'Query the Shodan Host API for discovered IPs, using configured proxies when enabled.' in help_text
     assert (
         'Enrich discovered IPs with sourced ASN attribution, or an explicitly targeted ASN, IP, or prefix, through '
@@ -67,6 +68,7 @@ async def test_cli_help_explains_proxy_and_direct_action_scope(
     assert '-j SOURCE_WORKERS' in help_text
     assert '--source-workers SOURCE_WORKERS' in help_text
     assert '0 continues to provider exhaustion with no local result or page-count cap' in help_text
+    assert 'DNS requires direct transport, so proxy mode rejects this action before execution.' in help_text
     assert 'Indicators are not confirmed takeovers.' in help_text
 
 
@@ -210,9 +212,7 @@ async def test_proxy_mode_fails_before_result_store_initialization(monkeypatch: 
     monkeypatch.setattr(AsyncFetcher, '_proxy_list', {'http': [], 'socks5': []})
 
     with pytest.raises(ProxyUnavailableError, match='proxy-unavailable'):
-        await theharvester_main.start(
-            EnumerationOptions(domain='example.com', proxies=True, quiet=True, source='crtsh')
-        )
+        await theharvester_main.start(EnumerationOptions(domain='example.com', proxies=True, quiet=True, source='crtsh'))
 
 
 @pytest.mark.asyncio
@@ -230,6 +230,45 @@ async def test_proxy_mode_rejects_direct_screenshot_action_before_result_store_i
         await theharvester_main.start(
             EnumerationOptions(domain='example.com', proxies=True, quiet=True, screenshot='screenshots')
         )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('source', ['shodan', 'shodanInternetDB'])
+async def test_proxy_mode_rejects_direct_dns_source_before_result_store_initialization(
+    monkeypatch: pytest.MonkeyPatch,
+    source: str,
+) -> None:
+    class UnexpectedResultStore:
+        def __init__(self, *_args: object) -> None:
+            raise AssertionError('result store initialization must follow proxy validation')
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', UnexpectedResultStore)
+
+    with pytest.raises(ValueError, match=f'Direct DNS sources cannot use --proxies: {source}'):
+        await theharvester_main.start(EnumerationOptions(domain='example.com', proxies=True, quiet=True, source=source))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('options', 'action'),
+    [
+        (EnumerationOptions(domain='example.com', proxies=True, quiet=True, take_over=True), 'takeover'),
+        (EnumerationOptions(domain='example.com', proxies=True, quiet=True, dns_lookup=True), 'dns-lookup'),
+    ],
+)
+async def test_proxy_mode_rejects_direct_dns_action_before_result_store_initialization(
+    monkeypatch: pytest.MonkeyPatch,
+    options: EnumerationOptions,
+    action: str,
+) -> None:
+    class UnexpectedResultStore:
+        def __init__(self, *_args: object) -> None:
+            raise AssertionError('result store initialization must follow proxy validation')
+
+    monkeypatch.setattr(theharvester_main, 'ResultStore', UnexpectedResultStore)
+
+    with pytest.raises(ValueError, match=f'Direct DNS actions cannot use --proxies: {action}'):
+        await theharvester_main.start(options)
 
 
 @pytest.mark.asyncio
@@ -2238,20 +2277,21 @@ async def test_target_only_source_orchestration_uses_immutable_runner_request(
     monkeypatch.setitem(source_runner.SOURCE_FACTORIES, source, runner_factory)
     monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
 
+    proxies = source != 'shodanInternetDB'
     response = await theharvester_main.start(
         EnumerationOptions(
             domain='example.test',
             source=source,
             limit=37,
             start=11,
-            proxies=True,
+            proxies=proxies,
             quiet=True,
         ),
         return_completed_result=True,
     )
 
-    assert requests == [source_runner.SourceRequest(source, 'example.test', 37, 11, True, True)]
-    assert processed_with_proxy == [True]
+    assert requests == [source_runner.SourceRequest(source, 'example.test', 37, 11, proxies, True)]
+    assert processed_with_proxy == [proxies]
     execution = response[-1].source_executions[0]
     assert execution.source == source
     assert execution.status == 'partial'
@@ -3132,7 +3172,7 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
             pass
 
         async def process(self, proxy: bool) -> None:
-            assert proxy is True
+            assert proxy is False
             return None
 
         async def get_hostnames(self) -> set[str]:
@@ -3159,7 +3199,7 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
             self.stop_reason = None
 
         async def process(self, proxy: bool = False) -> None:
-            assert proxy is True
+            assert proxy is False
 
         async def get_takeover_outcomes(self) -> tuple[TakeoverCandidateOutcome, ...]:
             return (_takeover_outcome(),)
@@ -3171,9 +3211,7 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
             self.attributions: set[AsnAttributionObservation] = set()
             self.hosts: dict[str, ShodanHostObservation] = {}
 
-        async def search_ip(
-            self, ip: str, *, proxy: bool = False, session: object | None = None
-        ) -> dict[str, dict[str, object]]:
+        async def search_ip(self, ip: str, *, proxy: bool = False, session: object | None = None) -> dict[str, dict[str, object]]:
             assert session is not None
             self.attributions.add(
                 AsnAttributionObservation(
@@ -3212,7 +3250,7 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
         ) -> None:
             assert word == 'example.com'
             assert wordlist == str(tmp_path / 'api.txt')
-            assert proxy == 'http://proxy.example:8080'
+            assert proxy is None
             self.scan_error_type = None
             self.request_error_count = 0
             self.request_error_types: set[str] = set()
@@ -3253,14 +3291,11 @@ async def test_direct_action_evidence_reaches_completed_result(monkeypatch: pyte
     monkeypatch.setattr(theharvester_main.shodansearch, 'SearchShodan', FakeShodan)
     monkeypatch.setattr(theharvester_main.api_endpoints, 'SearchApiEndpoints', FakeApiScanner)
     monkeypatch.setattr(theharvester_main.asyncio, 'sleep', no_sleep)
-    monkeypatch.setattr(source_runner.AsyncFetcher, '_proxy_list', {'http': ['http://proxy.example:8080'], 'socks5': []})
-
     result = await theharvester_main.start(
         EnumerationOptions(
             api_scan=True,
             dns_resolve='192.0.2.53',
             domain='example.com',
-            proxies=True,
             quiet=True,
             shodan=True,
             source='crtsh',
@@ -3336,9 +3371,7 @@ async def test_shodan_source_evidence_is_not_overwritten_by_conflicting_action_e
         async def get_hostnames(self) -> set[str]:
             return {'api.example.com'} if self.word is not None else set()
 
-        async def search_ip(
-            self, ip: str, *, proxy: bool = False, session: object | None = None
-        ) -> dict[str, dict[str, object]]:
+        async def search_ip(self, ip: str, *, proxy: bool = False, session: object | None = None) -> dict[str, dict[str, object]]:
             self.host = ShodanHostObservation.from_record(
                 ip,
                 {'services': [{'port': 443, 'transport': 'tcp'}]},
@@ -3497,9 +3530,7 @@ async def test_shodan_action_records_all_target_errors_as_failed(
     class FailedShodan:
         error_type = None
 
-        async def search_ip(
-            self, ip: str, *, proxy: bool = False, session: object | None = None
-        ) -> dict[str, str]:
+        async def search_ip(self, ip: str, *, proxy: bool = False, session: object | None = None) -> dict[str, str]:
             assert proxy is False
             raise RuntimeError(f'provider-secret-payload for {ip}')
 
@@ -3534,23 +3565,26 @@ async def test_shodan_action_reuses_one_session_and_proxy_identity(monkeypatch: 
     received: list[str | bool] = []
     sessions: list[object] = []
 
-    class TwoIpChecker:
-        def __init__(self, _hosts: list[str], _nameservers: list[str]) -> None:
-            pass
+    class TwoIpSource:
+        async def process(self, proxy: bool) -> None:
+            assert proxy is True
 
-        async def check(self) -> tuple[list[str], list[str], list[str]]:
-            return (
-                ['api.example.com:192.0.2.10', 'www.example.com:192.0.2.11'],
-                ['api.example.com', 'www.example.com'],
-                ['192.0.2.10', '192.0.2.11'],
-            )
+        async def get_hostnames(self) -> set[str]:
+            return {'api.example.com', 'www.example.com'}
+
+        async def get_ips(self) -> set[str]:
+            return {'192.0.2.10', '192.0.2.11'}
+
+        async def get_asns(self) -> set[str]:
+            return set()
+
+        async def get_urls(self) -> set[str]:
+            return set()
 
     class StableShodan:
         error_type = None
 
-        async def search_ip(
-            self, ip: str, *, proxy: bool = False, session: object | None = None
-        ) -> dict[str, str]:
+        async def search_ip(self, ip: str, *, proxy: bool = False, session: object | None = None) -> dict[str, str]:
             assert session is not None
             sessions.append(session)
             received.append(source_runner.AsyncFetcher._resolve_proxy(True)[0] or False)
@@ -3561,20 +3595,18 @@ async def test_shodan_action_reuses_one_session_and_proxy_identity(monkeypatch: 
         return f'http://proxy-{len(selected)}.example:8080', 'http'
 
     monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
-    monkeypatch.setattr(source_runner.crtsh, 'SearchCrtsh', _ApiHostSource)
-    monkeypatch.setattr(theharvester_main.hostchecker, 'Checker', TwoIpChecker)
+    monkeypatch.setitem(source_runner.SOURCE_FACTORIES, 'urlscan', lambda _request: TwoIpSource())
     monkeypatch.setattr(theharvester_main.shodansearch, 'SearchShodan', StableShodan)
     monkeypatch.setattr(source_runner.AsyncFetcher, '_proxy_list', {'http': ['http://proxy.example:8080'], 'socks5': []})
     monkeypatch.setattr(source_runner.AsyncFetcher, '_get_random_proxy', staticmethod(select_proxy))
 
     result = await theharvester_main.start(
         EnumerationOptions(
-            dns_resolve='192.0.2.53',
             domain='example.com',
             proxies=True,
             quiet=True,
             shodan=True,
-            source='crtsh',
+            source='urlscan',
         ),
         return_completed_result=True,
     )

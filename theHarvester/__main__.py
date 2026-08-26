@@ -59,12 +59,15 @@ from theHarvester.lib.result_values import normalize_asn, normalize_ip
 from theHarvester.lib.routeviews import RouteViewsCancelled, RouteViewsResult, enrich_routeviews
 from theHarvester.lib.shodan_evidence import ShodanHostObservation, canonical_shodan_hosts
 from theHarvester.lib.source_catalog import (
+    DIRECT_DNS_ACTIONS,
     SOURCE_SPECS,
     ActivityClass,
     ResultRoute,
     get_source_spec,
     hostname_collection_conflicts,
     resolve_sources,
+    selected_action_names,
+    source_requires_direct_dns,
 )
 from theHarvester.lib.source_runner import SourceOutcome, SourceRequest, run_source_jobs
 from theHarvester.lib.virtual_host import (
@@ -183,7 +186,10 @@ async def start(
     parser.add_argument(
         '-p',
         '--proxies',
-        help='Use proxies.yaml for supported discovery sources and actions. The run fails immediately with proxy-unavailable if no proxy is configured.',
+        help=(
+            'Use proxies.yaml for supported discovery sources and actions. The run fails immediately with '
+            'proxy-unavailable if no proxy is configured. Direct DNS sources and actions are rejected.'
+        ),
         default=False,
         action='store_true',
     )
@@ -228,8 +234,8 @@ async def start(
         '--take-over',
         help=(
             'Check discovered hosts for provider-gated takeover indicators. Uses configured DNS resolvers and '
-            'wildcard controls, does not follow redirects, and uses configured proxies when enabled. Indicators '
-            'are not confirmed takeovers.'
+            'wildcard controls and does not follow redirects. DNS requires direct transport, so proxy mode rejects '
+            'this action before execution. Indicators are not confirmed takeovers.'
         ),
         default=False,
         action='store_true',
@@ -424,6 +430,13 @@ async def start(
     }
     if conflicts := hostname_collection_conflicts(action_request):
         raise ValueError(f'--no-hosts cannot be combined with: {", ".join(conflicts)}')
+    resolved_source_selection = resolve_sources(args.source) if args.source is not None else []
+    direct_dns_sources = [source for source in resolved_source_selection if source_requires_direct_dns(source)]
+    if args.proxies and direct_dns_sources:
+        raise ValueError(f'Direct DNS sources cannot use --proxies: {", ".join(direct_dns_sources)}')
+    direct_dns_actions = [action for action in selected_action_names(action_request) if action in DIRECT_DNS_ACTIONS]
+    if args.proxies and direct_dns_actions:
+        raise ValueError(f'Direct DNS actions cannot use --proxies: {", ".join(direct_dns_actions)}')
     vhost_enabled = args.vhost or bool(args.vhost_endpoint) or bool(args.vhost_candidates)
     vhost_scope = ''
     vhost_endpoint = ''
@@ -871,7 +884,7 @@ async def start(
 
     source_jobs: list[SourceRequest] = []
     if args.source is not None:
-        engines = resolve_sources(args.source)
+        engines = resolved_source_selection
         if not collect_hosts:
             hostname_only_engines = [
                 engine

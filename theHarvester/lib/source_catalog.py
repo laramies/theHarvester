@@ -24,6 +24,10 @@ ACTION_ACTIVITIES: Final = {
     'takeover': ActivityClass.DIRECT,
     'vhost': ActivityClass.DIRECT,
 }
+DIRECT_DNS_ACTIONS: Final = frozenset(
+    (*[name for name, activity in ACTION_ACTIVITIES.items() if activity is ActivityClass.DNS], 'takeover')
+)
+DIRECT_DNS_SOURCES: Final = frozenset({'shodan', 'shodanInternetDB'})
 ACTION_REQUEST_FIELDS: Final = {
     **{name: name.replace('-', '_') for name in ACTION_ACTIVITIES},
     'dns-recursive': 'dns_recursive_depth',
@@ -219,6 +223,11 @@ _CASEFOLDED_SOURCE_SPECS = {name.casefold(): spec for name, spec in SOURCE_SPECS
 
 def get_source_spec(name: str) -> SourceSpec:
     return _CASEFOLDED_SOURCE_SPECS[name.casefold()]
+
+
+def source_requires_direct_dns(name: str) -> bool:
+    spec = _CASEFOLDED_SOURCE_SPECS.get(name.casefold())
+    return spec is not None and spec.name in DIRECT_DNS_SOURCES
 
 
 def activity_classes_for_selection(

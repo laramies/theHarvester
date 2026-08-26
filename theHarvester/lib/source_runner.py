@@ -72,12 +72,12 @@ from theHarvester.discovery import (
 from theHarvester.discovery.constants import MissingKeyError
 from theHarvester.lib.asn_attribution import AsnAttributionObservation, canonical_asn_attributions
 from theHarvester.lib.completed_result import ResultKind, ResultObservation, SourceExecution
-from theHarvester.lib.core import AsyncFetcher, ProxyUnavailableError
+from theHarvester.lib.core import AsyncFetcher, ProxyUnavailableError, ResponseStreamError
 from theHarvester.lib.enumeration import DEFAULT_SOURCE_WORKERS
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.result_values import normalize_ip
 from theHarvester.lib.shodan_evidence import ShodanHostObservation, canonical_shodan_hosts
-from theHarvester.lib.source_catalog import ResultRoute, get_source_spec
+from theHarvester.lib.source_catalog import ResultRoute, get_source_spec, source_requires_direct_dns
 from theHarvester.lib.source_execution import SourceExecutionReport
 
 if TYPE_CHECKING:
@@ -313,9 +313,20 @@ async def run_source(
     reported_host_ip_pairs: set[tuple[str, str]] = set()
     adapter: Any | None = None
     process_completed = False
+    proxy_transport_failed = False
+    source_spec = get_source_spec(request.source)
+    if request.proxy and source_requires_direct_dns(source_spec.name):
+        return SourceOutcome(
+            SourceExecution(
+                source_spec.name,
+                'failed',
+                (time.perf_counter() - started) * 1000,
+                0,
+                stop_reason='direct-transport-only',
+            )
+        )
     try:
         with AsyncFetcher.proxy_scope(request.proxy) as selected_proxy:
-            source_spec = get_source_spec(request.source)
             created_adapter = create_source(request)
             _reject_removed_execution_fields(source_spec.name, created_adapter)
             if on_started is not None:
@@ -327,9 +338,13 @@ async def run_source(
                     logger.warning('Source start reporter failed for %s: %s', request.source, type(error).__name__)
             adapter = created_adapter
             report = await adapter.process(selected_proxy)
+            proxy_transport_failed = AsyncFetcher.proxy_transport_failed()
         process_completed = True
         _reject_removed_execution_fields(source_spec.name, adapter)
-        if report is None:
+        if proxy_transport_failed:
+            status: ExecutionStatus = 'failed'
+            stop_reason = 'transport-error'
+        elif report is None:
             status: ExecutionStatus = 'completed'
             stop_reason = None
         elif isinstance(report, SourceExecutionReport):
@@ -429,6 +444,7 @@ async def run_source(
             (time.perf_counter() - started) * 1000,
             result_count,
             type(error).__name__,
+            error.reason if isinstance(error, ResponseStreamError) else None,
         )
     return _source_outcome(
         request,
