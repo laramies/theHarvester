@@ -70,7 +70,9 @@ Network activity: provider-facing passive lookup through a configured proxy.
 uv run theHarvester -d example.com -b crtsh -p
 ```
 
-A proxy does not make an assessment anonymous and does not change the authorization boundary.
+A proxy does not make an assessment anonymous and does not change the authorization boundary. When proxy mode is
+enabled, every supported discovery source and action fails closed with `proxy-unavailable` instead of making a direct
+request if no configured proxy is available.
 
 ## API protection
 

@@ -14,7 +14,7 @@ from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.asn_attribution import AsnAttributionObservation
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse, ResponseStreamError
 from theHarvester.lib.hostchecker import resolve_ip_addresses
-from theHarvester.lib.hostnames import normalize_scoped_hostname
+from theHarvester.lib.hostnames import normalize_hostname, normalize_scoped_hostname
 from theHarvester.lib.shodan_evidence import ShodanHostObservation, canonical_shodan_hosts
 from theHarvester.lib.source_execution import SourceExecutionReport, SourceReportStatus
 
@@ -67,10 +67,15 @@ class SearchShodan:
     REQUEST_TIMEOUT_SECONDS: int | None = None
 
     def __init__(self, word: str | None = None) -> None:
-        self.word = word.strip().lower().rstrip('.') if word is not None else None
-        if self.word is not None and (self.word.startswith('*.') or _CERTIFICATE_HOSTNAME.fullmatch(self.word) is None):
-            raise ValueError('Shodan discovery target must be a hostname')
-        self.scope = self.word.removeprefix('www.') if self.word is not None else None
+        if word is None:
+            self.word = None
+        else:
+            try:
+                self.word = normalize_hostname(word)
+            except ValueError as error:
+                raise ValueError('Shodan discovery target must be a hostname') from error
+            if _CERTIFICATE_HOSTNAME.fullmatch(self.word) is None:
+                raise ValueError('Shodan discovery target must be a hostname')
         self.key = Core.shodan_key()
         if self.key is None:
             raise MissingKey('Shodan')
@@ -104,8 +109,8 @@ class SearchShodan:
             return None
         wildcard = candidate.startswith('*.')
         hostname = candidate.removeprefix('*.')
-        if self.scope is not None:
-            hostname = normalize_scoped_hostname(hostname, self.scope) or ''
+        if self.word is not None:
+            hostname = normalize_scoped_hostname(hostname, self.word) or ''
             if not hostname:
                 return None
         else:
@@ -150,13 +155,13 @@ class SearchShodan:
         return names, invalid_response
 
     def _scoped_banner_names(self, banner: dict[str, object]) -> set[str]:
-        assert self.scope is not None
+        assert self.word is not None
         names: set[str] = set()
         for field in ('hostnames', 'domains'):
             values = banner.get(field)
             if isinstance(values, list):
                 for value in values:
-                    if normalized := normalize_scoped_hostname(value, self.scope):
+                    if normalized := normalize_scoped_hostname(value, self.word):
                         names.add(normalized)
         ssl = banner.get('ssl')
         if isinstance(ssl, dict):
@@ -323,14 +328,14 @@ class SearchShodan:
 
         domain_values = normalized_strings(results.get('domains'))
         hostname_values = normalized_strings(results.get('hostnames'))
-        if self.scope is not None:
+        if self.word is not None:
             domain_values = sorted(
-                {normalized for value in domain_values if (normalized := normalize_scoped_hostname(value, self.scope))}
+                {normalized for value in domain_values if (normalized := normalize_scoped_hostname(value, self.word))}
             )
             hostname_values = sorted(
-                {normalized for value in hostname_values if (normalized := normalize_scoped_hostname(value, self.scope))}
+                {normalized for value in hostname_values if (normalized := normalize_scoped_hostname(value, self.word))}
             )
-            self.totalhosts.update(value for value in domain_values + hostname_values if value != self.scope)
+            self.totalhosts.update(value for value in domain_values + hostname_values if value != self.word)
             for service in services:
                 tls = service.get('tls')
                 if not isinstance(tls, dict):
@@ -339,7 +344,7 @@ class SearchShodan:
                     tls_value = tls.get(field)
                     values = tls_value if isinstance(tls_value, list) else [tls_value]
                     self.totalhosts.update(
-                        name for name in values if isinstance(name, str) and not name.startswith('*.') and name != self.scope
+                        name for name in values if isinstance(name, str) and not name.startswith('*.') and name != self.word
                     )
         asn = normalized_string(results.get('asn'))
         organization = normalized_string(results.get('org'))
@@ -371,9 +376,9 @@ class SearchShodan:
         return invalid_response
 
     async def _search_target(self, proxy: bool) -> set[str]:
-        assert self.scope is not None
+        assert self.word is not None
         error_types: set[str] = set()
-        for query in (f'hostname:{self.scope}', f'ssl:{self.scope}'):
+        for query in (f'hostname:{self.word}', f'ssl:{self.word}'):
             page = 1
             received = 0
             seen_pages: set[str] = set()
@@ -497,7 +502,7 @@ class SearchShodan:
     async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         if self.word is None:
             raise ValueError('A discovery target is required')
-        assert self.scope is not None
+        assert self.word is not None
 
         self.totalhosts.clear()
         dns_stop_reason: str | None = None

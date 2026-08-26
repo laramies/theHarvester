@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 import aiohttp
 
 from theHarvester.discovery.constants import MissingKey
-from theHarvester.lib.core import Core
+from theHarvester.lib.core import AsyncFetcher, Core
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.source_execution import SourceExecutionReport
 from theHarvester.parsers import intelxparser
@@ -55,7 +55,7 @@ class SearchIntelx:
         pending_polls = 0
         try:
             async with asyncio.timeout(self.MAX_RUNTIME_SECONDS):
-                async with aiohttp.ClientSession() as session:
+                async with AsyncFetcher.open_session(headers=headers, proxy=self.proxy) as session:
                     async with session.post(f'{self.database}/phonebook/search', headers=headers, json=data) as response:
                         if response.status in {401, 403}:
                             return SourceExecutionReport('failed', 'access-denied')

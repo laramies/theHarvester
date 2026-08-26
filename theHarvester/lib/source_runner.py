@@ -6,7 +6,6 @@ import logging
 import time
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
-from ipaddress import ip_address
 from typing import TYPE_CHECKING, Any
 
 from theHarvester.discovery import (
@@ -73,8 +72,10 @@ from theHarvester.discovery import (
 from theHarvester.discovery.constants import MissingKeyError
 from theHarvester.lib.asn_attribution import AsnAttributionObservation, canonical_asn_attributions
 from theHarvester.lib.completed_result import ResultKind, ResultObservation, SourceExecution
+from theHarvester.lib.core import AsyncFetcher, ProxyUnavailableError
 from theHarvester.lib.enumeration import DEFAULT_SOURCE_WORKERS
 from theHarvester.lib.hostnames import normalize_scoped_hostname
+from theHarvester.lib.result_values import normalize_ip
 from theHarvester.lib.shodan_evidence import ShodanHostObservation, canonical_shodan_hosts
 from theHarvester.lib.source_catalog import ResultRoute, get_source_spec
 from theHarvester.lib.source_execution import SourceExecutionReport
@@ -206,11 +207,11 @@ _BUILTWITH_GETTERS: tuple[tuple[str, ResultKind], ...] = (
 
 def _normalize_values(request: SourceRequest, kind: ResultKind, values: Iterable[object]) -> set[ResultObservation]:
     observations: set[ResultObservation] = set()
-    target = request.target.strip().lower().removeprefix('www.').rstrip('.')
+    canonical_target = normalize_scoped_hostname(request.target, request.target)
     for item in values:
         if kind == 'hostname':
-            value = normalize_scoped_hostname(item, target)
-            if value is None or value == target:
+            value = normalize_scoped_hostname(item, request.target)
+            if value is None or value == canonical_target:
                 continue
         elif kind == 'email':
             value = str(item).strip().lower()
@@ -218,7 +219,7 @@ def _normalize_values(request: SourceRequest, kind: ResultKind, values: Iterable
                 continue
         elif kind == 'ip':
             try:
-                value = str(ip_address(str(item).strip()))
+                value = normalize_ip(str(item))
             except ValueError:
                 continue
         elif kind in {'infostealer', 'person'}:
@@ -270,7 +271,7 @@ async def _collect_observations(
         for host, address in await adapter.get_host_ip_pairs():
             normalized_host = normalize_scoped_hostname(host, request.target)
             try:
-                normalized_address = str(ip_address(address))
+                normalized_address = normalize_ip(str(address))
             except ValueError:
                 continue
             if (
@@ -320,6 +321,8 @@ async def run_source(
     adapter: Any | None = None
     process_completed = False
     try:
+        if request.proxy and not any(AsyncFetcher().proxy_list.values()):
+            raise ProxyUnavailableError('proxy-unavailable')
         source_spec = get_source_spec(request.source)
         created_adapter = create_source(request)
         _reject_removed_execution_fields(source_spec.name, created_adapter)
@@ -361,6 +364,15 @@ async def run_source(
             (time.perf_counter() - started) * 1000,
             result_count,
             stop_reason=stop_reason,
+        )
+    except ProxyUnavailableError:
+        execution = SourceExecution(
+            request.source,
+            'failed',
+            (time.perf_counter() - started) * 1000,
+            0,
+            'ProxyUnavailableError',
+            'proxy-unavailable',
         )
     except MissingKeyError:
         execution = SourceExecution(

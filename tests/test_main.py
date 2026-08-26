@@ -45,8 +45,8 @@ async def test_cli_help_explains_proxy_and_direct_action_scope(
     help_text = ' '.join(capsys.readouterr().out.split())
     assert exit_info.value.code == 0
     assert (
-        'Use proxies.yaml for supported discovery-source, Shodan, and takeover requests. Takeover fails closed if no '
-        'proxy is available.' in help_text
+        'Use proxies.yaml for supported discovery-source, Shodan, and takeover requests. Supported requests fail '
+        'closed with proxy-unavailable if no proxy is configured.' in help_text
     )
     assert 'Query the Shodan Host API for discovered IPs, using configured proxies when enabled.' in help_text
     assert (
@@ -558,17 +558,35 @@ async def test_virtual_host_output_keeps_legacy_lists_and_structured_jsonl(
     assert finding['observations'][0]['endpoint'] == 'http://192.0.2.10:80/'
 
 
-@pytest.mark.parametrize('target', ['Example.COM.', 'WWW.Example.COM.'])
-def test_normalize_hosts_for_storage_uses_the_parser_scope(target: str) -> None:
+@pytest.mark.parametrize(
+    ('target', 'expected'),
+    [
+        ('Example.COM.', {'api.example.com', 'dev.www.example.com', 'www.example.com'}),
+        ('WWW.Example.COM.', {'dev.www.example.com'}),
+        ('München.Example.TEST.', {'api.xn--mnchen-3ya.example.test'}),
+    ],
+)
+def test_normalize_hosts_for_storage_uses_the_parser_scope(target: str, expected: set[str]) -> None:
     discovered_hosts: set[object] = {
         'API.Example.COM.',
+        'API.München.Example.TEST.',
+        'dev.www.example.com',
+        'www.example.com',
         'example.com',
         'badexample.com',
+        'bad_label.example.com',
         'example.com.attacker.test',
         123,
     }
 
-    assert theharvester_main._normalize_hosts_for_storage(discovered_hosts, target) == {'api.example.com'}
+    assert theharvester_main._normalize_hosts_for_storage(discovered_hosts, target) == expected
+
+
+def test_normalize_ip_addresses_drops_ipv6_zone_identifiers() -> None:
+    assert theharvester_main._normalize_ip_addresses(['192.0.2.1', 'fe80::1%eth0', '2001:0DB8:0:0:0:0:0:1', 123]) == {
+        '192.0.2.1',
+        '2001:db8::1',
+    }
 
 
 @pytest.mark.asyncio
@@ -1521,6 +1539,29 @@ async def test_unlimited_subdomain_selection_passes_no_result_cap_to_every_sourc
 
     assert [job.request.source for job in captured] == resolve_sources('subdomains')
     assert all(job.request.limit is None for job in captured)
+
+
+@pytest.mark.asyncio
+async def test_cli_canonicalizes_a_case_insensitive_legacy_source(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: tuple[source_runner.SourceJob, ...] = ()
+
+    async def capture_jobs(
+        jobs: tuple[source_runner.SourceJob, ...],
+        **_kwargs: object,
+    ) -> tuple[source_runner.SourceOutcome, ...]:
+        nonlocal captured
+        captured = jobs
+        return ()
+
+    monkeypatch.setattr(theharvester_main, 'run_source_jobs', capture_jobs)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
+
+    await theharvester_main.start(
+        EnumerationOptions(domain='example.test', source='CRTsh', quiet=True),
+        return_completed_result=True,
+    )
+
+    assert [job.request.source for job in captured] == ['crtsh']
 
 
 @pytest.mark.asyncio

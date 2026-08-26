@@ -5,7 +5,7 @@ from typing import Any
 
 from theHarvester.discovery.constants import MissingKey
 from theHarvester.discovery.provider_response import provider_http_error
-from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse
+from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse, ProxyUnavailableError
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.source_execution import SourceExecutionReport
 
@@ -97,6 +97,8 @@ class SearchSecuritytrail:
                     return self._report
                 self.subdomains_data = subdomain_body
                 malformed = self._parse_subdomains(subdomain_body) or malformed
+        except ProxyUnavailableError:
+            return SourceExecutionReport('failed', 'proxy-unavailable')
         except Exception:
             return SourceExecutionReport('failed', 'transport-error')
         if malformed:

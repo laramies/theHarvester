@@ -55,7 +55,7 @@ from theHarvester.lib.recursive_dns import (
     discover_recursive_dns,
 )
 from theHarvester.lib.resolver_selection import DEFAULT_DNS_RESOLVERS, normalize_resolver_addresses
-from theHarvester.lib.result_values import normalize_asn
+from theHarvester.lib.result_values import normalize_asn, normalize_ip
 from theHarvester.lib.routeviews import RouteViewsCancelled, RouteViewsResult, enrich_routeviews
 from theHarvester.lib.shodan_evidence import ShodanHostObservation, canonical_shodan_hosts
 from theHarvester.lib.source_catalog import (
@@ -91,11 +91,11 @@ logger = logging.getLogger(__name__)
 
 
 def _normalize_hosts_for_storage(discovered_hosts: Iterable[object], target: str) -> set[str]:
-    normalized_target = target.strip().lower().removeprefix('www.').rstrip('.')
+    canonical_target = normalize_scoped_hostname(target, target)
     return {
         normalized
         for host in discovered_hosts
-        if (normalized := normalize_scoped_hostname(host, normalized_target)) and normalized != normalized_target
+        if (normalized := normalize_scoped_hostname(host, target)) and normalized != canonical_target
     }
 
 
@@ -105,7 +105,7 @@ def _normalize_ip_addresses(values: Iterable[object]) -> set[str]:
         if not isinstance(value, str):
             continue
         try:
-            addresses.add(str(ip_address(value.strip())))
+            addresses.add(normalize_ip(value))
         except ValueError:
             continue
     return addresses
@@ -183,7 +183,7 @@ async def start(
     parser.add_argument(
         '-p',
         '--proxies',
-        help='Use proxies.yaml for supported discovery-source, Shodan, and takeover requests. Takeover fails closed if no proxy is available.',
+        help='Use proxies.yaml for supported discovery-source, Shodan, and takeover requests. Supported requests fail closed with proxy-unavailable if no proxy is configured.',
         default=False,
         action='store_true',
     )

@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import stat
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Barrier
 from typing import Any
 from unittest import mock
 
@@ -16,6 +19,7 @@ from theHarvester.lib.core import (
     AsyncFetcher,
     Core,
     FetcherResponse,
+    ProxyUnavailableError,
     ResponseStreamError,
 )
 from theHarvester.lib.output import configure_logging
@@ -177,6 +181,38 @@ def test_read_config_copies_default_to_home(name: str, capsys):
     assert got == expected
     assert f"Created default {file.name} at {file}" in capsys.readouterr().out
     assert file.exists()
+    assert stat.S_IMODE(file.parent.stat().st_mode) == 0o700
+    assert stat.S_IMODE(file.stat().st_mode) == 0o600
+
+
+def test_read_config_concurrent_first_use_publishes_one_complete_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    destination = CONFIG_DIRS[0].expanduser() / 'api-keys.yaml'
+    config_files = {directory.expanduser() / destination.name for directory in CONFIG_DIRS}
+    publication_barrier = Barrier(2)
+    link = core_module.os.link
+    read_text = Path.read_text
+
+    def isolated_read_text(path: Path, *args, **kwargs) -> str:
+        if path == destination and path.exists():
+            return read_text(path, *args, **kwargs)
+        if path in config_files:
+            raise FileNotFoundError
+        return read_text(path, *args, **kwargs)
+
+    def synchronized_link(source: str | Path, target: str | Path) -> None:
+        publication_barrier.wait(timeout=5)
+        link(source, target)
+
+    monkeypatch.setattr(core_module.os, 'link', synchronized_link)
+    monkeypatch.setattr(Path, 'read_text', isolated_read_text)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        configs = list(executor.map(lambda _index: Core._read_config('api-keys.yaml'), range(2)))
+
+    assert configs == [(DATA_DIR / 'api-keys.yaml').read_text()] * 2
+    assert destination.read_text() == configs[0]
+    assert stat.S_IMODE(destination.stat().st_mode) == 0o600
+    assert list(destination.parent.glob(f'.{destination.name}.*')) == []
 
 
 _DEFAULT_JSON = object()
@@ -442,6 +478,15 @@ async def test_open_session_owns_one_proxy_and_cookie_policy(monkeypatch: pytest
     assert session.connector == 'provider-connector'
     assert session.cookie_jar is cookie_jar
     assert session.timeout.total == 45
+
+
+@pytest.mark.asyncio
+async def test_open_session_fails_closed_when_proxy_mode_has_no_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(AsyncFetcher, '_proxy_list', {'http': [], 'socks5': []})
+
+    with pytest.raises(ProxyUnavailableError, match='proxy-unavailable'):
+        async with AsyncFetcher.open_session(proxy=True):
+            pytest.fail('a direct session must not open when proxy mode is required')
 
 
 @pytest.mark.asyncio
@@ -1166,6 +1211,48 @@ async def test_fetch_all_reuses_a_caller_owned_session(monkeypatch: pytest.Monke
 
     assert results == ['ok', 'ok']
     assert seen_sessions == [session, session]
+
+
+@pytest.mark.asyncio
+async def test_fetch_all_rejects_proxy_selection_for_a_caller_owned_session() -> None:
+    with pytest.raises(ValueError, match='caller-owned session'):
+        await AsyncFetcher.fetch_all(['https://one.example'], proxy=True, session=object())
+
+
+@pytest.mark.asyncio
+async def test_fetch_all_resolves_one_socks_proxy_for_the_owned_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    reset_dummy_sessions()
+    proxy_inputs: list[str | bool | None] = []
+    connector_inputs: list[tuple[str | None, str | None, object]] = []
+    monkeypatch.setattr(core_module.aiohttp, 'ClientSession', DummySession)
+    monkeypatch.setattr(AsyncFetcher, '_ssl_context', staticmethod(lambda _verify=True: 'ssl-context'))
+
+    def resolve_proxy(_cls: type[AsyncFetcher], proxy: str | bool | None) -> tuple[str | None, str | None]:
+        proxy_inputs.append(proxy)
+        return ('socks5://proxy.example:1080', 'socks5') if proxy else (None, None)
+
+    async def create_connector(
+        proxy_url: str | None,
+        proxy_type: str | None,
+        ssl_context: object,
+    ) -> str:
+        connector_inputs.append((proxy_url, proxy_type, ssl_context))
+        return 'socks-connector'
+
+    monkeypatch.setattr(AsyncFetcher, '_resolve_proxy', classmethod(resolve_proxy))
+    monkeypatch.setattr(AsyncFetcher, '_create_connector', create_connector)
+
+    results = await AsyncFetcher.fetch_all(
+        ['https://one.example', 'https://two.example'],
+        proxy=True,
+    )
+
+    assert results == ['response-text', 'response-text']
+    assert [proxy for proxy in proxy_inputs if proxy] == [True]
+    assert connector_inputs == [('socks5://proxy.example:1080', 'socks5', 'ssl-context')]
+    assert len(DummySession.instances) == 1
+    assert DummySession.instances[0].connector == 'socks-connector'
+    assert DummySession.instances[0].closed is True
 
 
 @pytest.mark.asyncio

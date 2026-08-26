@@ -73,6 +73,16 @@ def test_missing_or_blank_key_fails_closed(monkeypatch: pytest.MonkeyPatch, key:
         securitytrailssearch.SearchSecuritytrail('example.com')
 
 
+@pytest.mark.asyncio
+async def test_required_proxy_unavailable_returns_explicit_outcome(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(securitytrailssearch.Core, 'security_trails_key', staticmethod(lambda: 'test-key'))
+    monkeypatch.setattr(securitytrailssearch.AsyncFetcher, '_proxy_list', {'http': [], 'socks5': []})
+
+    report = await securitytrailssearch.SearchSecuritytrail('example.com').process(proxy=True)
+
+    assert report == securitytrailssearch.SourceExecutionReport('failed', 'proxy-unavailable')
+
+
 @pytest.mark.parametrize(
     ('response', 'status', 'reason'),
     [

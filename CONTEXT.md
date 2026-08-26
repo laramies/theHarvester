@@ -23,6 +23,7 @@ When a change alters one of these boundaries, update this document and the neare
 ### Authorization and scope
 
 - Every provider, DNS, or direct action stays within the operator's explicit target and selected activity. P0, P1, and P2 describe observable network behavior, not confidence or importance.
+- The authorized hostname boundary is the operator's exact DNS name after canonicalization. A leading `www.` label is part of that boundary and is never stripped as a convenience alias of the registrable domain.
 - P0 sources query existing providers or datasets. P1 actions query DNS about authorized names or addresses. P2 actions contact a target endpoint or cause equivalent direct interaction.
 - Scope-extension candidates and external relationships remain review evidence. An operator decision is the only path that promotes them into a later run's authorized scope.
 - ASN labels, registry records, BGP origins, RPKI states, DNS answers, and endpoint responses remain time-bound evidence. None establishes ownership, legal control, reachability, or authorization by itself.
@@ -33,6 +34,7 @@ When a change alters one of these boundaries, update this document and the neare
 - A source adapter returns `None` for ordinary completion or an immutable `SourceExecutionReport` when it must preserve an explicit outcome or stop reason. The central source runner owns observation collection, result counting, no-result classification, exception handling, and final source status.
 - A result limit of zero removes the shared local cap on results and pages. Adapters continue until the provider is exhausted, but source-owned quotas, protocol maxima, response limits, and runtime safety bounds still apply. A source that stops at one of those boundaries must report an explicit partial outcome and stop reason.
 - Source execution statuses are `completed`, `partial`, `failed`, `rate-limited`, and `skipped`. Mutable adapter fields such as `execution_status` and `stop_reason` are outside this release contract and are rejected, including when an adapter raises or is cancelled.
+- Explicit proxy mode is fail-closed for every supported discovery source and action. If no configured proxy is available, execution makes no direct request and terminates with the sanitized `proxy-unavailable` reason.
 - Run lifecycle statuses are `queued`, `running`, `cancelling`, `cancelled`, `completed`, and `failed`. Terminal evidence status is independently `complete`, `partial`, or `failed`; retained evidence survives a later cancellation or process failure.
 - Run schedules support one-time, hourly, daily, weekly, and monthly recurrence. Daily, weekly, and monthly occurrences preserve the selected local wall-clock time; a monthly day that does not exist falls on that month’s final day.
 - Imported runs enter as completed run records and execute no source or action. Action-only runs create independent run records instead of mutating the evidence of the run that supplied their candidate.

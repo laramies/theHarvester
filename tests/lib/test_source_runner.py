@@ -11,6 +11,7 @@ import pytest
 from theHarvester.discovery.constants import MissingKeyError
 from theHarvester.lib.asn_attribution import AsnAttributionObservation
 from theHarvester.lib.completed_result import ResultObservation, SourceExecution
+from theHarvester.lib.core import AsyncFetcher
 from theHarvester.lib.source_catalog import SOURCE_SPECS
 from theHarvester.lib.source_execution import SourceExecutionReport
 from theHarvester.lib.source_runner import (
@@ -245,6 +246,8 @@ def test_unlimited_limit_reaches_gitlab_and_windvane_factories(
 
 @pytest.mark.asyncio
 async def test_runner_normalizes_only_declared_apis_guru_routes(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(AsyncFetcher, '_proxy_list', {'http': ['http://proxy.example:8080']})
+
     class FakeApisGuru:
         def __init__(self, target: str, limit: int) -> None:
             assert (target, limit) == ('example.test', 25)
@@ -281,6 +284,77 @@ async def test_runner_normalizes_only_declared_apis_guru_routes(monkeypatch: pyt
 
 
 @pytest.mark.asyncio
+async def test_runner_preserves_an_explicit_www_target_boundary(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeApisGuru:
+        async def process(self, _proxy: bool) -> None:
+            return None
+
+        async def get_hostnames(self) -> list[str]:
+            return ['www.example.com', 'dev.www.example.com', 'bad_label.www.example.com', 'admin.example.com']
+
+        async def get_emails(self) -> list[str]:
+            return []
+
+        async def get_urls(self) -> list[str]:
+            return []
+
+    monkeypatch.setitem(SOURCE_FACTORIES, 'apis-guru', lambda _request: FakeApisGuru())
+
+    outcome = await run_source(SourceRequest('apis-guru', 'www.example.com', 25, 0, False, True))
+
+    assert outcome.observations == (ResultObservation('apis-guru', 'hostname', 'dev.www.example.com'),)
+
+
+@pytest.mark.asyncio
+async def test_runner_keeps_idn_hostnames_inside_a_unicode_target(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeApisGuru:
+        async def process(self, _proxy: bool) -> None:
+            return None
+
+        async def get_hostnames(self) -> list[str]:
+            return [
+                'münchen.example.test',
+                'api.münchen.example.test',
+                'api.xn--mnchen-3ya.example.test',
+                'admin.example.test',
+            ]
+
+        async def get_emails(self) -> list[str]:
+            return []
+
+        async def get_urls(self) -> list[str]:
+            return []
+
+    monkeypatch.setitem(SOURCE_FACTORIES, 'apis-guru', lambda _request: FakeApisGuru())
+
+    outcome = await run_source(SourceRequest('apis-guru', 'münchen.example.test', 25, 0, False, True))
+
+    assert outcome.observations == (ResultObservation('apis-guru', 'hostname', 'api.xn--mnchen-3ya.example.test'),)
+
+
+@pytest.mark.asyncio
+async def test_runner_drops_ipv6_zone_identifiers(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeOnyphe:
+        async def process(self, _proxy: bool) -> None:
+            return None
+
+        async def get_ips(self) -> list[str]:
+            return ['192.0.2.1', 'fe80::1%eth0', '2001:0db8:0:0:0:0:0:1']
+
+        async def get_asns(self) -> set[str]:
+            return set()
+
+    monkeypatch.setitem(SOURCE_FACTORIES, 'onyphe', lambda _request: FakeOnyphe())
+
+    outcome = await run_source(SourceRequest('onyphe', 'example.test', 25, 0, False, False))
+
+    assert outcome.observations == (
+        ResultObservation('onyphe', 'ip', '192.0.2.1'),
+        ResultObservation('onyphe', 'ip', '2001:db8::1'),
+    )
+
+
+@pytest.mark.asyncio
 async def test_runner_times_construction_and_records_missing_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
     ticks = iter((10.0, 10.125))
     events: list[str] = []
@@ -306,6 +380,39 @@ async def test_runner_times_construction_and_records_missing_credentials(monkeyp
         'MissingKeyError',
         'missing-credentials',
     )
+
+
+@pytest.mark.asyncio
+async def test_runner_reports_unavailable_required_proxy_without_starting_source(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    process_called = False
+
+    class UnstartedAdapter:
+        async def process(self, _proxy: bool) -> SourceExecutionReport:
+            nonlocal process_called
+            process_called = True
+            return SourceExecutionReport('failed', 'should-not-run')
+
+        async def get_hostnames(self) -> tuple[()]:
+            return ()
+
+        async def get_emails(self) -> tuple[()]:
+            return ()
+
+        async def get_urls(self) -> tuple[()]:
+            return ()
+
+    monkeypatch.setattr(AsyncFetcher, '_proxy_list', {'http': [], 'socks5': []})
+    monkeypatch.setitem(SOURCE_FACTORIES, 'apis-guru', lambda _request: UnstartedAdapter())
+
+    outcome = await run_source(SourceRequest('apis-guru', 'example.test', 25, 0, True, True))
+
+    assert process_called is False
+    assert outcome.execution.status == 'failed'
+    assert outcome.execution.error_type == 'ProxyUnavailableError'
+    assert outcome.execution.stop_reason == 'proxy-unavailable'
+    assert outcome.observations == ()
 
 
 @pytest.mark.asyncio

@@ -88,6 +88,14 @@ def test_limit_must_be_a_positive_integer(monkeypatch: pytest.MonkeyPatch, limit
         zoomeyesearch.SearchZoomEye('example.com', limit)
 
 
+def test_explicit_www_target_is_not_widened(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(zoomeyesearch.Core, 'zoomeye_key', staticmethod(lambda: 'test-key'))
+
+    search = zoomeyesearch.SearchZoomEye('WWW.Example.COM.', 1)
+
+    assert search.target == 'www.example.com'
+
+
 @pytest.mark.parametrize(
     ('response', 'status', 'reason'),
     [

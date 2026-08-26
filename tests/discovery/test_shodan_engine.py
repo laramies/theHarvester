@@ -248,7 +248,7 @@ class TestShodanEngine:
             return FetcherResponse(
                 body={
                     'data': [{'ip_str': ip, 'port': 443, 'transport': 'tcp'}],
-                    'hostnames': ['CDN.Example.TEST.', 'outside.test'],
+                    'hostnames': ['CDN.WWW.Example.TEST.', 'outside.test'],
                 },
                 status=200,
                 headers={},
@@ -266,7 +266,7 @@ class TestShodanEngine:
             'https://api.shodan.io/shodan/host/203.0.113.10',
             'https://api.shodan.io/shodan/host/203.0.113.11',
         ]
-        assert await search.get_hostnames() == {'cdn.example.test'}
+        assert await search.get_hostnames() == {'cdn.www.example.test'}
         assert report.status == 'failed'
         assert report.stop_reason == 'provider-errors'
 
@@ -559,6 +559,15 @@ class TestShodanEngine:
         assert provider_queries == ['hostname:example.test', 'ssl:example.test']
         assert report.status == 'failed'
         assert report.stop_reason == 'dns-resolution-failed'
+
+    def test_shodan_preserves_an_explicit_www_search_scope(self, monkeypatch):
+        from theHarvester.discovery import shodansearch
+
+        monkeypatch.setattr(shodansearch.Core, 'shodan_key', lambda: 'test-key')
+
+        search = shodansearch.SearchShodan('WWW.Example.TEST.')
+
+        assert search.word == 'www.example.test'
 
     @pytest.mark.asyncio
     async def test_shodan_direct_request_cancellation_propagates(self, monkeypatch):

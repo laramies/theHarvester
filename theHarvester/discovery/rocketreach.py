@@ -34,53 +34,60 @@ class SearchRocketReach:
 
             start = 0
             remaining = self.limit
-            while remaining is None or remaining > 0:
-                page_size = min(100, remaining) if remaining is not None else 100
-                data = {
-                    'query': {'current_employer_domain': [self.word]},
-                    'start': start,
-                    'page_size': page_size,
-                }
-                result = await AsyncFetcher.post_fetch(self.baseurl, headers=headers, data=data, json=True)
-                if not isinstance(result, dict):
-                    break
-
-                detail = result.get('detail', '')
-                if detail and 'Subscribe to a plan to access' in str(detail):
-                    # No more results can be fetched
-                    break
-
-                if detail and 'Request was throttled.' in str(detail):
-                    # Rate limit has been triggered need to sleep extra
-                    logger.info(
-                        f'RocketReach requests have been throttled; '
-                        f'{str(detail).split(" ", 3)[-1].replace("available", "availability")}'
+            async with AsyncFetcher.open_session(headers=headers, proxy=self.proxy, request_timeout=720) as session:
+                while remaining is None or remaining > 0:
+                    page_size = min(100, remaining) if remaining is not None else 100
+                    data = {
+                        'query': {'current_employer_domain': [self.word]},
+                        'start': start,
+                        'page_size': page_size,
+                    }
+                    result = await AsyncFetcher.post_fetch(
+                        self.baseurl,
+                        session=session,
+                        headers=headers,
+                        data=data,
+                        json=True,
                     )
-                    break
+                    if not isinstance(result, dict):
+                        break
 
-                profiles = result.get('profiles', [])
-                if not profiles:
-                    break
+                    detail = result.get('detail', '')
+                    if detail and 'Subscribe to a plan to access' in str(detail):
+                        # No more results can be fetched
+                        break
 
-                for profile in profiles:
-                    if 'linkedin_url' in profile:
-                        self.urls.add(profile['linkedin_url'])
-                    if profile.get('emails'):
-                        for email in profile['emails']:
-                            if email.get('email'):
-                                self.emails.add(email['email'])
+                    if detail and 'Request was throttled.' in str(detail):
+                        # Rate limit has been triggered need to sleep extra
+                        logger.info(
+                            f'RocketReach requests have been throttled; '
+                            f'{str(detail).split(" ", 3)[-1].replace("available", "availability")}'
+                        )
+                        break
 
-                found = len(profiles)
-                if remaining is not None:
-                    remaining -= found
-                start += found
+                    profiles = result.get('profiles', [])
+                    if not profiles:
+                        break
 
-                pagination = result.get('pagination', {})
-                total = pagination.get('total')
-                if isinstance(total, int) and start >= total:
-                    break
-                if found < page_size:
-                    break
+                    for profile in profiles:
+                        if 'linkedin_url' in profile:
+                            self.urls.add(profile['linkedin_url'])
+                        if profile.get('emails'):
+                            for email in profile['emails']:
+                                if email.get('email'):
+                                    self.emails.add(email['email'])
+
+                    found = len(profiles)
+                    if remaining is not None:
+                        remaining -= found
+                    start += found
+
+                    pagination = result.get('pagination', {})
+                    total = pagination.get('total')
+                    if isinstance(total, int) and start >= total:
+                        break
+                    if found < page_size:
+                        break
 
             await asyncio.sleep(get_delay() + 5)
 

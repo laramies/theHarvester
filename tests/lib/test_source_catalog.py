@@ -1,5 +1,5 @@
 from theHarvester.discovery import apisguru, bevigil, builtwith, gitlabsearch, intelxsearch, rocketreach, urlscan, zoomeyesearch
-from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass, ResultRoute, SourceSpec, get_source_spec
+from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass, ResultRoute, SourceSpec, get_source_spec, resolve_sources
 
 
 def test_dead_threatcrowd_source_is_not_selectable() -> None:
@@ -112,6 +112,10 @@ def test_unavailable_venacus_source_is_not_selectable() -> None:
 
 def test_source_lookup_preserves_case_insensitive_legacy_labels() -> None:
     assert get_source_spec('CRTsh') is SOURCE_SPECS['crtsh']
+
+
+def test_source_selection_canonicalizes_case_insensitive_legacy_labels() -> None:
+    assert resolve_sources('CRTsh,ShodanInternetDB') == ['crtsh', 'shodanInternetDB']
 
 
 def test_crt_name_is_a_separate_passive_hostname_source() -> None:
