@@ -55,6 +55,11 @@ class _ProxyTransportState:
 _PROXY_TRANSPORT_STATE: ContextVar[_ProxyTransportState | None] = ContextVar('proxy_transport_state', default=None)
 
 
+def _mark_proxy_transport_failed() -> None:
+    if state := _PROXY_TRANSPORT_STATE.get():
+        state.failed = True
+
+
 class ProxyUnavailableError(Exception):
     pass
 
@@ -695,8 +700,7 @@ class AsyncFetcher:
                     response_byte_limit=response_byte_limit,
                 )
         except aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError:
-            if state := _PROXY_TRANSPORT_STATE.get():
-                state.failed = True
+            _mark_proxy_transport_failed()
             raise
 
     @staticmethod
@@ -867,6 +871,7 @@ class AsyncFetcher:
                     ssl_arg,
                 )
             except (aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, ValueError) as error:
+                _mark_proxy_transport_failed()
                 raise ResponseStreamError('transport-error') from error
         assert session is not None
         try:
@@ -883,6 +888,7 @@ class AsyncFetcher:
                 try:
                     response = await stack.enter_async_context(session.request('GET', url, **request_kwargs))
                 except (aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, ValueError) as error:
+                    _mark_proxy_transport_failed()
                     raise ResponseStreamError('transport-error') from error
                 yield response
         finally:

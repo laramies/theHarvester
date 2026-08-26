@@ -16,7 +16,7 @@ from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib import source_runner
 from theHarvester.lib.asn_attribution import AsnAttributionObservation
 from theHarvester.lib.completed_result import CompletedResult, ResultObservation, SourceExecution
-from theHarvester.lib.core import AsyncFetcher, FetcherResponse, ProxyUnavailableError
+from theHarvester.lib.core import AsyncFetcher, FetcherResponse, ProxyUnavailableError, ResponseStreamError
 from theHarvester.lib.dns_consensus import Addressability
 from theHarvester.lib.enumeration import EnumerationOptions
 from theHarvester.lib.hostchecker import HostDnsRecords
@@ -3653,7 +3653,10 @@ async def test_shodan_action_records_configured_proxy_transport_failure(monkeypa
             session: object | None = None,
         ) -> dict[str, object]:
             assert session is not None
-            assert await AsyncFetcher.fetch(session=FailingSession(), url='https://api.shodan.io/') == ''
+            try:
+                await AsyncFetcher.fetch_json('https://api.shodan.io/', session=FailingSession())
+            except ResponseStreamError:
+                self.error_type = 'TransportError'
             return {}
 
     monkeypatch.setattr(theharvester_main, 'ResultStore', _NoopResultStore)
