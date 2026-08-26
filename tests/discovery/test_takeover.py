@@ -258,7 +258,7 @@ async def test_takeover_keeps_dns_only_nxdomain_evidence_without_http(
 async def test_takeover_fails_closed_when_proxy_mode_has_no_proxy(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(takeover.AsyncFetcher, '_resolve_proxy', lambda _proxy: (None, None))
+    monkeypatch.setattr(takeover.AsyncFetcher, '_proxy_list', {})
     scanner = takeover.TakeoverScanner(
         ['app.example.test'],
         target='example.test',

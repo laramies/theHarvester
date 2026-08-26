@@ -10,7 +10,7 @@ import aiodns
 import aiohttp
 
 from theHarvester.lib.cancellation import drain_tasks_after_cancellation
-from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse, ResponseStreamError
+from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse, ProxyUnavailableError, ResponseStreamError
 from theHarvester.lib.hostnames import normalize_hostname, normalize_scoped_hostname
 from theHarvester.lib.output import output_logger
 from theHarvester.lib.takeover_evidence import (
@@ -540,7 +540,10 @@ class TakeoverScanner:
         self._outcomes.clear()
         self._proxy = None
         if proxy:
-            proxy_url, _proxy_type = AsyncFetcher._resolve_proxy(True)
+            try:
+                proxy_url, _proxy_type = AsyncFetcher._resolve_proxy(True)
+            except ProxyUnavailableError:
+                proxy_url = None
             if proxy_url is None:
                 self.scan_error_type = 'ProxyUnavailableError'
                 self.stop_reason = 'proxy-unavailable'

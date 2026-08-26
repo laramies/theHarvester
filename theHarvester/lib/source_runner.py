@@ -72,6 +72,7 @@ from theHarvester.discovery import (
 from theHarvester.discovery.constants import MissingKeyError
 from theHarvester.lib.asn_attribution import AsnAttributionObservation, canonical_asn_attributions
 from theHarvester.lib.completed_result import ResultKind, ResultObservation, SourceExecution
+from theHarvester.lib.core import AsyncFetcher, ProxyUnavailableError
 from theHarvester.lib.enumeration import DEFAULT_SOURCE_WORKERS
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.result_values import normalize_ip
@@ -320,6 +321,8 @@ async def run_source(
     adapter: Any | None = None
     process_completed = False
     try:
+        if request.proxy and not any(AsyncFetcher().proxy_list.values()):
+            raise ProxyUnavailableError('proxy-unavailable')
         source_spec = get_source_spec(request.source)
         created_adapter = create_source(request)
         _reject_removed_execution_fields(source_spec.name, created_adapter)
@@ -361,6 +364,15 @@ async def run_source(
             (time.perf_counter() - started) * 1000,
             result_count,
             stop_reason=stop_reason,
+        )
+    except ProxyUnavailableError:
+        execution = SourceExecution(
+            request.source,
+            'failed',
+            (time.perf_counter() - started) * 1000,
+            0,
+            'ProxyUnavailableError',
+            'proxy-unavailable',
         )
     except MissingKeyError:
         execution = SourceExecution(

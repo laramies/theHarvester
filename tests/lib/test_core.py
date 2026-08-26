@@ -19,6 +19,7 @@ from theHarvester.lib.core import (
     AsyncFetcher,
     Core,
     FetcherResponse,
+    ProxyUnavailableError,
     ResponseStreamError,
 )
 from theHarvester.lib.output import configure_logging
@@ -477,6 +478,15 @@ async def test_open_session_owns_one_proxy_and_cookie_policy(monkeypatch: pytest
     assert session.connector == 'provider-connector'
     assert session.cookie_jar is cookie_jar
     assert session.timeout.total == 45
+
+
+@pytest.mark.asyncio
+async def test_open_session_fails_closed_when_proxy_mode_has_no_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(AsyncFetcher, '_proxy_list', {})
+
+    with pytest.raises(ProxyUnavailableError, match='proxy-unavailable'):
+        async with AsyncFetcher.open_session(proxy=True):
+            pytest.fail('a direct session must not open when proxy mode is required')
 
 
 @pytest.mark.asyncio
