@@ -77,7 +77,7 @@ from theHarvester.lib.enumeration import DEFAULT_SOURCE_WORKERS
 from theHarvester.lib.hostnames import normalize_scoped_hostname
 from theHarvester.lib.result_values import normalize_ip
 from theHarvester.lib.shodan_evidence import ShodanHostObservation, canonical_shodan_hosts
-from theHarvester.lib.source_catalog import ResultRoute, get_source_spec, source_requires_direct_dns
+from theHarvester.lib.source_catalog import ResultRoute, get_source_spec
 from theHarvester.lib.source_execution import SourceExecutionReport
 
 if TYPE_CHECKING:
@@ -315,16 +315,6 @@ async def run_source(
     process_completed = False
     proxy_transport_failed = False
     source_spec = get_source_spec(request.source)
-    if request.proxy and source_requires_direct_dns(source_spec.name):
-        return SourceOutcome(
-            SourceExecution(
-                source_spec.name,
-                'failed',
-                (time.perf_counter() - started) * 1000,
-                0,
-                stop_reason='direct-transport-only',
-            )
-        )
     try:
         with AsyncFetcher.proxy_scope(request.proxy) as selected_proxy:
             created_adapter = create_source(request)

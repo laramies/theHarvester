@@ -70,10 +70,11 @@ Network activity: provider-facing passive lookup through a configured proxy.
 uv run theHarvester -d example.com -b crtsh -p
 ```
 
-A proxy does not make an assessment anonymous and does not change the authorization boundary. When proxy mode is
-enabled, every supported discovery source and action fails closed with `proxy-unavailable` instead of making a direct
-request if no configured proxy is available. Sources and actions that require direct DNS are rejected before result
-persistence; disable proxy mode to run them. A configured proxy transport failure is recorded as `transport-error`.
+A proxy does not make an assessment anonymous and does not change the authorization boundary. `--proxies` applies to
+supported HTTP(S) provider and target requests, which fail closed with `proxy-unavailable` instead of falling back to
+direct HTTP(S) when no configured proxy is available. DNS queries independently use the operator-selected recursive
+resolver addresses and may run alongside proxied HTTP(S); the resolver and local network can therefore observe that
+DNS traffic. A configured proxy transport failure is recorded as `transport-error`.
 
 ## API protection
 

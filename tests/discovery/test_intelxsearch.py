@@ -227,7 +227,6 @@ async def test_orchestrator_stores_intelx_subdomains_without_dns(monkeypatch: py
             filename='',
             quiet=True,
             dns_lookup=False,
-            dns_server=None,
             dns_resolve='',
             limit=500,
             shodan=False,

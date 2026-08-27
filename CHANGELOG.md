@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added root contributor and security policies, structured issue forms, repository agent guidance, discovery terminology, and an operator-focused documentation wiki ([d090a29a](https://github.com/laramies/theHarvester/commit/d090a29a), [7c491ef5](https://github.com/laramies/theHarvester/commit/7c491ef5), [8b9d420b](https://github.com/laramies/theHarvester/commit/8b9d420b)).
 
 ### Changed
+- Scoped `--proxies` to supported HTTP(S) requests while allowing DNS queries through operator-selected recursive resolvers in the same run.
 - Raised the minimum supported Python version to 3.14, selected it for source checkouts, and limited release validation to that runtime.
 - Replaced the maintenance-only UltraJSON dependency with Python's standard `json` module for provider payloads and legacy reports, removing the native runtime extension without changing JSONL or API serialization.
 - Centralized passive-source completion reporting in an immutable `SourceExecutionReport` returned by adapters, with the source runner alone deriving partial and no-result outcomes from retained evidence; removed mutable per-adapter `execution_status` and `stop_reason` state and made the runner reject adapters that still expose either field.
@@ -77,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Expanded offline regression coverage for discovery providers, configuration contracts, logging, output, documentation, workflow policy, and scope boundaries.
 
 ### Removed
+- Removed the unused legacy `-e`/`--dns-server` CLI option and internal field; use `--dns-resolvers` to select resolver addresses.
 - Removed the unused legacy SecurityTrails parser that stripped leading `www.` labels outside the shared hostname-scope boundary.
 - Removed the mutable runtime takeover fingerprint download and silent handwritten fallback rules.
 - Removed the inert legacy source identifiers `linkedin`, `netcraft`, `omnisint`, `sublist3r`, and `zoomeyeapi`; use the source catalog and shared factory registry for supported providers.
@@ -87,7 +89,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed the nonfunctional ThreatCrowd source because its service hostnames terminate at deleted AWS load balancers and return NXDOMAIN; OTX remains available through its separate adapter.
 
 ### Fixed
-- Made explicit proxy mode fail closed with a sanitized `proxy-unavailable` source outcome, and kept one proxy identity and session across the CriminalIP scan, poll, and report conversation.
+- Made explicit HTTP proxy mode fail closed with a sanitized `proxy-unavailable` source outcome, and kept one proxy identity and session across the CriminalIP scan, poll, and report conversation.
 - Reused one connection pool, proxy identity, and cookie jar across Censys and GitHub Code pagination while keeping provider sessions isolated and cancellation-safe.
 - Sent a stable, versioned theHarvester identity with provider and API requests while preserving explicit browser identities for sources that require them.
 - Kept API endpoint scan URLs canonical instead of prefixing targets onto already complete URLs.

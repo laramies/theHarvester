@@ -261,7 +261,7 @@
               <textarea id="api-scan-paths" name="api_scan_paths" rows="3" placeholder="/api/v2&#10;/health"></textarea>
               <small>Optional list for API endpoint interaction, one URL path per line. Leave empty to use the bundled list.</small>
             </label>
-            <label class="inline-choice"><input type="checkbox" name="proxies"><span>Use configured proxies for supported discovery sources and actions. Supported requests stop with proxy-unavailable if no proxy is configured; direct DNS work is rejected.</span></label>
+            <label class="inline-choice"><input type="checkbox" name="proxies"><span>Use configured proxies for supported HTTP(S) requests. HTTP(S) stops with proxy-unavailable if no proxy is configured; DNS uses the selected resolvers outside this proxy.</span></label>
             <label class="inline-choice"><input type="checkbox" name="no_hosts"><span>Exclude hostname results and host-dependent processing</span></label>
           </div>
         </details>

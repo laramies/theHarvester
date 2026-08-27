@@ -412,26 +412,26 @@ async def test_runner_reports_unavailable_required_proxy_without_starting_source
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('source', ['shodan', 'shodanInternetDB'])
-async def test_runner_rejects_direct_dns_source_before_starting_adapter(
-    monkeypatch: pytest.MonkeyPatch,
-    source: str,
-) -> None:
-    adapter_created = False
+async def test_runner_allows_dns_source_http_requests_to_use_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
+    received: list[str | bool] = []
 
-    def create_adapter(_request: SourceRequest) -> object:
-        nonlocal adapter_created
-        adapter_created = True
-        return object()
+    class ProxiedDnsSource:
+        async def process(self, proxy: str | bool) -> None:
+            received.append(proxy)
 
-    monkeypatch.setitem(SOURCE_FACTORIES, source, create_adapter)
+        async def get_hostnames(self) -> tuple[()]:
+            return ()
+
+        async def get_ips(self) -> tuple[()]:
+            return ()
+
+    monkeypatch.setitem(SOURCE_FACTORIES, 'shodanInternetDB', lambda _request: ProxiedDnsSource())
     monkeypatch.setattr(AsyncFetcher, '_proxy_list', {'http': ['http://proxy.example:8080'], 'socks5': []})
 
-    outcome = await run_source(SourceRequest(source, 'example.test', 25, 0, True, True))
+    outcome = await run_source(SourceRequest('shodanInternetDB', 'example.test', 25, 0, True, True))
 
-    assert adapter_created is False
-    assert outcome.execution.status == 'failed'
-    assert outcome.execution.stop_reason == 'direct-transport-only'
+    assert received == [True]
+    assert outcome.execution.status == 'completed'
     assert outcome.observations == ()
 
 

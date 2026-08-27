@@ -44,16 +44,16 @@ async def test_cli_help_explains_proxy_and_direct_action_scope(
 
     help_text = ' '.join(capsys.readouterr().out.split())
     assert exit_info.value.code == 0
-    assert 'Use proxies.yaml for supported discovery sources and actions.' in help_text
+    assert 'Use proxies.yaml for supported HTTP(S) requests.' in help_text
     assert 'unavailable if no proxy is configured.' in help_text
-    assert 'Direct DNS sources and actions are rejected.' in help_text
+    assert 'DNS queries use the selected resolvers outside this proxy.' in help_text
     assert 'Query the Shodan Host API for discovered IPs, using configured proxies when enabled.' in help_text
     assert (
         'Enrich discovered IPs with sourced ASN attribution, or an explicitly targeted ASN, IP, or prefix, through '
         'RouteViews.' in help_text
     )
     assert 'Exclude hostname results while retaining other result types returned by selected sources.' in help_text
-    assert 'Accepted for compatibility but currently unused; use --dns-resolvers to select resolvers.' in help_text
+    assert '--dns-server' not in help_text
     assert 'Select resolver IPs for DNS actions without enabling hostname resolution.' in help_text
     assert 'text file with one IP per line' in help_text
     assert 'Perform PTR lookups across the /24 network containing each discovered IPv4 address.' in help_text
@@ -68,8 +68,22 @@ async def test_cli_help_explains_proxy_and_direct_action_scope(
     assert '-j SOURCE_WORKERS' in help_text
     assert '--source-workers SOURCE_WORKERS' in help_text
     assert '0 continues to provider exhaustion with no local result or page-count cap' in help_text
-    assert 'DNS requires direct transport, so proxy mode rejects this action before execution.' in help_text
+    assert 'HTTP confirmation requests use the configured proxy when enabled.' in help_text
     assert 'Indicators are not confirmed takeovers.' in help_text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('option', ['-e', '--dns-server'])
+async def test_cli_rejects_removed_dns_server_flag(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], option: str
+) -> None:
+    monkeypatch.setattr(sys, 'argv', ['theHarvester', '-d', 'example.com', option, '192.0.2.53'])
+
+    with pytest.raises(SystemExit) as exit_info:
+        await theharvester_main.start()
+
+    assert exit_info.value.code == 2
+    assert f'unrecognized arguments: {option} 192.0.2.53' in capsys.readouterr().err
 
 
 def _confirmed_vhost(endpoint: str = 'http://192.0.2.10:80/') -> VirtualHostObservation:
@@ -233,41 +247,30 @@ async def test_proxy_mode_rejects_direct_screenshot_action_before_result_store_i
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('source', ['shodan', 'shodanInternetDB'])
-async def test_proxy_mode_rejects_direct_dns_source_before_result_store_initialization(
-    monkeypatch: pytest.MonkeyPatch,
-    source: str,
-) -> None:
-    class UnexpectedResultStore:
-        def __init__(self, *_args: object) -> None:
-            raise AssertionError('result store initialization must follow proxy validation')
-
-    monkeypatch.setattr(theharvester_main, 'ResultStore', UnexpectedResultStore)
-
-    with pytest.raises(ValueError, match=f'Direct DNS sources cannot use --proxies: {source}'):
-        await theharvester_main.start(EnumerationOptions(domain='example.com', proxies=True, quiet=True, source=source))
-
-
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ('options', 'action'),
+    'options',
     [
-        (EnumerationOptions(domain='example.com', proxies=True, quiet=True, take_over=True), 'takeover'),
-        (EnumerationOptions(domain='example.com', proxies=True, quiet=True, dns_lookup=True), 'dns-lookup'),
+        EnumerationOptions(domain='example.com', proxies=True, quiet=True, source='shodan'),
+        EnumerationOptions(domain='example.com', proxies=True, quiet=True, source='shodanInternetDB'),
+        EnumerationOptions(domain='example.com', proxies=True, quiet=True, take_over=True),
+        EnumerationOptions(domain='example.com', proxies=True, quiet=True, dns_lookup=True),
     ],
 )
-async def test_proxy_mode_rejects_direct_dns_action_before_result_store_initialization(
+async def test_proxy_mode_allows_dns_work_to_reach_result_store_initialization(
     monkeypatch: pytest.MonkeyPatch,
     options: EnumerationOptions,
-    action: str,
 ) -> None:
-    class UnexpectedResultStore:
+    class ResultStoreReached(Exception):
+        pass
+
+    class ExpectedResultStore:
         def __init__(self, *_args: object) -> None:
-            raise AssertionError('result store initialization must follow proxy validation')
+            raise ResultStoreReached
 
-    monkeypatch.setattr(theharvester_main, 'ResultStore', UnexpectedResultStore)
+    monkeypatch.setattr(theharvester_main, 'ResultStore', ExpectedResultStore)
+    monkeypatch.setattr(AsyncFetcher, '_proxy_list', {'http': ['http://proxy.example:8080'], 'socks5': []})
 
-    with pytest.raises(ValueError, match=f'Direct DNS actions cannot use --proxies: {action}'):
+    with pytest.raises(ResultStoreReached):
         await theharvester_main.start(options)
 
 

@@ -17,13 +17,10 @@ from theHarvester.lib.evidence_types import EvidenceStatus  # noqa: TC001 - Pyda
 from theHarvester.lib.resolver_selection import DEFAULT_DNS_RESOLVERS, normalize_resolver_addresses
 from theHarvester.lib.result_values import normalize_asn
 from theHarvester.lib.source_catalog import (
-    DIRECT_DNS_ACTIONS,
     SOURCE_SPECS,
     ActivityClass,
     hostname_collection_conflicts,
-    resolve_sources,
     selected_action_names,
-    source_requires_direct_dns,
 )
 from theHarvester.lib.virtual_host import (
     DEFAULT_VHOST_CONCURRENCY,
@@ -112,8 +109,8 @@ class RunRequest(BaseModel):
     proxies: bool = Field(
         default=False,
         description=(
-            'Use configured proxies for supported discovery sources and actions. Supported requests fail '
-            'closed with proxy-unavailable if no proxy is configured. Direct DNS sources and actions are rejected.'
+            'Use configured proxies for supported HTTP(S) requests. HTTP(S) fails closed with proxy-unavailable if no '
+            'proxy is configured. DNS queries use the selected resolvers outside this proxy.'
         ),
     )
     no_hosts: bool = Field(
@@ -172,7 +169,7 @@ class RunRequest(BaseModel):
         default=False,
         description=(
             'Check discovered hosts for DNS provider-gated takeover indicators, with wildcard controls and no redirects. '
-            'DNS requires direct transport, so proxy mode rejects this action before execution. '
+            'HTTP confirmation requests use the configured proxy when enabled. '
             'Indicators are not confirmed takeovers.'
         ),
     )
@@ -275,12 +272,6 @@ class RunRequest(BaseModel):
             return self
         if self.screenshot:
             raise ValueError('Screenshot capture supports direct transport only; proxies must be disabled')
-        direct_sources = [
-            source for source in resolve_sources(self.sources) if source in SOURCE_SPECS and source_requires_direct_dns(source)
-        ]
-        direct_actions = [action for action in selected_action_names(self.model_dump()) if action in DIRECT_DNS_ACTIONS]
-        if direct_work := (*direct_sources, *direct_actions):
-            raise ValueError(f'Direct DNS work cannot use proxies: {", ".join(direct_work)}')
         return self
 
     @model_validator(mode='after')

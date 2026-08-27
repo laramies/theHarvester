@@ -1,6 +1,6 @@
 # Fail closed when explicit proxy mode is unavailable
 
-Status: accepted
+Status: superseded by ADR-0009
 
 ## Decision
 
