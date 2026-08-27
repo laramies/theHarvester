@@ -1,4 +1,14 @@
-from theHarvester.discovery import apisguru, bevigil, builtwith, gitlabsearch, intelxsearch, rocketreach, urlscan, zoomeyesearch
+from theHarvester.discovery import (
+    apisguru,
+    bevigil,
+    builtwith,
+    gitlabsearch,
+    intelxsearch,
+    rocketreach,
+    urlscan,
+    xquik,
+    zoomeyesearch,
+)
 from theHarvester.lib.source_catalog import SOURCE_SPECS, ActivityClass, ResultRoute, SourceSpec, get_source_spec, resolve_sources
 
 
@@ -50,7 +60,7 @@ def test_source_specs_describe_consolidated_routes_not_getter_presence() -> None
 
 
 def test_every_url_source_uses_one_route() -> None:
-    url_sources = {'apis-guru', 'bevigil', 'builtwith', 'gitlab', 'intelx', 'rocketreach', 'urlscan', 'zoomeye'}
+    url_sources = {'apis-guru', 'bevigil', 'builtwith', 'gitlab', 'intelx', 'rocketreach', 'urlscan', 'xquik', 'zoomeye'}
 
     assert {spec.name for spec in SOURCE_SPECS.values() if ResultRoute.URLS in spec.routes} == url_sources
     assert {route.name for route in ResultRoute} == {
@@ -73,6 +83,7 @@ def test_every_url_adapter_uses_one_getter() -> None:
         intelxsearch.SearchIntelx,
         rocketreach.SearchRocketReach,
         urlscan.SearchUrlscan,
+        xquik.SearchXquik,
         zoomeyesearch.SearchZoomEye,
     )
 

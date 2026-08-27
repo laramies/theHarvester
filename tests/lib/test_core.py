@@ -66,6 +66,7 @@ def test_capabilities_and_explicit_sources_form_a_union() -> None:
         "intelx",
         "rocketreach",
         "urlscan",
+        "xquik",
         "zoomeye",
     ]
 

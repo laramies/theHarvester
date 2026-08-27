@@ -169,7 +169,7 @@ Result types in this table always appear in this order: `subdomains`, `emails`, 
 The `shodan` source contributes subdomains. Shodan host enrichment through `-s` or `--shodan` is a separate action and is not a source result route.
 
 <details>
-<summary><strong>View all 59 discovery sources</strong></summary>
+<summary><strong>View all 60 discovery sources</strong></summary>
 
 | Source | Returns | Activity | API key |
 | --- | --- | :---: | :---: |
@@ -230,6 +230,7 @@ The `shodan` source contributes subdomains. Shodan host enrichment through `-s` 
 | [`waybackarchive`](https://web.archive.org/) | subdomains only | P0 | No |
 | [`whoisxml`](https://subdomains.whoisxmlapi.com/) | subdomains only | P0 | Required |
 | [`windvane`](https://windvane.lichoin.com/) | subdomains, emails, ips | P0 | Optional |
+| [`xquik`](https://docs.xquik.com/api-reference/x/search-tweets) | urls only | P0 | Required |
 | [`yahoo`](https://www.yahoo.com/) | subdomains, emails | P0 | No |
 | [`zoomeye`](https://www.zoomeye.ai/) | subdomains, emails, ips, asns, urls | P0 | Required |
 

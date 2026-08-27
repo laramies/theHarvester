@@ -76,6 +76,7 @@ SOURCE_PROVIDER_LINKS = {
     'waybackarchive': 'https://web.archive.org/',
     'whoisxml': 'https://subdomains.whoisxmlapi.com/',
     'windvane': 'https://windvane.lichoin.com/',
+    'xquik': 'https://docs.xquik.com/api-reference/x/search-tweets',
     'yahoo': 'https://www.yahoo.com/',
     'zoomeye': 'https://www.zoomeye.ai/',
 }
@@ -103,7 +104,7 @@ def _declared_source_contracts() -> dict[str, set[str]]:
 
 
 def _source_matrix(readme: str) -> str:
-    return readme.split('<summary><strong>View all 59 discovery sources</strong></summary>', 1)[1].split('</details>', 1)[0]
+    return readme.split('<summary><strong>View all 60 discovery sources</strong></summary>', 1)[1].split('</details>', 1)[0]
 
 
 def _documented_source_rows(readme: str) -> dict[str, list[str]]:
@@ -152,8 +153,8 @@ def test_readme_matches_declared_source_contracts() -> None:
 
     assert _source_matrix(readme).count('| Source | Returns | Activity | API key |') == 1
     assert 'Credentials |' not in _source_matrix(readme)
-    assert len(declared) == 59
-    assert len(documented) == 59
+    assert len(declared) == 60
+    assert len(documented) == 60
     assert documented == declared
     source_links = _documented_source_links(readme)
     assert len(source_links) == len(declared)
@@ -225,7 +226,7 @@ def test_readme_architecture_diagrams_are_local_and_accessible() -> None:
             'theHarvester discovery routes and enrichment',
             Path('docs/images/run-evidence-architecture.svg'),
             'run-evidence-architecture',
-            ('59 discovery adapters', 'CompletedResult evidence contract', 'Terminal · JSONL · SQLite · REST'),
+            ('60 discovery adapters', 'CompletedResult evidence contract', 'Terminal · JSONL · SQLite · REST'),
         ),
         (
             'HarvestView run desk architecture',
