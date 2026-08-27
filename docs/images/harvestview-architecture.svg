@@ -1,158 +1,119 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg viewBox="0 0 960 640" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="harvestview-architecture-title harvestview-architecture-desc">
-  <title id="harvestview-architecture-title">HarvestView run desk architecture</title>
-  <desc id="harvestview-architecture-desc">A loopback-only HarvestView workflow sends a reviewed plan through the authenticated REST API and durable run control to an isolated worker, preserves normalized evidence separately from lifecycle state, supports inspection and child actions, and imports or exports JSONL and SQLite evidence.</desc>
+<svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="harvestview-architecture-title harvestview-architecture-desc">
+  <title id="harvestview-architecture-title">HarvestView local run architecture</title>
+  <desc id="harvestview-architecture-desc">Inside one local-machine boundary, HarvestView submits and inspects runs through an authenticated loopback API, durable run control feeds one isolated worker, completed evidence stays separate from lifecycle state, and JSONL or SQLite moves that evidence without replaying activity.</desc>
   <defs>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap');
-      :root {
-        --paper: #2d3142;
-        --paper-2: #393e53;
-        --ink: #f5f5f5;
-        --muted: #bfc0c0;
-        --soft: #8e98ac;
-        --rule: rgba(245,245,245,.16);
-        --rule-strong: rgba(245,245,245,.28);
-        --boundary-fill: rgba(245,245,245,.025);
-        --accent: #f08a59;
-        --accent-tint: rgba(240,138,89,.10);
-        --link: #6a95d8;
-        --link-tint: rgba(106,149,216,.10);
-      }
-      @media (prefers-color-scheme: light) {
-        :root {
-          --paper: #f5f5f5;
-          --paper-2: #ececec;
-          --ink: #2d3142;
-          --muted: #4f5d75;
-          --soft: #7a8399;
-          --rule: rgba(45,49,66,.14);
-          --rule-strong: rgba(45,49,66,.28);
-          --boundary-fill: rgba(45,49,66,.02);
-          --accent: #b84f24;
-          --accent-tint: rgba(235,108,54,.10);
-          --link: #2e5aa8;
-          --link-tint: rgba(46,90,168,.08);
-        }
-      }
-      .bg { fill: var(--paper); }
-      .title { font: 400 28px 'Instrument Serif', Georgia, serif; fill: var(--ink); }
-      .subtitle { font: 400 12px 'Geist', system-ui, sans-serif; fill: var(--muted); }
-      .eyebrow { font: 600 8px 'Geist Mono', ui-monospace, monospace; letter-spacing: .16em; fill: var(--soft); }
-      .boundary { fill: var(--boundary-fill); stroke: var(--rule-strong); stroke-width: 1; stroke-dasharray: 8 8; }
-      .boundary-mask { fill: var(--paper); }
-      .node { fill: var(--paper); stroke: var(--rule-strong); stroke-width: 1; }
-      .node-muted { fill: var(--paper-2); stroke: var(--rule-strong); stroke-width: 1; }
-      .node-link { fill: var(--link-tint); stroke: var(--link); stroke-width: 1; }
-      .node-focal { fill: var(--accent-tint); stroke: var(--accent); stroke-width: 1.2; }
-      .tag { fill: var(--paper-2); stroke: var(--rule-strong); stroke-width: .8; }
-      .tag-link { fill: var(--link-tint); stroke: var(--link); stroke-width: .8; }
-      .tag-accent { fill: var(--accent-tint); stroke: var(--accent); stroke-width: .8; }
-      .tag-text { font: 600 8px 'Geist Mono', ui-monospace, monospace; letter-spacing: .08em; fill: var(--muted); text-anchor: middle; }
-      .tag-text-link { fill: var(--link); }
-      .tag-text-accent { fill: var(--accent); }
-      .node-title { font: 600 16px 'Geist', system-ui, sans-serif; fill: var(--ink); }
-      .node-copy { font: 400 12px 'Geist Mono', ui-monospace, monospace; fill: var(--muted); }
-      .node-copy-strong { font: 500 12px 'Geist Mono', ui-monospace, monospace; fill: var(--ink); }
-      .connector { fill: none; stroke: var(--muted); stroke-width: 1.2; }
-      .connector-link { fill: none; stroke: var(--link); stroke-width: 1.2; }
-      .connector-accent { fill: none; stroke: var(--accent); stroke-width: 1.2; }
-      .dashed { stroke-dasharray: 4 4; }
-      .marker-muted { fill: var(--muted); }
-      .marker-link { fill: var(--link); }
-      .marker-accent { fill: var(--accent); }
-      .legend { font: 500 12px 'Geist Mono', ui-monospace, monospace; fill: var(--muted); }
+      .title { font: 600 28px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #202124; }
+      .subtitle { font: 400 16px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #5f6368; }
+      .zone { font: 700 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 0.12em; fill: #5f6368; }
+      .tag { font: 700 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 0.08em; fill: #5f6368; }
+      .tag-accent { fill: #e94c52; }
+      .node-title { font: 600 20px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #202124; }
+      .body { font: 400 16px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #5f6368; }
+      .body-strong { font: 600 16px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #202124; }
+      .technical { font: 500 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fill: #5f6368; }
+      .edge-label { font: 700 8px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 0.08em; fill: #5f6368; }
+      .edge-label-link { fill: #415f78; }
     </style>
-    <marker id="harvestview-arrow" markerWidth="8" markerHeight="8" refX="8" refY="4" orient="auto"><polygon points="0 0, 8 4, 0 8" class="marker-muted"/></marker>
-    <marker id="harvestview-arrow-link" markerWidth="8" markerHeight="8" refX="8" refY="4" orient="auto"><polygon points="0 0, 8 4, 0 8" class="marker-link"/></marker>
-    <marker id="harvestview-arrow-accent" markerWidth="8" markerHeight="8" refX="8" refY="4" orient="auto"><polygon points="0 0, 8 4, 0 8" class="marker-accent"/></marker>
+    <marker id="view-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#5f6368"/>
+    </marker>
+    <marker id="view-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#e94c52"/>
+    </marker>
+    <marker id="view-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#415f78"/>
+    </marker>
   </defs>
 
-  <rect width="960" height="640" class="bg"/>
-  <text x="40" y="32" class="eyebrow">HARVESTVIEW · LOCAL OPERATOR WORKFLOW</text>
-  <text x="40" y="64" class="title">One run desk, one durable evidence path</text>
-  <text x="40" y="88" class="subtitle">The browser reviews scope; the API validates; an isolated worker executes; completed evidence remains portable.</text>
+  <rect width="1280" height="720" fill="#f7f7f5"/>
+  <text class="zone" x="48" y="48">HARVESTVIEW</text>
+  <text class="title" x="48" y="84">HarvestView uses the same finite-run engine as the CLI</text>
+  <text class="subtitle" x="48" y="112">Run control tracks work. Completed evidence stays separate and portable.</text>
 
-  <rect x="24" y="120" width="912" height="408" rx="8" class="boundary"/>
-  <rect x="40" y="124" width="204" height="16" rx="4" class="boundary-mask"/>
-  <text x="48" y="136" class="eyebrow">LOCALHOST · 127.0.0.1:5000</text>
+  <!-- Local-machine boundary. -->
+  <rect x="48" y="136" width="1184" height="536" rx="8" fill="#fafafa" stroke="#aeb1b5" stroke-width="1" stroke-dasharray="8,8"/>
+  <rect x="68" y="128" width="252" height="20" fill="#f7f7f5"/>
+  <text class="zone" x="76" y="144">LOCAL MACHINE · 127.0.0.1:5000</text>
 
-  <line x1="220" y1="224" x2="244" y2="224" class="connector" marker-end="url(#harvestview-arrow)"/>
-  <line x1="444" y1="192" x2="468" y2="192" class="connector-link dashed" marker-end="url(#harvestview-arrow-link)"/>
-  <line x1="344" y1="296" x2="344" y2="336" class="connector" marker-end="url(#harvestview-arrow)"/>
-  <line x1="444" y1="408" x2="468" y2="408" class="connector" marker-end="url(#harvestview-arrow)"/>
-  <line x1="568" y1="336" x2="568" y2="296" class="connector-accent" marker-end="url(#harvestview-arrow-accent)"/>
-  <line x1="668" y1="224" x2="692" y2="224" class="connector" marker-end="url(#harvestview-arrow)"/>
-  <line x1="806" y1="296" x2="806" y2="336" class="connector-link" marker-end="url(#harvestview-arrow-link)"/>
+  <!-- Connectors are drawn before nodes. -->
+  <line x1="304" y1="228" x2="360" y2="228" stroke="#5f6368" stroke-width="1.2" marker-end="url(#view-arrow)"/>
+  <line x1="360" y1="280" x2="304" y2="280" stroke="#415f78" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#view-arrow-link)"/>
+  <line x1="580" y1="228" x2="636" y2="228" stroke="#5f6368" stroke-width="1.2" marker-end="url(#view-arrow)"/>
+  <line x1="868" y1="228" x2="924" y2="228" stroke="#5f6368" stroke-width="1.2" marker-end="url(#view-arrow)"/>
+  <line x1="416" y1="404" x2="416" y2="324" stroke="#415f78" stroke-width="1" marker-end="url(#view-arrow-link)"/>
+  <path d="M1004 324 V584 Q1004 592 996 592 H532 Q524 592 524 584 V564" fill="none" stroke="#e94c52" stroke-width="1.2" marker-end="url(#view-arrow-accent)"/>
+  <line x1="580" y1="460" x2="636" y2="460" stroke="#415f78" stroke-width="1.2" marker-end="url(#view-arrow-link)"/>
 
-  <rect x="40" y="152" width="180" height="144" rx="8" class="node"/>
-  <rect x="52" y="164" width="72" height="20" rx="4" class="tag"/>
-  <text x="88" y="180" class="tag-text">BROWSER</text>
-  <text x="56" y="216" class="node-title">Plan and authorize</text>
-  <text x="56" y="240" class="node-copy-strong">target · sources</text>
-  <text x="56" y="256" class="node-copy-strong">actions · P0/P1/P2</text>
-  <text x="56" y="272" class="node-copy">review before submit</text>
+  <!-- Connector labels sit in open corridors with opaque masks. -->
+  <rect x="308" y="200" width="48" height="12" rx="4" fill="#fafafa"/>
+  <text class="edge-label" x="332" y="208" text-anchor="middle">SUBMIT</text>
+  <rect x="312" y="252" width="40" height="12" rx="4" fill="#fafafa"/>
+  <text class="edge-label edge-label-link" x="332" y="260" text-anchor="middle">VIEW</text>
+  <rect x="584" y="200" width="48" height="12" rx="4" fill="#fafafa"/>
+  <text class="edge-label" x="608" y="208" text-anchor="middle">QUEUE</text>
+  <rect x="872" y="200" width="48" height="12" rx="4" fill="#fafafa"/>
+  <text class="edge-label" x="896" y="208" text-anchor="middle">CLAIM</text>
+  <rect x="428" y="352" width="40" height="20" rx="4" fill="#fafafa"/>
+  <text class="edge-label edge-label-link" x="448" y="364" text-anchor="middle">READ</text>
+  <rect x="584" y="432" width="48" height="12" rx="4" fill="#fafafa"/>
+  <text class="edge-label edge-label-link" x="608" y="440" text-anchor="middle">EXPORT</text>
+  <rect x="744" y="568" width="48" height="12" rx="4" fill="#fafafa"/>
+  <text class="edge-label" x="768" y="576" text-anchor="middle">WRITE</text>
 
-  <rect x="244" y="152" width="200" height="144" rx="8" class="node-link"/>
-  <rect x="256" y="164" width="88" height="20" rx="4" class="tag-link"/>
-  <text x="300" y="180" class="tag-text tag-text-link">API GATE</text>
-  <text x="260" y="216" class="node-title">Authenticated REST API</text>
-  <text x="260" y="240" class="node-copy-strong">HttpOnly · X-API-Key</text>
-  <text x="260" y="256" class="node-copy-strong">target · scope · limits</text>
-  <text x="260" y="272" class="node-copy">create · list</text>
-  <text x="260" y="288" class="node-copy">detail · cancel</text>
+  <!-- HarvestView browser -->
+  <rect x="88" y="180" width="216" height="144" rx="8" fill="#ffffff" stroke="#c8cacd" stroke-width="1"/>
+  <line x1="88" y1="180" x2="88" y2="324" stroke="#202124" stroke-width="4"/>
+  <text class="tag" x="112" y="208">BROWSER</text>
+  <text class="node-title" x="112" y="244">Plan and inspect</text>
+  <text class="body" x="112" y="276">target · sources</text>
+  <text class="body" x="112" y="304">actions · history · inspect</text>
 
-  <rect x="468" y="152" width="200" height="144" rx="8" class="node-focal"/>
-  <rect x="480" y="164" width="88" height="20" rx="4" class="tag-accent"/>
-  <text x="524" y="180" class="tag-text tag-text-accent">EVIDENCE</text>
-  <text x="484" y="216" class="node-title">Canonical evidence</text>
-  <text x="484" y="240" class="node-copy-strong">results · provenance</text>
-  <text x="484" y="256" class="node-copy-strong">source/action outcomes</text>
-  <text x="484" y="272" class="node-copy">artifacts · status</text>
-  <text x="484" y="288" class="node-copy">complete · partial · failed</text>
+  <!-- Authenticated loopback API -->
+  <rect x="360" y="180" width="220" height="144" rx="8" fill="#ffffff" stroke="#c8cacd" stroke-width="1"/>
+  <line x1="360" y1="180" x2="360" y2="324" stroke="#202124" stroke-width="4"/>
+  <text class="tag" x="384" y="208">API GATE</text>
+  <text class="node-title" x="384" y="244">Authenticated API</text>
+  <text class="body" x="384" y="276">HttpOnly browser session</text>
+  <text class="technical" x="384" y="304">X-API-KEY FOR CLIENTS</text>
 
-  <rect x="692" y="152" width="228" height="144" rx="8" class="node"/>
-  <rect x="704" y="164" width="112" height="20" rx="4" class="tag"/>
-  <text x="760" y="180" class="tag-text">WORKBENCH</text>
-  <text x="708" y="216" class="node-title">Inspect and act</text>
-  <text x="708" y="240" class="node-copy-strong">history · assessment</text>
-  <text x="708" y="256" class="node-copy-strong">route tabs · search</text>
-  <text x="708" y="272" class="node-copy">filters · copy · logs</text>
-  <text x="708" y="288" class="node-copy">screenshots · child runs</text>
+  <!-- Run control -->
+  <rect x="636" y="156" width="232" height="192" rx="8" fill="#ffffff" stroke="#c8cacd" stroke-width="1"/>
+  <line x1="636" y1="156" x2="636" y2="348" stroke="#202124" stroke-width="4"/>
+  <text class="tag" x="660" y="184">CONTROL</text>
+  <text class="node-title" x="660" y="220">Durable run control</text>
+  <text class="body" x="660" y="252">queue · cancel · deadlines</text>
+  <text class="body" x="660" y="280">worker lease · recovery</text>
+  <line x1="660" y1="300" x2="844" y2="300" stroke="#dfe0e2" stroke-width="1"/>
+  <text class="technical" x="660" y="324">QUEUED · RUNNING · TERMINAL</text>
+  <text class="technical" x="660" y="344">SCHEDULES → FINITE RUNS</text>
 
-  <rect x="244" y="336" width="200" height="144" rx="8" class="node-muted"/>
-  <rect x="256" y="348" width="88" height="20" rx="4" class="tag"/>
-  <text x="300" y="364" class="tag-text">CONTROL</text>
-  <text x="260" y="392" class="node-title">Durable run lifecycle</text>
-  <text x="260" y="420" class="node-copy-strong">queued · running</text>
-  <text x="260" y="436" class="node-copy-strong">cancelling · cancelled</text>
-  <text x="260" y="452" class="node-copy">completed · failed</text>
-  <text x="260" y="468" class="node-copy">leases · deadlines</text>
+  <!-- Isolated worker -->
+  <rect x="924" y="180" width="236" height="144" rx="8" fill="#ffffff" stroke="#c8cacd" stroke-width="1"/>
+  <line x1="924" y1="180" x2="924" y2="324" stroke="#202124" stroke-width="4"/>
+  <text class="tag" x="948" y="208">WORKER</text>
+  <text class="node-title" x="948" y="244">Isolated run worker</text>
+  <text class="body" x="948" y="276">one finite run at a time</text>
+  <text class="body" x="948" y="304">same core as the CLI</text>
 
-  <rect x="468" y="336" width="200" height="144" rx="8" class="node"/>
-  <rect x="480" y="348" width="80" height="20" rx="4" class="tag"/>
-  <text x="520" y="364" class="tag-text">WORKER</text>
-  <text x="484" y="392" class="node-title">Isolated run worker</text>
-  <text x="484" y="420" class="node-copy-strong">claim · execute</text>
-  <text x="484" y="436" class="node-copy-strong">checkpoint · cancel</text>
-  <text x="484" y="452" class="node-copy">58 sources</text>
-  <text x="484" y="468" class="node-copy">10 explicit actions</text>
+  <!-- Completed evidence -->
+  <rect x="360" y="404" width="220" height="160" rx="8" fill="#fff0f1" stroke="#e94c52" stroke-width="1.2"/>
+  <line x1="360" y1="404" x2="360" y2="564" stroke="#e94c52" stroke-width="4"/>
+  <text class="tag tag-accent" x="384" y="432">EVIDENCE</text>
+  <text class="node-title" x="384" y="468">Run evidence</text>
+  <text class="body" x="384" y="500">results · provenance</text>
+  <text class="body" x="384" y="528">outcomes · status</text>
 
-  <rect x="692" y="336" width="228" height="144" rx="8" class="node-link"/>
-  <rect x="704" y="348" width="104" height="20" rx="4" class="tag-link"/>
-  <text x="756" y="364" class="tag-text tag-text-link">INTERCHANGE</text>
-  <text x="708" y="392" class="node-title">Import and export</text>
-  <text x="708" y="420" class="node-copy-strong">JSONL · one run</text>
-  <text x="708" y="436" class="node-copy-strong">SQLite · completed set</text>
-  <text x="708" y="452" class="node-copy">screenshot files separate</text>
+  <!-- Portable interchange -->
+  <rect x="636" y="404" width="232" height="160" rx="8" fill="#ffffff" stroke="#c8cacd" stroke-width="1"/>
+  <line x1="636" y1="404" x2="636" y2="564" stroke="#415f78" stroke-width="4"/>
+  <text class="tag" x="660" y="432">INTERCHANGE</text>
+  <text class="node-title" x="660" y="468">Portable evidence</text>
+  <text class="body" x="660" y="500">JSONL · one run</text>
+  <text class="body" x="660" y="528">SQLite · completed set</text>
+  <text class="technical" x="660" y="552">SCREENSHOT FILES SEPARATE</text>
 
-  <text x="48" y="512" class="node-copy">Provider credentials stay server-side. Lifecycle state never replaces terminal evidence status.</text>
-
-  <line x1="40" y1="584" x2="920" y2="584" stroke="var(--rule)" stroke-width=".8"/>
-  <line x1="48" y1="616" x2="80" y2="616" class="connector" marker-end="url(#harvestview-arrow)"/>
-  <text x="92" y="620" class="legend">run control</text>
-  <line x1="248" y1="616" x2="280" y2="616" class="connector-accent" marker-end="url(#harvestview-arrow-accent)"/>
-  <text x="292" y="620" class="legend">evidence handoff</text>
-  <line x1="500" y1="616" x2="532" y2="616" class="connector-link dashed" marker-end="url(#harvestview-arrow-link)"/>
-  <text x="544" y="620" class="legend">import path</text>
+  <line x1="88" y1="620" x2="1192" y2="620" stroke="#dfe0e2" stroke-width="1"/>
+  <text class="body-strong" x="88" y="648">Portable exports omit control state and screenshot files. Imports run no sources or actions.</text>
 </svg>

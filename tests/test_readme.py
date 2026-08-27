@@ -9,7 +9,7 @@ import yaml
 
 from theHarvester.lib.api.run_evidence import parse_jsonl_import
 from theHarvester.lib.completed_result import parse_result_jsonl
-from theHarvester.lib.source_catalog import ACTION_ACTIVITIES, RESULT_CAPABILITIES, SOURCE_SPECS
+from theHarvester.lib.source_catalog import SOURCE_SPECS
 
 OPTIONAL_API_KEY_SOURCES = {'hackertarget', 'mojeek', 'windvane'}
 SOURCE_ROUTE_ORDER = ('subdomains', 'emails', 'ips', 'asns', 'urls', 'people', 'breaches')
@@ -225,13 +225,13 @@ def test_readme_architecture_diagrams_are_local_and_accessible() -> None:
             'theHarvester discovery routes and enrichment',
             Path('docs/images/run-evidence-architecture.svg'),
             'run-evidence-architecture',
-            ('59 discovery adapters', 'CompletedResult evidence contract', 'Terminal · JSONL · SQLite · REST'),
+            ('Choose the boundary', 'Run and record outcomes', 'Normalize once', 'HARVESTVIEW'),
         ),
         (
             'HarvestView run desk architecture',
             Path('docs/images/harvestview-architecture.svg'),
             'harvestview-architecture',
-            ('Authenticated REST API', 'queued · running', 'Isolated run worker', 'JSONL · one run'),
+            ('Authenticated API', 'Durable run control', 'Isolated run worker', 'JSONL · one run'),
         ),
     )
 
@@ -241,17 +241,22 @@ def test_readme_architecture_diagrams_are_local_and_accessible() -> None:
         assert 'role="img"' in svg_text
         assert f'<title id="{slug}-title">' in svg_text
         assert f'<desc id="{slug}-desc">' in svg_text
-        assert 'viewBox="0 0 960 640"' in svg_text
-        assert '@media (prefers-color-scheme: light)' in svg_text
-        assert "font: 600 16px 'Geist'" in svg_text
+        assert 'viewBox="0 0 1280 720"' in svg_text
+        assert 'system-ui' in svg_text
+        assert 'fonts.googleapis.com' not in svg_text
         assert all(text in svg_text for text in expected_text)
 
     run_diagram = diagrams[0][1].read_text()
     harvestview_diagram = diagrams[1][1].read_text()
-    assert all(capability in run_diagram for capability in RESULT_CAPABILITIES)
-    assert all(action in run_diagram for action in ACTION_ACTIVITIES)
-    assert f'{len(SOURCE_SPECS)} discovery adapters' in run_diagram
-    assert f'{len(ACTION_ACTIVITIES)} explicit actions' in harvestview_diagram
+    assert all(activity in run_diagram for activity in ('P0', 'P1', 'P2'))
+    assert 'COMPLETED · PARTIAL · FAILED' in run_diagram
+    assert 'RATE-LIMITED · SKIPPED' in run_diagram
+    assert 'COMPLETE · PARTIAL · FAILED' in run_diagram
+    assert 'authorized names / addresses' in run_diagram
+    assert 'PARTIAL RESULTS' in run_diagram
+    assert 'SCHEDULES → FINITE RUNS' in harvestview_diagram
+    assert 'Portable exports omit control state and screenshot files.' in harvestview_diagram
+    assert 'Imports run no sources or actions.' in harvestview_diagram
 
 
 def test_wiki_diagrams_are_local_accessible_and_used_deliberately() -> None:

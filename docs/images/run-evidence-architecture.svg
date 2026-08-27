@@ -1,173 +1,113 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg viewBox="0 0 960 640" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="run-evidence-architecture-title run-evidence-architecture-desc">
+<svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="run-evidence-architecture-title run-evidence-architecture-desc">
   <title id="run-evidence-architecture-title">theHarvester discovery and evidence architecture</title>
-  <desc id="run-evidence-architecture-desc">Seven result capabilities and 58 cataloged discovery sources join ten explicit P0, P1, and P2 actions in one normalized evidence contract, which routes identity, network, and action findings to terminal, JSONL, SQLite, REST, HarvestView, screenshots, JSON, and XML outputs.</desc>
+  <desc id="run-evidence-architecture-desc">An authorized finite run selects passive, DNS, or direct activity, records each producer outcome, normalizes results with provenance, and exposes the same evidence through operator, automation, portable, and compatibility outputs.</desc>
   <defs>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap');
-      :root {
-        --paper: #2d3142;
-        --paper-2: #393e53;
-        --ink: #f5f5f5;
-        --muted: #bfc0c0;
-        --soft: #8e98ac;
-        --rule: rgba(245,245,245,.16);
-        --rule-strong: rgba(245,245,245,.28);
-        --zone-fill: rgba(245,245,245,.025);
-        --accent: #f08a59;
-        --accent-tint: rgba(240,138,89,.10);
-        --link: #6a95d8;
-        --link-tint: rgba(106,149,216,.10);
-      }
-      @media (prefers-color-scheme: light) {
-        :root {
-          --paper: #f5f5f5;
-          --paper-2: #ececec;
-          --ink: #2d3142;
-          --muted: #4f5d75;
-          --soft: #7a8399;
-          --rule: rgba(45,49,66,.14);
-          --rule-strong: rgba(45,49,66,.28);
-          --zone-fill: rgba(45,49,66,.02);
-          --accent: #b84f24;
-          --accent-tint: rgba(235,108,54,.10);
-          --link: #2e5aa8;
-          --link-tint: rgba(46,90,168,.08);
-        }
-      }
-      .bg { fill: var(--paper); }
-      .title { font: 400 28px 'Instrument Serif', Georgia, serif; fill: var(--ink); }
-      .subtitle { font: 400 12px 'Geist', system-ui, sans-serif; fill: var(--muted); }
-      .eyebrow { font: 600 8px 'Geist Mono', ui-monospace, monospace; letter-spacing: .16em; fill: var(--soft); }
-      .zone { fill: var(--zone-fill); stroke: var(--rule); stroke-width: .8; }
-      .zone-mask { fill: var(--paper); }
-      .node { fill: var(--paper); stroke: var(--rule-strong); stroke-width: 1; }
-      .node-muted { fill: var(--paper-2); stroke: var(--rule-strong); stroke-width: 1; }
-      .node-link { fill: var(--link-tint); stroke: var(--link); stroke-width: 1; }
-      .node-focal { fill: var(--accent-tint); stroke: var(--accent); stroke-width: 1.2; }
-      .tag { fill: var(--paper-2); stroke: var(--rule-strong); stroke-width: .8; }
-      .tag-link { fill: var(--link-tint); stroke: var(--link); stroke-width: .8; }
-      .tag-accent { fill: var(--accent-tint); stroke: var(--accent); stroke-width: .8; }
-      .tag-text { font: 600 8px 'Geist Mono', ui-monospace, monospace; letter-spacing: .08em; fill: var(--muted); text-anchor: middle; }
-      .tag-text-link { fill: var(--link); }
-      .tag-text-accent { fill: var(--accent); }
-      .node-title { font: 600 16px 'Geist', system-ui, sans-serif; fill: var(--ink); }
-      .node-copy { font: 400 12px 'Geist Mono', ui-monospace, monospace; fill: var(--muted); }
-      .node-copy-strong { font: 500 12px 'Geist Mono', ui-monospace, monospace; fill: var(--ink); }
-      .connector { fill: none; stroke: var(--muted); stroke-width: 1.2; }
-      .connector-link { fill: none; stroke: var(--link); stroke-width: 1.2; }
-      .connector-accent { fill: none; stroke: var(--accent); stroke-width: 1.2; }
-      .marker-muted { fill: var(--muted); }
-      .marker-link { fill: var(--link); }
-      .marker-accent { fill: var(--accent); }
-      .legend { font: 500 12px 'Geist Mono', ui-monospace, monospace; fill: var(--muted); }
+      .title { font: 600 28px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #202124; }
+      .subtitle { font: 400 16px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #5f6368; }
+      .step { font: 700 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 0.12em; fill: #5f6368; }
+      .step-accent { fill: #e94c52; }
+      .node-title { font: 600 20px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #202124; }
+      .body { font: 400 16px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #5f6368; }
+      .body-strong { font: 600 16px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #202124; }
+      .technical { font: 500 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fill: #5f6368; }
+      .technical-accent { font: 700 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fill: #e94c52; }
+      .callout { font: 600 16px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #202124; }
     </style>
-    <marker id="run-evidence-arrow" markerWidth="8" markerHeight="8" refX="8" refY="4" orient="auto"><polygon points="0 0, 8 4, 0 8" class="marker-muted"/></marker>
-    <marker id="run-evidence-arrow-link" markerWidth="8" markerHeight="8" refX="8" refY="4" orient="auto"><polygon points="0 0, 8 4, 0 8" class="marker-link"/></marker>
-    <marker id="run-evidence-arrow-accent" markerWidth="8" markerHeight="8" refX="8" refY="4" orient="auto"><polygon points="0 0, 8 4, 0 8" class="marker-accent"/></marker>
+    <marker id="run-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#5f6368"/>
+    </marker>
+    <marker id="run-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#e94c52"/>
+    </marker>
+    <marker id="run-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#415f78"/>
+    </marker>
   </defs>
 
-  <rect width="960" height="640" class="bg"/>
-  <text x="40" y="32" class="eyebrow">DISCOVERY · ENRICHMENT · ATTRIBUTABLE EVIDENCE</text>
-  <text x="40" y="64" class="title">From source selection to durable evidence</text>
-  <text x="40" y="88" class="subtitle">Every selected source and action reports its own outcome before results are deduplicated, attributed, and exported.</text>
+  <rect width="1280" height="720" fill="#f7f7f5"/>
 
-  <rect x="40" y="120" width="512" height="448" rx="8" class="zone"/>
-  <rect x="52" y="124" width="132" height="16" rx="4" class="zone-mask"/>
-  <text x="60" y="136" class="eyebrow">SELECT + EXECUTE</text>
-  <rect x="576" y="120" width="344" height="448" rx="8" class="zone"/>
-  <rect x="588" y="124" width="124" height="16" rx="4" class="zone-mask"/>
-  <text x="596" y="136" class="eyebrow">EVIDENCE ROUTES</text>
+  <text class="step" x="48" y="48">THEHARVESTER RUN</text>
+  <text class="title" x="48" y="84">One finite run becomes attributable evidence</text>
+  <text class="subtitle" x="48" y="112">Selection controls activity. Producer outcomes survive normalization and export.</text>
 
-  <line x1="260" y1="216" x2="332" y2="216" class="connector" marker-end="url(#run-evidence-arrow)"/>
-  <line x1="432" y1="288" x2="432" y2="304" class="connector" marker-end="url(#run-evidence-arrow)"/>
-  <line x1="132" y1="424" x2="132" y2="400" class="connector-link" marker-end="url(#run-evidence-arrow-link)"/>
-  <line x1="296" y1="424" x2="296" y2="400" class="connector" marker-end="url(#run-evidence-arrow)"/>
-  <line x1="460" y1="424" x2="460" y2="400" class="connector" marker-end="url(#run-evidence-arrow)"/>
-  <path d="M532 328 H544 Q552 328 552 320 V216 Q552 208 560 208 H600" class="connector" marker-end="url(#run-evidence-arrow)"/>
-  <path d="M532 352 H584 Q592 352 592 360 H600" class="connector" marker-end="url(#run-evidence-arrow)"/>
-  <path d="M532 376 H560 Q568 376 568 384 V496 Q568 504 576 504 H600" class="connector" marker-end="url(#run-evidence-arrow)"/>
+  <!-- Connectors are drawn before nodes so their endpoints remain clean. -->
+  <line x1="256" y1="296" x2="296" y2="296" stroke="#5f6368" stroke-width="1.2" marker-end="url(#run-arrow)"/>
+  <line x1="568" y1="296" x2="616" y2="296" stroke="#5f6368" stroke-width="1.2" marker-end="url(#run-arrow)"/>
+  <line x1="864" y1="296" x2="912" y2="296" stroke="#5f6368" stroke-width="1.2" marker-end="url(#run-arrow)"/>
+  <line x1="1072" y1="424" x2="1072" y2="504" stroke="#e94c52" stroke-width="1.2" marker-end="url(#run-arrow-accent)"/>
 
-  <rect x="60" y="144" width="200" height="144" rx="8" class="node"/>
-  <rect x="72" y="156" width="56" height="20" rx="4" class="tag"/>
-  <text x="100" y="172" class="tag-text">SCOPE</text>
-  <text x="76" y="208" class="node-title">Scope and source</text>
-  <text x="76" y="228" class="node-title">selection</text>
-  <text x="76" y="252" class="node-copy-strong">7 result capabilities</text>
-  <text x="76" y="272" class="node-copy">names · all · no-hosts</text>
+  <!-- 01 · authorized request -->
+  <rect x="48" y="168" width="208" height="256" rx="8" fill="#ffffff" stroke="#c8cacd" stroke-width="1"/>
+  <line x1="48" y1="168" x2="48" y2="424" stroke="#202124" stroke-width="4"/>
+  <text class="step" x="72" y="200">01 · SCOPE</text>
+  <text class="node-title" x="72" y="240">Define the run</text>
+  <text class="body" x="72" y="280">One authorized target</text>
+  <text class="body" x="72" y="312">Selected sources</text>
+  <text class="body" x="72" y="344">Explicit actions</text>
+  <line x1="72" y1="372" x2="232" y2="372" stroke="#dfe0e2" stroke-width="1"/>
+  <text class="technical" x="72" y="400">FINITE · BOUNDED</text>
 
-  <rect x="332" y="144" width="200" height="144" rx="8" class="node"/>
-  <rect x="344" y="156" width="72" height="20" rx="4" class="tag"/>
-  <text x="380" y="172" class="tag-text">SOURCES</text>
-  <text x="348" y="208" class="node-title">59 discovery adapters</text>
-  <text x="348" y="232" class="node-copy-strong">search · CT · DNS data</text>
-  <text x="348" y="248" class="node-copy-strong">code · archives</text>
-  <text x="348" y="264" class="node-copy-strong">threat intelligence</text>
-  <text x="348" y="280" class="node-copy">activity · keys · outcomes</text>
+  <!-- 02 · activity boundary -->
+  <rect x="296" y="144" width="272" height="304" rx="8" fill="#ffffff" stroke="#c8cacd" stroke-width="1"/>
+  <line x1="296" y1="144" x2="296" y2="448" stroke="#202124" stroke-width="4"/>
+  <text class="step" x="320" y="176">02 · ACTIVITY</text>
+  <text class="node-title" x="320" y="216">Choose the boundary</text>
+  <text class="technical" x="320" y="260">P0</text>
+  <text class="body-strong" x="364" y="260">Passive collection</text>
+  <text class="body" x="364" y="284">public providers / datasets</text>
+  <line x1="320" y1="304" x2="544" y2="304" stroke="#dfe0e2" stroke-width="1"/>
+  <text class="technical" x="320" y="336">P1</text>
+  <text class="body-strong" x="364" y="336">DNS interaction</text>
+  <text class="body" x="364" y="360">authorized names / addresses</text>
+  <line x1="320" y1="380" x2="544" y2="380" stroke="#dfe0e2" stroke-width="1"/>
+  <text class="technical-accent" x="320" y="412">P2</text>
+  <text class="body-strong" x="364" y="412">Direct interaction</text>
+  <text class="body" x="364" y="436">selected target endpoints</text>
 
-  <rect x="60" y="304" width="472" height="96" rx="8" class="node-focal"/>
-  <rect x="72" y="316" width="104" height="20" rx="4" class="tag-accent"/>
-  <text x="124" y="332" class="tag-text tag-text-accent">NORMALIZE</text>
-  <text x="188" y="332" class="node-title">CompletedResult evidence contract</text>
-  <text x="76" y="364" class="node-copy-strong">dedupe · provenance · source and action outcomes</text>
-  <text x="76" y="384" class="node-copy">complete · partial · failed evidence · artifacts</text>
+  <!-- 03 · execution and producer outcomes -->
+  <rect x="616" y="168" width="248" height="256" rx="8" fill="#ffffff" stroke="#c8cacd" stroke-width="1"/>
+  <line x1="616" y1="168" x2="616" y2="424" stroke="#202124" stroke-width="4"/>
+  <text class="step" x="640" y="200">03 · EXECUTE</text>
+  <text class="node-title" x="640" y="240">Run and record outcomes</text>
+  <text class="body" x="640" y="280">Collect observations</text>
+  <text class="body" x="640" y="312">Keep results so far</text>
+  <text class="body" x="640" y="344">Record producer outcomes</text>
+  <line x1="640" y1="372" x2="840" y2="372" stroke="#dfe0e2" stroke-width="1"/>
+  <text class="technical" x="640" y="400">COMPLETED · PARTIAL · FAILED</text>
+  <text class="technical" x="640" y="420">RATE-LIMITED · SKIPPED</text>
 
-  <rect x="60" y="424" width="144" height="128" rx="8" class="node-link"/>
-  <rect x="72" y="436" width="40" height="20" rx="4" class="tag-link"/>
-  <text x="92" y="452" class="tag-text tag-text-link">P0</text>
-  <text x="76" y="480" class="node-title">Provider</text>
-  <text x="76" y="500" class="node-title">enrichment</text>
-  <text x="76" y="524" class="node-copy-strong">shodan</text>
-  <text x="76" y="544" class="node-copy-strong">routeviews</text>
+  <!-- 04 · normalized evidence -->
+  <rect x="912" y="168" width="320" height="256" rx="8" fill="#fff0f1" stroke="#e94c52" stroke-width="1.2"/>
+  <line x1="912" y1="168" x2="912" y2="424" stroke="#e94c52" stroke-width="4"/>
+  <text class="step step-accent" x="936" y="200">04 · EVIDENCE</text>
+  <text class="node-title" x="936" y="240">Normalize once</text>
+  <text class="body" x="936" y="280">Canonical kind + value</text>
+  <text class="body" x="936" y="312">Provenance survives deduplication</text>
+  <text class="body" x="936" y="344">Producer outcomes stay attached</text>
+  <line x1="936" y1="372" x2="1208" y2="372" stroke="#efc7c9" stroke-width="1"/>
+  <text class="technical-accent" x="936" y="400">COMPLETE · PARTIAL · FAILED</text>
 
-  <rect x="224" y="424" width="144" height="128" rx="8" class="node-muted"/>
-  <rect x="236" y="436" width="40" height="20" rx="4" class="tag"/>
-  <text x="256" y="452" class="tag-text">P1</text>
-  <text x="240" y="480" class="node-title">DNS interaction</text>
-  <text x="240" y="500" class="node-copy-strong">dns-resolve</text>
-  <text x="240" y="516" class="node-copy-strong">dns-lookup</text>
-  <text x="240" y="532" class="node-copy-strong">dns-brute</text>
-  <text x="240" y="548" class="node-copy-strong">dns-recursive</text>
+  <!-- Editorial point -->
+  <line x1="48" y1="520" x2="48" y2="596" stroke="#e94c52" stroke-width="4"/>
+  <text class="step step-accent" x="72" y="536">PARTIAL RESULTS</text>
+  <text class="callout" x="72" y="572">theHarvester keeps results when</text>
+  <text class="callout" x="72" y="596">one producer stops early.</text>
 
-  <rect x="388" y="424" width="144" height="128" rx="8" class="node-focal"/>
-  <rect x="400" y="436" width="40" height="20" rx="4" class="tag-accent"/>
-  <text x="420" y="452" class="tag-text tag-text-accent">P2</text>
-  <text x="404" y="480" class="node-title">Direct action</text>
-  <text x="404" y="500" class="node-copy-strong">api-scan</text>
-  <text x="404" y="516" class="node-copy-strong">screenshot</text>
-  <text x="404" y="532" class="node-copy-strong">takeover</text>
-  <text x="404" y="548" class="node-copy-strong">vhost</text>
-
-  <rect x="600" y="152" width="296" height="112" rx="8" class="node"/>
-  <rect x="612" y="164" width="88" height="20" rx="4" class="tag"/>
-  <text x="656" y="180" class="tag-text">IDENTITY</text>
-  <text x="616" y="208" class="node-title">Identity and contact</text>
-  <text x="616" y="236" class="node-copy-strong">subdomains · emails · urls</text>
-  <text x="616" y="256" class="node-copy-strong">people · person links · breaches</text>
-
-  <rect x="600" y="288" width="296" height="144" rx="8" class="node"/>
-  <rect x="612" y="300" width="88" height="20" rx="4" class="tag"/>
-  <text x="656" y="316" class="tag-text">NETWORK</text>
-  <text x="616" y="344" class="node-title">Network and action evidence</text>
-  <text x="616" y="372" class="node-copy-strong">ips · asns · prefixes</text>
-  <text x="616" y="392" class="node-copy-strong">Shodan hosts · takeover</text>
-  <text x="616" y="412" class="node-copy-strong">recursive DNS · vhost evidence</text>
-  <text x="616" y="428" class="node-copy">scope extension · external relations</text>
-
-  <rect x="600" y="464" width="296" height="88" rx="8" class="node"/>
-  <rect x="612" y="476" width="72" height="20" rx="4" class="tag"/>
-  <text x="648" y="492" class="tag-text">OUTPUT</text>
-  <text x="700" y="492" class="node-title">Durable outputs</text>
-  <text x="616" y="520" class="node-copy-strong">Terminal · JSONL · SQLite · REST</text>
-  <text x="616" y="540" class="node-copy">HarvestView · screenshots · JSON/XML</text>
-
-  <line x1="40" y1="584" x2="920" y2="584" stroke="var(--rule)" stroke-width=".8"/>
-  <line x1="48" y1="616" x2="80" y2="616" class="connector" marker-end="url(#run-evidence-arrow)"/>
-  <text x="92" y="620" class="legend">evidence flow</text>
-  <rect x="240" y="604" width="20" height="20" rx="4" class="tag-link"/>
-  <text x="272" y="620" class="legend">P0 provider</text>
-  <rect x="432" y="604" width="20" height="20" rx="4" class="tag"/>
-  <text x="464" y="620" class="legend">P1 DNS</text>
-  <rect x="584" y="604" width="20" height="20" rx="4" class="tag-accent"/>
-  <text x="616" y="620" class="legend">P2 direct</text>
+  <!-- Output surfaces -->
+  <rect x="616" y="504" width="616" height="144" rx="8" fill="#ffffff" stroke="#c8cacd" stroke-width="1"/>
+  <text class="step" x="640" y="532">USE THE SAME EVIDENCE</text>
+  <line x1="784" y1="548" x2="784" y2="628" stroke="#dfe0e2" stroke-width="1"/>
+  <line x1="936" y1="548" x2="936" y2="628" stroke="#dfe0e2" stroke-width="1"/>
+  <line x1="1088" y1="548" x2="1088" y2="628" stroke="#dfe0e2" stroke-width="1"/>
+  <text class="body-strong" x="640" y="572">Review</text>
+  <text class="technical" x="640" y="600">TERMINAL</text>
+  <text class="technical" x="640" y="620">HARVESTVIEW</text>
+  <text class="body-strong" x="808" y="572">Automate</text>
+  <text class="technical" x="808" y="600">REST · JSONL</text>
+  <text class="body-strong" x="960" y="572">Retain</text>
+  <text class="technical" x="960" y="600">SQLITE</text>
+  <text class="body-strong" x="1112" y="572">Integrate</text>
+  <text class="technical" x="1112" y="600">JSON · XML</text>
 </svg>
