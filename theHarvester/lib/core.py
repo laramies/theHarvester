@@ -4,10 +4,13 @@ import asyncio
 import contextlib
 import json as json_loader
 import logging
+import os
 import random
 import re
 import ssl
-from dataclasses import dataclass
+import tempfile
+from contextvars import ContextVar
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
@@ -22,7 +25,7 @@ from theHarvester.lib.output import output_logger
 from theHarvester.lib.source_catalog import SOURCE_SPECS, resolve_sources
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Sized
+    from collections.abc import AsyncIterator, Iterator, Sized
 
     from aiohttp.abc import AbstractCookieJar
 
@@ -41,6 +44,24 @@ _STREAM_LINE_END = re.compile(rb'[\r\n]')
 
 StreamErrorReason = Literal['invalid-response', 'response-limit', 'transport-error']
 StreamFraming = Literal['ndjson', 'sse']
+_SELECTED_PROXY: ContextVar[tuple[str, str] | None] = ContextVar('selected_proxy', default=None)
+
+
+@dataclass
+class _ProxyTransportState:
+    failed: bool = False
+
+
+_PROXY_TRANSPORT_STATE: ContextVar[_ProxyTransportState | None] = ContextVar('proxy_transport_state', default=None)
+
+
+def _mark_proxy_transport_failed() -> None:
+    if state := _PROXY_TRANSPORT_STATE.get():
+        state.failed = True
+
+
+class ProxyUnavailableError(Exception):
+    pass
 
 
 class ResponseStreamError(Exception):
@@ -62,6 +83,16 @@ class FetcherResponse:
     body: Any
     status: int
     headers: dict[str, str]
+    links: dict[str, dict[str, str]] = field(default_factory=dict)
+
+
+def _response_links(response: aiohttp.ClientResponse) -> dict[str, dict[str, str]]:
+    try:
+        return {
+            str(relation): {str(name): str(value) for name, value in link.items()} for relation, link in response.links.items()
+        }
+    except AttributeError, TypeError, ValueError:
+        return {}
 
 
 def _reject_json_constant(value: str) -> None:
@@ -85,6 +116,7 @@ async def _bounded_response_chunks(
     except ResponseStreamError:
         raise
     except (aiohttp.ClientError, TimeoutError, OSError) as error:
+        _mark_proxy_transport_failed()
         raise ResponseStreamError('transport-error') from error
 
 
@@ -218,8 +250,30 @@ class Core:
         # Fallback to creating default in the user's home dir
         default = (DATA_DIR / filename).read_text()
         dest = CONFIG_DIRS[0].expanduser() / filename
-        dest.parent.mkdir(exist_ok=True)
-        dest.write_text(default)
+        dest.parent.mkdir(mode=0o700, exist_ok=True)
+        temporary_file = tempfile.NamedTemporaryFile(
+            mode='w',
+            encoding='utf-8',
+            dir=dest.parent,
+            prefix=f'.{filename}.',
+            delete=False,
+        )
+        temporary_path = Path(temporary_file.name)
+        try:
+            with temporary_file:
+                os.chmod(temporary_path, 0o600)
+                temporary_file.write(default)
+                temporary_file.flush()
+                os.fsync(temporary_file.fileno())
+            try:
+                os.link(temporary_path, dest)
+            except FileExistsError:
+                config = dest.read_text()
+                if not Core.quiet:
+                    logger.info(f'Read {filename} from {dest}')
+                return config
+        finally:
+            temporary_path.unlink(missing_ok=True)
         output_logger.info(f'Created default {filename} at {dest}')
         return default
 
@@ -474,11 +528,38 @@ class AsyncFetcher:
         if isinstance(proxy, str) and proxy != '':
             return proxy, 'socks5' if proxy.startswith('socks5://') else 'http'
         if isinstance(proxy, bool) and proxy:
+            if selected := _SELECTED_PROXY.get():
+                return selected
             try:
-                return cls._get_random_proxy(cls().proxy_list)
+                resolved = cls._get_random_proxy(cls().proxy_list)
             except IndexError, TypeError, ValueError:
-                return None, None
+                resolved = (None, None)
+            if resolved[0] is None:
+                raise ProxyUnavailableError('proxy-unavailable')
+            return resolved
         return None, None
+
+    @classmethod
+    @contextlib.contextmanager
+    def proxy_scope(cls, required: bool) -> Iterator[bool]:
+        if not required:
+            yield False
+            return
+        proxy_url, proxy_type = cls._resolve_proxy(True)
+        assert proxy_url is not None
+        assert proxy_type is not None
+        token = _SELECTED_PROXY.set((proxy_url, proxy_type))
+        transport_token = _PROXY_TRANSPORT_STATE.set(_ProxyTransportState())
+        try:
+            yield True
+        finally:
+            _PROXY_TRANSPORT_STATE.reset(transport_token)
+            _SELECTED_PROXY.reset(token)
+
+    @staticmethod
+    def proxy_transport_failed() -> bool:
+        state = _PROXY_TRANSPORT_STATE.get()
+        return state is not None and state.failed
 
     @classmethod
     async def _build_session(
@@ -489,10 +570,11 @@ class AsyncFetcher:
         proxy_type: str | None = None,
         ssl_context: ssl.SSLContext | bool | None = None,
         cookie_jar: AbstractCookieJar | None = None,
+        connector: aiohttp.BaseConnector | None = None,
     ) -> aiohttp.ClientSession:
-        connector = None
+        owns_connector = connector is None
         if proxy_url is not None or proxy_type is not None or ssl_context is not None:
-            connector = await cls._create_connector(proxy_url, proxy_type, ssl_context)
+            connector = connector or await cls._create_connector(proxy_url, proxy_type, ssl_context)
         session_kwargs: dict[str, Any] = {
             'headers': headers,
             'timeout': client_timeout,
@@ -502,7 +584,41 @@ class AsyncFetcher:
             session_kwargs['proxy'] = proxy_url
         if cookie_jar is not None:
             session_kwargs['cookie_jar'] = cookie_jar
-        return aiohttp.ClientSession(**session_kwargs)
+        try:
+            return aiohttp.ClientSession(**session_kwargs)
+        except BaseException:
+            if owns_connector and connector is not None:
+                await connector.close()
+            raise
+
+    @classmethod
+    async def create_session(
+        cls,
+        *,
+        headers: dict[str, str] | None = None,
+        proxy: str | bool | None = '',
+        request_timeout: int | None = None,
+        cookie_jar: AbstractCookieJar | None = None,
+        verify: bool | None = True,
+        unlimited_timeout: bool = False,
+        connector: aiohttp.BaseConnector | None = None,
+    ) -> aiohttp.ClientSession:
+        """Create a caller-owned provider session with normalized transport failures."""
+        proxy_url, proxy_type = cls._resolve_proxy(proxy)
+        try:
+            build_options = {'connector': connector} if connector is not None else {}
+            return await cls._build_session(
+                cls._default_headers(headers),
+                aiohttp.ClientTimeout(total=None) if unlimited_timeout else cls._request_timeout(request_timeout),
+                proxy_url,
+                proxy_type,
+                cls._ssl_context() if verify is True else cls._ssl_context(verify),
+                cookie_jar,
+                **build_options,
+            )
+        except (aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, ValueError) as error:
+            _mark_proxy_transport_failed()
+            raise ResponseStreamError('transport-error') from error
 
     @classmethod
     @contextlib.asynccontextmanager
@@ -513,16 +629,15 @@ class AsyncFetcher:
         proxy: str | bool | None = '',
         request_timeout: int | None = None,
         cookie_jar: AbstractCookieJar | None = None,
+        verify: bool | None = True,
     ) -> AsyncIterator[aiohttp.ClientSession]:
         """Own one connection pool, proxy identity, and cookie jar for a provider conversation."""
-        proxy_url, proxy_type = cls._resolve_proxy(proxy)
-        session = await cls._build_session(
-            cls._default_headers(headers),
-            cls._request_timeout(request_timeout),
-            proxy_url,
-            proxy_type,
-            cls._ssl_context(),
-            cookie_jar,
+        session = await cls.create_session(
+            headers=headers,
+            proxy=proxy,
+            request_timeout=request_timeout,
+            cookie_jar=cookie_jar,
+            verify=verify,
         )
         body_error: BaseException | None = None
         try:
@@ -611,23 +726,27 @@ class AsyncFetcher:
         if json_body is not None:
             request_kwargs.pop('data', None)
             request_kwargs['json'] = json_body
-        if request_timeout:
-            async with asyncio.timeout(request_timeout):
-                async with session.request(method.upper(), url, **request_kwargs) as response:
-                    return await cls._read_response(
-                        response,
-                        json=json,
-                        include_metadata=include_metadata,
-                        response_byte_limit=response_byte_limit,
-                    )
+        try:
+            if request_timeout:
+                async with asyncio.timeout(request_timeout):
+                    async with session.request(method.upper(), url, **request_kwargs) as response:
+                        return await cls._read_response(
+                            response,
+                            json=json,
+                            include_metadata=include_metadata,
+                            response_byte_limit=response_byte_limit,
+                        )
 
-        async with session.request(method.upper(), url, **request_kwargs) as response:
-            return await cls._read_response(
-                response,
-                json=json,
-                include_metadata=include_metadata,
-                response_byte_limit=response_byte_limit,
-            )
+            async with session.request(method.upper(), url, **request_kwargs) as response:
+                return await cls._read_response(
+                    response,
+                    json=json,
+                    include_metadata=include_metadata,
+                    response_byte_limit=response_byte_limit,
+                )
+        except aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError:
+            _mark_proxy_transport_failed()
+            raise
 
     @staticmethod
     def _get_random_proxy(proxy_dict: dict) -> tuple[str | None, str | None]:
@@ -670,6 +789,7 @@ class AsyncFetcher:
         json_body: dict[str, Any] | None = None,
         *,
         session: aiohttp.ClientSession | None = None,
+        response_byte_limit: int | None = None,
     ) -> Any:
         headers = cls._default_headers(headers)
         # By default, timeout is 5 minutes, changed to 12-minutes
@@ -685,6 +805,7 @@ class AsyncFetcher:
                         json=json,
                         include_metadata=include_metadata,
                         json_body=json_body,
+                        response_byte_limit=response_byte_limit,
                     )
             request_kwargs: dict[str, Any] = {
                 'data': cls._normalize_data(data) if json_body is None else None,
@@ -698,6 +819,7 @@ class AsyncFetcher:
                 json=json,
                 json_body=json_body,
                 include_metadata=include_metadata,
+                response_byte_limit=response_byte_limit,
                 **request_kwargs,
             )
         except aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, UnicodeDecodeError, ValueError:
@@ -797,6 +919,7 @@ class AsyncFetcher:
                     ssl_arg,
                 )
             except (aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, ValueError) as error:
+                _mark_proxy_transport_failed()
                 raise ResponseStreamError('transport-error') from error
         assert session is not None
         try:
@@ -813,6 +936,7 @@ class AsyncFetcher:
                 try:
                     response = await stack.enter_async_context(session.request('GET', url, **request_kwargs))
                 except (aiohttp.ClientError, TimeoutError, OSError, ssl.SSLError, ValueError) as error:
+                    _mark_proxy_transport_failed()
                     raise ResponseStreamError('transport-error') from error
                 yield response
         finally:
@@ -842,7 +966,12 @@ class AsyncFetcher:
         ) as response:
             response_headers = {name.lower(): value for name, value in response.headers.items()}
             if not 200 <= response.status < 300 or response.status == 204:
-                return FetcherResponse(body=None, status=response.status, headers=response_headers)
+                return FetcherResponse(
+                    body=None,
+                    status=response.status,
+                    headers=response_headers,
+                    links=_response_links(response),
+                )
             try:
                 if int(response_headers.get('content-length', '0')) > MAX_PROVIDER_JSON_BYTES:
                     raise ResponseStreamError('response-limit')
@@ -858,7 +987,12 @@ class AsyncFetcher:
                 parsed = json_loader.loads(text, parse_constant=_reject_json_constant)
             except (UnicodeDecodeError, ValueError, RecursionError) as error:
                 raise ResponseStreamError('invalid-response') from error
-            return FetcherResponse(body=parsed, status=response.status, headers=response_headers)
+            return FetcherResponse(
+                body=parsed,
+                status=response.status,
+                headers=response_headers,
+                links=_response_links(response),
+            )
 
     @classmethod
     async def fetch_text(
@@ -953,6 +1087,8 @@ class AsyncFetcher:
         session: aiohttp.ClientSession | None = None,
     ) -> list[Any]:
         if session is not None:
+            if proxy:
+                raise ValueError('proxy selection is not supported with a caller-owned session')
             return list(
                 await asyncio.gather(
                     *[
@@ -968,61 +1104,18 @@ class AsyncFetcher:
                 )
             )
         # By default, timeout is 5 minutes; 60 seconds should suffice
-        headers = cls._default_headers(headers)
-        timeout = cls._request_timeout(60)
-        if len(params) == 0:
-            async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
-                if proxy:
-                    # Get random proxy for each URL (returns tuple of proxy_url and proxy_type)
-                    proxy_data = [cls._get_random_proxy(cls().proxy_list) for _ in urls]
-                    return list(
-                        await asyncio.gather(
-                            *[
-                                AsyncFetcher.fetch(
-                                    session,
-                                    url,
-                                    json=json,
-                                    proxy=proxy_url,
-                                    include_metadata=include_metadata,
-                                )
-                                for url, (proxy_url, proxy_type) in zip(urls, proxy_data, strict=False)
-                            ]
+        async with cls.open_session(headers=headers, proxy=proxy, request_timeout=60) as owned_session:
+            return list(
+                await asyncio.gather(
+                    *[
+                        cls.fetch(
+                            session=owned_session,
+                            url=url,
+                            params=params,
+                            json=json,
+                            include_metadata=include_metadata,
                         )
-                    )
-                else:
-                    return list(
-                        await asyncio.gather(
-                            *[AsyncFetcher.fetch(session, url, json=json, include_metadata=include_metadata) for url in urls]
-                        )
-                    )
-        else:
-            # Indicates the request has certain params
-            async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
-                if proxy:
-                    proxy_data = [cls._get_random_proxy(cls().proxy_list) for _ in urls]
-                    return list(
-                        await asyncio.gather(
-                            *[
-                                AsyncFetcher.fetch(
-                                    session,
-                                    url,
-                                    params,
-                                    json,
-                                    proxy=proxy_url,
-                                    include_metadata=include_metadata,
-                                )
-                                for url, (proxy_url, proxy_type) in zip(urls, proxy_data, strict=False)
-                            ]
-                        )
-                    )
-                else:
-                    return list(
-                        await asyncio.gather(
-                            *[AsyncFetcher.fetch(session, url, params, json, include_metadata=include_metadata) for url in urls]
-                        )
-                    )
-
-
-def show_default_error_message(engine_name: str, word: str, error) -> None:
-    output_logger.info(f"Failed to process {engine_name} search for word: '{word}'")
-    output_logger.info(f'Error Message: {error}')
+                        for url in urls
+                    ]
+                )
+            )

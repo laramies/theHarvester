@@ -274,7 +274,6 @@ class TakeoverScanner:
         self.scan_error_type: str | None = None
         self.stop_reason: str | None = None
         self._outcomes: list[TakeoverCandidateOutcome] = []
-        self._proxy: str | None = None
 
     async def _query_dns(
         self,
@@ -320,7 +319,6 @@ class TakeoverScanner:
             response = await AsyncFetcher.fetch_text(
                 f'{scheme}://{hostname}',
                 session=session,
-                proxy=self._proxy or '',
                 follow_redirects=False,
                 request_timeout=None,
                 response_byte_limit=MAX_TAKEOVER_RESPONSE_BYTES,
@@ -538,14 +536,6 @@ class TakeoverScanner:
         self.scan_error_type = None
         self.stop_reason = None
         self._outcomes.clear()
-        self._proxy = None
-        if proxy:
-            proxy_url, _proxy_type = AsyncFetcher._resolve_proxy(True)
-            if proxy_url is None:
-                self.scan_error_type = 'ProxyUnavailableError'
-                self.stop_reason = 'proxy-unavailable'
-                return
-            self._proxy = proxy_url
         resolvers: tuple[TakeoverDNSResolver, ...] = ()
         session: aiohttp.ClientSession | None = None
         candidates = iter(self.hosts)
@@ -561,15 +551,11 @@ class TakeoverScanner:
                     self.completed_count += 1
 
         try:
-            ssl_context = AsyncFetcher._ssl_context()
-            proxy_url, proxy_type = AsyncFetcher._resolve_proxy(self._proxy or '')
-            session = await AsyncFetcher._build_session(
-                {'User-Agent': Core.get_browser_user_agent()},
-                aiohttp.ClientTimeout(total=None),
-                proxy_url,
-                proxy_type,
-                ssl_context,
+            session = await AsyncFetcher.create_session(
+                headers={'User-Agent': Core.get_browser_user_agent()},
+                proxy=proxy,
                 cookie_jar=aiohttp.DummyCookieJar(),
+                unlimited_timeout=True,
             )
             resolvers = tuple(TakeoverDNSResolver(nameserver) for nameserver in self.nameservers)
             async with asyncio.TaskGroup() as group:
@@ -579,6 +565,10 @@ class TakeoverScanner:
             self.scan_error_type = 'CancelledError'
             self.stop_reason = 'cancelled'
             cancellation = error
+        except ResponseStreamError as error:
+            phase_error = error
+            self.scan_error_type = type(error).__name__
+            self.stop_reason = error.reason
         except Exception as error:
             phase_error = error
             self.scan_error_type = type(error).__name__

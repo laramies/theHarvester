@@ -1,22 +1,10 @@
 import asyncio
 import json
 import sys
-import types
 from pathlib import Path
 from typing import Any
 
 import pytest
-
-if 'aiohttp_socks' not in sys.modules:
-    aiohttp_socks_stub = types.ModuleType('aiohttp_socks')
-
-    class _ProxyConnector:
-        @staticmethod
-        def from_url(*_args, **_kwargs):
-            return None
-
-    aiohttp_socks_stub.ProxyConnector = _ProxyConnector  # type: ignore[attr-defined]
-    sys.modules['aiohttp_socks'] = aiohttp_socks_stub
 
 from theHarvester import __main__ as theharvester_main
 from theHarvester.discovery import builtwith
@@ -130,7 +118,7 @@ async def test_www_target_does_not_accept_sibling_subdomains(monkeypatch) -> Non
 
     report = await search.process()
 
-    assert captured['params']['LOOKUP'] == 'example.com'
+    assert captured['params']['LOOKUP'] == 'www.example.com'
     assert await search.get_hostnames() == {'www.example.com'}
     assert await search.get_urls() == set()
     assert report is None

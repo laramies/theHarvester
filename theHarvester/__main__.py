@@ -37,7 +37,7 @@ from theHarvester.lib.completed_result import (
     ResultObservation,
     SourceExecution,
 )
-from theHarvester.lib.core import DATA_DIR, Core
+from theHarvester.lib.core import DATA_DIR, AsyncFetcher, Core, ProxyUnavailableError
 from theHarvester.lib.database import ResultStore
 from theHarvester.lib.dns_consensus import AioDNSResolverVantage
 from theHarvester.lib.enumeration import (
@@ -55,7 +55,7 @@ from theHarvester.lib.recursive_dns import (
     discover_recursive_dns,
 )
 from theHarvester.lib.resolver_selection import DEFAULT_DNS_RESOLVERS, normalize_resolver_addresses
-from theHarvester.lib.result_values import normalize_asn
+from theHarvester.lib.result_values import normalize_asn, normalize_ip
 from theHarvester.lib.routeviews import RouteViewsCancelled, RouteViewsResult, enrich_routeviews
 from theHarvester.lib.shodan_evidence import ShodanHostObservation, canonical_shodan_hosts
 from theHarvester.lib.source_catalog import (
@@ -66,7 +66,7 @@ from theHarvester.lib.source_catalog import (
     hostname_collection_conflicts,
     resolve_sources,
 )
-from theHarvester.lib.source_runner import SourceJob, SourceOutcome, SourceRequest, run_source_jobs
+from theHarvester.lib.source_runner import SourceOutcome, SourceRequest, run_source_jobs
 from theHarvester.lib.virtual_host import (
     DEFAULT_VHOST_CONCURRENCY,
     DEFAULT_VHOST_REQUEST_LIMIT,
@@ -91,11 +91,11 @@ logger = logging.getLogger(__name__)
 
 
 def _normalize_hosts_for_storage(discovered_hosts: Iterable[object], target: str) -> set[str]:
-    normalized_target = target.strip().lower().removeprefix('www.').rstrip('.')
+    canonical_target = normalize_scoped_hostname(target, target)
     return {
         normalized
         for host in discovered_hosts
-        if (normalized := normalize_scoped_hostname(host, normalized_target)) and normalized != normalized_target
+        if (normalized := normalize_scoped_hostname(host, target)) and normalized != canonical_target
     }
 
 
@@ -105,7 +105,7 @@ def _normalize_ip_addresses(values: Iterable[object]) -> set[str]:
         if not isinstance(value, str):
             continue
         try:
-            addresses.add(str(ip_address(value.strip())))
+            addresses.add(normalize_ip(value))
         except ValueError:
             continue
     return addresses
@@ -183,7 +183,10 @@ async def start(
     parser.add_argument(
         '-p',
         '--proxies',
-        help='Use proxies.yaml for supported discovery-source, Shodan, and takeover requests. Takeover fails closed if no proxy is available.',
+        help=(
+            'Use proxies.yaml for supported HTTP(S) requests. The run fails immediately with proxy-unavailable if no '
+            'proxy is configured. DNS queries use the selected resolvers outside this proxy.'
+        ),
         default=False,
         action='store_true',
     )
@@ -219,17 +222,12 @@ async def start(
     )
 
     parser.add_argument(
-        '-e',
-        '--dns-server',
-        help='Accepted for compatibility but currently unused; use --dns-resolvers to select resolvers.',
-    )
-    parser.add_argument(
         '-t',
         '--take-over',
         help=(
             'Check discovered hosts for provider-gated takeover indicators. Uses configured DNS resolvers and '
-            'wildcard controls, does not follow redirects, and uses configured proxies when enabled. Indicators '
-            'are not confirmed takeovers.'
+            'wildcard controls and does not follow redirects. HTTP confirmation requests use the configured proxy '
+            'when enabled. Indicators are not confirmed takeovers.'
         ),
         default=False,
         action='store_true',
@@ -424,6 +422,7 @@ async def start(
     }
     if conflicts := hostname_collection_conflicts(action_request):
         raise ValueError(f'--no-hosts cannot be combined with: {", ".join(conflicts)}')
+    resolved_source_selection = resolve_sources(args.source) if args.source is not None else []
     vhost_enabled = args.vhost or bool(args.vhost_endpoint) or bool(args.vhost_candidates)
     vhost_scope = ''
     vhost_endpoint = ''
@@ -441,6 +440,10 @@ async def start(
             timeout_seconds=args.vhost_timeout_seconds,
             concurrency=args.vhost_concurrency,
         )
+    if args.proxies and args.screenshot:
+        raise ValueError('screenshot capture supports direct transport only; do not use --proxies')
+    if args.proxies and not any(AsyncFetcher().proxy_list.values()):
+        raise ProxyUnavailableError('proxy-unavailable')
     Core.quiet = getattr(args, 'quiet', False)
     try:
         db = ResultStore() if result_database is None else ResultStore(result_database)
@@ -473,7 +476,6 @@ async def start(
     all_people: list[dict[str, str]] = []
     all_infostealers: list[dict[str, object]] = []
     dnslookup = args.dns_lookup
-    dnsserver = args.dns_server  # TODO arg is not used anywhere replace with resolvers wordlist arg dnsresolve
     dnsresolve: str | None = args.dns_resolve
     final_dns_resolver_list = normalize_resolver_addresses(args.dns_resolvers) if args.dns_resolvers else []
     if args.dns_resolver_input and dnsresolve not in {'', None}:
@@ -544,9 +546,6 @@ async def start(
     shodan_action_hosts: set[str] = set()
     takeover_results: dict[str, dict[str, object]] = {}
     takeover_outcomes: list[TakeoverCandidateOutcome] = []
-    linkedin_people_list_tracker = []
-    twitter_people_list_tracker = []
-    total_asns = []
     source_executions: list[SourceExecution] = []
     observations: set[ResultObservation] = set()
     action_executions: list[ActionExecution] = []
@@ -869,9 +868,9 @@ async def start(
         dns_resolution_error_types.update(getattr(full_hosts_checker, 'query_error_types', set()))
         dns_resolution_stop_reason = getattr(full_hosts_checker, 'stop_reason', None)
 
-    source_jobs: list[SourceJob] = []
+    source_jobs: list[SourceRequest] = []
     if args.source is not None:
-        engines = resolve_sources(args.source)
+        engines = resolved_source_selection
         if not collect_hosts:
             hostname_only_engines = [
                 engine
@@ -926,9 +925,9 @@ async def start(
             output_logger.info('\n[!] Invalid source.\n')
             sys.exit(1)
         output_logger.info(f'\n[*] Target: {word} \n')
-        source_jobs.extend(SourceJob(SourceRequest(engine, word, limit, start, use_proxy, collect_hosts)) for engine in engines)
+        source_jobs.extend(SourceRequest(engine, word, limit, start, use_proxy, collect_hosts) for engine in engines)
 
-    async def handler(jobs: list[SourceJob]) -> tuple[SourceOutcome, ...]:
+    async def handler(jobs: list[SourceRequest]) -> tuple[SourceOutcome, ...]:
         def report_source_started(request: SourceRequest) -> None:
             source = request.source
             output_logger.info(f'[*] Searching {source[0].upper() + source[1:]}. ')
@@ -1336,11 +1335,13 @@ async def start(
             )
 
         try:
-            routeviews_result = await enrich_routeviews(
-                routeviews_asns,
-                routeviews_network_seeds,
-                api_key=Core.routeviews_key(),
-            )
+            with AsyncFetcher.proxy_scope(use_proxy) as routeviews_proxy:
+                routeviews_result = await enrich_routeviews(
+                    routeviews_asns,
+                    routeviews_network_seeds,
+                    api_key=Core.routeviews_key(),
+                    proxy=routeviews_proxy,
+                )
         except RouteViewsCancelled as error:
             record_routeviews_result(error.result)
             cancelled_result = finish_completed_result()
@@ -1787,55 +1788,58 @@ async def start(
         shodan_error_types: set[str] = set()
         shodan_asns: set[str] = set()
         shodan_ips: set[str] = set()
+        shodan_proxy_transport_failed = False
 
         def has_shodan_action_evidence() -> bool:
             return bool(shodan_action_hosts or shodan_asns or shodan_ips)
 
         output_logger.info('[*] Searching Shodan. ')
         try:
-            shodan_search = None
-            if host_ip:
-                try:
-                    shodan_search = shodansearch.SearchShodan()
-                except Exception as init_error:
-                    shodan_error_types.add(type(init_error).__name__)
-                    output_logger.info(f'[SHODAN-error] Error starting Shodan: {type(init_error).__name__}')
-            for ip in host_ip:
-                if shodan_search is None:
-                    break
-                try:
-                    output_logger.info('\tSearching for ' + ip)
-                    shodandict = await shodan_search.search_ip(ip, proxy=use_proxy)
-                    get_asn_attributions = getattr(shodan_search, 'get_asn_attributions', None)
-                    if get_asn_attributions is not None:
-                        collected_attributions = await get_asn_attributions()
-                        current_attributions = {
-                            attribution for attribution in collected_attributions if attribution.subject_value == ip
-                        }
-                        asn_attributions.extend(current_attributions)
-                        shodan_asns.update(attribution.asn for attribution in current_attributions)
-                        shodan_ips.update(attribution.subject_value for attribution in current_attributions)
-                        total_asns.extend(attribution.asn for attribution in current_attributions)
-                    if shodan_search.error_type:
-                        shodan_error_types.add(shodan_search.error_type)
+            with AsyncFetcher.proxy_scope(use_proxy and bool(host_ip)) as shodan_proxy:
+                shodan_search = None
+                if host_ip:
+                    try:
+                        shodan_search = shodansearch.SearchShodan()
+                    except Exception as init_error:
+                        shodan_error_types.add(type(init_error).__name__)
+                        output_logger.info(f'[SHODAN-error] Error starting Shodan: {type(init_error).__name__}')
+                if shodan_search is not None:
+                    async with AsyncFetcher.open_session(proxy=shodan_proxy) as shodan_session:
+                        for ip in host_ip:
+                            try:
+                                output_logger.info('\tSearching for ' + ip)
+                                shodandict = await shodan_search.search_ip(ip, session=shodan_session)
+                                get_asn_attributions = getattr(shodan_search, 'get_asn_attributions', None)
+                                if get_asn_attributions is not None:
+                                    collected_attributions = await get_asn_attributions()
+                                    current_attributions = {
+                                        attribution for attribution in collected_attributions if attribution.subject_value == ip
+                                    }
+                                    asn_attributions.extend(current_attributions)
+                                    shodan_asns.update(attribution.asn for attribution in current_attributions)
+                                    shodan_ips.update(attribution.subject_value for attribution in current_attributions)
+                                    total_asns.extend(attribution.asn for attribution in current_attributions)
+                                if shodan_search.error_type:
+                                    shodan_error_types.add(shodan_search.error_type)
 
-                    shodan_result = shodandict.get(ip)
-                    # Check if the result is a string (error message)
-                    if isinstance(shodan_result, str):
-                        output_logger.info(f'{ip}: {shodan_result}')
+                                shodan_result = shodandict.get(ip)
+                                # Check if the result is a string (error message)
+                                if isinstance(shodan_result, str):
+                                    output_logger.info(f'{ip}: {shodan_result}')
 
-                    # Process the results if it's a dictionary
-                    if isinstance(shodan_result, dict):
-                        current_hosts = record_shodan_host_observations(
-                            host for host in await shodan_search.get_shodan_hosts() if host.ip == ip
-                        )
-                        shodan_action_hosts.update(host.ip for host in current_hosts)
-                        shodanres.extend({'value': host.ip, 'details': host.to_details()} for host in current_hosts)
-                        output_logger.info('\n')
-                except Exception as ip_error:
-                    shodan_error_types.add(type(ip_error).__name__)
-                    output_logger.info(f'[SHODAN-error] Error searching {ip}: {type(ip_error).__name__}')
-                    continue
+                                # Process the results if it's a dictionary
+                                if isinstance(shodan_result, dict):
+                                    current_hosts = record_shodan_host_observations(
+                                        host for host in await shodan_search.get_shodan_hosts() if host.ip == ip
+                                    )
+                                    shodan_action_hosts.update(host.ip for host in current_hosts)
+                                    shodanres.extend({'value': host.ip, 'details': host.to_details()} for host in current_hosts)
+                                    output_logger.info('\n')
+                            except Exception as ip_error:
+                                shodan_error_types.add(type(ip_error).__name__)
+                                output_logger.info(f'[SHODAN-error] Error searching {ip}: {type(ip_error).__name__}')
+                                continue
+                shodan_proxy_transport_failed = AsyncFetcher.proxy_transport_failed()
         except asyncio.CancelledError:
             action_executions.append(
                 ActionExecution.finish(
@@ -1849,9 +1853,14 @@ async def start(
             )
             await persist_result(finish_completed_result(extra_hostnames=dnsrev))
             raise
+        except Exception as action_error:
+            shodan_error_types.add(type(action_error).__name__)
         shodan_status: ExecutionStatus = 'completed'
         shodan_stop_reason = None
-        if not host_ip:
+        if shodan_proxy_transport_failed:
+            shodan_status = 'partial' if has_shodan_action_evidence() else 'failed'
+            shodan_stop_reason = 'transport-error'
+        elif not host_ip:
             shodan_status = 'skipped'
             shodan_stop_reason = 'no-input'
         elif shodan_error_types:
@@ -1914,6 +1923,7 @@ async def start(
     if args.api_scan or 'api_endpoints' in engines:
         api_scan_started = time.perf_counter()
         api_scanner = None
+        api_proxy_transport_failed = False
 
         def collect_api_action_groups(
             scanner: api_endpoints.SearchApiEndpoints | None,
@@ -1975,15 +1985,34 @@ async def start(
                 output_logger.info(f'Basic API wordlist created with {len(basic_endpoints)} endpoints.')
 
             output_logger.info(f'\n[*] Starting API endpoint scanning with wordlist: {wordlist}')
-            if args.wordlist:
-                api_scanner = api_endpoints.SearchApiEndpoints(
-                    word=args.domain,
-                    wordlist=wordlist,
-                    exact_paths=True,
-                )
-            else:
-                api_scanner = api_endpoints.SearchApiEndpoints(word=args.domain, wordlist=wordlist)
-            await api_scanner.do_search()
+            with AsyncFetcher.proxy_scope(use_proxy) as api_proxy_selected:
+                api_proxy = AsyncFetcher._resolve_proxy(api_proxy_selected)[0]
+                if args.wordlist and api_proxy is not None:
+                    api_scanner = api_endpoints.SearchApiEndpoints(
+                        word=args.domain,
+                        wordlist=wordlist,
+                        exact_paths=True,
+                        proxy=api_proxy,
+                    )
+                elif args.wordlist:
+                    api_scanner = api_endpoints.SearchApiEndpoints(
+                        word=args.domain,
+                        wordlist=wordlist,
+                        exact_paths=True,
+                    )
+                elif api_proxy is not None:
+                    api_scanner = api_endpoints.SearchApiEndpoints(
+                        word=args.domain,
+                        wordlist=wordlist,
+                        proxy=api_proxy,
+                    )
+                else:
+                    api_scanner = api_endpoints.SearchApiEndpoints(
+                        word=args.domain,
+                        wordlist=wordlist,
+                    )
+                await api_scanner.do_search()
+                api_proxy_transport_failed = AsyncFetcher.proxy_transport_failed()
 
             # Print results
             endpoints_found, interesting_endpoints, api_action_groups = collect_api_action_groups(api_scanner)
@@ -2025,7 +2054,11 @@ async def start(
             api_scan_status: ExecutionStatus = 'completed'
             api_error_type = None
             api_stop_reason = None
-            if api_scan_error:
+            if api_proxy_transport_failed:
+                api_scan_status = 'partial' if any(api_action_groups.values()) else 'failed'
+                api_error_type = next(iter(sorted(api_scanner.request_error_types)), None)
+                api_stop_reason = 'transport-error'
+            elif api_scan_error:
                 api_scan_status = 'partial' if any(api_action_groups.values()) else 'failed'
                 api_error_type = api_scan_error
                 api_stop_reason = 'scan-error'

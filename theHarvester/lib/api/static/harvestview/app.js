@@ -318,7 +318,7 @@
       ['Result start offset', request.start ?? 'Not recorded'],
       ['Discovery source workers', request.source_workers ?? 'Not recorded'],
       ['Whole-run deadline', request.deadline_seconds === null ? 'Unlimited' : request.deadline_seconds === undefined ? 'Not recorded' : `${request.deadline_seconds} seconds`],
-      ['Proxy transport', request.proxies ? 'Selected' : 'Off'],
+      ['HTTP(S) proxy transport', request.proxies ? 'Selected' : 'Off'],
       ['Hostname results', request.no_hosts ? 'Excluded' : 'Included'],
       ['DNS lookup (/24 reverse expansion)', request.dns_lookup ? 'Selected' : 'Off'],
       ['DNS resolution', request.dns_resolve ? 'Selected' : 'Off'], ['DNS brute force', request.dns_brute ? 'Selected' : 'Off'],
@@ -328,7 +328,10 @@
       ['Recursive DNS runtime', request.dns_recursive_runtime_seconds === null ? 'Unlimited' : request.dns_recursive_runtime_seconds === undefined ? 'Not recorded' : `${request.dns_recursive_runtime_seconds} seconds`],
       ['RouteViews enrichment', request.routeviews ? 'Selected' : 'Off'],
       ['Screenshots', request.screenshot ? 'Selected' : 'Off'],
-      ['Takeover transport', request.takeover ? (request.proxies ? 'Configured proxy' : 'Direct') : 'Off'],
+      [
+        'Takeover transport',
+        request.takeover ? (request.proxies ? 'DNS resolvers + HTTP proxy' : 'DNS resolvers + direct HTTP') : 'Off'
+      ],
       ['API endpoint interaction', request.api_scan ? 'Selected' : 'Off'],
       ['Virtual-host discovery', request.vhost ? 'Selected' : 'Off'],
       ['Virtual-host endpoint override', request.vhost ? request.vhost_endpoint || 'Harvested IPs' : 'Not applicable'],

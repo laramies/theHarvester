@@ -466,14 +466,17 @@ class SearchApiEndpoints:
                 return
             worker_count = min(self.concurrency, len(endpoints))
             self._ssl_policy = self.verify_ssl
-            connector = aiohttp.TCPConnector(
-                limit=worker_count,
-                limit_per_host=worker_count,
-                ssl=self._ssl_policy,
-            )
-            session = aiohttp.ClientSession(
+            if not (self.proxy and self.proxy.startswith('socks5://')):
+                connector = aiohttp.TCPConnector(
+                    limit=worker_count,
+                    limit_per_host=worker_count,
+                    ssl=self._ssl_policy,
+                )
+            session = await AsyncFetcher.create_session(
                 headers=self._get_headers(),
-                timeout=aiohttp.ClientTimeout(total=self.timeout),
+                proxy=self.proxy,
+                request_timeout=self.timeout,
+                verify=self.verify_ssl,
                 connector=connector,
             )
             self._session = session
@@ -525,6 +528,10 @@ class SearchApiEndpoints:
             cancellation = error
         except TimeoutError:
             self.stop_reason = 'runtime-limit'
+        except ResponseStreamError as e:
+            self.scan_error_type = type(e).__name__
+            self.stop_reason = e.reason
+            self.logger.error(f'Error in API endpoint scan: {e!s}', exc_info=True)
         except Exception as e:
             self.scan_error_type = type(e).__name__
             self.stop_reason = 'scan-error'
@@ -597,7 +604,6 @@ class SearchApiEndpoints:
         try:
             async with self._session.get(
                 https_url,
-                proxy=self.proxy,
                 ssl=self._ssl_policy,
                 allow_redirects=False,
             ):
@@ -724,7 +730,7 @@ class SearchApiEndpoints:
                     url=current_url,
                     method=method,
                     headers=headers,
-                    proxy=self.proxy,
+                    proxy=False,
                     verify=self._ssl_policy,
                     follow_redirects=False,
                     request_timeout=self.timeout,

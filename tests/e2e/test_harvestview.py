@@ -1399,9 +1399,9 @@ def test_unchanged_poll_keeps_result_table_filters(harvestview_server_url: str, 
     page.route(f'{harvestview_server_url}/api/v1/runs', lambda route: route.fulfill(json=[run]))
     page.route(f'{harvestview_server_url}/api/v1/runs/stable-run', lambda route: route.fulfill(json=run))
     page.goto(f'{harvestview_server_url}/')
-    expect(page.locator('#request-options')).to_contain_text('Proxy transportSelected')
+    expect(page.locator('#request-options')).to_contain_text('HTTP(S) proxy transportSelected')
     expect(page.locator('#request-options')).to_contain_text('DNS lookup (/24 reverse expansion)Selected')
-    expect(page.locator('#request-options')).to_contain_text('Takeover transportConfigured proxy')
+    expect(page.locator('#request-options')).to_contain_text('Takeover transportDNS resolvers + HTTP proxy')
     value_filter = page.locator('.tabulator-col[tabulator-field="value"] .tabulator-header-filter input')
     value_filter.fill('api')
 

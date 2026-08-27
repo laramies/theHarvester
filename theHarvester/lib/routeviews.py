@@ -144,9 +144,11 @@ def _rpki_state(value: object) -> RpkiState:
 
 
 class _RouteViewsRuntime:
-    def __init__(self, api_key: str | None = None) -> None:
+    def __init__(self, api_key: str | None = None, *, proxy: bool = False) -> None:
         self.base_url = ROUTEVIEWS_BASE if api_key else ROUTEVIEWS_GUEST_BASE
         self.headers = {'Api-Key': api_key} if api_key else None
+        self.proxy = proxy
+        self.session: Any | None = None
         self.request_interval = ROUTEVIEWS_AUTHENTICATED_INTERVAL_SECONDS if api_key else ROUTEVIEWS_GUEST_INTERVAL_SECONDS
         self.started_at = _monotonic()
         self.last_request_at: float | None = None
@@ -278,6 +280,8 @@ class _RouteViewsRuntime:
             'params': params,
             'request_timeout': min(ROUTEVIEWS_REQUEST_TIMEOUT_SECONDS, max(1, math.ceil(remaining))),
         }
+        assert self.session is not None
+        request_kwargs['session'] = self.session
         if self.headers is not None:
             request_kwargs['headers'] = self.headers
         try:
@@ -451,29 +455,37 @@ class _RouteViewsRuntime:
             except TypeError, ValueError:
                 self._record_error('ValueError', 'invalid-response')
 
-        try:
-            for origin_asn in canonical_asns:
-                await collect(
-                    f'{self.base_url}/asn/{origin_asn[2:]}',
-                    lambda body, collected_at, asn=origin_asn: self._parse_asn(body, asn, collected_at),
-                )
-                await collect(
-                    f'{self.base_url}/rpki',
-                    lambda body, collected_at, asn=origin_asn: self._parse_rpki(body, asn, collected_at),
-                    params={'asn': origin_asn[2:]},
-                )
-            for seed in canonical_seeds:
-                query_seed = seed if '/' in seed else str(ip_network(seed, strict=False))
-                await collect(
-                    f'{self.base_url}/prefix/{quote(query_seed, safe="")}',
-                    lambda body, collected_at, requested_seed=seed: self._parse_prefix(body, requested_seed, collected_at),
-                    params={'strict-match': 'yes'} if '/' in seed else '',
-                )
-        except _RouteViewsStopError:
-            return self._result()
-        except asyncio.CancelledError:
-            self._record_error('CancelledError', 'cancelled', override=True)
-            raise RouteViewsCancelled(self._result()) from None
+        async with AsyncFetcher.open_session(
+            headers=self.headers,
+            proxy=self.proxy,
+            request_timeout=ROUTEVIEWS_REQUEST_TIMEOUT_SECONDS,
+        ) as session:
+            self.session = session
+            try:
+                for origin_asn in canonical_asns:
+                    await collect(
+                        f'{self.base_url}/asn/{origin_asn[2:]}',
+                        lambda body, collected_at, asn=origin_asn: self._parse_asn(body, asn, collected_at),
+                    )
+                    await collect(
+                        f'{self.base_url}/rpki',
+                        lambda body, collected_at, asn=origin_asn: self._parse_rpki(body, asn, collected_at),
+                        params={'asn': origin_asn[2:]},
+                    )
+                for seed in canonical_seeds:
+                    query_seed = seed if '/' in seed else str(ip_network(seed, strict=False))
+                    await collect(
+                        f'{self.base_url}/prefix/{quote(query_seed, safe="")}',
+                        lambda body, collected_at, requested_seed=seed: self._parse_prefix(body, requested_seed, collected_at),
+                        params={'strict-match': 'yes'} if '/' in seed else '',
+                    )
+            except _RouteViewsStopError:
+                return self._result()
+            except asyncio.CancelledError:
+                self._record_error('CancelledError', 'cancelled', override=True)
+                raise RouteViewsCancelled(self._result()) from None
+            finally:
+                self.session = None
         return self._result()
 
 
@@ -482,6 +494,7 @@ async def enrich_routeviews(
     network_seeds: Iterable[str],
     *,
     api_key: str | None = None,
+    proxy: bool = False,
 ) -> RouteViewsResult:
     """Collect bounded routing evidence for caller-approved network pivots.
 
@@ -489,4 +502,9 @@ async def enrich_routeviews(
     attribution. Bare ASN findings are not expanded into complete prefix
     inventories; that requires an explicit ASN target.
     """
-    return await _RouteViewsRuntime(api_key).run(asns, network_seeds)
+    runtime = _RouteViewsRuntime(api_key, proxy=proxy)
+    try:
+        return await runtime.run(asns, network_seeds)
+    except ResponseStreamError as error:
+        runtime._record_error(type(error).__name__, error.reason, override=True)
+        return runtime._result()

@@ -1,11 +1,14 @@
 import asyncio
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 from theHarvester.discovery.constants import MissingKey, get_delay
 from theHarvester.lib.core import AsyncFetcher, Core
 from theHarvester.lib.source_execution import SourceExecutionReport
+
+if TYPE_CHECKING:
+    import aiohttp
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +22,6 @@ class SearchCriminalIP:
         self.key = Core.criminalip_key()
         if self.key is None:
             raise MissingKey('criminalip')
-        self.proxy = False
 
     def _normalize_host(self, hostname: str | None) -> str | None:
         if not isinstance(hostname, str):
@@ -86,19 +88,17 @@ class SearchCriminalIP:
             for nested_value in value.values():
                 self._collect_hosts_from_value(nested_value)
 
-    async def do_search(self) -> SourceExecutionReport | None:
+    async def do_search(self, session: aiohttp.ClientSession) -> SourceExecutionReport | None:
         # https://www.criminalip.io/developer/api/post-domain-scan
         # https://www.criminalip.io/developer/api/get-domain-status-id
         # https://www.criminalip.io/developer/api/get-v2-domain-report-id
         url = 'https://api.criminalip.io/v1/domain/scan'
         data = f'{{"query": "{self.word}"}}'
-        user_agent = Core.get_user_agent()
         response = await AsyncFetcher.post_fetch(
             url,
             json=True,
-            headers={'User-Agent': user_agent, 'x-api-key': f'{self.key}'},
             data=data,
-            proxy=self.proxy,
+            session=session,
         )
         # Expected response format:
         # {'data': {'scan_id': scan_id}, 'message': 'api success', 'status': 200}
@@ -123,13 +123,12 @@ class SearchCriminalIP:
         status: dict[str, Any] = {}
         while scan_percentage != 100:
             status_url = f'https://api.criminalip.io/v1/domain/status/{scan_id}'
-            status_response = await AsyncFetcher.fetch_all(
-                [status_url],
+            status = await AsyncFetcher.fetch(
+                session=session,
+                url=status_url,
                 json=True,
-                headers={'User-Agent': user_agent, 'x-api-key': f'{self.key}'},
-                proxy=self.proxy,
+                request_timeout=60,
             )
-            status = status_response[0] if isinstance(status_response, list) and len(status_response) > 0 else {}
             if not isinstance(status, dict):
                 logger.info(f'CriminalIP status response has unexpected type: {type(status).__name__}')
                 return SourceExecutionReport('failed', 'invalid-response')
@@ -168,13 +167,12 @@ class SearchCriminalIP:
                 return SourceExecutionReport('partial', 'runtime-limit')
 
         report_url = f'https://api.criminalip.io/v2/domain/report/{scan_id}'
-        scan_response = await AsyncFetcher.fetch_all(
-            [report_url],
+        scan = await AsyncFetcher.fetch(
+            session=session,
+            url=report_url,
             json=True,
-            headers={'User-Agent': user_agent, 'x-api-key': f'{self.key}'},
-            proxy=self.proxy,
+            request_timeout=60,
         )
-        scan = scan_response[0] if isinstance(scan_response, list) and len(scan_response) > 0 else {}
         if not isinstance(scan, dict):
             logger.info(f'CriminalIP report response has unexpected type: {type(scan).__name__}')
             return SourceExecutionReport('failed', 'invalid-response')
@@ -330,9 +328,13 @@ class SearchCriminalIP:
         return self.totalips
 
     async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
-        self.proxy = proxy
         try:
-            return await self.do_search()
+            async with AsyncFetcher.open_session(
+                headers={'User-Agent': Core.get_user_agent(), 'x-api-key': f'{self.key}'},
+                proxy=proxy,
+                request_timeout=720,
+            ) as session:
+                return await self.do_search(session)
         except asyncio.CancelledError:
             raise
         except Exception:

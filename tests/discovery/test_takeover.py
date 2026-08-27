@@ -84,6 +84,12 @@ async def test_takeover_reuses_one_cookie_free_unlimited_http_session(
     shared_session = SharedSession()
     build_calls: list[dict[str, object]] = []
     fetch_sessions: list[object] = []
+    proxy_selections = 0
+
+    def select_proxy(_proxy_list: dict[str, list[str]]) -> tuple[str, str]:
+        nonlocal proxy_selections
+        proxy_selections += 1
+        return 'http://proxy.example:8080', 'http'
 
     async def fake_build_session(
         headers: dict[str, str],
@@ -106,6 +112,7 @@ async def test_takeover_reuses_one_cookie_free_unlimited_http_session(
         return shared_session
 
     async def fake_fetch_text(_url: str, **kwargs: object) -> FetcherResponse:
+        assert 'proxy' not in kwargs
         fetch_sessions.append(kwargs['session'])
         return FetcherResponse(
             body='The specified bucket does not exist <BucketName>bucket</BucketName>',
@@ -114,6 +121,12 @@ async def test_takeover_reuses_one_cookie_free_unlimited_http_session(
         )
 
     monkeypatch.setattr(takeover, 'TakeoverDNSResolver', FakeResolver)
+    monkeypatch.setattr(takeover.AsyncFetcher, '_get_random_proxy', staticmethod(select_proxy))
+    monkeypatch.setattr(
+        takeover.AsyncFetcher,
+        '_proxy_list',
+        {'http': ['http://proxy.example:8080'], 'socks5': []},
+    )
     monkeypatch.setattr(takeover.AsyncFetcher, '_build_session', fake_build_session)
     monkeypatch.setattr(takeover.AsyncFetcher, 'fetch_text', fake_fetch_text)
     scanner = takeover.TakeoverScanner(
@@ -122,13 +135,27 @@ async def test_takeover_reuses_one_cookie_free_unlimited_http_session(
         nameservers=['1.1.1.1'],
     )
 
-    await scanner.process()
+    await scanner.process(proxy=True)
 
+    assert proxy_selections == 1
     assert len(build_calls) == 1
+    assert build_calls[0]['proxy_url'] == 'http://proxy.example:8080'
+    assert build_calls[0]['proxy_type'] == 'http'
     assert isinstance(build_calls[0]['cookie_jar'], aiohttp.DummyCookieJar)
     assert build_calls[0]['client_timeout'].total is None
     assert fetch_sessions == [shared_session, shared_session]
     assert shared_session.close_count == 1
+
+
+@pytest.mark.asyncio
+async def test_takeover_normalizes_proxy_session_construction_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(takeover.AsyncFetcher, '_proxy_list', {'http': [], 'socks5': ['socks5://']})
+    scanner = takeover.TakeoverScanner([], target='example.test', nameservers=['1.1.1.1'])
+
+    await scanner.process(proxy=True)
+
+    assert scanner.scan_error_type == 'ResponseStreamError'
+    assert scanner.stop_reason == 'transport-error'
 
 
 @pytest.mark.asyncio
@@ -252,25 +279,6 @@ async def test_takeover_keeps_dns_only_nxdomain_evidence_without_http(
     assert outcome.indicators[0].matched == ('dns:terminal-rcode=NXDOMAIN',)
     assert {item.resolver for item in outcome.dns} == {'1.1.1.1', '8.8.8.8'}
     assert scanner.request_count == 0
-
-
-@pytest.mark.asyncio
-async def test_takeover_fails_closed_when_proxy_mode_has_no_proxy(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(takeover.AsyncFetcher, '_resolve_proxy', lambda _proxy: (None, None))
-    scanner = takeover.TakeoverScanner(
-        ['app.example.test'],
-        target='example.test',
-        nameservers=['1.1.1.1'],
-    )
-
-    await scanner.process(proxy=True)
-
-    assert await scanner.get_takeover_outcomes() == ()
-    assert scanner.scan_error_type == 'ProxyUnavailableError'
-    assert scanner.stop_reason == 'proxy-unavailable'
-    assert scanner.completed_count == 0
 
 
 @pytest.mark.asyncio

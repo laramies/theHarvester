@@ -51,7 +51,6 @@ class SearchBeVigil:
                     responses = await AsyncFetcher.fetch_all(
                         [endpoint],
                         json=True,
-                        proxy=self.proxy,
                         headers=headers,
                         include_metadata=True,
                         session=session,

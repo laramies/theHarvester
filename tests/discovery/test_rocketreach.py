@@ -1,21 +1,23 @@
-import sys
-import types
+from contextlib import asynccontextmanager
+from typing import Any
 
 import pytest
 
-if 'aiohttp_socks' not in sys.modules:
-    aiohttp_socks_stub = types.ModuleType('aiohttp_socks')
-
-    class _ProxyConnector:
-        @staticmethod
-        def from_url(*_args, **_kwargs):
-            return None
-
-    aiohttp_socks_stub.ProxyConnector = _ProxyConnector  # type: ignore[attr-defined]
-    sys.modules['aiohttp_socks'] = aiohttp_socks_stub
-
 from theHarvester.discovery import rocketreach
 from theHarvester.discovery.constants import MissingKey
+
+
+@pytest.fixture(autouse=True)
+def proxy_aware_session(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
+    session_options: list[dict[str, Any]] = []
+
+    @asynccontextmanager
+    async def open_session(**kwargs: Any):
+        session_options.append(kwargs)
+        yield object()
+
+    monkeypatch.setattr(rocketreach.AsyncFetcher, 'open_session', open_session)
+    return session_options
 
 
 @pytest.mark.asyncio
@@ -26,7 +28,10 @@ async def test_missing_key_raises(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_do_search_uses_people_data_endpoint_and_start_pagination(monkeypatch) -> None:
+async def test_do_search_uses_people_data_endpoint_and_start_pagination(
+    monkeypatch: pytest.MonkeyPatch,
+    proxy_aware_session: list[dict[str, Any]],
+) -> None:
     monkeypatch.setattr(rocketreach.Core, 'rocketreach_key', lambda: 'test-key')
     monkeypatch.setattr(rocketreach.Core, 'get_user_agent', lambda: 'test-agent')
     monkeypatch.setattr(rocketreach, 'get_delay', lambda: 0)
@@ -70,11 +75,11 @@ async def test_do_search_uses_people_data_endpoint_and_start_pagination(monkeypa
     monkeypatch.setattr(rocketreach.AsyncFetcher, 'post_fetch', fake_post_fetch)
 
     search = rocketreach.SearchRocketReach('example.com', 150)
-    await search.process()
+    await search.process(proxy=True)
 
     assert len(calls) == 2
-    first_url, first_headers, first_data, first_json, _ = calls[0]
-    second_url, _, second_data, _, _ = calls[1]
+    first_url, first_headers, first_data, first_json, first_kwargs = calls[0]
+    second_url, _, second_data, _, second_kwargs = calls[1]
 
     assert first_url == 'https://api.rocketreach.co/api/v2/person/search'
     assert second_url == 'https://api.rocketreach.co/api/v2/person/search'
@@ -83,6 +88,9 @@ async def test_do_search_uses_people_data_endpoint_and_start_pagination(monkeypa
     assert first_json is True
     assert first_data == {'query': {'current_employer_domain': ['example.com']}, 'start': 0, 'page_size': 100}
     assert second_data == {'query': {'current_employer_domain': ['example.com']}, 'start': 100, 'page_size': 50}
+    assert first_kwargs['session'] is second_kwargs['session']
+    assert len(proxy_aware_session) == 1
+    assert proxy_aware_session[0]['proxy'] is True
 
     links = await search.get_urls()
     emails = await search.get_emails()

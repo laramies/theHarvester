@@ -6,7 +6,6 @@ import logging
 import time
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
-from ipaddress import ip_address
 from typing import TYPE_CHECKING, Any
 
 from theHarvester.discovery import (
@@ -73,8 +72,10 @@ from theHarvester.discovery import (
 from theHarvester.discovery.constants import MissingKeyError
 from theHarvester.lib.asn_attribution import AsnAttributionObservation, canonical_asn_attributions
 from theHarvester.lib.completed_result import ResultKind, ResultObservation, SourceExecution
+from theHarvester.lib.core import AsyncFetcher, ProxyUnavailableError, ResponseStreamError
 from theHarvester.lib.enumeration import DEFAULT_SOURCE_WORKERS
 from theHarvester.lib.hostnames import normalize_scoped_hostname
+from theHarvester.lib.result_values import normalize_ip
 from theHarvester.lib.shodan_evidence import ShodanHostObservation, canonical_shodan_hosts
 from theHarvester.lib.source_catalog import ResultRoute, get_source_spec
 from theHarvester.lib.source_execution import SourceExecutionReport
@@ -114,13 +115,6 @@ class SourceOutcome:
     asn_attributions: tuple[AsnAttributionObservation, ...] = ()
     shodan_hosts: tuple[ShodanHostObservation, ...] = ()
     reported_host_ip_pairs: tuple[tuple[str, str], ...] = ()
-
-
-@dataclass(frozen=True, slots=True)
-class SourceJob:
-    """A queued source request owned by the structured worker pool."""
-
-    request: SourceRequest
 
 
 SOURCE_FACTORIES: dict[str, SourceFactory] = {
@@ -206,11 +200,11 @@ _BUILTWITH_GETTERS: tuple[tuple[str, ResultKind], ...] = (
 
 def _normalize_values(request: SourceRequest, kind: ResultKind, values: Iterable[object]) -> set[ResultObservation]:
     observations: set[ResultObservation] = set()
-    target = request.target.strip().lower().removeprefix('www.').rstrip('.')
+    canonical_target = normalize_scoped_hostname(request.target, request.target)
     for item in values:
         if kind == 'hostname':
-            value = normalize_scoped_hostname(item, target)
-            if value is None or value == target:
+            value = normalize_scoped_hostname(item, request.target)
+            if value is None or value == canonical_target:
                 continue
         elif kind == 'email':
             value = str(item).strip().lower()
@@ -218,7 +212,7 @@ def _normalize_values(request: SourceRequest, kind: ResultKind, values: Iterable
                 continue
         elif kind == 'ip':
             try:
-                value = str(ip_address(str(item).strip()))
+                value = normalize_ip(str(item))
             except ValueError:
                 continue
         elif kind in {'infostealer', 'person'}:
@@ -270,7 +264,7 @@ async def _collect_observations(
         for host, address in await adapter.get_host_ip_pairs():
             normalized_host = normalize_scoped_hostname(host, request.target)
             try:
-                normalized_address = str(ip_address(address))
+                normalized_address = normalize_ip(str(address))
             except ValueError:
                 continue
             if (
@@ -319,22 +313,28 @@ async def run_source(
     reported_host_ip_pairs: set[tuple[str, str]] = set()
     adapter: Any | None = None
     process_completed = False
+    proxy_transport_failed = False
+    source_spec = get_source_spec(request.source)
     try:
-        source_spec = get_source_spec(request.source)
-        created_adapter = create_source(request)
-        _reject_removed_execution_fields(source_spec.name, created_adapter)
-        if on_started is not None:
-            try:
-                on_started(request)
-            except asyncio.CancelledError:
-                raise
-            except Exception as error:
-                logger.warning('Source start reporter failed for %s: %s', request.source, type(error).__name__)
-        adapter = created_adapter
-        report = await adapter.process(request.proxy)
+        with AsyncFetcher.proxy_scope(request.proxy) as selected_proxy:
+            created_adapter = create_source(request)
+            _reject_removed_execution_fields(source_spec.name, created_adapter)
+            if on_started is not None:
+                try:
+                    on_started(request)
+                except asyncio.CancelledError:
+                    raise
+                except Exception as error:
+                    logger.warning('Source start reporter failed for %s: %s', request.source, type(error).__name__)
+            adapter = created_adapter
+            report = await adapter.process(selected_proxy)
+            proxy_transport_failed = AsyncFetcher.proxy_transport_failed()
         process_completed = True
         _reject_removed_execution_fields(source_spec.name, adapter)
-        if report is None:
+        if proxy_transport_failed:
+            status: ExecutionStatus = 'failed'
+            stop_reason = 'transport-error'
+        elif report is None:
             status: ExecutionStatus = 'completed'
             stop_reason = None
         elif isinstance(report, SourceExecutionReport):
@@ -361,6 +361,15 @@ async def run_source(
             (time.perf_counter() - started) * 1000,
             result_count,
             stop_reason=stop_reason,
+        )
+    except ProxyUnavailableError:
+        execution = SourceExecution(
+            request.source,
+            'failed',
+            (time.perf_counter() - started) * 1000,
+            0,
+            'ProxyUnavailableError',
+            'proxy-unavailable',
         )
     except MissingKeyError:
         execution = SourceExecution(
@@ -425,6 +434,7 @@ async def run_source(
             (time.perf_counter() - started) * 1000,
             result_count,
             type(error).__name__,
+            error.reason if isinstance(error, ResponseStreamError) else None,
         )
     return _source_outcome(
         request,
@@ -437,7 +447,7 @@ async def run_source(
 
 
 async def run_source_jobs(
-    jobs: tuple[SourceJob, ...],
+    jobs: tuple[SourceRequest, ...],
     *,
     workers: int = DEFAULT_SOURCE_WORKERS,
     commit: OutcomeCommit | None = None,
@@ -464,14 +474,14 @@ async def run_source_jobs(
         while next_index < len(jobs):
             index = next_index
             next_index += 1
-            job = jobs[index]
+            request = jobs[index]
 
             def commit_current_cancelled(outcome: SourceOutcome, current_index: int = index) -> None:
                 commit_cancelled(current_index, outcome)
 
             try:
                 outcome = await run_source(
-                    job.request,
+                    request,
                     commit_cancelled=commit_current_cancelled,
                     on_started=on_started,
                 )
@@ -486,7 +496,7 @@ async def run_source_jobs(
                 if outcomes[index] is None:
                     commit_cancelled(
                         index,
-                        SourceOutcome(SourceExecution(job.request.source, 'failed', 0, 0, 'CancelledError', 'cancelled')),
+                        SourceOutcome(SourceExecution(request.source, 'failed', 0, 0, 'CancelledError', 'cancelled')),
                     )
                 current_task = asyncio.current_task()
                 for task in owned_tasks:
@@ -506,7 +516,7 @@ async def run_source_jobs(
         cancellation = caught_cancellation or primary_cancellation
         for index, outcome in enumerate(outcomes):
             if outcome is None:
-                request = jobs[index].request
+                request = jobs[index]
                 commit_cancelled(
                     index,
                     SourceOutcome(SourceExecution(request.source, 'failed', 0, 0, 'CancelledError', 'cancelled')),

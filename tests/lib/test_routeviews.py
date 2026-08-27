@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
 
 import theHarvester.lib.routeviews as routeviews_module
-from theHarvester.lib.core import FetcherResponse
+from theHarvester.lib.core import FetcherResponse, ResponseStreamError
 from theHarvester.lib.network_evidence import (
     BgpRouteObservation,
     PrefixOriginObservation,
@@ -16,22 +17,36 @@ from theHarvester.lib.network_evidence import (
 from theHarvester.lib.routeviews import RouteViewsCancelled, enrich_routeviews
 
 
-def install_runtime(monkeypatch, responses: list[FetcherResponse | BaseException]):
+def install_runtime(
+    monkeypatch,
+    responses: list[FetcherResponse | BaseException],
+    *,
+    sessions: list[object] | None = None,
+):
     calls: list[tuple[str, dict[str, Any]]] = []
     elapsed = [0.0]
     collected_at = datetime(2026, 8, 11, 12, tzinfo=UTC)
+    shared_session = object()
 
     async def fetch_json(url: str, **kwargs: Any) -> FetcherResponse:
+        session = kwargs.pop('session', None)
+        if sessions is not None:
+            sessions.append(session)
         calls.append((url, kwargs))
         response = responses.pop(0)
         if isinstance(response, BaseException):
             raise response
         return response
 
+    @asynccontextmanager
+    async def open_session(**_kwargs: Any):
+        yield shared_session
+
     async def sleep(seconds: float) -> None:
         elapsed[0] += seconds
 
     monkeypatch.setattr(routeviews_module, '_fetch_json', fetch_json)
+    monkeypatch.setattr(routeviews_module.AsyncFetcher, 'open_session', staticmethod(open_session))
     monkeypatch.setattr(routeviews_module, '_sleep', sleep)
     monkeypatch.setattr(routeviews_module, '_monotonic', lambda: elapsed[0])
     monkeypatch.setattr(routeviews_module, '_now', lambda: collected_at + timedelta(seconds=elapsed[0]))
@@ -104,6 +119,42 @@ async def test_routeviews_uses_configured_key_for_authenticated_access(monkeypat
         {'Api-Key': 'routeviews-key'},
     ]
     assert elapsed[0] == 0.1
+
+
+@pytest.mark.asyncio
+async def test_routeviews_reuses_one_session_for_every_request(monkeypatch) -> None:
+    sessions: list[object] = []
+    _calls, _elapsed = install_runtime(
+        monkeypatch,
+        [
+            response(['192.0.2.0/24']),
+            response({'64500': None}),
+        ],
+        sessions=sessions,
+    )
+
+    result = await enrich_routeviews(['AS64500'], [], proxy=True)
+
+    assert result.status == 'completed'
+    assert len(sessions) == 2
+    assert sessions[0] is not None
+    assert sessions[0] is sessions[1]
+
+
+@pytest.mark.asyncio
+async def test_routeviews_reports_session_construction_failure(monkeypatch) -> None:
+    @asynccontextmanager
+    async def failed_open_session(**_kwargs: Any):
+        raise ResponseStreamError('transport-error')
+        yield
+
+    monkeypatch.setattr(routeviews_module.AsyncFetcher, 'open_session', failed_open_session)
+
+    result = await enrich_routeviews(['AS64500'], [], proxy=True)
+
+    assert result.status == 'failed'
+    assert result.error_type == 'ResponseStreamError'
+    assert result.stop_reason == 'transport-error'
 
 
 @pytest.mark.asyncio

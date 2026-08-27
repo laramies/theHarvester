@@ -5,6 +5,7 @@ import logging
 import pytest
 
 from theHarvester.discovery import criminalip
+from theHarvester.lib import core as core_module
 from theHarvester.lib.source_execution import SourceExecutionReport
 
 
@@ -90,40 +91,83 @@ async def test_do_search_uses_v2_report_endpoint(monkeypatch) -> None:
         assert url == 'https://api.criminalip.io/v1/domain/scan'
         return {'status': 200, 'data': {'scan_id': 12345}}
 
-    async def fake_fetch_all(urls, **kwargs):
-        called_urls.append(urls[0])
-        if '/v1/domain/status/' in urls[0]:
-            return [{'status': 200, 'data': {'scan_percentage': 100}}]
-        if '/v2/domain/report/' in urls[0]:
-            return [
-                {
-                    'status': 200,
-                    'data': {
-                        'certificates': [],
-                        'connected_domain_subdomain': [],
-                        'connected_ip': [],
-                        'connected_ip_info': [],
-                        'cookies': [],
-                        'dns_record': {},
-                        'html_page_link_domains': [],
-                        'links': [],
-                        'mapped_ip': [],
-                        'network_logs': {'data': []},
-                        'page_redirections': [],
-                        'subdomains': [],
-                    },
-                }
-            ]
-        return [{'status': 500}]
+    async def fake_fetch(*_args, url, **_kwargs):
+        called_urls.append(url)
+        if '/v1/domain/status/' in url:
+            return {'status': 200, 'data': {'scan_percentage': 100}}
+        if '/v2/domain/report/' in url:
+            return {'status': 200, 'data': {}}
+        return {'status': 500}
 
     monkeypatch.setattr(criminalip.AsyncFetcher, 'post_fetch', fake_post_fetch)
-    monkeypatch.setattr(criminalip.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    monkeypatch.setattr(criminalip.AsyncFetcher, 'fetch', fake_fetch)
 
     search = criminalip.SearchCriminalIP('example.com')
     await search.process()
 
     assert any('/v2/domain/report/12345' in url for url in called_urls)
     assert all('/v1/domain/report/' not in url for url in called_urls)
+
+
+@pytest.mark.asyncio
+async def test_provider_conversation_uses_one_session_and_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
+    responses = {
+        'https://api.criminalip.io/v1/domain/scan': {'status': 200, 'data': {'scan_id': 12345}},
+        'https://api.criminalip.io/v1/domain/status/12345': {'status': 200, 'data': {'scan_percentage': 100}},
+        'https://api.criminalip.io/v2/domain/report/12345': {'status': 200, 'data': {}},
+    }
+    sessions = []
+    selections = []
+
+    class Response:
+        status = 200
+
+        def __init__(self, body) -> None:
+            self.body = body
+            self.headers = {}
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args) -> None:
+            return None
+
+        async def json(self):
+            return self.body
+
+    class Session:
+        def __init__(self) -> None:
+            self.closed = False
+            self.urls = []
+
+        def request(self, _method: str, url: str, **_kwargs):
+            self.urls.append(url)
+            return Response(responses[url])
+
+        async def close(self) -> None:
+            self.closed = True
+
+    def choose(proxies):
+        selections.append(tuple(proxies))
+        return proxies[len(selections) % 2]
+
+    async def build_session(*_args, **_kwargs):
+        session = Session()
+        sessions.append(session)
+        return session
+
+    monkeypatch.setattr(criminalip.Core, 'criminalip_key', lambda: 'test-key')
+    monkeypatch.setattr(criminalip.Core, 'get_user_agent', lambda: 'test-agent')
+    monkeypatch.setattr(criminalip.AsyncFetcher, '_proxy_list', {'http': ['http://one.example', 'http://two.example']})
+    monkeypatch.setattr(core_module.random, 'choice', choose)
+    monkeypatch.setattr(criminalip.AsyncFetcher, '_ssl_context', staticmethod(lambda _verify=True: object()))
+    monkeypatch.setattr(criminalip.AsyncFetcher, '_build_session', build_session)
+
+    assert await criminalip.SearchCriminalIP('example.com').process(proxy=True) is None
+    assert len(selections) == 1
+    assert len(sessions) == 1
+    assert sessions[0].urls == list(responses)
+    assert sessions[0].closed is True
 
 
 @pytest.mark.asyncio
@@ -135,16 +179,16 @@ async def test_waiting_scan_reports_runtime_limit(monkeypatch) -> None:
     async def fake_post_fetch(*_args, **_kwargs):
         return {'status': 200, 'data': {'scan_id': 12345}}
 
-    async def fake_fetch_all(*_args, **_kwargs):
+    async def fake_fetch(*_args, **_kwargs):
         nonlocal status_calls
         status_calls += 1
-        return [{'status': 200, 'data': {'scan_percentage': 50}}]
+        return {'status': 200, 'data': {'scan_percentage': 50}}
 
     async def no_sleep(*_args, **_kwargs):
         return None
 
     monkeypatch.setattr(criminalip.AsyncFetcher, 'post_fetch', fake_post_fetch)
-    monkeypatch.setattr(criminalip.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    monkeypatch.setattr(criminalip.AsyncFetcher, 'fetch', fake_fetch)
     monkeypatch.setattr(criminalip.asyncio, 'sleep', no_sleep)
 
     report = await criminalip.SearchCriminalIP('example.com').process()
@@ -161,14 +205,14 @@ async def test_polling_cancellation_propagates(monkeypatch) -> None:
     async def fake_post_fetch(*_args, **_kwargs):
         return {'status': 200, 'data': {'scan_id': 12345}}
 
-    async def fake_fetch_all(*_args, **_kwargs):
-        return [{'status': 200, 'data': {'scan_percentage': 50}}]
+    async def fake_fetch(*_args, **_kwargs):
+        return {'status': 200, 'data': {'scan_percentage': 50}}
 
     async def cancel(*_args, **_kwargs):
         raise asyncio.CancelledError
 
     monkeypatch.setattr(criminalip.AsyncFetcher, 'post_fetch', fake_post_fetch)
-    monkeypatch.setattr(criminalip.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    monkeypatch.setattr(criminalip.AsyncFetcher, 'fetch', fake_fetch)
     monkeypatch.setattr(criminalip.asyncio, 'sleep', cancel)
 
     with pytest.raises(asyncio.CancelledError):

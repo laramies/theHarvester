@@ -120,7 +120,13 @@ def parse_result_jsonl(payload: bytes | str) -> tuple[dict[str, object], list[di
             if result_kind == 'prefix' and normalized_result_value != result_value:
                 raise ValueError('prefix result is not canonical')
         except ValueError as error:
-            label = {'asn': 'ASN', 'prefix': 'prefix', 'shodan-host': 'Shodan host'}.get(str(result_kind), 'result')
+            label = {
+                'asn': 'ASN',
+                'hostname': 'hostname',
+                'ip': 'IP',
+                'prefix': 'prefix',
+                'shodan-host': 'Shodan host',
+            }.get(str(result_kind), 'result')
             raise ValueError(f'JSONL findings must use a canonical {label} value') from error
         record['value'] = normalized_result_value
         if result_kind == 'prefix' and record.get('scope') != 'external-relationship':

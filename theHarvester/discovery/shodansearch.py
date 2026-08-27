@@ -6,7 +6,7 @@ import socket
 from collections import OrderedDict
 from datetime import UTC, datetime
 from ipaddress import ip_address
-from typing import cast
+from typing import Any, cast
 
 import aiodns
 
@@ -14,7 +14,7 @@ from theHarvester.discovery.constants import MissingKey
 from theHarvester.lib.asn_attribution import AsnAttributionObservation
 from theHarvester.lib.core import AsyncFetcher, Core, FetcherResponse, ResponseStreamError
 from theHarvester.lib.hostchecker import resolve_ip_addresses
-from theHarvester.lib.hostnames import normalize_scoped_hostname
+from theHarvester.lib.hostnames import normalize_hostname, normalize_scoped_hostname
 from theHarvester.lib.shodan_evidence import ShodanHostObservation, canonical_shodan_hosts
 from theHarvester.lib.source_execution import SourceExecutionReport, SourceReportStatus
 
@@ -67,10 +67,15 @@ class SearchShodan:
     REQUEST_TIMEOUT_SECONDS: int | None = None
 
     def __init__(self, word: str | None = None) -> None:
-        self.word = word.strip().lower().rstrip('.') if word is not None else None
-        if self.word is not None and (self.word.startswith('*.') or _CERTIFICATE_HOSTNAME.fullmatch(self.word) is None):
-            raise ValueError('Shodan discovery target must be a hostname')
-        self.scope = self.word.removeprefix('www.') if self.word is not None else None
+        if word is None:
+            self.word = None
+        else:
+            try:
+                self.word = normalize_hostname(word)
+            except ValueError as error:
+                raise ValueError('Shodan discovery target must be a hostname') from error
+            if _CERTIFICATE_HOSTNAME.fullmatch(self.word) is None:
+                raise ValueError('Shodan discovery target must be a hostname')
         self.key = Core.shodan_key()
         if self.key is None:
             raise MissingKey('Shodan')
@@ -81,7 +86,14 @@ class SearchShodan:
         self.totalhosts: set[str] = set()
         self._next_request_at = 0.0
 
-    async def _fetch_json(self, url: str, params: dict[str, object], proxy: bool) -> FetcherResponse:
+    async def _fetch_json(
+        self,
+        url: str,
+        params: dict[str, object],
+        *,
+        proxy: str | bool = False,
+        session: Any | None = None,
+    ) -> FetcherResponse:
         loop = asyncio.get_running_loop()
         delay = self._next_request_at - loop.time()
         if delay > 0:
@@ -89,13 +101,25 @@ class SearchShodan:
         self._next_request_at = loop.time() + self.REQUEST_INTERVAL_SECONDS
         return await AsyncFetcher.fetch_json(
             url,
+            session=session,
             params=params,
-            proxy=proxy,
+            proxy=proxy if session is None else '',
             request_timeout=self.REQUEST_TIMEOUT_SECONDS,
         )
 
-    async def _fetch_host(self, ip: str, proxy: bool) -> FetcherResponse:
-        return await self._fetch_json(f'{self.API_BASE_URL}/{ip}', {'key': self.key}, proxy)
+    async def _fetch_host(
+        self,
+        ip: str,
+        *,
+        proxy: str | bool = False,
+        session: Any | None = None,
+    ) -> FetcherResponse:
+        return await self._fetch_json(
+            f'{self.API_BASE_URL}/{ip}',
+            {'key': self.key},
+            proxy=proxy,
+            session=session,
+        )
 
     def _certificate_name(self, value: object) -> str | None:
         if not isinstance(value, str) or not (candidate := value.strip().casefold().rstrip('.')):
@@ -104,8 +128,8 @@ class SearchShodan:
             return None
         wildcard = candidate.startswith('*.')
         hostname = candidate.removeprefix('*.')
-        if self.scope is not None:
-            hostname = normalize_scoped_hostname(hostname, self.scope) or ''
+        if self.word is not None:
+            hostname = normalize_scoped_hostname(hostname, self.word) or ''
             if not hostname:
                 return None
         else:
@@ -150,13 +174,13 @@ class SearchShodan:
         return names, invalid_response
 
     def _scoped_banner_names(self, banner: dict[str, object]) -> set[str]:
-        assert self.scope is not None
+        assert self.word is not None
         names: set[str] = set()
         for field in ('hostnames', 'domains'):
             values = banner.get(field)
             if isinstance(values, list):
                 for value in values:
-                    if normalized := normalize_scoped_hostname(value, self.scope):
+                    if normalized := normalize_scoped_hostname(value, self.word):
                         names.add(normalized)
         ssl = banner.get('ssl')
         if isinstance(ssl, dict):
@@ -323,14 +347,14 @@ class SearchShodan:
 
         domain_values = normalized_strings(results.get('domains'))
         hostname_values = normalized_strings(results.get('hostnames'))
-        if self.scope is not None:
+        if self.word is not None:
             domain_values = sorted(
-                {normalized for value in domain_values if (normalized := normalize_scoped_hostname(value, self.scope))}
+                {normalized for value in domain_values if (normalized := normalize_scoped_hostname(value, self.word))}
             )
             hostname_values = sorted(
-                {normalized for value in hostname_values if (normalized := normalize_scoped_hostname(value, self.scope))}
+                {normalized for value in hostname_values if (normalized := normalize_scoped_hostname(value, self.word))}
             )
-            self.totalhosts.update(value for value in domain_values + hostname_values if value != self.scope)
+            self.totalhosts.update(value for value in domain_values + hostname_values if value != self.word)
             for service in services:
                 tls = service.get('tls')
                 if not isinstance(tls, dict):
@@ -339,7 +363,7 @@ class SearchShodan:
                     tls_value = tls.get(field)
                     values = tls_value if isinstance(tls_value, list) else [tls_value]
                     self.totalhosts.update(
-                        name for name in values if isinstance(name, str) and not name.startswith('*.') and name != self.scope
+                        name for name in values if isinstance(name, str) and not name.startswith('*.') and name != self.word
                     )
         asn = normalized_string(results.get('asn'))
         organization = normalized_string(results.get('org'))
@@ -370,10 +394,10 @@ class SearchShodan:
             )
         return invalid_response
 
-    async def _search_target(self, proxy: bool) -> set[str]:
-        assert self.scope is not None
+    async def _search_target(self, session: Any) -> set[str]:
+        assert self.word is not None
         error_types: set[str] = set()
-        for query in (f'hostname:{self.scope}', f'ssl:{self.scope}'):
+        for query in (f'hostname:{self.word}', f'ssl:{self.word}'):
             page = 1
             received = 0
             seen_pages: set[str] = set()
@@ -388,7 +412,7 @@ class SearchShodan:
                             'minify': 'false',
                             'fields': self.SEARCH_FIELDS,
                         },
-                        proxy,
+                        session=session,
                     )
                 except ResponseStreamError as error:
                     error_types.add(
@@ -444,7 +468,13 @@ class SearchShodan:
                 page += 1
         return error_types
 
-    async def search_ip(self, ip: str, *, proxy: bool = False) -> OrderedDict[str, HostResult | str]:
+    async def search_ip(
+        self,
+        ip: str,
+        *,
+        proxy: str | bool = False,
+        session: Any | None = None,
+    ) -> OrderedDict[str, HostResult | str]:
         self.error_type = None
         try:
             normalized_ip = str(ip_address(ip.strip()))
@@ -454,7 +484,7 @@ class SearchShodan:
             return self.tracker
 
         try:
-            response = await self._fetch_host(normalized_ip, proxy)
+            response = await self._fetch_host(normalized_ip, proxy=proxy, session=session)
             if response.status == 404:
                 logger.info(f'{normalized_ip}: Not in Shodan')
                 self.tracker[normalized_ip] = 'Not in Shodan'
@@ -497,7 +527,7 @@ class SearchShodan:
     async def process(self, proxy: bool = False) -> SourceExecutionReport | None:
         if self.word is None:
             raise ValueError('A discovery target is required')
-        assert self.scope is not None
+        assert self.word is not None
 
         self.totalhosts.clear()
         dns_stop_reason: str | None = None
@@ -517,11 +547,17 @@ class SearchShodan:
             resolved_ips = ()
             dns_stop_reason = 'dns-resolution-failed'
 
-        provider_error_types = await self._search_target(proxy)
-        for resolved_ip in resolved_ips:
-            await self.search_ip(resolved_ip, proxy=proxy)
-            if self.error_type is not None:
-                provider_error_types.add(self.error_type)
+        try:
+            async with AsyncFetcher.open_session(proxy=proxy) as session:
+                provider_error_types = await self._search_target(session)
+                for resolved_ip in resolved_ips:
+                    await self.search_ip(resolved_ip, session=session)
+                    if self.error_type is not None:
+                        provider_error_types.add(self.error_type)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            return SourceExecutionReport('failed', 'transport-error')
 
         self.error_type = next(iter(sorted(provider_error_types)), None)
         if dns_stop_reason is not None:

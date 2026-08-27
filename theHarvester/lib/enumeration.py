@@ -32,7 +32,6 @@ class EnumerationOptions:
     no_hosts: bool = False
     shodan: bool = False
     screenshot: str = ''
-    dns_server: str | None = None
     take_over: bool = False
     dns_resolve: str | None = ''
     dns_resolvers: tuple[str, ...] = ()
@@ -77,7 +76,6 @@ class EnumerationOptions:
             no_hosts=getattr(value, 'no_hosts', False),
             shodan=getattr(value, 'shodan', False),
             screenshot=getattr(value, 'screenshot', ''),
-            dns_server=getattr(value, 'dns_server', None),
             take_over=getattr(value, 'take_over', False),
             dns_resolve=getattr(value, 'dns_resolve', ''),
             dns_resolvers=tuple(getattr(value, 'dns_resolvers', ())),

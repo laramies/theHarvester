@@ -60,4 +60,4 @@ jobs:
         run: pytest
 
       - name: Type check with ty
-        run: ty theHarvester
+        run: ty check

@@ -65,9 +65,10 @@ class TestShodanEngine:
         from theHarvester.discovery import shodansearch
         from theHarvester.lib.core import FetcherResponse
 
-        async def fetch_json(url, *, params, proxy, request_timeout):
+        async def fetch_json(url, *, session, params, proxy, request_timeout):
             assert url == 'https://api.shodan.io/shodan/host/192.0.2.10'
             assert 'test-key' not in url
+            assert session is None
             assert params == {'key': 'test-key'}
             assert proxy is True
             assert request_timeout is None
@@ -248,7 +249,7 @@ class TestShodanEngine:
             return FetcherResponse(
                 body={
                     'data': [{'ip_str': ip, 'port': 443, 'transport': 'tcp'}],
-                    'hostnames': ['CDN.Example.TEST.', 'outside.test'],
+                    'hostnames': ['CDN.WWW.Example.TEST.', 'outside.test'],
                 },
                 status=200,
                 headers={},
@@ -256,6 +257,11 @@ class TestShodanEngine:
 
         monkeypatch.setattr(shodansearch.Core, 'shodan_key', lambda: 'test-key')
         monkeypatch.setattr(shodansearch.AsyncFetcher, 'fetch_json', fetch_json)
+        monkeypatch.setattr(
+            shodansearch.AsyncFetcher,
+            '_proxy_list',
+            {'http': ['http://proxy.example:8080'], 'socks5': []},
+        )
         targets = patch_resolution(monkeypatch, shodansearch, ('203.0.113.10', '203.0.113.11'))
 
         search = shodansearch.SearchShodan('WWW.Example.TEST.')
@@ -266,16 +272,25 @@ class TestShodanEngine:
             'https://api.shodan.io/shodan/host/203.0.113.10',
             'https://api.shodan.io/shodan/host/203.0.113.11',
         ]
-        assert await search.get_hostnames() == {'cdn.example.test'}
+        assert await search.get_hostnames() == {'cdn.www.example.test'}
         assert report.status == 'failed'
         assert report.stop_reason == 'provider-errors'
 
     @pytest.mark.asyncio
     async def test_shodan_discovery_paginates_hostname_and_tls_searches_with_scoped_certificate_names(self, monkeypatch):
+        from contextlib import asynccontextmanager
+
         from theHarvester.discovery import shodansearch
         from theHarvester.lib.core import FetcherResponse
 
         search_calls = []
+        session = object()
+        session_calls = []
+
+        @asynccontextmanager
+        async def open_session(**kwargs):
+            session_calls.append(kwargs)
+            yield session
 
         def banner(
             ip,
@@ -345,8 +360,9 @@ class TestShodanEngine:
             ],
         }
 
-        async def fetch_json(url, *, params, proxy, request_timeout):
-            assert proxy is True
+        async def fetch_json(url, *, params, session: object | None = None, proxy='', request_timeout):
+            assert session is not None
+            assert proxy == ''
             assert request_timeout is None
             assert params['key'] == 'test-key'
             if url.endswith('/search'):
@@ -366,11 +382,18 @@ class TestShodanEngine:
 
         monkeypatch.setattr(shodansearch.Core, 'shodan_key', lambda: 'test-key')
         monkeypatch.setattr(shodansearch.AsyncFetcher, 'fetch_json', fetch_json)
+        monkeypatch.setattr(shodansearch.AsyncFetcher, 'open_session', open_session)
+        monkeypatch.setattr(
+            shodansearch.AsyncFetcher,
+            '_proxy_list',
+            {'http': ['http://proxy.example:8080'], 'socks5': []},
+        )
         patch_resolution(monkeypatch, shodansearch)
 
         search = shodansearch.SearchShodan('example.test')
         report = await search.process(proxy=True)
 
+        assert session_calls == [{'proxy': True}]
         assert [(call['query'], call['page']) for call in search_calls] == [
             ('hostname:example.test', 1),
             ('hostname:example.test', 2),
@@ -559,6 +582,15 @@ class TestShodanEngine:
         assert provider_queries == ['hostname:example.test', 'ssl:example.test']
         assert report.status == 'failed'
         assert report.stop_reason == 'dns-resolution-failed'
+
+    def test_shodan_preserves_an_explicit_www_search_scope(self, monkeypatch):
+        from theHarvester.discovery import shodansearch
+
+        monkeypatch.setattr(shodansearch.Core, 'shodan_key', lambda: 'test-key')
+
+        search = shodansearch.SearchShodan('WWW.Example.TEST.')
+
+        assert search.word == 'www.example.test'
 
     @pytest.mark.asyncio
     async def test_shodan_direct_request_cancellation_propagates(self, monkeypatch):

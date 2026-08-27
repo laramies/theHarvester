@@ -48,6 +48,7 @@ async def test_process_reuses_one_session_for_fallback_requests(monkeypatch: pyt
         ['https://fullhunt.io/api/v1/domain/example.com/subdomains'],
     ]
     assert all(kwargs['session'] is session for _urls, kwargs in calls)
+    assert all(not kwargs.get('proxy', False) for _urls, kwargs in calls)
     assert open_calls == [
         {
             'headers': {'User-Agent': fullhuntsearch.Core.get_user_agent(), 'X-API-KEY': 'test-key'},
@@ -57,6 +58,26 @@ async def test_process_reuses_one_session_for_fallback_requests(monkeypatch: pyt
     ]
     assert session_exited is True
     assert report is None
+
+
+@pytest.mark.asyncio
+async def test_direct_helper_preserves_required_proxy_without_a_borrowed_session(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(fullhuntsearch.Core, 'fullhunt_key', lambda: 'test-key')
+    calls: list[dict[str, Any]] = []
+
+    async def fake_fetch_all(_urls: list[str], **kwargs: Any) -> list[FetcherResponse]:
+        calls.append(kwargs)
+        return [FetcherResponse({'host': 'api.example.com'}, 200, {})]
+
+    monkeypatch.setattr(fullhuntsearch.AsyncFetcher, 'fetch_all', fake_fetch_all)
+    search = fullhuntsearch.SearchFullHunt('example.com')
+    search.proxy = True
+
+    assert await search.get_host_details('api.example.com') == {'host': 'api.example.com'}
+    assert calls[0]['session'] is None
+    assert calls[0]['proxy'] is True
 
 
 @pytest.mark.asyncio

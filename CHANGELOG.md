@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added root contributor and security policies, structured issue forms, repository agent guidance, discovery terminology, and an operator-focused documentation wiki ([d090a29a](https://github.com/laramies/theHarvester/commit/d090a29a), [7c491ef5](https://github.com/laramies/theHarvester/commit/7c491ef5), [8b9d420b](https://github.com/laramies/theHarvester/commit/8b9d420b)).
 
 ### Changed
+- Scoped `--proxies` to supported HTTP(S) requests while allowing DNS queries through operator-selected recursive resolvers in the same run.
 - Raised the minimum supported Python version to 3.14, selected it for source checkouts, and limited release validation to that runtime.
 - Replaced the maintenance-only UltraJSON dependency with Python's standard `json` module for provider payloads and legacy reports, removing the native runtime extension without changing JSONL or API serialization.
 - Centralized passive-source completion reporting in an immutable `SourceExecutionReport` returned by adapters, with the source runner alone deriving partial and no-result outcomes from retained evidence; removed mutable per-adapter `execution_status` and `stop_reason` state and made the runner reject adapters that still expose either field.
@@ -67,16 +68,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Completed bounded pagination for Wayback Archive and Cert Spotter, including continuation handling, truncation diagnostics, and preservation of partial results on provider failures ([df6ff2c9](https://github.com/laramies/theHarvester/commit/df6ff2c9), [f85a08ff](https://github.com/laramies/theHarvester/commit/f85a08ff)).
 - Routed operator messages and diagnostics through logging, preserved host logging policy and existing handlers, and configured logging for the API service ([8a7b8b71](https://github.com/laramies/theHarvester/commit/8a7b8b71)).
 - Added credential configuration adapters, deferred proxy configuration loading until required, and retained compatibility accessors such as `Core.brave_key()` ([ccd91176](https://github.com/laramies/theHarvester/commit/ccd91176)).
-- Centralized hostname scope normalization for parser and storage boundaries, including case-insensitive targets, trailing dots, optional `www.` prefixes, and exact DNS-label matching ([c0a0b653](https://github.com/laramies/theHarvester/commit/c0a0b653), [a474f086](https://github.com/laramies/theHarvester/commit/a474f086), [70470cd8](https://github.com/laramies/theHarvester/commit/70470cd8)).
+- Centralized hostname scope normalization for parser and storage boundaries, including case-insensitive targets, trailing dots, exact leading `www.` labels, and DNS-label boundary matching ([c0a0b653](https://github.com/laramies/theHarvester/commit/c0a0b653), [a474f086](https://github.com/laramies/theHarvester/commit/a474f086), [70470cd8](https://github.com/laramies/theHarvester/commit/70470cd8)).
 - Replaced deprecated hostname resolution with `getaddrinfo`-based handling ([6a847435](https://github.com/laramies/theHarvester/commit/6a847435)).
 - Reworked routine CI to use read-only permissions, non-mutating Ruff checks, offline tests, and explicit opt-in live provider checks ([72e5820f](https://github.com/laramies/theHarvester/commit/72e5820f)).
 - Grouped GitHub Actions, Python, and Docker Dependabot updates with a seven-day cooldown, and added a seven-day `uv` dependency freshness window ([7a947b66](https://github.com/laramies/theHarvester/commit/7a947b66), [52a79cdb](https://github.com/laramies/theHarvester/commit/52a79cdb)).
 - Updated runtime dependencies: `aiohttp` to `3.14.3`, `beautifulsoup4` to `4.15.0`, `certifi` to `2026.6.17`, `fastapi` to `0.138.1`, and `uvicorn` to `0.52.1`.
-- Updated development dependencies: `mypy` to `2.1.0`, `pytest` to `9.1.1`, `pytest-asyncio` to `1.4.0`, `pytest-playwright` to `0.8.0`, and `ruff` to `0.16.1`.
+- Replaced `mypy` 2.1.0 with `ty` 0.0.72 for type checking. Updated `pytest` to `9.1.1`, `pytest-asyncio` to `1.4.0`, `pytest-playwright` to `0.8.0`, and `ruff` to `0.16.3`.
 - Updated CI and container maintenance pins, including `actions/checkout`, `astral-sh/setup-uv`, `astral-sh/ruff-action`, `github/codeql-action`, StepSecurity Harden-Runner, Docker actions, and the Python base image.
 - Expanded offline regression coverage for discovery providers, configuration contracts, logging, output, documentation, workflow policy, and scope boundaries.
 
 ### Removed
+- Removed the unused legacy `-e`/`--dns-server` CLI option and internal field; use `--dns-resolvers` to select resolver addresses.
+- Removed the unused legacy SecurityTrails parser that stripped leading `www.` labels outside the shared hostname-scope boundary.
 - Removed the mutable runtime takeover fingerprint download and silent handwritten fallback rules.
 - Removed the inert legacy source identifiers `linkedin`, `netcraft`, `omnisint`, `sublist3r`, and `zoomeyeapi`; use the source catalog and shared factory registry for supported providers.
 - Removed the obsolete bundled IP-range and resolver snapshots.
@@ -86,6 +89,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed the nonfunctional ThreatCrowd source because its service hostnames terminate at deleted AWS load balancers and return NXDOMAIN; OTX remains available through its separate adapter.
 
 ### Fixed
+- Made explicit HTTP proxy mode fail closed with a sanitized `proxy-unavailable` source outcome, and kept one proxy identity and session across the CriminalIP scan, poll, and report conversation.
 - Reused one connection pool, proxy identity, and cookie jar across Censys and GitHub Code pagination while keeping provider sessions isolated and cancellation-safe.
 - Sent a stable, versioned theHarvester identity with provider and API requests while preserving explicit browser identities for sources that require them.
 - Kept API endpoint scan URLs canonical instead of prefixing targets onto already complete URLs.

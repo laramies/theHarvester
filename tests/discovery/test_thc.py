@@ -11,6 +11,7 @@ API documentation: https://ip.thc.org/docs/
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any, Self
 from urllib.parse import parse_qs, urlparse
 
@@ -29,6 +30,8 @@ class FakeResponse:
         self._text = text
         self.status = status
         self.headers = headers or {}
+        self.charset = 'utf-8'
+        self.content = self
 
     async def __aenter__(self) -> Self:
         return self
@@ -43,6 +46,9 @@ class FakeResponse:
 
     async def text(self) -> str:
         return self._text
+
+    async def iter_any(self):
+        yield self._text.encode()
 
 
 class FakeSession:
@@ -64,6 +70,10 @@ class FakeSession:
         domain = parse_qs(urlparse(url).query).get('domain', ['example.com'])[0]
         return FakeResponse(f'WWW.{domain}\napi.{domain}\napi.{domain}\n')
 
+    def request(self, method: str, url: str, **_kwargs: Any) -> FakeResponse:
+        assert method == 'GET'
+        return self.get(url)
+
 
 def session_for(*outcomes: FakeResponse | Exception) -> type[FakeSession]:
     remaining = iter(outcomes)
@@ -79,8 +89,18 @@ def session_for(*outcomes: FakeResponse | Exception) -> type[FakeSession]:
 
 
 @pytest.fixture(autouse=True)
-def fake_thc_session(monkeypatch: pytest.MonkeyPatch) -> None:
+def fake_thc_session(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
+    session_options: list[dict[str, Any]] = []
+
+    @asynccontextmanager
+    async def open_session(**kwargs: Any):
+        session_options.append(kwargs)
+        async with thc.aiohttp.ClientSession(**kwargs) as session:
+            yield session
+
     monkeypatch.setattr(thc.aiohttp, 'ClientSession', FakeSession)
+    monkeypatch.setattr(thc.AsyncFetcher, 'open_session', open_session)
+    return session_options
 
 
 @pytest.fixture
@@ -179,6 +199,26 @@ class TestThcSubdomainSearch:
         result = await search.get_hostnames()
         result_list = list(result)
         assert len(result_list) == len(set(result_list))
+
+    @pytest.mark.asyncio
+    async def test_proxy_is_stable_across_the_retry_conversation(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        fake_thc_session: list[dict[str, Any]],
+        recorded_sleeps: list[int],
+    ) -> None:
+        monkeypatch.setattr(
+            thc.aiohttp,
+            'ClientSession',
+            session_for(FakeResponse('', status=429), FakeResponse('api.example.com\n')),
+        )
+
+        report = await thc.SearchThc(self.domain()).process(proxy=True)
+
+        assert report is None
+        assert recorded_sleeps == [2]
+        assert len(fake_thc_session) == 1
+        assert fake_thc_session[0]['proxy'] is True
 
     @pytest.mark.asyncio
     async def test_unlimited_uses_provider_max_and_reports_saturation(
