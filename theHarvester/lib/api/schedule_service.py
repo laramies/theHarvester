@@ -1,44 +1,58 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
+from collections.abc import Callable
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
-from . import run_worker
 from .run_models import RunRequest
 from .run_store import RunStore
+from .run_worker import RunWorkerService  # noqa: TC001 - runtime type-hint resolution requires this import
 from .schedule_models import DispatchState, ScheduleDispatchResponse, ScheduleResponse, parse_utc, utc_iso, utc_now_datetime
 from .schedule_store import ScheduleStore
 
 if TYPE_CHECKING:
     from datetime import datetime
 
-_scheduler_task: asyncio.Task[None] | None = None
-_scheduler_stop: asyncio.Event | None = None
-_scheduler_wakeup: asyncio.Event | None = None
-_scheduler_owner: str | None = None
+ScheduleStoreFactory = Callable[[], ScheduleStore]
+RunStoreFactory = Callable[[], RunStore]
+EnabledCheck = Callable[[], bool]
+_LOGGER = logging.getLogger(__name__)
 
 
-def scheduler_enabled() -> bool:
+def _log_task_failure(task: asyncio.Task[None]) -> None:
+    """Report a crashed scheduler as soon as the task finishes."""
+    if task.cancelled():
+        return
+    error = task.exception()
+    if error is not None:
+        _LOGGER.error(
+            '%s exited unexpectedly',
+            task.get_name(),
+            exc_info=(type(error), error, error.__traceback__),
+        )
+
+
+def _enabled_from_environment() -> bool:
     return os.getenv('THEHARVESTER_SCHEDULER', 'enabled').casefold() != 'disabled'
-
-
-def scheduler_available() -> bool:
-    return _scheduler_task is not None and not _scheduler_task.done()
-
-
-def wake_scheduler() -> None:
-    if _scheduler_wakeup is not None:
-        _scheduler_wakeup.set()
 
 
 class ScheduleDispatcher:
     """Reserve one scheduled occurrence and submit its ordinary run records."""
 
-    def __init__(self, schedule_store: ScheduleStore | None = None, run_store: RunStore | None = None) -> None:
+    def __init__(
+        self,
+        schedule_store: ScheduleStore | None = None,
+        run_store: RunStore | None = None,
+        *,
+        worker: RunWorkerService,
+    ) -> None:
         self.schedule_store = schedule_store or ScheduleStore()
         self.run_store = run_store or RunStore()
+        self.worker = worker
 
     async def refresh(self, schedule_id: str) -> None:
         await self._reconcile_pending(schedule_id)
@@ -47,7 +61,7 @@ class ScheduleDispatcher:
         schedule = await self.schedule_store.get(schedule_id)
         if schedule is None:
             return None
-        if not run_worker.worker_enabled() or not run_worker.worker_available():
+        if not self.worker.enabled or not self.worker.available:
             raise RuntimeError('theHarvester execution worker is unavailable')
         return await self._enqueue_targets(schedule, scheduled_for=utc_now_datetime())
 
@@ -65,7 +79,7 @@ class ScheduleDispatcher:
             return
         scheduled_for = parse_utc(schedule.next_run_at)
 
-        if not run_worker.worker_enabled() or not run_worker.worker_available():
+        if not self.worker.enabled or not self.worker.available:
             await self.schedule_store.defer_claim(
                 schedule.schedule_id,
                 owner_id,
@@ -201,7 +215,7 @@ class ScheduleDispatcher:
                 await asyncio.sleep(0)
 
         if run_ids:
-            run_worker.wake_worker()
+            self.worker.wake()
         return ScheduleDispatchResponse(
             schedule_id=schedule.schedule_id,
             scheduled_for=utc_iso(scheduled_for),
@@ -211,72 +225,127 @@ class ScheduleDispatcher:
         )
 
 
-async def _wait_for_work(store: ScheduleStore) -> None:
-    assert _scheduler_wakeup is not None
-    _scheduler_wakeup.clear()
-    next_due = await store.next_due_at()
-    if next_due is None:
-        timeout = 5.0
-    else:
-        timeout = max(0.5, min(5.0, (next_due - utc_now_datetime()).total_seconds()))
-    try:
-        await asyncio.wait_for(_scheduler_wakeup.wait(), timeout=timeout)
-    except TimeoutError:
-        pass
+@dataclass(slots=True)
+class _SchedulerSession:
+    """Loop-bound state for one started scheduler instance."""
+
+    store: ScheduleStore
+    owner_id: str
+    stop_event: asyncio.Event
+    wakeup_event: asyncio.Event
+    task: asyncio.Task[None] | None = None
 
 
-async def _scheduler_loop(owner_id: str) -> None:
-    assert _scheduler_stop is not None
-    store = ScheduleStore()
-    dispatcher = ScheduleDispatcher(store, RunStore())
-    await store.initialize()
-    while not _scheduler_stop.is_set():
-        claimed = await store.claim_due(owner_id, limit=1)
-        if claimed:
-            for schedule in claimed:
-                if _scheduler_stop.is_set():
-                    break
+class SchedulerService:
+    """Own scheduler lifecycle state and its explicit worker dependency."""
+
+    def __init__(
+        self,
+        worker: RunWorkerService,
+        *,
+        schedule_store_factory: ScheduleStoreFactory = ScheduleStore,
+        run_store_factory: RunStoreFactory = RunStore,
+        enabled_check: EnabledCheck = _enabled_from_environment,
+    ) -> None:
+        self.worker = worker
+        self._schedule_store_factory = schedule_store_factory
+        self._run_store_factory = run_store_factory
+        self._enabled_check = enabled_check
+        self._session: _SchedulerSession | None = None
+
+    @property
+    def enabled(self) -> bool:
+        return self._enabled_check()
+
+    @property
+    def available(self) -> bool:
+        session = self._session
+        return session is not None and session.task is not None and not session.task.done()
+
+    def wake(self) -> None:
+        session = self._session
+        if session is not None:
+            session.wakeup_event.set()
+
+    def dispatcher(
+        self,
+        schedule_store: ScheduleStore | None = None,
+        run_store: RunStore | None = None,
+    ) -> ScheduleDispatcher:
+        return ScheduleDispatcher(schedule_store, run_store, worker=self.worker)
+
+    async def start(self) -> None:
+        if not self.enabled:
+            return
+        if self.available:
+            return
+        if self._session is not None:
+            await self.stop()
+
+        session = _SchedulerSession(
+            store=self._schedule_store_factory(),
+            owner_id=str(uuid4()),
+            stop_event=asyncio.Event(),
+            wakeup_event=asyncio.Event(),
+        )
+        self._session = session
+        session.task = asyncio.create_task(
+            self._scheduler_loop(session),
+            name=f'theharvester-scheduler-{session.owner_id}',
+        )
+        session.task.add_done_callback(_log_task_failure)
+
+    async def stop(self) -> None:
+        session = self._session
+        if session is None:
+            return
+        task = session.task
+        try:
+            session.stop_event.set()
+            session.wakeup_event.set()
+            if task is not None:
                 try:
-                    await dispatcher.dispatch_claimed(schedule, owner_id)
-                except Exception as error:
-                    await store.defer_claim(
-                        schedule.schedule_id,
-                        owner_id,
-                        seconds=60,
-                        error=f'{type(error).__name__}: {error}',
-                    )
-            continue
-        await _wait_for_work(store)
+                    await asyncio.shield(task)
+                except asyncio.CancelledError:
+                    task.cancel()
+                    await asyncio.gather(task, return_exceptions=True)
+                    raise
+        finally:
+            try:
+                await session.store.release_claims(session.owner_id)
+            finally:
+                if self._session is session:
+                    self._session = None
 
+    async def _wait_for_work(self, session: _SchedulerSession) -> None:
+        session.wakeup_event.clear()
+        next_due = await session.store.next_due_at()
+        if next_due is None:
+            timeout = 5.0
+        else:
+            timeout = max(0.5, min(5.0, (next_due - utc_now_datetime()).total_seconds()))
+        try:
+            await asyncio.wait_for(session.wakeup_event.wait(), timeout=timeout)
+        except TimeoutError:
+            pass
 
-async def start_scheduler() -> None:
-    global _scheduler_owner, _scheduler_stop, _scheduler_task, _scheduler_wakeup
-    if not scheduler_enabled():
-        return
-    if _scheduler_task is not None and not _scheduler_task.done():
-        return
-    owner_id = str(uuid4())
-    _scheduler_owner = owner_id
-    _scheduler_stop = asyncio.Event()
-    _scheduler_wakeup = asyncio.Event()
-    _scheduler_task = asyncio.create_task(_scheduler_loop(owner_id))
-
-
-async def stop_scheduler() -> None:
-    global _scheduler_owner, _scheduler_stop, _scheduler_task, _scheduler_wakeup
-    task = _scheduler_task
-    owner_id = _scheduler_owner
-    try:
-        if task is not None:
-            if _scheduler_stop is not None:
-                _scheduler_stop.set()
-            if _scheduler_wakeup is not None:
-                _scheduler_wakeup.set()
-            await task
-    finally:
-        if owner_id is not None:
-            await ScheduleStore().release_claims(owner_id)
-        _scheduler_task = None
-        _scheduler_owner = None
-        _scheduler_stop = None
-        _scheduler_wakeup = None
+    async def _scheduler_loop(self, session: _SchedulerSession) -> None:
+        dispatcher = self.dispatcher(session.store, self._run_store_factory())
+        await session.store.initialize()
+        while not session.stop_event.is_set():
+            claimed = await session.store.claim_due(session.owner_id, limit=1)
+            if claimed:
+                for schedule in claimed:
+                    if session.stop_event.is_set():
+                        break
+                    try:
+                        await dispatcher.dispatch_claimed(schedule, session.owner_id)
+                    except Exception as error:
+                        await session.store.defer_claim(
+                            schedule.schedule_id,
+                            session.owner_id,
+                            seconds=60,
+                            error=f'{type(error).__name__}: {error}',
+                        )
+                continue
+            await self._wait_for_work(session)
