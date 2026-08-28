@@ -14,7 +14,6 @@ from starlette.background import BackgroundTask
 from theHarvester.lib.api.auth import get_api_key
 from theHarvester.lib.source_catalog import ACTION_ACTIVITIES, SOURCE_SPECS, SourceSpec, get_source_spec, resolve_sources
 
-from . import run_worker
 from .run_evidence import parse_jsonl_import
 from .run_models import (
     DATABASE_EXPORT_RESPONSES,
@@ -32,6 +31,8 @@ from .run_models import (
 )
 from .run_projection import source_spec
 from .run_store import RunStore
+from .run_worker import RunWorkerService  # noqa: TC001 - FastAPI resolves dependency annotations at runtime
+from .runtime import get_run_worker
 
 router = APIRouter(prefix='/api/v1', tags=['Runs'])
 MAX_IMPORT_BYTES = 10 * 1024 * 1024
@@ -137,6 +138,7 @@ async def list_sources(_api_key: Annotated[str, Depends(get_api_key)]) -> Source
 )
 async def create_run(
     request: Request,
+    worker: Annotated[RunWorkerService, Depends(get_run_worker)],
     _api_key: Annotated[str, Depends(get_api_key)],
 ) -> RunDetail:
     body = await _read_limited_body(request, MAX_RUN_REQUEST_BYTES, 'Run request exceeds the 64 KiB limit')
@@ -148,18 +150,18 @@ async def create_run(
             detail=error.errors(include_url=False, include_context=False),
         ) from error
     run_request.sources = canonical_run_sources(run_request.sources)
-    if not run_worker.worker_enabled():
+    if not worker.enabled:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail='theHarvester execution worker is disabled',
         )
-    if not run_worker.worker_available():
+    if not worker.available:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail='theHarvester execution worker is unavailable',
         )
     run = await RunStore().create(run_request)
-    run_worker.wake_worker()
+    worker.wake()
     return RunDetail.model_validate(run)
 
 
