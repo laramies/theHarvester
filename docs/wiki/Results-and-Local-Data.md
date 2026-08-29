@@ -181,8 +181,12 @@ harvest-yields --database results.sqlite --kind hostname
 harvest-yields --database results.sqlite --kind ip
 harvest-yields --database results.sqlite --kind asn
 harvest-yields --database results.sqlite --run-id 11111111-1111-4111-8111-111111111111
+harvest-yields --database results.sqlite --list-targets
+harvest-yields --database results.sqlite --list-targets --format json
 harvest-yields --database results.sqlite --format json
 ```
+
+Use `--list-targets` to discover the canonical enumeration targets in finalized runs and the run count for each one. The inventory coalesces equivalent hostname spellings and canonical network identifiers without rewriting stored evidence; exact free-text company queries remain case-sensitive. Listing does not run discovery or DNS.
 
 Without `--run-id`, the command adds each run's source yields. The top-level `run_count` shows how many runs were selected. Each source row has its own `run_count`, including executions that produced no results. `UNIQUE/RUN` divides the summed unique count by that source's run count and is the default ranking key. The JSON field is `unique_result_count_per_run`.
 

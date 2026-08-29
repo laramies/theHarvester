@@ -11,6 +11,8 @@ from uuid import UUID
 
 from theHarvester.lib.database import ResultStore
 from theHarvester.lib.evidence_types import RESULT_KINDS, ResultKind
+from theHarvester.lib.hostnames import normalize_hostname
+from theHarvester.lib.result_values import normalize_asn, normalize_ip, normalize_prefix
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -25,9 +27,40 @@ def _parser() -> argparse.ArgumentParser:
         help='Existing theHarvester SQLite database (default: %(default)s).',
     )
     parser.add_argument('--kind', choices=sorted(RESULT_KINDS), default='hostname', help='Result kind to compare.')
-    parser.add_argument('--run-id', type=UUID, help='Report one completed run instead of aggregating every run.')
+    scope = parser.add_mutually_exclusive_group()
+    scope.add_argument('--run-id', type=UUID, help='Report one completed run instead of aggregating every run.')
+    scope.add_argument('--list-targets', action='store_true', help='List canonical targets and finalized-run counts.')
     parser.add_argument('--format', choices=('table', 'json'), default='table', help='Output format.')
     return parser
+
+
+def _canonical_target(value: object) -> str:
+    target = str(value).strip()
+    if target[:2].casefold() == 'as' and target[2:].isascii() and target[2:].isdecimal():
+        return normalize_asn(target)
+    if '/' in target:
+        try:
+            return normalize_prefix(target)
+        except ValueError:
+            pass
+    try:
+        return normalize_ip(target, label='target')
+    except ValueError:
+        pass
+    try:
+        hostname = normalize_hostname(target)
+    except ValueError:
+        return target
+    return hostname if '.' in hostname else target
+
+
+async def _list_targets(database: Path) -> list[dict[str, str | int]]:
+    store = ResultStore(database)
+    try:
+        counts = Counter(_canonical_target(run['target']) for run in await store.list_runs(limit=None))
+        return [{'target': target, 'run_count': counts[target]} for target in sorted(counts)]
+    finally:
+        await store.dispose()
 
 
 async def _collect(database: Path, kind: ResultKind, run_id: UUID | None) -> tuple[int, list[dict[str, str | int | float]]]:
@@ -111,11 +144,23 @@ def _table(kind: ResultKind, run_count: int, rows: list[dict[str, str | int | fl
     return '\n'.join(lines) + '\n'
 
 
+def _targets_table(rows: list[dict[str, str | int]]) -> str:
+    target_width = max([len('TARGET'), *(len(str(row['target'])) for row in rows)])
+    lines = [f'{"TARGET".ljust(target_width)}  RUNS'.rstrip()]
+    lines.extend(f'{str(row["target"]).ljust(target_width)}  {row["run_count"]}'.rstrip() for row in rows)
+    return '\n'.join(lines) + '\n'
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = _parser()
     args = parser.parse_args(argv)
     if not args.database.is_file():
         parser.error(f'database does not exist: {args.database}')
+    if args.list_targets:
+        targets = asyncio.run(_list_targets(args.database))
+        output = json.dumps({'targets': targets}, sort_keys=True) + '\n' if args.format == 'json' else _targets_table(targets)
+        sys.stdout.write(output)
+        return 0
     kind = cast('ResultKind', args.kind)
     try:
         run_count, rows = asyncio.run(_collect(args.database, kind, args.run_id))

@@ -1,5 +1,6 @@
 import asyncio
 import json
+import sqlite3
 import tomllib
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -27,6 +28,7 @@ def test_project_installs_harvest_yields_command() -> None:
 def _completed_run(
     run_id: UUID,
     *,
+    target: str = 'example.test',
     observations: tuple[ResultObservation, ...],
     resolved_hostnames: tuple[str, ...] = (),
 ) -> CompletedResult:
@@ -48,7 +50,7 @@ def _completed_run(
     )
     return CompletedResult.finish(
         run_id=run_id,
-        target='example.test',
+        target=target,
         started_at=started_at,
         completed_at=started_at + timedelta(seconds=1),
         groups={
@@ -100,6 +102,115 @@ async def _create_database(database: Path) -> None:
         )
     )
     await store.dispose()
+
+
+async def _create_target_inventory_database(database: Path) -> None:
+    store = ResultStore(database)
+    await store.initialize()
+    targets = (
+        'EXAMPLE.TEST.',
+        'example.test',
+        'www.Example.test.',
+        'bücher.example',
+        'XN--BCHER-KVA.EXAMPLE.',
+        '2001:0DB8:0:0::1',
+        'as064496',
+        '198.51.100.23/24',
+        '  Example Company  ',
+        'example company',
+    )
+    for index, target in enumerate(targets, start=3):
+        await store.save_run(
+            _completed_run(
+                UUID(f'{index:08d}-0000-4000-8000-000000000000'),
+                target=target,
+                observations=(),
+            )
+        )
+    await store.dispose()
+
+
+def test_list_targets_table_canonicalizes_counts_and_sorts(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    database = tmp_path / 'runs.sqlite'
+    asyncio.run(_create_target_inventory_database(database))
+
+    assert source_yields.main(['--database', str(database), '--list-targets']) == 0
+
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0].split() == ['TARGET', 'RUNS']
+    assert [line.rsplit(maxsplit=1) for line in lines[1:]] == [
+        ['198.51.100.0/24', '1'],
+        ['2001:db8::1', '1'],
+        ['AS64496', '1'],
+        ['Example Company', '1'],
+        ['example company', '1'],
+        ['example.test', '2'],
+        ['www.example.test', '1'],
+        ['xn--bcher-kva.example', '2'],
+    ]
+
+
+def test_list_targets_json_preserves_stored_targets_and_schema_version(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    database = tmp_path / 'runs.sqlite'
+    asyncio.run(_create_target_inventory_database(database))
+    with sqlite3.connect(database) as connection:
+        stored_targets = connection.execute('SELECT target FROM runs ORDER BY run_id').fetchall()
+        connection.execute('PRAGMA user_version = 7')
+
+    assert source_yields.main(['--database', str(database), '--list-targets', '--format', 'json']) == 0
+
+    output = capsys.readouterr().out
+    assert output.endswith('\n')
+    assert json.loads(output) == {
+        'targets': [
+            {'target': '198.51.100.0/24', 'run_count': 1},
+            {'target': '2001:db8::1', 'run_count': 1},
+            {'target': 'AS64496', 'run_count': 1},
+            {'target': 'Example Company', 'run_count': 1},
+            {'target': 'example company', 'run_count': 1},
+            {'target': 'example.test', 'run_count': 2},
+            {'target': 'www.example.test', 'run_count': 1},
+            {'target': 'xn--bcher-kva.example', 'run_count': 2},
+        ]
+    }
+    with sqlite3.connect(database) as connection:
+        assert connection.execute('PRAGMA user_version').fetchone() == (7,)
+        assert connection.execute('SELECT target FROM runs ORDER BY run_id').fetchall() == stored_targets
+
+
+def test_list_targets_empty_database_succeeds(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    database = tmp_path / 'runs.sqlite'
+    store = ResultStore(database)
+    asyncio.run(store.initialize())
+    asyncio.run(store.dispose())
+
+    assert source_yields.main(['--database', str(database), '--list-targets']) == 0
+    assert capsys.readouterr().out == 'TARGET  RUNS\n'
+    assert source_yields.main(['--database', str(database), '--list-targets', '--format', 'json']) == 0
+    assert capsys.readouterr().out == '{"targets": []}\n'
+
+
+def test_list_targets_rejects_a_run_selector(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    database = tmp_path / 'runs.sqlite'
+    asyncio.run(_create_database(database))
+
+    with pytest.raises(SystemExit) as error:
+        source_yields.main(['--database', str(database), '--list-targets', '--run-id', str(RUN_ONE)])
+
+    assert error.value.code == 2
+    assert 'not allowed with argument' in capsys.readouterr().err
 
 
 def test_missing_database_fails_without_creating_file(
