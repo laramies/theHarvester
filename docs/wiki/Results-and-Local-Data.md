@@ -217,14 +217,14 @@ A baseline is the previous finalized run with the same canonical target and exac
 
 Each comparison reports four counts:
 
-- `new`: present now and absent from the baseline.
+- `new`: present now and absent from the baseline after every current contributing source completed in the baseline.
 - `persisting`: present in both runs. Rows are hidden by default; add `--include-persisting` to return them.
 - `missing`: absent now after every source that previously contributed the hostname completed successfully in the current run.
-- `inconclusive`: absent now, but at least one previous contributing source was partial, failed, rate-limited, or skipped. The row retains each blocking source's status, error type, and stop reason.
+- `inconclusive`: present on only one side, but a source that contributed it there was partial, failed, rate-limited, or skipped on the side where it was absent. The row retains each blocking source's status, error type, and stop reason.
 
-The missing and inconclusive decision is hostname-specific. An unrelated source failure does not poison a row, and a positive current observation remains new or persisting even if another source was unhealthy.
+The decision is hostname-specific. A positive current observation remains new or persisting when only unrelated sources were unhealthy; failures by a source that contributed the hostname make the one-sided claim inconclusive.
 
-Every change row includes previous and current source lists plus `source_exclusive`. Exclusivity applies to the current sources for new and persisting rows, and to the baseline sources for missing and inconclusive rows. It means exactly one source contributed that hostname on the relevant side of the comparison; it does not claim that the provider is independent or authoritative.
+Every change row includes previous and current source lists plus `source_exclusive`. Exclusivity applies to the side with retained hostname evidence: current for new and persisting, baseline for missing, and whichever side has evidence for inconclusive. It means exactly one source contributed that hostname on the relevant side of the comparison; it does not claim that the provider is independent or authoritative.
 
 Resolution evidence uses only three explicit values:
 

@@ -78,6 +78,11 @@ def _resolution(run: TrackingRunEvidence, hostname: str) -> ResolutionEvidence:
     return 'not-retained'
 
 
+def _blocking_outcomes(run: TrackingRunEvidence, sources: tuple[str, ...]) -> list[TrackingSourceOutcome]:
+    outcomes = {outcome.source: outcome for outcome in run.source_outcomes}
+    return [outcomes[source] for source in sources if outcomes[source].status != 'completed']
+
+
 def _change_row(
     current: TrackingRunEvidence,
     baseline: TrackingRunEvidence,
@@ -87,16 +92,14 @@ def _change_row(
     current_sources = dict(current.hostname_sources).get(hostname, ())
     blocking_sources: list[TrackingSourceOutcome] = []
     if not previous_sources:
-        change: ChangeStatus = 'new'
+        blocking_sources = _blocking_outcomes(baseline, current_sources)
+        change: ChangeStatus = 'inconclusive' if blocking_sources else 'new'
     elif current_sources:
         change = 'persisting'
     else:
-        current_outcomes = {outcome.source: outcome for outcome in current.source_outcomes}
-        blocking_sources = [
-            current_outcomes[source] for source in previous_sources if current_outcomes[source].status != 'completed'
-        ]
+        blocking_sources = _blocking_outcomes(current, previous_sources)
         change = 'inconclusive' if blocking_sources else 'missing'
-    exclusive_sources = current_sources if change in {'new', 'persisting'} else previous_sources
+    exclusive_sources = current_sources or previous_sources
     return change, {
         'run_id': str(current.run_id),
         'baseline_run_id': str(baseline.run_id),

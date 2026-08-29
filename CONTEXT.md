@@ -236,19 +236,19 @@ The set of canonical sources represented by source executions in one enumeration
 _Avoid_: Successful sources, source results, source selection text
 
 **Comparable source-yield run**:
-A finalized enumeration run for the same canonical target and source cohort as another run. Unhealthy source executions may retain evidence but cannot support a missing-hostname claim.
+A finalized enumeration run for the same canonical target and source cohort as another run. Unhealthy source executions may retain evidence but cannot support a sound one-sided hostname claim.
 _Avoid_: Previous run, similar run, matching run
 
 **Hostname tracking change**:
-The relationship of one canonical hostname between two comparable enumeration runs: new when retained only in the later run, persisting when retained in both, missing when reliably absent from the later run, and inconclusive when relevant source outcomes cannot support the comparison. Missing is an evidence difference, not proof that the hostname ceased to exist or resolve.
+The relationship of one canonical hostname between two comparable enumeration runs: new when reliably absent from the earlier run and retained in the later run, persisting when retained in both, missing when reliably absent from the later run, and inconclusive when relevant source outcomes cannot support a one-sided comparison. Missing is an evidence difference, not proof that the hostname ceased to exist or resolve.
 _Avoid_: Added host, removed host, gone host
 
 **Relevant source health**:
-The outcomes in the later run of the sources that previously contributed a hostname. A hostname absent from the later run is missing only when every relevant source completed successfully; otherwise its change is inconclusive. Failures by unrelated sources do not affect that hostname.
+The outcomes on the side where a hostname is absent for the sources that contributed it on the other side. A one-sided hostname is new or missing only when every relevant source completed successfully on the absent side; otherwise its change is inconclusive. Failures by unrelated sources do not affect that hostname.
 _Avoid_: Run health, all-source success, provider reliability
 
 **Inconclusive hostname change**:
-A hostname absent from the later run when at least one source that previously contributed it was partial, failed, rate limited, or skipped. The blocking source outcomes and retained failure reasons explain the uncertainty; the state does not mean the comparison logic failed.
+A hostname retained on exactly one side when at least one source that contributed it there was partial, failed, rate limited, or skipped on the side where it was absent. The blocking source outcomes and retained failure reasons explain the uncertainty; the state does not mean the comparison logic failed.
 _Avoid_: Unknown result, missing hostname, comparison error
 
 **Source-exclusive hostname**:

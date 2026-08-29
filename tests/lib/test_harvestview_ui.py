@@ -79,7 +79,7 @@ def test_harvestview_explains_and_filters_persisted_hostname_changes(tmp_path, m
     assert 'id="tracking-resolution-filter"' in root.text
     assert 'id="tracking-exclusive-filter"' in root.text
     assert 'id="tracking-persisting-filter"' in root.text
-    assert 'INCONCLUSIVE means a source that previously found the hostname did not complete reliably' in root.text
+    assert 'INCONCLUSIVE means a contributing source did not complete reliably' in root.text
     assert 'This view reads finalized evidence only and performs no discovery or DNS.' in root.text
     assert script.status_code == 200
     assert 'function renderHostnameTracking' in script.text

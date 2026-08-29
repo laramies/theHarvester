@@ -460,11 +460,11 @@ def test_hostname_tracking_filters_persisted_run_changes(
         {
             'change': 'inconclusive',
             'hostname': 'uncertain.example.test',
-            'previous_sources': ['beta'],
-            'current_sources': [],
+            'previous_sources': [],
+            'current_sources': ['beta'],
             'source_exclusive': True,
-            'previous_resolution_evidence': 'not-retained',
-            'current_resolution_evidence': 'not-checked',
+            'previous_resolution_evidence': 'not-checked',
+            'current_resolution_evidence': 'not-retained',
             'previous_addressability': None,
             'current_addressability': None,
             'blocking_sources': [

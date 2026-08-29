@@ -148,7 +148,7 @@ The object contains:
 - `comparisons`, with the current and baseline run IDs and completion times, exact `source_cohort`, `new`, `persisting`, `missing`, and `inconclusive` counts, and a message when no baseline exists.
 - `hostname_changes`, with change state, hostname, previous and current sources, relevant-side source exclusivity, blocking source outcomes, previous and current resolution evidence, DNS action statuses, and addressability classifications.
 
-Run details include persisting rows so HarvestView can show or hide them locally. `missing` requires every previous contributing source to have completed in the selected run. Otherwise the absence is `inconclusive`, with the relevant partial, failed, rate-limited, or skipped outcomes retained in `blocking_sources`. Unrelated source failures do not change the row.
+Run details include persisting rows so HarvestView can show or hide them locally. `new` requires every current contributing source to have completed in the baseline, while `missing` requires every previous contributing source to have completed in the selected run. Otherwise the one-sided observation is `inconclusive`, with the relevant partial, failed, rate-limited, or skipped outcomes retained in `blocking_sources`. Unrelated source failures do not change the row.
 
 Resolution evidence is `positive`, `not-retained`, or `not-checked`; no ambiguous unknown state is emitted. Addressability is a separate retained recursive-DNS classification or `null` when no classification exists. See [Track hostname changes across finalized runs](Results-and-Local-Data#track-hostname-changes-across-finalized-runs) for CLI examples and full interpretation rules.
 

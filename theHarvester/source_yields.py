@@ -246,7 +246,7 @@ def _tracking_table(payload: dict[str, object]) -> str:
     )
     change_rows = []
     for row in changes:
-        sources = row['current_sources'] if row['change'] in {'new', 'persisting'} else row['previous_sources']
+        sources = row['current_sources'] or row['previous_sources']
         blockers = cast('list[dict[str, object]]', row['blocking_sources'])
         change_rows.append(
             {

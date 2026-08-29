@@ -106,6 +106,7 @@ async def _create_tracking_database(database: Path) -> None:
                 ResultObservation('beta', 'hostname', 'inconclusive.example.test'),
             ),
             resolved_hostnames=('missing.example.test',),
+            source_statuses={'beta': ('partial', 'BaselineTimeout', 'baseline-errors')},
             dns_status='completed',
         )
     )
@@ -114,7 +115,8 @@ async def _create_tracking_database(database: Path) -> None:
             RUN_TWO,
             observations=(
                 ResultObservation('alpha', 'hostname', 'persist.example.test'),
-                ResultObservation('beta', 'hostname', 'new.example.test'),
+                ResultObservation('alpha', 'hostname', 'new.example.test'),
+                ResultObservation('beta', 'hostname', 'uncertain-new.example.test'),
             ),
             resolved_hostnames=('new.example.test', 'persist.example.test'),
             source_statuses={'beta': ('partial', 'TimeoutError', 'request-errors')},
@@ -509,7 +511,7 @@ def test_run_changes_distinguish_missing_from_inconclusive_using_persisted_sourc
         'baseline_completed_at': '2026-08-23T12:01:01+00:00',
         'baseline_run_id': str(RUN_ONE),
         'completed_at': '2026-08-23T12:02:01+00:00',
-        'counts': {'inconclusive': 1, 'missing': 1, 'new': 1, 'persisting': 1},
+        'counts': {'inconclusive': 2, 'missing': 1, 'new': 1, 'persisting': 1},
         'run_id': str(RUN_TWO),
         'source_cohort': ['alpha', 'beta'],
     }
@@ -518,6 +520,7 @@ def test_run_changes_distinguish_missing_from_inconclusive_using_persisted_sourc
         'inconclusive.example.test',
         'missing.example.test',
         'new.example.test',
+        'uncertain-new.example.test',
     }
     assert changes['new.example.test'] == {
         'baseline_run_id': str(RUN_ONE),
@@ -526,7 +529,7 @@ def test_run_changes_distinguish_missing_from_inconclusive_using_persisted_sourc
         'current_addressability': 'currently-addressable',
         'current_dns_action_status': 'completed',
         'current_resolution_evidence': 'positive',
-        'current_sources': ['beta'],
+        'current_sources': ['alpha'],
         'hostname': 'new.example.test',
         'previous_addressability': None,
         'previous_dns_action_status': 'completed',
@@ -545,6 +548,17 @@ def test_run_changes_distinguish_missing_from_inconclusive_using_persisted_sourc
             'source': 'beta',
             'status': 'partial',
             'stop_reason': 'request-errors',
+        }
+    ]
+    assert changes['uncertain-new.example.test']['change'] == 'inconclusive'
+    assert changes['uncertain-new.example.test']['current_sources'] == ['beta']
+    assert changes['uncertain-new.example.test']['source_exclusive'] is True
+    assert changes['uncertain-new.example.test']['blocking_sources'] == [
+        {
+            'error_type': 'BaselineTimeout',
+            'source': 'beta',
+            'status': 'partial',
+            'stop_reason': 'baseline-errors',
         }
     ]
 
@@ -693,8 +707,10 @@ def test_changes_table_is_human_readable_and_explains_inconclusive_rows(
         ['NEW', 'new.example.test'],
         ['MISSING', 'missing.example.test'],
         ['INCONCLUSIVE', 'inconclusive.example.test'],
+        ['INCONCLUSIVE', 'uncertain-new.example.test'],
     ]
     assert 'beta:partial:TimeoutError:request-errors' in output
+    assert 'beta:partial:BaselineTimeout:baseline-errors' in output
 
 
 def test_changes_table_explains_when_a_run_has_no_comparable_baseline(

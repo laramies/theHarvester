@@ -824,12 +824,16 @@
     screenshots.forEach((screenshot, index) => loadScreenshot(screenshot, nodes.screenshotGallery.children[index].querySelector('.screenshot-frame')));
   }
 
+  function trackingUsesCurrentEvidence(row) {
+    return (row.current_sources || []).length > 0;
+  }
+
   function trackingSources(row) {
-    return row.change === 'new' || row.change === 'persisting' ? row.current_sources || [] : row.previous_sources || [];
+    return trackingUsesCurrentEvidence(row) ? row.current_sources || [] : row.previous_sources || [];
   }
 
   function trackingResolution(row) {
-    return row.change === 'new' || row.change === 'persisting'
+    return trackingUsesCurrentEvidence(row)
       ? row.current_resolution_evidence
       : row.previous_resolution_evidence;
   }
