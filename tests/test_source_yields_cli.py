@@ -13,7 +13,7 @@ from theHarvester.lib import database as database_module
 from theHarvester.lib.active_evidence import ActionExecution, ActiveEvidence
 from theHarvester.lib.completed_result import CompletedResult, ResultObservation, SourceExecution
 from theHarvester.lib.database import ResultStore
-from theHarvester.lib.evidence_types import RESULT_KINDS
+from theHarvester.lib.evidence_types import RESULT_KINDS, ExecutionStatus
 
 RUN_ONE = UUID('11111111-1111-4111-8111-111111111111')
 RUN_TWO = UUID('22222222-2222-4222-8222-222222222222')
@@ -31,23 +31,42 @@ def _completed_run(
     target: str = 'example.test',
     observations: tuple[ResultObservation, ...],
     resolved_hostnames: tuple[str, ...] = (),
+    source_statuses: dict[str, tuple[ExecutionStatus, str | None, str | None]] | None = None,
+    dns_status: ExecutionStatus | None = None,
+    addressability: dict[str, str] | None = None,
 ) -> CompletedResult:
     started_at = datetime(2026, 8, 23, 12, tzinfo=UTC) + timedelta(minutes=int(str(run_id)[0]))
-    sources = sorted({observation.source for observation in observations})
-    active_evidence = (
-        ActiveEvidence(
-            executions=(
-                ActionExecution.finish(
-                    action='dns-resolve',
-                    status='completed',
-                    duration_ms=1,
-                    groups={'hostname': resolved_hostnames},
-                ),
+    source_statuses = source_statuses or {}
+    sources = sorted({observation.source for observation in observations} | set(source_statuses))
+    action_executions = []
+    if dns_status is not None or resolved_hostnames:
+        action_executions.append(
+            ActionExecution.finish(
+                action='dns-resolve',
+                status=dns_status or 'completed',
+                duration_ms=1,
+                groups={'hostname': resolved_hostnames},
             )
         )
-        if resolved_hostnames
-        else ActiveEvidence()
-    )
+    if addressability:
+        action_executions.append(
+            ActionExecution.finish(
+                action='dns-recursive',
+                status='completed',
+                duration_ms=1,
+                groups={
+                    'dns-recursive-classification': (
+                        json.dumps(
+                            {'addressability': classification, 'hostname': hostname},
+                            separators=(',', ':'),
+                            sort_keys=True,
+                        )
+                        for hostname, classification in addressability.items()
+                    )
+                },
+            )
+        )
+    active_evidence = ActiveEvidence(executions=tuple(action_executions))
     return CompletedResult.finish(
         run_id=run_id,
         target=target,
@@ -60,15 +79,49 @@ def _completed_run(
         source_executions=tuple(
             SourceExecution(
                 source=source,
-                status='completed',
+                status=source_statuses.get(source, ('completed', None, None))[0],
                 duration_ms=1,
                 result_count=sum(observation.source == source for observation in observations),
+                error_type=source_statuses.get(source, ('completed', None, None))[1],
+                stop_reason=source_statuses.get(source, ('completed', None, None))[2],
             )
             for source in sources
         ),
         observations=observations,
         active_evidence=active_evidence,
     )
+
+
+async def _create_tracking_database(database: Path) -> None:
+    store = ResultStore(database)
+    await store.initialize()
+    await store.save_run(
+        _completed_run(
+            RUN_ONE,
+            target='EXAMPLE.TEST.',
+            observations=(
+                ResultObservation('alpha', 'hostname', 'missing.example.test'),
+                ResultObservation('alpha', 'hostname', 'persist.example.test'),
+                ResultObservation('beta', 'hostname', 'inconclusive.example.test'),
+            ),
+            resolved_hostnames=('missing.example.test',),
+            dns_status='completed',
+        )
+    )
+    await store.save_run(
+        _completed_run(
+            RUN_TWO,
+            observations=(
+                ResultObservation('alpha', 'hostname', 'persist.example.test'),
+                ResultObservation('beta', 'hostname', 'new.example.test'),
+            ),
+            resolved_hostnames=('new.example.test', 'persist.example.test'),
+            source_statuses={'beta': ('partial', 'TimeoutError', 'request-errors')},
+            dns_status='completed',
+            addressability={'new.example.test': 'currently-addressable'},
+        )
+    )
+    await store.dispose()
 
 
 async def _create_database(database: Path) -> None:
@@ -417,6 +470,195 @@ def test_all_targets_rejects_a_run_selector(
 
     assert error.value.code == 2
     assert 'not allowed with argument' in capsys.readouterr().err
+
+
+def test_run_changes_distinguish_missing_from_inconclusive_using_persisted_source_outcomes(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    database = tmp_path / 'runs.sqlite'
+    asyncio.run(_create_tracking_database(database))
+
+    assert source_yields.main(['--database', str(database), '--run-id', str(RUN_TWO), '--changes', '--format', 'json']) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload['target'] == 'example.test'
+    assert payload['comparison_count'] == 1
+    assert payload['comparisons'][0] == {
+        'baseline_completed_at': '2026-08-23T12:01:01+00:00',
+        'baseline_run_id': str(RUN_ONE),
+        'completed_at': '2026-08-23T12:02:01+00:00',
+        'counts': {'inconclusive': 1, 'missing': 1, 'new': 1, 'persisting': 1},
+        'run_id': str(RUN_TWO),
+        'source_cohort': ['alpha', 'beta'],
+    }
+    changes = {row['hostname']: row for row in payload['hostname_changes']}
+    assert set(changes) == {
+        'inconclusive.example.test',
+        'missing.example.test',
+        'new.example.test',
+    }
+    assert changes['new.example.test'] == {
+        'baseline_run_id': str(RUN_ONE),
+        'blocking_sources': [],
+        'change': 'new',
+        'current_addressability': 'currently-addressable',
+        'current_dns_action_status': 'completed',
+        'current_resolution_evidence': 'positive',
+        'current_sources': ['beta'],
+        'hostname': 'new.example.test',
+        'previous_addressability': None,
+        'previous_dns_action_status': 'completed',
+        'previous_resolution_evidence': 'not-checked',
+        'previous_sources': [],
+        'run_id': str(RUN_TWO),
+        'source_exclusive': True,
+    }
+    assert changes['missing.example.test']['change'] == 'missing'
+    assert changes['missing.example.test']['blocking_sources'] == []
+    assert changes['missing.example.test']['previous_resolution_evidence'] == 'positive'
+    assert changes['inconclusive.example.test']['change'] == 'inconclusive'
+    assert changes['inconclusive.example.test']['blocking_sources'] == [
+        {
+            'error_type': 'TimeoutError',
+            'source': 'beta',
+            'status': 'partial',
+            'stop_reason': 'request-errors',
+        }
+    ]
+
+
+def test_target_changes_reports_every_run_pair_and_a_clear_null_baseline(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    database = tmp_path / 'runs.sqlite'
+    asyncio.run(_create_tracking_database(database))
+
+    assert source_yields.main(['--database', str(database), '--target', 'example.test', '--changes', '--format', 'json']) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload['comparison_count'] == 2
+    assert payload['comparisons'][0] == {
+        'baseline_completed_at': None,
+        'baseline_run_id': None,
+        'completed_at': '2026-08-23T12:01:01+00:00',
+        'counts': {'inconclusive': 0, 'missing': 0, 'new': 0, 'persisting': 0},
+        'message': 'No previous finalized run has the same source cohort.',
+        'run_id': str(RUN_ONE),
+        'source_cohort': ['alpha', 'beta'],
+    }
+    assert payload['comparisons'][1]['baseline_run_id'] == str(RUN_ONE)
+    assert {row['run_id'] for row in payload['hostname_changes']} == {str(RUN_TWO)}
+
+
+def test_include_persisting_adds_unchanged_hostname_rows_without_changing_counts(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    database = tmp_path / 'runs.sqlite'
+    asyncio.run(_create_tracking_database(database))
+
+    assert (
+        source_yields.main(
+            [
+                '--database',
+                str(database),
+                '--run-id',
+                str(RUN_TWO),
+                '--changes',
+                '--include-persisting',
+                '--format',
+                'json',
+            ]
+        )
+        == 0
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    persisting = [row for row in payload['hostname_changes'] if row['change'] == 'persisting']
+    assert [(row['hostname'], row['source_exclusive']) for row in persisting] == [('persist.example.test', True)]
+    assert payload['comparisons'][0]['counts']['persisting'] == 1
+
+
+def test_changes_table_is_human_readable_and_explains_inconclusive_rows(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    database = tmp_path / 'runs.sqlite'
+    asyncio.run(_create_tracking_database(database))
+
+    assert source_yields.main(['--database', str(database), '--run-id', str(RUN_TWO), '--changes']) == 0
+
+    output = capsys.readouterr().out
+    assert output.startswith('Target: example.test\nComparison count: 1\n')
+    assert 'NEW  PERSISTING  MISSING  INCONCLUSIVE' in output
+    lines = output.splitlines()
+    assert lines[4].split() == [
+        'CHANGE',
+        'HOSTNAME',
+        'SOURCES',
+        'EXCLUSIVE',
+        'RESOLUTION',
+        'ADDRESSABILITY',
+        'BLOCKING',
+        'SOURCES',
+    ]
+    assert [line.split()[:2] for line in lines[5:]] == [
+        ['NEW', 'new.example.test'],
+        ['MISSING', 'missing.example.test'],
+        ['INCONCLUSIVE', 'inconclusive.example.test'],
+    ]
+    assert 'beta:partial:TimeoutError:request-errors' in output
+
+
+def test_changes_table_explains_when_a_run_has_no_comparable_baseline(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    database = tmp_path / 'runs.sqlite'
+    asyncio.run(_create_tracking_database(database))
+
+    assert source_yields.main(['--database', str(database), '--run-id', str(RUN_ONE), '--changes']) == 0
+
+    output = capsys.readouterr().out
+    assert f'{RUN_ONE}: No previous finalized run has the same source cohort.' in output
+
+
+@pytest.mark.parametrize(
+    'args',
+    [
+        ['--include-persisting'],
+        ['--changes', '--kind', 'ip'],
+        ['--changes', '--all-targets'],
+        ['--changes', '--list-targets'],
+    ],
+)
+def test_changes_rejects_ambiguous_or_non_hostname_arguments(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    args: list[str],
+) -> None:
+    database = tmp_path / 'runs.sqlite'
+    asyncio.run(_create_tracking_database(database))
+
+    with pytest.raises(SystemExit) as error:
+        source_yields.main(['--database', str(database), *args])
+
+    assert error.value.code == 2
+    assert capsys.readouterr().err
+
+
+def test_help_makes_persisted_read_only_change_modes_obvious(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as error:
+        source_yields.main(['--help'])
+
+    assert error.value.code == 0
+    help_text = capsys.readouterr().out
+    assert 'never runs discovery or DNS' in help_text
+    assert 'harvest-yields --target example.test --changes' in help_text
+    assert 'harvest-yields --run-id RUN_ID --changes' in help_text
+    assert '--include-persisting' in help_text
 
 
 def test_unscoped_empty_database_reports_an_explicit_empty_scope(

@@ -227,6 +227,42 @@ _Avoid_: Source quality score, authoritative result count, independent confirmat
 The explicit finalized evidence records summarized by a source-yield report: one enumeration run, selected runs for one canonical authorized target, or runs across every stored target only by deliberate operator choice.
 _Avoid_: Implicit database aggregate, target alias
 
+**Source yield tracking view**:
+A longitudinal view of finalized evidence for one enumeration target that highlights actionable hostname changes and their retained DNS evidence. It is observational and never initiates discovery or DNS activity.
+_Avoid_: Discovery run, live DNS check, evidence export
+
+**Source cohort**:
+The set of canonical sources represented by source executions in one enumeration run, independent of their individual outcomes.
+_Avoid_: Successful sources, source results, source selection text
+
+**Comparable source-yield run**:
+A finalized enumeration run for the same canonical target and source cohort as another run. Unhealthy source executions may retain evidence but cannot support a missing-hostname claim.
+_Avoid_: Previous run, similar run, matching run
+
+**Hostname tracking change**:
+The relationship of one canonical hostname between two comparable enumeration runs: new when retained only in the later run, persisting when retained in both, missing when reliably absent from the later run, and inconclusive when relevant source outcomes cannot support the comparison. Missing is an evidence difference, not proof that the hostname ceased to exist or resolve.
+_Avoid_: Added host, removed host, gone host
+
+**Relevant source health**:
+The outcomes in the later run of the sources that previously contributed a hostname. A hostname absent from the later run is missing only when every relevant source completed successfully; otherwise its change is inconclusive. Failures by unrelated sources do not affect that hostname.
+_Avoid_: Run health, all-source success, provider reliability
+
+**Inconclusive hostname change**:
+A hostname absent from the later run when at least one source that previously contributed it was partial, failed, rate limited, or skipped. The blocking source outcomes and retained failure reasons explain the uncertainty; the state does not mean the comparison logic failed.
+_Avoid_: Unknown result, missing hostname, comparison error
+
+**Source-exclusive hostname**:
+A hostname attributed to exactly one canonical source within one enumeration run. Exclusivity is run-scoped and does not claim that no other source has ever observed the hostname.
+_Avoid_: Globally unique hostname, proprietary hostname, unique subdomain
+
+**Retained resolution evidence**:
+What finalized evidence establishes about DNS resolution for one hostname in one run: a retained positive answer, no retained positive answer, or no recorded check. It remains separate from richer addressability classifications such as currently addressable, not currently addressable, resolver disputed, or wildcard indistinguishable.
+_Avoid_: Boolean resolved state, live-host status, reachability
+
+**Hostname tracking projection**:
+A read-only comparison derived from one or more selected finalized runs and each run's previous comparable run. It is not stored as new canonical evidence and may be rendered by multiple operator interfaces.
+_Avoid_: Tracking artifact, discovery result, DNS refresh
+
 **Source capability**:
 A declared class of normalized result that a source can contribute to consolidated enumeration output, independent of whether one source execution yields any data.
 _Avoid_: Guaranteed result, module return type, source category

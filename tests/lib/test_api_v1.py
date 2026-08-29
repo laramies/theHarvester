@@ -1071,6 +1071,67 @@ def test_run_detail_reports_unique_hostname_contribution_per_source(tmp_path, mo
     ]
 
 
+def test_run_detail_exposes_persisted_hostname_changes_against_the_previous_source_cohort(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    from theHarvester.lib.api import api
+
+    source_execution = {
+        'source': 'crtsh',
+        'status': 'completed',
+        'duration_ms': 1,
+        'result_count': 1,
+        'error_type': None,
+        'stop_reason': None,
+    }
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+    headers = {'X-API-Key': 'test-key'}
+
+    with TestClient(api.app) as client:
+        baseline = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'baseline.jsonl'},
+            headers=headers,
+            content=_jsonl_result(
+                finding_type='hostname',
+                value='old.example.test',
+                finding_fields={'sources': ['crtsh']},
+                summary_fields={
+                    'completed_at': '2026-08-08T01:01:00Z',
+                    'source_executions': [source_execution],
+                },
+            ),
+        )
+        current = client.post(
+            '/api/v1/runs/import',
+            params={'filename': 'current.jsonl'},
+            headers=headers,
+            content=_jsonl_result(
+                finding_type='hostname',
+                value='new.example.test',
+                finding_fields={'sources': ['crtsh']},
+                summary_fields={
+                    'completed_at': '2026-08-08T02:01:00Z',
+                    'source_executions': [source_execution],
+                },
+            ),
+        )
+
+    assert baseline.status_code == 201
+    assert current.status_code == 201
+    tracking = current.json()['hostname_tracking']
+    assert tracking['target'] == 'example.test'
+    assert tracking['comparison_count'] == 1
+    assert tracking['comparisons'][0]['baseline_run_id'] == baseline.json()['run_id']
+    assert [(row['change'], row['hostname']) for row in tracking['hostname_changes']] == [
+        ('new', 'new.example.test'),
+        ('missing', 'old.example.test'),
+    ]
+
+
 def test_api_jsonl_export_uses_evidence_timestamps_not_lifecycle_timestamps(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api import api
     from theHarvester.lib.api.run_models import RunRequest

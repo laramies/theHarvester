@@ -168,7 +168,7 @@ Run details derive `source_yields` from persisted normalized hostname provenance
 
 Read the counts with the matching source execution status and stop reason. A source that failed, was rate-limited or skipped, or stopped at a provider boundary cannot be compared with a source that completed with zero results. Sources in the same certificate-transparency or passive-DNS family may overlap because they depend on the same upstream evidence.
 
-To compare runs, keep the authorized target, source set, requested limit, release version, resolver set, and collection window fixed. Set the limit to `0` only when the comparison should have no shared local result cap. Save completed runs in SQLite and repeat the test across several authorized targets and dates. Compare median unique count, median unique-resolved count, resolution rate, and successful-run rate. Record provider and adapter ceilings as execution evidence instead of treating truncated runs as zero yield. Do not commit target results. Add cross-run aggregation only after you have enough comparable runs to justify it.
+To compare runs, keep the authorized target, source set, requested limit, release version, resolver set, and collection window fixed. Set the limit to `0` only when the comparison should have no shared local result cap. Save completed runs in SQLite and repeat the test across several authorized targets and dates. Compare median unique count, median unique-resolved count, resolution rate, and successful-run rate. Record provider and adapter ceilings as execution evidence instead of treating truncated runs as zero yield. Do not commit target results.
 
 #### Analyze yields from SQLite
 
@@ -183,6 +183,9 @@ harvest-yields --database results.sqlite --kind asn
 harvest-yields --database results.sqlite --run-id 11111111-1111-4111-8111-111111111111
 harvest-yields --database results.sqlite --target example.test
 harvest-yields --database results.sqlite --target example.test --format json
+harvest-yields --database results.sqlite --target example.test --changes
+harvest-yields --database results.sqlite --run-id 11111111-1111-4111-8111-111111111111 --changes --format json
+harvest-yields --database results.sqlite --target example.test --changes --include-persisting
 harvest-yields --database results.sqlite --list-targets
 harvest-yields --database results.sqlite --list-targets --format json
 harvest-yields --database results.sqlite --all-targets
@@ -198,6 +201,40 @@ Use `--all-targets` only when a deliberate whole-database aggregate is required.
 The top-level `run_count` shows how many runs were selected. Each source row has its own `run_count`, including executions that produced no results. `UNIQUE/RUN` divides the summed unique count by that source's run count and is the default ranking key. The JSON field is `unique_result_count_per_run`.
 
 "Unique" always means unique within one run, so aggregate totals add the per-run counts instead of recalculating uniqueness across targets or dates. Hostname output also includes resolved and unique-resolved counts plus `UNIQUE-RESOLVED/RUN`, named `unique_resolved_hostname_count_per_run` in JSON. Other result kinds omit the DNS-specific fields.
+
+### Track hostname changes across finalized runs
+
+`harvest-yields --changes` compares retained hostname evidence without running discovery or DNS and without creating another report format. It reads only finalized runs already stored in SQLite. Use a canonical target to return every comparable run in chronological order, or a run ID to compare just that run with its baseline:
+
+```console
+harvest-yields --target example.test --changes
+harvest-yields --target example.test --changes --format json
+harvest-yields --run-id 11111111-1111-4111-8111-111111111111 --changes
+harvest-yields --target example.test --changes --include-persisting
+```
+
+A baseline is the previous finalized run with the same canonical target and exact `source_cohort`. Runs are ordered by `completed_at` and then `run_id`, so the choice is deterministic. A run with no comparable predecessor is still returned with `baseline_run_id: null`, zero counts, and a clear message. `--all-targets --changes` is refused because one mixed timeline would hide the target boundary.
+
+Each comparison reports four counts:
+
+- `new`: present now and absent from the baseline.
+- `persisting`: present in both runs. Rows are hidden by default; add `--include-persisting` to return them.
+- `missing`: absent now after every source that previously contributed the hostname completed successfully in the current run.
+- `inconclusive`: absent now, but at least one previous contributing source was partial, failed, rate-limited, or skipped. The row retains each blocking source's status, error type, and stop reason.
+
+The missing and inconclusive decision is hostname-specific. An unrelated source failure does not poison a row, and a positive current observation remains new or persisting even if another source was unhealthy.
+
+Every change row includes previous and current source lists plus `source_exclusive`. Exclusivity applies to the current sources for new and persisting rows, and to the baseline sources for missing and inconclusive rows. It means exactly one source contributed that hostname on the relevant side of the comparison; it does not claim that the provider is independent or authoritative.
+
+Resolution evidence uses only three explicit values:
+
+- `positive`: the run retained an A, AAAA, or CNAME answer for the hostname.
+- `not-retained`: DNS resolution ran for the sourced hostname but retained no positive answer.
+- `not-checked`: the run has no applicable retained DNS-resolution attempt.
+
+There is no ambiguous `unknown` value. Recursive DNS addressability is separate and is either one of its retained classifications (`currently-addressable`, `not-currently-addressable`, `resolver-disputed`, or `wildcard-indistinguishable`) or `null` when no classification was retained. Neither resolution evidence nor addressability proves service reachability.
+
+HarvestView shows the same projection on a selected finalized run. Its filters cover change state, relevant source, relevant-side resolution evidence, source-exclusive rows, and optional persisting rows. The panel refreshes through the existing terminal-run refresh path and never starts collection or DNS.
 
 ## Handling and sharing
 
