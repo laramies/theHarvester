@@ -104,6 +104,26 @@ async def _create_database(database: Path) -> None:
     await store.dispose()
 
 
+async def _create_multi_target_database(database: Path) -> None:
+    store = ResultStore(database)
+    await store.initialize()
+    await store.save_run(
+        _completed_run(
+            RUN_ONE,
+            target='EXAMPLE.TEST.',
+            observations=(ResultObservation('alpha', 'hostname', 'alpha.example.test'),),
+        )
+    )
+    await store.save_run(
+        _completed_run(
+            RUN_TWO,
+            target='other.example',
+            observations=(ResultObservation('alpha', 'hostname', 'alpha.other.example'),),
+        )
+    )
+    await store.dispose()
+
+
 async def _create_target_inventory_database(database: Path) -> None:
     store = ResultStore(database)
     await store.initialize()
@@ -213,6 +233,128 @@ def test_list_targets_rejects_a_run_selector(
     assert 'not allowed with argument' in capsys.readouterr().err
 
 
+def test_target_selects_only_matching_canonical_target(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    database = tmp_path / 'runs.sqlite'
+    asyncio.run(_create_multi_target_database(database))
+
+    assert source_yields.main(['--database', str(database), '--target', 'example.test', '--format', 'json']) == 0
+
+    assert json.loads(capsys.readouterr().out) == {
+        'kind': 'hostname',
+        'run_count': 1,
+        'source_yields': [
+            {
+                'observed_result_count': 1,
+                'resolved_hostname_count': 0,
+                'run_count': 1,
+                'shared_result_count': 0,
+                'source': 'alpha',
+                'unique_resolved_hostname_count': 0,
+                'unique_resolved_hostname_count_per_run': 0.0,
+                'unique_result_count': 1,
+                'unique_result_count_per_run': 1.0,
+            }
+        ],
+        'target': 'example.test',
+    }
+
+
+@pytest.mark.parametrize(
+    ('requested', 'canonical', 'run_count'),
+    [
+        ('EXAMPLE.TEST.', 'example.test', 2),
+        ('BÜCHER.EXAMPLE.', 'xn--bcher-kva.example', 2),
+        ('2001:0db8::1', '2001:db8::1', 1),
+        ('AS064496', 'AS64496', 1),
+        ('198.51.100.23/24', '198.51.100.0/24', 1),
+        ('  Example Company  ', 'Example Company', 1),
+    ],
+)
+def test_target_selection_uses_canonical_identity_without_aliasing_free_text(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    requested: str,
+    canonical: str,
+    run_count: int,
+) -> None:
+    database = tmp_path / 'runs.sqlite'
+    asyncio.run(_create_target_inventory_database(database))
+
+    assert source_yields.main(['--database', str(database), '--target', requested, '--format', 'json']) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload['target'] == canonical
+    assert payload['run_count'] == run_count
+
+
+def test_unknown_target_fails_with_inventory_hint(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    database = tmp_path / 'runs.sqlite'
+    asyncio.run(_create_multi_target_database(database))
+
+    with pytest.raises(SystemExit) as error:
+        source_yields.main(['--database', str(database), '--target', 'missing.example'])
+
+    assert error.value.code == 2
+    assert 'target not found: missing.example; use --list-targets' in capsys.readouterr().err
+
+
+def test_target_rejects_a_run_selector(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    database = tmp_path / 'runs.sqlite'
+    asyncio.run(_create_database(database))
+
+    with pytest.raises(SystemExit) as error:
+        source_yields.main(['--database', str(database), '--target', 'example.test', '--run-id', str(RUN_ONE)])
+
+    assert error.value.code == 2
+    assert 'not allowed with argument' in capsys.readouterr().err
+
+
+def test_unscoped_report_refuses_to_mix_multiple_targets(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    database = tmp_path / 'runs.sqlite'
+    asyncio.run(_create_multi_target_database(database))
+
+    with pytest.raises(SystemExit) as error:
+        source_yields.main(['--database', str(database)])
+
+    assert error.value.code == 2
+    message = capsys.readouterr().err
+    assert '2 canonical targets' in message
+    assert '--list-targets' in message
+
+
+def test_unscoped_empty_database_reports_an_explicit_empty_scope(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    database = tmp_path / 'runs.sqlite'
+    store = ResultStore(database)
+    asyncio.run(store.initialize())
+    asyncio.run(store.dispose())
+
+    assert source_yields.main(['--database', str(database), '--format', 'json']) == 0
+    assert json.loads(capsys.readouterr().out) == {
+        'kind': 'hostname',
+        'run_count': 0,
+        'source_yields': [],
+        'targets': [],
+    }
+
+    assert source_yields.main(['--database', str(database)]) == 0
+    assert capsys.readouterr().out.splitlines()[:3] == ['Targets: none', 'Kind: hostname', 'Run count: 0']
+
+
 def test_missing_database_fails_without_creating_file(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -238,7 +380,7 @@ def test_default_database_uses_the_standard_result_store(
 
     assert source_yields.main([]) == 0
 
-    assert capsys.readouterr().out.startswith('Kind: hostname\nRun count: 2\n')
+    assert capsys.readouterr().out.startswith('Target: example.test\nKind: hostname\nRun count: 2\n')
 
 
 def test_default_table_ranks_by_unique_per_run_and_aligns_columns(
@@ -251,6 +393,7 @@ def test_default_table_ranks_by_unique_per_run_and_aligns_columns(
     assert source_yields.main(['--database', str(database)]) == 0
 
     assert capsys.readouterr().out.splitlines() == [
+        'Target: example.test',
         'Kind: hostname',
         'Run count: 2',
         'SOURCE  RUNS  OBSERVED  UNIQUE  UNIQUE/RUN  SHARED  RESOLVED  UNIQUE-RESOLVED  UNIQUE-RESOLVED/RUN',
@@ -272,10 +415,10 @@ def test_kind_accepts_every_result_kind_and_only_hostname_shows_resolution_colum
     assert source_yields.main(['--database', str(database), '--kind', kind]) == 0
 
     lines = capsys.readouterr().out.splitlines()
-    assert lines[0] == f'Kind: {kind}'
-    assert ('RESOLVED' in lines[2]) is (kind == 'hostname')
+    assert lines[:2] == ['Target: example.test', f'Kind: {kind}']
+    assert ('RESOLVED' in lines[3]) is (kind == 'hostname')
     if kind == 'ip':
-        assert [line.split() for line in lines[3:]] == [
+        assert [line.split() for line in lines[4:]] == [
             ['gamma', '1', '1', '1', '1.00', '0'],
             ['alpha', '2', '1', '0', '0.00', '1'],
             ['beta', '2', '1', '0', '0.00', '1'],
@@ -292,8 +435,8 @@ def test_run_id_selects_one_run(
     assert source_yields.main(['--database', str(database), '--run-id', str(RUN_ONE)]) == 0
 
     lines = capsys.readouterr().out.splitlines()
-    assert lines[1] == 'Run count: 1'
-    assert [line.split() for line in lines[3:]] == [
+    assert lines[:3] == ['Target: example.test', 'Kind: hostname', 'Run count: 1']
+    assert [line.split() for line in lines[4:]] == [
         ['alpha', '1', '2', '1', '1.00', '1', '2', '1', '1.00'],
         ['beta', '1', '2', '1', '1.00', '1', '1', '0', '0.00'],
     ]
@@ -326,6 +469,7 @@ def test_json_format_is_machine_readable_and_uses_kind_specific_fields(
     assert source_yields.main(['--database', str(database), '--kind', kind, '--format', 'json']) == 0
 
     payload = json.loads(capsys.readouterr().out)
+    assert payload['target'] == 'example.test'
     assert payload['kind'] == kind
     assert payload['run_count'] == 2
     assert [row['source'] for row in payload['source_yields']] == ['gamma', 'alpha', 'beta']

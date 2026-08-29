@@ -181,6 +181,8 @@ harvest-yields --database results.sqlite --kind hostname
 harvest-yields --database results.sqlite --kind ip
 harvest-yields --database results.sqlite --kind asn
 harvest-yields --database results.sqlite --run-id 11111111-1111-4111-8111-111111111111
+harvest-yields --database results.sqlite --target example.test
+harvest-yields --database results.sqlite --target example.test --format json
 harvest-yields --database results.sqlite --list-targets
 harvest-yields --database results.sqlite --list-targets --format json
 harvest-yields --database results.sqlite --format json
@@ -188,7 +190,9 @@ harvest-yields --database results.sqlite --format json
 
 Use `--list-targets` to discover the canonical enumeration targets in finalized runs and the run count for each one. The inventory coalesces equivalent hostname spellings and canonical network identifiers without rewriting stored evidence; exact free-text company queries remain case-sensitive. Listing does not run discovery or DNS.
 
-Without `--run-id`, the command adds each run's source yields. The top-level `run_count` shows how many runs were selected. Each source row has its own `run_count`, including executions that produced no results. `UNIQUE/RUN` divides the summed unique count by that source's run count and is the default ranking key. The JSON field is `unique_result_count_per_run`.
+Use `--target` to add source yields only from finalized runs for one exact canonical target. An unknown target fails with a `--list-targets` recovery hint. Without a scope selector, an empty database returns an empty report, one stored canonical target is selected automatically, and multiple stored targets are refused rather than silently mixed. `--run-id` still selects one finalized run. One-target and run-ID reports identify their canonical target in both table and JSON output.
+
+The top-level `run_count` shows how many runs were selected. Each source row has its own `run_count`, including executions that produced no results. `UNIQUE/RUN` divides the summed unique count by that source's run count and is the default ranking key. The JSON field is `unique_result_count_per_run`.
 
 "Unique" always means unique within one run, so aggregate totals add the per-run counts instead of recalculating uniqueness across targets or dates. Hostname output also includes resolved and unique-resolved counts plus `UNIQUE-RESOLVED/RUN`, named `unique_resolved_hostname_count_per_run` in JSON. Other result kinds omit the DNS-specific fields.
 

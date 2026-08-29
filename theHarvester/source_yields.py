@@ -30,6 +30,7 @@ def _parser() -> argparse.ArgumentParser:
     scope = parser.add_mutually_exclusive_group()
     scope.add_argument('--run-id', type=UUID, help='Report one completed run instead of aggregating every run.')
     scope.add_argument('--list-targets', action='store_true', help='List canonical targets and finalized-run counts.')
+    scope.add_argument('--target', help='Report finalized runs for one exact canonical target.')
     parser.add_argument('--format', choices=('table', 'json'), default='table', help='Output format.')
     return parser
 
@@ -63,14 +64,30 @@ async def _list_targets(database: Path) -> list[dict[str, str | int]]:
         await store.dispose()
 
 
-async def _collect(database: Path, kind: ResultKind, run_id: UUID | None) -> tuple[int, list[dict[str, str | int | float]]]:
+async def _collect(
+    database: Path,
+    kind: ResultKind,
+    run_id: UUID | None,
+    target: str | None = None,
+) -> tuple[str | None, int, list[dict[str, str | int | float]]]:
     store = ResultStore(database)
     try:
         if run_id is not None:
-            await store.load_run(run_id)
+            selected_target = _canonical_target((await store.load_run(run_id)).target)
             run_ids = [run_id]
         else:
-            run_ids = [UUID(str(run['run_id'])) for run in await store.list_runs(limit=None)]
+            summaries = await store.list_runs(limit=None)
+            selected_target = _canonical_target(target) if target is not None else None
+            if selected_target is not None:
+                summaries = [run for run in summaries if _canonical_target(run['target']) == selected_target]
+                if not summaries:
+                    raise LookupError(f'target not found: {selected_target}; use --list-targets')
+            else:
+                targets = {_canonical_target(run['target']) for run in summaries}
+                if len(targets) > 1:
+                    raise LookupError(f'database contains {len(targets)} canonical targets; use --list-targets')
+                selected_target = next(iter(targets), None)
+            run_ids = [UUID(str(run['run_id'])) for run in summaries]
         totals: defaultdict[str, Counter[str]] = defaultdict(Counter)
         for run_id in run_ids:
             for source_yield in await store.source_yields(run_id, kind=kind):
@@ -105,12 +122,17 @@ async def _collect(database: Path, kind: ResultKind, run_id: UUID | None) -> tup
                 str(row['source']),
             )
         )
-        return len(run_ids), rows
+        return selected_target, len(run_ids), rows
     finally:
         await store.dispose()
 
 
-def _table(kind: ResultKind, run_count: int, rows: list[dict[str, str | int | float]]) -> str:
+def _table(
+    kind: ResultKind,
+    run_count: int,
+    rows: list[dict[str, str | int | float]],
+    target: str | None,
+) -> str:
     columns = [
         ('source', 'SOURCE'),
         ('run_count', 'RUNS'),
@@ -134,6 +156,7 @@ def _table(kind: ResultKind, run_count: int, rows: list[dict[str, str | int | fl
         max([len(label), *(len(values[index]) for values in formatted_rows)]) for index, (_key, label) in enumerate(columns)
     ]
     lines = [
+        f'Target: {target}' if target is not None else 'Targets: none',
         f'Kind: {kind}',
         f'Run count: {run_count}',
         '  '.join(label.ljust(widths[index]) for index, (_key, label) in enumerate(columns)).rstrip(),
@@ -163,12 +186,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
     kind = cast('ResultKind', args.kind)
     try:
-        run_count, rows = asyncio.run(_collect(args.database, kind, args.run_id))
+        target, run_count, rows = asyncio.run(_collect(args.database, kind, args.run_id, args.target))
     except LookupError as error:
         parser.error(str(error))
     if args.format == 'json':
-        output = json.dumps({'kind': kind, 'run_count': run_count, 'source_yields': rows}, sort_keys=True) + '\n'
+        payload = {'kind': kind, 'run_count': run_count, 'source_yields': rows}
+        if target is not None:
+            payload['target'] = target
+        else:
+            payload['targets'] = []
+        output = json.dumps(payload, sort_keys=True) + '\n'
     else:
-        output = _table(kind, run_count, rows)
+        output = _table(kind, run_count, rows, target)
     sys.stdout.write(output)
     return 0
