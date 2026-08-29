@@ -155,6 +155,10 @@ _Avoid_: DNS result, resolved host, validation status
 One finite execution of theHarvester against an explicit target and selected options, identified independently from every other execution.
 _Avoid_: Scan, monitoring cycle, session, job
 
+**Enumeration target**:
+The operator-supplied identifier that scopes one enumeration run. It is ordinarily a canonical hostname and may instead be a canonical IP address, ASN, or CIDR for supported routing activity, or an exact free-text company query for a source that accepts one.
+_Avoid_: Domain, hostname when the target is not a DNS name, target alias
+
 **Run schedule**:
 A durable local plan that combines an explicit authorized target inventory, one validated run template, recurrence timing, and an overlap policy. It creates enumeration runs but is never itself an enumeration run or evidence record.
 _Avoid_: Scan schedule, cron job, monitoring run
@@ -218,6 +222,10 @@ _Avoid_: Source result, provider response
 **Source hostname yield**:
 One source's normalized hostname counts within one enumeration run: observed, unique, shared, DNS-resolved, and unique DNS-resolved. A hostname is unique when exactly one source reported it in that run. It is DNS-resolved when the run's resolution action retained an A, AAAA, or CNAME answer. The counts measure marginal coverage and current DNS evidence, not independent corroboration, ownership, or service reachability.
 _Avoid_: Source quality score, authoritative result count, independent confirmation
+
+**Source yield report scope**:
+The explicit finalized evidence records summarized by a source-yield report: one enumeration run, selected runs for one canonical authorized target, or runs across every stored target only by deliberate operator choice.
+_Avoid_: Implicit database aggregate, target alias
 
 **Source capability**:
 A declared class of normalized result that a source can contribute to consolidated enumeration output, independent of whether one source execution yields any data.
