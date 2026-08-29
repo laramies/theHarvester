@@ -229,8 +229,8 @@ Every change row includes previous and current source lists plus `source_exclusi
 Resolution evidence uses only three explicit values:
 
 - `positive`: the run retained an A, AAAA, or CNAME answer for the hostname.
-- `not-retained`: DNS resolution ran for the sourced hostname but retained no positive answer.
-- `not-checked`: the run has no applicable retained DNS-resolution attempt.
+- `not-retained`: DNS resolution completed for the sourced hostname but retained no positive answer.
+- `not-checked`: the run has no applicable completed DNS-resolution attempt.
 
 There is no ambiguous `unknown` value. Recursive DNS addressability is separate and is either one of its retained classifications (`currently-addressable`, `not-currently-addressable`, `resolver-disputed`, or `wildcard-indistinguishable`) or `null` when no classification was retained. Neither resolution evidence nor addressability proves service reachability.
 

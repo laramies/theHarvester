@@ -124,6 +124,26 @@ async def _create_tracking_database(database: Path) -> None:
     await store.dispose()
 
 
+async def _create_unreliable_dns_tracking_database(database: Path) -> None:
+    hostname = 'unchecked.example.test'
+    store = ResultStore(database)
+    await store.initialize()
+    await store.save_run(
+        _completed_run(
+            RUN_ONE,
+            observations=(ResultObservation('alpha', 'hostname', hostname),),
+        )
+    )
+    await store.save_run(
+        _completed_run(
+            RUN_TWO,
+            observations=(ResultObservation('alpha', 'hostname', hostname),),
+            dns_status='failed',
+        )
+    )
+    await store.dispose()
+
+
 async def _create_database(database: Path) -> None:
     store = ResultStore(database)
     await store.initialize()
@@ -579,6 +599,34 @@ def test_include_persisting_adds_unchanged_hostname_rows_without_changing_counts
     persisting = [row for row in payload['hostname_changes'] if row['change'] == 'persisting']
     assert [(row['hostname'], row['source_exclusive']) for row in persisting] == [('persist.example.test', True)]
     assert payload['comparisons'][0]['counts']['persisting'] == 1
+
+
+def test_failed_dns_action_does_not_claim_a_sourced_hostname_was_checked(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    database = tmp_path / 'runs.sqlite'
+    asyncio.run(_create_unreliable_dns_tracking_database(database))
+
+    assert (
+        source_yields.main(
+            [
+                '--database',
+                str(database),
+                '--run-id',
+                str(RUN_TWO),
+                '--changes',
+                '--include-persisting',
+                '--format',
+                'json',
+            ]
+        )
+        == 0
+    )
+
+    row = json.loads(capsys.readouterr().out)['hostname_changes'][0]
+    assert row['current_dns_action_status'] == 'failed'
+    assert row['current_resolution_evidence'] == 'not-checked'
 
 
 def test_changes_table_is_human_readable_and_explains_inconclusive_rows(

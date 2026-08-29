@@ -73,7 +73,7 @@ class TrackingRunEvidence:
 def _resolution(run: TrackingRunEvidence, hostname: str) -> ResolutionEvidence:
     if hostname in run.resolved_hostnames:
         return 'positive'
-    if hostname not in dict(run.hostname_sources) or run.dns_action_status is None:
+    if hostname not in dict(run.hostname_sources) or run.dns_action_status != 'completed':
         return 'not-checked'
     return 'not-retained'
 
