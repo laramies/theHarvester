@@ -1422,10 +1422,19 @@
     const query = event.target.value.trim().toLowerCase();
     state.resultTable?.setFilter(row => !query || row.value.toLowerCase().includes(query));
   });
-  for (const filter of [
-    nodes.trackingChange, nodes.trackingSource, nodes.trackingResolution,
-    nodes.trackingExclusive, nodes.trackingPersisting
-  ]) filter.addEventListener('change', () => renderHostnameTracking(state.detail));
+  nodes.trackingChange.addEventListener('change', () => {
+    if (nodes.trackingChange.value === 'persisting') nodes.trackingPersisting.checked = true;
+    renderHostnameTracking(state.detail);
+  });
+  nodes.trackingPersisting.addEventListener('change', () => {
+    if (!nodes.trackingPersisting.checked && nodes.trackingChange.value === 'persisting') {
+      nodes.trackingChange.value = '';
+    }
+    renderHostnameTracking(state.detail);
+  });
+  for (const filter of [nodes.trackingSource, nodes.trackingResolution, nodes.trackingExclusive]) {
+    filter.addEventListener('change', () => renderHostnameTracking(state.detail));
+  }
   nodes.sourceSearch.addEventListener('input', event => renderSourceGroups(event.target.value));
   nodes.selectCapability.addEventListener('click', selectCapability);
   nodes.selectP0.addEventListener('click', () => setP0Selection(true));

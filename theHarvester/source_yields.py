@@ -210,7 +210,8 @@ def _targets_table(rows: list[dict[str, str | int]]) -> str:
 def _tracking_table(payload: dict[str, object]) -> str:
     comparisons = cast('list[dict[str, object]]', payload['comparisons'])
     changes = cast('list[dict[str, object]]', payload['hostname_changes'])
-    lines = [f'Target: {payload["target"]}', f'Comparison count: {payload["comparison_count"]}']
+    scope = f'Target: {payload["target"]}' if payload['target'] is not None else 'Targets: none'
+    lines = [scope, f'Comparison count: {payload["comparison_count"]}']
     summary_columns = (
         ('run_id', 'CURRENT RUN'),
         ('baseline_run_id', 'BASELINE RUN'),
@@ -227,7 +228,7 @@ def _tracking_table(payload: dict[str, object]) -> str:
         }
         for comparison in comparisons
     ]
-    summary_widths = [max(len(label), *(len(str(row[key])) for row in summary_rows)) for key, label in summary_columns]
+    summary_widths = [max([len(label), *(len(str(row[key])) for row in summary_rows)]) for key, label in summary_columns]
     lines.append('  '.join(label.ljust(summary_widths[index]) for index, (_key, label) in enumerate(summary_columns)))
     lines.extend(
         '  '.join(str(row[key]).ljust(summary_widths[index]) for index, (key, _label) in enumerate(summary_columns))

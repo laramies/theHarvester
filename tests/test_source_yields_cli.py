@@ -16,6 +16,7 @@ from theHarvester.lib.database import ResultStore
 from theHarvester.lib.evidence_types import RESULT_KINDS, ExecutionStatus
 
 RUN_ONE = UUID('11111111-1111-4111-8111-111111111111')
+RUN_TIE_LATER = UUID('11111111-1111-4111-8111-111111111112')
 RUN_TWO = UUID('22222222-2222-4222-8222-222222222222')
 
 
@@ -572,6 +573,42 @@ def test_target_changes_reports_every_run_pair_and_a_clear_null_baseline(
     assert {row['run_id'] for row in payload['hostname_changes']} == {str(RUN_TWO)}
 
 
+def test_run_id_breaks_an_equal_completion_time_tie_deterministically(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    database = tmp_path / 'runs.sqlite'
+    store = ResultStore(database)
+    asyncio.run(store.initialize())
+    asyncio.run(
+        store.save_run(
+            _completed_run(
+                RUN_TIE_LATER,
+                observations=(ResultObservation('alpha', 'hostname', 'later.example.test'),),
+            )
+        )
+    )
+    asyncio.run(
+        store.save_run(
+            _completed_run(
+                RUN_ONE,
+                observations=(ResultObservation('alpha', 'hostname', 'earlier.example.test'),),
+            )
+        )
+    )
+    asyncio.run(store.dispose())
+
+    assert (
+        source_yields.main(
+            ['--database', str(database), '--run-id', str(RUN_TIE_LATER), '--changes', '--format', 'json']
+        )
+        == 0
+    )
+
+    comparison = json.loads(capsys.readouterr().out)['comparisons'][0]
+    assert comparison['baseline_run_id'] == str(RUN_ONE)
+
+
 def test_include_persisting_adds_unchanged_hostname_rows_without_changing_counts(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -728,6 +765,9 @@ def test_unscoped_empty_database_reports_an_explicit_empty_scope(
 
     assert source_yields.main(['--database', str(database)]) == 0
     assert capsys.readouterr().out.splitlines()[:3] == ['Targets: none', 'Kind: hostname', 'Run count: 0']
+
+    assert source_yields.main(['--database', str(database), '--changes']) == 0
+    assert capsys.readouterr().out.startswith('Targets: none\nComparison count: 0\n')
 
 
 def test_missing_database_fails_without_creating_file(

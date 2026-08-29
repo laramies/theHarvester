@@ -56,7 +56,7 @@ When a change alters one of these boundaries, update this document and the neare
 
 ### Deferred boundaries
 
-- Cross-run change detection, alerts, and automatic reactions remain separate future product decisions. A scheduled occurrence only submits finite enumeration runs.
+- Read-only cross-run change projections over finalized evidence are part of the release contract. Alerts and automatic reactions remain deferred, and a scheduled occurrence only submits finite enumeration runs.
 - Cross-run source ranking remains a reporting decision. One run's hostname-yield summary does not automatically select, disable, or rank sources.
 - Distributed workers, multi-host operation, PostgreSQL, and hosted multi-user authorization require measured demand and new decisions. The release remains SQLite-first and local-operator focused.
 - Automatic scope expansion remains deferred. Evidence can suggest a later target, while the operator controls every scope change.

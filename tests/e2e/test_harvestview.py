@@ -533,6 +533,14 @@ def test_hostname_tracking_filters_persisted_run_changes(
     expect(panel).to_contain_text('TimeoutError')
     expect(panel).not_to_contain_text('stable.example.test')
 
+    page.locator('#tracking-change-filter').select_option('persisting')
+    expect(page.locator('#tracking-persisting-filter')).to_be_checked()
+    expect(rows).to_have_count(1)
+    expect(panel).to_contain_text('stable.example.test')
+    page.locator('#tracking-persisting-filter').uncheck()
+    expect(page.locator('#tracking-change-filter')).to_have_value('')
+    expect(rows).to_have_count(3)
+
     page.locator('#tracking-exclusive-filter').check()
     expect(rows).to_have_count(2)
     expect(panel).not_to_contain_text('missing.example.test')
