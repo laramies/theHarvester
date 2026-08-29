@@ -31,6 +31,7 @@ def _parser() -> argparse.ArgumentParser:
     scope.add_argument('--run-id', type=UUID, help='Report one completed run instead of aggregating every run.')
     scope.add_argument('--list-targets', action='store_true', help='List canonical targets and finalized-run counts.')
     scope.add_argument('--target', help='Report finalized runs for one exact canonical target.')
+    scope.add_argument('--all-targets', action='store_true', help='Explicitly aggregate finalized runs across all targets.')
     parser.add_argument('--format', choices=('table', 'json'), default='table', help='Output format.')
     return parser
 
@@ -69,16 +70,21 @@ async def _collect(
     kind: ResultKind,
     run_id: UUID | None,
     target: str | None = None,
-) -> tuple[str | None, int, list[dict[str, str | int | float]]]:
+    all_targets: bool = False,
+) -> tuple[str | None, list[dict[str, str | int]], int, list[dict[str, str | int | float]]]:
     store = ResultStore(database)
     try:
+        target_rows: list[dict[str, str | int]] = []
         if run_id is not None:
             selected_target = _canonical_target((await store.load_run(run_id)).target)
             run_ids = [run_id]
         else:
             summaries = await store.list_runs(limit=None)
             selected_target = _canonical_target(target) if target is not None else None
-            if selected_target is not None:
+            if all_targets:
+                counts = Counter(_canonical_target(run['target']) for run in summaries)
+                target_rows = [{'target': value, 'run_count': counts[value]} for value in sorted(counts)]
+            elif selected_target is not None:
                 summaries = [run for run in summaries if _canonical_target(run['target']) == selected_target]
                 if not summaries:
                     raise LookupError(f'target not found: {selected_target}; use --list-targets')
@@ -122,7 +128,7 @@ async def _collect(
                 str(row['source']),
             )
         )
-        return selected_target, len(run_ids), rows
+        return selected_target, target_rows, len(run_ids), rows
     finally:
         await store.dispose()
 
@@ -132,6 +138,7 @@ def _table(
     run_count: int,
     rows: list[dict[str, str | int | float]],
     target: str | None,
+    targets: list[dict[str, str | int]],
 ) -> str:
     columns = [
         ('source', 'SOURCE'),
@@ -155,8 +162,15 @@ def _table(
     widths = [
         max([len(label), *(len(values[index]) for values in formatted_rows)]) for index, (_key, label) in enumerate(columns)
     ]
+    scope_lines = (
+        [f'Target: {target}']
+        if target is not None
+        else ['Scope: all targets', _targets_table(targets).rstrip()]
+        if targets
+        else ['Targets: none']
+    )
     lines = [
-        f'Target: {target}' if target is not None else 'Targets: none',
+        *scope_lines,
         f'Kind: {kind}',
         f'Run count: {run_count}',
         '  '.join(label.ljust(widths[index]) for index, (_key, label) in enumerate(columns)).rstrip(),
@@ -186,7 +200,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
     kind = cast('ResultKind', args.kind)
     try:
-        target, run_count, rows = asyncio.run(_collect(args.database, kind, args.run_id, args.target))
+        target, targets, run_count, rows = asyncio.run(_collect(args.database, kind, args.run_id, args.target, args.all_targets))
     except LookupError as error:
         parser.error(str(error))
     if args.format == 'json':
@@ -194,9 +208,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         if target is not None:
             payload['target'] = target
         else:
-            payload['targets'] = []
+            payload['targets'] = targets
         output = json.dumps(payload, sort_keys=True) + '\n'
     else:
-        output = _table(kind, run_count, rows, target)
+        output = _table(kind, run_count, rows, target, targets)
     sys.stdout.write(output)
     return 0

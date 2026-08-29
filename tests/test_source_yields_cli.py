@@ -334,6 +334,91 @@ def test_unscoped_report_refuses_to_mix_multiple_targets(
     assert '--list-targets' in message
 
 
+def test_all_targets_explicitly_restores_mixed_target_json_report(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    database = tmp_path / 'runs.sqlite'
+    asyncio.run(_create_multi_target_database(database))
+
+    assert source_yields.main(['--database', str(database), '--all-targets', '--format', 'json']) == 0
+
+    assert json.loads(capsys.readouterr().out) == {
+        'kind': 'hostname',
+        'run_count': 2,
+        'source_yields': [
+            {
+                'observed_result_count': 2,
+                'resolved_hostname_count': 0,
+                'run_count': 2,
+                'shared_result_count': 0,
+                'source': 'alpha',
+                'unique_resolved_hostname_count': 0,
+                'unique_resolved_hostname_count_per_run': 0.0,
+                'unique_result_count': 2,
+                'unique_result_count_per_run': 1.0,
+            }
+        ],
+        'targets': [
+            {'run_count': 1, 'target': 'example.test'},
+            {'run_count': 1, 'target': 'other.example'},
+        ],
+    }
+
+
+def test_all_targets_table_labels_scope_and_lists_every_target(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    database = tmp_path / 'runs.sqlite'
+    asyncio.run(_create_multi_target_database(database))
+
+    assert source_yields.main(['--database', str(database), '--all-targets']) == 0
+
+    assert capsys.readouterr().out.splitlines()[:7] == [
+        'Scope: all targets',
+        'TARGET         RUNS',
+        'example.test   1',
+        'other.example  1',
+        'Kind: hostname',
+        'Run count: 2',
+        'SOURCE  RUNS  OBSERVED  UNIQUE  UNIQUE/RUN  SHARED  RESOLVED  UNIQUE-RESOLVED  UNIQUE-RESOLVED/RUN',
+    ]
+
+
+@pytest.mark.parametrize('conflicting', ['--list-targets', '--target'])
+def test_all_targets_rejects_other_scope_selectors(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    conflicting: str,
+) -> None:
+    database = tmp_path / 'runs.sqlite'
+    asyncio.run(_create_multi_target_database(database))
+    args = ['--database', str(database), '--all-targets', conflicting]
+    if conflicting == '--target':
+        args.append('example.test')
+
+    with pytest.raises(SystemExit) as error:
+        source_yields.main(args)
+
+    assert error.value.code == 2
+    assert 'not allowed with argument' in capsys.readouterr().err
+
+
+def test_all_targets_rejects_a_run_selector(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    database = tmp_path / 'runs.sqlite'
+    asyncio.run(_create_multi_target_database(database))
+
+    with pytest.raises(SystemExit) as error:
+        source_yields.main(['--database', str(database), '--all-targets', '--run-id', str(RUN_ONE)])
+
+    assert error.value.code == 2
+    assert 'not allowed with argument' in capsys.readouterr().err
+
+
 def test_unscoped_empty_database_reports_an_explicit_empty_scope(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
