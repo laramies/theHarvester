@@ -18,6 +18,7 @@ from theHarvester.lib.completed_result import (
 )
 from theHarvester.lib.database import DuplicateRunError, ResultStore, ResultStoreError, RunLifecycleStore
 from theHarvester.lib.evidence_types import EXECUTION_STATUSES, EvidenceStatus, ExecutionStatus, ResultKind
+from theHarvester.lib.hostname_tracking import canonical_target, hostname_tracking_projection
 from theHarvester.lib.network_evidence import NetworkObservation, parse_network_observation_details
 from theHarvester.lib.shodan_evidence import ShodanHostObservation
 from theHarvester.lib.takeover_evidence import TakeoverCandidateOutcome, parse_takeover_details
@@ -255,6 +256,20 @@ class RunStore:
                 results=normalized_results(evidence),
                 source_executions=source_executions(evidence),
                 source_yields=source_yields,
+                hostname_tracking=(
+                    await hostname_tracking_projection(
+                        self.results,
+                        run_id=UUID(str(record['evidence_run_id'])),
+                        include_persisting=True,
+                    )
+                    if evidence
+                    else {
+                        'target': canonical_target(record['target']),
+                        'comparison_count': 0,
+                        'comparisons': [],
+                        'hostname_changes': [],
+                    }
+                ),
                 action_executions=evidence.get('action_executions', []) if evidence else [],
                 artifacts=evidence.get('artifacts', []) if evidence else [],
                 screenshots=screenshots(evidence, str(record['run_id']), self.artifact_directory(str(record['run_id']))),

@@ -33,7 +33,7 @@ Treat the runtime OpenAPI document as the exact request and response reference.
 | `GET /api/v1/sources` | List discovery sources, capabilities, activity classes, and credential names. |
 | `POST /api/v1/runs` | Submit one finite enumeration run. |
 | `GET /api/v1/runs` | List run records with `limit` and `offset` pagination. |
-| `GET /api/v1/runs/{run_id}` | Retrieve lifecycle state, options, results, source outcomes, source yields, and artifacts. |
+| `GET /api/v1/runs/{run_id}` | Retrieve lifecycle state, options, results, source outcomes, source yields, hostname changes, and artifacts. |
 | `POST /api/v1/runs/{run_id}/cancel` | Cancel queued work or request cancellation of running work. |
 | `POST /api/v1/runs/import` | Import a JSONL result file without executing discovery. |
 | `POST /api/v1/runs/import-database` | Import completed runs from a theHarvester SQLite database. |
@@ -122,7 +122,7 @@ run_id="$(curl -s http://127.0.0.1:5000/api/v1/runs \
 
 curl -s "http://127.0.0.1:5000/api/v1/runs/$run_id" \
   -H "X-API-Key: $THEHARVESTER_API_KEY" \
-  | jq '{status, evidence_status, results, source_executions, source_yields, action_executions, artifacts}'
+  | jq '{status, evidence_status, results, source_executions, source_yields, hostname_tracking, action_executions, artifacts}'
 ```
 
 Run submission is asynchronous. Read the two status fields separately:
@@ -137,6 +137,20 @@ Run submission is asynchronous. Read the two status fields separately:
 `limit` defaults to 500 per source. A value of `0` removes the shared cap on results and pages, so adapters continue until their provider is exhausted. There is no numeric maximum. Provider quotas, protocol maxima, response-size guards, and runtime limits still apply. If a provider or safety limit stops a source after it retained results, the run keeps those results and records the source as partial with the stop reason.
 
 `source_yields` reports normalized hostname contributions within the run. `unique_result_count` counts hostnames reported by exactly one selected source. When `dns_resolve` ran, `resolved_hostname_count` and `unique_resolved_hostname_count` show which of those hostnames had retained A, AAAA, or CNAME answers. Read these counts with the source's execution status and stop reason. The [results guide](Results-and-Local-Data#compare-source-hostname-yield) explains how to compare fixed runs over time.
+
+### Read hostname changes
+
+Finalized run details include an additive `hostname_tracking` object derived only from persisted SQLite evidence. Reading the endpoint never starts discovery or DNS. The selected run is compared with the previous finalized run that has the same canonical target and exact source cohort.
+
+The object contains:
+
+- `target` and `comparison_count`.
+- `comparisons`, with the current and baseline run IDs and completion times, exact `source_cohort`, `new`, `persisting`, `missing`, and `inconclusive` counts, and a message when no baseline exists.
+- `hostname_changes`, with change state, hostname, previous and current sources, relevant-side source exclusivity, blocking source outcomes, previous and current resolution evidence, DNS action statuses, and addressability classifications.
+
+Run details include persisting rows so HarvestView can show or hide them locally. `new` requires every current contributing source to have completed in the baseline, while `missing` requires every previous contributing source to have completed in the selected run. Otherwise the one-sided observation is `inconclusive`, with the relevant partial, failed, rate-limited, or skipped outcomes retained in `blocking_sources`. Unrelated source failures do not change the row.
+
+Resolution evidence is `positive`, `not-retained`, or `not-checked`; no ambiguous unknown state is emitted. Addressability is a separate retained recursive-DNS classification or `null` when no classification exists. See [Track hostname changes across finalized runs](Results-and-Local-Data#track-hostname-changes-across-finalized-runs) for CLI examples and full interpretation rules.
 
 P1 DNS and P2 direct options are fields on the same run request. The OpenAPI schema shows their current defaults, limits, and descriptions. The server uses the operator-selected target and does not impose a public-only egress policy.
 

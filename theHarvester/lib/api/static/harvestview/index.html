@@ -129,6 +129,58 @@
             <ol id="lifecycle-track" class="lifecycle-track"></ol>
           </section>
 
+          <section id="hostname-tracking-section" class="hostname-tracking" aria-labelledby="hostname-tracking-title" hidden>
+            <div class="section-heading tracking-heading">
+              <div>
+                <div class="heading-with-help">
+                  <h3 id="hostname-tracking-title">Hostname changes</h3>
+                  <button class="help-tip" type="button" aria-label="Explain hostname change tracking" data-tooltip="Compares this finalized run with the previous finalized run for the same canonical target and exact source cohort. It never starts discovery or DNS.">?</button>
+                </div>
+                <p id="hostname-tracking-summary" class="section-note"></p>
+              </div>
+              <div id="hostname-tracking-counts" class="tracking-counts" aria-label="Hostname change counts"></div>
+            </div>
+            <div class="tracking-explanation">
+              <strong>How to read this</strong>
+              <p>INCONCLUSIVE means a contributing source did not complete reliably on the comparison side needed to prove NEW or MISSING. Its status and retained reason appear below. MISSING means absent from a comparable completed collection—not that the hostname stopped existing or resolving. This view reads finalized evidence only and performs no discovery or DNS.</p>
+            </div>
+            <div class="tracking-filters" aria-label="Filter hostname changes">
+              <label for="tracking-change-filter">Change
+                <select id="tracking-change-filter">
+                  <option value="">All changes</option>
+                  <option value="new">New</option>
+                  <option value="missing">Missing</option>
+                  <option value="inconclusive">Inconclusive</option>
+                  <option value="persisting">Persisting</option>
+                </select>
+              </label>
+              <label for="tracking-source-filter">Source
+                <select id="tracking-source-filter"><option value="">All sources</option></select>
+              </label>
+              <label for="tracking-resolution-filter">Resolution evidence
+                <select id="tracking-resolution-filter">
+                  <option value="">All resolution evidence</option>
+                  <option value="positive">Positive</option>
+                  <option value="not-retained">No positive retained</option>
+                  <option value="not-checked">Not checked</option>
+                </select>
+              </label>
+              <label class="tracking-checkbox" for="tracking-exclusive-filter">
+                <input id="tracking-exclusive-filter" type="checkbox"> Source-exclusive only
+              </label>
+              <label class="tracking-checkbox" for="tracking-persisting-filter">
+                <input id="tracking-persisting-filter" type="checkbox"> Include persisting
+              </label>
+            </div>
+            <div class="tracking-table-wrap">
+              <table class="tracking-table">
+                <thead><tr><th>Change</th><th>Hostname</th><th>Sources</th><th>DNS evidence</th><th>Addressability</th><th>Blocking sources</th></tr></thead>
+                <tbody id="hostname-tracking-body"></tbody>
+              </table>
+            </div>
+            <p id="hostname-tracking-empty" class="panel-empty" hidden>No hostname changes match these filters.</p>
+          </section>
+
           <div class="overview-grid">
             <section class="overview-panel authorization-panel" aria-labelledby="authorization-title">
               <div class="section-heading compact">

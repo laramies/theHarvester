@@ -428,6 +428,138 @@ def test_imported_run_separates_original_execution_from_local_import(
     expect(page.locator('#lifecycle-note')).to_contain_text('original execution timing')
 
 
+def test_hostname_tracking_filters_persisted_run_changes(
+    harvestview_server_url: str,
+    page: Page,
+) -> None:
+    changes = [
+        {
+            'change': 'new',
+            'hostname': 'new.example.test',
+            'previous_sources': [],
+            'current_sources': ['beta'],
+            'source_exclusive': True,
+            'previous_resolution_evidence': 'not-checked',
+            'current_resolution_evidence': 'positive',
+            'previous_addressability': None,
+            'current_addressability': 'currently-addressable',
+            'blocking_sources': [],
+        },
+        {
+            'change': 'missing',
+            'hostname': 'missing.example.test',
+            'previous_sources': ['alpha', 'beta'],
+            'current_sources': [],
+            'source_exclusive': False,
+            'previous_resolution_evidence': 'positive',
+            'current_resolution_evidence': 'not-checked',
+            'previous_addressability': 'currently-addressable',
+            'current_addressability': None,
+            'blocking_sources': [],
+        },
+        {
+            'change': 'inconclusive',
+            'hostname': 'uncertain.example.test',
+            'previous_sources': [],
+            'current_sources': ['beta'],
+            'source_exclusive': True,
+            'previous_resolution_evidence': 'not-checked',
+            'current_resolution_evidence': 'not-retained',
+            'previous_addressability': None,
+            'current_addressability': None,
+            'blocking_sources': [
+                {'source': 'beta', 'status': 'partial', 'error_type': 'TimeoutError', 'stop_reason': 'timeout'}
+            ],
+        },
+        {
+            'change': 'persisting',
+            'hostname': 'stable.example.test',
+            'previous_sources': ['alpha'],
+            'current_sources': ['alpha'],
+            'source_exclusive': True,
+            'previous_resolution_evidence': 'positive',
+            'current_resolution_evidence': 'positive',
+            'previous_addressability': 'currently-addressable',
+            'current_addressability': 'currently-addressable',
+            'blocking_sources': [],
+        },
+    ]
+    run = {
+        'run_id': 'tracking-run',
+        'target': 'example.test',
+        'status': 'completed',
+        'origin': 'local',
+        'created_at': '2026-08-20T12:00:00+00:00',
+        'started_at': '2026-08-20T12:00:00+00:00',
+        'completed_at': '2026-08-20T12:01:00+00:00',
+        'cancellation_requested_at': None,
+        'evidence_status': 'complete',
+        'result_count': 0,
+        'activities': ['P0'],
+        'sources': ['alpha', 'beta'],
+        'request': {'target': 'example.test', 'sources': ['alpha', 'beta']},
+        'source_executions': [],
+        'action_executions': [],
+        'results': [],
+        'screenshots': [],
+        'log': '',
+        'error': None,
+        'hostname_tracking': {
+            'target': 'example.test',
+            'comparison_count': 1,
+            'comparisons': [
+                {
+                    'run_id': 'tracking-run',
+                    'completed_at': '2026-08-20T12:01:00+00:00',
+                    'baseline_run_id': 'baseline-run',
+                    'baseline_completed_at': '2026-08-19T12:01:00+00:00',
+                    'source_cohort': ['alpha', 'beta'],
+                    'counts': {'new': 1, 'persisting': 1, 'missing': 1, 'inconclusive': 1},
+                }
+            ],
+            'hostname_changes': changes,
+        },
+    }
+    page.route(f'{harvestview_server_url}/api/v1/runs', lambda route: route.fulfill(json=[run]))
+    page.route(f'{harvestview_server_url}/api/v1/runs/tracking-run', lambda route: route.fulfill(json=run))
+
+    page.goto(f'{harvestview_server_url}/')
+
+    panel = page.locator('#hostname-tracking-section')
+    rows = page.locator('#hostname-tracking-body tr')
+    expect(panel).to_be_visible()
+    expect(panel).to_contain_text('INCONCLUSIVE means')
+    expect(rows).to_have_count(3)
+    expect(panel).to_contain_text('TimeoutError')
+    expect(panel).not_to_contain_text('stable.example.test')
+
+    page.locator('#tracking-change-filter').select_option('persisting')
+    expect(page.locator('#tracking-persisting-filter')).to_be_checked()
+    expect(rows).to_have_count(1)
+    expect(panel).to_contain_text('stable.example.test')
+    page.locator('#tracking-persisting-filter').uncheck()
+    expect(page.locator('#tracking-change-filter')).to_have_value('')
+    expect(rows).to_have_count(3)
+
+    page.locator('#tracking-exclusive-filter').check()
+    expect(rows).to_have_count(2)
+    expect(panel).not_to_contain_text('missing.example.test')
+
+    page.locator('#tracking-exclusive-filter').uncheck()
+    page.locator('#tracking-persisting-filter').check()
+    expect(rows).to_have_count(4)
+    expect(panel).to_contain_text('stable.example.test')
+
+    page.locator('#tracking-source-filter').select_option('alpha')
+    expect(rows).to_have_count(2)
+    expect(panel).not_to_contain_text('new.example.test')
+
+    page.locator('#tracking-source-filter').select_option('')
+    page.locator('#tracking-resolution-filter').select_option('not-retained')
+    expect(rows).to_have_count(1)
+    expect(panel).to_contain_text('uncertain.example.test')
+
+
 def test_disabled_worker_rejects_submission_without_creating_a_run(
     harvestview_server_url: str,
     page: Page,

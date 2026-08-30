@@ -61,6 +61,31 @@ def test_harvestview_assets_load_outside_the_repository_directory(tmp_path, monk
     assert "request.limit === 0 ? 'Unlimited'" in response.text
 
 
+def test_harvestview_explains_and_filters_persisted_hostname_changes(tmp_path, monkeypatch) -> None:
+    from theHarvester.lib.api import api
+
+    monkeypatch.setenv('THEHARVESTER_API_KEY', 'test-key')
+    monkeypatch.setenv('THEHARVESTER_RUN_DB', str(tmp_path / 'runs.sqlite'))
+    monkeypatch.setenv('THEHARVESTER_RUN_WORKER', 'disabled')
+
+    with TestClient(api.app, base_url='http://127.0.0.1', client=('127.0.0.1', 50000)) as client:
+        root = client.get('/')
+        script = client.get('/static/harvestview/app.js')
+
+    assert root.status_code == 200
+    assert 'id="hostname-tracking-section"' in root.text
+    assert 'id="tracking-change-filter"' in root.text
+    assert 'id="tracking-source-filter"' in root.text
+    assert 'id="tracking-resolution-filter"' in root.text
+    assert 'id="tracking-exclusive-filter"' in root.text
+    assert 'id="tracking-persisting-filter"' in root.text
+    assert 'INCONCLUSIVE means a contributing source did not complete reliably' in root.text
+    assert 'This view reads finalized evidence only and performs no discovery or DNS.' in root.text
+    assert script.status_code == 200
+    assert 'function renderHostnameTracking' in script.text
+    assert 'blocking_sources' in script.text
+
+
 def test_harvestview_exposes_local_schedule_page_and_assets(tmp_path, monkeypatch) -> None:
     from theHarvester.lib.api import api
 

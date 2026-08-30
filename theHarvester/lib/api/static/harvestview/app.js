@@ -42,6 +42,11 @@
     lifecycleTrack: $('#lifecycle-track'), lifecycleNote: $('#lifecycle-note'),
     assessmentEvidence: $('#assessment-evidence'), assessmentProducers: $('#assessment-producers'),
     assessmentReview: $('#assessment-review'), reviewOutcomes: $('#review-outcomes-button'),
+    trackingSection: $('#hostname-tracking-section'), trackingSummary: $('#hostname-tracking-summary'),
+    trackingCounts: $('#hostname-tracking-counts'), trackingBody: $('#hostname-tracking-body'),
+    trackingEmpty: $('#hostname-tracking-empty'), trackingChange: $('#tracking-change-filter'),
+    trackingSource: $('#tracking-source-filter'), trackingResolution: $('#tracking-resolution-filter'),
+    trackingExclusive: $('#tracking-exclusive-filter'), trackingPersisting: $('#tracking-persisting-filter'),
     resultsSection: $('#results-section'),
     activityBands: $('#activity-bands'), requestOptions: $('#request-options'), providerBody: $('#provider-body'),
     providerSummary: $('#provider-summary'), providerOutcomeSummary: $('#provider-outcome-summary'), providerEmpty: $('#provider-empty'),
@@ -819,6 +824,67 @@
     screenshots.forEach((screenshot, index) => loadScreenshot(screenshot, nodes.screenshotGallery.children[index].querySelector('.screenshot-frame')));
   }
 
+  function trackingUsesCurrentEvidence(row) {
+    return (row.current_sources || []).length > 0;
+  }
+
+  function trackingSources(row) {
+    return trackingUsesCurrentEvidence(row) ? row.current_sources || [] : row.previous_sources || [];
+  }
+
+  function trackingResolution(row) {
+    return trackingUsesCurrentEvidence(row)
+      ? row.current_resolution_evidence
+      : row.previous_resolution_evidence;
+  }
+
+  function renderHostnameTracking(run) {
+    const tracking = run.hostname_tracking;
+    nodes.trackingSection.hidden = !run.evidence_status || !tracking;
+    if (nodes.trackingSection.hidden) return;
+    const comparison = tracking.comparisons?.[0];
+    const counts = comparison?.counts || {new: 0, persisting: 0, missing: 0, inconclusive: 0};
+    nodes.trackingCounts.innerHTML = ['new', 'missing', 'inconclusive', 'persisting']
+      .map(change => `<span class="tracking-count ${change}"><b>${Number(counts[change] || 0).toLocaleString()}</b> ${escapeHtml(change)}</span>`)
+      .join('');
+    nodes.trackingSummary.textContent = comparison?.baseline_run_id
+      ? `Compared with ${comparison.baseline_run_id} · ${formatDate(comparison.baseline_completed_at)}.`
+      : comparison?.message || 'No comparable baseline is available.';
+    const allRows = tracking.hostname_changes || [];
+    const selectedSource = nodes.trackingSource.value;
+    const sources = [...new Set(allRows.flatMap(trackingSources))].sort();
+    nodes.trackingSource.innerHTML = '<option value="">All sources</option>'
+      + sources.map(source => `<option value="${escapeHtml(source)}">${escapeHtml(source)}</option>`).join('');
+    nodes.trackingSource.value = sources.includes(selectedSource) ? selectedSource : '';
+    const rows = allRows.filter(row => {
+      if (row.change === 'persisting' && !nodes.trackingPersisting.checked) return false;
+      if (nodes.trackingChange.value && row.change !== nodes.trackingChange.value) return false;
+      if (nodes.trackingSource.value && !trackingSources(row).includes(nodes.trackingSource.value)) return false;
+      if (nodes.trackingResolution.value && trackingResolution(row) !== nodes.trackingResolution.value) return false;
+      return !nodes.trackingExclusive.checked || row.source_exclusive;
+    });
+    nodes.trackingBody.innerHTML = rows.map(row => {
+      const blockers = (row.blocking_sources || []).map(blocker => {
+        const reason = [blocker.status, blocker.error_type, blocker.stop_reason].filter(Boolean).join(' · ');
+        return `${escapeHtml(blocker.source)}${reason ? `: ${escapeHtml(reason)}` : ''}`;
+      }).join('<br>') || '—';
+      const previousDns = row.previous_resolution_evidence || 'not-checked';
+      const currentDns = row.current_resolution_evidence || 'not-checked';
+      const previousAddressability = row.previous_addressability || 'not classified';
+      const currentAddressability = row.current_addressability || 'not classified';
+      return `<tr>
+        <td><span class="tracking-state ${safeClass(row.change)}">${escapeHtml(row.change)}</span></td>
+        <td class="tracking-hostname">${escapeHtml(row.hostname)}</td>
+        <td>${escapeHtml(trackingSources(row).join(', ') || '—')}${row.source_exclusive ? '<small>Source-exclusive</small>' : ''}</td>
+        <td>${escapeHtml(previousDns)} <span aria-hidden="true">→</span> ${escapeHtml(currentDns)}</td>
+        <td>${escapeHtml(previousAddressability)} <span aria-hidden="true">→</span> ${escapeHtml(currentAddressability)}</td>
+        <td>${blockers}</td>
+      </tr>`;
+    }).join('');
+    nodes.trackingEmpty.hidden = rows.length > 0;
+    nodes.trackingBody.closest('table').hidden = rows.length === 0;
+  }
+
   function renderDetail(previousRun = null) {
     const run = state.detail;
     nodes.loading.hidden = true;
@@ -842,6 +908,7 @@
     renderAuthorization(run);
     renderExecutions(run);
     renderAssessment(run);
+    renderHostnameTracking(run);
     if (!previousRun || previousRun.status !== run.status || JSON.stringify(previousRun.results) !== JSON.stringify(run.results)) {
       renderResults(run);
     }
@@ -1359,6 +1426,19 @@
     const query = event.target.value.trim().toLowerCase();
     state.resultTable?.setFilter(row => !query || row.value.toLowerCase().includes(query));
   });
+  nodes.trackingChange.addEventListener('change', () => {
+    if (nodes.trackingChange.value === 'persisting') nodes.trackingPersisting.checked = true;
+    renderHostnameTracking(state.detail);
+  });
+  nodes.trackingPersisting.addEventListener('change', () => {
+    if (!nodes.trackingPersisting.checked && nodes.trackingChange.value === 'persisting') {
+      nodes.trackingChange.value = '';
+    }
+    renderHostnameTracking(state.detail);
+  });
+  for (const filter of [nodes.trackingSource, nodes.trackingResolution, nodes.trackingExclusive]) {
+    filter.addEventListener('change', () => renderHostnameTracking(state.detail));
+  }
   nodes.sourceSearch.addEventListener('input', event => renderSourceGroups(event.target.value));
   nodes.selectCapability.addEventListener('click', selectCapability);
   nodes.selectP0.addEventListener('click', () => setP0Selection(true));

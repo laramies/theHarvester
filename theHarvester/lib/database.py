@@ -52,6 +52,8 @@ from theHarvester.lib.completed_result import (
     parse_virtual_host_details,
     virtual_host_details,
 )
+from theHarvester.lib.dns_consensus import Addressability
+from theHarvester.lib.hostname_tracking import TrackingRunEvidence, TrackingSourceOutcome
 from theHarvester.lib.network_evidence import (
     NetworkObservation,
     network_observation_details,
@@ -1218,6 +1220,68 @@ class ResultStore:
             )
             for name, observed, unique, shared, resolved, unique_resolved in yields
         ]
+
+    async def load_hostname_tracking_run(self, run_id: UUID) -> TrackingRunEvidence:
+        """Load only the persisted evidence needed for hostname change tracking."""
+        async with self._session() as session:
+            parent = await session.get(_RunRow, str(run_id))
+            execution_rows = (await session.scalars(select(_ExecutionRow).where(_ExecutionRow.run_id == str(run_id)))).all()
+            result_rows = (await session.scalars(select(_ResultRow).where(_ResultRow.run_id == str(run_id)))).all()
+            origin_rows = (await session.scalars(select(_ResultOriginRow).where(_ResultOriginRow.run_id == str(run_id)))).all()
+        if parent is None:
+            raise LookupError(f'completed result not found: {run_id}')
+        executions = {row.position: row for row in execution_rows}
+        results = {row.position: row for row in result_rows}
+        hostname_sources: dict[str, set[str]] = {}
+        resolved_hostnames: set[str] = set()
+        for origin in origin_rows:
+            execution = executions.get(origin.execution_position)
+            result = results.get(origin.result_position)
+            if execution is None or result is None or result.kind != 'hostname':
+                continue
+            if execution.producer_kind == 'source':
+                hostname_sources.setdefault(result.value, set()).add(execution.name)
+            elif execution.producer_kind == 'action' and execution.name == 'dns-resolve':
+                resolved_hostnames.add(result.value)
+        addressability: dict[str, str] = {}
+        allowed_addressability = {value.value for value in Addressability}
+        for result in result_rows:
+            if result.kind != 'dns-recursive-classification':
+                continue
+            try:
+                classification = json.loads(result.value)
+            except json.JSONDecodeError, TypeError:
+                continue
+            if (
+                isinstance(classification, dict)
+                and isinstance(classification.get('hostname'), str)
+                and classification.get('addressability') in allowed_addressability
+            ):
+                addressability[classification['hostname']] = classification['addressability']
+        source_outcomes = tuple(
+            TrackingSourceOutcome(
+                source=row.name,
+                status=cast('ExecutionStatus', row.status),
+                error_type=row.error_type,
+                stop_reason=row.stop_reason,
+            )
+            for row in sorted(execution_rows, key=lambda row: row.name)
+            if row.producer_kind == 'source'
+        )
+        dns_execution = next(
+            (row for row in execution_rows if row.producer_kind == 'action' and row.name == 'dns-resolve'),
+            None,
+        )
+        return TrackingRunEvidence(
+            run_id=UUID(parent.run_id),
+            target=parent.target,
+            completed_at=datetime.datetime.fromisoformat(parent.completed_at),
+            source_outcomes=source_outcomes,
+            hostname_sources=tuple((hostname, tuple(sorted(sources))) for hostname, sources in sorted(hostname_sources.items())),
+            resolved_hostnames=frozenset(resolved_hostnames),
+            dns_action_status=cast('ExecutionStatus', dns_execution.status) if dns_execution else None,
+            addressability=tuple(sorted(addressability.items())),
+        )
 
     async def action_yields(self, run_id: UUID) -> list[ActionYield]:
         yields = await self._producer_yields(run_id, 'action')

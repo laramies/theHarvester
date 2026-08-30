@@ -56,7 +56,7 @@ When a change alters one of these boundaries, update this document and the neare
 
 ### Deferred boundaries
 
-- Cross-run change detection, alerts, and automatic reactions remain separate future product decisions. A scheduled occurrence only submits finite enumeration runs.
+- Read-only cross-run change projections over finalized evidence are part of the release contract. Alerts and automatic reactions remain deferred, and a scheduled occurrence only submits finite enumeration runs.
 - Cross-run source ranking remains a reporting decision. One run's hostname-yield summary does not automatically select, disable, or rank sources.
 - Distributed workers, multi-host operation, PostgreSQL, and hosted multi-user authorization require measured demand and new decisions. The release remains SQLite-first and local-operator focused.
 - Automatic scope expansion remains deferred. Evidence can suggest a later target, while the operator controls every scope change.
@@ -155,6 +155,10 @@ _Avoid_: DNS result, resolved host, validation status
 One finite execution of theHarvester against an explicit target and selected options, identified independently from every other execution.
 _Avoid_: Scan, monitoring cycle, session, job
 
+**Enumeration target**:
+The operator-supplied identifier that scopes one enumeration run. It is ordinarily a canonical hostname and may instead be a canonical IP address, ASN, or CIDR for supported routing activity, or an exact free-text company query for a source that accepts one.
+_Avoid_: Domain, hostname when the target is not a DNS name, target alias
+
 **Run schedule**:
 A durable local plan that combines an explicit authorized target inventory, one validated run template, recurrence timing, and an overlap policy. It creates enumeration runs but is never itself an enumeration run or evidence record.
 _Avoid_: Scan schedule, cron job, monitoring run
@@ -218,6 +222,46 @@ _Avoid_: Source result, provider response
 **Source hostname yield**:
 One source's normalized hostname counts within one enumeration run: observed, unique, shared, DNS-resolved, and unique DNS-resolved. A hostname is unique when exactly one source reported it in that run. It is DNS-resolved when the run's resolution action retained an A, AAAA, or CNAME answer. The counts measure marginal coverage and current DNS evidence, not independent corroboration, ownership, or service reachability.
 _Avoid_: Source quality score, authoritative result count, independent confirmation
+
+**Source yield report scope**:
+The explicit finalized evidence records summarized by a source-yield report: one enumeration run, selected runs for one canonical authorized target, or runs across every stored target only by deliberate operator choice.
+_Avoid_: Implicit database aggregate, target alias
+
+**Source yield tracking view**:
+A longitudinal view of finalized evidence for one enumeration target that highlights actionable hostname changes and their retained DNS evidence. It is observational and never initiates discovery or DNS activity.
+_Avoid_: Discovery run, live DNS check, evidence export
+
+**Source cohort**:
+The set of canonical sources represented by source executions in one enumeration run, independent of their individual outcomes.
+_Avoid_: Successful sources, source results, source selection text
+
+**Comparable source-yield run**:
+A finalized enumeration run for the same canonical target and source cohort as another run. Unhealthy source executions may retain evidence but cannot support a sound one-sided hostname claim.
+_Avoid_: Previous run, similar run, matching run
+
+**Hostname tracking change**:
+The relationship of one canonical hostname between two comparable enumeration runs: new when reliably absent from the earlier run and retained in the later run, persisting when retained in both, missing when reliably absent from the later run, and inconclusive when relevant source outcomes cannot support a one-sided comparison. Missing is an evidence difference, not proof that the hostname ceased to exist or resolve.
+_Avoid_: Added host, removed host, gone host
+
+**Relevant source health**:
+The outcomes on the side where a hostname is absent for the sources that contributed it on the other side. A one-sided hostname is new or missing only when every relevant source completed successfully on the absent side; otherwise its change is inconclusive. Failures by unrelated sources do not affect that hostname.
+_Avoid_: Run health, all-source success, provider reliability
+
+**Inconclusive hostname change**:
+A hostname retained on exactly one side when at least one source that contributed it there was partial, failed, rate limited, or skipped on the side where it was absent. The blocking source outcomes and retained failure reasons explain the uncertainty; the state does not mean the comparison logic failed.
+_Avoid_: Unknown result, missing hostname, comparison error
+
+**Source-exclusive hostname**:
+A hostname attributed to exactly one canonical source within one enumeration run. Exclusivity is run-scoped and does not claim that no other source has ever observed the hostname.
+_Avoid_: Globally unique hostname, proprietary hostname, unique subdomain
+
+**Retained resolution evidence**:
+What finalized evidence establishes about DNS resolution for one hostname in one run: a retained positive answer, no retained positive answer, or no recorded check. It remains separate from richer addressability classifications such as currently addressable, not currently addressable, resolver disputed, or wildcard indistinguishable.
+_Avoid_: Boolean resolved state, live-host status, reachability
+
+**Hostname tracking projection**:
+A read-only comparison derived from one or more selected finalized runs and each run's previous comparable run. It is not stored as new canonical evidence and may be rendered by multiple operator interfaces.
+_Avoid_: Tracking artifact, discovery result, DNS refresh
 
 **Source capability**:
 A declared class of normalized result that a source can contribute to consolidated enumeration output, independent of whether one source execution yields any data.
