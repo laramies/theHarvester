@@ -37,6 +37,9 @@ apikeys:
   tomba:
     key: your-tomba-key
     secret: your-tomba-secret
+
+  xquik:
+    key: your-xquik-api-key
 ```
 
 Do not commit populated configuration files. Prefer provider credentials scoped to the minimum access the provider supports.
@@ -50,6 +53,7 @@ The [README source matrix](https://github.com/laramies/theHarvester/blob/dev/REA
 | Censys | `censys.token` is a Censys Platform Personal Access Token. Set `organization_id` to search through an entitled organization. The source uses the Global Search API, which Free accounts cannot access because they are limited to asset lookups. Search API ID and secret fields are not accepted. |
 | HIBP verified domains | `hibpverified` queries [HIBP's authenticated verified-domain endpoint](https://haveibeenpwned.com/API/v3#BreachedDomain). Select it by name, through the `breaches` capability, or with `all`. Without a configured key, it is skipped like other unavailable keyed sources. Live use requires a user-owned paid HIBP API key and a domain verified in that account. The keyless `haveibeenpwned` source queries only the public breach catalogue. |
 | RouteViews | `routeviews.key` is optional. A configured key selects the authenticated endpoint for PeeringDB-verified users and its documented 10-request-per-second allowance. Without a key, the action uses guest access at one request per second. If RouteViews rejects a configured key, the action fails instead of retrying as a guest. Remove the key to select guest access. RouteViews does not document this as a paid subscription. |
+| Xquik | `xquik.key` authenticates the [Search Tweets API](https://docs.xquik.com/api-reference/x/search-tweets). The source returns canonical public X post URLs that match the authorized target. It does not retain post bodies or account data. |
 
 ## Proxies
 

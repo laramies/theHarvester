@@ -202,6 +202,7 @@ _SPECS = (
         ResultRoute.EMAILS,
         ResultRoute.IPS,
     ),
+    _spec('xquik', ResultRoute.URLS),
     _spec('yahoo', ResultRoute.SUBDOMAINS, ResultRoute.EMAILS),
     _spec(
         'zoomeye',

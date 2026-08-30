@@ -207,6 +207,7 @@ class Core:
         'virustotal': ('key',),
         'whoisxml': ('key',),
         'windvane': ('key',),
+        'xquik': ('key',),
         'zoomeye': ('key',),
     }
 
@@ -408,6 +409,10 @@ class Core:
     @staticmethod
     def windvane_key() -> str:
         return Core._api_key_value('windvane')
+
+    @staticmethod
+    def xquik_key() -> str:
+        return Core._api_key_value('xquik')
 
     @staticmethod
     def zoomeye_key() -> str:
