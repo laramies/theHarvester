@@ -7,7 +7,9 @@ from typing import Literal, Self
 from dateutil.tz import datetime_exists, gettz, resolve_imaginary
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from .run_models import RunRequest, _normalize_target
+from theHarvester.lib.target_identity import normalize_target
+
+from .run_models import RunRequest
 
 MAX_SCHEDULE_TARGETS = 10_000
 ScheduleFrequency = Literal['once', 'hourly', 'daily', 'weekly', 'monthly']
@@ -215,7 +217,7 @@ class ScheduleCreate(BaseModel):
     @field_validator('targets')
     @classmethod
     def normalize_targets(cls, values: list[str]) -> list[str]:
-        normalized = [_normalize_target(value) for value in values]
+        normalized = [normalize_target(value) for value in values]
         if len(normalized) != len(set(normalized)):
             raise ValueError('targets must not contain duplicates')
         return normalized

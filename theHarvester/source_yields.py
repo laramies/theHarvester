@@ -11,7 +11,8 @@ from uuid import UUID
 
 from theHarvester.lib.database import ResultStore
 from theHarvester.lib.evidence_types import RESULT_KINDS, ResultKind
-from theHarvester.lib.hostname_tracking import canonical_target, hostname_tracking_projection
+from theHarvester.lib.hostname_tracking import hostname_tracking_projection
+from theHarvester.lib.target_identity import canonical_target
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

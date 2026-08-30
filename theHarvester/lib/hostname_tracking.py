@@ -4,8 +4,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 from uuid import UUID
 
-from theHarvester.lib.hostnames import normalize_hostname
-from theHarvester.lib.result_values import normalize_asn, normalize_ip, normalize_prefix
+from theHarvester.lib.target_identity import canonical_target
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -16,26 +15,6 @@ if TYPE_CHECKING:
 
 ChangeStatus = Literal['new', 'persisting', 'missing', 'inconclusive']
 ResolutionEvidence = Literal['positive', 'not-retained', 'not-checked']
-
-
-def canonical_target(value: object) -> str:
-    target = str(value).strip()
-    if target[:2].casefold() == 'as' and target[2:].isascii() and target[2:].isdecimal():
-        return normalize_asn(target)
-    if '/' in target:
-        try:
-            return normalize_prefix(target)
-        except ValueError:
-            pass
-    try:
-        return normalize_ip(target, label='target')
-    except ValueError:
-        pass
-    try:
-        hostname = normalize_hostname(target)
-    except ValueError:
-        return target
-    return hostname if '.' in hostname else target
 
 
 @dataclass(frozen=True, slots=True)

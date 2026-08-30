@@ -18,13 +18,14 @@ from theHarvester.lib.completed_result import (
 )
 from theHarvester.lib.database import DuplicateRunError, ResultStore, ResultStoreError, RunLifecycleStore
 from theHarvester.lib.evidence_types import EXECUTION_STATUSES, EvidenceStatus, ExecutionStatus, ResultKind
-from theHarvester.lib.hostname_tracking import canonical_target, hostname_tracking_projection
+from theHarvester.lib.hostname_tracking import hostname_tracking_projection
 from theHarvester.lib.network_evidence import NetworkObservation, parse_network_observation_details
 from theHarvester.lib.shodan_evidence import ShodanHostObservation
 from theHarvester.lib.takeover_evidence import TakeoverCandidateOutcome, parse_takeover_details
+from theHarvester.lib.target_identity import canonical_target, normalize_target
 
 from .run_artifacts import RunPaths, read_child_evidence
-from .run_models import RunRequest, _normalize_target, utc_now
+from .run_models import RunRequest, utc_now
 from .run_projection import activities_for_evidence, activities_for_request, normalized_results, screenshots, source_executions
 
 if TYPE_CHECKING:
@@ -295,7 +296,7 @@ class RunStore:
     async def import_evidence(self, evidence: dict[str, Any], filename: str) -> dict[str, Any]:
         await self.initialize()
         created_at = utc_now()
-        target = _normalize_target(str(evidence['target']))
+        target = normalize_target(str(evidence['target']))
         source_run_id = str(evidence['run_id'])
         run_id = str(uuid4())
         try:
