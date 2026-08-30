@@ -5,35 +5,13 @@
 [![Python CI](https://github.com/laramies/theHarvester/actions/workflows/theHarvester.yml/badge.svg)](https://github.com/laramies/theHarvester/actions/workflows/theHarvester.yml)
 [![Docker CI](https://github.com/laramies/theHarvester/actions/workflows/dockerci.yml/badge.svg)](https://github.com/laramies/theHarvester/actions/workflows/dockerci.yml)
 
-theHarvester gathers open-source intelligence about a domain or organization from search engines, certificate transparency logs, DNS datasets, code repositories, threat-intelligence platforms, and other public sources.
+theHarvester gathers open-source intelligence about a domain or organization from search engines, certificate transparency logs, DNS datasets, code repositories, threat-intelligence platforms, and other public sources. It normalizes hostnames, email addresses, IP addresses, URLs, ASNs, people, breach names, and structured evidence from optional actions.
 
 Use theHarvester during the early reconnaissance stage of an authorized security assessment. Run it only against targets you own or have explicit permission to test.
 
-## What it does
-
-theHarvester combines many public data sources in one run and normalizes their results. It can collect hostnames, email addresses, IP addresses, URLs, ASNs, people, and breach names. Optional actions cover DNS, RouteViews, Shodan, takeover checks, virtual hosts, API paths, and screenshots.
-
-Use the CLI for one-off work or HarvestView for a local browser workflow. JSONL and SQLite retain structured evidence and provenance. JSON and XML remain available for existing integrations.
-
-Providers control their own availability, quotas, and response formats, so individual sources may change independently of theHarvester.
-
-## Package versions
-
-[![Packaging status](https://repology.org/badge/vertical-allrepos/theharvester.svg)](https://repology.org/project/theharvester/versions)
-
-## Architecture at a glance
-
-### Discovery routes and enrichment
-
-[![theHarvester discovery routes and enrichment](docs/images/run-evidence-architecture.svg)](docs/images/run-evidence-architecture.svg)
-
-### HarvestView run desk
-
-[![HarvestView run desk architecture](docs/images/harvestview-architecture.svg)](docs/images/harvestview-architecture.svg)
-
 ## Quick start
 
-theHarvester requires Python 3.14. The repository's `.python-version` lets `uv` select it automatically:
+theHarvester requires Python 3.14 and [uv](https://docs.astral.sh/uv/getting-started/installation/). The repository's `.python-version` lets `uv` select the required Python version automatically:
 
 ```bash
 git clone https://github.com/laramies/theHarvester.git
@@ -42,17 +20,29 @@ uv sync
 uv run theHarvester -d example.com -b crtsh,certspotter
 ```
 
-See the [installation guide](docs/wiki/Installation.md) for platform-specific setup and packaged distributions.
+This first run uses two P0 passive sources that need no API key. Passive means the target is not contacted directly, but the selected providers still receive the target string. The terminal reports each source outcome and any retained findings. A source can complete with zero findings, stop early with partial evidence, or fail without erasing evidence retained by other sources.
+
+See the [installation guide](docs/wiki/Installation.md) for packaged distributions and platform-specific setup.
+
+## Choose how to work
+
+| Interface | Best for | Start with |
+| --- | --- | --- |
+| CLI | One-off reconnaissance and shell workflows | `uv run theHarvester -h` |
+| HarvestView | Local run history, evidence review, hostname changes, and schedules | `uv run harvestview` |
+| REST API | Authenticated local automation and integrations | `http://127.0.0.1:5000/docs` |
+
+All three interfaces use the same finite-run engine and normalized evidence model. HarvestView is a local browser workspace, not a separate discovery engine.
 
 ## Common workflows
 
-Query several passive sources:
+Query several P0 passive sources:
 
 ```bash
 uv run theHarvester -d example.com -b crtsh,certspotter,commoncrawl
 ```
 
-Three discovery sources run at once by default. Use `-j` or `--source-workers` to change the worker count. The REST API and HarvestView expose the same setting.
+Three discovery sources run at once by default. Use `-j` or `--source-workers` to change the worker count. Every selected source still runs.
 
 Run every source that can contribute subdomains:
 
@@ -68,7 +58,7 @@ uv run theHarvester -d example.com -b emails,urls,certspotter
 
 Capability selectors form a union and choose which sources run. They do not discard other result types returned by those sources. Available selectors are `subdomains`, `emails`, `ips`, `asns`, `urls`, `people`, and `breaches`. `-b all` runs every cataloged P0 passive source. P1 DNS and P2 direct sources require explicit selection.
 
-Pass `--limit 0` to remove the shared per-source result cap and local page ceilings. Each adapter then runs until its provider is exhausted. Provider quotas and runtime safeguards still apply. If a provider or safety limit stops a source after it has retained results, the run keeps them and records the source as partial with the stop reason.
+Pass `--limit 0` to remove the shared per-source result cap and local page ceilings. Provider quotas and runtime safeguards still apply. If a provider or safety limit stops a source after retaining results, the run keeps them and records a partial outcome with the stop reason.
 
 Exclude hostname results while retaining other result types:
 
@@ -84,7 +74,7 @@ Save results as JSONL:
 uv run theHarvester -d example.com -b crtsh,certspotter -f report
 ```
 
-This writes `report.jsonl` for automation and interchange. The same command also writes legacy `report.json` and `report.xml` compatibility reports.
+This writes `report.jsonl` for automation and interchange plus `report.json` and `report.xml` compatibility reports. Completed runs are also retained in the local SQLite evidence store.
 
 Resolve discovered hosts for an authorized domain with the default resolver list:
 
@@ -101,13 +91,52 @@ uv run theHarvester -h
 
 ## Activity and scope
 
-Passive sources are P0. DNS resolution, brute force, recursive DNS, and reverse lookup are P1. HTTP, TLS, screenshot, takeover, virtual-host, port, and endpoint actions are P2. P1 and P2 activity runs only when you select it.
+P0, P1, and P2 describe observable network behavior, not confidence or importance.
+
+| Class | Network behavior | Examples |
+| --- | --- | --- |
+| P0 | Queries an existing provider or dataset without directing traffic toward the target | Search, certificate transparency, code, and passive DNS providers |
+| P1 | Queries DNS about authorized names or addresses | Resolution, brute force, recursive DNS, and reverse lookup |
+| P2 | Contacts a target endpoint or causes equivalent direct interaction | HTTP, TLS, screenshots, takeover checks, virtual hosts, ports, and API paths |
+
+P1 and P2 activity runs only when you select it. A discovered related hostname, network, ASN, or URL remains review evidence and does not expand the authorized target automatically. The exact hostname matters: `www.example.test` and `example.test` are different targets unless the engagement authorizes both.
 
 Common active options include DNS resolution (`-r`), DNS brute force (`-c`), reverse DNS (`-n`), recursive DNS (`--dns-recursive-depth`), takeover checks (`-t`), API path scanning (`-a`), and screenshots (`--screenshot`). A takeover indicator is evidence for review, not proof that a provider resource can be claimed.
 
-Read [Responsible use and scope](docs/wiki/Responsible-Use-and-Scope.md) before active work. [Operator workflows](docs/wiki/Operator-Workflows.md) covers limits, resolvers, proxies, and action-specific behavior. Screenshot capture requires a Playwright-compatible browser; Baidu uses it when available and otherwise falls back to HTTP.
+Read [Responsible use and scope](docs/wiki/Responsible-Use-and-Scope.md) before active work. [Operator workflows](docs/wiki/Operator-Workflows.md) covers limits, resolvers, proxies, and action-specific behavior. With explicit proxy mode enabled, supported discovery and actions fail closed when no proxy is available instead of sending a direct request.
 
-## HarvestView and REST API
+## A practical engagement workflow
+
+1. Record the exact authorized target inventory and activity allowed by the engagement.
+2. Start with a bounded P0 run and inspect every source outcome, including zero-result and partial sources.
+3. Add only the P1 or P2 actions the engagement authorizes for that target.
+4. Review normalized results, retained DNS evidence, stop reasons, and artifacts together.
+5. Compare finalized runs only when the target, source cohort, limits, resolver set, and collection window are meaningfully comparable.
+6. Export the required evidence, then pause or delete schedules and verify that no queued or running work remains when authorization ends.
+
+## Architecture at a glance
+
+### From authorized target to retained evidence
+
+[![theHarvester discovery routes and enrichment](docs/images/run-evidence-architecture.svg)](docs/images/run-evidence-architecture.svg)
+
+### HarvestView local control and evidence
+
+[![HarvestView run desk architecture](docs/images/harvestview-architecture.svg)](docs/images/harvestview-architecture.svg)
+
+## Read run results correctly
+
+theHarvester reports control flow, evidence quality, and producer outcomes separately:
+
+| Layer | States | What it answers |
+| --- | --- | --- |
+| Run lifecycle | queued, running, cancelling, cancelled, completed, failed | Is execution still active? |
+| Terminal evidence | complete, partial, failed | How complete is the retained run evidence? |
+| Source or action outcome | completed, partial, failed, rate-limited, skipped | What happened to this producer? |
+
+A completed source with zero results is not the same as a partial or failed source. A cancelled or failed run can still retain useful evidence collected before execution stopped. Read the outcome and stop reason before treating absence as a finding.
+
+## HarvestView
 
 `harvestview` starts the local web application and API on `127.0.0.1:5000` by default:
 
@@ -116,9 +145,31 @@ export THEHARVESTER_API_KEY='replace-with-a-long-random-value'
 uv run harvestview
 ```
 
-Open [HarvestView](http://127.0.0.1:5000/) to start runs and inspect their results, or [Schedules](http://127.0.0.1:5000/schedules) to persist timezone-aware run schedules across one or many authorized targets. Each occurrence creates an ordinary finite run per target, and the single local worker executes them serially. SQLAlchemy stores schedule control state in a separate mode-`0600` SQLite database that is excluded from portable SQLite run exports. The browser receives a derived HttpOnly session cookie and never stores the API key. See the [installation guide](docs/wiki/Installation.md) for local assets, screenshots, and isolated deployments.
+Open [HarvestView](http://127.0.0.1:5000/) to start runs and inspect history, results, producer outcomes, retained artifacts, and hostname changes. [Schedules](http://127.0.0.1:5000/schedules) can persist a timezone-aware run template across one or many authorized targets. Each occurrence creates an ordinary finite run per target, and the single local worker executes them serially.
 
-Open [Swagger](http://127.0.0.1:5000/docs) or [ReDoc](http://127.0.0.1:5000/redoc) for the automation contract.
+SQLAlchemy stores schedule control state in a separate mode-`0600` SQLite database that is excluded from portable run exports. Pausing a schedule prevents future occurrences but does not cancel runs already queued or running. Delete or pause schedules and inspect their dispatch history before an authorization window closes.
+
+The browser receives a derived HttpOnly session cookie and never stores the API key. Keep HarvestView on loopback unless you add TLS and network access controls. See the [installation guide](docs/wiki/Installation.md) for local assets, screenshot support, and isolated deployments.
+
+HarvestView can start screenshot and DNS brute-force runs from a retained hostname. Each action creates a separate finite run and leaves the parent evidence unchanged.
+
+## Track hostname changes
+
+`harvest-yields --changes` compares finalized SQLite evidence without running discovery or DNS. Use a run ID to inspect one run against its automatically selected baseline, or use a target to review its comparable run chain over time:
+
+```bash
+uv run harvest-yields --run-id 11111111-1111-4111-8111-111111111111 --changes
+uv run harvest-yields --target example.test --changes
+uv run harvest-yields --target example.test --changes --include-persisting
+```
+
+The baseline is the latest earlier finalized run with the same canonical target and exact source cohort. The comparison classifies hostnames as `new`, `persisting`, `missing`, or `inconclusive`. A one-sided hostname is new or missing only when every source that contributed it on the other side completed successfully on the side where it is absent. Otherwise the change is inconclusive and includes the blocking outcomes and reasons.
+
+Missing means absent from comparable retained evidence. It does not prove that the hostname stopped existing or resolving. Repeated comparable runs provide a change history; the command does not create alerts, trigger actions, or allow mixed-target timelines. Read [Results and local data](docs/wiki/Results-and-Local-Data.md#track-hostname-changes-across-finalized-runs) for the complete pairing and interpretation rules.
+
+## REST API and Docker Compose
+
+Open [Swagger](http://127.0.0.1:5000/docs) or [ReDoc](http://127.0.0.1:5000/redoc) for the current automation contract. API clients send `THEHARVESTER_API_KEY` in the `X-API-Key` header; provider credentials remain on the server.
 
 ### Docker Compose
 
@@ -136,6 +187,9 @@ docker compose ps
 docker compose logs -f theharvester.svc.local
 docker compose down
 ```
+
+<details>
+<summary><strong>View REST API routes</strong></summary>
 
 | Route | Purpose |
 | --- | --- |
@@ -156,9 +210,9 @@ docker compose down
 | `POST /api/v1/schedules/{schedule_id}/run-now` | Queue one extra occurrence without changing recurrence timing. |
 | `GET /api/v1/schedules/{schedule_id}/dispatches` | List per-target dispatch history. |
 
-HarvestView can start screenshot and DNS brute-force runs from a hostname result. Each action creates its own run and leaves the original evidence unchanged.
+</details>
 
-API clients send `THEHARVESTER_API_KEY` in the `X-API-Key` header. Provider API settings stay on the server. Keep the service on localhost unless you add TLS and network access controls. The [REST API guide](docs/wiki/Rest-API.md) documents requests, imports, exports, and authentication.
+The [REST API guide](docs/wiki/Rest-API.md) documents requests, hostname tracking, imports, exports, schedules, and authentication.
 
 ## Discovery sources
 
@@ -252,13 +306,16 @@ Never commit populated configuration files, API keys, account details, or provid
 
 Terminal output is intended for interactive use. `-f NAME` also writes `NAME.jsonl`, `NAME.json`, and `NAME.xml`. Screenshots go to the directory passed to `--screenshot`, and completed runs are stored in `~/.local/share/theHarvester/stash.sqlite`.
 
-Treat collected OSINT as potentially sensitive. Keep report files, screenshots, and the local database out of source control and share them only within the authorized engagement.
+Treat collected OSINT as potentially sensitive. Keep report files, screenshots, and the local database out of source control and share them only within the authorized engagement. Screenshots can contain login pages, internal names, and other target content; the database retains their metadata but does not embed the image files.
 
 ### JSONL
 
 JSONL is the primary format for automation and one-run interchange. The first line describes the run. Each remaining line is one sorted, deduplicated finding with its source and action provenance.
 
-This example contains six findings from two sources. The `counts` object summarizes the result lines that follow it.
+The summary line records run status, producer outcomes, counts, timestamps, and artifacts. Each remaining line is one finding. The full example below contains six findings from two sources.
+
+<details>
+<summary><strong>View a complete JSONL example</strong></summary>
 
 ```jsonl
 {"action_executions":[],"artifacts":[],"completed_at":"2026-08-17T12:01:00Z","counts":{"asn":1,"breach":1,"email":1,"hostname":1,"ip":1,"url":1},"evidence_status":"complete","result_count":6,"run_id":"123e4567-e89b-12d3-a456-426614174000","source_executions":[{"duration_ms":127.4,"error_type":null,"result_count":1,"source":"haveibeenpwned","status":"completed","stop_reason":null},{"duration_ms":482.3,"error_type":null,"result_count":5,"source":"zoomeye","status":"completed","stop_reason":null}],"started_at":"2026-08-17T12:00:00Z","target":"example.com","type":"summary"}
@@ -269,6 +326,8 @@ This example contains six findings from two sources. The `counts` object summari
 {"sources":["zoomeye"],"type":"ip","value":"192.0.2.10"}
 {"sources":["zoomeye"],"type":"url","value":"https://api.example.com/login"}
 ```
+
+</details>
 
 Extract common result types with `jq`:
 
@@ -301,14 +360,16 @@ The `subdomains` capability produces `hostname` records because a result can be 
 
 ### Compare source yield
 
-`harvest-yields` reads completed runs from an existing SQLite results database. For each source, it reports observed values, values unique within a run, and hostnames with retained DNS answers. With no arguments, it reads the standard local database:
+`harvest-yields` reads finalized runs from an existing SQLite results database. For each source, it reports observed values, values unique within a run, and hostnames with retained DNS answers. List targets before selecting a comparison scope when the database contains more than one:
 
 ```bash
 uv run harvest-yields
+uv run harvest-yields --list-targets
+uv run harvest-yields --target example.test
 uv run harvest-yields --database results.sqlite --kind ip --format json
 ```
 
-The command does not run discovery or DNS resolution. Compare runs collected with the same targets, source set, limit, and collection window. The [results guide](docs/wiki/Results-and-Local-Data.md) explains the fields and benchmark method.
+The command does not run discovery or DNS resolution. It refuses to mix several stored targets unless you explicitly select `--all-targets`. Meaningful comparisons normally keep the target, source set, limit, resolver set, release version, and collection window fixed. The [results guide](docs/wiki/Results-and-Local-Data.md) explains the fields and benchmark method.
 
 ### SQLite, JSON, and XML
 
@@ -319,6 +380,12 @@ JSON and XML are compatibility reports grouped by result type. They do not inclu
 ## Development and contributing
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) for the development setup, required checks, testing expectations, and pull-request process.
+
+## Package versions and license
+
+[![Packaging status](https://repology.org/badge/vertical-allrepos/theharvester.svg)](https://repology.org/project/theharvester/versions)
+
+theHarvester is distributed under the GNU General Public License version 2 only. See [LICENSE](LICENSE) for the complete license text.
 
 ## Support and credits
 

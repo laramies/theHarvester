@@ -205,7 +205,7 @@ def test_wiki_navigation_and_readme_links_resolve() -> None:
     readme = Path('README.md').read_text()
     readme_wiki_links = re.findall(r'\]\((docs/wiki/[^)]+)\)', readme)
     assert readme_wiki_links
-    assert all(Path(target).is_file() for target in readme_wiki_links)
+    assert all(Path(target.split('#', 1)[0]).is_file() for target in readme_wiki_links)
 
 
 def test_wiki_examples_use_copy_safe_operator_language() -> None:
@@ -257,6 +257,29 @@ def test_readme_architecture_diagrams_are_local_and_accessible() -> None:
     assert 'SCHEDULES → FINITE RUNS' in harvestview_diagram
     assert 'Portable exports omit control state and screenshot files.' in harvestview_diagram
     assert 'Imports run no sources or actions.' in harvestview_diagram
+
+
+def test_readme_onboards_first_time_and_repeat_operators() -> None:
+    readme = Path('README.md').read_text()
+
+    sections = (
+        '## Quick start',
+        '## Choose how to work',
+        '## Activity and scope',
+        '## A practical engagement workflow',
+        '## Architecture at a glance',
+        '## Read run results correctly',
+        '## HarvestView',
+        '## Track hostname changes',
+    )
+    offsets = [readme.index(f'\n{section}\n') for section in sections]
+    assert offsets == sorted(offsets)
+    assert 'Passive means the target is not contacted directly' in readme
+    assert 'does not expand the authorized target automatically' in readme
+    assert 'uv run harvest-yields --run-id ' in readme
+    assert 'uv run harvest-yields --target example.test --changes' in readme
+    assert 'The baseline is the latest earlier finalized run' in readme
+    assert 'Missing means absent from comparable retained evidence.' in readme
 
 
 def test_wiki_diagrams_are_local_accessible_and_used_deliberately() -> None:
