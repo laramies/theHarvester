@@ -204,7 +204,15 @@ The top-level `run_count` shows how many runs were selected. Each source row has
 
 ### Track hostname changes across finalized runs
 
-`harvest-yields --changes` compares retained hostname evidence without running discovery or DNS and without creating another report format. It reads only finalized runs already stored in SQLite. Use a canonical target to return every comparable run in chronological order, or a run ID to compare just that run with its baseline:
+`harvest-yields --changes` reads retained hostname evidence from finalized SQLite runs. It does not run discovery or DNS, and it does not let you choose an arbitrary pair of run IDs. The command uses the existing table or JSON output instead of creating another report format.
+
+| View | What it compares |
+| --- | --- |
+| `--run-id RUN_ID --changes` | The selected run and its automatically chosen comparable baseline. |
+| `--target TARGET --changes` | Every finalized run for that canonical target and each run's comparable baseline, in chronological order. |
+| HarvestView | The selected finalized run and its comparable baseline. |
+
+Use either a canonical target to review changes over time or a run ID to inspect one comparison:
 
 ```console
 harvest-yields --target example.test --changes
@@ -213,7 +221,11 @@ harvest-yields --run-id 11111111-1111-4111-8111-111111111111 --changes
 harvest-yields --target example.test --changes --include-persisting
 ```
 
-A baseline is the previous finalized run with the same canonical target and exact `source_cohort`. Runs are ordered by `completed_at` and then `run_id`, so the choice is deterministic. A run with no comparable predecessor is still returned with `baseline_run_id: null`, zero counts, and a clear message. `--all-targets --changes` is refused because one mixed timeline would hide the target boundary.
+A baseline is the latest earlier finalized run with the same canonical target and exact `source_cohort`. Runs are ordered by `completed_at` and then `run_id`, so the choice is deterministic. Each exact source cohort has its own comparison chain. The first run in a chain has `baseline_run_id: null`, zero counts, and a clear message. `--all-targets --changes` is refused because one mixed timeline would hide the target boundary.
+
+The pairing rule checks the target and source cohort. It does not prove that every other collection setting was equivalent. Keep the requested limit, release version, resolver set, and collection window consistent when those differences could affect the result.
+
+For a red team, this provides a repeatable delta review without sending new discovery or DNS traffic. `new` rows identify names that appeared in retained evidence after the comparable baseline and may deserve in-scope validation. `missing` rows show names that no longer appear in comparable collection evidence. `inconclusive` rows keep partial, failed, rate-limited, or skipped source executions from looking like an asset disappeared. Source attribution, source exclusivity, and retained DNS or addressability evidence help decide what to investigate next and what still needs corroboration. The view does not authorize follow-up or prove ownership or reachability.
 
 Each comparison reports four counts:
 
