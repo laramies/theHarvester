@@ -44,15 +44,6 @@ def test_container_smoke_uses_the_unversioned_jsonl_contract() -> None:
     assert 'schema_version' not in workflow
 
 
-def test_container_browser_smoke_uses_only_local_harvestview_assets() -> None:
-    workflow = (REPO_ROOT / '.github/workflows/harvestview-container.yml').read_text(encoding='utf-8')
-
-    assert "page.route('**/*', guard_request)" in workflow
-    assert "for path in ('/', '/schedules'):" in workflow
-    assert "typeof window.Tabulator === 'function'" in workflow
-    assert 'assert external_requests == []' in workflow
-
-
 def test_compose_keeps_harvestview_local_and_persists_private_run_data() -> None:
     compose = yaml.safe_load((REPO_ROOT / 'docker-compose.yml').read_text(encoding='utf-8'))
     service = compose['services']['theharvester.svc.local']

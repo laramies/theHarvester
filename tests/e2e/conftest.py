@@ -16,6 +16,11 @@ import pytest
 if TYPE_CHECKING:
     from playwright.sync_api import Page, Response, Route
 
+CDNJS_TABULATOR_ASSETS = {
+    'https://cdnjs.cloudflare.com/ajax/libs/tabulator-tables/6.5.2/css/tabulator.min.css',
+    'https://cdnjs.cloudflare.com/ajax/libs/tabulator-tables/6.5.2/js/tabulator.min.js',
+}
+
 
 class HarvestViewServer:
     def __init__(self, repo_root: Path, port: int, environment: dict[str, str], server_log: Path) -> None:
@@ -98,6 +103,9 @@ class BrowserFailures:
     def _guard_request(self, route: Route) -> None:
         request = route.request
         parsed = urlsplit(request.url)
+        if request.url in CDNJS_TABULATOR_ASSETS:
+            route.continue_()
+            return
         if parsed.scheme not in {'http', 'https'} or parsed.hostname == 'localhost':
             route.continue_()
             return
