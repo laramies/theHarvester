@@ -129,56 +129,57 @@
             <ol id="lifecycle-track" class="lifecycle-track"></ol>
           </section>
 
-          <section id="hostname-tracking-section" class="hostname-tracking" aria-labelledby="hostname-tracking-title" hidden>
-            <div class="section-heading tracking-heading">
+          <section id="hostname-comparison-section" class="hostname-comparison" aria-labelledby="hostname-comparison-title" hidden>
+            <div class="section-heading comparison-heading">
               <div>
                 <div class="heading-with-help">
-                  <h3 id="hostname-tracking-title">Hostname changes</h3>
-                  <button class="help-tip" type="button" aria-label="Explain hostname change tracking" data-tooltip="Compares this finalized run with the previous finalized run for the same canonical target and exact source cohort. It never starts discovery or DNS.">?</button>
+                  <h3 id="hostname-comparison-title">Hostname comparison</h3>
+                  <button class="help-tip" type="button" aria-label="Explain hostname comparison" data-tooltip="Compares this finalized run with the previous comparable run for the same canonical target and exact source list. It never starts discovery or DNS.">?</button>
                 </div>
-                <p id="hostname-tracking-summary" class="section-note"></p>
+                <p id="hostname-comparison-summary" class="section-note"></p>
               </div>
-              <div id="hostname-tracking-counts" class="tracking-counts" aria-label="Hostname change counts"></div>
+              <div id="hostname-comparison-counts" class="comparison-counts" aria-label="Hostname difference counts"></div>
             </div>
-            <div class="tracking-explanation">
+            <div class="comparison-explanation">
               <strong>How to read this</strong>
-              <p>INCONCLUSIVE means a contributing source did not complete reliably on the comparison side needed to prove NEW or MISSING. Its status and retained reason appear below. MISSING means absent from a comparable completed collection—not that the hostname stopped existing or resolving. This view reads finalized evidence only and performs no discovery or DNS.</p>
+              <p><strong>Previous comparable run:</strong> the latest earlier run for the same target and source list. <strong>Compared sources:</strong> every source represented in both runs.</p>
+              <p>UNCERTAIN means a source needed for the comparison did not complete reliably on the side where the hostname was absent. Its status and saved reason appear below. NO LONGER REPORTED describes saved evidence. It does not mean the hostname stopped existing or resolving. This view reads finalized evidence only and performs no discovery or DNS.</p>
             </div>
-            <div class="tracking-filters" aria-label="Filter hostname changes">
-              <label for="tracking-change-filter">Change
-                <select id="tracking-change-filter">
-                  <option value="">All changes</option>
-                  <option value="new">New</option>
-                  <option value="missing">Missing</option>
-                  <option value="inconclusive">Inconclusive</option>
-                  <option value="persisting">Persisting</option>
+            <div class="comparison-filters" aria-label="Filter hostname differences">
+              <label for="comparison-change-filter">Difference
+                <select id="comparison-change-filter">
+                  <option value="">All differences</option>
+                  <option value="newly_reported">Newly reported</option>
+                  <option value="still_reported">Still reported</option>
+                  <option value="no_longer_reported">No longer reported</option>
+                  <option value="uncertain">Uncertain</option>
                 </select>
               </label>
-              <label for="tracking-source-filter">Source
-                <select id="tracking-source-filter"><option value="">All sources</option></select>
+              <label for="comparison-source-filter">Source
+                <select id="comparison-source-filter"><option value="">All sources</option></select>
               </label>
-              <label for="tracking-resolution-filter">Resolution evidence
-                <select id="tracking-resolution-filter">
+              <label for="comparison-resolution-filter">Resolution evidence
+                <select id="comparison-resolution-filter">
                   <option value="">All resolution evidence</option>
                   <option value="positive">Positive</option>
                   <option value="not-retained">No positive retained</option>
                   <option value="not-checked">Not checked</option>
                 </select>
               </label>
-              <label class="tracking-checkbox" for="tracking-exclusive-filter">
-                <input id="tracking-exclusive-filter" type="checkbox"> Source-exclusive only
+              <label class="comparison-checkbox" for="comparison-single-source-filter">
+                <input id="comparison-single-source-filter" type="checkbox"> Reported by one source
               </label>
-              <label class="tracking-checkbox" for="tracking-persisting-filter">
-                <input id="tracking-persisting-filter" type="checkbox"> Include persisting
+              <label class="comparison-checkbox" for="comparison-still-reported-filter">
+                <input id="comparison-still-reported-filter" type="checkbox"> Include still reported
               </label>
             </div>
-            <div class="tracking-table-wrap">
-              <table class="tracking-table">
-                <thead><tr><th>Change</th><th>Hostname</th><th>Sources</th><th>DNS evidence</th><th>Addressability</th><th>Blocking sources</th></tr></thead>
-                <tbody id="hostname-tracking-body"></tbody>
+            <div class="comparison-table-wrap">
+              <table class="comparison-table">
+                <thead><tr><th>Difference</th><th>Hostname</th><th>Source contributions</th><th>DNS evidence</th><th>Addressability</th><th>Incomplete comparison sources</th></tr></thead>
+                <tbody id="hostname-comparison-body"></tbody>
               </table>
             </div>
-            <p id="hostname-tracking-empty" class="panel-empty" hidden>No hostname changes match these filters.</p>
+            <p id="hostname-comparison-empty" class="panel-empty" hidden>No hostname differences match these filters.</p>
           </section>
 
           <div class="overview-grid">

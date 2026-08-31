@@ -42,7 +42,7 @@ When a change alters one of these boundaries, update this document and the neare
 ### Evidence and portability
 
 - A merged result is canonical by result kind and value. Source and action provenance, typed observations, execution outcomes, timestamps, and artifact metadata remain attached through deduplication and persistence.
-- API run details derive per-source hostname yields from persisted normalized provenance. The counts cover observed, unique, shared, DNS-resolved, and unique DNS-resolved hostnames. A hostname is unique when no other source in the run reported it. It is DNS-resolved when the run retained an A, AAAA, or CNAME answer. These counts measure marginal coverage and current DNS evidence, not independent corroboration or service reachability.
+- API run details derive per-source contributions from persisted normalized provenance. Each row counts results reported by that source, results unique to that source, and results shared with other sources. Hostname rows also count retained DNS answers and answers for hostnames unique to that source. These counts measure marginal coverage and current DNS evidence, not independent corroboration or service reachability.
 - JSONL is the primary single-run interchange format: one summary record followed by sorted finding records. It retains terminal evidence status, producer outcomes, provenance, and supported structured observations.
 - SQLite is the canonical local multi-run store. Portable SQLite export contains every finalized evidence record, preserves original run IDs and canonical structured evidence, and excludes queue, cancellation, worker-lease, and legacy-observation state. Screenshot metadata travels with evidence; screenshot files remain separately managed artifacts.
 - Legacy JSON and XML remain supported grouped reports for existing consumers. They are presentation formats and do not replace JSONL or SQLite when lossless provenance and structured evidence are required.
@@ -57,7 +57,7 @@ When a change alters one of these boundaries, update this document and the neare
 ### Deferred boundaries
 
 - Read-only cross-run change projections over finalized evidence are part of the release contract. Alerts and automatic reactions remain deferred, and a scheduled occurrence only submits finite enumeration runs.
-- Cross-run source ranking remains a reporting decision. One run's hostname-yield summary does not automatically select, disable, or rank sources.
+- Cross-run source ranking remains a reporting decision. One run's source-contribution summary does not automatically select, disable, or rank sources.
 - Distributed workers, multi-host operation, PostgreSQL, and hosted multi-user authorization require measured demand and new decisions. The release remains SQLite-first and local-operator focused.
 - Automatic scope expansion remains deferred. Evidence can suggest a later target, while the operator controls every scope change.
 
@@ -68,7 +68,7 @@ A normalized, in-scope subdomain with current resolver consensus evidence of an 
 _Avoid_: Valid subdomain, live host, resolved host
 
 **Secondary subdomain evidence**:
-An in-scope DNS-existing, historical, dangling-alias, or indeterminate name observation retained for defensive and investigative use but excluded from the primary currently addressable yield count.
+An in-scope DNS-existing, historical, dangling-alias, or indeterminate name observation retained for defensive and investigative use but excluded from the primary currently addressable count.
 _Avoid_: Invalid subdomain, dead host, false positive
 
 **Synthetic wildcard-control probe**:
@@ -219,49 +219,45 @@ _Avoid_: Cancelled run, process killed
 One attempt to run one canonical discovery source within an enumeration run, with an explicit completion status and summary counts.
 _Avoid_: Source result, provider response
 
-**Source hostname yield**:
-One source's normalized hostname counts within one enumeration run: observed, unique, shared, DNS-resolved, and unique DNS-resolved. A hostname is unique when exactly one source reported it in that run. It is DNS-resolved when the run's resolution action retained an A, AAAA, or CNAME answer. The counts measure marginal coverage and current DNS evidence, not independent corroboration, ownership, or service reachability.
-_Avoid_: Source quality score, authoritative result count, independent confirmation
+**Source contribution**:
+One source's normalized result counts within one enumeration run: reported, unique to that source, and shared with other sources. Hostname contributions also count retained DNS answers and answers for hostnames unique to that source. These counts measure marginal coverage and current DNS evidence, not independent corroboration, ownership, or service reachability.
+_Avoid_: Source yield, source quality score, authoritative result count
 
-**Source yield report scope**:
-The explicit finalized evidence records summarized by a source-yield report: one enumeration run, selected runs for one canonical authorized target, or runs across every stored target only by deliberate operator choice.
+**Source contribution report scope**:
+The explicit finalized evidence records summarized by a source-contribution report: one enumeration run, selected runs for one canonical authorized target, or runs across every stored target only by deliberate operator choice.
 _Avoid_: Implicit database aggregate, target alias
 
-**Source yield tracking view**:
-A longitudinal view of finalized evidence for one enumeration target that highlights actionable hostname changes and their retained DNS evidence. It is observational and never initiates discovery or DNS activity.
-_Avoid_: Discovery run, live DNS check, evidence export
+**Compared source list**:
+The canonical sources represented by source executions in one enumeration run, independent of their individual outcomes. Two runs are comparable only when this list is identical.
+_Avoid_: Source cohort, successful sources, source results
 
-**Source cohort**:
-The set of canonical sources represented by source executions in one enumeration run, independent of their individual outcomes.
-_Avoid_: Successful sources, source results, source selection text
+**Comparable previous run**:
+The latest earlier finalized enumeration run for the same canonical target and compared source list. Unhealthy source executions may retain evidence but cannot support a sound one-sided hostname claim.
+_Avoid_: Baseline, similar run, matching run
 
-**Comparable source-yield run**:
-A finalized enumeration run for the same canonical target and source cohort as another run. Unhealthy source executions may retain evidence but cannot support a sound one-sided hostname claim.
-_Avoid_: Previous run, similar run, matching run
+**Hostname comparison**:
+A read-only comparison between selected finalized runs and each run's comparable previous run. It is derived when requested, is not stored as new canonical evidence, and never initiates discovery or DNS activity.
+_Avoid_: Hostname tracking, monitoring view, DNS refresh
 
-**Hostname tracking change**:
-The relationship of one canonical hostname between two comparable enumeration runs: new when reliably absent from the earlier run and retained in the later run, persisting when retained in both, missing when reliably absent from the later run, and inconclusive when relevant source outcomes cannot support a one-sided comparison. Missing is an evidence difference, not proof that the hostname ceased to exist or resolve.
+**Hostname difference**:
+The relationship of one canonical hostname between two comparable enumeration runs. It is newly reported when reliably absent from the earlier evidence, still reported when retained in both, no longer reported when reliably absent from the later evidence, and uncertain when relevant source outcomes cannot support a one-sided comparison. These states describe saved evidence, not when a hostname came into existence or whether it currently exists or resolves.
 _Avoid_: Added host, removed host, gone host
 
-**Relevant source health**:
-The outcomes on the side where a hostname is absent for the sources that contributed it on the other side. A one-sided hostname is new or missing only when every relevant source completed successfully on the absent side; otherwise its change is inconclusive. Failures by unrelated sources do not affect that hostname.
+**Relevant source outcome**:
+The outcome on the side where a hostname is absent for each source that contributed it on the other side. A one-sided hostname is newly reported or no longer reported only when every relevant source completed successfully on the absent side. Otherwise its difference is uncertain. Failures by unrelated sources do not affect that hostname.
 _Avoid_: Run health, all-source success, provider reliability
 
-**Inconclusive hostname change**:
-A hostname retained on exactly one side when at least one source that contributed it there was partial, failed, rate limited, or skipped on the side where it was absent. The blocking source outcomes and retained failure reasons explain the uncertainty; the state does not mean the comparison logic failed.
-_Avoid_: Unknown result, missing hostname, comparison error
+**Uncertain hostname difference**:
+A hostname retained on exactly one side when at least one source that contributed it there was partial, failed, rate limited, or skipped on the side where it was absent. The incomplete comparison source outcomes and retained failure reasons explain the uncertainty; the state does not mean the comparison logic failed.
+_Avoid_: Inconclusive result, missing hostname, comparison error
 
-**Source-exclusive hostname**:
-A hostname attributed to exactly one canonical source within one enumeration run. Exclusivity is run-scoped and does not claim that no other source has ever observed the hostname.
-_Avoid_: Globally unique hostname, proprietary hostname, unique subdomain
+**One-source hostname**:
+A hostname attributed to exactly one canonical source within one enumeration run. This is run-scoped and does not claim that no other source has ever observed the hostname.
+_Avoid_: Source-exclusive hostname, globally unique hostname, proprietary hostname
 
 **Retained resolution evidence**:
 What finalized evidence establishes about DNS resolution for one hostname in one run: a retained positive answer, no retained positive answer, or no recorded check. It remains separate from richer addressability classifications such as currently addressable, not currently addressable, resolver disputed, or wildcard indistinguishable.
 _Avoid_: Boolean resolved state, live-host status, reachability
-
-**Hostname tracking projection**:
-A read-only comparison derived from one or more selected finalized runs and each run's previous comparable run. It is not stored as new canonical evidence and may be rendered by multiple operator interfaces.
-_Avoid_: Tracking artifact, discovery result, DNS refresh
 
 **Source capability**:
 A declared class of normalized result that a source can contribute to consolidated enumeration output, independent of whether one source execution yields any data.

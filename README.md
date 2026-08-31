@@ -142,7 +142,7 @@ docker compose down
 | `GET /api/v1/sources` | List registered discovery sources and capabilities. |
 | `POST /api/v1/runs` | Submit a finite enumeration run. |
 | `GET /api/v1/runs` | List durable run records. |
-| `GET /api/v1/runs/{run_id}` | Retrieve lifecycle state, normalized results, source outcomes, and hostname yields. |
+| `GET /api/v1/runs/{run_id}` | Retrieve lifecycle state, normalized results, source contributions, and hostname comparisons. |
 | `POST /api/v1/runs/{run_id}/cancel` | Cancel queued or running work. |
 | `POST /api/v1/runs/import` | Import JSONL evidence without executing discovery. |
 | `POST /api/v1/runs/import-database` | Import completed runs from a theHarvester SQLite database. |
@@ -299,16 +299,18 @@ jq -r 'select(.type != "summary") | [.type, .value] | @tsv' report.jsonl
 
 The `subdomains` capability produces `hostname` records because a result can be the target hostname itself. Read [Results and local data](docs/wiki/Results-and-Local-Data.md) for the complete JSONL and evidence contract.
 
-### Compare source yield
+### Compare saved runs
 
-`harvest-yields` reads completed runs from an existing SQLite results database. For each source, it reports observed values, values unique within a run, and hostnames with retained DNS answers. With no arguments, it reads the standard local database:
+`harvest-report` reads completed runs from an existing SQLite results database. Its subcommands list saved targets, count each source's contribution, and compare hostname evidence between runs:
 
 ```bash
-uv run harvest-yields
-uv run harvest-yields --database results.sqlite --kind ip --format json
+uv run harvest-report targets
+uv run harvest-report contributions --target example.test
+uv run harvest-report contributions --database results.sqlite --kind ip --format json
+uv run harvest-report hostname-changes --target example.test
 ```
 
-The command does not run discovery or DNS resolution. Compare runs collected with the same targets, source set, limit, and collection window. The [results guide](docs/wiki/Results-and-Local-Data.md) explains the fields and benchmark method.
+The command reads saved evidence only. It does not run discovery or DNS. Hostname comparisons use the latest earlier run with the same target and source list. The [results guide](docs/wiki/Results-and-Local-Data.md) explains the fields, target scope, and comparison rules.
 
 ### SQLite, JSON, and XML
 

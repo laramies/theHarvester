@@ -154,89 +154,76 @@ Two operational tables support the API: `run_records` stores queue and lifecycle
 
 `GET /api/v1/runs/{run_id}` returns lifecycle state plus a normalized `results` array. Each result has `type`, `value`, `sources`, and `actions`. A `hostname` found through the `vhost` action has native endpoint observations; a `prefix` found through RouteViews has native origin, route, and RPKI observations with fixed external-relationship scope. Run-level source and action outcomes remain available in `source_executions` and `action_executions`, while file metadata is returned through `artifacts`. JSONL imports or exports one run. SQLite import and `GET /api/v1/runs/export-database` move completed runs in bulk without queue, cancellation, or worker-lease state. Treat runtime `/docs`, `/redoc`, and OpenAPI as the exact request and response reference.
 
-### Compare source hostname yield
+### Understand source contributions
 
-Run details derive `source_yields` from persisted normalized hostname provenance. Each selected source has these fields:
+Run details derive `source_contributions` from saved, normalized provenance. Each selected source has these fields:
 
-- `observed_result_count`: distinct hostnames attributed to the source.
-- `unique_result_count`: hostnames no other source in that run reported.
-- `shared_result_count`: hostnames also reported by at least one other source.
+- `reported_count`: distinct results attributed to the source.
+- `unique_to_source_count`: results no other source in that run reported.
+- `shared_with_other_sources_count`: results also reported by at least one other source.
 - `resolved_hostname_count`: attributed hostnames for which the run's `dns-resolve` action retained an A, AAAA, or CNAME answer.
-- `unique_resolved_hostname_count`: resolved hostnames attributed to only this source.
+- `unique_to_source_and_resolved_count`: resolved hostnames attributed to only this source.
 
-`unique_result_count` measures a source's marginal coverage without depending on source order. `unique_resolved_hostname_count` limits that count to hostnames with current DNS evidence. Neither count proves that a provider is authoritative or independent. A DNS answer also does not prove service reachability.
+The unique-to-source counts measure marginal coverage within one run. They do not prove that a provider is authoritative or independent. A retained DNS answer also does not prove service reachability.
 
-Read the counts with the matching source execution status and stop reason. A source that failed, was rate-limited or skipped, or stopped at a provider boundary cannot be compared with a source that completed with zero results. Sources in the same certificate-transparency or passive-DNS family may overlap because they depend on the same upstream evidence.
+Read each row with the source's execution status and stop reason. A failed, rate-limited, skipped, or partial source is not equivalent to a source that completed with zero results. Sources in the same certificate-transparency or passive-DNS family may overlap because they depend on the same upstream evidence.
 
-To compare runs, keep the authorized target, source set, requested limit, release version, resolver set, and collection window fixed. Set the limit to `0` only when the comparison should have no shared local result cap. Save completed runs in SQLite and repeat the test across several authorized targets and dates. Compare median unique count, median unique-resolved count, resolution rate, and successful-run rate. Record provider and adapter ceilings as execution evidence instead of treating truncated runs as zero yield. Do not commit target results.
+To compare source contributions across runs, keep the authorized target, source list, requested limit, release version, resolver set, and collection window fixed. Record provider and adapter limits as execution evidence instead of treating a truncated run as zero contribution. Do not commit target results.
 
-#### Analyze yields from SQLite
+#### Report from SQLite
 
-The installed `harvest-yields` command reads an existing results database. By default, it reads `~/.local/share/theHarvester/stash.sqlite` and reports hostname yields. If the selected database does not exist, the command exits without creating it. Use the flags below to select another database, result kind, or completed run:
+The installed `harvest-report` command reads an existing results database. It uses `~/.local/share/theHarvester/stash.sqlite` unless `--database` selects another file. A missing database is an error and is never created by a report.
 
 ```console
-harvest-yields
-harvest-yields --database results.sqlite
-harvest-yields --database results.sqlite --kind hostname
-harvest-yields --database results.sqlite --kind ip
-harvest-yields --database results.sqlite --kind asn
-harvest-yields --database results.sqlite --run-id 11111111-1111-4111-8111-111111111111
-harvest-yields --database results.sqlite --target example.test
-harvest-yields --database results.sqlite --target example.test --format json
-harvest-yields --database results.sqlite --target example.test --changes
-harvest-yields --database results.sqlite --run-id 11111111-1111-4111-8111-111111111111 --changes --format json
-harvest-yields --database results.sqlite --target example.test --changes --include-persisting
-harvest-yields --database results.sqlite --list-targets
-harvest-yields --database results.sqlite --list-targets --format json
-harvest-yields --database results.sqlite --all-targets
-harvest-yields --database results.sqlite --format json
+harvest-report targets
+harvest-report targets --database results.sqlite --format json
+harvest-report contributions --database results.sqlite
+harvest-report contributions --database results.sqlite --kind ip
+harvest-report contributions --database results.sqlite --run-id 11111111-1111-4111-8111-111111111111
+harvest-report contributions --database results.sqlite --target example.test
+harvest-report contributions --database results.sqlite --target example.test --format json
+harvest-report contributions --database results.sqlite --all-targets
 ```
 
-Use `--list-targets` to discover the canonical enumeration targets in finalized runs and the run count for each one. The inventory coalesces equivalent hostname spellings and canonical network identifiers without rewriting stored evidence; exact free-text company queries remain case-sensitive. Listing does not run discovery or DNS.
+`harvest-report targets` lists canonical targets and their finalized-run counts. Equivalent hostname spellings and canonical network identifiers are combined without rewriting saved evidence. Exact free-text company queries remain case-sensitive. Listing never runs discovery or DNS.
 
-Use `--target` to add source yields only from finalized runs for one exact canonical target. An unknown target fails with a `--list-targets` recovery hint. Without a scope selector, an empty database returns an empty report, one stored canonical target is selected automatically, and multiple stored targets are refused rather than silently mixed. `--run-id` still selects one finalized run. One-target and run-ID reports identify their canonical target in both table and JSON output.
+`harvest-report contributions --target` selects finalized runs for one exact canonical target. With no run or target selector, an empty database returns an empty report, one stored target is selected automatically, and multiple stored targets are refused. The error points to `harvest-report targets`. Use `--all-targets` only for a deliberate whole-database aggregate. Its output lists every included target so the mixed scope remains visible.
 
-Use `--all-targets` only when a deliberate whole-database aggregate is required. Its table and JSON output enumerate every included canonical target and finalized-run count so the mixed scope remains visible. Meaningful comparisons normally keep the enumeration target fixed.
+The top-level `run_count` shows how many runs were selected. Each source row has its own `run_count`, including executions that produced no results. `unique_to_source_count_per_run` is the summed per-run unique count divided by that source's run count. Hostname rows also include `unique_to_source_and_resolved_count_per_run`. Other result kinds omit the DNS-specific fields.
 
-The top-level `run_count` shows how many runs were selected. Each source row has its own `run_count`, including executions that produced no results. `UNIQUE/RUN` divides the summed unique count by that source's run count and is the default ranking key. The JSON field is `unique_result_count_per_run`.
+These reports are derived from SQLite and are not embedded in JSONL. JSONL remains the portable evidence record for one finalized run.
 
-"Unique" always means unique within one run, so aggregate totals add the per-run counts instead of recalculating uniqueness across targets or dates. Hostname output also includes resolved and unique-resolved counts plus `UNIQUE-RESOLVED/RUN`, named `unique_resolved_hostname_count_per_run` in JSON. Other result kinds omit the DNS-specific fields.
+### Compare hostnames between saved runs
 
-### Track hostname changes across finalized runs
-
-`harvest-yields --changes` reads retained hostname evidence from finalized SQLite runs. It does not run discovery or DNS, and it does not let you choose an arbitrary pair of run IDs. The command uses the existing table or JSON output instead of creating another report format.
+`harvest-report hostname-changes` compares retained hostname evidence in finalized SQLite runs. It never runs discovery or DNS, and it does not accept an arbitrary pair of run IDs.
 
 | View | What it compares |
 | --- | --- |
-| `--run-id RUN_ID --changes` | The selected run and its automatically chosen comparable baseline. |
-| `--target TARGET --changes` | Every finalized run for that canonical target and each run's comparable baseline, in chronological order. |
-| HarvestView | The selected finalized run and its comparable baseline. |
-
-Use either a canonical target to review changes over time or a run ID to inspect one comparison:
+| `hostname-changes --run-id RUN_ID` | The selected run and its automatically chosen comparable previous run. |
+| `hostname-changes --target TARGET` | Every finalized run for that target and each run's comparable previous run, in chronological order. |
+| HarvestView | The selected finalized run and its comparable previous run. |
 
 ```console
-harvest-yields --target example.test --changes
-harvest-yields --target example.test --changes --format json
-harvest-yields --run-id 11111111-1111-4111-8111-111111111111 --changes
-harvest-yields --target example.test --changes --include-persisting
+harvest-report hostname-changes --target example.test
+harvest-report hostname-changes --target example.test --format json
+harvest-report hostname-changes --run-id 11111111-1111-4111-8111-111111111111
+harvest-report hostname-changes --target example.test --include-still-reported
 ```
 
-A baseline is the latest earlier finalized run with the same canonical target and exact `source_cohort`. Runs are ordered by `completed_at` and then `run_id`, so the choice is deterministic. Each exact source cohort has its own comparison chain. The first run in a chain has `baseline_run_id: null`, zero counts, and a clear message. `--all-targets --changes` is refused because one mixed timeline would hide the target boundary.
+A comparable previous run is the latest earlier finalized run with the same canonical target and exact `compared_sources` list. Runs are ordered by `completed_at` and then `run_id`, so the choice is deterministic. The first run in a comparison chain has `previous_comparable_run_id: null`, zero counts, and a clear message.
 
-The pairing rule checks the target and source cohort. It does not prove that every other collection setting was equivalent. Keep the requested limit, release version, resolver set, and collection window consistent when those differences could affect the result.
-
-For a red team, this provides a repeatable delta review without sending new discovery or DNS traffic. `new` rows identify names that appeared in retained evidence after the comparable baseline and may deserve in-scope validation. `missing` rows show names that no longer appear in comparable collection evidence. `inconclusive` rows keep partial, failed, rate-limited, or skipped source executions from looking like an asset disappeared. Source attribution, source exclusivity, and retained DNS or addressability evidence help decide what to investigate next and what still needs corroboration. The view does not authorize follow-up or prove ownership or reachability.
+The pairing rule checks only the target and source list. Keep the requested limit, release version, resolver set, and collection window consistent when those settings could affect the result.
 
 Each comparison reports four counts:
 
-- `new`: present now and absent from the baseline after every current contributing source completed in the baseline.
-- `persisting`: present in both runs. Rows are hidden by default; add `--include-persisting` to return them.
-- `missing`: absent now after every source that previously contributed the hostname completed successfully in the current run.
-- `inconclusive`: present on only one side, but a source that contributed it there was partial, failed, rate-limited, or skipped on the side where it was absent. The row retains each blocking source's status, error type, and stop reason.
+- `newly_reported`: present in the current run and absent from the previous run after every current contributing source completed in the previous run.
+- `still_reported`: present in both runs. CLI rows are hidden by default; add `--include-still-reported` to include them.
+- `no_longer_reported`: absent from the current run after every previous contributing source completed in the current run.
+- `uncertain`: present on only one side, but a contributing source was partial, failed, rate-limited, or skipped on the side where the hostname was absent.
 
-The decision is hostname-specific. A positive current observation remains new or persisting when only unrelated sources were unhealthy; failures by a source that contributed the hostname make the one-sided claim inconclusive.
+These labels describe saved evidence. `no_longer_reported` does not mean the hostname stopped existing or resolving, and `newly_reported` does not authorize follow-up. A failure by an unrelated source does not change the hostname's classification.
 
-Every change row includes previous and current source lists plus `source_exclusive`. Exclusivity applies to the side with retained hostname evidence: current for new and persisting, baseline for missing, and whichever side has evidence for inconclusive. It means exactly one source contributed that hostname on the relevant side of the comparison; it does not claim that the provider is independent or authoritative.
+Each `hostname_differences` row includes `sources_in_previous_run`, `sources_in_current_run`, `reported_by_one_source`, and `incomplete_comparison_sources`. The last field retains the relevant source status, error type, and stop reason when the result is uncertain. Being reported by one source is run-scoped and does not mean that no other provider has ever observed the hostname.
 
 Resolution evidence uses only three explicit values:
 
@@ -246,7 +233,7 @@ Resolution evidence uses only three explicit values:
 
 There is no ambiguous `unknown` value. Recursive DNS addressability is separate and is either one of its retained classifications (`currently-addressable`, `not-currently-addressable`, `resolver-disputed`, or `wildcard-indistinguishable`) or `null` when no classification was retained. Neither resolution evidence nor addressability proves service reachability.
 
-HarvestView shows the same projection on a selected finalized run. Its filters cover change state, relevant source, relevant-side resolution evidence, source-exclusive rows, and optional persisting rows. The panel refreshes through the existing terminal-run refresh path and never starts collection or DNS.
+HarvestView shows the same comparison for a selected finalized run. Its filters cover difference type, relevant source, relevant-side resolution evidence, one-source rows, and optional still-reported rows. The panel refreshes through the existing terminal-run refresh path and never starts collection or DNS.
 
 ## Handling and sharing
 

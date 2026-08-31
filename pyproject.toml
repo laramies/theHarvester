@@ -49,7 +49,7 @@ dev = [
 [project.scripts]
 theHarvester = "theHarvester.theHarvester:main"
 harvestview = "theHarvester.harvestview:main"
-harvest-yields = "theHarvester.source_yields:main"
+harvest-report = "theHarvester.saved_run_report:main"
 
 [tool.pytest.ini_options]
 minversion = "8.3.3"

@@ -85,6 +85,7 @@ WIKI_PAGES = {
     'Home.md',
     'How-to-add-a-new-module.md',
     'Installation.md',
+    'Moving-from-4.11-to-5.0.md',
     'Operator-Workflows.md',
     'Quick-Start.md',
     'Responsible-Use-and-Scope.md',

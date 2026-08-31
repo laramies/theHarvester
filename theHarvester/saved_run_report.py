@@ -11,7 +11,7 @@ from uuid import UUID
 
 from theHarvester.lib.database import ResultStore
 from theHarvester.lib.evidence_types import RESULT_KINDS, ResultKind
-from theHarvester.lib.hostname_tracking import canonical_target, hostname_tracking_projection
+from theHarvester.lib.hostname_comparison import canonical_target, hostname_comparison
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -19,40 +19,63 @@ if TYPE_CHECKING:
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog='harvest-yields',
-        description='Report per-source result yields from a theHarvester database.',
+        prog='harvest-report',
+        description='Report source contributions and hostname changes from saved theHarvester runs.',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
-  harvest-yields --target example.test
-  harvest-yields --target example.test --changes
-  harvest-yields --run-id RUN_ID --changes
-  harvest-yields --target example.test --changes --include-persisting --format json
+  harvest-report contributions --target example.test
+  harvest-report hostname-changes --target example.test
+  harvest-report hostname-changes --run-id RUN_ID
+  harvest-report hostname-changes --target example.test --include-still-reported --format json
 
-Change reports read finalized local evidence only and never run discovery or DNS.""",
+Hostname comparisons read finalized local evidence only and never run discovery or DNS.""",
     )
-    parser.add_argument(
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument(
         '--database',
         type=Path,
         default=Path(ResultStore().database),
         help='Existing theHarvester SQLite database (default: %(default)s).',
     )
-    parser.add_argument('--kind', choices=sorted(RESULT_KINDS), default='hostname', help='Result kind to compare.')
-    scope = parser.add_mutually_exclusive_group()
+    common.add_argument('--format', choices=('table', 'json'), default='table', help='Output format.')
+    reports = parser.add_subparsers(dest='report', required=True)
+
+    contributions = reports.add_parser(
+        'contributions',
+        parents=[common],
+        help='Count what each source reported in saved runs.',
+    )
+    contributions.add_argument('--kind', choices=sorted(RESULT_KINDS), default='hostname', help='Result kind to compare.')
+    scope = contributions.add_mutually_exclusive_group()
     scope.add_argument('--run-id', type=UUID, help='Report one completed run instead of aggregating every run.')
-    scope.add_argument('--list-targets', action='store_true', help='List canonical targets and finalized-run counts.')
     scope.add_argument('--target', help='Report finalized runs for one exact canonical target.')
     scope.add_argument('--all-targets', action='store_true', help='Explicitly aggregate finalized runs across all targets.')
-    parser.add_argument(
-        '--changes',
-        action='store_true',
-        help='Compare persisted hostname evidence between comparable finalized runs; never runs discovery or DNS.',
+
+    changes = reports.add_parser(
+        'hostname-changes',
+        parents=[common],
+        help='Compare hostname evidence in saved runs without discovery or DNS.',
+        description='Compare hostname evidence in saved runs. This never runs discovery or DNS.',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  harvest-report hostname-changes --target example.test
+  harvest-report hostname-changes --run-id RUN_ID
+  harvest-report hostname-changes --target example.test --include-still-reported --format json""",
     )
-    parser.add_argument(
-        '--include-persisting',
+    change_scope = changes.add_mutually_exclusive_group()
+    change_scope.add_argument('--run-id', type=UUID, help='Compare one completed run with its comparable previous run.')
+    change_scope.add_argument('--target', help='Compare finalized runs for one exact canonical target.')
+    changes.add_argument(
+        '--include-still-reported',
         action='store_true',
-        help='Include persisting hostname rows in a --changes report.',
+        help='Include hostnames retained in both runs.',
     )
-    parser.add_argument('--format', choices=('table', 'json'), default='table', help='Output format.')
+
+    reports.add_parser(
+        'targets',
+        parents=[common],
+        help='List canonical targets and finalized-run counts.',
+    )
     return parser
 
 
@@ -65,20 +88,20 @@ async def _list_targets(database: Path) -> list[dict[str, str | int]]:
         await store.dispose()
 
 
-async def _changes(
+async def _compare_hostnames(
     database: Path,
     *,
     target: str | None = None,
     run_id: UUID | None = None,
-    include_persisting: bool = False,
+    include_still_reported: bool = False,
 ) -> dict[str, object]:
     store = ResultStore(database)
     try:
-        return await hostname_tracking_projection(
+        return await hostname_comparison(
             store,
             target=target,
             run_id=run_id,
-            include_persisting=include_persisting,
+            include_still_reported=include_still_reported,
         )
     finally:
         await store.dispose()
@@ -106,44 +129,44 @@ async def _collect(
             elif selected_target is not None:
                 summaries = [run for run in summaries if canonical_target(run['target']) == selected_target]
                 if not summaries:
-                    raise LookupError(f'target not found: {selected_target}; use --list-targets')
+                    raise LookupError(f'target not found: {selected_target}; use harvest-report targets')
             else:
                 targets = {canonical_target(run['target']) for run in summaries}
                 if len(targets) > 1:
-                    raise LookupError(f'database contains {len(targets)} canonical targets; use --list-targets')
+                    raise LookupError(f'database contains {len(targets)} canonical targets; use harvest-report targets')
                 selected_target = next(iter(targets), None)
             run_ids = [UUID(str(run['run_id'])) for run in summaries]
         totals: defaultdict[str, Counter[str]] = defaultdict(Counter)
         for run_id in run_ids:
-            for source_yield in await store.source_yields(run_id, kind=kind):
-                totals[source_yield.source].update(
+            for contribution in await store.source_contributions(run_id, kind=kind):
+                totals[contribution.source].update(
                     runs=1,
-                    observed=source_yield.observed_result_count,
-                    unique=source_yield.unique_result_count,
-                    shared=source_yield.shared_result_count,
-                    resolved=source_yield.resolved_hostname_count,
-                    unique_resolved=source_yield.unique_resolved_hostname_count,
+                    reported=contribution.reported_count,
+                    unique_to_source=contribution.unique_to_source_count,
+                    shared_with_other_sources=contribution.shared_with_other_sources_count,
+                    resolved=contribution.resolved_hostname_count,
+                    unique_to_source_and_resolved=contribution.unique_to_source_and_resolved_count,
                 )
         rows = []
         for source, counts in totals.items():
             row: dict[str, str | int | float] = {
                 'source': source,
                 'run_count': counts['runs'],
-                'observed_result_count': counts['observed'],
-                'unique_result_count': counts['unique'],
-                'unique_result_count_per_run': counts['unique'] / counts['runs'],
-                'shared_result_count': counts['shared'],
+                'reported_count': counts['reported'],
+                'unique_to_source_count': counts['unique_to_source'],
+                'unique_to_source_count_per_run': counts['unique_to_source'] / counts['runs'],
+                'shared_with_other_sources_count': counts['shared_with_other_sources'],
             }
             if kind == 'hostname':
                 row['resolved_hostname_count'] = counts['resolved']
-                row['unique_resolved_hostname_count'] = counts['unique_resolved']
-                row['unique_resolved_hostname_count_per_run'] = counts['unique_resolved'] / counts['runs']
+                row['unique_to_source_and_resolved_count'] = counts['unique_to_source_and_resolved']
+                row['unique_to_source_and_resolved_count_per_run'] = counts['unique_to_source_and_resolved'] / counts['runs']
             rows.append(row)
         rows.sort(
             key=lambda row: (
-                -float(row['unique_result_count_per_run']),
-                -int(row['unique_result_count']),
-                -int(row['observed_result_count']),
+                -float(row['unique_to_source_count_per_run']),
+                -int(row['unique_to_source_count']),
+                -int(row['reported_count']),
                 str(row['source']),
             )
         )
@@ -162,17 +185,17 @@ def _table(
     columns = [
         ('source', 'SOURCE'),
         ('run_count', 'RUNS'),
-        ('observed_result_count', 'OBSERVED'),
-        ('unique_result_count', 'UNIQUE'),
-        ('unique_result_count_per_run', 'UNIQUE/RUN'),
-        ('shared_result_count', 'SHARED'),
+        ('reported_count', 'REPORTED'),
+        ('unique_to_source_count', 'UNIQUE-TO-SOURCE'),
+        ('unique_to_source_count_per_run', 'UNIQUE/RUN'),
+        ('shared_with_other_sources_count', 'SHARED-WITH-OTHERS'),
     ]
     if kind == 'hostname':
         columns.extend(
             (
                 ('resolved_hostname_count', 'RESOLVED'),
-                ('unique_resolved_hostname_count', 'UNIQUE-RESOLVED'),
-                ('unique_resolved_hostname_count_per_run', 'UNIQUE-RESOLVED/RUN'),
+                ('unique_to_source_and_resolved_count', 'UNIQUE-AND-RESOLVED'),
+                ('unique_to_source_and_resolved_count_per_run', 'UNIQUE-AND-RESOLVED/RUN'),
             )
         )
     formatted_rows = [
@@ -207,23 +230,23 @@ def _targets_table(rows: list[dict[str, str | int]]) -> str:
     return '\n'.join(lines) + '\n'
 
 
-def _tracking_table(payload: dict[str, object]) -> str:
+def _comparison_table(payload: dict[str, object]) -> str:
     comparisons = cast('list[dict[str, object]]', payload['comparisons'])
-    changes = cast('list[dict[str, object]]', payload['hostname_changes'])
+    differences = cast('list[dict[str, object]]', payload['hostname_differences'])
     scope = f'Target: {payload["target"]}' if payload['target'] is not None else 'Targets: none'
     lines = [scope, f'Comparison count: {payload["comparison_count"]}']
     summary_columns = (
         ('run_id', 'CURRENT RUN'),
-        ('baseline_run_id', 'BASELINE RUN'),
-        ('new', 'NEW'),
-        ('persisting', 'PERSISTING'),
-        ('missing', 'MISSING'),
-        ('inconclusive', 'INCONCLUSIVE'),
+        ('previous_comparable_run_id', 'PREVIOUS COMPARABLE RUN'),
+        ('newly_reported', 'NEWLY REPORTED'),
+        ('still_reported', 'STILL REPORTED'),
+        ('no_longer_reported', 'NO LONGER REPORTED'),
+        ('uncertain', 'UNCERTAIN'),
     )
     summary_rows = [
         {
             'run_id': comparison['run_id'],
-            'baseline_run_id': comparison['baseline_run_id'] or '-',
+            'previous_comparable_run_id': comparison['previous_comparable_run_id'] or '-',
             **cast('dict[str, int]', comparison['counts']),
         }
         for comparison in comparisons
@@ -236,27 +259,27 @@ def _tracking_table(payload: dict[str, object]) -> str:
     )
     lines.extend(f'{comparison["run_id"]}: {message}' for comparison in comparisons if (message := comparison.get('message')))
     change_columns = (
-        ('change', 'CHANGE'),
+        ('difference', 'DIFFERENCE'),
         ('hostname', 'HOSTNAME'),
         ('sources', 'SOURCES'),
-        ('exclusive', 'EXCLUSIVE'),
+        ('one_source', 'ONE SOURCE'),
         ('resolution', 'RESOLUTION'),
         ('addressability', 'ADDRESSABILITY'),
-        ('blocking', 'BLOCKING SOURCES'),
+        ('incomplete_sources', 'INCOMPLETE SOURCES'),
     )
     change_rows = []
-    for row in changes:
-        sources = row['current_sources'] or row['previous_sources']
-        blockers = cast('list[dict[str, object]]', row['blocking_sources'])
+    for row in differences:
+        sources = row['sources_in_current_run'] or row['sources_in_previous_run']
+        blockers = cast('list[dict[str, object]]', row['incomplete_comparison_sources'])
         change_rows.append(
             {
-                'change': str(row['change']).upper(),
+                'difference': str(row['change_type']).replace('_', ' ').upper(),
                 'hostname': row['hostname'],
                 'sources': ','.join(cast('list[str]', sources)) or '-',
-                'exclusive': 'yes' if row['source_exclusive'] else 'no',
+                'one_source': 'yes' if row['reported_by_one_source'] else 'no',
                 'resolution': f'{row["previous_resolution_evidence"]} -> {row["current_resolution_evidence"]}',
                 'addressability': f'{row["previous_addressability"] or "-"} -> {row["current_addressability"] or "-"}',
-                'blocking': ','.join(
+                'incomplete_sources': ','.join(
                     ':'.join(
                         str(value or '-')
                         for value in (blocker['source'], blocker['status'], blocker['error_type'], blocker['stop_reason'])
@@ -267,7 +290,7 @@ def _tracking_table(payload: dict[str, object]) -> str:
             }
         )
     if not change_rows:
-        lines.append('No hostname changes to display.')
+        lines.append('No hostname differences to display.')
         return '\n'.join(lines) + '\n'
     change_widths = [max(len(label), *(len(str(row[key])) for row in change_rows)) for key, label in change_columns]
     lines.append('  '.join(label.ljust(change_widths[index]) for index, (_key, label) in enumerate(change_columns)))
@@ -283,53 +306,51 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if not args.database.is_file():
         parser.error(f'database does not exist: {args.database}')
-    if args.include_persisting and not args.changes:
-        parser.error('--include-persisting requires --changes')
-    if args.changes and args.kind != 'hostname':
-        parser.error('--changes supports hostname evidence only; omit --kind or use --kind hostname')
-    if args.changes and args.list_targets:
-        parser.error('--changes cannot be combined with --list-targets')
-    if args.changes and args.all_targets:
-        parser.error('--changes requires one target and cannot be combined with --all-targets')
-    if args.list_targets:
+    if args.report == 'targets':
         targets = asyncio.run(_list_targets(args.database))
         output = json.dumps({'targets': targets}, sort_keys=True) + '\n' if args.format == 'json' else _targets_table(targets)
         sys.stdout.write(output)
         return 0
-    kind = cast('ResultKind', args.kind)
-    if args.changes:
-        changes: dict[str, object]
+    if args.report == 'hostname-changes':
+        comparison: dict[str, object]
         try:
             if args.run_id is not None:
-                changes = asyncio.run(_changes(args.database, run_id=args.run_id, include_persisting=args.include_persisting))
+                comparison = asyncio.run(
+                    _compare_hostnames(
+                        args.database,
+                        run_id=args.run_id,
+                        include_still_reported=args.include_still_reported,
+                    )
+                )
             else:
-                selected_target, _targets, _run_count, _rows = asyncio.run(_collect(args.database, kind, None, args.target))
+                selected_target, _targets, _run_count, _rows = asyncio.run(_collect(args.database, 'hostname', None, args.target))
                 if selected_target is None:
-                    changes = {
+                    comparison = {
                         'target': None,
                         'comparison_count': 0,
                         'comparisons': [],
-                        'hostname_changes': [],
+                        'hostname_differences': [],
                     }
                 else:
-                    changes = asyncio.run(
-                        _changes(
+                    comparison = asyncio.run(
+                        _compare_hostnames(
                             args.database,
                             target=selected_target,
-                            include_persisting=args.include_persisting,
+                            include_still_reported=args.include_still_reported,
                         )
                     )
         except LookupError as error:
             parser.error(str(error))
-        output = json.dumps(changes, sort_keys=True) + '\n' if args.format == 'json' else _tracking_table(changes)
+        output = json.dumps(comparison, sort_keys=True) + '\n' if args.format == 'json' else _comparison_table(comparison)
         sys.stdout.write(output)
         return 0
+    kind = cast('ResultKind', args.kind)
     try:
         target, targets, run_count, rows = asyncio.run(_collect(args.database, kind, args.run_id, args.target, args.all_targets))
     except LookupError as error:
         parser.error(str(error))
     if args.format == 'json':
-        payload = {'kind': kind, 'run_count': run_count, 'source_yields': rows}
+        payload = {'kind': kind, 'run_count': run_count, 'source_contributions': rows}
         if target is not None:
             payload['target'] = target
         else:

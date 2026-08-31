@@ -1145,7 +1145,7 @@ async def test_mixed_source_action_artifact_round_trip_uses_unified_tables(tmp_p
 
 
 @pytest.mark.asyncio
-async def test_source_yields_distinguish_unique_and_shared_results(tmp_path) -> None:
+async def test_source_contributions_distinguish_unique_and_shared_results(tmp_path) -> None:
     store = ResultStore(tmp_path / 'stash.sqlite')
     await store.initialize()
     result = CompletedResult.finish(
@@ -1178,38 +1178,38 @@ async def test_source_yields_distinguish_unique_and_shared_results(tmp_path) -> 
     )
     await store.save_run(result)
 
-    yields = await store.source_yields(result.run_id)
+    contributions = await store.source_contributions(result.run_id)
 
-    assert [item.to_dict() for item in yields] == [
+    assert [item.to_dict() for item in contributions] == [
         {
             'source': 'certspotter',
-            'observed_result_count': 2,
-            'unique_result_count': 1,
-            'shared_result_count': 1,
+            'reported_count': 2,
+            'unique_to_source_count': 1,
+            'shared_with_other_sources_count': 1,
             'resolved_hostname_count': 1,
-            'unique_resolved_hostname_count': 0,
+            'unique_to_source_and_resolved_count': 0,
         },
         {
             'source': 'crtsh',
-            'observed_result_count': 2,
-            'unique_result_count': 1,
-            'shared_result_count': 1,
+            'reported_count': 2,
+            'unique_to_source_count': 1,
+            'shared_with_other_sources_count': 1,
             'resolved_hostname_count': 2,
-            'unique_resolved_hostname_count': 1,
+            'unique_to_source_and_resolved_count': 1,
         },
         {
             'source': 'empty-source',
-            'observed_result_count': 0,
-            'unique_result_count': 0,
-            'shared_result_count': 0,
+            'reported_count': 0,
+            'unique_to_source_count': 0,
+            'shared_with_other_sources_count': 0,
             'resolved_hostname_count': 0,
-            'unique_resolved_hostname_count': 0,
+            'unique_to_source_and_resolved_count': 0,
         },
     ]
 
 
 @pytest.mark.asyncio
-async def test_source_yields_can_measure_hostname_contributions_only(tmp_path) -> None:
+async def test_source_contributions_can_measure_hostname_contributions_only(tmp_path) -> None:
     store = ResultStore(tmp_path / 'stash.sqlite')
     await store.initialize()
     result = CompletedResult.finish(
@@ -1230,24 +1230,24 @@ async def test_source_yields_can_measure_hostname_contributions_only(tmp_path) -
     )
     await store.save_run(result)
 
-    yields = await store.source_yields(result.run_id, kind='hostname')
+    contributions = await store.source_contributions(result.run_id, kind='hostname')
 
-    assert [item.to_dict() for item in yields] == [
+    assert [item.to_dict() for item in contributions] == [
         {
             'source': 'first',
-            'observed_result_count': 1,
-            'unique_result_count': 0,
-            'shared_result_count': 1,
+            'reported_count': 1,
+            'unique_to_source_count': 0,
+            'shared_with_other_sources_count': 1,
             'resolved_hostname_count': 0,
-            'unique_resolved_hostname_count': 0,
+            'unique_to_source_and_resolved_count': 0,
         },
         {
             'source': 'second',
-            'observed_result_count': 1,
-            'unique_result_count': 0,
-            'shared_result_count': 1,
+            'reported_count': 1,
+            'unique_to_source_count': 0,
+            'shared_with_other_sources_count': 1,
             'resolved_hostname_count': 0,
-            'unique_resolved_hostname_count': 0,
+            'unique_to_source_and_resolved_count': 0,
         },
     ]
 
