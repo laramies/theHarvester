@@ -237,6 +237,7 @@ def test_readme_architecture_diagrams_are_local_and_accessible() -> None:
 
     for alt, svg, slug, expected_text in diagrams:
         svg_text = svg.read_text()
+        source_text = svg.with_suffix('.html').read_text()
         assert f'[![{alt}]({svg})]({svg})' in readme
         assert 'role="img"' in svg_text
         assert f'<title id="{slug}-title">' in svg_text
@@ -245,6 +246,7 @@ def test_readme_architecture_diagrams_are_local_and_accessible() -> None:
         assert 'system-ui' in svg_text
         assert 'fonts.googleapis.com' not in svg_text
         assert all(text in svg_text for text in expected_text)
+        assert svg_text.removeprefix('<?xml version="1.0" encoding="UTF-8"?>\n') in source_text
 
     run_diagram = diagrams[0][1].read_text()
     harvestview_diagram = diagrams[1][1].read_text()

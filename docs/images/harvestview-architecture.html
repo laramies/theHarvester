@@ -1,4 +1,17 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HarvestView local run architecture</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: #061115; }
+    body { min-height: 100vh; display: grid; place-items: center; }
+    svg { display: block; width: 1280px; height: 720px; }
+  </style>
+</head>
+<body>
 <svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="harvestview-architecture-title harvestview-architecture-desc">
   <title id="harvestview-architecture-title">HarvestView local run architecture</title>
   <desc id="harvestview-architecture-desc">Inside one local-machine boundary, HarvestView uses an authenticated loopback API to control isolated finite runs. Finalized hostname comparisons read persisted evidence only and start no discovery or DNS activity.</desc>
@@ -115,3 +128,5 @@
   <line x1="88" y1="632" x2="1192" y2="632" stroke="#2f4046"/>
   <text class="body-strong" x="88" y="656">Portable exports omit control state and screenshot files. Imports run no sources or actions.</text>
 </svg>
+</body>
+</html>
