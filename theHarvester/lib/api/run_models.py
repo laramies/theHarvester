@@ -29,7 +29,7 @@ from theHarvester.lib.source_catalog import (
     hostname_collection_conflicts,
     selected_action_names,
 )
-from theHarvester.lib.target_identity import normalize_target as normalize_enumeration_target
+from theHarvester.lib.target_identity import normalize_enumeration_target
 from theHarvester.lib.virtual_host import (
     DEFAULT_VHOST_CONCURRENCY,
     DEFAULT_VHOST_REQUEST_LIMIT,

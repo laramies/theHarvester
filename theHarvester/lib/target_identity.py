@@ -6,8 +6,8 @@ from theHarvester.lib.hostnames import normalize_hostname
 from theHarvester.lib.result_values import normalize_asn, normalize_ip, normalize_prefix
 
 
-def normalize_target(value: str) -> str:
-    """Preserve the target forms currently accepted by run intake."""
+def normalize_enumeration_target(value: str) -> str:
+    """Normalize a target accepted for a new enumeration run."""
     target = value.strip().rstrip('.')
     if target[:2].casefold() == 'as' and target[2:].isascii() and target[2:].isdecimal():
         return normalize_asn(target)
@@ -23,8 +23,8 @@ def normalize_target(value: str) -> str:
             raise ValueError('Target must be a valid hostname') from error
 
 
-def canonical_target(value: object) -> str:
-    """Canonicalize persisted target identity without rejecting legacy free text."""
+def normalize_saved_target(value: object) -> str:
+    """Normalize a saved target without rejecting legacy free text."""
     target = str(value).strip()
     if target[:2].casefold() == 'as' and target[2:].isascii() and target[2:].isdecimal():
         return normalize_asn(target)

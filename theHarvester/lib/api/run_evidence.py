@@ -17,7 +17,7 @@ from theHarvester.lib.network_evidence import (
 from theHarvester.lib.result_values import normalize_prefix
 from theHarvester.lib.shodan_evidence import ShodanHostObservation
 from theHarvester.lib.takeover_evidence import parse_takeover_details
-from theHarvester.lib.target_identity import normalize_target
+from theHarvester.lib.target_identity import normalize_enumeration_target
 
 
 def parse_jsonl_import(body: bytes) -> dict[str, Any]:
@@ -71,7 +71,7 @@ def validate_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
     if not evidence.get('target'):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Result file does not identify a target')
     try:
-        evidence['target'] = normalize_target(str(evidence['target']))
+        evidence['target'] = normalize_enumeration_target(str(evidence['target']))
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
     if evidence.get('status') not in EVIDENCE_STATUSES:

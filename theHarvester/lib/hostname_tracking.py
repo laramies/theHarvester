@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 from uuid import UUID
 
-from theHarvester.lib.target_identity import canonical_target
+from theHarvester.lib.target_identity import normalize_saved_target
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -107,19 +107,19 @@ async def hostname_tracking_projection(
     summaries = await store.list_runs(limit=None)
     if run_id is not None:
         current = await store.load_hostname_tracking_run(run_id)
-        selected_target = canonical_target(current.target)
+        selected_target = normalize_saved_target(current.target)
         selected_ids = {run_id}
     elif target is not None:
-        selected_target = canonical_target(target)
+        selected_target = normalize_saved_target(target)
         selected_ids = {
-            UUID(str(summary['run_id'])) for summary in summaries if canonical_target(summary['target']) == selected_target
+            UUID(str(summary['run_id'])) for summary in summaries if normalize_saved_target(summary['target']) == selected_target
         }
     else:
         raise ValueError('target or run_id is required')
     target_runs = [
         await store.load_hostname_tracking_run(UUID(str(summary['run_id'])))
         for summary in summaries
-        if canonical_target(summary['target']) == selected_target
+        if normalize_saved_target(summary['target']) == selected_target
     ]
     target_runs.sort(key=lambda run: (run.completed_at, str(run.run_id)))
     previous_by_cohort: dict[tuple[str, ...], TrackingRunEvidence] = {}

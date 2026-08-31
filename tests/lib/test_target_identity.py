@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from theHarvester.lib.target_identity import canonical_target, normalize_target
+from theHarvester.lib.target_identity import normalize_enumeration_target, normalize_saved_target
 
 
 @pytest.mark.parametrize(
@@ -14,8 +14,8 @@ from theHarvester.lib.target_identity import canonical_target, normalize_target
         ('2001:0db8::1', '2001:db8::1'),
     ],
 )
-def test_normalize_target_preserves_execution_admission(value: str, expected: str) -> None:
-    assert normalize_target(value) == expected
+def test_normalize_enumeration_target_preserves_execution_admission(value: str, expected: str) -> None:
+    assert normalize_enumeration_target(value) == expected
 
 
 @pytest.mark.parametrize(
@@ -25,9 +25,9 @@ def test_normalize_target_preserves_execution_admission(value: str, expected: st
         ('192.0.2.0/24', 'Target must be a hostname or IP address'),
     ],
 )
-def test_normalize_target_preserves_current_run_rejections(value: str, message: str) -> None:
+def test_normalize_enumeration_target_preserves_current_run_rejections(value: str, message: str) -> None:
     with pytest.raises(ValueError, match=message):
-        normalize_target(value)
+        normalize_enumeration_target(value)
 
 
 @pytest.mark.parametrize(
@@ -40,5 +40,5 @@ def test_normalize_target_preserves_current_run_rejections(value: str, message: 
         (' Example Company ', 'Example Company'),
     ],
 )
-def test_canonical_target_preserves_persisted_identity(value: object, expected: str) -> None:
-    assert canonical_target(value) == expected
+def test_normalize_saved_target_preserves_persisted_identity(value: object, expected: str) -> None:
+    assert normalize_saved_target(value) == expected
