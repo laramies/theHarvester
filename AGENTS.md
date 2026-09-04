@@ -1,5 +1,7 @@
 # Agent guidance
 
+theHarvester is a Python OSINT reconnaissance tool for collecting public information about domains, IPs, emails, names, and related assets.
+
 ## Before changing code
 
 - Use `uv` for environments and commands. Follow [CONTRIBUTING.md](CONTRIBUTING.md) for setup, coding conventions, and verification commands.
