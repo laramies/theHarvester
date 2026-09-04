@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="run-evidence-architecture-title run-evidence-architecture-desc">
   <title id="run-evidence-architecture-title">theHarvester discovery and evidence architecture</title>
-  <desc id="run-evidence-architecture-desc">An authorized finite run selects passive, DNS, or direct activity, records each producer outcome, normalizes results with provenance, and exposes the same evidence through HarvestView, automation, retention, and integration surfaces.</desc>
+  <desc id="run-evidence-architecture-desc">An authorized finite run selects passive, DNS, or direct activity, then saves normalized findings with their provenance and producer outcomes for review and export.</desc>
   <defs>
     <style>
       .title { font: 700 30px Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #efeae2; }
@@ -27,8 +27,8 @@
   <rect x="24" y="24" width="1232" height="672" rx="16" fill="#0c191d" stroke="#23363c"/>
 
   <text class="step" x="48" y="56">THEHARVESTER RUN</text>
-  <text class="title" x="48" y="92">One finite run becomes attributable evidence</text>
-  <text class="subtitle" x="48" y="120">Selection controls activity. Producer outcomes survive normalization and export.</text>
+  <text class="title" x="48" y="92">From an authorized target to saved evidence</text>
+  <text class="subtitle" x="48" y="120">Run selected sources and actions; keep each outcome with the findings.</text>
 
   <line x1="264" y1="312" x2="288" y2="312" stroke="#4d656a" stroke-width="1.5" marker-end="url(#run-evidence-architecture-arrow)"/>
   <line x1="592" y1="312" x2="616" y2="312" stroke="#4d656a" stroke-width="1.5" marker-end="url(#run-evidence-architecture-arrow)"/>

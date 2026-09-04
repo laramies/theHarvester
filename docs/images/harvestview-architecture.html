@@ -14,7 +14,7 @@
 <body>
 <svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="harvestview-architecture-title harvestview-architecture-desc">
   <title id="harvestview-architecture-title">HarvestView local run architecture</title>
-  <desc id="harvestview-architecture-desc">Inside one local-machine boundary, HarvestView uses an authenticated loopback API to control isolated finite runs. Finalized hostname comparisons read persisted evidence only and start no discovery or DNS activity.</desc>
+  <desc id="harvestview-architecture-desc">HarvestView controls isolated finite runs through an authenticated local API and compares finalized hostname evidence without starting discovery or DNS activity.</desc>
   <defs>
     <style>
       .title { font: 700 30px Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #efeae2; }
@@ -27,7 +27,7 @@
       .body-strong { font: 650 15px Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #c6c0b6; }
       .technical { font: 600 12px "SFMono-Regular", Consolas, "Liberation Mono", monospace; fill: #91a2a5; }
       .technical-accent { font: 700 12px "SFMono-Regular", Consolas, "Liberation Mono", monospace; fill: #72dac9; }
-      .edge-label { font: 700 9px "SFMono-Regular", Consolas, "Liberation Mono", monospace; letter-spacing: .08em; fill: #91a2a5; }
+      .edge-label { font: 700 12px "SFMono-Regular", Consolas, "Liberation Mono", monospace; letter-spacing: .08em; fill: #91a2a5; }
       .edge-label-accent { fill: #72dac9; }
     </style>
     <marker id="harvestview-architecture-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
@@ -40,8 +40,8 @@
 
   <rect width="1280" height="720" fill="#061115"/>
   <text class="zone" x="48" y="56">HARVESTVIEW</text>
-  <text class="title" x="48" y="92">One engine, durable control, comparable evidence</text>
-  <text class="subtitle" x="48" y="120">The UI schedules finite runs; hostname comparison reads completed evidence without touching the target.</text>
+  <text class="title" x="48" y="92">Local runs and saved evidence in HarvestView</text>
+  <text class="subtitle" x="48" y="120">The API queues finite runs. Hostname comparisons read saved results without contacting the target.</text>
 
   <rect x="48" y="144" width="1184" height="528" rx="12" fill="#0c191d" stroke="#2f4046" stroke-dasharray="8 8"/>
   <rect x="68" y="134" width="264" height="20" fill="#061115"/>
@@ -52,23 +52,23 @@
   <line x1="580" y1="244" x2="636" y2="244" stroke="#4d656a" stroke-width="1.5" marker-end="url(#harvestview-architecture-arrow)"/>
   <line x1="868" y1="244" x2="924" y2="244" stroke="#4d656a" stroke-width="1.5" marker-end="url(#harvestview-architecture-arrow)"/>
   <line x1="416" y1="324" x2="416" y2="416" stroke="#2bbdaa" stroke-width="1.2" marker-end="url(#harvestview-architecture-arrow-accent)"/>
-  <path d="M1042 324 V384 H544 V416" fill="none" stroke="#4d656a" stroke-width="1.5" marker-end="url(#harvestview-architecture-arrow)"/>
+  <path d="M1042 324 V376 Q1042 384 1034 384 H552 Q544 384 544 392 V416" fill="none" stroke="#4d656a" stroke-width="1.5" marker-end="url(#harvestview-architecture-arrow)"/>
   <line x1="616" y1="504" x2="640" y2="504" stroke="#2bbdaa" stroke-width="1.5" marker-end="url(#harvestview-architecture-arrow-accent)"/>
-  <path d="M470 592 V612 H1050 V592" fill="none" stroke="#4d656a" stroke-width="1.2" marker-end="url(#harvestview-architecture-arrow)"/>
+  <path d="M470 592 V604 Q470 612 478 612 H1042 Q1050 612 1050 604 V592" fill="none" stroke="#4d656a" stroke-width="1.2" marker-end="url(#harvestview-architecture-arrow)"/>
 
-  <rect x="308" y="224" width="48" height="12" rx="4" fill="#0c191d"/>
+  <rect x="306" y="220" width="52" height="16" rx="4" fill="#0c191d"/>
   <text class="edge-label" x="332" y="232" text-anchor="middle">SUBMIT</text>
-  <rect x="312" y="264" width="40" height="12" rx="4" fill="#0c191d"/>
+  <rect x="312" y="260" width="40" height="16" rx="4" fill="#0c191d"/>
   <text class="edge-label edge-label-accent" x="332" y="272" text-anchor="middle">VIEW</text>
-  <rect x="584" y="224" width="48" height="12" rx="4" fill="#0c191d"/>
+  <rect x="584" y="220" width="48" height="16" rx="4" fill="#0c191d"/>
   <text class="edge-label" x="608" y="232" text-anchor="middle">QUEUE</text>
-  <rect x="872" y="224" width="48" height="12" rx="4" fill="#0c191d"/>
+  <rect x="872" y="220" width="48" height="16" rx="4" fill="#0c191d"/>
   <text class="edge-label" x="896" y="232" text-anchor="middle">CLAIM</text>
-  <rect x="424" y="356" width="40" height="12" rx="4" fill="#0c191d"/>
+  <rect x="424" y="352" width="40" height="16" rx="4" fill="#0c191d"/>
   <text class="edge-label edge-label-accent" x="444" y="364" text-anchor="middle">READ</text>
-  <rect x="736" y="364" width="48" height="12" rx="4" fill="#0c191d"/>
+  <rect x="736" y="360" width="48" height="16" rx="4" fill="#0c191d"/>
   <text class="edge-label" x="760" y="372" text-anchor="middle">WRITE</text>
-  <rect x="734" y="592" width="48" height="12" rx="4" fill="#0c191d"/>
+  <rect x="730" y="588" width="56" height="16" rx="4" fill="#0c191d"/>
   <text class="edge-label" x="758" y="600" text-anchor="middle">EXPORT</text>
 
   <rect x="88" y="188" width="216" height="136" rx="10" fill="#142328" stroke="#2f4046"/>

@@ -32,7 +32,7 @@ See the [installation guide](docs/wiki/Installation.md) for packaged distributio
 | HarvestView | Local run history, evidence review, hostname changes, and schedules | `uv run harvestview` |
 | REST API | Authenticated local automation and integrations | `http://127.0.0.1:5000/docs` |
 
-All three interfaces use the same finite-run engine and normalized evidence model. HarvestView is a local browser workspace, not a separate discovery engine.
+The CLI, REST API, and HarvestView share one finite-run engine and normalized evidence model. HarvestView provides the local browser interface.
 
 ## Common workflows
 
@@ -107,11 +107,11 @@ Read [Responsible use and scope](docs/wiki/Responsible-Use-and-Scope.md) before 
 
 ## A practical engagement workflow
 
-1. Record the exact authorized target inventory and activity allowed by the engagement.
+1. Record the exact targets and activity the engagement authorizes.
 2. Start with a bounded P0 run and inspect every source outcome, including zero-result and partial sources.
 3. Add only the P1 or P2 actions the engagement authorizes for that target.
 4. Review normalized results, retained DNS evidence, stop reasons, and artifacts together.
-5. Compare finalized runs only when the target, source cohort, limits, resolver set, and collection window are meaningfully comparable.
+5. Compare finalized runs with matching targets, source sets, limits, and resolvers collected in comparable time windows.
 6. Export the required evidence, then pause or delete schedules and verify that no queued or running work remains when authorization ends.
 
 ## Architecture at a glance
@@ -163,7 +163,7 @@ uv run harvest-yields --target example.test --changes
 uv run harvest-yields --target example.test --changes --include-persisting
 ```
 
-The baseline is the latest earlier finalized run with the same canonical target and exact source cohort. The comparison classifies hostnames as `new`, `persisting`, `missing`, or `inconclusive`. A one-sided hostname is new or missing only when every source that contributed it on the other side completed successfully on the side where it is absent. Otherwise the change is inconclusive and includes the blocking outcomes and reasons.
+The baseline is the latest earlier finalized run with the same canonical target and exact source cohort. The comparison classifies hostnames as `new`, `persisting`, `missing`, or `inconclusive`. When only one run reports a hostname, it counts as new or missing only if every source that reported it completed successfully in the other run. Otherwise the change is inconclusive and includes the blocking outcomes and reasons.
 
 Missing means absent from comparable retained evidence. It does not prove that the hostname stopped existing or resolving. Repeated comparable runs provide a change history; the command does not create alerts, trigger actions, or allow mixed-target timelines. Read [Results and local data](docs/wiki/Results-and-Local-Data.md#track-hostname-changes-across-finalized-runs) for the complete pairing and interpretation rules.
 
@@ -216,7 +216,7 @@ The [REST API guide](docs/wiki/Rest-API.md) documents requests, hostname trackin
 
 ## Discovery sources
 
-Select sources by name or by a result route listed below. `-b all` runs the P0 sources. P1 and P2 sources require explicit selection.
+Select sources by name or by a capability listed below. `-b all` runs the P0 sources. P1 and P2 sources require explicit selection.
 
 Result types in this table always appear in this order: `subdomains`, `emails`, `ips`, `asns`, `urls`, `people`, `breaches`. A result followed by `only` means the source contributes no other result type. The `API key` column refers to provider settings in `api-keys.yaml`; some providers require more than one value. `Optional` means the source can run without a key.
 
@@ -310,9 +310,7 @@ Treat collected OSINT as potentially sensitive. Keep report files, screenshots, 
 
 ### JSONL
 
-JSONL is the primary format for automation and one-run interchange. The first line describes the run. Each remaining line is one sorted, deduplicated finding with its source and action provenance.
-
-The summary line records run status, producer outcomes, counts, timestamps, and artifacts. Each remaining line is one finding. The full example below contains six findings from two sources.
+JSONL is the primary format for automation and one-run interchange. The first line summarizes run status, producer outcomes, counts, timestamps, and artifacts. Each remaining line is one sorted, deduplicated finding with its source and action provenance. The example below contains six findings from two sources.
 
 <details>
 <summary><strong>View a complete JSONL example</strong></summary>
