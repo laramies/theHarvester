@@ -2,6 +2,8 @@
 *.pyc
 *.sqlite
 *.html
+!docs/images/harvestview-architecture.html
+!docs/images/run-evidence-architecture.html
 !theHarvester/lib/api/static/harvestview/index.html
 !theHarvester/lib/api/static/harvestview/schedules.html
 *.htm

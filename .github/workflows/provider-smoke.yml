@@ -23,6 +23,7 @@ jobs:
     uses: ./.github/workflows/harvestview-container.yml
 
   package-smoke:
+    needs: python-ci
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

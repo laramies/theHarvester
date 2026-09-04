@@ -4,8 +4,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 from uuid import UUID
 
-from theHarvester.lib.hostnames import normalize_hostname
-from theHarvester.lib.result_values import normalize_asn, normalize_ip, normalize_prefix
+from theHarvester.lib.target_identity import normalize_saved_target
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -16,26 +15,6 @@ if TYPE_CHECKING:
 
 HostnameDifferenceType = Literal['newly_reported', 'still_reported', 'no_longer_reported', 'uncertain']
 ResolutionEvidence = Literal['positive', 'not-retained', 'not-checked']
-
-
-def canonical_target(value: object) -> str:
-    target = str(value).strip()
-    if target[:2].casefold() == 'as' and target[2:].isascii() and target[2:].isdecimal():
-        return normalize_asn(target)
-    if '/' in target:
-        try:
-            return normalize_prefix(target)
-        except ValueError:
-            pass
-    try:
-        return normalize_ip(target, label='target')
-    except ValueError:
-        pass
-    try:
-        hostname = normalize_hostname(target)
-    except ValueError:
-        return target
-    return hostname if '.' in hostname else target
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,19 +110,19 @@ async def hostname_comparison(
     summaries = await store.list_runs(limit=None)
     if run_id is not None:
         current = await store.load_hostname_comparison_run(run_id)
-        selected_target = canonical_target(current.target)
+        selected_target = normalize_saved_target(current.target)
         selected_ids = {run_id}
     elif target is not None:
-        selected_target = canonical_target(target)
+        selected_target = normalize_saved_target(target)
         selected_ids = {
-            UUID(str(summary['run_id'])) for summary in summaries if canonical_target(summary['target']) == selected_target
+            UUID(str(summary['run_id'])) for summary in summaries if normalize_saved_target(summary['target']) == selected_target
         }
     else:
         raise ValueError('target or run_id is required')
     target_runs = [
         await store.load_hostname_comparison_run(UUID(str(summary['run_id'])))
         for summary in summaries
-        if canonical_target(summary['target']) == selected_target
+        if normalize_saved_target(summary['target']) == selected_target
     ]
     target_runs.sort(key=lambda run: (run.completed_at, str(run.run_id)))
     previous_by_sources: dict[tuple[str, ...], ComparableRunEvidence] = {}

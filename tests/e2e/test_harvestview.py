@@ -11,6 +11,113 @@ from playwright.sync_api import Page, Route, expect
 pytestmark = pytest.mark.harvestview_e2e
 
 
+@pytest.mark.parametrize(
+    ('route_pattern', 'response_path', 'status_code', 'detail', 'console_error'),
+    [
+        (
+            '**/api/v1/runs*',
+            '/api/v1/runs',
+            401,
+            'THEHARVESTER_API_KEY is not configured',
+            'Failed to load resource: the server responded with a status of 401 (Unauthorized)',
+        ),
+        (
+            '**/api/v1/sources',
+            '/api/v1/sources',
+            503,
+            'Source catalog unavailable',
+            'Failed to load resource: the server responded with a status of 503 (Service Unavailable)',
+        ),
+        (
+            '**/api/v1/schedules/health',
+            '/api/v1/schedules/health',
+            503,
+            'Scheduler unavailable',
+            'Failed to load resource: the server responded with a status of 503 (Service Unavailable)',
+        ),
+    ],
+)
+def test_schedule_page_fails_closed_when_prerequisites_are_unavailable(
+    harvestview_server_url: str,
+    page: Page,
+    browser_failures,
+    route_pattern: str,
+    response_path: str,
+    status_code: int,
+    detail: str,
+    console_error: str,
+) -> None:
+    browser_failures.allow_response('GET', status_code, response_path)
+    browser_failures.allow_console_error(console_error)
+    page.route(route_pattern, lambda route: route.fulfill(status=status_code, json={'detail': detail}))
+
+    page.goto(f'{harvestview_server_url}/schedules')
+
+    expect(page.locator('#runtime-health')).to_have_text('Schedules unavailable')
+    expect(page.locator('#source-readiness')).to_have_text('Schedule prerequisites unavailable.')
+    expect(page.locator('#schedule-loading')).to_contain_text('Schedule prerequisites are unavailable.')
+    expect(page.locator('#create-schedule-button')).to_be_disabled()
+    expect(page.locator('#refresh-button')).to_be_enabled()
+    assert 'THEHARVESTER_API_KEY' not in page.locator('body').inner_text()
+
+
+def test_schedule_page_recovers_without_losing_entered_values_or_submitting_while_unavailable(
+    harvestview_server_url: str,
+    page: Page,
+    browser_failures,
+) -> None:
+    page.goto(f'{harvestview_server_url}/schedules')
+    page.locator('#schedule-name').fill('Existing schedule')
+    page.locator('#schedule-targets').fill('example.org')
+    page.locator('.source-option').filter(has_text='crtsh').locator('input').check()
+    page.locator('#create-schedule-button').click()
+    card = page.locator('.schedule-card').filter(has_text='Existing schedule')
+    expect(card).to_be_visible()
+
+    page.locator('#schedule-name').fill('Preserved schedule')
+    page.locator('#schedule-targets').fill('example.test')
+    crtsh = page.locator('.source-option').filter(has_text='crtsh').locator('input')
+    crtsh.check()
+
+    mutation_requests: list[str] = []
+
+    def guard_mutations(route: Route) -> None:
+        if route.request.method != 'GET':
+            mutation_requests.append(f'{route.request.method} {route.request.url}')
+            route.fulfill(status=409, json={'detail': 'Mutation blocked by test'})
+            return
+        route.fallback()
+
+    def fail_catalog(route: Route) -> None:
+        route.fulfill(status=503, json={'detail': 'Source catalog unavailable'})
+
+    page.route('**/api/v1/**', guard_mutations)
+    page.route('**/api/v1/sources', fail_catalog)
+    browser_failures.allow_response('GET', 503, '/api/v1/sources')
+    browser_failures.allow_console_error(
+        'Failed to load resource: the server responded with a status of 503 (Service Unavailable)'
+    )
+
+    page.locator('#refresh-button').click()
+    expect(page.locator('#create-schedule-button')).to_be_disabled()
+    for action in ('Edit', 'History', 'Run now', 'Pause', 'Delete'):
+        expect(card.get_by_role('button', name=action)).to_be_disabled()
+    page.evaluate(
+        "document.querySelector('#schedule-form').dispatchEvent(new SubmitEvent('submit', {bubbles: true, cancelable: true}))"
+    )
+    page.wait_for_timeout(100)
+    assert mutation_requests == []
+
+    page.unroute('**/api/v1/sources', fail_catalog)
+    page.locator('#refresh-button').click()
+
+    expect(page.locator('#runtime-health')).to_have_text('Preview mode · execution disabled')
+    expect(page.locator('#create-schedule-button')).to_be_enabled()
+    expect(page.locator('#schedule-name')).to_have_value('Preserved schedule')
+    expect(page.locator('#schedule-targets')).to_have_value('example.test')
+    expect(page.locator('.source-option').filter(has_text='crtsh').locator('input')).to_be_checked()
+
+
 def test_schedule_page_creates_and_manages_two_target_passive_schedule(
     harvestview_server_url: str,
     page: Page,
