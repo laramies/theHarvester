@@ -11,13 +11,11 @@ The module extracts hostnames and interesting URLs from the report's
 ``top_login_urls`` and keeps a flattened exposure summary.
 """
 
-import os
+from unittest.mock import AsyncMock
 
 import pytest
 
 from theHarvester.discovery import lunar
-
-github_ci: str | None = os.getenv('GITHUB_ACTIONS')
 
 
 # =============================================================================
@@ -74,7 +72,7 @@ class TestLunarReportParsing:
                 {'url': 'sts.example.com', 'events': 50},
                 {'url': 'https://vpn.example.com/login', 'events': 40},
                 {'url': 'portal.example.com/adfs/**/', 'events': 30},
-                {'url': 'unrelated-domain.net', 'events': 5},
+                {'url': 'unrelated.example', 'events': 5},
                 {'url': '*.wildcard.example.com', 'events': 1},
             ],
         }
@@ -87,7 +85,7 @@ class TestLunarReportParsing:
         assert 'sts.example.com' in search.totalhosts
         assert 'vpn.example.com' in search.totalhosts
         assert 'portal.example.com' in search.totalhosts
-        assert 'unrelated-domain.net' not in search.totalhosts
+        assert 'unrelated.example' not in search.totalhosts
         assert all('*' not in host for host in search.totalhosts)
 
     def test_parse_report_keeps_all_login_urls(self) -> None:
@@ -97,7 +95,7 @@ class TestLunarReportParsing:
         # it belongs to an unrelated domain.
         assert 'sts.example.com' in search.interesting_urls
         assert 'https://vpn.example.com/login' in search.interesting_urls
-        assert 'unrelated-domain.net' in search.interesting_urls
+        assert 'unrelated.example' in search.interesting_urls
 
     def test_parse_report_builds_summary(self) -> None:
         search = lunar.SearchLunar('example.com')
@@ -146,22 +144,23 @@ class TestLunarGetters:
 
 
 # =============================================================================
-# 4. Live integration (network, skipped in CI)
+# 4. Process contract (offline)
 # =============================================================================
-@pytest.mark.skipif(github_ci == 'true', reason='Skip live network tests in CI')
-class TestLunarLive:
+class TestLunarProcess:
     @pytest.mark.asyncio
-    async def test_process_returns_set_of_hostnames(self) -> None:
-        search = lunar.SearchLunar('stryker.com')
-        try:
-            await search.process()
-        except Exception:
-            pytest.skip('Skipping due to network error')
-        result = await search.get_hostnames()
-        assert isinstance(result, set)
-        for hostname in result:
-            assert hostname == hostname.lower()
-            assert 'stryker.com' in hostname
+    @pytest.mark.parametrize('target', ['example.test', 'www.example.test'])
+    async def test_process_preserves_reported_www_hostname(self, monkeypatch: pytest.MonkeyPatch, target: str) -> None:
+        report = {
+            'status': 'REPORT_READY',
+            'report': {'top_login_urls': [{'url': 'https://www.example.test/login'}]},
+        }
+        monkeypatch.setattr(lunar.AsyncFetcher, 'fetch_all', AsyncMock(return_value=[report]))
+        search = lunar.SearchLunar(target)
+
+        await search.process()
+
+        assert await search.get_hostnames() == {'www.example.test'}
+        assert await search.get_interestingurls() == ['https://www.example.test/login']
 
 
 if __name__ == '__main__':

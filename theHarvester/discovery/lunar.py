@@ -32,7 +32,7 @@ class SearchLunar:
         self.interesting_urls: set[str] = set()
         self.exposure: dict[str, Any] = {}
         self.malware_families: list[dict[str, Any]] = []
-        self.proxy: bool | str = False
+        self.proxy: bool = False
         self.logger = logging.getLogger(__name__)
 
     async def do_search(self) -> None:
@@ -99,7 +99,7 @@ class SearchLunar:
             hostname = urlparse(candidate).hostname
             if not hostname or '*' in hostname:
                 continue
-            hostname = hostname.lower().removeprefix('www.')
+            hostname = hostname.lower()
 
             self.interesting_urls.add(raw_url)
             if hostname == self.word or hostname.endswith(f'.{self.word}'):
@@ -108,9 +108,9 @@ class SearchLunar:
     @staticmethod
     def _build_summary(report: dict[str, Any]) -> dict[str, Any]:
         """Condense the verbose report into a flat exposure summary."""
-        summary = report.get('summary') if isinstance(report.get('summary'), dict) else {}
-        breach = report.get('data_breach_summary') if isinstance(report.get('data_breach_summary'), dict) else {}
-        infostealer = report.get('infostealer_summary') if isinstance(report.get('infostealer_summary'), dict) else {}
+        summary = report['summary'] if isinstance(report.get('summary'), dict) else {}
+        breach = report['data_breach_summary'] if isinstance(report.get('data_breach_summary'), dict) else {}
+        infostealer = report['infostealer_summary'] if isinstance(report.get('infostealer_summary'), dict) else {}
 
         return {
             'domain': report.get('domain'),
