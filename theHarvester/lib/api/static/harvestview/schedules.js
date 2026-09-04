@@ -7,6 +7,7 @@ const state = {
   health: null,
   dispatchTable: null,
   editingSchedule: null,
+  prerequisitesReady: false,
 };
 
 const elements = {};
@@ -273,6 +274,22 @@ function renderHealth() {
   }
 }
 
+function setScheduleAvailability(ready) {
+  state.prerequisitesReady = ready;
+  elements.createButton.disabled = !ready;
+  elements.scheduleList.querySelectorAll('[data-action]').forEach((button) => {
+    button.disabled = !ready;
+  });
+}
+
+function scheduleMutationAvailable() {
+  if (state.prerequisitesReady) {
+    return true;
+  }
+  showToast('Schedule controls are unavailable. Refresh prerequisites before making changes.');
+  return false;
+}
+
 function renderSchedules() {
   elements.scheduleLoading.hidden = true;
   elements.scheduleCount.textContent = state.schedules.length.toLocaleString();
@@ -325,6 +342,7 @@ function renderSchedules() {
     card.querySelector('[data-action="delete"]').addEventListener('click', () => deleteSchedule(schedule));
     elements.scheduleList.append(card);
   }
+  setScheduleAvailability(state.prerequisitesReady);
 }
 
 function updateTemplatePanels() {
@@ -438,6 +456,9 @@ async function buildRunTemplate(targets) {
 async function submitSchedule(event) {
   event.preventDefault();
   showFormError('');
+  if (!scheduleMutationAvailable()) {
+    return;
+  }
   elements.createButton.disabled = true;
   try {
     const editing = state.editingSchedule;
@@ -473,7 +494,7 @@ async function submitSchedule(event) {
       'Review the schedule values and try again.',
     ));
   } finally {
-    elements.createButton.disabled = false;
+    elements.createButton.disabled = !state.prerequisitesReady;
   }
 }
 
@@ -497,6 +518,9 @@ function cancelScheduleEdit() {
 }
 
 function editSchedule(schedule) {
+  if (!scheduleMutationAvailable()) {
+    return;
+  }
   resetScheduleForm();
   state.editingSchedule = schedule;
   elements.builderTitle.textContent = 'Edit schedule';
@@ -526,6 +550,9 @@ function editSchedule(schedule) {
 }
 
 async function toggleSchedule(schedule) {
+  if (!scheduleMutationAvailable()) {
+    return;
+  }
   try {
     const action = schedule.enabled ? 'pause' : 'resume';
     await api(`/api/v1/schedules/${encodeURIComponent(schedule.schedule_id)}/${action}`, {method: 'POST'});
@@ -537,6 +564,9 @@ async function toggleSchedule(schedule) {
 }
 
 async function runNow(schedule) {
+  if (!scheduleMutationAvailable()) {
+    return;
+  }
   if (!window.confirm(`Queue ${schedule.targets.length.toLocaleString()} run(s) for “${schedule.name}” now?`)) {
     return;
   }
@@ -550,6 +580,9 @@ async function runNow(schedule) {
 }
 
 async function deleteSchedule(schedule) {
+  if (!scheduleMutationAvailable()) {
+    return;
+  }
   if (!window.confirm(`Delete “${schedule.name}”? Existing run evidence will not be deleted.`)) {
     return;
   }
@@ -627,6 +660,12 @@ async function loadSchedules() {
 }
 
 async function loadInitialData() {
+  const selectedSources = new Set([...elements.sourceGrid.querySelectorAll('input:checked')].map((input) => input.value));
+  const selectedTemplateRun = elements.templateRun.value;
+  setScheduleAvailability(false);
+  elements.runtimeHealth.textContent = 'Checking scheduler…';
+  elements.sourceReadiness.textContent = 'Loading source catalog…';
+  elements.scheduleLoading.textContent = 'Loading schedules…';
   elements.scheduleLoading.hidden = false;
   try {
     const [catalog, runs, schedules, health] = await Promise.all([
@@ -640,11 +679,22 @@ async function loadInitialData() {
     state.schedules = schedules;
     state.health = health;
     renderSources();
+    elements.sourceGrid.querySelectorAll('input').forEach((input) => {
+      input.checked = !input.disabled && selectedSources.has(input.value);
+    });
     renderRuns();
+    if (selectedTemplateRun && elements.templateRun.querySelector(`option[value="${CSS.escape(selectedTemplateRun)}"]`)) {
+      elements.templateRun.value = selectedTemplateRun;
+    }
     renderSchedules();
     renderHealth();
-  } catch (error) {
-    elements.scheduleLoading.textContent = failureMessage('Could not open schedules', error, 'Refresh the page to retry.');
+    setScheduleAvailability(true);
+  } catch (_error) {
+    elements.runtimeHealth.textContent = 'Schedules unavailable';
+    elements.sourceReadiness.textContent = 'Schedule prerequisites unavailable.';
+    elements.scheduleLoading.textContent = 'Schedule prerequisites are unavailable. Configure local access and confirm scheduler availability, then Refresh.';
+    elements.scheduleLoading.hidden = false;
+    setScheduleAvailability(false);
   }
 }
 
@@ -715,6 +765,7 @@ function bindEvents() {
 function initializeDefaults() {
   setTheme(localStorage.getItem('runs-theme') || 'system');
   resetScheduleForm();
+  setScheduleAvailability(false);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
