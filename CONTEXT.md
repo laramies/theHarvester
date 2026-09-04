@@ -231,7 +231,7 @@ The canonical sources represented by source executions in one enumeration run, i
 _Avoid_: Source cohort, successful sources, source results
 
 **Comparable previous run**:
-The latest earlier finalized enumeration run for the same canonical target and compared source list. Unhealthy source executions may retain evidence but cannot support a sound one-sided hostname claim.
+The latest earlier finalized enumeration run for the same canonical target and compared source list. Source failures do not disqualify a run from pairing; relevant source outcomes determine whether a one-sided hostname difference is reliable.
 _Avoid_: Baseline, similar run, matching run
 
 **Hostname comparison**:
@@ -239,7 +239,14 @@ A read-only comparison between selected finalized runs and each run's comparable
 _Avoid_: Hostname tracking, monitoring view, DNS refresh
 
 **Hostname difference**:
-A hostname is newly reported when reliably absent from the earlier run, still reported when retained in both, no longer reported when reliably absent from the later run, and uncertain when relevant source outcomes cannot support a comparison of a hostname found in only one run. These states describe saved evidence, not when a hostname came into existence or whether it currently exists or resolves.
+The evidence state of a hostname across two comparable runs:
+
+- Newly reported: present in the later run and reliably absent from the earlier run.
+- Still reported: present in both runs.
+- No longer reported: present in the earlier run and reliably absent from the later run.
+- Uncertain: present in only one run, with relevant source outcomes that cannot establish reliable absence from the other.
+
+These states describe saved evidence, not when a hostname came into existence or whether it currently exists or resolves.
 _Avoid_: Added host, removed host, gone host
 
 **Relevant source outcome**:

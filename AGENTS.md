@@ -2,12 +2,12 @@
 
 theHarvester is a Python OSINT reconnaissance tool for collecting public information about domains, IPs, emails, names, and related assets.
 
-## Before changing code
+## Before making changes
 
 - Use `uv` for environments and commands. Follow [CONTRIBUTING.md](CONTRIBUTING.md) for setup, coding conventions, and verification commands.
 - Preserve unrelated worktree changes.
 - Read [CONTEXT.md](CONTEXT.md) before changing domain names or the meaning of targets, runs, sources, results, evidence, or reports.
-- Read the [release contract](docs/release-contract.md) before changing discovery, target scope, DNS validation, P0/P1/P2 activity, run lifecycle, persistence, or interchange. A behavior change is complete when code, tests, and operator documentation agree with the contract.
+- Read the [release contract](docs/release-contract.md) before changing discovery, target scope, DNS validation, P0/P1/P2 activity, run lifecycle, scheduling, persistence, interchange, or reporting, and when preparing a release. A behavior change is complete when code, tests, and operator documentation agree with the contract.
 
 ## Upstream publication
 
