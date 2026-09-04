@@ -11,7 +11,8 @@ from uuid import UUID
 
 from theHarvester.lib.database import ResultStore
 from theHarvester.lib.evidence_types import RESULT_KINDS, ResultKind
-from theHarvester.lib.hostname_tracking import canonical_target, hostname_tracking_projection
+from theHarvester.lib.hostname_tracking import hostname_tracking_projection
+from theHarvester.lib.target_identity import normalize_saved_target
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -59,7 +60,7 @@ Change reports read finalized local evidence only and never run discovery or DNS
 async def _list_targets(database: Path) -> list[dict[str, str | int]]:
     store = ResultStore(database)
     try:
-        counts = Counter(canonical_target(run['target']) for run in await store.list_runs(limit=None))
+        counts = Counter(normalize_saved_target(run['target']) for run in await store.list_runs(limit=None))
         return [{'target': target, 'run_count': counts[target]} for target in sorted(counts)]
     finally:
         await store.dispose()
@@ -95,20 +96,20 @@ async def _collect(
     try:
         target_rows: list[dict[str, str | int]] = []
         if run_id is not None:
-            selected_target = canonical_target((await store.load_run(run_id)).target)
+            selected_target = normalize_saved_target((await store.load_run(run_id)).target)
             run_ids = [run_id]
         else:
             summaries = await store.list_runs(limit=None)
-            selected_target = canonical_target(target) if target is not None else None
+            selected_target = normalize_saved_target(target) if target is not None else None
             if all_targets:
-                counts = Counter(canonical_target(run['target']) for run in summaries)
+                counts = Counter(normalize_saved_target(run['target']) for run in summaries)
                 target_rows = [{'target': value, 'run_count': counts[value]} for value in sorted(counts)]
             elif selected_target is not None:
-                summaries = [run for run in summaries if canonical_target(run['target']) == selected_target]
+                summaries = [run for run in summaries if normalize_saved_target(run['target']) == selected_target]
                 if not summaries:
                     raise LookupError(f'target not found: {selected_target}; use --list-targets')
             else:
-                targets = {canonical_target(run['target']) for run in summaries}
+                targets = {normalize_saved_target(run['target']) for run in summaries}
                 if len(targets) > 1:
                     raise LookupError(f'database contains {len(targets)} canonical targets; use --list-targets')
                 selected_target = next(iter(targets), None)

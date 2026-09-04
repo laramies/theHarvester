@@ -309,7 +309,7 @@ def test_list_targets_rejects_a_run_selector(
     assert 'not allowed with argument' in capsys.readouterr().err
 
 
-def test_target_selects_only_matching_canonical_target(
+def test_target_selects_only_matching_normalized_saved_target(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
