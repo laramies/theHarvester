@@ -23,13 +23,13 @@ from theHarvester.lib.hostname_tracking import (  # noqa: TC001 - Pydantic resol
     ResolutionEvidence,
 )
 from theHarvester.lib.resolver_selection import DEFAULT_DNS_RESOLVERS, normalize_resolver_addresses
-from theHarvester.lib.result_values import normalize_asn
 from theHarvester.lib.source_catalog import (
     SOURCE_SPECS,
     ActivityClass,
     hostname_collection_conflicts,
     selected_action_names,
 )
+from theHarvester.lib.target_identity import normalize_enumeration_target
 from theHarvester.lib.virtual_host import (
     DEFAULT_VHOST_CONCURRENCY,
     DEFAULT_VHOST_REQUEST_LIMIT,
@@ -44,33 +44,6 @@ from theHarvester.lib.virtual_host import (
 
 def utc_now() -> str:
     return datetime.now(UTC).isoformat()
-
-
-def _normalize_target(value: str) -> str:
-    target = value.strip().rstrip('.')
-    if target[:2].casefold() == 'as' and target[2:].isascii() and target[2:].isdecimal():
-        return normalize_asn(target)
-    target = target.lower()
-    if not target or len(target) > 253 or any(character in target for character in '/?#@'):
-        raise ValueError('Target must be a hostname or IP address')
-    try:
-        return str(ipaddress.ip_address(target))
-    except ValueError:
-        try:
-            target = target.encode('idna').decode('ascii')
-        except UnicodeError as error:
-            raise ValueError('Target must be a valid hostname') from error
-        labels = target.split('.')
-        if any(
-            not label
-            or len(label) > 63
-            or label.startswith('-')
-            or label.endswith('-')
-            or not all(character.isalnum() or character == '-' for character in label)
-            for label in labels
-        ):
-            raise ValueError('Target must be a valid hostname')
-        return target
 
 
 class RunRequest(BaseModel):
@@ -237,7 +210,7 @@ class RunRequest(BaseModel):
     @field_validator('target')
     @classmethod
     def normalize_target(cls, value: str) -> str:
-        return _normalize_target(value)
+        return normalize_enumeration_target(value)
 
     @field_validator('sources')
     @classmethod
