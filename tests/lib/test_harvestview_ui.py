@@ -88,12 +88,12 @@ def test_harvestview_explains_and_filters_hostname_comparison(tmp_path, monkeypa
     assert 'Compared sources' in root.text
     assert 'Previous comparable run' in root.text
     assert 'Reported by one source' in root.text
-    assert 'Incomplete comparison sources' in root.text
-    assert 'UNCERTAIN means a source needed for the comparison did not complete reliably' in root.text
+    assert 'Incomplete source outcomes' in root.text
+    assert 'Uncertain means a source that reported the hostname did not complete successfully' in root.text
     assert 'This view reads finalized evidence only and performs no discovery or DNS.' in root.text
     assert script.status_code == 200
     assert 'function renderHostnameComparison' in script.text
-    assert 'incomplete_comparison_sources' in script.text
+    assert 'incomplete_source_outcomes' in script.text
 
 
 def test_harvestview_exposes_local_schedule_page_and_assets(tmp_path, monkeypatch) -> None:

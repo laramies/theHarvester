@@ -875,7 +875,7 @@
       return !nodes.comparisonSingleSource.checked || row.reported_by_one_source;
     });
     nodes.comparisonBody.innerHTML = rows.map(row => {
-      const incompleteSources = (row.incomplete_comparison_sources || []).map(source => {
+      const incompleteSources = (row.incomplete_source_outcomes || []).map(source => {
         const reason = [source.status, source.error_type, source.stop_reason].filter(Boolean).join(' · ');
         return `${escapeHtml(source.source)}${reason ? `: ${escapeHtml(reason)}` : ''}`;
       }).join('<br>') || '—';

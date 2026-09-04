@@ -1,6 +1,6 @@
 # Moving from 4.11 to 5.0
 
-Version 5.0 is still under development on the `dev` branch. This page is for users preparing to move from the 4.11 release line. It is not a release announcement.
+Version 5.0 is still under development on `dev`. This guide covers the changes from 4.11 so you can prepare before the release.
 
 ## Update the runtime first
 
@@ -33,7 +33,7 @@ Read [Results and Local Data](Results-and-Local-Data) for the complete evidence 
 
 ## Report on saved runs
 
-Version 5.0 adds one command with three visible tasks:
+Use `harvest-report` to list targets, summarize source contributions, or compare hostnames:
 
 ```console
 harvest-report targets
@@ -52,7 +52,39 @@ The comparison labels describe saved evidence:
 
 `no_longer_reported` does not prove that a hostname disappeared or stopped resolving. `uncertain` means a relevant source did not complete reliably on the side where the hostname was absent.
 
-If you tested an earlier 5.0 development snapshot, replace `harvest-yields` with the `harvest-report` subcommands. REST run details now use `source_contributions` and `hostname_comparison`. These reports are derived from SQLite; no contribution or comparison fields were added to JSONL.
+### Earlier 5.0 development snapshots
+
+These names replace the earlier development interfaces. Update scripts before installing this snapshot:
+
+| Earlier command | Replacement |
+| --- | --- |
+| `harvest-yields --list-targets` | `harvest-report targets` |
+| `harvest-yields` | `harvest-report contributions` |
+| `harvest-yields --changes` | `harvest-report hostname-changes` |
+| `--include-persisting` with `--changes` | `--include-still-reported` with `hostname-changes` |
+
+Place `--database`, `--format`, and the target or run selector after the new subcommand. `contributions` also accepts `--kind` and `--all-targets`.
+
+REST run details replace `source_yields` with `source_contributions` and `hostname_tracking` with `hostname_comparison`. Update nested fields as well:
+
+| Earlier field or state | Replacement |
+| --- | --- |
+| `observed_result_count` | `reported_count` |
+| `unique_result_count` | `unique_to_source_count` |
+| `shared_result_count` | `shared_with_other_sources_count` |
+| `resolved_hostname_count` | `hostnames_with_dns_answers_count` |
+| `unique_resolved_hostname_count` | `unique_to_source_with_dns_answers_count` |
+| `baseline_run_id` | `previous_comparable_run_id` |
+| `baseline_completed_at` | `previous_comparable_run_completed_at` |
+| `source_cohort` | `compared_sources` |
+| `hostname_changes` | `hostname_differences` |
+| `change` | `change_type` |
+| `previous_sources`, `current_sources` | `sources_in_previous_run`, `sources_in_current_run` |
+| `source_exclusive` | `reported_by_one_source` |
+| `blocking_sources` | `incomplete_source_outcomes` |
+| `new`, `persisting`, `missing`, `inconclusive` | `newly_reported`, `still_reported`, `no_longer_reported`, `uncertain` |
+
+The CLI report JSON also replaces its `source_yields` array with `source_contributions`. Its per-source averages change from `unique_result_count_per_run` to `unique_to_source_count_per_run` and from `unique_resolved_hostname_count_per_run` to `unique_to_source_with_dns_answers_count_per_run`. These reports are derived from SQLite; JSONL and the saved evidence schema are unchanged.
 
 ## Choose CLI, API, or HarvestView
 
@@ -62,7 +94,7 @@ The CLI, authenticated REST API, and HarvestView use the same normalized termina
 - Use the REST API for durable local run records, imports, exports, cancellation, and schedules.
 - Use HarvestView to submit and review those same runs in a local browser.
 
-HarvestView is not a second discovery engine. A schedule submits ordinary finite runs for explicit targets. Its control-plane state is kept separate from portable evidence.
+HarvestView uses the same engine as the CLI. A schedule submits finite runs for explicit targets, and its control state stays separate from portable evidence.
 
 ## Review network activity before running
 

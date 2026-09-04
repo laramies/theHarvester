@@ -1215,8 +1215,8 @@ class ResultStore:
                 reported_count=observed,
                 unique_to_source_count=unique,
                 shared_with_other_sources_count=shared,
-                resolved_hostname_count=resolved,
-                unique_to_source_and_resolved_count=unique_resolved,
+                hostnames_with_dns_answers_count=resolved,
+                unique_to_source_with_dns_answers_count=unique_resolved,
             )
             for name, observed, unique, shared, resolved, unique_resolved in contributions
         ]

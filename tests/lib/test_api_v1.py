@@ -1057,16 +1057,16 @@ def test_run_detail_reports_unique_hostname_contribution_per_source(tmp_path, mo
             'reported_count': 1,
             'unique_to_source_count': 0,
             'shared_with_other_sources_count': 1,
-            'resolved_hostname_count': 0,
-            'unique_to_source_and_resolved_count': 0,
+            'hostnames_with_dns_answers_count': 0,
+            'unique_to_source_with_dns_answers_count': 0,
         },
         {
             'source': 'subdomainapi',
             'reported_count': 2,
             'unique_to_source_count': 1,
             'shared_with_other_sources_count': 1,
-            'resolved_hostname_count': 1,
-            'unique_to_source_and_resolved_count': 1,
+            'hostnames_with_dns_answers_count': 1,
+            'unique_to_source_with_dns_answers_count': 1,
         },
     ]
 

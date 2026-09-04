@@ -136,7 +136,7 @@ Run submission is asynchronous. Read the two status fields separately:
 
 `limit` defaults to 500 per source. A value of `0` removes the shared cap on results and pages, so adapters continue until their provider is exhausted. There is no numeric maximum. Provider quotas, protocol maxima, response-size guards, and runtime limits still apply. If a provider or safety limit stops a source after it retained results, the run keeps those results and records the source as partial with the stop reason.
 
-`source_contributions` reports normalized hostname contributions within the run. `reported_count` is the number attributed to the source, `unique_to_source_count` is the number no other source reported in that run, and `shared_with_other_sources_count` is the overlapping count. When `dns_resolve` ran, `resolved_hostname_count` and `unique_to_source_and_resolved_count` show which hostnames had retained A, AAAA, or CNAME answers. Read these values with the source's execution status and stop reason. The [results guide](Results-and-Local-Data#understand-source-contributions) explains the interpretation rules.
+`source_contributions` reports normalized hostname contributions within the run. `reported_count` is the number attributed to the source, `unique_to_source_count` is the number no other source reported in that run, and `shared_with_other_sources_count` counts hostnames also reported by another source. When `dns_resolve` ran, `hostnames_with_dns_answers_count` and `unique_to_source_with_dns_answers_count` show which hostnames had retained A, AAAA, or CNAME answers. Read these values with the source's execution status and stop reason. The [results guide](Results-and-Local-Data#understand-source-contributions) explains the interpretation rules.
 
 ### Read a hostname comparison
 
@@ -146,11 +146,11 @@ The object contains:
 
 - `target` and `comparison_count`.
 - `comparisons`, with the current run ID and completion time, `previous_comparable_run_id`, `previous_comparable_run_completed_at`, exact `compared_sources`, the four difference counts, and a message when no previous run qualifies.
-- `hostname_differences`, with `change_type`, hostname, source lists from both runs, `reported_by_one_source`, `incomplete_comparison_sources`, resolution evidence, DNS action statuses, and addressability classifications.
+- `hostname_differences`, with `change_type`, hostname, source lists from both runs, `reported_by_one_source`, `incomplete_source_outcomes`, resolution evidence, DNS action statuses, and addressability classifications.
 
-The four `counts` fields are `newly_reported`, `still_reported`, `no_longer_reported`, and `uncertain`. Run details include still-reported rows so HarvestView can show or hide them locally. A one-sided result is reliable only when every source that reported the hostname on the other side completed on the side where it was absent. Otherwise the row is uncertain and `incomplete_comparison_sources` explains why. Unrelated source failures do not change the row.
+The four `counts` fields are `newly_reported`, `still_reported`, `no_longer_reported`, and `uncertain`. Run details include still-reported rows so HarvestView can show or hide them locally. A one-sided result is reliable only when every source that reported the hostname on the other side completed on the side where it was absent. Otherwise the row is uncertain and `incomplete_source_outcomes` retains the statuses and reasons. Unrelated source failures do not change the row.
 
-Resolution evidence is `positive`, `not-retained`, or `not-checked`; no ambiguous unknown state is emitted. Addressability is a separate retained recursive-DNS classification or `null` when no classification exists. See [Compare hostnames between saved runs](Results-and-Local-Data#compare-hostnames-between-saved-runs) for CLI examples and full interpretation rules.
+Resolution evidence is `positive`, `not-retained`, or `not-checked`. Addressability is a separate retained recursive-DNS classification or `null` when no classification exists. See [Compare hostnames between saved runs](Results-and-Local-Data#compare-hostnames-between-saved-runs) for CLI examples and full interpretation rules.
 
 P1 DNS and P2 direct options are fields on the same run request. The OpenAPI schema shows their current defaults, limits, and descriptions. The server uses the operator-selected target and does not impose a public-only egress policy.
 

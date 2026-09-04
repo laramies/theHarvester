@@ -225,8 +225,8 @@ class SourceContribution:
     reported_count: int
     unique_to_source_count: int
     shared_with_other_sources_count: int
-    resolved_hostname_count: int
-    unique_to_source_and_resolved_count: int
+    hostnames_with_dns_answers_count: int
+    unique_to_source_with_dns_answers_count: int
 
     def to_dict(self) -> dict[str, str | int]:
         return {
@@ -234,8 +234,8 @@ class SourceContribution:
             'reported_count': self.reported_count,
             'unique_to_source_count': self.unique_to_source_count,
             'shared_with_other_sources_count': self.shared_with_other_sources_count,
-            'resolved_hostname_count': self.resolved_hostname_count,
-            'unique_to_source_and_resolved_count': self.unique_to_source_and_resolved_count,
+            'hostnames_with_dns_answers_count': self.hostnames_with_dns_answers_count,
+            'unique_to_source_with_dns_answers_count': self.unique_to_source_with_dns_answers_count,
         }
 
 

@@ -90,7 +90,7 @@ def _difference_row(
         'sources_in_previous_run': list(previous_sources),
         'sources_in_current_run': list(current_sources),
         'reported_by_one_source': len(reported_sources) == 1,
-        'incomplete_comparison_sources': [outcome.to_dict() for outcome in incomplete_sources],
+        'incomplete_source_outcomes': [outcome.to_dict() for outcome in incomplete_sources],
         'previous_resolution_evidence': _resolution(previous, hostname),
         'current_resolution_evidence': _resolution(current, hostname),
         'previous_dns_action_status': previous.dns_action_status,

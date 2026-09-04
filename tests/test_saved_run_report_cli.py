@@ -344,12 +344,12 @@ def test_target_selects_only_matching_normalized_saved_target(
         'source_contributions': [
             {
                 'reported_count': 1,
-                'resolved_hostname_count': 0,
+                'hostnames_with_dns_answers_count': 0,
                 'run_count': 1,
                 'shared_with_other_sources_count': 0,
                 'source': 'alpha',
-                'unique_to_source_and_resolved_count': 0,
-                'unique_to_source_and_resolved_count_per_run': 0.0,
+                'unique_to_source_with_dns_answers_count': 0,
+                'unique_to_source_with_dns_answers_count_per_run': 0.0,
                 'unique_to_source_count': 1,
                 'unique_to_source_count_per_run': 1.0,
             }
@@ -447,12 +447,12 @@ def test_all_targets_explicitly_restores_mixed_target_json_report(
         'source_contributions': [
             {
                 'reported_count': 2,
-                'resolved_hostname_count': 0,
+                'hostnames_with_dns_answers_count': 0,
                 'run_count': 2,
                 'shared_with_other_sources_count': 0,
                 'source': 'alpha',
-                'unique_to_source_and_resolved_count': 0,
-                'unique_to_source_and_resolved_count_per_run': 0.0,
+                'unique_to_source_with_dns_answers_count': 0,
+                'unique_to_source_with_dns_answers_count_per_run': 0.0,
                 'unique_to_source_count': 2,
                 'unique_to_source_count_per_run': 1.0,
             }
@@ -480,7 +480,7 @@ def test_all_targets_table_labels_scope_and_lists_every_target(
         'other.example  1',
         'Kind: hostname',
         'Run count: 2',
-        'SOURCE  RUNS  REPORTED  UNIQUE-TO-SOURCE  UNIQUE/RUN  SHARED-WITH-OTHERS  RESOLVED  UNIQUE-AND-RESOLVED  UNIQUE-AND-RESOLVED/RUN',
+        'SOURCE  RUNS  REPORTED  UNIQUE-TO-SOURCE  UNIQUE/RUN  SHARED-WITH-OTHERS  WITH-DNS-ANSWERS  UNIQUE-WITH-DNS-ANSWERS  UNIQUE-WITH-DNS-ANSWERS/RUN',
     ]
 
 
@@ -549,7 +549,7 @@ def test_hostname_changes_distinguish_no_longer_reported_from_uncertain_using_pe
     }
     assert differences['newly-reported.example.test'] == {
         'previous_comparable_run_id': str(RUN_ONE),
-        'incomplete_comparison_sources': [],
+        'incomplete_source_outcomes': [],
         'change_type': 'newly_reported',
         'current_addressability': 'currently-addressable',
         'current_dns_action_status': 'completed',
@@ -564,10 +564,10 @@ def test_hostname_changes_distinguish_no_longer_reported_from_uncertain_using_pe
         'reported_by_one_source': True,
     }
     assert differences['no-longer-reported.example.test']['change_type'] == 'no_longer_reported'
-    assert differences['no-longer-reported.example.test']['incomplete_comparison_sources'] == []
+    assert differences['no-longer-reported.example.test']['incomplete_source_outcomes'] == []
     assert differences['no-longer-reported.example.test']['previous_resolution_evidence'] == 'positive'
     assert differences['uncertain.example.test']['change_type'] == 'uncertain'
-    assert differences['uncertain.example.test']['incomplete_comparison_sources'] == [
+    assert differences['uncertain.example.test']['incomplete_source_outcomes'] == [
         {
             'error_type': 'TimeoutError',
             'source': 'beta',
@@ -578,7 +578,7 @@ def test_hostname_changes_distinguish_no_longer_reported_from_uncertain_using_pe
     assert differences['uncertain-newly-reported.example.test']['change_type'] == 'uncertain'
     assert differences['uncertain-newly-reported.example.test']['sources_in_current_run'] == ['beta']
     assert differences['uncertain-newly-reported.example.test']['reported_by_one_source'] is True
-    assert differences['uncertain-newly-reported.example.test']['incomplete_comparison_sources'] == [
+    assert differences['uncertain-newly-reported.example.test']['incomplete_source_outcomes'] == [
         {
             'error_type': 'PreviousRunTimeout',
             'source': 'beta',
@@ -854,10 +854,10 @@ def test_default_table_ranks_by_unique_per_run_and_aligns_columns(
         'Target: example.test',
         'Kind: hostname',
         'Run count: 2',
-        'SOURCE  RUNS  REPORTED  UNIQUE-TO-SOURCE  UNIQUE/RUN  SHARED-WITH-OTHERS  RESOLVED  UNIQUE-AND-RESOLVED  UNIQUE-AND-RESOLVED/RUN',
-        'gamma   1     1         1                 1.00        0                   0         0                    0.00',
-        'alpha   2     3         1                 0.50        2                   3         1                    0.50',
-        'beta    2     3         1                 0.50        2                   2         0                    0.00',
+        'SOURCE  RUNS  REPORTED  UNIQUE-TO-SOURCE  UNIQUE/RUN  SHARED-WITH-OTHERS  WITH-DNS-ANSWERS  UNIQUE-WITH-DNS-ANSWERS  UNIQUE-WITH-DNS-ANSWERS/RUN',
+        'gamma   1     1         1                 1.00        0                   0                 0                        0.00',
+        'alpha   2     3         1                 0.50        2                   3                 1                        0.50',
+        'beta    2     3         1                 0.50        2                   2                 0                        0.00',
     ]
 
 
@@ -874,7 +874,7 @@ def test_kind_accepts_every_result_kind_and_only_hostname_shows_resolution_colum
 
     lines = capsys.readouterr().out.splitlines()
     assert lines[:2] == ['Target: example.test', f'Kind: {kind}']
-    assert ('RESOLVED' in lines[3]) is (kind == 'hostname')
+    assert ('WITH-DNS-ANSWERS' in lines[3]) is (kind == 'hostname')
     if kind == 'ip':
         assert [line.split() for line in lines[4:]] == [
             ['gamma', '1', '1', '1', '1.00', '0'],
@@ -932,9 +932,9 @@ def test_json_format_is_machine_readable_and_uses_kind_specific_fields(
     assert payload['run_count'] == 2
     assert [row['source'] for row in payload['source_contributions']] == ['gamma', 'alpha', 'beta']
     resolution_fields = {
-        'resolved_hostname_count',
-        'unique_to_source_and_resolved_count',
-        'unique_to_source_and_resolved_count_per_run',
+        'hostnames_with_dns_answers_count',
+        'unique_to_source_with_dns_answers_count',
+        'unique_to_source_with_dns_answers_count_per_run',
     }
     assert all(resolution_fields <= row.keys() for row in payload['source_contributions']) is (kind == 'hostname')
     assert {row['source']: row['run_count'] for row in payload['source_contributions']} == {'alpha': 2, 'beta': 2, 'gamma': 1}

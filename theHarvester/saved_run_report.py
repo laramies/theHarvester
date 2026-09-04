@@ -145,8 +145,8 @@ async def _collect(
                     reported=contribution.reported_count,
                     unique_to_source=contribution.unique_to_source_count,
                     shared_with_other_sources=contribution.shared_with_other_sources_count,
-                    resolved=contribution.resolved_hostname_count,
-                    unique_to_source_and_resolved=contribution.unique_to_source_and_resolved_count,
+                    resolved=contribution.hostnames_with_dns_answers_count,
+                    unique_to_source_with_dns_answers=contribution.unique_to_source_with_dns_answers_count,
                 )
         rows = []
         for source, counts in totals.items():
@@ -159,9 +159,11 @@ async def _collect(
                 'shared_with_other_sources_count': counts['shared_with_other_sources'],
             }
             if kind == 'hostname':
-                row['resolved_hostname_count'] = counts['resolved']
-                row['unique_to_source_and_resolved_count'] = counts['unique_to_source_and_resolved']
-                row['unique_to_source_and_resolved_count_per_run'] = counts['unique_to_source_and_resolved'] / counts['runs']
+                row['hostnames_with_dns_answers_count'] = counts['resolved']
+                row['unique_to_source_with_dns_answers_count'] = counts['unique_to_source_with_dns_answers']
+                row['unique_to_source_with_dns_answers_count_per_run'] = (
+                    counts['unique_to_source_with_dns_answers'] / counts['runs']
+                )
             rows.append(row)
         rows.sort(
             key=lambda row: (
@@ -194,9 +196,9 @@ def _table(
     if kind == 'hostname':
         columns.extend(
             (
-                ('resolved_hostname_count', 'RESOLVED'),
-                ('unique_to_source_and_resolved_count', 'UNIQUE-AND-RESOLVED'),
-                ('unique_to_source_and_resolved_count_per_run', 'UNIQUE-AND-RESOLVED/RUN'),
+                ('hostnames_with_dns_answers_count', 'WITH-DNS-ANSWERS'),
+                ('unique_to_source_with_dns_answers_count', 'UNIQUE-WITH-DNS-ANSWERS'),
+                ('unique_to_source_with_dns_answers_count_per_run', 'UNIQUE-WITH-DNS-ANSWERS/RUN'),
             )
         )
     formatted_rows = [
@@ -271,7 +273,7 @@ def _comparison_table(payload: dict[str, object]) -> str:
     change_rows = []
     for row in differences:
         sources = row['sources_in_current_run'] or row['sources_in_previous_run']
-        blockers = cast('list[dict[str, object]]', row['incomplete_comparison_sources'])
+        blockers = cast('list[dict[str, object]]', row['incomplete_source_outcomes'])
         change_rows.append(
             {
                 'difference': str(row['change_type']).replace('_', ' ').upper(),

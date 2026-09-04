@@ -142,8 +142,8 @@
             </div>
             <div class="comparison-explanation">
               <strong>How to read this</strong>
-              <p><strong>Previous comparable run:</strong> the latest earlier run for the same target and source list. <strong>Compared sources:</strong> every source represented in both runs.</p>
-              <p>UNCERTAIN means a source needed for the comparison did not complete reliably on the side where the hostname was absent. Its status and saved reason appear below. NO LONGER REPORTED describes saved evidence. It does not mean the hostname stopped existing or resolving. This view reads finalized evidence only and performs no discovery or DNS.</p>
+              <p><strong>Previous comparable run:</strong> the latest earlier run for the same target and source list. <strong>Compared sources:</strong> the exact source list shared by both runs, including sources that returned no results.</p>
+              <p>Uncertain means a source that reported the hostname did not complete successfully in the run where it was absent. Its status and saved reason appear below. No longer reported describes saved evidence; it does not mean the hostname stopped existing or resolving. This view reads finalized evidence only and performs no discovery or DNS.</p>
             </div>
             <div class="comparison-filters" aria-label="Filter hostname differences">
               <label for="comparison-change-filter">Difference
@@ -175,7 +175,7 @@
             </div>
             <div class="comparison-table-wrap">
               <table class="comparison-table">
-                <thead><tr><th>Difference</th><th>Hostname</th><th>Source contributions</th><th>DNS evidence</th><th>Addressability</th><th>Incomplete comparison sources</th></tr></thead>
+                <thead><tr><th>Difference</th><th>Hostname</th><th>Source contributions</th><th>DNS evidence</th><th>Addressability</th><th>Incomplete source outcomes</th></tr></thead>
                 <tbody id="hostname-comparison-body"></tbody>
               </table>
             </div>

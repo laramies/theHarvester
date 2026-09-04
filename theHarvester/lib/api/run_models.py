@@ -578,8 +578,8 @@ class SourceContributionSummary(BaseModel):
     reported_count: int = Field(ge=0)
     unique_to_source_count: int = Field(ge=0)
     shared_with_other_sources_count: int = Field(ge=0)
-    resolved_hostname_count: int = Field(ge=0)
-    unique_to_source_and_resolved_count: int = Field(ge=0)
+    hostnames_with_dns_answers_count: int = Field(ge=0)
+    unique_to_source_with_dns_answers_count: int = Field(ge=0)
 
 
 class HostnameComparisonCounts(BaseModel):
@@ -599,7 +599,7 @@ class HostnameRunComparison(BaseModel):
     message: str | None = None
 
 
-class IncompleteComparisonSource(BaseModel):
+class IncompleteSourceOutcome(BaseModel):
     source: str
     status: ExecutionStatus
     error_type: str | None
@@ -614,7 +614,7 @@ class HostnameDifference(BaseModel):
     sources_in_previous_run: list[str]
     sources_in_current_run: list[str]
     reported_by_one_source: bool
-    incomplete_comparison_sources: list[IncompleteComparisonSource]
+    incomplete_source_outcomes: list[IncompleteSourceOutcome]
     previous_resolution_evidence: ResolutionEvidence
     current_resolution_evidence: ResolutionEvidence
     previous_dns_action_status: ExecutionStatus | None

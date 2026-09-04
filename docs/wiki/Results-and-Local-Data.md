@@ -156,13 +156,13 @@ Two operational tables support the API: `run_records` stores queue and lifecycle
 
 ### Understand source contributions
 
-Run details derive `source_contributions` from saved, normalized provenance. Each selected source has these fields:
+Run details derive `source_contributions` from saved hostname provenance. Each selected source has these fields; the CLI can count other result kinds with `--kind`:
 
 - `reported_count`: distinct results attributed to the source.
 - `unique_to_source_count`: results no other source in that run reported.
 - `shared_with_other_sources_count`: results also reported by at least one other source.
-- `resolved_hostname_count`: attributed hostnames for which the run's `dns-resolve` action retained an A, AAAA, or CNAME answer.
-- `unique_to_source_and_resolved_count`: resolved hostnames attributed to only this source.
+- `hostnames_with_dns_answers_count`: attributed hostnames for which the run's `dns-resolve` action retained an A, AAAA, or CNAME answer.
+- `unique_to_source_with_dns_answers_count`: hostnames unique to this source that have a retained DNS answer.
 
 The unique-to-source counts measure marginal coverage within one run. They do not prove that a provider is authoritative or independent. A retained DNS answer also does not prove service reachability.
 
@@ -189,7 +189,7 @@ harvest-report contributions --database results.sqlite --all-targets
 
 `harvest-report contributions --target` selects finalized runs for one exact canonical target. With no run or target selector, an empty database returns an empty report, one stored target is selected automatically, and multiple stored targets are refused. The error points to `harvest-report targets`. Use `--all-targets` only for a deliberate whole-database aggregate. Its output lists every included target so the mixed scope remains visible.
 
-The top-level `run_count` shows how many runs were selected. Each source row has its own `run_count`, including executions that produced no results. `unique_to_source_count_per_run` is the summed per-run unique count divided by that source's run count. Hostname rows also include `unique_to_source_and_resolved_count_per_run`. Other result kinds omit the DNS-specific fields.
+The top-level `run_count` shows how many runs were selected. Each source row has its own `run_count`, including executions that produced no results. `unique_to_source_count_per_run` is the summed per-run unique count divided by that source's run count. Hostname rows also include `unique_to_source_with_dns_answers_count_per_run`. Other result kinds omit the DNS-specific fields.
 
 These reports are derived from SQLite and are not embedded in JSONL. JSONL remains the portable evidence record for one finalized run.
 
@@ -223,7 +223,7 @@ Each comparison reports four counts:
 
 These labels describe saved evidence. `no_longer_reported` does not mean the hostname stopped existing or resolving, and `newly_reported` does not authorize follow-up. A failure by an unrelated source does not change the hostname's classification.
 
-Each `hostname_differences` row includes `sources_in_previous_run`, `sources_in_current_run`, `reported_by_one_source`, and `incomplete_comparison_sources`. The last field retains the relevant source status, error type, and stop reason when the result is uncertain. Being reported by one source is run-scoped and does not mean that no other provider has ever observed the hostname.
+Each `hostname_differences` row includes source lists for both runs and `incomplete_source_outcomes`, which holds relevant source statuses, error types, and stop reasons. `reported_by_one_source` is true when exactly one source reported the hostname in the current run, or in the previous run if it is absent from the current run. It describes that run's evidence, not whether another provider has ever observed the hostname.
 
 Resolution evidence uses only three explicit values:
 
@@ -231,7 +231,7 @@ Resolution evidence uses only three explicit values:
 - `not-retained`: DNS resolution completed for the sourced hostname but retained no positive answer.
 - `not-checked`: the run has no applicable completed DNS-resolution attempt.
 
-There is no ambiguous `unknown` value. Recursive DNS addressability is separate and is either one of its retained classifications (`currently-addressable`, `not-currently-addressable`, `resolver-disputed`, or `wildcard-indistinguishable`) or `null` when no classification was retained. Neither resolution evidence nor addressability proves service reachability.
+Recursive DNS addressability is separate: it uses a retained classification (`currently-addressable`, `not-currently-addressable`, `resolver-disputed`, or `wildcard-indistinguishable`) or `null` when no classification was retained. Neither resolution evidence nor addressability proves service reachability.
 
 HarvestView shows the same comparison for a selected finalized run. Its filters cover difference type, relevant source, relevant-side resolution evidence, one-source rows, and optional still-reported rows. The panel refreshes through the existing terminal-run refresh path and never starts collection or DNS.
 

@@ -550,7 +550,7 @@ def test_hostname_comparison_filters_persisted_run_differences(
             'current_resolution_evidence': 'positive',
             'previous_addressability': None,
             'current_addressability': 'currently-addressable',
-            'incomplete_comparison_sources': [],
+            'incomplete_source_outcomes': [],
         },
         {
             'change_type': 'no_longer_reported',
@@ -562,7 +562,7 @@ def test_hostname_comparison_filters_persisted_run_differences(
             'current_resolution_evidence': 'not-checked',
             'previous_addressability': 'currently-addressable',
             'current_addressability': None,
-            'incomplete_comparison_sources': [],
+            'incomplete_source_outcomes': [],
         },
         {
             'change_type': 'uncertain',
@@ -574,7 +574,7 @@ def test_hostname_comparison_filters_persisted_run_differences(
             'current_resolution_evidence': 'not-retained',
             'previous_addressability': None,
             'current_addressability': None,
-            'incomplete_comparison_sources': [
+            'incomplete_source_outcomes': [
                 {'source': 'beta', 'status': 'partial', 'error_type': 'TimeoutError', 'stop_reason': 'timeout'}
             ],
         },
@@ -588,7 +588,7 @@ def test_hostname_comparison_filters_persisted_run_differences(
             'current_resolution_evidence': 'positive',
             'previous_addressability': 'currently-addressable',
             'current_addressability': 'currently-addressable',
-            'incomplete_comparison_sources': [],
+            'incomplete_source_outcomes': [],
         },
     ]
     run = {
