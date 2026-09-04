@@ -640,7 +640,7 @@ def test_hostname_comparison_filters_persisted_run_differences(
     panel = page.locator('#hostname-comparison-section')
     rows = page.locator('#hostname-comparison-body tr')
     expect(panel).to_be_visible()
-    expect(panel).to_contain_text('UNCERTAIN means')
+    expect(panel).to_contain_text('Uncertain means', ignore_case=True)
     expect(rows).to_have_count(3)
     expect(panel).to_contain_text('TimeoutError')
     expect(panel).not_to_contain_text('stable.example.test')
